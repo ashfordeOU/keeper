@@ -9,11 +9,21 @@ import { api } from '../api';
 import { useStore } from '../state';
 import { Icon } from './Icon';
 import { ExtTile, useThumb } from './ui';
+import { InspectorAi } from './InspectorAi';
+import { fileUrl } from '../lib/fileUrl';
 import '../styles/screens-a.css';
 
 function Preview({ file }: { file: FileEntry }) {
   const src = useThumb(file.path, file.kind, 800);
-  return <div className="preview">{src ? <img src={src} alt="" draggable={false} /> : <ExtTile ext={file.ext} kind={file.kind} />}</div>;
+  const media = file.kind === 'video' || file.kind === 'audio' ? fileUrl(file.path) : undefined;
+  // Videos and songs play right here in the desktop app; the thumbnail is the poster.
+  if (media && file.kind === 'video') return <div className="preview"><video key={file.path} src={media} poster={src ?? undefined} controls preload="metadata" /></div>;
+  return (
+    <div className="preview" style={media ? { flexDirection: 'column', gap: 8 } : undefined}>
+      {src ? <img src={src} alt="" draggable={false} /> : <ExtTile ext={file.ext} kind={file.kind} />}
+      {media ? <audio key={file.path} src={media} controls preload="metadata" style={{ width: '92%' }} /> : null}
+    </div>
+  );
 }
 
 export function Inspector() {
@@ -29,7 +39,15 @@ export function Inspector() {
     if (!path) { setFile(null); return; }
     if (focused && focused.path === path) setFile(focused);
     let alive = true;
-    void api.library.inspect(path).then((f) => { if (alive && f) setFile(f); });
+    void api.library.inspect(path).then(async (f) => {
+      if (!alive || !f) return;
+      setFile(f);
+      // PDFs: count pages when the index does not know yet.
+      if (f.ext === 'pdf' && !f.meta?.pages && api.convert?.pageCount) {
+        const pages = await api.convert.pageCount(f.path).catch(() => null);
+        if (alive && pages) setFile({ ...f, meta: { ...f.meta, pages } });
+      }
+    });
     return () => { alive = false; };
   }, [focused, selection]);
 
@@ -137,6 +155,8 @@ export function Inspector() {
           <div className="ocr-text">{file.text}</div>
         </div>
       ) : null}
+
+      <InspectorAi file={file} onRenamed={(to, n) => { const next = { ...file, path: to, name: n }; setFile(next); setFocused(next); }} />
 
       <div className="col">
         <h3>Tags</h3>

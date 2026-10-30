@@ -4,6 +4,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { formatBytes } from '../../core/format';
 import { squarify, topWithRest } from '../../core/treemap';
+import { BubbleView } from '../components/BubbleView';
 import type { SpaceNode } from '../../core/types';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
@@ -25,6 +26,8 @@ export function Space() {
   const [menu, setMenu] = useState<{ x: number; y: number; n: SpaceNode } | null>(null);
   const box = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 800, h: 560 });
+  const [view, setView] = useState<'map' | 'bubbles'>(() => { try { return localStorage.getItem('space.view') === 'bubbles' ? 'bubbles' : 'map'; } catch { return 'map'; } });
+  const pickView = (v: 'map' | 'bubbles') => { setView(v); try { localStorage.setItem('space.view', v); } catch { /* storage unavailable */ } };
 
   useEffect(() => {
     if (info && path === null) { setPath(info.home); setRoot(info.home); }
@@ -102,6 +105,10 @@ export function Space() {
             </span>
           ))}
         </div>
+        <div className="seg">
+          <button className={view === 'map' ? 'on' : ''} onClick={() => pickView('map')} title="Rectangles"><Icon name="grid" size={13} /> Map</button>
+          <button className={view === 'bubbles' ? 'on' : ''} onClick={() => pickView('bubbles')} title="Bubbles you can throw around"><Icon name="drop" size={13} /> Bubbles</button>
+        </div>
         {node ? <span className="muted small">{formatBytes(node.size)} · {node.files.toLocaleString()} files</span> : null}
         {loading ? <div className="spinner" /> : null}
       </div>
@@ -111,7 +118,10 @@ export function Space() {
           {error ? <Empty icon="warning" title="Could not read this folder">{error}</Empty> : null}
           {!node && loading ? <Loading label="Measuring folders…" /> : null}
           {node && !children.length && !loading ? <Empty icon="folder" title="This folder is empty" /> : null}
-          <div className="treemap" style={{ minHeight: 0, height: '100%' }}>
+          {view === 'bubbles' && node && children.length ? (
+            <BubbleView items={items} width={size.w} height={size.h} palette={palette} onOpen={open} onMenu={(e, n) => setMenu({ x: e.clientX, y: e.clientY, n })} />
+          ) : null}
+          <div className="treemap" style={{ minHeight: 0, height: '100%', display: view === 'bubbles' ? 'none' : undefined }}>
             {tiles.map((t, i) => {
               const small = t.w < 70 || t.h < 40;
               return (

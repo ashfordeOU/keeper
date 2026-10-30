@@ -2,6 +2,7 @@
 // The Island window: a pill at the top of the screen that opens into a small
 // panel with music, shelf, clipboard, agents, focus timer and calendar.
 
+import { resolveLanguage, translate } from '../i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { IslandAlert, IslandState } from '../../core/api';
 import { formatDuration } from '../../core/format';
@@ -49,6 +50,7 @@ const timeOf = (t: number) => new Date(t).toLocaleTimeString([], { hour: '2-digi
 export function Island() {
   const { settings } = useStore();
   const isl = settings?.island;
+  const tr = (key: string) => translate(resolveLanguage(settings?.language), key);
   const [state, setState] = useState<IslandState | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [tab, setTab] = useState<Tab>('home');
@@ -219,12 +221,12 @@ export function Island() {
 
   // ---------------------------------------------------------------- expanded panel
   const tabs: { id: Tab; icon: string; label: string; badge?: number }[] = [
-    { id: 'home', icon: 'home', label: 'Home' },
-    { id: 'shelf', icon: 'archive', label: 'Shelf', badge: state.shelf.length || undefined },
-    ...(isl?.clipboard !== false ? [{ id: 'clipboard' as Tab, icon: 'clipboard', label: 'Clipboard' }] : []),
-    ...(isl?.agents !== false ? [{ id: 'agents' as Tab, icon: 'terminal', label: 'Agents', badge: state.agents.filter((a) => a.state === 'waiting').length || undefined }] : []),
-    { id: 'focus', icon: 'timer', label: 'Focus' },
-    { id: 'calendar', icon: 'calendar', label: 'Today' },
+    { id: 'home', icon: 'home', label: tr('island.home') },
+    { id: 'shelf', icon: 'archive', label: tr('island.shelf'), badge: state.shelf.length || undefined },
+    ...(isl?.clipboard !== false ? [{ id: 'clipboard' as Tab, icon: 'clipboard', label: tr('island.clipboard') }] : []),
+    ...(isl?.agents !== false ? [{ id: 'agents' as Tab, icon: 'terminal', label: tr('island.agents'), badge: state.agents.filter((a) => a.state === 'waiting').length || undefined }] : []),
+    { id: 'focus', icon: 'timer', label: tr('island.focus') },
+    { id: 'calendar', icon: 'calendar', label: tr('island.today') },
     { id: 'controls', icon: 'settings', label: 'Controls' },
     { id: 'camera', icon: 'camera', label: 'Mirror' },
   ];

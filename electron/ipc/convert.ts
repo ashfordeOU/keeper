@@ -8,7 +8,7 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { extractPdfText } from '../../core/convert';
-import type { ConvertJob, ConvertResult } from '../../core/convert-types';
+import { TOOL_INFO, type ConvertJob, type ConvertResult } from '../../core/convert-types';
 import type { FileEntry, JournalOp, Progress } from '../../core/types';
 import type { Journal } from '../../core/journal';
 import { Converter } from '../services/convert';
@@ -128,6 +128,7 @@ export function registerConvertIpc(deps: Deps) {
 }
 
 function toolTitle(job: ConvertJob): string {
-  const [cat, what] = job.op.tool.split('.');
-  return `${cat.charAt(0).toUpperCase() + cat.slice(1)} ${what}`;
+  const info = TOOL_INFO[job.op.tool];
+  const cat = { video: 'Video', audio: 'Audio', image: 'Pictures', pdf: 'PDF', file: 'File' }[info.category];
+  return `${cat} · ${info.label}`;
 }
