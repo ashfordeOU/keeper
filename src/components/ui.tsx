@@ -10,6 +10,8 @@ import { formatBytes, formatDate, formatDuration, relativeTime } from '../../cor
 import { api } from '../api';
 import { mod, shift, useStore } from '../state';
 import { Icon } from './Icon';
+import { isQuickLookOpen, openQuickLook } from '../preview/QuickLook';
+import { canRenderThumb, renderThumb } from '../preview/thumbs';
 
 export const KIND_COLOR: Record<FileKind | 'folder', string> = {
   image: 'var(--c-image)', video: 'var(--c-video)', audio: 'var(--c-audio)', document: 'var(--c-document)', archive: 'var(--c-archive)',
@@ -30,10 +32,13 @@ export function useThumb(path: string, kind: string, size = 256): string | null 
       setSrc(thumbCache.get(key)!);
       return;
     }
-    if (!['image', 'video', 'document', 'app'].includes(kind)) return;
-    void api.files.thumbnail(path, size).then((s) => {
-      thumbCache.set(key, s);
-      if (ref.current) setSrc(s);
+    // Code and plain files have nothing better than their icon.
+    if (kind === 'code' || (kind === 'other' && !canRenderThumb(path))) return;
+    void api.files.thumbnail(path, size).then(async (s) => {
+      // PDFs and fonts on systems without a thumbnailer are drawn here.
+      const url = s ?? (canRenderThumb(path) ? await renderThumb(path, size) : null);
+      thumbCache.set(key, url);
+      if (ref.current) setSrc(url);
     });
     return () => { ref.current = false; };
   }, [key, kind, path, size]);
@@ -54,7 +59,7 @@ export function Thumb({ file, size = 256 }: { file: Pick<FileEntry, 'path' | 'ki
 // ------------------------------------------------------------------ selection + keyboard
 
 export function useFileSelection(files: FileEntry[]) {
-  const { selection, setSelection, setFocused, inspector, setInspector, play, trash } = useStore();
+  const { selection, setSelection, setFocused, play, trash } = useStore();
   const anchor = useRef<number>(-1);
 
   const click = (e: React.MouseEvent, i: number) => {
@@ -95,8 +100,12 @@ export function useFileSelection(files: FileEntry[]) {
       } else if (e.key === 'Enter' && cur >= 0) {
         open(files[cur]);
       } else if (e.key === ' ' && cur >= 0) {
+        // Space opens Quick Look on the selection (or the whole list, starting at this file).
         e.preventDefault();
-        setInspector(!inspector);
+        if (isQuickLookOpen()) return;
+        const sel = files.filter((f) => selection.includes(f.path));
+        const list = sel.length > 1 ? sel : files;
+        openQuickLook(list.map((f) => ({ path: f.path, name: f.name })), Math.max(0, list.findIndex((f) => f.path === files[cur].path)));
       } else if (cmd && e.key.toLowerCase() === 'a') {
         e.preventDefault();
         setSelection(files.map((f) => f.path));
@@ -269,7 +278,7 @@ export function useFileMenu() {
   const items: MenuItem[] = state ? [
     { label: 'Open', icon: 'external', kbd: '↩', run: () => (state.file.kind === 'audio' ? store.play(state.file) : void api.files.open(state.file.path)) },
     { label: 'Open With…', icon: 'external', run: () => void api.files.openWith(state.file.path) },
-    { label: 'Quick Look', icon: 'eye', kbd: 'Space', run: () => store.setInspector(true) },
+    { label: 'Quick Look', icon: 'eye', kbd: 'Space', run: () => openQuickLook([{ path: state.file.path, name: state.file.name }]) },
     { label: store.info?.platform === 'win32' ? 'Show in Explorer' : store.info?.platform === 'darwin' ? 'Show in Finder' : 'Show in Folder', icon: 'reveal', run: () => void api.files.reveal(state.file.path) },
     { sep: true, label: '' },
     { label: 'Copy', icon: 'copy', kbd: `${mod}C`, run: () => void api.files.copyPaths(sel) },

@@ -63,3 +63,21 @@ describe('assistant replies', () => {
     expect(r.search).toBe('installers');
   });
 });
+
+describe('undo removes folders an action created', () => {
+  it('moves back and deletes the now-empty folder', async () => {
+    const { mkdtempSync, writeFileSync, mkdirSync, existsSync } = await import('node:fs');
+    const os = await import('node:os');
+    const p = await import('node:path');
+    const dir = mkdtempSync(p.join(os.tmpdir(), 'keeper-undo-'));
+    const from = p.join(dir, 'a.pdf');
+    const folder = p.join(dir, 'Documents');
+    writeFileSync(from, 'x');
+    mkdirSync(folder);
+    await moveFile(from, p.join(folder, 'a.pdf'));
+    const r = await undoMoves({ id: 'x', at: 0, title: '', freed: 0, undoable: true, ops: [{ type: 'create', from: folder, size: 0 }, { type: 'move', from, to: p.join(folder, 'a.pdf'), size: 0 }] });
+    expect(r.restored).toBe(1);
+    expect(existsSync(from)).toBe(true);
+    expect(existsSync(folder)).toBe(false);
+  });
+});

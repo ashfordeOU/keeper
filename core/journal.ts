@@ -87,6 +87,8 @@ export async function undoMoves(entry: JournalEntry): Promise<{ restored: number
       failed.push(op.to);
     }
   }
+  // Folders the action created are removed again, but only if they are now empty.
+  for (const op of [...entry.ops].reverse()) if (op.type === 'create') await fsp.rmdir(op.from).catch(() => undefined);
   return { restored, failed };
 }
 

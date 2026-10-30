@@ -836,6 +836,8 @@ app.whenReady().then(async () => {
     if (next.island.calendarUrl !== prev.island.calendarUrl) void islandSvc.pollCalendar();
     if (JSON.stringify(next.island.place) !== JSON.stringify(prev.island.place) || next.island.units !== prev.island.units) void islandSvc.pollWeather(true);
     broadcast('island-changed');
+    // Every window (Island, Quick Search, widgets) follows look, theme and language changes.
+    broadcast('settings-changed', next);
   });
 
   app.on('activate', () => showMain());

@@ -174,7 +174,10 @@ export async function tidyFolder(dir: string, mode: TidyMode, apply: boolean, in
   const ops: JournalOp[] = [];
   for (const m of moves) {
     try {
-      await fsp.mkdir(m.dir, { recursive: true });
+      if (!existsSync(m.dir)) {
+        await fsp.mkdir(m.dir, { recursive: true });
+        ops.push({ type: 'create', from: m.dir, size: 0 });
+      }
       const to = uniqueName(path.join(m.dir, path.basename(m.from)), existsSync);
       await moveFile(m.from, to);
       index.rename(m.from, to);

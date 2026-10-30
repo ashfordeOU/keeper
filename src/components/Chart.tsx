@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Small SVG charts (area/line and bars) with a hover read-out. No libraries.
 
-import { useMemo, useRef, useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 export interface Series {
   values: (number | null)[];
@@ -16,8 +16,18 @@ export interface Series {
 
 export function Chart({ series, labels, height = 140, min, max, rightMax, yFormat }: { series: Series[]; labels: string[]; height?: number; min?: number; max?: number; rightMax?: number; yFormat?: (v: number) => string }) {
   const ref = useRef<SVGSVGElement>(null);
+  const wrap = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState<number | null>(null);
-  const W = 600;
+  // Draw at the real pixel width so text and lines are never stretched.
+  const [W, setW] = useState(600);
+  useLayoutEffect(() => {
+    const el = wrap.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setW(Math.max(120, el.clientWidth)));
+    ro.observe(el);
+    setW(Math.max(120, el.clientWidth));
+    return () => ro.disconnect();
+  }, []);
   const H = height;
   const pad = { l: 34, r: series.some((s) => s.right) ? 34 : 8, t: 8, b: 20 };
   const n = labels.length;
@@ -54,10 +64,10 @@ export function Chart({ series, labels, height = 140, min, max, rightMax, yForma
     setHover(i >= 0 && i < n ? i : null);
   };
 
-  const every = Math.max(1, Math.ceil(n / 8));
+  const every = Math.max(1, Math.ceil(n / Math.max(2, Math.floor(W / 70))));
   return (
-    <div style={{ position: 'relative' }}>
-      <svg ref={ref} viewBox={`0 0 ${W} ${H}`} width="100%" height={H} preserveAspectRatio="none" onMouseMove={onMove} onMouseLeave={() => setHover(null)} role="img" aria-label={series.map((s) => s.label).join(', ')}>
+    <div ref={wrap} style={{ position: 'relative' }}>
+      <svg ref={ref} viewBox={`0 0 ${W} ${H}`} width="100%" height={H} onMouseMove={onMove} onMouseLeave={() => setHover(null)} role="img" aria-label={series.map((s) => s.label).join(', ')}>
         {ticks.map((tv, i) => (
           <g key={i}>
             <line x1={pad.l} x2={W - pad.r} y1={y(tv)} y2={y(tv)} stroke="var(--line)" strokeWidth={1} vectorEffect="non-scaling-stroke" />

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { DICTIONARIES, TRANSLATION_KEYS, resolveLanguage, translate } from '../src/i18n-strings';
 import { applyTranslation, buildSubtitles, cleanSuggestedName, parseReceipt, parseSubtitles } from '../core/ai-actions';
 import { bubbleAt, packBubbles, stepBubbles } from '../core/bubbles';
 import { colorFormats, contrast, convertBase, csvToJson, diffLines, explainCron, htmlDecode, htmlEncode, lorem, markdownToHtml, parseCsv, toCsv } from '../core/devtools';
@@ -178,5 +179,24 @@ describe('AI action helpers', () => {
     expect(buildSubtitles(header, t, false)).toBe('1\n00:00:01,000 --> 00:00:02,000\nHola\nahí\n\n2\n00:00:03,000 --> 00:00:04,000\nAdiós\n');
     const vtt = parseSubtitles('WEBVTT\n\n00:01.000 --> 00:02.000\nHi\n');
     expect(buildSubtitles(vtt.header, applyTranslation(vtt.cues, '1: Hallo'), true)).toBe('WEBVTT\n\n00:01.000 --> 00:02.000\nHallo\n');
+  });
+});
+
+
+describe('translations', () => {
+  it('every language has every key', () => {
+    for (const [code, dict] of Object.entries(DICTIONARIES)) {
+      const missing = TRANSLATION_KEYS.filter((k) => !dict[k]);
+      expect(missing, code).toEqual([]);
+    }
+  });
+  it('resolves system and regional languages', () => {
+    expect(resolveLanguage('system', 'es-MX')).toBe('es');
+    expect(resolveLanguage('system', 'pt-PT')).toBe('pt-BR');
+    expect(resolveLanguage('system', 'zh-TW')).toBe('zh-CN');
+    expect(resolveLanguage('system', 'sw-KE')).toBe('en');
+    expect(resolveLanguage('de')).toBe('de');
+    expect(translate('es', 'nav.home')).toBe('Inicio');
+    expect(translate('ja', 'no.such.key')).toBe('no.such.key');
   });
 });

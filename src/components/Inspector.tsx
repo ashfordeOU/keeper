@@ -8,20 +8,17 @@ import type { FileEntry } from '../../core/types';
 import { api } from '../api';
 import { useStore } from '../state';
 import { Icon } from './Icon';
-import { ExtTile, useThumb } from './ui';
 import { InspectorAi } from './InspectorAi';
-import { fileUrl } from '../lib/fileUrl';
 import '../styles/screens-a.css';
+import { FilePreview } from '../preview/Preview';
+import { openQuickLook } from '../preview/QuickLook';
 
 function Preview({ file }: { file: FileEntry }) {
-  const src = useThumb(file.path, file.kind, 800);
-  const media = file.kind === 'video' || file.kind === 'audio' ? fileUrl(file.path) : undefined;
-  // Videos and songs play right here in the desktop app; the thumbnail is the poster.
-  if (media && file.kind === 'video') return <div className="preview"><video key={file.path} src={media} poster={src ?? undefined} controls preload="metadata" /></div>;
+  // The universal previewer: images, video, audio, PDFs, documents, code, archives, fonts, 3D and more.
+  // Space opens the same viewer full-window.
   return (
-    <div className="preview" style={media ? { flexDirection: 'column', gap: 8 } : undefined}>
-      {src ? <img src={src} alt="" draggable={false} /> : <ExtTile ext={file.ext} kind={file.kind} />}
-      {media ? <audio key={file.path} src={media} controls preload="metadata" style={{ width: '92%' }} /> : null}
+    <div className="preview pv-host" onDoubleClick={() => openQuickLook([{ path: file.path, name: file.name }])} title="Double-click or press Space for Quick Look">
+      <FilePreview key={file.path} path={file.path} mode="inline" />
     </div>
   );
 }

@@ -98,6 +98,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     void api.settings.get().then(setSettings);
     const offs = [
       api.on('library-changed', () => setVersion((v) => v + 1)),
+      api.on('settings-changed', (next) => setSettings(next)),
       api.on('navigate', (r: string) => {
         const [name, arg] = r.split(':');
         setRoute({ name: name as RouteName, arg });

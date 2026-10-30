@@ -11,6 +11,7 @@ import { createMockCapture, DEMO_SHOT } from './mock-capture';
 import { mockX } from './mock-x';
 import { createMockIsland } from './mock-island';
 import type { CleanupGroup, DuplicateGroup, FileEntry, FileKind, Rule, SpaceNode } from '../core/types';
+import { mockPreview } from './preview/mock';
 
 const HOME = '/Users/demo';
 const DAY = 86_400_000;
@@ -56,6 +57,10 @@ const seeds: [string, number, number, Partial<FileEntry>?][] = [
   ['Documents/Budget 2026.xlsx', 0.4, 12, { tags: ['work'] }],
   ['Documents/Pitch deck v7.key', 48, 20, { tags: ['work'] }],
   ['Documents/Notes/ideas.txt', 0, 30],
+  ['Documents/Launch plan.md', 0.002, 1],
+  ['Documents/Projects/site/package.json', 0.001, 4],
+  ['Documents/Projects/site/server.log', 0.004, 0.1],
+  ['Documents/Growth.csv', 0.001, 3],
   ['Pictures/IMG_4102.HEIC', 3.2, 75, { meta: { width: 4032, height: 3024, camera: 'Apple iPhone 15 Pro' } }],
   ['Pictures/IMG_4102.JPG', 4.9, 75, { meta: { width: 4032, height: 3024, camera: 'Apple iPhone 15 Pro' } }],
   ['Pictures/IMG_4103.HEIC', 3.1, 75, { meta: { width: 4032, height: 3024, camera: 'Apple iPhone 15 Pro' } }],
@@ -218,6 +223,7 @@ export function createMockApi(): KeeperApi {
 
   return {
     ...mockX(),
+    preview: mockPreview(() => files, thumb),
     system: {
       info: async () => ({ platform: 'darwin', arch: 'arm64', osVersion: '15.4', appVersion: '0.1.0 (demo)', home: HOME, sep: '/' }),
       disks: async () => [{ mount: '/', label: 'Macintosh HD', total: 494 * 1024 ** 3, free: 61 * 1024 ** 3, system: true }],

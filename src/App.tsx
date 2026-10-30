@@ -35,6 +35,7 @@ import { Convert } from './screens/Convert';
 import { Capture } from './screens/Capture';
 import { Annotate } from './screens/Annotate';
 import { mod, shift, useAsync, useStore, type Route, type RouteName } from './state';
+import { QuickLookHost } from './preview/QuickLook';
 
 const SHELVES: FileKind[] = ['image', 'video', 'audio', 'document', 'archive', 'installer', 'app'];
 
@@ -276,6 +277,7 @@ export function App() {
       </main>
       {showInspector ? <Inspector /> : <div />}
       {palette ? <CommandPalette onClose={() => setPalette(false)} /> : null}
+      <QuickLookHost />
       <div className="toast-stack">
         {store.toasts.map((t) => (
           <div className="toast" key={t.id}>

@@ -278,7 +278,9 @@ export function TiffViewer({ info, mode }: ViewerProps) {
         const c = document.createElement('canvas');
         c.width = w;
         c.height = h;
-        c.getContext('2d')!.putImageData(new ImageData(new Uint8ClampedArray(rgba.buffer), w, h), 0, 0);
+        const px = new Uint8ClampedArray(rgba.length);
+        px.set(rgba);
+        c.getContext('2d')!.putImageData(new ImageData(px, w, h), 0, 0);
         pages.push(c.toDataURL('image/png'));
       }
       if (pages.length) return pages;

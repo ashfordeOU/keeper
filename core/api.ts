@@ -449,6 +449,7 @@ export interface KeeperApi extends KeeperApiX {
   on(channel: 'navigate', cb: (route: string) => void): () => void;
   on(channel: 'dictation', cb: (state: 'start' | 'stop') => void): () => void;
   on(channel: 'palette', cb: () => void): () => void;
+  on(channel: 'settings-changed', cb: (settings: Settings & { island: IslandSettings }) => void): () => void;
   on(channel: 'widgets-changed', cb: () => void): () => void;
   on(channel: 'island-open', cb: (tab: string) => void): () => void;
 }
