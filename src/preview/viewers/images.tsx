@@ -19,11 +19,13 @@ interface StageProps {
   extra?: React.ReactNode;
   note?: string;
   pixelated?: boolean;
+  /** show a checkerboard behind it (formats that can be see-through) */
+  transparent?: boolean;
   onSize?: (w: number, h: number) => void;
 }
 
 /** The zoomable, pannable canvas every image viewer shares. */
-export function ImageStage({ src, alt = '', mode, extra, note, pixelated, onSize }: StageProps) {
+export function ImageStage({ src, alt = '', mode, extra, note, pixelated, transparent = true, onSize }: StageProps) {
   const wrap = useRef<HTMLDivElement>(null);
   const img = useRef<HTMLImageElement>(null);
   const [zoom, setZoom] = useState<number | 'fit'>('fit');
@@ -151,7 +153,7 @@ export function ImageStage({ src, alt = '', mode, extra, note, pixelated, onSize
       ) : null}
       <div
         ref={wrap}
-        className={`pv-stage checker ${picker ? 'picking' : ''} ${scale > fitScale + 0.001 ? 'can-pan' : ''}`}
+        className={`pv-stage ${transparent ? 'checker' : ''} ${picker ? 'picking' : ''} ${scale > fitScale + 0.001 ? 'can-pan' : ''}`}
         onWheel={onWheel}
         onMouseDown={(e) => { if (e.button === 0 && !picker) drag.current = { x: e.clientX, y: e.clientY, px: pan.x, py: pan.y }; }}
         onMouseMove={(e) => {
@@ -206,7 +208,7 @@ export function ImageViewer({ info, mode }: ViewerProps) {
     else setSrc(info.url);
   }, [info]);
   if (!src) return <PreviewMessage icon="image" title={info.name} />;
-  return <ImageStage src={src} alt={info.name} mode={mode} pixelated={info.ext === 'ico' || info.ext === 'cur' || (info.size < 20_000 && info.ext === 'png')} />;
+  return <ImageStage src={src} alt={info.name} mode={mode} transparent={!/^(jpe?g|jfif|bmp)$/.test(info.ext)} pixelated={info.ext === 'ico' || info.ext === 'cur' || (info.size < 20_000 && info.ext === 'png')} />;
 }
 
 /** SVG shown as an image: scripts and outside links inside it never run. */
@@ -256,7 +258,7 @@ export function DecodedViewer({ info, mode }: ViewerProps) {
   }, [info.path, mode]);
   const note = (via: string) =>
     via === 'embedded preview' ? 'Showing the full-size preview the camera saved inside this RAW file.' : via === 'built-in HEIC decoder' ? 'Decoded on this computer by Keeper.' : undefined;
-  return <Loaded state={state} label="Decoding…">{(d) => <ImageStage src={d.url} alt={info.name} mode={mode} note={mode === 'full' ? note(d.via) : undefined} />}</Loaded>;
+  return <Loaded state={state} label="Decoding…">{(d) => <ImageStage src={d.url} alt={info.name} mode={mode} transparent={/\.png$/.test(d.url) || info.kind === 'icns'} note={mode === 'full' ? note(d.via) : undefined} />}</Loaded>;
 }
 
 /** Every page of a TIFF, decoded in the viewer. */

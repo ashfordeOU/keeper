@@ -17,7 +17,7 @@ import { extOf, kindOf } from '../../core/classify';
 import { readExifDetails } from '../../core/exifDetails';
 import { readId3, readMp4Tags } from '../../core/id3';
 import { decodeText, detectMagic } from '../../core/magic';
-import { PLAYABLE_AUDIO, PLAYABLE_VIDEO, previewKindOf } from '../../core/previewKind';
+import { formatLabel, PLAYABLE_AUDIO, PLAYABLE_VIDEO, previewKindOf } from '../../core/previewKind';
 import type { DisplayImage, PreviewInfo } from '../../core/previewTypes';
 import { jpegSize, largestIcnsPng, largestJpeg } from '../../core/raw';
 import { isInside } from '../../core/safety';
@@ -160,7 +160,7 @@ export async function info(p: string): Promise<PreviewInfo> {
   const kind = previewKindOf(name, ext, isDir, magic);
   const base: PreviewInfo = {
     path: p, name, ext, size: st.size, mtime: st.mtimeMs, btime: st.birthtimeMs || st.mtimeMs, isDir, kind,
-    format: magic?.label ?? (isDir ? 'Folder' : ext ? `${ext.toUpperCase()} file` : 'File'), mime: magic?.mime ?? MIME[ext] ?? 'application/octet-stream',
+    format: isDir ? (kind === 'app' ? 'Application' : kind === 'iwork' ? formatLabel(ext) : 'Folder') : formatLabel(ext, magic), mime: magic?.mime ?? MIME[ext] ?? 'application/octet-stream',
     url: fileUrl(p),
   };
   if (kind === 'video') base.playable = PLAYABLE_VIDEO.has(ext);

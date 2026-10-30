@@ -1,1 +1,17 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><path d="M16 4 L28 13.5 V27 a1.5 1.5 0 0 1 -1.5 1.5 H5.5 A1.5 1.5 0 0 1 4 27 V13.5 Z M9 17 h14 v2.4 H9z M9 21.5 h14 v2.4 H9z" fill="#000" fill-rule="evenodd"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- Menu-bar glyph: the Keyhole Owl silhouette, with eyes and the owl's V-brows cut out (macOS tints template images) -->
+  <defs>
+    <mask id="cut">
+      <rect width="1024" height="1024" fill="#fff"/>
+      <circle cx="404" cy="420" r="92" fill="#000"/>
+      <circle cx="620" cy="420" r="92" fill="#000"/>
+      <path d="M262 300 Q400 290 512 380 Q624 290 762 300" stroke="#000" stroke-width="58" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </mask>
+  </defs>
+  <g mask="url(#cut)">
+    <path fill="#000" d="M512 150 C580 150 636 167 682 201 L790 110 Q808 214 768 290 C793 332 805 377 805 422 C805 538 726 623 618 648 L694 930 H330 L406 648 C298 623 219 538 219 422 C219 377 231 332 256 290 Q216 214 234 110 L342 201 C388 167 444 150 512 150 Z"/>
+  </g>
+  <circle cx="410" cy="428" r="40" fill="#000"/>
+  <circle cx="614" cy="428" r="40" fill="#000"/>
+  <path d="M484 500 L540 500 L512 556 Z" fill="#000"/>
+</svg>

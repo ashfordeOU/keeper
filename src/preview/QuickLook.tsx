@@ -11,6 +11,7 @@ import { api, isDemo } from '../api';
 import { Icon } from '../components/Icon';
 import { useStore } from '../state';
 import { FilePreview, usePreviewInfo } from './Preview';
+import { getThumb } from './thumbs';
 import { fileUrl } from './util';
 import { Histogram } from './viewers/images';
 
@@ -203,7 +204,7 @@ function StripThumb({ item, on, onClick }: { item: QuickLookItem; on: boolean; o
     const io = new IntersectionObserver((es) => {
       if (es.some((e) => e.isIntersecting)) {
         io.disconnect();
-        void api.files.thumbnail(item.path, 96).then(setSrc).catch(() => undefined);
+        void getThumb(item.path, 96).then(setSrc).catch(() => undefined);
       }
     });
     io.observe(el);

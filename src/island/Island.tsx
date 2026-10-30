@@ -2,6 +2,7 @@
 // The Island window: a pill at the top of the screen that opens into a small
 // panel with music, shelf, clipboard, agents, focus timer and calendar.
 
+import { OwlMark, type OwlMood } from '../components/OwlMark';
 import { resolveLanguage, translate } from '../i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { IslandAlert, IslandState } from '../../core/api';
@@ -23,21 +24,9 @@ function lineAt(lines: LyricLine[], t: number): number {
   return ans;
 }
 
-/** The little face beside the pill. */
+/** The little owl beside the pill: Keeper's own mark, with a face for every mood. */
 function Buddy({ mood }: { mood: Mood }) {
-  const eyes = mood === 'napping' || mood === 'sleeping' ? <><path d="M6 10h4M14 10h4" /></> : mood === 'happy' || mood === 'done' ? <><path d="M6 11q2-3 4 0M14 11q2-3 4 0" /></> : mood === 'broken' ? <><path d="M6 8l4 4M10 8l-4 4M14 8l4 4M18 8l-4 4" /></> : <><circle cx="8" cy="10" r="1.6" fill="currentColor" /><circle cx="16" cy="10" r="1.6" fill="currentColor" /></>;
-  const mouth = mood === 'needs' ? <circle cx="12" cy="16.5" r="1.6" /> : mood === 'thinking' || mood === 'listening' ? <path d="M9 16h6" /> : mood === 'broken' ? <path d="M9 17q3-2 6 0" /> : mood === 'napping' ? <path d="M10 16h4" /> : <path d="M8.5 15q3.5 3 7 0" />;
-  const color = mood === 'needs' ? '#fbbf24' : mood === 'broken' || mood === 'recording' ? '#f87171' : mood === 'done' ? '#34d399' : mood === 'listening' ? '#f472b6' : mood === 'sleeping' ? '#a5b4fc' : '#fff';
-  return (
-    <svg className="buddy" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" style={{ color }}>
-      <circle cx="12" cy="12" r="10" opacity=".35" />
-      {eyes}
-      {mouth}
-      {mood === 'napping' || mood === 'sleeping' ? <text x="18" y="6" fontSize="6" fill={color} stroke="none">z</text> : null}
-      {mood === 'recording' ? <circle cx="20" cy="4" r="2.4" fill="#ff453a" stroke="none" /> : null}
-      {mood === 'sleeping' ? <path d="M3 3.5a2.2 2.2 0 1 0 2.6 2.6A2.8 2.8 0 0 1 3 3.5z" fill={color} stroke="none" /> : null}
-    </svg>
-  );
+  return <OwlMark className="buddy" size={22} mood={mood as OwlMood} />;
 }
 
 function mmss(ms: number): string {

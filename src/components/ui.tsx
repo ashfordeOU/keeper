@@ -32,8 +32,8 @@ export function useThumb(path: string, kind: string, size = 256): string | null 
       setSrc(thumbCache.get(key)!);
       return;
     }
-    // Code and plain files have nothing better than their icon.
-    if (kind === 'code' || (kind === 'other' && !canRenderThumb(path))) return;
+    // Plain files with nothing to draw keep their icon.
+    if ((kind === 'code' || kind === 'other') && !canRenderThumb(path)) return;
     void api.files.thumbnail(path, size).then(async (s) => {
       // PDFs and fonts on systems without a thumbnailer are drawn here.
       const url = s ?? (canRenderThumb(path) ? await renderThumb(path, size) : null);

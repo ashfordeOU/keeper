@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- SPDX-License-Identifier: AGPL-3.0-or-later · Keeper app icon: the Keyhole Owl -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffb45e"/>
+      <stop offset=".45" stop-color="#ff5f8f"/>
+      <stop offset="1" stop-color="#6b3dff"/>
+    </linearGradient>
+    <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".28"/>
+      <stop offset=".5" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".7"/>
+      <stop offset=".3" stop-color="#fff" stop-opacity=".08"/>
+      <stop offset=".8" stop-color="#000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000" stop-opacity=".3"/>
+    </linearGradient>
+    <linearGradient id="mark" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#f1eaff"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="22" stdDeviation="26" flood-color="#2a0a5e" flood-opacity=".45"/>
+    </filter>
+    <clipPath id="tile"><rect x="80" y="80" width="864" height="864" rx="196"/></clipPath>
+  </defs>
+  <g clip-path="url(#tile)">
+    <rect width="1024" height="1024" fill="url(#bg)"/>
+    <circle cx="300" cy="220" r="300" fill="#fff" opacity=".12"/>
+    <rect width="1024" height="1024" fill="url(#gloss)"/>
+  </g>
+  <g filter="url(#shadow)">
+    <!-- one shape: a round owl head with feather tufts whose body is a keyhole -->
+    <path fill="url(#mark)" d="M512 250 C560 250 600 262 632 286 L700 236 Q712 300 690 352 C708 382 716 414 716 446 C716 528 660 588 584 606 L640 812 H384 L440 606 C364 588 308 528 308 446 C308 414 316 382 334 352 Q312 300 324 236 L392 286 C424 262 464 250 512 250 Z"/>
+    <path fill="#ffe7f0" d="M512 330 C470 300 380 300 362 372 C344 446 400 520 470 520 Q512 520 512 488 Q512 520 554 520 C624 520 680 446 662 372 C644 300 554 300 512 330 Z"/>
+    <circle cx="438" cy="420" r="56" fill="#fff"/><circle cx="586" cy="420" r="56" fill="#fff"/>
+    <circle cx="444" cy="424" r="36" fill="#ff9a3d"/><circle cx="580" cy="424" r="36" fill="#ff9a3d"/>
+    <circle cx="446" cy="426" r="21" fill="#2b1580"/><circle cx="578" cy="426" r="21" fill="#2b1580"/>
+    <circle cx="436" cy="414" r="8" fill="#fff"/><circle cx="568" cy="414" r="8" fill="#fff"/>
+    <path d="M372 352 Q440 352 506 404 M652 352 Q584 352 518 404" stroke="#6b3dff" stroke-width="18" stroke-linecap="round" fill="none"/>
+    <path fill="#ff8a3d" d="M496 452 Q512 440 528 452 L514 492 Q512 498 510 492 Z"/>
+  </g>
+  <rect x="80" y="80" width="864" height="864" rx="196" fill="none" stroke="url(#rim)" stroke-width="10"/>
+</svg>

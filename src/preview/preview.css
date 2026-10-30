@@ -64,7 +64,7 @@
 .pv-cover { width: 150px; height: 150px; border-radius: 16px; overflow: hidden; display: grid; place-items: center; background: linear-gradient(135deg, var(--c-audio), var(--c-image)); color: #fff; box-shadow: var(--shadow-pop); flex: none; }
 .pv-audio.full .pv-cover { width: 240px; height: 240px; border-radius: 22px; }
 :root[data-look='minimal'] .pv-cover { background: var(--bg-sunk); color: var(--text-2); }
-.pv-cover img { width: 100%; height: 100%; object-fit: cover; }
+.pv-cover img { width: 100%; height: 100%; object-fit: contain; background: #111; }
 .pv-audio-title { font-size: 18px; font-weight: 700; letter-spacing: -.01em; }
 .pv-audio.full .pv-audio-title { font-size: 24px; }
 .pv-wave { width: min(100%, 720px); height: 64px; cursor: pointer; }
@@ -286,3 +286,7 @@
 .inspector .preview.pv-host { aspect-ratio: auto; height: 260px; display: flex; place-items: stretch; background: var(--bg-sunk); }
 .inspector .preview.pv-host .pv-bar { display: none; }
 .inspector .preview.pv-host .pv-inline .pv-stage { border-radius: 12px; }
+
+/* hover peek (Island shelf) */
+.pv-peek { position: fixed; z-index: 50; background: var(--bg-elev); border: 1px solid var(--line-strong); border-radius: 12px; box-shadow: var(--shadow-pop); overflow: hidden; pointer-events: none; animation: pop .14s var(--ease); display: flex; }
+.pv-peek .pv-bar { display: none; }

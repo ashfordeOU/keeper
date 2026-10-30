@@ -136,3 +136,25 @@ export function codeLanguage(name: string, ext: string): string | undefined {
   if (/^\.\w+rc$/.test(n)) return 'bash';
   return undefined;
 }
+
+const LABELS: Record<string, string> = {
+  docx: 'Word document', docm: 'Word document', dotx: 'Word template', doc: 'Word document (legacy)',
+  xlsx: 'Excel spreadsheet', xlsm: 'Excel spreadsheet', xlsb: 'Excel spreadsheet', xls: 'Excel spreadsheet (legacy)', ods: 'OpenDocument spreadsheet',
+  pptx: 'PowerPoint presentation', pptm: 'PowerPoint presentation', ppsx: 'PowerPoint slideshow', ppt: 'PowerPoint presentation (legacy)',
+  odt: 'OpenDocument text', odp: 'OpenDocument presentation', pages: 'Pages document', key: 'Keynote presentation', numbers: 'Numbers spreadsheet',
+  epub: 'E-book', jar: 'Java archive', apk: 'Android app', ipa: 'iPhone app', xpi: 'Browser extension', crx: 'Browser extension', whl: 'Python package', vsix: 'Editor extension', cbz: 'Comic book',
+  dng: 'RAW photo (DNG)', cr2: 'Canon RAW photo', cr3: 'Canon RAW photo', nef: 'Nikon RAW photo', arw: 'Sony RAW photo', orf: 'Olympus RAW photo', rw2: 'Panasonic RAW photo', raf: 'Fujifilm RAW photo', pef: 'Pentax RAW photo', srw: 'Samsung RAW photo',
+  md: 'Markdown document', markdown: 'Markdown document', csv: 'CSV table', tsv: 'Tab-separated table', log: 'Log file', srt: 'Subtitles', vtt: 'Subtitles', ipynb: 'Notebook',
+  json: 'JSON data', yaml: 'YAML data', yml: 'YAML data', toml: 'TOML settings', xml: 'XML document', html: 'Web page', htm: 'Web page', svg: 'SVG image', rtf: 'Rich text document',
+  heic: 'HEIC photo', heif: 'HEIF photo', psd: 'Photoshop document', ai: 'Illustrator document', sketch: 'Sketch design', fig: 'Design file', stl: '3D model (STL)', obj: '3D model (OBJ)', glb: '3D model (glTF)', gltf: '3D model (glTF)', fbx: '3D model (FBX)',
+  ttf: 'TrueType font', otf: 'OpenType font', woff: 'Web font', woff2: 'Web font', eml: 'E-mail message', vcf: 'Contact card', ics: 'Calendar', sqlite: 'SQLite database', db: 'Database',
+  'tar.gz': 'Compressed tar archive', tgz: 'Compressed tar archive', 'tar.xz': 'Compressed tar archive', 'tar.bz2': 'Compressed tar archive',
+  py: 'Python script', js: 'JavaScript', ts: 'TypeScript', tsx: 'TypeScript (React)', jsx: 'JavaScript (React)', go: 'Go source', rs: 'Rust source', java: 'Java source', c: 'C source', cpp: 'C++ source', cs: 'C# source', rb: 'Ruby script', php: 'PHP script', sh: 'Shell script', swift: 'Swift source', kt: 'Kotlin source',
+};
+
+/** A friendly name for the format: what the extension says when the bytes only show a container (ZIP, TIFF, text). */
+export function formatLabel(ext: string, magic?: { id: string; label: string }): string {
+  const e = ext.toLowerCase();
+  if (LABELS[e] && (!magic || ['zip', 'tiff', 'text', 'xml', 'gzip', 'ole', 'html', 'mp4', 'ttf'].includes(magic.id) || magic.label === 'Plain text')) return LABELS[e];
+  return magic?.label ?? (LABELS[e] ?? (e ? `${e.toUpperCase()} file` : 'File'));
+}

@@ -15,6 +15,8 @@ const VIDEO = /^(mp4|m4v|mov|webm|mkv|avi|wmv|flv|mpg|mpeg|3gp|mts|m2ts|ts|vob|o
 const AUDIO = /^(mp3|m4a|m4b|aac|flac|ogg|opus|wav|aiff|aif|wma|alac)$/;
 const DECODE = /^(heic|heif|hif|avif|cr2|cr3|crw|nef|nrw|arw|srf|sr2|dng|orf|rw2|raf|pef|srw|x3f|3fr|erf|kdc|mrw|mos|iiq|rwl|raw|psd|psb|tif|tiff|svg|svgz|jxl|jp2|j2k|tga|exr|hdr|dds|qoi|pcx|icns|webp|gif)$/;
 const OFFICE = /^(docx|docm|dotx|xlsx|xlsm|pptx|pptm|ppsx|odt|ods|odp|ott|pages|key|numbers|epub|sketch|xd|3mf|kmz|cbz)$/;
+/** Text, code and documents the viewer draws as a page; only their cached picture is read here. */
+const DRAWN = /^(txt|md|markdown|csv|tsv|json|jsonl|log|srt|vtt|rtf|html?|xml|ya?ml|toml|ini|py|js|mjs|cjs|ts|tsx|jsx|go|rs|java|kt|swift|c|h|cc|cpp|hpp|cs|rb|php|sh|bash|zsh|ps1|sql|css|scss|vue|svelte|lua|r|dart|ipynb|eml|vcf|ics|ttf|otf|woff2?|stl|obj|glb|gltf|ply|fbx)$/;
 
 let writes = 0;
 const dir = () => path.join(app.getPath('userData'), 'thumbs');
@@ -93,6 +95,7 @@ export async function clearThumbs() {
 /** Cover art, document thumbnails, video frames and decoded images. Null when nothing better than an icon exists. */
 export async function richThumbnail(p: string, size: number): Promise<string | null> {
   const ext = extOf(path.basename(p));
+  if (DRAWN.test(ext)) return cachedThumb(p, size);
   if (!VIDEO.test(ext) && !AUDIO.test(ext) && !DECODE.test(ext) && !OFFICE.test(ext) && ext !== 'pdf' && ext !== 'app') return null;
   const key = await keyFor(p, size);
   if (!key) return null;

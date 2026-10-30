@@ -98,6 +98,8 @@ function lockDown(win: BrowserWindow) {
 
 function createMain() {
   main = new BrowserWindow({
+    // Linux shows this in the taskbar; macOS and Windows use the packaged app icon.
+    icon: path.join(__dirname, '..', 'build', 'icon.png'),
     width: 1280, height: 820, minWidth: 760, minHeight: 520, show: false, title: 'Keeper',
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#111114' : '#f6f5f2',
     titleBarStyle: isMac ? 'hiddenInset' : 'hidden',
@@ -173,7 +175,7 @@ async function updateTray() {
     // macOS tints a black template image to match the menu bar; elsewhere the colour icon reads on any taskbar.
     const icon = isMac
       ? nativeImage.createFromPath(path.join(__dirname, '..', 'build', 'trayTemplate.png'))
-      : nativeImage.createFromPath(path.join(__dirname, '..', 'build', 'icon.png')).resize({ width: process.platform === 'win32' ? 16 : 22 });
+      : nativeImage.createFromPath(path.join(__dirname, '..', 'build', 'tray-color.png')).resize({ width: process.platform === 'win32' ? 16 : 22, quality: 'best' });
     tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon);
     if (icon.isEmpty()) tray.setTitle?.('K');
     tray.setToolTip('Keeper');

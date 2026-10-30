@@ -10,6 +10,7 @@ import { api } from '../api';
 import { Icon } from '../components/Icon';
 import { Thumb } from '../components/ui';
 import { filterClips, KIND_ICON } from './ClipPicker';
+import { usePeek } from '../preview/Peek';
 
 const say = (msg: string) => window.dispatchEvent(new CustomEvent('island-toast', { detail: msg }));
 const fail = (e: unknown) => say(e instanceof Error ? e.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '') : String(e));
@@ -22,6 +23,7 @@ export function ShelfTab({ state, settings, reload }: { state: IslandState; sett
   const [menu, setMenu] = useState<'more' | 'closed' | null>(null);
   const active = state.shelves.find((s) => s.id === state.activeShelf) ?? state.shelves[0];
   const items = active?.items ?? state.shelf;
+  const peek = usePeek();
   const paths = items.map((f) => f.path);
 
   const run = (a: ShelfAction, arg?: string) => {
@@ -75,7 +77,7 @@ export function ShelfTab({ state, settings, reload }: { state: IslandState; sett
       <div className={`shelf-drop ${over ? 'over' : ''}`} style={{ ['--c' as string]: active?.color }} onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)} onDrop={onDrop}>
         {items.length === 0 ? <div className="muted" style={{ margin: 'auto', textAlign: 'center' }}><Icon name="archive" size={24} /><div>Drop files here to keep them handy,<br />then drag them out wherever you need them.</div></div> : null}
         {items.map((f, i) => (
-          <div key={f.path} className="shelf-item" draggable onDragStart={(e) => { e.preventDefault(); api.files.startDrag([f.path]); }} onDoubleClick={() => void api.files.open(f.path)} title={`${f.path}\n${formatBytes(f.size)}`}>
+          <div key={f.path} className="shelf-item" {...peek.bind(f.path)} draggable onDragStart={(e) => { e.preventDefault(); api.files.startDrag([f.path]); }} onDoubleClick={() => void api.files.open(f.path)} title={`${f.path}\n${formatBytes(f.size)}`}>
             <div className="th"><Thumb file={f} size={128} /></div>
             <div className="nm" onDoubleClick={(e) => {
               e.stopPropagation();
@@ -90,6 +92,7 @@ export function ShelfTab({ state, settings, reload }: { state: IslandState; sett
           </div>
         ))}
       </div>
+      {peek.node}
 
       {items.length ? (
         <div className="shelf-actions">

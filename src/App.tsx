@@ -6,6 +6,7 @@ import type { FileKind } from '../core/types';
 import { api } from './api';
 import { CommandPalette } from './components/CommandPalette';
 import { Icon } from './components/Icon';
+import { OwlMark } from './components/OwlMark';
 import { Inspector } from './components/Inspector';
 import { Player } from './components/Player';
 import { KIND_COLOR } from './components/ui';
@@ -59,7 +60,7 @@ function Sidebar() {
   const short = (n?: number) => (n === undefined ? undefined : n >= 1000 ? `${(n / 1000).toFixed(n >= 10_000 ? 0 : 1)}k` : String(n));
   return (
     <aside className="sidebar">
-      <div className="brand"><div className="logo"><Icon name="home" size={15} stroke={2.2} /></div><span>Keeper</span></div>
+      <div className="brand"><OwlMark tile size={26} title="Keeper" /><span>Keeper</span></div>
       <NavItem route={{ name: 'home' }} icon="home" label={t('nav.home')} />
       <NavItem route={{ name: 'recents' }} icon="clock" label={t('nav.recents')} />
       <NavItem route={{ name: 'browse', arg: info?.home }} icon="folder" label={t('nav.browse')} />
