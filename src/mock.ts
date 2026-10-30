@@ -8,6 +8,8 @@ import { parseQuery } from '../core/query/parse';
 import { previewRename } from '../core/rename';
 import { defaultSettings } from '../core/settings';
 import { createMockCapture, DEMO_SHOT } from './mock-capture';
+import { mockX } from './mock-x';
+import { createMockIsland } from './mock-island';
 import type { CleanupGroup, DuplicateGroup, FileEntry, FileKind, Rule, SpaceNode } from '../core/types';
 
 const HOME = '/Users/demo';
@@ -166,6 +168,9 @@ export function createMockApi(): KeeperApi {
   const listeners = new Map<string, Set<(v: unknown) => void>>();
   const island: IslandState = {
     shelf: files.slice(0, 2),
+    shelves: [],
+    activeShelf: 'main',
+    closedShelves: [],
     clips: [
       { id: 'c1', kind: 'text', text: 'blue-otter-42', at: now - 60_000 },
       { id: 'c2', kind: 'text', text: 'https://github.com/ashfordeOU/keeper', at: now - 3_600_000, pinned: true },
@@ -193,6 +198,7 @@ export function createMockApi(): KeeperApi {
     lyrics: [{ t: 30, text: 'Salt on the window, sun in the hall' }, { t: 40, text: 'Every small thing has a place after all' }, { t: 52, text: 'Keep what you love, let the rest of it go' }],
     alerts: [],
   };
+  const islandX = createMockIsland(island, files, settings, () => listeners.get('island-changed')?.forEach((cb) => cb(undefined)));
   const ok = { freed: 0, removed: 0, failed: 0, skipped: [] as string[] };
   const browse = (dir: string): BrowseEntry[] => {
     const seen = new Map<string, BrowseEntry>();
@@ -211,6 +217,7 @@ export function createMockApi(): KeeperApi {
   };
 
   return {
+    ...mockX(),
     system: {
       info: async () => ({ platform: 'darwin', arch: 'arm64', osVersion: '15.4', appVersion: '0.1.0 (demo)', home: HOME, sep: '/' }),
       disks: async () => [{ mount: '/', label: 'Macintosh HD', total: 494 * 1024 ** 3, free: 61 * 1024 ** 3, system: true }],
@@ -243,6 +250,23 @@ export function createMockApi(): KeeperApi {
       setSecret: async () => true,
       hasSecret: async () => false,
       pickFolder: async () => `${HOME}/Projects`,
+      pickFiles: async () => [`${HOME}/Movies/Lisbon trip.mov`],
+    },
+    convert: {
+      run: async (job) => {
+        const first = job.inputs[0] ?? `${HOME}/file`;
+        const dir = first.replace(/\/[^/]+$/, '') + '/' + (first.split('/').pop() ?? '').replace(/\.[^.]+$/, '') + ' (Keeper)';
+        const ext = 'format' in job.op ? job.op.format : job.op.tool.startsWith('pdf') ? 'pdf' : job.op.tool.startsWith('video') ? 'mp4' : (first.split('.').pop() ?? 'bin');
+        await delay(0, 1200);
+        if (job.op.tool === 'file.checksum' || job.op.tool === 'file.verify') {
+          const checksums = job.inputs.map((p) => ({ path: p, algo: 'sha256' as const, hash: 'b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9' }));
+          return { outputs: [], checksums, verified: job.op.tool === 'file.verify' ? true : undefined, message: job.op.tool === 'file.verify' ? 'The checksum matches — the file is intact.' : undefined };
+        }
+        return { outputs: job.inputs.map((p) => `${dir}/${(p.split('/').pop() ?? 'file').replace(/\.[^.]+$/, '')}.${ext}`), message: /compress|preset/.test(job.op.tool) ? 'Saved 1.8 GB (76% smaller)' : undefined };
+      },
+      capabilities: async () => ({ ffmpeg: true, qpdf: false, sips: true, bgRemoval: true, pdfRender: true }),
+      duration: async () => 412,
+      pageCount: async () => 12,
     },
     library: {
       status: async () => ({ indexing: false, files: files.length, lastScan: now - 120_000, ocrPending: 0 }),
@@ -412,7 +436,9 @@ export function createMockApi(): KeeperApi {
       typeText: async () => undefined,
       dismiss: async (id) => { island.alerts = island.alerts.filter((a) => a.id !== id); },
       setExpanded: () => undefined,
-    },
+      ...islandX.island,
+    } as KeeperApi['island'],
+    widgets: islandX.widgets,
     on: ((channel: string, cb: (v: unknown) => void) => {
       const set = listeners.get(channel) ?? new Set();
       set.add(cb);

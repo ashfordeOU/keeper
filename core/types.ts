@@ -310,7 +310,7 @@ export interface RulePlanItem {
 // ---------------------------------------------------------------- history
 
 export interface JournalOp {
-  type: 'trash' | 'move' | 'delete' | 'startup' | 'tag';
+  type: 'trash' | 'move' | 'delete' | 'startup' | 'tag' | 'create';
   from: string;
   to?: string;
   size: number;

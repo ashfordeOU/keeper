@@ -21,6 +21,8 @@ export interface IslandContext {
   lockDown(win: BrowserWindow): void;
   broadcast(channel: string, ...args: unknown[]): void;
   updateTray(): void;
+  /** macOS shows text next to the menu-bar icon */
+  setTrayTitle?(title: string): void;
   ocrImage?(img: Electron.NativeImage): Promise<string>;
   resize?(paths: string[], width: number): Promise<string[]>;
 }
@@ -333,6 +335,17 @@ export function registerIslandIpc(c: IslandContext) {
     const id = widgetFor(e.sender);
     return normalizeWidgets(settings().widgets).find((w) => w.id === id) ?? null;
   });
+
+  // Time left on a keep-awake session, next to the menu-bar icon (macOS).
+  if (process.platform === 'darwin') {
+    let last = '';
+    setInterval(() => {
+      const a = svc.awake;
+      const left = a.on && a.until ? Math.max(0, a.until - Date.now()) : 0;
+      const title = a.on ? (left ? `☕ ${left >= 3_600_000 ? `${Math.floor(left / 3_600_000)}h${String(Math.round((left % 3_600_000) / 60_000)).padStart(2, '0')}` : `${Math.ceil(left / 60_000)}m`}` : '☕') : '';
+      if (title !== last) c.setTrayTitle?.((last = title));
+    }, 15_000);
+  }
 
   // Follow displays being connected and disconnected.
   screen.on('display-added', () => islandWindows.ensure(true));

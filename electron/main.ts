@@ -2,11 +2,10 @@
 // Keeper's main process: windows, tray, shortcuts, the file index and every
 // action the interface can ask for.
 
-import { app, BrowserWindow, dialog, globalShortcut, ipcMain, Menu, nativeImage, nativeTheme, net, protocol, screen, shell, Tray } from 'electron';
+import { app, BrowserWindow, dialog, globalShortcut, ipcMain, Menu, nativeImage, nativeTheme, protocol, screen, shell, Tray } from 'electron';
 import { existsSync, promises as fsp, statSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
 import type { IslandSettings, KeepAwakeOptions } from '../core/api';
 import { askAssistant } from '../core/ai';
 import { cleanTarget, cleanTargetPaths, expandRoots, listTargetEntries, measureTarget, sizeOf } from '../core/cleanup/engine';
@@ -26,9 +25,10 @@ import { walk } from '../core/walk';
 import { searchPlaces } from '../core/weather';
 import { listApps, uninstall } from './services/apps';
 import { captureText } from './services/capture';
-import { colorPick, recordingState, registerCaptureIpc, registerCaptureShortcuts, screenshot, toggleRecording } from './ipc/capture';
+import { colorPick, quietly, recordingState, registerCaptureIpc, registerCaptureShortcuts, screenshot, toggleRecording } from './ipc/capture';
 import { FileService } from './services/files';
 import { IslandService } from './services/island';
+import { islandWindows, registerIslandIpc, registerIslandShortcuts, syncWidgets } from './ipc/island';
 import { checkProtection } from './services/protection';
 import { listStartup, toggleStartup } from './services/startup';
 import { disks, ejectAll, health, killProcess, wifiNetworks } from './services/system';
@@ -36,6 +36,7 @@ import { writeText } from './services/clip';
 import { VisionQueue } from './services/vision';
 import { registerIpcX, syncFinderTags } from './ipc-x';
 import { registerFileProtocol, registerPreviewIpc } from './ipc/preview';
+import { registerConvertIpc } from './ipc/convert';
 import { emptyAndBroken, removeBrokenLink } from './services/tools';
 import { readFinderTags } from '../core/platform';
 import { getSecret, hasSecret, onSettings, setSecret, settings, updateSettings } from './store';
@@ -51,7 +52,6 @@ app.setAsDefaultProtocolClient('keeper');
 
 let main: BrowserWindow | null = null;
 let quick: BrowserWindow | null = null;
-let island: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let index: FileIndex;
 let journal: Journal;
@@ -152,38 +152,13 @@ function toggleQuick() {
   quick.webContents.send('event:library-changed');
 }
 
-const ISLAND_COLLAPSED = { width: 380, height: 64 };
-const ISLAND_EXPANDED = { width: 700, height: 380 };
-
-function islandBounds(expanded: boolean) {
-  const s = settings().island;
-  const d = screen.getPrimaryDisplay();
-  const size = expanded ? ISLAND_EXPANDED : ISLAND_COLLAPSED;
-  if (s.edge === 'left' || s.edge === 'right') {
-    const x = s.edge === 'left' ? d.bounds.x : d.bounds.x + d.bounds.width - size.width;
-    return { x, y: Math.round(d.workArea.y + d.workArea.height * 0.3), ...size };
-  }
-  return { x: Math.round(d.bounds.x + (d.bounds.width - size.width) / 2), y: d.bounds.y, ...size };
-}
-
+// The Island's windows (one per display when asked) live in ipc/island.ts.
 function createIsland() {
-  if (island || !settings().island.enabled) return;
-  island = new BrowserWindow({
-    ...islandBounds(false), frame: false, transparent: true, resizable: false, movable: false, skipTaskbar: true, alwaysOnTop: true,
-    fullscreenable: false, hasShadow: false, focusable: true, show: false, backgroundColor: '#00000000',
-    webPreferences: { preload: preload(), contextIsolation: true, sandbox: true },
-  });
-  island.setAlwaysOnTop(true, 'status');
-  island.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: false });
-  lockDown(island);
-  load(island, 'island');
-  island.once('ready-to-show', () => island?.showInactive());
-  island.on('closed', () => (island = null));
+  islandWindows.ensure();
 }
 
 function destroyIsland() {
-  island?.destroy();
-  island = null;
+  islandWindows.destroyAll();
 }
 
 // ---------------------------------------------------------------- tray
@@ -219,26 +194,36 @@ async function updateTray() {
     ],
   }));
   const awake = islandSvc?.awake.on;
+  // Pinned shelves stay one click away in the tray.
+  const pinned: Electron.MenuItemConstructorOptions[] = (islandSvc?.state().shelves ?? []).filter((sh) => sh.pinned).map((sh) => ({
+    label: `${sh.name} (${sh.items.length})`,
+    submenu: [
+      ...sh.items.slice(0, 15).map((f) => ({ label: f.name.length > 42 ? f.name.slice(0, 40) + '…' : f.name, click: () => void shell.openPath(f.path) })),
+      { type: 'separator' as const },
+      { label: 'Open in the Island', click: () => { islandSvc.selectShelf(sh.id); islandWindows.openOn('shelf'); } },
+    ],
+  }));
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: 'Recent downloads', enabled: false },
     ...(items.length ? items : [{ label: 'Nothing yet', enabled: false }]),
+    ...(pinned.length ? [{ type: 'separator' as const }, { label: 'Shelves', enabled: false }, ...pinned] : []),
     { type: 'separator' },
     { label: 'Open Keeper', click: () => showMain() },
     { label: 'Quick Search', accelerator: settings().quickSearchShortcut, click: toggleQuick },
     { label: 'Copy Text from Screen', accelerator: settings().island.captureShortcut, click: () => void doCapture() },
     { label: 'Take Screenshot', submenu: [
-      { label: 'Area…', click: () => void screenshot('area') },
-      { label: 'Window…', click: () => void screenshot('window') },
-      { label: 'Whole Screen', click: () => void screenshot('full') },
+      { label: 'Area…', click: () => quietly(() => screenshot('area')) },
+      { label: 'Window…', click: () => quietly(() => screenshot('window')) },
+      { label: 'Whole Screen', click: () => quietly(() => screenshot('full')) },
     ] },
     recordingState().recording
-      ? { label: 'Stop Recording', click: () => void toggleRecording() }
+      ? { label: 'Stop Recording', click: () => quietly(() => toggleRecording()) }
       : { label: 'Record Screen', submenu: [
-        { label: 'Whole Screen', click: () => void toggleRecording('full') },
-        { label: 'Window…', click: () => void toggleRecording('window') },
-        { label: 'Area…', click: () => void toggleRecording('area') },
+        { label: 'Whole Screen', click: () => quietly(() => toggleRecording('full')) },
+        { label: 'Window…', click: () => quietly(() => toggleRecording('window')) },
+        { label: 'Area…', click: () => quietly(() => toggleRecording('area')) },
       ] },
-    { label: 'Pick a Colour', click: () => void colorPick() },
+    { label: 'Pick a Colour', click: () => quietly(() => colorPick()) },
     { label: awake ? 'Stop Keeping Awake' : 'Keep Awake', submenu: awake ? undefined : [
       { label: 'Until I turn it off', click: () => islandSvc.keepAwake(true) },
       { label: 'For 1 hour', click: () => islandSvc.keepAwake(true, { minutes: 60 }) },
@@ -267,10 +252,11 @@ function registerShortcuts() {
   reg(s.island.captureShortcut, () => void doCapture());
   let dictating = false;
   reg(s.island.dictationShortcut, () => {
-    if (!island) return;
+    if (!islandWindows.count()) return;
     dictating = !dictating;
-    island.webContents.send('event:dictation', dictating ? 'start' : 'stop');
+    islandWindows.send('event:dictation', dictating ? 'start' : 'stop');
   });
+  registerIslandShortcuts();
   void registerCaptureShortcuts();
 }
 
@@ -297,9 +283,9 @@ function handleDeepLink(url: string) {
       showMain(`browse:${path.dirname(p)}`);
     } else if (action === 'search') showMain(`search:${u.searchParams.get('q') ?? ''}`);
     else if (action === 'capture') void doCapture();
-    else if (action === 'screenshot') void screenshot((u.searchParams.get('mode') as 'full' | 'window' | 'area') ?? 'area');
-    else if (action === 'record') void toggleRecording((u.searchParams.get('mode') as 'full' | 'window' | 'area') ?? 'full');
-    else if (action === 'color') void colorPick();
+    else if (action === 'screenshot') quietly(() => screenshot((u.searchParams.get('mode') as 'full' | 'window' | 'area') ?? 'area'));
+    else if (action === 'record') quietly(() => toggleRecording((u.searchParams.get('mode') as 'full' | 'window' | 'area') ?? 'full'));
+    else if (action === 'color') quietly(() => colorPick());
     else if (action === 'quick') toggleQuick();
     else if (action === 'clean') showMain('cleanup');
     else if (action === 'awake') islandSvc.keepAwake(u.searchParams.get('on') !== 'false', { minutes: Number(u.searchParams.get('minutes')) || undefined });
@@ -770,11 +756,7 @@ function registerIpc() {
   handle('island.transcribe', (audio: ArrayBuffer, mime: string) => islandSvc.transcribe(audio, mime));
   handle('island.typeText', (t: string) => islandSvc.typeText(t));
   handle('island.dismiss', (id: string) => islandSvc.dismiss(id));
-  ipcMain.on('island.setExpanded', (_e, v: boolean) => {
-    if (!island) return;
-    island.setBounds(islandBounds(v), false);
-    if (v) island.focus();
-  });
+  ipcMain.on('island.setExpanded', (e, v: boolean) => islandWindows.setExpanded(e.sender, v));
 }
 
 // ---------------------------------------------------------------- start
@@ -783,6 +765,7 @@ app.whenReady().then(async () => {
   // Local files for previews and the music player: read-only, seekable, only from allowed places.
   registerFileProtocol();
   registerPreviewIpc();
+  registerConvertIpc({ journal, progress, changed: libraryChanged, window: () => main, refresh: (p) => index.refresh(p) });
 
   const s = settings();
   index = makeIndex(s);
@@ -791,6 +774,10 @@ app.whenReady().then(async () => {
   vision = new VisionQueue(index, () => ({ ocr: settings().ocrEnabled, langs: settings().ocrLanguages }), libraryChanged);
   islandSvc = new IslandService(index, () => broadcast('island-changed'));
   registerIpc();
+  registerIslandIpc({
+    islandSvc, files, index, preload: preload(), lockDown, broadcast, updateTray: () => void updateTray(), setTrayTitle: (t) => tray?.setTitle(t),
+    ocrImage: async (img) => (await import('./services/vision')).ocrImage(img, settings().ocrLanguages),
+  });
   registerIpcX({ index, journal, events: () => islandSvc.events, window: () => main, changed: libraryChanged });
   registerCaptureIpc({
     preload: capturePreload(),
@@ -813,6 +800,7 @@ app.whenReady().then(async () => {
   await index.load();
   createMain();
   createIsland();
+  syncWidgets();
   await updateTray();
   registerShortcuts();
   void islandSvc.start();
@@ -834,7 +822,8 @@ app.whenReady().then(async () => {
     if (next.quickSearchShortcut !== prev.quickSearchShortcut || next.island.captureShortcut !== prev.island.captureShortcut || next.island.dictationShortcut !== prev.island.dictationShortcut) registerShortcuts();
     if (next.trayEnabled !== prev.trayEnabled || next.trayCount !== prev.trayCount) void updateTray();
     if (next.island.enabled !== prev.island.enabled) (next.island.enabled ? createIsland() : destroyIsland());
-    else if (next.island.edge !== prev.island.edge && island) island.setBounds(islandBounds(false));
+    else if (next.island.edge !== prev.island.edge || next.island.displays !== prev.island.displays) islandWindows.ensure(true);
+    if (['pasteShortcut', 'shelfShortcut', 'hideShortcut', 'awakeShortcut'].some((k) => next.island[k as 'pasteShortcut'] !== prev.island[k as 'pasteShortcut'])) registerShortcuts();
     if (next.island.calendarUrl !== prev.island.calendarUrl) void islandSvc.pollCalendar();
     if (JSON.stringify(next.island.place) !== JSON.stringify(prev.island.place) || next.island.units !== prev.island.units) void islandSvc.pollWeather(true);
     broadcast('island-changed');

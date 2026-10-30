@@ -283,6 +283,7 @@ export function useFileMenu() {
     { sep: true, label: '' },
     { label: sel.length > 1 ? `Rename ${sel.length} Items…` : 'Rename…', icon: 'rename', run: () => setRenaming(sel) },
     { label: 'Compress', icon: 'zip', run: () => void api.files.compress(sel).then((p) => { store.toast(`Created ${p.split(/[\\/]/).pop()}`); store.refresh(); }) },
+    { label: 'Convert…', icon: 'refresh', run: () => store.go({ name: 'convert', arg: JSON.stringify(sel) }) },
     ...(state.file.kind === 'image' ? [
       { label: 'Annotate…', icon: 'rename', run: () => store.go({ name: 'annotate', arg: state.file.path }) },
       { label: 'Read Text and Codes', icon: 'text', run: () => void api.capture.readFile(state.file.path).then((r) => { const t = r.code ?? r.text; if (t) { void api.files.copyText(t); store.toast(r.code ? `Copied code: ${r.code}` : 'Copied the text in this image'); } else store.toast('No text found'); }) },

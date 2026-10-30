@@ -9,6 +9,7 @@ import { Icon } from '../components/Icon';
 import { Empty, Loading, Modal, PageHead } from '../components/ui';
 import { useStore } from '../state';
 import { Ring } from './Protection';
+import { HealthMore } from './HealthMore';
 import '../styles/screens-b.css';
 
 function uptime(sec: number): string {
@@ -34,8 +35,9 @@ export function Health() {
 
   const kill = async (p: { pid: number; name: string }) => {
     setQuit(null);
-    const ok = await api.system.killProcess(p.pid);
-    toast(ok ? `Quit ${p.name}` : `Could not quit ${p.name}`);
+    // Stops the app and everything it started (helpers, child servers).
+    const n = await api.monitor.killTree(p.pid);
+    toast(n ? `Quit ${p.name}${n > 1 ? ` and ${n - 1} helper${n > 2 ? 's' : ''}` : ''}` : `Could not quit ${p.name}`);
   };
 
   if (error && !h) return <Empty icon="warning" title="Could not read system health">{error}</Empty>;
@@ -102,6 +104,8 @@ export function Health() {
           </div>
         </div>
       </div>
+
+      <HealthMore processes={h.processes} onQuit={setQuit} />
 
       {quit ? (
         <Modal title={`Quit ${quit.name}?`} onClose={() => setQuit(null)}>

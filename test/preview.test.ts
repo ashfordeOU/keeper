@@ -199,3 +199,66 @@ describe('exif details', () => {
     expect(d.gps?.lon).toBeCloseTo(-9.133333, 4);
   });
 });
+
+import { decodeWords, parseMail, parseSubtitles, parseVcards, rtfToText, toVtt } from '../core/docparse';
+
+describe('document readers', () => {
+  it('parses a multipart e-mail with an attachment', () => {
+    const eml = [
+      'From: =?utf-8?B?QW5hIFPDs2w=?= <ana@example.com>',
+      'To: team@example.com',
+      'Subject: =?utf-8?Q?Caf=C3=A9_plans?=',
+      'Date: Thu, 30 Oct 2026 10:00:00 +0000',
+      'MIME-Version: 1.0',
+      'Content-Type: multipart/mixed; boundary="b1"',
+      '',
+      '--b1',
+      'Content-Type: multipart/alternative; boundary="b2"',
+      '',
+      '--b2',
+      'Content-Type: text/plain; charset=utf-8',
+      'Content-Transfer-Encoding: quoted-printable',
+      '',
+      'Hello =E2=80=94 see the plan.=',
+      '',
+      '--b2',
+      'Content-Type: text/html; charset=utf-8',
+      '',
+      '<p>Hello <b>team</b></p>',
+      '--b2--',
+      '--b1',
+      'Content-Type: application/pdf; name="plan.pdf"',
+      'Content-Disposition: attachment; filename="plan.pdf"',
+      'Content-Transfer-Encoding: base64',
+      '',
+      'JVBERi0xLjQK',
+      '--b1--',
+      '',
+    ].join('\r\n');
+    const m = parseMail(eml);
+    expect(m.from).toBe('Ana Sól <ana@example.com>');
+    expect(m.subject).toBe('Café plans');
+    expect(m.text).toBe('Hello — see the plan.');
+    expect(m.html).toContain('<b>team</b>');
+    expect(m.attachments).toHaveLength(1);
+    expect(m.attachments[0]).toMatchObject({ filename: 'plan.pdf', contentType: 'application/pdf' });
+    expect(new TextDecoder().decode(m.attachments[0].data)).toBe('%PDF-1.4\n');
+    expect(decodeWords('=?iso-8859-1?Q?Gr=FC=DFe?=')).toBe('Grüße');
+  });
+  it('parses vCards', () => {
+    const c = parseVcards('BEGIN:VCARD\r\nVERSION:3.0\r\nFN:Ana Sol\r\nORG:Keeper;Design\r\nTEL;TYPE=CELL:+351 900 000 000\r\nEMAIL;TYPE=WORK:ana@example.com\r\nADR;TYPE=HOME:;;Rua A 1;Lisboa;;1000;Portugal\r\nEND:VCARD\r\nBEGIN:VCARD\r\nN:Doe;John;;;\r\nEND:VCARD');
+    expect(c).toHaveLength(2);
+    expect(c[0]).toMatchObject({ name: 'Ana Sol', org: 'Keeper, Design', phones: [{ type: 'cell', value: '+351 900 000 000' }] });
+    expect(c[0].addresses[0].value).toBe('Rua A 1, Lisboa, 1000, Portugal');
+    expect(c[1].name).toBe('John Doe');
+  });
+  it('reads RTF text', () => {
+    const rtf = "{\\rtf1\\ansi{\\fonttbl{\\f0 Helvetica;}}{\\colortbl;\\red0\\green0\\blue0;}\\f0 Hello \\b world\\b0 .\\par Caf\\'e9 \\u8364?5\\par{\\*\\generator Something}}";
+    expect(rtfToText(rtf)).toBe('Hello world.\nCafé €5');
+  });
+  it('subtitles', () => {
+    const srt = '1\n00:00:01,000 --> 00:00:02,500\nHello <i>there</i>\n\n2\n00:00:03,000 --> 00:00:04,000\nBye\n';
+    expect(parseSubtitles(srt)).toEqual([{ start: 1, end: 2.5, text: 'Hello there' }, { start: 3, end: 4, text: 'Bye' }]);
+    expect(toVtt(srt)).toContain('00:00:01.000 --> 00:00:02.500');
+  });
+});

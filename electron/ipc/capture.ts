@@ -2,7 +2,7 @@
 // IPC for the screen tools: text capture, screenshots, recording, the colour
 // picker, the capture history and saving edited images.
 
-import { app, dialog, globalShortcut, ipcMain, shell } from 'electron';
+import { app, globalShortcut, ipcMain, shell } from 'electron';
 import { existsSync, promises as fsp } from 'node:fs';
 import path from 'node:path';
 import type { CaptureOptions } from '../../core/capture';
@@ -48,38 +48,42 @@ async function allowed(ctx: CaptureContext, p: string): Promise<boolean> {
   return path.isAbsolute(p) && roots.some((r) => isInside(p, r) || path.resolve(path.dirname(p)) === path.resolve(r));
 }
 
+/** Takes a screenshot; throws so callers can show the problem their own way. */
 export async function screenshot(mode: ScreenshotMode): Promise<string | null> {
   const ctx = ctxRef!;
-  try {
-    const p = await takeScreenshot(mode, ctx.preload);
-    if (!p) return null;
+  const p = await takeScreenshot(mode, ctx.preload);
+  if (!p) return null;
+  await ctx.added(p, true);
+  ctx.alert('Screenshot saved', path.basename(p), p);
+  if ((await getOptions()).annotateAfterScreenshot) ctx.navigate(`annotate:${p}`);
+  return p;
+}
+
+export async function startRecording(mode: RecordMode, opts: { mic?: boolean; systemAudio?: boolean; countdown?: number } = {}): Promise<RecordState> {
+  const ctx = ctxRef!;
+  if (!recorder) return { recording: false };
+  if (recorder.state.recording) return recorder.state;
+  const s = await recorder.start(mode, { ...opts, onCountdown: (n) => ctx.alert(`Recording in ${n}…`, 'Stop it from the Island, the tray or the shortcut') });
+  if (s.error) throw new Error(`Recording could not start: ${s.error}`);
+  return s;
+}
+
+export async function stopRecording(): Promise<string | null> {
+  const ctx = ctxRef!;
+  const p = (await recorder?.stop()) ?? null;
+  if (p) {
     await ctx.added(p, true);
-    ctx.alert('Screenshot saved', path.basename(p), p);
-    if ((await getOptions()).annotateAfterScreenshot) ctx.navigate(`annotate:${p}`);
-    return p;
-  } catch (e) {
-    dialog.showErrorBox('Screenshot', e instanceof Error ? e.message : String(e));
-    return null;
+    ctx.alert('Recording saved', path.basename(p), p);
   }
+  return p;
 }
 
 export async function toggleRecording(mode: RecordMode = 'full'): Promise<RecordState> {
-  const ctx = ctxRef!;
-  if (!recorder) return { recording: false };
-  if (recorder.state.recording) {
-    const p = await recorder.stop();
-    if (p) {
-      await ctx.added(p, true);
-      ctx.alert('Recording saved', path.basename(p), p);
-    }
+  if (recorder?.state.recording) {
+    await stopRecording();
     return recorder.state;
   }
-  try {
-    return await recorder.start(mode, { onCountdown: (n) => ctx.alert(`Recording in ${n}…`, 'Stop it from the Island, the tray or the shortcut') });
-  } catch (e) {
-    dialog.showErrorBox('Screen recording', e instanceof Error ? e.message : String(e));
-    return recorder.state;
-  }
+  return startRecording(mode);
 }
 
 export function recordingState(): RecordState {
@@ -88,14 +92,14 @@ export function recordingState(): RecordState {
 
 export async function colorPick() {
   const ctx = ctxRef!;
-  try {
-    const c = await pickColor(ctx.preload);
-    if (c) ctx.alert(`Copied ${c.hex}`, `${c.rgb} · ${c.hsl}`);
-    return c;
-  } catch (e) {
-    dialog.showErrorBox('Colour picker', e instanceof Error ? e.message : String(e));
-    return null;
-  }
+  const c = await pickColor(ctx.preload);
+  if (c) ctx.alert(`Copied ${c.hex}`, `${c.rgb} · ${c.hsl}`);
+  return c;
+}
+
+/** For shortcuts, the tray and links: problems show in the Island instead of a blocking dialog. */
+export function quietly<T>(fn: () => Promise<T>): void {
+  fn().catch((e: unknown) => ctxRef?.alert('Something went wrong', e instanceof Error ? e.message : String(e)));
 }
 
 /** Global shortcuts for screenshots, recording and the colour picker (called after the app's own). */
@@ -108,9 +112,9 @@ export async function registerCaptureShortcuts() {
       /* invalid or taken */
     }
   };
-  reg(o.screenshotShortcut, () => void screenshot('area'));
-  reg(o.recordShortcut, () => void toggleRecording('full'));
-  reg(o.colorShortcut, () => void colorPick());
+  reg(o.screenshotShortcut, () => quietly(() => screenshot('area')));
+  reg(o.recordShortcut, () => quietly(() => toggleRecording('full')));
+  reg(o.colorShortcut, () => quietly(() => colorPick()));
 }
 
 export function registerCaptureIpc(ctx: CaptureContext) {
@@ -122,16 +126,8 @@ export function registerCaptureIpc(ctx: CaptureContext) {
   handle('capture.clipboardImage', () => clipboardImage(ctx.langs()));
   handle('capture.readFile', (p: string) => readFile(p, ctx.langs()));
   handle('capture.screenshot', (mode: ScreenshotMode = 'full') => screenshot(mode));
-  handle('capture.record', (mode: RecordMode = 'full', opts?: { mic?: boolean; systemAudio?: boolean; countdown?: number }) =>
-    recorder!.state.recording ? recorder!.state : recorder!.start(mode, { ...opts, onCountdown: (n) => ctx.alert(`Recording in ${n}…`) }));
-  handle('capture.stopRecording', async () => {
-    const p = await recorder!.stop();
-    if (p) {
-      await ctx.added(p, true);
-      ctx.alert('Recording saved', path.basename(p), p);
-    }
-    return p;
-  });
+  handle('capture.record', (mode: RecordMode = 'full', opts?: { mic?: boolean; systemAudio?: boolean; countdown?: number }) => startRecording(mode, opts));
+  handle('capture.stopRecording', () => stopRecording());
   handle('capture.recordState', () => recorder!.state);
   handle('capture.color', () => colorPick());
   handle('capture.colors', async () => {

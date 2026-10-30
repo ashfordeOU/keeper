@@ -7,6 +7,7 @@ import { app, nativeImage } from 'electron';
 import { promises as fsp } from 'node:fs';
 import path from 'node:path';
 import { dHash, toGray9x8 } from '../../core/duplicates';
+import { extractPdfText } from '../../core/convert';
 import { cameraName, readExif } from '../../core/exif';
 import type { FileIndex } from '../../core/indexer';
 import type { FileEntry } from '../../core/types';
@@ -86,6 +87,7 @@ export class VisionQueue {
     const fresh = x && x.mtime === f.mtime;
     if (f.kind === 'image' && OCR_EXT.has(f.ext)) return !fresh || x!.dhash === undefined || (this.opts().ocr && x!.text === undefined && f.size < 40 * 1024 * 1024);
     if (TEXT_EXT.has(f.ext) && f.size < 1024 * 1024) return !fresh || x!.text === undefined;
+    if (f.ext === 'pdf' && f.size < 50 * 1024 * 1024) return !fresh || x!.text === undefined;
     return false;
   }
 
@@ -120,6 +122,18 @@ export class VisionQueue {
   }
 
   private async process(f: FileEntry) {
+    if (f.ext === 'pdf') {
+      // Text PDFs give their words directly; for scanned ones, read the first page with OCR.
+      const { text, pages } = await extractPdfText(f.path, 20_000);
+      this.index.setMeta(f.path, { ...(f.meta ?? {}), pages });
+      let found = text;
+      if (found.replace(/\s+/g, '').length < 20 && this.opts().ocr) {
+        const thumb = await loadImage(f.path, 1600).catch(() => null);
+        if (thumb) found = await ocrImage(thumb, this.opts().langs).catch(() => '');
+      }
+      this.index.setText(f.path, found);
+      return;
+    }
     if (TEXT_EXT.has(f.ext)) {
       const raw = await fsp.readFile(f.path, 'utf8');
       this.index.setText(f.path, (f.ext === 'rtf' ? raw.replace(/\\[a-z]+-?\d* ?|[{}]/g, '') : f.ext === 'html' || f.ext === 'htm' ? raw.replace(/<[^>]+>/g, ' ') : raw).slice(0, 20_000));

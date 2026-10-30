@@ -19,6 +19,10 @@ asarUnpack:
   - node_modules/tesseract.js/**
   - node_modules/tesseract.js-core/**
   - node_modules/ffmpeg-static/**
+  # Native modules load .node/.dll/.dylib files, which cannot be read from inside the archive.
+  - node_modules/sharp/**
+  - node_modules/@img/**
+  - node_modules/onnxruntime-node/**
 # No version in file names, so releases/latest/download/<name> links never go stale.
 artifactName: ${productName}-${os}-${arch}.${ext}
 publish: null

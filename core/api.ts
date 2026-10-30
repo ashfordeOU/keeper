@@ -6,6 +6,7 @@ import type { AgentSession, CalendarEvent, ClipItem, FocusState, LyricLine } fro
 import type { CaptureEntry, CaptureOptions, PickedColor } from './capture';
 import type { RenamePreview, RenameStep } from './rename';
 import type { Place, Weather } from './weather';
+import type { ConvertCapabilities, ConvertJob, ConvertResult } from './convert-types';
 import type { AwakeTrigger } from './awake';
 import type { KeeperApiX } from './api-x';
 import type { PreviewApi } from './previewTypes';
@@ -257,6 +258,15 @@ export interface IslandSettings {
 export interface KeeperApi extends KeeperApiX {
   /** universal file previews */
   preview: PreviewApi;
+  /** video, audio, picture, PDF and file tools; results always go to a new folder */
+  convert: {
+    run(job: ConvertJob): Promise<ConvertResult>;
+    capabilities(): Promise<ConvertCapabilities>;
+    /** how long a video or audio file is, in seconds */
+    duration(path: string): Promise<number | null>;
+    /** how many pages a PDF has */
+    pageCount(path: string): Promise<number | null>;
+  };
   system: {
     info(): Promise<SystemInfo>;
     disks(): Promise<DiskInfo[]>;
@@ -309,6 +319,7 @@ export interface KeeperApi extends KeeperApiX {
     setSecret(name: AiProvider | 'dictation' | 'upload', value: string): Promise<boolean>;
     hasSecret(name: AiProvider | 'dictation' | 'upload'): Promise<boolean>;
     pickFolder(): Promise<string | null>;
+    pickFiles(opts?: { title?: string; extensions?: string[] }): Promise<string[]>;
   };
   library: {
     status(): Promise<LibraryStatus>;

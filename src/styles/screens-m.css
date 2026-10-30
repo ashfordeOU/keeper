@@ -1,0 +1,28 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Convert screen. */
+
+.conv-drop { border-style: dashed; border-width: 1.5px; transition: border-color .15s, background .15s; }
+.conv-drop.drag { border-color: var(--accent); background: var(--accent-soft); }
+.conv-empty { display: flex; align-items: center; gap: 12px; color: var(--text-2); }
+.conv-files { display: flex; flex-direction: column; gap: 4px; max-height: 210px; overflow-y: auto; }
+.conv-file { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 8px; }
+.conv-file:hover { background: var(--bg-hover); }
+.conv-file .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.conv-cats { margin: 18px 0 12px; }
+.conv-grid { display: grid; grid-template-columns: minmax(220px, 300px) 1fr; gap: 14px; align-items: start; }
+.conv-tools { display: flex; flex-direction: column; gap: 6px; }
+.conv-tool { text-align: left; border: 1px solid var(--line); background: var(--bg-elev); border-radius: 11px; padding: 9px 12px; display: flex; flex-direction: column; gap: 2px; cursor: default; }
+.conv-tool b { font-weight: 600; font-size: 13px; }
+.conv-tool span { font-size: 11.5px; color: var(--text-3); }
+.conv-tool:hover { border-color: var(--line-strong); }
+.conv-tool.on { border-color: var(--accent); background: var(--accent-soft); }
+.conv-tool.dim { opacity: .5; }
+.conv-field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.conv-label { font-size: 12px; font-weight: 600; color: var(--text-2); }
+.conv-field input[type='range'] { accent-color: var(--accent); max-width: 320px; }
+.conv-warn, .conv-error { display: flex; gap: 8px; align-items: flex-start; margin-top: 12px; padding: 8px 10px; border-radius: 9px; }
+.conv-warn { background: var(--warn-soft); color: var(--warn); }
+.conv-error { background: var(--danger-soft); color: var(--danger); }
+.conv-result { margin-top: 14px; display: flex; flex-direction: column; gap: 6px; }
+.conv-out { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 9px; background: var(--bg-sunk); }
+@media (max-width: 1000px) { .conv-grid { grid-template-columns: 1fr; } }

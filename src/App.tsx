@@ -2,7 +2,6 @@
 // The main window: sidebar, search bar, the current page, and the inspector.
 
 import { Component, useEffect, useState, type ReactNode } from 'react';
-import { KIND_LABEL } from '../core/classify';
 import type { FileKind } from '../core/types';
 import { api } from './api';
 import { CommandPalette } from './components/CommandPalette';
@@ -17,9 +16,12 @@ import { Cleanup } from './screens/Cleanup';
 import { Downloads } from './screens/Downloads';
 import { Duplicates } from './screens/Duplicates';
 import { Health } from './screens/Health';
+import { Weather } from './screens/Weather';
+import { useT } from './i18n';
 import { History } from './screens/History';
 import { Home } from './screens/Home';
 import { IslandSettings } from './screens/IslandSettings';
+import { Widgets } from './screens/Widgets';
 import { Large } from './screens/Large';
 import { Library } from './screens/Library';
 import { Protection } from './screens/Protection';
@@ -29,6 +31,7 @@ import { Settings } from './screens/Settings';
 import { Space } from './screens/Space';
 import { Startup } from './screens/Startup';
 import { Tools } from './screens/Tools';
+import { Convert } from './screens/Convert';
 import { Capture } from './screens/Capture';
 import { Annotate } from './screens/Annotate';
 import { mod, shift, useAsync, useStore, type Route, type RouteName } from './state';
@@ -49,33 +52,35 @@ function NavItem({ route, icon, label, count, color }: { route: Route; icon?: st
 
 function Sidebar() {
   const { settings, version, info, updateSettings } = useStore();
+  const t = useT();
   const totals = useAsync(() => api.library.totals(), [version]);
   const tags = useAsync(() => api.library.tags(), [version]);
   const short = (n?: number) => (n === undefined ? undefined : n >= 1000 ? `${(n / 1000).toFixed(n >= 10_000 ? 0 : 1)}k` : String(n));
   return (
     <aside className="sidebar">
       <div className="brand"><div className="logo"><Icon name="home" size={15} stroke={2.2} /></div><span>Keeper</span></div>
-      <NavItem route={{ name: 'home' }} icon="home" label="Home" />
-      <NavItem route={{ name: 'recents' }} icon="clock" label="Recents" />
-      <NavItem route={{ name: 'browse', arg: info?.home }} icon="folder" label="Browse" />
-      <NavItem route={{ name: 'downloads' }} icon="down" label="Downloaded From" />
+      <NavItem route={{ name: 'home' }} icon="home" label={t('nav.home')} />
+      <NavItem route={{ name: 'recents' }} icon="clock" label={t('nav.recents')} />
+      <NavItem route={{ name: 'browse', arg: info?.home }} icon="folder" label={t('nav.browse')} />
+      <NavItem route={{ name: 'downloads' }} icon="down" label={t('nav.downloads')} />
+      <NavItem route={{ name: 'weather' }} icon="sun" label={t('nav.weather')} />
 
       <div className="nav-section">
-        <div className="nav-title">Library</div>
-        {SHELVES.map((k) => <NavItem key={k} route={{ name: 'library', arg: k }} color={KIND_COLOR[k]} label={KIND_LABEL[k]} count={short(totals.data?.[k].count)} />)}
-        <NavItem route={{ name: 'screenshots' }} icon="screenshot" label="Screenshots" />
+        <div className="nav-title">{t('section.library')}</div>
+        {SHELVES.map((k) => <NavItem key={k} route={{ name: 'library', arg: k }} color={KIND_COLOR[k]} label={t(`kind.${k}`)} count={short(totals.data?.[k].count)} />)}
+        <NavItem route={{ name: 'screenshots' }} icon="screenshot" label={t('kind.screenshot')} />
       </div>
 
       {settings?.savedSearches.length ? (
         <div className="nav-section">
-          <div className="nav-title">Saved searches</div>
+          <div className="nav-title">{t('section.saved')}</div>
           {settings.savedSearches.map((s) => <NavItem key={s.id} route={{ name: 'search', q: s.text, arg: s.id }} icon="search" label={s.name} />)}
         </div>
       ) : null}
 
       {settings?.pinned.length ? (
         <div className="nav-section">
-          <div className="nav-title">Pinned</div>
+          <div className="nav-title">{t('section.pinned')}</div>
           {settings.pinned.map((p) => (
             <div key={p} onContextMenu={(e) => { e.preventDefault(); void updateSettings({ pinned: settings.pinned.filter((x) => x !== p) }); }}>
               <NavItem route={{ name: 'browse', arg: p }} icon="folder" label={p.split(/[\\/]/).pop() || p} />
@@ -86,36 +91,38 @@ function Sidebar() {
 
       {tags.data?.length ? (
         <div className="nav-section">
-          <div className="nav-title">Tags</div>
+          <div className="nav-title">{t('section.tags')}</div>
           {tags.data.slice(0, 8).map((t) => <NavItem key={t.tag} route={{ name: 'tag', arg: t.tag }} icon="tag" label={t.tag} count={t.count} />)}
         </div>
       ) : null}
 
       <div className="nav-section">
-        <div className="nav-title">Tidy</div>
-        <NavItem route={{ name: 'cleanup' }} icon="broom" label="Clean Up" />
-        <NavItem route={{ name: 'duplicates' }} icon="dupes" label="Duplicates" />
-        <NavItem route={{ name: 'space' }} icon="map" label="Space Map" />
-        <NavItem route={{ name: 'large' }} icon="weight" label="Large Files" />
-        <NavItem route={{ name: 'rules' }} icon="rules" label="Automations" />
+        <div className="nav-title">{t('section.tidy')}</div>
+        <NavItem route={{ name: 'cleanup' }} icon="broom" label={t('nav.cleanup')} />
+        <NavItem route={{ name: 'duplicates' }} icon="dupes" label={t('nav.duplicates')} />
+        <NavItem route={{ name: 'space' }} icon="map" label={t('nav.space')} />
+        <NavItem route={{ name: 'large' }} icon="weight" label={t('nav.large')} />
+        <NavItem route={{ name: 'convert' }} icon="refresh" label={t('nav.convert')} />
+        <NavItem route={{ name: 'rules' }} icon="rules" label={t('nav.rules')} />
       </div>
 
       <div className="nav-section">
-        <div className="nav-title">System</div>
-        <NavItem route={{ name: 'health' }} icon="bolt" label="Health" />
-        <NavItem route={{ name: 'startup' }} icon="power" label="Startup Items" />
-        <NavItem route={{ name: 'apps' }} icon="app" label="Applications" />
-        <NavItem route={{ name: 'protection' }} icon="shield" label="Protection" />
+        <div className="nav-title">{t('section.system')}</div>
+        <NavItem route={{ name: 'health' }} icon="bolt" label={t('nav.health')} />
+        <NavItem route={{ name: 'startup' }} icon="power" label={t('nav.startup')} />
+        <NavItem route={{ name: 'apps' }} icon="app" label={t('nav.apps')} />
+        <NavItem route={{ name: 'protection' }} icon="shield" label={t('nav.protection')} />
       </div>
 
       <div className="nav-section">
-        <div className="nav-title">More</div>
-        <NavItem route={{ name: 'assistant' }} icon="assistant" label="Assistant" />
-        <NavItem route={{ name: 'capture' }} icon="screenshot" label="Capture" />
-        <NavItem route={{ name: 'tools' }} icon="terminal" label="Toolbox" />
-        <NavItem route={{ name: 'island' }} icon="island" label="Island" />
-        <NavItem route={{ name: 'history' }} icon="history" label="History" />
-        <NavItem route={{ name: 'settings' }} icon="settings" label="Settings" />
+        <div className="nav-title">{t('section.more')}</div>
+        <NavItem route={{ name: 'assistant' }} icon="assistant" label={t('nav.assistant')} />
+        <NavItem route={{ name: 'capture' }} icon="screenshot" label={t('nav.capture')} />
+        <NavItem route={{ name: 'tools' }} icon="terminal" label={t('nav.toolbox')} />
+        <NavItem route={{ name: 'island' }} icon="island" label={t('nav.island')} />
+        <NavItem route={{ name: 'widgets' }} icon="grid" label={t('nav.widgets')} />
+        <NavItem route={{ name: 'history' }} icon="history" label={t('nav.history')} />
+        <NavItem route={{ name: 'settings' }} icon="settings" label={t('nav.settings')} />
       </div>
     </aside>
   );
@@ -123,6 +130,7 @@ function Sidebar() {
 
 function TopBar({ onPalette }: { onPalette: () => void }) {
   const { route, go, back, canBack, settings, updateSettings } = useStore();
+  const t = useT();
   const [text, setText] = useState(route.name === 'search' ? route.q ?? '' : '');
   useEffect(() => {
     if (route.name === 'search') setText(route.q ?? '');
@@ -145,7 +153,7 @@ function TopBar({ onPalette }: { onPalette: () => void }) {
         <input
           id="search"
           value={text}
-          placeholder="Search in plain English — “pdfs from gmail last month”, “screenshots with wifi password”"
+          placeholder={t('search.placeholder')}
           onChange={(e) => {
             setText(e.target.value);
             if (e.target.value.trim()) go({ name: 'search', q: e.target.value });
@@ -216,9 +224,12 @@ function Page() {
     history: () => <History />,
     assistant: () => <Assistant />,
     island: () => <IslandSettings />,
+    widgets: () => <Widgets />,
     settings: () => <Settings />,
     tools: () => <Tools />,
+    convert: () => <Convert />,
     health: () => <Health />,
+    weather: () => <Weather />,
     capture: () => <Capture />,
     annotate: () => <Annotate />,
   };

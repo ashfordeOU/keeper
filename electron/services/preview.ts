@@ -90,6 +90,8 @@ export async function serveFile(req: Request): Promise<Response> {
     'accept-ranges': 'bytes',
     'content-security-policy': "default-src 'none'; img-src data: blob:; style-src 'unsafe-inline'; font-src data:",
     'x-content-type-options': 'nosniff',
+    // Lets the viewer read pixels (colour picker, histogram); only Keeper's own windows can reach this scheme.
+    'access-control-allow-origin': '*',
     'cache-control': 'no-cache',
   };
   const range = req.headers.get('range')?.match(/bytes=(\d*)-(\d*)/);
