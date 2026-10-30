@@ -113,3 +113,23 @@ describe('file cleanup cards', () => {
     expect(by['partial-downloads']).toEqual(['movie.mkv.crdownload']);
   });
 });
+
+describe('advanced cleanup', () => {
+  it('lists entries, drills into folders, and cleans only picked paths inside the target', async () => {
+    const { listTargetEntries, cleanTargetPaths } = await import('../core/cleanup/engine');
+    const { home, cache } = sandbox();
+    const t = target(cache);
+    const top = await listTargetEntries(t);
+    expect(top.map((e) => e.name).sort()).toEqual(['app', 'fresh.tmp', 'old.tmp']); // keepme is excluded
+    expect(top.find((e) => e.name === 'app')).toMatchObject({ isDir: true, size: 1000, files: 1 });
+    const inner = await listTargetEntries(t, path.join(cache, 'app'));
+    expect(inner.map((e) => e.name)).toEqual(['sub']);
+    await expect(listTargetEntries(t, path.join(cache, 'keepme'))).rejects.toThrow();
+    const ctx = { platform: process.platform, home };
+    const r = await cleanTargetPaths(t, ctx, [path.join(cache, 'old.tmp'), path.join(cache, 'keepme', 'b.bin'), path.join(home, 'outside.txt')]);
+    expect(r.removedPaths).toEqual([path.join(cache, 'old.tmp')]);
+    expect(r.failed).toBe(2);
+    expect(existsSync(path.join(cache, 'keepme', 'b.bin'))).toBe(true);
+    expect(existsSync(path.join(cache, 'app'))).toBe(true);
+  });
+});

@@ -38,6 +38,8 @@ export class IslandService {
   battery?: { percent: number; charging: boolean };
   mic: string[] = [];
   alerts: IslandAlert[] = [];
+  /** set while a screen recording runs */
+  recording?: { since: number };
   private blocker: number | null = null;
   private timers: NodeJS.Timeout[] = [];
   private watchers: FSWatcher[] = [];
@@ -80,7 +82,7 @@ export class IslandService {
     const breakIn = s.island.breakEvery > 0 ? Math.max(0, s.island.breakEvery * 60_000 - (Date.now() - this.activeSince)) : undefined;
     return {
       shelf: this.shelf, clips: this.clips.items, focus: this.focus, keepAwake: this.awake, agents: this.agents, events: this.events,
-      nowPlaying: this.playing, lyrics: this.lyrics, weather: this.weather, battery: this.battery, micInUse: this.mic, alerts: this.alerts, breakIn,
+      nowPlaying: this.playing, lyrics: this.lyrics, weather: this.weather, battery: this.battery, micInUse: this.mic, alerts: this.alerts, breakIn, recording: this.recording,
     };
   }
 

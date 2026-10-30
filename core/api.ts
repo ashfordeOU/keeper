@@ -3,10 +3,13 @@
 // exposes exactly this object as `window.keeper`; the demo build fakes it.
 
 import type { AgentSession, CalendarEvent, ClipItem, FocusState, LyricLine } from './island';
+import type { CaptureEntry, CaptureOptions, PickedColor } from './capture';
 import type { RenamePreview, RenameStep } from './rename';
 import type { Place, Weather } from './weather';
+import type { AwakeTrigger } from './awake';
+import type { WidgetConfig } from './widgets';
 import type {
-  AiMessage, AiProvider, AiReply, AppInfo, CleanResult, CleanupGroup, DiskInfo, DuplicateGroup, FileEntry, FileKind,
+  AiMessage, AiProvider, AiReply, AppInfo, CleanResult, CleanupEntry, CleanupGroup, DiskInfo, DuplicateGroup, FileEntry, FileKind,
   JournalEntry, ParsedQuery, Progress, ProtectionReport, Rule, RulePlanItem, SearchHit, Settings, SpaceNode, StartupItem,
 } from './types';
 
@@ -53,8 +56,10 @@ export interface NowPlaying {
 
 export interface IslandAlert {
   id: string;
-  kind: 'download' | 'screenshot' | 'focus' | 'agent' | 'battery' | 'info';
+  kind: 'download' | 'screenshot' | 'focus' | 'agent' | 'battery' | 'info' | 'notification';
   title: string;
+  /** the app a mirrored notification came from */
+  app?: string;
   detail?: string;
   path?: string;
   at: number;
@@ -104,11 +109,76 @@ export interface CaptureResult {
   text: string;
   /** decoded QR code / barcode, when the area contained one */
   code?: string;
+  /** barcode format of `code`: QR_CODE, EAN_13, CODE_128, … */
+  codeFormat?: string;
   image?: string;
 }
 
+export interface RecordState {
+  recording: boolean;
+  since?: number;
+  mode?: 'full' | 'window' | 'area';
+  path?: string;
+  error?: string;
+}
+
+export interface ShelfView {
+  id: string;
+  name: string;
+  color: string;
+  pinned?: boolean;
+  items: FileEntry[];
+}
+
+export interface DevicesState {
+  /** 0–100 */
+  volume?: number;
+  muted?: boolean;
+  /** displays whose brightness Keeper can change */
+  monitors: { id: string; name: string; brightness?: number; external: boolean }[];
+  /** wireless devices that report their charge */
+  bluetooth: { name: string; percent: number }[];
+  /** the helper used for external monitors, or why it is missing */
+  ddc?: string;
+}
+
+export type ShelfAction = 'zip' | 'copyText' | 'moveTo' | 'copyTo' | 'script' | 'upload' | 'copyPaths' | 'resize';
+
+export interface UploadSettings {
+  kind: 'none' | 'webdav' | 's3';
+  /** WebDAV folder URL, or the S3 endpoint (https://s3.eu-west-1.amazonaws.com, https://<account>.r2.cloudflarestorage.com, …) */
+  url: string;
+  username: string;
+  bucket: string;
+  region: string;
+  /** S3 access key id (the secret is kept in the keychain) */
+  accessKeyId: string;
+  /** folder inside the bucket or server */
+  prefix: string;
+  /** S3: how long shared links work */
+  expiresHours: number;
+  /** WebDAV: public base URL for links, if the server publishes uploads somewhere else */
+  publicUrl: string;
+}
+
+export interface ScriptAction {
+  id: string;
+  name: string;
+  /** a command; {files} {file} {dir} are filled in */
+  command: string;
+}
+
 export interface IslandState {
+  /** items of the active shelf (kept for older views) */
   shelf: FileEntry[];
+  shelves: ShelfView[];
+  activeShelf: string;
+  closedShelves: { id: string; name: string; color: string; count: number }[];
+  devices?: DevicesState;
+  /** reasons automatic keep-awake is on */
+  awakeTriggers?: string[];
+  /** hidden by the user or because an app is full screen */
+  hidden?: boolean;
   clips: ClipItem[];
   focus: FocusState;
   keepAwake: KeepAwakeState;
@@ -116,6 +186,8 @@ export interface IslandState {
   battery?: { percent: number; charging: boolean };
   /** remaining ms until the next break reminder, when break reminders are on */
   breakIn?: number;
+  /** a screen recording is running */
+  recording?: { since: number };
   agents: AgentSession[];
   events: CalendarEvent[];
   nowPlaying?: NowPlaying;
@@ -151,6 +223,33 @@ export interface IslandSettings {
   captureShortcut: string;
   /** play an alert when a download finishes / a screenshot is taken */
   downloadAlerts: boolean;
+  /** clipboard picker that pastes into the app in front */
+  pasteShortcut: string;
+  /** open the shelf from anywhere */
+  shelfShortcut: string;
+  hideShortcut: string;
+  awakeShortcut: string;
+  /** open the shelf when a file is dragged to the top edge of the screen */
+  edgeDrop: boolean;
+  clipMax: number;
+  /** forget unpinned, unfiled clips after this many days (0 = keep) */
+  clipRetentionDays: number;
+  /** never record copies made in these apps (password managers…) */
+  clipIgnoreApps: string[];
+  /** look up page titles of copied links (sends a request to that site) */
+  clipFetchTitles: boolean;
+  /** paste as plain text from the picker */
+  clipPlainPaste: boolean;
+  awakeTriggers: AwakeTrigger[];
+  /** keep an external drive from sleeping by touching a hidden file */
+  driveKeepAwake: { path: string; seconds: number } | null;
+  /** Linux: show other apps' notifications in the Island */
+  notifyMirror: boolean;
+  /** only these apps (empty = all) */
+  notifyApps: string[];
+  hideInFullscreen: boolean;
+  upload: UploadSettings;
+  scriptActions: ScriptAction[];
 }
 
 export interface KeeperApi {
@@ -168,16 +267,43 @@ export interface KeeperApi {
     text(): Promise<CaptureResult | null>;
     /** reads text from an image currently on the clipboard */
     clipboardImage(): Promise<CaptureResult | null>;
+    /** reads text (and codes) from an image or PDF file */
+    readFile(path: string): Promise<CaptureResult>;
+    /** saves a screenshot of the whole screen, a chosen window or a dragged area; returns its path */
+    screenshot(mode?: 'full' | 'window' | 'area'): Promise<string | null>;
+    record(mode?: 'full' | 'window' | 'area', opts?: { mic?: boolean; systemAudio?: boolean; countdown?: number }): Promise<RecordState>;
+    stopRecording(): Promise<string | null>;
+    recordState(): Promise<RecordState>;
+    /** pick a colour from anywhere on screen; it is copied as hex */
+    color(): Promise<PickedColor | null>;
+    /** the last 20 picked colours, newest first */
+    colors(): Promise<string[]>;
+    history(): Promise<CaptureEntry[]>;
+    removeHistory(id: string): Promise<void>;
+    clearHistory(): Promise<void>;
+    options(): Promise<CaptureOptions>;
+    setOptions(patch: Partial<CaptureOptions>): Promise<CaptureOptions>;
+    /** opens a link read from a QR code (http and https only) */
+    openLink(url: string): Promise<void>;
   };
   weather: {
     get(force?: boolean): Promise<Weather | null>;
     search(name: string): Promise<Place[]>;
   };
+  widgets: {
+    list(): Promise<WidgetConfig[]>;
+    save(widget: WidgetConfig): Promise<WidgetConfig[]>;
+    remove(id: string): Promise<WidgetConfig[]>;
+    /** images in a folder, for the photo widget */
+    photos(folder: string): Promise<string[]>;
+    /** the widget this window shows (inside a widget window) */
+    current(): Promise<WidgetConfig | null>;
+  };
   settings: {
     get(): Promise<Settings & { island: IslandSettings }>;
     set(patch: Partial<Settings & { island: Partial<IslandSettings> }>): Promise<Settings & { island: IslandSettings }>;
-    setSecret(name: AiProvider | 'dictation', value: string): Promise<boolean>;
-    hasSecret(name: AiProvider | 'dictation'): Promise<boolean>;
+    setSecret(name: AiProvider | 'dictation' | 'upload', value: string): Promise<boolean>;
+    hasSecret(name: AiProvider | 'dictation' | 'upload'): Promise<boolean>;
     pickFolder(): Promise<string | null>;
   };
   library: {
@@ -212,6 +338,11 @@ export interface KeeperApi {
     newFolder(dir: string, name: string): Promise<string>;
     compress(paths: string[]): Promise<string>;
     startDrag(paths: string[]): void;
+    /** a full-size image as a data URL, for the editor (library folders only) */
+    readImage(path: string): Promise<string>;
+    /** saves a PNG; an existing image's path saves next to it as "name (edited).png". Returns the saved path. */
+    writeImage(path: string, dataUrl: string): Promise<string>;
+    copyImage(dataUrl: string): Promise<void>;
     /** the real path of a file dropped from the system (desktop app only) */
     pathOf?(file: File): string;
   };
@@ -221,6 +352,8 @@ export interface KeeperApi {
   cleanup: {
     scan(): Promise<CleanupGroup[]>;
     clean(groups: { id: string; paths?: string[] }[]): Promise<CleanResult>;
+    /** what is inside a group (or a folder within it), for the advanced view */
+    details(id: string, dir?: string): Promise<CleanupEntry[]>;
   };
   space: {
     tree(path: string): Promise<SpaceNode>;
@@ -268,10 +401,38 @@ export interface KeeperApi {
     typeText(text: string): Promise<void>;
     dismiss(alertId: string): Promise<void>;
     setExpanded(expanded: boolean): void;
+    createShelf(name?: string): Promise<void>;
+    selectShelf(id: string): Promise<void>;
+    renameShelf(id: string, name: string): Promise<void>;
+    setShelfColor(id: string, color: string): Promise<void>;
+    pinShelf(id: string): Promise<void>;
+    closeShelf(id: string): Promise<void>;
+    reopenShelf(id: string): Promise<void>;
+    moveShelfItem(from: number, to: number): Promise<void>;
+    renameShelfItem(path: string, name: string): Promise<void>;
+    /** runs an action on the active shelf's files (or the given paths) */
+    shelfAction(action: ShelfAction, arg?: string, paths?: string[]): Promise<{ message: string; link?: string }>;
+    updateClip(id: string, patch: { note?: string }): Promise<void>;
+    toggleClipCollection(id: string, name: string): Promise<void>;
+    /** puts a clip on the clipboard and pastes it into the app in front */
+    pasteClip(id: string, plain?: boolean): Promise<void>;
+    exportClips(): Promise<string | null>;
+    importClips(): Promise<number>;
+    openClips(): Promise<void>;
+    closeClips(): void;
+    openShelf(): Promise<void>;
+    hide(hidden: boolean): Promise<void>;
+    setVolume(value: number): Promise<void>;
+    setMuted(muted: boolean): Promise<void>;
+    setBrightness(monitorId: string, value: number): Promise<void>;
+    refreshDevices(): Promise<DevicesState>;
+    /** what the automatic keep-awake rules see right now */
+    awakeStatus(): Promise<{ active: string[]; snapshot: Record<string, unknown> }>;
   };
   on(channel: 'progress', cb: (p: Progress) => void): () => void;
   on(channel: 'library-changed' | 'island-changed', cb: () => void): () => void;
   on(channel: 'navigate', cb: (route: string) => void): () => void;
   on(channel: 'dictation', cb: (state: 'start' | 'stop') => void): () => void;
   on(channel: 'palette', cb: () => void): () => void;
+  on(channel: 'widgets-changed', cb: () => void): () => void;
 }

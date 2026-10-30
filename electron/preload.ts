@@ -12,18 +12,18 @@ function group(name: string, methods: string[]) {
 
 const api = {
   system: group('system', ['info', 'disks', 'health', 'killProcess', 'ejectAll', 'wifiNetworks', 'openExternal']),
-  capture: group('capture', ['text', 'clipboardImage']),
+  capture: group('capture', ['text', 'clipboardImage', 'readFile', 'screenshot', 'record', 'stopRecording', 'recordState', 'color', 'colors', 'history', 'removeHistory', 'clearHistory', 'options', 'setOptions', 'openLink']),
   weather: group('weather', ['get', 'search']),
   settings: group('settings', ['get', 'set', 'setSecret', 'hasSecret', 'pickFolder']),
   library: group('library', ['status', 'rescan', 'totals', 'recent', 'list', 'search', 'bySource', 'tags', 'setTags', 'inspect', 'readText', 'largeFiles']),
   files: {
-    ...group('files', ['browse', 'thumbnail', 'icon', 'open', 'openWith', 'reveal', 'copyPaths', 'copyText', 'trash', 'move', 'copy', 'rename', 'previewRename', 'applyRename', 'newFolder', 'compress']),
+    ...group('files', ['browse', 'thumbnail', 'icon', 'open', 'openWith', 'reveal', 'copyPaths', 'copyText', 'trash', 'move', 'copy', 'rename', 'previewRename', 'applyRename', 'newFolder', 'compress', 'readImage', 'writeImage', 'copyImage']),
     startDrag: (paths: string[]) => ipcRenderer.send('files.startDrag', paths),
     /** the real path of a File dropped from the OS */
     pathOf: (file: File) => webUtils.getPathForFile(file),
   },
   duplicates: group('duplicates', ['scan']),
-  cleanup: group('cleanup', ['scan', 'clean']),
+  cleanup: group('cleanup', ['scan', 'clean', 'details']),
   space: group('space', ['tree']),
   startup: group('startup', ['list', 'toggle']),
   apps: group('apps', ['list', 'uninstall']),

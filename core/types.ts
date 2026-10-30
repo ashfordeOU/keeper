@@ -177,6 +177,17 @@ export interface CleanupGroup {
   note?: string;
 }
 
+/** One file or folder inside a cleanup group, for picking exactly what goes. */
+export interface CleanupEntry {
+  path: string;
+  name: string;
+  isDir: boolean;
+  size: number;
+  /** files inside, for folders */
+  files: number;
+  mtime: number;
+}
+
 export interface CleanResult {
   freed: number;
   removed: number;
@@ -372,6 +383,8 @@ export interface Settings {
   savedSearches: SavedSearch[];
   pinned: string[];
   ai: { provider: AiProvider; model: string; ollamaUrl: string };
+  /** desktop widgets (see core/widgets.ts) */
+  widgets: import('./widgets').WidgetConfig[];
   /** check for new releases on GitHub once a day */
   updateCheck: boolean;
   language: string;

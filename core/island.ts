@@ -275,42 +275,120 @@ export async function scanAgentSessions(home = os.homedir(), now = Date.now()): 
 
 // ---------------------------------------------------------------- clipboard history
 
+export type ClipKind = 'text' | 'link' | 'code' | 'color' | 'image' | 'file';
+
 export interface ClipItem {
   id: string;
-  kind: 'text' | 'image' | 'file';
+  kind: ClipKind;
   text?: string;
   /** data: URL for images (kept small) */
   image?: string;
   at: number;
   pinned?: boolean;
+  /** the app that was in front when it was copied */
+  source?: string;
+  /** the user's own note */
+  note?: string;
+  /** named lists the user filed it under */
+  collections?: string[];
+  /** text read from a copied image, so images are searchable too */
+  ocr?: string;
+  /** page title of a copied link, when fetching titles is on */
+  title?: string;
+}
+
+/** Decides how a piece of copied text should be shown. */
+export function detectClipKind(text: string): ClipKind {
+  const t = text.trim();
+  if (/^https?:\/\/\S+$/i.test(t)) return 'link';
+  if (/^(#([0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})|(rgb|rgba|hsl|hsla|oklch)\([^)]{3,60}\))$/i.test(t)) return 'color';
+  const lines = t.split('\n');
+  if (lines.every((l) => /^(\/|[A-Za-z]:\\|~\/)[^\n]+$/.test(l.trim())) && lines.length <= 50 && !/\s{2,}/.test(t)) return 'file';
+  // Code: several lines with indentation and symbols typical of programs, or one line that is clearly code.
+  const codey = (l: string) => /[{};=<>()[\]]|^\s{2,}\S|=>|::|^\s*(import|export|const|let|var|def|class|function|return|if|for|while|public|private|#include|SELECT|FROM)\b/.test(l);
+  const hits = lines.filter(codey).length;
+  if ((lines.length >= 2 && hits / lines.length >= 0.5) || /^\s*(const|let|var|function|def|class|import|SELECT)\b.*[=({;:]/.test(t)) return 'code';
+  return 'text';
+}
+
+export interface ClipFilter {
+  q?: string;
+  kind?: ClipKind;
+  source?: string;
+  collection?: string;
 }
 
 export class ClipHistory {
   items: ClipItem[] = [];
-  constructor(public max = 50) {}
+  constructor(public max = 50, public maxAgeDays = 0) {}
 
-  /** Adds an item unless it repeats the newest one. Re-copying an old item moves it to the top. */
+  /** Adds an item unless it repeats the newest one. Re-copying an old item moves it to the top and keeps its pin, note and lists. */
   add(item: Omit<ClipItem, 'id' | 'at'>, now = Date.now()): ClipItem | undefined {
     const key = item.text ?? item.image ?? '';
     if (!key.trim()) return undefined;
     const existing = this.items.findIndex((i) => (i.text ?? i.image) === key);
     if (existing === 0) return undefined;
-    let pinned = false;
-    if (existing > 0) pinned = !!this.items.splice(existing, 1)[0].pinned;
-    const it: ClipItem = { ...item, id: `${now.toString(36)}${Math.random().toString(36).slice(2, 6)}`, at: now, pinned };
-    this.items.unshift(it);
-    // Drop the oldest unpinned items beyond the limit.
-    while (this.items.length > this.max) {
-      const idx = this.items.map((x) => !x.pinned).lastIndexOf(true);
-      if (idx < 0) break;
-      this.items.splice(idx, 1);
+    let keep: Partial<ClipItem> = {};
+    if (existing > 0) {
+      const old = this.items.splice(existing, 1)[0];
+      keep = { pinned: old.pinned, note: old.note, collections: old.collections, ocr: old.ocr, title: old.title };
     }
+    const it: ClipItem = { ...item, ...Object.fromEntries(Object.entries(keep).filter(([, v]) => v !== undefined)), id: `${now.toString(36)}${Math.random().toString(36).slice(2, 6)}`, at: now, pinned: !!keep.pinned };
+    this.items.unshift(it);
+    this.trim(now);
     return it;
   }
 
+  /** Drops the oldest unpinned items beyond the limit, and unpinned items older than the retention period. */
+  trim(now = Date.now()) {
+    if (this.maxAgeDays > 0) {
+      const cutoff = now - this.maxAgeDays * 86_400_000;
+      this.items = this.items.filter((i) => i.pinned || (i.collections?.length ?? 0) > 0 || i.at >= cutoff);
+    }
+    while (this.items.length > this.max) {
+      const idx = this.items.map((x) => !x.pinned && !(x.collections?.length)).lastIndexOf(true);
+      if (idx < 0) break;
+      this.items.splice(idx, 1);
+    }
+  }
+
+  get(id: string): ClipItem | undefined {
+    return this.items.find((i) => i.id === id);
+  }
+
+  update(id: string, patch: Partial<Pick<ClipItem, 'note' | 'ocr' | 'title' | 'collections'>>) {
+    const it = this.get(id);
+    if (it) Object.assign(it, patch);
+  }
+
   togglePin(id: string) {
-    const it = this.items.find((i) => i.id === id);
+    const it = this.get(id);
     if (it) it.pinned = !it.pinned;
+  }
+
+  toggleCollection(id: string, name: string) {
+    const it = this.get(id);
+    const n = name.trim();
+    if (!it || !n) return;
+    const list = it.collections ?? [];
+    it.collections = list.includes(n) ? list.filter((c) => c !== n) : [...list, n];
+  }
+
+  collections(): string[] {
+    return [...new Set(this.items.flatMap((i) => i.collections ?? []))].sort();
+  }
+
+  sources(): string[] {
+    return [...new Set(this.items.map((i) => i.source).filter((s): s is string => !!s))].sort();
+  }
+
+  /** Pinned items first, then newest; matches text, notes, page titles, text inside images and the source app. */
+  search(f: ClipFilter = {}): ClipItem[] {
+    const q = f.q?.trim().toLowerCase();
+    return this.items
+      .filter((i) => (!f.kind || i.kind === f.kind) && (!f.source || i.source === f.source) && (!f.collection || i.collections?.includes(f.collection)))
+      .filter((i) => !q || [i.text, i.note, i.title, i.ocr, i.source].some((x) => x?.toLowerCase().includes(q)))
+      .sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned) || b.at - a.at);
   }
 
   remove(id: string) {
@@ -318,7 +396,28 @@ export class ClipHistory {
   }
 
   clear() {
-    this.items = this.items.filter((i) => i.pinned);
+    this.items = this.items.filter((i) => i.pinned || (i.collections?.length ?? 0) > 0);
+  }
+
+  /** A backup the user can keep or move to another computer. */
+  export(): string {
+    return JSON.stringify({ format: 'keeper-clipboard', version: 1, items: this.items }, null, 2);
+  }
+
+  /** Merges a backup; items already present are skipped. Returns how many were added. */
+  import(json: string): number {
+    const data = JSON.parse(json) as { format?: string; items?: ClipItem[] };
+    if (data.format !== 'keeper-clipboard' || !Array.isArray(data.items)) throw new Error('This is not a Keeper clipboard backup');
+    const have = new Set(this.items.map((i) => i.text ?? i.image));
+    let n = 0;
+    for (const it of data.items) {
+      if (!it || typeof it.id !== 'string' || have.has(it.text ?? it.image)) continue;
+      this.items.push({ ...it, kind: it.kind ?? 'text' });
+      n++;
+    }
+    this.items.sort((a, b) => b.at - a.at);
+    this.trim();
+    return n;
   }
 }
 

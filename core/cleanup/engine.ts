@@ -105,7 +105,7 @@ export async function cleanTarget(t: CacheTarget, ctx: SafetyContext, opts: { si
 
   const note = (err: unknown) => {
     const code = (err as NodeJS.ErrnoException)?.code;
-    if (code === 'EBUSY' || code === 'ETXTBSY' || code === 'EPERM' && process.platform === 'win32') out.inUse++;
+    if (code === 'EBUSY' || code === 'ETXTBSY' || (code === 'EPERM' && process.platform === 'win32')) out.inUse++;
     else if (code === 'EACCES' || code === 'EPERM') out.denied++;
     else out.failed++;
   };
@@ -186,4 +186,102 @@ export async function sizeOf(p: string): Promise<{ size: number; files: number }
   let files = 0;
   await walk(p, { raw: true, showHidden: true, onEntry: (e) => { if (e.stats.isFile()) { size += e.stats.size; files++; } } });
   return { size, files };
+}
+
+// ---------------------------------------------------------------- advanced: pick exactly what goes
+
+export interface TargetEntry {
+  path: string;
+  name: string;
+  isDir: boolean;
+  size: number;
+  files: number;
+  mtime: number;
+  /** the root this entry belongs to */
+  root: string;
+}
+
+/** Is `p` inside one of the target's roots, and not inside a name the target keeps? */
+export function withinTarget(p: string, roots: string[], t: CacheTarget): string | undefined {
+  const excluded = new Set((t.exclude ?? []).map((e) => e.toLowerCase()));
+  for (const r of roots) {
+    if (!isInside(p, r)) continue;
+    if (excluded.has(topName(r, p))) return undefined;
+    return r;
+  }
+  return undefined;
+}
+
+/**
+ * What is inside a cache target: the top level of every root, or the contents
+ * of `dir` when the user drills into a folder. Sizes are measured in full.
+ */
+export async function listTargetEntries(t: CacheTarget, dir?: string, opts: { limit?: number } = {}): Promise<TargetEntry[]> {
+  const roots = await expandRoots(t.roots);
+  const places: { dir: string; root: string }[] = [];
+  if (dir) {
+    const root = withinTarget(dir, roots, t) ?? (roots.includes(dir) ? dir : undefined);
+    if (!root) throw new Error('That folder is not part of this group');
+    places.push({ dir, root });
+  } else {
+    for (const r of roots) places.push({ dir: r, root: r });
+  }
+  const excluded = new Set((t.exclude ?? []).map((e) => e.toLowerCase()));
+  const out: TargetEntry[] = [];
+  for (const place of places) {
+    let names: string[] = [];
+    try {
+      names = await fsp.readdir(place.dir);
+    } catch {
+      continue;
+    }
+    for (const n of names) {
+      if (place.dir === place.root && excluded.has(n.toLowerCase())) continue;
+      const p = path.join(place.dir, n);
+      try {
+        const st = await fsp.lstat(p);
+        if (st.isSymbolicLink()) continue;
+        const isDir = st.isDirectory();
+        const { size, files } = isDir ? await sizeOf(p) : { size: st.size, files: 1 };
+        out.push({ path: p, name: n, isDir, size, files, mtime: Math.max(st.mtimeMs, st.birthtimeMs || 0), root: place.root });
+      } catch {
+        /* vanished or no permission */
+      }
+      if (opts.limit && out.length >= opts.limit) break;
+    }
+  }
+  return out.sort((a, b) => b.size - a.size);
+}
+
+/** Deletes exactly the chosen entries, each re-checked to be inside the target and removable. */
+export async function cleanTargetPaths(t: CacheTarget, ctx: SafetyContext, paths: string[], opts: { dryRun?: boolean } = {}): Promise<CleanOutcome> {
+  const out: CleanOutcome = { freed: 0, removed: 0, failed: 0, inUse: 0, denied: 0, removedPaths: [] };
+  const roots = await expandRoots(t.roots);
+  // Drop entries nested inside another chosen entry: removing the parent covers them.
+  const unique = paths.filter((p) => !paths.some((o) => o !== p && isInside(p, o)));
+  for (const p of unique) {
+    const root = withinTarget(p, roots, t);
+    if (!root) {
+      out.failed++;
+      continue;
+    }
+    const v = await checkRemovable(p, ctx, [root]);
+    if (!v.ok) {
+      out.failed++;
+      continue;
+    }
+    try {
+      const { size } = await sizeOf(p);
+      if (!opts.dryRun) await fsp.rm(p, { recursive: true, force: true, maxRetries: 1 });
+      out.freed += size;
+      out.removed++;
+      out.removedPaths.push(p);
+    } catch (e) {
+      const code = (e as NodeJS.ErrnoException)?.code;
+      if (code === 'EBUSY' || code === 'ETXTBSY') out.inUse++;
+      else if (code === 'EACCES' || code === 'EPERM') out.denied++;
+      else out.failed++;
+    }
+  }
+  return out;
 }

@@ -315,6 +315,17 @@ export function createMockApi(): KeeperApi {
         const freed = groups.reduce((n, g) => n + (all.find((x) => x.id === g.id)?.size ?? 0), 0);
         return delay({ ...ok, freed, removed: groups.length, journalId: 'demo' }, 1000);
       },
+      details: async (id, dir) => {
+        const g = cleanupGroups().find((x) => x.id === id);
+        if (!g) return [];
+        if (g.items) return g.items.map((f) => ({ path: f.path, name: f.name, isDir: false, size: f.size, files: 1, mtime: f.mtime }));
+        const base = dir ?? g.locations[0].replace('~', HOME);
+        const names = dir ? ['data_0', 'data_1', 'index', 'f_000a1c', 'f_000b2d', 'journal.log'] : ['Default', 'Profile 1', 'GPUCache', 'Code Cache', 'ShaderCache', 'Service Worker', 'old-session', 'blob_storage'];
+        return delay(names.map((n, i) => ({
+          path: `${base}/${n}`, name: n, isDir: !n.includes('.') && !n.startsWith('f_'), size: Math.round((g.size / (i + 2)) / (dir ? 4 : 1)),
+          files: dir ? 1 : 40 + i * 13, mtime: now - (i * 9 + 1) * DAY,
+        })), 250);
+      },
     },
     space: { tree: async (p) => delay(spaceTree(p), 300) },
     startup: {

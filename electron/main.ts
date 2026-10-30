@@ -9,7 +9,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { IslandSettings, KeepAwakeOptions } from '../core/api';
 import { askAssistant } from '../core/ai';
-import { cleanTarget, expandRoots, measureTarget, sizeOf } from '../core/cleanup/engine';
+import { cleanTarget, cleanTargetPaths, expandRoots, listTargetEntries, measureTarget, sizeOf } from '../core/cleanup/engine';
 import { fileCleanupGroups, largeFiles } from '../core/cleanup/files';
 import { cacheTargets } from '../core/cleanup/targets';
 import { findExactDuplicates, findFormatPairs, findSimilarImages } from '../core/duplicates';
@@ -25,7 +25,8 @@ import type { AiMessage, CleanResult, CleanupGroup, FileEntry, FileKind, Journal
 import { walk } from '../core/walk';
 import { searchPlaces } from '../core/weather';
 import { listApps, uninstall } from './services/apps';
-import { captureText, clipboardImage } from './services/capture';
+import { captureText } from './services/capture';
+import { colorPick, recordingState, registerCaptureIpc, registerCaptureShortcuts, screenshot, toggleRecording } from './ipc/capture';
 import { FileService } from './services/files';
 import { IslandService } from './services/island';
 import { checkProtection } from './services/protection';
@@ -220,6 +221,19 @@ async function updateTray() {
     { label: 'Open Keeper', click: () => showMain() },
     { label: 'Quick Search', accelerator: settings().quickSearchShortcut, click: toggleQuick },
     { label: 'Copy Text from Screen', accelerator: settings().island.captureShortcut, click: () => void doCapture() },
+    { label: 'Take Screenshot', submenu: [
+      { label: 'Area…', click: () => void screenshot('area') },
+      { label: 'Window…', click: () => void screenshot('window') },
+      { label: 'Whole Screen', click: () => void screenshot('full') },
+    ] },
+    recordingState().recording
+      ? { label: 'Stop Recording', click: () => void toggleRecording() }
+      : { label: 'Record Screen', submenu: [
+        { label: 'Whole Screen', click: () => void toggleRecording('full') },
+        { label: 'Window…', click: () => void toggleRecording('window') },
+        { label: 'Area…', click: () => void toggleRecording('area') },
+      ] },
+    { label: 'Pick a Colour', click: () => void colorPick() },
     { label: awake ? 'Stop Keeping Awake' : 'Keep Awake', submenu: awake ? undefined : [
       { label: 'Until I turn it off', click: () => islandSvc.keepAwake(true) },
       { label: 'For 1 hour', click: () => islandSvc.keepAwake(true, { minutes: 60 }) },
@@ -252,6 +266,7 @@ function registerShortcuts() {
     dictating = !dictating;
     island.webContents.send('event:dictation', dictating ? 'start' : 'stop');
   });
+  void registerCaptureShortcuts();
 }
 
 async function doCapture() {
@@ -277,6 +292,9 @@ function handleDeepLink(url: string) {
       showMain(`browse:${path.dirname(p)}`);
     } else if (action === 'search') showMain(`search:${u.searchParams.get('q') ?? ''}`);
     else if (action === 'capture') void doCapture();
+    else if (action === 'screenshot') void screenshot((u.searchParams.get('mode') as 'full' | 'window' | 'area') ?? 'area');
+    else if (action === 'record') void toggleRecording((u.searchParams.get('mode') as 'full' | 'window' | 'area') ?? 'full');
+    else if (action === 'color') void colorPick();
     else if (action === 'quick') toggleQuick();
     else if (action === 'clean') showMain('cleanup');
     else if (action === 'awake') islandSvc.keepAwake(u.searchParams.get('on') !== 'false', { minutes: Number(u.searchParams.get('minutes')) || undefined });
@@ -443,7 +461,8 @@ async function clean(req: { id: string; paths?: string[] }[]): Promise<CleanResu
     } else {
       const target = cacheTargets(env).find((t) => t.id === group.id);
       if (!target) continue;
-      const out = await cleanTarget(target, ctx);
+      // Advanced mode: only the entries the user ticked, each re-checked to be inside this group.
+      const out = r.paths ? await cleanTargetPaths(target, ctx, r.paths) : await cleanTarget(target, ctx);
       total.freed += out.freed;
       total.removed += out.removed;
       total.failed += out.failed;
@@ -573,7 +592,6 @@ function registerIpc() {
   });
 
   handle('capture.text', () => doCapture());
-  handle('capture.clipboardImage', () => clipboardImage(settings().ocrLanguages));
   handle('weather.get', (force?: boolean) => islandSvc.pollWeather(force).then((w) => w ?? null));
   handle('weather.search', (name: string) => searchPlaces(name));
 
@@ -662,6 +680,16 @@ function registerIpc() {
 
   handle('cleanup.scan', scanCleanup);
   handle('cleanup.clean', clean);
+  handle('cleanup.details', async (id: string, dir?: string) => {
+    const group = lastCleanup.find((g) => g.id === id);
+    if (!group) throw new Error('Scan again to see what is inside');
+    if (group.items) {
+      return group.items.map((f) => ({ path: f.path, name: f.name, isDir: false, size: f.size, files: 1, mtime: f.mtime }));
+    }
+    const target = cacheTargets(targetEnv()).find((t) => t.id === id);
+    if (!target) return [];
+    return (await listTargetEntries(target, dir, { limit: 2000 })).map(({ root: _root, ...e }) => e);
+  });
   handle('space.tree', (p: string) => spaceTree(p));
   handle('startup.list', listStartup);
   handle('startup.toggle', (id: string, enabled: boolean) => toggleStartup(id, enabled));
@@ -760,6 +788,23 @@ app.whenReady().then(async () => {
   vision = new VisionQueue(index, () => ({ ocr: settings().ocrEnabled, langs: settings().ocrLanguages }), libraryChanged);
   islandSvc = new IslandService(index, () => broadcast('island-changed'));
   registerIpc();
+  registerCaptureIpc({
+    preload: capturePreload(),
+    langs: () => settings().ocrLanguages,
+    folders: () => settings().folders,
+    added: async (p, shelf) => {
+      await index.refresh(p);
+      if (shelf) await islandSvc.addToShelf([p]);
+      libraryChanged();
+    },
+    alert: (title, detail, p) => islandSvc.alert({ kind: p ? 'screenshot' : 'info', title, detail, path: p }),
+    recording: (r) => {
+      islandSvc.recording = r.recording && r.since ? { since: r.since } : undefined;
+      broadcast('island-changed');
+      void updateTray();
+    },
+    navigate: (route) => showMain(route),
+  });
 
   await index.load();
   createMain();

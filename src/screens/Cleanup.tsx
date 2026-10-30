@@ -2,9 +2,9 @@
 // Clean Up: one scan finds rebuildable clutter (deleted for good) and your own
 // forgotten files (always sent to the Trash, reviewable one by one).
 
-import { useEffect, useState } from 'react';
-import { formatBytes } from '../../core/format';
-import type { CleanResult, CleanupGroup, Progress } from '../../core/types';
+import { useEffect, useMemo, useState } from 'react';
+import { formatBytes, relativeTime } from '../../core/format';
+import type { CleanResult, CleanupEntry, CleanupGroup, Progress } from '../../core/types';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
 import { Check, Empty, Modal, PageHead, SafetyBadge, Thumb } from '../components/ui';
@@ -27,6 +27,10 @@ export function Cleanup() {
   const [confirm, setConfirm] = useState(false);
   const [cleaning, setCleaning] = useState(false);
   const [result, setResult] = useState<CleanResult | null>(null);
+  const [advanced, setAdvancedState] = useState<boolean>(() => { try { return localStorage.getItem('cleanup.advanced') === '1'; } catch { return false; } });
+  // Advanced mode: exactly which files and folders go, per group (path → size).
+  const [custom, setCustom] = useState<Record<string, Map<string, number>>>({});
+  const setAdvanced = (v: boolean) => { setAdvancedState(v); try { localStorage.setItem('cleanup.advanced', v ? '1' : '0'); } catch { /* storage unavailable */ } };
 
   useEffect(() => api.on('progress', (p: Progress) => { if (p.task === 'junk' || p.task === 'cleanup') setProgress(p); }), []);
 
@@ -39,13 +43,18 @@ export function Cleanup() {
       setGroups(g);
       setPicked(Object.fromEntries(g.map((x) => [x.id, x.preselect])));
       setFiles(Object.fromEntries(g.filter((x) => x.items).map((x) => [x.id, new Set(x.items!.map((f) => f.path))])));
+      setCustom({});
     } finally {
       setScanning(false);
     }
   };
 
-  const sizeOf = (g: CleanupGroup) => (g.items ? g.items.filter((f) => files[g.id]?.has(f.path)).reduce((n, f) => n + f.size, 0) : g.size);
-  const chosen = (groups ?? []).filter((g) => picked[g.id] && (!g.items || (files[g.id]?.size ?? 0) > 0));
+  const sizeOf = (g: CleanupGroup) => {
+    const c = custom[g.id];
+    if (c) return [...c.values()].reduce((n, s) => n + s, 0);
+    return g.items ? g.items.filter((f) => files[g.id]?.has(f.path)).reduce((n, f) => n + f.size, 0) : g.size;
+  };
+  const chosen = (groups ?? []).filter((g) => (custom[g.id] ? custom[g.id].size > 0 : picked[g.id] && (!g.items || (files[g.id]?.size ?? 0) > 0)));
   const total = (groups ?? []).reduce((n, g) => n + g.size, 0);
   const selectedSize = chosen.reduce((n, g) => n + sizeOf(g), 0);
   const permanent = chosen.filter((g) => g.mode !== 'files');
@@ -55,7 +64,7 @@ export function Cleanup() {
     setConfirm(false);
     setCleaning(true);
     try {
-      const r = await api.cleanup.clean(chosen.map((g) => ({ id: g.id, paths: g.items ? [...(files[g.id] ?? [])] : undefined })));
+      const r = await api.cleanup.clean(chosen.map((g) => ({ id: g.id, paths: custom[g.id] ? [...custom[g.id].keys()] : g.items ? [...(files[g.id] ?? [])] : undefined })));
       setResult(r);
       setGroups(null);
       refresh();
@@ -88,7 +97,12 @@ export function Cleanup() {
 
   return (
     <div>
-      <PageHead title="Clean Up" sub="One scan finds caches, logs, old installers, forgotten downloads and more. Nothing is removed until you choose." />
+      <PageHead title="Clean Up" sub="One scan finds caches, logs, old installers, forgotten downloads and more. Nothing is removed until you choose.">
+        <div className="seg" title="Advanced lets you open every group and pick exactly which files and folders go">
+          <button className={!advanced ? 'on' : ''} onClick={() => setAdvanced(false)}>Simple</button>
+          <button className={advanced ? 'on' : ''} onClick={() => setAdvanced(true)}><Icon name="list" size={13} /> Advanced</button>
+        </div>
+      </PageHead>
 
       <div className="hero" style={{ marginBottom: 18 }}>
         <div className="grow">
@@ -125,7 +139,7 @@ export function Cleanup() {
         {(groups ?? []).map((g) => (
           <div key={g.id} className="card group-card">
             <div className="head">
-              <Check on={!!picked[g.id]} onChange={(v) => setPicked((p) => ({ ...p, [g.id]: v }))} />
+              <Check on={custom[g.id] ? custom[g.id].size > 0 : !!picked[g.id]} onChange={(v) => { setCustom((c) => { const n = { ...c }; delete n[g.id]; return n; }); setPicked((p) => ({ ...p, [g.id]: v })); }} />
               <div className="icon-wrap"><Icon name={ICONS[g.icon] ?? g.icon} size={17} /></div>
               <div className="grow">
                 <div className="row"><h3>{g.name}</h3><SafetyBadge safety={g.safety} />{g.mode === 'files' ? <span className="badge">Goes to Trash</span> : g.mode === 'bin' ? <span className="badge danger">Empties the bin</span> : <span className="badge">Deleted, rebuilds</span>}</div>
@@ -135,13 +149,24 @@ export function Cleanup() {
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontWeight: 700, fontSize: 16 }} className="num">{formatBytes(sizeOf(g))}</div>
-                <div className="small muted">{g.items ? `${files[g.id]?.size ?? 0} of ${g.count}` : g.count.toLocaleString()} items</div>
+                <div className="small muted">{custom[g.id] ? `${custom[g.id].size} picked` : g.items ? `${files[g.id]?.size ?? 0} of ${g.count}` : g.count.toLocaleString()} items</div>
               </div>
-              {g.items?.length ? (
+              {advanced && !(g.mode === 'bin' && info?.platform === 'win32') ? (
+                <button className="btn sm" onClick={() => setOpen(open === g.id ? null : g.id)}>{custom[g.id] ? 'Edit picks' : 'Choose files'} <Icon name={open === g.id ? 'chevronDown' : 'chevronRight'} size={12} /></button>
+              ) : g.items?.length ? (
                 <button className="btn ghost sm" onClick={() => setOpen(open === g.id ? null : g.id)}>Review <Icon name={open === g.id ? 'chevronDown' : 'chevronRight'} size={12} /></button>
               ) : null}
             </div>
-            {open === g.id && g.items ? (
+            {advanced && open === g.id ? (
+              <EntryPicker
+                group={g}
+                picked={custom[g.id]}
+                short={short}
+                onChange={(m) => setCustom((c) => ({ ...c, [g.id]: m }))}
+                onReset={() => setCustom((c) => { const n = { ...c }; delete n[g.id]; return n; })}
+              />
+            ) : null}
+            {!advanced && open === g.id && g.items ? (
               <div className="items">
                 <div className="row small" style={{ padding: '0 6px 6px' }}>
                   <button className="btn ghost sm" onClick={() => setFiles((f) => ({ ...f, [g.id]: new Set(g.items!.map((x) => x.path)) }))}>Select all</button>
@@ -168,7 +193,7 @@ export function Cleanup() {
             <p><b>Deleted for good</b> (they rebuild on their own): {permanent.map((g) => g.name).join(', ')}.</p>
           ) : null}
           {toTrash.length ? (
-            <p><b>Moved to the Trash</b> (you can put them back): {toTrash.map((g) => `${g.name} (${files[g.id]?.size ?? 0})`).join(', ')}.</p>
+            <p><b>Moved to the Trash</b> (you can put them back): {toTrash.map((g) => `${g.name} (${custom[g.id]?.size ?? files[g.id]?.size ?? 0})`).join(', ')}.</p>
           ) : null}
           <p className="small muted">Files in use and anything touched in the last day are skipped. Every action is recorded in History.</p>
           <div className="btn-row" style={{ justifyContent: 'flex-end', marginTop: 16 }}>
@@ -177,6 +202,122 @@ export function Cleanup() {
           </div>
         </Modal>
       ) : null}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- advanced picker
+
+const AGE = [0, 7, 30, 90, 365];
+const SIZE = [0, 1, 10, 100, 1024];
+
+/**
+ * Lists what is inside a group — drilling into folders for caches — with
+ * filters and sorting, so people who know what they are looking at can tick
+ * exactly what goes. The main process re-checks every path before removing it.
+ */
+function EntryPicker({ group, picked, onChange, onReset, short }: {
+  group: CleanupGroup;
+  picked?: Map<string, number>;
+  onChange: (m: Map<string, number>) => void;
+  onReset: () => void;
+  short: (p: string) => string;
+}) {
+  const [trail, setTrail] = useState<{ name: string; dir?: string }[]>([{ name: group.name }]);
+  const [entries, setEntries] = useState<CleanupEntry[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [text, setText] = useState('');
+  const [age, setAge] = useState(0);
+  const [minMb, setMinMb] = useState(0);
+  const [sort, setSort] = useState<'size' | 'date' | 'name'>('size');
+  const dir = trail[trail.length - 1].dir;
+  const sel = picked ?? new Map<string, number>();
+
+  useEffect(() => {
+    let alive = true;
+    setEntries(null);
+    setError(null);
+    api.cleanup.details(group.id, dir).then((e) => alive && setEntries(e), (e: unknown) => alive && setError(e instanceof Error ? e.message : String(e)));
+    return () => { alive = false; };
+  }, [group.id, dir]);
+
+  const shown = useMemo(() => {
+    const now = Date.now();
+    const q = text.trim().toLowerCase();
+    const list = (entries ?? []).filter((e) => (!q || e.name.toLowerCase().includes(q)) && (!age || now - e.mtime > age * 86_400_000) && (!minMb || e.size >= minMb * 1024 * 1024));
+    return list.sort((a, b) => (sort === 'size' ? b.size - a.size : sort === 'date' ? a.mtime - b.mtime : a.name.localeCompare(b.name, undefined, { numeric: true })));
+  }, [entries, text, age, minMb, sort]);
+
+  const set = (list: CleanupEntry[], on: boolean) => {
+    const m = new Map(sel);
+    for (const e of list) {
+      if (on) m.set(e.path, e.size);
+      else m.delete(e.path);
+    }
+    onChange(m);
+  };
+  const shownSize = shown.reduce((n, e) => n + e.size, 0);
+  const pickedSize = [...sel.values()].reduce((n, s) => n + s, 0);
+  const isPicked = (e: CleanupEntry) => sel.has(e.path) || [...sel.keys()].some((p) => e.path.startsWith(p + '/') || e.path.startsWith(p + '\\'));
+
+  return (
+    <div className="items picker">
+      <div className="row small" style={{ padding: '2px 6px 8px', gap: 6, flexWrap: 'wrap' }}>
+        {trail.map((t, i) => (
+          <span key={i} className="row" style={{ gap: 4 }}>
+            {i ? <Icon name="chevronRight" size={11} /> : null}
+            <button className="btn ghost sm" disabled={i === trail.length - 1} onClick={() => setTrail(trail.slice(0, i + 1))}>{t.name}</button>
+          </span>
+        ))}
+        <span className="grow" />
+        <span className="muted">{pickedSize ? `${sel.size} picked · ${formatBytes(pickedSize)}` : 'Nothing picked yet'}</span>
+        {picked ? <button className="btn ghost sm" onClick={onReset}>Back to automatic</button> : null}
+      </div>
+      <div className="row" style={{ padding: '0 6px 8px', gap: 6, flexWrap: 'wrap' }}>
+        <input className="input" style={{ height: 28, width: 180 }} placeholder="Filter by name" value={text} onChange={(e) => setText(e.target.value)} />
+        <select className="input" style={{ height: 28 }} value={age} onChange={(e) => setAge(+e.target.value)}>
+          {AGE.map((d) => <option key={d} value={d}>{d ? `Untouched ${d}+ days` : 'Any age'}</option>)}
+        </select>
+        <select className="input" style={{ height: 28 }} value={minMb} onChange={(e) => setMinMb(+e.target.value)}>
+          {SIZE.map((m) => <option key={m} value={m}>{m ? `Over ${m >= 1024 ? '1 GB' : `${m} MB`}` : 'Any size'}</option>)}
+        </select>
+        <select className="input" style={{ height: 28 }} value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}>
+          <option value="size">Biggest first</option>
+          <option value="date">Oldest first</option>
+          <option value="name">Name A–Z</option>
+        </select>
+        <span className="grow" />
+        <button className="btn ghost sm" onClick={() => set(shown, true)}>Pick shown ({formatBytes(shownSize)})</button>
+        <button className="btn ghost sm" onClick={() => set(shown, false)}>Unpick shown</button>
+        <button className="btn ghost sm" onClick={() => { const m = new Map(sel); for (const e of shown) { if (m.has(e.path)) m.delete(e.path); else m.set(e.path, e.size); } onChange(m); }}>Invert</button>
+      </div>
+      {error ? <div className="small" style={{ color: 'var(--danger)', padding: 8 }}>{error}</div> : null}
+      {!entries && !error ? <div className="row small muted" style={{ padding: 10 }}><div className="spinner" /> Measuring…</div> : null}
+      {entries && !shown.length ? <div className="small muted" style={{ padding: 10 }}>Nothing matches these filters.</div> : null}
+      <div style={{ maxHeight: 380, overflowY: 'auto' }}>
+        {shown.map((e) => {
+          const inherited = !sel.has(e.path) && isPicked(e);
+          return (
+            <div key={e.path} className="item-row" onDoubleClick={() => (e.isDir && !group.items ? setTrail([...trail, { name: e.name, dir: e.path }]) : void api.files.reveal(e.path))}>
+              <Check on={isPicked(e)} onChange={(v) => !inherited && set([e], v)} />
+              <div className="mini" style={{ display: 'grid', placeItems: 'center' }}>
+                {e.isDir ? <Icon name="folder" size={18} /> : <Thumb file={{ path: e.path, kind: group.items?.find((f) => f.path === e.path)?.kind ?? 'other', ext: e.name.split('.').pop()?.toLowerCase() ?? '' }} size={64} />}
+              </div>
+              <div className="grow ellipsis" title={e.path}>
+                {e.isDir && !group.items ? <button className="link-btn" onClick={() => setTrail([...trail, { name: e.name, dir: e.path }])}>{e.name}</button> : e.name}
+                <div className="small muted ellipsis">{short(e.path)}</div>
+              </div>
+              <span className="small muted" style={{ width: 90, textAlign: 'right' }}>{relativeTime(e.mtime)}</span>
+              <span className="small muted num" style={{ width: 80, textAlign: 'right' }}>{e.isDir ? `${e.files.toLocaleString()} file${e.files === 1 ? '' : 's'}` : ''}</span>
+              <span className="num" style={{ width: 80, textAlign: 'right', fontWeight: 600 }}>{formatBytes(e.size)}</span>
+              <button className="btn ghost sm icon" title="Show in folder" onClick={() => void api.files.reveal(e.path)}><Icon name="reveal" size={13} /></button>
+            </div>
+          );
+        })}
+      </div>
+      <div className="small muted" style={{ padding: '8px 6px 2px' }}>
+        {group.mode === 'files' ? 'Picked files go to the Trash.' : 'Picked items are deleted for good — they rebuild on their own.'} Keeper re-checks every item before removing it and refuses anything outside this group.
+      </div>
     </div>
   );
 }
