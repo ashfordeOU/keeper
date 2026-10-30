@@ -1,0 +1,51 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Styles for the library pages, inspector, player and command palette. */
+
+.home-hero { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; margin-bottom: 18px; flex-wrap: wrap; }
+.kind-tiles { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.kind-tile { display: flex; flex-direction: column; gap: 6px; padding: 14px; border-radius: var(--radius); background: var(--bg-elev); border: 1px solid var(--line); box-shadow: var(--shadow); cursor: default; text-align: left; }
+.kind-tile:hover { border-color: var(--line-strong); }
+.kind-tile .ico { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; color: #fff; }
+.kind-tile .v { font-weight: 700; font-size: 17px; font-variant-numeric: tabular-nums; }
+.shelf-card { min-width: 0; cursor: default; }
+.shelf-card .thumb { aspect-ratio: 1 / .78; border-radius: 10px; background: var(--bg-sunk); overflow: hidden; display: grid; place-items: center; }
+.shelf-card .thumb img { width: 100%; height: 100%; object-fit: cover; }
+.shelf-card .name { font-size: 12px; font-weight: 550; margin-top: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.shelf-card .meta { font-size: 11px; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.weather-mini { display: flex; align-items: center; gap: 14px; }
+.weather-mini .t { font-size: 30px; font-weight: 700; letter-spacing: -.03em; }
+
+.crumbs { display: flex; align-items: center; gap: 2px; flex-wrap: wrap; min-width: 0; }
+.crumbs button { border: 0; background: none; padding: 3px 6px; border-radius: 6px; color: var(--text-2); cursor: default; font-weight: 550; }
+.crumbs button:hover { background: var(--bg-hover); color: var(--text); }
+.crumbs button:last-child { color: var(--text); }
+.folder-grid { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); margin-bottom: 18px; }
+.folder-item { display: flex; align-items: center; gap: 9px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg-elev); cursor: default; min-width: 0; }
+.folder-item:hover { border-color: var(--line-strong); }
+.folder-item.selected { background: var(--accent-soft); border-color: var(--accent); }
+
+.source-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
+.source-card { display: flex; align-items: center; gap: 12px; padding: 12px; cursor: default; text-align: left; }
+.avatar { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; font-weight: 700; color: #fff; flex: none; font-size: 15px; }
+
+.snippets { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.snippet { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border-radius: 10px; background: var(--bg-elev); border: 1px solid var(--line); cursor: default; }
+.snippet mark { background: var(--accent-soft); color: var(--accent); border-radius: 3px; padding: 0 2px; }
+.examples { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 8px; }
+
+.large-row { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-bottom: 1px solid var(--line); }
+.large-row:hover { background: var(--bg-hover); }
+
+.insp-name { font-weight: 650; font-size: 14px; overflow-wrap: anywhere; user-select: text; }
+.insp-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag-input { border: 1px dashed var(--line-strong); background: none; border-radius: 20px; height: 22px; padding: 0 8px; font-size: 11.5px; width: 90px; outline: none; }
+
+.player .t { font-size: 12px; font-weight: 600; max-width: 140px; }
+.player .a { font-size: 11px; color: var(--text-3); max-width: 140px; }
+.player .prog { height: 2px; background: var(--bg-sunk); border-radius: 2px; margin-top: 2px; overflow: hidden; }
+.player .prog > i { display: block; height: 100%; background: var(--accent); }
+
+.palette-back { position: fixed; inset: 0; z-index: 95; background: rgba(0, 0, 0, .25); display: flex; justify-content: center; align-items: flex-start; padding-top: 12vh; animation: fade .12s; }
+.palette { width: min(620px, calc(100vw - 40px)); max-height: 60vh; animation: pop .16s var(--ease); }
+.palette .q-row .kbd { margin-left: auto; font: 11px var(--mono); opacity: .6; }
+.palette .group { font-size: 11px; color: var(--text-3); text-transform: uppercase; letter-spacing: .06em; padding: 8px 10px 3px; font-weight: 600; }

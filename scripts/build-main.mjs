@@ -23,6 +23,7 @@ if (!cliOnly) {
   targets.push(
     { ...common, entryPoints: ['electron/main.ts'], outfile: 'dist-electron/main.cjs' },
     { ...common, entryPoints: ['electron/preload.ts'], outfile: 'dist-electron/preload.cjs' },
+    { ...common, entryPoints: ['electron/capture-preload.ts'], outfile: 'dist-electron/capture-preload.cjs' },
   );
 }
 

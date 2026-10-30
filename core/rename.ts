@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Batch rename: preview every new name before anything changes on disk.
 
-import path from 'node:path';
 import type { FileEntry } from './types';
 
 export type RenameStep =
@@ -26,8 +25,18 @@ export interface RenamePreview {
 const ILLEGAL = /[<>:"/\\|?*\x00-\x1f]/g;
 
 function splitName(name: string): [string, string] {
-  const ext = path.extname(name);
-  return ext && ext !== name ? [name.slice(0, -ext.length), ext] : [name, ''];
+  const dot = name.lastIndexOf('.');
+  return dot > 0 ? [name.slice(0, dot), name.slice(dot)] : [name, ''];
+}
+
+/** Works for both / and \ paths without Node's path module, so the interface can preview too. */
+function dirOf(p: string): string {
+  const i = Math.max(p.lastIndexOf('/'), p.lastIndexOf('\\'));
+  return i >= 0 ? p.slice(0, i) : '';
+}
+
+function sepOf(p: string): string {
+  return p.includes('\\') && !p.includes('/') ? '\\' : '/';
 }
 
 function titleCase(s: string): string {
@@ -90,7 +99,7 @@ export function previewRename(files: FileEntry[], steps: RenameStep[], exists: (
     let [base, ext] = splitName(f.name);
     for (const s of steps) [base, ext] = applyStep(base, ext, s, i, f);
     const newName = (base + ext).replace(ILLEGAL, '-');
-    const to = path.join(path.dirname(f.path), newName);
+    const to = dirOf(f.path) + sepOf(f.path) + newName;
     return { from: f.path, to, newName, changed: newName !== f.name };
   });
   const seen = new Map<string, number>();

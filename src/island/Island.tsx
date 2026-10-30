@@ -1,0 +1,403 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// The Island window: a pill at the top of the screen that opens into a small
+// panel with music, shelf, clipboard, agents, focus timer and calendar.
+
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { IslandAlert, IslandState } from '../../core/api';
+import { formatBytes, formatDuration } from '../../core/format';
+import type { LyricLine } from '../../core/island';
+import { asColor, isUrl } from '../../core/textools';
+import { describeCode } from '../../core/weather';
+import type { FileEntry } from '../../core/types';
+import { api } from '../api';
+import { Icon } from '../components/Icon';
+import { Thumb } from '../components/ui';
+import { useStore } from '../state';
+import '../styles/island.css';
+
+type Tab = 'home' | 'shelf' | 'clipboard' | 'agents' | 'focus' | 'calendar';
+type Mood = 'calm' | 'happy' | 'listening' | 'thinking' | 'needs' | 'done' | 'napping' | 'broken';
+
+function lineAt(lines: LyricLine[], t: number): number {
+  let ans = -1;
+  for (let i = 0; i < lines.length; i++) if (lines[i].t <= t) ans = i; else break;
+  return ans;
+}
+
+/** The little face beside the pill. */
+function Buddy({ mood }: { mood: Mood }) {
+  const eyes = mood === 'napping' ? <><path d="M6 10h4M14 10h4" /></> : mood === 'happy' || mood === 'done' ? <><path d="M6 11q2-3 4 0M14 11q2-3 4 0" /></> : mood === 'broken' ? <><path d="M6 8l4 4M10 8l-4 4M14 8l4 4M18 8l-4 4" /></> : <><circle cx="8" cy="10" r="1.6" fill="currentColor" /><circle cx="16" cy="10" r="1.6" fill="currentColor" /></>;
+  const mouth = mood === 'needs' ? <circle cx="12" cy="16.5" r="1.6" /> : mood === 'thinking' || mood === 'listening' ? <path d="M9 16h6" /> : mood === 'broken' ? <path d="M9 17q3-2 6 0" /> : mood === 'napping' ? <path d="M10 16h4" /> : <path d="M8.5 15q3.5 3 7 0" />;
+  const color = mood === 'needs' ? '#fbbf24' : mood === 'broken' ? '#f87171' : mood === 'done' ? '#34d399' : mood === 'listening' ? '#f472b6' : '#fff';
+  return (
+    <svg className="buddy" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" style={{ color }}>
+      <circle cx="12" cy="12" r="10" opacity=".35" />
+      {eyes}
+      {mouth}
+      {mood === 'napping' ? <text x="18" y="6" fontSize="6" fill={color} stroke="none">z</text> : null}
+    </svg>
+  );
+}
+
+function mmss(ms: number): string {
+  const s = Math.max(0, Math.round(ms / 1000));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+const timeOf = (t: number) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+export function Island() {
+  const { settings } = useStore();
+  const isl = settings?.island;
+  const [state, setState] = useState<IslandState | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [tab, setTab] = useState<Tab>('home');
+  const [now, setNow] = useState(Date.now());
+  const [alert, setAlert] = useState<IslandAlert | null>(null);
+  const [listening, setListening] = useState<'off' | 'on' | 'working'>('off');
+  const [level, setLevel] = useState<number[]>(Array(12).fill(2));
+  const [clipQ, setClipQ] = useState('');
+  const [over, setOver] = useState(false);
+  const [custom, setCustom] = useState(15);
+  const closeTimer = useRef<number | undefined>(undefined);
+  const seenAlerts = useRef(new Set<string>());
+  const rec = useRef<{ mr: MediaRecorder; chunks: Blob[]; stream: MediaStream; ctx: AudioContext; raf: number } | null>(null);
+
+  const load = useCallback(() => void api.island.state().then(setState), []);
+  useEffect(() => {
+    load();
+    const off = api.on('island-changed', load);
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    const poll = setInterval(load, 15_000);
+    return () => { off(); clearInterval(t); clearInterval(poll); };
+  }, [load]);
+
+  // New download / screenshot alerts open a banner for a few seconds.
+  useEffect(() => {
+    const fresh = state?.alerts.find((a) => !seenAlerts.current.has(a.id));
+    if (!fresh) return;
+    seenAlerts.current.add(fresh.id);
+    setAlert(fresh);
+    api.island.setExpanded(true);
+    const t = setTimeout(() => { setAlert(null); if (!expanded) api.island.setExpanded(false); void api.island.dismiss(fresh.id); }, 6000);
+    return () => clearTimeout(t);
+  }, [state?.alerts, expanded]);
+
+  const open = (v: boolean) => {
+    window.clearTimeout(closeTimer.current);
+    if (v) { setExpanded(true); api.island.setExpanded(true); }
+    else closeTimer.current = window.setTimeout(() => { setExpanded(false); if (!alert) api.island.setExpanded(false); }, 350);
+  };
+
+  // ---------------------------------------------------------------- dictation
+  const stopRecording = useCallback(async () => {
+    const r = rec.current;
+    if (!r) return;
+    rec.current = null;
+    setListening('working');
+    await new Promise<void>((res) => { r.mr.onstop = () => res(); r.mr.stop(); });
+    cancelAnimationFrame(r.raf);
+    r.stream.getTracks().forEach((t) => t.stop());
+    void r.ctx.close();
+    try {
+      const blob = new Blob(r.chunks, { type: r.mr.mimeType });
+      const text = await api.island.transcribe(await blob.arrayBuffer(), r.mr.mimeType);
+      if (text.trim()) await api.island.typeText(text.trim());
+    } catch (e) {
+      setAlert({ id: `err-${Date.now()}`, kind: 'info', title: 'Dictation failed', detail: e instanceof Error ? e.message : String(e), at: Date.now() });
+    } finally {
+      setListening('off');
+      api.island.setExpanded(false);
+    }
+  }, []);
+
+  const startRecording = useCallback(async () => {
+    if (rec.current) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mr = new MediaRecorder(stream);
+      const chunks: Blob[] = [];
+      mr.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+      mr.start(250);
+      const ctx = new AudioContext();
+      const an = ctx.createAnalyser();
+      an.fftSize = 64;
+      ctx.createMediaStreamSource(stream).connect(an);
+      const buf = new Uint8Array(an.frequencyBinCount);
+      const tick = () => {
+        an.getByteFrequencyData(buf);
+        setLevel(Array.from({ length: 12 }, (_, i) => 2 + (buf[i * 2] / 255) * 16));
+        if (rec.current) rec.current.raf = requestAnimationFrame(tick);
+      };
+      rec.current = { mr, chunks, stream, ctx, raf: requestAnimationFrame(tick) };
+      setListening('on');
+      api.island.setExpanded(true);
+    } catch {
+      setListening('off');
+    }
+  }, []);
+
+  useEffect(() => api.on('dictation', (s: 'start' | 'stop') => void (s === 'start' ? (rec.current ? stopRecording() : startRecording()) : stopRecording())), [startRecording, stopRecording]);
+
+  if (!state || isl?.enabled === false) return null;
+
+  // ---------------------------------------------------------------- what the pill shows
+  const waiting = state.agents.find((a) => a.state === 'waiting');
+  const working = state.agents.find((a) => a.state === 'working');
+  const stuck = state.agents.find((a) => a.state === 'stuck');
+  const focusLeft = state.focus.mode === 'idle' ? 0 : state.focus.pausedLeft ?? Math.max(0, state.focus.endsAt - now);
+  const nextEv = state.events.find((e) => !e.allDay && e.end > now);
+  const soon = nextEv && nextEv.start - now < 15 * 60_000 ? nextEv : undefined;
+  const np = state.nowPlaying;
+  const mood: Mood = listening !== 'off' ? 'listening' : stuck ? 'broken' : waiting ? 'needs' : alert ? 'happy' : working ? 'thinking' : state.agents.some((a) => a.state === 'done') ? 'done' : np?.playing || focusLeft ? 'calm' : 'napping';
+
+  let live: React.ReactNode = <span className="muted">{new Date(now).toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' })}</span>;
+  if (listening === 'on') live = <span className="level">{level.map((h, i) => <i key={i} style={{ height: h }} />)} <span style={{ marginLeft: 6 }}>Listening…</span></span>;
+  else if (listening === 'working') live = 'Writing it down…';
+  else if (waiting) live = <><b>{waiting.project}</b> needs you</>;
+  else if (soon) live = <>{soon.title} · {soon.start > now ? `in ${Math.ceil((soon.start - now) / 60_000)} min` : 'now'}</>;
+  else if (focusLeft) live = <>{state.focus.mode === 'break' ? 'Break' : 'Focus'} · <b className="num">{mmss(focusLeft)}</b></>;
+  else if (np) live = <>{np.playing ? '♪' : '❚❚'} {np.title} — <span className="muted">{np.artist}</span></>;
+  else if (working) live = <><b>{working.project}</b> is working</>;
+  else if (state.keepAwake.on) live = <>☕ Staying awake</>;
+  else if (state.weather && isl?.weather) live = <>{Math.round(state.weather.current.temp)}° {describeCode(state.weather.current.code).label}</>;
+
+  // ---------------------------------------------------------------- alert banner
+  if (alert && !expanded) {
+    return (
+      <div className={`isl-root edge-${isl?.edge ?? 'top'}`}>
+        <div className="isl alert" onMouseEnter={() => open(true)}>
+          {isl?.buddy !== false ? <Buddy mood="happy" /> : null}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <b className="ellipsis" style={{ display: 'block' }}>{alert.title}</b>
+            <span className="muted small ellipsis" style={{ display: 'block' }}>{alert.detail}</span>
+          </div>
+          {alert.path ? (
+            <div className="btn-row">
+              <button className="btn sm" onClick={() => void api.files.open(alert.path!)}>Open</button>
+              <button className="btn sm" onClick={() => void api.files.reveal(alert.path!)}>Show</button>
+              <button className="btn sm icon" title="Add to shelf" onClick={() => void api.island.addToShelf([alert.path!])}><Icon name="plus" size={12} /></button>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
+  if (!expanded) {
+    return (
+      <div className={`isl-root edge-${isl?.edge ?? 'top'}`}>
+        <div className="isl collapsed" onMouseEnter={() => open(true)} onClick={() => open(true)}
+          onDragEnter={() => { open(true); setTab('shelf'); }}>
+          {isl?.buddy !== false ? <Buddy mood={mood} /> : null}
+          <span className="live">{live}</span>
+          {state.battery && state.battery.percent < 20 && !state.battery.charging ? <span style={{ color: '#f87171' }}>{Math.round(state.battery.percent)}%</span> : null}
+        </div>
+      </div>
+    );
+  }
+
+  // ---------------------------------------------------------------- expanded panel
+  const tabs: { id: Tab; icon: string; label: string; badge?: number }[] = [
+    { id: 'home', icon: 'home', label: 'Home' },
+    { id: 'shelf', icon: 'archive', label: 'Shelf', badge: state.shelf.length },
+    ...(isl?.clipboard !== false ? [{ id: 'clipboard' as Tab, icon: 'clipboard', label: 'Clipboard' }] : []),
+    ...(isl?.agents !== false ? [{ id: 'agents' as Tab, icon: 'terminal', label: 'Agents', badge: state.agents.filter((a) => a.state === 'waiting').length || undefined }] : []),
+    { id: 'focus', icon: 'timer', label: 'Focus' },
+    { id: 'calendar', icon: 'calendar', label: 'Today' },
+  ];
+
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setOver(false);
+    const paths = [...e.dataTransfer.files].map((f) => api.files.pathOf?.(f) ?? (f as File & { path?: string }).path).filter((p): p is string => !!p);
+    if (paths.length) void api.island.addToShelf(paths).then(load);
+  };
+
+  const lyricIdx = np && state.lyrics ? lineAt(state.lyrics, np.position) : -1;
+  const filteredClips = state.clips.filter((c) => !clipQ || (c.text ?? '').toLowerCase().includes(clipQ.toLowerCase()));
+
+  return (
+    <div className={`isl-root edge-${isl?.edge ?? 'top'}`}>
+      <div className="isl expanded" onMouseEnter={() => open(true)} onMouseLeave={() => open(false)} onDragOver={(e) => { e.preventDefault(); if (tab !== 'shelf') setTab('shelf'); }}>
+        <div className="tabs">
+          {isl?.buddy !== false ? <span style={{ marginRight: 6, display: 'grid', placeItems: 'center' }}><Buddy mood={mood} /></span> : null}
+          {tabs.map((t) => (
+            <button key={t.id} className={tab === t.id ? 'on' : ''} onClick={() => setTab(t.id)}>
+              <Icon name={t.icon} size={13} /> {t.label}{t.badge ? <span style={{ background: '#fbbf24', color: '#000', borderRadius: 8, padding: '0 5px', fontSize: 10 }}>{t.badge}</span> : null}
+            </button>
+          ))}
+          <span style={{ flex: 1 }} />
+          <button title={state.keepAwake.on ? 'Stop keeping awake' : 'Keep awake'} className={state.keepAwake.on ? 'on' : ''} onClick={() => void api.island.keepAwake(!state.keepAwake.on).then(load)}><Icon name="coffee" size={13} /></button>
+        </div>
+
+        <div className="body">
+          {tab === 'home' ? (
+            <div className="grid2">
+              <div className="tile" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                {np ? (
+                  <>
+                    <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                      <div className="art">{np.artwork ? <img src={np.artwork} alt="" /> : <Icon name="audio" size={22} />}</div>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <b className="ellipsis" style={{ display: 'block' }}>{np.title}</b>
+                        <span className="muted ellipsis" style={{ display: 'block' }}>{np.artist}{np.album ? ` · ${np.album}` : ''}</span>
+                        <span className="muted small">{np.app}</span>
+                      </div>
+                    </div>
+                    {isl?.lyrics !== false && state.lyrics?.length ? <div className="lyric">{lyricIdx >= 0 ? state.lyrics[lyricIdx].text : '♪'}</div> : null}
+                    <div>
+                      <div className="scrub" onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); void api.island.media('seek', ((e.clientX - r.left) / r.width) * np.duration); }}>
+                        <i style={{ width: `${(np.position / Math.max(1, np.duration)) * 100}%` }} />
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
+                        <span className="muted small num">{formatDuration(np.position)}</span>
+                        <div className="btn-row">
+                          <button className="btn sm icon" onClick={() => void api.island.media('previous').then(load)}><Icon name="prev" size={12} /></button>
+                          <button className="btn sm icon primary" onClick={() => void api.island.media('toggle').then(load)}><Icon name={np.playing ? 'pause' : 'play'} size={12} /></button>
+                          <button className="btn sm icon" onClick={() => void api.island.media('next').then(load)}><Icon name="next" size={12} /></button>
+                        </div>
+                        <span className="muted small num">{formatDuration(np.duration)}</span>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ margin: 'auto', textAlign: 'center' }} className="muted">
+                    <div className="big-time" style={{ color: '#fff' }}>{new Date(now).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                    {new Date(now).toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' })}
+                  </div>
+                )}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {state.weather && isl?.weather !== false ? (
+                  <div className="tile">
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}><span style={{ fontSize: 26, fontWeight: 800 }}>{Math.round(state.weather.current.temp)}°</span><span>{describeCode(state.weather.current.code).label}</span></div>
+                    <div className="muted small">{state.weather.place.name} · H {Math.round(state.weather.daily[0]?.max ?? 0)}° L {Math.round(state.weather.daily[0]?.min ?? 0)}°{state.weather.current.aqi !== undefined ? ` · AQI ${Math.round(state.weather.current.aqi)}` : ''}</div>
+                    {state.weather.nowcast ? <div className="small" style={{ color: '#93c5fd', marginTop: 4 }}>{state.weather.nowcast}</div> : null}
+                  </div>
+                ) : null}
+                <div className="tile">
+                  {nextEv ? <><span className="muted small">Next · {timeOf(nextEv.start)}</span><b className="ellipsis" style={{ display: 'block' }}>{nextEv.title}</b>{nextEv.location ? <span className="muted small">{nextEv.location}</span> : null}</> : <span className="muted">Nothing else today</span>}
+                </div>
+                <div className="tile" style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                  {state.battery ? <span><Icon name={state.battery.charging ? 'bolt' : 'battery'} size={13} /> {Math.round(state.battery.percent)}%</span> : null}
+                  {state.micInUse?.length ? <span style={{ color: '#fbbf24' }}><Icon name="mic" size={13} /> {state.micInUse[0]}</span> : null}
+                  {state.keepAwake.on ? <span><Icon name="coffee" size={13} /> Awake</span> : null}
+                  {focusLeft ? <span><Icon name="timer" size={13} /> {mmss(focusLeft)}</span> : null}
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {tab === 'shelf' ? (
+            <div className={`shelf-drop ${over ? 'over' : ''}`} onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)} onDrop={onDrop}>
+              {state.shelf.length === 0 ? <div className="muted" style={{ margin: 'auto', textAlign: 'center' }}><Icon name="archive" size={26} /><div>Drop files here to keep them handy,<br />then drag them out wherever you need them.</div></div> : null}
+              {state.shelf.map((f: FileEntry) => (
+                <div key={f.path} className="shelf-item" draggable onDragStart={(e) => { e.preventDefault(); api.files.startDrag([f.path]); }} onDoubleClick={() => void api.files.open(f.path)} title={`${f.path}\n${formatBytes(f.size)}`}>
+                  <div className="th"><Thumb file={f} size={128} /></div>
+                  <div className="nm">{f.name}</div>
+                  <button className="btn sm icon x" onClick={() => void api.island.removeFromShelf(f.path).then(load)}><Icon name="close" size={10} /></button>
+                </div>
+              ))}
+              {state.shelf.length ? (
+                <div style={{ width: '100%', display: 'flex', gap: 6, marginTop: 'auto' }}>
+                  <button className="btn sm" draggable onDragStart={(e) => { e.preventDefault(); api.files.startDrag(state.shelf.map((f) => f.path)); }}><Icon name="drag" size={12} /> Drag all</button>
+                  <button className="btn sm" onClick={() => void api.files.compress(state.shelf.map((f) => f.path))}><Icon name="zip" size={12} /> Zip</button>
+                  <button className="btn sm" onClick={() => void api.files.copyPaths(state.shelf.map((f) => f.path))}><Icon name="copy" size={12} /> Copy</button>
+                  <span style={{ flex: 1 }} />
+                  <button className="btn sm" onClick={() => void api.island.clearShelf().then(load)}>Clear</button>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {tab === 'clipboard' ? (
+            <div>
+              <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+                <input className="input" style={{ flex: 1, height: 28 }} placeholder="Search what you copied" value={clipQ} onChange={(e) => setClipQ(e.target.value)} />
+                <button className="btn sm" onClick={() => void api.island.clearClips().then(load)}>Clear</button>
+              </div>
+              {filteredClips.length === 0 ? <div className="muted" style={{ textAlign: 'center', padding: 20 }}>Things you copy will appear here.</div> : null}
+              {filteredClips.map((c) => {
+                const color = c.text ? asColor(c.text) : undefined;
+                return (
+                  <div key={c.id} className="clip" onClick={() => void api.island.copyClip(c.id)} title="Click to copy">
+                    {c.pinned ? <Icon name="pin" size={12} /> : null}
+                    {color ? <span className="swatch" style={{ background: color }} /> : c.image ? <img src={c.image} alt="" style={{ height: 28, borderRadius: 4 }} /> : c.text && isUrl(c.text) ? <Icon name="globe" size={12} /> : null}
+                    <span className="t">{c.text ?? (c.kind === 'image' ? 'Image' : 'File')}</span>
+                    <span className="acts">
+                      <button className="btn sm icon" title={c.pinned ? 'Unpin' : 'Pin'} onClick={(e) => { e.stopPropagation(); void api.island.pinClip(c.id).then(load); }}><Icon name="pin" size={11} /></button>
+                      <button className="btn sm icon" title="Remove" onClick={(e) => { e.stopPropagation(); void api.island.removeClip(c.id).then(load); }}><Icon name="close" size={11} /></button>
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
+
+          {tab === 'agents' ? (
+            <div>
+              {state.agents.length === 0 ? <div className="muted" style={{ textAlign: 'center', padding: 20 }}>No coding-agent sessions in the last few hours.</div> : null}
+              {state.agents.map((a) => (
+                <div key={a.id} className="agent" onClick={() => void api.island.openAgent(a.id)} title="Open its folder">
+                  <span className={`state ${a.state}`} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <b>{a.project}</b> <span className="muted small">{a.tool === 'claude-code' ? 'Claude Code' : 'Codex'} · {a.state === 'waiting' ? 'waiting for you' : a.state}</span>
+                    <div className="muted small ellipsis">{a.summary}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          {tab === 'focus' ? (
+            <div style={{ display: 'flex', gap: 18, alignItems: 'center', height: '100%' }}>
+              <div style={{ textAlign: 'center', flex: 1 }}>
+                <div className="big-time">{focusLeft ? mmss(focusLeft) : `${state.focus.focusMin}:00`}</div>
+                <div className="muted">{state.focus.mode === 'idle' ? `${state.focus.rounds} round${state.focus.rounds === 1 ? '' : 's'} today` : state.focus.mode === 'break' ? 'Break — stretch and look away' : state.focus.pausedLeft !== undefined ? 'Paused' : 'Focusing'}</div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {state.focus.mode === 'idle' ? (
+                  <>
+                    <div className="btn-row">
+                      <button className="btn primary" onClick={() => void api.island.focus('start', 25).then(load)}>25 min</button>
+                      <button className="btn" onClick={() => void api.island.focus('start', 50).then(load)}>50 min</button>
+                    </div>
+                    <div className="btn-row">
+                      <input type="range" min={5} max={120} step={5} value={custom} onChange={(e) => setCustom(Number(e.target.value))} />
+                      <button className="btn sm" onClick={() => void api.island.focus('start', custom).then(load)}>{custom} min</button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="btn-row">
+                    {state.focus.pausedLeft !== undefined
+                      ? <button className="btn primary" onClick={() => void api.island.focus('resume').then(load)}><Icon name="play" size={12} /> Resume</button>
+                      : <button className="btn" onClick={() => void api.island.focus('pause').then(load)}><Icon name="pause" size={12} /> Pause</button>}
+                    <button className="btn" onClick={() => void api.island.focus('stop').then(load)}>Stop</button>
+                  </div>
+                )}
+                <button className="btn sm" onClick={() => void api.island.keepAwake(!state.keepAwake.on).then(load)}><Icon name="coffee" size={12} /> {state.keepAwake.on ? 'Stop keeping awake' : 'Keep awake'}</button>
+              </div>
+            </div>
+          ) : null}
+
+          {tab === 'calendar' ? (
+            <div>
+              <div style={{ fontWeight: 700, marginBottom: 6 }}>{new Date(now).toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' })}</div>
+              {state.events.length === 0 ? <div className="muted">{isl?.calendarUrl ? 'Nothing coming up.' : 'Add a calendar link in Keeper › Island to see your day here.'}</div> : null}
+              {state.events.slice(0, 12).map((e) => (
+                <div key={e.uid} className="ev" style={{ opacity: e.end < now ? 0.45 : 1 }}>
+                  <span className="time">{e.allDay ? 'All day' : timeOf(e.start)}</span>
+                  <div style={{ minWidth: 0 }}>
+                    <b className="ellipsis" style={{ display: 'block' }}>{e.title}</b>
+                    <span className="muted small">{new Date(e.start).toDateString() !== new Date(now).toDateString() ? new Date(e.start).toLocaleDateString([], { weekday: 'short' }) + ' · ' : ''}{e.location ?? ''}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}

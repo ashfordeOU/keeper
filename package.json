@@ -36,6 +36,7 @@
     "dist:linux": "npm run build && electron-builder --linux"
   },
   "dependencies": {
+    "jsqr": "^1.4.0",
     "tesseract.js": "^7.0.0"
   },
   "devDependencies": {

@@ -1,0 +1,62 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* The Island: a black pill at the top of the screen that opens into a small panel. */
+
+html[data-view='island'], html[data-view='island'] body, html[data-view='island'] #root { background: transparent !important; overflow: hidden; }
+.isl-root { height: 100vh; display: flex; justify-content: center; align-items: flex-start; color: #f4f4f5; font-size: 12.5px; }
+.isl-root.edge-left { justify-content: flex-start; align-items: center; }
+.isl-root.edge-right { justify-content: flex-end; align-items: center; }
+.isl {
+  background: #0a0a0c; border-radius: 0 0 20px 20px; box-shadow: 0 8px 30px rgba(0, 0, 0, .35);
+  transition: width .32s var(--ease), height .32s var(--ease), border-radius .32s var(--ease); overflow: hidden;
+  -webkit-app-region: no-drag; color: #f4f4f5;
+}
+.isl.collapsed { width: 220px; height: 34px; display: flex; align-items: center; gap: 8px; padding: 0 12px; cursor: default; }
+.isl.expanded { width: 640px; height: 300px; border-radius: 0 0 26px 26px; display: flex; flex-direction: column; }
+.isl.alert { width: 420px; height: 76px; border-radius: 0 0 24px 24px; display: flex; align-items: center; gap: 12px; padding: 0 16px; }
+.isl .live { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: .92; }
+.isl .tabs { display: flex; gap: 2px; padding: 10px 12px 0; }
+.isl .tabs button { border: 0; background: none; color: #a1a1aa; height: 26px; padding: 0 10px; border-radius: 8px; font-size: 12px; display: inline-flex; align-items: center; gap: 5px; cursor: default; }
+.isl .tabs button:hover { color: #fff; background: rgba(255, 255, 255, .07); }
+.isl .tabs button.on { color: #fff; background: rgba(255, 255, 255, .12); font-weight: 600; }
+.isl .body { flex: 1; overflow: auto; padding: 10px 14px 12px; }
+.isl .btn { background: rgba(255, 255, 255, .1); border-color: transparent; color: #fff; }
+.isl .btn:hover { background: rgba(255, 255, 255, .18); }
+.isl .btn.primary { background: #fff; color: #000; }
+.isl .muted { color: #8b8b94; }
+.isl .input { background: rgba(255, 255, 255, .08); border-color: transparent; color: #fff; }
+.isl .tile { background: rgba(255, 255, 255, .06); border-radius: 14px; padding: 10px 12px; }
+.isl .grid2 { display: grid; grid-template-columns: 1.4fr 1fr; gap: 10px; height: 100%; }
+.isl .art { width: 54px; height: 54px; border-radius: 10px; background: linear-gradient(135deg, #6d6dff, #ff6fa3); flex: none; display: grid; place-items: center; overflow: hidden; }
+.isl .art img { width: 100%; height: 100%; object-fit: cover; }
+.isl .scrub { height: 4px; border-radius: 4px; background: rgba(255, 255, 255, .15); overflow: hidden; transition: height .15s; }
+.isl .scrub:hover { height: 7px; }
+.isl .scrub i { display: block; height: 100%; background: #fff; }
+.isl .lyric { font-weight: 600; font-size: 13.5px; margin-top: 8px; min-height: 20px; }
+.isl .shelf-drop { border: 1.5px dashed rgba(255, 255, 255, .2); border-radius: 14px; min-height: 100%; padding: 10px; display: flex; flex-wrap: wrap; gap: 10px; align-content: flex-start; }
+.isl .shelf-drop.over { border-color: #fff; background: rgba(255, 255, 255, .05); }
+.isl .shelf-item { width: 92px; text-align: center; position: relative; }
+.isl .shelf-item .th { width: 92px; height: 70px; border-radius: 10px; background: rgba(255, 255, 255, .08); display: grid; place-items: center; overflow: hidden; }
+.isl .shelf-item .th img { width: 100%; height: 100%; object-fit: cover; }
+.isl .shelf-item .nm { font-size: 11px; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.isl .shelf-item .x { position: absolute; top: -6px; right: -6px; display: none; }
+.isl .shelf-item:hover .x { display: grid; }
+.isl .clip { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 10px; }
+.isl .clip:hover { background: rgba(255, 255, 255, .07); }
+.isl .clip .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.isl .clip .acts { display: none; gap: 4px; }
+.isl .clip:hover .acts { display: flex; }
+.isl .swatch { width: 18px; height: 18px; border-radius: 5px; border: 1px solid rgba(255, 255, 255, .25); flex: none; }
+.isl .agent { display: flex; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 12px; background: rgba(255, 255, 255, .05); margin-bottom: 6px; cursor: default; }
+.isl .agent:hover { background: rgba(255, 255, 255, .1); }
+.isl .state { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.isl .state.working { background: #60a5fa; animation: pulse 1.2s infinite; }
+.isl .state.waiting { background: #fbbf24; animation: pulse .8s infinite; }
+.isl .state.done { background: #34d399; }
+.isl .state.stuck { background: #f87171; }
+@keyframes pulse { 50% { opacity: .35; } }
+.isl .ev { display: flex; gap: 10px; padding: 6px 4px; border-bottom: 1px solid rgba(255, 255, 255, .06); }
+.isl .ev .time { width: 70px; color: #a1a1aa; font-variant-numeric: tabular-nums; flex: none; }
+.isl .big-time { font-size: 40px; font-weight: 800; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.isl .level { display: flex; gap: 2px; align-items: center; height: 18px; }
+.isl .level i { width: 3px; border-radius: 2px; background: #fff; transition: height .08s; }
+.buddy { flex: none; }

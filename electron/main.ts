@@ -1,0 +1,806 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Keeper's main process: windows, tray, shortcuts, the file index and every
+// action the interface can ask for.
+
+import { app, BrowserWindow, dialog, globalShortcut, ipcMain, Menu, nativeImage, nativeTheme, net, protocol, screen, shell, Tray } from 'electron';
+import { existsSync, promises as fsp, statSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+import type { IslandSettings, KeepAwakeOptions } from '../core/api';
+import { askAssistant } from '../core/ai';
+import { cleanTarget, expandRoots, measureTarget, sizeOf } from '../core/cleanup/engine';
+import { fileCleanupGroups, largeFiles } from '../core/cleanup/files';
+import { cacheTargets } from '../core/cleanup/targets';
+import { findExactDuplicates, findFormatPairs, findSimilarImages } from '../core/duplicates';
+import { DAY, MB, formatBytes, tildify } from '../core/format';
+import { FileIndex } from '../core/indexer';
+import { Journal, undoMoves } from '../core/journal';
+import { powershell, readDownloadSource, run, targetEnv } from '../core/platform';
+import { planRule } from '../core/rules';
+import { checkRemovable, isInside } from '../core/safety';
+import type { AllSettings } from '../core/settings';
+import { squarify } from '../core/treemap';
+import type { AiMessage, CleanResult, CleanupGroup, FileEntry, FileKind, JournalOp, Progress, Rule, SpaceNode } from '../core/types';
+import { walk } from '../core/walk';
+import { searchPlaces } from '../core/weather';
+import { listApps, uninstall } from './services/apps';
+import { captureText, clipboardImage } from './services/capture';
+import { FileService } from './services/files';
+import { IslandService } from './services/island';
+import { checkProtection } from './services/protection';
+import { listStartup, toggleStartup } from './services/startup';
+import { disks, ejectAll, health, killProcess, wifiNetworks } from './services/system';
+import { writeText } from './services/clip';
+import { VisionQueue } from './services/vision';
+import { getSecret, hasSecret, onSettings, setSecret, settings, updateSettings } from './store';
+
+void squarify; // the interface lays out the Space Map; kept for the CLI's future text treemap
+
+const DEV_URL = process.env.VITE_DEV_SERVER_URL;
+const isMac = process.platform === 'darwin';
+
+protocol.registerSchemesAsPrivileged([{ scheme: 'keeper-file', privileges: { stream: true, supportFetchAPI: true, bypassCSP: false, standard: false } }]);
+if (!app.requestSingleInstanceLock()) app.quit();
+app.setAsDefaultProtocolClient('keeper');
+
+let main: BrowserWindow | null = null;
+let quick: BrowserWindow | null = null;
+let island: BrowserWindow | null = null;
+let tray: Tray | null = null;
+let index: FileIndex;
+let journal: Journal;
+let files: FileService;
+let vision: VisionQueue;
+let islandSvc: IslandService;
+let lastCleanup: CleanupGroup[] = [];
+let quitting = false;
+
+const preload = () => path.join(__dirname, 'preload.cjs');
+const capturePreload = () => path.join(__dirname, 'capture-preload.cjs');
+
+function broadcast(channel: string, ...args: unknown[]) {
+  for (const w of BrowserWindow.getAllWindows()) if (!w.isDestroyed()) w.webContents.send(`event:${channel}`, ...args);
+}
+
+const progress = (p: Progress) => broadcast('progress', p);
+let changeTimer: NodeJS.Timeout | undefined;
+function libraryChanged() {
+  clearTimeout(changeTimer);
+  changeTimer = setTimeout(() => {
+    broadcast('library-changed');
+    void updateTray();
+  }, 250);
+}
+
+function load(win: BrowserWindow, view: string) {
+  if (DEV_URL) void win.loadURL(`${DEV_URL}?view=${view}`);
+  else void win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'), { query: { view } });
+}
+
+function lockDown(win: BrowserWindow) {
+  // Links open in the browser; the app never navigates away from itself.
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:/.test(url)) void shell.openExternal(url);
+    return { action: 'deny' };
+  });
+  win.webContents.on('will-navigate', (e, url) => {
+    if (!DEV_URL || !url.startsWith(DEV_URL)) e.preventDefault();
+  });
+}
+
+// ---------------------------------------------------------------- windows
+
+function createMain() {
+  main = new BrowserWindow({
+    width: 1280, height: 820, minWidth: 760, minHeight: 520, show: false, title: 'Keeper',
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#111114' : '#f6f5f2',
+    titleBarStyle: isMac ? 'hiddenInset' : 'hidden',
+    titleBarOverlay: isMac ? undefined : { color: '#00000000', symbolColor: nativeTheme.shouldUseDarkColors ? '#ddd' : '#333', height: 52 },
+    trafficLightPosition: { x: 16, y: 18 },
+    webPreferences: { preload: preload(), contextIsolation: true, sandbox: true },
+  });
+  lockDown(main);
+  load(main, 'app');
+  main.once('ready-to-show', () => main?.show());
+  main.on('close', (e) => {
+    // Keep running in the tray so Quick Search, the Island and rules keep working.
+    if (!quitting && settings().trayEnabled) {
+      e.preventDefault();
+      main?.hide();
+      if (isMac) app.dock?.hide();
+    }
+  });
+  main.on('closed', () => (main = null));
+}
+
+function showMain(route?: string) {
+  if (!main) createMain();
+  if (isMac) void app.dock?.show();
+  main!.show();
+  main!.focus();
+  if (route) setTimeout(() => main?.webContents.send('event:navigate', route), main!.webContents.isLoading() ? 800 : 0);
+}
+
+function toggleQuick() {
+  if (quick && quick.isVisible()) {
+    quick.hide();
+    return;
+  }
+  const d = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+  const w = 680;
+  const h = 460;
+  if (!quick) {
+    quick = new BrowserWindow({
+      width: w, height: h, frame: false, transparent: true, resizable: false, show: false, skipTaskbar: true, alwaysOnTop: true,
+      fullscreenable: false, hasShadow: false, webPreferences: { preload: preload(), contextIsolation: true, sandbox: true },
+    });
+    lockDown(quick);
+    load(quick, 'quick');
+    quick.on('blur', () => quick?.hide());
+  }
+  quick.setBounds({ x: Math.round(d.workArea.x + (d.workArea.width - w) / 2), y: Math.round(d.workArea.y + d.workArea.height * 0.18), width: w, height: h });
+  quick.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  quick.show();
+  quick.focus();
+  quick.webContents.send('event:library-changed');
+}
+
+const ISLAND_COLLAPSED = { width: 380, height: 64 };
+const ISLAND_EXPANDED = { width: 700, height: 380 };
+
+function islandBounds(expanded: boolean) {
+  const s = settings().island;
+  const d = screen.getPrimaryDisplay();
+  const size = expanded ? ISLAND_EXPANDED : ISLAND_COLLAPSED;
+  if (s.edge === 'left' || s.edge === 'right') {
+    const x = s.edge === 'left' ? d.bounds.x : d.bounds.x + d.bounds.width - size.width;
+    return { x, y: Math.round(d.workArea.y + d.workArea.height * 0.3), ...size };
+  }
+  return { x: Math.round(d.bounds.x + (d.bounds.width - size.width) / 2), y: d.bounds.y, ...size };
+}
+
+function createIsland() {
+  if (island || !settings().island.enabled) return;
+  island = new BrowserWindow({
+    ...islandBounds(false), frame: false, transparent: true, resizable: false, movable: false, skipTaskbar: true, alwaysOnTop: true,
+    fullscreenable: false, hasShadow: false, focusable: true, show: false, backgroundColor: '#00000000',
+    webPreferences: { preload: preload(), contextIsolation: true, sandbox: true },
+  });
+  island.setAlwaysOnTop(true, 'status');
+  island.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: false });
+  lockDown(island);
+  load(island, 'island');
+  island.once('ready-to-show', () => island?.showInactive());
+  island.on('closed', () => (island = null));
+}
+
+function destroyIsland() {
+  island?.destroy();
+  island = null;
+}
+
+// ---------------------------------------------------------------- tray
+
+async function updateTray() {
+  if (!settings().trayEnabled) {
+    tray?.destroy();
+    tray = null;
+    return;
+  }
+  if (!tray) {
+    const icon = nativeImage.createFromPath(path.join(__dirname, '..', 'build', isMac ? 'trayTemplate.png' : 'tray.png'));
+    tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon);
+    if (icon.isEmpty()) tray.setTitle?.('K');
+    tray.setToolTip('Keeper');
+    tray.on('click', () => !isMac && showMain());
+    // Files dropped on the tray icon go to the shelf (macOS).
+    tray.on('drop-files', (_e, paths) => void islandSvc.addToShelf(paths));
+  }
+  const recent = index.recent(settings().trayCount, (f) => f.root === 'Downloads');
+  const items: Electron.MenuItemConstructorOptions[] = recent.map((f) => ({
+    label: f.name.length > 42 ? f.name.slice(0, 40) + '…' : f.name,
+    sublabel: `${formatBytes(f.size)}${f.source ? ` · ${f.source.name}` : ''}`,
+    click: () => void shell.openPath(f.path),
+    submenu: [
+      { label: 'Open', click: () => void shell.openPath(f.path) },
+      { label: 'Show in Keeper', click: () => showMain(`search:${f.name}`) },
+      { label: isMac ? 'Show in Finder' : 'Show in folder', click: () => shell.showItemInFolder(f.path) },
+      { label: 'Add to Shelf', click: () => void islandSvc.addToShelf([f.path]) },
+    ],
+  }));
+  const awake = islandSvc?.awake.on;
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: 'Recent downloads', enabled: false },
+    ...(items.length ? items : [{ label: 'Nothing yet', enabled: false }]),
+    { type: 'separator' },
+    { label: 'Open Keeper', click: () => showMain() },
+    { label: 'Quick Search', accelerator: settings().quickSearchShortcut, click: toggleQuick },
+    { label: 'Copy Text from Screen', accelerator: settings().island.captureShortcut, click: () => void doCapture() },
+    { label: awake ? 'Stop Keeping Awake' : 'Keep Awake', submenu: awake ? undefined : [
+      { label: 'Until I turn it off', click: () => islandSvc.keepAwake(true) },
+      { label: 'For 1 hour', click: () => islandSvc.keepAwake(true, { minutes: 60 }) },
+      { label: 'For 3 hours', click: () => islandSvc.keepAwake(true, { minutes: 180 }) },
+      { label: 'Let the screen sleep', click: () => islandSvc.keepAwake(true, { allowDisplaySleep: true }) },
+    ], click: awake ? () => { islandSvc.keepAwake(false); void updateTray(); } : undefined },
+    { label: 'Clean Up…', click: () => showMain('cleanup') },
+    { type: 'separator' },
+    { label: 'Quit Keeper', click: () => { quitting = true; app.quit(); } },
+  ]));
+}
+
+// ---------------------------------------------------------------- shortcuts & deep links
+
+function registerShortcuts() {
+  globalShortcut.unregisterAll();
+  const s = settings();
+  const reg = (acc: string, fn: () => void) => {
+    try {
+      if (acc) globalShortcut.register(acc, fn);
+    } catch {
+      /* invalid or taken */
+    }
+  };
+  reg(s.quickSearchShortcut, toggleQuick);
+  reg(s.island.captureShortcut, () => void doCapture());
+  let dictating = false;
+  reg(s.island.dictationShortcut, () => {
+    if (!island) return;
+    dictating = !dictating;
+    island.webContents.send('event:dictation', dictating ? 'start' : 'stop');
+  });
+}
+
+async function doCapture() {
+  try {
+    const r = await captureText(capturePreload(), settings().ocrLanguages);
+    if (!r) return null;
+    const out = r.code && !r.text ? r.code : r.text;
+    if (out) await writeText(out);
+    islandSvc.alert({ kind: 'info', title: out ? 'Copied text from the screen' : 'No text found', detail: r.code ? `QR code: ${r.code}` : out.slice(0, 120) });
+    return r;
+  } catch (e) {
+    dialog.showErrorBox('Copy text from screen', e instanceof Error ? e.message : String(e));
+    return null;
+  }
+}
+
+function handleDeepLink(url: string) {
+  try {
+    const u = new URL(url);
+    const action = u.hostname || u.pathname.replace(/^\/+/, '');
+    if (action === 'open' && u.searchParams.get('path')) {
+      const p = u.searchParams.get('path')!;
+      showMain(`browse:${path.dirname(p)}`);
+    } else if (action === 'search') showMain(`search:${u.searchParams.get('q') ?? ''}`);
+    else if (action === 'capture') void doCapture();
+    else if (action === 'quick') toggleQuick();
+    else if (action === 'clean') showMain('cleanup');
+    else if (action === 'awake') islandSvc.keepAwake(u.searchParams.get('on') !== 'false', { minutes: Number(u.searchParams.get('minutes')) || undefined });
+    else showMain(action || undefined);
+  } catch {
+    showMain();
+  }
+}
+
+app.on('open-url', (e, url) => {
+  e.preventDefault();
+  if (app.isReady()) handleDeepLink(url);
+  else app.once('ready', () => handleDeepLink(url));
+});
+app.on('second-instance', (_e, argv) => {
+  const link = argv.find((a) => a.startsWith('keeper://'));
+  if (link) handleDeepLink(link);
+  else showMain();
+});
+
+// ---------------------------------------------------------------- library
+
+function makeIndex(s: AllSettings) {
+  const folders = s.folders.filter((f) => existsSync(f)).map((f) => ({ path: f, label: path.basename(f) }));
+  return new FileIndex(path.join(app.getPath('userData'), 'index.json'), folders, s.excluded, { readSource: readDownloadSource });
+}
+
+async function rescan() {
+  await index.scan({ onProgress: progress, showHidden: settings().showHidden });
+  progress({ task: 'index', phase: 'Done', done: index.files.size, total: index.files.size });
+  libraryChanged();
+  vision.schedule(index.all());
+}
+
+const sortFiles = (list: FileEntry[], key: string = 'date', desc = true) => {
+  const dir = desc ? -1 : 1;
+  return list.sort((a, b) =>
+    key === 'name' ? dir * -1 * a.name.localeCompare(b.name, undefined, { numeric: true }) * -1 * -1
+      : key === 'size' ? dir * (a.size - b.size)
+      : key === 'kind' ? a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name)
+      : dir * (a.mtime - b.mtime));
+};
+
+// ---------------------------------------------------------------- cleanup
+
+const BUILD_DIRS: Record<string, string[]> = {
+  node_modules: ['package.json'],
+  target: ['Cargo.toml', 'pom.xml'],
+  '.next': ['package.json'],
+  '.nuxt': ['package.json'],
+  '.venv': ['pyproject.toml', 'requirements.txt', 'setup.py'],
+  venv: ['pyproject.toml', 'requirements.txt', 'setup.py'],
+  '__pycache__': [],
+  '.gradle': ['build.gradle', 'build.gradle.kts', 'settings.gradle'],
+  'DerivedData': [],
+  '.dart_tool': ['pubspec.yaml'],
+};
+
+/** Dependency and build folders in projects nobody has touched for a month. */
+async function oldBuildFolders(signal?: AbortSignal): Promise<FileEntry[]> {
+  const found: FileEntry[] = [];
+  const now = Date.now();
+  for (const folder of settings().folders.filter(existsSync)) {
+    await walk(folder, {
+      includeDirs: true,
+      showHidden: true,
+      signal,
+      maxDepth: 6,
+      excluded: settings().excluded,
+      enterDir: (_d, name) => !(name in BUILD_DIRS) && !name.startsWith('.') ,
+      onEntry: async (e) => {
+        if (!e.stats.isDirectory() || !(e.name in BUILD_DIRS)) return;
+        const project = path.dirname(e.path);
+        const markers = BUILD_DIRS[e.name];
+        if (markers.length && !markers.some((m) => existsSync(path.join(project, m)))) return;
+        const touched = Math.max(...[project, ...markers.map((m) => path.join(project, m))].map((p) => { try { return statSync(p).mtimeMs; } catch { return 0; } }));
+        if (now - touched < 30 * DAY) return;
+        const { size } = await sizeOf(e.path);
+        if (size < 20 * MB) return;
+        found.push({ path: e.path, name: `${path.basename(project)}/${e.name}`, ext: '', kind: 'other', size, mtime: touched, btime: touched, atime: 0, root: path.basename(folder) });
+      },
+    });
+  }
+  return found.sort((a, b) => b.size - a.size);
+}
+
+async function scanCleanup(): Promise<CleanupGroup[]> {
+  const s = settings();
+  const env = targetEnv();
+  const home = os.homedir();
+  const groups: CleanupGroup[] = [];
+  const targets = cacheTargets(env);
+  let i = 0;
+  for (const t of targets) {
+    progress({ task: 'cleanup', phase: t.name, done: i++, total: targets.length + 3 });
+    if (t.mode === 'bin' && process.platform === 'win32') {
+      const r = await powershell("(New-Object -ComObject Shell.Application).NameSpace(10).Items() | Measure-Object -Property Size -Sum | ForEach-Object { \"$($_.Count) $($_.Sum)\" }");
+      const [count, size] = r.stdout.trim().split(' ').map(Number);
+      if (size > 0) groups.push({ id: t.id, name: t.name, description: t.description, icon: t.icon, mode: 'bin', safety: t.safety, size, count, locations: ['Recycle Bin'], preselect: false });
+      continue;
+    }
+    const m = await measureTarget(t);
+    if (m.size > 0) groups.push({ id: t.id, name: t.name, description: t.description, icon: t.icon, mode: t.mode, safety: t.safety, size: m.size, count: m.count, locations: m.roots.map((r) => tildify(r, home)), preselect: t.preselect, note: t.adminNote });
+  }
+  progress({ task: 'cleanup', phase: 'Your files', done: i++, total: targets.length + 3 });
+  groups.push(...fileCleanupGroups(index.all(), { oldDownloadDays: s.oldDownloadDays, dirExists: (p) => existsSync(p) && statSync(p).isDirectory() }));
+  progress({ task: 'cleanup', phase: 'Old project folders', done: i++, total: targets.length + 3 });
+  const builds = await oldBuildFolders();
+  if (builds.length) groups.push({ id: 'build-folders', name: 'Old project build folders', description: 'node_modules, target, .venv and similar folders in projects untouched for 30+ days. Reinstalling dependencies brings them back.', icon: 'code', mode: 'cache', safety: 'review', preselect: false, items: builds, size: builds.reduce((n, f) => n + f.size, 0), count: builds.length, locations: [...new Set(builds.map((b) => b.root))] });
+  progress({ task: 'cleanup', phase: 'Applications', done: i++, total: targets.length + 3 });
+  try {
+    const unused = (await listApps()).filter((a) => !a.system && a.lastUsed > 0 && Date.now() - a.lastUsed > s.unusedAppDays * DAY);
+    if (unused.length) {
+      const items: FileEntry[] = unused.map((a) => ({ path: a.path, name: a.name, ext: 'app', kind: 'app' as FileKind, size: a.size, mtime: a.lastUsed, btime: a.lastUsed, atime: a.lastUsed, root: 'Applications' }));
+      groups.push({ id: 'unused-apps', name: 'Unused apps', description: `Apps you have not opened in ${Math.round(s.unusedAppDays / 30)} months.`, icon: 'app', mode: 'files', safety: 'review', preselect: false, items, size: items.reduce((n, f) => n + f.size, 0), count: items.length, locations: ['Applications'] });
+    }
+  } catch {
+    /* app list unavailable */
+  }
+  progress({ task: 'cleanup', phase: 'Done', done: 1, total: 1 });
+  lastCleanup = groups;
+  return groups;
+}
+
+async function clean(req: { id: string; paths?: string[] }[]): Promise<CleanResult> {
+  const env = targetEnv();
+  const home = os.homedir();
+  const ctx = { platform: process.platform, home, excluded: settings().excluded };
+  const total: CleanResult = { freed: 0, removed: 0, failed: 0, skipped: [] };
+  const ops: JournalOp[] = [];
+  const toTrash: string[] = [];
+  for (const r of req) {
+    const group = lastCleanup.find((g) => g.id === r.id);
+    if (!group) continue;
+    // Only paths Keeper itself listed for this group are accepted.
+    const allowed = new Set((group.items ?? []).map((f) => f.path));
+    const chosen = (r.paths ?? [...allowed]).filter((p) => allowed.has(p));
+    if (group.id === 'build-folders') {
+      for (const p of chosen) {
+        const v = await checkRemovable(p, ctx);
+        if (!v.ok || !settings().folders.some((f) => isInside(p, f))) continue;
+        const item = group.items!.find((f) => f.path === p)!;
+        await fsp.rm(p, { recursive: true, force: true }).then(() => { total.freed += item.size; total.removed++; ops.push({ type: 'delete', from: p, size: item.size }); }, () => total.failed++);
+      }
+    } else if (group.id === 'unused-apps') {
+      for (const p of chosen) {
+        const a = (await listApps()).find((x) => x.path === p);
+        if (!a) continue;
+        try {
+          const res = await uninstall(a.id);
+          total.freed += res.freed;
+          total.removed += res.removed;
+          total.skipped.push(...res.skipped);
+        } catch (e) {
+          total.failed++;
+          total.skipped.push(e instanceof Error ? e.message : String(e));
+        }
+      }
+    } else if (group.mode === 'files') {
+      toTrash.push(...chosen);
+    } else if (group.mode === 'bin' && process.platform === 'win32') {
+      const ok = (await powershell('Clear-RecycleBin -Force -ErrorAction SilentlyContinue; $true')).ok;
+      if (ok) { total.freed += group.size; total.removed += group.count; ops.push({ type: 'delete', from: 'Recycle Bin', size: group.size }); }
+    } else {
+      const target = cacheTargets(env).find((t) => t.id === group.id);
+      if (!target) continue;
+      const out = await cleanTarget(target, ctx);
+      total.freed += out.freed;
+      total.removed += out.removed;
+      total.failed += out.failed;
+      if (out.inUse) total.skipped.push(`${out.inUse} item${out.inUse === 1 ? '' : 's'} in ${target.name} are in use and were kept`);
+      if (out.denied) total.skipped.push(target.adminNote ?? `${out.denied} item${out.denied === 1 ? '' : 's'} in ${target.name} need admin rights`);
+      if (out.freed) ops.push({ type: 'delete', from: target.name, size: out.freed });
+    }
+  }
+  if (toTrash.length) {
+    const r = await files.trash(toTrash, 'Clean Up');
+    total.freed += r.freed;
+    total.removed += r.removed;
+    total.failed += r.failed;
+    total.skipped.push(...r.skipped);
+    if (r.journalId) {
+      const trashOps = journal.get(r.journalId)?.ops ?? [];
+      ops.push(...trashOps);
+    }
+  }
+  const entry = await journal.record(`Cleaned up ${formatBytes(total.freed)}`, ops);
+  total.journalId = entry?.id;
+  libraryChanged();
+  return total;
+}
+
+// ---------------------------------------------------------------- space map
+
+const spaceCache = new Map<string, { at: number; node: SpaceNode }>();
+
+async function spaceTree(dir: string): Promise<SpaceNode> {
+  const hit = spaceCache.get(dir);
+  if (hit && Date.now() - hit.at < 10 * 60_000) return hit.node;
+  const cleanRoots = (await Promise.all(cacheTargets(targetEnv()).map((t) => expandRoots(t.roots)))).flat();
+  const entries = await fsp.readdir(dir, { withFileTypes: true }).catch(() => []);
+  const children: SpaceNode[] = [];
+  let done = 0;
+  const queue = entries.filter((e) => !e.isSymbolicLink());
+  const work = async () => {
+    while (queue.length) {
+      const e = queue.shift()!;
+      const p = path.join(dir, e.name);
+      progress({ task: 'space', phase: `Measuring ${e.name}`, done: done++, total: entries.length });
+      try {
+        if (e.isDirectory()) {
+          const { size, files: n } = await sizeOf(p);
+          children.push({ name: e.name, path: p, size, files: n, kind: 'folder', cleanable: cleanRoots.some((r) => r === p || isInside(r, p) || isInside(p, r)) });
+        } else if (e.isFile()) {
+          const st = await fsp.stat(p);
+          children.push({ name: e.name, path: p, size: st.size, files: 1, kind: 'file' });
+        }
+      } catch {
+        /* no permission */
+      }
+    }
+  };
+  await Promise.all([work(), work(), work(), work()]);
+  progress({ task: 'space', phase: 'Done', done: 1, total: 1 });
+  const node: SpaceNode = { name: path.basename(dir) || dir, path: dir, size: children.reduce((n, c) => n + c.size, 0), files: children.reduce((n, c) => n + c.files, 0), kind: 'folder', children: children.sort((a, b) => b.size - a.size) };
+  spaceCache.set(dir, { at: Date.now(), node });
+  return node;
+}
+
+// ---------------------------------------------------------------- rules
+
+async function runRule(r: Rule, auto = false): Promise<CleanResult> {
+  const plan = planRule(index.all(), r);
+  if (!plan.length) return { freed: 0, removed: 0, failed: 0, skipped: [] };
+  let res: CleanResult;
+  if (r.action.type === 'trash') res = await files.trash(plan.map((p) => p.file.path), `${auto ? 'Automation' : 'Rule'}: ${r.name}`);
+  else if (r.action.type === 'move') {
+    // Group by destination folder so each move is one history entry.
+    res = { freed: 0, removed: 0, failed: 0, skipped: [] };
+    const byDir = new Map<string, string[]>();
+    for (const p of plan) byDir.set(path.dirname(p.to!), [...(byDir.get(path.dirname(p.to!)) ?? []), p.file.path]);
+    for (const [dir, paths] of byDir) {
+      const out = await files.move(paths, dir, `${auto ? 'Automation' : 'Rule'}: ${r.name}`);
+      res.removed += out.removed;
+      res.failed += out.failed;
+      res.journalId = out.journalId;
+    }
+  } else {
+    for (const p of plan) index.setTags(p.file.path, [...(p.file.tags ?? []), r.action.tag]);
+    res = { freed: 0, removed: plan.length, failed: 0, skipped: [] };
+  }
+  const rules = settings().rules.map((x) => (x.id === r.id ? { ...x, lastRun: Date.now() } : x));
+  await updateSettings({ rules });
+  libraryChanged();
+  return res;
+}
+
+async function runEnabledRules() {
+  for (const r of settings().rules.filter((x) => x.enabled)) await runRule(r, true).catch(() => undefined);
+}
+
+// ---------------------------------------------------------------- updates
+
+async function checkForUpdate() {
+  if (!settings().updateCheck || !app.isPackaged) return;
+  try {
+    const res = await net.fetch('https://api.github.com/repos/ashfordeOU/keeper/releases/latest', { headers: { accept: 'application/vnd.github+json' } });
+    if (!res.ok) return;
+    const rel = (await res.json()) as { tag_name?: string; html_url?: string };
+    const latest = (rel.tag_name ?? '').replace(/^v/, '');
+    const newer = latest.split('.').map(Number).reduce((acc, n, i) => acc || (n > (app.getVersion().split('.').map(Number)[i] ?? 0) ? 1 : n < (app.getVersion().split('.').map(Number)[i] ?? 0) ? -1 : 0), 0) === 1;
+    if (newer && rel.html_url) islandSvc.alert({ kind: 'info', title: `Keeper ${latest} is available`, detail: 'Open Settings → About to download it' });
+  } catch {
+    /* offline */
+  }
+}
+
+// ---------------------------------------------------------------- IPC
+
+function handle(name: string, fn: (...args: never[]) => unknown) {
+  ipcMain.handle(name, async (_e, ...args) => fn(...(args as never[])));
+}
+
+function registerIpc() {
+  handle('system.info', () => ({ platform: process.platform, arch: process.arch, osVersion: os.release(), appVersion: app.getVersion(), home: os.homedir(), sep: path.sep }));
+  handle('system.disks', disks);
+  handle('system.health', health);
+  handle('system.killProcess', (pid: number) => killProcess(pid));
+  handle('system.ejectAll', ejectAll);
+  handle('system.wifiNetworks', wifiNetworks);
+  handle('system.openExternal', async (url: string) => {
+    if (url.startsWith('keeper://')) return handleDeepLink(url);
+    if (/^(https?|mailto):/.test(url)) await shell.openExternal(url);
+  });
+
+  handle('capture.text', () => doCapture());
+  handle('capture.clipboardImage', () => clipboardImage(settings().ocrLanguages));
+  handle('weather.get', (force?: boolean) => islandSvc.pollWeather(force).then((w) => w ?? null));
+  handle('weather.search', (name: string) => searchPlaces(name));
+
+  handle('settings.get', () => settings());
+  handle('settings.set', (patch: Partial<AllSettings> & { island?: Partial<IslandSettings> }) => updateSettings(patch as Partial<AllSettings>));
+  handle('settings.setSecret', (name: string, value: string) => setSecret(name, value));
+  handle('settings.hasSecret', (name: string) => hasSecret(name));
+  handle('settings.pickFolder', async () => {
+    const r = await dialog.showOpenDialog(main ?? undefined!, { properties: ['openDirectory', 'createDirectory'] });
+    return r.canceled ? null : r.filePaths[0];
+  });
+
+  handle('library.status', () => ({ indexing: index.scanning, files: index.files.size, lastScan: index.lastScan, ocrPending: vision.pending }));
+  handle('library.rescan', () => rescan());
+  handle('library.totals', () => index.totals());
+  handle('library.recent', (n: number, kind?: string) => index.recent(n, (f) => !kind || (kind === 'screenshot' ? !!f.screenshot : kind === 'download' ? f.root === 'Downloads' : f.kind === kind)));
+  handle('library.list', (o: { kind?: FileKind; screenshot?: boolean; root?: string; source?: string; tag?: string; sort?: string; desc?: boolean; limit?: number }) => {
+    const list = index.all().filter((f) => (!o.kind || f.kind === o.kind) && (!o.screenshot || f.screenshot) && (!o.root || f.root === o.root) && (!o.source || f.source?.id === o.source) && (!o.tag || f.tags?.includes(o.tag)));
+    const sorted = sortFiles(list, o.sort, o.desc ?? o.sort !== 'name');
+    return o.limit ? sorted.slice(0, o.limit) : sorted;
+  });
+  let dupeCache: Set<string> | undefined;
+  handle('library.search', (text: string, limit = 300) => {
+    const { parsed, hits } = index.query(text, { duplicatePaths: dupeCache });
+    return { parsed, hits: hits.slice(0, limit) };
+  });
+  handle('library.bySource', () => index.bySource());
+  handle('library.tags', () => index.allTags());
+  handle('library.setTags', (p: string, tags: string[]) => { index.setTags(p, tags); libraryChanged(); });
+  handle('library.inspect', async (p: string) => index.files.get(p) ?? (await index.refresh(p)) ?? null);
+  handle('library.readText', async (paths: string[]) => {
+    const out = [];
+    for (const p of paths) {
+      let text = index.files.get(p)?.text ?? index.extras.get(p)?.text;
+      if (text === undefined) {
+        const { loadImage, ocrImage } = await import('./services/vision');
+        const img = await loadImage(p);
+        text = img ? await ocrImage(img, settings().ocrLanguages) : '';
+        index.setText(p, text);
+      }
+      out.push({ path: p, text });
+    }
+    return out;
+  });
+  handle('library.largeFiles', (minMb: number) => largeFiles(index.all(), minMb));
+
+  handle('files.browse', (dir: string, hidden?: boolean) => files.browse(dir, hidden));
+  handle('files.thumbnail', (p: string, size: number) => files.thumbnail(p, size));
+  handle('files.icon', (p: string) => files.icon(p));
+  handle('files.open', (p: string) => files.open(p));
+  handle('files.openWith', (p: string) => files.openWith(p));
+  handle('files.reveal', (p: string) => files.reveal(p));
+  handle('files.copyPaths', (paths: string[]) => files.copyPaths(paths));
+  handle('files.copyText', (t: string) => files.copyText(t));
+  handle('files.trash', (paths: string[], title?: string) => files.trash(paths, title));
+  handle('files.move', (paths: string[], dir: string) => files.move(paths, dir));
+  handle('files.copy', (paths: string[], dir: string) => files.copy(paths, dir));
+  handle('files.rename', (p: string, name: string) => files.rename(p, name));
+  handle('files.previewRename', (paths: string[], steps: never) => files.previewRename(paths, steps));
+  handle('files.applyRename', (paths: string[], steps: never) => files.applyRename(paths, steps));
+  handle('files.newFolder', (dir: string, name: string) => files.newFolder(dir, name));
+  handle('files.compress', (paths: string[]) => files.compress(paths));
+  ipcMain.on('files.startDrag', (e, paths: string[]) => {
+    const list = paths.filter((p) => existsSync(p));
+    if (!list.length) return;
+    const icon = nativeImage.createFromPath(list[0]);
+    e.sender.startDrag({ file: list[0], files: list, icon: icon.isEmpty() ? nativeImage.createFromDataURL('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=') : icon.resize({ width: 64 }) });
+  });
+
+  handle('duplicates.scan', async (opts: { similar?: boolean; threshold?: number } = {}) => {
+    const all = index.all();
+    const exact = await findExactDuplicates(all, {
+      cache: index.hashes,
+      onProgress: (done, total, current) => done % 25 === 0 && progress({ task: 'duplicates', phase: 'Comparing files', done, total, current }),
+    });
+    const taken = new Set(exact.flatMap((g) => g.files.map((f) => f.path)));
+    const pairs = findFormatPairs(all, taken);
+    pairs.forEach((g) => g.files.forEach((f) => taken.add(f.path)));
+    const similar = opts.similar === false ? [] : findSimilarImages(all.filter((f) => f.kind === 'image'), index.dhashes(), opts.threshold ?? 6, taken);
+    progress({ task: 'duplicates', phase: 'Done', done: 1, total: 1 });
+    index.saveSoon();
+    const groups = [...exact, ...pairs, ...similar];
+    dupeCache = new Set(groups.flatMap((g) => g.files.map((f) => f.path)));
+    return groups;
+  });
+
+  handle('cleanup.scan', scanCleanup);
+  handle('cleanup.clean', clean);
+  handle('space.tree', (p: string) => spaceTree(p));
+  handle('startup.list', listStartup);
+  handle('startup.toggle', (id: string, enabled: boolean) => toggleStartup(id, enabled));
+  handle('apps.list', listApps);
+  handle('apps.uninstall', (id: string) => uninstall(id));
+  handle('protection.check', checkProtection);
+
+  handle('rules.list', () => settings().rules);
+  handle('rules.save', async (r: Rule) => {
+    const rules = settings().rules.some((x) => x.id === r.id) ? settings().rules.map((x) => (x.id === r.id ? r : x)) : [...settings().rules, r];
+    return (await updateSettings({ rules })).rules;
+  });
+  handle('rules.remove', async (id: string) => (await updateSettings({ rules: settings().rules.filter((r) => r.id !== id) })).rules);
+  handle('rules.plan', (id: string) => {
+    const r = settings().rules.find((x) => x.id === id);
+    return r ? planRule(index.all(), r) : [];
+  });
+  handle('rules.run', (id: string) => {
+    const r = settings().rules.find((x) => x.id === id);
+    if (!r) throw new Error('Rule not found');
+    return runRule(r);
+  });
+
+  handle('history.list', async () => {
+    await journal.load();
+    return journal.list();
+  });
+  handle('history.undo', async (id: string) => {
+    await journal.load();
+    const e = journal.get(id);
+    if (!e || e.undone) return { restored: 0, failed: [] };
+    const res = await undoMoves(e);
+    // Items sent to the Trash: point the user at it (restoring from the system Trash is up to the OS).
+    const trashed = e.ops.filter((o) => o.type === 'trash');
+    if (trashed.length && process.platform === 'darwin') await run('/usr/bin/open', [path.join(os.homedir(), '.Trash')]);
+    else if (trashed.length && process.platform === 'win32') await run('explorer.exe', ['shell:RecycleBinFolder']);
+    else if (trashed.length) await shell.openPath(path.join(os.homedir(), '.local', 'share', 'Trash', 'files'));
+    for (const op of e.ops) if (op.type === 'move' && op.to) index.rename(op.to, op.from);
+    await journal.markUndone(id);
+    libraryChanged();
+    return { restored: res.restored, failed: res.failed.concat(trashed.length ? [`${trashed.length} item(s) are in the Trash — put them back from there`] : []) };
+  });
+
+  handle('ai.ask', async (history: AiMessage[]) => {
+    const s = settings();
+    const d = (await disks()).find((x) => x.system);
+    const dupes = await findExactDuplicates(index.all().filter((f) => f.size > 5 * MB));
+    return askAssistant(history, {
+      platform: `${process.platform} ${os.release()}`,
+      disk: d ? { total: d.total, free: d.free } : undefined,
+      cleanup: lastCleanup.length ? lastCleanup : fileCleanupGroups(index.all()),
+      largest: largeFiles(index.all(), 100),
+      duplicates: dupes,
+      downloads: index.all().filter((f) => f.root === 'Downloads').sort((a, b) => a.mtime - b.mtime),
+      home: os.homedir(),
+    }, { provider: s.ai.provider, model: s.ai.model, apiKey: await getSecret(s.ai.provider), ollamaUrl: s.ai.ollamaUrl });
+  });
+
+  handle('island.state', () => islandSvc.state());
+  handle('island.addToShelf', (paths: string[]) => islandSvc.addToShelf(paths));
+  handle('island.removeFromShelf', (p: string) => islandSvc.removeFromShelf(p));
+  handle('island.clearShelf', () => islandSvc.clearShelf());
+  handle('island.copyClip', (id: string) => islandSvc.copyClip(id));
+  handle('island.pinClip', (id: string) => islandSvc.pinClip(id));
+  handle('island.removeClip', (id: string) => islandSvc.removeClip(id));
+  handle('island.clearClips', () => islandSvc.clearClips());
+  handle('island.focus', (action: 'start' | 'pause' | 'resume' | 'stop', minutes?: number) => islandSvc.focusAction(action, minutes));
+  handle('island.keepAwake', (on: boolean, opts?: KeepAwakeOptions) => { const r = islandSvc.keepAwake(on, opts); void updateTray(); return r; });
+  handle('island.presentation', (on: boolean) => islandSvc.setPresentation(on));
+  handle('island.media', (a: 'toggle' | 'next' | 'previous' | 'seek', v?: number) => islandSvc.media(a, v));
+  handle('island.openAgent', (id: string) => islandSvc.openAgent(id));
+  handle('island.transcribe', (audio: ArrayBuffer, mime: string) => islandSvc.transcribe(audio, mime));
+  handle('island.typeText', (t: string) => islandSvc.typeText(t));
+  handle('island.dismiss', (id: string) => islandSvc.dismiss(id));
+  ipcMain.on('island.setExpanded', (_e, v: boolean) => {
+    if (!island) return;
+    island.setBounds(islandBounds(v), false);
+    if (v) island.focus();
+  });
+}
+
+// ---------------------------------------------------------------- start
+
+app.whenReady().then(async () => {
+  // Local files for the music player, read-only and only from the indexed folders.
+  protocol.handle('keeper-file', (req) => {
+    const p = decodeURI(req.url.slice('keeper-file://'.length));
+    const ok = settings().folders.some((f) => isInside(p, f));
+    return ok ? net.fetch(pathToFileURL(p).toString()) : new Response('Not allowed', { status: 403 });
+  });
+
+  const s = settings();
+  index = makeIndex(s);
+  journal = new Journal(path.join(app.getPath('userData'), 'history.json'));
+  files = new FileService(index, journal, libraryChanged);
+  vision = new VisionQueue(index, () => ({ ocr: settings().ocrEnabled, langs: settings().ocrLanguages }), libraryChanged);
+  islandSvc = new IslandService(index, () => broadcast('island-changed'));
+  registerIpc();
+
+  await index.load();
+  createMain();
+  createIsland();
+  await updateTray();
+  registerShortcuts();
+  void islandSvc.start();
+  void rescan();
+
+  const link = process.argv.find((a) => a.startsWith('keeper://'));
+  if (link) handleDeepLink(link);
+
+  setInterval(() => void rescan(), 30 * 60_000);
+  setInterval(() => void runEnabledRules(), 60 * 60_000);
+  setTimeout(() => void runEnabledRules(), 5 * 60_000);
+  setTimeout(() => void checkForUpdate(), 30_000);
+  setInterval(() => void checkForUpdate(), DAY);
+
+  onSettings((next, prev) => {
+    if (next.folders.join() !== prev.folders.join() || next.excluded.join() !== prev.excluded.join() || next.showHidden !== prev.showHidden) {
+      index.folders = next.folders.filter(existsSync).map((f) => ({ path: f, label: path.basename(f) }));
+      index.excluded = next.excluded;
+      void rescan();
+    }
+    if (next.quickSearchShortcut !== prev.quickSearchShortcut || next.island.captureShortcut !== prev.island.captureShortcut || next.island.dictationShortcut !== prev.island.dictationShortcut) registerShortcuts();
+    if (next.trayEnabled !== prev.trayEnabled || next.trayCount !== prev.trayCount) void updateTray();
+    if (next.island.enabled !== prev.island.enabled) (next.island.enabled ? createIsland() : destroyIsland());
+    else if (next.island.edge !== prev.island.edge && island) island.setBounds(islandBounds(false));
+    if (next.island.calendarUrl !== prev.island.calendarUrl) void islandSvc.pollCalendar();
+    if (JSON.stringify(next.island.place) !== JSON.stringify(prev.island.place) || next.island.units !== prev.island.units) void islandSvc.pollWeather(true);
+    broadcast('island-changed');
+  });
+
+  app.on('activate', () => showMain());
+});
+
+app.on('before-quit', () => {
+  quitting = true;
+  globalShortcut.unregisterAll();
+  vision?.stop();
+  islandSvc?.stop();
+  void index?.save();
+});
+
+app.on('window-all-closed', () => {
+  if (!settings().trayEnabled) app.quit();
+});

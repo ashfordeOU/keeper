@@ -155,6 +155,11 @@ function windows(env: TargetEnv): CacheTarget[] {
       ],
     },
     {
+      id: 'ai-cache', name: 'AI tools', icon: 'assistant', safety: 'review', mode: 'cache', preselect: false,
+      description: 'Caches and downloaded models of AI apps and local model runners. Models are downloaded again when next used.',
+      roots: [...electronApp(path.join(R, 'Claude')), ...electronApp(path.join(R, 'ChatGPT')), path.join(env.home, '.ollama', 'models'), path.join(env.home, '.cache', 'huggingface', 'hub'), path.join(env.home, '.cache', 'lm-studio', 'models'), path.join(env.home, '.lmstudio', 'models'), path.join(L, 'Microsoft', 'Copilot', 'EBWebView', 'Default', 'Cache')],
+    },
+    {
       id: 'bin', name: 'Recycle Bin', icon: 'trash', safety: 'permanent', mode: 'bin', preselect: false,
       description: 'Files you already deleted. Emptying it removes them for good.',
       roots: [],
@@ -163,7 +168,7 @@ function windows(env: TargetEnv): CacheTarget[] {
 }
 
 const MAC_BROWSER_DIRS = ['Google', 'BraveSoftware', 'Microsoft Edge', 'Arc', 'company.thebrowser.Browser', 'com.apple.Safari', 'Firefox', 'Vivaldi', 'com.operasoftware.Opera', 'com.vivaldi.Vivaldi', 'org.mozilla.firefox'];
-const MAC_DEV_DIRS = ['Yarn', 'pip', 'pnpm', 'Homebrew', 'CocoaPods', 'go-build', 'JetBrains', 'com.apple.dt.Xcode', 'node-gyp', 'ms-playwright'];
+const MAC_DEV_DIRS = ['com.openai.chat', 'com.anthropic.claudefordesktop', 'com.todesktop.230313mzl4w4u92', 'Yarn', 'pip', 'pnpm', 'Homebrew', 'CocoaPods', 'go-build', 'JetBrains', 'com.apple.dt.Xcode', 'node-gyp', 'ms-playwright'];
 /** Sync state and transfers in flight, not caches: removing them makes iCloud re-download or re-sync. */
 const MAC_KEEP = ['com.apple.bird', 'CloudKit', 'com.apple.cloudd', 'com.apple.nsurlsessiond', 'com.apple.akd', 'FamilyCircle', 'com.apple.iCloudHelper', 'com.apple.Music', 'com.apple.podcasts', 'com.apple.findmy.fmipcore'];
 
@@ -226,6 +231,11 @@ function mac(env: TargetEnv): CacheTarget[] {
       ],
     },
     {
+      id: 'ai-cache', name: 'AI tools', icon: 'assistant', safety: 'review', mode: 'cache', preselect: false,
+      description: 'Caches and downloaded models of AI apps and local model runners. Models are downloaded again when next used.',
+      roots: [...electronApp(support('Claude')), lib('Caches', 'com.openai.chat'), lib('Caches', 'com.anthropic.claudefordesktop'), lib('Caches', 'com.todesktop.230313mzl4w4u92'), path.join(env.home, '.ollama', 'models'), path.join(env.home, '.cache', 'huggingface', 'hub'), path.join(env.home, '.cache', 'lm-studio', 'models'), path.join(env.home, '.lmstudio', 'models')],
+    },
+    {
       id: 'bin', name: 'Trash', icon: 'trash', safety: 'permanent', mode: 'bin', preselect: false,
       description: 'Files you already deleted. Emptying it removes them for good.',
       roots: [path.join(env.home, '.Trash')],
@@ -238,11 +248,12 @@ function linux(env: TargetEnv): CacheTarget[] {
   const cfg = path.join(env.home, '.config');
   const BROWSER = ['google-chrome', 'google-chrome-beta', 'chromium', 'BraveSoftware', 'microsoft-edge', 'vivaldi', 'opera', 'mozilla'];
   const DEV = ['pip', 'yarn', 'pnpm', 'go-build', 'JetBrains', 'node-gyp', 'ms-playwright', 'pypoetry', 'composer', 'mesa_shader_cache'];
+  const AI = ['huggingface', 'lm-studio'];
   return [
     {
       id: 'user-cache', name: 'User caches', icon: 'layers', safety: 'safe', mode: 'cache', preselect: true,
       description: 'Apps keep these in ~/.cache to open faster and rebuild them when needed.',
-      roots: [cache], exclude: [...BROWSER, ...DEV, 'thumbnails'],
+      roots: [cache], exclude: [...BROWSER, ...DEV, ...AI, 'thumbnails'],
     },
     {
       id: 'thumbnails', name: 'Thumbnail cache', icon: 'photo', safety: 'safe', mode: 'cache', preselect: true,
@@ -275,6 +286,11 @@ function linux(env: TargetEnv): CacheTarget[] {
         path.join(env.home, '.npm', '_cacache'), ...DEV.map((d) => path.join(cache, d)), path.join(env.home, '.gradle', 'caches'),
         path.join(env.home, '.cargo', 'registry', 'cache'),
       ],
+    },
+    {
+      id: 'ai-cache', name: 'AI tools', icon: 'assistant', safety: 'review', mode: 'cache', preselect: false,
+      description: 'Caches and downloaded models of AI apps and local model runners. Models are downloaded again when next used.',
+      roots: [...electronApp(path.join(cfg, 'Claude')), path.join(env.home, '.ollama', 'models'), path.join(cache, 'huggingface', 'hub'), path.join(cache, 'lm-studio', 'models'), path.join(env.home, '.lmstudio', 'models')],
     },
     {
       id: 'bin', name: 'Trash', icon: 'trash', safety: 'permanent', mode: 'bin', preselect: false,

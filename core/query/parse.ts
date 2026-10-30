@@ -328,6 +328,13 @@ const EXTRACTORS: Extractor[] = [
   },
   { re: /\b(\d{4}-\d{2}-\d{2})\b/, run: (m, ctx) => { const t = parseExplicitDate(m[1], ctx.now); if (t !== undefined) setDate(ctx, t, t + DAY, m[1]); } },
 
+  // ---- phrases that name a type but use stop words
+  { re: /\b(?:plain )?text files?\b|\btxt files?\b/, run: (_m, ctx) => { ctx.q.exts.push('txt', 'md', 'rtf'); } },
+  { re: /\b(?:word|excel|powerpoint) (?:docs?|documents?|files?|sheets?)\b/, run: (m, ctx) => {
+      const w = m[0].split(' ')[0];
+      ctx.q.exts.push(...(w === 'word' ? ['doc', 'docx'] : w === 'excel' ? ['xls', 'xlsx'] : ['ppt', 'pptx']));
+    } },
+
   // ---- duplicates
   { re: /\b(?:duplicates?|dupes?|copies|duplicated)\b/, run: (_m, ctx) => { ctx.q.duplicatesOnly = true; } },
 ];
