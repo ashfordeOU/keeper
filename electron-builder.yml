@@ -1,0 +1,91 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+appId: io.github.ashfordeou.keeper
+productName: Keeper
+copyright: Copyright © 2026 Keeper contributors · GNU AGPL v3 or later
+directories:
+  output: release
+  buildResources: build
+# The main process, preload scripts and most libraries are bundled by esbuild;
+# only tesseract.js ships as a module because it starts its own worker threads.
+files:
+  - dist/**
+  - dist-electron/**
+  - build/tray*.png
+  - build/icon.png
+  - LICENSE
+  - package.json
+asar: true
+asarUnpack:
+  - node_modules/tesseract.js/**
+  - node_modules/tesseract.js-core/**
+# No version in file names, so releases/latest/download/<name> links never go stale.
+artifactName: ${productName}-${os}-${arch}.${ext}
+publish: null
+protocols:
+  - name: Keeper
+    schemes: [keeper]
+
+win:
+  icon: build/icon.png
+  target:
+    - target: nsis
+      arch: [x64, arm64]
+    - target: portable
+      arch: [x64]
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  shortcutName: Keeper
+  license: LICENSE
+  artifactName: ${productName}-setup-${arch}.${ext}
+portable:
+  artifactName: ${productName}-portable.${ext}
+
+mac:
+  icon: build/icon.png
+  category: public.app-category.productivity
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+    - target: zip
+      arch: [arm64, x64]
+  # Until a Developer ID is set up the app is ad-hoc signed; see README → First launch.
+  identity: '-'
+  hardenedRuntime: false
+  gatekeeperAssess: false
+  notarize: false
+  extendInfo:
+    NSDesktopFolderUsageDescription: Keeper shows and searches the files on your Desktop.
+    NSDocumentsFolderUsageDescription: Keeper shows and searches the files in Documents.
+    NSDownloadsFolderUsageDescription: Keeper shows your downloads and where they came from.
+    NSAppleEventsUsageDescription: Keeper reads what is playing in Music or Spotify and can paste dictated text.
+    NSMicrophoneUsageDescription: Keeper listens only while you hold the dictation shortcut.
+    LSUIElement: false
+dmg:
+  title: Keeper
+  sign: false
+  contents:
+    - { x: 150, y: 190 }
+    - { x: 390, y: 190, type: link, path: /Applications }
+
+linux:
+  icon: build/icon.png
+  category: Utility
+  synopsis: Find, understand and tidy your files
+  target:
+    - target: AppImage
+      arch: [x64, arm64]
+    - target: deb
+      arch: [x64]
+    - target: rpm
+      arch: [x64]
+    - target: tar.gz
+      arch: [x64]
+  desktop:
+    entry:
+      MimeType: x-scheme-handler/keeper;
+deb:
+  depends: [libnotify4, libxtst6, libnss3]
+  recommends: [playerctl, xdotool, attr]

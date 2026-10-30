@@ -25,6 +25,13 @@ describe('search', () => {
     expect(hits[0].snippet).toContain('password: hunter2');
   });
 
+  it('ignores punctuation inside words', () => {
+    const f = [file('/u/Desktop/Screenshot 2026-10-01 at 1.00.00.png', { text: 'Wi-Fi password: x' })];
+    const hits = search(f, parseQuery('wifi password', NOW).query);
+    expect(hits).toHaveLength(1);
+    expect(hits[0].snippet).toContain('Wi-Fi');
+  });
+
   it('matches accents and forgives one typo', () => {
     expect(run('résumé')).toEqual(['resume.docx']);
     expect(run('invoise')).toEqual(['Invoice-March.pdf']);

@@ -149,7 +149,7 @@ export function Duplicates() {
                           {isKeep ? <span className="badge ok tag">Keep</span> : null}
                           {!isKeep ? <span className="sel"><Check on={selected.has(f.path)} onChange={(v) => toggle(f.path, v)} /></span> : null}
                           <div className="nm">{f.name}</div>
-                          <div className="path">{short(f.path)}</div>
+                          <div className="path"><bdi>{short(f.path)}</bdi></div>
                           <div className="small muted">{formatBytes(f.size)}{f.meta?.width ? ` · ${f.meta.width}×${f.meta.height}` : ''}</div>
                         </div>
                       );

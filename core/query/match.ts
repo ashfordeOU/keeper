@@ -134,6 +134,10 @@ export function scoreTerms(f: FileEntry, q: Query): { score: number; snippet?: s
   const text = f.text ? fold(f.text) : '';
   const folder = fold(f.path.slice(0, f.path.length - f.name.length));
   const source = f.source ? fold(`${f.source.name} ${f.source.host}`) : '';
+  // "wifi" should find "Wi-Fi" and "e mail" should find "e-mail": also compare without punctuation.
+  const squash = (s: string) => s.replace(/[^\p{L}\p{N}]+/gu, '');
+  const nameSquashed = squash(name);
+  const textSquashed = squash(text);
   let score = 0;
   let snippetAt = -1;
   let snippetTerm = '';
@@ -148,6 +152,17 @@ export function scoreTerms(f: FileEntry, q: Query): { score: number; snippet?: s
       if (snippetAt < 0) {
         snippetAt = text.indexOf(t);
         snippetTerm = t;
+      }
+    } else if (t.length >= 3 && nameSquashed.includes(squash(t))) score += 5;
+    else if (t.length >= 3 && textSquashed.includes(squash(t))) {
+      score += 2.5;
+      if (snippetAt < 0) {
+        // Point the excerpt at the first letters of the word in the original text.
+        const at = text.indexOf(t.slice(0, 2));
+        if (at >= 0) {
+          snippetAt = at;
+          snippetTerm = t;
+        }
       }
     } else if (source.includes(t)) score += 2;
     else if (folder.includes(t)) score += 1.5;

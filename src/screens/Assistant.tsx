@@ -30,7 +30,9 @@ export function Assistant() {
   const end = useRef<HTMLDivElement>(null);
   const short = (p: string) => (info?.home && p.startsWith(info.home) ? '~' + p.slice(info.home.length) : p);
 
-  useEffect(() => end.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }), [turns, busy]);
+  useEffect(() => {
+    end.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [turns, busy]);
 
   const ask = async (q: string) => {
     if (!q.trim() || busy) return;

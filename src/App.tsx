@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // The main window: sidebar, search bar, the current page, and the inspector.
 
-import { useEffect, useState } from 'react';
+import { Component, useEffect, useState, type ReactNode } from 'react';
 import { KIND_LABEL } from '../core/classify';
 import type { FileKind } from '../core/types';
 import { api } from './api';
@@ -167,6 +167,28 @@ function TopBar({ onPalette }: { onPalette: () => void }) {
   );
 }
 
+/** One broken page must never take the whole window down. */
+class PageBoundary extends Component<{ children: ReactNode; route: string }, { error: Error | null }> {
+  state = { error: null as Error | null };
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+  componentDidUpdate(prev: { route: string }) {
+    if (prev.route !== this.props.route && this.state.error) this.setState({ error: null });
+  }
+  render() {
+    if (!this.state.error) return this.props.children;
+    return (
+      <div className="empty">
+        <Icon name="warning" size={36} />
+        <div style={{ fontWeight: 600, color: 'var(--text-2)' }}>This page ran into a problem</div>
+        <div className="small mono" style={{ maxWidth: 520 }}>{this.state.error.message}</div>
+        <button className="btn" onClick={() => this.setState({ error: null })}>Try again</button>
+      </div>
+    );
+  }
+}
+
 function Page() {
   const { route } = useStore();
   const pages: Record<RouteName, () => React.ReactElement> = {
@@ -234,7 +256,7 @@ export function App() {
       <Sidebar />
       <main className="main">
         <TopBar onPalette={() => setPalette(true)} />
-        <div className="content"><Page /></div>
+        <div className="content"><PageBoundary route={`${store.route.name}:${store.route.arg ?? ''}:${store.route.q ?? ''}`}><Page /></PageBoundary></div>
       </main>
       {showInspector ? <Inspector /> : <div />}
       {palette ? <CommandPalette onClose={() => setPalette(false)} /> : null}

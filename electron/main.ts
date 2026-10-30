@@ -189,7 +189,10 @@ async function updateTray() {
     return;
   }
   if (!tray) {
-    const icon = nativeImage.createFromPath(path.join(__dirname, '..', 'build', isMac ? 'trayTemplate.png' : 'tray.png'));
+    // macOS tints a black template image to match the menu bar; elsewhere the colour icon reads on any taskbar.
+    const icon = isMac
+      ? nativeImage.createFromPath(path.join(__dirname, '..', 'build', 'trayTemplate.png'))
+      : nativeImage.createFromPath(path.join(__dirname, '..', 'build', 'icon.png')).resize({ width: process.platform === 'win32' ? 16 : 22 });
     tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon);
     if (icon.isEmpty()) tray.setTitle?.('K');
     tray.setToolTip('Keeper');

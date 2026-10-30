@@ -510,6 +510,7 @@ function extGroupLabel(exts: string[]): string | undefined {
   if (same(['heic', 'heif'])) return 'HEIC';
   if (same(['raw', 'cr2', 'cr3', 'nef', 'arw', 'dng', 'orf', 'rw2', 'raf'])) return 'RAW photos';
   if (same(['ttf', 'otf', 'woff', 'woff2'])) return 'Fonts';
+  if (same(['txt', 'md', 'rtf'])) return 'Text files';
   if (set.size === 1 && exts[0] === 'pdf') return 'PDFs';
   return undefined;
 }

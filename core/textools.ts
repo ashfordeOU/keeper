@@ -104,15 +104,72 @@ export function formatJson(s: string, indent = 2): { ok: true; text: string } | 
   try {
     return { ok: true, text: JSON.stringify(JSON.parse(s), null, indent) };
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    const pos = Number(msg.match(/position (\d+)/)?.[1]);
-    if (Number.isFinite(pos)) {
-      const before = s.slice(0, pos);
-      const line = before.split('\n').length;
-      const col = pos - before.lastIndexOf('\n');
-      return { ok: false, error: `${msg.replace(/ in JSON at position \d+.*$/, '')} at line ${line}, column ${col}` };
+    const msg = (e instanceof Error ? e.message : String(e)).replace(/,? ?".*$/s, '').replace(/ in JSON at position \d+.*$/s, '');
+    const pos = jsonErrorAt(s);
+    const before = s.slice(0, pos);
+    const line = before.split('\n').length;
+    const col = pos - before.lastIndexOf('\n');
+    return { ok: false, error: `${msg || 'Not valid JSON'} at line ${line}, column ${col}` };
+  }
+}
+
+/** Where a JSON text first goes wrong (engines no longer say). A small strict scanner. */
+export function jsonErrorAt(s: string): number {
+  let i = 0;
+  const ws = () => { while (i < s.length && /\s/.test(s[i])) i++; };
+  const fail = (): never => { throw i; };
+  const lit = (w: string) => { if (s.startsWith(w, i)) i += w.length; else fail(); };
+  const str = () => {
+    i++;
+    while (i < s.length && s[i] !== '"') {
+      if (s[i] === '\\') i++;
+      else if (s.charCodeAt(i) < 0x20) fail();
+      i++;
     }
-    return { ok: false, error: msg };
+    if (s[i] !== '"') fail();
+    i++;
+  };
+  const num = () => {
+    const m = /^-?(0|[1-9]\d*)(\.\d+)?([eE][+-]?\d+)?/.exec(s.slice(i));
+    if (!m) fail();
+    i += m![0].length;
+  };
+  const value = (): void => {
+    ws();
+    const c = s[i];
+    if (c === '{') {
+      i++; ws();
+      if (s[i] === '}') { i++; return; }
+      for (;;) {
+        ws(); if (s[i] !== '"') fail(); str(); ws();
+        if (s[i] !== ':') fail(); i++; value(); ws();
+        if (s[i] === ',') { i++; continue; }
+        if (s[i] === '}') { i++; return; }
+        fail();
+      }
+    }
+    if (c === '[') {
+      i++; ws();
+      if (s[i] === ']') { i++; return; }
+      for (;;) {
+        value(); ws();
+        if (s[i] === ',') { i++; continue; }
+        if (s[i] === ']') { i++; return; }
+        fail();
+      }
+    }
+    if (c === '"') return str();
+    if (c === 't') return lit('true');
+    if (c === 'f') return lit('false');
+    if (c === 'n') return lit('null');
+    return num();
+  };
+  try {
+    value();
+    ws();
+    return i < s.length ? i : s.length;
+  } catch (at) {
+    return typeof at === 'number' ? at : 0;
   }
 }
 

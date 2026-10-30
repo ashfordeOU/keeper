@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6d6dff"/>
+      <stop offset=".55" stop-color="#a35cf0"/>
+      <stop offset="1" stop-color="#ff6fa3"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".28"/>
+      <stop offset=".5" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect x="64" y="64" width="896" height="896" rx="208" fill="url(#bg)"/>
+  <rect x="64" y="64" width="896" height="896" rx="208" fill="url(#shine)"/>
+  <!-- a house that is also a shelf: everything in its place -->
+  <path d="M512 236 L782 452 V760 a40 40 0 0 1 -40 40 H282 a40 40 0 0 1 -40 -40 V452 Z" fill="#fff" fill-opacity=".96"/>
+  <rect x="330" y="508" width="364" height="34" rx="17" fill="#8a63f7"/>
+  <rect x="330" y="606" width="364" height="34" rx="17" fill="#c368e6"/>
+  <rect x="330" y="704" width="230" height="34" rx="17" fill="#ff6fa3"/>
+  <circle cx="512" cy="400" r="34" fill="#6d6dff"/>
+</svg>

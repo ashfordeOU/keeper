@@ -36,7 +36,6 @@
     "dist:linux": "npm run build && electron-builder --linux"
   },
   "dependencies": {
-    "jsqr": "^1.4.0",
     "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
@@ -50,11 +49,24 @@
     "electron": "^45.2.0",
     "electron-builder": "^26.18.0",
     "esbuild": "^0.28.2",
+    "jsqr": "^1.4.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "typescript": "^5.9.3",
     "vite": "^8.3.5",
     "vitest": "^5.0.5",
     "wait-on": "^9.5.1"
-  }
+  },
+  "keywords": [
+    "file manager",
+    "disk cleaner",
+    "duplicate finder",
+    "search",
+    "ocr",
+    "clipboard",
+    "productivity",
+    "electron",
+    "privacy",
+    "agpl"
+  ]
 }

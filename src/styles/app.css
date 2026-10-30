@@ -156,7 +156,7 @@ html[data-look='minimal'] .sidebar .brand .logo { background: var(--text); color
   -webkit-app-region: drag; flex: none;
 }
 .topbar > * { -webkit-app-region: no-drag; }
-.topbar .spacer { flex: 1; -webkit-app-region: drag; height: 100%; }
+.topbar .spacer { flex: 0 0 12px; -webkit-app-region: drag; height: 100%; }
 html[data-platform='win32'] .topbar { padding-right: 150px; }
 .searchbox {
   display: flex; align-items: center; gap: 8px; flex: 1; max-width: 640px;
