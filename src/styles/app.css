@@ -138,6 +138,21 @@ html[data-platform='win32'] .sidebar .brand, html[data-platform='linux'] .sideba
 html[data-look='minimal'] .sidebar .brand .logo { background: var(--text); color: var(--bg); }
 .nav-section { margin-top: 12px; }
 .nav-title { font-size: 11px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: .06em; padding: 6px 10px 4px; display: flex; justify-content: space-between; align-items: center; }
+/* Sections open and close from their title, each in its own colour. */
+button.nav-title { width: 100%; border: 0; background: none; border-radius: 6px; cursor: default; font-family: inherit; color: color-mix(in srgb, var(--sec, var(--text-3)) 70%, var(--text-2)); }
+button.nav-title:hover { background: color-mix(in srgb, var(--sec, var(--accent)) 10%, transparent); }
+button.nav-title:focus-visible { outline: 2px solid var(--sec, var(--accent)); outline-offset: -2px; }
+.nav-title-text { display: inline-flex; align-items: center; gap: 7px; }
+.sec-dot { width: 7px; height: 7px; border-radius: 3px; background: var(--sec, var(--text-3)); flex: none; }
+.nav-chevron { opacity: 0; transition: transform .18s ease, opacity .15s; }
+button.nav-title:hover .nav-chevron, button.nav-title:focus-visible .nav-chevron, .nav-section.closed .nav-chevron { opacity: .8; }
+.nav-section.closed .nav-chevron { transform: rotate(-90deg); }
+.nav-section .nav-items { display: grid; grid-template-rows: 1fr; transition: grid-template-rows .2s ease; }
+.nav-section .nav-items > * { min-height: 0; }
+/* Icons in a section take its colour; the page you are on stays visible when its section is closed. */
+.nav-section[style] .nav-item > svg { color: color-mix(in srgb, var(--sec) 80%, var(--text-2)); }
+.nav-section.closed .nav-item:not(.active), .nav-section.closed .place-row:not(:has(.nav-item.active)) { display: none; }
+@media (prefers-reduced-motion: reduce) { .nav-chevron, .nav-section .nav-items { transition: none; } }
 .nav-item {
   display: flex; align-items: center; gap: 9px;
   width: 100%; padding: 6px 10px; border: 0; background: none; border-radius: 8px;

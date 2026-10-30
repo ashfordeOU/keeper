@@ -9,6 +9,7 @@ import type { Place, PlacesModel } from '../../core/places';
 import { api } from '../api';
 import { useStore, type Route } from '../state';
 import { Icon } from './Icon';
+import { NavSection } from './NavSection';
 import { ContextMenu, type MenuItem } from './ui';
 import '../styles/places.css';
 
@@ -103,21 +104,17 @@ export function PlacesSidebar() {
   const computerRoot = info?.platform === 'win32' ? m.volumes[0]?.path ?? 'C:\\' : '/';
   // On Linux the root file system is the computer itself: one row with its free space, not two.
   const rootVol = info?.platform === 'linux' ? m.volumes.find((v) => v.path === '/') : undefined;
-  const sectionMenu = (e: React.MouseEvent) => {
-    if (!(settings.hiddenPlaces ?? []).length) return;
-    e.preventDefault();
-    setMenu({ x: e.clientX, y: e.clientY, items: [{ label: 'Show all hidden places again', icon: 'eye', run: () => void updateSettings({ hiddenPlaces: [] }).then(reload) }] });
-  };
+  const sectionMenu: MenuItem[] = (settings.hiddenPlaces ?? []).length
+    ? [{ label: 'Show all hidden places again', icon: 'eye', run: () => void updateSettings({ hiddenPlaces: [] }).then(reload) }]
+    : [];
 
   return (
     <>
-      <div className={`nav-section places-drop ${over ? 'over' : ''}`} onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)} onDrop={(e) => void onDrop(e)}>
-        <div className="nav-title" onContextMenu={sectionMenu}>Favorites</div>
+      <NavSection id="favorites" title="Favorites" menuItems={sectionMenu} className={`places-drop ${over ? 'over' : ''}`} onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)} onDrop={(e) => void onDrop(e)}>
         {m.favorites.map((p) => item(p))}
-      </div>
+      </NavSection>
 
-      <div className="nav-section">
-        <div className="nav-title" onContextMenu={sectionMenu}>Locations</div>
+      <NavSection id="locations" title="Locations" menuItems={sectionMenu}>
         {m.shared ? item(m.shared, { icon: 'island' }) : null}
         {m.cloud.map((p) => item(p, { icon: 'cloud' }))}
         {item({ id: 'computer', name: m.computerName, path: computerRoot, kind: 'computer', icon: 'laptop', total: rootVol?.total, free: rootVol?.free })}
@@ -126,7 +123,7 @@ export function PlacesSidebar() {
         {m.network.map((p) => item(p, { icon: 'server' }))}
         {item({ id: 'network', name: 'Network', path: '', kind: 'network', icon: 'globe' }, { route: { name: 'network' } })}
         {item({ id: 'trash', name: info?.platform === 'win32' ? 'Recycle Bin' : 'Trash', path: '', kind: 'folder', icon: 'trash' }, { route: { name: 'trash' } })}
-      </div>
+      </NavSection>
       {menu ? <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} /> : null}
     </>
   );

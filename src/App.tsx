@@ -9,6 +9,7 @@ import { Icon } from './components/Icon';
 import { OwlMark } from './components/OwlMark';
 import { UpdateBanner, WhatsNew } from './components/Updates';
 import { Inspector } from './components/Inspector';
+import { NavSection } from './components/NavSection';
 import { PlacesSidebar } from './components/PlacesSidebar';
 import { Player } from './components/Player';
 import { KIND_COLOR } from './components/ui';
@@ -72,49 +73,43 @@ function Sidebar() {
       <NavItem route={{ name: 'downloads' }} icon="down" label={t('nav.downloads')} />
       <NavItem route={{ name: 'weather' }} icon="sun" label={t('nav.weather')} />
 
-      <div className="nav-section">
-        <div className="nav-title">{t('section.library')}</div>
+      <NavSection id="library" title={t('section.library')}>
         {SHELVES.map((k) => <NavItem key={k} route={{ name: 'library', arg: k }} color={KIND_COLOR[k]} label={t(`kind.${k}`)} count={short(totals.data?.[k].count)} />)}
         <NavItem route={{ name: 'screenshots' }} icon="screenshot" label={t('kind.screenshot')} />
-      </div>
+      </NavSection>
 
       {settings?.savedSearches.length ? (
-        <div className="nav-section">
-          <div className="nav-title">{t('section.saved')}</div>
+        <NavSection id="saved" title={t('section.saved')}>
           {settings.savedSearches.map((s) => <NavItem key={s.id} route={{ name: 'search', q: s.text, arg: s.id }} icon="search" label={s.name} />)}
-        </div>
+        </NavSection>
       ) : null}
 
       {/* Favorites (pinned folders included) and Locations: disks, cloud, network, Trash. */}
       <PlacesSidebar />
 
       {tags.data?.length ? (
-        <div className="nav-section">
-          <div className="nav-title">{t('section.tags')}</div>
+        <NavSection id="tags" title={t('section.tags')}>
           {tags.data.slice(0, 8).map((t) => <NavItem key={t.tag} route={{ name: 'tag', arg: t.tag }} icon="tag" label={t.tag} count={t.count} />)}
-        </div>
+        </NavSection>
       ) : null}
 
-      <div className="nav-section">
-        <div className="nav-title">{t('section.tidy')}</div>
+      <NavSection id="tidy" title={t('section.tidy')}>
         <NavItem route={{ name: 'cleanup' }} icon="broom" label={t('nav.cleanup')} />
         <NavItem route={{ name: 'duplicates' }} icon="dupes" label={t('nav.duplicates')} />
         <NavItem route={{ name: 'space' }} icon="map" label={t('nav.space')} />
         <NavItem route={{ name: 'large' }} icon="weight" label={t('nav.large')} />
         <NavItem route={{ name: 'convert' }} icon="refresh" label={t('nav.convert')} />
         <NavItem route={{ name: 'rules' }} icon="rules" label={t('nav.rules')} />
-      </div>
+      </NavSection>
 
-      <div className="nav-section">
-        <div className="nav-title">{t('section.system')}</div>
+      <NavSection id="system" title={t('section.system')}>
         <NavItem route={{ name: 'health' }} icon="bolt" label={t('nav.health')} />
         <NavItem route={{ name: 'startup' }} icon="power" label={t('nav.startup')} />
         <NavItem route={{ name: 'apps' }} icon="app" label={t('nav.apps')} />
         <NavItem route={{ name: 'protection' }} icon="shield" label={t('nav.protection')} />
-      </div>
+      </NavSection>
 
-      <div className="nav-section">
-        <div className="nav-title">{t('section.more')}</div>
+      <NavSection id="more" title={t('section.more')}>
         <NavItem route={{ name: 'assistant' }} icon="assistant" label={t('nav.assistant')} />
         <NavItem route={{ name: 'capture' }} icon="screenshot" label={t('nav.capture')} />
         <NavItem route={{ name: 'tools' }} icon="terminal" label={t('nav.toolbox')} />
@@ -122,7 +117,7 @@ function Sidebar() {
         <NavItem route={{ name: 'widgets' }} icon="grid" label={t('nav.widgets')} />
         <NavItem route={{ name: 'history' }} icon="history" label={t('nav.history')} />
         <NavItem route={{ name: 'settings' }} icon="settings" label={t('nav.settings')} />
-      </div>
+      </NavSection>
     </aside>
   );
 }
