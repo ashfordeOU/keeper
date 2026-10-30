@@ -48,11 +48,13 @@ describe('page ranges', () => {
 
 describe('naming', () => {
   it('puts results in a new folder and never reuses a name', () => {
-    expect(outputFolder(['/a/b/movie.mov'])).toBe('/a/b/movie (Keeper)');
-    expect(outputFolder(['/a/x.pdf', '/a/y.pdf'])).toBe('/a/x and 1 more (Keeper)');
-    expect(outputFolder(['/a/x.pdf'], '/out')).toBe('/out');
-    const taken = new Set(['/o/p.jpg', '/o/p 2.jpg']);
-    expect(freeName('/o', 'p', 'jpg', (p) => taken.has(p))).toBe('/o/p 3.jpg');
+    // Paths are built for the system the tests run on (\\ on Windows, / elsewhere).
+    const r = (...p: string[]) => path.join(path.sep, ...p);
+    expect(outputFolder([r('a', 'b', 'movie.mov')])).toBe(r('a', 'b', 'movie (Keeper)'));
+    expect(outputFolder([r('a', 'x.pdf'), r('a', 'y.pdf')])).toBe(r('a', 'x and 1 more (Keeper)'));
+    expect(outputFolder([r('a', 'x.pdf')], r('out'))).toBe(r('out'));
+    const taken = new Set([r('o', 'p.jpg'), r('o', 'p 2.jpg')]);
+    expect(freeName(r('o'), 'p', 'jpg', (p) => taken.has(p))).toBe(r('o', 'p 3.jpg'));
   });
 });
 

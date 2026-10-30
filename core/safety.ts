@@ -3,7 +3,7 @@
 // to remove from a path the interface sends; it re-derives the target from a
 // known category and checks the resolved, real path against these rules.
 
-import { promises as fsp } from 'node:fs';
+import { promises as fsp, realpath } from 'node:fs';
 import path from 'node:path';
 
 export interface SafetyContext {
@@ -72,35 +72,51 @@ export type Verdict = { ok: true; real: string } | { ok: false; reason: string }
  *  - nothing inside a folder the user excluded
  *  - when `within` is given, the real path must be inside one of those folders
  */
+/** The real, full path: links resolved and, on Windows, short (8.3) names expanded. */
+async function realOf(p: string, win: boolean): Promise<string> {
+  try {
+    if (!win) return await fsp.realpath(p);
+    // The native call is the one that expands Windows short names (RUNNER~1 -> runneradmin).
+    return await new Promise<string>((resolve, reject) => realpath.native(p, (err, r) => (err ? reject(err) : resolve(r))));
+  } catch {
+    return path.resolve(p);
+  }
+}
+
 export async function checkRemovable(p: string, ctx: SafetyContext, within?: string[]): Promise<Verdict> {
   const win = ctx.platform === 'win32';
   if (!p || !path.isAbsolute(p)) return { ok: false, reason: 'not an absolute path' };
   if (win && (/^\\\\/.test(p) || /^\/\//.test(p))) return { ok: false, reason: 'network paths are never cleaned' };
-  if (win && /~\d/.test(p)) return { ok: false, reason: 'short (8.3) names are refused' };
   if (win && /[. ]$/.test(p)) return { ok: false, reason: 'trailing dots or spaces are refused' };
-  if (path.parse(p).root === path.resolve(p)) return { ok: false, reason: 'drive roots are never cleaned' };
+  const abs = path.resolve(p);
+  if (path.parse(abs).root === abs) return { ok: false, reason: 'drive roots are never cleaned' };
 
-  let real: string;
   try {
     const st = await fsp.lstat(p);
     if (st.isSymbolicLink()) return { ok: false, reason: 'symbolic links are skipped' };
-    real = await fsp.realpath(p);
   } catch {
     return { ok: false, reason: 'no longer exists' };
   }
-  if (!samePath(real, path.resolve(p), win) && !win) {
-    // A parent folder is a link: the real target lives somewhere else.
-    return { ok: false, reason: 'path goes through a link' };
-  }
+  // Every comparison below uses real paths, so a link or short name in a parent
+  // folder can never point the removal somewhere else.
+  const real = await realOf(p, win);
+  if (win && /~\d/.test(real)) return { ok: false, reason: 'short (8.3) names that cannot be expanded are refused' };
+  if (path.parse(real).root === real) return { ok: false, reason: 'drive roots are never cleaned' };
   for (const root of protectedRoots(ctx)) {
-    if (samePath(real, root, win)) return { ok: false, reason: 'protected folder' };
+    if (samePath(real, root, win) || samePath(real, await realOf(root, win), win)) return { ok: false, reason: 'protected folder' };
   }
-  if (win && WIN_RESERVED.test(real.slice(3)) && !isInside(real, path.join(ctx.home, 'AppData'), win) && !isInside(real, process.env.SystemRoot ? path.join(process.env.SystemRoot, 'Temp') : 'C:\\Windows\\Temp', win)) {
-    return { ok: false, reason: 'system folder' };
+  if (win) {
+    const appData = await realOf(path.join(ctx.home, 'AppData'), win);
+    const winTemp = await realOf(process.env.SystemRoot ? path.join(process.env.SystemRoot, 'Temp') : 'C:\\Windows\\Temp', win);
+    if (WIN_RESERVED.test(real.slice(3)) && !isInside(real, appData, win) && !isInside(real, winTemp, win)) return { ok: false, reason: 'system folder' };
   }
   for (const ex of ctx.excluded ?? []) {
-    if (samePath(real, ex, win) || isInside(real, ex, win)) return { ok: false, reason: 'inside a folder you excluded' };
+    const rex = await realOf(ex, win);
+    if (samePath(real, rex, win) || isInside(real, rex, win)) return { ok: false, reason: 'inside a folder you excluded' };
   }
-  if (within && !within.some((w) => isInside(real, w, win))) return { ok: false, reason: 'outside the expected folder' };
+  if (within) {
+    const roots = await Promise.all(within.map((w) => realOf(w, win)));
+    if (!roots.some((w) => isInside(real, w, win))) return { ok: false, reason: 'outside the expected folder' };
+  }
   return { ok: true, real };
 }

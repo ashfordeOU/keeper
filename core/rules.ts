@@ -54,9 +54,11 @@ export function globToRegExp(pattern: string): RegExp {
 
 function inScope(f: FileEntry, scope: string[]): boolean {
   if (scope.length === 0) return true;
-  const dir = path.dirname(f.path).toLowerCase();
+  // Normalised, so "C:/Users/x/Downloads" and "C:\\Users\\x\\Downloads\\" are the same folder.
+  const norm = (p: string) => path.normalize(p).replace(/[\\/]+$/, '').toLowerCase();
+  const dir = norm(path.dirname(f.path));
   // Rules look at the top of each folder only, never into sub-folders they created.
-  return scope.some((s) => dir === s.toLowerCase());
+  return scope.some((s) => dir === norm(s));
 }
 
 export function conditionMatches(f: FileEntry, c: RuleCondition, now = Date.now()): boolean {

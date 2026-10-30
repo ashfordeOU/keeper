@@ -68,6 +68,9 @@ export function defaultSettings(folders: string[], rules: Rule[]): AllSettings {
     ai: { provider: 'anthropic', model: '', ollamaUrl: 'http://127.0.0.1:11434' },
     widgets: [],
     updateCheck: true,
+    updateMode: 'auto',
+    updateBeta: false,
+    lastRunVersion: '',
     language: 'system',
     island: defaultIsland(),
   };

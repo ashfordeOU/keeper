@@ -55,7 +55,11 @@ export function mockX(): KeeperApiX {
   ];
   let login = false;
   let tweakState: Record<string, boolean | number> = { 'finder-hidden': false, 'finder-extensions': true, 'dock-autohide': true, 'dock-delay': 0.5 };
-  const update: UpdateStatus = { state: 'none', checkedAt: now - 3600_000 };
+  const update: UpdateStatus = {
+    state: 'available', current: '0.1.0', version: '0.2.0', checkedAt: now - 3600_000, publishedAt: new Date(now - 2 * 86_400_000).toISOString(),
+    size: 128 * 1024 * 1024, method: 'in-place', canInstall: true, url: 'https://github.com/ashfordeOU/keeper/releases',
+    notes: '## What’s new\n- **Faster search** across large libraries\n- New *Bubbles* view in Space Map\n- Fixes for the Island on external displays\n\nSee the [full changelog](https://github.com/ashfordeOU/keeper/blob/main/CHANGELOG.md).',
+  };
   const delay = <T>(v: T, ms = 300) => new Promise<T>((r) => setTimeout(() => r(v), ms));
   return {
     monitor: {
@@ -133,6 +137,9 @@ export function mockX(): KeeperApiX {
       updateStatus: async () => update,
       checkForUpdates: async () => delay({ ...update, state: 'none', checkedAt: Date.now() }, 800),
       installUpdate: async () => undefined,
+      downloadUpdate: async () => delay({ ...update, state: 'ready', version: '0.2.0', message: 'Installs when you quit Keeper, or restart now' }, 1200),
+      whatsNew: async () => null,
+      releasesPage: async () => undefined,
       loginItem: async () => login,
       setLoginItem: async (on) => (login = on),
     },

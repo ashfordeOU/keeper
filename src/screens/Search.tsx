@@ -7,7 +7,7 @@ import { queryToText, removeChip } from '../../core/query/parse';
 import type { ParsedQuery, SearchHit } from '../../core/types';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
-import { Empty, Files, Loading, Modal, Thumb, ViewControls } from '../components/ui';
+import { copyFullText, Empty, Files, Loading, Modal, Thumb, ViewControls } from '../components/ui';
 import { useStore } from '../state';
 import '../styles/screens-a.css';
 
@@ -110,7 +110,7 @@ export function Search() {
                 <div className="small" style={{ fontWeight: 600 }}>{h.file.name}</div>
                 <div className="small sub">{highlight(h.snippet!, words)}</div>
               </div>
-              {h.file.text ? <button className="btn sm" onClick={(e) => { e.stopPropagation(); void api.files.copyText(h.file.text!); toast('Text copied'); }}><Icon name="copy" size={12} /> Copy text</button> : null}
+              {h.file.text ? <button className="btn sm" onClick={(e) => { e.stopPropagation(); void copyFullText(h.file).then(() => toast('Text copied')); }}><Icon name="copy" size={12} /> Copy text</button> : null}
             </div>
           ))}
         </div>

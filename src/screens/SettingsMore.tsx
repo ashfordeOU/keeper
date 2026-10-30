@@ -37,7 +37,7 @@ export function LoginRow() {
 
 const LABEL: Record<UpdateStatus['state'], string> = {
   idle: 'Not checked yet', checking: 'Checking…', available: 'A new version is available', downloading: 'Downloading…', ready: 'Ready to install',
-  none: 'Keeper is up to date', error: 'Could not check', unsupported: 'Updates are handled elsewhere',
+  none: 'Keeper is up to date', error: 'Could not check', unsupported: 'Updates are handled elsewhere', installing: 'Installing…',
 };
 
 export function UpdateRow() {

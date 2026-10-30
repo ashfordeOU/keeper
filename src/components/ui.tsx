@@ -2,7 +2,7 @@
 // Shared building blocks: file thumbnails, grid and list views, chips, toggles,
 // context menu, modal, empty states.
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { RenamePreview, RenameStep } from '../../core/rename';
 import type { FileEntry, FileKind } from '../../core/types';
@@ -22,26 +22,64 @@ export const KIND_COLOR: Record<FileKind | 'folder', string> = {
 
 const thumbCache = new Map<string, string | null>();
 
-export function useThumb(path: string, kind: string, size = 256): string | null {
+/** Thumbnail work runs a few at a time so a full page of cards never stalls the window. */
+const THUMB_SLOTS = 4;
+let thumbBusy = 0;
+const thumbQueue: (() => void)[] = [];
+function inSlot<T>(job: () => Promise<T>): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const start = () => {
+      thumbBusy++;
+      job().then(resolve, reject).finally(() => {
+        thumbBusy--;
+        thumbQueue.shift()?.();
+      });
+    };
+    if (thumbBusy < THUMB_SLOTS) start();
+    else thumbQueue.push(start);
+  });
+}
+
+/**
+ * Loads a thumbnail once the card is on screen (or close to it). Pass the
+ * element to watch; without one it loads straight away.
+ */
+export function useThumb(path: string, kind: string, size = 256, el?: React.RefObject<HTMLElement | null>): string | null {
   const key = `${path}@${size}`;
   const [src, setSrc] = useState<string | null>(() => thumbCache.get(key) ?? null);
-  const ref = useRef(true);
+  const [visible, setVisible] = useState(!el);
   useEffect(() => {
-    ref.current = true;
+    if (!el?.current || visible) return;
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) {
+        setVisible(true);
+        io.disconnect();
+      }
+    }, { rootMargin: '400px' });
+    io.observe(el.current);
+    return () => io.disconnect();
+  }, [el, visible]);
+  useEffect(() => {
+    let alive = true;
     if (thumbCache.has(key)) {
       setSrc(thumbCache.get(key)!);
       return;
     }
+    if (!visible) return;
     // Plain files with nothing to draw keep their icon.
     if ((kind === 'code' || kind === 'other') && !canRenderThumb(path)) return;
-    void api.files.thumbnail(path, size).then(async (s) => {
+    void inSlot(async () => {
+      if (!alive) return undefined;
+      const s = await api.files.thumbnail(path, size);
       // PDFs and fonts on systems without a thumbnailer are drawn here.
-      const url = s ?? (canRenderThumb(path) ? await renderThumb(path, size) : null);
+      return s ?? (canRenderThumb(path) ? await renderThumb(path, size) : null);
+    }).then((url) => {
+      if (url === undefined) return;
       thumbCache.set(key, url);
-      if (ref.current) setSrc(url);
+      if (alive) setSrc(url);
     });
-    return () => { ref.current = false; };
-  }, [key, kind, path, size]);
+    return () => { alive = false; };
+  }, [key, kind, path, size, visible]);
   return src;
 }
 
@@ -51,9 +89,19 @@ export function ExtTile({ ext, kind }: { ext: string; kind: FileKind | 'folder' 
 }
 
 export function Thumb({ file, size = 256 }: { file: Pick<FileEntry, 'path' | 'kind' | 'ext'>; size?: number }) {
-  const src = useThumb(file.path, file.kind, size);
-  if (src) return <img src={src} alt="" draggable={false} loading="lazy" />;
-  return <ExtTile ext={file.ext} kind={file.kind} />;
+  const box = useRef<HTMLSpanElement>(null);
+  const src = useThumb(file.path, file.kind, size, box);
+  return (
+    <span ref={box} className="thumb-box">
+      {src ? <img src={src} alt="" draggable={false} loading="lazy" decoding="async" /> : <ExtTile ext={file.ext} kind={file.kind} />}
+    </span>
+  );
+}
+
+/** Lists carry only the start of recognised text; copy the whole of it. */
+export async function copyFullText(f: Pick<FileEntry, 'path' | 'text' | 'textCut'>) {
+  const text = f.textCut ? (await api.library.readText([f.path]))[0]?.text ?? f.text ?? '' : f.text ?? '';
+  if (text) await api.files.copyText(text);
 }
 
 // ------------------------------------------------------------------ selection + keyboard
@@ -126,22 +174,55 @@ export function useFileSelection(files: FileEntry[]) {
 
 // ------------------------------------------------------------------ grid & list
 
+const PAGE = 240;
+
+/**
+ * Draws long lists a page at a time: the first cards appear at once and more
+ * are added as you scroll, so a library of tens of thousands opens instantly.
+ */
+function useProgressive<T>(items: T[], selected: string[], keyOf: (t: T) => string) {
+  const [count, setCount] = useState(PAGE);
+  const sentinel = useRef<HTMLDivElement>(null);
+  useEffect(() => setCount(PAGE), [items]);
+  // Keyboard navigation past the drawn part draws far enough to show it.
+  useEffect(() => {
+    if (!selected.length) return;
+    const last = selected[selected.length - 1];
+    const i = items.findIndex((x) => keyOf(x) === last);
+    if (i >= count) setCount(Math.ceil((i + 1) / PAGE) * PAGE);
+  }, [selected, items, count, keyOf]);
+  useEffect(() => {
+    const el = sentinel.current;
+    if (!el || count >= items.length) return;
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) setCount((c) => Math.min(items.length, c + PAGE));
+    }, { rootMargin: '1200px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [count, items.length]);
+  return { shown: count >= items.length ? items : items.slice(0, count), more: count < items.length, sentinel };
+}
+
+const pathOf = (f: FileEntry) => f.path;
+
 export function FileGrid({ files, onContext }: { files: FileEntry[]; onContext?: (e: React.MouseEvent, f: FileEntry) => void }) {
   const { cardSize } = useStore();
   const { selection, click, open } = useFileSelection(files);
   const menu = useFileMenu();
+  const { shown, more, sentinel } = useProgressive(files, selection, pathOf);
+  const picked = useMemo(() => new Set(selection), [selection]);
   return (
     <div className="file-grid" style={{ ['--card' as string]: `${cardSize}px` }}>
-      {files.map((f, i) => (
+      {shown.map((f, i) => (
         <div
           key={f.path}
           data-path={f.path}
-          className={`file-card ${selection.includes(f.path) ? 'selected' : ''}`}
+          className={`file-card ${picked.has(f.path) ? 'selected' : ''}`}
           onClick={(e) => click(e, i)}
           onDoubleClick={() => open(f)}
-          onContextMenu={(e) => { if (!selection.includes(f.path)) click(e, i); (onContext ?? menu.open)(e, f); }}
+          onContextMenu={(e) => { if (!picked.has(f.path)) click(e, i); (onContext ?? menu.open)(e, f); }}
           draggable
-          onDragStart={(e) => { e.preventDefault(); api.files.startDrag(selection.includes(f.path) ? selection : [f.path]); }}
+          onDragStart={(e) => { e.preventDefault(); api.files.startDrag(picked.has(f.path) ? selection : [f.path]); }}
           title={f.path}
         >
           <div className={`thumb ${f.kind === 'image' || f.kind === 'video' ? '' : 'contain'}`}>
@@ -150,7 +231,7 @@ export function FileGrid({ files, onContext }: { files: FileEntry[]; onContext?:
           </div>
           {f.text && f.kind === 'image' ? (
             <div className="hover-actions">
-              <button className="btn sm icon" title="Copy text in image" onClick={(e) => { e.stopPropagation(); void api.files.copyText(f.text!); }}>
+              <button className="btn sm icon" title="Copy text in image" onClick={(e) => { e.stopPropagation(); void copyFullText(f); }}>
                 <Icon name="text" size={13} />
               </button>
             </div>
@@ -159,6 +240,7 @@ export function FileGrid({ files, onContext }: { files: FileEntry[]; onContext?:
           <div className="meta">{formatBytes(f.size)} · {relativeTime(f.mtime)}</div>
         </div>
       ))}
+      {more ? <div ref={sentinel} style={{ gridColumn: '1 / -1', height: 1 }} /> : null}
       {menu.node}
     </div>
   );
@@ -169,6 +251,8 @@ type SortKey = 'name' | 'date' | 'size' | 'kind';
 export function FileList({ files, sort, onSort, showSource }: { files: FileEntry[]; sort?: { key: SortKey; desc: boolean }; onSort?: (k: SortKey) => void; showSource?: boolean }) {
   const { selection, click, open } = useFileSelection(files);
   const menu = useFileMenu();
+  const { shown, more, sentinel } = useProgressive(files, selection, pathOf);
+  const picked = useMemo(() => new Set(selection), [selection]);
   const th = (k: SortKey, label: string, style?: React.CSSProperties) => (
     <th style={style} onClick={() => onSort?.(k)}>
       {label} {sort?.key === k ? (sort.desc ? '↓' : '↑') : ''}
@@ -188,16 +272,16 @@ export function FileList({ files, sort, onSort, showSource }: { files: FileEntry
           </tr>
         </thead>
         <tbody>
-          {files.map((f, i) => (
+          {shown.map((f, i) => (
             <tr
               key={f.path}
               data-path={f.path}
-              className={selection.includes(f.path) ? 'selected' : ''}
+              className={picked.has(f.path) ? 'selected' : ''}
               onClick={(e) => click(e, i)}
               onDoubleClick={() => open(f)}
-              onContextMenu={(e) => { if (!selection.includes(f.path)) click(e, i); menu.open(e, f); }}
+              onContextMenu={(e) => { if (!picked.has(f.path)) click(e, i); menu.open(e, f); }}
               draggable
-              onDragStart={(e) => { e.preventDefault(); api.files.startDrag(selection.includes(f.path) ? selection : [f.path]); }}
+              onDragStart={(e) => { e.preventDefault(); api.files.startDrag(picked.has(f.path) ? selection : [f.path]); }}
             >
               <td className="icon-cell"><div className="mini-thumb"><Thumb file={f} size={64} /></div></td>
               <td className="ellipsis" style={{ maxWidth: 420 }} title={f.path}>{f.name}</td>
@@ -207,6 +291,7 @@ export function FileList({ files, sort, onSort, showSource }: { files: FileEntry
               {showSource ? <td className="muted ellipsis" style={{ maxWidth: 130 }}>{f.source?.name ?? ''}</td> : null}
             </tr>
           ))}
+          {more ? <tr ref={sentinel as unknown as React.RefObject<HTMLTableRowElement>}><td colSpan={6} style={{ height: 1, padding: 0 }} /></tr> : null}
         </tbody>
       </table>
       {menu.node}
@@ -283,7 +368,7 @@ export function useFileMenu() {
     { sep: true, label: '' },
     { label: 'Copy', icon: 'copy', kbd: `${mod}C`, run: () => void api.files.copyPaths(sel) },
     { label: 'Copy Path', icon: 'copy', run: () => void api.files.copyText(sel.join('\n')) },
-    ...(state.file.text ? [{ label: 'Copy Text in Image', icon: 'text', kbd: `${shift}${mod}C`, run: () => void api.files.copyText(state.file.text!) }] : []),
+    ...(state.file.text ? [{ label: 'Copy Text in Image', icon: 'text', kbd: `${shift}${mod}C`, run: () => void copyFullText(state.file) }] : []),
     { label: 'Add to Shelf', icon: 'island', run: () => void api.island.addToShelf(sel) },
     { label: 'Pin to Sidebar', icon: 'pin', run: () => {
       const dir = state.file.path.slice(0, state.file.path.length - state.file.name.length - 1);

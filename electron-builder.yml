@@ -7,14 +7,21 @@ directories:
   buildResources: build
 # The main process, preload scripts and most libraries are bundled by esbuild;
 # only tesseract.js ships as a module because it starts its own worker threads.
+afterPack: build/after-pack.cjs
 files:
   - dist/**
   - dist-electron/**
+  - '!dist-electron/*.map'
+  - '!node_modules/@napi-rs/**'
+  - '!node_modules/**/*.map'
+  - '!node_modules/**/{test,tests,docs,example,examples}/**'
   - build/tray*.png
   - build/icon.png
   - LICENSE
   - package.json
 asar: true
+# Native pieces are prebuilt per processor (see scripts/prepare-arch.mjs); never recompile them.
+npmRebuild: false
 asarUnpack:
   - node_modules/tesseract.js/**
   - node_modules/tesseract.js-core/**
@@ -38,11 +45,8 @@ protocols:
 
 win:
   icon: build/icon.png
-  target:
-    - target: nsis
-      arch: [x64, arm64]
-    - target: portable
-      arch: [x64]
+  # The processor comes from the command line (--x64); Windows on ARM runs the x64 build.
+  target: [nsis, portable]
 nsis:
   oneClick: false
   perMachine: false
@@ -57,11 +61,8 @@ portable:
 mac:
   icon: build/icon.png
   category: public.app-category.productivity
-  target:
-    - target: dmg
-      arch: [arm64, x64]
-    - target: zip
-      arch: [arm64, x64]
+  # One build per processor (--arm64 / --x64), each with its own native libraries.
+  target: [dmg, zip]
   # Until a Developer ID is set up the app is ad-hoc signed; see README → First launch.
   identity: '-'
   hardenedRuntime: false
@@ -76,24 +77,18 @@ mac:
     LSUIElement: false
 dmg:
   title: Keeper
+  window: { width: 540, height: 380 }
   sign: false
   contents:
     - { x: 150, y: 190 }
     - { x: 390, y: 190, type: link, path: /Applications }
 
 linux:
+  syncDesktopName: true
   icon: build/icon.png
   category: Utility
   synopsis: Find, understand and tidy your files
-  target:
-    - target: AppImage
-      arch: [x64, arm64]
-    - target: deb
-      arch: [x64]
-    - target: rpm
-      arch: [x64]
-    - target: tar.gz
-      arch: [x64]
+  target: [AppImage, deb, rpm, tar.gz]
   desktop:
     entry:
       MimeType: x-scheme-handler/keeper;

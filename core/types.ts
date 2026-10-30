@@ -35,6 +35,8 @@ export interface FileEntry {
   source?: DownloadSource;
   /** text read from images and PDFs on this device */
   text?: string;
+  /** in lists only the start of `text` is sent; ask for the full text when needed */
+  textCut?: boolean;
   /** user tags (macOS Finder tags, or Keeper tags on other systems) */
   tags?: string[];
   /** media details filled in lazily */
@@ -386,6 +388,13 @@ export interface Settings {
   /** desktop widgets (see core/widgets.ts) */
   widgets: import('./widgets').WidgetConfig[];
   /** check for new releases on GitHub once a day */
+  /** kept for settings saved by early builds; updateMode replaces it */
   updateCheck: boolean;
+  /** 'auto' downloads and installs new versions; 'ask' tells you first; 'off' only checks when you press the button */
+  updateMode: 'auto' | 'ask' | 'off';
+  /** also offer pre-release (beta) versions */
+  updateBeta: boolean;
+  /** the version that ran last, to show "What's new" once after an update */
+  lastRunVersion: string;
   language: string;
 }

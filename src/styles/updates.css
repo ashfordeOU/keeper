@@ -1,0 +1,22 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* App updates: Settings panel, banner and release notes. */
+
+.update-card { display: flex; gap: 14px; align-items: center; padding: 14px 16px; border-radius: 14px; background: var(--bg-sunk); border: 1px solid var(--line); flex-wrap: wrap; }
+.update-card.available, .update-card.ready, .update-card.downloading { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 35%, transparent); }
+.update-card.error { background: var(--danger-soft); }
+.update-icon { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: var(--bg-elev); color: var(--accent); flex: none; box-shadow: var(--shadow); }
+.update-title { font-weight: 700; font-size: 15px; }
+.update-modes { display: grid; gap: 8px; margin-top: 14px; }
+.update-mode { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); cursor: default; }
+.update-mode.on { border-color: var(--accent); background: var(--accent-soft); }
+.update-mode input { margin-top: 3px; accent-color: var(--accent); }
+.update-mode-title { font-weight: 600; }
+.notes-toggle { display: flex; align-items: center; gap: 6px; width: 100%; padding: 10px 12px; border: 0; background: none; font-weight: 600; cursor: default; text-align: left; }
+.release-notes { padding: 0 14px 12px; font-size: 13px; line-height: 1.55; user-select: text; max-height: 50vh; overflow: auto; }
+.release-notes h1, .release-notes h2, .release-notes h3 { font-size: 14px; margin: 12px 0 4px; }
+.release-notes ul { padding-left: 20px; margin: 4px 0; }
+.release-notes code { font-family: var(--mono); font-size: 12px; background: var(--bg-sunk); padding: 1px 5px; border-radius: 5px; }
+.link-like { border: 0; background: none; padding: 0; color: var(--accent); font: inherit; cursor: default; }
+.link-like:hover { text-decoration: underline; }
+.update-banner { display: flex; align-items: center; gap: 10px; margin: -8px 0 16px; padding: 8px 10px 8px 14px; border-radius: 12px; background: var(--accent-soft); color: var(--text); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); }
+.update-banner > svg { color: var(--accent); flex: none; }

@@ -7,6 +7,7 @@ import { api } from './api';
 import { CommandPalette } from './components/CommandPalette';
 import { Icon } from './components/Icon';
 import { OwlMark } from './components/OwlMark';
+import { UpdateBanner, WhatsNew } from './components/Updates';
 import { Inspector } from './components/Inspector';
 import { Player } from './components/Player';
 import { KIND_COLOR } from './components/ui';
@@ -274,10 +275,11 @@ export function App() {
       <Sidebar />
       <main className="main">
         <TopBar onPalette={() => setPalette(true)} />
-        <div className="content"><PageBoundary route={`${store.route.name}:${store.route.arg ?? ''}:${store.route.q ?? ''}`}><Page /></PageBoundary></div>
+        <div className="content"><UpdateBanner /><PageBoundary route={`${store.route.name}:${store.route.arg ?? ''}:${store.route.q ?? ''}`}><Page /></PageBoundary></div>
       </main>
       {showInspector ? <Inspector /> : <div />}
       {palette ? <CommandPalette onClose={() => setPalette(false)} /> : null}
+      <WhatsNew />
       <QuickLookHost />
       <div className="toast-stack">
         {store.toasts.map((t) => (

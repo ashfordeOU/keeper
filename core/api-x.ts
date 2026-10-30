@@ -53,11 +53,25 @@ export interface Tweak {
 }
 
 export interface UpdateStatus {
-  state: 'idle' | 'checking' | 'available' | 'downloading' | 'ready' | 'none' | 'error' | 'unsupported';
+  state: 'idle' | 'checking' | 'available' | 'downloading' | 'ready' | 'installing' | 'none' | 'error' | 'unsupported';
+  /** the version running now */
+  current?: string;
+  /** the newer version found */
   version?: string;
+  /** release notes (Markdown) */
+  notes?: string;
+  /** the release page */
+  url?: string;
+  publishedAt?: string;
+  /** download size in bytes */
+  size?: number;
   percent?: number;
   message?: string;
   checkedAt?: number;
+  /** how this copy updates: in place, through the system package manager, or by downloading the installer */
+  method?: 'in-place' | 'package' | 'manual';
+  /** Keeper can install it for you (otherwise it opens the download) */
+  canInstall?: boolean;
 }
 
 export interface AiProviderInfo {
@@ -129,6 +143,10 @@ export interface KeeperApiX {
     updateStatus(): Promise<UpdateStatus>;
     checkForUpdates(): Promise<UpdateStatus>;
     installUpdate(): Promise<void>;
+    downloadUpdate(): Promise<UpdateStatus>;
+    /** release notes of the version now running, once after an update (null otherwise) */
+    whatsNew(): Promise<{ version: string; notes: string; url: string } | null>;
+    releasesPage(): Promise<void>;
     loginItem(): Promise<boolean>;
     setLoginItem(on: boolean): Promise<boolean>;
   };

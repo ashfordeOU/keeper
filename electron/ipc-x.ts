@@ -21,7 +21,7 @@ import { ForecastService } from './services/forecast';
 import { dockerAction, dockerContainers, diskHealth, killTree, MonitorService, stopAgent, thermals } from './services/monitor';
 import { writeFinderTags } from './services/tags';
 import { clearQuarantine, networkInfo, pickApp, pickFiles, publicIp, resetPermissions, saveAs, setTweak, tidyFolder, tweaks } from './services/tools';
-import { checkForUpdates, initUpdater, installUpdate, updateStatus } from './services/updater';
+import { checkForUpdates, downloadUpdate, initUpdater, installUpdate, onUpdateStatus, openReleasesPage, updateStatus, whatsNew } from './services/updater';
 import { loadImage, ocrImage } from './services/vision';
 import { getSecret, settings } from './store';
 
@@ -31,6 +31,9 @@ export interface IpcXDeps {
   events: () => CalendarEvent[];
   window: () => BrowserWindow | null;
   changed: () => void;
+  broadcast?: (channel: string, ...args: unknown[]) => void;
+  /** a new version was found or finished downloading */
+  onUpdate?: (s: import('../core/api-x').UpdateStatus) => void;
 }
 
 const TEXT_EXT = /\.(txt|md|markdown|csv|tsv|json|log|yaml|yml|xml|html?|rtf|srt|vtt|ini|toml|tex)$/i;
@@ -104,7 +107,9 @@ export function registerIpcX(d: IpcXDeps) {
   monitor = new MonitorService();
   void monitor.start();
   const forecast = new ForecastService(d.events, () => settings().island.place);
-  void initUpdater(() => settings().updateCheck);
+  // New versions: tell every window, the Island and the tray.
+  onUpdateStatus((s) => d.broadcast?.('update-status', s));
+  void initUpdater((s) => d.onUpdate?.(s));
 
   handle('monitor.history', () => monitor.history);
   handle('monitor.topToday', () => monitor.topToday());
@@ -201,8 +206,11 @@ export function registerIpcX(d: IpcXDeps) {
   });
 
   handle('appInfo.updateStatus', () => updateStatus());
-  handle('appInfo.checkForUpdates', () => checkForUpdates());
+  handle('appInfo.checkForUpdates', () => checkForUpdates(true));
   handle('appInfo.installUpdate', () => installUpdate());
+  handle('appInfo.downloadUpdate', () => downloadUpdate());
+  handle('appInfo.whatsNew', () => whatsNew());
+  handle('appInfo.releasesPage', () => openReleasesPage());
   handle('appInfo.loginItem', loginItem);
   handle('appInfo.setLoginItem', (on: boolean) => setLoginItem(on));
 }

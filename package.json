@@ -90,5 +90,6 @@
     "electron",
     "privacy",
     "agpl"
-  ]
+  ],
+  "desktopName": "keeper.desktop"
 }

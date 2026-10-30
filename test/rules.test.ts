@@ -1,40 +1,43 @@
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { defaultRules, globToRegExp, planRule, resolveDestination, uniqueName } from '../core/rules';
 import { previewRename } from '../core/rename';
 import { squarify } from '../core/treemap';
 import { DAY, NOW, file } from './helpers';
 
-const home = '/Users/ana';
+const home = path.join(path.sep, 'Users', 'ana');
+const j = (...p: string[]) => path.join(home, ...p);
 
 describe('rules', () => {
   it('sends old installers in Downloads to the Trash, not new ones or ones elsewhere', () => {
     const rule = { ...defaultRules(home)[0], enabled: true };
     const plan = planRule([
-      file(`${home}/Downloads/Zoom.pkg`, { mtime: NOW - 30 * DAY }),
-      file(`${home}/Downloads/new.dmg`, { mtime: NOW - DAY }),
-      file(`${home}/Downloads/sub/old.dmg`, { mtime: NOW - 30 * DAY }),
-      file(`${home}/Downloads/notes.txt`, { mtime: NOW - 30 * DAY }),
+      file(j('Downloads', 'Zoom.pkg'), { mtime: NOW - 30 * DAY }),
+      file(j('Downloads', 'new.dmg'), { mtime: NOW - DAY }),
+      file(j('Downloads', 'sub', 'old.dmg'), { mtime: NOW - 30 * DAY }),
+      file(j('Downloads', 'notes.txt'), { mtime: NOW - 30 * DAY }),
     ], rule, NOW);
     expect(plan.map((p) => p.file.name)).toEqual(['Zoom.pkg']);
   });
 
   it('files screenshots by month', () => {
     const rule = defaultRules(home)[1];
-    const f = file(`${home}/Desktop/Screenshot 2026-08-01 at 10.12.33.png`, { mtime: new Date(2026, 7, 1).getTime() });
+    const f = file(j('Desktop', 'Screenshot 2026-08-01 at 10.12.33.png'), { mtime: new Date(2026, 7, 1).getTime() });
     const plan = planRule([f], rule, NOW);
-    expect(plan[0].to).toBe(`${home}/Pictures/Screenshots/2026-08/${f.name}`);
+    expect(plan[0].to).toBe(j('Pictures', 'Screenshots', '2026-08', f.name));
   });
 
   it('placeholders and globs', () => {
-    expect(resolveDestination('/x/{source}/{yyyy}', file('/d/a.pdf', { source: { id: 'gmail', name: 'Gmail', host: 'mail.google.com' }, mtime: new Date(2025, 0, 2).getTime() }))).toBe('/x/Gmail/2025');
+    expect(resolveDestination(path.join('x', '{source}', '{yyyy}'), file('/d/a.pdf', { source: { id: 'gmail', name: 'Gmail', host: 'mail.google.com' }, mtime: new Date(2025, 0, 2).getTime() }))).toBe(path.join('x', 'Gmail', '2025'));
     expect(globToRegExp('*.part|report-?.txt').test('movie.mkv.part')).toBe(true);
     expect(globToRegExp('*.part|report-?.txt').test('report-1.txt')).toBe(true);
     expect(globToRegExp('*.part').test('part.txt')).toBe(false);
   });
 
   it('uniqueName adds a number', () => {
-    const taken = new Set(['/a/b.txt', '/a/b 2.txt']);
-    expect(uniqueName('/a/b.txt', (p) => taken.has(p))).toBe('/a/b 3.txt');
+    const a = (n: string) => path.join(path.sep, 'a', n);
+    const taken = new Set([a('b.txt'), a('b 2.txt')]);
+    expect(uniqueName(a('b.txt'), (p) => taken.has(p))).toBe(a('b 3.txt'));
   });
 });
 

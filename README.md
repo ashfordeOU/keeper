@@ -36,7 +36,7 @@ optional AI assistant — in one small app that never uploads your files.
 
 - [Highlights](#highlights)
 - [Everything Keeper does](#everything-keeper-does)
-  - [Library and browsing](#library-and-browsing) · [Plain-English search](#plain-english-search) · [Text in images](#text-in-images-and-on-screen) · [Downloaded From](#downloaded-from)
+  - [Library and browsing](#library-and-browsing) · [Previews for every file](#previews-for-every-file) · [Plain-English search](#plain-english-search) · [Text in images](#text-in-images-and-on-screen) · [Downloaded From](#downloaded-from)
   - [Duplicates](#duplicates) · [Clean Up](#clean-up) · [Space Map](#space-map) · [Automations](#automations) · [History and undo](#history-and-undo)
   - [The Island](#the-island) · [Quick Search, tray and deep links](#quick-search-tray-and-deep-links) · [Toolbox](#toolbox) · [System](#system) · [Assistant](#assistant)
   - [Command line](#command-line)
@@ -76,6 +76,29 @@ optional AI assistant — in one small app that never uploads your files.
 - **Drag files out** into any app — one or many at a time.
 - **Built-in music player**: double-click a song to play it in the toolbar.
 - **Two looks**: *Playful* (colourful) and *Minimal* (black, white and grey), each in light and dark, following the system or set by hand (<kbd>Ctrl/⌘ Shift T</kbd>).
+
+### Previews for every file
+
+Press <kbd>Space</kbd> on anything for **Quick Look**: a full-window viewer with <kbd>←</kbd>/<kbd>→</kbd> (or <kbd>[</kbd>/<kbd>]</kbd>) through the list, a filmstrip, side-by-side compare, slideshow, full screen, a details panel, and Open / Show / Copy text / Trash. The Inspector shows the same live preview, and resting the pointer on a shelf item in the Island peeks inside it. Everything is decoded on your computer, nothing is uploaded, and documents can never run code or load anything from the internet.
+
+| Kind | What you get |
+|---|---|
+| Images | JPEG, PNG, GIF and WebP (animated), AVIF, BMP, ICO, **SVG** (shown safely, with its source), **HEIC/HEIF on every OS** (built-in decoder), **camera RAW** (CR2, CR3, NEF, ARW, DNG, ORF, RW2, RAF and more, via the full-size preview inside), **TIFF** (every page), **Photoshop** (flattened picture + layer list), **JPEG XL**, ICNS, TGA, EXR, DDS, JPEG 2000. Zoom to 3200%, pan, 1:1, rotate, flip, a colour picker under the pointer, histogram, and camera details (lens, exposure, ISO, focal length) with a map link for GPS. |
+| Video | Everything plays: MP4, MOV, WebM, MKV directly; **AVI, WMV, FLV, MPEG-2, 3GP, MTS, VOB and other formats Chromium can't play are converted on the fly**. Frame strip to scrub, sidecar `.srt`/`.vtt` subtitles, speed, loop, frame-by-frame, picture-in-picture. |
+| Audio | MP3, AAC/M4A, FLAC, Opus, Ogg, WAV play directly; AIFF, WMA, APE, AMR and others are converted. Cover art, tags and a clickable waveform. |
+| PDF | Every page with thumbnails, find in document, selectable text, zoom. |
+| Office & documents | **Word** (`.docx`), **Excel** (`.xlsx`, `.xls`, `.ods`, CSV/TSV, with sheet tabs and a grid that handles huge tables), **PowerPoint** (slides laid out as designed, plus speaker notes), **OpenDocument**, **RTF**, **Pages/Keynote/Numbers**, legacy `.doc`/`.ppt` (their text). |
+| Text & code | Syntax highlighting for about 190 languages with line numbers and wrap; **Markdown** rendered; **JSON** as a collapsible tree (JSON Lines too); **HTML** rendered with scripts and network off; **Jupyter notebooks** with outputs and charts; **logs** coloured by level with filters; subtitles as a timeline; encoding detection (UTF-8, UTF-16, Windows-1252). |
+| Archives | ZIP, JAR, APK, IPA, tar.gz and more listed **without unpacking**; 7z, RAR, ISO, CAB through the system's archive tools. Double-click any file inside to preview it in place. |
+| E-books | EPUB reader with chapters and adjustable text size. |
+| Fonts | TTF, OTF, WOFF, WOFF2: your own sample text, a size waterfall and a glyph grid. |
+| 3D | glTF/GLB, OBJ, STL, PLY, FBX, 3MF, Collada with orbit controls, turntable and wireframe. |
+| Mail, contacts, calendars | `.eml` messages (remote images and trackers blocked), contact cards, calendar files as an agenda. |
+| Databases | SQLite: tables with row counts and a read-only query box. |
+| Apps & folders | App details and icons (macOS apps, Windows programs, Linux packages); folders with size, file count, kinds and a photo mosaic. |
+| Anything else | A hex view with readable strings and file-type detection from the bytes. |
+
+Thumbnails cover the same ground — video frames, cover art, PDF first pages, document and code pages, spreadsheets, fonts, RAW and HEIC — and are cached on disk so the library stays fast.
 
 ### Plain-English search
 

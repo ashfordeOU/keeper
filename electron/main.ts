@@ -33,6 +33,7 @@ import { checkProtection } from './services/protection';
 import { listStartup, toggleStartup } from './services/startup';
 import { disks, ejectAll, health, killProcess, wifiNetworks } from './services/system';
 import { writeText } from './services/clip';
+import { checkForUpdates as checkUpdatesNow, installOnQuitIfReady, installUpdate as installUpdateNow, updateStatus } from './services/updater';
 import { VisionQueue } from './services/vision';
 import { registerIpcX, syncFinderTags } from './ipc-x';
 import { registerFileProtocol, registerPreviewIpc } from './ipc/preview';
@@ -165,6 +166,15 @@ function destroyIsland() {
 
 // ---------------------------------------------------------------- tray
 
+/** Tray entries for app updates: what is new, or a way to look. */
+function trayUpdateItems(): Electron.MenuItemConstructorOptions[] {
+  const u = updateStatus();
+  if (u.state === 'ready') return [{ label: `Restart to Update to ${u.version}`, click: () => void installUpdateNow() }, { type: 'separator' }];
+  if (u.state === 'available') return [{ label: `Keeper ${u.version} Is Available…`, click: () => showMain('settings:updates') }, { type: 'separator' }];
+  if (u.state === 'downloading') return [{ label: `Downloading Keeper ${u.version}… ${u.percent ?? 0}%`, enabled: false }, { type: 'separator' }];
+  return [{ label: 'Check for Updates…', click: () => { showMain('settings:updates'); void checkUpdatesNow(true); } }];
+}
+
 async function updateTray() {
   if (!settings().trayEnabled) {
     tray?.destroy();
@@ -234,6 +244,7 @@ async function updateTray() {
     ], click: awake ? () => { islandSvc.keepAwake(false); void updateTray(); } : undefined },
     { label: 'Clean Up…', click: () => showMain('cleanup') },
     { type: 'separator' },
+    ...trayUpdateItems(),
     { label: 'Quit Keeper', click: () => { quitting = true; app.quit(); } },
   ]));
 }
@@ -573,6 +584,15 @@ function handle(name: string, fn: (...args: never[]) => unknown) {
   ipcMain.handle(name, async (_e, ...args) => fn(...(args as never[])));
 }
 
+/**
+ * Lists cross to the window as structured clones; recognised text can be long,
+ * so lists carry only its start (enough to show that text exists). Full text is
+ * fetched on demand (inspect, readText).
+ */
+function lite(f: FileEntry): FileEntry {
+  return f.text && f.text.length > 160 ? { ...f, text: f.text.slice(0, 160), textCut: true } : f;
+}
+
 function registerIpc() {
   handle('system.info', () => ({ platform: process.platform, arch: process.arch, osVersion: os.release(), appVersion: app.getVersion(), home: os.homedir(), sep: path.sep }));
   handle('system.disks', disks);
@@ -601,16 +621,16 @@ function registerIpc() {
   handle('library.status', () => ({ indexing: index.scanning, files: index.files.size, lastScan: index.lastScan, ocrPending: vision.pending }));
   handle('library.rescan', () => rescan());
   handle('library.totals', () => index.totals());
-  handle('library.recent', (n: number, kind?: string) => index.recent(n, (f) => !kind || (kind === 'screenshot' ? !!f.screenshot : kind === 'download' ? f.root === 'Downloads' : f.kind === kind)));
+  handle('library.recent', (n: number, kind?: string) => index.recent(n, (f) => !kind || (kind === 'screenshot' ? !!f.screenshot : kind === 'download' ? f.root === 'Downloads' : f.kind === kind)).map(lite));
   handle('library.list', (o: { kind?: FileKind; screenshot?: boolean; root?: string; source?: string; tag?: string; sort?: string; desc?: boolean; limit?: number }) => {
     const list = index.all().filter((f) => (!o.kind || f.kind === o.kind) && (!o.screenshot || f.screenshot) && (!o.root || f.root === o.root) && (!o.source || f.source?.id === o.source) && (!o.tag || f.tags?.includes(o.tag)));
     const sorted = sortFiles(list, o.sort, o.desc ?? o.sort !== 'name');
-    return o.limit ? sorted.slice(0, o.limit) : sorted;
+    return (o.limit ? sorted.slice(0, o.limit) : sorted).map(lite);
   });
   let dupeCache: Set<string> | undefined;
   handle('library.search', (text: string, limit = 300) => {
     const { parsed, hits } = index.query(text, { duplicatePaths: dupeCache });
-    return { parsed, hits: hits.slice(0, limit) };
+    return { parsed, hits: hits.slice(0, limit).map((h) => ({ ...h, file: lite(h.file) })) };
   });
   handle('library.bySource', () => index.bySource());
   handle('library.tags', () => index.allTags());
@@ -630,7 +650,7 @@ function registerIpc() {
     }
     return out;
   });
-  handle('library.largeFiles', (minMb: number) => largeFiles(index.all(), minMb));
+  handle('library.largeFiles', (minMb: number) => largeFiles(index.all(), minMb).map(lite));
 
   handle('files.browse', (dir: string, hidden?: boolean) => files.browse(dir, hidden));
   handle('files.thumbnail', (p: string, size: number) => files.thumbnail(p, size));
@@ -789,7 +809,13 @@ app.whenReady().then(async () => {
       return r.outputs;
     },
   });
-  registerIpcX({ index, journal, events: () => islandSvc.events, window: () => main, changed: libraryChanged });
+  registerIpcX({
+    index, journal, events: () => islandSvc.events, window: () => main, changed: libraryChanged, broadcast,
+    onUpdate: (u) => {
+      islandSvc.alert({ kind: 'info', title: u.state === 'ready' ? `Keeper ${u.version} is ready to install` : `Keeper ${u.version} is available`, detail: u.state === 'ready' ? 'Restart Keeper to finish updating' : 'Open Settings → Updates to see what’s new' });
+      void updateTray();
+    },
+  });
   registerCaptureIpc({
     preload: capturePreload(),
     langs: () => settings().ocrLanguages,
@@ -808,8 +834,10 @@ app.whenReady().then(async () => {
     navigate: (route) => showMain(route),
   });
 
-  await index.load();
+  // The window opens straight away; the saved library fills it in a moment later.
   createMain();
+  await index.load();
+  libraryChanged();
   createIsland();
   syncWidgets();
   await updateTray();
@@ -847,10 +875,15 @@ app.whenReady().then(async () => {
 
 app.on('before-quit', () => {
   quitting = true;
+  installOnQuitIfReady();
   globalShortcut.unregisterAll();
   vision?.stop();
   islandSvc?.stop();
-  void index?.save();
+  try {
+    index?.saveSync();
+  } catch {
+    /* disk full or read-only: the next scan rebuilds it */
+  }
 });
 
 app.on('window-all-closed', () => {

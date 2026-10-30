@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Settings: appearance, library folders, thresholds, assistant and about.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { AiProvider } from '../../core/types';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
 import { PageHead, Toggle } from '../components/ui';
 import { useAsync, useStore } from '../state';
 import { Row } from './IslandSettings';
-import { LanguageRow, LoginRow, UpdateRow } from './SettingsMore';
+import { LanguageRow, LoginRow } from './SettingsMore';
+import { UpdatesPanel } from '../components/Updates';
 import { useT } from '../i18n';
 import '../styles/screens-b.css';
 
@@ -22,6 +23,10 @@ const PROVIDERS: { id: AiProvider; label: string }[] = [
 ];
 
 export function Settings() {
+  const { route: settingsRoute } = useStore();
+  useEffect(() => {
+    if (settingsRoute.arg) setTimeout(() => document.getElementById(settingsRoute.arg!)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 120);
+  }, [settingsRoute.arg]);
   const { settings: s, updateSettings, info, toast } = useStore();
   const t = useT();
   const [key, setKey] = useState('');
@@ -118,10 +123,9 @@ export function Settings() {
         )}
       </div>
 
-      <h2 style={{ margin: '18px 0 8px' }}>{t('settings.updates')}</h2>
-      <div className="card settings-section">
-        <Row title="Check for new versions" desc="Once a day. New versions download in the background and install when you quit."><Toggle on={s.updateCheck} onChange={(v) => void updateSettings({ updateCheck: v })} /></Row>
-        <UpdateRow />
+      <h2 id="updates" style={{ margin: '18px 0 8px' }}>{t('settings.updates')}</h2>
+      <div className="card settings-section" style={{ padding: 16 }}>
+        <UpdatesPanel />
       </div>
 
       <h2 style={{ margin: '18px 0 8px' }}>{t('settings.about')}</h2>

@@ -3,7 +3,7 @@
 // details search needs. Kept in memory and saved to one JSON file, so the app
 // opens instantly and only re-reads what changed.
 
-import { promises as fsp } from 'node:fs';
+import { mkdirSync, promises as fsp, renameSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { kindOf, extOf, looksLikeScreenshot } from './classify';
 import { search, type MatchOptions } from './query/match';
@@ -71,9 +71,8 @@ export class FileIndex {
     }
   }
 
-  async save(): Promise<void> {
-    if (!this.file) return;
-    const data: Persisted = {
+  private snapshot(): Persisted {
+    return {
       version: VERSION,
       savedAt: this.lastScan,
       files: [...this.files.values()].map((f) => ({ ...f, text: undefined })),
@@ -81,15 +80,35 @@ export class FileIndex {
       extras: Object.fromEntries(this.extras),
       hashes: Object.fromEntries(this.hashes),
     };
+  }
+
+  async save(): Promise<void> {
+    if (!this.file) return;
+    const json = JSON.stringify(this.snapshot());
     await fsp.mkdir(path.dirname(this.file), { recursive: true });
     const tmp = this.file + '.tmp';
-    await fsp.writeFile(tmp, JSON.stringify(data));
+    await fsp.writeFile(tmp, json);
     await fsp.rename(tmp, this.file);
   }
 
-  saveSoon(): void {
+  /** For quitting: the process may end before an asynchronous write finishes. */
+  saveSync(): void {
+    if (!this.file) return;
     clearTimeout(this.saveTimer);
-    this.saveTimer = setTimeout(() => void this.save().catch(() => undefined), 2000);
+    this.saveTimer = undefined;
+    mkdirSync(path.dirname(this.file), { recursive: true });
+    const tmp = this.file + '.tmp';
+    writeFileSync(tmp, JSON.stringify(this.snapshot()));
+    renameSync(tmp, this.file);
+  }
+
+  saveSoon(): void {
+    // Saving a large library takes a moment; batch the many small changes (text read, tags) into one write.
+    if (this.saveTimer) return;
+    this.saveTimer = setTimeout(() => {
+      this.saveTimer = undefined;
+      void this.save().catch(() => undefined);
+    }, 15_000);
   }
 
   private labelFor(p: string): string {

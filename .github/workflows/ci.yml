@@ -1,4 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
+# Every push and pull request: type checks, unit tests, a full build and an
+# unpacked app on Windows, macOS and Linux, so packaging problems show up here
+# and not on release day.
 name: CI
 
 on:
@@ -9,17 +12,21 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
-    name: Test (${{ matrix.os }})
+    name: ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -29,3 +36,14 @@ jobs:
       - run: npm run build
       - name: CLI smoke test
         run: node dist-cli/keeper.cjs --version
+      - name: Package the app (unpacked, no installer)
+        run: npx electron-builder --dir --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+      - name: The packaged app starts (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update && sudo apt-get install -y xvfb
+          HOME=$(mktemp -d) timeout 20 xvfb-run -a release/linux-unpacked/keeper --no-sandbox --disable-gpu > app.log 2>&1 || code=$?
+          # 124 = still running when the timer stopped it, which is what we want.
+          if [ "${code:-0}" != "124" ]; then cat app.log; exit 1; fi
