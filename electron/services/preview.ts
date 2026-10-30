@@ -49,7 +49,12 @@ function allowed(p: string): boolean {
   if (granted.has(r)) return true;
   if (isInside(r, previewTemp())) return true;
   // Files inside a folder the user previewed (a folder mosaic, a sidecar subtitle).
-  for (const g of granted) if (isInside(r, g) && r.split(path.sep).length - g.split(path.sep).length <= 1) return true;
+  for (const g of granted) if (isInside(r, g) && r.split(path.sep).length - g.split(path.sep).length <= 2) return true;
+  // Sidecar files next to a previewed file (subtitles, a glTF model's textures).
+  for (const g of granted) {
+    const d = path.dirname(g);
+    if (isInside(r, d) && r.split(path.sep).length - d.split(path.sep).length <= 2) return true;
+  }
   return settings().folders.some((f) => isInside(r, f));
 }
 

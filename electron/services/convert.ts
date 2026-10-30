@@ -625,7 +625,8 @@ export class Converter {
     const mask = Buffer.alloc(S * S);
     for (let i = 0; i < S * S; i++) mask[i] = Math.round(((first.data[i] - lo) / (hi - lo || 1)) * 255);
     progress(0.8, 'Cutting out');
-    const alpha = await sharp(mask, { raw: { width: S, height: S, channels: 1 } }).resize(W, H, { fit: 'fill' }).blur(0.6).raw().toBuffer();
+    // extractChannel keeps the mask single-channel; resizing and blurring would otherwise make it RGB.
+    const alpha = await sharp(mask, { raw: { width: S, height: S, channels: 1 } }).resize(W, H, { fit: 'fill' }).blur(0.6).extractChannel(0).raw().toBuffer();
     await sharp(base).joinChannel(alpha, { raw: { width: W, height: H, channels: 1 } }).png().toFile(output);
     return output;
   }
@@ -695,11 +696,8 @@ export class Converter {
     const dir = freeName(outDir, `${stemOf(input)} pages`, '');
     await fsp.mkdir(dir, { recursive: true });
     progress(0.1, 'Drawing pages');
-    const pdftoppm = await which('pdftoppm');
-    if (pdftoppm) {
-      const r = await run(pdftoppm, [format === 'png' ? '-png' : '-jpeg', '-r', String(dpi), input, path.join(dir, 'page')]);
-      if (r.code !== 0) throw new Error(r.stderr.trim() || 'Could not draw the pages');
-    } else if (this.opts.hooks?.renderPdf) {
+    // The app draws pages itself; without it (command line), poppler's pdftoppm is used if installed.
+    if (this.opts.hooks?.renderPdf) {
       const pngs = await this.opts.hooks.renderPdf(input, dpi / 72);
       for (let i = 0; i < pngs.length; i++) {
         progress(i / pngs.length, 'Saving pages');
@@ -708,7 +706,10 @@ export class Converter {
         else await this.sharp()(pngs[i]).flatten({ background: '#ffffff' }).jpeg({ quality: 90 }).toFile(name);
       }
     } else {
-      throw new Error('Drawing PDF pages is not available here');
+      const pdftoppm = await which('pdftoppm');
+      if (!pdftoppm) throw new Error('Drawing PDF pages is not available here');
+      const r = await run(pdftoppm, [format === 'png' ? '-png' : '-jpeg', '-r', String(dpi), input, path.join(dir, 'page')]);
+      if (r.code !== 0) throw new Error(r.stderr.trim() || 'Could not draw the pages');
     }
     return (await fsp.readdir(dir)).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })).map((n) => path.join(dir, n));
   }

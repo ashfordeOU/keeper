@@ -104,6 +104,16 @@ It understands kinds and extensions (`heic`, `.docx`, `slides`, `ebooks`, `raw p
 - **Copy text from anywhere on screen** (<kbd>Ctrl/⌘ Shift 2</kbd>): drag over any area — a video, a locked PDF, an error dialog — and the text lands on your clipboard. **QR codes** in the area are decoded too.
 - Plain-text files (notes, Markdown, CSV, subtitles, HTML…) are indexed as well.
 - Choose recognition languages in Settings (e.g. `eng+deu+fra`).
+- **QR codes and barcodes** (EAN, UPC, Code 128/39/93, ITF, Codabar, Data Matrix, Aztec, PDF417) are read from screen areas, the clipboard and image files; web links can be opened after you confirm.
+- **Captures** keeps the last 100 texts, links, codes, screenshots, recordings and colours, with tabs, search and one-click copy. Options: keep or join line breaks, careful or fast recognition.
+
+### Screenshots, recording and the editor
+
+- **Screenshots** of the whole screen, a chosen window or a dragged area (<kbd>Ctrl/⌘ Alt S</kbd>), saved to *Pictures › Screenshots* (or a folder you pick) and put on the shelf.
+- **Screen recording** of the screen, a window or an area (<kbd>Ctrl/⌘ Alt R</kbd>) with a countdown, optional microphone and system sound (Windows, Linux), a live timer and Stop button in the Island and tray; saved as MP4 (or WebM).
+- **Annotate & beautify** any image: arrows, rectangles, ellipses, lines, pen, highlighter, text, numbered steps, pixelate to hide details, crop, colours and sizes, undo/redo and one-key tool shortcuts — then padding, gradient or solid backgrounds, rounded corners, shadow and a window frame. Saves a copy next to the original (“name (edited).png”) or copies it to the clipboard.
+- **Colour picker** for anything on screen (<kbd>Ctrl/⌘ Alt C</kbd>) with a magnifier; copies hex and shows RGB and HSL, remembering the last 20 colours.
+- `keeper://screenshot?mode=area`, `keeper://record`, `keeper://color` for launchers and scripts.
 
 ### Downloaded From
 

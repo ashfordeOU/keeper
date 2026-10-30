@@ -8,6 +8,8 @@ import { Icon } from '../components/Icon';
 import { PageHead, Toggle } from '../components/ui';
 import { useAsync, useStore } from '../state';
 import { Row } from './IslandSettings';
+import { LanguageRow, LoginRow, UpdateRow } from './SettingsMore';
+import { useT } from '../i18n';
 import '../styles/screens-b.css';
 
 // Mirrors core/ai.ts DEFAULT_MODELS without pulling the provider SDK into the interface bundle.
@@ -21,6 +23,7 @@ const PROVIDERS: { id: AiProvider; label: string }[] = [
 
 export function Settings() {
   const { settings: s, updateSettings, info, toast } = useStore();
+  const t = useT();
   const [key, setKey] = useState('');
   const provider = s?.ai.provider ?? 'anthropic';
   const hasKey = useAsync(() => (provider === 'ollama' ? Promise.resolve(true) : api.settings.hasSecret(provider)), [provider]);
@@ -34,19 +37,20 @@ export function Settings() {
 
   return (
     <div style={{ maxWidth: 820 }}>
-      <PageHead title="Settings" />
+      <PageHead title={t('nav.settings')} />
 
-      <h2 style={{ margin: '8px 0' }}>Appearance</h2>
+      <h2 style={{ margin: '8px 0' }}>{t('settings.appearance')}</h2>
       <div className="card settings-section">
-        <Row title="Look" desc="Playful is colourful; Minimal keeps everything black, white and grey.">
-          <div className="seg"><button className={s.look === 'playful' ? 'on' : ''} onClick={() => void updateSettings({ look: 'playful' })}>Playful</button><button className={s.look === 'minimal' ? 'on' : ''} onClick={() => void updateSettings({ look: 'minimal' })}>Minimal</button></div>
+        <Row title={t('settings.look')} desc="Playful is colourful; Minimal keeps everything black, white and grey.">
+          <div className="seg"><button className={s.look === 'playful' ? 'on' : ''} onClick={() => void updateSettings({ look: 'playful' })}>{t('settings.playful')}</button><button className={s.look === 'minimal' ? 'on' : ''} onClick={() => void updateSettings({ look: 'minimal' })}>{t('settings.minimal')}</button></div>
         </Row>
-        <Row title="Appearance">
-          <div className="seg">{(['system', 'light', 'dark'] as const).map((a) => <button key={a} className={s.appearance === a ? 'on' : ''} onClick={() => void updateSettings({ appearance: a })}><Icon name={a === 'light' ? 'sun' : a === 'dark' ? 'moon' : 'settings'} size={12} /> {a.charAt(0).toUpperCase() + a.slice(1)}</button>)}</div>
+        <Row title={t('settings.theme')}>
+          <div className="seg">{(['system', 'light', 'dark'] as const).map((a) => <button key={a} className={s.appearance === a ? 'on' : ''} onClick={() => void updateSettings({ appearance: a })}><Icon name={a === 'light' ? 'sun' : a === 'dark' ? 'moon' : 'settings'} size={12} /> {t(`settings.${a}`)}</button>)}</div>
         </Row>
+        <LanguageRow />
       </div>
 
-      <h2 style={{ margin: '18px 0 8px' }}>Library</h2>
+      <h2 style={{ margin: '18px 0 8px' }}>{t('settings.library')}</h2>
       <div className="card settings-section">
         <div className="setting" style={{ display: 'block' }}>
           <div style={{ fontWeight: 550 }}>Folders Keeper shows and searches</div>
@@ -88,6 +92,7 @@ export function Settings() {
 
       <h2 style={{ margin: '18px 0 8px' }}>Quick access</h2>
       <div className="card settings-section">
+        <LoginRow />
         <Row title="Quick Search shortcut" desc="Search your files from any app. Use + between keys, e.g. CommandOrControl+Shift+Space.">
           <input className="input" defaultValue={s.quickSearchShortcut} onBlur={(e) => e.target.value !== s.quickSearchShortcut && void updateSettings({ quickSearchShortcut: e.target.value.trim() })} style={{ width: 240 }} />
         </Row>
@@ -97,7 +102,7 @@ export function Settings() {
         </Row>
       </div>
 
-      <h2 style={{ margin: '18px 0 8px' }}>Assistant</h2>
+      <h2 style={{ margin: '18px 0 8px' }}>{t('nav.assistant')}</h2>
       <div className="card settings-section">
         <Row title="Provider" desc="Local runs a model on this computer — nothing leaves it.">
           <div className="seg">{PROVIDERS.map((p) => <button key={p.id} className={provider === p.id ? 'on' : ''} onClick={() => void updateSettings({ ai: { ...s.ai, provider: p.id, model: '' } })}>{p.label}</button>)}</div>
@@ -113,12 +118,13 @@ export function Settings() {
         )}
       </div>
 
-      <h2 style={{ margin: '18px 0 8px' }}>Updates</h2>
+      <h2 style={{ margin: '18px 0 8px' }}>{t('settings.updates')}</h2>
       <div className="card settings-section">
-        <Row title="Check for new versions" desc="Once a day. Keeper tells you; nothing installs without asking."><Toggle on={s.updateCheck} onChange={(v) => void updateSettings({ updateCheck: v })} /></Row>
+        <Row title="Check for new versions" desc="Once a day. New versions download in the background and install when you quit."><Toggle on={s.updateCheck} onChange={(v) => void updateSettings({ updateCheck: v })} /></Row>
+        <UpdateRow />
       </div>
 
-      <h2 style={{ margin: '18px 0 8px' }}>About</h2>
+      <h2 style={{ margin: '18px 0 8px' }}>{t('settings.about')}</h2>
       <div className="card settings-section">
         <Row title="Keeper" desc={`Version ${info?.appVersion ?? ''} · ${info?.platform ?? ''} ${info?.arch ?? ''}`}>
           <button className="btn" onClick={() => void api.system.openExternal('https://github.com/ashfordeOU/keeper')}><Icon name="external" size={13} /> Source code</button>

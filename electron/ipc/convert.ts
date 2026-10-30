@@ -16,7 +16,8 @@ import { Converter } from '../services/convert';
 const req = createRequire(__filename);
 
 interface Deps {
-  journal: Journal;
+  /** a getter: the history is created after IPC is registered */
+  journal: () => Journal;
   progress: (p: Progress) => void;
   changed: () => void;
   window: () => BrowserWindow | null;
@@ -103,7 +104,7 @@ export function registerConvertIpc(deps: Deps) {
         ops.push({ type: 'create', from: job.inputs[0], to: o, size });
         void deps.refresh(o);
       }
-      if (ops.length) await deps.journal.record(`${toolTitle(job)}: ${ops.length} new file${ops.length === 1 ? '' : 's'}`, ops);
+      if (ops.length) await deps.journal().record(`${toolTitle(job)}: ${ops.length} new file${ops.length === 1 ? '' : 's'}`, ops);
       deps.changed();
       return result;
     } finally {

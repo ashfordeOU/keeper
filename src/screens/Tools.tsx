@@ -12,6 +12,7 @@ import { Icon } from '../components/Icon';
 import { PageHead, Toggle } from '../components/ui';
 import { useStore } from '../state';
 import '../styles/screens-b.css';
+import { moreTools, QrImage } from './ToolsMore';
 
 interface Tool {
   id: string;
@@ -198,7 +199,7 @@ function Wifi() {
       <button className="btn sm" style={{ alignSelf: 'flex-start' }} onClick={() => void api.system.wifiNetworks().then(setList)}><Icon name="lock" size={12} /> Show saved Wi-Fi passwords</button>
       {list ? (list.length ? list.map((n) => <div key={n.ssid} className="item-row"><b className="grow">{n.ssid}</b><code className="mono">{n.password ?? '—'}</code>{n.password ? <CopyBtn text={n.password} /> : null}<button className="btn sm" onClick={() => { setSsid(n.ssid); setPass(n.password ?? ''); }}>Share</button></div>) : <span className="small muted">No saved networks could be read. Your system may ask for your password.</span>) : null}
       <div className="row"><input className="input grow" placeholder="Network name" value={ssid} onChange={(e) => setSsid(e.target.value)} /><input className="input grow" placeholder="Password" value={pass} onChange={(e) => setPass(e.target.value)} /></div>
-      {payload ? <><pre>{payload}</pre><span className="small muted">Paste this into any QR code maker; a phone camera will offer to join the network.</span><div><CopyBtn text={payload} /></div></> : null}
+      {payload ? <><QrImage text={payload} /><span className="small muted">Point a phone camera at the code to join the network.</span></> : null}
     </div>
   );
 }
@@ -257,6 +258,7 @@ function Disks() {
 // ------------------------------------------------------------------ page
 
 export function Tools() {
+  const { info } = useStore();
   const [q, setQ] = useState('');
   const [open, setOpen] = useState<string | null>(null);
   const [full, setFull] = useState<'pixels' | 'clean' | null>(null);
@@ -281,7 +283,8 @@ export function Tools() {
     { id: 'regex', name: 'Regex tester', desc: 'Live highlighting of matches.', icon: 'search', group: 'Developer', render: () => <Regex /> },
     { id: 'wifi', name: 'Wi-Fi passwords', desc: 'See saved Wi-Fi passwords and share a network.', icon: 'globe', group: 'System', render: () => <Wifi /> },
     { id: 'eject', name: 'Eject all disks', desc: 'Safely eject every external drive at once.', icon: 'arrowUp', group: 'System', render: () => <Disks /> },
-  ], []);
+    ...moreTools(info?.platform),
+  ], [info?.platform]);
 
   const shown = tools.filter((t) => !q || `${t.name} ${t.desc} ${t.group}`.toLowerCase().includes(q.toLowerCase()));
   const current = tools.find((t) => t.id === open);

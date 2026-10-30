@@ -2,7 +2,8 @@
 // The Island: what it shows and how it behaves, plus keep-awake and presentation mode.
 
 import { useEffect, useState, type ReactNode } from 'react';
-import type { IslandSettings as IS, KeepAwakeOptions, KeepAwakeState } from '../../core/api';
+import type { IslandSettings as IS, KeepAwakeOptions, KeepAwakeState, ScriptAction, UploadSettings } from '../../core/api';
+import { describeTrigger, type AwakeTrigger, type TriggerKind } from '../../core/awake';
 import { relativeTime } from '../../core/format';
 import type { Place } from '../../core/weather';
 import { api } from '../api';
@@ -34,6 +35,9 @@ export function IslandSettings() {
   const [opts, setOpts] = useState<KeepAwakeOptions & { mode: 'forever' | 'minutes' | 'until' | 'app' | 'file' }>({ mode: 'forever', minutes: 60 });
   const [untilTime, setUntilTime] = useState('18:00');
   const [presenting, setPresenting] = useState(false);
+  const hasUpload = useAsync(() => api.settings.hasSecret('upload'), []);
+  const [uploadKey, setUploadKey] = useState('');
+  const [awakeNow, setAwakeNow] = useState<string[] | null>(null);
 
   useEffect(() => { if (state.data) setAwake(state.data.keepAwake); }, [state.data]);
   useEffect(() => {
@@ -86,7 +90,7 @@ export function IslandSettings() {
 
       <h2 style={{ margin: '18px 0 8px' }}>What it shows</h2>
       <div className="card settings-section">
-        <Row title="Clipboard history" desc="Keeps the last 50 things you copied. Text that looks like a password is never saved."><Toggle on={isl.clipboard} onChange={(v) => set({ clipboard: v })} /></Row>
+        <Row title="Clipboard history" desc="Keeps what you copy — text, links, code, colours, images and files — with the app it came from. Text that looks like a password is never saved."><Toggle on={isl.clipboard} onChange={(v) => set({ clipboard: v })} /></Row>
         <Row title="Clean links you copy" desc="Removes tracking bits like utm_ and fbclid from copied links."><Toggle on={isl.cleanLinks} onChange={(v) => set({ cleanLinks: v })} /></Row>
         <Row title="Download and screenshot alerts" desc="New downloads and screenshots appear for a moment and land on the shelf."><Toggle on={isl.downloadAlerts} onChange={(v) => set({ downloadAlerts: v })} /></Row>
         <Row title="Coding agents" desc="Shows whether your terminal coding agents are working, waiting for you or done. Read from files on this computer only."><Toggle on={isl.agents} onChange={(v) => set({ agents: v })} /></Row>
@@ -100,6 +104,39 @@ export function IslandSettings() {
         <Row title="Calendar" desc="Paste a private calendar address (.ics) from your calendar app to see today and what is next.">
           <input className="input" style={{ width: 300 }} placeholder="https://…/calendar.ics" defaultValue={isl.calendarUrl} onBlur={(e) => e.target.value !== isl.calendarUrl && set({ calendarUrl: e.target.value.trim() })} />
         </Row>
+      </div>
+
+      <h2 style={{ margin: '18px 0 8px' }}>Clipboard</h2>
+      <div className="card settings-section">
+        <Row title="Clipboard picker" desc="Opens over any app: type to filter, Return pastes, 1–9 paste instantly."><kbd className="badge">{pretty(isl.pasteShortcut)}</kbd></Row>
+        <Row title="Remember up to">
+          <select className="input" value={isl.clipMax} onChange={(e) => set({ clipMax: Number(e.target.value) })}>{[50, 100, 200, 500, 1000].map((n) => <option key={n} value={n}>{n} items</option>)}</select>
+        </Row>
+        <Row title="Forget after" desc="Pinned items and items in a list are always kept.">
+          <select className="input" value={isl.clipRetentionDays} onChange={(e) => set({ clipRetentionDays: Number(e.target.value) })}>
+            <option value={1}>1 day</option><option value={7}>1 week</option><option value={30}>1 month</option><option value={90}>3 months</option><option value={365}>1 year</option><option value={0}>Never</option>
+          </select>
+        </Row>
+        <Row title="Never record copies from" desc="Comma-separated app names, e.g. password managers.">
+          <input className="input" style={{ width: 300 }} defaultValue={isl.clipIgnoreApps.join(', ')} onBlur={(e) => set({ clipIgnoreApps: e.target.value.split(',').map((x) => x.trim()).filter(Boolean) })} />
+        </Row>
+        <Row title="Show page titles for links" desc="Keeper visits a copied link once to read its title. Off keeps everything on this computer."><Toggle on={isl.clipFetchTitles} onChange={(v) => set({ clipFetchTitles: v })} /></Row>
+      </div>
+
+      <h2 style={{ margin: '18px 0 8px' }}>Shelves and sharing</h2>
+      <div className="card settings-section">
+        <Row title="Open the shelf" desc="From anywhere. Dragging a file onto the Island opens it too."><kbd className="badge">{pretty(isl.shelfShortcut)}</kbd></Row>
+        <Row title="Share links" desc="Upload shelf files to your own storage and copy a link. Nothing goes through a Keeper server.">
+          <div className="seg">{(['none', 'webdav', 's3'] as const).map((k) => <button key={k} className={isl.upload.kind === k ? 'on' : ''} onClick={() => set({ upload: { ...isl.upload, kind: k } })}>{k === 'none' ? 'Off' : k === 'webdav' ? 'WebDAV' : 'S3-compatible'}</button>)}</div>
+        </Row>
+        {isl.upload.kind !== 'none' ? <UploadFields u={isl.upload} onChange={(u) => set({ upload: u })} /> : null}
+        {isl.upload.kind !== 'none' ? (
+          <Row title={isl.upload.kind === 's3' ? 'Secret access key' : 'Password'} desc={hasUpload.data ? 'Saved, encrypted by your system keychain.' : 'Kept in your system keychain.'}>
+            <input className="input" type="password" placeholder={hasUpload.data ? '••••••••' : 'Paste here'} value={uploadKey} onChange={(e) => setUploadKey(e.target.value)} />
+            <button className="btn" disabled={!uploadKey} onClick={async () => { await api.settings.setSecret('upload', uploadKey); setUploadKey(''); hasUpload.reload(); toast('Saved'); }}>Save</button>
+          </Row>
+        ) : null}
+        <ScriptActions list={isl.scriptActions} onChange={(l) => set({ scriptActions: l })} />
       </div>
 
       <h2 style={{ margin: '18px 0 8px' }}>Weather</h2>
@@ -150,6 +187,27 @@ export function IslandSettings() {
         </Row>
       </div>
 
+      <h2 style={{ margin: '18px 0 8px' }}>Keep awake automatically</h2>
+      <div className="card settings-section">
+        <Row title="Rules" desc={awakeNow === null ? 'Start keeping awake by itself when any of these is true, and stop when none is.' : awakeNow.length ? `Right now: ${awakeNow.join(' · ')}` : 'None of these is true right now.'}>
+          <button className="btn sm" onClick={() => void api.island.awakeStatus().then((r) => setAwakeNow(r.active))}>Check now</button>
+          <button className="btn sm" onClick={() => set({ awakeTriggers: [...isl.awakeTriggers, { id: `t${Date.now().toString(36)}`, kind: 'display', enabled: true }] })}><Icon name="plus" size={12} /> Add rule</button>
+        </Row>
+        {isl.awakeTriggers.map((t) => <TriggerRow key={t.id} t={t} onChange={(n) => set({ awakeTriggers: isl.awakeTriggers.map((x) => (x.id === t.id ? n : x)) })} onRemove={() => set({ awakeTriggers: isl.awakeTriggers.filter((x) => x.id !== t.id) })} />)}
+        <Row title="Keep an external drive awake" desc={isl.driveKeepAwake ? `Touching a hidden file on ${isl.driveKeepAwake.path} every ${isl.driveKeepAwake.seconds} seconds so it does not spin down.` : 'Some drives fall asleep and pause your work while they spin up again.'}>
+          {isl.driveKeepAwake ? <button className="btn sm" onClick={() => set({ driveKeepAwake: null })}>Stop</button> : <button className="btn sm" onClick={() => void api.settings.pickFolder().then((p) => p && set({ driveKeepAwake: { path: p, seconds: 60 } }))}>Choose drive…</button>}
+        </Row>
+        <Row title="Turn keep-awake on or off" desc="From anywhere."><kbd className="badge">{pretty(isl.awakeShortcut)}</kbd></Row>
+      </div>
+
+      <h2 style={{ margin: '18px 0 8px' }}>Notifications and visibility</h2>
+      <div className="card settings-section">
+        <Row title="Show other apps’ notifications" desc="Linux: notifications appear in the Island as well. Other systems do not let apps read notifications."><Toggle on={isl.notifyMirror} onChange={(v) => set({ notifyMirror: v })} /></Row>
+        {isl.notifyMirror ? <Row title="Only from" desc="Comma-separated app names; empty means all."><input className="input" style={{ width: 280 }} defaultValue={isl.notifyApps.join(', ')} onBlur={(e) => set({ notifyApps: e.target.value.split(',').map((x) => x.trim()).filter(Boolean) })} /></Row> : null}
+        <Row title="Hide while an app is full screen" desc="Videos, games and presentations get the whole screen."><Toggle on={isl.hideInFullscreen} onChange={(v) => set({ hideInFullscreen: v })} /></Row>
+        <Row title="Hide or show the Island"><kbd className="badge">{pretty(isl.hideShortcut)}</kbd></Row>
+      </div>
+
       <h2 style={{ margin: '18px 0 8px' }}>Dictation</h2>
       <div className="card settings-section">
         <Row title="Shortcut" desc="Press once to start talking, again to stop. The words are typed where your cursor is."><kbd className="badge">{pretty(isl.dictationShortcut)}</kbd></Row>
@@ -168,7 +226,84 @@ export function IslandSettings() {
         <Row title="Copy text from the screen" desc="Drag over any area to copy the text in it — QR codes too."><kbd className="badge">{pretty(isl.captureShortcut)}</kbd></Row>
         <Row title="Quick Search"><kbd className="badge">{pretty(settings?.quickSearchShortcut ?? '')}</kbd></Row>
         <Row title="Dictation"><kbd className="badge">{pretty(isl.dictationShortcut)}</kbd></Row>
+        {(['captureShortcut', 'pasteShortcut', 'shelfShortcut', 'hideShortcut', 'awakeShortcut', 'dictationShortcut'] as const).map((k) => (
+          <Row key={k} title={`Change: ${({ captureShortcut: 'copy text from screen', pasteShortcut: 'clipboard picker', shelfShortcut: 'open shelf', hideShortcut: 'hide Island', awakeShortcut: 'keep awake', dictationShortcut: 'dictation' })[k]}`} desc="Use names like CommandOrControl+Shift+V, Alt+Space or F9.">
+            <input className="input" style={{ width: 230 }} defaultValue={isl[k]} onBlur={(e) => e.target.value.trim() !== isl[k] && set({ [k]: e.target.value.trim() } as Partial<IS>)} />
+          </Row>
+        ))}
       </div>
     </div>
+  );
+}
+
+const TRIGGER_KINDS: { kind: TriggerKind; label: string; needs?: 'value' | 'threshold'; placeholder?: string }[] = [
+  { kind: 'display', label: 'An external display is connected' },
+  { kind: 'power', label: 'Plugged into power' },
+  { kind: 'app', label: 'An app is running', needs: 'value', placeholder: 'App name, e.g. Zoom' },
+  { kind: 'usb', label: 'A USB device is connected', needs: 'value', placeholder: 'Device name, e.g. Logitech' },
+  { kind: 'wifi', label: 'On a Wi-Fi network', needs: 'value', placeholder: 'Network name' },
+  { kind: 'vpn', label: 'A VPN is connected' },
+  { kind: 'cpu', label: 'The processor is busy', needs: 'threshold' },
+  { kind: 'drive', label: 'A drive is mounted', needs: 'value', placeholder: 'Drive name, e.g. Backup' },
+];
+
+function TriggerRow({ t, onChange, onRemove }: { t: AwakeTrigger; onChange: (t: AwakeTrigger) => void; onRemove: () => void }) {
+  const meta = TRIGGER_KINDS.find((k) => k.kind === t.kind)!;
+  return (
+    <Row title={describeTrigger(t)} desc={t.allowDisplaySleep ? 'The screen may sleep; the computer stays on.' : 'Keeps the screen on too.'}>
+      <Toggle on={t.enabled} onChange={(v) => onChange({ ...t, enabled: v })} />
+      <select className="input" value={t.kind} onChange={(e) => onChange({ ...t, kind: e.target.value as TriggerKind })}>{TRIGGER_KINDS.map((k) => <option key={k.kind} value={k.kind}>{k.label}</option>)}</select>
+      {meta.needs === 'value' ? <input className="input" style={{ width: 160 }} placeholder={meta.placeholder} defaultValue={t.value ?? ''} onBlur={(e) => onChange({ ...t, value: e.target.value.trim() })} /> : null}
+      {meta.needs === 'threshold' ? <select className="input" value={t.threshold ?? 50} onChange={(e) => onChange({ ...t, threshold: Number(e.target.value) })}>{[30, 50, 70, 90].map((n) => <option key={n} value={n}>Above {n}%</option>)}</select> : null}
+      <button className="btn sm" title={t.allowDisplaySleep ? 'Keep the screen on' : 'Let the screen sleep'} onClick={() => onChange({ ...t, allowDisplaySleep: !t.allowDisplaySleep })}><Icon name={t.allowDisplaySleep ? 'moon' : 'sun'} size={12} /></button>
+      <button className="btn sm icon" title="Remove" onClick={onRemove}><Icon name="close" size={12} /></button>
+    </Row>
+  );
+}
+
+function UploadFields({ u, onChange }: { u: UploadSettings; onChange: (u: UploadSettings) => void }) {
+  const f = (k: keyof UploadSettings, title: string, desc?: string, placeholder?: string, width = 300) => (
+    <Row title={title} desc={desc}>
+      <input className="input" style={{ width }} placeholder={placeholder} defaultValue={String(u[k] ?? '')} onBlur={(e) => onChange({ ...u, [k]: k === 'expiresHours' ? Number(e.target.value) || 72 : e.target.value.trim() })} />
+    </Row>
+  );
+  if (u.kind === 'webdav') {
+    return (
+      <>
+        {f('url', 'Folder address', 'Where files are uploaded, e.g. your Nextcloud folder.', 'https://cloud.example.com/remote.php/dav/files/me/Shared')}
+        {f('username', 'User name')}
+        {f('prefix', 'Sub-folder', undefined, 'keeper', 160)}
+        {f('publicUrl', 'Public link address (optional)', 'If uploads are published at another address, links start with this instead.', 'https://files.example.com/shared')}
+      </>
+    );
+  }
+  return (
+    <>
+      {f('url', 'Storage address', 'The service endpoint.', 'https://s3.eu-west-1.amazonaws.com')}
+      {f('bucket', 'Bucket', undefined, 'my-shared-files', 220)}
+      {f('region', 'Region', 'Use “auto” where the service does not have regions.', 'us-east-1', 160)}
+      {f('accessKeyId', 'Access key ID', undefined, 'AKIA…', 240)}
+      {f('prefix', 'Folder in the bucket', undefined, 'keeper', 160)}
+      {f('expiresHours', 'Links work for (hours)', 'At most 168 hours (7 days).', '72', 90)}
+    </>
+  );
+}
+
+function ScriptActions({ list, onChange }: { list: ScriptAction[]; onChange: (l: ScriptAction[]) => void }) {
+  const [name, setName] = useState('');
+  const [cmd, setCmd] = useState('');
+  return (
+    <>
+      <Row title="Shelf actions" desc={<>Your own commands, shown as buttons on the shelf. <code>{'{files}'}</code> becomes the shelf’s files, <code>{'{file}'}</code> the first one and <code>{'{dir}'}</code> its folder. Keeper asks before running.</>}>
+        <input className="input" style={{ width: 120 }} placeholder="Button name" value={name} onChange={(e) => setName(e.target.value)} />
+        <input className="input" style={{ width: 240 }} placeholder="e.g. open -a Preview {files}" value={cmd} onChange={(e) => setCmd(e.target.value)} />
+        <button className="btn sm" disabled={!name.trim() || !cmd.trim()} onClick={() => { onChange([...list, { id: `a${Date.now().toString(36)}`, name: name.trim(), command: cmd.trim() }]); setName(''); setCmd(''); }}>Add</button>
+      </Row>
+      {list.map((a) => (
+        <Row key={a.id} title={a.name} desc={<code>{a.command}</code>}>
+          <button className="btn sm icon" title="Remove" onClick={() => onChange(list.filter((x) => x.id !== a.id))}><Icon name="close" size={12} /></button>
+        </Row>
+      ))}
+    </>
   );
 }

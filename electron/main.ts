@@ -765,7 +765,7 @@ app.whenReady().then(async () => {
   // Local files for previews and the music player: read-only, seekable, only from allowed places.
   registerFileProtocol();
   registerPreviewIpc();
-  registerConvertIpc({ journal, progress, changed: libraryChanged, window: () => main, refresh: (p) => index.refresh(p) });
+  registerConvertIpc({ journal: () => journal, progress, changed: libraryChanged, window: () => main, refresh: (p) => index.refresh(p) });
 
   const s = settings();
   index = makeIndex(s);
