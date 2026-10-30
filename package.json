@@ -4,7 +4,11 @@
   "version": "0.1.0",
   "description": "A free, open-source home for your files: visual library, plain-English search, text in images, download sources, duplicates, cleanup, space map, startup items and an optional AI assistant. Windows, macOS and Linux.",
   "license": "AGPL-3.0-or-later",
-  "author": "Keeper contributors",
+  "author": {
+    "name": "Ashforde OÜ",
+    "email": "contact@ashforde.org",
+    "url": "https://github.com/ashfordeOU"
+  },
   "homepage": "https://github.com/ashfordeOU/keeper",
   "repository": {
     "type": "git",

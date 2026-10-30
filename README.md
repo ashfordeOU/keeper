@@ -321,13 +321,38 @@ Cleaning tools should never cost you a file. Keeper's rules:
 
 ## Install
 
-Download the latest build from **[Releases](https://github.com/ashfordeOU/keeper/releases/latest)**:
+Download the latest build from **[Releases](https://github.com/ashfordeOU/keeper/releases/latest)**. The file names never change, so these links always give you the newest version:
 
-| Platform | File |
+| System | Download | Notes |
+|---|---|---|
+| **macOS 12+** — Apple silicon (M1–M4) | [Keeper-mac-arm64.dmg](https://github.com/ashfordeOU/keeper/releases/latest/download/Keeper-mac-arm64.dmg) | Open, drag Keeper into Applications |
+| **macOS 12+** — Intel | [Keeper-mac-x64.dmg](https://github.com/ashfordeOU/keeper/releases/latest/download/Keeper-mac-x64.dmg) | |
+| **Windows 10/11** (also runs on Windows on ARM) | [Keeper-setup-x64.exe](https://github.com/ashfordeOU/keeper/releases/latest/download/Keeper-setup-x64.exe) | Installer, per user, no admin needed |
+| Windows, no install | [Keeper-portable.exe](https://github.com/ashfordeOU/keeper/releases/latest/download/Keeper-portable.exe) | Runs from anywhere, e.g. a USB stick |
+| **Linux** x64 — any distribution | [Keeper-linux-x86_64.AppImage](https://github.com/ashfordeOU/keeper/releases/latest/download/Keeper-linux-x86_64.AppImage) | `chmod +x` and run |
+| Linux ARM64 | [Keeper-linux-arm64.AppImage](https://github.com/ashfordeOU/keeper/releases/latest/download/Keeper-linux-arm64.AppImage) | |
+| Debian, Ubuntu, Mint, Pop!_OS | `Keeper-linux-amd64.deb` / `-arm64.deb` | `sudo apt install ./Keeper-linux-amd64.deb` |
+| Fedora, RHEL, openSUSE | `Keeper-linux-x86_64.rpm` / `-aarch64.rpm` | `sudo dnf install ./Keeper-linux-x86_64.rpm` |
+| Other Linux | `Keeper-linux-x64.tar.gz` | Unpack anywhere and run `keeper` |
+
+Every release also lists `SHA256SUMS.txt` to check your download.
+
+### Updates
+
+Keeper keeps itself up to date from these releases. In **Settings → Updates** you choose:
+
+- **Install updates automatically** (default) — new versions download in the background and install the next time Keeper quits; a banner offers “Restart and update” sooner.
+- **Ask before installing** — Keeper tells you a new version is out (banner, notification and tray menu), shows what changed, and waits for you.
+- **Only when I check** — Keeper never looks on its own; press **Check now** whenever you like.
+
+You can also opt in to **beta versions**. After an update, **What’s new** shows the release notes once.
+
+| How Keeper was installed | How it updates |
 |---|---|
-| Windows 10/11 (x64, Arm64) | `Keeper-setup-x64.exe` / `Keeper-setup-arm64.exe`, or `Keeper-portable.exe` |
-| macOS 12+ (Apple silicon / Intel) | `Keeper-mac-arm64.dmg` / `Keeper-mac-x64.dmg` |
-| Linux (x64, arm64) | `.AppImage`, `.deb`, `.rpm` or `.tar.gz` |
+| Windows installer, Linux AppImage | Replaces itself in place |
+| macOS dmg | Downloads the new version, swaps the app in Applications and reopens (the old copy goes to the Trash) |
+| Linux .deb / .rpm | Downloads the new package and installs it with your system’s password prompt |
+| Windows portable, .tar.gz | Tells you and opens the download |
 
 ### First launch
 
