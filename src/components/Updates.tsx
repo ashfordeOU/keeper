@@ -27,6 +27,46 @@ export function useUpdateStatus(): [UpdateStatus | null, (s: UpdateStatus) => vo
   return [s, setS];
 }
 
+/**
+ * Hover (or focus) to see a few short lines about each version newer than the
+ * one running, plus this one: what changed, at a glance.
+ */
+export function WhatsNewHover({ children, only }: { children: React.ReactNode; only?: 'newer' | 'current' }) {
+  const { info } = useStore();
+  const [notes, setNotes] = useState<import('../../core/updates').VersionNote[] | null>(null);
+  const [open, setOpen] = useState(false);
+  const load = () => {
+    if (!notes) void api.appInfo.versionNotes().then(setNotes).catch(() => setNotes([]));
+  };
+  const current = info?.appVersion?.replace(/\s.*$/, '');
+  const list = (notes ?? []).filter((n) => (only === 'newer' ? n.version !== current : only === 'current' ? n.version === current : true));
+  return (
+    <span
+      className="whats-new-hover"
+      onMouseEnter={() => { load(); setOpen(true); }}
+      onMouseLeave={() => setOpen(false)}
+      onFocus={() => { load(); setOpen(true); }}
+      onBlur={() => setOpen(false)}
+    >
+      {children}
+      {open ? (
+        <span className="wn-card" role="tooltip">
+          {!notes ? <span className="small muted">Loading…</span> : !list.length ? <span className="small muted">No notes yet for this version.</span> : list.map((n) => (
+            <span key={n.version} className="wn-version">
+              <span className="wn-head">
+                <b>{n.version}</b>
+                {n.version === current ? <span className="badge">You have this</span> : n.prerelease ? <span className="badge warn">Beta</span> : <span className="badge accent">New</span>}
+                {n.date ? <span className="muted small">{relativeTime(Date.parse(n.date))}</span> : null}
+              </span>
+              <span className="wn-lines">{n.short.map((l, i) => <span key={i}>• {l}</span>)}</span>
+            </span>
+          ))}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
 /** Release notes are written in Markdown; links open in the browser and nothing remote loads. */
 function Notes({ md }: { md: string }) {
   const html = useMemo(() => {
@@ -94,7 +134,7 @@ export function UpdatesPanel() {
       <div className={`update-card ${s?.state ?? ''}`}>
         <div className="update-icon"><Icon name={s?.state === 'available' || s?.state === 'ready' ? 'sparkle' : s?.state === 'error' ? 'warning' : 'check'} size={20} /></div>
         <div className="grow">
-          <div className="update-title">{headline}</div>
+          <div className="update-title"><WhatsNewHover>{headline} <Icon name="info" size={13} style={{ opacity: 0.6, verticalAlign: -2 }} /></WhatsNewHover></div>
           <div className="small muted">
             You have {info?.appVersion ?? s?.current ?? ''}
             {s?.publishedAt && s.version ? ` · ${s.version} released ${relativeTime(Date.parse(s.publishedAt))}` : ''}
@@ -185,7 +225,7 @@ export function UpdateBanner() {
       <span className="grow">
         {s.state === 'ready' ? <>Keeper <b>{s.version}</b> is ready. {s.message}</> : s.state === 'downloading' ? <>Downloading Keeper <b>{s.version}</b>… {s.percent ?? 0}%</> : <>Keeper <b>{s.version}</b> is available.</>}
       </span>
-      <button className="btn sm ghost" onClick={() => go({ name: 'settings', arg: 'updates' })}>What’s new</button>
+      <WhatsNewHover only="newer"><button className="btn sm ghost" onClick={() => go({ name: 'settings', arg: 'updates' })}>What’s new</button></WhatsNewHover>
       {s.state !== 'downloading' ? <Primary s={s} onChange={setS} /> : null}
       <button className="btn sm ghost icon" title="Later" onClick={dismiss}><Icon name="close" size={13} /></button>
     </div>

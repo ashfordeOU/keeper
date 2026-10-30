@@ -20,3 +20,12 @@
 .link-like:hover { text-decoration: underline; }
 .update-banner { display: flex; align-items: center; gap: 10px; margin: -8px 0 16px; padding: 8px 10px 8px 14px; border-radius: 12px; background: var(--accent-soft); color: var(--text); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); }
 .update-banner > svg { color: var(--accent); flex: none; }
+
+/* What's new hover card */
+.whats-new-hover { position: relative; display: inline-flex; align-items: center; }
+.wn-card { position: absolute; top: calc(100% + 8px); left: 0; z-index: 80; width: 320px; display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border-radius: 12px; background: var(--bg-elev); border: 1px solid var(--line-strong); box-shadow: var(--shadow-pop); font-size: 12.5px; font-weight: 400; color: var(--text); text-align: left; white-space: normal; animation: pop .15s var(--ease); }
+.update-banner .wn-card { left: auto; right: 0; }
+.wn-version { display: flex; flex-direction: column; gap: 4px; }
+.wn-version + .wn-version { border-top: 1px solid var(--line); padding-top: 9px; }
+.wn-head { display: flex; align-items: center; gap: 7px; }
+.wn-lines { display: flex; flex-direction: column; gap: 2px; color: var(--text-2); line-height: 1.4; }

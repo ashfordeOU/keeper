@@ -9,7 +9,7 @@ import { PageHead, Toggle } from '../components/ui';
 import { useAsync, useStore } from '../state';
 import { Row } from './IslandSettings';
 import { LanguageRow, LoginRow } from './SettingsMore';
-import { UpdatesPanel } from '../components/Updates';
+import { UpdatesPanel, WhatsNewHover } from '../components/Updates';
 import { useT } from '../i18n';
 import '../styles/screens-b.css';
 
@@ -130,7 +130,7 @@ export function Settings() {
 
       <h2 style={{ margin: '18px 0 8px' }}>{t('settings.about')}</h2>
       <div className="card settings-section">
-        <Row title="Keeper" desc={`Version ${info?.appVersion ?? ''} · ${info?.platform ?? ''} ${info?.arch ?? ''}`}>
+        <Row title="Keeper" desc={<WhatsNewHover only="current"><span style={{ textDecoration: 'underline dotted', textUnderlineOffset: 3 }}>Version {info?.appVersion ?? ''}</span></WhatsNewHover>}>
           <button className="btn" onClick={() => void api.system.openExternal('https://github.com/ashfordeOU/keeper')}><Icon name="external" size={13} /> Source code</button>
         </Row>
         <Row title="License" desc="Free software under the GNU Affero General Public License, version 3 or later. You can use, study, share and change it.">

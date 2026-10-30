@@ -38,10 +38,14 @@ const api = {
   ai: group('ai', ['ask']),
   monitor: group('monitor', ['history', 'topToday', 'alerts', 'setAlertRules', 'docker', 'dockerAction', 'killTree', 'stopAgent', 'thermals', 'disks', 'speedTest', 'speedHistory']),
   forecast: group('forecast', ['places', 'savePlaces', 'get', 'alerts', 'radar', 'climate', 'trips']),
+  places: {
+    ...group('places', ['list', 'eject', 'connect', 'discover', 'recentServers', 'forgetServer', 'folderSize', 'openAirDrop', 'shareTargets', 'share']),
+    trash: group('places.trash', ['list', 'restore', 'remove', 'empty']),
+  },
   tools: group('tools', ['networkInfo', 'publicIp', 'tweaks', 'setTweak', 'clearQuarantine', 'resetPermissions', 'pickApp', 'pickFiles', 'saveAs']),
   folders: group('folders', ['tidy']),
   aiActions: group('aiActions', ['provider', 'suggestName', 'summarize', 'receipts', 'altText', 'translateSubtitles']),
-  appInfo: group('appInfo', ['updateStatus', 'checkForUpdates', 'installUpdate', 'downloadUpdate', 'whatsNew', 'releasesPage', 'loginItem', 'setLoginItem']),
+  appInfo: group('appInfo', ['updateStatus', 'checkForUpdates', 'installUpdate', 'downloadUpdate', 'whatsNew', 'releasesPage', 'versionNotes', 'loginItem', 'setLoginItem']),
   island: {
     ...group('island', ['state', 'addToShelf', 'removeFromShelf', 'clearShelf', 'copyClip', 'pinClip', 'removeClip', 'clearClips', 'focus', 'keepAwake', 'presentation', 'media', 'openAgent', 'transcribe', 'typeText', 'dismiss']),
     ...group('island', ['createShelf', 'selectShelf', 'renameShelf', 'setShelfColor', 'pinShelf', 'closeShelf', 'reopenShelf', 'moveShelfItem', 'renameShelfItem', 'shelfAction', 'updateClip', 'toggleClipCollection', 'pasteClip', 'exportClips', 'importClips', 'openClips', 'openShelf', 'hide', 'setVolume', 'setMuted', 'setBrightness', 'refreshDevices', 'awakeStatus']),

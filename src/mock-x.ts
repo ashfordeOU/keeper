@@ -140,6 +140,10 @@ export function mockX(): KeeperApiX {
       downloadUpdate: async () => delay({ ...update, state: 'ready', version: '0.2.0', message: 'Installs when you quit Keeper, or restart now' }, 1200),
       whatsNew: async () => null,
       releasesPage: async () => undefined,
+      versionNotes: async () => [
+        { version: '0.2.0', date: new Date(now - 2 * 86_400_000).toISOString(), url: 'https://github.com/ashfordeOU/keeper/releases', prerelease: false, short: ['Faster search across large libraries', 'New Bubbles view in Space Map', 'Island fixes on external displays'] },
+        { version: '0.1.0', date: new Date(now - 20 * 86_400_000).toISOString(), url: 'https://github.com/ashfordeOU/keeper/releases', prerelease: false, short: ['First release: library, search, clean up, Island'] },
+      ],
       loginItem: async () => login,
       setLoginItem: async (on) => (login = on),
     },

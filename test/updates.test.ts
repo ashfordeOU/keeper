@@ -49,3 +49,21 @@ describe('installer for this computer', () => {
     expect(notesToText('## What’s new\n* **Faster** search\n* See [docs](https://x)')).toBe('What’s new\n• Faster search\n• See docs');
   });
 });
+
+import { shortNotes, versionNotes } from '../core/updates';
+
+describe('short notes for the hover card', () => {
+  it('takes the first bullets as plain one-liners', () => {
+    const md = "## What's new\n- **Faster search** across large libraries (#12)\n- New *Bubbles* view by @someone in https://github.com/x/pull/3\n- Fix\n- Four\n- Five";
+    expect(shortNotes(md, 3)).toEqual(['Faster search across large libraries', 'New Bubbles view', 'Fix']);
+  });
+  it('falls back to sentences and trims long lines', () => {
+    expect(shortNotes('# Title\nKeeper is faster. It also looks nicer!', 2)).toEqual(['Keeper is faster.', 'It also looks nicer!']);
+    expect(shortNotes(`- ${'word '.repeat(40)}`, 1, 30)[0].endsWith('…')).toBe(true);
+  });
+  it('lists versions newer than (and including) the current one, newest first', () => {
+    const rel = (tag: string, body = '- a') => ({ tag_name: tag, html_url: tag, draft: false, prerelease: tag.includes('-'), body, assets: [] });
+    const v = versionNotes([rel('v0.1.0'), rel('v0.3.0'), rel('v0.2.0'), rel('v0.4.0-beta.1'), rel('v0.0.9')], '0.1.0');
+    expect(v.map((x) => x.version)).toEqual(['0.3.0', '0.2.0', '0.1.0']);
+  });
+});

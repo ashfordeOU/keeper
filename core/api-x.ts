@@ -147,6 +147,8 @@ export interface KeeperApiX {
     /** release notes of the version now running, once after an update (null otherwise) */
     whatsNew(): Promise<{ version: string; notes: string; url: string } | null>;
     releasesPage(): Promise<void>;
+    /** a few short lines per version (this one and newer), for hover cards */
+    versionNotes(): Promise<import('./updates').VersionNote[]>;
     loginItem(): Promise<boolean>;
     setLoginItem(on: boolean): Promise<boolean>;
   };

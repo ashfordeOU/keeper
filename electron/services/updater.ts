@@ -17,7 +17,7 @@ import os from 'node:os';
 import path from 'node:path';
 import type { UpdateStatus } from '../../core/api-x';
 import { run } from '../../core/platform';
-import { compareVersions, pickAsset, pickRelease, releaseFor, type GhAsset, type GhRelease, type InstallKind } from '../../core/updates';
+import { compareVersions, pickAsset, pickRelease, releaseFor, versionNotes, type GhAsset, type GhRelease, type InstallKind, type VersionNote } from '../../core/updates';
 import { settings, updateSettings } from '../store';
 
 const REPO = 'ashfordeOU/keeper';
@@ -293,6 +293,22 @@ export function installOnQuitIfReady() {
 
 export async function openReleasesPage() {
   await shell.openExternal(release?.html_url ?? `${RELEASES}/latest`);
+}
+
+// ---------------------------------------------------------------- short notes for hover cards
+
+let notesCache: { at: number; list: VersionNote[] } | undefined;
+
+/** Short notes for this version and every newer one, cached for an hour. */
+export async function listVersionNotes(): Promise<VersionNote[]> {
+  if (notesCache && Date.now() - notesCache.at < 3600_000) return notesCache.list;
+  try {
+    const list = versionNotes(await fetchReleases(), app.getVersion(), settings().updateBeta);
+    notesCache = { at: Date.now(), list };
+    return list;
+  } catch {
+    return notesCache?.list ?? [];
+  }
 }
 
 // ---------------------------------------------------------------- after an update

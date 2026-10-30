@@ -102,3 +102,37 @@ export function notesToText(md: string): string {
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
+
+/**
+ * A few short lines from release notes, for a hover card: the first bullet
+ * points (or sentences), plain text, each kept to one line.
+ */
+export function shortNotes(md: string, max = 4, width = 90): string[] {
+  const text = (md ?? '').replace(/\r/g, '').replace(/<!--[\s\S]*?-->/g, '');
+  const clean = (s: string) =>
+    s.replace(/\*\*(.+?)\*\*|__(.+?)__/g, '$1$2').replace(/[*_`]/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+      .replace(/\s*\(#\d+\)|\s+by @[\w-]+.*$|\s+in https?:\/\/\S+/g, '').replace(/\s+/g, ' ').trim();
+  const cut = (s: string) => (s.length > width ? s.slice(0, width - 1).replace(/\s+\S*$/, '') + '…' : s);
+  const bullets = text.split('\n').filter((l) => /^\s*[-*•]\s+/.test(l)).map((l) => clean(l.replace(/^\s*[-*•]\s+/, ''))).filter(Boolean);
+  if (bullets.length) return bullets.slice(0, max).map(cut);
+  const sentences = clean(text.replace(/^#{1,6}.*$/gm, ' ')).split(/(?<=[.!?])\s+/).filter((s) => s.length > 3);
+  return sentences.slice(0, max).map(cut);
+}
+
+export interface VersionNote {
+  version: string;
+  date?: string;
+  url: string;
+  /** a few short lines for a hover card */
+  short: string[];
+  prerelease: boolean;
+}
+
+/** Notes for every version newer than `current` (and `current` itself), newest first. */
+export function versionNotes(releases: GhRelease[], current: string, beta = false, limit = 6): VersionNote[] {
+  return releases
+    .filter((r) => !r.draft && (beta || !r.prerelease) && parseVersion(r.tag_name) && compareVersions(r.tag_name, current) >= 0)
+    .sort((a, b) => compareVersions(b.tag_name, a.tag_name))
+    .slice(0, limit)
+    .map((r) => ({ version: r.tag_name.replace(/^v/i, ''), date: r.published_at ?? undefined, url: r.html_url, short: shortNotes(r.body ?? ''), prerelease: r.prerelease }));
+}
