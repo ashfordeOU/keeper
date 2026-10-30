@@ -1,0 +1,10 @@
+node_modules/
+dist/
+dist-electron/
+dist-cli/
+release/
+coverage/
+*.log
+.DS_Store
+Thumbs.db
+*.traineddata
