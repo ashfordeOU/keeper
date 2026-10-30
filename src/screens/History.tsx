@@ -10,7 +10,7 @@ import { Empty, Loading, PageHead } from '../components/ui';
 import { useAsync, useStore } from '../state';
 import '../styles/screens-b.css';
 
-const OP_LABEL = { trash: 'Moved to Trash', move: 'Moved', delete: 'Deleted', startup: 'Startup item', tag: 'Tagged' } as const;
+const OP_LABEL = { trash: 'Moved to Trash', move: 'Moved', delete: 'Deleted', startup: 'Startup item', tag: 'Tagged', create: 'Created' } as const;
 
 export function History() {
   const { toast, refresh, info } = useStore();
