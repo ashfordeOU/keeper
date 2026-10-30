@@ -212,7 +212,7 @@ async function cmdAgents(a: Args) {
 }
 
 function help() {
-  console.log(`${bold('keeper')} ${VERSION} — find, understand and tidy your files
+  console.log(`${bold('keeper')} ${VERSION} — Keeper by Ashforde® — find, understand and tidy your files
 
 ${bold('Usage')}
   keeper search <words>      Plain-English search: keeper search "screenshots with wifi password"

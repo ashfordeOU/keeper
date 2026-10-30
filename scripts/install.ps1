@@ -112,7 +112,7 @@ function Stop-Keeper {
 function Install-Keeper {
   if (-not [Environment]::Is64BitOperatingSystem) { Fail 'Keeper needs 64-bit Windows.' }
   $release = Get-Release
-  Say "Installing Keeper $($release.tag_name)"
+  Say "Installing Keeper by Ashforde$([char]0xAE) $($release.tag_name)"
   $name = if ($Portable) { 'Keeper-portable.exe' } else { 'Keeper-setup-x64.exe' }
   if ($DownloadOnly) {
     $path = Get-VerifiedAsset $release $name (Get-Location).Path

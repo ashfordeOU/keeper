@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 appId: io.github.ashfordeou.keeper
 productName: Keeper
-copyright: Copyright © 2026 Keeper contributors · GNU AGPL v3 or later
+copyright: Copyright © 2026 Ashforde OÜ · Keeper by Ashforde® · GNU AGPL v3 or later
 directories:
   output: release
   buildResources: build
@@ -49,12 +49,17 @@ win:
   icon: build/icon.png
   # The processor comes from the command line (--x64); Windows on ARM runs the x64 build.
   target: [nsis, portable]
+  # Shown in the file's Properties → Details.
+  legalTrademarks: Ashforde® is a registered trademark of Ashforde OÜ.
 nsis:
   oneClick: false
   perMachine: false
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
   shortcutName: Keeper
+  # The name in Settings → Apps and the installer's title.
+  uninstallDisplayName: Keeper by Ashforde®
+  include: build/installer.nsh
   license: LICENSE
   artifactName: ${productName}-setup-${arch}.${ext}
 portable:
@@ -78,7 +83,7 @@ mac:
     NSMicrophoneUsageDescription: Keeper listens only while you hold the dictation shortcut.
     LSUIElement: false
 dmg:
-  title: Keeper
+  title: Keeper by Ashforde®
   window: { width: 540, height: 380 }
   sign: false
   contents:
@@ -89,11 +94,13 @@ linux:
   syncDesktopName: true
   icon: build/icon.png
   category: Utility
-  synopsis: Find, understand and tidy your files
+  synopsis: Keeper by Ashforde® — find, understand and tidy your files
+  description: Keeper by Ashforde® is a home for your files — a visual library, plain-English search, text in images, download sources, duplicates, cleanup and a live Island. Ashforde® is a registered trademark of Ashforde OÜ.
   target: [AppImage, deb, rpm, tar.gz]
   desktop:
     entry:
       MimeType: x-scheme-handler/keeper;
+      Comment: Keeper by Ashforde® — find, understand and tidy your files
 deb:
   depends: [libnotify4, libxtst6, libnss3]
   recommends: [playerctl, xdotool, attr]
@@ -103,5 +110,5 @@ deb:
 snap:
   confinement: classic
   grade: stable
-  summary: Find, understand and tidy your files
+  summary: Keeper by Ashforde® — find, understand and tidy your files
   artifactName: ${productName}-linux-${arch}.${ext}

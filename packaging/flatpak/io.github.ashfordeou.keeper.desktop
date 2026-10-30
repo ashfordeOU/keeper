@@ -2,7 +2,7 @@
 Type=Application
 Name=Keeper
 GenericName=File Library
-Comment=Find, understand and tidy your files
+Comment=Keeper by Ashforde® — find, understand and tidy your files
 Exec=keeper %U
 Icon=io.github.ashfordeou.keeper
 Terminal=false

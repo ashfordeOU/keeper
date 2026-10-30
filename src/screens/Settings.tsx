@@ -134,11 +134,14 @@ export function Settings() {
 
       <h2 style={{ margin: '18px 0 8px' }}>{t('settings.about')}</h2>
       <div className="card settings-section">
-        <Row title="Keeper" desc={<WhatsNewHover only="current"><span style={{ textDecoration: 'underline dotted', textUnderlineOffset: 3 }}>Version {info?.appVersion ?? ''}</span></WhatsNewHover>}>
+        <Row title="Keeper by Ashforde®" desc={<WhatsNewHover only="current"><span style={{ textDecoration: 'underline dotted', textUnderlineOffset: 3 }}>Version {info?.appVersion ?? ''}</span></WhatsNewHover>}>
           <button className="btn" onClick={() => void api.system.openExternal('https://github.com/ashfordeOU/keeper')}><Icon name="external" size={13} /> Source code</button>
         </Row>
         <Row title="License" desc="Free software under the GNU Affero General Public License, version 3 or later. You can use, study, share and change it.">
           <button className="btn ghost" onClick={() => void api.system.openExternal('https://www.gnu.org/licenses/agpl-3.0.html')}>Read</button>
+        </Row>
+        <Row title="Trademark" desc="© 2026 Ashforde OÜ. Ashforde® is a registered trademark of Ashforde OÜ. The source code is free software; the name and logo identify the official Keeper.">
+          <span className="small muted">®</span>
         </Row>
         <Row title="Privacy" desc="No account, no tracking, no uploads. Search, text reading and duplicate checks run on this computer. The network is only used for the optional assistant, weather, lyrics, calendar and update checks you turn on." >
           <Icon name="lock" size={16} />

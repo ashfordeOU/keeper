@@ -2,6 +2,7 @@
 // Keeper's main process: windows, tray, shortcuts, the file index and every
 // action the interface can ask for.
 
+import { BRAND, COPYRIGHT, TRADEMARK, WEBSITE } from '../core/brand';
 import { app, BrowserWindow, dialog, globalShortcut, ipcMain, Menu, nativeImage, nativeTheme, protocol, screen, shell, Tray } from 'electron';
 import { existsSync, promises as fsp, statSync } from 'node:fs';
 import os from 'node:os';
@@ -52,6 +53,8 @@ const isMac = process.platform === 'darwin';
 protocol.registerSchemesAsPrivileged([{ scheme: 'keeper-file', privileges: { stream: true, supportFetchAPI: true, corsEnabled: true, bypassCSP: false, standard: false } }]);
 if (!app.requestSingleInstanceLock()) app.quit();
 app.setAsDefaultProtocolClient('keeper');
+// About Keeper (macOS app menu, Linux): Keeper by Ashforde®.
+app.setAboutPanelOptions({ applicationName: BRAND, applicationVersion: app.getVersion(), copyright: `${COPYRIGHT}. ${TRADEMARK}`, website: WEBSITE, credits: 'Free software under the GNU AGPL v3 or later.' });
 
 let main: BrowserWindow | null = null;
 let quick: BrowserWindow | null = null;
@@ -103,7 +106,7 @@ function createMain() {
   main = new BrowserWindow({
     // Linux shows this in the taskbar; macOS and Windows use the packaged app icon.
     icon: path.join(__dirname, '..', 'build', 'icon.png'),
-    width: 1280, height: 820, minWidth: 760, minHeight: 520, show: false, title: 'Keeper',
+    width: 1280, height: 820, minWidth: 760, minHeight: 520, show: false, title: BRAND,
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#111114' : '#f6f5f2',
     titleBarStyle: isMac ? 'hiddenInset' : 'hidden',
     titleBarOverlay: isMac ? undefined : { color: '#00000000', symbolColor: nativeTheme.shouldUseDarkColors ? '#ddd' : '#333', height: 52 },
@@ -190,7 +193,7 @@ async function updateTray() {
       : nativeImage.createFromPath(path.join(__dirname, '..', 'build', 'tray-color.png')).resize({ width: process.platform === 'win32' ? 16 : 22, quality: 'best' });
     tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon);
     if (icon.isEmpty()) tray.setTitle?.('K');
-    tray.setToolTip('Keeper');
+    tray.setToolTip(BRAND);
     tray.on('click', () => !isMac && showMain());
     // Files dropped on the tray icon go to the shelf (macOS).
     tray.on('drop-files', (_e, paths) => void islandSvc.addToShelf(paths));
@@ -218,6 +221,8 @@ async function updateTray() {
     ],
   }));
   tray.setContextMenu(Menu.buildFromTemplate([
+    { label: BRAND, enabled: false },
+    { type: 'separator' },
     { label: 'Recent downloads', enabled: false },
     ...(items.length ? items : [{ label: 'Nothing yet', enabled: false }]),
     ...(pinned.length ? [{ type: 'separator' as const }, { label: 'Shelves', enabled: false }, ...pinned] : []),

@@ -274,7 +274,7 @@ case "$MODE" in
   cli) cli_only; exit 0 ;;
 esac
 
-say "Installing Keeper ($VERSION) for $OS-$ARCH"
+say "Installing Keeper by Ashforde® ($VERSION) for $OS-$ARCH"
 if [ "$OS" = mac ]; then
   install_mac
 elif [ "$FORCE_APPIMAGE" -eq 1 ]; then

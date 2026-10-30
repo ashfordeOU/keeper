@@ -66,7 +66,7 @@ function Sidebar() {
   const short = (n?: number) => (n === undefined ? undefined : n >= 1000 ? `${(n / 1000).toFixed(n >= 10_000 ? 0 : 1)}k` : String(n));
   return (
     <aside className="sidebar">
-      <div className="brand"><OwlMark tile size={26} title="Keeper" /><span>Keeper</span></div>
+      <div className="brand" title="Keeper by Ashforde®"><OwlMark tile size={26} title="Keeper by Ashforde®" /><span className="brand-name">Keeper<small>by Ashforde®</small></span></div>
       <NavItem route={{ name: 'home' }} icon="home" label={t('nav.home')} />
       <NavItem route={{ name: 'recents' }} icon="clock" label={t('nav.recents')} />
       <NavItem route={{ name: 'browse', arg: info?.home }} icon="folder" label={t('nav.browse')} />

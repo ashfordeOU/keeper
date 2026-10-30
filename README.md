@@ -2,7 +2,7 @@
   <img src="build/icon.png" width="112" alt="Keeper icon">
 </p>
 
-<h1 align="center">Keeper</h1>
+<h1 align="center">Keeper <sub><sup>by Ashforde®</sup></sub></h1>
 
 <p align="center">
   <strong>A home for your files.</strong><br>
@@ -507,3 +507,7 @@ Keeper is free software: you can redistribute it and/or modify it under the term
 Copyright © 2026 Keeper contributors.
 
 Keeper uses [Electron](https://www.electronjs.org), [React](https://react.dev), [Tesseract.js](https://tesseract.projectnaptha.com) (Apache-2.0), [jsQR](https://github.com/cozmo/jsQR) (Apache-2.0) and the [Anthropic TypeScript SDK](https://github.com/anthropics/anthropic-sdk-typescript) (MIT); forecasts by [Open-Meteo](https://open-meteo.com) (CC BY 4.0) and lyrics by [LRCLIB](https://lrclib.net).
+
+---
+
+<p align="center"><sub><b>Keeper by Ashforde®</b> · © 2026 Ashforde OÜ · Ashforde® is a registered trademark of Ashforde OÜ.<br>The code is free software under the GNU AGPL v3 or later; the Keeper and Ashforde names and logos identify official builds.</sub></p>
