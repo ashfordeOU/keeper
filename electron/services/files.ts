@@ -16,6 +16,7 @@ import { checkRemovable } from '../../core/safety';
 import type { CleanResult, FileEntry, JournalOp } from '../../core/types';
 import { settings } from '../store';
 import { writePaths, writeText } from './clip';
+import { richThumbnail } from './thumbs';
 
 export class FileService {
   constructor(private index: FileIndex, private journal: Journal, private onChange: () => void) {}
@@ -46,6 +47,12 @@ export class FileService {
   async thumbnail(p: string, size: number): Promise<string | null> {
     const key = `${p}@${size}`;
     if (this.thumbs.has(key)) return this.thumbs.get(key)!;
+    // Video frames, cover art, documents, RAW/HEIC/PSD/SVG… (disk-cached).
+    const rich = await richThumbnail(p, size).catch(() => null);
+    if (rich) {
+      this.thumbs.set(key, rich);
+      return rich;
+    }
     let img: Electron.NativeImage | null = null;
     try {
       if (process.platform !== 'linux') img = await nativeImage.createThumbnailFromPath(p, { width: size, height: size });

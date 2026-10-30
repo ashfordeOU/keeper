@@ -7,6 +7,7 @@ import { search } from '../core/query/match';
 import { parseQuery } from '../core/query/parse';
 import { previewRename } from '../core/rename';
 import { defaultSettings } from '../core/settings';
+import { createMockCapture, DEMO_SHOT } from './mock-capture';
 import type { CleanupGroup, DuplicateGroup, FileEntry, FileKind, Rule, SpaceNode } from '../core/types';
 
 const HOME = '/Users/demo';
@@ -228,10 +229,7 @@ export function createMockApi(): KeeperApi {
       wifiNetworks: async () => [{ ssid: 'Studio-5G', password: 'blue-otter-42' }],
       openExternal: async (u) => { window.open(u, '_blank'); },
     },
-    capture: {
-      text: async () => delay({ text: 'Text read from the area you selected.', code: undefined }, 500),
-      clipboardImage: async () => null,
-    },
+    capture: createMockCapture(),
     weather: {
       get: async () => island.weather ?? null,
       search: async (n) => [{ name: n.charAt(0).toUpperCase() + n.slice(1), lat: 51.5, lon: -0.12, country: 'United Kingdom' }],
@@ -306,6 +304,9 @@ export function createMockApi(): KeeperApi {
       newFolder: async (dir, name) => `${dir}/${name}`,
       compress: async (paths) => `${paths[0]}.zip`,
       startDrag: () => undefined,
+      readImage: async (p) => { const f = byPath(p); return (f && thumb(f)) ?? DEMO_SHOT; },
+      writeImage: async (p) => p.replace(/(\.[^.]+)?$/, ' (edited).png'),
+      copyImage: async () => undefined,
     },
     duplicates: { scan: async () => delay(dupes(), 900) },
     cleanup: {

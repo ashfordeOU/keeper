@@ -31,6 +31,12 @@ const api = {
   rules: group('rules', ['list', 'save', 'remove', 'plan', 'run']),
   history: group('history', ['list', 'undo']),
   ai: group('ai', ['ask']),
+  monitor: group('monitor', ['history', 'topToday', 'alerts', 'setAlertRules', 'docker', 'dockerAction', 'killTree', 'stopAgent', 'thermals', 'disks', 'speedTest', 'speedHistory']),
+  forecast: group('forecast', ['places', 'savePlaces', 'get', 'alerts', 'radar', 'climate', 'trips']),
+  tools: group('tools', ['networkInfo', 'publicIp', 'tweaks', 'setTweak', 'clearQuarantine', 'resetPermissions', 'pickApp', 'pickFiles', 'saveAs']),
+  folders: group('folders', ['tidy']),
+  aiActions: group('aiActions', ['provider', 'suggestName', 'summarize', 'receipts', 'altText', 'translateSubtitles']),
+  appInfo: group('appInfo', ['updateStatus', 'checkForUpdates', 'installUpdate', 'loginItem', 'setLoginItem']),
   island: {
     ...group('island', ['state', 'addToShelf', 'removeFromShelf', 'clearShelf', 'copyClip', 'pinClip', 'removeClip', 'clearClips', 'focus', 'keepAwake', 'presentation', 'media', 'openAgent', 'transcribe', 'typeText', 'dismiss']),
     setExpanded: (v: boolean) => ipcRenderer.send('island.setExpanded', v),

@@ -107,3 +107,40 @@ describe('PDF text', () => {
     expect(r.text).toContain('Second page total 42');
   });
 });
+
+describe('PDF passwords', () => {
+  const sample = async () => {
+    const doc = await PDFDocument.create();
+    const font = await doc.embedFont(StandardFonts.Helvetica);
+    doc.addPage().drawText('Confidential salary report', { x: 50, y: 700, font, size: 18 });
+    doc.setTitle('Secret title');
+    return doc.save();
+  };
+  const open = async (bytes: Uint8Array, password?: string) => {
+    const { loadPdfJs } = await import('../core/convert');
+    const lib = (await loadPdfJs()) as unknown as { getDocument(o: object): { promise: Promise<{ numPages: number; getPage(n: number): Promise<{ getTextContent(): Promise<{ items: { str: string }[] }> }> }> } };
+    const doc = await lib.getDocument({ data: new Uint8Array(bytes), password, isEvalSupported: false, verbosity: 0 }).promise;
+    const page = await doc.getPage(1);
+    return (await page.getTextContent()).items.map((i) => i.str).join(' ');
+  };
+
+  it('locks with AES-256 that a standard reader opens only with the password', async () => {
+    const { encryptPdf } = await import('../core/pdfcrypt');
+    const locked = await encryptPdf(await sample(), 'open sesame');
+    expect(Buffer.from(locked).includes(Buffer.from('salary'))).toBe(false);
+    await expect(open(locked)).rejects.toThrow(/password/i);
+    await expect(open(locked, 'wrong')).rejects.toThrow(/password/i);
+    expect(await open(locked, 'open sesame')).toContain('Confidential salary report');
+  });
+
+  it('unlocks AES-256, AES-128 and RC4 files', async () => {
+    const { encryptPdf, decryptPdf, encryptPdfLegacyForTests } = await import('../core/pdfcrypt');
+    const src = await sample();
+    for (const locked of [await encryptPdf(src, 'pw'), await encryptPdfLegacyForTests(src, 'pw', 'aes128'), await encryptPdfLegacyForTests(src, 'pw', 'rc4')]) {
+      expect(await open(locked, 'pw')).toContain('Confidential');
+      await expect(decryptPdf(locked, 'nope')).rejects.toThrow('Wrong password');
+      const plain = await decryptPdf(locked, 'pw');
+      expect(await open(plain)).toContain('Confidential salary report');
+    }
+  });
+});

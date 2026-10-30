@@ -36,3 +36,24 @@ export async function writePaths(paths: string[]) {
     .write([new ClipboardItem({ 'text/plain': paths.join(process.platform === 'win32' ? '\r\n' : '\n'), 'text/uri-list': uris })])
     .catch(() => writeText(paths.join('\n')));
 }
+
+/** Files copied in a file manager (they arrive as a list of file URLs, with no plain text). */
+export async function readFileList(): Promise<string[]> {
+  try {
+    if (!(await clipboard.has('text/uri-list').catch(() => false))) return [];
+    for (const item of await clipboard.read()) {
+      if (!item.types.includes('text/uri-list')) continue;
+      const blob = (await item.getType('text/uri-list')) as Blob;
+      return (await blob.text())
+        .split(/\r?\n/)
+        .filter((l) => l.startsWith('file://'))
+        .map((l) => {
+          const p = decodeURIComponent(new URL(l).pathname);
+          return process.platform === 'win32' ? p.replace(/^\//, '').replace(/\//g, '\\') : p;
+        });
+    }
+  } catch {
+    /* no file list */
+  }
+  return [];
+}

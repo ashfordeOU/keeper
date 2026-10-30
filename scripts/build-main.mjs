@@ -13,7 +13,7 @@ const common = {
   format: 'cjs',
   sourcemap: true,
   logLevel: 'info',
-  external: ['electron', 'tesseract.js'],
+  external: ['electron', 'tesseract.js', 'ffmpeg-static', 'pdfjs-dist'],
 };
 
 const targets = [

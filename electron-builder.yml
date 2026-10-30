@@ -18,6 +18,7 @@ asar: true
 asarUnpack:
   - node_modules/tesseract.js/**
   - node_modules/tesseract.js-core/**
+  - node_modules/ffmpeg-static/**
 # No version in file names, so releases/latest/download/<name> links never go stale.
 artifactName: ${productName}-${os}-${arch}.${ext}
 publish: null

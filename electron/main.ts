@@ -34,6 +34,10 @@ import { listStartup, toggleStartup } from './services/startup';
 import { disks, ejectAll, health, killProcess, wifiNetworks } from './services/system';
 import { writeText } from './services/clip';
 import { VisionQueue } from './services/vision';
+import { registerIpcX, syncFinderTags } from './ipc-x';
+import { registerFileProtocol, registerPreviewIpc } from './ipc/preview';
+import { emptyAndBroken, removeBrokenLink } from './services/tools';
+import { readFinderTags } from '../core/platform';
 import { getSecret, hasSecret, onSettings, setSecret, settings, updateSettings } from './store';
 
 void squarify; // the interface lays out the Space Map; kept for the CLI's future text treemap
@@ -41,7 +45,7 @@ void squarify; // the interface lays out the Space Map; kept for the CLI's futur
 const DEV_URL = process.env.VITE_DEV_SERVER_URL;
 const isMac = process.platform === 'darwin';
 
-protocol.registerSchemesAsPrivileged([{ scheme: 'keeper-file', privileges: { stream: true, supportFetchAPI: true, bypassCSP: false, standard: false } }]);
+protocol.registerSchemesAsPrivileged([{ scheme: 'keeper-file', privileges: { stream: true, supportFetchAPI: true, corsEnabled: true, bypassCSP: false, standard: false } }]);
 if (!app.requestSingleInstanceLock()) app.quit();
 app.setAsDefaultProtocolClient('keeper');
 
@@ -103,7 +107,8 @@ function createMain() {
   });
   lockDown(main);
   load(main, 'app');
-  main.once('ready-to-show', () => main?.show());
+  // Started at login: stay in the tray until the user opens Keeper.
+  main.once('ready-to-show', () => { if (!process.argv.includes('--hidden') || main?.isVisible()) main?.show(); });
   main.on('close', (e) => {
     // Keep running in the tray so Quick Search, the Island and rules keep working.
     if (!quitting && settings().trayEnabled) {
@@ -319,7 +324,7 @@ app.on('second-instance', (_e, argv) => {
 
 function makeIndex(s: AllSettings) {
   const folders = s.folders.filter((f) => existsSync(f)).map((f) => ({ path: f, label: path.basename(f) }));
-  return new FileIndex(path.join(app.getPath('userData'), 'index.json'), folders, s.excluded, { readSource: readDownloadSource });
+  return new FileIndex(path.join(app.getPath('userData'), 'index.json'), folders, s.excluded, { readSource: readDownloadSource, readTags: process.platform === 'darwin' ? readFinderTags : undefined });
 }
 
 async function rescan() {
@@ -414,6 +419,15 @@ async function scanCleanup(): Promise<CleanupGroup[]> {
   } catch {
     /* app list unavailable */
   }
+  try {
+    const roots = s.folders.filter(existsSync);
+    const { empty, broken } = await emptyAndBroken(roots, s.excluded);
+    const asEntry = (p: string, kind: FileKind): FileEntry => ({ path: p, name: path.basename(p), ext: '', kind, size: 0, mtime: 0, btime: 0, atime: 0, root: path.basename(roots.find((r) => p.startsWith(r + path.sep)) ?? path.dirname(p)) });
+    if (empty.length) groups.push({ id: 'empty-folders', name: 'Empty folders', description: 'Folders with nothing inside (system clutter files like .DS_Store do not count). They go to the Trash.', icon: 'folder', mode: 'files', safety: 'safe', preselect: false, items: empty.map((p) => asEntry(p, 'other')), size: 0, count: empty.length, locations: [...new Set(empty.map((p) => tildify(path.dirname(p), home)))].slice(0, 5) });
+    if (broken.length) groups.push({ id: 'broken-links', name: 'Broken links', description: 'Shortcuts and links that point to files or folders that no longer exist. Only the link is removed.', icon: 'warning', mode: 'files', safety: 'safe', preselect: false, items: broken.map((p) => asEntry(p, 'other')), size: 0, count: broken.length, locations: [...new Set(broken.map((p) => tildify(path.dirname(p), home)))].slice(0, 5) });
+  } catch {
+    /* folders unreadable */
+  }
   progress({ task: 'cleanup', phase: 'Done', done: 1, total: 1 });
   lastCleanup = groups;
   return groups;
@@ -432,6 +446,12 @@ async function clean(req: { id: string; paths?: string[] }[]): Promise<CleanResu
     // Only paths Keeper itself listed for this group are accepted.
     const allowed = new Set((group.items ?? []).map((f) => f.path));
     const chosen = (r.paths ?? [...allowed]).filter((p) => allowed.has(p));
+    if (group.id === 'broken-links') {
+      for (const p of chosen) {
+        if (await removeBrokenLink(p, settings().folders)) { total.removed++; ops.push({ type: 'delete', from: p, size: 0 }); } else total.failed++;
+      }
+      continue;
+    }
     if (group.id === 'build-folders') {
       for (const p of chosen) {
         const v = await checkRemovable(p, ctx);
@@ -557,21 +577,7 @@ async function runEnabledRules() {
   for (const r of settings().rules.filter((x) => x.enabled)) await runRule(r, true).catch(() => undefined);
 }
 
-// ---------------------------------------------------------------- updates
-
-async function checkForUpdate() {
-  if (!settings().updateCheck || !app.isPackaged) return;
-  try {
-    const res = await net.fetch('https://api.github.com/repos/ashfordeOU/keeper/releases/latest', { headers: { accept: 'application/vnd.github+json' } });
-    if (!res.ok) return;
-    const rel = (await res.json()) as { tag_name?: string; html_url?: string };
-    const latest = (rel.tag_name ?? '').replace(/^v/, '');
-    const newer = latest.split('.').map(Number).reduce((acc, n, i) => acc || (n > (app.getVersion().split('.').map(Number)[i] ?? 0) ? 1 : n < (app.getVersion().split('.').map(Number)[i] ?? 0) ? -1 : 0), 0) === 1;
-    if (newer && rel.html_url) islandSvc.alert({ kind: 'info', title: `Keeper ${latest} is available`, detail: 'Open Settings → About to download it' });
-  } catch {
-    /* offline */
-  }
-}
+// Updates are handled by electron/services/updater.ts (registered in ipc-x.ts).
 
 // ---------------------------------------------------------------- IPC
 
@@ -620,7 +626,7 @@ function registerIpc() {
   });
   handle('library.bySource', () => index.bySource());
   handle('library.tags', () => index.allTags());
-  handle('library.setTags', (p: string, tags: string[]) => { index.setTags(p, tags); libraryChanged(); });
+  handle('library.setTags', (p: string, tags: string[]) => { index.setTags(p, tags); syncFinderTags(p, index.files.get(p)?.tags ?? []); libraryChanged(); });
   handle('library.inspect', async (p: string) => index.files.get(p) ?? (await index.refresh(p)) ?? null);
   handle('library.readText', async (paths: string[]) => {
     const out = [];
@@ -774,12 +780,9 @@ function registerIpc() {
 // ---------------------------------------------------------------- start
 
 app.whenReady().then(async () => {
-  // Local files for the music player, read-only and only from the indexed folders.
-  protocol.handle('keeper-file', (req) => {
-    const p = decodeURI(req.url.slice('keeper-file://'.length));
-    const ok = settings().folders.some((f) => isInside(p, f));
-    return ok ? net.fetch(pathToFileURL(p).toString()) : new Response('Not allowed', { status: 403 });
-  });
+  // Local files for previews and the music player: read-only, seekable, only from allowed places.
+  registerFileProtocol();
+  registerPreviewIpc();
 
   const s = settings();
   index = makeIndex(s);
@@ -788,6 +791,7 @@ app.whenReady().then(async () => {
   vision = new VisionQueue(index, () => ({ ocr: settings().ocrEnabled, langs: settings().ocrLanguages }), libraryChanged);
   islandSvc = new IslandService(index, () => broadcast('island-changed'));
   registerIpc();
+  registerIpcX({ index, journal, events: () => islandSvc.events, window: () => main, changed: libraryChanged });
   registerCaptureIpc({
     preload: capturePreload(),
     langs: () => settings().ocrLanguages,
@@ -820,8 +824,6 @@ app.whenReady().then(async () => {
   setInterval(() => void rescan(), 30 * 60_000);
   setInterval(() => void runEnabledRules(), 60 * 60_000);
   setTimeout(() => void runEnabledRules(), 5 * 60_000);
-  setTimeout(() => void checkForUpdate(), 30_000);
-  setInterval(() => void checkForUpdate(), DAY);
 
   onSettings((next, prev) => {
     if (next.folders.join() !== prev.folders.join() || next.excluded.join() !== prev.excluded.join() || next.showHidden !== prev.showHidden) {

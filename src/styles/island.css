@@ -60,3 +60,8 @@ html[data-view='island'], html[data-view='island'] body, html[data-view='island'
 .isl .level { display: flex; gap: 2px; align-items: center; height: 18px; }
 .isl .level i { width: 3px; border-radius: 2px; background: #fff; transition: height .08s; }
 .buddy { flex: none; }
+
+/* screen recording indicator */
+.rec-dot { width: 8px; height: 8px; border-radius: 50%; background: #ff453a; display: inline-block; margin-right: 4px; animation: island-rec 1s infinite; }
+@keyframes island-rec { 50% { opacity: .3; } }
+.rec-live { all: unset; cursor: default; color: #fff; display: inline-flex; align-items: center; gap: 4px; }

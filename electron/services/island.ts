@@ -4,30 +4,60 @@
 // weather, battery and dictation.
 
 import { app, nativeImage, Notification, powerMonitor, powerSaveBlocker, shell } from 'electron';
+import { exec } from 'node:child_process';
 import { existsSync, promises as fsp, watch, type FSWatcher } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import type { IslandAlert, IslandState, KeepAwakeOptions, KeepAwakeState, NowPlaying } from '../../core/api';
+import type { DevicesState, IslandAlert, IslandState, KeepAwakeOptions, KeepAwakeState, NowPlaying, ShelfAction } from '../../core/api';
+import { activeTriggers, describeTrigger, type TriggerKind } from '../../core/awake';
 import { kindOf, looksLikeScreenshot } from '../../core/classify';
 import type { FileIndex } from '../../core/indexer';
 import {
-  ClipHistory, focusLeft, looksSecret, newFocus, parseIcs, pauseFocus, resumeFocus, scanAgentSessions, startFocus, tickFocus,
+  ClipHistory, detectClipKind, focusLeft, looksSecret, newFocus, parseIcs, pauseFocus, resumeFocus, scanAgentSessions, startFocus, tickFocus,
   type AgentSession, type CalendarEvent, type ClipItem, type FocusState, type LyricLine,
 } from '../../core/island';
 import { powershell, run } from '../../core/platform';
+import * as shelves from '../../core/shelves';
 import { cleanLink, isUrl } from '../../core/textools';
 import type { FileEntry } from '../../core/types';
 import { fetchWeather, type Weather } from '../../core/weather';
 import { getSecret, settings } from '../store';
 import { lyricsFor, mediaAction, micInUse, nowPlaying } from './media';
 import { readBattery } from './system';
-import { hasImage, readImage, readText, writeImage, writeText } from './clip';
+import { hasImage, readFileList, readImage, readText, writeImage, writePaths, writeText } from './clip';
+import { devicesState, frontmostApp, frontmostFullscreen, setBrightness, setMuted, setVolume, snapshot, touchDrive } from './devices';
+import { NotificationMirror } from './notify-mirror';
+import { uploadFile } from './upload';
+
+/** Things the Island borrows from the rest of the app (set by electron/ipc/island.ts). */
+export interface IslandHooks {
+  compress?(paths: string[]): Promise<string>;
+  readText?(paths: string[]): Promise<{ path: string; text: string }[]>;
+  move?(paths: string[], dir: string): Promise<{ removed: number }>;
+  copy?(paths: string[], dir: string): Promise<{ removed: number }>;
+  resize?(paths: string[], width: number): Promise<string[]>;
+  ocrImage?(img: Electron.NativeImage): Promise<string>;
+  pickFolder?(): Promise<string | null>;
+  confirm?(message: string, detail: string): Promise<boolean>;
+  /** called when the Island should hide or show (full-screen apps, the hide shortcut) */
+  onVisibility?(hidden: boolean): void;
+}
 
 const PARTIAL = /\.(crdownload|part|partial|download|opdownload|tmp|!ut)$/i;
 
 export class IslandService {
-  shelf: FileEntry[] = [];
-  clips = new ClipHistory(60);
+  store: shelves.ShelfStore = shelves.newStore();
+  clips = new ClipHistory(200, 30);
+  devices?: DevicesState;
+  hooks: IslandHooks = {};
+  /** reasons the automatic keep-awake rules are holding the computer awake */
+  awakeTriggers: string[] = [];
+  private autoAwake = false;
+  private userHidden = false;
+  private fsHidden = false;
+  private mirror = new NotificationMirror();
+  private entryCache = new Map<string, FileEntry>();
+  private lastDriveTouch = 0;
   focus: FocusState = newFocus();
   awake: KeepAwakeState = { on: false };
   agents: AgentSession[] = [];
@@ -64,6 +94,9 @@ export class IslandService {
     every(process.platform === 'win32' ? 5000 : 2500, () => this.pollMedia());
     every(15_000, () => this.checkAwake());
     every(60_000, () => this.pollBattery());
+    every(60_000, () => this.refreshDevices());
+    every(5_000, () => this.housekeeping());
+    every(process.platform === 'win32' ? 5000 : 2500, () => this.checkFullscreen());
     every(10_000, () => this.pollMic());
     every(15 * 60_000, () => this.pollCalendar());
     every(20 * 60_000, () => this.pollWeather());
@@ -72,6 +105,7 @@ export class IslandService {
 
   stop() {
     this.timers.forEach(clearInterval);
+    this.mirror.stop();
     this.watchers.forEach((w) => w.close());
     if (this.blocker !== null) powerSaveBlocker.stop(this.blocker);
     void this.save();
@@ -80,8 +114,12 @@ export class IslandService {
   state(): IslandState {
     const s = settings();
     const breakIn = s.island.breakEvery > 0 ? Math.max(0, s.island.breakEvery * 60_000 - (Date.now() - this.activeSince)) : undefined;
+    const views = this.store.shelves.map((sh) => ({ id: sh.id, name: sh.name, color: sh.color, pinned: sh.pinned, items: sh.items.map((p) => this.entryOf(p)).filter((e): e is FileEntry => !!e) }));
     return {
-      shelf: this.shelf, clips: this.clips.items, focus: this.focus, keepAwake: this.awake, agents: this.agents, events: this.events,
+      shelf: views.find((v) => v.id === this.store.active)?.items ?? [], shelves: views, activeShelf: this.store.active,
+      closedShelves: this.store.closed.map((c) => ({ id: c.id, name: c.name, color: c.color, count: c.items.length })),
+      devices: this.devices, awakeTriggers: this.awakeTriggers, hidden: this.userHidden || this.fsHidden,
+      clips: this.clips.items, focus: this.focus, keepAwake: this.awake, agents: this.agents, events: this.events,
       nowPlaying: this.playing, lyrics: this.lyrics, weather: this.weather, battery: this.battery, micInUse: this.mic, alerts: this.alerts, breakIn, recording: this.recording,
     };
   }
@@ -90,12 +128,12 @@ export class IslandService {
 
   private async load() {
     try {
-      const d = JSON.parse(await fsp.readFile(this.file, 'utf8')) as { shelf?: string[]; clips?: ClipItem[]; focus?: FocusState };
-      this.clips.items = (d.clips ?? []).filter((c) => c && c.id);
-      for (const p of d.shelf ?? []) {
-        const e = this.index.files.get(p) ?? (await this.index.refresh(p));
-        if (e) this.shelf.push(e);
-      }
+      const d = JSON.parse(await fsp.readFile(this.file, 'utf8')) as { shelf?: string[]; shelves?: unknown; clips?: ClipItem[]; focus?: FocusState };
+      this.clips.items = (d.clips ?? []).filter((c) => c && c.id).map((c) => ({ ...c, kind: c.kind ?? 'text' }));
+      // Older versions kept one shelf as a plain list.
+      this.store = d.shelves ? shelves.normalizeStore(d.shelves) : shelves.addItems(shelves.newStore(), d.shelf ?? []);
+      this.store = shelves.prune(this.store, existsSync);
+      for (const sh of this.store.shelves) for (const p of sh.items) await this.loadEntry(p);
       if (d.focus) this.focus = d.focus;
     } catch {
       /* first run */
@@ -107,7 +145,7 @@ export class IslandService {
     clearTimeout(this.saveTimer);
     this.saveTimer = setTimeout(() => {
       // Images in the clipboard history are kept small; pinned items survive restarts.
-      const data = { shelf: this.shelf.map((f) => f.path), clips: this.clips.items.slice(0, 60), focus: this.focus };
+      const data = { shelves: this.store, clips: this.clips.items, focus: this.focus };
       void fsp.writeFile(this.file, JSON.stringify(data)).catch(() => undefined);
     }, 500);
   }
@@ -136,25 +174,126 @@ export class IslandService {
     if (Notification.isSupported()) new Notification({ title, body, silent: false }).show();
   }
 
-  // ---------------------------------------------------------------- shelf
+  // ---------------------------------------------------------------- shelves
 
-  async addToShelf(paths: string[]) {
-    for (const p of paths) {
-      if (this.shelf.some((f) => f.path === p)) continue;
-      const e = this.index.files.get(p) ?? (await this.index.refresh(p));
-      if (e) this.shelf.push(e);
+  private entryOf(p: string): FileEntry | undefined {
+    return this.index.files.get(p) ?? this.entryCache.get(p);
+  }
+
+  /** Shelves can hold files from anywhere, not just indexed folders. */
+  private async loadEntry(p: string): Promise<FileEntry | undefined> {
+    const known = this.index.files.get(p);
+    if (known) return known;
+    try {
+      const st = await fsp.stat(p);
+      const e = this.index.makeEntry(p, st);
+      this.entryCache.set(p, e);
+      return e;
+    } catch {
+      return undefined;
     }
+  }
+
+  private setStore(next: shelves.ShelfStore) {
+    this.store = next;
     this.changed();
   }
 
-  removeFromShelf(p: string) {
-    this.shelf = this.shelf.filter((f) => f.path !== p);
-    this.changed();
+  async addToShelf(paths: string[], id?: string) {
+    const ok: string[] = [];
+    for (const p of paths) if (await this.loadEntry(p)) ok.push(p);
+    this.setStore(shelves.addItems(this.store, ok, id ?? this.store.active));
   }
 
-  clearShelf() {
-    this.shelf = [];
-    this.changed();
+  removeFromShelf(p: string) { this.setStore(shelves.removeItem(this.store, p)); }
+  clearShelf() { this.setStore(shelves.clearShelf(this.store)); }
+  createShelf(name?: string) { this.setStore(shelves.createShelf(this.store, name).store); }
+  selectShelf(id: string) { if (this.store.shelves.some((s) => s.id === id)) this.setStore({ ...this.store, active: id }); }
+  renameShelf(id: string, name: string) { this.setStore(shelves.renameShelf(this.store, id, name)); }
+  setShelfColor(id: string, color: string) { this.setStore(shelves.setShelfColor(this.store, id, color)); }
+  pinShelf(id: string) { this.setStore(shelves.togglePin(this.store, id)); }
+  closeShelf(id: string) { this.setStore(shelves.closeShelf(this.store, id)); }
+  reopenShelf(id: string) { this.setStore(shelves.reopenShelf(this.store, id)); }
+  moveShelfItem(from: number, to: number) { this.setStore(shelves.moveItem(this.store, from, to)); }
+
+  /** Renames a file on disk from the shelf; every shelf follows it. */
+  async renameShelfItem(p: string, name: string) {
+    const clean = name.replace(/[<>:"/\\|?*\x00-\x1f]/g, '-').trim();
+    if (!clean) throw new Error('A name cannot be empty');
+    const to = path.join(path.dirname(p), clean);
+    if (to === p) return;
+    if (existsSync(to)) throw new Error(`“${clean}” already exists there`);
+    await fsp.rename(p, to);
+    if (this.index.files.has(p)) this.index.rename(p, to);
+    this.entryCache.delete(p);
+    await this.loadEntry(to);
+    this.setStore(shelves.renamePath(this.store, p, to));
+  }
+
+  /** Runs an action on the active shelf (or the given files). */
+  async shelfAction(action: ShelfAction, arg?: string, given?: string[]): Promise<{ message: string; link?: string }> {
+    const paths = (given?.length ? given : shelves.activeShelf(this.store).items).filter((p) => existsSync(p));
+    if (!paths.length) throw new Error('The shelf is empty');
+    const n = `${paths.length} item${paths.length === 1 ? '' : 's'}`;
+    switch (action) {
+      case 'copyPaths':
+        await writePaths(paths);
+        return { message: `Copied ${n}` };
+      case 'zip': {
+        if (!this.hooks.compress) throw new Error('Zipping is not available');
+        const out = await this.hooks.compress(paths);
+        await this.addToShelf([out]);
+        return { message: `Created ${path.basename(out)}` };
+      }
+      case 'copyText': {
+        if (!this.hooks.readText) throw new Error('Reading text is not available');
+        const texts = (await this.hooks.readText(paths)).map((t) => t.text.trim()).filter(Boolean);
+        if (!texts.length) return { message: 'No text found in these files' };
+        await writeText(texts.join('\n\n'));
+        return { message: `Copied text from ${texts.length} file${texts.length === 1 ? '' : 's'}` };
+      }
+      case 'moveTo':
+      case 'copyTo': {
+        const dir = arg || (await this.hooks.pickFolder?.());
+        if (!dir) return { message: 'Cancelled' };
+        const fn = action === 'moveTo' ? this.hooks.move : this.hooks.copy;
+        if (!fn) throw new Error('Not available');
+        const r = await fn(paths, dir);
+        if (action === 'moveTo') {
+          let st = this.store;
+          for (const p of paths) st = shelves.renamePath(st, p, path.join(dir, path.basename(p)));
+          for (const sh of st.shelves) for (const p of sh.items) await this.loadEntry(p);
+          this.setStore(shelves.prune(st, existsSync));
+        }
+        return { message: `${action === 'moveTo' ? 'Moved' : 'Copied'} ${r.removed} to ${path.basename(dir)}` };
+      }
+      case 'resize': {
+        if (!this.hooks.resize) throw new Error('Image resizing is not available in this build');
+        const out = await this.hooks.resize(paths, Number(arg) || 1600);
+        if (out.length) await this.addToShelf(out);
+        return { message: `Resized ${out.length} image${out.length === 1 ? '' : 's'}` };
+      }
+      case 'script': {
+        const act = settings().island.scriptActions.find((a) => a.id === arg);
+        if (!act) throw new Error('That action no longer exists');
+        const cmd = shelves.fillCommand(act.command, paths, process.platform === 'win32' ? shelves.winQuote : shelves.shQuote);
+        const ok = this.hooks.confirm ? await this.hooks.confirm(`Run “${act.name}” on ${n}?`, cmd) : true;
+        if (!ok) return { message: 'Cancelled' };
+        const out = await new Promise<{ code: number; text: string }>((resolve) => {
+          exec(cmd, { cwd: path.dirname(paths[0]), timeout: 10 * 60_000, windowsHide: true, maxBuffer: 4 * 1024 * 1024 }, (err, stdout, stderr) =>
+            resolve({ code: err ? ((err as { code?: number }).code ?? 1) : 0, text: (stderr || stdout || '').trim().split('\n').slice(-1)[0] ?? '' }));
+        });
+        return { message: out.code === 0 ? `${act.name}: done${out.text ? ` — ${out.text.slice(0, 120)}` : ''}` : `${act.name} failed (${out.code})${out.text ? `: ${out.text.slice(0, 160)}` : ''}` };
+      }
+      case 'upload': {
+        const cfg = settings().island.upload;
+        const secret = await getSecret('upload');
+        const links: string[] = [];
+        for (const p of paths) links.push(await uploadFile(p, cfg, secret));
+        await writeText(links.join('\n'));
+        return { message: `Uploaded ${n} — link${links.length === 1 ? '' : 's'} copied`, link: links[0] };
+      }
+    }
   }
 
   // ---------------------------------------------------------------- clipboard
@@ -172,9 +311,15 @@ export class IslandService {
   }
 
   private async readClipboard(cleanLinks: boolean) {
+    const s = settings().island;
+    this.clips.max = Math.max(10, s.clipMax);
+    this.clips.maxAgeDays = Math.max(0, s.clipRetentionDays);
     const text = await readText();
     if (text && text !== this.lastClip) {
       this.lastClip = text;
+      const source = await frontmostApp().catch(() => undefined);
+      // Copies made inside password managers and other ignored apps are never kept.
+      if (source && s.clipIgnoreApps.some((a) => a && source.toLowerCase().includes(a.toLowerCase()))) return;
       let value = text;
       if (cleanLinks && isUrl(text)) {
         const clean = cleanLink(text);
@@ -185,8 +330,21 @@ export class IslandService {
         }
       }
       // Passwords and keys copied from a password manager are not remembered.
-      if (!looksSecret(value) && value.length < 100_000 && this.clips.add({ kind: 'text', text: value })) this.changed();
+      if (looksSecret(value) || value.length >= 100_000) return;
+      const item = this.clips.add({ kind: detectClipKind(value), text: value, source });
+      if (!item) return;
+      this.changed();
+      if (item.kind === 'link' && s.clipFetchTitles) void this.fetchTitle(item.id, value);
       return;
+    }
+    if (!text) {
+      const files = await readFileList();
+      const joined = files.join('\n');
+      if (files.length && joined !== this.lastClip) {
+        this.lastClip = joined;
+        if (this.clips.add({ kind: 'file', text: joined, source: await frontmostApp().catch(() => undefined) })) this.changed();
+        return;
+      }
     }
     if (!text && (await hasImage())) {
       const img = await readImage();
@@ -196,7 +354,32 @@ export class IslandService {
       if (sig === this.lastImageSig) return;
       this.lastImageSig = sig;
       const thumb = img.resize({ width: Math.min(320, width) }).toDataURL();
-      if (this.clips.add({ kind: 'image', image: thumb, text: `Image ${width}×${height}` })) this.changed();
+      const item = this.clips.add({ kind: 'image', image: thumb, text: `Image ${width}×${height}`, source: await frontmostApp().catch(() => undefined) });
+      if (!item) return;
+      this.changed();
+      // Read the text in the copied image so it can be found later.
+      if (this.hooks.ocrImage) {
+        void this.hooks.ocrImage(img).then((t) => {
+          if (t.trim()) {
+            this.clips.update(item.id, { ocr: t.trim() });
+            this.changed();
+          }
+        }).catch(() => undefined);
+      }
+    }
+  }
+
+  private async fetchTitle(id: string, url: string) {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(5000), headers: { accept: 'text/html' } });
+      const html = (await res.text()).slice(0, 200_000);
+      const title = html.match(/<title[^>]*>([^<]{1,300})<\/title>/i)?.[1]?.replace(/\s+/g, ' ').trim();
+      if (title) {
+        this.clips.update(id, { title });
+        this.changed();
+      }
+    } catch {
+      /* offline or not HTML */
     }
   }
 
@@ -206,12 +389,38 @@ export class IslandService {
     if (c.kind === 'image' && c.image) {
       // Only the stored preview is available; good enough for pasting a quick image.
       await writeImage(nativeImage.createFromDataURL(c.image));
+    } else if (c.kind === 'file' && c.text) {
+      await writePaths(c.text.split('\n'));
+      this.lastClip = c.text;
     } else if (c.text) {
       await writeText(c.text);
       this.lastClip = c.text;
     }
-    this.clips.add(c.kind === 'image' ? { kind: 'image', image: c.image, text: c.text } : { kind: 'text', text: c.text });
+    this.clips.add({ kind: c.kind, image: c.image, text: c.text, source: c.source });
     this.changed();
+  }
+
+  /** Copies a clip and pastes it into the app in front. */
+  async pasteClip(id: string) {
+    await this.copyClip(id);
+    await new Promise((r) => setTimeout(r, 120));
+    await pasteKeystroke();
+  }
+
+  updateClip(id: string, patch: { note?: string }) {
+    this.clips.update(id, { note: patch.note?.slice(0, 2000) });
+    this.changed();
+  }
+
+  toggleClipCollection(id: string, name: string) {
+    this.clips.toggleCollection(id, name);
+    this.changed();
+  }
+
+  importClips(json: string): number {
+    const n = this.clips.import(json);
+    this.changed();
+    return n;
   }
 
   pinClip(id: string) { this.clips.togglePin(id); this.changed(); }
@@ -283,6 +492,7 @@ export class IslandService {
   private fileWatch?: { size: number; since: number };
 
   private async checkAwake() {
+    await this.checkTriggers();
     if (!this.awake.on) return;
     const o = this.awake.options ?? {};
     const end = (why: string) => {
@@ -301,6 +511,110 @@ export class IslandService {
       if (size < 0) return end('The file is gone');
       if (!this.fileWatch || this.fileWatch.size !== size) this.fileWatch = { size, since: Date.now() };
       else if (Date.now() - this.fileWatch.since > 60_000) return end(`${path.basename(o.whileFile)} finished`);
+    }
+  }
+
+  /** Starts or ends the automatic session from the user's keep-awake rules. */
+  private async checkTriggers() {
+    const rules = settings().island.awakeTriggers.filter((t) => t.enabled);
+    if (!rules.length) {
+      if (this.autoAwake) this.endAuto('No keep-awake rules are on');
+      return;
+    }
+    const snap = await snapshot(new Set<TriggerKind>(rules.map((r) => r.kind)));
+    const active = activeTriggers(rules, snap);
+    const reasons = active.map(describeTrigger);
+    const changed = reasons.join() !== this.awakeTriggers.join();
+    this.awakeTriggers = reasons;
+    if (active.length && !this.awake.on) {
+      this.keepAwake(true, { allowDisplaySleep: active.every((t) => t.allowDisplaySleep) }, reasons[0]);
+      this.autoAwake = true;
+      this.alert({ kind: 'info', title: 'Keeping awake', detail: reasons.join(' · ') });
+    } else if (!active.length && this.autoAwake) {
+      this.endAuto('The conditions no longer apply');
+    } else if (changed) this.emit();
+  }
+
+  private endAuto(why: string) {
+    this.autoAwake = false;
+    this.awakeTriggers = [];
+    if (this.awake.on) {
+      this.keepAwake(false);
+      this.alert({ kind: 'info', title: 'Keep awake ended', detail: why });
+    }
+  }
+
+  async awakeStatus(): Promise<{ active: string[]; snapshot: Record<string, unknown> }> {
+    const rules = settings().island.awakeTriggers;
+    const snap = await snapshot(new Set<TriggerKind>(['app', 'usb', 'wifi', 'drive']));
+    return { active: activeTriggers(rules, snap).map(describeTrigger), snapshot: { ...snap, apps: snap.apps.slice(0, 200) } as unknown as Record<string, unknown> };
+  }
+
+  // ---------------------------------------------------------------- devices, visibility, mirrored notifications
+
+  async refreshDevices(): Promise<DevicesState> {
+    this.devices = await devicesState();
+    this.emit();
+    return this.devices;
+  }
+
+  async setVolume(v: number) {
+    await setVolume(v);
+    if (this.devices) this.devices = { ...this.devices, volume: Math.round(v), muted: false };
+    this.emit();
+  }
+
+  async setMuted(m: boolean) {
+    await setMuted(m);
+    if (this.devices) this.devices = { ...this.devices, muted: m };
+    this.emit();
+  }
+
+  async setBrightness(id: string, v: number) {
+    await setBrightness(id, v);
+    if (this.devices) this.devices = { ...this.devices, monitors: this.devices.monitors.map((m) => (m.id === id ? { ...m, brightness: Math.round(v) } : m)) };
+    this.emit();
+  }
+
+  hide(hidden: boolean) {
+    this.userHidden = hidden;
+    this.hooks.onVisibility?.(this.userHidden || this.fsHidden);
+    this.emit();
+  }
+
+  get hidden() {
+    return this.userHidden || this.fsHidden;
+  }
+
+  private async checkFullscreen() {
+    if (!settings().island.hideInFullscreen) {
+      if (this.fsHidden) {
+        this.fsHidden = false;
+        this.hooks.onVisibility?.(this.userHidden);
+      }
+      return;
+    }
+    const fs = await frontmostFullscreen().catch(() => false);
+    if (fs !== this.fsHidden) {
+      this.fsHidden = fs;
+      this.hooks.onVisibility?.(this.userHidden || this.fsHidden);
+    }
+  }
+
+  /** Mirrored notifications, the drive keep-alive and clipboard limits follow settings. */
+  private async housekeeping() {
+    const s = settings().island;
+    if (s.notifyMirror) {
+      this.mirror.start((n) => {
+        const allow = settings().island.notifyApps;
+        if (allow.length && !allow.some((a) => n.app.toLowerCase().includes(a.toLowerCase()))) return;
+        this.alert({ kind: 'notification', app: n.app, title: n.title, detail: n.body });
+      });
+    } else this.mirror.stop();
+    const drive = s.driveKeepAwake;
+    if (drive?.path && Date.now() - this.lastDriveTouch >= Math.max(10, drive.seconds) * 1000) {
+      this.lastDriveTouch = Date.now();
+      await touchDrive(drive.path);
     }
   }
 
@@ -369,9 +683,11 @@ export class IslandService {
     if (settings().island.downloadAlerts) {
       this.alert({ kind: shot ? 'screenshot' : 'download', title: shot ? 'Screenshot saved' : 'Download finished', detail: entry.source ? `${name} · from ${entry.source.name}` : name, path: p });
     }
-    if (!this.shelf.some((f) => f.path === p)) {
-      this.shelf = [entry, ...this.shelf].slice(0, 30);
-      this.changed();
+    const active = shelves.activeShelf(this.store);
+    if (!active.items.includes(p)) {
+      this.entryCache.set(p, entry);
+      // New arrivals go to the front of the shelf.
+      this.setStore(shelves.moveItem(shelves.addItems(this.store, [p]), active.items.length, 0));
     }
   }
 
@@ -498,14 +814,19 @@ export class IslandService {
     const before = await readText();
     await writeText(text);
     this.lastClip = text;
-    if (process.platform === 'darwin') await run('/usr/bin/osascript', ['-e', 'tell application "System Events" to keystroke "v" using command down']);
-    else if (process.platform === 'win32') await powershell("Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('^v')");
-    else if (!(await run('xdotool', ['key', '--clearmodifiers', 'ctrl+v'])).ok) await run('wtype', ['-M', 'ctrl', 'v', '-m', 'ctrl']);
+    await pasteKeystroke();
     setTimeout(() => {
       void writeText(before);
       this.lastClip = before;
     }, 800);
   }
+}
+
+/** Presses the paste shortcut in the app in front. */
+export async function pasteKeystroke() {
+  if (process.platform === 'darwin') await run('/usr/bin/osascript', ['-e', 'tell application "System Events" to keystroke "v" using command down']);
+  else if (process.platform === 'win32') await powershell("Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('^v')");
+  else if (!(await run('xdotool', ['key', '--clearmodifiers', 'ctrl+v'])).ok) await run('wtype', ['-M', 'ctrl', 'v', '-m', 'ctrl']);
 }
 
 async function isRunning(name: string): Promise<boolean> {

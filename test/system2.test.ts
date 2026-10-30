@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { applyTranslation, buildSubtitles, cleanSuggestedName, parseReceipt, parseSubtitles } from '../core/ai-actions';
 import { bubbleAt, packBubbles, stepBubbles } from '../core/bubbles';
 import { colorFormats, contrast, convertBase, csvToJson, diffLines, explainCron, htmlDecode, htmlEncode, lorem, markdownToHtml, parseCsv, toCsv } from '../core/devtools';
 import { addPlace, aqiAdvice, compass, dayForecast, geocodeQuery, inUnitedStates, monthlyAverages, moonPhase, movePlace, parseNwsAlerts, parseRadarIndex, radarTileUrl, tileGrid, tileOf, tripStops, uvAdvice } from '../core/forecast';
@@ -154,5 +155,28 @@ describe('forecast helpers', () => {
   it('moon', () => {
     expect(moonPhase(Date.UTC(2000, 0, 6, 18, 14)).name).toBe('New moon');
     expect(moonPhase(Date.UTC(2000, 0, 21, 4, 40)).illumination).toBeGreaterThan(95);
+  });
+});
+
+
+describe('AI action helpers', () => {
+  it('cleans suggested names', () => {
+    expect(cleanSuggestedName('"Acme invoice March 2025.pdf"\nbecause…', 'pdf')).toBe('Acme invoice March 2025.pdf');
+    expect(cleanSuggestedName('File name: a/b: c', 'txt')).toBe('a-b- c.txt');
+    expect(cleanSuggestedName('   ', 'txt')).toBe('');
+  });
+  it('parses receipts', () => {
+    const r = parseReceipt('Here: {"date":"2026-03-04T10:00","merchant":"Café Sol","total":"€12,50","currency":"EUR","tax":null,"category":"food","payment":"card"}', '/r.jpg');
+    expect(r).toEqual({ file: '/r.jpg', date: '2026-03-04', merchant: 'Café Sol', total: 12.5, currency: 'EUR', tax: null, category: 'food', payment: 'card' });
+    expect(parseReceipt('nonsense', '/x').total).toBeNull();
+  });
+  it('round-trips and translates subtitles keeping timings', () => {
+    const srt = '1\n00:00:01,000 --> 00:00:02,000\nHello\nthere\n\n2\n00:00:03,000 --> 00:00:04,000\nBye\n';
+    const { header, cues } = parseSubtitles(srt);
+    expect(cues).toHaveLength(2);
+    const t = applyTranslation(cues, '1: Hola / ahí\n2: Adiós');
+    expect(buildSubtitles(header, t, false)).toBe('1\n00:00:01,000 --> 00:00:02,000\nHola\nahí\n\n2\n00:00:03,000 --> 00:00:04,000\nAdiós\n');
+    const vtt = parseSubtitles('WEBVTT\n\n00:01.000 --> 00:02.000\nHi\n');
+    expect(buildSubtitles(vtt.header, applyTranslation(vtt.cues, '1: Hallo'), true)).toBe('WEBVTT\n\n00:01.000 --> 00:02.000\nHallo\n');
   });
 });

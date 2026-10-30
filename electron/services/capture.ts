@@ -7,9 +7,8 @@
 import { app, BrowserWindow, desktopCapturer, ipcMain, nativeImage, screen } from 'electron';
 import { existsSync, promises as fsp } from 'node:fs';
 import path from 'node:path';
-import jsQR from 'jsqr';
-import { BarcodeFormat, BinaryBitmap, DecodeHintType, HybridBinarizer, MultiFormatReader, RGBLuminanceSource } from '@zxing/library';
 import type { CaptureResult } from '../../core/api';
+import { decodeCode } from '../../core/codes';
 import { CaptureHistory, describeColor, mergeCaptureOptions, screenshotName, tidyText, type CaptureEntry, type CaptureOptions, type PickedColor } from '../../core/capture';
 import { uniqueName } from '../../core/rules';
 import { readImage as readClipboardImage, writeText } from './clip';
@@ -210,30 +209,9 @@ export async function pickWindow(preload: string): Promise<{ id: string; name: s
 
 // ---------------------------------------------------------------- reading text and codes
 
-function decodeBarcode(img: Electron.NativeImage): { value: string; format: string } | undefined {
+function decodeBarcode(img: Electron.NativeImage) {
   const { width, height } = img.getSize();
-  if (!width || !height) return undefined;
-  const bgra = img.toBitmap();
-  const lum = new Uint8ClampedArray(width * height);
-  for (let i = 0, j = 0; j < lum.length; i += 4, j++) lum[j] = (bgra[i] * 29 + bgra[i + 1] * 150 + bgra[i + 2] * 77) >> 8;
-  try {
-    const qr = jsQR(new Uint8ClampedArray(bgra.buffer, bgra.byteOffset, bgra.byteLength), width, height);
-    if (qr?.data) return { value: qr.data, format: 'QR_CODE' };
-  } catch {
-    /* not a QR code */
-  }
-  try {
-    const hints = new Map<DecodeHintType, unknown>([
-      [DecodeHintType.TRY_HARDER, true],
-      [DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.QR_CODE, BarcodeFormat.EAN_13, BarcodeFormat.EAN_8, BarcodeFormat.UPC_A, BarcodeFormat.UPC_E, BarcodeFormat.CODE_128, BarcodeFormat.CODE_39, BarcodeFormat.CODE_93, BarcodeFormat.ITF, BarcodeFormat.CODABAR, BarcodeFormat.DATA_MATRIX, BarcodeFormat.AZTEC, BarcodeFormat.PDF_417]],
-    ]);
-    const reader = new MultiFormatReader();
-    reader.setHints(hints);
-    const r = reader.decode(new BinaryBitmap(new HybridBinarizer(new RGBLuminanceSource(lum, width, height))));
-    return { value: r.getText(), format: BarcodeFormat[r.getBarcodeFormat()] };
-  } catch {
-    return undefined;
-  }
+  return decodeCode(img.toBitmap(), width, height, true);
 }
 
 /** Text, QR code and barcode from any image, cleaned up the way the user prefers. */
@@ -294,7 +272,9 @@ export async function readFile(p: string, langs: string[]): Promise<CaptureResul
 
 /** The text layer of a PDF (all pages). */
 export async function pdfText(p: string, maxPages = 200): Promise<string> {
-  const pdfjs = (await import('pdfjs-dist/legacy/build/pdf.mjs')) as unknown as {
+  // A real dynamic import: pdf.js ships as an ES module and is kept outside the bundle.
+  const load = new Function('m', 'return import(m)') as (m: string) => Promise<unknown>;
+  const pdfjs = (await load('pdfjs-dist/legacy/build/pdf.mjs')) as {
     getDocument(o: { data: Uint8Array; isEvalSupported?: boolean; useSystemFonts?: boolean; disableFontFace?: boolean }): { promise: Promise<{ numPages: number; getPage(n: number): Promise<{ getTextContent(): Promise<{ items: { str?: string; hasEOL?: boolean }[] }> }> }> };
   };
   const data = new Uint8Array(await fsp.readFile(p));

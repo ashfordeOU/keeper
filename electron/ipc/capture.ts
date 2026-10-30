@@ -9,7 +9,7 @@ import type { CaptureOptions } from '../../core/capture';
 import { editedName } from '../../core/capture';
 import { isInside } from '../../core/safety';
 import {
-  captureText, clipboardImage, colorHistory, getOptions, history, imageFromDataUrl, loadHistory, pickColor, readFile, saveHistory,
+  clipboardImage, colorHistory, getOptions, history, imageFromDataUrl, loadHistory, pickColor, readFile, saveHistory,
   screenshotFolder, setOptions, takeScreenshot, type ScreenshotMode,
 } from '../services/capture';
 import { writeImage } from '../services/clip';

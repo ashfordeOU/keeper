@@ -204,18 +204,25 @@ function Wifi() {
 }
 
 function ColourPicker() {
+  // Picks from anywhere on screen through Keeper's own picker, with a history of the last 20 colours.
   const [colors, setColors] = useState<string[]>([]);
-  const ED = (window as unknown as { EyeDropper?: new () => { open(): Promise<{ sRGBHex: string }> } }).EyeDropper;
+  const [last, setLast] = useState<{ hex: string; rgb: string; hsl: string } | null>(null);
+  useEffect(() => { void api.capture.colors().then(setColors); }, []);
   const pick = async () => {
-    if (!ED) return;
-    try {
-      const r = await new ED().open();
-      setColors((c) => [r.sRGBHex, ...c.filter((x) => x !== r.sRGBHex)].slice(0, 12));
-      void api.files.copyText(r.sRGBHex);
-    } catch { /* cancelled */ }
+    const c = await api.capture.color();
+    if (!c) return;
+    setLast(c);
+    setColors(await api.capture.colors());
   };
   const rgb = (hex: string) => { const n = parseInt(hex.slice(1), 16); return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`; };
-  return <div className="col" style={{ gap: 10 }}>{ED ? <button className="btn primary" style={{ alignSelf: 'flex-start' }} onClick={() => void pick()}><Icon name="drop" size={14} /> Pick a colour from the screen</button> : <span className="small muted">Colour picking is not available on this system.</span>}{colors.map((c) => <div key={c} className="item-row"><span style={{ width: 22, height: 22, borderRadius: 6, background: c, border: '1px solid var(--line)' }} /><code className="mono grow">{c} · {rgb(c)}</code><CopyBtn text={c} /></div>)}</div>;
+  return (
+    <div className="col" style={{ gap: 10 }}>
+      <button className="btn primary" style={{ alignSelf: 'flex-start' }} onClick={() => void pick()}><Icon name="drop" size={14} /> Pick a colour from the screen</button>
+      {last ? <div className="row small"><span style={{ width: 28, height: 28, borderRadius: 7, background: last.hex, border: '1px solid var(--line)' }} /><code className="mono">{last.hex}</code><CopyBtn text={last.hex} /><code className="mono">{last.rgb}</code><CopyBtn text={last.rgb} /><code className="mono">{last.hsl}</code><CopyBtn text={last.hsl} /></div> : null}
+      {colors.length ? <span className="small muted">Recent colours</span> : null}
+      {colors.map((c) => <div key={c} className="item-row"><span style={{ width: 22, height: 22, borderRadius: 6, background: c, border: '1px solid var(--line)' }} /><code className="mono grow">{c} · {rgb(c)}</code><CopyBtn text={c} /></div>)}
+    </div>
+  );
 }
 
 function Fullscreen({ kind, onDone }: { kind: 'pixels' | 'clean'; onDone: () => void }) {

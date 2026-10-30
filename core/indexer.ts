@@ -176,6 +176,15 @@ export class FileIndex {
           const src = await read(f.path);
           this.setExtra(f, { source: src });
           if (src) f.source = src;
+          // OS tags (macOS Finder) join Keeper's own tags the first time a file is seen.
+          if (this.hooks.readTags && !this.tags.has(f.path)) {
+            const t = await this.hooks.readTags(f.path);
+            if (t?.length) {
+              const clean = [...new Set(t.map((x) => x.trim().toLowerCase()).filter(Boolean))];
+              this.tags.set(f.path, clean);
+              f.tags = clean;
+            }
+          }
         } catch {
           /* no source recorded */
         }

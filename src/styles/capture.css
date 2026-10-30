@@ -1,0 +1,40 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Capture screen and the annotate editor. */
+
+.capture-actions { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.capture-action {
+  position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left;
+  padding: 14px 14px 12px; border-radius: var(--radius); border: 1px solid var(--line); background: var(--bg-elev); box-shadow: var(--shadow);
+  cursor: default; min-height: 118px;
+}
+button.capture-action:hover { border-color: var(--accent); }
+.capture-action:disabled { opacity: .6; }
+.capture-action svg { color: var(--accent); margin-bottom: 4px; }
+.capture-action b { font-size: 13.5px; }
+.capture-action span { font-size: 12px; color: var(--text-3); }
+.capture-action .btn-row { margin-top: auto; padding-top: 8px; }
+.capture-action kbd { position: absolute; top: 12px; right: 12px; font: 11px var(--mono); color: var(--text-3); }
+.capture-action.recording { border-color: var(--danger); background: var(--danger-soft); }
+.capture-action.recording svg { color: var(--danger); }
+.rec-dot { width: 8px; height: 8px; border-radius: 50%; background: #fff; display: inline-block; animation: rec-blink 1s infinite; }
+@keyframes rec-blink { 50% { opacity: .3; } }
+
+.capture-result { margin-top: 16px; }
+.result-thumb { width: 160px; max-height: 120px; object-fit: contain; border-radius: 8px; background: var(--bg-sunk); }
+.capture-text { margin: 0; white-space: pre-wrap; font: 13px/1.5 var(--font); user-select: text; max-height: 220px; overflow: auto; background: var(--bg-sunk); padding: 8px 10px; border-radius: 8px; }
+
+.capture-list { display: flex; flex-direction: column; gap: 8px; }
+.capture-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; }
+.capture-thumb { width: 64px; height: 44px; flex: none; border-radius: 8px; background: var(--bg-sunk); display: grid; place-items: center; overflow: hidden; color: var(--text-3); }
+.capture-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.capture-thumb .swatch { width: 100%; height: 100%; }
+.capture-value { margin-top: 3px; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; user-select: text; }
+.capture-value.multi { white-space: pre-wrap; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+
+.annotate-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 8px 10px; margin: 10px 0; }
+.color-dot, .bg-dot { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--line-strong); padding: 0; cursor: default; }
+.color-dot.on, .bg-dot.on { outline: 2px solid var(--accent); outline-offset: 2px; }
+.annotate-stage { position: relative; display: grid; place-items: center; background: repeating-conic-gradient(var(--bg-sunk) 0 25%, var(--bg) 0 50%) 0 0/16px 16px; border-radius: var(--radius); border: 1px solid var(--line); padding: 12px; min-height: 320px; }
+.annotate-canvas { display: block; box-shadow: var(--shadow); cursor: crosshair; }
+.annotate-canvas.tool-text { cursor: text; }
+.annotate-text { position: fixed; z-index: 50; min-width: 180px; min-height: 36px; background: rgba(255, 255, 255, .92); border: 1.5px dashed var(--accent); border-radius: 6px; padding: 4px 6px; font-weight: 600; outline: none; resize: both; }

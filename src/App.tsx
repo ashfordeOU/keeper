@@ -29,6 +29,8 @@ import { Settings } from './screens/Settings';
 import { Space } from './screens/Space';
 import { Startup } from './screens/Startup';
 import { Tools } from './screens/Tools';
+import { Capture } from './screens/Capture';
+import { Annotate } from './screens/Annotate';
 import { mod, shift, useAsync, useStore, type Route, type RouteName } from './state';
 
 const SHELVES: FileKind[] = ['image', 'video', 'audio', 'document', 'archive', 'installer', 'app'];
@@ -109,6 +111,7 @@ function Sidebar() {
       <div className="nav-section">
         <div className="nav-title">More</div>
         <NavItem route={{ name: 'assistant' }} icon="assistant" label="Assistant" />
+        <NavItem route={{ name: 'capture' }} icon="screenshot" label="Capture" />
         <NavItem route={{ name: 'tools' }} icon="terminal" label="Toolbox" />
         <NavItem route={{ name: 'island' }} icon="island" label="Island" />
         <NavItem route={{ name: 'history' }} icon="history" label="History" />
@@ -216,6 +219,8 @@ function Page() {
     settings: () => <Settings />,
     tools: () => <Tools />,
     health: () => <Health />,
+    capture: () => <Capture />,
+    annotate: () => <Annotate />,
   };
   return pages[route.name]();
 }

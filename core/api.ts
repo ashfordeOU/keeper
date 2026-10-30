@@ -7,6 +7,8 @@ import type { CaptureEntry, CaptureOptions, PickedColor } from './capture';
 import type { RenamePreview, RenameStep } from './rename';
 import type { Place, Weather } from './weather';
 import type { AwakeTrigger } from './awake';
+import type { KeeperApiX } from './api-x';
+import type { PreviewApi } from './previewTypes';
 import type { WidgetConfig } from './widgets';
 import type {
   AiMessage, AiProvider, AiReply, AppInfo, CleanResult, CleanupEntry, CleanupGroup, DiskInfo, DuplicateGroup, FileEntry, FileKind,
@@ -252,7 +254,9 @@ export interface IslandSettings {
   scriptActions: ScriptAction[];
 }
 
-export interface KeeperApi {
+export interface KeeperApi extends KeeperApiX {
+  /** universal file previews */
+  preview: PreviewApi;
   system: {
     info(): Promise<SystemInfo>;
     disks(): Promise<DiskInfo[]>;

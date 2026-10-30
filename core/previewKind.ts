@@ -76,7 +76,7 @@ export function previewKindOf(name: string, ext: string, isDir: boolean, magic?:
   if (e === 'ics' || e === 'ical' || e === 'ifb') return 'ics';
   if (e === 'sqlite' || e === 'sqlite3' || e === 'db' || e === 'db3') return magic?.id === 'sqlite' || !magic ? 'sqlite' : 'binary';
   if (e === 'appimage' || e === 'app') return 'app';
-  if (TAR.has(e) || /\.tar\.(gz|bz2|xz|zst)$/.test(lower)) return e === 'gz' && !/\.tar\.gz$/.test(lower) && magic?.id === 'gzip' ? 'tar' : 'tar';
+  if (TAR.has(e) || /\.tar\.(gz|bz2|xz|zst)$/.test(lower)) return 'tar';
   if (ARCHIVES.has(e)) return 'archive';
   if (TOOL_ARCHIVES.has(e)) return e === 'exe' || e === 'msi' || e === 'deb' || e === 'rpm' || e === 'pkg' || e === 'dmg' ? 'app' : 'archive-tool';
   return fromMagic(magic);

@@ -154,6 +154,7 @@ export function Island() {
   let live: React.ReactNode = <span className="muted">{new Date(now).toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' })}</span>;
   if (listening === 'on') live = <span className="level">{level.map((h, i) => <i key={i} style={{ height: h }} />)} <span style={{ marginLeft: 6 }}>Listening…</span></span>;
   else if (listening === 'working') live = 'Writing it down…';
+  else if (state.recording) live = <button className="rec-live" title="Stop recording" onClick={(e) => { e.stopPropagation(); void api.capture.stopRecording(); }}><span className="rec-dot" /> Recording · <b className="num">{mmss(now - state.recording.since)}</b> · Stop</button>;
   else if (waiting) live = <><b>{waiting.project}</b> needs you</>;
   else if (soon) live = <>{soon.title} · {soon.start > now ? `in ${Math.ceil((soon.start - now) / 60_000)} min` : 'now'}</>;
   else if (focusLeft) live = <>{state.focus.mode === 'break' ? 'Break' : 'Focus'} · <b className="num">{mmss(focusLeft)}</b></>;
@@ -282,6 +283,7 @@ export function Island() {
                 <div className="tile" style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                   {state.battery ? <span><Icon name={state.battery.charging ? 'bolt' : 'battery'} size={13} /> {Math.round(state.battery.percent)}%</span> : null}
                   {state.micInUse?.length ? <span style={{ color: '#fbbf24' }}><Icon name="mic" size={13} /> {state.micInUse[0]}</span> : null}
+                  {state.recording ? <span style={{ color: '#ff453a' }}><span className="rec-dot" /> {mmss(now - state.recording.since)}</span> : null}
                   {state.keepAwake.on ? <span><Icon name="coffee" size={13} /> Awake</span> : null}
                   {focusLeft ? <span><Icon name="timer" size={13} /> {mmss(focusLeft)}</span> : null}
                 </div>
