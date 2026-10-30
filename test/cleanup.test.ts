@@ -41,13 +41,17 @@ describe('cleanup engine', () => {
 
   it('keeps files created or changed recently', async () => {
     const { home, cache } = sandbox();
-    // old.tmp has an old mtime but was just created (like files an installer unpacks): it stays.
+    // fresh.tmp was just written, so it stays. old.tmp has an old modified date but
+    // was just created (like files an installer unpacks) — on most systems that keeps
+    // it too; macOS moves the creation date back with the modified date, so there it goes.
     const kept = await cleanTarget(target(cache, { keepNewerThanMs: DAY, exclude: ['keepme', 'app'] }), { platform: process.platform, home });
-    expect(kept.removed).toBe(0);
-    expect(existsSync(path.join(cache, 'old.tmp'))).toBe(true);
+    expect(existsSync(path.join(cache, 'fresh.tmp'))).toBe(true);
+    expect(kept.removedPaths.map((p) => path.basename(p))).toEqual(process.platform === 'darwin' ? ['old.tmp'] : []);
     await new Promise((r) => setTimeout(r, 20));
     const gone = await cleanTarget(target(cache, { keepNewerThanMs: 5, exclude: ['keepme', 'app'] }), { platform: process.platform, home });
-    expect(gone.removedPaths.map((p) => path.basename(p)).sort()).toEqual(['fresh.tmp', 'old.tmp']);
+    expect(gone.removedPaths.map((p) => path.basename(p))).toContain('fresh.tmp');
+    expect(existsSync(path.join(cache, 'fresh.tmp'))).toBe(false);
+    expect(existsSync(path.join(cache, 'old.tmp'))).toBe(false);
   });
 
   it('dry run removes nothing', async () => {

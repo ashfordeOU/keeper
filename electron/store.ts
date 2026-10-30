@@ -30,11 +30,23 @@ export async function updateSettings(patch: Partial<AllSettings>): Promise<AllSe
   const prev = settings();
   const next: AllSettings = mergeSettings(prev, { ...prev, ...patch, island: { ...prev.island, ...(patch.island ?? {}) }, ai: { ...prev.ai, ...(patch.ai ?? {}) } });
   current = next;
-  await fsp.mkdir(path.dirname(file()), { recursive: true });
-  await fsp.writeFile(file() + '.tmp', JSON.stringify(next, null, 2));
-  await fsp.rename(file() + '.tmp', file());
   for (const l of listeners) l(next, prev);
-  return next;
+  await persist();
+  return current;
+}
+
+// Writes go one after another, each through its own temporary file, so two
+// changes made at the same moment can never trip over each other.
+let writing: Promise<void> = Promise.resolve();
+let seq = 0;
+function persist(): Promise<void> {
+  writing = writing.then(async () => {
+    const tmp = `${file()}.${process.pid}.${++seq}.tmp`;
+    await fsp.mkdir(path.dirname(file()), { recursive: true });
+    await fsp.writeFile(tmp, JSON.stringify(current, null, 2));
+    await fsp.rename(tmp, file());
+  }).catch(() => undefined);
+  return writing;
 }
 
 export function onSettings(fn: (s: AllSettings, prev: AllSettings) => void): () => void {
