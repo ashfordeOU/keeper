@@ -4,19 +4,17 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { IslandAlert, IslandState } from '../../core/api';
-import { formatBytes, formatDuration } from '../../core/format';
+import { formatDuration } from '../../core/format';
 import type { LyricLine } from '../../core/island';
-import { asColor, isUrl } from '../../core/textools';
 import { describeCode } from '../../core/weather';
-import type { FileEntry } from '../../core/types';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
-import { Thumb } from '../components/ui';
+import { CameraTab, ClipboardTab, ControlsTab, ShelfTab } from './IslandTabs';
 import { useStore } from '../state';
 import '../styles/island.css';
 
-type Tab = 'home' | 'shelf' | 'clipboard' | 'agents' | 'focus' | 'calendar';
-type Mood = 'calm' | 'happy' | 'listening' | 'thinking' | 'needs' | 'done' | 'napping' | 'broken';
+type Tab = 'home' | 'shelf' | 'clipboard' | 'agents' | 'focus' | 'calendar' | 'controls' | 'camera';
+type Mood = 'calm' | 'happy' | 'listening' | 'thinking' | 'needs' | 'done' | 'napping' | 'broken' | 'recording' | 'sleeping';
 
 function lineAt(lines: LyricLine[], t: number): number {
   let ans = -1;
@@ -26,15 +24,17 @@ function lineAt(lines: LyricLine[], t: number): number {
 
 /** The little face beside the pill. */
 function Buddy({ mood }: { mood: Mood }) {
-  const eyes = mood === 'napping' ? <><path d="M6 10h4M14 10h4" /></> : mood === 'happy' || mood === 'done' ? <><path d="M6 11q2-3 4 0M14 11q2-3 4 0" /></> : mood === 'broken' ? <><path d="M6 8l4 4M10 8l-4 4M14 8l4 4M18 8l-4 4" /></> : <><circle cx="8" cy="10" r="1.6" fill="currentColor" /><circle cx="16" cy="10" r="1.6" fill="currentColor" /></>;
+  const eyes = mood === 'napping' || mood === 'sleeping' ? <><path d="M6 10h4M14 10h4" /></> : mood === 'happy' || mood === 'done' ? <><path d="M6 11q2-3 4 0M14 11q2-3 4 0" /></> : mood === 'broken' ? <><path d="M6 8l4 4M10 8l-4 4M14 8l4 4M18 8l-4 4" /></> : <><circle cx="8" cy="10" r="1.6" fill="currentColor" /><circle cx="16" cy="10" r="1.6" fill="currentColor" /></>;
   const mouth = mood === 'needs' ? <circle cx="12" cy="16.5" r="1.6" /> : mood === 'thinking' || mood === 'listening' ? <path d="M9 16h6" /> : mood === 'broken' ? <path d="M9 17q3-2 6 0" /> : mood === 'napping' ? <path d="M10 16h4" /> : <path d="M8.5 15q3.5 3 7 0" />;
-  const color = mood === 'needs' ? '#fbbf24' : mood === 'broken' ? '#f87171' : mood === 'done' ? '#34d399' : mood === 'listening' ? '#f472b6' : '#fff';
+  const color = mood === 'needs' ? '#fbbf24' : mood === 'broken' || mood === 'recording' ? '#f87171' : mood === 'done' ? '#34d399' : mood === 'listening' ? '#f472b6' : mood === 'sleeping' ? '#a5b4fc' : '#fff';
   return (
     <svg className="buddy" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" style={{ color }}>
       <circle cx="12" cy="12" r="10" opacity=".35" />
       {eyes}
       {mouth}
-      {mood === 'napping' ? <text x="18" y="6" fontSize="6" fill={color} stroke="none">z</text> : null}
+      {mood === 'napping' || mood === 'sleeping' ? <text x="18" y="6" fontSize="6" fill={color} stroke="none">z</text> : null}
+      {mood === 'recording' ? <circle cx="20" cy="4" r="2.4" fill="#ff453a" stroke="none" /> : null}
+      {mood === 'sleeping' ? <path d="M3 3.5a2.2 2.2 0 1 0 2.6 2.6A2.8 2.8 0 0 1 3 3.5z" fill={color} stroke="none" /> : null}
     </svg>
   );
 }
@@ -56,8 +56,6 @@ export function Island() {
   const [alert, setAlert] = useState<IslandAlert | null>(null);
   const [listening, setListening] = useState<'off' | 'on' | 'working'>('off');
   const [level, setLevel] = useState<number[]>(Array(12).fill(2));
-  const [clipQ, setClipQ] = useState('');
-  const [over, setOver] = useState(false);
   const [custom, setCustom] = useState(15);
   const closeTimer = useRef<number | undefined>(undefined);
   const seenAlerts = useRef(new Set<string>());
@@ -139,6 +137,24 @@ export function Island() {
 
   useEffect(() => api.on('dictation', (s: 'start' | 'stop') => void (s === 'start' ? (rec.current ? stopRecording() : startRecording()) : stopRecording())), [startRecording, stopRecording]);
 
+  // The shelf shortcut (and the tray) open a tab directly.
+  useEffect(() => api.on('island-open', (t: string) => {
+    setTab(t as Tab);
+    window.clearTimeout(closeTimer.current);
+    setExpanded(true);
+    api.island.setExpanded(true);
+  }), []);
+
+  const [toast, setToast] = useState('');
+  useEffect(() => {
+    const on = (e: Event) => {
+      setToast((e as CustomEvent<string>).detail);
+      window.setTimeout(() => setToast(''), 3500);
+    };
+    window.addEventListener('island-toast', on);
+    return () => window.removeEventListener('island-toast', on);
+  }, []);
+
   if (!state || isl?.enabled === false) return null;
 
   // ---------------------------------------------------------------- what the pill shows
@@ -149,7 +165,9 @@ export function Island() {
   const nextEv = state.events.find((e) => !e.allDay && e.end > now);
   const soon = nextEv && nextEv.start - now < 15 * 60_000 ? nextEv : undefined;
   const np = state.nowPlaying;
-  const mood: Mood = listening !== 'off' ? 'listening' : stuck ? 'broken' : waiting ? 'needs' : alert ? 'happy' : working ? 'thinking' : state.agents.some((a) => a.state === 'done') ? 'done' : np?.playing || focusLeft ? 'calm' : 'napping';
+  const hour = new Date(now).getHours();
+  const night = hour >= 23 || hour < 6;
+  const mood: Mood = listening !== 'off' ? 'listening' : state.recording ? 'recording' : stuck ? 'broken' : waiting ? 'needs' : alert ? 'happy' : working ? 'thinking' : state.agents.some((a) => a.state === 'done') ? 'done' : np?.playing || focusLeft ? 'calm' : night ? 'sleeping' : 'napping';
 
   let live: React.ReactNode = <span className="muted">{new Date(now).toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' })}</span>;
   if (listening === 'on') live = <span className="level">{level.map((h, i) => <i key={i} style={{ height: h }} />)} <span style={{ marginLeft: 6 }}>Listening…</span></span>;
@@ -170,6 +188,7 @@ export function Island() {
         <div className="isl alert" onMouseEnter={() => open(true)}>
           {isl?.buddy !== false ? <Buddy mood="happy" /> : null}
           <div style={{ flex: 1, minWidth: 0 }}>
+            {alert.kind === 'notification' && alert.app ? <span className="muted small" style={{ display: 'block' }}>{alert.app}</span> : null}
             <b className="ellipsis" style={{ display: 'block' }}>{alert.title}</b>
             <span className="muted small ellipsis" style={{ display: 'block' }}>{alert.detail}</span>
           </div>
@@ -201,22 +220,16 @@ export function Island() {
   // ---------------------------------------------------------------- expanded panel
   const tabs: { id: Tab; icon: string; label: string; badge?: number }[] = [
     { id: 'home', icon: 'home', label: 'Home' },
-    { id: 'shelf', icon: 'archive', label: 'Shelf', badge: state.shelf.length },
+    { id: 'shelf', icon: 'archive', label: 'Shelf', badge: state.shelf.length || undefined },
     ...(isl?.clipboard !== false ? [{ id: 'clipboard' as Tab, icon: 'clipboard', label: 'Clipboard' }] : []),
     ...(isl?.agents !== false ? [{ id: 'agents' as Tab, icon: 'terminal', label: 'Agents', badge: state.agents.filter((a) => a.state === 'waiting').length || undefined }] : []),
     { id: 'focus', icon: 'timer', label: 'Focus' },
     { id: 'calendar', icon: 'calendar', label: 'Today' },
+    { id: 'controls', icon: 'settings', label: 'Controls' },
+    { id: 'camera', icon: 'camera', label: 'Mirror' },
   ];
 
-  const onDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setOver(false);
-    const paths = [...e.dataTransfer.files].map((f) => api.files.pathOf?.(f) ?? (f as File & { path?: string }).path).filter((p): p is string => !!p);
-    if (paths.length) void api.island.addToShelf(paths).then(load);
-  };
-
   const lyricIdx = np && state.lyrics ? lineAt(state.lyrics, np.position) : -1;
-  const filteredClips = state.clips.filter((c) => !clipQ || (c.text ?? '').toLowerCase().includes(clipQ.toLowerCase()));
 
   return (
     <div className={`isl-root edge-${isl?.edge ?? 'top'}`}>
@@ -232,6 +245,7 @@ export function Island() {
           <button title={state.keepAwake.on ? 'Stop keeping awake' : 'Keep awake'} className={state.keepAwake.on ? 'on' : ''} onClick={() => void api.island.keepAwake(!state.keepAwake.on).then(load)}><Icon name="coffee" size={13} /></button>
         </div>
 
+        {toast ? <div className="isl-toast">{toast}</div> : null}
         <div className="body">
           {tab === 'home' ? (
             <div className="grid2">
@@ -291,51 +305,13 @@ export function Island() {
             </div>
           ) : null}
 
-          {tab === 'shelf' ? (
-            <div className={`shelf-drop ${over ? 'over' : ''}`} onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)} onDrop={onDrop}>
-              {state.shelf.length === 0 ? <div className="muted" style={{ margin: 'auto', textAlign: 'center' }}><Icon name="archive" size={26} /><div>Drop files here to keep them handy,<br />then drag them out wherever you need them.</div></div> : null}
-              {state.shelf.map((f: FileEntry) => (
-                <div key={f.path} className="shelf-item" draggable onDragStart={(e) => { e.preventDefault(); api.files.startDrag([f.path]); }} onDoubleClick={() => void api.files.open(f.path)} title={`${f.path}\n${formatBytes(f.size)}`}>
-                  <div className="th"><Thumb file={f} size={128} /></div>
-                  <div className="nm">{f.name}</div>
-                  <button className="btn sm icon x" onClick={() => void api.island.removeFromShelf(f.path).then(load)}><Icon name="close" size={10} /></button>
-                </div>
-              ))}
-              {state.shelf.length ? (
-                <div style={{ width: '100%', display: 'flex', gap: 6, marginTop: 'auto' }}>
-                  <button className="btn sm" draggable onDragStart={(e) => { e.preventDefault(); api.files.startDrag(state.shelf.map((f) => f.path)); }}><Icon name="drag" size={12} /> Drag all</button>
-                  <button className="btn sm" onClick={() => void api.files.compress(state.shelf.map((f) => f.path))}><Icon name="zip" size={12} /> Zip</button>
-                  <button className="btn sm" onClick={() => void api.files.copyPaths(state.shelf.map((f) => f.path))}><Icon name="copy" size={12} /> Copy</button>
-                  <span style={{ flex: 1 }} />
-                  <button className="btn sm" onClick={() => void api.island.clearShelf().then(load)}>Clear</button>
-                </div>
-              ) : null}
-            </div>
-          ) : null}
+          {tab === 'shelf' ? <ShelfTab state={state} settings={isl} reload={load} /> : null}
 
-          {tab === 'clipboard' ? (
-            <div>
-              <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
-                <input className="input" style={{ flex: 1, height: 28 }} placeholder="Search what you copied" value={clipQ} onChange={(e) => setClipQ(e.target.value)} />
-                <button className="btn sm" onClick={() => void api.island.clearClips().then(load)}>Clear</button>
-              </div>
-              {filteredClips.length === 0 ? <div className="muted" style={{ textAlign: 'center', padding: 20 }}>Things you copy will appear here.</div> : null}
-              {filteredClips.map((c) => {
-                const color = c.text ? asColor(c.text) : undefined;
-                return (
-                  <div key={c.id} className="clip" onClick={() => void api.island.copyClip(c.id)} title="Click to copy">
-                    {c.pinned ? <Icon name="pin" size={12} /> : null}
-                    {color ? <span className="swatch" style={{ background: color }} /> : c.image ? <img src={c.image} alt="" style={{ height: 28, borderRadius: 4 }} /> : c.text && isUrl(c.text) ? <Icon name="globe" size={12} /> : null}
-                    <span className="t">{c.text ?? (c.kind === 'image' ? 'Image' : 'File')}</span>
-                    <span className="acts">
-                      <button className="btn sm icon" title={c.pinned ? 'Unpin' : 'Pin'} onClick={(e) => { e.stopPropagation(); void api.island.pinClip(c.id).then(load); }}><Icon name="pin" size={11} /></button>
-                      <button className="btn sm icon" title="Remove" onClick={(e) => { e.stopPropagation(); void api.island.removeClip(c.id).then(load); }}><Icon name="close" size={11} /></button>
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          ) : null}
+          {tab === 'clipboard' ? <ClipboardTab state={state} reload={load} /> : null}
+
+          {tab === 'controls' ? <ControlsTab state={state} reload={load} /> : null}
+
+          {tab === 'camera' ? <CameraTab /> : null}
 
           {tab === 'agents' ? (
             <div>

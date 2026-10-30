@@ -265,6 +265,8 @@ export function Annotate() {
     if (!img || typing) return;
     const p = toImage(e);
     if (tool === 'text') {
+      // Keep the mouse-down from taking focus away from the text box that is about to appear.
+      e.preventDefault();
       setTyping({ at: p, screen: { x: e.clientX, y: e.clientY }, text: '' });
       return;
     }
@@ -381,7 +383,7 @@ export function Annotate() {
         {typing ? (
           <textarea
             className="annotate-text"
-            autoFocus
+            ref={(el) => { if (el && document.activeElement !== el) el.focus(); }}
             style={{ left: typing.screen.x, top: typing.screen.y, color, fontSize: Math.max(16, width * 5) * fit }}
             value={typing.text}
             placeholder="Type, then click away"

@@ -450,4 +450,5 @@ export interface KeeperApi extends KeeperApiX {
   on(channel: 'dictation', cb: (state: 'start' | 'stop') => void): () => void;
   on(channel: 'palette', cb: () => void): () => void;
   on(channel: 'widgets-changed', cb: () => void): () => void;
+  on(channel: 'island-open', cb: (tab: string) => void): () => void;
 }

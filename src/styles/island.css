@@ -65,3 +65,41 @@ html[data-view='island'], html[data-view='island'] body, html[data-view='island'
 .rec-dot { width: 8px; height: 8px; border-radius: 50%; background: #ff453a; display: inline-block; margin-right: 4px; animation: island-rec 1s infinite; }
 @keyframes island-rec { 50% { opacity: .3; } }
 .rec-live { all: unset; cursor: default; color: #fff; display: inline-flex; align-items: center; gap: 4px; }
+
+/* shelves */
+.isl .shelf-wrap { display: flex; flex-direction: column; gap: 8px; height: 100%; position: relative; }
+.isl .shelf-bar { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
+.isl .shelf-chip { border: 0; background: rgba(255, 255, 255, .07); color: #d4d4d8; height: 24px; padding: 0 9px; border-radius: 12px; font-size: 11.5px; display: inline-flex; align-items: center; gap: 5px; cursor: default; }
+.isl .shelf-chip i { width: 8px; height: 8px; border-radius: 50%; background: var(--c, #8b8bff); }
+.isl .shelf-chip span { opacity: .55; font-variant-numeric: tabular-nums; }
+.isl .shelf-chip.on { background: color-mix(in srgb, var(--c, #8b8bff) 30%, transparent); color: #fff; font-weight: 600; }
+.isl .shelf-chip.add { padding: 0 7px; }
+.isl .shelf-rename { height: 24px; width: 130px; font-size: 12px; }
+.isl .shelf-drop { flex: 1; min-height: 0; overflow: auto; border-color: color-mix(in srgb, var(--c, #ffffff) 45%, transparent); }
+.isl .shelf-item .mv { position: absolute; top: 46px; left: 2px; right: 2px; display: none; justify-content: space-between; }
+.isl .shelf-item:hover .mv { display: flex; }
+.isl .shelf-item .mv button { border: 0; width: 18px; height: 18px; border-radius: 50%; background: rgba(0, 0, 0, .6); color: #fff; display: grid; place-items: center; padding: 0; cursor: default; }
+.isl .shelf-actions { display: flex; gap: 5px; flex-wrap: wrap; }
+.isl .shelf-pop { position: absolute; top: 30px; right: 0; z-index: 5; background: #1c1c22; border: 1px solid rgba(255, 255, 255, .12); border-radius: 12px; padding: 6px; display: flex; flex-direction: column; gap: 2px; min-width: 200px; box-shadow: 0 10px 30px rgba(0, 0, 0, .5); }
+.isl .shelf-pop > button { border: 0; background: none; color: #f4f4f5; text-align: left; padding: 6px 8px; border-radius: 7px; display: flex; align-items: center; gap: 7px; font-size: 12px; cursor: default; }
+.isl .shelf-pop > button:hover { background: rgba(255, 255, 255, .1); }
+.isl .shelf-pop > button i { width: 8px; height: 8px; border-radius: 50%; }
+.isl .shelf-pop .muted { padding: 4px 8px 2px; }
+.isl .shelf-colors { display: flex; gap: 5px; padding: 6px 8px; }
+.isl .shelf-colors button { width: 16px; height: 16px; border-radius: 50%; border: 0; padding: 0; cursor: default; }
+
+/* clipboard */
+.isl .clip-kinds { display: flex; gap: 3px; margin-bottom: 4px; flex-wrap: wrap; }
+.isl .clip-kinds button { border: 0; background: none; color: #a1a1aa; border-radius: 7px; padding: 2px 8px; font-size: 11.5px; cursor: default; }
+.isl .clip-kinds button.on { background: rgba(255, 255, 255, .12); color: #fff; font-weight: 600; }
+.isl .clip-edit { margin: 2px 8px 8px 30px; display: flex; flex-direction: column; gap: 6px; }
+.isl code.code { font: 11.5px var(--mono); color: #c4b5fd; }
+
+/* controls & camera */
+.isl .ctl-head { display: flex; align-items: center; gap: 6px; font-weight: 600; margin-bottom: 6px; }
+.isl .ctl-range { width: 100%; accent-color: #fff; }
+.isl .ctl-dev { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; font-size: 12px; }
+.isl .cam { height: 100%; display: grid; place-items: center; }
+.isl .cam video { max-height: 100%; max-width: 100%; border-radius: 14px; transform: scaleX(-1); background: #000; }
+.isl .isl-toast { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); background: #fff; color: #000; padding: 5px 12px; border-radius: 10px; font-weight: 600; font-size: 12px; z-index: 10; max-width: 90%; text-align: center; }
+.isl.expanded { position: relative; }
