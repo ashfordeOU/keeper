@@ -321,7 +321,6 @@ interface SlideItem {
   title?: boolean;
 }
 
-const EMU = 914400;
 
 function byLocal(el: Element | Document, name: string): Element[] {
   return [...el.getElementsByTagName('*')].filter((e) => e.localName === name);
