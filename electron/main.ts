@@ -777,6 +777,15 @@ app.whenReady().then(async () => {
   registerIslandIpc({
     islandSvc, files, index, preload: preload(), lockDown, broadcast, updateTray: () => void updateTray(), setTrayTitle: (t) => tray?.setTitle(t),
     ocrImage: async (img) => (await import('./services/vision')).ocrImage(img, settings().ocrLanguages),
+    // Shelf "Resize images" uses the same converter as the Convert screen; results land in a new folder.
+    resize: async (paths, width) => {
+      const { Converter } = await import('./services/convert');
+      const conv = new Converter({ modelsDir: path.join(app.getPath('userData'), 'models') });
+      const r = await conv.run({ op: { tool: 'image.resize', maxSide: width }, inputs: paths });
+      for (const out of r.outputs) await index.refresh(out);
+      libraryChanged();
+      return r.outputs;
+    },
   });
   registerIpcX({ index, journal, events: () => islandSvc.events, window: () => main, changed: libraryChanged });
   registerCaptureIpc({

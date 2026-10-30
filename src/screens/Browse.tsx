@@ -10,6 +10,7 @@ import { Icon } from '../components/Icon';
 import { ContextMenu, Empty, Files, Loading, Modal, Toggle, ViewControls, type MenuItem } from '../components/ui';
 import { useAsync, useStore } from '../state';
 import '../styles/screens-a.css';
+import { TidyDialog } from '../components/TidyDialog';
 
 type SortKey = 'name' | 'date' | 'size' | 'kind';
 
@@ -28,6 +29,7 @@ export function Browse() {
   const [sort, setSort] = useState<{ key: SortKey; desc: boolean }>({ key: 'name', desc: false });
   const [selected, setSelected] = useState<string | null>(null);
   const [newFolder, setNewFolder] = useState<string | null>(null);
+  const [tidy, setTidy] = useState(false);
   const [menu, setMenu] = useState<{ x: number; y: number; entry: BrowseEntry } | null>(null);
 
   const entries = useAsync(() => (dir ? api.files.browse(dir, hidden) : Promise.resolve([])), [dir, hidden, version]);
@@ -95,6 +97,7 @@ export function Browse() {
         <div className="btn-row">
           <label className="row small muted" style={{ gap: 6 }}><Toggle on={hidden} onChange={setHidden} label="Show hidden files" /> Hidden</label>
           <button className="btn sm" onClick={() => setNewFolder('untitled folder')}><Icon name="plus" size={13} /> New Folder</button>
+          <button className="btn sm" onClick={() => setTidy(true)} title="Sort loose files into folders by kind, month or extension"><Icon name="broom" size={13} /> Tidy</button>
           <button className="btn sm" onClick={() => settings && void updateSettings({ pinned: pinned ? settings.pinned.filter((p) => p !== dir) : [...settings.pinned, dir] })}>
             <Icon name="pin" size={13} /> {pinned ? 'Unpin' : 'Pin'}
           </button>
@@ -134,6 +137,8 @@ export function Browse() {
       )}
 
       {menu ? <ContextMenu x={menu.x} y={menu.y} items={folderMenu(menu.entry)} onClose={() => setMenu(null)} /> : null}
+
+      {tidy ? <TidyDialog dir={dir} onClose={() => setTidy(false)} /> : null}
 
       {newFolder !== null ? (
         <Modal title="New folder" onClose={() => setNewFolder(null)} width={400}>
