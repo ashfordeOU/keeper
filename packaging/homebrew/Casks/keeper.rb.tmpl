@@ -1,0 +1,48 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Rendered by scripts/render-packaging.mjs and published to the ashfordeOU/homebrew-keeper tap.
+#   brew install --cask ashfordeou/keeper/keeper
+cask "keeper" do
+  arch arm: "arm64", intel: "x64"
+
+  version "{{version}}"
+  sha256 arm:   "{{sha256:Keeper-mac-arm64.dmg}}",
+         intel: "{{sha256:Keeper-mac-x64.dmg}}"
+
+  url "https://github.com/ashfordeOU/keeper/releases/download/v#{version}/Keeper-mac-#{arch}.dmg",
+      verified: "github.com/ashfordeOU/keeper/"
+  name "Keeper"
+  desc "Find, understand and tidy your files"
+  homepage "https://github.com/ashfordeOU/keeper"
+
+  livecheck do
+    url :url
+    strategy :github_latest
+  end
+
+  # Keeper updates itself (Settings → Updates); `brew upgrade --greedy` also works.
+  auto_updates true
+  depends_on macos: ">= :monterey"
+
+  app "Keeper.app"
+  # The `keeper` command runs the CLI bundled inside the app on the app's own runtime.
+  shimscript = "#{staged_path}/keeper.wrapper.sh"
+  binary shimscript, target: "keeper"
+
+  preflight do
+    File.write shimscript, <<~EOS
+      #!/bin/sh
+      ELECTRON_RUN_AS_NODE=1 exec '#{appdir}/Keeper.app/Contents/MacOS/Keeper' '#{appdir}/Keeper.app/Contents/Resources/app.asar/dist-cli/keeper.cjs' "$@"
+    EOS
+  end
+
+  uninstall quit: "io.github.ashfordeou.keeper"
+
+  zap trash: [
+    "~/Library/Application Support/Keeper",
+    "~/Library/Caches/io.github.ashfordeou.keeper",
+    "~/Library/Caches/io.github.ashfordeou.keeper.ShipIt",
+    "~/Library/Logs/Keeper",
+    "~/Library/Preferences/io.github.ashfordeou.keeper.plist",
+    "~/Library/Saved Application State/io.github.ashfordeou.keeper.savedState",
+  ]
+end

@@ -10,6 +10,7 @@ import { api } from '../api';
 import { Icon } from '../components/Icon';
 import { ContextMenu, Empty, Loading, PageHead, type MenuItem } from '../components/ui';
 import { useAsync, useStore } from '../state';
+import { chartPalette } from '../theme';
 import '../styles/screens-b.css';
 
 const PLAYFUL = ['#6d6dff', '#f0617a', '#8b5cf6', '#f59e0b', '#3b82f6', '#14b8a6', '#10b981', '#ec4899', '#0ea5e9', '#a16207', '#64748b', '#ef4444'];
@@ -53,7 +54,7 @@ export function Space() {
     return () => ro.disconnect();
   }, []);
 
-  const palette = settings?.look === 'minimal' ? MINIMAL : PLAYFUL;
+  const palette = chartPalette(settings, PLAYFUL, MINIMAL);
   const children = node?.children ?? [];
   const items = topWithRest(children, 40, (rest, s) => ({ name: `${rest.length} smaller items`, path: '', size: s, files: rest.reduce((n, r) => n + r.files, 0), kind: 'other' as const }));
   const tiles = squarify(items, { x: 0, y: 0, w: size.w, h: size.h });

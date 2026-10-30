@@ -1,0 +1,23 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Places: sidebar locations, Network and Trash pages. */
+
+.place-row { position: relative; }
+.place-row .nav-item { padding-right: 30px; }
+.place-bar { position: absolute; left: 34px; right: 34px; bottom: 2px; height: 2px; border-radius: 2px; background: var(--line); overflow: hidden; pointer-events: none; }
+.place-bar > i { display: block; height: 100%; background: var(--text-3); }
+.place-eject { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 22px; height: 22px; border-radius: 6px; border: 0; background: none; color: var(--text-3); display: grid; place-items: center; cursor: default; }
+.place-eject:hover { background: var(--bg-active); color: var(--text); }
+.places-drop.over { background: var(--accent-soft); border-radius: 10px; outline: 1.5px dashed var(--accent); }
+
+.server-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.server-card { display: flex; gap: 12px; align-items: center; padding: 14px; }
+.server-card .server-icon { width: 42px; height: 42px; border-radius: 12px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; flex: none; }
+.proto { font: 600 10.5px var(--mono); text-transform: uppercase; padding: 1px 6px; border-radius: 5px; background: var(--bg-active); color: var(--text-2); }
+.recent-server { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px; }
+.recent-server:hover { background: var(--bg-hover); }
+.trash-row { display: grid; grid-template-columns: 22px 34px minmax(0, 1fr) 110px 90px 28px; align-items: center; gap: 10px; padding: 7px 10px; border-bottom: 1px solid var(--line); }
+.trash-row:hover { background: var(--bg-hover); }
+.trash-row.selected { background: var(--accent-soft); }
+.browse-pathbar { display: flex; gap: 6px; align-items: center; margin-bottom: 12px; }
+.browse-pathbar input { flex: 1; font-family: var(--mono); font-size: 12px; }
+.cloud-mark { color: var(--text-3); }

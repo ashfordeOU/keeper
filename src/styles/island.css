@@ -2,13 +2,13 @@
 /* The Island: a black pill at the top of the screen that opens into a small panel. */
 
 html[data-view='island'], html[data-view='island'] body, html[data-view='island'] #root { background: transparent !important; overflow: hidden; }
-.isl-root { height: 100vh; display: flex; justify-content: center; align-items: flex-start; color: #f4f4f5; font-size: 12.5px; }
+.isl-root { height: 100vh; display: flex; justify-content: center; align-items: flex-start; color: var(--island-text, #f4f4f5); font-size: 12.5px; }
 .isl-root.edge-left { justify-content: flex-start; align-items: center; }
 .isl-root.edge-right { justify-content: flex-end; align-items: center; }
 .isl {
-  background: #0a0a0c; border-radius: 0 0 20px 20px; box-shadow: 0 8px 30px rgba(0, 0, 0, .35);
+  background: var(--island-bg, #0a0a0c); border-radius: 0 0 20px 20px; box-shadow: 0 8px 30px rgba(0, 0, 0, .35);
   transition: width .32s var(--ease), height .32s var(--ease), border-radius .32s var(--ease); overflow: hidden;
-  -webkit-app-region: no-drag; color: #f4f4f5;
+  -webkit-app-region: no-drag; color: var(--island-text, #f4f4f5);
 }
 .isl.collapsed { width: 220px; height: 34px; display: flex; align-items: center; gap: 8px; padding: 0 12px; cursor: default; }
 .isl.expanded { width: 640px; height: 300px; border-radius: 0 0 26px 26px; display: flex; flex-direction: column; }
@@ -17,11 +17,11 @@ html[data-view='island'], html[data-view='island'] body, html[data-view='island'
 .isl .tabs { display: flex; gap: 2px; padding: 10px 12px 0; }
 .isl .tabs button { border: 0; background: none; color: #a1a1aa; height: 26px; padding: 0 10px; border-radius: 8px; font-size: 12px; display: inline-flex; align-items: center; gap: 5px; cursor: default; }
 .isl .tabs button:hover { color: #fff; background: rgba(255, 255, 255, .07); }
-.isl .tabs button.on { color: #fff; background: rgba(255, 255, 255, .12); font-weight: 600; }
+.isl .tabs button.on { color: var(--island-text, #fff); background: rgba(255, 255, 255, .12); font-weight: 600; }
 .isl .body { flex: 1; overflow: auto; padding: 10px 14px 12px; }
 .isl .btn { background: rgba(255, 255, 255, .1); border-color: transparent; color: #fff; }
 .isl .btn:hover { background: rgba(255, 255, 255, .18); }
-.isl .btn.primary { background: #fff; color: #000; }
+.isl .btn.primary { background: var(--island-accent, #fff); color: var(--island-accent-text, #000); }
 .isl .muted { color: #8b8b94; }
 .isl .input { background: rgba(255, 255, 255, .08); border-color: transparent; color: #fff; }
 .isl .tile { background: rgba(255, 255, 255, .06); border-radius: 14px; padding: 10px 12px; }
@@ -30,7 +30,7 @@ html[data-view='island'], html[data-view='island'] body, html[data-view='island'
 .isl .art img { width: 100%; height: 100%; object-fit: cover; }
 .isl .scrub { height: 4px; border-radius: 4px; background: rgba(255, 255, 255, .15); overflow: hidden; transition: height .15s; }
 .isl .scrub:hover { height: 7px; }
-.isl .scrub i { display: block; height: 100%; background: #fff; }
+.isl .scrub i { display: block; height: 100%; background: var(--island-accent, #fff); }
 .isl .lyric { font-weight: 600; font-size: 13.5px; margin-top: 8px; min-height: 20px; }
 .isl .shelf-drop { border: 1.5px dashed rgba(255, 255, 255, .2); border-radius: 14px; min-height: 100%; padding: 10px; display: flex; flex-wrap: wrap; gap: 10px; align-content: flex-start; }
 .isl .shelf-drop.over { border-color: #fff; background: rgba(255, 255, 255, .05); }
@@ -58,7 +58,7 @@ html[data-view='island'], html[data-view='island'] body, html[data-view='island'
 .isl .ev .time { width: 70px; color: #a1a1aa; font-variant-numeric: tabular-nums; flex: none; }
 .isl .big-time { font-size: 40px; font-weight: 800; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
 .isl .level { display: flex; gap: 2px; align-items: center; height: 18px; }
-.isl .level i { width: 3px; border-radius: 2px; background: #fff; transition: height .08s; }
+.isl .level i { width: 3px; border-radius: 2px; background: var(--island-accent, #fff); transition: height .08s; }
 .buddy { flex: none; }
 
 /* screen recording indicator */
@@ -80,7 +80,7 @@ html[data-view='island'], html[data-view='island'] body, html[data-view='island'
 .isl .shelf-item:hover .mv { display: flex; }
 .isl .shelf-item .mv button { border: 0; width: 18px; height: 18px; border-radius: 50%; background: rgba(0, 0, 0, .6); color: #fff; display: grid; place-items: center; padding: 0; cursor: default; }
 .isl .shelf-actions { display: flex; gap: 5px; flex-wrap: wrap; }
-.isl .shelf-pop { position: absolute; top: 30px; right: 0; z-index: 5; background: #1c1c22; border: 1px solid rgba(255, 255, 255, .12); border-radius: 12px; padding: 6px; display: flex; flex-direction: column; gap: 2px; min-width: 200px; box-shadow: 0 10px 30px rgba(0, 0, 0, .5); }
+.isl .shelf-pop { position: absolute; top: 30px; right: 0; z-index: 5; background: color-mix(in srgb, var(--island-bg, #0a0a0c) 88%, #fff); border: 1px solid rgba(255, 255, 255, .12); border-radius: 12px; padding: 6px; display: flex; flex-direction: column; gap: 2px; min-width: 200px; box-shadow: 0 10px 30px rgba(0, 0, 0, .5); }
 .isl .shelf-pop > button { border: 0; background: none; color: #f4f4f5; text-align: left; padding: 6px 8px; border-radius: 7px; display: flex; align-items: center; gap: 7px; font-size: 12px; cursor: default; }
 .isl .shelf-pop > button:hover { background: rgba(255, 255, 255, .1); }
 .isl .shelf-pop > button i { width: 8px; height: 8px; border-radius: 50%; }
@@ -97,7 +97,7 @@ html[data-view='island'], html[data-view='island'] body, html[data-view='island'
 
 /* controls & camera */
 .isl .ctl-head { display: flex; align-items: center; gap: 6px; font-weight: 600; margin-bottom: 6px; }
-.isl .ctl-range { width: 100%; accent-color: #fff; }
+.isl .ctl-range { width: 100%; accent-color: var(--island-accent, #fff); }
 .isl .ctl-dev { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; font-size: 12px; }
 .isl .cam { height: 100%; display: grid; place-items: center; }
 .isl .cam video { max-height: 100%; max-width: 100%; border-radius: 14px; transform: scaleX(-1); background: #000; }

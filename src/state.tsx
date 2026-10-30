@@ -7,12 +7,13 @@ import type { SystemInfo } from '../core/api';
 import type { AllSettings } from '../core/settings';
 import type { CleanResult, FileEntry } from '../core/types';
 import { api } from './api';
+import { applyTheme, onSystemAppearance } from './theme';
 import { formatBytes } from '../core/format';
 
 export type RouteName =
   | 'home' | 'recents' | 'library' | 'screenshots' | 'search' | 'browse' | 'downloads' | 'source' | 'tag' | 'saved'
   | 'duplicates' | 'cleanup' | 'space' | 'large' | 'startup' | 'apps' | 'protection' | 'rules' | 'history'
-  | 'assistant' | 'island' | 'settings' | 'tools' | 'health' | 'capture' | 'annotate' | 'convert' | 'widgets' | 'weather';
+  | 'assistant' | 'island' | 'settings' | 'tools' | 'health' | 'capture' | 'annotate' | 'convert' | 'widgets' | 'weather' | 'network' | 'trash';
 
 export interface Route {
   name: RouteName;
@@ -107,13 +108,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return () => offs.forEach((o) => o());
   }, []);
 
-  // Apply look and appearance to the document.
+  // Apply the theme, look and appearance to the document (and again when the system goes light or dark).
   useEffect(() => {
     if (!settings) return;
-    const root = document.documentElement;
-    root.dataset.look = settings.look;
-    if (settings.appearance === 'system') delete root.dataset.theme;
-    else root.dataset.theme = settings.appearance;
+    applyTheme(settings);
+    return onSystemAppearance(() => applyTheme(settings));
   }, [settings]);
 
   const go = useCallback((r: Route) => {

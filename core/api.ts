@@ -9,6 +9,7 @@ import type { Place, Weather } from './weather';
 import type { ConvertCapabilities, ConvertJob, ConvertResult } from './convert-types';
 import type { AwakeTrigger } from './awake';
 import type { KeeperApiX } from './api-x';
+import type { PlacesApi } from './api-places';
 import type { PreviewApi } from './previewTypes';
 import type { WidgetConfig } from './widgets';
 import type {
@@ -41,6 +42,8 @@ export interface BrowseEntry {
   kind: FileKind | 'folder';
   ext: string;
   hidden: boolean;
+  /** a placeholder whose contents live only in the cloud (iCloud, OneDrive, Dropbox… on demand) */
+  cloudOnly?: boolean;
 }
 
 export interface NowPlaying {
@@ -256,6 +259,7 @@ export interface IslandSettings {
 }
 
 export interface KeeperApi extends KeeperApiX {
+  places: PlacesApi;
   /** universal file previews */
   preview: PreviewApi;
   /** video, audio, picture, PDF and file tools; results always go to a new folder */
@@ -451,5 +455,6 @@ export interface KeeperApi extends KeeperApiX {
   on(channel: 'palette', cb: () => void): () => void;
   on(channel: 'settings-changed', cb: (settings: Settings & { island: IslandSettings }) => void): () => void;
   on(channel: 'widgets-changed', cb: () => void): () => void;
+  on(channel: 'places-changed', cb: () => void): () => void;
   on(channel: 'island-open', cb: (tab: string) => void): () => void;
 }

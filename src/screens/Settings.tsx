@@ -10,6 +10,7 @@ import { useAsync, useStore } from '../state';
 import { Row } from './IslandSettings';
 import { LanguageRow, LoginRow } from './SettingsMore';
 import { UpdatesPanel, WhatsNewHover } from '../components/Updates';
+import { ThemeGallery, ThemeTweaks } from '../components/ThemeGallery';
 import { useT } from '../i18n';
 import '../styles/screens-b.css';
 
@@ -46,12 +47,14 @@ export function Settings() {
 
       <h2 style={{ margin: '8px 0' }}>{t('settings.appearance')}</h2>
       <div className="card settings-section">
-        <Row title={t('settings.look')} desc="Playful is colourful; Minimal keeps everything black, white and grey.">
-          <div className="seg"><button className={s.look === 'playful' ? 'on' : ''} onClick={() => void updateSettings({ look: 'playful' })}>{t('settings.playful')}</button><button className={s.look === 'minimal' ? 'on' : ''} onClick={() => void updateSettings({ look: 'minimal' })}>{t('settings.minimal')}</button></div>
-        </Row>
-        <Row title={t('settings.theme')}>
+        <div className="setting" style={{ display: 'block' }}>
+          <div style={{ fontWeight: 550, marginBottom: 10 }}>{t('settings.theme')}</div>
+          <ThemeGallery />
+        </div>
+        <Row title="Light or dark" desc="Themes made for only one of them say so on their card.">
           <div className="seg">{(['system', 'light', 'dark'] as const).map((a) => <button key={a} className={s.appearance === a ? 'on' : ''} onClick={() => void updateSettings({ appearance: a })}><Icon name={a === 'light' ? 'sun' : a === 'dark' ? 'moon' : 'settings'} size={12} /> {t(`settings.${a}`)}</button>)}</div>
         </Row>
+        <ThemeTweaks />
         <LanguageRow />
       </div>
 
@@ -78,6 +81,7 @@ export function Settings() {
           </div>
           <button className="btn sm" onClick={() => void addFolder('excluded')}><Icon name="plus" size={12} /> Add folder</button>
         </div>
+        <Row title="Include network drives and cloud folders in the library" desc="Off by default: walking a NAS or an on-demand cloud drive is slow and can download every file. Browse them any time from the sidebar."><Toggle on={!!s.includeRemote} onChange={(v) => void updateSettings({ includeRemote: v })} /></Row>
         <Row title="Show hidden files"><Toggle on={s.showHidden} onChange={(v) => void updateSettings({ showHidden: v })} /></Row>
         <Row title="Read text in images and PDFs" desc="Runs on this computer. Makes screenshots and scans searchable."><Toggle on={s.ocrEnabled} onChange={(v) => void updateSettings({ ocrEnabled: v })} /></Row>
         <Row title="Text languages" desc="Codes such as eng, deu, fra, spa, jpn, chi_sim. Language data downloads once.">

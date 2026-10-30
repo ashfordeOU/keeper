@@ -370,6 +370,7 @@ export function useFileMenu() {
     { label: 'Copy Path', icon: 'copy', run: () => void api.files.copyText(sel.join('\n')) },
     ...(state.file.text ? [{ label: 'Copy Text in Image', icon: 'text', kbd: `${shift}${mod}C`, run: () => void copyFullText(state.file) }] : []),
     { label: 'Add to Shelf', icon: 'island', run: () => void api.island.addToShelf(sel) },
+    { label: store.info?.platform === 'darwin' ? 'Share… (AirDrop, Mail, Messages)' : 'Share…', icon: 'share', run: () => void api.places.share(sel).then((r) => { if (r.message) store.toast(r.message); }) },
     { label: 'Pin to Sidebar', icon: 'pin', run: () => {
       const dir = state.file.path.slice(0, state.file.path.length - state.file.name.length - 1);
       if (store.settings && !store.settings.pinned.includes(dir)) void store.updateSettings({ pinned: [...store.settings.pinned, dir] });

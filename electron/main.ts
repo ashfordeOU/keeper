@@ -38,6 +38,8 @@ import { VisionQueue } from './services/vision';
 import { registerIpcX, syncFinderTags } from './ipc-x';
 import { registerFileProtocol, registerPreviewIpc } from './ipc/preview';
 import { registerConvertIpc } from './ipc/convert';
+import { registerPlacesIpc } from './ipc/places';
+import { remoteFolders } from './services/places';
 import { emptyAndBroken, removeBrokenLink } from './services/tools';
 import { readFinderTags } from '../core/platform';
 import { getSecret, hasSecret, onSettings, setSecret, settings, updateSettings } from './store';
@@ -816,6 +818,13 @@ app.whenReady().then(async () => {
       void updateTray();
     },
   });
+  registerPlacesIpc({
+    journal: () => journal,
+    broadcast,
+    changed: libraryChanged,
+    // Network drives and cloud folders stay out of the library walk unless the person includes them.
+    setRemoteExclusions: (paths) => { index.excluded = [...new Set([...settings().excluded, ...paths])]; },
+  });
   registerCaptureIpc({
     preload: capturePreload(),
     langs: () => settings().ocrLanguages,
@@ -853,9 +862,9 @@ app.whenReady().then(async () => {
   setTimeout(() => void runEnabledRules(), 5 * 60_000);
 
   onSettings((next, prev) => {
-    if (next.folders.join() !== prev.folders.join() || next.excluded.join() !== prev.excluded.join() || next.showHidden !== prev.showHidden) {
+    if (next.folders.join() !== prev.folders.join() || next.excluded.join() !== prev.excluded.join() || next.showHidden !== prev.showHidden || next.includeRemote !== prev.includeRemote) {
       index.folders = next.folders.filter(existsSync).map((f) => ({ path: f, label: path.basename(f) }));
-      index.excluded = next.excluded;
+      index.excluded = next.includeRemote ? next.excluded : [...new Set([...next.excluded, ...remoteFolders()])];
       void rescan();
     }
     if (next.quickSearchShortcut !== prev.quickSearchShortcut || next.island.captureShortcut !== prev.island.captureShortcut || next.island.dictationShortcut !== prev.island.dictationShortcut) registerShortcuts();

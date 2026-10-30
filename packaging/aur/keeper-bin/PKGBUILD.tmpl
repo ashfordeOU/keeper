@@ -1,0 +1,37 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Maintainer: Ashforde OÜ <contact@ashforde.org>
+# Rendered by scripts/render-packaging.mjs and pushed to https://aur.archlinux.org/packages/keeper-bin
+pkgname=keeper-bin
+pkgver={{version}}
+pkgrel=1
+pkgdesc='Find, understand and tidy your files'
+arch=('x86_64' 'aarch64')
+url='https://github.com/ashfordeOU/keeper'
+license=('AGPL-3.0-or-later')
+depends=('gtk3' 'libnotify' 'nss' 'libxss' 'libxtst' 'xdg-utils' 'at-spi2-core' 'util-linux-libs' 'libsecret' 'alsa-lib')
+optdepends=('playerctl: now playing in the Island'
+            'xdotool: paste dictated text on X11'
+            'wtype: paste dictated text on Wayland'
+            'attr: read where downloads came from')
+provides=('keeper')
+conflicts=('keeper')
+options=('!strip' '!debug')
+source_x86_64=("keeper-${pkgver}-x86_64.deb::https://github.com/ashfordeOU/keeper/releases/download/v${pkgver}/Keeper-linux-amd64.deb")
+source_aarch64=("keeper-${pkgver}-aarch64.deb::https://github.com/ashfordeOU/keeper/releases/download/v${pkgver}/Keeper-linux-arm64.deb")
+sha256sums_x86_64=('{{sha256:Keeper-linux-amd64.deb}}')
+sha256sums_aarch64=('{{sha256:Keeper-linux-arm64.deb}}')
+
+package() {
+  bsdtar -xf data.tar.* -C "${pkgdir}"
+  # Keeper's own updater leaves AUR installs to pacman / your AUR helper.
+  install -d "${pkgdir}/usr/bin"
+  cat > "${pkgdir}/usr/bin/keeper" <<'SH'
+#!/bin/sh
+# With no arguments, open Keeper; otherwise run the keeper command bundled with the app.
+[ $# -eq 0 ] && exec /opt/Keeper/keeper
+ELECTRON_RUN_AS_NODE=1 exec /opt/Keeper/keeper /opt/Keeper/resources/app.asar/dist-cli/keeper.cjs "$@"
+SH
+  chmod 755 "${pkgdir}/usr/bin/keeper"
+  chmod 4755 "${pkgdir}/opt/Keeper/chrome-sandbox"
+  install -Dm644 "${pkgdir}/opt/Keeper/LICENSE.electron.txt" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE.electron.txt"
+}

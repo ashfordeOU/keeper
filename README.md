@@ -38,7 +38,7 @@ optional AI assistant — in one small app that never uploads your files.
 - [Everything Keeper does](#everything-keeper-does)
   - [Library and browsing](#library-and-browsing) · [Previews for every file](#previews-for-every-file) · [Plain-English search](#plain-english-search) · [Text in images](#text-in-images-and-on-screen) · [Downloaded From](#downloaded-from)
   - [Duplicates](#duplicates) · [Clean Up](#clean-up) · [Space Map](#space-map) · [Automations](#automations) · [History and undo](#history-and-undo)
-  - [The Island](#the-island) · [Quick Search, tray and deep links](#quick-search-tray-and-deep-links) · [Toolbox](#toolbox) · [System](#system) · [Assistant](#assistant)
+  - [The Island](#the-island) · [Themes](#themes) · [Quick Search, tray and deep links](#quick-search-tray-and-deep-links) · [Toolbox](#toolbox) · [System](#system) · [Assistant](#assistant)
   - [Command line](#command-line)
 - [Keyboard shortcuts](#keyboard-shortcuts)
 - [Keeper compared with your system file manager](#keeper-compared-with-your-system-file-manager)
@@ -68,6 +68,11 @@ optional AI assistant — in one small app that never uploads your files.
 - **Shelves** for Images, Videos, Music, Documents, Archives, Installers, Apps and Screenshots, plus Recents, Tags, Saved searches and pinned folders in the sidebar.
 - **Home dashboard** with disk usage by kind, totals per shelf, recent photos, videos, music and documents, recent downloads with their source, the weather and a one-click cleanup.
 - **Browse** any folder with breadcrumbs, grid or list view, hidden-file toggle, new folders and “pin to sidebar”.
+- **Places in the sidebar**, like a file manager's: *Favorites* (Applications, Desktop, Documents, Downloads, Pictures, Movies/Videos, Music, your home folder and any folder you drag in) and *Locations* (Shared, iCloud Drive, OneDrive, Google Drive, Dropbox, Proton Drive, Box, pCloud, MEGA, Nextcloud and other cloud drives; this computer; every internal, USB, SD-card, disc and disk-image volume with its free space and an eject button; AirDrop on a Mac; connected network shares; Network; Trash). Right-click any place for Open, Show in folder, Get Info (total size) or Remove from Sidebar.
+- **Network and Connect to Server**: servers on the local network announce themselves (NAS boxes, Macs with file sharing, Samba with Avahi, Windows computers), and any `smb://`, `afp://`, `nfs://`, `sftp://`, `ftp://`, `webdav(s)://` address or `\\server\share` path connects and opens — typed in Connect to Server or straight into the Browse path bar (double-click the breadcrumbs). Recent servers are remembered; passwords never are.
+- **Trash / Recycle Bin**: every deleted item with where it came from and when, *Put Back*, *Delete Immediately* and *Empty Trash* — including the per-disk trash folders on USB drives.
+- **Share…** from the right-click menu: the system share sheet with AirDrop, Mail and Messages on macOS, KDE Connect devices or an email attachment on Linux, an email on Windows.
+- **Cloud and network folders stay out of the library walk** by default, so a NAS or an on-demand cloud drive is never crawled or downloaded (Settings → *Include network drives and cloud folders in the library*). Files kept only in the cloud are marked in Browse.
 - **Grid or list** (<kbd>Ctrl/⌘ 1</kbd> / <kbd>Ctrl/⌘ 2</kbd>), adjustable card size (<kbd>Ctrl/⌘ +</kbd> / <kbd>−</kbd>), sort by name, date, size or kind, arrow-key navigation, <kbd>Shift</kbd>/<kbd>Ctrl/⌘</kbd> multi-select, select all.
 - **Inspector** (<kbd>Ctrl/⌘ I</kbd>): large preview, dimensions, duration, camera, created/modified/opened dates, location, download source with the original link, text found in the image, and tags.
 - **Right-click menu**: Open, Open With, Quick Look, Show in folder, Copy, Copy Path, Copy Text in Image, Add to Shelf, Pin to Sidebar, Rename, Compress to ZIP, Move to Trash.
@@ -75,7 +80,7 @@ optional AI assistant — in one small app that never uploads your files.
 - **Tags** on any file, searchable with `#tag`.
 - **Drag files out** into any app — one or many at a time.
 - **Built-in music player**: double-click a song to play it in the toolbar.
-- **Two looks**: *Playful* (colourful) and *Minimal* (black, white and grey), each in light and dark, following the system or set by hand (<kbd>Ctrl/⌘ Shift T</kbd>).
+- **18 themes** in light and dark, from *Playful* and *Minimal* to Blossom, Steel, Terminal and Retro 95 (see [Themes](#themes)); <kbd>Ctrl/⌘ Shift T</kbd> flips between the last two you used.
 
 ### Previews for every file
 
@@ -205,6 +210,36 @@ A small live panel at the top of your screen (or the left or right edge), hidden
 - **Dictation** — press the shortcut, speak, and the text is typed at the cursor in any app, using a speech-to-text service you choose (bring your own key, or a local server).
 - A small **buddy** face that reflects what is going on.
 
+### Themes
+
+Settings → Appearance shows every theme as a live preview; click one (or move with the arrow keys) and every window, the Island and widgets switch at once. Each also appears in the command palette as “Theme: …”.
+
+| Theme | Feel | Modes |
+|---|---|---|
+| Playful | Keeper’s own warm, bright colours | light, dark |
+| Minimal | black, white and grey | light, dark |
+| Blossom | petal pink and lavender, soft round corners | light, dark |
+| Steel | gunmetal and safety orange, square | light, dark |
+| Terminal | phosphor green, all monospace | dark |
+| Midnight Code | navy with violet and teal | light, dark |
+| Ocean | sea glass and deep water | light, dark |
+| Forest | moss, fern and bark | light, dark |
+| Sunset | coral, amber and plum | light, dark |
+| Paper | sepia and serif, like an e-reader | light, dark |
+| Academia | oak, ink and brass | light, dark |
+| Neon Nights | synthwave magenta and cyan | dark |
+| Candy | bubblegum brights for kids | light |
+| Luxe | black lacquer and gold | light, dark |
+| Zen | stone, rice paper and matcha | light, dark |
+| Retro 95 | grey bevels on a teal desktop | light |
+| High Contrast | maximum legibility | light, dark |
+| Cozy Coffee | espresso, oat milk and caramel | light, dark |
+
+On top of any theme you can pick your own accent colour, a font (system, rounded, serif or mono, all from fonts already on your computer), compact density and sharp corners. Every theme’s text and buttons meet WCAG AA contrast, checked by the tests in `test/themes.test.ts`.
+
+<p><img src="docs/screenshots/themes-gallery.png" width="49%" alt="The theme gallery in Settings"> <img src="docs/screenshots/themes-terminal-dark.png" width="49%" alt="Keeper in the Terminal theme"></p>
+<p><img src="docs/screenshots/themes-blossom-light.png" width="49%" alt="Keeper in the Blossom theme"> <img src="docs/screenshots/themes-steel-dark.png" width="49%" alt="Keeper in the Steel theme"></p>
+
 ### Quick Search, tray and deep links
 
 - **Quick Search** (<kbd>Ctrl/⌘ Shift Space</kbd>, changeable): recent files when empty, live plain-English results; <kbd>↩</kbd> opens, <kbd>Ctrl/⌘ ↩</kbd> shows in Keeper, <kbd>Alt ↩</kbd> shows in the folder.
@@ -260,7 +295,7 @@ keeper agents              Status of Claude Code / Codex sessions on this comput
 | Search | <kbd>Ctrl F</kbd> | Bigger / smaller cards | <kbd>Ctrl +</kbd> / <kbd>Ctrl −</kbd> | Clean Up | <kbd>Ctrl Shift K</kbd> |
 | Command palette | <kbd>Ctrl K</kbd> | Inspector | <kbd>Ctrl I</kbd> | Play / pause | <kbd>Ctrl Space</kbd> |
 | Downloaded From | <kbd>Ctrl Shift J</kbd> | Preview | <kbd>Space</kbd> | Move to Trash | <kbd>Ctrl ⌫</kbd> / <kbd>Delete</kbd> |
-| Copy text in selected images | <kbd>Ctrl Shift C</kbd> | Switch look | <kbd>Ctrl Shift T</kbd> | Back | <kbd>Ctrl [</kbd> |
+| Copy text in selected images | <kbd>Ctrl Shift C</kbd> | Switch theme | <kbd>Ctrl Shift T</kbd> | Back | <kbd>Ctrl [</kbd> |
 | Copy text from screen (any app) | <kbd>Ctrl Shift 2</kbd> | Settings | <kbd>Ctrl ,</kbd> | Dictation (any app) | <kbd>Ctrl Shift ;</kbd> |
 
 Global shortcuts can be changed in Settings and Island settings.
@@ -284,6 +319,7 @@ Keeper works **alongside** Finder, File Explorer, Files or Dolphin — “Show i
 | Rules that tidy folders automatically, with undo history | — | ✅ |
 | Batch rename with preview and undo | partly | ✅ |
 | Tags on any OS | macOS only | ✅ |
+| Favorites, cloud drives, disks with eject, network servers and Trash with Put Back in one sidebar | ✅ | ✅ same on every OS |
 | Recent downloads in the tray, Quick Search over any app | — | ✅ |
 | Clipboard history, shelf, focus timer, keep-awake | — | ✅ |
 | Startup items, installed apps, security check, system health | separate tools | ✅ |

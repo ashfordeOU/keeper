@@ -366,8 +366,16 @@ export type Look = 'playful' | 'minimal';
 export type Appearance = 'system' | 'light' | 'dark';
 
 export interface Settings {
+  /** kept for older settings and the Playful/Minimal toggle; `theme` decides the colours */
   look: Look;
   appearance: Appearance;
+  /** theme id from core/themes.ts */
+  theme: string;
+  /** a custom accent colour (#rrggbb), or '' for the theme's own */
+  accent: string;
+  font: 'theme' | 'system' | 'rounded' | 'serif' | 'mono';
+  density: 'comfortable' | 'compact';
+  corners: 'theme' | 'rounded' | 'sharp';
   /** folders the library indexes */
   folders: string[];
   /** never index or touch anything under these */
@@ -384,6 +392,12 @@ export interface Settings {
   rules: Rule[];
   savedSearches: SavedSearch[];
   pinned: string[];
+  /** sidebar places the person removed (by id) */
+  hiddenPlaces: string[];
+  /** servers used with Connect to Server, newest first */
+  recentServers: string[];
+  /** let the library walk network drives and cloud folders (off: they can be slow or download files) */
+  includeRemote: boolean;
   ai: { provider: AiProvider; model: string; ollamaUrl: string };
   /** desktop widgets (see core/widgets.ts) */
   widgets: import('./widgets').WidgetConfig[];

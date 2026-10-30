@@ -1,0 +1,122 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* What themes need beyond the tokens in core/themes.ts (written to <html> by src/theme.ts):
+   corner styles, density, a few theme signatures and code colours from the palette. */
+
+/* The window background can be a gradient or pattern; panels keep the plain colour. */
+html:not([data-view='island']):not([data-view='quick']):not([data-view='widget']):not([data-view='clips']) body { background: var(--app-bg, var(--bg)); }
+
+/* ------------------------------------------------------------------ corners */
+
+html[data-corners='sharp'] :where(.btn, .btn.sm, .input, .seg, .seg button, .check, .nav-item, .menu, .menu button, .modal, .toast, .file-card, .file-card .thumb, .ext-tile, .searchbox, .player, .treemap .tile, .ocr-text, .tg-card, .tg-swatch) { border-radius: var(--radius-sm); }
+html[data-corners='sharp'] :where(.badge, .chip) { border-radius: 3px; }
+html[data-corners='sharp'] .toggle, html[data-corners='sharp'] .toggle::after { border-radius: 3px; }
+html[data-corners='sharp'] :focus-visible { border-radius: 0; }
+html[data-corners='soft'] :where(.btn, .input, .seg) { border-radius: var(--radius-sm); }
+html[data-corners='soft'] .seg button { border-radius: calc(var(--radius-sm) - 2px); }
+html[data-corners='soft'] :where(.modal, .menu) { border-radius: var(--radius); }
+
+/* ------------------------------------------------------------------ density */
+
+html[data-density='compact'] body { font-size: 12.5px; }
+html[data-density='compact'] .content { padding: 12px 16px 28px; }
+html[data-density='compact'] .btn { height: 28px; padding: 0 10px; }
+html[data-density='compact'] .btn.icon { width: 28px; padding: 0; }
+html[data-density='compact'] .input { height: 28px; }
+html[data-density='compact'] .nav-item { padding: 4px 9px; }
+html[data-density='compact'] .topbar { height: 44px; }
+html[data-density='compact'] .card.pad { padding: 12px; }
+html[data-density='compact'] .file-list td { padding: 3px 10px; }
+html[data-density='compact'] .grid { gap: 8px; }
+
+/* ------------------------------------------------------------------ details every theme shares */
+
+html[data-theme-id] ::selection { background: var(--accent-soft); color: inherit; }
+html[data-theme-id] :focus-visible { outline-color: var(--accent); }
+html[data-theme-id] ::-webkit-scrollbar-thumb { background-color: var(--line-strong); }
+html[data-theme-id] ::-webkit-scrollbar-thumb:hover { background-color: var(--text-3); }
+html[data-theme-id]:not([data-theme-id='playful']):not([data-theme-id='minimal']) .sidebar .brand .logo { background: linear-gradient(135deg, var(--owl-a), var(--owl-b) 45%, var(--owl-c)); }
+html[data-theme-id] .sidebar { background: color-mix(in srgb, var(--bg-sunk) 88%, transparent); }
+
+/* Code previews take their colours from the theme (Playful and Minimal keep their own). */
+html[data-theme-id]:not([data-theme-id='playful']):not([data-theme-id='minimal']) .hljs { color: var(--text); }
+html[data-theme-id]:not([data-theme-id='playful']):not([data-theme-id='minimal']) :is(.hljs-keyword, .hljs-doctag, .hljs-template-tag, .hljs-type, .hljs-selector-tag) { color: var(--accent); }
+html[data-theme-id]:not([data-theme-id='playful']):not([data-theme-id='minimal']) :is(.hljs-title, .hljs-title.function_, .hljs-title.class_, .hljs-section) { color: var(--c-video); }
+html[data-theme-id]:not([data-theme-id='playful']):not([data-theme-id='minimal']) :is(.hljs-string, .hljs-regexp, .hljs-meta .hljs-string, .hljs-addition) { color: var(--ok); background: none; }
+html[data-theme-id]:not([data-theme-id='playful']):not([data-theme-id='minimal']) :is(.hljs-number, .hljs-literal, .hljs-symbol, .hljs-built_in) { color: var(--warn); }
+html[data-theme-id]:not([data-theme-id='playful']):not([data-theme-id='minimal']) :is(.hljs-attr, .hljs-attribute, .hljs-variable, .hljs-selector-class, .hljs-selector-id, .hljs-name) { color: var(--c-document); }
+html[data-theme-id]:not([data-theme-id='playful']):not([data-theme-id='minimal']) :is(.hljs-comment, .hljs-quote, .hljs-meta) { color: var(--text-3); font-style: italic; }
+html[data-theme-id]:not([data-theme-id='playful']):not([data-theme-id='minimal']) .hljs-deletion { color: var(--danger); background: none; }
+
+/* ------------------------------------------------------------------ theme signatures */
+
+/* Terminal: a blinking block caret in inputs and a faint glow on text. */
+html[data-theme-id='terminal'] body { text-shadow: 0 0 6px rgba(57, 255, 106, .18); }
+html[data-theme-id='terminal'] .input { caret-color: var(--accent); }
+html[data-theme-id='terminal'] .btn.primary { text-shadow: none; }
+
+/* Neon Nights: glowing accents. */
+html[data-theme-id='neon'] .btn.primary { box-shadow: 0 0 14px rgba(255, 63, 191, .45); }
+html[data-theme-id='neon'] .nav-item.active { box-shadow: inset 2px 0 0 var(--accent); }
+html[data-theme-id='neon'] .card { border-color: rgba(61, 214, 255, .14); }
+
+/* Retro 95: raised grey bevels and a navy title strip. */
+html[data-theme-id='retro'] :where(.btn, .card, .seg, .modal, .menu, .inspector) {
+  box-shadow: inset -1px -1px 0 #404040, inset 1px 1px 0 #ffffff, inset -2px -2px 0 #808080, inset 2px 2px 0 #dfdfdf;
+  border-color: transparent;
+}
+html[data-theme-id='retro'] .btn:active { box-shadow: inset 1px 1px 0 #404040, inset -1px -1px 0 #ffffff; transform: none; }
+html[data-theme-id='retro'] .input { box-shadow: inset 1px 1px 0 #808080, inset 2px 2px 0 #404040; border-color: transparent; background: #ffffff; }
+html[data-theme-id='retro'] .topbar { background: linear-gradient(90deg, #000080, #1084d0); color: #fff; }
+html[data-theme-id='retro'] .topbar :is(.btn.ghost, .crumbs, h1, .title) { color: #fff; }
+html[data-theme-id='retro'] .sidebar { background: var(--bg); }
+html[data-theme-id='retro'] .shell { margin: 10px; height: calc(100% - 20px); background: var(--bg); box-shadow: inset -1px -1px 0 #404040, inset 1px 1px 0 #fff, 4px 4px 0 rgba(0, 0, 0, .35); }
+
+/* Blossom and Candy: bouncy primary buttons. */
+html:is([data-theme-id='blossom'], [data-theme-id='candy']) .btn.primary { box-shadow: 0 3px 0 color-mix(in srgb, var(--accent) 65%, #000); }
+html:is([data-theme-id='blossom'], [data-theme-id='candy']) .btn.primary:active { transform: translateY(2px); box-shadow: 0 1px 0 color-mix(in srgb, var(--accent) 65%, #000); }
+
+/* Steel: a hazard stripe under the top bar. */
+html[data-theme-id='steel'] .topbar { border-bottom: 2px solid var(--accent); }
+
+/* Paper and Academia: headings in small caps. */
+html:is([data-theme-id='paper'], [data-theme-id='academia']) :is(h1, h2) { font-variant: small-caps; letter-spacing: .02em; }
+
+/* Luxe: hairline gold borders. */
+html[data-theme-id='luxe'] .card { border-color: color-mix(in srgb, var(--accent) 28%, transparent); }
+
+/* High Contrast: solid borders and thick focus rings. */
+html[data-theme-id='contrast'] { --line: var(--text-3); --line-strong: var(--text); }
+html[data-theme-id='contrast'] :focus-visible { outline-width: 3px; }
+html[data-theme-id='contrast'] a { text-decoration: underline; }
+
+/* ------------------------------------------------------------------ Settings → Appearance gallery */
+
+.tg { display: grid; grid-template-columns: repeat(auto-fill, minmax(176px, 1fr)); gap: 12px; }
+.tg-card {
+  all: unset; box-sizing: border-box; display: flex; flex-direction: column; gap: 8px; padding: 8px; cursor: default;
+  border-radius: var(--radius); border: 1.5px solid var(--line); background: var(--bg-elev); color: var(--text);
+}
+.tg-card:hover { border-color: var(--line-strong); }
+.tg-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tg-card.on { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.tg-name { font-weight: 650; font-size: 13px; display: flex; align-items: center; gap: 6px; }
+.tg-line { font-size: 11.5px; color: var(--text-2); line-height: 1.35; }
+.tg-mode { font-size: 10.5px; font-weight: 600; color: var(--text-3); margin-left: auto; text-transform: uppercase; letter-spacing: .04em; }
+/* The mini window: everything inside uses the previewed theme's variables. */
+.tg-prev { height: 96px; border-radius: calc(var(--radius) - 4px); overflow: hidden; display: grid; grid-template-columns: 34% 1fr; background: var(--app-bg, var(--bg)); border: 1px solid var(--line); font-family: var(--font); color: var(--text); }
+.tg-side { background: var(--bg-sunk); padding: 7px 6px; display: flex; flex-direction: column; gap: 4px; }
+.tg-owl { width: 14px; height: 14px; border-radius: 4px; background: linear-gradient(135deg, var(--owl-a), var(--owl-b) 45%, var(--owl-c)); margin-bottom: 3px; }
+.tg-nav { height: 6px; border-radius: 3px; background: var(--text-3); opacity: .45; }
+.tg-nav.on { background: var(--accent); opacity: 1; }
+.tg-main { padding: 7px 8px; display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.tg-h { font-size: 10px; font-weight: 700; line-height: 1; color: var(--text); white-space: nowrap; overflow: hidden; }
+.tg-sub { font-size: 8px; color: var(--text-2); line-height: 1; }
+.tg-tiles { display: flex; gap: 3px; }
+.tg-tiles i { flex: 1; height: 16px; border-radius: calc(var(--radius-sm) - 5px); }
+.tg-bar { display: flex; gap: 4px; margin-top: auto; align-items: center; }
+.tg-btn { height: 12px; padding: 0 6px; border-radius: calc(var(--radius-sm) - 4px); background: var(--accent); color: var(--accent-text); font-size: 7px; font-weight: 700; display: grid; place-items: center; }
+.tg-pill { height: 10px; width: 38px; border-radius: 6px; background: var(--island-bg); border: 1px solid var(--line); }
+.tg-swatch { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--line-strong); padding: 0; cursor: default; }
+.tg-swatch.on { box-shadow: 0 0 0 2px var(--bg-elev), 0 0 0 4px var(--accent); }
+.tg-swatches { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.tg-filter { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }

@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.9.0.schema.json
+PackageIdentifier: Ashforde.Keeper
+PackageVersion: {{version}}
+MinimumOSVersion: 10.0.17763.0
+InstallerType: nullsoft
+Scope: user
+InstallModes:
+  - interactive
+  - silent
+UpgradeBehavior: install
+Protocols:
+  - keeper
+ReleaseDate: {{date}}
+Installers:
+  - Architecture: x64
+    InstallerUrl: https://github.com/ashfordeOU/keeper/releases/download/v{{version}}/Keeper-setup-x64.exe
+    InstallerSha256: {{sha256:Keeper-setup-x64.exe}}
+ManifestType: installer
+ManifestVersion: 1.9.0

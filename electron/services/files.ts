@@ -32,7 +32,7 @@ export class FileService {
         try {
           const st = await fsp.stat(p);
           const isDir = st.isDirectory() && extOf(d.name) !== 'app';
-          out.push({ path: p, name: d.name, isDir, size: isDir ? 0 : st.size, mtime: st.mtimeMs, kind: isDir ? 'folder' : kindOf(d.name, st.isDirectory()), ext: isDir ? '' : extOf(d.name), hidden });
+          out.push({ path: p, name: d.name, isDir, size: isDir ? 0 : st.size, mtime: st.mtimeMs, kind: isDir ? 'folder' : kindOf(d.name, st.isDirectory()), ext: isDir ? '' : extOf(d.name), hidden, cloudOnly: !isDir && st.size > 4096 && st.blocks === 0 ? true : undefined });
         } catch {
           /* broken link or no permission */
         }

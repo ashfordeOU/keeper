@@ -2,6 +2,7 @@
 // Default settings and a lenient reader for settings loaded from disk.
 
 import type { IslandSettings } from './api';
+import { DEFAULT_THEME, THEMES } from './themes';
 import type { Rule, Settings } from './types';
 
 export type AllSettings = Settings & { island: IslandSettings };
@@ -51,6 +52,11 @@ export function defaultSettings(folders: string[], rules: Rule[]): AllSettings {
   return {
     look: 'playful',
     appearance: 'system',
+    theme: 'playful',
+    accent: '',
+    font: 'theme',
+    density: 'comfortable',
+    corners: 'theme',
     folders,
     excluded: [],
     showHidden: false,
@@ -65,6 +71,9 @@ export function defaultSettings(folders: string[], rules: Rule[]): AllSettings {
     rules,
     savedSearches: [],
     pinned: [],
+    hiddenPlaces: [],
+    recentServers: [],
+    includeRemote: false,
     ai: { provider: 'anthropic', model: '', ollamaUrl: 'http://127.0.0.1:11434' },
     widgets: [],
     updateCheck: true,
@@ -95,5 +104,12 @@ export function mergeSettings(base: AllSettings, raw: unknown): AllSettings {
   }
   if (!['playful', 'minimal'].includes(out.look)) out.look = 'playful';
   if (!['system', 'light', 'dark'].includes(out.appearance)) out.appearance = 'system';
+  // Settings from before themes only had a look; Minimal carries over.
+  if (typeof r.theme !== 'string') out.theme = out.look === 'minimal' ? 'minimal' : out.theme;
+  if (!THEMES.some((t) => t.id === out.theme)) out.theme = DEFAULT_THEME;
+  if (out.accent && !/^#[0-9a-f]{6}$/i.test(out.accent)) out.accent = '';
+  if (!['theme', 'system', 'rounded', 'serif', 'mono'].includes(out.font)) out.font = 'theme';
+  if (!['comfortable', 'compact'].includes(out.density)) out.density = 'comfortable';
+  if (!['theme', 'rounded', 'sharp'].includes(out.corners)) out.corners = 'theme';
   return out;
 }

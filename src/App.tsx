@@ -9,6 +9,7 @@ import { Icon } from './components/Icon';
 import { OwlMark } from './components/OwlMark';
 import { UpdateBanner, WhatsNew } from './components/Updates';
 import { Inspector } from './components/Inspector';
+import { PlacesSidebar } from './components/PlacesSidebar';
 import { Player } from './components/Player';
 import { KIND_COLOR } from './components/ui';
 import { Apps } from './screens/Apps';
@@ -36,8 +37,11 @@ import { Tools } from './screens/Tools';
 import { Convert } from './screens/Convert';
 import { Capture } from './screens/Capture';
 import { Annotate } from './screens/Annotate';
+import { Network } from './screens/Network';
+import { Trash } from './screens/Trash';
 import { mod, shift, useAsync, useStore, type Route, type RouteName } from './state';
 import { QuickLookHost } from './preview/QuickLook';
+import { toggleThemePatch } from './theme';
 
 const SHELVES: FileKind[] = ['image', 'video', 'audio', 'document', 'archive', 'installer', 'app'];
 
@@ -54,7 +58,7 @@ function NavItem({ route, icon, label, count, color }: { route: Route; icon?: st
 }
 
 function Sidebar() {
-  const { settings, version, info, updateSettings } = useStore();
+  const { settings, version, info } = useStore();
   const t = useT();
   const totals = useAsync(() => api.library.totals(), [version]);
   const tags = useAsync(() => api.library.tags(), [version]);
@@ -81,16 +85,8 @@ function Sidebar() {
         </div>
       ) : null}
 
-      {settings?.pinned.length ? (
-        <div className="nav-section">
-          <div className="nav-title">{t('section.pinned')}</div>
-          {settings.pinned.map((p) => (
-            <div key={p} onContextMenu={(e) => { e.preventDefault(); void updateSettings({ pinned: settings.pinned.filter((x) => x !== p) }); }}>
-              <NavItem route={{ name: 'browse', arg: p }} icon="folder" label={p.split(/[\\/]/).pop() || p} />
-            </div>
-          ))}
-        </div>
-      ) : null}
+      {/* Favorites (pinned folders included) and Locations: disks, cloud, network, Trash. */}
+      <PlacesSidebar />
 
       {tags.data?.length ? (
         <div className="nav-section">
@@ -172,8 +168,8 @@ function TopBar({ onPalette }: { onPalette: () => void }) {
       <button className="btn ghost icon" title={`Command palette (${mod}K)`} onClick={onPalette}><Icon name="sparkle" size={16} /></button>
       <button
         className="btn ghost icon"
-        title={`Switch look (${mod}${shift}T)`}
-        onClick={() => settings && void updateSettings({ look: settings.look === 'playful' ? 'minimal' : 'playful' })}
+        title={`Switch theme (${mod}${shift}T)`}
+        onClick={() => settings && void updateSettings(toggleThemePatch(settings))}
       >
         <Icon name="palette" size={16} />
       </button>
@@ -235,6 +231,8 @@ function Page() {
     weather: () => <Weather />,
     capture: () => <Capture />,
     annotate: () => <Annotate />,
+    network: () => <Network />,
+    trash: () => <Trash />,
   };
   return pages[route.name]();
 }
@@ -250,7 +248,7 @@ export function App() {
       const cmd = e.metaKey || e.ctrlKey;
       const k = e.key.toLowerCase();
       if (cmd && k === 'k') { e.preventDefault(); setPalette((p) => !p); }
-      else if (cmd && e.shiftKey && k === 't' && store.settings) { e.preventDefault(); void store.updateSettings({ look: store.settings.look === 'playful' ? 'minimal' : 'playful' }); }
+      else if (cmd && e.shiftKey && k === 't' && store.settings) { e.preventDefault(); void store.updateSettings(toggleThemePatch(store.settings)); }
       else if (cmd && e.shiftKey && k === 'd') { e.preventDefault(); store.go({ name: 'duplicates' }); }
       else if (cmd && e.shiftKey && k === 'k') { e.preventDefault(); store.go({ name: 'cleanup' }); }
       else if (cmd && e.shiftKey && k === 'j') { e.preventDefault(); store.go({ name: 'downloads' }); }

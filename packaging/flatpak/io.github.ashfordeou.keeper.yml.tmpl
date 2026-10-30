@@ -1,0 +1,80 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Flatpak manifest, rendered by scripts/render-packaging.mjs. Flathub takes it through a one-time
+# submission pull request to github.com/flathub/flathub (see docs/INSTALL.md → Maintainers);
+# after that, Flathub's bot opens update pull requests from the x-checker-data below.
+# Build locally:
+#   flatpak-builder --user --install --force-clean build-dir io.github.ashfordeou.keeper.yml
+id: io.github.ashfordeou.keeper
+runtime: org.freedesktop.Platform
+runtime-version: '24.08'
+sdk: org.freedesktop.Sdk
+base: org.electronjs.Electron2.BaseApp
+base-version: '24.08'
+command: keeper
+separate-locales: false
+finish-args:
+  - --share=ipc
+  - --share=network
+  - --socket=x11
+  - --socket=wayland
+  - --socket=pulseaudio
+  - --device=dri
+  # Keeper is a file library: it shows, searches and tidies the files in your home folder.
+  - --filesystem=home
+  - --filesystem=/media
+  - --filesystem=/run/media
+  - --talk-name=org.freedesktop.Notifications
+  - --talk-name=org.kde.StatusNotifierWatcher
+  - --talk-name=org.freedesktop.secrets
+  - --talk-name=org.mpris.MediaPlayer2.*
+  - --env=ELECTRON_TRASH=gio
+modules:
+  - name: keeper
+    buildsystem: simple
+    build-commands:
+      - cp -a keeper-dist /app/keeper
+      - install -Dm755 keeper.sh /app/bin/keeper
+      - install -Dm644 io.github.ashfordeou.keeper.desktop /app/share/applications/io.github.ashfordeou.keeper.desktop
+      - install -Dm644 io.github.ashfordeou.keeper.metainfo.xml /app/share/metainfo/io.github.ashfordeou.keeper.metainfo.xml
+      - install -Dm644 io.github.ashfordeou.keeper.png /app/share/icons/hicolor/512x512/apps/io.github.ashfordeou.keeper.png
+    sources:
+      - type: archive
+        only-arches: [x86_64]
+        url: https://github.com/ashfordeOU/keeper/releases/download/v{{version}}/Keeper-linux-x64.tar.gz
+        sha256: {{sha256:Keeper-linux-x64.tar.gz}}
+        dest: keeper-dist
+        x-checker-data:
+          type: json
+          url: https://api.github.com/repos/ashfordeOU/keeper/releases/latest
+          version-query: .tag_name | sub("^v"; "")
+          url-query: .assets[] | select(.name=="Keeper-linux-x64.tar.gz") | .browser_download_url
+      - type: archive
+        only-arches: [aarch64]
+        url: https://github.com/ashfordeOU/keeper/releases/download/v{{version}}/Keeper-linux-arm64.tar.gz
+        sha256: {{sha256:Keeper-linux-arm64.tar.gz}}
+        dest: keeper-dist
+        x-checker-data:
+          type: json
+          url: https://api.github.com/repos/ashfordeOU/keeper/releases/latest
+          version-query: .tag_name | sub("^v"; "")
+          url-query: .assets[] | select(.name=="Keeper-linux-arm64.tar.gz") | .browser_download_url
+      - type: file
+        path: io.github.ashfordeou.keeper.desktop
+      - type: file
+        path: io.github.ashfordeou.keeper.metainfo.xml
+      - type: file
+        path: io.github.ashfordeou.keeper.png
+      - type: script
+        dest-filename: keeper.sh
+        commands:
+          # Subcommands (keeper search …, keeper --help) run the keeper command bundled with the app;
+          # no arguments, links and Electron flags open the app.
+          - case "${1:-}" in
+          - '  --help|-h|--version|-v) cli=1 ;;'
+          - "  ''|-*|*://*) cli=0 ;;"
+          - '  *) cli=1 ;;'
+          - esac
+          - if [ "$cli" = 1 ]; then
+          - '  ELECTRON_RUN_AS_NODE=1 exec /app/keeper/keeper /app/keeper/resources/app.asar/dist-cli/keeper.cjs "$@"'
+          - fi
+          - exec zypak-wrapper /app/keeper/keeper "$@"

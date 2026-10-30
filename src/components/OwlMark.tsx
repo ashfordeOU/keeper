@@ -65,7 +65,7 @@ export function OwlMark({ size = 24, mood = 'idle', tile = false, className, tit
   return (
     <svg className={className} width={size} height={size} viewBox="80 80 864 864" role={title ? 'img' : undefined} aria-label={title} aria-hidden={title ? undefined : true}>
       <defs>
-        <linearGradient id={`b${id}`} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#ffb45e" /><stop offset=".45" stopColor="#ff5f8f" /><stop offset="1" stopColor="#6b3dff" /></linearGradient>
+        <linearGradient id={`b${id}`} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#ffb45e" style={{ stopColor: 'var(--owl-a, #ffb45e)' }} /><stop offset=".45" stopColor="#ff5f8f" style={{ stopColor: 'var(--owl-b, #ff5f8f)' }} /><stop offset="1" stopColor="#6b3dff" style={{ stopColor: 'var(--owl-c, #6b3dff)' }} /></linearGradient>
         <linearGradient id={`m${id}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#fff" /><stop offset="1" stopColor="#f1eaff" /></linearGradient>
       </defs>
       <rect x="80" y="80" width="864" height="864" rx="196" fill={`url(#b${id})`} />

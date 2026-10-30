@@ -78,6 +78,14 @@ const P: Record<string, string> = {
   shuffle: 'M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5',
   repeat: 'M17 2l4 4-4 4M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4M21 13v2a3 3 0 0 1-3 3H3',
   drop: 'M12 3s7 7.5 7 12a7 7 0 0 1-14 0c0-4.5 7-12 7-12z',
+  cloud: 'M7 18h10.5a4.5 4.5 0 0 0 .6-8.96A6 6 0 0 0 6.3 10.2 4 4 0 0 0 7 18z',
+  eject: 'M12 5l7 8H5zM5 18h14',
+  server: 'M4 4h16v6H4zM4 14h16v6H4zM8 7h.01M8 17h.01',
+  laptop: 'M5 5h14v10H5zM3 19h18',
+  disk: 'M3 8h18v8H3zM7 12h.01M14 12h3',
+  usb: 'M9 3h6v6H9zM7 9h10v8a5 5 0 0 1-10 0zM11 5h.01M13 5h.01',
+  airdrop: 'M12 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM8.5 15.5a5 5 0 1 1 7 0M5.6 18.4a9 9 0 1 1 12.8 0',
+  share: 'M12 3v12M7 8l5-5 5 5M5 13v6h14v-6',
 };
 
 export type IconName = keyof typeof P;

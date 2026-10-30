@@ -1,0 +1,26 @@
+{
+  "name": "keeper-cli",
+  "version": "{{version}}",
+  "description": "The keeper command: find, understand and tidy your files from the terminal. Read-only unless you pass --yes.",
+  "keywords": ["files", "search", "duplicates", "cleanup", "disk-space", "cli"],
+  "homepage": "https://github.com/ashfordeOU/keeper#readme",
+  "bugs": "https://github.com/ashfordeOU/keeper/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ashfordeOU/keeper.git",
+    "directory": "packaging/npm"
+  },
+  "license": "AGPL-3.0-or-later",
+  "author": "Ashforde OÜ <contact@ashforde.org>",
+  "bin": {
+    "keeper": "keeper.cjs"
+  },
+  "files": ["keeper.cjs", "README.md", "LICENSE"],
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}

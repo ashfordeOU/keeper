@@ -1,0 +1,9 @@
+VERIFICATION
+Verification is intended to assist the Chocolatey moderators and community
+in verifying that this package's contents are trustworthy.
+
+The package downloads Keeper's official installer from the project's GitHub release:
+  https://github.com/ashfordeOU/keeper/releases/download/v{{version}}/Keeper-setup-x64.exe
+and checks it against SHA-256 {{sha256:Keeper-setup-x64.exe}},
+the value listed in that release's SHA256SUMS.txt. The release also carries a
+GitHub build attestation: gh attestation verify Keeper-setup-x64.exe --repo ashfordeOU/keeper

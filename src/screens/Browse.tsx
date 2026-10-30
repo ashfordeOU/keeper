@@ -11,6 +11,9 @@ import { ContextMenu, Empty, Files, Loading, Modal, Toggle, ViewControls, type M
 import { useAsync, useStore } from '../state';
 import '../styles/screens-a.css';
 import { TidyDialog } from '../components/TidyDialog';
+import { parseServerAddress } from '../../core/places';
+import { ConnectDialog } from './Network';
+import '../styles/places.css';
 
 type SortKey = 'name' | 'date' | 'size' | 'kind';
 
@@ -31,6 +34,24 @@ export function Browse() {
   const [newFolder, setNewFolder] = useState<string | null>(null);
   const [tidy, setTidy] = useState(false);
   const [menu, setMenu] = useState<{ x: number; y: number; entry: BrowseEntry } | null>(null);
+  // Typing a path (or a server address such as smb://nas/Media or \\server\share) into the path bar.
+  const [typed, setTyped] = useState<string | null>(null);
+  const [server, setServer] = useState<string | null>(null);
+  const goTyped = () => {
+    const v = (typed ?? '').trim();
+    setTyped(null);
+    if (!v) return;
+    if (/^[a-z]+:\/\//i.test(v) || /^\\\\/.test(v)) {
+      if (parseServerAddress(v)) setServer(v);
+      else toast('That does not look like a server address.');
+      return;
+    }
+    go({ name: 'browse', arg: v.replace(/^~(?=$|[\\/])/, info?.home ?? '~') });
+  };
+  const getInfo = (p: string, name: string) => {
+    toast(`Measuring ${name}…`);
+    void api.places.folderSize(p).then((s) => toast(`${name}: ${formatBytes(s.size)} · ${s.files.toLocaleString()} files in ${s.folders.toLocaleString()} folders`));
+  };
 
   const entries = useAsync(() => (dir ? api.files.browse(dir, hidden) : Promise.resolve([])), [dir, hidden, version]);
   useEffect(() => setSelected(null), [dir]);
@@ -73,6 +94,7 @@ export function Browse() {
     { label: 'Open', icon: 'folder', run: () => go({ name: 'browse', arg: e.path }) },
     { label: info?.platform === 'win32' ? 'Show in Explorer' : info?.platform === 'darwin' ? 'Show in Finder' : 'Show in Folder', icon: 'reveal', run: () => void api.files.reveal(e.path) },
     { label: 'Pin to Sidebar', icon: 'pin', run: () => settings && !settings.pinned.includes(e.path) && void updateSettings({ pinned: [...settings.pinned, e.path] }) },
+    { label: 'Get Info', icon: 'info', run: () => getInfo(e.path, e.name) },
     { label: 'Show Size in Space Map', icon: 'map', run: () => go({ name: 'space', arg: e.path }) },
     { label: 'Copy Path', icon: 'copy', run: () => void api.files.copyText(e.path) },
     { label: 'Compress', icon: 'zip', run: () => void api.files.compress([e.path]).then(() => refresh()) },
@@ -85,7 +107,12 @@ export function Browse() {
       <div className="page-head" style={{ alignItems: 'center' }}>
         <div className="row" style={{ minWidth: 0, gap: 6 }}>
           <button className="btn ghost sm icon" disabled={!parent} onClick={() => parent && go({ name: 'browse', arg: parent })} title="Enclosing folder"><Icon name="arrowUp" size={14} /></button>
-          <div className="crumbs">
+          {typed !== null ? (
+            <div className="browse-pathbar" style={{ marginBottom: 0, minWidth: 320 }}>
+              <input className="input" autoFocus value={typed} placeholder="/path, ~/folder, smb://server/share, \\server\share" onChange={(e) => setTyped(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') goTyped(); if (e.key === 'Escape') setTyped(null); }} onBlur={() => setTyped(null)} />
+            </div>
+          ) : (
+          <div className="crumbs" title="Double-click to type a path or server address" onDoubleClick={() => setTyped(dir)}>
             {crumbs.map((c, i) => (
               <span key={c.path} className="row" style={{ gap: 2 }}>
                 {i > 0 ? <Icon name="chevronRight" size={12} className="muted" /> : null}
@@ -93,6 +120,8 @@ export function Browse() {
               </span>
             ))}
           </div>
+          )}
+          <button className="btn ghost sm icon" title="Go to a path or server address" onClick={() => setTyped(typed === null ? dir : null)}><Icon name="terminal" size={13} /></button>
         </div>
         <div className="btn-row">
           <label className="row small muted" style={{ gap: 6 }}><Toggle on={hidden} onChange={setHidden} label="Show hidden files" /> Hidden</label>
@@ -106,6 +135,9 @@ export function Browse() {
         </div>
       </div>
 
+      {entries.data?.some((e) => e.cloudOnly) ? (
+        <div className="small muted row cloud-mark" style={{ gap: 6, marginBottom: 10 }}><Icon name="cloud" size={13} />{entries.data.filter((e) => e.cloudOnly).length} item(s) here are kept only in the cloud and download when opened.</div>
+      ) : null}
       {entries.loading && !entries.data ? <Loading /> : entries.error ? <Empty icon="lock" title="Can’t open this folder">{entries.error}</Empty> : (
         <>
           {folders.length ? (
@@ -137,6 +169,7 @@ export function Browse() {
       )}
 
       {menu ? <ContextMenu x={menu.x} y={menu.y} items={folderMenu(menu.entry)} onClose={() => setMenu(null)} /> : null}
+      {server !== null ? <ConnectDialog initial={server} onClose={() => setServer(null)} /> : null}
 
       {tidy ? <TidyDialog dir={dir} onClose={() => setTidy(false)} /> : null}
 

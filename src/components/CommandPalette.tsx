@@ -2,7 +2,9 @@
 // The command palette: jump anywhere or run any action by typing a few letters.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { THEMES } from '../../core/themes';
 import { api } from '../api';
+import { themePatch, toggleThemePatch } from '../theme';
 import { mod, shift, useStore, type Route } from '../state';
 import { Icon } from './Icon';
 import '../styles/screens-a.css';
@@ -14,6 +16,8 @@ interface Command {
   icon: string;
   kbd?: string;
   keywords?: string;
+  /** listed only once something is typed (e.g. one entry per theme) */
+  typed?: boolean;
   run: () => unknown;
 }
 
@@ -74,7 +78,8 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     ...PAGES.map(([route, label, icon, kbd]) => ({ id: `go-${label}`, label, group: 'Go to' as const, icon, kbd, run: () => store.go(route) })),
     { id: 'browse', label: 'Browse Home Folder', group: 'Go to', icon: 'folder', run: () => store.go({ name: 'browse', arg: store.info?.home }) },
     { id: 'rescan', label: 'Rescan Library', group: 'Actions', icon: 'refresh', keywords: 'index refresh reload', run: async () => { await api.library.rescan(); store.toast('Reading your folders…'); } },
-    { id: 'look', label: 'Switch Look (Playful / Minimal)', group: 'Actions', icon: 'palette', kbd: `${mod}${shift}T`, keywords: 'theme colour color', run: () => store.settings && store.updateSettings({ look: store.settings.look === 'playful' ? 'minimal' : 'playful' }) },
+    { id: 'look', label: 'Switch Theme (last two used)', group: 'Actions', icon: 'palette', kbd: `${mod}${shift}T`, keywords: 'theme look colour color playful minimal', run: () => store.settings && store.updateSettings(toggleThemePatch(store.settings)) },
+    ...THEMES.map((t) => ({ id: `theme-${t.id}`, label: `Theme: ${t.name}`, group: 'Actions' as const, icon: 'palette', typed: true, keywords: `theme look ${t.tags.join(' ')}`, run: () => store.settings && store.updateSettings(themePatch(store.settings, t.id)) })),
     { id: 'appearance', label: 'Toggle Dark Mode', group: 'Actions', icon: 'moon', keywords: 'theme light appearance', run: () => store.settings && store.updateSettings({ appearance: store.settings.appearance === 'dark' ? 'light' : 'dark' }) },
     { id: 'view', label: store.view === 'grid' ? 'Show as List' : 'Show as Grid', group: 'Actions', icon: store.view === 'grid' ? 'list' : 'grid', kbd: store.view === 'grid' ? `${mod}2` : `${mod}1`, run: () => store.setView(store.view === 'grid' ? 'list' : 'grid') },
     { id: 'inspector', label: store.inspector ? 'Hide Inspector' : 'Show Inspector', group: 'Actions', icon: 'info', kbd: `${mod}I`, run: () => store.setInspector(!store.inspector) },
@@ -103,12 +108,13 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     const q = text.trim();
     const scored = commands
       .map((c) => ({ c, s: q ? Math.max(fuzzyScore(c.label, q), fuzzyScore(c.keywords ?? '', q) - 10) : 0 }))
-      .filter((x) => x.s >= 0)
+      .filter((x) => x.s >= 0 && (q || !x.c.typed))
       .sort((a, b) => b.s - a.s)
       .map((x) => x.c);
     const search: Command[] = looksLikeSearch ? [{ id: 'search', label: `Search files for “${q}”`, group: 'Search', icon: 'search', kbd: '↩', run: () => store.go({ name: 'search', q }) }] : [];
     // A strong command match goes first; otherwise searching files does.
-    return q && scored.length && fuzzyScore(scored[0].label, q) >= 90 ? [...scored, ...search] : [...search, ...scored];
+    const commandFirst = /^(theme|look)\b/i.test(q) && scored.some((c) => c.id.startsWith('theme-'));
+    return q && scored.length && (commandFirst || fuzzyScore(scored[0].label, q) >= 90) ? [...scored, ...search] : [...search, ...scored];
   }, [commands, text, looksLikeSearch, store]);
 
   useEffect(() => setIndex(0), [text]);

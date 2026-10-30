@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+$ErrorActionPreference = 'Stop'
+
+Install-ChocolateyPackage -PackageName $env:ChocolateyPackageName `
+  -FileType 'exe' `
+  -Url64bit 'https://github.com/ashfordeOU/keeper/releases/download/v{{version}}/Keeper-setup-x64.exe' `
+  -Checksum64 '{{sha256:Keeper-setup-x64.exe}}' `
+  -ChecksumType64 'sha256' `
+  -SilentArgs '/S /allusers' `
+  -ValidExitCodes @(0)
+
+# The keeper command: Chocolatey puts a shim for it on the PATH.
+$app = Join-Path $env:ProgramFiles 'Keeper'
+$tools = Split-Path -Parent $MyInvocation.MyCommand.Definition
+$cmd = Join-Path $tools 'keeper.cmd'
+Set-Content -Path $cmd -Encoding Ascii -Value (@(
+  '@echo off',
+  'rem Keeper command for Chocolatey. With no arguments it opens the app.',
+  "if `"%~1`"==`"`" (start `"`" `"$app\Keeper.exe`" & exit /b)",
+  'setlocal',
+  'set ELECTRON_RUN_AS_NODE=1',
+  "`"$app\Keeper.exe`" `"$app\resources\app.asar\dist-cli\keeper.cjs`" %*"
+) -join "`r`n")
+Install-BinFile -Name 'keeper' -Path $cmd
