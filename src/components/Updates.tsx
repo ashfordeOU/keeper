@@ -101,6 +101,13 @@ function actionLabel(s: UpdateStatus): string {
 
 function Primary({ s, onChange }: { s: UpdateStatus; onChange: (s: UpdateStatus) => void }) {
   if (s.state === 'ready') return <button className="btn primary" onClick={() => void api.appInfo.installUpdate()}><Icon name="refresh" size={14} /> {actionLabel(s)}</button>;
+  if (s.state === 'available' && s.method === 'manager') {
+    return s.manager?.command ? (
+      <button className="btn primary" title={s.manager.command} onClick={() => void navigator.clipboard.writeText(s.manager!.command!)}>
+        <Icon name="copy" size={14} /> Copy update command
+      </button>
+    ) : null;
+  }
   if (s.state === 'available') {
     return (
       <button className="btn primary" onClick={async () => onChange(await api.appInfo.downloadUpdate())}>
@@ -184,7 +191,9 @@ export function UpdatesPanel() {
         <Toggle on={!!settings.updateBeta} onChange={(v) => void updateSettings({ updateBeta: v })} />
       </div>
       <div className="small muted" style={{ marginTop: 12 }}>
-        {s?.method === 'package'
+        {s?.method === 'manager'
+          ? <>Installed with {s.manager?.label}, so it updates Keeper: {s.manager?.command ? <code>{s.manager.command}</code> : 'use its usual update command'}. Keeper still tells you when a new version is out.</>
+          : s?.method === 'package'
           ? 'Installed with your system’s package manager: Keeper downloads the new package and asks for your password to install it.'
           : s?.method === 'manual'
             ? 'This copy cannot replace itself (portable or unpacked). Keeper tells you about new versions and opens the download for you.'

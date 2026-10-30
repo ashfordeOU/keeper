@@ -2,6 +2,13 @@
 # Push a tag like v0.2.0 to build Keeper for every platform and processor and
 # publish the installers, plus the update information installed copies read, as
 # a GitHub Release. Tags with a hyphen (v0.3.0-beta.1) become pre-releases.
+#
+# Every release is certified for free: GitHub build attestations for each file,
+# a Sigstore (cosign) signature of SHA256SUMS.txt, and, once KEEPER_GPG_PRIVATE_KEY
+# exists, GPG signatures plus signed apt and dnf repositories. Platform signing
+# (Apple Developer ID, Windows code signing) and the package-manager channels each
+# switch on when their secret exists; with no secrets at all the release still works.
+# See docs/INSTALL.md → Maintainers for every secret.
 name: Release
 
 on:
@@ -39,9 +46,30 @@ jobs:
         run: node scripts/prepare-arch.mjs ${{ matrix.platform }} ${{ matrix.arch }}
       - run: npm run build
       - name: Package
-        run: npx electron-builder ${{ matrix.target }} --${{ matrix.arch }} --publish never
+        shell: bash
         env:
-          CSC_IDENTITY_AUTO_DISCOVERY: false
+          # All optional. Without them macOS builds are ad-hoc signed and Windows builds unsigned.
+          CSC_LINK: ${{ matrix.platform == 'darwin' && secrets.CSC_LINK || '' }}
+          CSC_KEY_PASSWORD: ${{ matrix.platform == 'darwin' && secrets.CSC_KEY_PASSWORD || '' }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          WIN_CSC_LINK: ${{ matrix.platform == 'win32' && secrets.WIN_CSC_LINK || '' }}
+          WIN_CSC_KEY_PASSWORD: ${{ matrix.platform == 'win32' && secrets.WIN_CSC_KEY_PASSWORD || '' }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TRUSTED_SIGNING_ENDPOINT: ${{ vars.AZURE_TRUSTED_SIGNING_ENDPOINT }}
+          AZURE_TRUSTED_SIGNING_ACCOUNT: ${{ matrix.platform == 'win32' && vars.AZURE_TRUSTED_SIGNING_ACCOUNT || '' }}
+          AZURE_TRUSTED_SIGNING_PROFILE: ${{ vars.AZURE_TRUSTED_SIGNING_PROFILE }}
+        run: |
+          config=electron-builder.yml
+          if [ -n "$CSC_LINK" ] || [ -n "$AZURE_TRUSTED_SIGNING_ACCOUNT" ]; then
+            config=packaging/electron-builder.signed.cjs
+          fi
+          if [ -z "$CSC_LINK" ] && [ -z "$WIN_CSC_LINK" ]; then export CSC_IDENTITY_AUTO_DISCOVERY=false; fi
+          echo "Packaging with $config"
+          npx electron-builder --config "$config" ${{ matrix.target }} --${{ matrix.arch }} --publish never
       # Both Mac builds write latest-mac.yml; Keeper updates Mac copies from the dmg itself,
       # so the per-processor file is kept under its own name instead of clashing.
       - if: runner.os == 'macOS'
@@ -60,19 +88,108 @@ jobs:
             release/latest*.yml
             release/*.blockmap
           if-no-files-found: error
+      # The keeper command on its own, for the npm package and the Homebrew formula.
+      - if: matrix.platform == 'linux' && matrix.arch == 'x64'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cli-bundle
+          path: dist-cli/keeper.cjs
+          if-no-files-found: error
 
   release:
     needs: build
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write # Sigstore signature and build attestations
+      attestations: write
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      prerelease: ${{ steps.meta.outputs.prerelease }}
+      repos: ${{ steps.repos.outputs.built }}
+      homebrew: ${{ steps.channels.outputs.homebrew }}
+      npm: ${{ steps.channels.outputs.npm }}
+      winget: ${{ steps.channels.outputs.winget }}
+      choco: ${{ steps.channels.outputs.choco }}
+      aur: ${{ steps.channels.outputs.aur }}
+      snap: ${{ steps.channels.outputs.snap }}
+    env:
+      KEEPER_GPG_PRIVATE_KEY: ${{ secrets.KEEPER_GPG_PRIVATE_KEY }}
+      KEEPER_GPG_PASSPHRASE: ${{ secrets.KEEPER_GPG_PASSPHRASE }}
     steps:
       - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - id: meta
+        run: |
+          echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          case "$GITHUB_REF_NAME" in *-*) echo "prerelease=true" ;; *) echo "prerelease=false" ;; esac >> "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@v4
         with:
+          pattern: keeper-*
           path: artifacts
           merge-multiple: true
+      - uses: actions/download-artifact@v4
+        with:
+          name: cli-bundle
+          path: cli-bundle
+      - name: The keeper command as an npm package
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          node scripts/render-packaging.mjs --version "$VERSION" --only npm --cli cli-bundle/keeper.cjs --out packaging-out
+          npm pack ./packaging-out/npm --pack-destination artifacts
+
+      # ---- GPG (optional): signed apt and dnf repositories, built before the checksums so they cover them
+      - name: Import the release signing key
+        id: gpg
+        if: env.KEEPER_GPG_PRIVATE_KEY != ''
+        run: |
+          mkdir -p ~/.gnupg && chmod 700 ~/.gnupg
+          if [ -n "$KEEPER_GPG_PASSPHRASE" ]; then
+            printf '%s' "$KEEPER_GPG_PASSPHRASE" > "$RUNNER_TEMP/gpg-pass"
+            printf 'pinentry-mode loopback\npassphrase-file %s\n' "$RUNNER_TEMP/gpg-pass" >> ~/.gnupg/gpg.conf
+          fi
+          printf '%s\n' "$KEEPER_GPG_PRIVATE_KEY" | gpg --batch --import
+          echo "fpr=$(gpg --list-secret-keys --with-colons | awk -F: '/^fpr/ {print $10; exit}')" >> "$GITHUB_OUTPUT"
+      - name: apt and dnf repositories
+        id: repos
+        if: env.KEEPER_GPG_PRIVATE_KEY != '' && steps.meta.outputs.prerelease == 'false'
+        env:
+          KEEPER_GPG_KEY_ID: ${{ steps.gpg.outputs.fpr }}
+        run: |
+          sudo apt-get update && sudo apt-get install -y dpkg-dev createrepo-c
+          sh packaging/repo/build-repos.sh artifacts pages-out "${GITHUB_REF_NAME#v}"
+          echo "built=true" >> "$GITHUB_OUTPUT"
+
       - name: Checksums
-        run: cd artifacts && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
+        run: cd artifacts && sha256sum -- * > SHA256SUMS.txt && cat SHA256SUMS.txt
+      - uses: sigstore/cosign-installer@v4.1.2
+      - name: Sigstore signature of the checksums (keyless, tied to this workflow)
+        run: cosign sign-blob --yes --bundle artifacts/SHA256SUMS.txt.sigstore.json artifacts/SHA256SUMS.txt
+      - name: GPG signatures
+        if: env.KEEPER_GPG_PRIVATE_KEY != ''
+        env:
+          KEY: ${{ steps.gpg.outputs.fpr }}
+        run: |
+          cd artifacts
+          for f in SHA256SUMS.txt *.AppImage; do gpg --batch --yes --local-user "$KEY" --armor --detach-sign -o "$f.asc" "$f"; done
+          ls -1 -- *.asc
+      - name: Build provenance attestations
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: |
+            artifacts/*.dmg
+            artifacts/*.zip
+            artifacts/*.exe
+            artifacts/*.AppImage
+            artifacts/*.deb
+            artifacts/*.rpm
+            artifacts/*.tar.gz
+            artifacts/*.tgz
+            artifacts/SHA256SUMS.txt
       - name: Release notes from the changelog
         run: |
           version="${GITHUB_REF_NAME#v}"
@@ -84,3 +201,212 @@ jobs:
           body_path: notes.md
           generate_release_notes: true
           prerelease: ${{ contains(github.ref_name, '-') }}
+
+      # ---- Manifests for the package managers, and which channels have their secret
+      - name: Package-manager manifests
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          node scripts/render-packaging.mjs --version "$VERSION" --sums artifacts/SHA256SUMS.txt --cli cli-bundle/keeper.cjs --out packaging-out
+          cp artifacts/keeper-cli-*.tgz packaging-out/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: packaging
+          path: packaging-out
+      - if: steps.repos.outputs.built == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: pages
+          path: pages-out
+          include-hidden-files: true
+      - id: channels
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+          CHOCO_API_KEY: ${{ secrets.CHOCO_API_KEY }}
+          AUR_SSH_KEY: ${{ secrets.AUR_SSH_KEY }}
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+        run: |
+          has() { if [ -n "$2" ]; then echo "$1=true"; else echo "$1=false"; fi; }
+          {
+            has homebrew "$HOMEBREW_TAP_TOKEN"
+            has npm "$NPM_TOKEN"
+            has winget "$WINGET_TOKEN"
+            has choco "$CHOCO_API_KEY"
+            has aur "$AUR_SSH_KEY"
+            has snap "$SNAPCRAFT_STORE_CREDENTIALS"
+          } | tee -a "$GITHUB_OUTPUT"
+
+  # ---- Channels. Each runs only when its secret exists; stable releases only, except npm (tag "next").
+  scoop:
+    needs: release
+    if: needs.release.outputs.prerelease == 'false'
+    runs-on: ubuntu-latest
+    continue-on-error: true # a protected default branch only means the bucket waits for a manual update
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: packaging
+          path: packaging-out
+      - name: Update bucket/keeper.json
+        run: |
+          cp packaging-out/scoop/keeper.json bucket/keeper.json
+          git diff --quiet && exit 0
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com"
+          git commit -am "Scoop: Keeper ${{ needs.release.outputs.version }}"
+          git push
+
+  homebrew:
+    needs: release
+    if: needs.release.outputs.homebrew == 'true' && needs.release.outputs.prerelease == 'false'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: packaging
+          path: packaging-out
+      - uses: actions/checkout@v5
+        with:
+          repository: ashfordeOU/homebrew-keeper
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: tap
+      - name: Update the cask and the formula
+        run: |
+          mkdir -p tap/Casks tap/Formula
+          cp packaging-out/homebrew/Casks/keeper.rb tap/Casks/keeper.rb
+          cp packaging-out/homebrew/Formula/keeper-cli.rb tap/Formula/keeper-cli.rb
+          cd tap
+          git add -A
+          git diff --cached --quiet && exit 0
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com"
+          git commit -m "Keeper ${{ needs.release.outputs.version }}"
+          git push
+
+  npm:
+    needs: release
+    if: needs.release.outputs.npm == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # npm provenance
+    steps:
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - uses: actions/download-artifact@v4
+        with:
+          name: packaging
+          path: packaging-out
+      - name: Publish keeper-cli with provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          TAG: ${{ needs.release.outputs.prerelease == 'true' && 'next' || 'latest' }}
+        run: npm publish packaging-out/keeper-cli-*.tgz --provenance --access public --tag "$TAG"
+
+  winget:
+    needs: release
+    if: needs.release.outputs.winget == 'true' && needs.release.outputs.prerelease == 'false'
+    runs-on: ubuntu-latest
+    steps:
+      # Opens a pull request to microsoft/winget-pkgs from the token owner's fork.
+      - uses: vedantmgoyal9/winget-releaser@v2
+        with:
+          identifier: Ashforde.Keeper
+          installers-regex: 'Keeper-setup-x64\.exe$'
+          release-tag: ${{ github.ref_name }}
+          token: ${{ secrets.WINGET_TOKEN }}
+
+  chocolatey:
+    needs: release
+    if: needs.release.outputs.choco == 'true' && needs.release.outputs.prerelease == 'false'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: packaging
+          path: packaging-out
+      - name: Pack and push keeper-files
+        env:
+          CHOCO_API_KEY: ${{ secrets.CHOCO_API_KEY }}
+          VERSION: ${{ needs.release.outputs.version }}
+        run: |
+          cd packaging-out/chocolatey
+          choco pack keeper-files.nuspec
+          choco push "keeper-files.$env:VERSION.nupkg" --source https://push.chocolatey.org/ --api-key $env:CHOCO_API_KEY
+
+  aur:
+    needs: release
+    if: needs.release.outputs.aur == 'true' && needs.release.outputs.prerelease == 'false'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: packaging
+          path: packaging-out
+      - uses: KSXGitHub/github-actions-deploy-aur@v4.2.0
+        with:
+          pkgname: keeper-bin
+          pkgbuild: packaging-out/aur/keeper-bin/PKGBUILD
+          commit_username: ${{ github.actor }}
+          commit_email: ${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com
+          ssh_private_key: ${{ secrets.AUR_SSH_KEY }}
+          commit_message: Keeper ${{ needs.release.outputs.version }}
+
+  snap:
+    needs: release
+    if: needs.release.outputs.snap == 'true' && needs.release.outputs.prerelease == 'false'
+    runs-on: ubuntu-latest
+    env:
+      SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: sudo apt-get update && sudo apt-get install -y squashfs-tools
+      - run: npm ci
+      - run: node scripts/prepare-arch.mjs linux x64
+      - run: npm run build
+      - run: npx electron-builder --linux snap --x64 --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+      - run: sudo snap install snapcraft --classic
+      - run: snapcraft upload --release=stable release/Keeper-linux-amd64.snap
+
+  pages:
+    needs: release
+    if: needs.release.outputs.repos == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: pages
+          path: ${{ runner.temp }}/pages-out
+      - name: Publish the dnf repository and the signing key to gh-pages
+        env:
+          SRC: ${{ runner.temp }}/pages-out
+        run: |
+          if git ls-remote --exit-code --heads origin gh-pages >/dev/null; then
+            git fetch origin gh-pages && git switch gh-pages
+          else
+            git switch --orphan gh-pages
+          fi
+          rm -rf rpm/repodata
+          cp -r "$SRC"/. .
+          git add -A
+          git diff --cached --quiet && exit 0
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com"
+          git commit -m "Package repositories for Keeper ${{ needs.release.outputs.version }}"
+          git push origin gh-pages

@@ -69,7 +69,9 @@ export interface UpdateStatus {
   message?: string;
   checkedAt?: number;
   /** how this copy updates: in place, through the system package manager, or by downloading the installer */
-  method?: 'in-place' | 'package' | 'manual';
+  method?: 'in-place' | 'package' | 'manual' | 'manager';
+  /** set when a package manager owns this copy: who, and the command that updates it */
+  manager?: { label: string; command?: string };
   /** Keeper can install it for you (otherwise it opens the download) */
   canInstall?: boolean;
 }

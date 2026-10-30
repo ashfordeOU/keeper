@@ -17,6 +17,7 @@ import os from 'node:os';
 import path from 'node:path';
 import type { UpdateStatus } from '../../core/api-x';
 import { run } from '../../core/platform';
+import { detectInstallSource, INSTALL_SOURCES } from '../../core/install-source';
 import { compareVersions, pickAsset, pickRelease, releaseFor, versionNotes, type GhAsset, type GhRelease, type InstallKind, type VersionNote } from '../../core/updates';
 import { settings, updateSettings } from '../store';
 
@@ -68,7 +69,13 @@ async function detectKind(): Promise<InstallKind> {
   return 'tar';
 }
 
-function methodFor(k: InstallKind): Pick<UpdateStatus, 'method' | 'canInstall'> {
+// A copy that Scoop, Chocolatey, Flatpak, Snap, the AUR or Keeper's apt/dnf
+// repositories installed is updated by them, so Keeper only says how.
+const source = detectInstallSource(process.execPath, process.env, process.platform, existsSync);
+const managed = app.isPackaged && !INSTALL_SOURCES[source].selfUpdate;
+
+function methodFor(k: InstallKind): Pick<UpdateStatus, 'method' | 'canInstall' | 'manager'> {
+  if (managed) return { method: 'manager', canInstall: false, manager: { label: INSTALL_SOURCES[source].label, command: INSTALL_SOURCES[source].updateCommand } };
   if (k === 'nsis' || k === 'appimage' || k === 'mac') return { method: 'in-place', canInstall: true };
   if (k === 'deb' || k === 'rpm') return { method: 'package', canInstall: true };
   return { method: 'manual', canInstall: false };
@@ -102,9 +109,9 @@ export async function checkForUpdates(user = true): Promise<UpdateStatus> {
     set({
       state: downloaded ? 'ready' : 'available', version, notes: release.body ?? '', url: release.html_url, publishedAt: release.published_at ?? undefined,
       size: asset?.size, checkedAt: Date.now(), ...methodFor(kind),
-      message: kind === 'source' ? 'You are running Keeper from source; pull the latest code to update.' : !asset ? 'This release has no installer for this computer yet' : undefined,
+      message: kind === 'source' ? 'You are running Keeper from source; pull the latest code to update.' : managed ? `Installed with ${INSTALL_SOURCES[source].label}; update it there.` : !asset ? 'This release has no installer for this computer yet' : undefined,
     });
-    if (!asset && kind !== 'source') set({ canInstall: false, method: 'manual' });
+    if (!asset && kind !== 'source' && !managed) set({ canInstall: false, method: 'manual' });
     if (notifiedFor !== version) {
       notifiedFor = version;
       notify(status);
@@ -150,6 +157,7 @@ async function downloadTo(url: string, file: string, size?: number) {
 export async function downloadUpdate(): Promise<UpdateStatus> {
   if (!release) await checkForUpdates();
   if (!release || status.state === 'downloading') return status;
+  if (managed) return status;
   if (!status.canInstall || !asset) {
     // Portable copies, tarballs and source checkouts: hand over to the release page.
     await shell.openExternal(release.html_url);
@@ -336,7 +344,7 @@ export async function initUpdater(onNotify: (s: UpdateStatus) => void) {
   notify = (s) => {
     onNotify(s);
     if (!Notification.isSupported()) return;
-    if (s.state === 'available') new Notification({ title: `Keeper ${s.version} is available`, body: settings().updateMode === 'auto' && s.canInstall ? 'Downloading it in the background.' : 'Open Keeper to see what’s new and update.' }).show();
+    if (s.state === 'available') new Notification({ title: `Keeper ${s.version} is available`, body: s.method === 'manager' && s.manager?.command ? `Update with: ${s.manager.command}` : settings().updateMode === 'auto' && s.canInstall ? 'Downloading it in the background.' : 'Open Keeper to see what’s new and update.' }).show();
     else if (s.state === 'ready') new Notification({ title: `Keeper ${s.version} is ready`, body: s.message ?? 'Restart Keeper to finish updating.' }).show();
   };
   kind = await detectKind();

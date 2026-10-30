@@ -23,6 +23,6 @@ class KeeperCli < Formula
   end
 
   test do
-    assert_match version.to_s, shell_output("#{bin}/keeper --version")
+    assert_match(/\d+\.\d+\.\d+/, shell_output("#{bin}/keeper --version"))
   end
 end

@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: CC0-1.0 -->
+<component type="desktop-application">
+  <id>io.github.ashfordeou.keeper</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>AGPL-3.0-or-later</project_license>
+  <name>Keeper</name>
+  <summary>Find, understand and tidy your files</summary>
+  <developer id="io.github.ashfordeou">
+    <name>Ashforde OÜ</name>
+  </developer>
+  <description>
+    <p>
+      Keeper is a visual library for the files on your computer. Search in plain English, read the
+      text in screenshots, see where downloads came from, and tidy up with previews and undo.
+      Everything runs on your computer; nothing about your files leaves it.
+    </p>
+    <ul>
+      <li>Shelves for documents, images, screenshots, videos, music and more, with a Home dashboard</li>
+      <li>Plain-English search with editable filters, and on-device text recognition</li>
+      <li>Exact duplicates, look-alike photos and RAW or HEIC pairs, with a suggested copy to keep</li>
+      <li>Clean-up of caches, old installers and forgotten downloads, and a space map</li>
+      <li>A keeper command with the same engine, for terminals and scripts</li>
+    </ul>
+  </description>
+  <launchable type="desktop-id">io.github.ashfordeou.keeper.desktop</launchable>
+  <provides>
+    <binary>keeper</binary>
+  </provides>
+  <url type="homepage">https://github.com/ashfordeOU/keeper</url>
+  <url type="bugtracker">https://github.com/ashfordeOU/keeper/issues</url>
+  <url type="vcs-browser">https://github.com/ashfordeOU/keeper</url>
+  <url type="help">https://github.com/ashfordeOU/keeper/blob/main/docs/INSTALL.md</url>
+  <screenshots>
+    <screenshot type="default">
+      <caption>The library's Home dashboard</caption>
+      <image>https://raw.githubusercontent.com/ashfordeOU/keeper/v{{version}}/docs/screenshots/home.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Plain-English search</caption>
+      <image>https://raw.githubusercontent.com/ashfordeOU/keeper/v{{version}}/docs/screenshots/search.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Duplicates and look-alike photos</caption>
+      <image>https://raw.githubusercontent.com/ashfordeOU/keeper/v{{version}}/docs/screenshots/duplicates.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Clean Up</caption>
+      <image>https://raw.githubusercontent.com/ashfordeOU/keeper/v{{version}}/docs/screenshots/cleanup.png</image>
+    </screenshot>
+  </screenshots>
+  <branding>
+    <color type="primary" scheme_preference="light">#e8f0ff</color>
+    <color type="primary" scheme_preference="dark">#1b2a4a</color>
+  </branding>
+  <content_rating type="oars-1.1"/>
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+  </supports>
+  <releases>
+    <release version="{{version}}" date="{{date}}">
+      <url type="details">https://github.com/ashfordeOU/keeper/releases/tag/v{{version}}</url>
+    </release>
+  </releases>
+</component>

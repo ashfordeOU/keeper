@@ -17,7 +17,9 @@ import { defaultFolders, readDownloadSource, targetEnv, trashWithoutElectron } f
 import { defaultRules, describeAction, describeCondition, planRule } from '../core/rules';
 import type { FileEntry } from '../core/types';
 
-const VERSION = '0.1.0';
+declare const __KEEPER_VERSION__: string | undefined;
+// Filled in from package.json when the CLI is built.
+const VERSION = typeof __KEEPER_VERSION__ === 'string' ? __KEEPER_VERSION__ : '0.0.0-dev';
 const home = os.homedir();
 const tty = process.stdout.isTTY;
 const c = (code: string) => (s: string) => (tty ? `\x1b[${code}m${s}\x1b[0m` : s);

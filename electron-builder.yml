@@ -12,6 +12,8 @@ files:
   - dist/**
   - dist-electron/**
   - '!dist-electron/*.map'
+  # The keeper command, run by the installers' shim through the app's own runtime.
+  - dist-cli/keeper.cjs
   - '!node_modules/@napi-rs/**'
   - '!node_modules/**/*.map'
   - '!node_modules/**/{test,tests,docs,example,examples}/**'
@@ -95,3 +97,11 @@ linux:
 deb:
   depends: [libnotify4, libxtst6, libnss3]
   recommends: [playerctl, xdotool, attr]
+# Snap Store build (only made by the release workflow's snap job, when the store credentials exist).
+# Classic confinement because Keeper is a file library for the whole home folder and runs helper
+# tools (playerctl, xdotool, attr); the store reviews classic snaps once, by hand.
+snap:
+  confinement: classic
+  grade: stable
+  summary: Find, understand and tidy your files
+  artifactName: ${productName}-linux-${arch}.${ext}

@@ -1,0 +1,37 @@
+{
+    "version": "0.1.0",
+    "description": "Find, understand and tidy your files.",
+    "homepage": "https://github.com/ashfordeOU/keeper",
+    "license": "AGPL-3.0-or-later",
+    "notes": "Update Keeper with: scoop update keeper",
+    "architecture": {
+        "64bit": {
+            "url": "https://github.com/ashfordeOU/keeper/releases/download/v0.1.0/Keeper-setup-x64.exe#/dl.7z"
+        }
+    },
+    "pre_install": [
+        "Expand-7zipArchive \"$dir\\`$PLUGINSDIR\\app-64.7z\" \"$dir\"",
+        "Remove-Item \"$dir\\`$PLUGINSDIR\", \"$dir\\Uninstall*\" -Recurse -Force -ErrorAction SilentlyContinue",
+        "Set-Content -Path \"$dir\\keeper.cmd\" -Encoding Ascii -Value \"@echo off`r`nrem Keeper command for Scoop. With no arguments it opens the app.`r`nif `\"%~1`\"==`\"`\" (start `\"`\" `\"%~dp0Keeper.exe`\" & exit /b)`r`nsetlocal`r`nset ELECTRON_RUN_AS_NODE=1`r`n`\"%~dp0Keeper.exe`\" `\"%~dp0resources\\app.asar\\dist-cli\\keeper.cjs`\" %*\""
+    ],
+    "bin": "keeper.cmd",
+    "shortcuts": [
+        [
+            "Keeper.exe",
+            "Keeper"
+        ]
+    ],
+    "checkver": {
+        "github": "https://github.com/ashfordeOU/keeper"
+    },
+    "autoupdate": {
+        "architecture": {
+            "64bit": {
+                "url": "https://github.com/ashfordeOU/keeper/releases/download/v$version/Keeper-setup-x64.exe#/dl.7z"
+            }
+        },
+        "hash": {
+            "url": "$baseurl/SHA256SUMS.txt"
+        }
+    }
+}

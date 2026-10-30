@@ -357,7 +357,19 @@ Cleaning tools should never cost you a file. Keeper's rules:
 
 ## Install
 
-Download the latest build from **[Releases](https://github.com/ashfordeOU/keeper/releases/latest)**. The file names never change, so these links always give you the newest version:
+```bash
+# macOS and Linux
+curl -fsSL https://raw.githubusercontent.com/ashfordeOU/keeper/main/scripts/install.sh | sh
+```
+
+```powershell
+# Windows (PowerShell)
+irm https://raw.githubusercontent.com/ashfordeOU/keeper/main/scripts/install.ps1 | iex
+```
+
+The scripts check every download against the release checksums and add the `keeper` command. Homebrew, winget, Scoop, Chocolatey, the AUR, Flatpak, Snap, apt and dnf repositories, npm (`keeper-cli`), uninstalling and verifying downloads are all covered in **[docs/INSTALL.md](docs/INSTALL.md)**.
+
+Or download the latest build from **[Releases](https://github.com/ashfordeOU/keeper/releases/latest)**. The file names never change, so these links always give you the newest version:
 
 | System | Download | Notes |
 |---|---|---|
@@ -371,7 +383,7 @@ Download the latest build from **[Releases](https://github.com/ashfordeOU/keeper
 | Fedora, RHEL, openSUSE | `Keeper-linux-x86_64.rpm` / `-aarch64.rpm` | `sudo dnf install ./Keeper-linux-x86_64.rpm` |
 | Other Linux | `Keeper-linux-x64.tar.gz` | Unpack anywhere and run `keeper` |
 
-Every release also lists `SHA256SUMS.txt` to check your download.
+Every release also lists `SHA256SUMS.txt`, a Sigstore signature of it and GitHub build attestations; see [Verifying a download](docs/INSTALL.md#verifying-a-download).
 
 ### Updates
 
