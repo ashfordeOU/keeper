@@ -174,12 +174,14 @@ export function Island() {
   const gap = notch ? layout!.gap : 0;
   const pillW = layout?.pill.width ?? Math.round(220 * sc);
   const pillH = notch ? notchH : layout?.pill.height ?? 34;
+  // No room beside the notch (menus or icons reach it): a small tab hangs below the notch instead.
+  const hang = notch ? layout!.hang ?? 0 : 0;
   const primary = acts.pres.primary;
   const secondary = acts.pres.secondary;
   const dotsOn = isl?.privacyDots !== false && (acts.dots.camera.length > 0 || acts.dots.mic.length > 0);
   // A Mac's notch with nothing going on: the Island is exactly the notch, invisible.
   const idleNotch = notch && !primary && !dotsOn;
-  const compact = { w: idleNotch ? gap : pillW, h: pillH };
+  const compact = { w: idleNotch ? gap : pillW, h: idleNotch ? pillH : pillH + hang };
   const bubble = secondary && !idleNotch ? pillH : 0;
   const ears = notch ? 10 : 0;
   // The closed window is just big enough for the pill (kept centred) and its bubble.
@@ -273,7 +275,18 @@ export function Island() {
     const a = primary;
     const trailing = a ? (a.kind === 'dictation' && listening === 'on' ? <span className="level">{level.map((h, i) => <i key={i} style={{ height: h }} />)}</span> : <Trailing a={a} />) : null;
     const more = acts.pres.more ? <span className="act-more">+{acts.pres.more}</span> : null;
-    if (notch) {
+    if (notch && hang) {
+      content = idleNotch ? <div className="cmp" /> : (
+        <div className="cmp notch hang">
+          <span className="hang-gap" style={{ height: notchH }} />
+          <span className="hang-row" style={{ height: hang }}>
+            {a ? <Leading a={a} /> : null}
+            <span className="live">{a ? a.title : null}</span>
+            {trailing}{more}{isl?.privacyDots !== false ? <PrivacyDots dots={acts.dots} /> : null}
+          </span>
+        </div>
+      );
+    } else if (notch) {
       content = idleNotch ? <div className="cmp" /> : (
         <div className="cmp notch">
           <span className="wing l">{a ? <Leading a={a} /> : null}</span>

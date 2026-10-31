@@ -45,11 +45,19 @@ for (var i = 0; i < list.count; i++) {
 }
 var wins = ObjC.deepUnwrap(ObjC.castRefToObject($.CGWindowListCopyWindowInfo($.kCGWindowListOptionOnScreenOnly, 0))) || [];
 for (var j = 0; j < wins.length; j++) { var w = wins[j]; if (w.kCGWindowLayer === 25 && w.kCGWindowBounds) out.items.push(w.kCGWindowBounds); }
+// Where the front app's menus end. Needs the Accessibility permission (asked for by the full-screen check); skipped without it.
+try {
+  var se = Application('System Events');
+  var mb = se.processes.whose({ frontmost: true })[0].menuBars[0].menuBarItems;
+  var n = mb.length;
+  if (n > 0) { var last = mb[n - 1], pos = last.position(), size = last.size(); out.menuRight = pos[0] + size[0]; }
+} catch (e) {}
 JSON.stringify(out);`;
 
 interface MacScreens {
   screens: { id: number; x: number; width: number; notch: { x: number; width: number; height: number } | null }[];
   items: { X: number; Y: number; Width: number; Height: number }[];
+  menuRight?: number;
 }
 
 async function readMac(): Promise<Partial<PlaceEnv>> {
@@ -64,6 +72,7 @@ async function readMac(): Promise<Partial<PlaceEnv>> {
       for (const s of m.screens) if (s.notch && s.notch.width > 0) out.notchRects[s.id] = { x: s.notch.x, y: 0, width: s.notch.width, height: s.notch.height };
       // Keeper's own Island windows sit on layer 25 too; leave them out.
       out.menuBarItems = m.items.filter((b) => b.Height <= 40 && b.Width < 600).map((b): Rect => ({ x: b.X, y: b.Y, width: b.Width, height: b.Height }));
+      out.appMenuRight = typeof m.menuRight === 'number' && m.menuRight > 0 ? m.menuRight : undefined;
     } catch {
       /* older macOS: the model table and menu-bar height are enough */
     }

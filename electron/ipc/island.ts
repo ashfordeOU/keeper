@@ -13,6 +13,7 @@ import { normalizeWidgets, type WidgetConfig } from '../../core/widgets';
 import type { FileService } from '../services/files';
 import type { IslandService } from '../services/island';
 import { placementFor, placementPreview, refreshPlaceEnv, wantedDisplays } from '../services/island-place';
+import { onFrontAppChange } from '../services/fg-watch';
 import { settings, updateSettings } from '../store';
 
 export interface IslandContext {
@@ -417,6 +418,19 @@ export function registerIslandIpc(c: IslandContext) {
   screen.on('display-metrics-changed', replace);
   powerMonitor.on('resume', replace);
   replace();
+  // macOS: each app has its own menus, and icons come and go; measure again when the front app changes,
+  // and move the Island only if where it goes (or how far it may grow beside the notch) changed.
+  if (process.platform === 'darwin') {
+    let timer: NodeJS.Timeout | undefined;
+    const key = () => JSON.stringify(wantedDisplays().map((d) => { const p = placementFor(d); return [p.anchor, p.wing, p.hang, p.pill.width]; }));
+    onFrontAppChange(() => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        const before = key();
+        void refreshPlaceEnv().then(() => { if (key() !== before) islandWindows.ensure(true); });
+      }, 400);
+    });
+  }
   ipcMain.handle('island.layout', (e) => islandWindows.layoutFor(e.sender));
   ipcMain.on('island.setSize', (e, w: number, hgt: number) => { if (Number.isFinite(w) && Number.isFinite(hgt)) islandWindows.setCollapsedSize(e.sender, w, hgt); });
   h('island.placementPreview', async () => { await refreshPlaceEnv(); return placementPreview(); });

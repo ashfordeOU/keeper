@@ -47,6 +47,51 @@ describe('Island on a Mac', () => {
     expect(inside(p.collapsed, mbp14) && inside(p.expanded, mbp14)).toBe(true);
   });
 
+  // The notch on a 14-inch MacBook Pro at its default size spans x 663–849.
+  const notch14 = { 1: { x: 663, y: 0, width: 186, height: 32 } };
+  const icon = (x: number, width = 26): Rect => ({ x, y: 0, width, height: 32 });
+
+  it('a menu bar like Safari\'s, icons from 918 pt: the sides grow only up to the first icon', () => {
+    const p = place(mbp14, mac('MacBookPro18,3', { notchRects: notch14, appMenuRight: 484, menuBarItems: [icon(918), icon(948), icon(1400, 80)] }));
+    expect(p.anchor).toBe('notch');
+    const right = centreX(p.collapsed) + p.pill.width / 2;
+    expect(right).toBeLessThanOrEqual(918 - 8);
+    expect(p.wing).toBeGreaterThan(26);
+    expect(p.hang).toBe(0);
+  });
+
+  it('with no icons close to the notch, the sides grow fully', () => {
+    const p = place(mbp14, mac('MacBookPro18,3', { notchRects: notch14, appMenuRight: 484, menuBarItems: [icon(1300)] }));
+    expect(p.wing).toBe(64);
+    expect(p.pill.width).toBe(186 + 128);
+  });
+
+  it('icons right next to the notch: nothing grows sideways, a small tab hangs below the notch instead', () => {
+    const p = place(mbp14, mac('MacBookPro18,3', { notchRects: notch14, appMenuRight: 484, menuBarItems: [icon(853), icon(883)] }));
+    expect(p.wing).toBe(0);
+    expect(p.hang).toBeGreaterThan(0);
+    expect(p.gap).toBe(186);
+    expect(p.pill.width).toBe(186);
+  });
+
+  it('an app whose menus reach the notch (they carry on after it) also gets the tab below', () => {
+    const p = place(mbp14, mac('MacBookPro18,3', { notchRects: notch14, appMenuRight: 1050, menuBarItems: [icon(1300)] }));
+    expect(p.wing).toBe(0);
+    expect(p.hang).toBeGreaterThan(0);
+  });
+
+  it('menus that end just before the notch narrow both sides equally', () => {
+    const p = place(mbp14, mac('MacBookPro18,3', { notchRects: notch14, appMenuRight: 620, menuBarItems: [icon(1300)] }));
+    expect(p.wing).toBe(663 - 620 - 8);
+    expect(centreX(p.collapsed)).toBe(756);
+  });
+
+  it('a Mac without a notch uses where the menus really end, when known', () => {
+    const items = [icon(1500), icon(1530)];
+    expect(place(imac, mac('iMac21,1', { menuBarItems: items, appMenuRight: 600 })).anchor).toBe('menubar');
+    expect(place(imac, mac('iMac21,1', { menuBarItems: items, appMenuRight: 1050 })).anchor).toBe('below-bar');
+  });
+
   it('uses the helper\'s exact notch rectangle when there is one', () => {
     const p = place(mbp14, mac('MacBookPro18,3', { notchRects: { 1: { x: 663, y: 0, width: 186, height: 32 } } }));
     expect(p.cutout.width).toBe(186);

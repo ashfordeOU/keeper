@@ -43,6 +43,8 @@ export interface PlaceEnv {
   menuBarItems?: Rect[];
   /** exact notch rectangle per display id (macOS helper), in points */
   notchRects?: Record<number, Rect>;
+  /** where the front app's menus end, in screen points (macOS, read through System Events when allowed) */
+  appMenuRight?: number;
   /** a battery is present: a laptop or tablet even when Electron cannot tell which screen is built in */
   hasBattery?: boolean;
 }
@@ -91,6 +93,10 @@ export interface Placement {
   pill: { width: number; height: number };
   /** width to leave empty in the middle of the pill (the notch); 0 when nothing is in the way */
   gap: number;
+  /** notch only: how wide each side of the notch may grow without covering menus or menu-bar icons */
+  wing?: number;
+  /** notch only: when there is no room beside it, the height of a small tab hanging below the notch instead */
+  hang?: number;
   scale: number;
   /** a sentence for Settings: why the Island is where it is */
   reason: string;
@@ -194,6 +200,37 @@ export function freeMenuBarMiddle(d: DisplayInfo, items: Rect[]): number {
   return Math.max(0, Math.min(mid - left, right - mid));
 }
 
+/** The same, using where the front app's menus really end when that is known. */
+export function freeMenuBarMiddleWith(d: DisplayInfo, items: Rect[], appMenuRight?: number): number {
+  const B = d.bounds;
+  if (appMenuRight === undefined || appMenuRight <= B.x || appMenuRight >= B.x + B.width) return freeMenuBarMiddle(d, items);
+  // Known menus replace the guess (a menu frame counts as an item on the left).
+  return freeMenuBarMiddle(d, [...items, { x: B.x, y: B.y, width: appMenuRight - B.x, height: 1 }]);
+}
+
+/**
+ * Room on each side of the notch before the menus (left) and the menu-bar
+ * icons (right) begin. macOS keeps icons out from behind the notch but lets
+ * them sit right next to it, and an app with many menus can reach it too.
+ */
+export function roomBesideNotch(d: DisplayInfo, env: PlaceEnv, notch: Cutout): { left: number; right: number; menusKnown: boolean } {
+  const B = d.bounds;
+  const nl = B.x + notch.center - notch.width / 2;
+  const nr = nl + notch.width;
+  const onScreen = (env.menuBarItems ?? []).filter((r) => r.y < B.y + 60 && r.x + r.width > B.x && r.x < B.x + B.width);
+  let left = B.x;
+  let right = B.x + B.width;
+  for (const r of onScreen) {
+    if (r.x + r.width <= nl + 1) left = Math.max(left, r.x + r.width);
+    else if (r.x >= nr - 1) right = Math.min(right, r.x);
+  }
+  const menusKnown = env.appMenuRight !== undefined && env.appMenuRight > B.x && env.appMenuRight < B.x + B.width;
+  if (menusKnown && env.appMenuRight! <= nl + 1) left = Math.max(left, env.appMenuRight!);
+  // Menus that do not fit before the notch carry on after it.
+  if (menusKnown && env.appMenuRight! > nl + 1) left = nl;
+  return { left: Math.max(0, nl - left), right: Math.max(0, right - nr), menusKnown };
+}
+
 // ---------------------------------------------------------------- sizes
 
 const SCALE: Record<PlaceOptions['size'], number> = { compact: 0.86, normal: 1, large: 1.2 };
@@ -204,6 +241,12 @@ const EXPANDED = { width: 700, height: 380 };
 const PILL = { width: 220, height: 34 };
 /** room on each side of the notch for a glyph */
 const WING = 64;
+/** narrower than this, a side of the notch cannot hold a glyph */
+const MIN_WING = 26;
+/** space kept clear next to menus and icons */
+const MARGIN = 8;
+/** the tab that hangs below the notch when there is no room beside it */
+const HANG = 24;
 
 // ---------------------------------------------------------------- placement
 
@@ -241,15 +284,34 @@ export function place(d: DisplayInfo, env: PlaceEnv, opt: Partial<PlaceOptions> 
   let pill = sz(PILL);
   let gap = 0;
   let reason: string;
+  let wing: number | undefined;
+  let hang: number | undefined;
   if (cutout.kind === 'notch' && o.blendNotch) {
     anchor = 'notch';
     top = B.y;
     gap = cutout.width;
-    pill = { width: Math.round(cutout.width + 2 * WING * scale), height: Math.round(cutout.height) };
-    reason = 'Grows out of the notch, in the same black, with room on both sides for what is happening.';
+    // Both sides grow by the same amount, as far as the tighter side allows, so nothing in the menu bar is covered.
+    const room = roomBesideNotch(d, env, cutout);
+    // Without the menus' position, the left side is assumed to have as much room as the right.
+    const free = Math.min(room.right, room.menusKnown ? room.left : room.right) - MARGIN;
+    wing = Math.max(0, Math.min(Math.round(WING * scale), Math.floor(free)));
+    if (wing >= MIN_WING * scale) {
+      pill = { width: Math.round(cutout.width + 2 * wing), height: Math.round(cutout.height) };
+      hang = 0;
+      reason = wing >= Math.round(WING * scale)
+        ? 'Grows out of the notch, in the same black, with room on both sides for what is happening.'
+        : 'Grows out of the notch only as far as the menus and menu-bar icons beside it allow.';
+    } else {
+      // No room beside the notch: show what is happening in a small tab just below it instead.
+      wing = 0;
+      hang = Math.round(HANG * scale);
+      // Exactly the notch's width, so its top never reaches the icons beside the notch.
+      pill = { width: Math.round(cutout.width), height: Math.round(cutout.height) };
+      reason = 'The menus and icons reach the notch, so what is happening shows in a small tab just below it.';
+    }
   } else if (env.platform === 'darwin' && kind === 'menubar') {
     const need = pill.width / 2 + 12;
-    const free = env.menuBarItems ? freeMenuBarMiddle(d, env.menuBarItems) : 0;
+    const free = env.menuBarItems ? freeMenuBarMiddleWith(d, env.menuBarItems, env.appMenuRight) : 0;
     if (free >= need) {
       anchor = 'menubar';
       top = B.y;
@@ -279,6 +341,7 @@ export function place(d: DisplayInfo, env: PlaceEnv, opt: Partial<PlaceOptions> 
   e.width = Math.max(e.width, pill.width + 120);
   return finish({
     displayId: d.id, anchor, edge: 'top', cutout, topBar: ins.top, topBarKind: kind, scale, gap, pill,
+    ...(wing !== undefined ? { wing, hang } : {}),
     collapsed: { x: Math.round(centreX - c.width / 2), y: top, ...c },
     expanded: { x: Math.round(centreX - e.width / 2), y: top, ...e },
     reason,

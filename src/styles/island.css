@@ -137,6 +137,10 @@ html[data-view='island'], html[data-view='island'] body, html[data-view='island'
 .cmp.notch .wing { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; }
 .cmp.notch .wing.r { justify-content: flex-end; }
 .cmp.notch .cut { flex: none; height: 100%; }
+/* When menus or menu-bar icons reach the notch, nothing grows sideways: a short tab hangs below it. */
+.cmp.notch.hang { flex-direction: column; align-items: stretch; padding: 0; }
+.cmp.notch.hang .hang-gap { flex: none; }
+.cmp.notch.hang .hang-row { flex: none; display: flex; align-items: center; gap: 6px; padding: 0 12px 2px; font-size: 12px; }
 .act-lead { display: inline-grid; place-items: center; width: 22px; height: 22px; flex: none; }
 .act-art { border-radius: 6px; color: #fff; }
 .act-trail { font-size: 12.5px; font-weight: 700; letter-spacing: -.01em; white-space: nowrap; }

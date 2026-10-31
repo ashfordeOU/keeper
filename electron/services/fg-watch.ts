@@ -20,6 +20,13 @@ const isMac = process.platform === 'darwin';
 const isWin = process.platform === 'win32';
 
 let state: boolean | undefined;
+const appListeners = new Set<(app: string) => void>();
+
+/** macOS: called when another app comes to the front (its menus are a different width). */
+export function onFrontAppChange(fn: (app: string) => void): () => void {
+  appListeners.add(fn);
+  return () => appListeners.delete(fn);
+}
 let lastAsked = 0;
 let helpers: ChildProcess[] = [];
 let idleTimer: NodeJS.Timeout | undefined;
@@ -29,10 +36,13 @@ let startedAt = 0;
 const MAC_SCRIPT = `
 const se = Application('System Events');
 let last = '';
+let lastApp = '';
 while (true) {
   let v = 'no';
   try {
     const p = se.processes.whose({ frontmost: true })[0];
+    const app = p.name();
+    if (app !== lastApp) { lastApp = app; console.log('app:' + app); }
     if (p.windows.length && p.windows[0].attributes['AXFullScreen'].value() === true) v = 'yes';
   } catch (e) {}
   if (v !== last) { last = v; console.log(v); }
@@ -118,7 +128,10 @@ function start(): boolean {
   try {
     if (isMac) {
       // osascript prints console.log to stderr.
-      lines(own(spawn('/usr/bin/osascript', ['-l', 'JavaScript', '-e', MAC_SCRIPT], { stdio: ['ignore', 'ignore', 'pipe'] })), 'stderr', (l) => { if (l === 'yes' || l === 'no') state = l === 'yes'; });
+      lines(own(spawn('/usr/bin/osascript', ['-l', 'JavaScript', '-e', MAC_SCRIPT], { stdio: ['ignore', 'ignore', 'pipe'] })), 'stderr', (l) => {
+        if (l === 'yes' || l === 'no') state = l === 'yes';
+        else if (l.startsWith('app:')) for (const fn of appListeners) fn(l.slice(4));
+      });
     } else if (isWin) {
       const ps = path.join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
       lines(own(spawn(ps, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', WIN_SCRIPT], { stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true })), 'stdout', (l) => { if (l === 'yes' || l === 'no') state = l === 'yes'; });
