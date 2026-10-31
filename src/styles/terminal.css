@@ -69,7 +69,10 @@ body.resizing iframe { pointer-events: none; }
 .term-badge { position: absolute; top: 6px; right: 12px; font-size: 11px; padding: 1px 7px; border-radius: 999px; background: var(--bg-elev); border: 1px solid var(--line); color: var(--text-2); pointer-events: none; font-variant-numeric: tabular-nums; }
 .term-badge.exit.good { color: #2c8a43; }
 .term-badge.exit.bad { color: #d23b48; }
-.term-badge.broadcast { right: auto; left: 12px; color: #d97a00; }
+.term-badge.broadcast { display: none; }
+/* Typing into every pane: said in the pane's title bar, never over the text. */
+.tpane.broadcasting .tpane-head::after { content: '⇶ typing into every pane'; flex: none; color: #d97a00; font-weight: 600; margin-left: 8px; order: 2; }
+.tpane.broadcasting .tpane-head > :last-child { order: 3; }
 .term-mark { width: 3px !important; margin-left: -6px; border-radius: 2px; }
 .term-mark.good { background: #7bd88f; }
 .term-mark.bad { background: #ff6b7a; }
