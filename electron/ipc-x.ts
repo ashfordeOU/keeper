@@ -21,7 +21,7 @@ import { ForecastService } from './services/forecast';
 import { dockerAction, dockerContainers, diskHealth, killTree, MonitorService, stopAgent, thermals } from './services/monitor';
 import { writeFinderTags } from './services/tags';
 import { clearQuarantine, networkInfo, pickApp, pickFiles, publicIp, resetPermissions, saveAs, setTweak, tidyFolder, tweaks } from './services/tools';
-import { checkForUpdates, downloadUpdate, initUpdater, installUpdate, listVersionNotes, onUpdateStatus, openReleasesPage, updateStatus, whatsNew } from './services/updater';
+import { checkForUpdates, downloadUpdate, initUpdater, installUpdate, listVersionNotes, onUpdateStatus, openReleasesPage, scheduleUpdate, updateStatus, whatsNew } from './services/updater';
 import { loadImage, ocrImage } from './services/vision';
 import { getSecret, settings } from './store';
 
@@ -212,6 +212,7 @@ export function registerIpcX(d: IpcXDeps) {
   handle('appInfo.whatsNew', () => whatsNew());
   handle('appInfo.releasesPage', () => openReleasesPage());
   handle('appInfo.versionNotes', () => listVersionNotes());
+  handle('appInfo.scheduleUpdate', (when: import('../core/update-schedule').UpdateWhen) => scheduleUpdate(when));
   handle('appInfo.loginItem', loginItem);
   handle('appInfo.setLoginItem', (on: boolean) => setLoginItem(on));
 }

@@ -10,21 +10,31 @@ import { formatBytes, relativeTime } from '../../core/format';
 import { api } from '../api';
 import { useStore } from '../state';
 import { Icon } from './Icon';
-import { Modal, Toggle } from './ui';
+import { ContextMenu, Modal, Toggle } from './ui';
+import { countdown, describePlan, type UpdateWhen } from '../../core/update-schedule';
 import '../styles/updates.css';
+
+// Every place that shows the update (Settings, the banner) sees the same status at once.
+const statusListeners = new Set<(s: UpdateStatus) => void>();
+let lastStatus: UpdateStatus | null = null;
+const shareStatus = (s: UpdateStatus) => {
+  lastStatus = s;
+  statusListeners.forEach((l) => l(s));
+};
 
 /** Live update status, pushed by the main process and polled as a fallback. */
 export function useUpdateStatus(): [UpdateStatus | null, (s: UpdateStatus) => void] {
-  const [s, setS] = useState<UpdateStatus | null>(null);
+  const [s, setS] = useState<UpdateStatus | null>(lastStatus);
   useEffect(() => {
     let alive = true;
-    const load = () => void api.appInfo.updateStatus().then((x) => alive && setS(x));
-    load();
-    const off = api.on('update-status' as 'navigate', ((x: unknown) => alive && setS(x as UpdateStatus)) as never);
+    statusListeners.add(setS);
+    const load = () => void api.appInfo.updateStatus().then((x) => alive && shareStatus(x));
+    if (!lastStatus) load();
+    const off = api.on('update-status' as 'navigate', ((x: unknown) => alive && shareStatus(x as UpdateStatus)) as never);
     const h = setInterval(load, 15_000);
-    return () => { alive = false; off(); clearInterval(h); };
+    return () => { alive = false; statusListeners.delete(setS); off(); clearInterval(h); };
   }, []);
-  return [s, setS];
+  return [s, shareStatus];
 }
 
 /**
@@ -99,8 +109,62 @@ function actionLabel(s: UpdateStatus): string {
   return 'Download and install';
 }
 
+/** "Later" for a downloaded update: in an hour, tonight, tomorrow morning, a time you pick, or when you quit. */
+function LaterButton({ s, onChange, small }: { s: UpdateStatus; onChange: (s: UpdateStatus) => void; small?: boolean }) {
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const [picking, setPicking] = useState(false);
+  const [when, setWhen] = useState(() => {
+    const d = new Date(Date.now() + 3600_000);
+    d.setSeconds(0, 0);
+    return new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+  });
+  const pick = async (w: UpdateWhen) => onChange(await api.appInfo.scheduleUpdate(w));
+  return (
+    <>
+      <button
+        className={`btn ${small ? 'sm ghost' : ''}`}
+        onClick={(e) => { const r = (e.currentTarget as HTMLElement).getBoundingClientRect(); setMenu({ x: r.left, y: r.bottom + 4 }); }}
+      >
+        <Icon name="clock" size={13} /> {s.countdown !== undefined ? 'Postpone' : 'Later'} <Icon name="chevronDown" size={12} />
+      </button>
+      {menu ? (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          onClose={() => setMenu(null)}
+          items={[
+            { label: 'In an hour', icon: 'clock', run: () => void pick('hour') },
+            { label: 'Tonight at 11 PM', icon: 'moon', run: () => void pick('tonight') },
+            { label: 'Tomorrow morning', icon: 'sun', run: () => void pick('morning') },
+            { label: 'Pick a time…', icon: 'calendar', run: () => setPicking(true) },
+            { sep: true, label: '' },
+            { label: 'When I quit Keeper', icon: 'power', run: () => void pick('quit') },
+          ]}
+        />
+      ) : null}
+      {picking ? (
+        <Modal title="When should Keeper update?" onClose={() => setPicking(false)}>
+          <p className="muted small" style={{ marginTop: 0 }}>Keeper reminds you five minutes before, waits for anything it is busy with, and opens on the same page afterwards.</p>
+          <input className="input" type="datetime-local" value={when} min={new Date(Date.now() - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 16)} onChange={(e) => setWhen(e.target.value)} />
+          <div className="btn-row" style={{ justifyContent: 'flex-end', marginTop: 16 }}>
+            <button className="btn" onClick={() => setPicking(false)}>Cancel</button>
+            <button className="btn primary" disabled={!when} onClick={() => { setPicking(false); void pick({ at: new Date(when).getTime() }); }}>Schedule</button>
+          </div>
+        </Modal>
+      ) : null}
+    </>
+  );
+}
+
 function Primary({ s, onChange }: { s: UpdateStatus; onChange: (s: UpdateStatus) => void }) {
-  if (s.state === 'ready') return <button className="btn primary" onClick={() => void api.appInfo.installUpdate()}><Icon name="refresh" size={14} /> {actionLabel(s)}</button>;
+  if (s.state === 'ready') {
+    return (
+      <>
+        <button className="btn primary" title="Keeper restarts and opens on the page you are on now" onClick={async () => onChange(await api.appInfo.scheduleUpdate('now'))}><Icon name="refresh" size={14} /> {s.countdown !== undefined ? 'Update now' : actionLabel(s)}</button>
+        {s.method !== 'package' ? <LaterButton s={s} onChange={onChange} /> : null}
+      </>
+    );
+  }
   if (s.state === 'available' && s.method === 'manager') {
     return s.manager?.command ? (
       <button className="btn primary" title={s.manager.command} onClick={() => void navigator.clipboard.writeText(s.manager!.command!)}>
@@ -130,6 +194,7 @@ export function UpdatesPanel() {
     !s ? 'Updates' :
     s.state === 'available' ? `Keeper ${s.version} is available` :
     s.state === 'downloading' ? `Downloading Keeper ${s.version}…` :
+    s.state === 'ready' && s.countdown !== undefined ? `Keeper updates in ${countdown(s.countdown)}` :
     s.state === 'ready' ? `Keeper ${s.version} is ready` :
     s.state === 'installing' ? 'Installing…' :
     s.state === 'checking' ? 'Checking for updates…' :
@@ -147,7 +212,7 @@ export function UpdatesPanel() {
             {s?.publishedAt && s.version ? ` · ${s.version} released ${relativeTime(Date.parse(s.publishedAt))}` : ''}
             {s?.checkedAt ? ` · checked ${relativeTime(s.checkedAt)}` : ''}
           </div>
-          {s?.message ? <div className="small" style={{ marginTop: 4 }}>{s.message}</div> : null}
+          {s?.state === 'ready' && s.countdown === undefined && !s.waitingFor && s.method !== 'package' ? <div className="small" style={{ marginTop: 4 }}>{describePlan(s.plan ?? null)}. You’ll come back to the page you were on.</div> : s?.message ? <div className="small" style={{ marginTop: 4 }}>{s.message}</div> : null}
           {s?.state === 'downloading' ? <div className="progress" style={{ marginTop: 8 }}><i style={{ width: `${s.percent ?? 0}%` }} /></div> : null}
         </div>
         <div className="btn-row">
@@ -216,6 +281,17 @@ export function UpdateBanner() {
     }
   });
   if (!s || !s.version || (s.state !== 'available' && s.state !== 'ready' && s.state !== 'downloading')) return null;
+  // The countdown before a scheduled install always shows, and can always be postponed.
+  if (s.state === 'ready' && s.countdown !== undefined) {
+    return (
+      <div className="update-banner countdown" role="alert">
+        <Icon name="refresh" size={15} />
+        <span className="grow">Keeper <b>{s.version}</b> installs in <b className="tabular">{countdown(s.countdown)}</b>. You’ll come back to this page.</span>
+        <LaterButton s={s} onChange={setS} small />
+        <button className="btn sm primary" onClick={async () => setS(await api.appInfo.scheduleUpdate('now'))}>Update now</button>
+      </div>
+    );
+  }
   // In automatic mode the download is quiet; only "ready" is worth a banner.
   if (settings?.updateMode === 'auto' && s.state !== 'ready' && s.canInstall) return null;
   const key = `${s.version}:${s.state}`;
@@ -232,7 +308,7 @@ export function UpdateBanner() {
     <div className="update-banner" role="status">
       <Icon name="sparkle" size={15} />
       <span className="grow">
-        {s.state === 'ready' ? <>Keeper <b>{s.version}</b> is ready. {s.message}</> : s.state === 'downloading' ? <>Downloading Keeper <b>{s.version}</b>… {s.percent ?? 0}%</> : <>Keeper <b>{s.version}</b> is available.</>}
+        {s.state === 'ready' ? <>Keeper <b>{s.version}</b> is ready. {s.waitingFor ? s.message : describePlan(s.plan ?? null)}.</> : s.state === 'downloading' ? <>Downloading Keeper <b>{s.version}</b>… {s.percent ?? 0}%</> : <>Keeper <b>{s.version}</b> is available.</>}
       </span>
       <WhatsNewHover only="newer"><button className="btn sm ghost" onClick={() => go({ name: 'settings', arg: 'updates' })}>What’s new</button></WhatsNewHover>
       {s.state !== 'downloading' ? <Primary s={s} onChange={setS} /> : null}

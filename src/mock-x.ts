@@ -138,6 +138,11 @@ export function mockX(): KeeperApiX {
       checkForUpdates: async () => delay({ ...update, state: 'none', checkedAt: Date.now() }, 800),
       installUpdate: async () => undefined,
       downloadUpdate: async () => delay({ ...update, state: 'ready', version: '0.2.0', message: 'Installs when you quit Keeper, or restart now' }, 1200),
+      scheduleUpdate: async (when) => {
+        const { planFor, describePlan } = await import('../core/update-schedule');
+        const plan = planFor(when);
+        return { ...update, state: 'ready', version: '0.2.0', plan, message: describePlan(plan), countdown: when === 'now' ? 10 : undefined };
+      },
       whatsNew: async () => null,
       releasesPage: async () => undefined,
       versionNotes: async () => [

@@ -74,6 +74,12 @@ export interface UpdateStatus {
   manager?: { label: string; command?: string };
   /** Keeper can install it for you (otherwise it opens the download) */
   canInstall?: boolean;
+  /** when the downloaded update goes in */
+  plan?: import('./update-schedule').UpdatePlan | null;
+  /** seconds until it goes in, while the countdown shows */
+  countdown?: number;
+  /** what is holding it back (a recording, a folder being locked…) */
+  waitingFor?: string;
 }
 
 export interface AiProviderInfo {
@@ -151,6 +157,8 @@ export interface KeeperApiX {
     releasesPage(): Promise<void>;
     /** a few short lines per version (this one and newer), for hover cards */
     versionNotes(): Promise<import('./updates').VersionNote[]>;
+    /** when a downloaded update goes in: now, when Keeper quits, in an hour, tonight, tomorrow morning or a time */
+    scheduleUpdate(when: import('./update-schedule').UpdateWhen): Promise<UpdateStatus>;
     loginItem(): Promise<boolean>;
     setLoginItem(on: boolean): Promise<boolean>;
   };

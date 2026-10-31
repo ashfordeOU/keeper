@@ -2,6 +2,8 @@
 // Keeper's main process: windows, tray, shortcuts, the file index and every
 // action the interface can ask for.
 
+import { addBusyCheck } from './services/busy';
+import { onBeforeInstall } from './services/updater';
 import { BRAND, COPYRIGHT, TRADEMARK, WEBSITE } from '../core/brand';
 import { app, BrowserWindow, dialog, globalShortcut, ipcMain, Menu, nativeImage, nativeTheme, protocol, screen, shell, Tray } from 'electron';
 import { existsSync, promises as fsp, statSync } from 'node:fs';
@@ -818,6 +820,9 @@ app.whenReady().then(async () => {
       return r.outputs;
     },
   });
+  // Updates wait for work a restart would interrupt, and the window saves where you are first.
+  addBusyCheck(() => (recordingState().recording ? 'Recording the screen' : undefined));
+  onBeforeInstall(() => broadcast('save-place'));
   registerIpcX({
     index, journal, events: () => islandSvc.events, window: () => main, changed: libraryChanged, broadcast,
     onUpdate: (u) => {

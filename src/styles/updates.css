@@ -29,3 +29,7 @@
 .wn-version + .wn-version { border-top: 1px solid var(--line); padding-top: 9px; }
 .wn-head { display: flex; align-items: center; gap: 7px; }
 .wn-lines { display: flex; flex-direction: column; gap: 2px; color: var(--text-2); line-height: 1.4; }
+
+/* The countdown before a scheduled update: impossible to miss, easy to postpone. */
+.update-banner.countdown { background: color-mix(in srgb, var(--accent) 16%, var(--bg-raised, var(--bg))); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.update-banner .tabular { font-variant-numeric: tabular-nums; }

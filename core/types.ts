@@ -412,5 +412,9 @@ export interface Settings {
   updateBeta: boolean;
   /** the version that ran last, to show "What's new" once after an update */
   lastRunVersion: string;
+  /** when a downloaded update goes in (null = the default for the update mode) */
+  updatePlan?: import('./update-schedule').UpdatePlan | null;
+  /** reopen the page you were on after an update or restart */
+  restorePlace?: boolean;
   language: string;
 }

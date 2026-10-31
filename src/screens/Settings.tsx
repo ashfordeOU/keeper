@@ -137,6 +137,13 @@ export function Settings() {
       <h2 id="updates" style={{ margin: '18px 0 8px' }}>{t('settings.updates')}</h2>
       <div className="card settings-section" style={{ padding: 16 }}>
         <UpdatesPanel />
+        <div className="row" style={{ justifyContent: 'space-between', marginTop: 14 }}>
+          <div>
+            <div style={{ fontWeight: 600 }}>Reopen where I left off</div>
+            <div className="small muted">After an update or a restart, Keeper opens the same page, scrolled to the same spot.</div>
+          </div>
+          <Toggle on={s.restorePlace !== false} onChange={(v) => void updateSettings({ restorePlace: v })} />
+        </div>
       </div>
 
       <h2 style={{ margin: '18px 0 8px' }}>{t('settings.about')}</h2>

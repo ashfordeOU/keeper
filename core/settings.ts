@@ -80,6 +80,8 @@ export function defaultSettings(folders: string[], rules: Rule[]): AllSettings {
     updateMode: 'auto',
     updateBeta: false,
     lastRunVersion: '',
+    updatePlan: null,
+    restorePlace: true,
     language: 'system',
     island: defaultIsland(),
   };

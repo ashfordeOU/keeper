@@ -10,6 +10,7 @@ import { OwlMark } from './components/OwlMark';
 import { UpdateBanner, WhatsNew } from './components/Updates';
 import { Inspector } from './components/Inspector';
 import { NavSection } from './components/NavSection';
+import { usePlaceMemory } from './place';
 import { PlacesSidebar } from './components/PlacesSidebar';
 import { Player } from './components/Player';
 import { KIND_COLOR } from './components/ui';
@@ -43,6 +44,8 @@ import { Trash } from './screens/Trash';
 import { mod, shift, useAsync, useStore, type Route, type RouteName } from './state';
 import { QuickLookHost } from './preview/QuickLook';
 import { toggleThemePatch } from './theme';
+
+const contentEl = () => document.querySelector<HTMLElement>('.main > .content');
 
 const SHELVES: FileKind[] = ['image', 'video', 'audio', 'document', 'archive', 'installer', 'app'];
 
@@ -264,6 +267,9 @@ export function App() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [store]);
+
+  // Scroll positions come back too, after a page change, an update or a restart.
+  usePlaceMemory(store.route, contentEl);
 
   return (
     <div className="shell" style={{ gridTemplateColumns: `var(--sidebar) 1fr ${showInspector ? 'var(--inspector)' : '0px'}` }}>

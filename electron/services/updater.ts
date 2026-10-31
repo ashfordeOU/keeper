@@ -10,7 +10,7 @@
 //
 // The person chooses: install automatically, ask first, or only check on demand.
 
-import { app, net, Notification, shell } from 'electron';
+import { app, net, Notification, powerMonitor, shell } from 'electron';
 import { spawn } from 'node:child_process';
 import { constants, createWriteStream, existsSync, promises as fsp } from 'node:fs';
 import os from 'node:os';
@@ -19,7 +19,9 @@ import type { UpdateStatus } from '../../core/api-x';
 import { run } from '../../core/platform';
 import { detectInstallSource, INSTALL_SOURCES } from '../../core/install-source';
 import { compareVersions, pickAsset, pickRelease, releaseFor, versionNotes, type GhAsset, type GhRelease, type InstallKind, type VersionNote } from '../../core/updates';
+import { describePlan, nextStep, planFor, type UpdateWhen } from '../../core/update-schedule';
 import { settings, updateSettings } from '../store';
+import { busyWith } from './busy';
 
 const REPO = 'ashfordeOU/keeper';
 const RELEASES = `https://github.com/${REPO}/releases`;
@@ -39,6 +41,9 @@ let asset: GhAsset | undefined;
 let downloaded: string | undefined;
 let notifiedFor = '';
 let installOnQuit = false;
+let readySince = 0;
+let ticker: NodeJS.Timeout | undefined;
+let beforeInstall: () => void = () => undefined;
 let eu: typeof import('electron-updater').autoUpdater | null = null;
 let notify: (s: UpdateStatus) => void = () => undefined;
 
@@ -185,12 +190,16 @@ export async function downloadUpdate(): Promise<UpdateStatus> {
       if (kind === 'mac') await stageMac(file);
     }
     const auto = settings().updateMode === 'auto';
-    installOnQuit = auto && kind !== 'deb' && kind !== 'rpm';
+    readySince = Date.now();
+    // A plan picked earlier (for this or a previous download) still holds; automatic mode defaults to "when you quit".
+    const plan = settings().updatePlan ?? (auto ? planFor('quit') : null);
+    installOnQuit = !!plan && kind !== 'deb' && kind !== 'rpm';
     set({
-      state: 'ready', percent: 100,
-      message: kind === 'deb' || kind === 'rpm' ? 'Ready. Installing asks for your password.' : auto ? 'Installs when you quit Keeper, or restart now' : 'Ready to install',
+      state: 'ready', percent: 100, plan,
+      message: kind === 'deb' || kind === 'rpm' ? 'Ready. Installing asks for your password.' : plan ? describePlan(plan) : 'Ready to install',
     });
     notify(status);
+    schedule();
   } catch (e) {
     downloaded = undefined;
     set({ state: 'error', message: e instanceof Error ? e.message.split('\n')[0] : String(e) });
@@ -255,9 +264,71 @@ fi`;
 
 // ---------------------------------------------------------------- installing
 
+// ---------------------------------------------------------------- when it goes in
+
+/** The person chose when: now, when they quit, in an hour, tonight, tomorrow morning or a time. */
+export async function scheduleUpdate(when: UpdateWhen): Promise<UpdateStatus> {
+  const plan = planFor(when);
+  await updateSettings({ updatePlan: plan.at === 'quit' || when === 'now' ? (plan.at === 'quit' ? plan : null) : plan });
+  installOnQuit = kind !== 'deb' && kind !== 'rpm';
+  set({ plan, countdown: undefined, waitingFor: undefined, message: when === 'now' ? undefined : describePlan(plan) });
+  if (when === 'now') {
+    const busy = busyWith();
+    if (!busy.length) {
+      await installUpdate();
+      return status;
+    }
+    set({ waitingFor: busy[0], message: `Installs as soon as this finishes: ${busy[0].toLowerCase()}` });
+  }
+  schedule();
+  return status;
+}
+
+/** Checks the plan: every 30 seconds while an update waits, every second during the countdown. */
+function schedule() {
+  clearTimeout(ticker);
+  if (status.state !== 'ready') return;
+  const plan = status.plan ?? null;
+  let idle = 0;
+  try {
+    idle = powerMonitor.getSystemIdleTime();
+  } catch {
+    /* not available on this desktop */
+  }
+  const step = nextStep(plan, { now: Date.now(), busy: busyWith(), idleSeconds: idle, readySince, auto: settings().updateMode === 'auto' });
+  if (step.do === 'install') {
+    void installUpdate();
+    return;
+  }
+  if (step.do === 'warn') {
+    const first = status.countdown === undefined;
+    set({ countdown: step.seconds, waitingFor: undefined, message: `Installing in ${step.seconds} s — you can postpone it` });
+    if (first) notify(status);
+  } else if (step.do === 'postpone') {
+    const at = Date.now() + step.minutes * 60_000;
+    set({ plan: { at, label: 'after the current work' }, countdown: undefined, waitingFor: step.reason, message: `Waiting until this finishes: ${step.reason.toLowerCase()}` });
+  } else if (status.countdown !== undefined) {
+    set({ countdown: undefined });
+  }
+  ticker = setTimeout(schedule, step.do === 'warn' ? 1000 : 30_000);
+  ticker.unref?.();
+}
+
+/** Lets the app save where the person is before Keeper restarts. */
+export function onBeforeInstall(fn: () => void) {
+  beforeInstall = fn;
+}
+
 export async function installUpdate(): Promise<void> {
   if (status.state !== 'ready') return;
-  set({ state: 'installing', message: undefined });
+  clearTimeout(ticker);
+  try {
+    beforeInstall();
+  } catch {
+    /* saving the place is best-effort; the renderer also saves as you go */
+  }
+  await updateSettings({ updatePlan: null });
+  set({ state: 'installing', message: undefined, countdown: undefined });
   try {
     if (downloaded === 'electron-updater' && eu) {
       eu.quitAndInstall(false, true);
@@ -292,6 +363,12 @@ export async function installUpdate(): Promise<void> {
 /** Called from before-quit: in automatic mode a downloaded update goes in now. */
 export function installOnQuitIfReady() {
   if (!installOnQuit || status.state !== 'ready') return;
+  try {
+    beforeInstall();
+  } catch {
+    /* best-effort */
+  }
+  void updateSettings({ updatePlan: null });
   if (downloaded === 'electron-updater' && eu) {
     eu.autoInstallOnAppQuit = true;
   } else if (kind === 'mac') {

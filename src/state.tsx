@@ -2,6 +2,7 @@
 // App-wide state: the current page, selection, inspector, music player,
 // settings and toasts. Small enough that plain React context does the job.
 
+import { rememberRoute, setPlaceMemory, startPlace } from './place';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { SystemInfo } from '../core/api';
 import type { AllSettings } from '../core/settings';
@@ -78,8 +79,9 @@ function save(key: string, v: unknown) {
 }
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [route, setRoute] = useState<Route>({ name: 'home' });
-  const history = useRef<Route[]>([]);
+  // An update or restart reopens the page you were on (Settings → Reopen where I left off).
+  const [route, setRoute] = useState<Route>(() => startPlace?.route ?? { name: 'home' });
+  const history = useRef<Route[]>(startPlace?.history ?? []);
   const [info, setInfo] = useState<SystemInfo | null>(null);
   const [settings, setSettings] = useState<AllSettings | null>(null);
   const [selection, setSelection] = useState<string[]>([]);
@@ -107,6 +109,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     ];
     return () => offs.forEach((o) => o());
   }, []);
+
+  useEffect(() => rememberRoute(route, history.current), [route]);
+  useEffect(() => {
+    if (settings) setPlaceMemory(settings.restorePlace !== false);
+  }, [settings]);
 
   // Apply the theme, look and appearance to the document (and again when the system goes light or dark).
   useEffect(() => {
