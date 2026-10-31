@@ -61,7 +61,7 @@ beforeAll(async () => {
 }, 30_000);
 afterAll(() => dovecot?.stop());
 
-const account = (): Account => ({ id: 'test', kind: 'imap', label: 'Test', email: 'ana@example.org', identities: [{ name: 'Ana', email: 'ana@example.org' }], imap: { host: '127.0.0.1', port: dovecot!.port, security: 'none', user: 'ana' }, mail: true, calendar: false, contacts: false });
+const account = (): Account => ({ id: 'test', kind: 'imap', label: 'Test', email: 'ana@example.org', identities: [{ name: 'Ana', email: 'ana@example.org' }], imap: { host: '127.0.0.1', port: dovecot?.port ?? 0, security: 'none', user: 'ana' }, mail: true, calendar: false, contacts: false });
 
 describe('IMAP against Dovecot', () => {
   it.skipIf(!fs.existsSync('/usr/sbin/dovecot'))('lists folders, syncs, reads, flags, moves, searches and watches', async () => {
