@@ -26,6 +26,8 @@ if (env.CSC_LINK) {
     entitlements: 'build/entitlements.mac.plist',
     entitlementsInherit: 'build/entitlements.mac.plist',
     notarize: Boolean(env.APPLE_ID && env.APPLE_APP_SPECIFIC_PASSWORD && env.APPLE_TEAM_ID),
+    // Programs placed next to Keeper's own executable are signed with the same Developer ID first.
+    binaries: ['Contents/MacOS/keeper-helper'],
   });
   config.mac = mac;
 }

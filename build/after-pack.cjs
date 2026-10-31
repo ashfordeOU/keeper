@@ -78,5 +78,13 @@ exports.default = async function afterPack(context) {
     require('../scripts/fix-node-pty.cjs').fixNodePty(pty);
   }
 
+  // macOS: the helper next to Keeper's executable must be signed before the app itself
+  // ("code object is not signed at all" otherwise). Ad-hoc here; a Developer ID build re-signs
+  // it through mac.binaries (packaging/electron-builder.signed.cjs).
+  if (platform === 'darwin' && process.platform === 'darwin') {
+    const helper = path.join(context.appOutDir, `${context.packager.appInfo.productFilename}.app`, 'Contents', 'MacOS', 'keeper-helper');
+    if (fs.existsSync(helper)) require('child_process').execFileSync('/usr/bin/codesign', ['--force', '--sign', '-', helper], { stdio: 'inherit' });
+  }
+
   console.log(`  • after-pack: removed ${(freed / 1024 / 1024).toFixed(0)} MB of files for other systems`);
 };
