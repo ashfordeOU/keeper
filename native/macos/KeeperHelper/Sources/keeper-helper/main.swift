@@ -326,6 +326,9 @@ func handle(id: Int, method: String, params: [String: Any]) async {
     }
 }
 
+/// Requests still being answered; at the end of input the helper waits for them before it exits.
+let inFlight = DispatchGroup()
+
 func dispatch(_ line: String) {
     guard let data = line.data(using: .utf8),
           let obj = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
@@ -341,9 +344,11 @@ func dispatch(_ line: String) {
     case "cancel":
         Task { await Bridge.shared.cancel(id) }
     default:
+        inFlight.enter()
         let task = Task {
             await handle(id: id, method: method, params: params.value as? [String: Any] ?? [:])
             await Bridge.shared.done(id)
+            inFlight.leave()
         }
         Task { await Bridge.shared.track(id, task) }
     }
@@ -354,4 +359,6 @@ func dispatch(_ line: String) {
 while let line = readLine(strippingNewline: true) {
     dispatch(line)
 }
+// Input closed: finish what was asked (answers are written from other threads), then leave.
+_ = inFlight.wait(timeout: .now() + 30)
 exit(0)

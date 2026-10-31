@@ -12,9 +12,11 @@ import path from 'node:path';
  */
 export function keeperDataDir(env: Record<string, string | undefined> = process.env, platform = process.platform, home = os.homedir()): string {
   if (env.KEEPER_DATA_DIR) return env.KEEPER_DATA_DIR;
-  if (platform === 'darwin') return path.join(home, 'Library', 'Application Support', 'Keeper');
-  if (platform === 'win32') return path.join(env.APPDATA || path.join(home, 'AppData', 'Roaming'), 'Keeper');
-  return path.join(env.XDG_CONFIG_HOME || path.join(home, '.config'), 'Keeper');
+  // Paths in the target system's own style, whichever system computes them.
+  const p = platform === 'win32' ? path.win32 : path.posix;
+  if (platform === 'darwin') return p.join(home, 'Library', 'Application Support', 'Keeper');
+  if (platform === 'win32') return p.join(env.APPDATA || p.join(home, 'AppData', 'Roaming'), 'Keeper');
+  return p.join(env.XDG_CONFIG_HOME || p.join(home, '.config'), 'Keeper');
 }
 
 /** The private channel between the app and the `keeper` command. */

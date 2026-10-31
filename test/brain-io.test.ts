@@ -107,7 +107,7 @@ describe('brain settings and paths', () => {
   });
   it('finds the app\'s data folder and a socket path on each system', () => {
     expect(keeperDataDir({}, 'darwin', '/Users/sam')).toBe('/Users/sam/Library/Application Support/Keeper');
-    expect(keeperDataDir({ XDG_CONFIG_HOME: '/c' }, 'linux', '/home/sam')).toBe(path.join('/c', 'Keeper'));
+    expect(keeperDataDir({ XDG_CONFIG_HOME: '/c' }, 'linux', '/home/sam')).toBe('/c/Keeper');
     expect(keeperDataDir({ KEEPER_DATA_DIR: '/d' }, 'linux', '/home/sam')).toBe('/d');
     expect(brainSocketPath('C:\\Users\\sam\\AppData\\Roaming\\Keeper', 'win32')).toMatch(/^\\\\\.\\pipe\\keeper-brain-[0-9a-f]{16}$/);
     expect(brainSocketPath('/home/sam/.config/Keeper', 'linux')).toBe(path.join('/home/sam/.config/Keeper', 'brain', 'keeper.sock'));
