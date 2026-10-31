@@ -13,6 +13,7 @@ import type { PlacesApi } from './api-places';
 import type { PlatformApi } from './api-platform';
 import type { LockApi } from './api-lock';
 import type { BrainApi, BrainDelta, BrainStep } from './api-brain';
+import type { ProcsApi } from './api-procs';
 import type { PreviewApi } from './previewTypes';
 import type { WidgetConfig } from './widgets';
 import type {
@@ -301,6 +302,7 @@ export interface KeeperApi extends KeeperApiX {
   /** Keeper's brain: passage index, meaning search, the AI harness and the AI apps it serves */
   brain: BrainApi;
   /** the process manager and services in Health */
+  procs: ProcsApi;
   /** universal file previews */
   preview: PreviewApi;
   /** video, audio, picture, PDF and file tools; results always go to a new folder */

@@ -48,6 +48,7 @@ import { registerLockIpc } from './ipc/lock';
 import { registerBrainIpc } from './ipc/brain';
 import { brainSettingsChanged, startBrain, stopBrain, syncBrain } from './services/brain';
 import { applyWaylandSwitch } from './services/island-place';
+import { registerProcsIpc } from './ipc/procs';
 import { pendingOnQuit, relockOnQuit } from './services/lock';
 import { remoteFolders } from './services/places';
 import { emptyAndBroken, removeBrokenLink } from './services/tools';
@@ -861,6 +862,7 @@ app.whenReady().then(async () => {
   });
   registerLockIpc({ broadcast, changed: libraryChanged });
   registerBrainIpc();
+  registerProcsIpc();
   registerCaptureIpc({
     preload: capturePreload(),
     langs: () => settings().ocrLanguages,

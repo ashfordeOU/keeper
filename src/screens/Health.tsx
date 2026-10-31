@@ -10,6 +10,7 @@ import { Empty, Loading, Modal, PageHead } from '../components/ui';
 import { useStore } from '../state';
 import { Ring } from './Protection';
 import { HealthMore } from './HealthMore';
+import { ForceQuitDialog, Processes, Services } from './Processes';
 import '../styles/screens-b.css';
 
 function uptime(sec: number): string {
@@ -19,8 +20,35 @@ function uptime(sec: number): string {
   return d ? `${d}d ${h}h` : h ? `${h}h ${m}m` : `${m}m`;
 }
 
+type HealthTab = 'overview' | 'processes' | 'services';
+
+function HealthTabs({ tab }: { tab: HealthTab }) {
+  const { go } = useStore();
+  return (
+    <div className="seg health-tabs" role="tablist">
+      {([['overview', 'Overview'], ['processes', 'Processes'], ['services', 'Services']] as const).map(([id, label]) => (
+        <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? 'on' : ''} onClick={() => go({ name: 'health', arg: id === 'overview' ? undefined : id })}>{label}</button>
+      ))}
+    </div>
+  );
+}
+
+/** Health: an overview, every running process (a full task manager), and the system's services. */
 export function Health() {
-  const { toast } = useStore();
+  const { route } = useStore();
+  const tab: HealthTab = route.arg === 'processes' || route.arg === 'force-quit' ? 'processes' : route.arg === 'services' ? 'services' : 'overview';
+  if (tab === 'overview') return <HealthOverview />;
+  return (
+    <div>
+      <PageHead title="Health" sub={tab === 'processes' ? 'Every program running on this computer, and what it uses' : 'Background services that start on their own'}><HealthTabs tab={tab} /></PageHead>
+      {tab === 'processes' ? <Processes /> : <Services />}
+    </div>
+  );
+}
+
+function HealthOverview() {
+  const { toast, go } = useStore();
+  const [forceQuit, setForceQuit] = useState(false);
   const [h, setH] = useState<HealthReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [quit, setQuit] = useState<{ pid: number; name: string } | null>(null);
@@ -48,7 +76,7 @@ export function Health() {
 
   return (
     <div>
-      <PageHead title="Health" sub={`${h.cpuModel} · ${h.cores} cores · up ${uptime(h.uptimeSec)}`} />
+      <PageHead title="Health" sub={`${h.cpuModel} · ${h.cores} cores · up ${uptime(h.uptimeSec)}`}><HealthTabs tab="overview" /></PageHead>
       <div className="kv-grid" style={{ marginBottom: 16 }}>
         <div className="card pad col" style={{ alignItems: 'center' }}><Ring value={h.cpuPercent} size={120} color={tone(h.cpuPercent)} label={`${Math.round(h.cpuPercent)}%`} sub="processor" /><span className="small muted">Load {h.loadAvg.map((l) => l.toFixed(1)).join(' · ')}</span></div>
         <div className="card pad col" style={{ alignItems: 'center' }}><Ring value={memPct} size={120} color={tone(memPct)} label={`${Math.round(memPct)}%`} sub="memory" /><span className="small muted">{formatBytes(usedMem)} of {formatBytes(h.memory.total)}</span></div>
@@ -62,7 +90,7 @@ export function Health() {
 
       <div className="grid cols-2">
         <div className="card">
-          <div className="section-head" style={{ padding: '12px 14px 0' }}><h3>Busiest apps</h3></div>
+          <div className="section-head" style={{ padding: '12px 14px 0' }}><h3>Busiest apps</h3><div className="btn-row"><button className="btn ghost sm" onClick={() => setForceQuit(true)}>Force Quit…</button><button className="btn ghost sm" onClick={() => go({ name: 'health', arg: 'processes' })}>All processes <Icon name="chevronRight" size={12} /></button></div></div>
           <table className="table">
             <thead><tr><th>App</th><th>Processor</th><th>Memory</th><th /></tr></thead>
             <tbody>
@@ -106,6 +134,7 @@ export function Health() {
       </div>
 
       <HealthMore processes={h.processes} onQuit={setQuit} />
+      {forceQuit ? <ForceQuitDialog onClose={() => setForceQuit(false)} /> : null}
 
       {quit ? (
         <Modal title={`Quit ${quit.name}?`} onClose={() => setQuit(null)}>

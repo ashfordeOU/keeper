@@ -41,6 +41,7 @@ import { Capture } from './screens/Capture';
 import { Annotate } from './screens/Annotate';
 import { Network } from './screens/Network';
 import { Trash } from './screens/Trash';
+import { ForceQuitHost } from './screens/Processes';
 import { mod, shift, useAsync, useStore, type Route, type RouteName } from './state';
 import { QuickLookHost } from './preview/QuickLook';
 import { toggleThemePatch } from './theme';
@@ -282,6 +283,7 @@ export function App() {
       {palette ? <CommandPalette onClose={() => setPalette(false)} /> : null}
       <WhatsNew />
       <QuickLookHost />
+      <ForceQuitHost />
       <div className="toast-stack">
         {store.toasts.map((t) => (
           <div className="toast" key={t.id}>

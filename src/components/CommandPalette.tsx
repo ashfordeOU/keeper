@@ -58,6 +58,8 @@ const PAGES: [Route, string, string, string?][] = [
   [{ name: 'large' }, 'Large Files', 'weight'],
   [{ name: 'rules' }, 'Automations', 'rules'],
   [{ name: 'health' }, 'Health', 'bolt'],
+  [{ name: 'health', arg: 'processes' }, 'Processes (Task Manager)', 'list'],
+  [{ name: 'health', arg: 'services' }, 'Services', 'power'],
   [{ name: 'startup' }, 'Startup Items', 'power'],
   [{ name: 'apps' }, 'Applications', 'app'],
   [{ name: 'protection' }, 'Protection', 'shield'],
@@ -101,6 +103,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     { id: 'focus-stop', label: 'Stop Focus Timer', group: 'Actions', icon: 'timer', run: async () => { await api.island.focus('stop'); } },
     { id: 'present', label: 'Presentation Mode', group: 'Actions', icon: 'eye', keywords: 'hide desktop do not disturb', run: async () => { const on = await api.island.presentation(true); store.toast(on ? 'Presentation mode on' : 'Presentation mode is not available here'); } },
     { id: 'present-off', label: 'End Presentation Mode', group: 'Actions', icon: 'eye', run: async () => { await api.island.presentation(false); } },
+    { id: 'force-quit', label: 'Force Quit Applications…', group: 'Actions', icon: 'warning', kbd: mod === '⌘' ? '⌥⌘⎋' : 'Ctrl+Alt+Esc', keywords: 'kill end task frozen not responding hung', run: () => window.dispatchEvent(new Event('keeper:force-quit-anywhere')) },
     { id: 'eject', label: 'Eject All Disks', group: 'Actions', icon: 'arrowUp', keywords: 'unmount drives usb', run: async () => { const r = await api.system.ejectAll(); store.toast(r.ejected.length ? `Ejected ${r.ejected.join(', ')}` : 'No disks to eject'); } },
     { id: 'shelf-clear', label: 'Clear the Shelf', group: 'Actions', icon: 'island', run: async () => { await api.island.clearShelf(); } },
   ], [store]);

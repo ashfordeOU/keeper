@@ -1,0 +1,59 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Health → Processes and Services. */
+
+.procs:focus { outline: none; }
+.procs-meters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
+@media (max-width: 980px) { .procs-meters { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.meter { contain: content; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.meter-value { font-size: 17px; font-variant-numeric: tabular-nums; }
+.meter .cores { display: flex; align-items: flex-end; gap: 2px; height: 18px; }
+.meter .cores i { flex: 1; min-width: 2px; background: var(--accent); opacity: .75; border-radius: 1px; }
+.meter .pressure { height: 6px; border-radius: 3px; background: var(--bg-sunk); overflow: hidden; }
+.meter .pressure i { display: block; height: 100%; border-radius: 3px; }
+
+.procs-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.procs-bar .search-box, .services .search-box { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg-elev); color: var(--text-3); min-width: 220px; flex: 0 1 300px; }
+.procs-bar .search-box input { border: 0; background: none; outline: none; width: 100%; color: var(--text); font-size: 12.5px; }
+.procs-bar .search-box:focus-within { border-color: var(--accent); }
+.procs-actions { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; min-height: 28px; flex-wrap: wrap; }
+.procs-sep { width: 1px; height: 18px; background: var(--line); margin: 0 4px; }
+
+.procs-table { border: 1px solid var(--line); border-radius: 12px; background: var(--bg-elev); overflow: hidden; }
+.procs-head, .procs-row { display: grid; align-items: center; column-gap: 8px; padding: 0 12px; }
+.procs-head { height: 32px; border-bottom: 1px solid var(--line); background: var(--bg-sunk); }
+.procs-head button { border: 0; background: none; padding: 0; font: inherit; font-size: 11.5px; font-weight: 600; color: var(--text-3); text-align: left; display: inline-flex; align-items: center; gap: 3px; cursor: default; white-space: nowrap; overflow: hidden; }
+.procs-head button.num { justify-content: flex-end; }
+.procs-head button.on { color: var(--text); }
+.procs-body { height: max(320px, calc(100vh - 430px)); overflow-y: auto; position: relative; contain: strict; }
+.procs-row { position: absolute; left: 0; right: 0; height: 30px; contain: strict; font-size: 12.5px; border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent); cursor: default; user-select: none; }
+.procs-row > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.procs-row .num { text-align: right; font-variant-numeric: tabular-nums; }
+.procs-row:hover { background: var(--bg-hover); }
+.procs-row.on { background: var(--accent-soft); }
+.procs-row.group { font-weight: 600; }
+.procs-row.stopped { color: var(--text-3); }
+.proc-name { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.proc-name img { flex: none; }
+.proc-caret { width: 16px; height: 16px; flex: none; border: 0; background: none; padding: 0; display: grid; place-items: center; color: var(--text-3); border-radius: 4px; }
+button.proc-caret:hover { background: var(--bg-active); color: var(--text); }
+.proc-glyph { width: 16px; height: 16px; flex: none; border-radius: 4px; display: grid; place-items: center; background: var(--bg-sunk); color: var(--text-3); }
+.proc-glyph.app { background: var(--accent-soft); color: var(--accent); }
+.proc-name .badge { height: 17px; font-size: 10.5px; padding: 0 6px; }
+
+.inspect h4 { margin: 16px 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-3); }
+.inspect .kv { grid-template-columns: 130px 1fr; }
+.inspect .kv > span { color: var(--text-3); }
+.inspect .kv > b { font-weight: 500; min-width: 0; }
+.inspect .wrap { overflow-wrap: anywhere; white-space: normal; user-select: text; }
+.inspect .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.inspect .chips .badge { border: 0; cursor: default; }
+.inspect-list { max-height: 160px; overflow: auto; font-size: 11.5px; background: var(--bg-sunk); border-radius: 8px; padding: 6px 8px; user-select: text; }
+
+.fq-list { border: 1px solid var(--line); border-radius: 10px; max-height: 320px; overflow: auto; margin-top: 10px; background: var(--bg-elev); }
+.fq-row { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 10px; border: 0; background: none; text-align: left; font-size: 13px; cursor: default; }
+.fq-row:hover { background: var(--bg-hover); }
+.fq-row.on { background: var(--accent); color: #fff; }
+.fq-row.on .badge { background: rgba(255,255,255,.25); color: #fff; }
+
+.health-tabs { margin-bottom: 14px; }
+.services-table td { padding: 7px 10px; }

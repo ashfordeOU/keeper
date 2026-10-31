@@ -10,6 +10,7 @@ import { defaultSettings } from '../core/settings';
 import { createMockCapture, DEMO_SHOT } from './mock-capture';
 import { mockX } from './mock-x';
 import { mockPlaces } from './mock-places';
+import { mockProcs } from './mock-procs';
 import { mockPlatform } from './mock-platform';
 import { mockLock } from './mock-lock';
 import { mockBrain } from './mock-brain';
@@ -229,6 +230,7 @@ export function createMockApi(): KeeperApi {
   return {
     ...mockX(),
     ...mockPlaces(),
+    ...mockProcs(),
     ...mockPlatform(),
     lock: lockX.lock,
     ...mockBrain(files, (ch, v) => listeners.get(ch)?.forEach((cb) => cb(v)), HOME),
