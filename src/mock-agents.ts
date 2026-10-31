@@ -56,15 +56,21 @@ export function mockAgents(files: FileEntry[], emit: (channel: string, v: unknow
   const graphFiles: GraphFile[] = [...notes, ...files.slice(0, 160).map((f) => ({ path: f.path, name: f.name, kind: f.kind, mtime: f.mtime, tags: f.tags, source: f.source?.name, text: f.text }))];
   const conns = [{ id: 'anthropic', label: 'Claude' }, { id: 'openai', label: 'OpenAI' }, { id: 'ollama', label: 'Ollama (this computer)' }, { id: 'xai', label: 'xAI (Grok)' }];
 
-  // A demo agent asks for something a few seconds after the page opens.
-  setTimeout(() => {
-    const a: ApprovalRequest = { id: 'demo-approval', client: 'Claude Code', action: 'move_files', description: 'move 4 items (Invoice 4471.pdf, Invoice 4502.pdf, …) to ~/Documents/Invoices/2026', destructive: false, at: Date.now() };
-    pending.push(a);
-    emit('agent-approval', a);
-  }, 2500);
+  // A demo agent asks for something a few seconds after the Agents page is first opened
+  // (not on every page of the demo, where it would cover what is being shown).
+  let demoAsked = false;
+  const demoApproval = () => {
+    if (demoAsked) return;
+    demoAsked = true;
+    setTimeout(() => {
+      const a: ApprovalRequest = { id: 'demo-approval', client: 'Claude Code', action: 'move_files', description: 'move 4 items (Invoice 4471.pdf, Invoice 4502.pdf, …) to ~/Documents/Invoices/2026', destructive: false, at: Date.now() };
+      pending.push(a);
+      emit('agent-approval', a);
+    }, 2500);
+  };
 
   const agents: AgentsApi = {
-    catalog: async () => CATALOG,
+    catalog: async () => (demoApproval(), CATALOG),
     addConnection: async (id) => ({ ok: true, id }),
     listModels: async (id) => { await wait(400); return { ok: true, models: id === 'ollama' ? ['llama3.2', 'qwen3:8b', 'gemma3:12b'] : id === 'xai' ? ['grok-4', 'grok-code-fast-1'] : ['model-a', 'model-b'] }; },
     usage: async () => [
@@ -72,7 +78,7 @@ export function mockAgents(files: FileEntry[], emit: (channel: string, v: unknow
       { id: 'ollama', calls: 96, input: 410_000, output: 88_000, errors: 0, cost: 0 },
       { id: 'xai', calls: 14, input: 92_000, output: 15_000, errors: 2 },
     ],
-    actions: async () => ACTIONS.map((x) => ({ name: x.name, label: x.label, group: x.group, readOnly: x.readOnly, destructive: !!x.destructive, permission: permissionFor(x.name, perms, true), default: x.default })),
+    actions: async () => (demoApproval(), ACTIONS).map((x) => ({ name: x.name, label: x.label, group: x.group, readOnly: x.readOnly, destructive: !!x.destructive, permission: permissionFor(x.name, perms, true), default: x.default })),
     setPermission: async (name, p) => { perms[name] = p; },
     pending: async () => pending.slice(),
     decide: async (id, d) => {
@@ -95,7 +101,7 @@ export function mockAgents(files: FileEntry[], emit: (channel: string, v: unknow
       ] : [],
     }),
     rotateToken: async () => agents.gateway(),
-    clis: async () => ({ agents: AGENT_CLIS.map((a) => ({ ...a, installed: ['claude', 'codex', 'gemini', 'cursor-agent', 'ollama'].includes(a.command), path: `/usr/local/bin/${a.command}` })), profiles }),
+    clis: async () => (demoApproval(), { agents: AGENT_CLIS.map((a) => ({ ...a, installed: ['claude', 'codex', 'gemini', 'cursor-agent', 'ollama'].includes(a.command), path: `/usr/local/bin/${a.command}` })), profiles }),
     saveProfile: async (p) => { profiles = [...profiles.filter((x) => x.id !== p.id), { id: p.id ?? String(Date.now()), agent: p.agent, label: p.label, cwd: p.cwd }]; return profiles; },
     removeProfile: async (id) => { profiles = profiles.filter((p) => p.id !== id); },
     launch: async (id) => ({ ok: true, message: `Started ${AGENT_CLIS.find((a) => a.id === id)?.label ?? id} in Keeper's Terminal (demo).` }),
