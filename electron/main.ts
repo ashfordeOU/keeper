@@ -42,7 +42,11 @@ import { registerIpcX, syncFinderTags } from './ipc-x';
 import { registerFileProtocol, registerPreviewIpc } from './ipc/preview';
 import { registerConvertIpc } from './ipc/convert';
 import { registerPlacesIpc } from './ipc/places';
+import { registerPlatformIpc } from './ipc/platform';
+import { handlePlatformArgv, handlePlatformUrl, initPlatform, platformLibraryChanged, startedForSearch, stopPlatform } from './services/platform';
 import { registerLockIpc } from './ipc/lock';
+import { registerBrainIpc } from './ipc/brain';
+import { brainSettingsChanged, startBrain, stopBrain, syncBrain } from './services/brain';
 import { applyWaylandSwitch } from './services/island-place';
 import { pendingOnQuit, relockOnQuit } from './services/lock';
 import { remoteFolders } from './services/places';
@@ -88,6 +92,8 @@ function libraryChanged() {
   changeTimer = setTimeout(() => {
     broadcast('library-changed');
     void updateTray();
+    platformLibraryChanged();
+    void syncBrain();
   }, 250);
 }
 
@@ -123,7 +129,7 @@ function createMain() {
   lockDown(main);
   load(main, 'app');
   // Started at login: stay in the tray until the user opens Keeper.
-  main.once('ready-to-show', () => { if (!process.argv.includes('--hidden') || main?.isVisible()) main?.show(); });
+  main.once('ready-to-show', () => { if (!(process.argv.includes('--hidden') || startedForSearch) || main?.isVisible()) main?.show(); });
   main.on('close', (e) => {
     // Keep running in the tray so Quick Search, the Island and rules keep working.
     if (!quitting && settings().trayEnabled) {
@@ -165,6 +171,15 @@ function toggleQuick() {
   quick.show();
   quick.focus();
   quick.webContents.send('event:library-changed');
+}
+
+/** "Ask Keeper": with a question, straight to the assistant; without, Quick Search in ask mode. */
+function askKeeper(q?: string) {
+  if (q) return showMain(`assistant:${q}`);
+  if (!quick?.isVisible()) toggleQuick();
+  const send = () => quick?.webContents.send('event:quick-mode', 'ask');
+  if (quick?.webContents.isLoading()) quick.webContents.once('did-finish-load', send);
+  else send();
 }
 
 // The Island's windows (one per display when asked) live in ipc/island.ts.
@@ -276,6 +291,7 @@ function registerShortcuts() {
     }
   };
   reg(s.quickSearchShortcut, toggleQuick);
+  reg(s.platform?.askShortcut, () => askKeeper());
   reg(s.island.captureShortcut, () => void doCapture());
   let dictating = false;
   reg(s.island.dictationShortcut, () => {
@@ -302,6 +318,7 @@ async function doCapture() {
 }
 
 function handleDeepLink(url: string) {
+  if (handlePlatformUrl(url)) return;
   try {
     const u = new URL(url);
     const action = u.hostname || u.pathname.replace(/^\/+/, '');
@@ -328,6 +345,7 @@ app.on('open-url', (e, url) => {
   else app.once('ready', () => handleDeepLink(url));
 });
 app.on('second-instance', (_e, argv) => {
+  if (handlePlatformArgv(argv)) return;
   const link = argv.find((a) => a.startsWith('keeper://'));
   if (link) handleDeepLink(link);
   else showMain();
@@ -655,9 +673,9 @@ function registerIpc() {
     for (const p of paths) {
       let text = index.files.get(p)?.text ?? index.extras.get(p)?.text;
       if (text === undefined) {
-        const { loadImage, ocrImage } = await import('./services/vision');
+        const { loadImage, ocrFile } = await import('./services/vision');
         const img = await loadImage(p);
-        text = img ? await ocrImage(img, settings().ocrLanguages) : '';
+        text = img ? await ocrFile(p, img, settings().ocrLanguages) : '';
         index.setText(p, text);
       }
       out.push({ path: p, text });
@@ -842,6 +860,7 @@ app.whenReady().then(async () => {
     setRemoteExclusions: (paths) => { index.excluded = [...new Set([...settings().excluded, ...paths])]; },
   });
   registerLockIpc({ broadcast, changed: libraryChanged });
+  registerBrainIpc();
   registerCaptureIpc({
     preload: capturePreload(),
     langs: () => settings().ocrLanguages,
@@ -863,6 +882,10 @@ app.whenReady().then(async () => {
   // The window opens straight away; the saved library fills it in a moment later.
   createMain();
   await index.load();
+  registerPlatformIpc({ ask: askKeeper });
+  void initPlatform({ index: () => index, showMain, ask: askKeeper });
+  // The brain reads passages and serves AI apps once the saved library is in.
+  void startBrain({ index: () => index, broadcast });
   libraryChanged();
   createIsland();
   syncWidgets();
@@ -873,17 +896,20 @@ app.whenReady().then(async () => {
 
   const link = process.argv.find((a) => a.startsWith('keeper://'));
   if (link) handleDeepLink(link);
+  else handlePlatformArgv(process.argv);
 
   setInterval(() => void rescan(), 30 * 60_000);
   setInterval(() => void runEnabledRules(), 60 * 60_000);
   setTimeout(() => void runEnabledRules(), 5 * 60_000);
 
   onSettings((next, prev) => {
+    if (JSON.stringify(next.brain) !== JSON.stringify(prev.brain)) void brainSettingsChanged(next.brain, prev.brain);
     if (next.folders.join() !== prev.folders.join() || next.excluded.join() !== prev.excluded.join() || next.showHidden !== prev.showHidden || next.includeRemote !== prev.includeRemote) {
       index.folders = next.folders.filter(existsSync).map((f) => ({ path: f, label: path.basename(f) }));
       index.excluded = next.includeRemote ? next.excluded : [...new Set([...next.excluded, ...remoteFolders()])];
       void rescan();
     }
+    if (next.platform?.askShortcut !== prev.platform?.askShortcut) registerShortcuts();
     if (next.quickSearchShortcut !== prev.quickSearchShortcut || next.island.captureShortcut !== prev.island.captureShortcut || next.island.dictationShortcut !== prev.island.dictationShortcut) registerShortcuts();
     if (next.trayEnabled !== prev.trayEnabled || next.trayCount !== prev.trayCount) void updateTray();
     if (next.island.enabled !== prev.island.enabled) (next.island.enabled ? createIsland() : destroyIsland());
@@ -910,6 +936,8 @@ app.on('before-quit', (e) => {
   }
   quitting = true;
   installOnQuitIfReady();
+  stopPlatform();
+  stopBrain();
   globalShortcut.unregisterAll();
   vision?.stop();
   islandSvc?.stop();

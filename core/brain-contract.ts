@@ -32,6 +32,12 @@ export interface BrainHit {
   /** where the file came from (website, app, mail), if known */
   source?: string;
   tags?: string[];
+  /** where in `snippet` the query words are, as [start, end) character ranges */
+  highlights?: [number, number][];
+  /** the heading above the matching passage */
+  heading?: string;
+  /** which signals found it: the words inside, the meaning, or the name and details */
+  why?: ('words' | 'meaning' | 'name')[];
 }
 
 export interface BrainStatus {
@@ -45,6 +51,14 @@ export interface BrainStatus {
   semantic: 'off' | 'downloading' | 'ready' | 'unavailable';
   semanticModel?: string;
   updatedAt?: number;
+  /** files the brain has gone through (the rest are still waiting) */
+  indexed?: number;
+  /** passages of text across all files */
+  passages?: number;
+  /** model download progress, 0..1, while semantic is 'downloading' */
+  download?: number;
+  /** why meaning search is unavailable or stopped */
+  message?: string;
 }
 
 /** What callers outside the brain module may rely on. */

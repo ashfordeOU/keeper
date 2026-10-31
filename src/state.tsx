@@ -103,7 +103,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       api.on('library-changed', () => setVersion((v) => v + 1)),
       api.on('settings-changed', (next) => setSettings(next)),
       api.on('navigate', (r: string) => {
-        const [name, arg] = r.split(':');
+        const i = r.indexOf(':');
+        const name = i < 0 ? r : r.slice(0, i);
+        const arg = i < 0 ? undefined : r.slice(i + 1);
         setRoute({ name: name as RouteName, arg });
       }),
     ];

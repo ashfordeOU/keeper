@@ -10,7 +10,9 @@ import { defaultSettings } from '../core/settings';
 import { createMockCapture, DEMO_SHOT } from './mock-capture';
 import { mockX } from './mock-x';
 import { mockPlaces } from './mock-places';
+import { mockPlatform } from './mock-platform';
 import { mockLock } from './mock-lock';
+import { mockBrain } from './mock-brain';
 import { createMockIsland } from './mock-island';
 import type { CleanupGroup, DuplicateGroup, FileEntry, FileKind, Rule, SpaceNode } from '../core/types';
 import { mockPreview } from './preview/mock';
@@ -227,7 +229,9 @@ export function createMockApi(): KeeperApi {
   return {
     ...mockX(),
     ...mockPlaces(),
+    ...mockPlatform(),
     lock: lockX.lock,
+    ...mockBrain(files, (ch, v) => listeners.get(ch)?.forEach((cb) => cb(v)), HOME),
     preview: mockPreview(() => files, thumb),
     system: {
       info: async () => ({ platform: 'darwin', arch: 'arm64', osVersion: '15.4', appVersion: '0.1.0 (demo)', home: HOME, sep: '/' }),

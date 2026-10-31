@@ -15,6 +15,8 @@ export function QuickSearch() {
   const [files, setFiles] = useState<FileEntry[]>([]);
   const [parsed, setParsed] = useState<ParsedQuery | null>(null);
   const [index, setIndex] = useState(0);
+  // "ask" turns Enter into a question for Keeper's assistant; Tab switches.
+  const [mode, setMode] = useState<'find' | 'ask'>('find');
   const input = useRef<HTMLInputElement>(null);
   const list = useRef<HTMLDivElement>(null);
 
@@ -22,7 +24,11 @@ export function QuickSearch() {
   useEffect(() => {
     const onFocus = () => { input.current?.focus(); input.current?.select(); };
     window.addEventListener('focus', onFocus);
-    return () => window.removeEventListener('focus', onFocus);
+    const off = api.on('quick-mode' as 'navigate', ((m: unknown, q: unknown) => {
+      setMode(m === 'ask' ? 'ask' : 'find');
+      if (typeof q === 'string') setText(q);
+    }) as never);
+    return () => { window.removeEventListener('focus', onFocus); off(); };
   }, []);
 
   useEffect(() => {
@@ -54,15 +60,17 @@ export function QuickSearch() {
   return (
     <div className="quick">
       <div className="q-input">
-        <Icon name="search" size={20} />
+        <Icon name={mode === 'ask' ? 'sparkle' : 'search'} size={20} />
         <input
           ref={input}
           autoFocus
           value={text}
-          placeholder="Find any file…"
+          placeholder={mode === 'ask' ? 'Ask about your files…' : 'Find any file…'}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Escape') { if (text) setText(''); else window.close(); }
+            if (e.key === 'Escape') { if (text) setText(''); else if (mode === 'ask') setMode('find'); else window.close(); }
+            else if (e.key === 'Tab') { e.preventDefault(); setMode(mode === 'ask' ? 'find' : 'ask'); }
+            else if (e.key === 'Enter' && mode === 'ask' && text.trim()) { void api.platform.ask(text.trim()); window.close(); }
             else if (e.key === 'ArrowDown') { e.preventDefault(); setIndex((i) => Math.min(files.length - 1, i + 1)); }
             else if (e.key === 'ArrowUp') { e.preventDefault(); setIndex((i) => Math.max(0, i - 1)); }
             else if (e.key === 'Enter') act(files[index], e);
@@ -75,9 +83,15 @@ export function QuickSearch() {
         </div>
       ) : null}
       <div className="q-results" ref={list}>
+        {mode === 'ask' ? (
+          <div className="q-row on" onClick={() => { if (text.trim()) { void api.platform.ask(text.trim()); window.close(); } }}>
+            <Icon name="sparkle" size={18} />
+            <div className="grow ellipsis" style={{ fontWeight: 550 }}>{text.trim() ? `Ask Keeper: “${text.trim()}”` : 'Type a question, for example “when does my passport expire?”'}</div>
+          </div>
+        ) : null}
         {!text ? <div className="small muted" style={{ padding: '4px 10px' }}>Recent</div> : null}
         {files.map((f, i) => (
-          <div key={f.path} className={`q-row ${i === index ? 'on' : ''}`} onMouseEnter={() => setIndex(i)} onClick={(e) => act(f, e)}
+          <div key={f.path} className={`q-row ${mode === 'find' && i === index ? 'on' : ''}`} onMouseEnter={() => setIndex(i)} onClick={(e) => act(f, e)}
             draggable onDragStart={(e) => { e.preventDefault(); api.files.startDrag([f.path]); }}>
             <div style={{ width: 30, height: 30, borderRadius: 7, overflow: 'hidden', background: 'var(--bg-sunk)', display: 'grid', placeItems: 'center', flex: 'none' }}><Thumb file={f} size={64} /></div>
             <div className="grow">
@@ -88,7 +102,7 @@ export function QuickSearch() {
         ))}
         {text && !files.length ? <div className="empty small">No matches</div> : null}
       </div>
-      <div className="q-foot"><span>↩ open</span><span>{cmd}↩ show in Keeper</span><span>{alt}↩ show in folder</span><span>esc close</span></div>
+      <div className="q-foot">{mode === 'ask' ? <span>↩ ask</span> : null}<span>⇥ {mode === 'ask' ? 'find files' : 'ask instead'}</span>{mode === 'find' ? <span>↩ open</span> : null}<span>{cmd}↩ show in Keeper</span><span>{alt}↩ show in folder</span><span>esc close</span></div>
     </div>
   );
 }

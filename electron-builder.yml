@@ -82,6 +82,12 @@ mac:
     NSAppleEventsUsageDescription: Keeper reads what is playing in Music or Spotify and can paste dictated text.
     NSMicrophoneUsageDescription: Keeper listens only while you hold the dictation shortcut.
     LSUIElement: false
+  # keeper-helper (native/macos) gives Keeper Apple Intelligence, Live Text and
+  # Spotlight. It sits next to the app's executable so it shares the app's
+  # identity; builds without it still work, those features just stay off.
+  extraFiles:
+    - from: native/macos/KeeperHelper/.build/apple/Products/Release/keeper-helper
+      to: MacOS/keeper-helper
 dmg:
   title: Keeper by Ashforde®
   window: { width: 540, height: 380 }
@@ -101,6 +107,19 @@ linux:
     entry:
       MimeType: x-scheme-handler/keeper;
       Comment: Keeper by Ashforde® — find, understand and tidy your files
+      Actions: Search;Ask;Capture;
+    # Right-click Keeper in the dock or app menu. Packages install to /opt/Keeper;
+    # AppImage integration tools rewrite these lines to point at the AppImage.
+    desktopActions:
+      Search:
+        Name: Search Files
+        Exec: /opt/Keeper/keeper keeper://quick
+      Ask:
+        Name: Ask Keeper
+        Exec: /opt/Keeper/keeper keeper://ask
+      Capture:
+        Name: Copy Text from Screen
+        Exec: /opt/Keeper/keeper keeper://capture
 deb:
   depends: [libnotify4, libxtst6, libnss3]
   recommends: [playerctl, xdotool, attr]

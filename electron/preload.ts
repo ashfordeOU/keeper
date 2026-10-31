@@ -38,10 +38,12 @@ const api = {
   ai: group('ai', ['ask']),
   monitor: group('monitor', ['history', 'topToday', 'alerts', 'setAlertRules', 'docker', 'dockerAction', 'killTree', 'stopAgent', 'thermals', 'disks', 'speedTest', 'speedHistory']),
   forecast: group('forecast', ['places', 'savePlaces', 'get', 'alerts', 'radar', 'climate', 'trips']),
+  platform: group('platform', ['list', 'set', 'action', 'ask']),
   places: {
     ...group('places', ['list', 'eject', 'connect', 'discover', 'recentServers', 'forgetServer', 'folderSize', 'openAirDrop', 'shareTargets', 'share']),
     trash: group('places.trash', ['list', 'restore', 'remove', 'empty']),
   },
+  brain: group('brain', ['status', 'search', 'ask', 'cancel', 'setSemantic', 'removeModel', 'rebuild', 'connections', 'testConnection', 'apps', 'setAppConnected', 'server', 'modelSize']),
   lock: group('lock', ['status', 'canLock', 'newRecoveryKey', 'saveRecoveryKey', 'lock', 'inspect', 'unlock', 'relock', 'list', 'forget', 'setRelock', 'cancel']),
   tools: group('tools', ['networkInfo', 'publicIp', 'tweaks', 'setTweak', 'clearQuarantine', 'resetPermissions', 'pickApp', 'pickFiles', 'saveAs']),
   folders: group('folders', ['tidy']),

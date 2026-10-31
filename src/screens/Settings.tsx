@@ -1,28 +1,20 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Settings: appearance, library folders, thresholds, assistant and about.
 
-import { useEffect, useState } from 'react';
-import type { AiProvider } from '../../core/types';
+import { useEffect } from 'react';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
 import { PageHead, Toggle } from '../components/ui';
-import { useAsync, useStore } from '../state';
+import { useStore } from '../state';
 import { Row } from './IslandSettings';
 import { LanguageRow, LoginRow } from './SettingsMore';
 import { UpdatesPanel, WhatsNewHover } from '../components/Updates';
 import { LockedFoldersPanel } from '../components/LockDialog';
+import { BrainSettingsPanel } from '../components/BrainPanel';
+import { PlatformIntegrations } from '../components/PlatformIntegrations';
 import { ThemeGallery, ThemeTweaks } from '../components/ThemeGallery';
 import { useT } from '../i18n';
 import '../styles/screens-b.css';
-
-// Mirrors core/ai.ts DEFAULT_MODELS without pulling the provider SDK into the interface bundle.
-const DEFAULT_MODELS: Record<AiProvider, string> = { anthropic: 'claude-opus-5-5', openai: 'gpt-5', ollama: 'llama3.2' };
-
-const PROVIDERS: { id: AiProvider; label: string }[] = [
-  { id: 'anthropic', label: 'Claude' },
-  { id: 'openai', label: 'OpenAI' },
-  { id: 'ollama', label: 'Local' },
-];
 
 export function Settings() {
   const { route: settingsRoute } = useStore();
@@ -31,9 +23,6 @@ export function Settings() {
   }, [settingsRoute.arg]);
   const { settings: s, updateSettings, info, toast } = useStore();
   const t = useT();
-  const [key, setKey] = useState('');
-  const provider = s?.ai.provider ?? 'anthropic';
-  const hasKey = useAsync(() => (provider === 'ollama' ? Promise.resolve(true) : api.settings.hasSecret(provider)), [provider]);
   if (!s) return null;
 
   const addFolder = async (field: 'folders' | 'excluded') => {
@@ -118,20 +107,14 @@ export function Settings() {
         </Row>
       </div>
 
-      <h2 style={{ margin: '18px 0 8px' }}>{t('nav.assistant')}</h2>
-      <div className="card settings-section">
-        <Row title="Provider" desc="Local runs a model on this computer — nothing leaves it.">
-          <div className="seg">{PROVIDERS.map((p) => <button key={p.id} className={provider === p.id ? 'on' : ''} onClick={() => void updateSettings({ ai: { ...s.ai, provider: p.id, model: '' } })}>{p.label}</button>)}</div>
-        </Row>
-        <Row title="Model"><input className="input" placeholder={DEFAULT_MODELS[provider]} defaultValue={s.ai.model} key={provider} onBlur={(e) => void updateSettings({ ai: { ...s.ai, model: e.target.value.trim() } })} /></Row>
-        {provider === 'ollama' ? (
-          <Row title="Local server address"><input className="input" defaultValue={s.ai.ollamaUrl} onBlur={(e) => void updateSettings({ ai: { ...s.ai, ollamaUrl: e.target.value.trim() } })} /></Row>
-        ) : (
-          <Row title="API key" desc={hasKey.data ? 'Saved, encrypted by your system keychain.' : 'Stored encrypted on this computer only.'}>
-            <input className="input" type="password" placeholder={hasKey.data ? '••••••••' : 'Paste your key'} value={key} onChange={(e) => setKey(e.target.value)} />
-            <button className="btn" disabled={!key} onClick={async () => { const ok = await api.settings.setSecret(provider, key); setKey(''); hasKey.reload(); toast(ok ? 'Key saved' : 'Could not save the key securely on this system'); }}>Save</button>
-          </Row>
-        )}
+      <h2 id="brain" style={{ margin: '18px 0 8px' }}>AI &amp; Brain</h2>
+      <div className="card settings-section" style={{ padding: '0 0 10px' }}>
+        <BrainSettingsPanel />
+      </div>
+
+      <h2 id="platform" style={{ margin: '18px 0 8px' }}>Works with your computer</h2>
+      <div className="card settings-section" style={{ padding: 0 }}>
+        <PlatformIntegrations />
       </div>
 
       <h2 id="updates" style={{ margin: '18px 0 8px' }}>{t('settings.updates')}</h2>

@@ -1,0 +1,357 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// keeper-helper: one JSON message per line on stdin and stdout.
+//
+//   host → helper   {"id": 1, "method": "hello"}
+//   helper → host   {"id": 1, "result": {...}}  |  {"id": 1, "error": "..."}
+//                   {"id": 1, "delta": "text"}   (streamed model output)
+//                   {"id": 1, "tool": {"call": "c1", "name": "search_files", "arguments": {...}}}
+//   host → helper   {"id": 1, "method": "toolResult", "params": {"call": "c1", "result": ...}}
+//
+// Methods: hello, chat, ocr, language, spotlight.index, spotlight.remove,
+// spotlight.removeAll, cancel.
+
+import Foundation
+import Vision
+import CoreSpotlight
+import NaturalLanguage
+import ImageIO
+import UniformTypeIdentifiers
+#if canImport(FoundationModels)
+import FoundationModels
+#endif
+
+// MARK: - output
+
+final class Wire: @unchecked Sendable {
+    static let shared = Wire()
+    private let lock = NSLock()
+
+    func send(_ obj: [String: Any]) {
+        guard JSONSerialization.isValidJSONObject(obj),
+              let data = try? JSONSerialization.data(withJSONObject: obj, options: []) else { return }
+        lock.lock()
+        defer { lock.unlock() }
+        FileHandle.standardOutput.write(data)
+        FileHandle.standardOutput.write(Data([0x0A]))
+    }
+
+    func result(_ id: Int, _ value: Any) { send(["id": id, "result": value]) }
+    func error(_ id: Int, _ message: String) { send(["id": id, "error": message]) }
+    func delta(_ id: Int, _ text: String) { send(["id": id, "delta": text]) }
+}
+
+// MARK: - waiting for tool results and cancellations
+
+actor Bridge {
+    static let shared = Bridge()
+    private var waiting: [String: CheckedContinuation<JSONBox, Never>] = [:]
+    private var tasks: [Int: Task<Void, Never>] = [:]
+    private var seq = 0
+
+    func nextCall() -> String {
+        seq += 1
+        return "c\(seq)"
+    }
+
+    func wait(_ call: String) async -> JSONBox {
+        await withCheckedContinuation { (c: CheckedContinuation<JSONBox, Never>) in
+            waiting[call] = c
+        }
+    }
+
+    func answer(_ call: String, _ value: JSONBox) {
+        waiting.removeValue(forKey: call)?.resume(returning: value)
+    }
+
+    func track(_ id: Int, _ task: Task<Void, Never>) { tasks[id] = task }
+    func done(_ id: Int) { tasks.removeValue(forKey: id) }
+    func cancel(_ id: Int) { tasks.removeValue(forKey: id)?.cancel() }
+}
+
+/// Wraps a non-Sendable JSON value so it can cross into tasks.
+struct JSONBox: @unchecked Sendable {
+    let value: Any
+}
+
+// MARK: - hello
+
+func macVersion() -> Int { ProcessInfo.processInfo.operatingSystemVersion.majorVersion }
+
+func isArm() -> Bool {
+    #if arch(arm64)
+    return true
+    #else
+    return false
+    #endif
+}
+
+func appleModelState() -> String {
+    #if canImport(FoundationModels)
+    if #available(macOS 26.0, *) {
+        switch SystemLanguageModel.default.availability {
+        case .available:
+            return "available"
+        case .unavailable(let reason):
+            switch reason {
+            case .deviceNotEligible: return "deviceNotEligible"
+            case .appleIntelligenceNotEnabled: return "appleIntelligenceNotEnabled"
+            case .modelNotReady: return "modelNotReady"
+            @unknown default: return "unsupported"
+            }
+        }
+    }
+    #endif
+    return "unsupported"
+}
+
+func hello() -> [String: Any] {
+    [
+        "version": "1",
+        "macos": macVersion(),
+        "arm": isArm(),
+        "appleModel": appleModelState(),
+        "ocr": true,
+        "spotlight": CSSearchableIndex.isIndexingAvailable(),
+    ]
+}
+
+// MARK: - text recognition (Live Text)
+
+func recognizeText(path: String, languages: [String]) throws -> [String: Any] {
+    let url = URL(fileURLWithPath: path)
+    guard let src = CGImageSourceCreateWithURL(url as CFURL, nil),
+          let image = CGImageSourceCreateImageAtIndex(src, 0, nil) else {
+        throw NSError(domain: "keeper", code: 1, userInfo: [NSLocalizedDescriptionKey: "Could not read the image"])
+    }
+    let request = VNRecognizeTextRequest()
+    request.recognitionLevel = .accurate
+    request.usesLanguageCorrection = true
+    if !languages.isEmpty {
+        request.recognitionLanguages = languages
+    } else {
+        request.automaticallyDetectsLanguage = true
+    }
+    let handler = VNImageRequestHandler(cgImage: image, options: [:])
+    try handler.perform([request])
+    let observations = request.results ?? []
+    let lines = observations.compactMap { $0.topCandidates(1).first?.string }
+    return ["text": lines.joined(separator: "\n"), "lines": lines.count]
+}
+
+// MARK: - language
+
+func dominantLanguage(_ text: String) -> String? {
+    NLLanguageRecognizer.dominantLanguage(for: text)?.rawValue
+}
+
+// MARK: - Spotlight
+
+func spotlightIndex(_ items: [[String: Any]]) async throws -> Int {
+    var out: [CSSearchableItem] = []
+    for item in items {
+        guard let id = item["id"] as? String, let path = item["path"] as? String else { continue }
+        let url = URL(fileURLWithPath: path)
+        let type = UTType(filenameExtension: url.pathExtension) ?? .item
+        let attrs = CSSearchableItemAttributeSet(contentType: type)
+        attrs.title = item["title"] as? String ?? url.lastPathComponent
+        attrs.displayName = attrs.title
+        attrs.contentDescription = item["description"] as? String
+        attrs.keywords = item["keywords"] as? [String]
+        attrs.contentURL = url
+        if let ms = item["mtime"] as? Double {
+            attrs.contentModificationDate = Date(timeIntervalSince1970: ms / 1000)
+        }
+        let s = CSSearchableItem(uniqueIdentifier: id, domainIdentifier: "files", attributeSet: attrs)
+        s.expirationDate = Date.distantFuture
+        out.append(s)
+    }
+    if out.isEmpty { return 0 }
+    try await CSSearchableIndex.default().indexSearchableItems(out)
+    return out.count
+}
+
+func spotlightRemove(_ ids: [String]) async throws {
+    if ids.isEmpty { return }
+    try await CSSearchableIndex.default().deleteSearchableItems(withIdentifiers: ids)
+}
+
+func spotlightRemoveAll() async throws {
+    try await CSSearchableIndex.default().deleteSearchableItems(withDomainIdentifiers: ["files"])
+}
+
+// MARK: - the on-device model
+
+func toText(_ value: Any) -> String {
+    if let s = value as? String { return s }
+    if JSONSerialization.isValidJSONObject(value),
+       let d = try? JSONSerialization.data(withJSONObject: value, options: []),
+       let s = String(data: d, encoding: .utf8) {
+        return s
+    }
+    return String(describing: value)
+}
+
+#if canImport(FoundationModels)
+@available(macOS 26.0, *)
+struct KeeperTool: Tool {
+    typealias Arguments = GeneratedContent
+    typealias Output = String
+
+    let name: String
+    let description: String
+    let parameters: GenerationSchema
+    let requestId: Int
+
+    func call(arguments: GeneratedContent) async throws -> String {
+        let call = await Bridge.shared.nextCall()
+        let argsData = arguments.jsonString.data(using: .utf8) ?? Data("{}".utf8)
+        let args = (try? JSONSerialization.jsonObject(with: argsData, options: [])) ?? [String: Any]()
+        Wire.shared.send(["id": requestId, "tool": ["call": call, "name": name, "arguments": args]])
+        let result = await Bridge.shared.wait(call)
+        return toText(result.value)
+    }
+}
+
+/// Keeper describes tool inputs with a small JSON schema (object of string,
+/// number, integer, boolean and string-array properties); this turns it into
+/// a schema the on-device model can fill in.
+@available(macOS 26.0, *)
+func makeSchema(name: String, json: [String: Any]) throws -> GenerationSchema {
+    let props = json["properties"] as? [String: Any] ?? [:]
+    let required = Set(json["required"] as? [String] ?? [])
+    var properties: [DynamicGenerationSchema.Property] = []
+    for (key, raw) in props.sorted(by: { $0.key < $1.key }) {
+        let p = raw as? [String: Any] ?? [:]
+        let desc = p["description"] as? String
+        let schema: DynamicGenerationSchema
+        switch p["type"] as? String ?? "string" {
+        case "integer": schema = DynamicGenerationSchema(type: Int.self)
+        case "number": schema = DynamicGenerationSchema(type: Double.self)
+        case "boolean": schema = DynamicGenerationSchema(type: Bool.self)
+        case "array": schema = DynamicGenerationSchema(arrayOf: DynamicGenerationSchema(type: String.self))
+        default:
+            if let options = p["enum"] as? [String], !options.isEmpty {
+                schema = DynamicGenerationSchema(name: "\(name)_\(key)", anyOf: options)
+            } else {
+                schema = DynamicGenerationSchema(type: String.self)
+            }
+        }
+        properties.append(DynamicGenerationSchema.Property(name: key, description: desc, schema: schema, isOptional: !required.contains(key)))
+    }
+    let root = DynamicGenerationSchema(name: name, description: json["description"] as? String, properties: properties)
+    return try GenerationSchema(root: root, dependencies: [])
+}
+
+@available(macOS 26.0, *)
+func chat(id: Int, params: [String: Any]) async throws -> [String: Any] {
+    let model = SystemLanguageModel.default
+    guard case .available = model.availability else {
+        throw NSError(domain: "keeper", code: 2, userInfo: [NSLocalizedDescriptionKey: "Apple Intelligence is not available: \(appleModelState())"])
+    }
+    let messages = params["messages"] as? [[String: Any]] ?? []
+    guard let last = messages.last, (last["role"] as? String) == "user", let prompt = last["content"] as? String else {
+        throw NSError(domain: "keeper", code: 3, userInfo: [NSLocalizedDescriptionKey: "The last message must be from the user"])
+    }
+    // Earlier turns go into the instructions; the session itself starts fresh each time.
+    var instructions = params["system"] as? String ?? "You are Keeper's assistant. Answer briefly and cite file paths you used."
+    let history = messages.dropLast().compactMap { m -> String? in
+        guard let role = m["role"] as? String, let content = m["content"] as? String else { return nil }
+        return "\(role == "assistant" ? "Assistant" : "User"): \(content)"
+    }
+    if !history.isEmpty {
+        instructions += "\n\nConversation so far:\n" + history.joined(separator: "\n")
+    }
+    var tools: [any Tool] = []
+    for t in params["tools"] as? [[String: Any]] ?? [] {
+        guard let name = t["name"] as? String else { continue }
+        let schema = try makeSchema(name: name, json: t["parameters"] as? [String: Any] ?? [:])
+        tools.append(KeeperTool(name: name, description: t["description"] as? String ?? name, parameters: schema, requestId: id))
+    }
+    let session = LanguageModelSession(tools: tools, instructions: instructions)
+    var options = GenerationOptions()
+    if let t = params["temperature"] as? Double { options.temperature = t }
+    var sent = ""
+    for try await snapshot in session.streamResponse(to: prompt, options: options) {
+        try Task.checkCancellation()
+        let text = snapshot.content
+        if text.hasPrefix(sent) {
+            let more = String(text.dropFirst(sent.count))
+            if !more.isEmpty { Wire.shared.delta(id, more) }
+        } else {
+            Wire.shared.delta(id, text)
+        }
+        sent = text
+    }
+    return ["text": sent]
+}
+#endif
+
+// MARK: - dispatch
+
+func handle(id: Int, method: String, params: [String: Any]) async {
+    do {
+        switch method {
+        case "hello":
+            Wire.shared.result(id, hello())
+        case "ocr":
+            guard let path = params["path"] as? String else { throw NSError(domain: "keeper", code: 4, userInfo: [NSLocalizedDescriptionKey: "No path"]) }
+            Wire.shared.result(id, try recognizeText(path: path, languages: params["languages"] as? [String] ?? []))
+        case "language":
+            let lang: Any = dominantLanguage(params["text"] as? String ?? "").map { $0 as Any } ?? NSNull()
+            Wire.shared.result(id, ["lang": lang])
+        case "spotlight.index":
+            let n = try await spotlightIndex(params["items"] as? [[String: Any]] ?? [])
+            Wire.shared.result(id, ["count": n])
+        case "spotlight.remove":
+            try await spotlightRemove(params["ids"] as? [String] ?? [])
+            Wire.shared.result(id, ["ok": true])
+        case "spotlight.removeAll":
+            try await spotlightRemoveAll()
+            Wire.shared.result(id, ["ok": true])
+        case "chat":
+            #if canImport(FoundationModels)
+            if #available(macOS 26.0, *) {
+                Wire.shared.result(id, try await chat(id: id, params: params))
+                return
+            }
+            #endif
+            throw NSError(domain: "keeper", code: 5, userInfo: [NSLocalizedDescriptionKey: "Apple Intelligence needs macOS 26 or later"])
+        default:
+            throw NSError(domain: "keeper", code: 6, userInfo: [NSLocalizedDescriptionKey: "Unknown method \(method)"])
+        }
+    } catch is CancellationError {
+        Wire.shared.error(id, "Stopped")
+    } catch {
+        Wire.shared.error(id, error.localizedDescription)
+    }
+}
+
+func dispatch(_ line: String) {
+    guard let data = line.data(using: .utf8),
+          let obj = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
+          let id = obj["id"] as? Int,
+          let method = obj["method"] as? String else { return }
+    let params = JSONBox(value: obj["params"] as? [String: Any] ?? [String: Any]())
+    switch method {
+    case "toolResult":
+        let p = params.value as? [String: Any] ?? [:]
+        guard let call = p["call"] as? String else { return }
+        let result = JSONBox(value: p["result"] ?? NSNull())
+        Task { await Bridge.shared.answer(call, result) }
+    case "cancel":
+        Task { await Bridge.shared.cancel(id) }
+    default:
+        let task = Task {
+            await handle(id: id, method: method, params: params.value as? [String: Any] ?? [:])
+            await Bridge.shared.done(id)
+        }
+        Task { await Bridge.shared.track(id, task) }
+    }
+}
+
+// Reads requests on the main thread; the work itself runs in tasks. When
+// Keeper closes stdin it is done with the helper.
+while let line = readLine(strippingNewline: true) {
+    dispatch(line)
+}
+exit(0)

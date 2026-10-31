@@ -1,84 +1,166 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Assistant: ask what is safe to remove. It only sees names, sizes and dates.
+// Assistant: ask anything about your files, with whichever AI you use. It
+// searches and reads through Keeper's brain, cites the files it used, and
+// suggests changes as buttons; nothing changes until you press one.
 
-import { useEffect, useRef, useState } from 'react';
-import { formatBytes } from '../../core/format';
-import type { AiMessage, AiReply } from '../../core/types';
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
+import type { AskResult } from '../../core/api-brain';
+import type { BrainHit } from '../../core/brain-contract';
+import type { ProposedAction, TraceStep } from '../../core/brain/harness';
+import type { ChatMessage } from '../../core/brain/providers';
+import { formatBytes, relativeTime } from '../../core/format';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
-import { Check, PageHead, SafetyBadge } from '../components/ui';
+import { PageHead } from '../components/ui';
 import { useAsync, useStore } from '../state';
 import '../styles/screens-b.css';
+import '../styles/brain.css';
 
-const PROVIDER = { anthropic: 'Claude', openai: 'OpenAI', ollama: 'Local model' } as const;
-const STARTERS = ['What can I safely delete?', 'Why is my disk full?', 'Find old installers I no longer need', 'Which big files have I not opened in a year?'];
+const STARTERS = ['What’s the Wi-Fi password in my screenshots?', 'How much do I owe on open invoices?', 'Summarise my lease: deposit, notice period, rent', 'What can I safely delete to free space?'];
 
 interface Turn {
-  msg: AiMessage;
-  reply?: AiReply;
+  q: string;
+  reqId: string;
+  text: string;
+  steps: TraceStep[];
+  result?: AskResult;
+  error?: string;
+  done: Set<number>;
+}
+
+const VIS_LABEL = { names: 'file names and details only', snippets: 'names and the passages that matched', full: 'the files it finds, page by page' } as const;
+
+/** Bold text, paragraphs and [[path]] citations; everything else stays plain. */
+function Answer({ text, home, onOpen }: { text: string; home?: string; onOpen: (p: string) => void }) {
+  const expand = (p: string) => (home && p.startsWith('~') ? home + p.slice(1) : p);
+  const inline = (s: string, key: string): ReactNode[] =>
+    s.split(/(\[\[[^\]]+\]\]|\*\*[^*]+\*\*)/g).map((part, i) => {
+      if (part.startsWith('[[') && part.endsWith(']]')) {
+        const p = expand(part.slice(2, -2).trim());
+        return <button key={`${key}-${i}`} className="cite" title={p} onClick={() => onOpen(p)}><Icon name="document" size={11} />{p.split(/[\\/]/).pop()}</button>;
+      }
+      if (part.startsWith('**') && part.endsWith('**')) return <b key={`${key}-${i}`}>{part.slice(2, -2)}</b>;
+      return <Fragment key={`${key}-${i}`}>{part}</Fragment>;
+    });
+  return <div className="answer">{text.split(/\n{2,}/).map((para, i) => <p key={i}>{para.split('\n').flatMap((line, j) => (j ? [<br key={`b${j}`} />, ...inline(line, `${i}-${j}`)] : inline(line, `${i}-${j}`)))}</p>)}</div>;
+}
+
+function Snip({ h }: { h: BrainHit }) {
+  if (!h.snippet) return null;
+  const out: ReactNode[] = [];
+  let at = 0;
+  for (const [a, b] of h.highlights ?? []) {
+    out.push(h.snippet.slice(at, a), <mark key={a}>{h.snippet.slice(a, b)}</mark>);
+    at = b;
+  }
+  out.push(h.snippet.slice(at));
+  return <div className="snip">{out}</div>;
+}
+
+function actionLabel(a: ProposedAction): string {
+  const name = a.path.split(/[\\/]/).pop();
+  switch (a.type) {
+    case 'trash': return `Move ${name} to the Trash`;
+    case 'move': return `Move ${name} to ${a.to.split(/[\\/]/).pop()}`;
+    case 'rename': return `Rename ${name} to ${a.name}`;
+    case 'tag': return `Tag ${name} #${a.tag}`;
+    case 'open': return `Open ${name}`;
+  }
 }
 
 export function Assistant() {
-  const { settings, go, trash, info } = useStore();
-  const provider = settings?.ai.provider ?? 'anthropic';
-  const hasKey = useAsync(() => (provider === 'ollama' ? Promise.resolve(true) : api.settings.hasSecret(provider)), [provider]);
+  const { settings, updateSettings, go, trash, info, route, toast } = useStore();
+  const conns = useAsync(() => api.brain.connections(), [settings?.brain]);
   const [turns, setTurns] = useState<Turn[]>([]);
   const [text, setText] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [busy, setBusy] = useState<string | null>(null);
+  const history = useRef<ChatMessage[]>([]);
   const end = useRef<HTMLDivElement>(null);
+  const b = settings?.brain;
+  const active = conns.data?.connections.find((c) => c.id === conns.data!.active);
+  const ready = !!active && (!active.needsKey || active.hasKey);
   const short = (p: string) => (info?.home && p.startsWith(info.home) ? '~' + p.slice(info.home.length) : p);
+
+  // "Ask Keeper" from anywhere (shortcut, keeper://ask, Shortcuts) arrives with the question filled in.
+  useEffect(() => {
+    if (route.name === 'assistant' && route.arg) setText(route.arg);
+  }, [route.name, route.arg]);
 
   useEffect(() => {
     end.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  }, [turns, busy]);
+  }, [turns]);
+
+  useEffect(() => {
+    const offD = api.on('brain-delta', (d) => setTurns((t) => t.map((x) => (x.reqId === d.reqId ? { ...x, text: x.text + d.text } : x))));
+    const offS = api.on('brain-step', (d) => setTurns((t) => t.map((x) => (x.reqId === d.reqId ? { ...x, steps: [...x.steps, d.step] } : x))));
+    return () => { offD(); offS(); };
+  }, []);
 
   const ask = async (q: string) => {
-    if (!q.trim() || busy) return;
-    const history: AiMessage[] = [...turns.map((t) => t.msg), { role: 'user', content: q.trim() }];
-    setTurns((t) => [...t, { msg: { role: 'user', content: q.trim() } }]);
+    q = q.trim();
+    if (!q || busy) return;
+    const reqId = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+    setTurns((t) => [...t, { q, reqId, text: '', steps: [], done: new Set() }]);
     setText('');
-    setBusy(true);
-    setError(null);
+    setBusy(reqId);
     try {
-      const reply = await api.ai.ask(history);
-      setTurns((t) => [...t, { msg: { role: 'assistant', content: reply.text }, reply }]);
-      setPicked((s) => new Set([...s, ...reply.suggestions.filter((x) => x.safety === 'safe').map((x) => x.path)]));
+      const r = await api.brain.ask(reqId, q, history.current.length ? history.current : undefined);
+      history.current = r.messages;
+      setTurns((t) => t.map((x) => (x.reqId === reqId ? { ...x, text: r.answer, result: r } : x)));
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      const msg = (e instanceof Error ? e.message : String(e)).replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
+      setTurns((t) => t.map((x) => (x.reqId === reqId ? { ...x, error: msg } : x)));
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   };
 
-  const trashPicked = async (paths: string[]) => {
-    if (!paths.length) return;
-    await trash(paths, `Assistant: moved ${paths.length} item${paths.length === 1 ? '' : 's'} to the Trash`);
-    setPicked((s) => new Set([...s].filter((p) => !paths.includes(p))));
-    setTurns((t) => t.map((x) => (x.reply ? { ...x, reply: { ...x.reply, suggestions: x.reply.suggestions.filter((s) => !paths.includes(s.path)) } } : x)));
+  const runAction = async (turn: Turn, i: number, a: ProposedAction) => {
+    try {
+      if (a.type === 'trash') await trash([a.path], 'Assistant: moved to the Trash');
+      else if (a.type === 'move') await api.files.move([a.path], a.to);
+      else if (a.type === 'rename') await api.files.rename(a.path, a.name);
+      else if (a.type === 'tag') {
+        const tags = (await api.library.inspect(a.path))?.tags ?? [];
+        await api.library.setTags(a.path, [...new Set([...tags, a.tag])]);
+      } else await api.files.open(a.path);
+      if (a.type !== 'open') toast(actionLabel(a).replace(/^(\w+)/, (m) => ({ Move: 'Moved', Rename: 'Renamed', Tag: 'Tagged' })[m] ?? m));
+      setTurns((t) => t.map((x) => (x.reqId === turn.reqId ? { ...x, done: new Set([...x.done, i]) } : x)));
+    } catch (e) {
+      toast(e instanceof Error ? e.message : String(e));
+    }
   };
 
+  const newChat = () => { history.current = []; setTurns([]); };
+
   return (
-    <div style={{ maxWidth: 860 }}>
-      <PageHead title="Assistant" sub="Ask about your disk in your own words. Nothing is removed unless you press a button.">
-        <span className="badge accent"><Icon name="assistant" size={11} /> {PROVIDER[provider]}</span>
-        <button className="btn ghost sm" onClick={() => go({ name: 'settings' })}>Change</button>
+    <div style={{ maxWidth: 880 }}>
+      <PageHead title="Assistant" sub="Ask about anything in your files. It answers from what Keeper has read, and cites the files.">
+        {conns.data ? (
+          <span className="ai-picker">
+            <select className="input" value={conns.data.active} aria-label="AI" onChange={(e) => b && void updateSettings({ brain: { ...b, active: e.target.value } })}>
+              {conns.data.connections.map((c) => <option key={c.id} value={c.id}>{c.label}{c.model && c.kind !== 'platform' ? ` · ${c.model}` : ''}</option>)}
+            </select>
+          </span>
+        ) : null}
+        {turns.length ? <button className="btn ghost sm" onClick={newChat}><Icon name="plus" size={12} /> New chat</button> : null}
+        <button className="btn ghost sm" onClick={() => go({ name: 'settings', arg: 'brain' })}><Icon name="settings" size={12} /> AI &amp; Brain</button>
       </PageHead>
 
       <div className="card pad small" style={{ marginBottom: 14, display: 'flex', gap: 10 }}>
         <Icon name="lock" size={16} />
         <div>
-          The assistant only sees file names, folders, sizes and dates — never what is inside your files.
-          {provider === 'ollama' ? ' You are using a local model, so nothing leaves this computer.' : ' Choose “Local” in Settings to keep everything on this computer.'}
+          The AI sees {VIS_LABEL[b?.visibility ?? 'snippets']}, only from your library folders.{' '}
+          {active?.local ? 'This AI runs on this computer, so nothing leaves it.' : 'Passwords, keys and card numbers are blanked out before anything is sent.'}{' '}
+          Nothing is moved or deleted unless you press a button.
         </div>
       </div>
 
-      {hasKey.data === false ? (
+      {conns.data && !ready ? (
         <div className="card pad col" style={{ alignItems: 'flex-start', gap: 8 }}>
-          <h3>Add your API key to start</h3>
-          <p className="small muted" style={{ margin: 0 }}>The assistant uses your own {PROVIDER[provider]} key, stored encrypted by your system’s keychain. Everything else in Keeper works without it.</p>
-          <button className="btn primary" onClick={() => go({ name: 'settings' })}>Open Settings</button>
+          <h3>Choose an AI to start</h3>
+          <p className="small muted" style={{ margin: 0 }}>Use Claude, OpenAI or any compatible service with your own key, a model on this computer (Ollama, LM Studio), or your computer’s built-in AI where there is one. Everything else in Keeper works without it.</p>
+          <button className="btn primary" onClick={() => go({ name: 'settings', arg: 'brain' })}>Set up an AI</button>
         </div>
       ) : (
         <div className="chat">
@@ -87,48 +169,69 @@ export function Assistant() {
               {STARTERS.map((s) => <button key={s} className="chip" style={{ paddingRight: 10 }} onClick={() => void ask(s)}>{s}</button>)}
             </div>
           ) : null}
-          {turns.map((t, i) => (
-            <div key={i} className="col" style={{ gap: 8 }}>
-              {t.msg.content ? <div className={`msg ${t.msg.role}`}>{t.msg.content}</div> : null}
-              {t.reply?.suggestions.length ? (
-                <div className="card" style={{ padding: 8 }}>
-                  {t.reply.suggestions.map((s) => (
-                    <div key={s.path} className="item-row">
-                      <Check on={picked.has(s.path)} onChange={(v) => setPicked((p) => { const n = new Set(p); if (v) n.add(s.path); else n.delete(s.path); return n; })} />
+          {turns.map((t) => (
+            <div key={t.reqId} className="col" style={{ gap: 8 }}>
+              <div className="msg user">{t.q}</div>
+              {t.steps.length ? (
+                <details className="trace">
+                  <summary><Icon name="search" size={12} /> {busy === t.reqId ? t.steps[t.steps.length - 1].summary + '…' : `Looked at ${t.steps.length} thing${t.steps.length === 1 ? '' : 's'}`}</summary>
+                  <ol>{t.steps.map((s, i) => <li key={i} className={s.error ? 'err' : ''}>{s.tool.replace(/_/g, ' ')}: {s.summary} <span className="muted">· {s.ms} ms</span></li>)}</ol>
+                </details>
+              ) : null}
+              {t.text ? <div className="msg assistant"><Answer text={t.text} home={info?.home} onOpen={(p) => void api.files.open(p)} /></div> : null}
+              {busy === t.reqId && !t.text ? <div className="msg assistant row"><div className="spinner" /> {t.steps.length ? 'Reading…' : 'Searching your files…'}</div> : null}
+              {t.error ? <div className="msg assistant" style={{ color: 'var(--danger)' }}>{t.error}</div> : null}
+              {t.result?.actions.length ? (
+                <div className="card actions-card">
+                  <div className="small muted" style={{ padding: '2px 6px' }}>Suggested — nothing happens until you press a button</div>
+                  {t.result.actions.map((a, i) => (
+                    <div key={i} className="action-row">
                       <div className="grow" style={{ minWidth: 0 }}>
-                        <div className="ellipsis" title={s.path}>{short(s.path)}</div>
-                        <div className="small muted">{s.reason}</div>
+                        <div className="ellipsis" title={a.path}>{actionLabel(a)}</div>
+                        {a.reason ? <div className="small muted">{a.reason}</div> : null}
                       </div>
-                      <SafetyBadge safety={s.safety} />
-                      <span className="num muted">{formatBytes(s.size)}</span>
-                      <button className="btn ghost sm icon" title="Show in folder" onClick={() => void api.files.reveal(s.path)}><Icon name="reveal" size={13} /></button>
+                      {t.done.has(i) ? <span className="badge ok"><Icon name="check" size={11} /> Done</span> : (
+                        <button className={`btn sm ${a.type === 'trash' ? 'danger' : ''}`} onClick={() => void runAction(t, i, a)}>
+                          <Icon name={a.type === 'trash' ? 'trash' : a.type === 'tag' ? 'tag' : a.type === 'open' ? 'external' : a.type === 'rename' ? 'rename' : 'folder'} size={12} /> {a.type === 'trash' ? 'Trash' : a.type[0].toUpperCase() + a.type.slice(1)}
+                        </button>
+                      )}
                     </div>
                   ))}
-                  <div className="row" style={{ padding: '8px 6px 2px', justifyContent: 'space-between' }}>
-                    <span className="small muted">{formatBytes(t.reply.suggestions.filter((s) => picked.has(s.path)).reduce((n, s) => n + s.size, 0))} selected</span>
-                    <button className="btn danger sm" disabled={!t.reply.suggestions.some((s) => picked.has(s.path))} onClick={() => void trashPicked(t.reply!.suggestions.filter((s) => picked.has(s.path)).map((s) => s.path))}>
-                      <Icon name="trash" size={12} /> Move selected to Trash
-                    </button>
-                  </div>
                 </div>
               ) : null}
-              {t.reply?.search ? (
-                <button className="btn sm" style={{ alignSelf: 'flex-start' }} onClick={() => go({ name: 'search', q: t.reply!.search })}><Icon name="search" size={12} /> Run this search: “{t.reply.search}”</button>
+              {t.result?.sources.length ? (
+                <details className="card" open={t.result.sources.length <= 3}>
+                  <summary className="small muted" style={{ padding: '8px 12px', cursor: 'default' }}>Sources ({t.result.sources.length}) · {t.result.provider}{t.result.model && t.result.model !== 'on-device' ? ` · ${t.result.model}` : ''}{t.result.redacted ? ` · ${Object.values(t.result.redacted).reduce((n, x) => n + x, 0)} secret(s) blanked` : ''}{t.result.retrievalOnly ? ' · looked up first' : ''}</summary>
+                  <div className="sources">
+                    {t.result.sources.map((h) => (
+                      <button key={h.path} className="source" onClick={() => void api.files.reveal(h.path)} title={`Show ${h.path}`}>
+                        <Icon name={h.kind === 'image' ? 'image' : h.kind === 'video' ? 'video' : h.kind === 'audio' ? 'audio' : 'document'} size={14} />
+                        <div className="grow" style={{ minWidth: 0 }}>
+                          <div className="ellipsis">{short(h.path)}</div>
+                          <Snip h={h} />
+                        </div>
+                        <span className="small muted">{h.size ? formatBytes(h.size) : ''}{h.mtime ? ` · ${relativeTime(h.mtime)}` : ''}</span>
+                      </button>
+                    ))}
+                  </div>
+                </details>
               ) : null}
             </div>
           ))}
-          {busy ? <div className="msg assistant row"><div className="spinner" /> Looking at your files…</div> : null}
-          {error ? <div className="msg assistant" style={{ color: 'var(--danger)' }}>{error}</div> : null}
           <div ref={end} />
           <div className="composer">
             <textarea
               className="input"
-              placeholder="Ask anything about your files and space…"
+              placeholder="Ask anything about your files…"
               value={text}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void ask(text); } }}
             />
-            <button className="btn primary" disabled={!text.trim() || busy} onClick={() => void ask(text)} style={{ height: 42 }}><Icon name="send" size={14} /> Ask</button>
+            {busy ? (
+              <button className="btn" onClick={() => void api.brain.cancel(busy)} style={{ height: 42 }}><Icon name="close" size={14} /> Stop</button>
+            ) : (
+              <button className="btn primary" disabled={!text.trim()} onClick={() => void ask(text)} style={{ height: 42 }}><Icon name="send" size={14} /> Ask</button>
+            )}
           </div>
         </div>
       )}

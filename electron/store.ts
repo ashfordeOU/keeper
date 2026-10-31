@@ -28,7 +28,7 @@ export function settings(): AllSettings {
 
 export async function updateSettings(patch: Partial<AllSettings>): Promise<AllSettings> {
   const prev = settings();
-  const next: AllSettings = mergeSettings(prev, { ...prev, ...patch, island: { ...prev.island, ...(patch.island ?? {}) }, ai: { ...prev.ai, ...(patch.ai ?? {}) } });
+  const next: AllSettings = mergeSettings(prev, { ...prev, ...patch, island: { ...prev.island, ...(patch.island ?? {}) }, ai: { ...prev.ai, ...(patch.ai ?? {}) }, platform: { ...prev.platform, ...(patch.platform ?? {}) } });
   current = next;
   for (const l of listeners) l(next, prev);
   await persist();

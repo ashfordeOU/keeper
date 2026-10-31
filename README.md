@@ -38,7 +38,7 @@ optional AI assistant — in one small app that never uploads your files.
 - [Everything Keeper does](#everything-keeper-does)
   - [Library and browsing](#library-and-browsing) · [Previews for every file](#previews-for-every-file) · [Plain-English search](#plain-english-search) · [Text in images](#text-in-images-and-on-screen) · [Downloaded From](#downloaded-from)
   - [Duplicates](#duplicates) · [Clean Up](#clean-up) · [Space Map](#space-map) · [Automations](#automations) · [History and undo](#history-and-undo)
-  - [The Island](#the-island) · [Locked folders](#locked-folders) · [Themes](#themes) · [Quick Search, tray and deep links](#quick-search-tray-and-deep-links) · [Toolbox](#toolbox) · [System](#system) · [Assistant](#assistant)
+  - [The Island](#the-island) · [Locked folders](#locked-folders) · [Themes](#themes) · [Quick Search, tray and deep links](#quick-search-tray-and-deep-links) · [Works with your computer](#works-with-your-computer) · [Toolbox](#toolbox) · [System](#system) · [Keeper's brain](#keepers-brain) · [Assistant](#assistant)
   - [Command line](#command-line)
 - [Keyboard shortcuts](#keyboard-shortcuts)
 - [Keeper compared with your system file manager](#keeper-compared-with-your-system-file-manager)
@@ -305,9 +305,21 @@ Small tools, all offline: copy text from screen (with QR), colour picker, dead-p
 - **Applications**: every installed app with size, version and last use; filter unused or large ones; uninstall via the app's own uninstaller (Windows), the Trash plus leftover support files (macOS) or Flatpak/Snap (Linux).
 - **Protection**: a score for the security already built into your system — Gatekeeper, XProtect, SIP, FileVault, firewall and updates on macOS; Defender, real-time protection, definitions, firewall, UAC, SmartScreen, device encryption and Windows Update on Windows; firewall, disk encryption, Secure Boot, AppArmor/SELinux and automatic updates on Linux — with how to fix what is off. Keeper is not an antivirus.
 
+### Keeper's brain
+
+Keeper reads the text inside your files once, on your computer, and keeps it ready, so **any AI you use finds things instantly instead of crawling your disk** ([details](docs/BRAIN.md)).
+
+- **Everything indexed**: names, folders, dates and download sources, plus the text inside Word, PowerPoint, Excel, OpenDocument and EPUB files, PDFs, e-mails (`.eml`), Markdown, web pages, notebooks, subtitles, source code, and screenshots (on-device text recognition). Long files are split into passages, so answers point at the part that matters.
+- **Search by words and by meaning**: a word index (BM25) plus, when you turn it on, a small multilingual model that runs on your computer (multilingual-e5-small, 8-bit, 129 MB download, checked against a pinned SHA-256). *“Money back when I move out”* finds the deposit clause in your lease. Both mix with the search bar's filters (*“pdfs from gmail last month”*). Vectors are built in the background, off the main thread, paused on battery.
+- **Any AI, the same results**: the Assistant works with **Claude**, **OpenAI**, any service that speaks the OpenAI format (OpenRouter, Groq, Mistral, DeepSeek, Gemini, xAI, Azure), models on your computer (**Ollama**, **LM Studio**, **llama.cpp**, **Jan**), and **Apple Intelligence** on Macs that have it. Models that can use tools search and read as they go; smaller ones get the best matches handed to them first. Answers cite the files they used, and changes (move, rename, tag, Trash, open) come back as **buttons — nothing happens until you press one**.
+- **Other AI apps can use it too**: Keeper is an **MCP server**. **Connect** adds it to the Claude desktop app, VS Code, Cursor, Windsurf, LM Studio or Zed (Keeper asks first, keeps the rest of the file, and saves a backup); a copyable entry works with any other MCP app, and `claude mcp add` with Claude Code. An optional **local API** on 127.0.0.1 (with a token) serves search, read and ask over HTTP.
+- **You decide what AIs see**: names only, matching passages, or whole files. **Passwords, API keys, private keys, card and bank numbers are blanked** before anything goes to an AI on the internet or to a connected app. *Only use AIs on this computer* keeps everything local. Excluded folders are never read.
+
+Honest limits: the meaning model is small, so it is good at topics and paraphrases but can miss across languages in short notes; images are understood through their text and names, not by what they show.
+
 ### Assistant
 
-Ask *“what can I safely delete?”* or *“why is my disk full?”*. The assistant sees **only file names, folders, sizes, dates and kinds — never contents** — and can only suggest: you pick what goes to the Trash. Use **Claude** or **OpenAI** with your own key (stored in your system keychain), or a **local model through Ollama** so nothing leaves your computer at all. Suggested paths are checked against what Keeper actually showed the model.
+Ask anything about your files — *“what's the Wi-Fi password in my screenshots?”*, *“how much do I owe on open invoices?”*, *“what can I safely delete?”*. It searches and reads through Keeper's brain with the AI you chose (keys stored in your system keychain), shows which files it looked at, cites them, and offers its suggestions as buttons.
 
 ### Command line
 
@@ -326,6 +338,10 @@ keeper dupes               Exact duplicates and HEIC/JPEG pairs (--trash --yes t
 keeper stats               Files per shelf and where downloads came from (--sources)
 keeper rules               Preview the automatic tidy-up rules
 keeper agents              Status of Claude Code / Codex sessions on this computer
+keeper ask <question>      Ask about your files with the AI chosen in Keeper (cites files)
+keeper search --semantic   Search Keeper's brain by meaning (--brain: words inside files too)
+keeper brain               What Keeper's brain has read
+keeper mcp                 Keeper as an MCP server for AI apps (stdio)
 
 --in <folders>  --json  --limit <n>  --hidden  --yes
 ```
@@ -384,7 +400,8 @@ Keeper works **alongside** Finder, File Explorer, Files or Dolphin — “Show i
   - **Weather** — your chosen place's coordinates to [Open-Meteo](https://open-meteo.com) (no key, no account).
   - **Lyrics** — the song title, artist and length to [LRCLIB](https://lrclib.net).
   - **Calendar** — the `.ics` link you entered.
-  - **Assistant** — file names, folders, sizes and dates (never contents) to the provider you chose; nothing at all with a local model.
+  - **Assistant and connected AI apps** — what you allowed in *What AIs may see* (names only, matching passages, or files it opens), with secrets blanked, to the AI you chose; nothing at all with an AI on this computer.
+  - **Meaning-search model** — downloaded once from Hugging Face when you turn meaning search on, checked against a pinned SHA-256. Your text is never sent anywhere to build it.
   - **Dictation** — your recorded audio to the speech-to-text address you configured.
   - **Update check** — once a day, the latest release number from GitHub (can be turned off).
 - API keys are encrypted with the operating system's keychain (Electron `safeStorage`). On Linux without a keyring, Keeper refuses to store keys rather than store them weakly.
@@ -529,6 +546,10 @@ More detail in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | Dictation typing | ✅ | ✅ | X11 `xdotool` / Wayland `wtype` |
 | Battery health & cycles | level | ✅ | ✅ |
 | Tags | Keeper tags | Keeper tags | Keeper tags |
+| System text recognition | Windows.Media.Ocr | Live Text (Vision) | built-in reader |
+| On-device AI model | — (Store apps only) | Apple Intelligence (macOS 26) | local model via Ollama |
+| Desktop search | Explorer “Search with Keeper” | Spotlight | GNOME search, KRunner |
+| AI agents (MCP) | ✅ + agent registry | ✅ | ✅ |
 
 ## Roadmap
 

@@ -16,6 +16,9 @@ import { scanAgentSessions } from '../core/island';
 import { defaultFolders, readDownloadSource, targetEnv, trashWithoutElectron } from '../core/platform';
 import { defaultRules, describeAction, describeCondition, planRule } from '../core/rules';
 import type { FileEntry } from '../core/types';
+import type { BrainHit, BrainStatus } from '../core/brain-contract';
+import { connectToApp, offlineBrain } from '../core/brain/client';
+import { serveLines } from '../core/brain/mcp';
 
 declare const __KEEPER_VERSION__: string | undefined;
 // Filled in from package.json when the CLI is built.
@@ -94,9 +97,34 @@ function out(data: unknown, flags: Args['flags'], human: () => void) {
 
 // ---------------------------------------------------------------- commands
 
+function brainRow(h: BrainHit): string {
+  return `${tildify(h.path, home)}  ${dim(`${formatBytes(h.size)} · ${relativeTime(h.mtime)}${h.why ? ` · ${h.why.join('+')}` : ''}`)}${h.snippet ? `\n           ${dim(h.snippet)}` : ''}`;
+}
+
+/** Searches Keeper's brain: inside files and by meaning (through the app, or its saved index). */
+async function brainSearch(a: Args, text: string) {
+  const limit = Number(a.flags.limit ?? 20);
+  const mode = a.flags.semantic || a.flags.meaning ? 'meaning' : a.flags.words ? 'words' : 'hybrid';
+  const app = await connectToApp();
+  let hits: BrainHit[];
+  if (app) {
+    hits = (await app.call('keeper/search', { query: text, limit, mode })) as BrainHit[];
+    app.close();
+  } else {
+    const off = await offlineBrain(undefined, { semantic: mode !== 'words' });
+    if (!off) throw new Error('Keeper has not built its brain on this computer yet. Open the Keeper app once, or search without --brain.');
+    hits = await off.brain.search({ query: text, limit, mode });
+  }
+  out(hits, a.flags, () => {
+    for (const h of hits) console.log(brainRow(h));
+    console.log(dim(`\n${hits.length} result${hits.length === 1 ? '' : 's'}${app ? '' : ' (Keeper is not running: searched the last saved index)'}`));
+  });
+}
+
 async function cmdSearch(a: Args) {
   const text = a.rest.join(' ');
   if (!text) throw new Error('Usage: keeper search "pdfs from last week over 5 MB"');
+  if (a.flags.semantic || a.flags.meaning || a.flags.brain || a.flags.words) return brainSearch(a, text);
   const idx = await buildIndex(a.flags, true);
   const { parsed, hits } = idx.query(text);
   const limit = Number(a.flags.limit ?? 50);
@@ -202,6 +230,79 @@ async function cmdRules(a: Args) {
   console.log(dim('\nThis is a preview. Turn rules on in the Keeper app.'));
 }
 
+/** Ask a question with the AI chosen in Keeper; it searches and reads through the brain. */
+async function cmdAsk(a: Args) {
+  const question = a.rest.join(' ');
+  if (!question) throw new Error('Usage: keeper ask "when does my passport expire?"');
+  const app = await connectToApp();
+  if (app) {
+    let streamed = false;
+    const r = (await app.call('keeper/ask', { question }, (method, params) => {
+      if (method === 'keeper/delta' && !a.flags.json) { process.stdout.write((params as { text: string }).text); streamed = true; }
+      if (method === 'keeper/step' && !a.flags.json && tty) process.stderr.write(dim(`  ${(params as { summary: string }).summary}\n`));
+    })) as { answer: string; sources: BrainHit[]; provider: string };
+    app.close();
+    out(r, a.flags, () => {
+      if (!streamed) process.stdout.write(r.answer);
+      console.log('\n');
+      if (r.sources.length) console.log(dim('Sources:\n' + r.sources.slice(0, 8).map((s) => `  ${tildify(s.path, home)}`).join('\n')));
+    });
+    return;
+  }
+  const off = await offlineBrain();
+  if (!off) throw new Error('Keeper is not running and has no saved index yet. Open the Keeper app.');
+  const r = await off.brain.ask(question, { onDelta: a.flags.json ? undefined : (t) => process.stdout.write(t) });
+  out({ answer: r.answer, sources: r.sources }, a.flags, () => console.log('\n\n' + dim(r.sources.map((s) => `  ${tildify(s.path, home)}`).join('\n'))));
+}
+
+/** MCP over stdio for AI apps: proxies to the running app, or serves the saved index read-only. */
+async function cmdMcp() {
+  const app = await connectToApp();
+  if (app) {
+    const send = app.raw((line) => process.stdout.write(line + '\n'));
+    let buf = '';
+    process.stdin.setEncoding('utf8');
+    process.stdin.on('data', (c: string) => {
+      buf += c;
+      let i: number;
+      while ((i = buf.indexOf('\n')) >= 0) {
+        const line = buf.slice(0, i);
+        buf = buf.slice(i + 1);
+        if (line.trim()) send(line);
+      }
+    });
+    await new Promise<void>((r) => process.stdin.on('end', () => { if (buf.trim()) send(buf); setTimeout(r, 200); }));
+    app.close();
+    return;
+  }
+  const off = await offlineBrain();
+  if (!off) {
+    process.stderr.write('Keeper is not running and has no saved index yet. Open the Keeper app once.\n');
+    process.exit(1);
+  }
+  await serveLines(off.server, process.stdin, (line) => process.stdout.write(line + '\n'));
+}
+
+async function cmdBrain(a: Args) {
+  const app = await connectToApp();
+  let st: BrainStatus;
+  if (app) {
+    st = (await app.call('keeper/status')) as BrainStatus;
+    app.close();
+  } else {
+    const off = await offlineBrain(undefined, { semantic: false });
+    if (!off) throw new Error('Keeper has not built its brain on this computer yet. Open the Keeper app once.');
+    st = off.brain.status();
+  }
+  out(st, a.flags, () => {
+    console.log(`${bold('Keeper brain')} ${dim(app ? '(app running)' : '(app not running: last saved index)')}`);
+    console.log(`  files            ${st.files.toLocaleString()}`);
+    console.log(`  with text read   ${st.withText.toLocaleString()}`);
+    console.log(`  passages         ${(st.passages ?? 0).toLocaleString()}`);
+    console.log(`  meaning search   ${st.semantic}${st.semantic === 'ready' ? ` · ${st.embedded.toLocaleString()} done, ${st.pending.toLocaleString()} waiting` : ''}`);
+  });
+}
+
 async function cmdAgents(a: Args) {
   const sessions = await scanAgentSessions(home);
   out(sessions, a.flags, () => {
@@ -222,6 +323,10 @@ ${bold('Usage')}
   keeper stats               Files per shelf and where downloads came from (--sources)
   keeper rules               Preview the automatic tidy-up rules
   keeper agents              Status of Claude Code / Codex sessions on this computer
+  keeper ask <question>      Ask about your files with the AI chosen in Keeper (cites files)
+  keeper search --semantic   Search Keeper's brain by meaning (--brain: words inside files too)
+  keeper brain               What Keeper's brain has read
+  keeper mcp                 Serve Keeper to AI apps over MCP (stdio)
 
 ${bold('Options')}
   --in <folders>   comma-separated folders instead of Desktop, Documents, Downloads, …
@@ -245,6 +350,9 @@ async function main() {
     case 'stats': return cmdStats(a);
     case 'rules': return cmdRules(a);
     case 'agents': return cmdAgents(a);
+    case 'ask': return cmdAsk(a);
+    case 'mcp': return cmdMcp();
+    case 'brain': return cmdBrain(a);
     default: return help();
   }
 }

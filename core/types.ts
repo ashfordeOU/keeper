@@ -384,6 +384,8 @@ export interface Settings {
   excluded: string[];
   showHidden: boolean;
   quickSearchShortcut: string;
+  /** Keeper inside the operating system: Spotlight, desktop search, Explorer, native text recognition */
+  platform: import('./platform-integrations').PlatformSettings;
   trayEnabled: boolean;
   trayCount: number;
   ocrEnabled: boolean;
@@ -401,6 +403,8 @@ export interface Settings {
   /** let the library walk network drives and cloud folders (off: they can be slow or download files) */
   includeRemote: boolean;
   ai: { provider: AiProvider; model: string; ollamaUrl: string };
+  /** Keeper's brain: the passage index, meaning search, the AIs it works with and the apps it serves */
+  brain: import('./brain/config').BrainSettings;
   /** desktop widgets (see core/widgets.ts) */
   widgets: import('./widgets').WidgetConfig[];
   /** check for new releases on GitHub once a day */

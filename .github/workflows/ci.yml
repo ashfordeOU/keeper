@@ -36,6 +36,14 @@ jobs:
       - run: npm run build
       - name: CLI smoke test
         run: node dist-cli/keeper.cjs --version
+      - name: Build and check the macOS helper
+        if: runner.os == 'macOS'
+        working-directory: native/macos/KeeperHelper
+        run: |
+          swift build -c release --arch arm64 --arch x86_64
+          out=$(printf '{"id":1,"method":"hello"}\n' | .build/apple/Products/Release/keeper-helper)
+          echo "$out"
+          echo "$out" | grep -q '"result"'
       - name: Package the app (unpacked, no installer)
         run: npx electron-builder --dir --publish never
         env:

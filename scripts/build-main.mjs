@@ -17,7 +17,8 @@ const common = {
   sourcemap: true,
   logLevel: 'info',
   define: { __KEEPER_VERSION__: JSON.stringify(version) },
-  external: ['electron', 'tesseract.js', 'ffmpeg-static', 'pdfjs-dist', 'sharp', 'onnxruntime-node'],
+  // usocket and x11 are optional extras of the D-Bus client (abstract sockets, X11 bus lookup); it works without them.
+  external: ['electron', 'tesseract.js', 'ffmpeg-static', 'pdfjs-dist', 'sharp', 'onnxruntime-node', 'usocket', 'x11'],
 };
 
 const targets = [
@@ -28,6 +29,7 @@ if (!cliOnly) {
     { ...common, entryPoints: ['electron/main.ts'], outfile: 'dist-electron/main.cjs' },
     { ...common, entryPoints: ['electron/preload.ts'], outfile: 'dist-electron/preload.cjs' },
     { ...common, entryPoints: ['electron/capture-preload.ts'], outfile: 'dist-electron/capture-preload.cjs' },
+    { ...common, entryPoints: ['electron/brain-worker.ts'], outfile: 'dist-electron/brain-worker.cjs' },
   );
 }
 

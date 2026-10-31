@@ -2,6 +2,8 @@
 // Default settings and a lenient reader for settings loaded from disk.
 
 import type { IslandSettings } from './api';
+import { defaultBrainSettings, normalizeBrainSettings } from './brain/config';
+import { DEFAULT_PLATFORM } from './platform-integrations';
 import { DEFAULT_THEME, THEMES } from './themes';
 import type { Rule, Settings } from './types';
 
@@ -72,6 +74,7 @@ export function defaultSettings(folders: string[], rules: Rule[]): AllSettings {
     excluded: [],
     showHidden: false,
     quickSearchShortcut: 'CommandOrControl+Shift+Space',
+    platform: { ...DEFAULT_PLATFORM },
     trayEnabled: true,
     trayCount: 10,
     ocrEnabled: true,
@@ -86,6 +89,7 @@ export function defaultSettings(folders: string[], rules: Rule[]): AllSettings {
     recentServers: [],
     includeRemote: false,
     ai: { provider: 'anthropic', model: '', ollamaUrl: 'http://127.0.0.1:11434' },
+    brain: defaultBrainSettings(),
     widgets: [],
     updateCheck: true,
     updateMode: 'auto',
@@ -124,5 +128,7 @@ export function mergeSettings(base: AllSettings, raw: unknown): AllSettings {
   if (!['theme', 'system', 'rounded', 'serif', 'mono'].includes(out.font)) out.font = 'theme';
   if (!['comfortable', 'compact'].includes(out.density)) out.density = 'comfortable';
   if (!['theme', 'rounded', 'sharp'].includes(out.corners)) out.corners = 'theme';
+  // Settings from before the brain had one AI choice; it becomes the active connection.
+  out.brain = normalizeBrainSettings(r.brain && typeof r.brain === 'object' ? out.brain : undefined, out.ai);
   return out;
 }

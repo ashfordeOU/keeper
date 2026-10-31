@@ -10,7 +10,9 @@ import type { ConvertCapabilities, ConvertJob, ConvertResult } from './convert-t
 import type { AwakeTrigger } from './awake';
 import type { KeeperApiX } from './api-x';
 import type { PlacesApi } from './api-places';
+import type { PlatformApi } from './api-platform';
 import type { LockApi } from './api-lock';
+import type { BrainApi, BrainDelta, BrainStep } from './api-brain';
 import type { PreviewApi } from './previewTypes';
 import type { WidgetConfig } from './widgets';
 import type {
@@ -294,7 +296,11 @@ export interface IslandSettings {
 
 export interface KeeperApi extends KeeperApiX {
   places: PlacesApi;
+  platform: PlatformApi;
   lock: LockApi;
+  /** Keeper's brain: passage index, meaning search, the AI harness and the AI apps it serves */
+  brain: BrainApi;
+  /** the process manager and services in Health */
   /** universal file previews */
   preview: PreviewApi;
   /** video, audio, picture, PDF and file tools; results always go to a new folder */
@@ -355,8 +361,9 @@ export interface KeeperApi extends KeeperApiX {
   settings: {
     get(): Promise<Settings & { island: IslandSettings }>;
     set(patch: Partial<Settings & { island: Partial<IslandSettings> }>): Promise<Settings & { island: IslandSettings }>;
-    setSecret(name: AiProvider | 'dictation' | 'upload', value: string): Promise<boolean>;
-    hasSecret(name: AiProvider | 'dictation' | 'upload'): Promise<boolean>;
+    /** AI keys are stored under the connection's id (see core/brain/config.ts) */
+    setSecret(name: AiProvider | 'dictation' | 'upload' | (string & {}), value: string): Promise<boolean>;
+    hasSecret(name: AiProvider | 'dictation' | 'upload' | (string & {})): Promise<boolean>;
     pickFolder(): Promise<string | null>;
     pickFiles(opts?: { title?: string; extensions?: string[] }): Promise<string[]>;
   };
@@ -498,6 +505,9 @@ export interface KeeperApi extends KeeperApiX {
   on(channel: 'widgets-changed', cb: () => void): () => void;
   on(channel: 'places-changed', cb: () => void): () => void;
   on(channel: 'locks-changed', cb: () => void): () => void;
+  on(channel: 'brain-status', cb: (s: import('./brain-contract').BrainStatus) => void): () => void;
+  on(channel: 'brain-delta', cb: (d: BrainDelta) => void): () => void;
+  on(channel: 'brain-step', cb: (d: BrainStep) => void): () => void;
   on(channel: 'lock-progress', cb: (p: import('./vault').VaultProgress & { target: string }) => void): () => void;
   on(channel: 'island-open', cb: (tab: string) => void): () => void;
   on(channel: 'island-layout', cb: (p: import('./island-place').Placement) => void): () => void;

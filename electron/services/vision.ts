@@ -56,6 +56,21 @@ export async function ocrImage(img: Electron.NativeImage | Buffer, langs: string
   return data.text.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
+// The system's own text recognition (Live Text on macOS, Windows.Media.Ocr),
+// when the platform service offers it; undefined from it means "use the built-in reader".
+let nativeOcr: ((file: string, langs: string[]) => Promise<string | undefined>) | null = null;
+
+export function useNativeOcr(fn: (file: string, langs: string[]) => Promise<string | undefined>) {
+  nativeOcr = fn;
+}
+
+/** Text in an image file: the system's recognition first, then the built-in reader. */
+export async function ocrFile(file: string, img: Electron.NativeImage, langs: string[]): Promise<string> {
+  const native = nativeOcr ? await nativeOcr(file, langs).catch(() => undefined) : undefined;
+  if (native !== undefined) return native.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+  return ocrImage(img, langs);
+}
+
 export function fingerprint(img: Electron.NativeImage): string {
   const small = img.resize({ width: 9, height: 8, quality: 'good' });
   return dHash(toGray9x8(small.toBitmap(), 9, 8));
@@ -95,6 +110,7 @@ export class VisionQueue {
     this.stopped = true;
     void worker?.then((w) => w.terminate()).catch(() => undefined);
   }
+
 
   private async pump() {
     if (this.running) return;
@@ -169,7 +185,7 @@ export class VisionQueue {
     this.index.setDhash(f.path, fingerprint(img));
     const o = this.opts();
     if (o.ocr && this.index.extras.get(f.path)?.text === undefined) {
-      const text = await ocrImage(img, o.langs);
+      const text = await ocrFile(f.path, img, o.langs);
       this.index.setText(f.path, text.length > 3 ? text : '');
     }
   }
