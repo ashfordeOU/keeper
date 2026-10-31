@@ -200,15 +200,27 @@ export interface IslandState {
   nowPlaying?: NowPlaying;
   lyrics?: LyricLine[];
   micInUse?: string[];
+  /** apps using a camera (Windows and Linux; macOS shows its own light) */
+  camInUse?: string[];
   alerts: IslandAlert[];
+}
+
+export interface IslandPlacementPreview {
+  platform: string;
+  desktop?: string;
+  macModel?: string;
+  wayland: boolean;
+  xwayland: boolean;
+  displays: { info: import('./island-place').DisplayInfo; placement: import('./island-place').Placement; primary: boolean; label: string }[];
+  wanted: number[];
 }
 
 export interface IslandSettings {
   enabled: boolean;
   /** which screen edge the island sits on */
   edge: 'top' | 'left' | 'right';
-  /** 'all' or display ids */
-  displays: 'primary' | 'all';
+  /** which screens get an Island: the main one, every one, the one with the pointer, or the laptop's own */
+  displays: 'primary' | 'all' | 'mouse' | 'builtin';
   buddy: boolean;
   clipboard: boolean;
   agents: boolean;
@@ -257,6 +269,27 @@ export interface IslandSettings {
   hideInFullscreen: boolean;
   upload: UploadSettings;
   scriptActions: ScriptAction[];
+  /** how big the Island is */
+  size?: 'compact' | 'normal' | 'large';
+  /** on Macs with a notch, grow out of it in the same black */
+  blendNotch?: boolean;
+  /** where the camera is ('auto' follows the screen's rotation) */
+  cameraEdge?: 'auto' | 'top' | 'left' | 'right' | 'bottom';
+  /** move to the side when a tablet is turned and the camera is on a long edge */
+  followCamera?: boolean;
+  /** draw a small camera dot in the middle of the pill on screens without a notch */
+  cameraDot?: boolean;
+  /** move the Island by hand, in points */
+  offsetX?: number;
+  offsetY?: number;
+  /** Linux on Wayland: run Keeper through XWayland so the Island can stay on top and in place */
+  x11OnWayland?: boolean;
+  /** show dots while the camera or microphone is in use */
+  privacyDots?: boolean;
+  /** activity kinds not to show in the pill */
+  activitiesOff?: string[];
+  /** open the Island when the pointer rests on it (tap or click always works) */
+  hoverOpen?: boolean;
 }
 
 export interface KeeperApi extends KeeperApiX {
@@ -422,6 +455,8 @@ export interface KeeperApi extends KeeperApiX {
     typeText(text: string): Promise<void>;
     dismiss(alertId: string): Promise<void>;
     setExpanded(expanded: boolean): void;
+    /** the closed pill's size, so the window covers nothing else */
+    setSize(width: number, height: number): void;
     createShelf(name?: string): Promise<void>;
     selectShelf(id: string): Promise<void>;
     renameShelf(id: string, name: string): Promise<void>;
@@ -449,6 +484,10 @@ export interface KeeperApi extends KeeperApiX {
     refreshDevices(): Promise<DevicesState>;
     /** what the automatic keep-awake rules see right now */
     awakeStatus(): Promise<{ active: string[]; snapshot: Record<string, unknown> }>;
+    /** where this Island window sits and what it fits around (notch, bars, camera) */
+    layout(): Promise<import('./island-place').Placement | null>;
+    /** every screen, what was detected on it, and where the Island goes; for Settings */
+    placementPreview(): Promise<IslandPlacementPreview>;
   };
   on(channel: 'progress', cb: (p: Progress) => void): () => void;
   on(channel: 'library-changed' | 'island-changed', cb: () => void): () => void;
@@ -461,4 +500,5 @@ export interface KeeperApi extends KeeperApiX {
   on(channel: 'locks-changed', cb: () => void): () => void;
   on(channel: 'lock-progress', cb: (p: import('./vault').VaultProgress & { target: string }) => void): () => void;
   on(channel: 'island-open', cb: (tab: string) => void): () => void;
+  on(channel: 'island-layout', cb: (p: import('./island-place').Placement) => void): () => void;
 }

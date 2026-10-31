@@ -103,3 +103,87 @@ html[data-view='island'], html[data-view='island'] body, html[data-view='island'
 .isl .cam video { max-height: 100%; max-width: 100%; border-radius: 14px; transform: scaleX(-1); background: #000; }
 .isl .isl-toast { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); background: #fff; color: #000; padding: 5px 12px; border-radius: 10px; font-weight: 600; font-size: 12px; z-index: 10; max-width: 90%; text-align: center; }
 .isl.expanded { position: relative; }
+
+/* ---------------------------------------------------------------- the Island everywhere
+   One black shape, clipped to the current state (pill, card, panel) so changing state is one smooth
+   morph; only clip-path, transform and opacity animate. On a Mac with a notch the shape is the notch's
+   own black and grows out of it; elsewhere it hangs from the top edge or floats just below a top bar. */
+.isl-root { --spring: cubic-bezier(.32, 1.32, .5, 1); position: relative; display: block; width: 100vw; height: 100vh; overflow: hidden; }
+.isl-shadow { position: absolute; inset: 0; pointer-events: none; }
+.isl-root:not(.view-compact):not(.anchor-notch) .isl-shadow { filter: drop-shadow(0 10px 24px rgba(0, 0, 0, .38)); }
+.isl-shape { position: absolute; width: var(--full-w); height: var(--full-h); background: var(--island-bg, #0a0a0c); transition: clip-path .46s var(--spring); will-change: clip-path; }
+.isl-root.anchor-notch .isl-shape, .isl-root.anchor-notch .isl-bubble { background: #000; }
+.isl-root.edge-top .isl-shape { top: 0; left: 50%; transform: translateX(-50%); }
+.isl-root.edge-left .isl-shape { left: 0; top: 50%; transform: translateY(-50%); }
+.isl-root.edge-right .isl-shape { right: 0; top: 50%; transform: translateY(-50%); }
+
+.isl.isl-content { position: absolute; width: var(--box-w); height: var(--box-h); background: transparent; box-shadow: none; border-radius: 0; overflow: visible; transition: none; display: block; padding: 0; }
+.isl-root.edge-top .isl-content { top: 0; left: 50%; transform: translateX(-50%); }
+.isl-root.edge-left .isl-content { left: 0; top: 50%; transform: translateY(-50%); }
+.isl-root.edge-right .isl-content { right: 0; top: 50%; transform: translateY(-50%); }
+.isl-in { width: 100%; height: 100%; padding-top: var(--notch-h); animation: isl-in .34s var(--spring) both; overflow: hidden; }
+.view-compact .isl-in { padding-top: 0; animation-duration: .24s; }
+@keyframes isl-in { from { opacity: 0; transform: scale(.94) translateY(-6px); } to { opacity: 1; transform: none; } }
+
+/* the concave corners where the notch meets the top of the screen */
+.isl-content .ear { position: absolute; top: 0; width: 10px; height: 10px; pointer-events: none; }
+.isl-content .ear.l { left: -10px; background: radial-gradient(circle at 0 100%, transparent 9.5px, #000 10px); }
+.isl-content .ear.r { right: -10px; background: radial-gradient(circle at 100% 100%, transparent 9.5px, #000 10px); }
+
+/* compact: glyphs on both sides of the notch (or a line of text when nothing is in the way) */
+.cmp { position: relative; height: 100%; display: flex; align-items: center; gap: 8px; padding: 0 12px; cursor: default; }
+.cmp .live { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: .92; }
+.cmp.notch { padding: 0 12px; gap: 0; }
+.cmp.notch .wing { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; }
+.cmp.notch .wing.r { justify-content: flex-end; }
+.cmp.notch .cut { flex: none; height: 100%; }
+.act-lead { display: inline-grid; place-items: center; width: 22px; height: 22px; flex: none; }
+.act-art { border-radius: 6px; color: #fff; }
+.act-trail { font-size: 12.5px; font-weight: 700; letter-spacing: -.01em; white-space: nowrap; }
+.act-more { font-size: 10.5px; color: #a1a1aa; margin-left: 4px; }
+.act-ring { position: relative; display: inline-grid; place-items: center; flex: none; }
+.act-ring svg { position: absolute; inset: 0; }
+.act-ring circle { transition: stroke-dashoffset .4s ease; }
+.act-ring-in { font-size: 9px; }
+.act-wave { display: inline-flex; align-items: center; gap: 2px; height: 14px; flex: none; }
+.act-wave i { width: 3px; height: 100%; border-radius: 2px; background: currentColor; transform: scaleY(.35); animation: act-wave 1.1s ease-in-out infinite; }
+.act-wave i:nth-child(2) { animation-delay: -.25s; } .act-wave i:nth-child(3) { animation-delay: -.5s; } .act-wave i:nth-child(4) { animation-delay: -.15s; } .act-wave i:nth-child(5) { animation-delay: -.7s; }
+@keyframes act-wave { 0%, 100% { transform: scaleY(.3); } 50% { transform: scaleY(1); } }
+.privacy-dots { display: inline-flex; gap: 3px; margin-left: 6px; }
+.privacy-dots i { width: 6px; height: 6px; border-radius: 50%; }
+.privacy-dots .dot-cam { background: #30d158; }
+.privacy-dots .dot-mic { background: #ff9f0a; }
+.cam-dot { position: absolute; left: 50%; top: 50%; width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px; border-radius: 50%; background: #15151a; box-shadow: inset 0 0 0 1.5px #2c2c35; pointer-events: none; }
+
+/* a second activity: a separate drop beside the pill */
+.isl-bubble { all: unset; position: absolute; top: 0; left: calc(50% + var(--box-w) / 2 + 6px); width: var(--bubble); height: var(--bubble); border-radius: 0 0 999px 999px; background: var(--island-bg, #0a0a0c); display: grid; place-items: center; animation: isl-bubble .5s var(--spring) both; cursor: default; }
+.isl-root.floating .isl-bubble { border-radius: 999px; }
+.isl-root.edge-left .isl-bubble { left: 0; top: calc(50% + var(--box-h) / 2 + 6px); border-radius: 0 999px 999px 0; }
+.isl-root.edge-right .isl-bubble { left: auto; right: 0; top: calc(50% + var(--box-h) / 2 + 6px); border-radius: 999px 0 0 999px; }
+@keyframes isl-bubble { from { opacity: 0; transform: translateX(-12px) scale(.5); } to { opacity: 1; transform: none; } }
+
+/* the Live Activity card */
+.live-card { height: 100%; display: flex; flex-direction: column; gap: 8px; padding: 10px 16px 12px; }
+.live-head { display: flex; align-items: center; gap: 8px; }
+.live-icon { width: 22px; height: 22px; border-radius: 7px; display: grid; place-items: center; color: #fff; flex: none; }
+.live-body { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; gap: 6px; }
+.live-row { display: flex; align-items: center; gap: 12px; }
+.live-big { font-size: 30px; font-weight: 800; letter-spacing: -.03em; line-height: 1.05; }
+.live-bar { position: relative; height: 5px; border-radius: 5px; background: rgba(255, 255, 255, .14); overflow: hidden; }
+.live-bar i { display: block; height: 100%; border-radius: 5px; transition: width .4s ease; }
+.live-bar.charge::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .45), transparent); transform: translateX(-100%); animation: charge 1.6s ease-in-out infinite; }
+@keyframes charge { to { transform: translateX(100%); } }
+.live-times { display: flex; justify-content: space-between; }
+.live-actions { justify-content: center; }
+.live-copied { font-size: 13px; opacity: .9; }
+.isl .grow-min { flex: 1; min-width: 0; }
+.isl .block { display: block; }
+.isl .btn.ghost { background: transparent; color: #a1a1aa; }
+.isl .btn.danger { background: #ff453a; color: #fff; }
+.isl-alert { height: 100%; display: flex; align-items: center; gap: 12px; padding: 0 16px; }
+.isl-panel { height: 100%; display: flex; flex-direction: column; }
+@media (prefers-reduced-motion: reduce) { .isl-shape { transition: none; } .isl-in, .isl-bubble { animation: none; } .act-wave i, .live-bar.charge::after { animation: none; } }
+.act-pair { display: inline-flex; align-items: center; gap: 6px; }
+.isl-panel .tabs { overflow-x: auto; scrollbar-width: none; flex: none; }
+.isl-panel .tabs::-webkit-scrollbar { display: none; }
+.isl-panel .tabs button { flex: none; }

@@ -10,6 +10,7 @@ import { api } from '../api';
 import { Icon } from '../components/Icon';
 import { PageHead, Toggle } from '../components/ui';
 import { useAsync, useStore } from '../state';
+import { PlacementSettings } from '../island/PlacementSettings';
 import '../styles/screens-b.css';
 
 export function Row({ title, desc, children }: { title: string; desc?: ReactNode; children: ReactNode }) {
@@ -78,15 +79,7 @@ export function IslandSettings() {
       </div>
 
       <h2 style={{ margin: '8px 0' }}>Placement</h2>
-      <div className="card settings-section">
-        <Row title="Position" desc="Screens with a camera notch use the notch; others get a slim island.">
-          <div className="seg">{(['top', 'left', 'right'] as const).map((e) => <button key={e} className={isl.edge === e ? 'on' : ''} onClick={() => set({ edge: e })}>{e === 'top' ? 'Top' : e === 'left' ? 'Left edge' : 'Right edge'}</button>)}</div>
-        </Row>
-        <Row title="Displays">
-          <div className="seg"><button className={isl.displays === 'primary' ? 'on' : ''} onClick={() => set({ displays: 'primary' })}>Main display</button><button className={isl.displays === 'all' ? 'on' : ''} onClick={() => set({ displays: 'all' })}>All displays</button></div>
-        </Row>
-        <Row title="Buddy" desc="A little face that reacts: naps when you are away, perks up when something needs you."><Toggle on={isl.buddy} onChange={(v) => set({ buddy: v })} /></Row>
-      </div>
+      <PlacementSettings isl={isl} set={set} />
 
       <h2 style={{ margin: '18px 0 8px' }}>What it shows</h2>
       <div className="card settings-section">

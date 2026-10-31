@@ -2,7 +2,7 @@
 // The Island's windows (one per display when asked), the clipboard picker,
 // desktop widgets, their shortcuts and IPC.
 
-import { app, BrowserWindow, dialog, globalShortcut, ipcMain, screen, type WebContents } from 'electron';
+import { app, BrowserWindow, dialog, globalShortcut, ipcMain, powerMonitor, screen, type WebContents } from 'electron';
 import { promises as fsp } from 'node:fs';
 import path from 'node:path';
 import type { ShelfAction } from '../../core/api';
@@ -11,6 +11,7 @@ import type { FileIndex } from '../../core/indexer';
 import { normalizeWidgets, type WidgetConfig } from '../../core/widgets';
 import type { FileService } from '../services/files';
 import type { IslandService } from '../services/island';
+import { placementFor, placementPreview, refreshPlaceEnv, wantedDisplays } from '../services/island-place';
 import { settings, updateSettings } from '../store';
 
 export interface IslandContext {
@@ -38,26 +39,66 @@ let ctx: IslandContext;
 
 // ---------------------------------------------------------------- Island windows
 
-const COLLAPSED = { width: 380, height: 64 };
-const EXPANDED = { width: 700, height: 380 };
-
 export class IslandWindows {
   private wins = new Map<number, BrowserWindow>();
   private expanded = new Set<number>();
   private hidden = false;
+  private follow: NodeJS.Timeout | null = null;
+  /** the size the pill asked for, so a closed Island covers nothing but itself */
+  private sizes = new Map<number, { width: number; height: number }>();
 
+  // Where it goes is worked out in core/island-place.ts: the notch, menu and
+  // top bars, taskbars, the camera, a turned tablet, and the nudge from Settings.
   private bounds(display: Electron.Display, expanded: boolean) {
-    const s = settings().island;
-    const size = expanded ? EXPANDED : COLLAPSED;
-    if (s.edge === 'left' || s.edge === 'right') {
-      const x = s.edge === 'left' ? display.bounds.x : display.bounds.x + display.bounds.width - size.width;
-      return { x, y: Math.round(display.workArea.y + display.workArea.height * 0.3), ...size };
+    const p = placementFor(display);
+    if (expanded) return p.expanded;
+    const want = this.sizes.get(display.id);
+    if (!want) return p.collapsed;
+    const c = p.collapsed;
+    const width = Math.max(8, Math.min(c.width, Math.round(want.width)));
+    const height = Math.max(4, Math.min(c.height, Math.round(want.height)));
+    const x = p.edge === 'left' ? c.x : p.edge === 'right' ? c.x + c.width - width : Math.round(c.x + (c.width - width) / 2);
+    const y = p.edge === 'left' || p.edge === 'right' ? Math.round(c.y + (c.height - height) / 2) : c.y;
+    return { x, y, width, height };
+  }
+
+  /** The pill's own size; the closed window shrinks to it (and grows back when the pill does). */
+  setCollapsedSize(sender: WebContents, width: number, height: number) {
+    for (const [id, win] of this.wins) {
+      if (win.webContents !== sender || win.isDestroyed()) continue;
+      const prev = this.sizes.get(id);
+      if (prev && Math.abs(prev.width - width) < 1 && Math.abs(prev.height - height) < 1) return;
+      this.sizes.set(id, { width, height });
+      if (!this.expanded.has(id)) win.setBounds(this.bounds(this.displayOf(id), false), false);
     }
-    return { x: Math.round(display.bounds.x + (display.bounds.width - size.width) / 2), y: display.bounds.y, ...size };
   }
 
   private displays(): Electron.Display[] {
-    return settings().island.displays === 'all' ? screen.getAllDisplays() : [screen.getPrimaryDisplay()];
+    return wantedDisplays();
+  }
+
+  private displayOf(id: number): Electron.Display {
+    return screen.getAllDisplays().find((x) => x.id === id) ?? screen.getPrimaryDisplay();
+  }
+
+  /** The placement for the Island window that sent a request (the window lays itself out around the notch). */
+  layoutFor(sender: WebContents) {
+    for (const [id, win] of this.wins) if (win.webContents === sender) return placementFor(this.displayOf(id));
+    return null;
+  }
+
+  /** "The screen with the pointer": one window that moves along, checked every 1.5 s only in that mode. */
+  private followPointer(on: boolean) {
+    if (on && !this.follow) {
+      this.follow = setInterval(() => {
+        const d = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+        if (!this.wins.has(d.id) && this.wins.size) this.ensure(true);
+      }, 1500);
+      this.follow.unref?.();
+    } else if (!on && this.follow) {
+      clearInterval(this.follow);
+      this.follow = null;
+    }
   }
 
   /** Creates, moves or removes Island windows to match settings and the connected displays. */
@@ -65,6 +106,21 @@ export class IslandWindows {
     const s = settings().island;
     if (!s.enabled) return this.destroyAll();
     const wanted = this.displays();
+    this.followPointer(s.displays === 'mouse');
+    // Following the pointer: move the one window rather than making a new one.
+    if (s.displays === 'mouse' && this.wins.size === 1 && wanted.length === 1 && !this.wins.has(wanted[0].id)) {
+      const [[oldId, win]] = [...this.wins];
+      this.wins.delete(oldId);
+      this.expanded.delete(oldId);
+      const size = this.sizes.get(oldId);
+      this.sizes.delete(oldId);
+      if (size) this.sizes.set(wanted[0].id, size);
+      if (!win.isDestroyed()) {
+        this.wins.set(wanted[0].id, win);
+        win.setBounds(this.bounds(wanted[0], false), false);
+        win.webContents.send('event:island-layout', placementFor(wanted[0]));
+      }
+    }
     for (const [id, win] of this.wins) {
       if (!wanted.some((d) => d.id === id) || win.isDestroyed()) {
         if (!win.isDestroyed()) win.destroy();
@@ -74,7 +130,10 @@ export class IslandWindows {
     for (const d of wanted) {
       const existing = this.wins.get(d.id);
       if (existing) {
-        if (reposition) existing.setBounds(this.bounds(d, this.expanded.has(d.id)), false);
+        if (reposition) {
+          existing.setBounds(this.bounds(d, this.expanded.has(d.id)), false);
+          existing.webContents.send('event:island-layout', placementFor(d));
+        }
         continue;
       }
       const win = new BrowserWindow({
@@ -87,12 +146,13 @@ export class IslandWindows {
       ctx.lockDown(win);
       loadView(win, { view: 'island', display: String(d.id) });
       win.once('ready-to-show', () => { if (!this.hidden) win.showInactive(); });
-      win.on('closed', () => { this.wins.delete(d.id); this.expanded.delete(d.id); });
+      win.on('closed', () => { this.wins.delete(d.id); this.expanded.delete(d.id); this.sizes.delete(d.id); });
       this.wins.set(d.id, win);
     }
   }
 
   destroyAll() {
+    this.followPointer(false);
     for (const w of this.wins.values()) if (!w.isDestroyed()) w.destroy();
     this.wins.clear();
     this.expanded.clear();
@@ -101,7 +161,7 @@ export class IslandWindows {
   setExpanded(sender: WebContents, v: boolean) {
     for (const [id, win] of this.wins) {
       if (win.webContents !== sender) continue;
-      const d = screen.getAllDisplays().find((x) => x.id === id) ?? screen.getPrimaryDisplay();
+      const d = this.displayOf(id);
       if (v) this.expanded.add(id);
       else this.expanded.delete(id);
       win.setBounds(this.bounds(d, v), false);
@@ -348,9 +408,16 @@ export function registerIslandIpc(c: IslandContext) {
   }
 
   // Follow displays being connected and disconnected.
-  screen.on('display-added', () => islandWindows.ensure(true));
-  screen.on('display-removed', () => islandWindows.ensure(true));
-  screen.on('display-metrics-changed', () => islandWindows.ensure(true));
+  // The notch and menu bar are measured again first (a resolution change moves them).
+  const replace = () => void refreshPlaceEnv().finally(() => islandWindows.ensure(true));
+  screen.on('display-added', replace);
+  screen.on('display-removed', replace);
+  screen.on('display-metrics-changed', replace);
+  powerMonitor.on('resume', replace);
+  replace();
+  ipcMain.handle('island.layout', (e) => islandWindows.layoutFor(e.sender));
+  ipcMain.on('island.setSize', (e, w: number, hgt: number) => { if (Number.isFinite(w) && Number.isFinite(hgt)) islandWindows.setCollapsedSize(e.sender, w, hgt); });
+  h('island.placementPreview', async () => { await refreshPlaceEnv(); return placementPreview(); });
 }
 
 /** Called by main.ts after it registers its own shortcuts (it clears all of them first). */

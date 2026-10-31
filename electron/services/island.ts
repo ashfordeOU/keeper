@@ -23,6 +23,7 @@ import type { FileEntry } from '../../core/types';
 import { fetchWeather, type Weather } from '../../core/weather';
 import { getSecret, settings } from '../store';
 import { lyricsFor, mediaAction, micInUse, nowPlaying } from './media';
+import { cameraInUse } from './island-place';
 import { readBattery } from './system';
 import { hasImage, readFileList, readImage, readText, writeImage, writePaths, writeText } from './clip';
 import { devicesState, frontmostApp, frontmostFullscreen, setBrightness, setMuted, setVolume, snapshot, touchDrive } from './devices';
@@ -67,6 +68,8 @@ export class IslandService {
   weather?: Weather;
   battery?: { percent: number; charging: boolean };
   mic: string[] = [];
+  /** apps using a camera (Windows, Linux) */
+  cam: string[] = [];
   alerts: IslandAlert[] = [];
   /** set while a screen recording runs */
   recording?: { since: number };
@@ -120,7 +123,7 @@ export class IslandService {
       closedShelves: this.store.closed.map((c) => ({ id: c.id, name: c.name, color: c.color, count: c.items.length })),
       devices: this.devices, awakeTriggers: this.awakeTriggers, hidden: this.userHidden || this.fsHidden,
       clips: this.clips.items, focus: this.focus, keepAwake: this.awake, agents: this.agents, events: this.events,
-      nowPlaying: this.playing, lyrics: this.lyrics, weather: this.weather, battery: this.battery, micInUse: this.mic, alerts: this.alerts, breakIn, recording: this.recording,
+      nowPlaying: this.playing, lyrics: this.lyrics, weather: this.weather, battery: this.battery, micInUse: this.mic, camInUse: this.cam, alerts: this.alerts, breakIn, recording: this.recording,
     };
   }
 
@@ -754,8 +757,11 @@ export class IslandService {
 
   private async pollMic() {
     const m = await micInUse();
-    if (m.join() !== this.mic.join()) {
+    // The camera is checked on the same beat; on Linux it is one small file unless a camera is open.
+    const c = settings().island.privacyDots === false ? [] : await cameraInUse().catch(() => [] as string[]);
+    if (m.join() !== this.mic.join() || c.join() !== this.cam.join()) {
       this.mic = m;
+      this.cam = c;
       this.emit();
     }
   }

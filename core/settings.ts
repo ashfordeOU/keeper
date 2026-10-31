@@ -45,6 +45,17 @@ export function defaultIsland(): IslandSettings {
     hideInFullscreen: true,
     upload: { kind: 'none', url: '', username: '', bucket: '', region: 'auto', accessKeyId: '', prefix: 'keeper', expiresHours: 72, publicUrl: '' },
     scriptActions: [],
+    size: 'normal',
+    blendNotch: true,
+    cameraEdge: 'auto',
+    followCamera: true,
+    cameraDot: false,
+    offsetX: 0,
+    offsetY: 0,
+    x11OnWayland: true,
+    privacyDots: true,
+    activitiesOff: [],
+    hoverOpen: true,
   };
 }
 

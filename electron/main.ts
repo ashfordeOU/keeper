@@ -43,6 +43,7 @@ import { registerFileProtocol, registerPreviewIpc } from './ipc/preview';
 import { registerConvertIpc } from './ipc/convert';
 import { registerPlacesIpc } from './ipc/places';
 import { registerLockIpc } from './ipc/lock';
+import { applyWaylandSwitch } from './services/island-place';
 import { pendingOnQuit, relockOnQuit } from './services/lock';
 import { remoteFolders } from './services/places';
 import { emptyAndBroken, removeBrokenLink } from './services/tools';
@@ -56,6 +57,8 @@ const isMac = process.platform === 'darwin';
 
 protocol.registerSchemesAsPrivileged([{ scheme: 'keeper-file', privileges: { stream: true, supportFetchAPI: true, corsEnabled: true, bypassCSP: false, standard: false } }]);
 if (!app.requestSingleInstanceLock()) app.quit();
+// Linux on Wayland: the Island needs XWayland to stay on top and in place (Settings can turn this off).
+applyWaylandSwitch();
 app.setAsDefaultProtocolClient('keeper');
 // About Keeper (macOS app menu, Linux): Keeper by Ashforde®.
 app.setAboutPanelOptions({ applicationName: BRAND, applicationVersion: app.getVersion(), copyright: `${COPYRIGHT}. ${TRADEMARK}`, website: WEBSITE, credits: 'Free software under the GNU AGPL v3 or later.' });
@@ -826,7 +829,8 @@ app.whenReady().then(async () => {
   registerIpcX({
     index, journal, events: () => islandSvc.events, window: () => main, changed: libraryChanged, broadcast,
     onUpdate: (u) => {
-      islandSvc.alert({ kind: 'info', title: u.state === 'ready' ? `Keeper ${u.version} is ready to install` : `Keeper ${u.version} is available`, detail: u.state === 'ready' ? 'Restart Keeper to finish updating' : 'Open Settings → Updates to see what’s new' });
+      if (u.countdown !== undefined) islandSvc.alert({ kind: 'info', title: `Keeper updates in ${Math.ceil(u.countdown / 60)} min`, detail: 'You’ll come back to the same page. Postpone it in Keeper.' });
+      else islandSvc.alert({ kind: 'info', title: u.state === 'ready' ? `Keeper ${u.version} is ready to install` : `Keeper ${u.version} is available`, detail: u.state === 'ready' ? (u.message ?? 'Restart Keeper to finish updating') : 'Open Settings → Updates to see what’s new' });
       void updateTray();
     },
   });
@@ -883,7 +887,7 @@ app.whenReady().then(async () => {
     if (next.quickSearchShortcut !== prev.quickSearchShortcut || next.island.captureShortcut !== prev.island.captureShortcut || next.island.dictationShortcut !== prev.island.dictationShortcut) registerShortcuts();
     if (next.trayEnabled !== prev.trayEnabled || next.trayCount !== prev.trayCount) void updateTray();
     if (next.island.enabled !== prev.island.enabled) (next.island.enabled ? createIsland() : destroyIsland());
-    else if (next.island.edge !== prev.island.edge || next.island.displays !== prev.island.displays) islandWindows.ensure(true);
+    else if ((['edge', 'displays', 'size', 'blendNotch', 'cameraEdge', 'followCamera', 'offsetX', 'offsetY'] as const).some((k) => next.island[k] !== prev.island[k])) islandWindows.ensure(true);
     if (['pasteShortcut', 'shelfShortcut', 'hideShortcut', 'awakeShortcut'].some((k) => next.island[k as 'pasteShortcut'] !== prev.island[k as 'pasteShortcut'])) registerShortcuts();
     if (next.island.calendarUrl !== prev.island.calendarUrl) void islandSvc.pollCalendar();
     if (JSON.stringify(next.island.place) !== JSON.stringify(prev.island.place) || next.island.units !== prev.island.units) void islandSvc.pollWeather(true);

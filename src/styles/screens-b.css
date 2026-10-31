@@ -87,3 +87,22 @@
 /* Clean Up — advanced picker */
 .picker .link-btn { border: 0; background: none; padding: 0; color: var(--accent); font-weight: 600; cursor: default; text-align: left; }
 .picker .link-btn:hover { text-decoration: underline; }
+
+/* Settings › Island: a picture of each screen with its bars, notch or camera, and the Island */
+.scr-row { display: flex; flex-wrap: wrap; gap: 16px; margin: 4px 0 12px; }
+.scr { margin: 0; max-width: 300px; }
+.scr.off { opacity: .55; }
+.scr-frame { position: relative; border-radius: 10px; overflow: hidden; background: linear-gradient(160deg, #5b6cff 0%, #a35cff 45%, #ff7aa8 100%); box-shadow: 0 0 0 1px var(--line), 0 6px 18px rgba(0, 0, 0, .12); }
+.scr-bar { position: absolute; background: rgba(240, 240, 245, .55); backdrop-filter: blur(6px); }
+.scr-bar.top { top: 0; left: 0; right: 0; }
+.scr-bar.bottom { bottom: 0; left: 0; right: 0; }
+.scr-bar.left { top: 0; bottom: 0; left: 0; }
+.scr-bar.right { top: 0; bottom: 0; right: 0; }
+.scr-notch { position: absolute; top: 0; background: #000; border-radius: 0 0 4px 4px; z-index: 2; }
+.scr-cam { position: absolute; width: 6px; height: 6px; border-radius: 50%; background: #111; box-shadow: 0 0 0 1.5px rgba(255, 255, 255, .7); z-index: 3; }
+.scr-cam.top { top: -2px; } .scr-cam.bottom { bottom: -2px; } .scr-cam.left { left: -2px; } .scr-cam.right { right: -2px; }
+.scr-island { position: absolute; background: #000; border-radius: 0 0 8px 8px; z-index: 1; box-shadow: 0 0 0 1.5px var(--accent); }
+.scr-island.below-bar { border-radius: 99px; }
+.scr-island.side { border-radius: 8px; }
+.scr figcaption { font-size: 12px; margin-top: 6px; line-height: 1.4; }
+.act-checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px 14px; font-size: 13px; }

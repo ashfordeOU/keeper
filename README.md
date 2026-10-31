@@ -199,6 +199,21 @@ Everything Keeper changes is recorded with what moved where and how much space w
 
 A small live panel at the top of your screen (or the left or right edge), hidden until something happens. Hover or click to expand.
 
+**It fits every screen.** Keeper looks at each screen and places the Island around what is there:
+
+| Screen | Where the Island goes |
+| --- | --- |
+| Mac with a notch (14″/16″ MacBook Pro, 13″/15″ MacBook Air) | It grows out of the notch in the same black, with what is going on to either side of it. Keeper finds the notch from the Mac's model and the screen's safe area, so it also lines up at "more space" resolutions. |
+| Mac without a notch | Inside the menu bar when its middle is free of menus and icons, otherwise just below it. |
+| Windows laptops, other Linux laptops | Flush with the top edge under the camera, whichever side the taskbar is on. |
+| Tablets and 2-in-1s | It follows the camera: turn the screen on its side and the Island moves to that edge. |
+| External screens | Its own Island on each screen you choose: the main one, all of them, the laptop's own, or the one with the pointer. |
+
+Size (compact, normal, large), a nudge, the camera's edge and a small camera dot are in Settings → Island, with a picture of each screen showing what Keeper found. When the Island is closed its window is exactly the size of the pill, so it never covers menu-bar icons, tabs or title bars around it.
+
+
+Limits: Linux on Wayland does not let apps keep a small window on top in a set place, so with the Island on Keeper runs through XWayland (switch it off in Settings if you prefer). Apps cannot change the Mac's own notch or the system's volume and brightness pop-ups, so the Island works alongside them.
+
 - **Shelf** — drop files in, drag them all out later; new downloads and screenshots land here automatically.
 - **Clipboard history** — text, links, colours (with swatches) and images; search, pin, delete. Passwords and API keys are never remembered. Optionally **strips tracking** (`utm_…`, `fbclid`…) and unwraps redirect links as you copy them.
 - **Alerts** when a download finishes or a screenshot is saved, with Open / Show / Shelf buttons.
@@ -265,7 +280,19 @@ On top of any theme you can pick your own accent colour, a font (system, rounded
 - **Quick Search** (<kbd>Ctrl/⌘ Shift Space</kbd>, changeable): recent files when empty, live plain-English results; <kbd>↩</kbd> opens, <kbd>Ctrl/⌘ ↩</kbd> shows in Keeper, <kbd>Alt ↩</kbd> shows in the folder.
 - **Command palette** (<kbd>Ctrl/⌘ K</kbd>) for every page and action.
 - **Tray / menu bar**: the newest downloads (drag or click), Quick Search, copy text from screen, keep awake, Clean Up. Keeper keeps running in the tray so shortcuts, the Island and rules keep working.
-- **`keeper://` links** for scripts, launchers and shortcuts: `keeper://search?q=…`, `keeper://open?path=…`, `keeper://capture`, `keeper://quick`, `keeper://clean`, `keeper://awake?minutes=60`.
+- **`keeper://` links** for scripts, launchers and shortcuts: `keeper://search?q=…`, `keeper://ask?q=…`, `keeper://open?path=…`, `keeper://reveal?path=…`, `keeper://capture`, `keeper://quick`, `keeper://clean`, `keeper://awake?minutes=60`.
+
+### Works with your computer
+
+Keeper uses what your operating system already offers, each part switchable in **Settings → Works with your computer** ([details](docs/PLATFORM.md)):
+
+- **Any AI app** that speaks MCP (Model Context Protocol) can search and read your library, with Keeper's safety rules. **Copy setup** gives a ready-made entry.
+- **Ask Keeper from anywhere**: <kbd>Ctrl/⌘ Shift K</kbd> opens Quick Search ready for a question; `keeper://ask?q=…` does the same from scripts and shortcuts.
+- **macOS**: **Apple Intelligence** as the assistant's model (on-device, no key; macOS 26 on Apple silicon), **Live Text** for text in images, Keeper's knowledge in **Spotlight**, and step-by-step **Shortcuts / Siri** and Services setups.
+- **Windows**: Windows' own **text recognition**, **“Search with Keeper”** in File Explorer, a taskbar menu, and registration with the **on-device agent registry** where Windows has it.
+- **Linux**: Keeper's results in **GNOME's Activities search** and **KDE's KRunner**, and launcher actions.
+
+Honest limits: Siri phrases and Shortcuts actions of their own need an Xcode-built app (Keeper offers links and the `keeper` command instead); Windows' local AI model is only offered to Store-packaged apps.
 
 ### Toolbox
 
