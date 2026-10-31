@@ -33,7 +33,7 @@ First release of **Keeper by Ashforde®**, for macOS, Windows and Linux.
 - Optional assistant using Claude, OpenAI or a local model, seeing only file metadata.
 - `keeper` command-line tool: search, scan, clean, dupes, stats, rules, agents.
 
-### Places, tabs-free browsing and themes
+### Places, themes and locked folders
 - Finder-style sidebar: Favorites, cloud drives, this computer, disks with free space and eject, network servers, Network and Trash pages (put back, delete, empty); sections open and close and keep their colours.
 - 18 themes in a live gallery, each checked for readable contrast; accent, font, density and corners on top.
 - Locked folders: real encryption (AES-256-GCM, names included) unlocked with Touch ID, Windows Hello or the account password, a password of your own, or a recovery key. Hidden files button and shortcut.
