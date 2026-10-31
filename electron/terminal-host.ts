@@ -9,7 +9,7 @@
 // waiting to be sent or a save is due.
 
 import { randomUUID } from 'node:crypto';
-import { promises as fsp, readFileSync, writeFileSync, mkdirSync, chmodSync, unlinkSync, existsSync } from 'node:fs';
+import { promises as fsp, readFileSync, writeFileSync, mkdirSync, chmodSync, unlinkSync, existsSync, readdirSync, statSync } from 'node:fs';
 import net from 'node:net';
 import path from 'node:path';
 import { gunzipSync, gzipSync } from 'node:zlib';
@@ -62,7 +62,24 @@ let ptyMod: typeof import('node-pty') | undefined;
 
 function loadPty(): typeof import('node-pty') {
   // Loaded on first use, so starting the host (and restoring scrollback) never waits for it.
-  ptyMod ??= require('node-pty') as typeof import('node-pty');
+  if (!ptyMod) {
+    // macOS packages of node-pty lose spawn-helper's execute bit; without it no shell starts.
+    if (process.platform === 'darwin') {
+      try {
+        const root = path.dirname(require.resolve('node-pty/package.json')).replace('app.asar' + path.sep, 'app.asar.unpacked' + path.sep);
+        for (const d of ['prebuilds', 'build']) {
+          const dir = path.join(root, d);
+          for (const sub of existsSync(dir) ? readdirSync(dir) : []) {
+            const helper = path.join(dir, sub, 'spawn-helper');
+            if (existsSync(helper) && (statSync(helper).mode & 0o111) !== 0o111) chmodSync(helper, 0o755);
+          }
+        }
+      } catch {
+        /* read-only install: the shell will report it */
+      }
+    }
+    ptyMod = require('node-pty') as typeof import('node-pty');
+  }
   return ptyMod;
 }
 

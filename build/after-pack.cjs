@@ -74,6 +74,8 @@ exports.default = async function afterPack(context) {
       }
     };
     walk(pty);
+    // macOS packages ship spawn-helper without its execute bit.
+    require('../scripts/fix-node-pty.cjs').fixNodePty(pty);
   }
 
   console.log(`  • after-pack: removed ${(freed / 1024 / 1024).toFixed(0)} MB of files for other systems`);

@@ -27,6 +27,7 @@
     "dev": "concurrently -k -n vite,main,app \"vite\" \"node scripts/build-main.mjs --watch\" \"wait-on tcp:5180 file:dist-electron/main.cjs file:dist-electron/preload.cjs && cross-env VITE_DEV_SERVER_URL=http://localhost:5180 electron .\"",
     "demo": "vite",
     "fetch:rclone": "node scripts/fetch-rclone.mjs",
+    "postinstall": "node scripts/fix-node-pty.cjs",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",

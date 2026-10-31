@@ -324,7 +324,8 @@ async function waitFor(fn: () => boolean, ms = 5000) {
 }
 
 describe('cloudflared supervisor', () => {
-  it('reads the address, and restarts a crashing tunnel with growing waits', async () => {
+  // The stand-in tunnel is a script with a #! line, which Windows cannot run directly; the supervisor's logic is the same everywhere.
+  it.skipIf(process.platform === 'win32')('reads the address, and restarts a crashing tunnel with growing waits', async () => {
     const { TunnelSupervisor } = await import('../electron/services/link/cloudflared');
     const fake = path.join(root, 'fake-cloudflared');
     // Prints what cloudflared prints, then "crashes".
