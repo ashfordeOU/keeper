@@ -109,6 +109,13 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     { id: 'present-off', label: 'End Presentation Mode', group: 'Actions', icon: 'eye', run: async () => { await api.island.presentation(false); } },
     { id: 'force-quit', label: 'Force Quit Applications…', group: 'Actions', icon: 'warning', kbd: mod === '⌘' ? '⌥⌘⎋' : 'Ctrl+Alt+Esc', keywords: 'kill end task frozen not responding hung', run: () => window.dispatchEvent(new Event('keeper:force-quit-anywhere')) },
     { id: 'eject', label: 'Eject All Disks', group: 'Actions', icon: 'arrowUp', keywords: 'unmount drives usb', run: async () => { const r = await api.system.ejectAll(); store.toast(r.ejected.length ? `Ejected ${r.ejected.join(', ')}` : 'No disks to eject'); } },
+    { id: 'mail-compose', label: 'New Mail Message', group: 'Actions', icon: 'mail', keywords: 'email write compose send', run: () => store.go({ name: 'mail', arg: 'compose' }) },
+    { id: 'mail-open', label: 'Mail', group: 'Go to', icon: 'mail', keywords: 'inbox email', run: () => store.go({ name: 'mail' }) },
+    { id: 'calendar-new', label: 'New Event…', group: 'Actions', icon: 'calendar', keywords: 'meeting appointment add schedule', run: () => store.go({ name: 'calendar', arg: 'new' }) },
+    { id: 'calendar-open', label: 'Calendar', group: 'Go to', icon: 'calendar', keywords: 'events schedule agenda', run: () => store.go({ name: 'calendar' }) },
+    { id: 'reminder-new', label: 'Reminders', group: 'Go to', icon: 'listCheck', keywords: 'todo tasks to-do', run: () => store.go({ name: 'reminders' }) },
+    { id: 'alarm-new', label: 'Alarms', group: 'Go to', icon: 'alarm', keywords: 'wake clock alarm', run: () => store.go({ name: 'alarms', arg: 'alarms' }) },
+    ...[5, 10, 25].map((m) => ({ id: `timer-${m}`, label: `Start a ${m}-Minute Timer`, group: 'Actions' as const, icon: 'timer', keywords: 'countdown kitchen', run: async () => { await api.pim.startTimer(`${m} min`, m * 60_000); store.toast(`Timer set for ${m} minutes`); } })),
     { id: 'shelf-clear', label: 'Clear the Shelf', group: 'Actions', icon: 'island', run: async () => { await api.island.clearShelf(); } },
   ], [store]);
 

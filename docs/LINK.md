@@ -50,7 +50,7 @@ Every request is checked against the permissions you set for that device (`core/
 | Local network | always tried first | WebSocket to the other device's Link port (47821 by default). Found through mDNS or its last known addresses. |
 | Cloudflare tunnel | "From anywhere", the other device runs a tunnel | `wss://<hostname>/link`. Works through any router or firewall. Cloudflare sees only ciphertext. |
 | Keeper Relay | "From anywhere", a relay URL is set | A blind relay: it joins two WebSocket calls and passes frames along. It sees which device ids talk, when, and how much. |
-| Direct peer-to-peer (WebRTC) | not yet | Reserved; the STUN setting is kept for it. |
+| Direct peer-to-peer (WebRTC) | remote screens | Screen sessions set up a direct WebRTC connection, signalled and certificate-checked over the Link channel, using the STUN setting; see [REMOTE.md](REMOTE.md). Other Link traffic uses the carriers above. |
 
 The device page shows which carrier a connection uses ("Local network", "Tunnel", "Relay") and its round-trip time.
 
@@ -175,4 +175,4 @@ If a WireGuard interface is already up on the computer, the Devices page shows i
 - **The Cloudflare Worker relay:** syntax-checked, and its device ids match the app's. It was not run on Workers.
 - **macOS and Windows:** the keychain, mDNS on those systems, and the service install commands.
 - **Real phones:** the companion page was tested in Chromium's iPhone emulation, not Safari or Chrome on a real device.
-- **WebRTC peer-to-peer:** not built.
+- **WebRTC peer-to-peer:** used for remote screens only (see [REMOTE.md](REMOTE.md)); tested on one machine, not across real NATs.

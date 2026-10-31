@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // The main window: sidebar, search bar, the current page, and the inspector.
 
+import { Alarms, RingHost } from './pim/Alarms';
+import { Calendar } from './pim/Calendar';
+import { Mail } from './pim/Mail';
+import { PimSidebar } from './pim/PimSidebar';
+import { Reminders } from './pim/Reminders';
 import { Component, useEffect, useState, type ReactNode } from 'react';
 import type { FileKind } from '../core/types';
 import { api } from './api';
@@ -53,6 +58,7 @@ import { Vpn } from './screens/Vpn';
 import { Sync } from './screens/Sync';
 import { CloudSidebar } from './components/CloudSidebar';
 import { DevicesSidebar, LinkPrompts } from './components/LinkParts';
+import { ScreenPrompts } from './screen/ScreenParts';
 import { Devices } from './screens/Devices';
 import { ForceQuitHost } from './screens/Processes';
 import { mod, shift, useAsync, useStore, type Route, type RouteName } from './state';
@@ -122,6 +128,8 @@ function Sidebar() {
       {/* Paired devices and phones (Keeper Link); drop files on one to send them. */}
       <DevicesSidebar />
 
+      {/* Mail, calendars, reminders and alarms. */}
+      <PimSidebar Item={NavItem} />
 
       <NavSection id="sync" title="Sync & Backup">
         <NavItem route={{ name: 'sync', arg: 'folders' }} icon="refresh" label="Synced folders" />
@@ -286,6 +294,10 @@ function Page() {
     sync: () => <Sync key={route.arg ?? ''} />,
     terminal: () => <TerminalApp mode="page" startCwd={route.arg} />,
     devices: () => <Devices />,
+    mail: () => <Mail />,
+    calendar: () => <Calendar />,
+    reminders: () => <Reminders />,
+    alarms: () => <Alarms />,
   };
   return pages[route.name]();
 }
@@ -337,7 +349,10 @@ export function App() {
       {palette ? <CommandPalette onClose={() => setPalette(false)} /> : null}
       <WhatsNew />
       <QuickLookHost />
+      {/* An alarm or timer that is ringing, with Snooze and Stop. */}
+      <RingHost />
       <LinkPrompts />
+      <ScreenPrompts />
       <ForceQuitHost />
       <ApprovalHost />
       <div className="toast-stack">

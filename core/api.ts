@@ -2,6 +2,7 @@
 // The contract between the interface and the main process. The preload script
 // exposes exactly this object as `window.keeper`; the demo build fakes it.
 
+import type { PimApi } from './api-pim';
 import type { AgentSession, CalendarEvent, ClipItem, FocusState, LyricLine } from './island';
 import type { CaptureEntry, CaptureOptions, PickedColor } from './capture';
 import type { RenamePreview, RenameStep } from './rename';
@@ -16,6 +17,7 @@ import type { RemoteApi } from './api-remote';
 import type { PlatformApi } from './api-platform';
 import type { LockApi } from './api-lock';
 import type { LinkApi } from './api-link';
+import type { ScreenApi } from './api-screen';
 import type { BrainApi, BrainDelta, BrainStep } from './api-brain';
 import type { AgentsApi, ApprovalRequest, AuditItem } from './api-agents';
 import type { ProcsApi } from './api-procs';
@@ -318,6 +320,7 @@ export interface KeeperApi extends KeeperApiX {
   /** Keeper Link: paired devices, files between them, ports, the phone companion and the tunnel */
   link: LinkApi;
   /** remote screens: watch and control other Keeper devices, phones on this screen, Wake-on-LAN */
+  screen: ScreenApi;
   /** sync between your devices, backups to drives and cloud services, mirrors */
   sync: SyncApi;
   /** Keeper's brain: passage index, meaning search, the AI harness and the AI apps it serves */
@@ -326,6 +329,8 @@ export interface KeeperApi extends KeeperApiX {
   agents: AgentsApi;
   /** the process manager and services in Health */
   procs: ProcsApi;
+  /** Mail, calendars, reminders, alarms and contacts */
+  pim: PimApi;
   /** Network Activity (who talks to whom, which way) and VPN connections */
   net: NetApi;
   /** the terminal: shells, profiles, sessions that outlive the window, remote files */
@@ -535,6 +540,9 @@ export interface KeeperApi extends KeeperApiX {
   on(channel: 'places-changed', cb: () => void): () => void;
   on(channel: 'features-changed', cb: () => void): () => void;
   on(channel: 'remote-changed', cb: () => void): () => void;
+  on(channel: 'pim-changed', cb: (kind: string, extra?: unknown) => void): () => void;
+  on(channel: 'pim-ring', cb: (r: import('./api-pim').Ring) => void): () => void;
+  on(channel: 'pim-ring-stop', cb: (id: string) => void): () => void;
   on(channel: 'remote-status', cb: (s: import('./remote/types').ConnStatus) => void): () => void;
   on(channel: 'remote-transfer', cb: (t: import('./remote/types').Transfer) => void): () => void;
   on(channel: 'remote-saved', cb: (r: { id: string; path: string; conflict?: boolean; error?: string }) => void): () => void;
@@ -557,8 +565,10 @@ export interface KeeperApi extends KeeperApiX {
   on(channel: 'term-open', cb: (q: Record<string, string>) => void): () => void;
   on(channel: 'island-layout', cb: (p: import('./island-place').Placement) => void): () => void;
   on(channel: 'link-changed', cb: () => void): () => void;
+  on(channel: 'screen-state', cb: (s: import('./api-screen').ScreenState) => void): () => void;
   on(channel: 'screen-ask', cb: (a: { id: string; name: string; control: boolean }) => void): () => void;
   on(channel: 'screen-signal', cb: (sid: string, m: Record<string, unknown>) => void): () => void;
+  on(channel: 'screen-frame', cb: (sid: string, f: { header: import('./screen/frames').FrameHeader; jpeg: Uint8Array }) => void): () => void;
   on(channel: 'screen-ended', cb: (sid: string, reason: string) => void): () => void;
   on(channel: 'screen-android-progress', cb: (fraction: number) => void): () => void;
   on(channel: 'link-transfer', cb: (p: import('./api-link').LinkTransfer) => void): () => void;

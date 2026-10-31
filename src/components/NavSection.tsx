@@ -55,6 +55,7 @@ export const SECTION_COLOR: Record<string, string> = {
   cloud: '#0ea5e9',
   devices: '#10b981',
   sync: '#10b981',
+  pim: '#e8590c',
   tags: '#8b5cf6',
   tidy: '#22c55e',
   system: '#f97316',

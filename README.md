@@ -38,7 +38,7 @@ optional AI assistant — in one small app that never uploads your files.
 - [Everything Keeper does](#everything-keeper-does)
   - [Library and browsing](#library-and-browsing) · [Previews for every file](#previews-for-every-file) · [Plain-English search](#plain-english-search) · [Text in images](#text-in-images-and-on-screen) · [Downloaded From](#downloaded-from)
   - [Duplicates](#duplicates) · [Clean Up](#clean-up) · [Space Map](#space-map) · [Automations](#automations) · [History and undo](#history-and-undo)
-  - [Cloud & servers](#cloud--servers) · [Devices & remote access](#devices--remote-access) · [The Island](#the-island) · [Locked folders](#locked-folders) · [Themes](#themes) · [Quick Search, tray and deep links](#quick-search-tray-and-deep-links) · [Works with your computer](#works-with-your-computer) · [Toolbox](#toolbox) · [Terminal](#terminal) · [System](#system) · [Network Activity and VPN](#network-activity-and-vpn) · [Keeper's brain](#keepers-brain) · [Agents and the knowledge graph](#agents-and-the-knowledge-graph) · [Assistant](#assistant)
+  - [Mail, calendar and clock](#mail-calendar-and-clock) · [Cloud & servers](#cloud--servers) · [Devices & remote access](#devices--remote-access) · [Remote screens and phones](#remote-screens-and-phones) · [The Island](#the-island) · [Locked folders](#locked-folders) · [Themes](#themes) · [Quick Search, tray and deep links](#quick-search-tray-and-deep-links) · [Works with your computer](#works-with-your-computer) · [Toolbox](#toolbox) · [Terminal](#terminal) · [System](#system) · [Network Activity and VPN](#network-activity-and-vpn) · [Keeper's brain](#keepers-brain) · [Agents and the knowledge graph](#agents-and-the-knowledge-graph) · [Assistant](#assistant)
   - [Command line](#command-line)
 - [Keyboard shortcuts](#keyboard-shortcuts)
 - [Keeper compared with your system file manager](#keeper-compared-with-your-system-file-manager)
@@ -205,6 +205,19 @@ Rules that keep folders tidy on their own — **all off until you turn them on**
 
 Everything Keeper changes is recorded with what moved where and how much space was freed. Moves and renames are undone in place; items in the Trash are one click from being put back.
 
+### Mail, calendar and clock
+
+Your mail, calendars, to-dos, alarms and timers, in Keeper. Each part can be switched off in Settings → Features; when it is off nothing connects or waits.
+
+- **Mail** from any IMAP provider, Gmail, Outlook and Microsoft 365, iCloud, Fastmail, Yahoo and Proton (through its Bridge): every inbox together or one folder at a time, conversations, search, flags, archive, snooze, unsubscribe, filters, and keyboard shortcuts. New mail arrives the moment the server has it (IMAP IDLE), with no checking every few minutes.
+- **Safe to read**: scripts and forms are removed, links show where they really go, the message is drawn in a sandboxed frame, **pictures from the internet are held back** until you allow them, and **tracking pixels are removed**.
+- **Write** with Markdown, attachments (drop files, even from Browse), several identities and signatures; **send later** and **undo send**. Meeting invitations get *Accept / Maybe / Decline*.
+- **AI help** when you ask (with the AI you chose): summarize a conversation, draft a reply, find dates and add them to your calendar. Secrets are blanked first.
+- **Calendar**: day, week, month, agenda and year views across iCloud, Google, Microsoft 365, Fastmail, Nextcloud and any CalDAV server or calendar link; **quick add in plain English** (“Lunch with Ana Friday 1pm at Café Sol”); drag to move or resize; repeating events with one-occurrence changes; time zones that keep 9:00 at 9:00; *Join* buttons for video meetings; your next meeting in the Island.
+- **Reminders** with due dates and priorities, synced with your CalDAV task lists.
+- **Clock**: alarms, several timers (shown in the Island), a stopwatch and world clocks. A computer that was asleep rings a missed alarm late, once, when it wakes; a Mac can be asked to wake for an alarm.
+- Passwords and sign-in tokens are kept in the system keychain. Google and Microsoft sign-in need app IDs registered by whoever builds Keeper; without them, an app password works. Details, and exactly what was tested: [docs/PIM.md](docs/PIM.md).
+
 ### Cloud & servers
 
 Your cloud storage, servers, home servers, NAS boxes and the other computers in the house, browsed like the folders on your own disk. Everything lives in the **Cloud & Servers** sidebar section.
@@ -237,6 +250,23 @@ More detail, including what was tested and what needs a real account to try: [do
 - **Command line**: `keeper link status | devices | invite | pair | send | check | forward`.
 
 How it works, the security design, how to run a relay, and what was and was not tested: [docs/LINK.md](docs/LINK.md).
+
+### Remote screens and phones
+
+On top of Keeper Link, your devices can see and use each other's screens — no separate remote-desktop service, account or server.
+
+- **View or control another computer**: *View Screen* or *Control* on a device's page (or right-click it in the sidebar). The other computer must allow *See this screen* (and *Control this computer*) for you, and its owner is asked each time — *Allow Control*, *Allow Viewing Only* or *Don't Allow* — unless they chose *Let it in without asking* for their own devices.
+- **Always visible**: while anyone watches, a red banner sits at the top of the shared screen and the Island shows who it is, each with one-click **Stop sharing**. Sessions end after 15 minutes with no activity, and every session is listed under *Remote Access → Screen sessions*.
+- **Direct when it can be, encrypted either way**: the picture goes peer to peer over WebRTC; the offer and answer travel inside the paired Link channel, and both sides check that the certificate WebRTC really used is the one stated there. If no direct connection can be made (strict networks, tunnel or relay only), the picture comes as frames through Keeper Link instead. *This network only* keeps WebRTC to local addresses.
+- **The viewer**: fit or actual size, full screen, auto / fastest / balanced / sharpest quality (the host adapts bitrate, size and frame rate to the network), which screen to show, frames per second, data rate and delay, view-only, keys your own computer would catch (Ctrl+Alt+Del, Alt+Tab, ⌘Tab, Start, lock, screenshot), clipboard both ways, drop files on the picture to send them, chat, and recording the session to Videos/Keeper.
+- **Control on each system**: Linux uses XTest (`xdotool`) on X11 — on Wayland the screen can be watched but not controlled; Windows uses SendInput; macOS uses the Keeper helper (CGEvent) and needs Accessibility and Screen Recording permission.
+- **Wake-on-LAN**: Keeper learns each paired computer's network card while it is awake; *Wake* sends the magic packet from here and through every other awake device.
+- **Your phone as a viewer and remote**: the phone page (*Devices → Phone*) has a **Screen** tab: watch the computer, tap where you want to click or use it as a touchpad (two fingers scroll, a long press right-clicks), arrow keys for presentations, media and volume keys, and typing. The computer asks first, and shows the same banner.
+- **Android on this screen**: show and use an Android phone or tablet in its own window over USB or Wi-Fi (wireless debugging pairing built in), with view-only, screen-off and recording options; drop files on it (apps are installed, the rest goes to Download). Uses [scrcpy](https://github.com/Genymobile/scrcpy) (Apache-2.0), downloaded once and checked against its published SHA-256.
+- **iPhone and iPad on this screen**: iOS allows showing its screen through AirPlay but never being controlled. On a Mac, Keeper opens the built-in AirPlay Receiver setting; on Linux it starts [UxPlay](https://github.com/FDH2/UxPlay) (GPL-3.0, a separate program from your package manager); on Windows UxPlay has to be installed by hand first.
+- **Send to Device…** in every file's right-click menu sends to a paired computer or a connected Android phone; transfers show their progress in the Island.
+
+Details, the security design and what was tested on which system: [docs/REMOTE.md](docs/REMOTE.md).
 
 ### The Island
 

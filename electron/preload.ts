@@ -51,6 +51,7 @@ const api = {
     resize: (id: string, cols: number, rows: number) => ipcRenderer.send('terminal.resize', id, cols, rows),
     detach: (id: string) => ipcRenderer.send('terminal.detach', id),
   },
+  pim: group('pim', ['accounts', 'discover', 'testAccount', 'addAccount', 'signIn', 'cancelSignIn', 'updateAccount', 'removeAccount', 'oauthReady', 'folders', 'messages', 'refresh', 'older', 'open', 'setRead', 'setFlagged', 'move', 'archive', 'trash', 'junk', 'snooze', 'saveAttachment', 'openAttachment', 'unsubscribe', 'trustSender', 'draftFor', 'send', 'undoSend', 'outbox', 'saveDraft', 'suggest', 'ai', 'respond', 'rules', 'saveRules', 'pickFiles', 'calendars', 'setCalendar', 'occurrences', 'saveEvent', 'deleteEvent', 'quickAdd', 'parseQuick', 'subscribe', 'importIcs', 'exportIcs', 'syncCalendars', 'reminders', 'saveReminder', 'deleteReminder', 'alarms', 'saveAlarm', 'deleteAlarm', 'snoozeAlarm', 'stopRinging', 'startTimer', 'timerAction', 'saveClocks', 'scheduleWake', 'contacts', 'saveContact', 'deleteContact', 'prefs', 'setPrefs']),
   procs: group('procs', ['sample', 'act', 'setPriority', 'details', 'icons', 'reveal', 'apps', 'restartKeeper', 'services', 'serviceAction']),
   net: group('net', ['sample', 'health', 'vpnStatus', 'vpnAction', 'importPick', 'importText', 'importInstall', 'publicIp', 'settings', 'setSettings', 'geoStatus', 'geoDownload', 'geoRemove', 'exportCsv', 'icons']),
   agents: group('agents', ['catalog', 'addConnection', 'listModels', 'usage', 'actions', 'setPermission', 'pending', 'decide', 'audit', 'gateway', 'rotateToken', 'clis', 'saveProfile', 'removeProfile', 'launch', 'skills', 'saveSkill', 'removeSkill', 'setSkillEnabled', 'importSkill', 'otherSkills', 'exportSkill', 'draftSkill', 'learning', 'suggestions', 'applySuggestion', 'dismissSuggestion', 'forget', 'record', 'graph']),
@@ -64,6 +65,12 @@ const api = {
   link: {
     ...group('link', ['state', 'setSettings', 'rename', 'discover', 'invite', 'cancelInvite', 'pair', 'confirmPair', 'forget', 'setPermissions', 'renameDevice', 'check', 'sendFiles', 'answerOffer', 'sendClipboard', 'shares', 'list', 'download', 'addShare', 'removeShare', 'addForward', 'removeForward', 'companionInvite', 'answerCompanion', 'forgetCompanion', 'pending']),
     tunnel: group('link.tunnel', ['status', 'start', 'stop', 'installService']),
+  },
+  screen: {
+    ...group('screen', ['state', 'session', 'view', 'stop', 'answer', 'setPolicy', 'displays', 'source', 'signal', 'frame', 'saveRecording', 'wake', 'learn', 'control', 'requestPermissions', 'android', 'androidInstall', 'androidDevices', 'androidPair', 'androidConnect', 'androidMirror', 'androidStop', 'androidDrop', 'airplay', 'airplayStart', 'airplayStop']),
+    input: (sid: string, events: unknown[]) => ipcRenderer.send('screen.input', sid, events),
+    ack: (sid: string, seq: number) => ipcRenderer.send('screen.ack', sid, seq),
+    ready: (sid: string) => ipcRenderer.send('screen.ready', sid),
   },
   tools: group('tools', ['networkInfo', 'publicIp', 'tweaks', 'setTweak', 'clearQuarantine', 'resetPermissions', 'pickApp', 'pickFiles', 'saveAs']),
   folders: group('folders', ['tidy']),

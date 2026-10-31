@@ -16,6 +16,7 @@ import { BrainSettingsPanel } from '../components/BrainPanel';
 import { PlatformIntegrations } from '../components/PlatformIntegrations';
 import { ThemeGallery, ThemeTweaks } from '../components/ThemeGallery';
 import { useT } from '../i18n';
+import { PimSettings } from '../pim/PimSettings';
 import '../styles/screens-b.css';
 
 export function Settings() {
@@ -118,6 +119,11 @@ export function Settings() {
         <Row title="Downloads shown">
           <select className="input" value={s.trayCount} onChange={(e) => void updateSettings({ trayCount: Number(e.target.value) })}>{[5, 10, 15, 20].map((n) => <option key={n}>{n}</option>)}</select>
         </Row>
+      </div>
+
+      <h2 id="pim" style={{ margin: '18px 0 8px' }}>Mail &amp; Calendar</h2>
+      <div className="card settings-section" style={{ padding: 16 }}>
+        <PimSettings />
       </div>
 
       <h2 id="brain" style={{ margin: '18px 0 8px' }}>AI &amp; Brain</h2>

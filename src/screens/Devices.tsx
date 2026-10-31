@@ -11,6 +11,7 @@ import { PERMISSIONS, type Permission } from '../../core/link/perms';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
 import { DeviceDot, osIcon, osName, useLink, viaLabel } from '../components/LinkParts';
+import { DeviceScreenCard, PhoneMirrorCard, ScreenLog } from '../screen/ScreenParts';
 import { Empty, Modal, PageHead, Toggle } from '../components/ui';
 import { useStore } from '../state';
 import '../styles/link.css';
@@ -35,7 +36,7 @@ export function Devices() {
         <button className={tab === 'remote' ? 'on' : ''} onClick={() => go({ name: 'devices', arg: 'remote' })}>Remote Access</button>
         {dev ? <button className="on">{dev.name}</button> : null}
       </div>
-      {tab === 'devices' ? <Overview s={s} onPair={setPairing} /> : tab === 'phone' ? <Phone s={s} /> : tab === 'remote' ? <Remote s={s} reload={reload} /> : <DeviceDetail s={s} d={dev!} />}
+      {tab === 'devices' ? <Overview s={s} onPair={setPairing} /> : tab === 'phone' ? <><Phone s={s} /><div style={{ height: 14 }} /><div className="col" style={{ gap: 14 }}><PhoneMirrorCard /></div></> : tab === 'remote' ? <><Remote s={s} reload={reload} /><div style={{ height: 14 }} /><ScreenLog /></> : <DeviceDetail s={s} d={dev!} />}
       {pairing ? <PairDialog start={pairing} onClose={() => setPairing(null)} /> : null}
     </div>
   );
@@ -299,6 +300,7 @@ function DeviceDetail({ s, d }: { s: LinkState; d: LinkDevice }) {
         </div>
       </div>
 
+      <DeviceScreenCard d={d} />
 
       <div className="card pad">
         <h3 style={{ margin: '0 0 4px' }}>What {d.name} may do on this device</h3>

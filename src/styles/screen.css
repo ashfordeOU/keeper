@@ -1,0 +1,66 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Remote screens: the "being viewed" banner, the viewer window, prompts and the phones panel. */
+
+html[data-view='screenhost'], html[data-view='screenhost'] body { background: #1c1c1e; overflow: hidden; }
+.screen-banner { display: flex; align-items: center; gap: 10px; height: 46px; padding: 0 8px 0 14px; color: #fff; font: 13px/1.2 system-ui, sans-serif; -webkit-app-region: drag; user-select: none; }
+.screen-banner-dot { width: 9px; height: 9px; border-radius: 50%; background: #ff453a; box-shadow: 0 0 0 4px rgba(255, 69, 58, .25); animation: screen-pulse 1.6s ease-in-out infinite; flex: none; }
+.screen-banner-text { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.screen-banner-chat { margin-left: 8px; opacity: .8; font-style: italic; }
+.screen-banner-stop { -webkit-app-region: no-drag; border: 0; border-radius: 8px; padding: 7px 12px; background: #ff453a; color: #fff; font-weight: 600; font-size: 12.5px; cursor: pointer; }
+.screen-banner-stop:hover { background: #ff6259; }
+.screen-banner-video { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+@keyframes screen-pulse { 50% { box-shadow: 0 0 0 7px rgba(255, 69, 58, .08); } }
+@media (prefers-reduced-motion: reduce) { .screen-banner-dot { animation: none; } }
+
+html[data-view='screenviewer'], html[data-view='screenviewer'] body { background: #000; overflow: hidden; }
+.viewer { position: fixed; inset: 0; display: flex; flex-direction: column; color: #f2f2f7; font: 13px/1.3 system-ui, sans-serif; background: #000; }
+.viewer-bar { display: flex; align-items: center; gap: 6px; padding: 6px 10px; background: #1c1c1e; border-bottom: 1px solid #2c2c2e; min-height: 40px; }
+html[data-platform='darwin'] .viewer-bar { padding-left: 78px; }
+.viewer-bar .grow { flex: 1; }
+.viewer-meta { color: #a1a1aa; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.viewer-dot { width: 8px; height: 8px; border-radius: 50%; background: #a1a1aa; flex: none; }
+.viewer-dot.on { background: #30d158; }
+.viewer-dot.off { background: #ff453a; }
+.viewer-btn, .viewer-select { display: inline-flex; align-items: center; gap: 5px; height: 28px; padding: 0 9px; border-radius: 7px; border: 1px solid #3a3a3c; background: #2c2c2e; color: #f2f2f7; font-size: 12.5px; cursor: pointer; }
+.viewer-btn:hover { background: #3a3a3c; }
+.viewer-btn.on { background: #0a84ff; border-color: #0a84ff; }
+.viewer-btn.danger { background: #ff453a; border-color: #ff453a; font-weight: 600; }
+.viewer-rec { width: 10px; height: 10px; border-radius: 50%; background: #ff453a; }
+.viewer-btn.rec .viewer-rec { border-radius: 2px; animation: screen-pulse 1.2s infinite; }
+.viewer-menu-wrap { position: relative; }
+.viewer-menu { position: absolute; top: 32px; right: 0; z-index: 5; display: flex; flex-direction: column; min-width: 220px; padding: 4px; border-radius: 9px; background: #2c2c2e; border: 1px solid #3a3a3c; box-shadow: 0 10px 30px rgba(0, 0, 0, .5); }
+.viewer-menu button { text-align: left; border: 0; background: none; color: inherit; padding: 7px 10px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+.viewer-menu button:hover { background: #0a84ff; }
+.viewer-note { padding: 6px 12px; background: #3a2a00; color: #ffd60a; font-size: 12.5px; }
+.viewer-surface { position: relative; flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; touch-action: none; }
+.viewer-surface.actual { overflow: auto; align-items: flex-start; justify-content: flex-start; }
+.viewer-surface.fit .viewer-video { width: 100%; height: 100%; object-fit: contain; }
+.viewer-surface.actual .viewer-video { width: auto; height: auto; max-width: none; }
+.viewer-surface.control { cursor: none; }
+.viewer-surface.control .viewer-video { cursor: crosshair; }
+.viewer-status { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 8px; align-items: center; justify-content: center; color: #d1d1d6; background: rgba(0, 0, 0, .55); font-size: 14px; text-align: center; padding: 20px; }
+.viewer-status.ended b { font-size: 17px; color: #fff; }
+.viewer-chat { position: absolute; right: 12px; bottom: 12px; width: 300px; max-height: 50vh; display: flex; flex-direction: column; border-radius: 12px; background: rgba(28, 28, 30, .96); border: 1px solid #3a3a3c; overflow: hidden; }
+.viewer-chat-list { flex: 1; overflow: auto; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+.viewer-msg { max-width: 85%; padding: 6px 10px; border-radius: 12px; background: #3a3a3c; align-self: flex-start; word-break: break-word; }
+.viewer-msg.me { background: #0a84ff; align-self: flex-end; }
+.viewer-chat-input { border: 0; border-top: 1px solid #3a3a3c; background: transparent; color: inherit; padding: 10px; font-size: 13px; outline: none; }
+.viewer-toast { position: absolute; left: 50%; bottom: 20px; transform: translateX(-50%); padding: 8px 14px; border-radius: 999px; background: rgba(28, 28, 30, .95); border: 1px solid #3a3a3c; }
+
+/* In the main window: the consent prompt and the remote-screen panels on the Devices page. */
+.screen-ask { display: flex; flex-direction: column; gap: 12px; }
+.screen-ask-who { display: flex; align-items: center; gap: 12px; }
+.screen-ask-icon { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: color-mix(in srgb, #ff453a 15%, transparent); color: #ff453a; flex: none; }
+.screen-panel { display: flex; flex-direction: column; gap: 10px; }
+.screen-panel-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.screen-log { display: flex; flex-direction: column; gap: 4px; max-height: 180px; overflow: auto; font-size: 12.5px; }
+.screen-log div { display: flex; justify-content: space-between; gap: 10px; }
+.phone-list { display: flex; flex-direction: column; gap: 6px; }
+.phone-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; background: var(--bg-sunk); }
+.phone-row.drop { outline: 2px dashed var(--accent); }
+.send-sheet { display: flex; flex-direction: column; gap: 6px; }
+.send-sheet-row { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg-raised, var(--bg)); text-align: left; cursor: pointer; color: inherit; font: inherit; }
+.send-sheet-row:hover:not(:disabled) { border-color: var(--accent); }
+.send-sheet-row:disabled { opacity: .5; cursor: default; }
+.viewer-bar > b { flex: 0 1 auto; min-width: 3ch; max-width: 30%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.viewer-meta { flex: 0 1 auto; min-width: 0; }

@@ -46,6 +46,7 @@ import { registerPlatformIpc } from './ipc/platform';
 import { handlePlatformArgv, handlePlatformUrl, initPlatform, platformLibraryChanged, startedForSearch, stopPlatform } from './services/platform';
 import { registerLockIpc } from './ipc/lock';
 import { registerLinkIpc } from './ipc/link';
+import { registerScreenIpc, stopScreen } from './ipc/screen';
 import { linkNode, stopLink } from './services/link';
 import { connectionFs, list as remoteConnections } from './services/remote';
 import { attachConnections, attachTransport } from './services/sync';
@@ -61,6 +62,8 @@ import { agentSettingsChanged, record as recordUsage, startAgents, stopAgents } 
 import { normalizeAgentSettings } from '../core/agents-config';
 import { applyWaylandSwitch } from './services/island-place';
 import { registerProcsIpc } from './ipc/procs';
+import { registerPimIpc } from './ipc/pim';
+import { startPim, stopPim } from './services/pim';
 import { registerNetIpc } from './ipc/net';
 import { registerSyncIpc } from './ipc/sync';
 import { stopSync } from './services/sync';
@@ -926,6 +929,7 @@ app.whenReady().then(async () => {
   });
   registerLockIpc({ broadcast, changed: libraryChanged });
   // Remote screens over Link: view and control other devices, phones, Wake-on-LAN (attaches once Link is up).
+  void registerScreenIpc({ broadcast, show: (route) => showMain(route), preload: preload(), alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }) }).catch(() => undefined);
   // Keeper Link: paired devices, the phone companion and the tunnel.
   void registerLinkIpc({ broadcast, show: (route) => showMain(route) })
     .then(() => {
@@ -947,6 +951,14 @@ app.whenReady().then(async () => {
   registerBrainIpc();
   registerAgentsIpc();
   registerProcsIpc();
+  // Mail, calendars, reminders, alarms and contacts.
+  registerPimIpc();
+  void startPim({
+    broadcast,
+    alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }),
+    islandEvents: (evs) => islandSvc?.setPimEvents(evs),
+    islandTimers: (t) => islandSvc?.setCountdowns(t),
+  });
   registerNetIpc({ alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }) });
   // Sync, backups and mirrors. Keeper Link and cloud connections attach when they are ready
   // (attachTransport / attachConnections); KEEPER_SYNC_LOOPBACK is for tests only.
@@ -1067,11 +1079,13 @@ app.on('before-quit', (e) => {
   quitting = true;
   installOnQuitIfReady();
   stopPlatform();
+  void stopPim();
   void stopRemote();
   void stopAgents();
   stopBrain();
   void stopTerminal();
   stopSync();
+  stopScreen();
   void stopLink();
   globalShortcut.unregisterAll();
   vision?.stop();

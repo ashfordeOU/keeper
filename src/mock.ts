@@ -14,11 +14,13 @@ import { mockX } from './mock-x';
 import { mockPlaces } from './mock-places';
 import { mockRemote } from './mock-remote';
 import { mockProcs } from './mock-procs';
+import { mockPim } from './mock-pim';
 import { mockNet } from './mock-net';
 import { mockSync } from './mock-sync';
 import { mockPlatform } from './mock-platform';
 import { mockLock } from './mock-lock';
 import { mockLink } from './mock-link';
+import { mockScreen } from './mock-screen';
 import { mockTerminal } from './mock-terminal';
 import { mockBrain } from './mock-brain';
 import { mockAgents } from './mock-agents';
@@ -240,10 +242,12 @@ export function createMockApi(): KeeperApi {
     ...mockPlaces(),
     ...mockRemote(),
     ...mockProcs(),
+    ...mockPim((ch, ...args) => listeners.get(ch)?.forEach((cb) => (cb as (...a: unknown[]) => void)(...args))),
     ...mockNet(),
     ...mockSync(),
     ...mockPlatform(),
     lock: lockX.lock,
+    ...mockScreen(),
     ...mockLink(HOME, (ch, ...args) => listeners.get(ch)?.forEach((cb) => (cb as (...a: unknown[]) => void)(...args))),
     usage: mockUsage(),
     features: mockFeatures(() => settings, (patch) => {

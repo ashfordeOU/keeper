@@ -8,7 +8,9 @@
 //   host → helper   {"id": 1, "method": "toolResult", "params": {"call": "c1", "result": ...}}
 //
 // Methods: hello, chat, ocr, language, spotlight.index, spotlight.remove,
-// spotlight.removeAll, cancel.
+// spotlight.removeAll, cancel, and for remote control of this Mac:
+// input.status, input.request, input.move, input.button, input.wheel,
+// input.key, input.text.
 
 import Foundation
 import Vision
@@ -16,6 +18,8 @@ import CoreSpotlight
 import NaturalLanguage
 import ImageIO
 import UniformTypeIdentifiers
+import CoreGraphics
+import ApplicationServices
 #if canImport(FoundationModels)
 import FoundationModels
 #endif
@@ -286,6 +290,117 @@ func chat(id: Int, params: [String: Any]) async throws -> [String: Any] {
 }
 #endif
 
+// MARK: - remote control (another Keeper device using this Mac's mouse and keyboard)
+
+/// Which mouse buttons are held, so moves become drags. Touched from tasks, so behind a lock.
+final class InputState: @unchecked Sendable {
+    static let shared = InputState()
+    private let lock = NSLock()
+    private var held = Set<Int>()
+    func set(_ button: Int, _ down: Bool) {
+        lock.lock(); defer { lock.unlock() }
+        if down { held.insert(button) } else { held.remove(button) }
+    }
+    func has(_ button: Int) -> Bool {
+        lock.lock(); defer { lock.unlock() }
+        return held.contains(button)
+    }
+}
+
+/// Posting events needs Accessibility; seeing the screen needs Screen Recording.
+func inputStatus(prompt: Bool) -> [String: Any] {
+    let key = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
+    let trusted = AXIsProcessTrustedWithOptions([key: prompt] as CFDictionary)
+    var capture = true
+    if #available(macOS 10.15, *) {
+        capture = CGPreflightScreenCaptureAccess()
+        if prompt && !capture { capture = CGRequestScreenCaptureAccess() }
+    }
+    return ["accessibility": trusted, "screenRecording": capture]
+}
+
+func number(_ v: Any?) -> Double {
+    if let d = v as? Double { return d }
+    if let i = v as? Int { return Double(i) }
+    if let n = v as? NSNumber { return n.doubleValue }
+    return 0
+}
+
+func eventFlags(_ mods: [String]) -> CGEventFlags {
+    var f = CGEventFlags()
+    for m in mods {
+        switch m {
+        case "ctrl", "control": f.insert(.maskControl)
+        case "alt", "option": f.insert(.maskAlternate)
+        case "shift": f.insert(.maskShift)
+        case "meta", "cmd", "command": f.insert(.maskCommand)
+        default: break
+        }
+    }
+    return f
+}
+
+func post(_ e: CGEvent?) throws {
+    guard let e = e else { throw NSError(domain: "keeper", code: 7, userInfo: [NSLocalizedDescriptionKey: "Could not make the input event"]) }
+    e.post(tap: .cghidEventTap)
+}
+
+func inputMove(_ p: [String: Any]) throws {
+    let at = CGPoint(x: number(p["x"]), y: number(p["y"]))
+    let st = InputState.shared
+    let type: CGEventType = st.has(0) ? .leftMouseDragged : st.has(2) ? .rightMouseDragged : st.has(1) ? .otherMouseDragged : .mouseMoved
+    let button: CGMouseButton = st.has(2) ? .right : st.has(1) ? .center : .left
+    try post(CGEvent(mouseEventSource: nil, mouseType: type, mouseCursorPosition: at, mouseButton: button))
+}
+
+func inputButton(_ p: [String: Any]) throws {
+    let at = CGPoint(x: number(p["x"]), y: number(p["y"]))
+    let b = Int(number(p["button"]))
+    let down = (p["down"] as? Bool) ?? false
+    let type: CGEventType
+    let button: CGMouseButton
+    switch b {
+    case 2: type = down ? .rightMouseDown : .rightMouseUp; button = .right
+    case 1: type = down ? .otherMouseDown : .otherMouseUp; button = .center
+    default: type = down ? .leftMouseDown : .leftMouseUp; button = .left
+    }
+    InputState.shared.set(b, down)
+    try post(CGEvent(mouseEventSource: nil, mouseType: type, mouseCursorPosition: at, mouseButton: button))
+}
+
+func inputWheel(_ p: [String: Any]) throws {
+    let dy = Int32(max(-20, min(20, number(p["dy"]))))
+    let dx = Int32(max(-20, min(20, number(p["dx"]))))
+    try post(CGEvent(scrollWheelEvent2Source: nil, units: .line, wheelCount: 2, wheel1: dy, wheel2: dx, wheel3: 0))
+}
+
+func inputKey(_ p: [String: Any]) throws {
+    let code = CGKeyCode(max(0, min(127, Int(number(p["code"])))))
+    let down = (p["down"] as? Bool) ?? false
+    guard let e = CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: down) else { throw NSError(domain: "keeper", code: 7, userInfo: [NSLocalizedDescriptionKey: "Could not make the key event"]) }
+    let mods = p["mods"] as? [String] ?? []
+    if !mods.isEmpty { e.flags = eventFlags(mods) }
+    e.post(tap: .cghidEventTap)
+}
+
+/// Types text as Unicode, a few characters per event (what macOS accepts per event).
+func inputText(_ p: [String: Any]) throws {
+    let text = String((p["text"] as? String ?? "").prefix(2000))
+    let units = Array(text.utf16)
+    var i = 0
+    while i < units.count {
+        let part = Array(units[i..<min(units.count, i + 16)])
+        for down in [true, false] {
+            guard let e = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: down) else { continue }
+            part.withUnsafeBufferPointer { buf in
+                e.keyboardSetUnicodeString(stringLength: buf.count, unicodeString: buf.baseAddress)
+            }
+            e.post(tap: .cghidEventTap)
+        }
+        i += 16
+    }
+}
+
 // MARK: - dispatch
 
 func handle(id: Int, method: String, params: [String: Any]) async {
@@ -308,6 +423,20 @@ func handle(id: Int, method: String, params: [String: Any]) async {
         case "spotlight.removeAll":
             try await spotlightRemoveAll()
             Wire.shared.result(id, ["ok": true])
+        case "input.status":
+            Wire.shared.result(id, inputStatus(prompt: false))
+        case "input.request":
+            Wire.shared.result(id, inputStatus(prompt: true))
+        case "input.move":
+            try inputMove(params); Wire.shared.result(id, ["ok": true])
+        case "input.button":
+            try inputButton(params); Wire.shared.result(id, ["ok": true])
+        case "input.wheel":
+            try inputWheel(params); Wire.shared.result(id, ["ok": true])
+        case "input.key":
+            try inputKey(params); Wire.shared.result(id, ["ok": true])
+        case "input.text":
+            try inputText(params); Wire.shared.result(id, ["ok": true])
         case "chat":
             #if canImport(FoundationModels)
             if #available(macOS 26.0, *) {

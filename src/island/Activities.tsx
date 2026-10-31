@@ -60,9 +60,8 @@ function useSharing(): NonNullable<ExtraInputs['sharing']> {
   useEffect(() => {
     const apply = (s: { sessions: { id: string; role: string; state: string; peerName: string; control: boolean; started: number }[] }) =>
       setList(s.sessions.filter((x) => x.role === 'host' && x.state !== 'ended').map((x) => ({ sid: x.id, name: x.peerName, control: x.control, since: x.started })));
-    // Filled in once remote screen sharing is part of this build.
-    void apply;
-    return undefined;
+    void api.screen?.state?.().then(apply).catch(() => undefined);
+    return api.on('screen-state', apply as never);
   }, []);
   return list;
 }
@@ -235,7 +234,7 @@ export function LiveCard({ a, state, now, unlocked, onMore, reload }: { a: Activ
     actions = <button className="btn sm" onClick={() => void api.island.keepAwake(false).then(reload)}>Stop keeping awake</button>;
   } else if (a.kind === 'sharing') {
     body = <div><div className="live-big num" style={{ color: a.color }}>{a.trailing}</div><div className="muted small">The other side sees everything on this screen.</div></div>;
-    actions = <button className="btn sm danger" onClick={() => undefined}>Stop sharing</button>;
+    actions = <button className="btn sm danger" onClick={() => void api.screen.stop(a.ref!)}>Stop sharing</button>;
   } else if (a.kind === 'unlocked') {
     body = <div className="muted small">{unlocked.map((f) => f.split(/[\\/]/).pop()).join(', ')}</div>;
     actions = <button className="btn sm primary" onClick={() => void Promise.all(unlocked.map((f) => api.lock.relock(f))).catch(() => undefined)}><Icon name="lock" size={12} /> Lock now</button>;

@@ -75,6 +75,8 @@ export function DevicesSidebar() {
             setMenu({ x: e.clientX, y: e.clientY, items: [
               { label: 'Send Files…', icon: 'send', run: () => void api.link.sendFiles(d.id).catch((x: Error) => toast(x.message)) },
               { label: 'Send Clipboard', icon: 'clipboard', run: () => void api.link.sendClipboard(d.id).then(() => toast(`Clipboard sent to ${d.name}`), (x: Error) => toast(x.message)) },
+              { label: 'View Screen', icon: 'eye', run: () => void api.screen.view(d.id, { control: false }).catch((x: Error) => toast(x.message)) },
+              { label: 'Control Screen', icon: 'laptop', run: () => void api.screen.view(d.id, { control: true }).catch((x: Error) => toast(x.message)) },
               { label: 'Shared Folders', icon: 'folder', run: () => go({ name: 'devices', arg: d.id }) },
               { label: 'Check Connection', icon: 'refresh', run: () => void api.link.check(d.id).then((r) => toast(r.ok ? `${d.name}: ${viaLabel(r.via)}, ${r.rtt} ms` : r.error ?? 'Not reachable')) },
             ] });
