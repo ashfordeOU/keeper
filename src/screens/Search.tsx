@@ -7,7 +7,7 @@ import { queryToText, removeChip } from '../../core/query/parse';
 import type { ParsedQuery, SearchHit } from '../../core/types';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
-import { copyFullText, Empty, Files, Loading, Modal, Thumb, ViewControls } from '../components/ui';
+import { copyFullText, Empty, Files, HiddenToggle, Loading, Modal, Thumb, ViewControls } from '../components/ui';
 import { useStore } from '../state';
 import '../styles/screens-a.css';
 
@@ -83,6 +83,7 @@ export function Search() {
           ) : (
             <button className="btn" onClick={() => { setName(q.length > 28 ? q.slice(0, 28) + '…' : q); setSaving(true); }}><Icon name="star" size={14} /> Save search</button>
           )}
+          <HiddenToggle compact />
           <ViewControls />
         </div>
       </div>

@@ -10,6 +10,7 @@ import { defaultSettings } from '../core/settings';
 import { createMockCapture, DEMO_SHOT } from './mock-capture';
 import { mockX } from './mock-x';
 import { mockPlaces } from './mock-places';
+import { mockLock } from './mock-lock';
 import { createMockIsland } from './mock-island';
 import type { CleanupGroup, DuplicateGroup, FileEntry, FileKind, Rule, SpaceNode } from '../core/types';
 import { mockPreview } from './preview/mock';
@@ -204,6 +205,7 @@ export function createMockApi(): KeeperApi {
     lyrics: [{ t: 30, text: 'Salt on the window, sun in the hall' }, { t: 40, text: 'Every small thing has a place after all' }, { t: 52, text: 'Keep what you love, let the rest of it go' }],
     alerts: [],
   };
+  const lockX = mockLock(HOME, () => listeners.get('library-changed')?.forEach((cb) => cb(undefined)));
   const islandX = createMockIsland(island, files, settings, () => listeners.get('island-changed')?.forEach((cb) => cb(undefined)));
   const ok = { freed: 0, removed: 0, failed: 0, skipped: [] as string[] };
   const browse = (dir: string): BrowseEntry[] => {
@@ -225,6 +227,7 @@ export function createMockApi(): KeeperApi {
   return {
     ...mockX(),
     ...mockPlaces(),
+    lock: lockX.lock,
     preview: mockPreview(() => files, thumb),
     system: {
       info: async () => ({ platform: 'darwin', arch: 'arm64', osVersion: '15.4', appVersion: '0.1.0 (demo)', home: HOME, sep: '/' }),
@@ -315,7 +318,7 @@ export function createMockApi(): KeeperApi {
       largeFiles: async (minMb) => files.filter((f) => f.size >= minMb * MB).sort((a, b) => b.size - a.size),
     },
     files: {
-      browse: async (dir) => browse(dir),
+      browse: async (dir, showHidden) => lockX.adjust(dir, browse(dir), !!showHidden),
       thumbnail: async (p) => { const f = byPath(p); return f ? thumb(f) : null; },
       icon: async () => null,
       open: async () => undefined,

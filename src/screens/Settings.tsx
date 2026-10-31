@@ -10,6 +10,7 @@ import { useAsync, useStore } from '../state';
 import { Row } from './IslandSettings';
 import { LanguageRow, LoginRow } from './SettingsMore';
 import { UpdatesPanel, WhatsNewHover } from '../components/Updates';
+import { LockedFoldersPanel } from '../components/LockDialog';
 import { ThemeGallery, ThemeTweaks } from '../components/ThemeGallery';
 import { useT } from '../i18n';
 import '../styles/screens-b.css';
@@ -97,6 +98,12 @@ export function Settings() {
         <Row title="Downloads count as forgotten after"><input className="input" type="number" min={7} style={{ width: 80 }} defaultValue={s.oldDownloadDays} onBlur={(e) => void updateSettings({ oldDownloadDays: num(e.target.value, 7) })} /> days</Row>
         <Row title="Large files are bigger than"><input className="input" type="number" min={10} style={{ width: 80 }} defaultValue={s.largeFileMb} onBlur={(e) => void updateSettings({ largeFileMb: num(e.target.value, 10) })} /> MB</Row>
         <Row title="Apps count as unused after"><input className="input" type="number" min={30} style={{ width: 80 }} defaultValue={s.unusedAppDays} onBlur={(e) => void updateSettings({ unusedAppDays: num(e.target.value, 30) })} /> days</Row>
+      </div>
+
+      <h2 id="locked" style={{ margin: '18px 0 8px' }}>Locked folders</h2>
+      <div className="card settings-section" style={{ padding: 16 }}>
+        <p className="small muted" style={{ marginTop: 0 }}>Locked folders are encrypted on disk. They open with Touch ID, Windows Hello or your account password on this computer, or with a password of their own, and always with their recovery key.</p>
+        <LockedFoldersPanel />
       </div>
 
       <h2 style={{ margin: '18px 0 8px' }}>Quick access</h2>

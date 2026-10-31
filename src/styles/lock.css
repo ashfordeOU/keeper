@@ -1,0 +1,59 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Locked folders and the hidden-files switch. */
+
+.hidden-toggle.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.is-hidden, .folder-item.is-hidden { opacity: .55; }
+.is-hidden:hover, .is-hidden.selected { opacity: .85; }
+
+.folder-item.locked .folder-glyph { position: relative; display: inline-flex; color: var(--accent); flex: none; }
+.folder-item.locked .lock-badge {
+  position: absolute; right: -6px; bottom: -5px; width: 16px; height: 16px; border-radius: 50%;
+  display: grid; place-items: center; background: var(--bg-elev); color: var(--text); box-shadow: 0 0 0 1px var(--line-strong);
+}
+.folder-item.unlocked-here .folder-glyph::after {
+  content: ''; position: absolute; right: -3px; bottom: -2px; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--warn); box-shadow: 0 0 0 2px var(--bg-elev);
+}
+
+.lock-dialog { gap: 12px; }
+.lock-methods { display: grid; gap: 8px; }
+.lock-method {
+  display: grid; grid-template-columns: auto auto 1fr; align-items: center; gap: 12px; padding: 12px 14px;
+  border: 1px solid var(--line); border-radius: 12px; background: var(--bg-elev); cursor: pointer;
+}
+.lock-method input { margin: 0; }
+.lock-method > svg { color: var(--accent); }
+.lock-method.on { border-color: var(--accent); background: var(--accent-soft); }
+.lock-method.disabled { opacity: .6; cursor: not-allowed; }
+.lock-method-title { font-weight: 650; }
+
+.lock-strength { display: flex; align-items: center; gap: 10px; }
+.lock-strength .bars { display: grid; grid-template-columns: repeat(4, 34px); gap: 4px; }
+.lock-strength .bars i { height: 5px; border-radius: 3px; background: var(--bg-sunk); }
+.lock-strength[data-score='0'] .bars i.on, .lock-strength[data-score='1'] .bars i.on { background: var(--danger); }
+.lock-strength[data-score='2'] .bars i.on { background: var(--warn); }
+.lock-strength[data-score='3'] .bars i.on, .lock-strength[data-score='4'] .bars i.on { background: var(--accent); }
+
+.lock-relock { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.lock-relock select, .locked-row select { width: auto; padding: 4px 8px; font-size: 12.5px; }
+
+.lock-key {
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: 17px; letter-spacing: .06em; text-align: center;
+  padding: 14px; border-radius: 12px; border: 1px dashed var(--line-strong); background: var(--bg-sunk); user-select: all; word-break: break-all;
+}
+.lock-confirm { gap: 8px; align-items: flex-start; cursor: pointer; }
+.lock-confirm input { margin-top: 3px; }
+.lock-refused { display: flex; gap: 8px; align-items: flex-start; color: var(--danger); margin: 0; }
+.lock-refused svg { flex: none; margin-top: 2px; }
+.lock-progress { display: grid; gap: 8px; }
+.lock-account { display: grid; justify-items: center; gap: 10px; padding: 8px 0 4px; text-align: center; }
+.lock-account > svg { color: var(--accent); }
+.lock-alt { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+.input.mono { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; letter-spacing: .04em; }
+.danger-text { color: var(--danger); }
+
+.locked-list { display: grid; gap: 6px; }
+.locked-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg-elev); }
+.locked-row > svg { color: var(--accent); flex: none; }
+.locked-row.unlocked > svg { color: var(--warn); }
+.locked-row.missing { opacity: .6; }

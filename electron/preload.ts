@@ -42,6 +42,7 @@ const api = {
     ...group('places', ['list', 'eject', 'connect', 'discover', 'recentServers', 'forgetServer', 'folderSize', 'openAirDrop', 'shareTargets', 'share']),
     trash: group('places.trash', ['list', 'restore', 'remove', 'empty']),
   },
+  lock: group('lock', ['status', 'canLock', 'newRecoveryKey', 'saveRecoveryKey', 'lock', 'inspect', 'unlock', 'relock', 'list', 'forget', 'setRelock', 'cancel']),
   tools: group('tools', ['networkInfo', 'publicIp', 'tweaks', 'setTweak', 'clearQuarantine', 'resetPermissions', 'pickApp', 'pickFiles', 'saveAs']),
   folders: group('folders', ['tidy']),
   aiActions: group('aiActions', ['provider', 'suggestName', 'summarize', 'receipts', 'altText', 'translateSubtitles']),

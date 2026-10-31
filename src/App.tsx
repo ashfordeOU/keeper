@@ -244,6 +244,8 @@ export function App() {
       const k = e.key.toLowerCase();
       if (cmd && k === 'k') { e.preventDefault(); setPalette((p) => !p); }
       else if (cmd && e.shiftKey && k === 't' && store.settings) { e.preventDefault(); void store.updateSettings(toggleThemePatch(store.settings)); }
+      // ⌘⇧. / Ctrl+Shift+. shows or hides hidden files, as in the system file manager.
+      else if (cmd && e.shiftKey && (e.code === 'Period' || k === '.' || k === '>') && store.settings) { e.preventDefault(); void store.updateSettings({ showHidden: !store.settings.showHidden }); store.toast(store.settings.showHidden ? 'Hidden files are hidden' : 'Hidden files are shown'); }
       else if (cmd && e.shiftKey && k === 'd') { e.preventDefault(); store.go({ name: 'duplicates' }); }
       else if (cmd && e.shiftKey && k === 'k') { e.preventDefault(); store.go({ name: 'cleanup' }); }
       else if (cmd && e.shiftKey && k === 'j') { e.preventDefault(); store.go({ name: 'downloads' }); }

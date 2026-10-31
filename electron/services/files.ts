@@ -18,15 +18,40 @@ import { settings } from '../store';
 import { writePaths, writeText } from './clip';
 import { richThumbnail } from './thumbs';
 
+/**
+ * Names the system marks hidden without a leading dot: the hidden attribute on
+ * Windows, the "hidden" flag on macOS, and a folder's ".hidden" list on Linux
+ * desktops. Cached for a few seconds, since folders are listed again often.
+ */
+const flagCache = new Map<string, { at: number; names: Set<string> }>();
+async function hiddenByFlag(dir: string): Promise<Set<string>> {
+  const hit = flagCache.get(dir);
+  if (hit && Date.now() - hit.at < 5000) return hit.names;
+  let names: string[] = [];
+  if (process.platform === 'win32') {
+    const r = await run('cmd.exe', ['/d', '/c', 'dir', '/a:h', '/b', dir], 5000);
+    names = r.ok ? r.stdout.split(/\r?\n/) : [];
+  } else if (process.platform === 'darwin') {
+    const r = await run('/usr/bin/find', [dir, '-mindepth', '1', '-maxdepth', '1', '-flags', '+hidden', '-print0'], 5000);
+    names = r.ok ? r.stdout.split('\0').map((p) => path.basename(p)) : [];
+  } else {
+    names = await fsp.readFile(path.join(dir, '.hidden'), 'utf8').then((t) => t.split('\n'), () => []);
+  }
+  const set = new Set(names.map((n) => n.trim()).filter(Boolean));
+  if (flagCache.size > 200) flagCache.clear();
+  flagCache.set(dir, { at: Date.now(), names: set });
+  return set;
+}
+
 export class FileService {
   constructor(private index: FileIndex, private journal: Journal, private onChange: () => void) {}
 
   async browse(dir: string, showHidden = false): Promise<BrowseEntry[]> {
-    const list = await fsp.readdir(dir, { withFileTypes: true });
+    const [list, marked] = await Promise.all([fsp.readdir(dir, { withFileTypes: true }), hiddenByFlag(dir)]);
     const out: BrowseEntry[] = [];
     await Promise.all(
       list.map(async (d) => {
-        const hidden = d.name.startsWith('.') || (process.platform === 'win32' && /^(desktop\.ini|thumbs\.db|ntuser\.)/i.test(d.name));
+        const hidden = d.name.startsWith('.') || marked.has(d.name) || (process.platform === 'win32' && /^(desktop\.ini|thumbs\.db|ntuser\.)/i.test(d.name));
         if (hidden && !showHidden) return;
         const p = path.join(dir, d.name);
         try {

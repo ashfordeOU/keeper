@@ -7,7 +7,9 @@ import { formatBytes, relativeTime } from '../../core/format';
 import type { FileEntry, FileKind } from '../../core/types';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
-import { ContextMenu, Empty, Files, Loading, Modal, Toggle, ViewControls, type MenuItem } from '../components/ui';
+import { ContextMenu, Empty, Files, HiddenToggle, Loading, Modal, ViewControls, type MenuItem } from '../components/ui';
+import { LockDialog, lockError, UnlockDialog } from '../components/LockDialog';
+import '../styles/lock.css';
 import { useAsync, useStore } from '../state';
 import '../styles/screens-a.css';
 import { TidyDialog } from '../components/TidyDialog';
@@ -20,7 +22,7 @@ type SortKey = 'name' | 'date' | 'size' | 'kind';
 function toEntry(b: BrowseEntry, root: string): FileEntry {
   return {
     path: b.path, name: b.name, ext: b.ext, kind: (b.kind === 'folder' ? 'other' : b.kind) as FileKind, size: b.size,
-    mtime: b.mtime, btime: b.mtime, atime: 0, root,
+    mtime: b.mtime, btime: b.mtime, atime: 0, root, hidden: b.hidden || undefined,
   };
 }
 
@@ -28,7 +30,9 @@ export function Browse() {
   const { route, go, info, version, settings, updateSettings, refresh, toast, trash } = useStore();
   const dir = route.arg || info?.home || '';
   const sep = info?.sep ?? (dir.includes('\\') ? '\\' : '/');
-  const [hidden, setHidden] = useState(false);
+  const hidden = !!settings?.showHidden;
+  const [locking, setLocking] = useState<string | null>(null);
+  const [unlocking, setUnlocking] = useState<string | null>(null);
   const [sort, setSort] = useState<{ key: SortKey; desc: boolean }>({ key: 'name', desc: false });
   const [selected, setSelected] = useState<string | null>(null);
   const [newFolder, setNewFolder] = useState<string | null>(null);
@@ -54,12 +58,17 @@ export function Browse() {
   };
 
   const entries = useAsync(() => (dir ? api.files.browse(dir, hidden) : Promise.resolve([])), [dir, hidden, version]);
+  // Folders Keeper unlocked, which can be locked again in one step.
+  const locks = useAsync(() => api.lock.list(), [version]);
+  const unlockedHere = useMemo(() => new Set((locks.data ?? []).filter((l) => l.state === 'unlocked' && l.folder).map((l) => l.folder!)), [locks.data]);
+  const isVault = (e: BrowseEntry) => !e.isDir && /\.keeperlock$/i.test(e.name);
   useEffect(() => setSelected(null), [dir]);
 
-  const folders = useMemo(() => (entries.data ?? []).filter((e) => e.isDir && !/\.app$/i.test(e.name)).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })), [entries.data]);
+  // Locked folders sit with the other folders, shown with a lock.
+  const folders = useMemo(() => (entries.data ?? []).filter((e) => (e.isDir && !/\.app$/i.test(e.name)) || isVault(e)).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })), [entries.data]);
   const files = useMemo(() => {
     const root = dir.split(/[\\/]/).pop() ?? '';
-    const list = (entries.data ?? []).filter((e) => !e.isDir || /\.app$/i.test(e.name)).map((e) => toEntry(e, root));
+    const list = (entries.data ?? []).filter((e) => (!e.isDir || /\.app$/i.test(e.name)) && !isVault(e)).map((e) => toEntry(e, root));
     const d = sort.desc ? -1 : 1;
     return list.sort((a, b) =>
       sort.key === 'size' ? d * (a.size - b.size)
@@ -99,6 +108,17 @@ export function Browse() {
     { label: 'Copy Path', icon: 'copy', run: () => void api.files.copyText(e.path) },
     { label: 'Compress', icon: 'zip', run: () => void api.files.compress([e.path]).then(() => refresh()) },
     { sep: true, label: '' },
+    unlockedHere.has(e.path)
+      ? { label: 'Lock Again Now', icon: 'lock', run: () => void api.lock.relock(e.path).then(() => { toast(`“${e.name}” is locked`); refresh(); }, (err) => toast(lockError(err))) }
+      : { label: 'Lock Folder…', icon: 'lock', run: () => setLocking(e.path) },
+    { sep: true, label: '' },
+    { label: 'Move to Trash', icon: 'trash', danger: true, run: () => void trash([e.path]) },
+  ];
+  const vaultMenu = (e: BrowseEntry): MenuItem[] => [
+    { label: 'Unlock…', icon: 'unlock', run: () => setUnlocking(e.path) },
+    { label: info?.platform === 'win32' ? 'Show in Explorer' : info?.platform === 'darwin' ? 'Show in Finder' : 'Show in Folder', icon: 'reveal', run: () => void api.files.reveal(e.path) },
+    { label: 'Copy Path', icon: 'copy', run: () => void api.files.copyText(e.path) },
+    { sep: true, label: '' },
     { label: 'Move to Trash', icon: 'trash', danger: true, run: () => void trash([e.path]) },
   ];
 
@@ -124,7 +144,7 @@ export function Browse() {
           <button className="btn ghost sm icon" title="Go to a path or server address" onClick={() => setTyped(typed === null ? dir : null)}><Icon name="terminal" size={13} /></button>
         </div>
         <div className="btn-row">
-          <label className="row small muted" style={{ gap: 6 }}><Toggle on={hidden} onChange={setHidden} label="Show hidden files" /> Hidden</label>
+          <HiddenToggle />
           <button className="btn sm" onClick={() => setNewFolder('untitled folder')}><Icon name="plus" size={13} /> New Folder</button>
           <button className="btn sm" onClick={() => setTidy(true)} title="Sort loose files into folders by kind, month or extension"><Icon name="broom" size={13} /> Tidy</button>
           <button className="btn sm" onClick={() => settings && void updateSettings({ pinned: pinned ? settings.pinned.filter((p) => p !== dir) : [...settings.pinned, dir] })}>
@@ -142,24 +162,33 @@ export function Browse() {
         <>
           {folders.length ? (
             <div className="folder-grid">
-              {folders.map((f) => (
-                <div
-                  key={f.path}
-                  className={`folder-item ${selected === f.path ? 'selected' : ''}`}
-                  onClick={() => setSelected(f.path)}
-                  onDoubleClick={() => go({ name: 'browse', arg: f.path })}
-                  onContextMenu={(e) => { e.preventDefault(); setSelected(f.path); setMenu({ x: e.clientX, y: e.clientY, entry: f }); }}
-                  title={f.path}
-                  draggable
-                  onDragStart={(e) => { e.preventDefault(); api.files.startDrag([f.path]); }}
-                >
-                  <Icon name="folder" size={20} style={{ color: 'var(--accent)', flex: 'none' }} />
-                  <div className="grow">
-                    <div className="ellipsis" style={{ fontWeight: 550 }}>{f.name}</div>
-                    <div className="small muted ellipsis">{f.size ? `${formatBytes(f.size)} · ` : ''}{relativeTime(f.mtime)}</div>
+              {folders.map((f) => {
+                const locked = isVault(f);
+                const open = () => (locked ? setUnlocking(f.path) : go({ name: 'browse', arg: f.path }));
+                return (
+                  <div
+                    key={f.path}
+                    className={`folder-item ${selected === f.path ? 'selected' : ''} ${f.hidden ? 'is-hidden' : ''} ${locked ? 'locked' : ''} ${unlockedHere.has(f.path) ? 'unlocked-here' : ''}`}
+                    onClick={() => setSelected(f.path)}
+                    onDoubleClick={open}
+                    onKeyDown={(e) => e.key === 'Enter' && open()}
+                    tabIndex={0}
+                    onContextMenu={(e) => { e.preventDefault(); setSelected(f.path); setMenu({ x: e.clientX, y: e.clientY, entry: f }); }}
+                    title={locked ? `${f.path}\nLocked. Double-click to unlock.` : unlockedHere.has(f.path) ? `${f.path}\nUnlocked by Keeper. Right-click to lock it again.` : f.path}
+                    draggable
+                    onDragStart={(e) => { e.preventDefault(); api.files.startDrag([f.path]); }}
+                  >
+                    <span className="folder-glyph" style={{ position: 'relative', display: 'inline-flex', color: 'var(--accent)', flex: 'none' }}>
+                      <Icon name="folder" size={20} />
+                      {locked ? <span className="lock-badge"><Icon name="lock" size={10} stroke={2.4} /></span> : null}
+                    </span>
+                    <div className="grow">
+                      <div className="ellipsis" style={{ fontWeight: 550 }}>{locked ? f.name.replace(/\.keeperlock$/i, '') : f.name}</div>
+                      <div className="small muted ellipsis">{locked ? `Locked · ${formatBytes(f.size)}` : `${f.size ? `${formatBytes(f.size)} · ` : ''}${relativeTime(f.mtime)}`}</div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : null}
           {files.length ? (
@@ -168,7 +197,9 @@ export function Browse() {
         </>
       )}
 
-      {menu ? <ContextMenu x={menu.x} y={menu.y} items={folderMenu(menu.entry)} onClose={() => setMenu(null)} /> : null}
+      {menu ? <ContextMenu x={menu.x} y={menu.y} items={isVault(menu.entry) ? vaultMenu(menu.entry) : folderMenu(menu.entry)} onClose={() => setMenu(null)} /> : null}
+      {locking ? <LockDialog dir={locking} onClose={() => setLocking(null)} /> : null}
+      {unlocking ? <UnlockDialog vault={unlocking} onClose={() => setUnlocking(null)} /> : null}
       {server !== null ? <ConnectDialog initial={server} onClose={() => setServer(null)} /> : null}
 
       {tidy ? <TidyDialog dir={dir} onClose={() => setTidy(false)} /> : null}

@@ -10,6 +10,7 @@ import type { ConvertCapabilities, ConvertJob, ConvertResult } from './convert-t
 import type { AwakeTrigger } from './awake';
 import type { KeeperApiX } from './api-x';
 import type { PlacesApi } from './api-places';
+import type { LockApi } from './api-lock';
 import type { PreviewApi } from './previewTypes';
 import type { WidgetConfig } from './widgets';
 import type {
@@ -260,6 +261,7 @@ export interface IslandSettings {
 
 export interface KeeperApi extends KeeperApiX {
   places: PlacesApi;
+  lock: LockApi;
   /** universal file previews */
   preview: PreviewApi;
   /** video, audio, picture, PDF and file tools; results always go to a new folder */
@@ -456,5 +458,7 @@ export interface KeeperApi extends KeeperApiX {
   on(channel: 'settings-changed', cb: (settings: Settings & { island: IslandSettings }) => void): () => void;
   on(channel: 'widgets-changed', cb: () => void): () => void;
   on(channel: 'places-changed', cb: () => void): () => void;
+  on(channel: 'locks-changed', cb: () => void): () => void;
+  on(channel: 'lock-progress', cb: (p: import('./vault').VaultProgress & { target: string }) => void): () => void;
   on(channel: 'island-open', cb: (tab: string) => void): () => void;
 }

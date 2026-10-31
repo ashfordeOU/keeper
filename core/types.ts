@@ -36,6 +36,8 @@ export interface FileEntry {
   /** text read from images and PDFs on this device */
   text?: string;
   /** in lists only the start of `text` is sent; ask for the full text when needed */
+  /** hidden by name (a leading dot) or by the system's hidden flag; shown dimmed */
+  hidden?: boolean;
   textCut?: boolean;
   /** user tags (macOS Finder tags, or Keeper tags on other systems) */
   tags?: string[];

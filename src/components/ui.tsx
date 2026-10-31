@@ -204,6 +204,8 @@ function useProgressive<T>(items: T[], selected: string[], keyOf: (t: T) => stri
 }
 
 const pathOf = (f: FileEntry) => f.path;
+/** A hidden file, or one inside a hidden folder: shown dimmed. */
+const isHiddenFile = (f: FileEntry) => !!f.hidden || /(^|[\\/])\.[^\\/.]/.test(f.path);
 
 export function FileGrid({ files, onContext }: { files: FileEntry[]; onContext?: (e: React.MouseEvent, f: FileEntry) => void }) {
   const { cardSize } = useStore();
@@ -217,7 +219,7 @@ export function FileGrid({ files, onContext }: { files: FileEntry[]; onContext?:
         <div
           key={f.path}
           data-path={f.path}
-          className={`file-card ${picked.has(f.path) ? 'selected' : ''}`}
+          className={`file-card ${picked.has(f.path) ? 'selected' : ''} ${isHiddenFile(f) ? 'is-hidden' : ''}`}
           onClick={(e) => click(e, i)}
           onDoubleClick={() => open(f)}
           onContextMenu={(e) => { if (!picked.has(f.path)) click(e, i); (onContext ?? menu.open)(e, f); }}
@@ -276,7 +278,7 @@ export function FileList({ files, sort, onSort, showSource }: { files: FileEntry
             <tr
               key={f.path}
               data-path={f.path}
-              className={picked.has(f.path) ? 'selected' : ''}
+              className={`${picked.has(f.path) ? 'selected' : ''} ${isHiddenFile(f) ? 'is-hidden' : ''}`}
               onClick={(e) => click(e, i)}
               onDoubleClick={() => open(f)}
               onContextMenu={(e) => { if (!picked.has(f.path)) click(e, i); menu.open(e, f); }}
@@ -481,6 +483,26 @@ export function Modal({ title, children, onClose, width }: { title?: ReactNode; 
       </div>
     </div>,
     document.body,
+  );
+}
+
+/**
+ * Show or hide hidden files and folders: one clear button with an eye, the same
+ * everywhere, with the system shortcut (⌘⇧. on a Mac, Ctrl+Shift+. elsewhere).
+ */
+export function HiddenToggle({ compact }: { compact?: boolean }) {
+  const { settings, updateSettings } = useStore();
+  const on = !!settings?.showHidden;
+  return (
+    <button
+      className={`btn sm hidden-toggle ${on ? 'on' : ''}`}
+      aria-pressed={on}
+      onClick={() => settings && void updateSettings({ showHidden: !on })}
+      title={`${on ? 'Hide' : 'Show'} hidden files and folders (${mod}${shift}.)`}
+    >
+      <Icon name={on ? 'eye' : 'eyeOff'} size={14} />
+      {compact ? null : on ? ' Hidden shown' : ' Hidden files'}
+    </button>
   );
 }
 

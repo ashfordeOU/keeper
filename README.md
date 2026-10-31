@@ -38,7 +38,7 @@ optional AI assistant — in one small app that never uploads your files.
 - [Everything Keeper does](#everything-keeper-does)
   - [Library and browsing](#library-and-browsing) · [Previews for every file](#previews-for-every-file) · [Plain-English search](#plain-english-search) · [Text in images](#text-in-images-and-on-screen) · [Downloaded From](#downloaded-from)
   - [Duplicates](#duplicates) · [Clean Up](#clean-up) · [Space Map](#space-map) · [Automations](#automations) · [History and undo](#history-and-undo)
-  - [The Island](#the-island) · [Themes](#themes) · [Quick Search, tray and deep links](#quick-search-tray-and-deep-links) · [Toolbox](#toolbox) · [System](#system) · [Assistant](#assistant)
+  - [The Island](#the-island) · [Locked folders](#locked-folders) · [Themes](#themes) · [Quick Search, tray and deep links](#quick-search-tray-and-deep-links) · [Toolbox](#toolbox) · [System](#system) · [Assistant](#assistant)
   - [Command line](#command-line)
 - [Keyboard shortcuts](#keyboard-shortcuts)
 - [Keeper compared with your system file manager](#keeper-compared-with-your-system-file-manager)
@@ -67,7 +67,9 @@ optional AI assistant — in one small app that never uploads your files.
 
 - **Shelves** for Images, Videos, Music, Documents, Archives, Installers, Apps and Screenshots, plus Recents, Tags, Saved searches and pinned folders in the sidebar.
 - **Home dashboard** with disk usage by kind, totals per shelf, recent photos, videos, music and documents, recent downloads with their source, the weather and a one-click cleanup.
-- **Browse** any folder with breadcrumbs, grid or list view, hidden-file toggle, new folders and “pin to sidebar”.
+- **Browse** any folder with breadcrumbs, grid or list view, new folders and “pin to sidebar”.
+- **Hidden files** on or off with one button in the toolbar (an eye), <kbd>Ctrl/⌘ Shift .</kbd> or the command palette. Hidden items show dimmed. Keeper counts a file as hidden when its name starts with a dot, when Windows marks it hidden, when macOS sets its hidden flag, or when a Linux folder's `.hidden` file lists it.
+- **Locked folders**: right-click a folder → *Lock Folder…*. See [Locked folders](#locked-folders).
 - **Places in the sidebar**, like a file manager's: *Favorites* (Applications, Desktop, Documents, Downloads, Pictures, Movies/Videos, Music, your home folder and any folder you drag in) and *Locations* (Shared, iCloud Drive, OneDrive, Google Drive, Dropbox, Proton Drive, Box, pCloud, MEGA, Nextcloud and other cloud drives; this computer; every internal, USB, SD-card, disc and disk-image volume with its free space and an eject button; AirDrop on a Mac; connected network shares; Network; Trash). Right-click any place for Open, Show in folder, Get Info (total size) or Remove from Sidebar.
 - **Network and Connect to Server**: servers on the local network announce themselves (NAS boxes, Macs with file sharing, Samba with Avahi, Windows computers), and any `smb://`, `afp://`, `nfs://`, `sftp://`, `ftp://`, `webdav(s)://` address or `\\server\share` path connects and opens — typed in Connect to Server or straight into the Browse path bar (double-click the breadcrumbs). Recent servers are remembered; passwords never are.
 - **Trash / Recycle Bin**: every deleted item with where it came from and when, *Put Back*, *Delete Immediately* and *Empty Trash* — including the per-disk trash folders on USB drives.
@@ -210,6 +212,24 @@ A small live panel at the top of your screen (or the left or right edge), hidden
 - **Dictation** — press the shortcut, speak, and the text is typed at the cursor in any app, using a speech-to-text service you choose (bring your own key, or a local server).
 - A small **buddy** face that reflects what is going on.
 
+### Locked folders
+
+Right-click a folder in Browse and choose **Lock Folder…**. Keeper encrypts everything inside into one file next to it, `Taxes.keeperlock`, reads the whole thing back to check every file, and only then removes the unencrypted folder. In Keeper a locked folder shows with a lock; double-click it to unlock.
+
+- **How it opens**: *Your account* (Touch ID or your Mac password; Windows Hello with face, fingerprint or PIN, or your Windows password; on Linux your password, or fingerprint where it is set up for polkit). The key lives in the system keychain, so this only works on the computer that locked it. Or *a password* of its own, which works on any computer with Keeper and is never stored.
+- **A recovery key** is always made (eight groups of four characters) and must be saved before locking. It opens the folder when the password is forgotten or the computer changes.
+- **Lock again automatically** when Keeper quits, when the screen locks or the computer sleeps, or after some minutes; or right-click → *Lock Again Now*. Settings → *Locked folders* lists every one.
+- **Encryption**: AES-256-GCM with a random key per folder, in 1 MB chunks that cannot be reordered, cut off or swapped. Names, sizes and dates are encrypted too. Passwords and recovery keys are stretched with scrypt. After a few wrong tries Keeper waits longer and longer between them.
+- **Safe to interrupt**: until the locked copy is checked, the original is untouched; unlocking writes to a temporary folder first. A crash leaves at worst both copies.
+
+Good to know:
+
+- Only Keeper can open a `.keeperlock` file. Keep Keeper (or a copy of it) if you keep locked folders.
+- Lose the password *and* the recovery key, and the files are gone for good. Nobody can recover them, Keeper included.
+- Removing the original deletes it permanently instead of moving it to the Trash, where it would still be readable. On SSDs and some file systems, deleted blocks can stay on the disk until they are reused; for files that were never meant to be unencrypted, lock the folder before putting them in, or use full-disk encryption (FileVault, BitLocker, LUKS) as well.
+- The locked file's own name (the folder's name) is not hidden.
+- Macs have Touch ID, not Face ID, and apps cannot use an Apple ID to unlock things. Without Touch ID, the Mac asks for an administrator's password.
+
 ### Themes
 
 Settings → Appearance shows every theme as a live preview; click one (or move with the arrow keys) and every window, the Island and widgets switch at once. Each also appears in the command palette as “Theme: …”.
@@ -297,6 +317,7 @@ keeper agents              Status of Claude Code / Codex sessions on this comput
 | Downloaded From | <kbd>Ctrl Shift J</kbd> | Preview | <kbd>Space</kbd> | Move to Trash | <kbd>Ctrl ⌫</kbd> / <kbd>Delete</kbd> |
 | Copy text in selected images | <kbd>Ctrl Shift C</kbd> | Switch theme | <kbd>Ctrl Shift T</kbd> | Back | <kbd>Ctrl [</kbd> |
 | Copy text from screen (any app) | <kbd>Ctrl Shift 2</kbd> | Settings | <kbd>Ctrl ,</kbd> | Dictation (any app) | <kbd>Ctrl Shift ;</kbd> |
+| | | Show / hide hidden files | <kbd>Ctrl Shift .</kbd> | | |
 
 Global shortcuts can be changed in Settings and Island settings.
 

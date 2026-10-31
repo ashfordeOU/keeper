@@ -40,6 +40,8 @@ import { registerIpcX, syncFinderTags } from './ipc-x';
 import { registerFileProtocol, registerPreviewIpc } from './ipc/preview';
 import { registerConvertIpc } from './ipc/convert';
 import { registerPlacesIpc } from './ipc/places';
+import { registerLockIpc } from './ipc/lock';
+import { pendingOnQuit, relockOnQuit } from './services/lock';
 import { remoteFolders } from './services/places';
 import { emptyAndBroken, removeBrokenLink } from './services/tools';
 import { readFinderTags } from '../core/platform';
@@ -830,6 +832,7 @@ app.whenReady().then(async () => {
     // Network drives and cloud folders stay out of the library walk unless the person includes them.
     setRemoteExclusions: (paths) => { index.excluded = [...new Set([...settings().excluded, ...paths])]; },
   });
+  registerLockIpc({ broadcast, changed: libraryChanged });
   registerCaptureIpc({
     preload: capturePreload(),
     langs: () => settings().ocrLanguages,
@@ -887,7 +890,15 @@ app.whenReady().then(async () => {
   app.on('activate', () => showMain());
 });
 
-app.on('before-quit', () => {
+// Folders set to lock again when Keeper quits are locked first; quitting then carries on.
+let relocking = false;
+app.on('before-quit', (e) => {
+  if (!relocking && pendingOnQuit()) {
+    e.preventDefault();
+    relocking = true;
+    void relockOnQuit().finally(() => app.quit());
+    return;
+  }
   quitting = true;
   installOnQuitIfReady();
   globalShortcut.unregisterAll();

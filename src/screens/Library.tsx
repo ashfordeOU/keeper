@@ -9,7 +9,7 @@ import { sourceName } from '../../core/sources';
 import type { FileKind } from '../../core/types';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
-import { Empty, Files, PageHead, ViewControls } from '../components/ui';
+import { Empty, Files, HiddenToggle, PageHead, ViewControls } from '../components/ui';
 import { useAsync, useStore } from '../state';
 import '../styles/screens-a.css';
 
@@ -60,6 +60,7 @@ export function Library() {
             <Icon name="text" size={14} /> {selection.length ? 'Copy text from selected' : 'Copy text from all'}
           </button>
         ) : null}
+        <HiddenToggle compact />
         <ViewControls sort={sort} onSort={setSort} />
       </PageHead>
       <Files
