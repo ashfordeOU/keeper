@@ -15,5 +15,5 @@
     "isolatedModules": true,
     "types": ["node", "vite/client"]
   },
-  "include": ["core", "electron", "src", "cli", "test", "shared", "vite.config.ts", "vitest.config.ts"]
+  "include": ["core", "electron", "src", "cli", "test", "shared", "companion", "vite.config.ts", "vitest.config.ts"]
 }

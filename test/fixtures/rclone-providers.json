@@ -1,0 +1,63 @@
+[
+  {"Name":"drive","Description":"Google Drive","Prefix":"drive","Options":[
+    {"Name":"client_id","Help":"Google Application Client Id\nSetting your own is recommended.","Provider":"","Default":"","Required":false,"IsPassword":false,"Advanced":false,"Exclusive":false,"Sensitive":true,"Hide":0,"Type":"string","Examples":null},
+    {"Name":"client_secret","Help":"OAuth Client Secret.\n\nLeave blank normally.","Default":"","Required":false,"IsPassword":false,"Advanced":false,"Sensitive":true,"Hide":0,"Type":"string"},
+    {"Name":"scope","Help":"Comma separated list of scopes that rclone should use when requesting access from drive.","Default":"","Required":false,"Advanced":false,"Exclusive":false,"Hide":0,"Type":"string","Examples":[{"Value":"drive","Help":"Full access all files, excluding Application Data Folder."},{"Value":"drive.readonly","Help":"Read-only access to file metadata and file contents."}]},
+    {"Name":"token","Help":"OAuth Access Token as a JSON blob.","Default":"","Advanced":true,"Sensitive":true,"Hide":0,"Type":"string"},
+    {"Name":"team_drive","Help":"ID of the Shared Drive (Team Drive).","Default":"","Advanced":true,"Hide":0,"Type":"string"},
+    {"Name":"use_trash","Help":"Send files to the trash instead of deleting permanently.","Default":true,"DefaultStr":"true","Advanced":true,"Hide":0,"Type":"bool"},
+    {"Name":"encoding","Help":"The encoding for the backend.","Default":"InvalidUtf8","Advanced":true,"Hide":0,"Type":"Encoding"}
+  ]},
+  {"Name":"onedrive","Description":"Microsoft OneDrive","Prefix":"onedrive","Options":[
+    {"Name":"client_id","Help":"OAuth Client Id.","Default":"","Sensitive":true,"Type":"string"},
+    {"Name":"client_secret","Help":"OAuth Client Secret.","Default":"","Sensitive":true,"Type":"string"},
+    {"Name":"region","Help":"Choose national cloud region for OneDrive.","Default":"global","DefaultStr":"global","Exclusive":true,"Type":"string","Examples":[{"Value":"global","Help":"Microsoft Cloud Global"},{"Value":"us","Help":"Microsoft Cloud for US Government"},{"Value":"de","Help":"Microsoft Cloud Germany (deprecated - try global region first)."},{"Value":"cn","Help":"Azure and Office 365 operated by Vnet Group in China"}]},
+    {"Name":"token","Help":"OAuth Access Token as a JSON blob.","Default":"","Advanced":true,"Sensitive":true,"Type":"string"}
+  ]},
+  {"Name":"dropbox","Description":"Dropbox","Prefix":"dropbox","Options":[
+    {"Name":"client_id","Help":"OAuth Client Id.","Default":"","Sensitive":true,"Type":"string"},
+    {"Name":"client_secret","Help":"OAuth Client Secret.","Default":"","Sensitive":true,"Type":"string"},
+    {"Name":"token","Help":"OAuth Access Token as a JSON blob.","Default":"","Advanced":true,"Sensitive":true,"Type":"string"},
+    {"Name":"chunk_size","Help":"Upload chunk size (< 150Mi).","Default":50331648,"DefaultStr":"48Mi","Advanced":true,"Type":"SizeSuffix"}
+  ]},
+  {"Name":"s3","Description":"Amazon S3 Compliant Storage Providers including AWS, Alibaba, Ceph, Cloudflare, Minio and more","Prefix":"s3","Options":[
+    {"Name":"provider","Help":"Choose your S3 provider.","Default":"","Exclusive":false,"Type":"string","Examples":[{"Value":"AWS","Help":"Amazon Web Services (AWS) S3"},{"Value":"Cloudflare","Help":"Cloudflare R2 Storage"},{"Value":"Minio","Help":"Minio Object Storage"},{"Value":"Wasabi","Help":"Wasabi Object Storage"}]},
+    {"Name":"access_key_id","Help":"AWS Access Key ID.\nLeave blank for anonymous access or runtime credentials.","Default":"","Sensitive":true,"Type":"string"},
+    {"Name":"secret_access_key","Help":"AWS Secret Access Key (password).","Default":"","Sensitive":true,"Type":"string"},
+    {"Name":"region","Help":"Region to connect to.","Provider":"AWS","Default":"","Type":"string","Examples":[{"Value":"us-east-1","Help":"The default endpoint - a good choice if you are unsure.\nUS Region, Northern Virginia, or Pacific Northwest."},{"Value":"eu-west-1","Help":"EU (Ireland) Region."}]},
+    {"Name":"endpoint","Help":"Endpoint for S3 API.\nRequired when using an S3 clone.","Provider":"!AWS","Default":"","Type":"string"},
+    {"Name":"location_constraint","Help":"Location constraint - must be set to match the Region.","Provider":"AWS","Default":"","Advanced":false,"Type":"string"},
+    {"Name":"storage_class","Help":"The storage class to use when storing new objects in S3.","Provider":"AWS","Default":"","Advanced":false,"Exclusive":false,"Type":"string","Examples":[{"Value":"","Help":"Default"},{"Value":"STANDARD_IA","Help":"Standard Infrequent Access storage class"}]}
+  ]},
+  {"Name":"webdav","Description":"WebDAV","Prefix":"webdav","Options":[
+    {"Name":"url","Help":"URL of http host to connect to.\n\nE.g. https://example.com.","Default":"","Required":true,"Type":"string"},
+    {"Name":"vendor","Help":"Name of the WebDAV site/service/software you are using.","Default":"","Exclusive":false,"Type":"string","Examples":[{"Value":"fastmail","Help":"Fastmail Files"},{"Value":"nextcloud","Help":"Nextcloud"},{"Value":"owncloud","Help":"Owncloud 10 PHP based WebDAV server"},{"Value":"other","Help":"Other site/service or software"}]},
+    {"Name":"user","Help":"User name.","Default":"","Sensitive":true,"Type":"string"},
+    {"Name":"pass","Help":"Password.","Default":"","IsPassword":true,"Type":"string"},
+    {"Name":"bearer_token","Help":"Bearer token instead of user/pass (e.g. a Macaroon).","Default":"","Sensitive":true,"Type":"string"}
+  ]},
+  {"Name":"sftp","Description":"SSH/SFTP","Prefix":"sftp","Options":[
+    {"Name":"host","Help":"SSH host to connect to.\n\nE.g. \"example.com\".","Default":"","Required":true,"Type":"string"},
+    {"Name":"user","Help":"SSH username.","Default":"root","DefaultStr":"root","Type":"string"},
+    {"Name":"port","Help":"SSH port number.","Default":22,"DefaultStr":"22","Type":"int"},
+    {"Name":"pass","Help":"SSH password, leave blank to use ssh-agent.","Default":"","IsPassword":true,"Type":"string"},
+    {"Name":"hidden_internal","Help":"Not for people.","Default":"","Hide":3,"Type":"string"}
+  ]},
+  {"Name":"iclouddrive","Description":"iCloud Drive","Prefix":"iclouddrive","Options":[
+    {"Name":"apple_id","Help":"Apple ID.","Default":"","Required":true,"Sensitive":true,"Type":"string"},
+    {"Name":"password","Help":"Password.","Default":"","Required":true,"IsPassword":true,"Type":"string"}
+  ]},
+  {"Name":"box","Description":"Box","Prefix":"box","Options":[
+    {"Name":"client_id","Help":"OAuth Client Id.","Default":"","Sensitive":true,"Type":"string"},
+    {"Name":"client_secret","Help":"OAuth Client Secret.","Default":"","Sensitive":true,"Type":"string"},
+    {"Name":"token","Help":"OAuth Access Token as a JSON blob.","Default":"","Advanced":true,"Sensitive":true,"Type":"string"}
+  ]},
+  {"Name":"mega","Description":"Mega","Prefix":"mega","Options":[
+    {"Name":"user","Help":"User name.","Default":"","Required":true,"Sensitive":true,"Type":"string"},
+    {"Name":"pass","Help":"Password.","Default":"","Required":true,"IsPassword":true,"Type":"string"}
+  ]},
+  {"Name":"jottacloud","Description":"Jottacloud","Prefix":"jottacloud","Options":[]},
+  {"Name":"local","Description":"Local Disk","Prefix":"local","Options":[]},
+  {"Name":"crypt","Description":"Encrypt/Decrypt a remote","Prefix":"crypt","Options":[]},
+  {"Name":"union","Description":"Union merges the contents of several upstream fs","Prefix":"union","Options":[]}
+]

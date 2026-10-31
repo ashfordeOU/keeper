@@ -1,0 +1,15 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Settings → Keeper's own usage */
+.usage-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.usage-stat { display: flex; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 10px; background: var(--bg-sunk); }
+.usage-stat > svg { color: var(--accent); flex: none; }
+.usage-stat > div { display: flex; flex-direction: column; min-width: 0; }
+.usage-stat b { font-size: 17px; font-variant-numeric: tabular-nums; }
+.usage-tasks { margin: 12px 0; display: flex; flex-direction: column; gap: 6px; }
+.usage-task { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); }
+.usage-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--text-3); }
+.usage-dot.working { background: #22c55e; }
+.usage-dot.waiting { background: #f59e0b; }
+.usage-checks { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; }
+.usage-check { display: flex; gap: 10px; padding: 4px 2px; border-bottom: 1px solid var(--line); font-size: 13px; }
+@media (max-width: 640px) { .usage-stats { grid-template-columns: 1fr; } }

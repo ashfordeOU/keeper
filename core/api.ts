@@ -10,10 +10,18 @@ import type { ConvertCapabilities, ConvertJob, ConvertResult } from './convert-t
 import type { AwakeTrigger } from './awake';
 import type { KeeperApiX } from './api-x';
 import type { PlacesApi } from './api-places';
+import type { UsageApi } from './api-usage';
+import type { FeaturesApi } from './api-features';
+import type { RemoteApi } from './api-remote';
 import type { PlatformApi } from './api-platform';
 import type { LockApi } from './api-lock';
+import type { LinkApi } from './api-link';
 import type { BrainApi, BrainDelta, BrainStep } from './api-brain';
+import type { AgentsApi, ApprovalRequest, AuditItem } from './api-agents';
 import type { ProcsApi } from './api-procs';
+import type { NetApi } from './api-net';
+import type { SyncApi } from './api-sync';
+import type { TerminalApi } from './api-terminal';
 import type { PreviewApi } from './previewTypes';
 import type { WidgetConfig } from './widgets';
 import type {
@@ -205,6 +213,8 @@ export interface IslandState {
   micInUse?: string[];
   /** apps using a camera (Windows and Linux; macOS shows its own light) */
   camInUse?: string[];
+  /** countdown timers from Alarms (running: endsAt; paused: leftMs) */
+  countdowns?: { id: string; label: string; endsAt?: number; leftMs?: number; durationMs: number }[];
   alerts: IslandAlert[];
 }
 
@@ -297,12 +307,29 @@ export interface IslandSettings {
 
 export interface KeeperApi extends KeeperApiX {
   places: PlacesApi;
+  /** Keeper's own use of the computer */
+  usage: UsageApi;
+  /** switch parts of Keeper on and off */
+  features: FeaturesApi;
+  /** Cloud & servers: cloud services, servers, home servers, NAS boxes and other computers */
+  remote: RemoteApi;
   platform: PlatformApi;
   lock: LockApi;
+  /** Keeper Link: paired devices, files between them, ports, the phone companion and the tunnel */
+  link: LinkApi;
+  /** remote screens: watch and control other Keeper devices, phones on this screen, Wake-on-LAN */
+  /** sync between your devices, backups to drives and cloud services, mirrors */
+  sync: SyncApi;
   /** Keeper's brain: passage index, meaning search, the AI harness and the AI apps it serves */
   brain: BrainApi;
+  /** AI agents: services and costs, permissions and approvals, the gateway, skills, learning, the knowledge graph */
+  agents: AgentsApi;
   /** the process manager and services in Health */
   procs: ProcsApi;
+  /** Network Activity (who talks to whom, which way) and VPN connections */
+  net: NetApi;
+  /** the terminal: shells, profiles, sessions that outlive the window, remote files */
+  terminal: TerminalApi;
   /** universal file previews */
   preview: PreviewApi;
   /** video, audio, picture, PDF and file tools; results always go to a new folder */
@@ -506,11 +533,36 @@ export interface KeeperApi extends KeeperApiX {
   on(channel: 'settings-changed', cb: (settings: Settings & { island: IslandSettings }) => void): () => void;
   on(channel: 'widgets-changed', cb: () => void): () => void;
   on(channel: 'places-changed', cb: () => void): () => void;
+  on(channel: 'features-changed', cb: () => void): () => void;
+  on(channel: 'remote-changed', cb: () => void): () => void;
+  on(channel: 'remote-status', cb: (s: import('./remote/types').ConnStatus) => void): () => void;
+  on(channel: 'remote-transfer', cb: (t: import('./remote/types').Transfer) => void): () => void;
+  on(channel: 'remote-saved', cb: (r: { id: string; path: string; conflict?: boolean; error?: string }) => void): () => void;
   on(channel: 'locks-changed', cb: () => void): () => void;
   on(channel: 'brain-status', cb: (s: import('./brain-contract').BrainStatus) => void): () => void;
   on(channel: 'brain-delta', cb: (d: BrainDelta) => void): () => void;
+  on(channel: 'agent-approval', cb: (a: ApprovalRequest) => void): () => void;
+  on(channel: 'agent-approval-done', cb: (id: string) => void): () => void;
+  on(channel: 'agent-audit', cb: (e: AuditItem) => void): () => void;
   on(channel: 'brain-step', cb: (d: BrainStep) => void): () => void;
   on(channel: 'lock-progress', cb: (p: import('./vault').VaultProgress & { target: string }) => void): () => void;
   on(channel: 'island-open', cb: (tab: string) => void): () => void;
+  on(channel: 'term-data', cb: (id: string, data: string, at: number) => void): () => void;
+  on(channel: 'term-event', cb: (id: string, ev: import('./terminal/types').ShellEvent) => void): () => void;
+  on(channel: 'term-exit', cb: (id: string, code: number, signal?: number) => void): () => void;
+  on(channel: 'term-sessions', cb: (s: import('./terminal/types').SessionInfo[]) => void): () => void;
+  on(channel: 'term-settings', cb: (s: import('./terminal/types').TerminalSettings) => void): () => void;
+  on(channel: 'term-trigger', cb: (id: string, triggerId: string, line: string) => void): () => void;
+  on(channel: 'term-notes', cb: (key: string, text: string) => void): () => void;
+  on(channel: 'term-open', cb: (q: Record<string, string>) => void): () => void;
   on(channel: 'island-layout', cb: (p: import('./island-place').Placement) => void): () => void;
+  on(channel: 'link-changed', cb: () => void): () => void;
+  on(channel: 'screen-ask', cb: (a: { id: string; name: string; control: boolean }) => void): () => void;
+  on(channel: 'screen-signal', cb: (sid: string, m: Record<string, unknown>) => void): () => void;
+  on(channel: 'screen-ended', cb: (sid: string, reason: string) => void): () => void;
+  on(channel: 'screen-android-progress', cb: (fraction: number) => void): () => void;
+  on(channel: 'link-transfer', cb: (p: import('./api-link').LinkTransfer) => void): () => void;
+  on(channel: 'link-pair', cb: (p: import('./api-link').PairPrompt) => void): () => void;
+  on(channel: 'link-offer', cb: (o: import('./api-link').FileOffer) => void): () => void;
+  on(channel: 'link-companion', cb: (c: { id: string; name: string }) => void): () => void;
 }

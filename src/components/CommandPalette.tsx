@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // The command palette: jump anywhere or run any action by typing a few letters.
 
+import { useCommandFilter } from '../features';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { THEMES } from '../../core/themes';
 import { api } from '../api';
@@ -80,6 +81,9 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     ...PAGES.map(([route, label, icon, kbd]) => ({ id: `go-${label}`, label, group: 'Go to' as const, icon, kbd, run: () => store.go(route) })),
     { id: 'browse', label: 'Browse Home Folder', group: 'Go to', icon: 'folder', run: () => store.go({ name: 'browse', arg: store.info?.home }) },
     { id: 'rescan', label: 'Rescan Library', group: 'Actions', icon: 'refresh', keywords: 'index refresh reload', run: async () => { await api.library.rescan(); store.toast('Reading your folders…'); } },
+    { id: 'terminal', label: 'Terminal', group: 'Actions', icon: 'terminal', keywords: 'shell console command line ssh sftp tabs panes', run: () => store.go({ name: 'terminal' }) },
+    { id: 'terminal-window', label: 'New Terminal Window', group: 'Actions', icon: 'terminal', keywords: 'shell console', run: () => void api.terminal.openWindow() },
+    { id: 'terminal-quick', label: 'Drop-down Terminal', group: 'Actions', icon: 'terminal', keywords: 'quake shell console', run: () => void api.terminal.toggleQuick() },
     { id: 'look', label: 'Switch Theme (last two used)', group: 'Actions', icon: 'palette', kbd: `${mod}${shift}T`, keywords: 'theme look colour color playful minimal', run: () => store.settings && store.updateSettings(toggleThemePatch(store.settings)) },
     ...THEMES.map((t) => ({ id: `theme-${t.id}`, label: `Theme: ${t.name}`, group: 'Actions' as const, icon: 'palette', typed: true, keywords: `theme look ${t.tags.join(' ')}`, run: () => store.settings && store.updateSettings(themePatch(store.settings, t.id)) })),
     { id: 'hidden-files', label: store.settings?.showHidden ? 'Hide Hidden Files' : 'Show Hidden Files', group: 'Actions', icon: store.settings?.showHidden ? 'eyeOff' : 'eye', kbd: `${mod}${shift}.`, keywords: 'dot files dotfiles invisible show hide', run: () => store.settings && store.updateSettings({ showHidden: !store.settings.showHidden }) },
@@ -108,10 +112,13 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     { id: 'shelf-clear', label: 'Clear the Shelf', group: 'Actions', icon: 'island', run: async () => { await api.island.clearShelf(); } },
   ], [store]);
 
+  const allowed = useCommandFilter();
   const looksLikeSearch = text.trim().length > 1;
   const results = useMemo(() => {
     const q = text.trim();
     const scored = commands
+      // Commands of features that are off are not offered.
+      .filter((c) => allowed(c.id))
       .map((c) => ({ c, s: q ? Math.max(fuzzyScore(c.label, q), fuzzyScore(c.keywords ?? '', q) - 10) : 0 }))
       .filter((x) => x.s >= 0 && (q || !x.c.typed))
       .sort((a, b) => b.s - a.s)
@@ -120,7 +127,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     // A strong command match goes first; otherwise searching files does.
     const commandFirst = /^(theme|look)\b/i.test(q) && scored.some((c) => c.id.startsWith('theme-'));
     return q && scored.length && (commandFirst || fuzzyScore(scored[0].label, q) >= 90) ? [...scored, ...search] : [...search, ...scored];
-  }, [commands, text, looksLikeSearch, store]);
+  }, [commands, text, looksLikeSearch, store, allowed]);
 
   useEffect(() => setIndex(0), [text]);
   useEffect(() => {

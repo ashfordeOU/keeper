@@ -373,6 +373,8 @@ export function useFileMenu() {
     ...(state.file.text ? [{ label: 'Copy Text in Image', icon: 'text', kbd: `${shift}${mod}C`, run: () => void copyFullText(state.file) }] : []),
     { label: 'Add to Shelf', icon: 'island', run: () => void api.island.addToShelf(sel) },
     { label: store.info?.platform === 'darwin' ? 'Share… (AirDrop, Mail, Messages)' : 'Share…', icon: 'share', run: () => void api.places.share(sel).then((r) => { if (r.message) store.toast(r.message); }) },
+    // Your other computers (Keeper Link) and Android phones; handled by the Send sheet on every page.
+    { label: 'Send to Device…', icon: 'send', run: () => window.dispatchEvent(new CustomEvent('keeper-send-to', { detail: sel })) },
     { label: 'Pin to Sidebar', icon: 'pin', run: () => {
       const dir = state.file.path.slice(0, state.file.path.length - state.file.name.length - 1);
       if (store.settings && !store.settings.pinned.includes(dir)) void store.updateSettings({ pinned: [...store.settings.pinned, dir] });

@@ -45,14 +45,32 @@ import { registerPlacesIpc } from './ipc/places';
 import { registerPlatformIpc } from './ipc/platform';
 import { handlePlatformArgv, handlePlatformUrl, initPlatform, platformLibraryChanged, startedForSearch, stopPlatform } from './services/platform';
 import { registerLockIpc } from './ipc/lock';
+import { registerLinkIpc } from './ipc/link';
+import { linkNode, stopLink } from './services/link';
+import { connectionFs, list as remoteConnections } from './services/remote';
+import { attachConnections, attachTransport } from './services/sync';
+import { linkTransport } from './services/sync/link-adapter';
+import { storeFromRemoteFs } from './services/sync/remote-adapter';
+import { registerRemoteIpc } from './ipc/remote';
+import { stopRemote } from './services/remote';
+import { openTerminalWindow, registerTerminalIpc, stopTerminal } from './ipc/terminal';
 import { registerBrainIpc } from './ipc/brain';
 import { brainSettingsChanged, startBrain, stopBrain, syncBrain } from './services/brain';
+import { registerAgentsIpc } from './ipc/agents';
+import { agentSettingsChanged, record as recordUsage, startAgents, stopAgents } from './services/agents';
+import { normalizeAgentSettings } from '../core/agents-config';
 import { applyWaylandSwitch } from './services/island-place';
 import { registerProcsIpc } from './ipc/procs';
+import { registerNetIpc } from './ipc/net';
+import { registerSyncIpc } from './ipc/sync';
+import { stopSync } from './services/sync';
+import { loopbackFromEnv } from './services/sync/loopback';
 import { pendingOnQuit, relockOnQuit } from './services/lock';
 import { remoteFolders } from './services/places';
 import { emptyAndBroken, removeBrokenLink } from './services/tools';
-import { readFinderTags } from '../core/platform';
+import { readDownloadSources, readFinderTags } from '../core/platform';
+import { conditions, pace, poll, startGovernor, usage, whenIdle } from './services/governor';
+import { applyPreset, featureOn, listFeatures, onFeature, onFeaturesChanged, setFeature } from './services/features';
 import { getSecret, hasSecret, onSettings, setSecret, settings, updateSettings } from './store';
 
 void squarify; // the interface lays out the Space Map; kept for the CLI's future text treemap
@@ -137,9 +155,24 @@ function createMain() {
       e.preventDefault();
       main?.hide();
       if (isMac) app.dock?.hide();
+      releaseMainLater();
     }
   });
+  main.on('show', () => clearTimeout(releaseTimer));
   main.on('closed', () => (main = null));
+}
+
+// A window closed to the tray keeps its page in memory for a while so it reopens
+// instantly; after that the page is let go (about 150 MB) and Keeper reopens it
+// where you were, in about a second. Performance mode keeps it.
+let releaseTimer: NodeJS.Timeout | undefined;
+function releaseMainLater() {
+  clearTimeout(releaseTimer);
+  const mode = settings().resourceMode ?? 'balanced';
+  if (mode === 'performance') return;
+  releaseTimer = setTimeout(() => {
+    if (main && !main.isDestroyed() && !main.isVisible()) main.destroy();
+  }, (mode === 'minimal' ? 2 : 15) * 60_000);
 }
 
 function showMain(route?: string) {
@@ -252,6 +285,7 @@ async function updateTray() {
     { type: 'separator' },
     { label: 'Open Keeper', click: () => showMain() },
     { label: 'Quick Search', accelerator: settings().quickSearchShortcut, click: toggleQuick },
+    { label: 'Terminal', click: () => openTerminalWindow() },
     { label: 'Copy Text from Screen', accelerator: settings().island.captureShortcut, click: () => void doCapture() },
     { label: 'Take Screenshot', submenu: [
       { label: 'Area…', click: () => quietly(() => screenshot('area')) },
@@ -291,17 +325,18 @@ function registerShortcuts() {
       /* invalid or taken */
     }
   };
-  reg(s.quickSearchShortcut, toggleQuick);
-  reg(s.platform?.askShortcut, () => askKeeper());
-  reg(s.island.captureShortcut, () => void doCapture());
+  // A feature that is off gives its shortcut back to the system.
+  if (featureOn('quickSearch')) reg(s.quickSearchShortcut, toggleQuick);
+  if (featureOn('assistant')) reg(s.platform?.askShortcut, () => askKeeper());
+  if (featureOn('capture')) reg(s.island.captureShortcut, () => void doCapture());
   let dictating = false;
-  reg(s.island.dictationShortcut, () => {
+  if (featureOn('dictation')) reg(s.island.dictationShortcut, () => {
     if (!islandWindows.count()) return;
     dictating = !dictating;
     islandWindows.send('event:dictation', dictating ? 'start' : 'stop');
   });
-  registerIslandShortcuts();
-  void registerCaptureShortcuts();
+  if (featureOn('island')) registerIslandShortcuts();
+  if (featureOn('capture')) void registerCaptureShortcuts();
 }
 
 async function doCapture() {
@@ -333,6 +368,8 @@ function handleDeepLink(url: string) {
     else if (action === 'color') quietly(() => colorPick());
     else if (action === 'quick') toggleQuick();
     else if (action === 'clean') showMain('cleanup');
+    // keeper://terminal?cwd=/path opens the Terminal window in a folder.
+    else if (action === 'terminal') openTerminalWindow(u.searchParams.get('cwd') ? { cwd: u.searchParams.get('cwd')! } : {});
     else if (action === 'awake') islandSvc.keepAwake(u.searchParams.get('on') !== 'false', { minutes: Number(u.searchParams.get('minutes')) || undefined });
     else showMain(action || undefined);
   } catch {
@@ -356,7 +393,13 @@ app.on('second-instance', (_e, argv) => {
 
 function makeIndex(s: AllSettings) {
   const folders = s.folders.filter((f) => existsSync(f)).map((f) => ({ path: f, label: path.basename(f) }));
-  return new FileIndex(path.join(app.getPath('userData'), 'index.json'), folders, s.excluded, { readSource: readDownloadSource, readTags: process.platform === 'darwin' ? readFinderTags : undefined });
+  // Looked up each time, so "Where downloads came from" can be switched off and on.
+  const hooks = {
+    get readSource() { return featureOn('sources') ? readDownloadSource : undefined; },
+    get readSources() { return featureOn('sources') ? readDownloadSources : undefined; },
+    readTags: process.platform === 'darwin' ? readFinderTags : undefined,
+  };
+  return new FileIndex(path.join(app.getPath('userData'), 'index.json'), folders, s.excluded, hooks);
 }
 
 async function rescan() {
@@ -688,13 +731,18 @@ function registerIpc() {
   handle('files.browse', (dir: string, hidden?: boolean) => files.browse(dir, hidden));
   handle('files.thumbnail', (p: string, size: number) => files.thumbnail(p, size));
   handle('files.icon', (p: string) => files.icon(p));
-  handle('files.open', (p: string) => files.open(p));
+  // Usage learning (off unless turned on) notes opens, moves and trashes made in Keeper.
+  handle('files.open', (p: string) => { recordUsage({ type: 'open', path: p }); return files.open(p); });
   handle('files.openWith', (p: string) => files.openWith(p));
   handle('files.reveal', (p: string) => files.reveal(p));
   handle('files.copyPaths', (paths: string[]) => files.copyPaths(paths));
   handle('files.copyText', (t: string) => files.copyText(t));
-  handle('files.trash', (paths: string[], title?: string) => files.trash(paths, title));
-  handle('files.move', (paths: string[], dir: string) => files.move(paths, dir));
+  handle('files.trash', (paths: string[], title?: string) => { for (const p of paths) recordUsage({ type: 'trash', path: p }); return files.trash(paths, title); });
+  handle('files.move', async (paths: string[], dir: string) => {
+    const r = await files.move(paths, dir);
+    for (const op of journal.get(r.journalId ?? '')?.ops ?? []) if (op.type === 'move' && op.to) recordUsage({ type: 'move', from: op.from, to: op.to });
+    return r;
+  });
   handle('files.copy', (paths: string[], dir: string) => files.copy(paths, dir));
   handle('files.rename', (p: string, name: string) => files.rename(p, name));
   handle('files.previewRename', (paths: string[], steps: never) => files.previewRename(paths, steps));
@@ -780,6 +828,17 @@ function registerIpc() {
     return { restored: res.restored, failed: res.failed.concat(trashed.length ? [`${trashed.length} item(s) are in the Trash — put them back from there`] : []) };
   });
 
+  handle('usage.get', () => usage());
+  handle('features.list', () => listFeatures());
+  handle('features.set', (id: string, on: boolean) => setFeature(id, on));
+  handle('features.preset', (id: Parameters<typeof applyPreset>[0]) => applyPreset(id));
+  onFeaturesChanged(() => {
+    broadcast('features-changed');
+    // Shortcuts of features that went off are released; ones that came on are taken.
+    registerShortcuts();
+  });
+  // Quick Search off: its window goes too (it is made again on first use).
+  onFeature('quickSearch', (on) => { if (!on && quick && !quick.isDestroyed()) { quick.destroy(); quick = null; } });
   handle('ai.ask', async (history: AiMessage[]) => {
     const s = settings();
     const d = (await disks()).find((x) => x.system);
@@ -817,6 +876,8 @@ function registerIpc() {
 // ---------------------------------------------------------------- start
 
 app.whenReady().then(async () => {
+  // Decides when background work runs and how often regular checks look (battery, idle, locked screen).
+  startGovernor();
   // Local files for previews and the music player: read-only, seekable, only from allowed places.
   registerFileProtocol();
   registerPreviewIpc();
@@ -826,7 +887,10 @@ app.whenReady().then(async () => {
   index = makeIndex(s);
   journal = new Journal(path.join(app.getPath('userData'), 'history.json'));
   files = new FileService(index, journal, libraryChanged);
-  vision = new VisionQueue(index, () => ({ ocr: settings().ocrEnabled, langs: settings().ocrLanguages }), libraryChanged);
+  vision = new VisionQueue(index, () => ({ ocr: settings().ocrEnabled && featureOn('ocr'), text: featureOn('docText'), langs: settings().ocrLanguages }), libraryChanged);
+  // Switching text reading on later catches up on what was skipped.
+  for (const f of ['ocr', 'docText'] as const) onFeature(f, (on) => { if (on && index) vision.schedule(index.all()); });
+  onFeature('sources', (on) => { if (on && index) void index.enrichSources().then(() => index.saveSoon()); });
   islandSvc = new IslandService(index, () => broadcast('island-changed'));
   registerIpc();
   registerIslandIpc({
@@ -861,8 +925,51 @@ app.whenReady().then(async () => {
     setRemoteExclusions: (paths) => { index.excluded = [...new Set([...settings().excluded, ...paths])]; },
   });
   registerLockIpc({ broadcast, changed: libraryChanged });
+  // Remote screens over Link: view and control other devices, phones, Wake-on-LAN (attaches once Link is up).
+  // Keeper Link: paired devices, the phone companion and the tunnel.
+  void registerLinkIpc({ broadcast, show: (route) => showMain(route) })
+    .then(() => {
+      // Folder sync runs over Link once it is up (each device allows "sync" per device in Devices).
+      const n = linkNode();
+      if (n && !process.env.KEEPER_SYNC_LOOPBACK) void attachTransport(linkTransport(n), 'link');
+    })
+    .catch(() => undefined);
+  // Backups and mirrors to cloud services and servers go through Keeper's connections.
+  const syncConnections = () => attachConnections(
+    async (id) => storeFromRemoteFs(await connectionFs(id), remoteConnections().connections.find((c) => c.id === id)?.name ?? id),
+    () => {
+      const { connections, status } = remoteConnections();
+      return connections.map((c) => ({ kind: 'connection' as const, id: c.id, label: c.name, detail: c.device === 'nas' ? 'nas' : c.kind === 'rclone' ? 'cloud' : c.device ?? c.kind, online: status.find((s) => s.id === c.id)?.state !== 'offline' }));
+    },
+  );
+  // Cloud & servers: cloud services, servers, home servers and other computers.
+  void registerRemoteIpc({ broadcast, thumbnail: (p, size) => files.thumbnail(p, size) });
   registerBrainIpc();
+  registerAgentsIpc();
   registerProcsIpc();
+  registerNetIpc({ alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }) });
+  // Sync, backups and mirrors. Keeper Link and cloud connections attach when they are ready
+  // (attachTransport / attachConnections); KEEPER_SYNC_LOOPBACK is for tests only.
+  void registerSyncIpc({
+    userData: app.getPath('userData'),
+    broadcast,
+    transport: () => {
+      const t = loopbackFromEnv();
+      return t ? { transport: t, kind: 'loopback' } : { transport: null, kind: 'none', message: 'Pair another device in Devices to sync folders between them.' };
+    },
+    whenIdle: (k) => whenIdle(k),
+    pace: (k) => pace(k),
+    poll: (name, everyMs, fn) => poll(name, { baseMs: everyMs, idleFactor: 2 }, fn, { now: false }),
+    onBattery: () => conditions().onBattery,
+    idleSeconds: () => conditions().idleSec,
+  }).then(syncConnections);
+  // The terminal: sessions live in a separate host process so they outlive the window.
+  registerTerminalIpc({
+    preload: path.join(__dirname, 'preload.cjs'),
+    alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }),
+    getSecret,
+    setSecret,
+  });
   registerCaptureIpc({
     preload: capturePreload(),
     langs: () => settings().ocrLanguages,
@@ -882,12 +989,31 @@ app.whenReady().then(async () => {
   });
 
   // The window opens straight away; the saved library fills it in a moment later.
-  createMain();
+  // Started at login to sit in the tray: the window's page loads only when it is first opened.
+  if (!process.argv.includes('--hidden') || settings().resourceMode === 'performance') createMain();
   await index.load();
   registerPlatformIpc({ ask: askKeeper });
-  void initPlatform({ index: () => index, showMain, ask: askKeeper });
+  const platformDeps = { index: () => index, showMain, ask: askKeeper };
+  onFeature('platform', (on) => (on ? void initPlatform(platformDeps) : stopPlatform()), { now: true });
+  onFeature('widgets', () => syncWidgets());
   // The brain reads passages and serves AI apps once the saved library is in.
-  void startBrain({ index: () => index, broadcast });
+  void startBrain({ index: () => index, broadcast }).then(() => startAgents({
+    // AI agents: actions behind permissions, the model gateway, skills, learning and the knowledge graph.
+    index: () => index, journal: () => journal, files: () => files, broadcast, changed: libraryChanged,
+    alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }),
+    runRule: async (id) => {
+      const r = settings().rules.find((x) => x.id === id);
+      if (!r) throw new Error('No automation with that id');
+      return runRule(r);
+    },
+    focus: (action, minutes) => void islandSvc.focusAction(action, minutes),
+    setTags: (p, tags) => { index.setTags(p, tags); syncFinderTags(p, index.files.get(p)?.tags ?? []); },
+    openTerminal: (o) => {
+      openTerminalWindow();
+      // A window that was closed needs a moment to load before it takes the command.
+      setTimeout(() => openTerminalWindow({ ...(o.cwd ? { cwd: o.cwd } : {}), run: o.run, title: o.title ?? '' }), 1200);
+    },
+  }));
   libraryChanged();
   createIsland();
   syncWidgets();
@@ -900,12 +1026,14 @@ app.whenReady().then(async () => {
   if (link) handleDeepLink(link);
   else handlePlatformArgv(process.argv);
 
-  setInterval(() => void rescan(), 30 * 60_000);
-  setInterval(() => void runEnabledRules(), 60 * 60_000);
+  // File changes in watched folders arrive at once; this full re-read catches the rest.
+  poll('library.rescan', { baseMs: 30 * 60_000, idleFactor: 2 }, async () => { await whenIdle('scan'); await rescan(); }, { now: false });
+  poll('rules.run', { baseMs: 60 * 60_000, idleFactor: 1 }, () => runEnabledRules(), { now: false, feature: 'rules' });
   setTimeout(() => void runEnabledRules(), 5 * 60_000);
 
   onSettings((next, prev) => {
     if (JSON.stringify(next.brain) !== JSON.stringify(prev.brain)) void brainSettingsChanged(next.brain, prev.brain);
+    if (JSON.stringify(next.agents) !== JSON.stringify(prev.agents)) void agentSettingsChanged(normalizeAgentSettings(next.agents), normalizeAgentSettings(prev.agents));
     if (next.folders.join() !== prev.folders.join() || next.excluded.join() !== prev.excluded.join() || next.showHidden !== prev.showHidden || next.includeRemote !== prev.includeRemote) {
       index.folders = next.folders.filter(existsSync).map((f) => ({ path: f, label: path.basename(f) }));
       index.excluded = next.includeRemote ? next.excluded : [...new Set([...next.excluded, ...remoteFolders()])];
@@ -939,7 +1067,12 @@ app.on('before-quit', (e) => {
   quitting = true;
   installOnQuitIfReady();
   stopPlatform();
+  void stopRemote();
+  void stopAgents();
   stopBrain();
+  void stopTerminal();
+  stopSync();
+  void stopLink();
   globalShortcut.unregisterAll();
   vision?.stop();
   islandSvc?.stop();

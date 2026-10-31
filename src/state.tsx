@@ -14,7 +14,7 @@ import { formatBytes } from '../core/format';
 export type RouteName =
   | 'home' | 'recents' | 'library' | 'screenshots' | 'search' | 'browse' | 'downloads' | 'source' | 'tag' | 'saved'
   | 'duplicates' | 'cleanup' | 'space' | 'large' | 'startup' | 'apps' | 'protection' | 'rules' | 'history'
-  | 'assistant' | 'island' | 'settings' | 'tools' | 'health' | 'capture' | 'annotate' | 'convert' | 'widgets' | 'weather' | 'network' | 'trash';
+  | 'assistant' | 'island' | 'settings' | 'tools' | 'health' | 'capture' | 'annotate' | 'convert' | 'widgets' | 'weather' | 'network' | 'trash' | 'remote' | 'terminal' | 'sync' | 'devices' | 'netactivity' | 'vpn' | 'agents' | 'graph';
 
 export interface Route {
   name: RouteName;

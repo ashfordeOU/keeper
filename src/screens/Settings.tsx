@@ -9,6 +9,8 @@ import { useStore } from '../state';
 import { Row } from './IslandSettings';
 import { LanguageRow, LoginRow } from './SettingsMore';
 import { UpdatesPanel, WhatsNewHover } from '../components/Updates';
+import { UsagePanel } from '../components/UsagePanel';
+import { FeaturesPanel, SidebarPanel } from '../components/FeaturesPanel';
 import { LockedFoldersPanel } from '../components/LockDialog';
 import { BrainSettingsPanel } from '../components/BrainPanel';
 import { PlatformIntegrations } from '../components/PlatformIntegrations';
@@ -46,6 +48,17 @@ export function Settings() {
         </Row>
         <ThemeTweaks />
         <LanguageRow />
+      </div>
+
+      <h2 id="features" style={{ margin: '18px 0 8px' }}>Features</h2>
+      <div className="card settings-section" style={{ padding: 16 }}>
+        <div className="small muted" style={{ marginBottom: 12 }}>Switch off what you do not use: it stops completely, with no windows, timers or work in the background, and leaves the sidebar and menus.</div>
+        <FeaturesPanel />
+      </div>
+
+      <h2 id="sidebar" style={{ margin: '18px 0 8px' }}>Sidebar</h2>
+      <div className="card settings-section" style={{ padding: 16 }}>
+        <SidebarPanel />
       </div>
 
       <h2 style={{ margin: '18px 0 8px' }}>{t('settings.library')}</h2>
@@ -115,6 +128,11 @@ export function Settings() {
       <h2 id="platform" style={{ margin: '18px 0 8px' }}>Works with your computer</h2>
       <div className="card settings-section" style={{ padding: 0 }}>
         <PlatformIntegrations />
+      </div>
+
+      <h2 id="usage" style={{ margin: '18px 0 8px' }}>Keeper’s own usage</h2>
+      <div className="card settings-section" style={{ padding: 16 }}>
+        <UsagePanel />
       </div>
 
       <h2 id="updates" style={{ margin: '18px 0 8px' }}>{t('settings.updates')}</h2>

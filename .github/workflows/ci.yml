@@ -55,3 +55,8 @@ jobs:
           HOME=$(mktemp -d) timeout 20 xvfb-run -a release/linux-unpacked/keeper --no-sandbox --disable-gpu > app.log 2>&1 || code=$?
           # 124 = still running when the timer stopped it, which is what we want.
           if [ "${code:-0}" != "124" ]; then cat app.log; exit 1; fi
+      - name: Keeper stays light (idle processor and memory budget, Linux)
+        if: runner.os == 'Linux'
+        run: |
+          npm install --no-save playwright-core@1.63.0
+          xvfb-run -a -s "-screen 0 1440x900x24" node test/e2e/perf-budget.cjs

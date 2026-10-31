@@ -405,6 +405,10 @@ export interface Settings {
   ai: { provider: AiProvider; model: string; ollamaUrl: string };
   /** Keeper's brain: the passage index, meaning search, the AIs it works with and the apps it serves */
   brain: import('./brain/config').BrainSettings;
+  /** AI agents: what they may do, the model gateway, agent-to-agent, skills, learning */
+  agents: import('./agents-config').AgentSettings;
+  /** sync between your devices, backups and mirrors */
+  sync: import('./sync/config').SyncSettings;
   /** desktop widgets (see core/widgets.ts) */
   widgets: import('./widgets').WidgetConfig[];
   /** check for new releases on GitHub once a day */
@@ -414,6 +418,14 @@ export interface Settings {
   updateMode: 'auto' | 'ask' | 'off';
   /** also offer pre-release (beta) versions */
   updateBeta: boolean;
+  /** how much of the computer Keeper's background work may use (see core/governor.ts) */
+  resourceMode: import('./governor').ResourceMode;
+  /** features switched away from their default (see core/features.ts) */
+  features: Record<string, boolean>;
+  /** sidebar entries the person hid, by id ("section:tidy", "nav:health") */
+  sidebarHidden: string[];
+  /** sidebar sections in the person's order, by id */
+  sidebarOrder: string[];
   /** the version that ran last, to show "What's new" once after an update */
   lastRunVersion: string;
   /** when a downloaded update goes in (null = the default for the update mode) */

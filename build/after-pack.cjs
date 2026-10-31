@@ -59,5 +59,22 @@ exports.default = async function afterPack(context) {
   // The PDF library's optional canvas is only used for drawing pages in Node; Keeper draws them in a window.
   drop(path.join(mods, '@napi-rs'));
 
+  // Terminal: only this system's pseudo-terminal binaries; sources and debug symbols are not needed to run.
+  const pty = path.join(mods, 'node-pty');
+  if (fs.existsSync(pty)) {
+    const pre = path.join(pty, 'prebuilds');
+    if (fs.existsSync(pre)) for (const d of fs.readdirSync(pre)) if (d !== `${platform}-${arch}`) drop(path.join(pre, d));
+    for (const d of ['src', 'deps', 'third_party', 'scripts', 'typings', 'node-addon-api', path.join('build', 'Release', 'obj.target'), path.join('build', 'Release', '.deps')]) drop(path.join(pty, d));
+    const walk = (dir) => {
+      if (!fs.existsSync(dir)) return;
+      for (const f of fs.readdirSync(dir)) {
+        const p = path.join(dir, f);
+        if (fs.statSync(p).isDirectory()) walk(p);
+        else if (/\.(pdb|map|cc|h|gyp|mk|o|d)$/.test(f) || /\.test\.js$/.test(f)) drop(p);
+      }
+    };
+    walk(pty);
+  }
+
   console.log(`  • after-pack: removed ${(freed / 1024 / 1024).toFixed(0)} MB of files for other systems`);
 };

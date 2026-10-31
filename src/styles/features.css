@@ -1,0 +1,24 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Settings → Features and Sidebar */
+.feature-presets { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
+.feature-preset { display: flex; flex-direction: column; gap: 3px; text-align: left; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--text); cursor: default; font: inherit; }
+.feature-preset:hover { border-color: var(--accent); }
+.feature-preset.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--bg)); }
+.feature-search { display: flex; align-items: center; gap: 8px; margin: 14px 0 4px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
+.feature-search input { flex: 1; border: 0; outline: 0; background: none; color: var(--text); font: inherit; }
+.feature-group { margin-top: 14px; }
+.feature-group-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--text-3); padding: 0 2px 4px; }
+.feature-row { display: flex; gap: 12px; align-items: center; padding: 10px 2px; border-top: 1px solid var(--line); }
+.feature-row.off .feature-name { color: var(--text-2); }
+.feature-name { font-weight: 600; }
+.feature-cost { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 3px; color: var(--text-3); }
+.cost-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 2px; background: var(--text-3); }
+.cost-dot.none { background: #22c55e; }
+.cost-dot.low { background: #84cc16; }
+.cost-dot.medium { background: #f59e0b; }
+.cost-dot.high { background: #ef4444; }
+.warn-text { color: #b45309; margin-top: 3px; }
+:root[data-theme='dark'] .warn-text, .dark .warn-text { color: #fbbf24; }
+.sidebar-custom-row { display: flex; align-items: center; gap: 8px; padding: 6px 2px; border-bottom: 1px solid var(--line); }
+.sidebar-custom-row .sec-dot { width: 8px; height: 8px; border-radius: 3px; flex: none; }
+.chip { display: inline-flex; align-items: center; gap: 4px; margin: 2px; padding: 2px 8px; border-radius: 99px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font: inherit; font-size: 12px; }

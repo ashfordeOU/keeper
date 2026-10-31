@@ -17,6 +17,7 @@ import {
 } from '../../core/convert';
 import type { ConvertCapabilities, ConvertJob, ConvertOp, ConvertResult, Corner, HashAlgo } from '../../core/convert-types';
 import { formatBytes } from '../../core/format';
+import { lowerPriority } from './governor';
 import { decryptPdf, encryptPdf } from '../../core/pdfcrypt';
 
 type Sharp = typeof import('sharp');
@@ -63,6 +64,8 @@ function which(cmd: string): Promise<string | null> {
 function run(cmd: string, args: string[], onLine?: (line: string) => void): Promise<{ code: number; stderr: string; stdout: string }> {
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, args, { windowsHide: true });
+    // Conversions use the processor fully, but give way to whatever the person is doing.
+    lowerPriority(child);
     let stderr = '';
     let stdout = '';
     let buf = '';

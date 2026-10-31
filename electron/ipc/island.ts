@@ -2,6 +2,7 @@
 // The Island's windows (one per display when asked), the clipboard picker,
 // desktop widgets, their shortcuts and IPC.
 
+import { featureOn } from '../services/features';
 import { app, BrowserWindow, dialog, globalShortcut, ipcMain, powerMonitor, screen, type WebContents } from 'electron';
 import { promises as fsp } from 'node:fs';
 import path from 'node:path';
@@ -283,7 +284,8 @@ function openWidget(cfg: WidgetConfig) {
 
 /** Opens, updates and closes widget windows to match settings. */
 export function syncWidgets() {
-  const list = normalizeWidgets(settings().widgets);
+  // Desktop widgets switched off in Settings → Features: every widget window closes.
+  const list = featureOn('widgets') ? normalizeWidgets(settings().widgets) : [];
   for (const [id, w] of widgetWins) {
     if (!list.some((x) => x.id === id)) {
       if (!w.isDestroyed()) w.destroy();

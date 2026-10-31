@@ -6,7 +6,7 @@ import { execFile } from 'node:child_process';
 import { promises as fsp } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { parseMdlsWhereFroms, parseZoneIdentifier, sourceFromUrls } from './sources';
+import { parseGetfattrHex, parseMdlsWhereFroms, parseZoneIdentifier, sourceFromUrls, splitMdlsRaw } from './sources';
 import type { DownloadSource } from './types';
 import type { TargetEnv } from './cleanup/targets';
 import type { IndexFolder } from './indexer';
@@ -47,6 +47,53 @@ export async function readDownloadSource(p: string): Promise<DownloadSource | un
   if (!url.ok || !url.stdout.trim()) return undefined;
   const ref = await attr('user.xdg.referrer.url');
   return sourceFromUrls([url.stdout.trim(), ref.ok ? ref.stdout.trim() : undefined]);
+}
+
+export interface FileOrigin {
+  source?: DownloadSource;
+  /** macOS Finder tags */
+  tags?: string[];
+}
+
+function parseMdlsTags(raw: string): string[] | undefined {
+  const tags = [...raw.matchAll(/"?([^",()\n]+?)"?\s*(?:,|\n|$)/g)].map((m) => m[1].trim()).filter((t) => t && t !== '(null)');
+  return tags.length ? tags : undefined;
+}
+
+/**
+ * Where many files came from, in one helper call per batch instead of one per
+ * file: on a first scan of 20,000 files that is about 100 processes, not 20,000.
+ */
+export async function readDownloadSources(paths: string[]): Promise<Map<string, FileOrigin>> {
+  const res = new Map<string, FileOrigin>();
+  if (!paths.length) return res;
+  if (process.platform === 'darwin') {
+    const r = await run('/usr/bin/mdls', ['-raw', '-name', 'kMDItemWhereFroms', '-name', 'kMDItemUserTags', ...paths], 30_000);
+    const rows = r.stdout ? splitMdlsRaw(r.stdout, paths.length, 2) : null;
+    if (!rows) {
+      // A file vanished or mdls changed its output: fall back to one at a time.
+      for (const p of paths) res.set(p, { source: await readDownloadSource(p), tags: await readFinderTags(p) });
+      return res;
+    }
+    rows.forEach(([from, tags], i) => res.set(paths[i], { source: parseMdlsWhereFroms(from), tags: parseMdlsTags(tags) }));
+    return res;
+  }
+  if (process.platform === 'win32') {
+    for (const p of paths) res.set(p, { source: await readDownloadSource(p) });
+    return res;
+  }
+  hasGetfattr ??= (await run('getfattr', ['--version'], 2000)).ok;
+  if (!hasGetfattr) return res;
+  const get = async (name: string, files: string[]) =>
+    parseGetfattrHex((await run('getfattr', ['--absolute-names', '-e', 'hex', '-n', name, '--', ...files], 30_000)).stdout, name);
+  const urls = await get('user.xdg.origin.url', paths);
+  if (!urls.size) return res;
+  const refs = await get('user.xdg.referrer.url', [...urls.keys()]);
+  for (const [p, url] of urls) {
+    const source = sourceFromUrls([url.trim(), refs.get(p)?.trim()]);
+    if (source) res.set(p, { source });
+  }
+  return res;
 }
 
 /** macOS Finder tags. */

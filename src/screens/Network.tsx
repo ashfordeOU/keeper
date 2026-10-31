@@ -8,6 +8,7 @@ import { formatBytes } from '../../core/format';
 import { parseServerAddress } from '../../core/places';
 import { api } from '../api';
 import { usePlaces } from '../components/PlacesSidebar';
+import { ConnectionDialog } from '../components/ConnectionDialog';
 import { Icon } from '../components/Icon';
 import { Empty, Modal, PageHead } from '../components/ui';
 import { useStore } from '../state';
@@ -76,6 +77,7 @@ export function Network() {
   const [servers, setServers] = useState<DiscoveredServer[] | null>(null);
   const [scanning, setScanning] = useState(false);
   const [connect, setConnect] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const scan = useCallback(async () => {
     setScanning(true);
@@ -95,6 +97,7 @@ export function Network() {
     <div>
       <PageHead title="Network" sub="Computers and storage on your network, and the shares you are connected to.">
         <button className="btn" disabled={scanning} onClick={() => void scan()}><Icon name="refresh" size={14} />{scanning ? 'Looking…' : 'Look again'}</button>
+        <button className="btn" onClick={() => setSaving(true)} title="Home servers, NAS boxes and computers: what each one is, its shared folders and external drives, saved in Cloud & Servers"><Icon name="plus" size={14} />Save a Connection…</button>
         <button className="btn primary" onClick={() => setConnect('')}><Icon name="server" size={14} />Connect to Server…</button>
       </PageHead>
 
@@ -137,6 +140,7 @@ export function Network() {
           Servers that announce themselves (most NAS boxes, Macs with file sharing on, Linux machines running Samba with Avahi) appear here. You can still connect to any address with Connect to Server.
         </Empty>
       )}
+      {saving ? <ConnectionDialog initialTab="network" onClose={() => setSaving(false)} /> : null}
       {connect !== null ? <ConnectDialog initial={connect} onClose={() => { setConnect(null); reload(); }} /> : null}
     </div>
   );

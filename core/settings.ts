@@ -3,6 +3,8 @@
 
 import type { IslandSettings } from './api';
 import { defaultBrainSettings, normalizeBrainSettings } from './brain/config';
+import { defaultAgentSettings, normalizeAgentSettings } from './agents-config';
+import { defaultSyncSettings, normalizeSyncSettings } from './sync/config';
 import { DEFAULT_PLATFORM } from './platform-integrations';
 import { DEFAULT_THEME, THEMES } from './themes';
 import type { Rule, Settings } from './types';
@@ -90,10 +92,16 @@ export function defaultSettings(folders: string[], rules: Rule[]): AllSettings {
     includeRemote: false,
     ai: { provider: 'anthropic', model: '', ollamaUrl: 'http://127.0.0.1:11434' },
     brain: defaultBrainSettings(),
+    agents: defaultAgentSettings(),
+    sync: defaultSyncSettings(),
     widgets: [],
     updateCheck: true,
     updateMode: 'auto',
     updateBeta: false,
+    resourceMode: 'balanced',
+    features: {},
+    sidebarHidden: [],
+    sidebarOrder: [],
     lastRunVersion: '',
     updatePlan: null,
     restorePlace: true,
@@ -130,5 +138,7 @@ export function mergeSettings(base: AllSettings, raw: unknown): AllSettings {
   if (!['theme', 'rounded', 'sharp'].includes(out.corners)) out.corners = 'theme';
   // Settings from before the brain had one AI choice; it becomes the active connection.
   out.brain = normalizeBrainSettings(r.brain && typeof r.brain === 'object' ? out.brain : undefined, out.ai);
+  out.sync = normalizeSyncSettings(out.sync, base.sync);
+  out.agents = normalizeAgentSettings(out.agents);
   return out;
 }

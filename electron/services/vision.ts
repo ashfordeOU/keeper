@@ -11,6 +11,7 @@ import { extractPdfText } from '../../core/convert';
 import { cameraName, readExif } from '../../core/exif';
 import type { FileIndex } from '../../core/indexer';
 import type { FileEntry } from '../../core/types';
+import { pace, track } from './governor';
 
 type TesseractWorker = { recognize(img: Buffer): Promise<{ data: { text: string } }>; terminate(): Promise<unknown> };
 
@@ -49,11 +50,33 @@ export async function loadImage(p: string, max = 2000): Promise<Electron.NativeI
   return scale < 1 ? img.resize({ width: Math.round(width * scale), height: Math.round(height * scale), quality: 'good' }) : img;
 }
 
+// The recognition engine and its language model take well over 100 MB; it is let
+// go a minute after the last picture and started again (in about a second) when needed.
+let releaseTimer: NodeJS.Timeout | undefined;
+let inFlight = 0;
+function releaseWorkerSoon() {
+  clearTimeout(releaseTimer);
+  releaseTimer = setTimeout(() => {
+    if (inFlight || !worker) return;
+    const w = worker;
+    worker = null;
+    workerLangs = '';
+    void w.then((x) => x.terminate()).catch(() => undefined);
+  }, 60_000);
+}
+
 export async function ocrImage(img: Electron.NativeImage | Buffer, langs: string[]): Promise<string> {
-  const w = await getWorker(langs);
-  const png = Buffer.isBuffer(img) ? img : img.toPNG();
-  const { data } = await w.recognize(png);
-  return data.text.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+  inFlight++;
+  clearTimeout(releaseTimer);
+  try {
+    const w = await getWorker(langs);
+    const png = Buffer.isBuffer(img) ? img : img.toPNG();
+    const { data } = await w.recognize(png);
+    return data.text.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+  } finally {
+    inFlight--;
+    releaseWorkerSoon();
+  }
 }
 
 // The system's own text recognition (Live Text on macOS, Windows.Media.Ocr),
@@ -82,7 +105,7 @@ export class VisionQueue {
   private stopped = false;
   pending = 0;
 
-  constructor(private index: FileIndex, private opts: () => { ocr: boolean; langs: string[] }, private onUpdate: () => void) {}
+  constructor(private index: FileIndex, private opts: () => { ocr: boolean; langs: string[]; text?: boolean }, private onUpdate: () => void) {}
 
   /** Queues work for files that have not been processed at their current version. */
   schedule(files: FileEntry[]) {
@@ -101,6 +124,8 @@ export class VisionQueue {
     const x = this.index.extras.get(f.path);
     const fresh = x && x.mtime === f.mtime;
     if (f.kind === 'image' && OCR_EXT.has(f.ext)) return !fresh || x!.dhash === undefined || (this.opts().ocr && x!.text === undefined && f.size < 40 * 1024 * 1024);
+    // "Text inside documents" switched off: documents are not read at all.
+    if (this.opts().text === false) return false;
     if (TEXT_EXT.has(f.ext) && f.size < 1024 * 1024) return !fresh || x!.text === undefined;
     if (f.ext === 'pdf' && f.size < 50 * 1024 * 1024) return !fresh || x!.text === undefined;
     return false;
@@ -111,28 +136,36 @@ export class VisionQueue {
     void worker?.then((w) => w.terminate()).catch(() => undefined);
   }
 
+  private task = track('vision', 'Reading text in documents and pictures', 'text');
 
   private async pump() {
     if (this.running) return;
     this.running = true;
-    let since = 0;
+    let told = Date.now();
     while (this.queue.length && !this.stopped) {
       const p = this.queue.shift()!;
       this.pending = this.queue.length;
       const f = this.index.files.get(p);
       if (!f) continue;
+      const ocr = f.kind === 'image';
+      this.task.set('working', { pending: this.pending, detail: ocr ? 'Recognising text in pictures' : 'Reading documents' });
+      // Waits on battery, when hot or busy, and leaves a gap between files so nothing feels slow.
+      await pace(ocr ? 'ocr' : 'text');
       try {
         await this.process(f);
       } catch {
         // Mark as done so a broken file is not retried forever.
         this.index.setExtra(f, { text: this.index.extras.get(p)?.text ?? '' });
       }
-      if (++since % 10 === 0) this.onUpdate();
-      // Yield between files so the main process stays snappy.
-      await new Promise((r) => setTimeout(r, 30));
+      // Search results refresh every few seconds while text arrives, not after every file.
+      if (Date.now() - told > 5000) {
+        told = Date.now();
+        this.onUpdate();
+      }
     }
     this.pending = 0;
     this.running = false;
+    this.task.set('idle', { pending: 0, detail: undefined });
     this.onUpdate();
     this.index.saveSoon();
   }

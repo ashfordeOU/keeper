@@ -153,6 +153,7 @@ button.nav-title:hover .nav-chevron, button.nav-title:focus-visible .nav-chevron
 .nav-section .nav-items > * { min-height: 0; }
 /* Icons in a section take its colour; the page you are on stays visible when its section is closed. */
 .nav-section[style] .nav-item > svg { color: color-mix(in srgb, var(--sec) 80%, var(--text-2)); }
+.nav-section:not(:has(.nav-item)) { display: none; }
 .nav-section.closed .nav-item:not(.active), .nav-section.closed .place-row:not(:has(.nav-item.active)) { display: none; }
 @media (prefers-reduced-motion: reduce) { .nav-chevron, .nav-section .nav-items { transition: none; } }
 .nav-item {

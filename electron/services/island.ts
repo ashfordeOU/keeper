@@ -29,6 +29,8 @@ import { hasImage, readFileList, readImage, readText, writeImage, writePaths, wr
 import { devicesState, frontmostApp, frontmostFullscreen, setBrightness, setMuted, setVolume, snapshot, touchDrive } from './devices';
 import { NotificationMirror } from './notify-mirror';
 import { uploadFile } from './upload';
+import { poll, pollNow } from './governor';
+import { featureOn, onFeature } from './features';
 
 /** Things the Island borrows from the rest of the app (set by electron/ipc/island.ts). */
 export interface IslandHooks {
@@ -75,6 +77,7 @@ export class IslandService {
   recording?: { since: number };
   private blocker: number | null = null;
   private timers: NodeJS.Timeout[] = [];
+  private stopPolls?: () => void;
   private watchers: FSWatcher[] = [];
   private lastClip = '';
   private lastImageSig = '';
@@ -86,32 +89,69 @@ export class IslandService {
 
   async start() {
     await this.load();
-    const every = (ms: number, fn: () => unknown) => {
-      const t = setInterval(() => void Promise.resolve(fn()).catch(() => undefined), ms);
-      this.timers.push(t);
-      void Promise.resolve(fn()).catch(() => undefined);
-    };
-    every(700, () => this.pollClipboard());
-    every(1000, () => this.tick());
-    every(5000, () => this.pollAgents());
-    every(process.platform === 'win32' ? 5000 : 2500, () => this.pollMedia());
-    every(15_000, () => this.checkAwake());
-    every(60_000, () => this.pollBattery());
-    every(60_000, () => this.refreshDevices());
-    every(5_000, () => this.housekeeping());
-    every(process.platform === 'win32' ? 5000 : 2500, () => this.checkFullscreen());
-    every(10_000, () => this.pollMic());
-    every(15 * 60_000, () => this.pollCalendar());
-    every(20 * 60_000, () => this.pollWeather());
-    await this.watchFolders();
+    // Every regular look goes through the governor: it slows down when nobody is at the
+    // computer, pauses while the screen is locked, and speeds up again on return.
+    const win = process.platform === 'win32';
+    const stops = [
+      poll('island.clipboard', { baseMs: 700, idleFactor: 4, pauseWhenLocked: true }, () => this.pollClipboard(), { feature: 'clipboard' }),
+      // Once a second only while a focus timer runs or music plays; otherwise break reminders need far less.
+      poll('island.tick', () => ({ baseMs: this.focus.mode !== 'idle' || this.playing?.playing ? 1000 : 15_000, idleFactor: this.focus.mode !== 'idle' ? 1 : 2 }), () => this.tick(), { feature: 'focus' }),
+      poll('island.agents', { baseMs: 5000, idleFactor: 3, pauseWhenLocked: true }, () => this.pollAgents(), { feature: 'agents' }),
+      poll('island.media', () => ({ baseMs: this.playing?.playing ? (win ? 5000 : 2500) : this.playing ? 10_000 : 15_000, idleFactor: this.playing?.playing ? 1.5 : 3, pauseWhenLocked: true }), () => this.pollMedia(), { feature: 'media' }),
+      // Keep-awake has to notice its end even while nobody touches the computer.
+      poll('island.awake', { baseMs: 15_000, idleFactor: 1 }, () => this.checkAwake(), { feature: 'keepAwake' }),
+      poll('island.battery', { baseMs: 120_000, idleFactor: 2, pauseWhenLocked: true }, () => this.pollBattery(), { feature: 'island' }),
+      poll('island.devices', { baseMs: 60_000, idleFactor: 3, pauseWhenLocked: true }, () => this.refreshDevices(), { feature: 'island' }),
+      poll('island.housekeeping', { baseMs: 10_000, idleFactor: 1 }, () => this.housekeeping(), { feature: 'island' }),
+      poll('island.fullscreen', () => ({ baseMs: settings().island.hideInFullscreen ? (win ? 5000 : 2500) : 60_000, idleFactor: 4, pauseWhenLocked: true }), () => this.checkFullscreen(), { feature: 'island' }),
+      poll('island.mic', { baseMs: 10_000, idleFactor: 3, pauseWhenLocked: true }, () => this.pollMic(), { feature: 'micIndicator' }),
+      poll('island.calendar', { baseMs: 15 * 60_000, idleFactor: 2, pauseWhenLocked: true }, () => this.pollCalendar(), { feature: 'calendar' }),
+      poll('island.weather', { baseMs: 20 * 60_000, idleFactor: 2, pauseWhenLocked: true }, () => this.pollWeather(), { feature: 'islandWeather' }),
+    ];
+    // Switching a part off in Settings → Features clears what it showed and stops what it holds.
+    const offs = [
+      onFeature('notifyMirror', (on) => { if (!on) this.mirror.stop(); }),
+      onFeature('keepAwake', (on) => { if (!on && this.awake.on) this.keepAwake(false); }),
+      onFeature('media', (on) => { if (!on && this.playing) { this.playing = undefined; this.lyrics = undefined; this.lastTrack = ''; this.emit(); } }),
+      onFeature('micIndicator', (on) => { if (!on && this.mic.length) { this.mic = []; this.emit(); } }),
+      onFeature('islandWeather', (on) => { if (!on && this.weather) { this.weather = undefined; this.emit(); } }),
+      onFeature('agents', (on) => { if (!on && this.agents.length) { this.agents = []; this.emit(); } }),
+      // The Downloads and screenshot folder watchers serve the Island's shelf and alerts.
+      onFeature('island', (on) => {
+        if (on) void this.watchFolders();
+        else { this.watchers.forEach((w) => w.close()); this.watchers = []; }
+      }),
+    ];
+    this.stopPolls = () => { stops.forEach((s) => s()); offs.forEach((o) => o()); };
+    // Plugging in or unplugging shows straight away.
+    powerMonitor.on('on-ac', () => pollNow('island.battery'));
+    powerMonitor.on('on-battery', () => pollNow('island.battery'));
+    if (featureOn('island')) await this.watchFolders();
   }
 
   stop() {
     this.timers.forEach(clearInterval);
+    this.stopPolls?.();
     this.mirror.stop();
     this.watchers.forEach((w) => w.close());
     if (this.blocker !== null) powerSaveBlocker.stop(this.blocker);
     void this.save();
+  }
+
+  /** events from Mail & Calendar (next to the calendar link's) */
+  pimEvents: CalendarEvent[] = [];
+  /** countdown timers from Alarms */
+  countdowns: NonNullable<IslandState['countdowns']> = [];
+
+  setPimEvents(evs: CalendarEvent[]) {
+    this.pimEvents = evs;
+    this.emit();
+  }
+
+  setCountdowns(t: NonNullable<IslandState['countdowns']>) {
+    if (JSON.stringify(t) === JSON.stringify(this.countdowns)) return;
+    this.countdowns = t;
+    this.emit();
   }
 
   state(): IslandState {
@@ -122,7 +162,7 @@ export class IslandService {
       shelf: views.find((v) => v.id === this.store.active)?.items ?? [], shelves: views, activeShelf: this.store.active,
       closedShelves: this.store.closed.map((c) => ({ id: c.id, name: c.name, color: c.color, count: c.items.length })),
       devices: this.devices, awakeTriggers: this.awakeTriggers, hidden: this.userHidden || this.fsHidden,
-      clips: this.clips.items, focus: this.focus, keepAwake: this.awake, agents: this.agents, events: this.events,
+      clips: this.clips.items, focus: this.focus, keepAwake: this.awake, agents: this.agents, events: [...this.events, ...this.pimEvents].sort((a, b) => a.start - b.start), countdowns: this.countdowns,
       nowPlaying: this.playing, lyrics: this.lyrics, weather: this.weather, battery: this.battery, micInUse: this.mic, camInUse: this.cam, alerts: this.alerts, breakIn, recording: this.recording,
     };
   }

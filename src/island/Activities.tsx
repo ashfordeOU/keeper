@@ -44,9 +44,27 @@ function useJobs(): ExtraInputs['jobs'] {
       // Locking ends with removing the originals; unlocking with decrypting.
       set(p.phase === 'decrypt' ? 'unlock' : 'lock', PHASE[p.phase] ?? p.phase, fraction, fraction >= 1 && (p.phase === 'remove' || p.phase === 'decrypt'));
     });
-    return () => { offP(); offL(); };
+    // Files going to or coming from another device (Keeper Link).
+    const offT = api.on('link-transfer', (t: { id: string; name: string; size: number; done: number; direction: 'send' | 'receive'; state: string; peer?: string }) => {
+      if (t.size < 256 * 1024 && t.state !== 'done') return;
+      set(t.direction === 'receive' ? 'download' : 'upload', `${t.name}${t.peer ? ` ${t.direction === 'receive' ? 'from' : 'to'} ${t.peer}` : ''}`, t.size ? t.done / t.size : 0, t.state === 'done' || t.state === 'failed' || t.state === 'cancelled');
+    });
+    return () => { offP(); offL(); offT(); };
   }, []);
   return useMemo(() => Object.values(jobs), [jobs]);
+}
+
+/** This screen being watched by another device or phone right now. */
+function useSharing(): NonNullable<ExtraInputs['sharing']> {
+  const [list, setList] = useState<NonNullable<ExtraInputs['sharing']>>([]);
+  useEffect(() => {
+    const apply = (s: { sessions: { id: string; role: string; state: string; peerName: string; control: boolean; started: number }[] }) =>
+      setList(s.sessions.filter((x) => x.role === 'host' && x.state !== 'ended').map((x) => ({ sid: x.id, name: x.peerName, control: x.control, since: x.started })));
+    // Filled in once remote screen sharing is part of this build.
+    void apply;
+    return undefined;
+  }, []);
+  return list;
 }
 
 /** Folders unlocked right now, refreshed when locks change. */
@@ -73,6 +91,7 @@ export interface IslandActivities {
 export function useActivities(state: IslandState | null, now: number, dictation: 'off' | 'on' | 'working', off: string[] = []): IslandActivities {
   const jobs = useJobs();
   const unlocked = useUnlocked();
+  const sharing = useSharing();
   const prev = useRef<IslandState | null>(null);
   const [transient, setTransient] = useState<Activity[]>([]);
 
@@ -91,11 +110,11 @@ export function useActivities(state: IslandState | null, now: number, dictation:
   return useMemo(() => {
     if (!state) return { pres: { more: 0 }, all: [], dots: { camera: [], mic: [] }, unlocked: [] };
     const all = [
-      ...activitiesFrom(state, now, { dictation: dictation === 'off' ? undefined : dictation, jobs, unlocked: unlocked.count, off }),
+      ...activitiesFrom(state, now, { dictation: dictation === 'off' ? undefined : dictation, jobs, unlocked: unlocked.count, sharing, off }),
       ...transient.filter((a) => !off.includes(a.kind)),
     ];
     return { pres: present(all, now), all, dots: { camera: state.camInUse ?? [], mic: state.micInUse ?? [] }, unlocked: unlocked.folders };
-  }, [state, now, dictation, jobs, unlocked, transient, off]);
+  }, [state, now, dictation, jobs, unlocked, sharing, transient, off]);
 }
 
 // ---------------------------------------------------------------- glyphs
@@ -214,6 +233,9 @@ export function LiveCard({ a, state, now, unlocked, onMore, reload }: { a: Activ
     );
   } else if (a.kind === 'awake') {
     actions = <button className="btn sm" onClick={() => void api.island.keepAwake(false).then(reload)}>Stop keeping awake</button>;
+  } else if (a.kind === 'sharing') {
+    body = <div><div className="live-big num" style={{ color: a.color }}>{a.trailing}</div><div className="muted small">The other side sees everything on this screen.</div></div>;
+    actions = <button className="btn sm danger" onClick={() => undefined}>Stop sharing</button>;
   } else if (a.kind === 'unlocked') {
     body = <div className="muted small">{unlocked.map((f) => f.split(/[\\/]/).pop()).join(', ')}</div>;
     actions = <button className="btn sm primary" onClick={() => void Promise.all(unlocked.map((f) => api.lock.relock(f))).catch(() => undefined)}><Icon name="lock" size={12} /> Lock now</button>;

@@ -119,6 +119,53 @@ export function parseMdlsWhereFroms(text: string): DownloadSource | undefined {
   return sourceFromUrls(urls);
 }
 
+/** Undoes getfattr's escaping of file names: \\ and \ooo (octal bytes); UTF-8 text is left as it is. */
+function unescapeGetfattr(s: string): string {
+  if (!s.includes('\\')) return s;
+  const bytes = Buffer.from(s, 'utf8');
+  const out: number[] = [];
+  for (let i = 0; i < bytes.length; i++) {
+    if (bytes[i] === 0x5c && bytes[i + 1] === 0x5c) { out.push(0x5c); i++; continue; }
+    if (bytes[i] === 0x5c && /^[0-7]{3}$/.test(bytes.subarray(i + 1, i + 4).toString('latin1'))) {
+      out.push(parseInt(bytes.subarray(i + 1, i + 4).toString('latin1'), 8));
+      i += 3;
+      continue;
+    }
+    out.push(bytes[i]);
+  }
+  return Buffer.from(out).toString('utf8');
+}
+
+/**
+ * Reads `getfattr --absolute-names -e hex -n <name> -- file…` output: one
+ * attribute value per file that has it. Files without it only print to stderr.
+ */
+export function parseGetfattrHex(text: string, name: string): Map<string, string> {
+  const res = new Map<string, string>();
+  let file: string | undefined;
+  for (const line of text.split('\n')) {
+    if (line.startsWith('# file: ')) file = unescapeGetfattr(line.slice(8));
+    else if (file && line.startsWith(name + '=0x')) {
+      res.set(file, Buffer.from(line.slice(name.length + 3).trim(), 'hex').toString('utf8'));
+      file = undefined;
+    }
+  }
+  return res;
+}
+
+/**
+ * Splits `mdls -raw -name A -name B file…` output: values come in order, NUL
+ * separated, `names` per file. Returns null when the count does not add up.
+ */
+export function splitMdlsRaw(text: string, files: number, names: number): string[][] | null {
+  const parts = text.split('\0');
+  if (parts.length && parts[parts.length - 1] === '') parts.pop();
+  if (parts.length !== files * names) return null;
+  const out: string[][] = [];
+  for (let i = 0; i < files; i++) out.push(parts.slice(i * names, i * names + names));
+  return out;
+}
+
 /** Matches a typed word ("gmail", "drive", "chat gpt", "twitter") to a source id. */
 export function sourceFromWord(word: string): string | undefined {
   const w = word.toLowerCase().replace(/[^a-z0-9.]/g, '');

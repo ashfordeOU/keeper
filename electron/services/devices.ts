@@ -3,6 +3,7 @@
 // and external monitors over DDC/CI), wireless-device batteries, and the
 // snapshot the automatic keep-awake rules look at.
 
+import { fullscreenNow } from './fg-watch';
 import { powerMonitor, screen } from 'electron';
 import { existsSync, promises as fsp } from 'node:fs';
 import os from 'node:os';
@@ -306,6 +307,9 @@ export async function touchDrive(dir: string): Promise<boolean> {
 
 /** Is the app in front showing full screen? (best effort; false when unknown) */
 export async function frontmostFullscreen(): Promise<boolean> {
+  // One long-running helper answers from now on (see fg-watch.ts); the one-off checks below are the fallback.
+  const watched = fullscreenNow();
+  if (watched !== undefined) return watched;
   if (isMac) {
     const r = await run('/usr/bin/osascript', ['-e', 'tell application "System Events" to tell (first process whose frontmost is true) to get value of attribute "AXFullScreen" of front window'], 3000);
     return /true/.test(r.stdout);

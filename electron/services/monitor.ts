@@ -65,6 +65,7 @@ export class MonitorService {
   speeds: SpeedResult[] = [];
   private notified = new Set<string>();
   private timer?: NodeJS.Timeout;
+  private first?: NodeJS.Timeout;
   private file = path.join(app.getPath('userData'), 'monitor.json');
 
   async start(intervalMs = 60_000) {
@@ -77,11 +78,14 @@ export class MonitorService {
       /* first run */
     }
     // The first CPU reading needs a baseline, so take it a few seconds in.
-    setTimeout(() => void this.sample(), 5000);
+    clearInterval(this.timer);
+    clearTimeout(this.first);
+    this.first = setTimeout(() => void this.sample(), 5000);
     this.timer = setInterval(() => void this.sample(), intervalMs);
   }
 
   stop() {
+    clearTimeout(this.first);
     clearInterval(this.timer);
   }
 

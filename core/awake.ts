@@ -110,3 +110,21 @@ export function parseMacUsb(json: string): string[] {
   }
   return out;
 }
+
+/**
+ * Apps using the microphone right now, from
+ * `reg query …\ConsentStore\microphone /s /v LastUsedTimeStop`: a key whose
+ * LastUsedTimeStop is 0 is in use. Names come back without folder or ".exe".
+ */
+export function parseRegMicInUse(out: string): string[] {
+  const apps: string[] = [];
+  let key = '';
+  for (const line of out.split(/\r?\n/)) {
+    if (/^HKEY_/i.test(line)) key = line.trim();
+    else if (/^\s+LastUsedTimeStop\s+REG_QWORD\s+0x0+\s*$/i.test(line) && key) {
+      const name = key.split('\\').pop()!.replace(/#/g, '\\').split('\\').pop()!.replace(/\.exe$/i, '');
+      if (name && !apps.includes(name)) apps.push(name);
+    }
+  }
+  return apps;
+}

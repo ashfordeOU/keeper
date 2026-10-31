@@ -2,6 +2,7 @@
 // keeper — the command-line side of Keeper. Same engine as the app, for
 // terminals, servers and scripts. Read-only unless you pass --yes.
 
+import { cmdLink } from './link';
 import { existsSync, statSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -13,7 +14,7 @@ import { extrasOf, findExactDuplicates, findFormatPairs } from '../core/duplicat
 import { formatBytes, formatDate, relativeTime, tildify } from '../core/format';
 import { FileIndex, type IndexFolder } from '../core/indexer';
 import { scanAgentSessions } from '../core/island';
-import { defaultFolders, readDownloadSource, targetEnv, trashWithoutElectron } from '../core/platform';
+import { defaultFolders, readDownloadSource, readDownloadSources, targetEnv, trashWithoutElectron } from '../core/platform';
 import { defaultRules, describeAction, describeCondition, planRule } from '../core/rules';
 import type { FileEntry } from '../core/types';
 import type { BrainHit, BrainStatus } from '../core/brain-contract';
@@ -66,7 +67,7 @@ function foldersFrom(flags: Args['flags']): IndexFolder[] {
 }
 
 async function buildIndex(flags: Args['flags'], withSources = false): Promise<FileIndex> {
-  const idx = new FileIndex(null, foldersFrom(flags), [], withSources ? { readSource: readDownloadSource } : {});
+  const idx = new FileIndex(null, foldersFrom(flags), [], withSources ? { readSource: readDownloadSource, readSources: readDownloadSources } : {});
   const spin = progress('Reading your folders');
   await idx.scan({ onProgress: (p) => spin(`${p.phase} (${p.done.toLocaleString()} files)`), showHidden: !!flags.hidden });
   spin.done(`${idx.files.size.toLocaleString()} files indexed`);
@@ -234,7 +235,15 @@ async function cmdRules(a: Args) {
 async function cmdAsk(a: Args) {
   const question = a.rest.join(' ');
   if (!question) throw new Error('Usage: keeper ask "when does my passport expire?"');
+  // --plain: only the answer, as one block of text (for Shortcuts, Siri and scripts).
+  const plain = !!a.flags.plain;
   const app = await connectToApp();
+  if (app && plain) {
+    const r = (await app.call('keeper/ask', { question })) as { answer: string };
+    app.close();
+    process.stdout.write(r.answer.trim() + '\n');
+    return;
+  }
   if (app) {
     let streamed = false;
     const r = (await app.call('keeper/ask', { question }, (method, params) => {
@@ -251,8 +260,58 @@ async function cmdAsk(a: Args) {
   }
   const off = await offlineBrain();
   if (!off) throw new Error('Keeper is not running and has no saved index yet. Open the Keeper app.');
+  if (plain) {
+    process.stdout.write((await off.brain.ask(question)).answer.trim() + '\n');
+    return;
+  }
   const r = await off.brain.ask(question, { onDelta: a.flags.json ? undefined : (t) => process.stdout.write(t) });
   out({ answer: r.answer, sources: r.sources }, a.flags, () => console.log('\n\n' + dim(r.sources.map((s) => `  ${tildify(s.path, home)}`).join('\n'))));
+}
+
+/**
+ * Keeper as an agent for editors that speak the Agent Client Protocol (stdio).
+ * Each prompt goes to Keeper's assistant in the running app (or the saved index).
+ */
+async function cmdAcp() {
+  const { AcpAgent } = await import('../core/brain/acp');
+  const write = (o: unknown) => process.stdout.write(JSON.stringify(o) + '\n');
+  const agent = new AcpAgent({
+    version: VERSION,
+    newId: () => Math.random().toString(36).slice(2, 12),
+    ask: async (question, o) => {
+      const prior = (o.history as { q: string; a: string }[] | undefined) ?? [];
+      const withContext = prior.length ? `${prior.slice(-3).map((t) => `Earlier question: ${t.q}\nYour answer: ${t.a}`).join('\n\n')}\n\nNow: ${question}` : question;
+      const app = await connectToApp();
+      let answer: string;
+      if (app) {
+        const r = (await app.call('keeper/ask', { question: withContext }, (method, params) => { if (method === 'keeper/delta') o.onDelta((params as { text: string }).text); })) as { answer: string };
+        app.close();
+        answer = r.answer;
+      } else {
+        const off = await offlineBrain();
+        if (!off) throw new Error('Keeper is not running and has no saved index yet. Open the Keeper app.');
+        answer = (await off.brain.ask(withContext, { onDelta: o.onDelta, signal: o.signal })).answer;
+      }
+      return { answer, history: [...prior, { q: question, a: answer }] };
+    },
+  }, (method, params) => write({ jsonrpc: '2.0', method, params }));
+  let buf = '';
+  process.stdin.setEncoding('utf8');
+  await new Promise<void>((resolve) => {
+    process.stdin.on('data', (c: string) => {
+      buf += c;
+      let i: number;
+      while ((i = buf.indexOf('\n')) >= 0) {
+        const line = buf.slice(0, i);
+        buf = buf.slice(i + 1);
+        if (!line.trim()) continue;
+        let msg;
+        try { msg = JSON.parse(line); } catch { write({ jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } }); continue; }
+        void agent.handle(msg).then((r) => r && write(r));
+      }
+    });
+    process.stdin.on('end', () => setTimeout(resolve, 300));
+  });
 }
 
 /** MCP over stdio for AI apps: proxies to the running app, or serves the saved index read-only. */
@@ -327,6 +386,15 @@ ${bold('Usage')}
   keeper search --semantic   Search Keeper's brain by meaning (--brain: words inside files too)
   keeper brain               What Keeper's brain has read
   keeper mcp                 Serve Keeper to AI apps over MCP (stdio)
+  keeper acp                 Keeper as an agent for editors (Agent Client Protocol, stdio)
+  keeper ask --plain "…"     Just the answer, as text (for Shortcuts and Siri)
+  keeper link [status|devices|invite|pair|send|check|forward]
+                             Keeper Link: your paired devices, files and ports between them
+  keeper sync [status|pause|resume]
+                             Folders synced between your devices, backups and mirrors
+  keeper backup list|run|restore [name] [--snapshot S] [--to DIR] [--include a,b]
+  keeper backup list|restore|verify --from <folder>
+                             Open a backup straight from a drive or folder, without the app
 
 ${bold('Options')}
   --in <folders>   comma-separated folders instead of Desktop, Documents, Downloads, …
@@ -336,6 +404,119 @@ ${bold('Options')}
   --yes, -y        actually make changes (everything else is a dry run)
 
 Licensed under the GNU AGPL v3 or later.`);
+}
+
+// ---------------------------------------------------------------- sync and backups
+
+async function appCall<T>(method: string, ...args: unknown[]): Promise<T> {
+  const app = await connectToApp();
+  if (!app) throw new Error('Keeper is not running. Open the Keeper app, or use `keeper backup restore --from <folder>` to restore without it.');
+  try {
+    return (await app.call(`keeper/sync.${method}`, { args })) as T;
+  } finally {
+    app.close();
+  }
+}
+
+async function cmdSync(a: Args) {
+  const sub = a.rest[0] ?? 'status';
+  if (sub === 'pause' || sub === 'resume') {
+    await appCall('setPaused', sub === 'pause');
+    return console.log(sub === 'pause' ? 'Sync and backups paused.' : 'Sync and backups resumed.');
+  }
+  if (sub !== 'status') throw new Error('Usage: keeper sync status | pause | resume');
+  const ov = await appCall<import('../core/api-sync').SyncOverview>('overview');
+  out(ov, a.flags, () => {
+    console.log(`${bold(ov.deviceName)}${ov.paused ? dim(' (paused)') : ''} · ${ov.peers.filter((p) => p.online).length}/${ov.peers.length} devices online`);
+    for (const f of ov.folders) console.log(`  ${f.label.padEnd(24)} ${f.state.padEnd(9)} ${String(f.files).padStart(7)} files  ${formatBytes(f.bytes).padStart(9)}  ${dim(f.peers.map((p) => `${p.name}${p.online ? '' : ' (offline)'}`).join(', ') || 'no devices')}`);
+    for (const b of ov.backups) console.log(`  ${dim('backup')} ${b.name.padEnd(24)} ${b.state.padEnd(8)} ${b.lastRun ? relativeTime(b.lastRun) : 'never'}${b.lastMessage ? dim(` · ${b.lastMessage}`) : ''}`);
+    for (const m of ov.mirrors) console.log(`  ${dim('mirror')} ${m.name.padEnd(24)} ${m.state.padEnd(8)} ${m.lastRun ? relativeTime(m.lastRun) : 'never'}`);
+    if (!ov.check321.ok) console.log(dim(`\n${ov.check321.advice[0]}`));
+  });
+}
+
+async function askSecret(prompt: string): Promise<string> {
+  const env = process.env.KEEPER_BACKUP_PASSWORD;
+  if (env) return env;
+  if (!process.stdin.isTTY) throw new Error('Set KEEPER_BACKUP_PASSWORD, or run this in a terminal to type the password.');
+  process.stdout.write(prompt);
+  return new Promise((resolve) => {
+    let s = '';
+    process.stdin.setRawMode(true);
+    process.stdin.resume();
+    process.stdin.setEncoding('utf8');
+    const on = (c: string) => {
+      if (c === '\r' || c === '\n' || c === '\u0004') {
+        process.stdin.setRawMode(false);
+        process.stdin.pause();
+        process.stdin.off('data', on);
+        process.stdout.write('\n');
+        resolve(s);
+      } else if (c === '\u0003') process.exit(130);
+      else if (c === '\u007f') s = s.slice(0, -1);
+      else s += c;
+    };
+    process.stdin.on('data', on);
+  });
+}
+
+async function cmdBackup(a: Args) {
+  const sub = a.rest[0] ?? 'list';
+  // Disaster recovery: straight from a backup folder (a drive, a NAS share, a synced cloud folder), no app needed.
+  if (typeof a.flags.from === 'string') {
+    const { BackupRepo } = await import('../core/sync/backup');
+    const { FolderStore } = await import('../core/sync/ports');
+    const secret = await askSecret('Backup password or recovery key: ');
+    const recovery = /^[0-9A-Za-z]{4}(-?[0-9A-Za-z]{4}){7}$/.test(secret.trim());
+    const repo = await BackupRepo.open(new FolderStore(a.flags.from), recovery ? { recovery: secret } : { password: secret });
+    const snaps = await repo.snapshots();
+    if (sub === 'list') {
+      return out(snaps, a.flags, () => {
+        for (const s of snaps) console.log(`  ${s.name}  ${new Date(s.time).toLocaleString()}  ${s.stats.files.toLocaleString()} files  ${formatBytes(s.stats.bytes)}  ${dim(s.host)}`);
+      });
+    }
+    if (sub === 'restore') {
+      const name = typeof a.flags.snapshot === 'string' ? a.flags.snapshot : snaps[0]?.name;
+      if (!name) throw new Error('This backup has no snapshots yet.');
+      const to = typeof a.flags.to === 'string' ? a.flags.to : path.join(home, 'Restored', name.slice(0, 10));
+      const include = typeof a.flags.include === 'string' ? a.flags.include.split(',') : undefined;
+      const spin = progress('Restoring');
+      const r = await repo.restore(name, to, { include, onProgress: (p) => spin(`${p.files} files, ${formatBytes(p.bytes)}`) });
+      spin.done('Restored');
+      return console.log(`Restored ${r.files.toLocaleString()} files (${formatBytes(r.bytes)}) to ${to}${r.skipped.length ? dim(` · ${r.skipped.length} already there, left alone`) : ''}`);
+    }
+    if (sub === 'verify') {
+      const r = await repo.verify({ full: !!a.flags.full });
+      return console.log(r.ok ? `The backup is fine (${r.checked} pieces checked).` : `Problems:\n  ${r.problems.join('\n  ')}`);
+    }
+    throw new Error('With --from: keeper backup list | restore | verify --from <folder>');
+  }
+  const ov = await appCall<import('../core/api-sync').SyncOverview>('overview');
+  const find = (q?: string) => {
+    const b = q ? ov.backups.find((x) => x.id === q || x.name.toLowerCase() === q.toLowerCase()) : ov.backups[0];
+    if (!b) throw new Error(q ? `No backup called “${q}”. See: keeper backup list` : 'No backups set up yet. Add one in Keeper → Sync & Backup.');
+    return b;
+  };
+  if (sub === 'list') {
+    return out(ov.backups, a.flags, () => {
+      for (const b of ov.backups) console.log(`  ${b.name.padEnd(28)} → ${b.destLabel}  ${dim(`${b.schedule} · last ${b.lastRun ? relativeTime(b.lastRun) : 'never'}${b.lastMessage ? ` · ${b.lastMessage}` : ''}`)}`);
+      if (!ov.backups.length) console.log(dim('No backups set up yet.'));
+    });
+  }
+  if (sub === 'run') {
+    const b = find(a.rest[1]);
+    await appCall('runBackup', b.id);
+    return console.log(`Backing up “${b.name}” now; see progress in Keeper.`);
+  }
+  if (sub === 'restore') {
+    const b = find(a.rest[1]);
+    const snaps = await appCall<{ name: string; time: number }[]>('snapshots', b.id);
+    const name = typeof a.flags.snapshot === 'string' ? a.flags.snapshot : snaps[0]?.name;
+    if (!name) throw new Error('This backup has no snapshots yet.');
+    const r = await appCall<{ files: number; bytes: number; target: string }>('restore', b.id, name, { target: typeof a.flags.to === 'string' ? a.flags.to : undefined, include: typeof a.flags.include === 'string' ? a.flags.include.split(',') : undefined });
+    return console.log(`Restored ${r.files.toLocaleString()} files (${formatBytes(r.bytes)}) to ${r.target}`);
+  }
+  throw new Error('Usage: keeper backup list | run [name] | restore [name] [--snapshot S] [--to DIR] [--include a,b]');
 }
 
 async function main() {
@@ -352,7 +533,11 @@ async function main() {
     case 'agents': return cmdAgents(a);
     case 'ask': return cmdAsk(a);
     case 'mcp': return cmdMcp();
+    case 'acp': return cmdAcp();
     case 'brain': return cmdBrain(a);
+    case 'sync': return cmdSync(a);
+    case 'backup': case 'backups': return cmdBackup(a);
+    case 'link': return cmdLink(a.rest, a.flags, (d, human) => out(d, a.flags, human));
     default: return help();
   }
 }

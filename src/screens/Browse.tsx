@@ -106,6 +106,7 @@ export function Browse() {
     { label: 'Get Info', icon: 'info', run: () => getInfo(e.path, e.name) },
     { label: 'Show Size in Space Map', icon: 'map', run: () => go({ name: 'space', arg: e.path }) },
     { label: 'Copy Path', icon: 'copy', run: () => void api.files.copyText(e.path) },
+    { label: 'Open in Terminal', icon: 'terminal', run: () => go({ name: 'terminal', arg: e.path }) },
     { label: 'Compress', icon: 'zip', run: () => void api.files.compress([e.path]).then(() => refresh()) },
     { sep: true, label: '' },
     unlockedHere.has(e.path)

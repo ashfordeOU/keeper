@@ -31,6 +31,8 @@ export interface HarnessEnv {
   /** may the AI look at this path at all (inside the library, not excluded)? */
   allowed(path: string): boolean;
   visibility: Visibility;
+  /** skills the person turned on: only names and descriptions go up front, bodies on use */
+  skills?: { list(): { name: string; description: string }[]; load(name: string): string | undefined; readFile?(name: string, file: string): Promise<string | undefined> };
   home?: string;
   platform?: string;
   now?: number;
@@ -127,6 +129,10 @@ export function harnessTools(env: HarnessEnv): ToolSpec[] {
   }
   if (env.largest) t.push({ name: 'largest_files', description: 'The biggest files in the library.', parameters: { type: 'object', properties: { limit: { type: 'integer', maximum: 50 } } } });
   if (env.duplicates) t.push({ name: 'find_duplicates', description: 'Groups of identical files (same content), biggest first.', parameters: { type: 'object', properties: { limit: { type: 'integer', maximum: 30 } } } });
+  if (env.skills?.list().length) {
+    t.push({ name: 'use_skill', description: 'Read the instructions of one of the skills listed in the system message before following them.', parameters: { type: 'object', properties: { name: { type: 'string' } }, required: ['name'] } });
+    if (env.skills.readFile) t.push({ name: 'read_skill_file', description: 'Read a file that belongs to a skill (named in its instructions).', parameters: { type: 'object', properties: { name: { type: 'string' }, file: { type: 'string' } }, required: ['name', 'file'] } });
+  }
   t.push({
     name: 'propose_actions',
     description: 'Suggest changes for the person to approve with a click: trash, move, rename, tag or open files you found. Use exact paths from earlier tool results. Nothing is done until they press a button.',
@@ -261,6 +267,16 @@ export class Harness {
         for (const g of groups) for (const p of g.paths) if (!this.seen.has(p)) this.seen.set(p, { path: p, name: p.split(/[\\/]/).pop()!, kind: 'other', size: g.size, mtime: 0, score: 0 });
         return { content: groups.map((g, i) => `${i + 1}. ${formatBytes(g.size)} each\n${g.paths.map((p) => '   ' + p).join('\n')}`).join('\n') || 'No duplicates found.', summary: `${groups.length} duplicate groups` };
       }
+      case 'use_skill': {
+        const body = env.skills?.load(String(a.name ?? ''));
+        if (!body) throw new Error(`No skill called “${String(a.name ?? '')}”.`);
+        return { content: body, summary: `used the skill ${String(a.name)}` };
+      }
+      case 'read_skill_file': {
+        const text = await env.skills?.readFile?.(String(a.name ?? ''), String(a.file ?? ''));
+        if (text === undefined) throw new Error('That file is not part of the skill.');
+        return { content: text, summary: `read ${String(a.file)} from ${String(a.name)}` };
+      }
       case 'propose_actions': {
         const list = Array.isArray(a.actions) ? a.actions : [];
         let kept = 0;
@@ -318,7 +334,9 @@ export class Harness {
     const env = this.env;
     const actions: ProposedAction[] = [];
     const trace: TraceStep[] = [];
-    const sys = `${SYSTEM}\n\nComputer: ${env.platform ?? 'unknown'}. Today: ${new Date(env.now ?? Date.now()).toISOString().slice(0, 10)}. Home folder: ${env.home ?? '~'}.${env.visibility === 'names' ? ' The person allows only file names and details, not text inside files.' : ''}`;
+    const skillList = env.skills?.list() ?? [];
+    const skillText = skillList.length && this.provider.supportsTools ? `\n\nSkills you can use (call use_skill with the name to read one before following it):\n${skillList.map((k) => `- ${k.name}: ${k.description}`).join('\n')}` : '';
+    const sys = `${SYSTEM}${skillText}\n\nComputer: ${env.platform ?? 'unknown'}. Today: ${new Date(env.now ?? Date.now()).toISOString().slice(0, 10)}. Home folder: ${env.home ?? '~'}.${env.visibility === 'names' ? ' The person allows only file names and details, not text inside files.' : ''}`;
     let messages: ChatMessage[] = history.length ? [...history] : [{ role: 'system', content: sys }];
     const tools = this.provider.supportsTools ? harnessTools(env) : [];
     let retrievalOnly = false;

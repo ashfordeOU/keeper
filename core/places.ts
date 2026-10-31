@@ -428,6 +428,12 @@ export function parseMdnsResponse(buf: Uint8Array): MdnsRecord[] {
         data = readName(buf, start + 6).name;
       } else if (type === 1 && len === 4) data = [...buf.slice(start, start + 4)].join('.');
       else if (type === 28 && len === 16) data = Array.from({ length: 8 }, (_, k) => u16(start + k * 2).toString(16)).join(':');
+      else if (type === 16) {
+        // TXT: length-prefixed "key=value" strings, kept one per line.
+        const parts: string[] = [];
+        for (let k = start; k < start + len && k < buf.length; k += 1 + buf[k]) if (buf[k]) parts.push(new TextDecoder().decode(buf.slice(k + 1, k + 1 + buf[k])));
+        data = parts.join('\n');
+      }
       out.push({ name, type, ttl, data, port });
       o = start + len;
     }

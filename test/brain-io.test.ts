@@ -89,7 +89,7 @@ describe('AI app settings files', () => {
   });
   it('makes copyable snippets', () => {
     const s = snippets(launch);
-    expect(s.find((x) => x.id === 'claude-code')!.text).toBe('claude mcp add --env ELECTRON_RUN_AS_NODE=1 keeper -- /Applications/Keeper.app/Contents/MacOS/Keeper /x/keeper.cjs mcp');
+    expect(s.find((x) => x.id === 'claude-code')!.text).toBe('claude mcp add --scope user --env ELECTRON_RUN_AS_NODE=1 keeper -- /Applications/Keeper.app/Contents/MacOS/Keeper /x/keeper.cjs mcp');
   });
 });
 

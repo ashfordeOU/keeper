@@ -32,6 +32,15 @@ asarUnpack:
   - node_modules/sharp/**
   - node_modules/@img/**
   - node_modules/onnxruntime-node/**
+  # The terminal's pseudo-terminal library (and its macOS spawn helper, which must stay executable).
+  - node_modules/node-pty/**
+# rclone (MIT) for cloud storage: put in vendor/rclone/current by scripts/fetch-rclone.mjs
+# (prepare-arch runs it for the target). Without it Keeper still connects to SFTP, FTP,
+# WebDAV and SMB servers; only the cloud services ask for it.
+extraResources:
+  - from: vendor/rclone/current
+    to: rclone
+    filter: ['rclone', 'rclone.exe', '*.txt']
 # No version in file names, so releases/latest/download/<name> links never go stale.
 artifactName: ${productName}-${os}-${arch}.${ext}
 # Update information (latest*.yml) points at GitHub Releases; CI builds with

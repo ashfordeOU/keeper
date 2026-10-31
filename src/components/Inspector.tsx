@@ -9,6 +9,7 @@ import { api } from '../api';
 import { useStore } from '../state';
 import { Icon } from './Icon';
 import { InspectorAi } from './InspectorAi';
+import { FileVersions } from '../screens/Sync';
 import '../styles/screens-a.css';
 import { FilePreview } from '../preview/Preview';
 import { openQuickLook } from '../preview/QuickLook';
@@ -154,6 +155,8 @@ export function Inspector() {
       ) : null}
 
       <InspectorAi file={file} onRenamed={(to, n) => { const next = { ...file, path: to, name: n }; setFile(next); setFocused(next); }} />
+
+      <FileVersions path={file.path} />
 
       <div className="col">
         <h3>Tags</h3>

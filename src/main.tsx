@@ -7,14 +7,16 @@ import { Island } from './island/Island';
 import { WidgetView } from './island/Widget';
 import { QuickSearch } from './screens/QuickSearch';
 import { StoreProvider } from './state';
+import { TerminalApp } from './terminal/TerminalApp';
 import './styles/app.css';
 
 // One bundle, several windows: the main app, Quick Search, the Island, the clipboard picker and desktop widgets.
-const view = new URLSearchParams(location.search).get('view') ?? 'app';
+const params = new URLSearchParams(location.search);
+const view = params.get('view') ?? 'app';
 document.documentElement.dataset.view = view;
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <StoreProvider>{view === 'quick' ? <QuickSearch /> : view === 'island' ? <Island /> : view === 'clips' ? <ClipPicker /> : view === 'widget' ? <WidgetView /> : <App />}</StoreProvider>
+    <StoreProvider>{view === 'quick' ? <QuickSearch /> : view === 'island' ? <Island /> : view === 'clips' ? <ClipPicker /> : view === 'widget' ? <WidgetView /> : view === 'terminal' ? <TerminalApp mode={params.get('quick') ? 'quick' : 'window'} startCwd={params.get('cwd') ?? undefined} /> : <App />}</StoreProvider>
   </StrictMode>,
 );

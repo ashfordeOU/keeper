@@ -3,6 +3,7 @@
 // searches and reads through Keeper's brain, cites the files it used, and
 // suggests changes as buttons; nothing changes until you press one.
 
+import { openSkillDraft } from './Agents';
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { AskResult } from '../../core/api-brain';
 import type { BrainHit } from '../../core/brain-contract';
@@ -215,6 +216,15 @@ export function Assistant() {
                     ))}
                   </div>
                 </details>
+              ) : null}
+              {t.result && !t.error ? (
+                <div className="btn-row" style={{ marginTop: 6 }}>
+                  <button className="btn sm ghost" title="Turn what worked into a skill the assistant and other agents can reuse" onClick={async () => {
+                    const draft = await api.agents.draftSkill({ title: t.q.slice(0, 60), question: t.q, answer: t.result!.answer, steps: t.result!.trace.map((s) => ({ tool: s.tool, summary: s.summary, args: s.args })) });
+                    openSkillDraft(draft);
+                    go({ name: 'agents', arg: 'skills' });
+                  }}><Icon name="sparkle" size={12} /> Save as skill</button>
+                </div>
               ) : null}
             </div>
           ))}

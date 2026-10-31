@@ -38,15 +38,25 @@ optional AI assistant — in one small app that never uploads your files.
 - [Everything Keeper does](#everything-keeper-does)
   - [Library and browsing](#library-and-browsing) · [Previews for every file](#previews-for-every-file) · [Plain-English search](#plain-english-search) · [Text in images](#text-in-images-and-on-screen) · [Downloaded From](#downloaded-from)
   - [Duplicates](#duplicates) · [Clean Up](#clean-up) · [Space Map](#space-map) · [Automations](#automations) · [History and undo](#history-and-undo)
-  - [The Island](#the-island) · [Locked folders](#locked-folders) · [Themes](#themes) · [Quick Search, tray and deep links](#quick-search-tray-and-deep-links) · [Works with your computer](#works-with-your-computer) · [Toolbox](#toolbox) · [System](#system) · [Keeper's brain](#keepers-brain) · [Assistant](#assistant)
+  - [Cloud & servers](#cloud--servers) · [Devices & remote access](#devices--remote-access) · [The Island](#the-island) · [Locked folders](#locked-folders) · [Themes](#themes) · [Quick Search, tray and deep links](#quick-search-tray-and-deep-links) · [Works with your computer](#works-with-your-computer) · [Toolbox](#toolbox) · [Terminal](#terminal) · [System](#system) · [Network Activity and VPN](#network-activity-and-vpn) · [Keeper's brain](#keepers-brain) · [Agents and the knowledge graph](#agents-and-the-knowledge-graph) · [Assistant](#assistant)
   - [Command line](#command-line)
 - [Keyboard shortcuts](#keyboard-shortcuts)
 - [Keeper compared with your system file manager](#keeper-compared-with-your-system-file-manager)
-- [Privacy](#privacy) · [Safety model](#safety-model)
+- [Light on your computer](#light-on-your-computer) · [Privacy](#privacy) · [Safety model](#safety-model)
 - [Install](#install) · [Build from source](#build-from-source) · [Project layout](#project-layout)
 - [Platform support](#platform-support) · [Roadmap](#roadmap) · [Contributing](#contributing) · [License](#license)
 
 ---
+
+
+### Sync & Backup
+
+Keep folders the same on your devices, back them up anywhere, and mirror them to cloud services — without a separate sync or backup app. Details in [docs/SYNC.md](docs/SYNC.md).
+
+- **Synced folders**: straight between your Keeper devices (no cloud in between), two-way, send-only or receive-only. Only changed pieces move, renames move nothing, interrupted copies resume. Replaced and deleted files are kept as older versions; when two devices change the same file, both are kept and you choose.
+- **Backups**: to a drive, a NAS, any folder or any connected cloud service (Google Drive, OneDrive, Dropbox, iCloud Drive folders, Nextcloud, S3, SFTP…). Encrypted on this computer with your password and a recovery key, deduplicated (a repeat backup of unchanged files uploads almost nothing), kept by hour, day, week, month and year, on a schedule or when the drive is plugged in. Restore all, a folder or one file; check a backup any time; a 3-2-1 card says how well protected you are.
+- **Cloud mirrors**: ordinary files, one way or both ways, so they also show in the cloud's own app.
+- **Phones** send their camera roll to a folder you choose. `keeper backup restore --from <folder>` restores without the app.
 
 ## Highlights
 
@@ -195,6 +205,39 @@ Rules that keep folders tidy on their own — **all off until you turn them on**
 
 Everything Keeper changes is recorded with what moved where and how much space was freed. Moves and renames are undone in place; items in the Trash are one click from being put back.
 
+### Cloud & servers
+
+Your cloud storage, servers, home servers, NAS boxes and the other computers in the house, browsed like the folders on your own disk. Everything lives in the **Cloud & Servers** sidebar section.
+
+- **Cloud storage, signed in through your browser**: Google Drive, OneDrive, Dropbox, Box, pCloud, MEGA, Proton Drive, iCloud Drive (beta), Google Photos, Amazon S3 and S3-compatible stores (Cloudflare R2, Backblaze B2, Wasabi, MinIO…), Azure, Google Cloud Storage and the rest of the roughly seventy services [rclone](https://rclone.org) supports. Keeper builds the sign-in form for each from rclone's own description of it, so new services appear when rclone adds them. Services that sign in through the browser never show Keeper your password; for the few that need one (MEGA, iCloud Drive) it is kept like the sign-in tokens: in rclone's settings file, encrypted with a key held in your system keychain.
+- **Servers, built in and fast**: SFTP (password, key file or your SSH agent; the server's key is remembered and checked every time), FTP and FTPS, WebDAV (Nextcloud, ownCloud and others, self-signed certificates allowed only when you say so), and SMB shares opened by your system.
+- **On this network**: Keeper looks for home servers (umbrelOS, CasaOS/ZimaOS, StartOS, YunoHost, Home Assistant, Raspberry Pi…), NAS boxes (Synology, QNAP, TrueNAS, Unraid, openmediavault, WD My Cloud, ASUSTOR, TerraMaster, UGREEN…), Macs, Windows PCs and Linux machines, says what each one is, suggests the best way in and lists the folders it shares — external drives plugged into it show up as their own shared folders, marked *External drive*. Step-by-step notes explain how to turn sharing on for a Mac, a Windows PC, a Linux box or a home server.
+- **Browsing a connection** works like Browse: folders, pictures with thumbnails fetched only as they scroll into view (three at a time), Quick Look, New Folder, Rename, Delete (services with a trash keep it there), Download to your Downloads folder, Upload or drop files from your computer, drag a file out to another app, and transfers with progress and Cancel.
+- **Open with its app, save back**: opening a file fetches it once into a cache (2 GB, oldest first out); saving it in its app sends the change back to the server. If the file changed on the server meanwhile, your edit is kept as a separate copy instead of overwriting.
+- **Keep offline**: right-click a folder → *Keep Offline* to keep a copy in *Keeper Offline* in your home folder, refreshed when the computer is idle.
+- **Stays working**: a green, amber or red dot shows each connection's state with its free space. Keeper checks only the connections you are using, slows down when you are away, pauses while the screen is locked, reconnects after sleep, and says plainly when a service needs you to sign in again (one click fixes it).
+- **Library search** across a connection is off by default; turn on *Include in library search* to have its names, sizes and dates found by search.
+
+More detail, including what was tested and what needs a real account to try: [docs/CONNECT.md](docs/CONNECT.md).
+
+### Devices & remote access
+
+**Keeper Link** joins your own computers and phones into one private network, with no account and no company server in the middle. The **Devices** sidebar section lists them; drop files on one to send them.
+
+- **Pair once**: choose *Pair a Device* on one computer and type its six-digit code on the other (devices on the same network show up by themselves), or scan its QR code. Both screens then show the same six digits to compare, so nobody in between can slip in. Each device has its own key, kept in your system keychain.
+- **End to end encrypted, whatever the path**: every connection is checked against the key of the device you paired with and encrypted between the two devices. Keeper connects over the local network when it can, otherwise through a tunnel or a relay — those only ever carry scrambled bytes.
+- **Permissions per device**, all off by default except offering files: see shared folders, change them, shared clipboard, reach ports, and (for features built on Link) screen, control, terminal and sync.
+- **Send files** both ways, asked first unless you choose *Always accept*; large files resume after a dropped connection and are checked with SHA-256 before they get their name. **Shared folders** open on the other device and on your phone; nothing else on the computer is reachable.
+- **Ports**: reach a service on another device as if it were here (`localhost:3000` → its port 3000), or use it as a SOCKS5 proxy — only to that device itself unless you allow its local network too.
+- **Your phone, no app**: *Devices → Phone* shows a QR code; the phone's camera opens a small Keeper page that sends photos and files to the computer, opens shared folders and reads or sets the clipboard. The key is only in the QR code (never sent to the computer or stored in the address bar), and the computer asks before letting a phone in.
+- **From anywhere**: *Remote Access* has three levels — off, this network only, or from anywhere — and a *Never leaves my network* switch. From anywhere uses:
+  - **a Cloudflare tunnel** (`cloudflared`, downloaded on demand from Cloudflare's releases and checked against pinned SHA-256 sums): a quick tunnel with no account, or your own hostname with a token from your Cloudflare dashboard. Keeper restarts it if it stops, waiting a little longer each time, after sleep and when its metrics show no connection; it can also be installed as a system service so it keeps running when Keeper is closed.
+  - **an optional Keeper Relay** you run yourself (a small Node program, Docker image or Cloudflare Worker in [relay/](relay/)) for when neither side can reach the other.
+  - **encrypted notes** on a public push service (ntfy-compatible, `ntfy.sh` by default, or your own) so paired devices learn each other's current address without any Keeper server.
+- **Command line**: `keeper link status | devices | invite | pair | send | check | forward`.
+
+How it works, the security design, how to run a relay, and what was and was not tested: [docs/LINK.md](docs/LINK.md).
+
 ### The Island
 
 A small live panel at the top of your screen (or the left or right edge), hidden until something happens. Hover or click to expand.
@@ -205,12 +248,14 @@ A small live panel at the top of your screen (or the left or right edge), hidden
 | --- | --- |
 | Mac with a notch (14″/16″ MacBook Pro, 13″/15″ MacBook Air) | It grows out of the notch in the same black, with what is going on to either side of it. Keeper finds the notch from the Mac's model and the screen's safe area, so it also lines up at "more space" resolutions. |
 | Mac without a notch | Inside the menu bar when its middle is free of menus and icons, otherwise just below it. |
+| GNOME, KDE and other Linux desktops | Just below a top bar (GNOME's clock stays visible), or flush with the top edge. |
 | Windows laptops, other Linux laptops | Flush with the top edge under the camera, whichever side the taskbar is on. |
 | Tablets and 2-in-1s | It follows the camera: turn the screen on its side and the Island moves to that edge. |
 | External screens | Its own Island on each screen you choose: the main one, all of them, the laptop's own, or the one with the pointer. |
 
 Size (compact, normal, large), a nudge, the camera's edge and a small camera dot are in Settings → Island, with a picture of each screen showing what Keeper found. When the Island is closed its window is exactly the size of the pill, so it never covers menu-bar icons, tabs or title bars around it.
 
+**Live activities.** Whatever is going on gets a slot by importance: the most important takes the pill (an icon on one side of the notch, a countdown, waveform or progress ring on the other), the next one becomes a small bubble beside it, and the rest are counted. Click, tap or rest the pointer on it for a **Live Activity card** with controls; *More* opens everything. On touch screens tap to open, swipe down for everything, swipe up to close, press and hold for the card. Activities: dictation, screen recording, a coding agent waiting or stuck, plugging in the charger, a meeting starting soon, low battery, the focus timer, long jobs (converting, cleaning up, finding duplicates, locking a folder), music, something copied, headphones connecting, rain soon, unlocked folders and keep-awake. Each kind can be turned off. Green and orange dots show while an app uses the camera or microphone (Windows and Linux; macOS shows its own lights).
 
 Limits: Linux on Wayland does not let apps keep a small window on top in a set place, so with the Island on Keeper runs through XWayland (switch it off in Settings if you prefer). Apps cannot change the Mac's own notch or the system's volume and brightness pop-ups, so the Island works alongside them.
 
@@ -298,6 +343,22 @@ Honest limits: Siri phrases and Shortcuts actions of their own need an Xcode-bui
 
 Small tools, all offline: copy text from screen (with QR), colour picker, dead-pixel test, keyboard-cleaning lock, link cleaner, **hide personal info before pasting into AI tools**, case converter, word counter, hidden-character inspector, password and passphrase generator, JSON formatter (with exact error position), Base64, SHA hashes, UUID v4/v7, JWT decoder, timestamp converter, regex tester, Wi-Fi sharing code, saved Wi-Fi passwords, and eject all drives.
 
+### Terminal
+
+A full terminal inside Keeper — on the **Terminal** page, in its own window (tray → *Terminal*, or ⌘⌥T / Ctrl+Alt+T), or dropping down from the top of the screen (Ctrl+`).
+
+- **Tabs and split panes** in any arrangement; drag the dividers, zoom one pane, move between panes with the keyboard, save a layout as a workspace and open it again later.
+- **Every shell on the computer**: zsh, bash, fish, Nushell and the rest on macOS and Linux; PowerShell 7, Windows PowerShell, Command Prompt, every WSL distribution and Git Bash on Windows. Plus your SSH hosts from `~/.ssh/config`, using your own keys and agent.
+- **Terminals keep running** when the window closes, and — if you choose — even after Keeper quits. Open them again from *Sessions*. When they do stop, their scrollback is saved and can be read after a restart.
+- **Profiles**: shell, starting folder, variables, start-up command, colours (12 schemes, or follow Keeper's theme), font, cursor, and the language programs use. A profile can **keep its sign-ins separate** — its own config folders — so the same command-line tool can be signed in to a different account in each profile, side by side.
+- **Working together**: a sister terminal (same folder), the same terminal shown in two panes, typing into every pane at once (with a confirmation), and groups whose terminals share notes and a folder (`$KEEPER_SHARED_DIR`) that programs inside can read.
+- **Knows what ran**: with shell integration each command gets a green or red mark, its exit code and how long it took; jump between commands; find in scrollback. Triggers watch for patterns (for example a program waiting for your answer) and tell you in the Island.
+- **Files on the other end**: an SFTP or FTP/FTPS panel beside the terminal — browse, download, upload by dragging, rename, delete. Passwords live only in the system keychain.
+- **Web tools in a tab**: start a notebook server or a code editor's web server for a folder and use it inside Keeper; any page served by this computer (`localhost`) opens in a pane. Desktop development apps can't run inside another app's window, so *Open folder in…* opens them beside Keeper instead.
+- Every shortcut can be changed; pasting several lines asks first; dropping files types their quoted paths.
+
+More in [docs/TERMINAL.md](docs/TERMINAL.md).
+
 ### System
 
 - **Health**: CPU, memory, uptime and load; battery level, health and cycle count; the busiest processes (with Quit); **what is keeping the computer awake**; and **local servers listening on a port** (open in the browser or stop).
@@ -305,6 +366,21 @@ Small tools, all offline: copy text from screen (with QR), colour picker, dead-p
 - **Startup Items**: apps that start with the computer, with a rough impact rating; switch them off with the same setting the OS uses (reversible; system-wide items ask for permission).
 - **Applications**: every installed app with size, version and last use; filter unused or large ones; uninstall via the app's own uninstaller (Windows), the Trash plus leftover support files (macOS) or Flatpak/Snap (Linux).
 - **Protection**: a score for the security already built into your system — Gatekeeper, XProtect, SIP, FileVault, firewall and updates on macOS; Defender, real-time protection, definitions, firewall, UAC, SmartScreen, device encryption and Windows Update on Windows; firewall, disk encryption, Secure Boot, AppArmor/SELinux and automatic updates on Linux — with how to fix what is off. Keeper is not an antivirus.
+
+### Network Activity and VPN
+
+**Network Activity** (System → Network Activity) shows which app talks to whom, how much, and which way the traffic leaves the computer:
+
+- **Apps**: every program with a connection, how many places it talks to, download and upload rates and totals, the countries involved, and whether its traffic goes **through the VPN**, **direct** (straight out through your router), stays on the **local network**, or never leaves **this computer**. Open an app to see each destination with its host name, the service behind it (Google, Apple, Cloudflare…), the network that owns the address and what the port is for.
+- **Destinations**: the same from the other side — each server or device, which apps talk to it, how much.
+- **Connections**: every socket with local and remote ends, state and interface; **Export** saves them as a spreadsheet.
+- **Health**: latency and lost answers to your router and to an internet host, every interface with its addresses and traffic, the DNS servers in use (and whether they are inside the VPN), and Wi-Fi details.
+- Download and upload graphs split traffic **through the VPN** from traffic **outside it**.
+- Optional: a note in the Island when an app goes online for the first time; **countries and networks** from a table kept on this computer (downloaded once, ~12 MB, from [DB-IP Lite](https://db-ip.com), CC BY 4.0 — no address is ever looked up online).
+
+**VPN** (System → VPN) lists the VPN connections the system knows (NetworkManager, wg-quick and WireGuard on Linux; the VPNs in System Settings on macOS; built-in VPNs and WireGuard tunnels on Windows) with Connect and Disconnect, and answers *is everything really going through it?*: IPv4 and IPv6 routes, DNS servers outside the tunnel (a DNS leak), and **what the internet sees** — your public address, and the address outside the VPN for comparison (only when you press the button). Connections can **reconnect automatically** if they drop (not after you disconnect them yourself). **Import a VPN file** reads a WireGuard `.conf` or OpenVPN `.ovpn`, checks it (bad keys, missing IPv6 or DNS, weak ciphers), shows it with every key hidden, and hands it to the system's VPN manager — Keeper never keeps the keys in a plain file; it can keep an encrypted copy in the system keychain if you ask. Kill-switch advice for your system is one click away.
+
+What each system allows, in [docs/NETWORK.md](docs/NETWORK.md): per-connection amounts on macOS (nettop) and Linux (with `ss` from iproute2); on Windows, connections and owners without administrator rights but traffic amounts only for the whole computer. Reading happens only while the page is open: about 1% of one core every 2 seconds on Linux.
 
 ### Keeper's brain
 
@@ -317,6 +393,21 @@ Keeper reads the text inside your files once, on your computer, and keeps it rea
 - **You decide what AIs see**: names only, matching passages, or whole files. **Passwords, API keys, private keys, card and bank numbers are blanked** before anything goes to an AI on the internet or to a connected app. *Only use AIs on this computer* keeps everything local. Excluded folders are never read.
 
 Honest limits: the meaning model is small, so it is good at topics and paraphrases but can miss across languages in short notes; images are understood through their text and names, not by what they show.
+
+### Agents and the knowledge graph
+
+Any AI can work with Keeper — and do things in it, only as you allow.
+
+- **Every AI service**: Anthropic, OpenAI (chat and Responses), Google Gemini, xAI Grok, Mistral, DeepSeek, Cohere, Moonshot, Qwen, Perplexity; OpenRouter, Together, Groq, Fireworks, Cerebras, Hugging Face, NVIDIA NIM; Azure OpenAI, Amazon Bedrock, Vertex AI; Ollama, LM Studio, llama.cpp, vLLM, Jan; any OpenAI- or Anthropic-compatible address. Live model lists, tokens and cost per connection, a **fallback** chain when one fails, and **private folders** that keep a conversation on a local AI.
+- **Agents act, with your permission**: agents connected over MCP can move, rename, tag, create folders, send to the Trash, open files, run automations, read the clipboard, look at running programs, explain why the computer is slow, pause or quit programs. Each action is Off, Ask or Allow; *Ask* shows who wants to do what, and nothing happens until you say yes. Everything is in History under the agent's name and can be undone.
+- **One click to connect** the Claude desktop app, Claude Code, Codex CLI, Gemini CLI, Cursor, VS Code, Windsurf, Zed, LM Studio, OpenClaw and Hermes Agent; **start agents** in a folder in Keeper's Terminal, with **profiles** so two accounts of the same agent stay signed in side by side.
+- **Skills** in the open SKILL.md format, shared with your other agents; the assistant reads one only when it needs it. *Save as skill* turns a good answer into one.
+- **Model gateway** for other tools (OpenAI- and Anthropic-compatible, on 127.0.0.1 with a token; `keeper/brain` answers from your files), **agent-to-agent** (A2A) and **`keeper acp`** for editors.
+- **Knowledge graph**: files, notes, tags, people, organisations and sources, linked by Markdown and `[[wiki]]` links and their backlinks, shared names, tags and similar meaning — Obsidian vaults work as they are. Smooth with thousands of nodes; agents can explore it too.
+- **Learns your habits, privately** (off by default): repeated moves, opens and searches become suggested automations, pins and saved searches. Forget everything with one button.
+- **Siri and Alexa**: a Shortcut with `keeper ask --plain`, and an [Alexa skill template](integrations/alexa) that reaches your Keeper through your own tunnel.
+
+Details, safety and exactly what was tested: [docs/AGENTS.md](docs/AGENTS.md).
 
 ### Assistant
 
@@ -343,6 +434,9 @@ keeper ask <question>      Ask about your files with the AI chosen in Keeper (ci
 keeper search --semantic   Search Keeper's brain by meaning (--brain: words inside files too)
 keeper brain               What Keeper's brain has read
 keeper mcp                 Keeper as an MCP server for AI apps (stdio)
+keeper acp                 Keeper as an agent for editors (Agent Client Protocol, stdio)
+keeper ask --plain "…"     Just the answer, as text (for Siri Shortcuts and scripts)
+keeper link …              Keeper Link: devices, invite, pair, send <file> <device>, check, forward
 
 --in <folders>  --json  --limit <n>  --hidden  --yes
 ```
@@ -385,10 +479,38 @@ Keeper works **alongside** Finder, File Explorer, Files or Dolphin — “Show i
 | Batch rename with preview and undo | partly | ✅ |
 | Tags on any OS | macOS only | ✅ |
 | Favorites, cloud drives, disks with eject, network servers and Trash with Put Back in one sidebar | ✅ | ✅ same on every OS |
+| Google Drive, OneDrive, Dropbox, S3 and ~70 cloud services, SFTP/FTP/WebDAV servers and home servers browsed inside the app | — | ✅ |
 | Recent downloads in the tray, Quick Search over any app | — | ✅ |
 | Clipboard history, shelf, focus timer, keep-awake | — | ✅ |
 | Startup items, installed apps, security check, system health | separate tools | ✅ |
 | Same app on Windows, macOS and Linux, plus a CLI | — | ✅ |
+
+---
+
+## Light on your computer
+
+Keeper does a lot, but it keeps out of the way. One part of it, the governor, decides when background work may run and how often anything looks at the computer:
+
+- **It fits around you.** Reading text in documents and pictures, and building meaning search, slow down while you work, wait while the computer is hot, short of memory or on battery, and catch up when you are away or the screen is locked.
+- **Checks slow down when nobody looks.** The clipboard, now playing, disks and the rest look less often after a minute without input, pause while the screen is locked, and speed up the moment you are back.
+- **No programs started over and over.** Full-screen detection, now playing and the microphone check use one long-running helper or a tiny system tool instead of a new process every few seconds. Download sources are read for hundreds of files at once.
+- **Memory is let go.** Text recognition unloads a minute after the last picture; the main window's page is released after 15 minutes closed to the tray (2 in Minimal mode) and reopens where you were.
+- **Your choice.** Settings → Keeper's own usage shows Keeper's processor and memory use right now, what runs in the background and why it waits, with three modes: **Minimal**, **Balanced** (default) and **Performance**.
+- **Switch off what you do not use.** Settings → Features lists every part of Keeper with what it costs. Turning one off stops it completely: no window, no timers, no watchers, and its pages and menu items leave the sidebar. Presets: Everything, Balanced, Minimal and Files only.
+
+Measured on Linux with a 14,400-file library (Xvfb, one minute per state, all of Keeper's processes together; memory is PSS, which shares common pages fairly):
+
+| | Before | Now (default features) | Only the library on |
+|---|---|---|---|
+| First scan | 165 s, 99 s of processor | 2.3 s, 2.3 s of processor | — |
+| Reading text in 6,700 documents | 277 s, 71 s of processor | 154 s, 25 s of processor | — |
+| Idle, window open | 2.3 % of one core | 0.9 % | 0.1 % |
+| Idle, closed to the tray | 2.4 % | 0.5 % | 0.3 % |
+| Wake-ups per second (main process) | 105 | 25–35 | 3 |
+| Programs started per minute | 99 | 6–13 | 2–8 |
+| Memory | 440–580 MB | 340–490 MB | 270–310 MB |
+
+Meaning search, when you turn it on, builds its index at about 30 % of one core while you work and at full speed while you are away. A check in CI starts the built app and fails if Keeper idles above 1 % of a core or 550 MB.
 
 ---
 
@@ -404,6 +526,8 @@ Keeper works **alongside** Finder, File Explorer, Files or Dolphin — “Show i
   - **Assistant and connected AI apps** — what you allowed in *What AIs may see* (names only, matching passages, or files it opens), with secrets blanked, to the AI you chose; nothing at all with an AI on this computer.
   - **Meaning-search model** — downloaded once from Hugging Face when you turn meaning search on, checked against a pinned SHA-256. Your text is never sent anywhere to build it.
   - **Dictation** — your recorded audio to the speech-to-text address you configured.
+  - **Cloud & servers** — only to the services and servers you connect, directly from your computer. Signing in to a cloud service opens its own page in your browser.
+  - **Network Activity** — host names for addresses through your normal DNS server (can be turned off); the country table from DB-IP once, if you turn countries on; latency checks to your router and one internet host while the Health tab is open; and *What the internet sees* asks api.ipify.org for your public address only when you press it.
   - **Update check** — once a day, the latest release number from GitHub (can be turned off).
 - API keys are encrypted with the operating system's keychain (Electron `safeStorage`). On Linux without a keyring, Keeper refuses to store keys rather than store them weakly.
 - Passwords and secret keys you copy are not kept in clipboard history.
@@ -576,7 +700,7 @@ Keeper is free software: you can redistribute it and/or modify it under the term
 
 Copyright © 2026 Keeper contributors.
 
-Keeper uses [Electron](https://www.electronjs.org), [React](https://react.dev), [Tesseract.js](https://tesseract.projectnaptha.com) (Apache-2.0), [jsQR](https://github.com/cozmo/jsQR) (Apache-2.0) and the [Anthropic TypeScript SDK](https://github.com/anthropics/anthropic-sdk-typescript) (MIT); forecasts by [Open-Meteo](https://open-meteo.com) (CC BY 4.0) and lyrics by [LRCLIB](https://lrclib.net).
+Keeper uses [Electron](https://www.electronjs.org), [React](https://react.dev), [Tesseract.js](https://tesseract.projectnaptha.com) (Apache-2.0), [jsQR](https://github.com/cozmo/jsQR) (Apache-2.0) and the [Anthropic TypeScript SDK](https://github.com/anthropics/anthropic-sdk-typescript) (MIT); forecasts by [Open-Meteo](https://open-meteo.com) (CC BY 4.0) and lyrics by [LRCLIB](https://lrclib.net). [IP Geolocation by DB-IP](https://db-ip.com) (CC BY 4.0) when countries are turned on in Network Activity.
 
 ---
 

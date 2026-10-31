@@ -5,6 +5,7 @@
 import { useState, useSyncExternalStore } from 'react';
 import { Icon } from './Icon';
 import { ContextMenu, type MenuItem } from './ui';
+import { useStore } from '../state';
 
 const KEY = 'sidebar.closed';
 const listeners = new Set<() => void>();
@@ -51,6 +52,9 @@ export const SECTION_COLOR: Record<string, string> = {
   saved: '#3b82f6',
   favorites: '#f59e0b',
   locations: '#14b8a6',
+  cloud: '#0ea5e9',
+  devices: '#10b981',
+  sync: '#10b981',
   tags: '#8b5cf6',
   tidy: '#22c55e',
   system: '#f97316',
@@ -69,11 +73,16 @@ export function NavSection({ id, title, children, className, menuItems = [], ...
 } & Omit<React.HTMLAttributes<HTMLDivElement>, 'title'>) {
   const isClosed = useClosed().has(id);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const { settings, updateSettings, go } = useStore();
+  // Hidden or moved with "Customize sidebar…".
+  if (settings?.sidebarHidden?.includes(`section:${id}`)) return null;
+  const at = settings?.sidebarOrder?.indexOf(id) ?? -1;
+  const order = settings?.sidebarOrder?.length ? 100 + (at < 0 ? 50 : at) : undefined;
   return (
     <div
       {...rest}
       className={`nav-section ${isClosed ? 'closed' : ''} ${className ?? ''}`}
-      style={{ ['--sec' as string]: `var(--sec-${id}, ${SECTION_COLOR[id] ?? 'var(--accent)'})` }}
+      style={{ ['--sec' as string]: `var(--sec-${id}, ${SECTION_COLOR[id] ?? 'var(--accent)'})`, order }}
     >
       <button
         className="nav-title"
@@ -98,6 +107,9 @@ export function NavSection({ id, title, children, className, menuItems = [], ...
             { label: 'Show All Sections', icon: 'plus', run: () => setAllSections(SECTION_IDS, true) },
             { label: 'Hide All Sections', icon: 'minus', run: () => setAllSections(SECTION_IDS, false) },
             ...menuItems,
+            { sep: true, label: '' },
+            { label: 'Remove from Sidebar', icon: 'close', run: () => settings && void updateSettings({ sidebarHidden: [...(settings.sidebarHidden ?? []), `section:${id}`] }) },
+            { label: 'Customize Sidebar…', icon: 'settings', run: () => go({ name: 'settings', arg: 'sidebar' }) },
           ]}
         />
       ) : null}

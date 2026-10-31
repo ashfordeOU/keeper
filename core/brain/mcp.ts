@@ -37,6 +37,18 @@ export interface McpBackend {
   version: string;
   /** blank secrets in results (default on: MCP clients usually send what they read to a cloud model) */
   redact?: boolean;
+  /** more tools: agent actions (each behind the person's permission), skills, the knowledge graph */
+  extraTools?(): McpTool[];
+  callExtra?(name: string, args: Record<string, unknown>, client: string): Promise<{ text: string; isError?: boolean; structured?: unknown }>;
+  /** skills offered to agents as prompts */
+  prompts?: { list(): { name: string; description: string }[]; get(name: string): string | undefined };
+}
+
+export interface McpTool {
+  name: string;
+  description: string;
+  inputSchema: Record<string, unknown>;
+  annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean; openWorldHint?: boolean; title?: string };
 }
 
 const INSTRUCTIONS = 'Keeper has indexed the files on this computer (names, folders, dates, download sources, and the text inside documents, PDFs and screenshots). Use search_files first, then read_file for the parts you need. Cite exact paths. Changes are only suggested to the person inside Keeper; this server never moves or deletes anything.';
@@ -64,6 +76,7 @@ export class McpServer {
         annotations: { readOnlyHint: true, openWorldHint: true },
       });
     }
+    for (const t of this.backend.extraTools?.() ?? []) if (!list.some((x) => x.name === t.name)) list.push(t as (typeof list)[number]);
     return list;
   }
 
@@ -82,9 +95,11 @@ export class McpServer {
           this.initialized = true;
           return ok({
             protocolVersion: MCP_VERSIONS.includes(asked) ? asked : MCP_VERSIONS[0],
-            capabilities: { tools: { listChanged: false }, resources: { listChanged: false, subscribe: false }, logging: {} },
+            capabilities: { tools: { listChanged: false }, resources: { listChanged: false, subscribe: false }, logging: {}, ...(this.backend.prompts ? { prompts: { listChanged: false } } : {}) },
             serverInfo: { name: 'keeper', title: 'Keeper', version: this.backend.version },
-            instructions: INSTRUCTIONS,
+            instructions: (this.backend.extraTools?.() ?? []).some((t) => t.annotations?.readOnlyHint === false)
+              ? INSTRUCTIONS.replace('Changes are only suggested to the person inside Keeper; this server never moves or deletes anything.', 'Tools that change things (move, rename, tag, Trash, open, quit) run only with the person\'s permission; Keeper may ask them first, so a call can take a while or be declined. Files only ever go to the Trash, and changes can be undone with undo_last.')
+              : INSTRUCTIONS,
           });
         }
         case 'notifications/initialized':
@@ -124,7 +139,12 @@ export class McpServer {
           return ok({ contents: [{ uri, mimeType, text }] });
         }
         case 'prompts/list':
-          return ok({ prompts: [] });
+          return ok({ prompts: (this.backend.prompts?.list() ?? []).map((p) => ({ name: p.name, description: p.description })) });
+        case 'prompts/get': {
+          const body = this.backend.prompts?.get(String(msg.params?.name ?? ''));
+          if (body === undefined) return fail(-32602, 'Unknown prompt');
+          return ok({ description: (this.backend.prompts?.list() ?? []).find((p) => p.name === msg.params?.name)?.description, messages: [{ role: 'user', content: { type: 'text', text: body } }] });
+        }
         default:
           return isNotification ? undefined : fail(-32601, `Method not found: ${msg.method}`);
       }
@@ -142,6 +162,10 @@ export class McpServer {
       if (!this.backend.ask) return { content: [{ type: 'text', text: 'No AI is set up in Keeper. Use search_files and read_file instead.' }], isError: true };
       const r = await this.backend.ask(String(args.question ?? ''));
       return { content: [{ type: 'text', text: r.answer + (r.sources.length ? `\n\nSources:\n${r.sources.map((s) => `- ${s.path}`).join('\n')}` : '') }], structuredContent: { answer: r.answer, sources: r.sources.map((s) => s.path) } };
+    }
+    if (this.backend.callExtra && (this.backend.extraTools?.() ?? []).some((t) => t.name === name)) {
+      const r = await this.backend.callExtra(name, args, this.clientInfo?.name ?? 'an AI app');
+      return { content: [{ type: 'text', text: r.text }], ...(r.isError ? { isError: true } : {}), ...(r.structured !== undefined ? { structuredContent: r.structured } : {}) };
     }
     if (name === 'propose_actions' || !this.tools().some((t) => t.name === name)) return { content: [{ type: 'text', text: `Unknown tool: ${name}` }], isError: true };
     const h = new Harness(toolOnly(this.backend.redact === false), this.backend.env);

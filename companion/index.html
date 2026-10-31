@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#111114">
+<meta name="referrer" content="no-referrer">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Keeper</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon.png">
+<style>
+  :root { --bg: #f6f5f2; --card: #fff; --text: #17171a; --muted: #6b6b73; --line: #e6e4df; --accent: #5b5bf0; --ok: #16a34a; --bad: #dc2626; color-scheme: light dark; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #111114; --card: #1c1c21; --text: #f2f2f4; --muted: #a0a0aa; --line: #2c2c33; --accent: #8b8bff; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); padding: max(16px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom)); }
+  header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  header img { width: 36px; height: 36px; border-radius: 9px; }
+  header .t { font-weight: 700; } header .s { color: var(--muted); font-size: 13px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); display: inline-block; margin-right: 5px; }
+  .dot.on { background: var(--ok); }
+  nav { display: flex; gap: 6px; margin-bottom: 14px; }
+  nav button { flex: 1; padding: 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--text); font: inherit; font-weight: 600; }
+  nav button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+  .big { display: block; width: 100%; padding: 18px; border-radius: 14px; border: 0; background: var(--accent); color: #fff; font: inherit; font-size: 18px; font-weight: 700; text-align: center; }
+  .btn { padding: 10px 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--text); font: inherit; }
+  .row { display: flex; align-items: center; gap: 10px; padding: 10px 2px; border-bottom: 1px solid var(--line); }
+  .row:last-child { border-bottom: 0; }
+  .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .muted { color: var(--muted); font-size: 13px; }
+  .bar { height: 5px; border-radius: 3px; background: var(--line); overflow: hidden; margin-top: 4px; } .bar i { display: block; height: 100%; background: var(--accent); }
+  textarea { width: 100%; min-height: 120px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font: inherit; padding: 10px; }
+  .err { color: var(--bad); }
+  .hidden { display: none !important; }
+  a.dl { color: var(--accent); }
+  .scr-wrap { position: relative; background: #000; border-radius: 12px; overflow: hidden; margin-bottom: 10px; touch-action: none; }
+  #scr { display: block; width: 100%; height: auto; user-select: none; -webkit-user-drag: none; }
+  #scr-note { position: absolute; left: 8px; bottom: 6px; color: #ddd; font-size: 11px; text-shadow: 0 1px 2px #000; }
+  .scr-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  .scr-bar .btn { padding: 8px 10px; }
+  .scr-bar .btn.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+  #scr-text { flex: 1; min-width: 0; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font: inherit; padding: 9px; }
+</style>
+</head>
+<body>
+<header>
+  <img src="icon.png" alt="">
+  <div><div class="t" id="title">Keeper</div><div class="s" id="status"><span class="dot"></span>Connecting…</div></div>
+</header>
+<div id="msg" class="card hidden"></div>
+<main id="app" class="hidden">
+  <nav>
+    <button data-tab="send" class="on">Send</button>
+    <button data-tab="files">Files</button>
+    <button data-tab="clip">Clipboard</button>
+    <button data-tab="screen">Screen</button>
+  </nav>
+  <section id="tab-send">
+    <label class="big" for="pick">Choose photos or files</label>
+    <input id="pick" type="file" multiple class="hidden">
+    <p class="muted">They are saved in Downloads/Keeper on the computer. Everything is encrypted between this phone and the computer.</p>
+    <div id="uploads"></div>
+  </section>
+  <section id="tab-files" class="hidden"><div class="card" id="files"></div></section>
+  <section id="tab-screen" class="hidden">
+    <div class="card" id="screen-start">
+      <div class="muted" style="margin-bottom:10px">See the computer’s screen here. The computer asks first, and shows a banner while you watch.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn" id="screen-view">View screen</button>
+        <button class="btn" id="screen-control">View and control</button>
+      </div>
+    </div>
+    <div id="screen-live" class="hidden">
+      <div class="scr-wrap"><img id="scr" alt="The computer’s screen"><div id="scr-note" class="muted"></div></div>
+      <div class="scr-bar" id="scr-controls">
+        <button class="btn" data-mode="touch" id="mode-touch">Touch</button>
+        <button class="btn" data-mode="pad" id="mode-pad">Touchpad</button>
+        <button class="btn" data-key="ArrowLeft">◀</button>
+        <button class="btn" data-key="ArrowRight">▶</button>
+        <button class="btn" data-key="Escape">Esc</button>
+        <button class="btn" data-key="Enter">⏎</button>
+        <button class="btn" data-key="Backspace">⌫</button>
+        <button class="btn" data-key="MediaPlayPause">⏯</button>
+        <button class="btn" data-key="AudioVolumeDown">🔉</button>
+        <button class="btn" data-key="AudioVolumeUp">🔊</button>
+      </div>
+      <div class="scr-bar" id="scr-typing"><input id="scr-text" placeholder="Type on the computer…" autocomplete="off" autocapitalize="off"><button class="btn" id="scr-send">Send</button></div>
+      <button class="btn" id="screen-stop" style="width:100%">Stop watching</button>
+    </div>
+  </section>
+  <section id="tab-clip" class="hidden">
+    <div class="card">
+      <textarea id="clip" placeholder="Text to send to the computer, or tap Get to see what it copied"></textarea>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn" id="clip-get">Get from computer</button>
+        <button class="btn" id="clip-set">Send to computer</button>
+        <button class="btn" id="clip-copy">Copy here</button>
+      </div>
+      <div class="muted" id="clip-note"></div>
+    </div>
+  </section>
+</main>
+<script src="app.js"></script>
+</body>
+</html>

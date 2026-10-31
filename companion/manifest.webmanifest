@@ -1,0 +1,9 @@
+{
+  "name": "Keeper by Ashforde®",
+  "short_name": "Keeper",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#111114",
+  "theme_color": "#111114",
+  "icons": [{ "src": "icon.png", "sizes": "1024x1024", "type": "image/png" }]
+}

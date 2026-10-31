@@ -79,6 +79,16 @@ export class VectorStore {
     this.keys[row] = key;
   }
 
+  /** The stored vector for a key (unit length, rebuilt from 8 bits), or undefined. */
+  get(key: number): Float32Array | undefined {
+    const row = this.rowOf.get(key);
+    if (row === undefined) return undefined;
+    const out = new Float32Array(this.dims);
+    const off = row * this.dims;
+    for (let i = 0; i < this.dims; i++) out[i] = this.data[off + i] * this.scales[row];
+    return out;
+  }
+
   delete(key: number): void {
     const row = this.rowOf.get(key);
     if (row === undefined) return;

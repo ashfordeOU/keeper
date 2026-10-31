@@ -21,12 +21,16 @@ import { downloadE5, E5, E5_DOWNLOAD_BYTES, e5Dir, e5Present } from '../../core/
 import type { Embedder } from '../../core/brain/engine';
 import type { HarnessResult, TraceStep } from '../../core/brain/harness';
 import { LocalBrain } from '../../core/brain/local';
-import { McpServer, type JsonRpcRequest, type JsonRpcResponse } from '../../core/brain/mcp';
+import { McpServer, type JsonRpcRequest, type JsonRpcResponse, type McpBackend } from '../../core/brain/mcp';
+import type { HarnessEnv } from '../../core/brain/harness';
+import '../../core/brain/adapters';
 import { COMPATIBLE_PRESETS, createProvider, providerFactories, registerProvider, type ChatMessage, type ChatProvider } from '../../core/brain/providers';
 import type { FileIndex } from '../../core/indexer';
 import { getSecret, hasSecret, settings, updateSettings } from '../store';
 import { appleProvider, mcpLaunch } from './platform';
 import { useBrain } from './platform/brain-adapter';
+import { canWork, conditions, track, whenIdle } from './governor';
+import { paceMs } from '../../core/governor';
 
 export interface BrainDeps {
   index: () => FileIndex;
@@ -47,6 +51,15 @@ let socketServer: net.Server | null = null;
 let httpServer: http.Server | null = null;
 let httpPort = 0;
 const asks = new Map<string, AbortController>();
+
+// Hooks for the agents layer (electron/services/agents.ts): fallback, privacy
+// routing and metering around the chosen AI; skills; agent actions over MCP.
+let providerWrapper: ((p: ChatProvider, c: AiConnection) => Promise<ChatProvider>) | null = null;
+let skillsProvider: (() => HarnessEnv['skills']) | null = null;
+let mcpExtras: (() => Partial<McpBackend>) | null = null;
+export function setProviderWrapper(fn: typeof providerWrapper) { providerWrapper = fn; }
+export function setSkillsProvider(fn: typeof skillsProvider) { skillsProvider = fn; }
+export function setMcpExtras(fn: typeof mcpExtras) { mcpExtras = fn; }
 
 const dataDir = () => app.getPath('userData');
 const brainDir = () => path.join(dataDir(), 'brain');
@@ -170,22 +183,36 @@ async function embedLoop() {
         await new Promise((r) => setTimeout(r, 60_000));
         continue;
       }
+      // The governor keeps this light while the person works (and when hot or short of
+      // memory) and lets it run fast when they are away. On battery the setting above decides.
+      const allowBattery = !brainSettings().pauseOnBattery && powerMonitor.isOnBatteryPower();
+      if (!allowBattery && !canWork('embed').ok) {
+        message = canWork('embed').reason;
+        embedTask.set('waiting', { pending: lb.engine.pendingCount, detail: message });
+        statusChanged();
+        await whenIdle('embed');
+        continue;
+      }
       message = undefined;
+      embedTask.set('working', { pending: lb.engine.pendingCount, detail: 'Building meaning vectors' });
       // Small batches while the person is using the computer, bigger ones when it is idle.
       const idle = powerMonitor.getSystemIdleTime();
       await lb.engine.embedSome(idle < 10 ? 8 : 32, lookup);
       lb.markDirty();
       statusChanged();
-      await new Promise((r) => setTimeout(r, idle < 10 ? 250 : 20));
+      await new Promise((r) => setTimeout(r, Math.max(idle < 10 ? 250 : 20, paceMs('embed', conditions()) * (idle < 10 ? 8 : 2))));
     }
   } catch (e) {
     message = `Meaning search stopped: ${e instanceof Error ? e.message : e}`;
   } finally {
     embedding = false;
+    embedTask.set('idle', { pending: lb?.engine.pendingCount ?? 0, detail: undefined });
     statusChanged(true);
     void lb?.save();
   }
 }
+
+const embedTask = track('brain-embed', 'Understanding what your files are about', 'embed');
 
 let semanticBusy: Promise<BrainStatus> | null = null;
 
@@ -267,7 +294,27 @@ async function activeProvider(): Promise<ChatProvider | null> {
   if (!c) return null;
   const p = await providerFor(c);
   if (b.localOnly && !p.local) throw new Error(`${c.label} runs on the internet, and you chose to use only AIs on this computer (Settings → AI & Brain).`);
+  return providerWrapper ? providerWrapper(p, c) : p;
+}
+
+/** One connection by id, as a provider (no fallback or routing). */
+export async function providerForConnection(id: string): Promise<ChatProvider> {
+  const c = brainSettings().connections.find((x) => x.id === id);
+  if (!c) throw new Error(`Unknown AI connection “${id}”`);
+  const p = await providerFor(c);
+  if (brainSettings().localOnly && !p.local) throw new Error(`${c.label} runs on the internet, and you chose to use only AIs on this computer.`);
   return p;
+}
+
+/** Asks Keeper's assistant (for other agents, the gateway and voice assistants). */
+export async function askBrain(question: string, opts: { signal?: AbortSignal; onDelta?: (t: string) => void; history?: ChatMessage[] } = {}): Promise<HarnessResult> {
+  if (!lb) throw new Error('Keeper is still starting');
+  return lb.ask(question, opts);
+}
+
+/** The brain over the library, for the knowledge graph (similar files) and agents. */
+export function localBrain(): LocalBrain | null {
+  return lb;
 }
 
 export async function connections(): Promise<{ connections: (AiConnection & { hasKey: boolean; local: boolean; needsKey: boolean })[]; active: string; kinds: { kind: string; label: string; available: boolean }[]; presets: typeof COMPATIBLE_PRESETS }> {
@@ -326,9 +373,10 @@ export function search(query: string, opts: { limit?: number; mode?: 'hybrid' | 
 
 // ---------------------------------------------------------------- serving other AI apps
 
-function mcpServer(): McpServer {
+export function mcpServer(): McpServer {
   const b = brainSettings();
   return new McpServer({
+    ...(mcpExtras?.() ?? {}),
     env: lb!.harnessEnv(),
     version: app.getVersion(),
     redact: b.mcpRedact,
@@ -347,6 +395,13 @@ const sameToken = (t: string) => {
   return a.length === b.length && timingSafeEqual(a, b);
 };
 
+const extraMethods = new Map<string, (params: Record<string, unknown>) => Promise<unknown> | unknown>();
+
+/** Lets other parts of Keeper answer the keeper command through the same socket (e.g. "keeper/sync.status"). */
+export function registerKeeperMethod(method: string, fn: (params: Record<string, unknown>) => Promise<unknown> | unknown) {
+  extraMethods.set(method, fn);
+}
+
 /** Methods only Keeper's own command uses, next to the standard MCP ones. */
 async function keeperMethod(m: JsonRpcRequest, notify: (method: string, params: unknown) => void): Promise<JsonRpcResponse | undefined> {
   const id = m.id ?? null;
@@ -354,6 +409,8 @@ async function keeperMethod(m: JsonRpcRequest, notify: (method: string, params: 
   try {
     if (m.method === 'keeper/status') return { jsonrpc: '2.0', id, result: status() };
     if (m.method === 'keeper/search') return { jsonrpc: '2.0', id, result: await search(String(p.query ?? ''), { limit: Number(p.limit) || 20, mode: p.mode as 'hybrid' }) };
+    const extra = extraMethods.get(m.method);
+    if (extra) return { jsonrpc: '2.0', id, result: await extra(p) };
     if (m.method === 'keeper/ask') {
       const r = await lb!.ask(String(p.question ?? ''), { onDelta: (text) => notify('keeper/delta', { text }), onStep: (s) => notify('keeper/step', s) });
       return { jsonrpc: '2.0', id, result: { answer: r.answer, sources: r.sources, actions: r.actions, provider: r.provider, model: r.model } };
@@ -538,6 +595,7 @@ export async function startBrain(d: BrainDeps): Promise<void> {
     home: os.homedir(),
     semantic: () => semantic,
     semanticModel: () => (semantic === 'off' ? undefined : E5.label),
+    skills: () => skillsProvider?.(),
   });
   await lb.load();
   // Spotlight, GNOME, KRunner and keeper:// links search through the brain too.

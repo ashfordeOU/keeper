@@ -24,6 +24,7 @@ import { clearQuarantine, networkInfo, pickApp, pickFiles, publicIp, resetPermis
 import { checkForUpdates, downloadUpdate, initUpdater, installUpdate, listVersionNotes, onUpdateStatus, openReleasesPage, scheduleUpdate, updateStatus, whatsNew } from './services/updater';
 import { loadImage, ocrImage } from './services/vision';
 import { getSecret, settings } from './store';
+import { onFeature } from './services/features';
 
 export interface IpcXDeps {
   index: FileIndex;
@@ -105,7 +106,8 @@ async function setLoginItem(on: boolean): Promise<boolean> {
 
 export function registerIpcX(d: IpcXDeps) {
   monitor = new MonitorService();
-  void monitor.start();
+  // Health history samples running apps once a minute; only while Health is switched on.
+  onFeature('health', (on) => (on ? void monitor.start() : monitor.stop()), { now: true });
   const forecast = new ForecastService(d.events, () => settings().island.place);
   // New versions: tell every window, the Island and the tray.
   onUpdateStatus((s) => d.broadcast?.('update-status', s));

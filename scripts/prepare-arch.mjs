@@ -44,4 +44,8 @@ if (!existsSync(bin)) throw new Error('ffmpeg for the target was not downloaded'
 const ort = path.join(path.dirname(require.resolve('onnxruntime-node/package.json')), 'bin', 'napi-v6', platform, arch);
 if (!existsSync(ort)) throw new Error(`Background removal has no build for ${platform}-${arch}`);
 
+// 4. rclone for cloud storage, checked against its pinned checksum.
+const { fetchRclone } = await import('./fetch-rclone.mjs');
+await fetchRclone(platform, arch);
+
 console.log(`Ready to package for ${platform}-${arch}.`);

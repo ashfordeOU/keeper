@@ -22,6 +22,8 @@ export interface IndexFolder {
 export interface IndexHooks {
   /** reads where a file was downloaded from (xattr / Zone.Identifier); may be slow */
   readSource?: (p: string) => Promise<DownloadSource | undefined>;
+  /** the same for many files at once (one helper process per batch); preferred when given */
+  readSources?: (paths: string[]) => Promise<Map<string, { source?: DownloadSource; tags?: string[] }>>;
   /** reads OS tags (macOS Finder tags) */
   readTags?: (p: string) => Promise<string[] | undefined>;
   /** last-opened time, when the OS tracks it better than atime */
@@ -183,8 +185,10 @@ export class FileIndex {
   /** Download sources for files that do not have one yet. */
   async enrichSources(opts: { signal?: AbortSignal; onProgress?: (p: Progress) => void } = {}): Promise<void> {
     const read = this.hooks.readSource;
-    if (!read) return;
+    if (!read && !this.hooks.readSources) return;
     const todo = [...this.files.values()].filter((f) => !f.source && !this.extras.get(f.path)?.source && this.extras.get(f.path)?.mtime !== f.mtime);
+    if (this.hooks.readSources) return this.enrichInBatches(todo, this.hooks.readSources, opts);
+    if (!read) return;
     let done = 0;
     const limit = 8;
     let i = 0;
@@ -211,6 +215,28 @@ export class FileIndex {
       }
     };
     await Promise.all(Array.from({ length: limit }, next));
+  }
+
+  private async enrichInBatches(todo: FileEntry[], readMany: NonNullable<IndexHooks['readSources']>, opts: { signal?: AbortSignal; onProgress?: (p: Progress) => void }): Promise<void> {
+    const BATCH = 200;
+    for (let i = 0; i < todo.length && !opts.signal?.aborted; i += BATCH) {
+      const batch = todo.slice(i, i + BATCH);
+      const found = await readMany(batch.map((f) => f.path)).catch(() => new Map<string, { source?: DownloadSource; tags?: string[] }>());
+      for (const f of batch) {
+        const o = found.get(f.path);
+        this.setExtra(f, { source: o?.source });
+        if (o?.source) f.source = o.source;
+        // OS tags (macOS Finder) join Keeper's own tags the first time a file is seen.
+        if (o?.tags?.length && !this.tags.has(f.path)) {
+          const clean = [...new Set(o.tags.map((x) => x.trim().toLowerCase()).filter(Boolean))];
+          if (clean.length) {
+            this.tags.set(f.path, clean);
+            f.tags = clean;
+          }
+        }
+      }
+      opts.onProgress?.({ task: 'index', phase: 'Looking up download sources', done: Math.min(i + BATCH, todo.length), total: todo.length });
+    }
   }
 
   setExtra(f: FileEntry, patch: Partial<Persisted['extras'][string]>): void {

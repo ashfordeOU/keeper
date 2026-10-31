@@ -18,6 +18,7 @@ import {
 import { powershell, run } from '../../core/platform';
 import { uniqueName } from '../../core/rules';
 import { settings, updateSettings } from '../store';
+import { poll } from './governor';
 
 const home = () => os.homedir();
 const isMac = process.platform === 'darwin';
@@ -33,7 +34,8 @@ const listDir = (d: string) => {
 
 /** statfs can hang on a server that went away; never wait for it more than a moment. */
 function withTimeout<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
-  return Promise.race([p, new Promise<T>((r) => setTimeout(() => r(fallback), ms))]);
+  let t: NodeJS.Timeout | undefined;
+  return Promise.race([p, new Promise<T>((r) => { t = setTimeout(() => r(fallback), ms); })]).finally(() => clearTimeout(t));
 }
 
 async function sizes(p: Place): Promise<Place> {
@@ -147,8 +149,29 @@ export function remoteFolders(): string[] {
 let watchTimer: NodeJS.Timeout | undefined;
 let lastKey = '';
 
+/**
+ * A cheap sign that disks or servers changed, read without starting any
+ * program: the mount table on Linux, /Volumes on a Mac, the drive letters on
+ * Windows. Only when it changes does the full (slower) listing run.
+ */
+async function mountSignature(): Promise<string> {
+  if (isMac) return listDir('/Volumes').join('|');
+  if (isWin) {
+    const letters = 'CDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+    const present = await Promise.all(letters.map((l) => withTimeout(fsp.stat(`${l}:\\`).then(() => l, () => ''), 1000, '')));
+    return present.join('');
+  }
+  const mounts = await fsp.readFile('/proc/self/mountinfo', 'utf8').catch(() => '');
+  return mounts.split('\n').map((l) => l.split(' ')[4]).join('|') + '#' + listDir(`/run/user/${process.getuid?.() ?? 1000}/gvfs`).join('|');
+}
+
+let stopWatch: (() => void) | undefined;
+let lastSig = '';
+let lastFull = 0;
+
 export function watchPlaces(onChange: () => void) {
-  const tick = async () => {
+  const full = async () => {
+    lastFull = Date.now();
     try {
       const m = await listPlaces();
       const key = JSON.stringify([m.volumes.map((v) => v.path), m.network.map((n) => n.path), m.cloud.map((c) => c.path)]);
@@ -158,9 +181,17 @@ export function watchPlaces(onChange: () => void) {
       /* try again next time */
     }
   };
-  void tick();
+  const tick = async () => {
+    const sig = await mountSignature().catch(() => '');
+    // Cloud folders appear without a mount: a full look every few minutes catches them.
+    if (sig !== lastSig || Date.now() - lastFull > 5 * 60_000) {
+      lastSig = sig;
+      await full();
+    }
+  };
+  stopWatch?.();
   clearInterval(watchTimer);
-  watchTimer = setInterval(() => void tick(), 5000);
+  stopWatch = poll('places.mounts', { baseMs: 4000, idleFactor: 4, pauseWhenLocked: true }, tick, { feature: 'places' });
 }
 
 // ---------------------------------------------------------------- eject

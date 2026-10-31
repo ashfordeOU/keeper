@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Sample data for the browser demo (`npm run demo`). Nothing here touches a disk.
 
+import { mockUsage } from './mock-usage';
+import { mockFeatures } from './mock-features';
 import type { BrowseEntry, IslandState, KeeperApi } from '../core/api';
 import { extOf, kindOf, looksLikeScreenshot } from '../core/classify';
 import { search } from '../core/query/match';
@@ -10,10 +12,16 @@ import { defaultSettings } from '../core/settings';
 import { createMockCapture, DEMO_SHOT } from './mock-capture';
 import { mockX } from './mock-x';
 import { mockPlaces } from './mock-places';
+import { mockRemote } from './mock-remote';
 import { mockProcs } from './mock-procs';
+import { mockNet } from './mock-net';
+import { mockSync } from './mock-sync';
 import { mockPlatform } from './mock-platform';
 import { mockLock } from './mock-lock';
+import { mockLink } from './mock-link';
+import { mockTerminal } from './mock-terminal';
 import { mockBrain } from './mock-brain';
+import { mockAgents } from './mock-agents';
 import { createMockIsland } from './mock-island';
 import type { CleanupGroup, DuplicateGroup, FileEntry, FileKind, Rule, SpaceNode } from '../core/types';
 import { mockPreview } from './preview/mock';
@@ -230,10 +238,21 @@ export function createMockApi(): KeeperApi {
   return {
     ...mockX(),
     ...mockPlaces(),
+    ...mockRemote(),
     ...mockProcs(),
+    ...mockNet(),
+    ...mockSync(),
     ...mockPlatform(),
     lock: lockX.lock,
+    ...mockLink(HOME, (ch, ...args) => listeners.get(ch)?.forEach((cb) => (cb as (...a: unknown[]) => void)(...args))),
+    usage: mockUsage(),
+    features: mockFeatures(() => settings, (patch) => {
+      Object.assign(settings, patch);
+      listeners.get('settings-changed')?.forEach((cb) => (cb as (v: unknown) => void)(structuredClone(settings)));
+    }),
+    ...mockTerminal(HOME, (ch, ...args) => listeners.get(ch)?.forEach((cb) => (cb as (...a: unknown[]) => void)(...args))),
     ...mockBrain(files, (ch, v) => listeners.get(ch)?.forEach((cb) => cb(v)), HOME),
+    ...mockAgents(files, (ch, v) => listeners.get(ch)?.forEach((cb) => cb(v)), HOME),
     preview: mockPreview(() => files, thumb),
     system: {
       info: async () => ({ platform: 'darwin', arch: 'arm64', osVersion: '15.4', appVersion: '0.1.0 (demo)', home: HOME, sep: '/' }),
@@ -461,6 +480,6 @@ export function createMockApi(): KeeperApi {
       set.add(cb);
       listeners.set(channel, set);
       return () => set.delete(cb);
-    }) as KeeperApi['on'],
+    }) as unknown as KeeperApi['on'],
   };
 }

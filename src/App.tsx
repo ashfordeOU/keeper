@@ -9,13 +9,19 @@ import { Icon } from './components/Icon';
 import { OwlMark } from './components/OwlMark';
 import { UpdateBanner, WhatsNew } from './components/Updates';
 import { Inspector } from './components/Inspector';
+import { FeatureOff, navKey, useHiddenRoutes } from './features';
 import { NavSection } from './components/NavSection';
+import { TerminalApp } from './terminal/TerminalApp';
+import { useTT } from './terminal/strings';
 import { usePlaceMemory } from './place';
 import { PlacesSidebar } from './components/PlacesSidebar';
 import { Player } from './components/Player';
-import { KIND_COLOR } from './components/ui';
+import { ContextMenu, KIND_COLOR } from './components/ui';
 import { Apps } from './screens/Apps';
 import { Assistant } from './screens/Assistant';
+import { Agents } from './screens/Agents';
+import { Graph } from './screens/Graph';
+import { ApprovalHost } from './components/ApprovalHost';
 import { Browse } from './screens/Browse';
 import { Cleanup } from './screens/Cleanup';
 import { Downloads } from './screens/Downloads';
@@ -41,6 +47,13 @@ import { Capture } from './screens/Capture';
 import { Annotate } from './screens/Annotate';
 import { Network } from './screens/Network';
 import { Trash } from './screens/Trash';
+import { Remote } from './screens/Remote';
+import { NetActivity } from './screens/NetActivity';
+import { Vpn } from './screens/Vpn';
+import { Sync } from './screens/Sync';
+import { CloudSidebar } from './components/CloudSidebar';
+import { DevicesSidebar, LinkPrompts } from './components/LinkParts';
+import { Devices } from './screens/Devices';
 import { ForceQuitHost } from './screens/Processes';
 import { mod, shift, useAsync, useStore, type Route, type RouteName } from './state';
 import { QuickLookHost } from './preview/QuickLook';
@@ -51,20 +64,34 @@ const contentEl = () => document.querySelector<HTMLElement>('.main > .content');
 const SHELVES: FileKind[] = ['image', 'video', 'audio', 'document', 'archive', 'installer', 'app'];
 
 function NavItem({ route, icon, label, count, color }: { route: Route; icon?: string; label: string; count?: number | string; color?: string }) {
-  const { route: cur, go } = useStore();
+  const { route: cur, go, settings, updateSettings } = useStore();
+  const hiddenRoutes = useHiddenRoutes();
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const active = cur.name === route.name && (cur.arg ?? '') === (route.arg ?? '');
+  const key = navKey(route.name, route.arg);
+  // Off in Settings → Features, or hidden with "Customize sidebar…" (the page you are on stays).
+  if (!active && (hiddenRoutes.has(route.name) || settings?.sidebarHidden?.includes(key))) return null;
   return (
-    <button className={`nav-item ${active ? 'active' : ''}`} onClick={() => go(route)} title={label}>
+    <>
+    {menu ? (
+      <ContextMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)} items={[
+        { label: 'Remove from Sidebar', icon: 'close', run: () => settings && void updateSettings({ sidebarHidden: [...(settings.sidebarHidden ?? []), key] }) },
+        { label: 'Customize Sidebar…', icon: 'settings', run: () => go({ name: 'settings', arg: 'sidebar' }) },
+      ]} />
+    ) : null}
+    <button className={`nav-item ${active ? 'active' : ''}`} onClick={() => go(route)} title={label} onContextMenu={(e) => { e.preventDefault(); setMenu({ x: e.clientX, y: e.clientY }); }}>
       {color ? <span className="dot" style={{ background: color }} /> : <Icon name={icon ?? 'folder'} size={15} />}
       <span className="label ellipsis">{label}</span>
       {count !== undefined ? <span className="count">{count}</span> : null}
     </button>
+    </>
   );
 }
 
 function Sidebar() {
   const { settings, version, info } = useStore();
   const t = useT();
+  const tt = useTT();
   const totals = useAsync(() => api.library.totals(), [version]);
   const tags = useAsync(() => api.library.tags(), [version]);
   const short = (n?: number) => (n === undefined ? undefined : n >= 1000 ? `${(n / 1000).toFixed(n >= 10_000 ? 0 : 1)}k` : String(n));
@@ -90,6 +117,18 @@ function Sidebar() {
 
       {/* Favorites (pinned folders included) and Locations: disks, cloud, network, Trash. */}
       <PlacesSidebar />
+      {/* Cloud services, servers, home servers and other computers. */}
+      <CloudSidebar />
+      {/* Paired devices and phones (Keeper Link); drop files on one to send them. */}
+      <DevicesSidebar />
+
+
+      <NavSection id="sync" title="Sync & Backup">
+        <NavItem route={{ name: 'sync', arg: 'folders' }} icon="refresh" label="Synced folders" />
+        <NavItem route={{ name: 'sync', arg: 'backups' }} icon="shield" label="Backups" />
+        <NavItem route={{ name: 'sync', arg: 'mirrors' }} icon="cloud" label="Cloud mirrors" />
+        <NavItem route={{ name: 'sync', arg: 'versions' }} icon="history" label="Older versions" />
+      </NavSection>
 
       {tags.data?.length ? (
         <NavSection id="tags" title={t('section.tags')}>
@@ -111,11 +150,16 @@ function Sidebar() {
         <NavItem route={{ name: 'startup' }} icon="power" label={t('nav.startup')} />
         <NavItem route={{ name: 'apps' }} icon="app" label={t('nav.apps')} />
         <NavItem route={{ name: 'protection' }} icon="shield" label={t('nav.protection')} />
+        <NavItem route={{ name: 'netactivity' }} icon="globe" label={t('nav.netactivity')} />
+        <NavItem route={{ name: 'vpn' }} icon="lock" label={t('nav.vpn')} />
       </NavSection>
 
       <NavSection id="more" title={t('section.more')}>
         <NavItem route={{ name: 'assistant' }} icon="assistant" label={t('nav.assistant')} />
+        <NavItem route={{ name: 'agents' }} icon="agent" label="Agents" />
+        <NavItem route={{ name: 'graph' }} icon="graph" label="Knowledge Graph" />
         <NavItem route={{ name: 'capture' }} icon="screenshot" label={t('nav.capture')} />
+        <NavItem route={{ name: 'terminal' }} icon="terminal" label={tt('title')} />
         <NavItem route={{ name: 'tools' }} icon="terminal" label={t('nav.toolbox')} />
         <NavItem route={{ name: 'island' }} icon="island" label={t('nav.island')} />
         <NavItem route={{ name: 'widgets' }} icon="grid" label={t('nav.widgets')} />
@@ -200,6 +244,8 @@ class PageBoundary extends Component<{ children: ReactNode; route: string }, { e
 
 function Page() {
   const { route } = useStore();
+  const hiddenRoutes = useHiddenRoutes();
+  if (hiddenRoutes.has(route.name)) return <FeatureOff route={route.name} />;
   const pages: Record<RouteName, () => React.ReactElement> = {
     home: () => <Home />,
     recents: () => <Library />,
@@ -232,6 +278,14 @@ function Page() {
     annotate: () => <Annotate />,
     network: () => <Network />,
     trash: () => <Trash />,
+    remote: () => <Remote />,
+    netactivity: () => <NetActivity />,
+    agents: () => <Agents />,
+    graph: () => <Graph />,
+    vpn: () => <Vpn />,
+    sync: () => <Sync key={route.arg ?? ''} />,
+    terminal: () => <TerminalApp mode="page" startCwd={route.arg} />,
+    devices: () => <Devices />,
   };
   return pages[route.name]();
 }
@@ -283,7 +337,9 @@ export function App() {
       {palette ? <CommandPalette onClose={() => setPalette(false)} /> : null}
       <WhatsNew />
       <QuickLookHost />
+      <LinkPrompts />
       <ForceQuitHost />
+      <ApprovalHost />
       <div className="toast-stack">
         {store.toasts.map((t) => (
           <div className="toast" key={t.id}>

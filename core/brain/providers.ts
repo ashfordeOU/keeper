@@ -62,7 +62,7 @@ export interface ChatProvider {
   chat(messages: ChatMessage[], tools: ToolSpec[], opts?: ChatOptions): Promise<ChatResult>;
 }
 
-export type ProviderKind = 'anthropic' | 'openai' | 'openai-compatible' | 'ollama' | 'platform';
+export type ProviderKind = 'anthropic' | 'openai' | 'openai-compatible' | 'ollama' | 'platform' | 'openai-responses' | 'gemini' | 'bedrock';
 
 export interface ProviderConfig {
   kind: ProviderKind;

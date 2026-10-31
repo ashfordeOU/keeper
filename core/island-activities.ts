@@ -10,7 +10,7 @@ import type { IslandState } from './api';
 
 export type ActivityKind =
   | 'dictation' | 'recording' | 'agent-waiting' | 'agent-stuck' | 'meeting' | 'charging' | 'battery-low' | 'timer'
-  | 'progress' | 'music' | 'agent-working' | 'rain' | 'copied' | 'headphones' | 'awake' | 'unlocked' | 'paused-music';
+  | 'progress' | 'music' | 'agent-working' | 'rain' | 'copied' | 'headphones' | 'awake' | 'unlocked' | 'paused-music' | 'sharing';
 
 export interface Activity {
   id: string;
@@ -52,6 +52,8 @@ export interface Presentation {
 
 export const PRIORITY: Record<ActivityKind, number> = {
   dictation: 100,
+  // Someone else sees this screen: always visible, with Stop one tap away.
+  sharing: 98,
   recording: 95,
   'agent-waiting': 88,
   'agent-stuck': 86,
@@ -83,6 +85,8 @@ export interface ExtraInputs {
   jobs?: { task: string; phase: string; fraction: number }[];
   /** folders unlocked right now */
   unlocked?: number;
+  /** another device or phone watching (or controlling) this screen */
+  sharing?: { sid: string; name: string; control: boolean; since: number }[];
   /** kinds turned off in Settings */
   off?: string[];
 }
@@ -117,6 +121,12 @@ export function activitiesFrom(s: IslandState, now: number, x: ExtraInputs = {})
     add({ id: 'timer', kind: 'timer', icon: 'timer', title: s.focus.mode === 'break' ? 'Break' : s.focus.pausedLeft !== undefined ? 'Focus (paused)' : 'Focus', trailing: mmss(left), progress: total ? 1 - left / total : undefined, color: s.focus.mode === 'break' ? '#34d399' : '#ff9f0a' });
   }
 
+  // Countdown timers from Alarms (several can run; each is its own activity).
+  for (const t of s.countdowns ?? []) {
+    const left = t.endsAt !== undefined ? Math.max(0, t.endsAt - now) : t.leftMs ?? t.durationMs;
+    add({ id: `countdown-${t.id}`, kind: 'timer', icon: 'timer', title: t.endsAt !== undefined ? t.label : `${t.label} (paused)`, trailing: mmss(left), progress: t.durationMs ? 1 - left / t.durationMs : undefined, color: '#ff9f0a', ref: t.id });
+  }
+
   for (const j of x.jobs ?? []) {
     add({ id: `job-${j.task}`, kind: 'progress', icon: JOB_ICON[j.task] ?? 'refresh', title: JOB_TITLE[j.task] ?? 'Working', detail: j.phase, progress: Math.max(0, Math.min(1, j.fraction)), trailing: `${Math.round(j.fraction * 100)}%`, color: '#0a84ff' });
   }
@@ -132,6 +142,7 @@ export function activitiesFrom(s: IslandState, now: number, x: ExtraInputs = {})
   if (s.weather?.nowcast && /rain|snow|shower|drizzle|storm/i.test(s.weather.nowcast)) {
     add({ id: 'rain', kind: 'rain', icon: 'drop', title: s.weather.nowcast, detail: s.weather.place.name, color: '#64d2ff' });
   }
+  for (const sh of x.sharing ?? []) add({ id: `share-${sh.sid}`, kind: 'sharing', icon: 'eye', title: `${sh.name} is ${sh.control ? 'controlling' : 'viewing'} this screen`, trailing: mmss(now - sh.since), color: '#ff453a', since: sh.since, ref: sh.sid });
   if (x.unlocked) add({ id: 'unlocked', kind: 'unlocked', icon: 'lock', title: `${x.unlocked} folder${x.unlocked === 1 ? '' : 's'} unlocked`, trailing: String(x.unlocked), color: '#fbbf24' });
   if (s.keepAwake.on) {
     const left = s.keepAwake.until ? Math.max(0, s.keepAwake.until - now) : 0;
@@ -140,8 +151,8 @@ export function activitiesFrom(s: IslandState, now: number, x: ExtraInputs = {})
   return out.filter((a) => !x.off?.includes(a.kind));
 }
 
-const JOB_TITLE: Record<string, string> = { convert: 'Converting', cleanup: 'Looking for things to clean', junk: 'Looking for things to clean', duplicates: 'Finding duplicates', dupes: 'Finding duplicates', space: 'Measuring folders', index: 'Reading your files', upload: 'Uploading', download: 'Downloading', lock: 'Locking a folder', unlock: 'Unlocking a folder' };
-const JOB_ICON: Record<string, string> = { convert: 'refresh', cleanup: 'broom', junk: 'broom', duplicates: 'dupes', dupes: 'dupes', space: 'map', index: 'search', upload: 'arrowUp', download: 'down', lock: 'lock', unlock: 'lock' };
+const JOB_TITLE: Record<string, string> = { convert: 'Converting', cleanup: 'Looking for things to clean', junk: 'Looking for things to clean', duplicates: 'Finding duplicates', dupes: 'Finding duplicates', space: 'Measuring folders', index: 'Reading your files', upload: 'Uploading', download: 'Downloading', lock: 'Locking a folder', unlock: 'Unlocking a folder', sync: 'Syncing', backup: 'Backing up', restore: 'Restoring', mirror: 'Mirroring' };
+const JOB_ICON: Record<string, string> = { convert: 'refresh', cleanup: 'broom', junk: 'broom', duplicates: 'dupes', dupes: 'dupes', space: 'map', index: 'search', upload: 'arrowUp', download: 'down', lock: 'lock', unlock: 'lock', sync: 'refresh', backup: 'shield', restore: 'undo', mirror: 'cloud' };
 
 /** Short-lived activities from what changed between two states. */
 export function transientsFrom(prev: IslandState | null, next: IslandState, now: number): Activity[] {

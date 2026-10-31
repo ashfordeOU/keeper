@@ -187,6 +187,21 @@ export class BrainEngine {
     return out;
   }
 
+  /** Files closest in meaning to one file (by its first passages), for the knowledge graph. */
+  similarFiles(p: string, k = 5): { path: string; score: number }[] {
+    const b = this.files.get(p);
+    if (!this.vectors || !b) return [];
+    const mine = new Set(b.docs);
+    const v = b.docs.slice(1, 3).map((d) => this.vectors!.get(d)).find(Boolean) ?? this.vectors.get(b.docs[0]);
+    if (!v) return [];
+    const best = new Map<string, number>();
+    for (const h of this.vectors.search(v, k * 6, (key) => !mine.has(key))) {
+      const fp = this.docs[h.key]?.[0];
+      if (fp && fp !== p && (best.get(fp) ?? -1) < h.score) best.set(fp, h.score);
+    }
+    return [...best.entries()].sort((a, b2) => b2[1] - a[1]).slice(0, k).map(([path, score]) => ({ path, score }));
+  }
+
   setVector(doc: number, v: Float32Array): void {
     if (!this.vectors || !this.docs[doc]) return;
     this.vectors.set(doc, normalize(v));

@@ -5,7 +5,10 @@
 
 import type { NowPlaying } from '../../core/api';
 import { parseLrc, type LyricLine } from '../../core/island';
-import { powershell, run } from '../../core/platform';
+import { run } from '../../core/platform';
+import path from 'node:path';
+import { parseRegMicInUse } from '../../core/awake';
+import { psRun } from './ps-host';
 
 const MAC_SCRIPT = (app: string) => `if application "${app}" is running then
 tell application "${app}"
@@ -52,7 +55,8 @@ export async function nowPlaying(): Promise<NowPlaying | undefined> {
       canShuffle: p[8] !== '', shuffle: p[8] === 'true', repeat: !!p[9] && p[9] !== 'None',
     };
   }
-  const r = await powershell(WIN_SCRIPT.replace('ACTION', ''), 8000);
+  // Asked every few seconds: a PowerShell that stays open answers far more cheaply.
+  const r = await psRun(WIN_SCRIPT.replace('ACTION', ''), 8000);
   try {
     const d = JSON.parse(r.stdout) as { app: string; title: string; artist: string; album: string; status: string; pos: number; dur: number };
     if (!d.title) return undefined;
@@ -72,7 +76,7 @@ export async function mediaAction(app: string | undefined, action: 'toggle' | 'n
     await run('playerctl', args, 3000);
   } else {
     const call = action === 'toggle' ? 'TryTogglePlayPauseAsync()' : action === 'next' ? 'TrySkipNextAsync()' : action === 'previous' ? 'TrySkipPreviousAsync()' : `TryChangePlaybackPositionAsync(${Math.round((value ?? 0) * 1e7)})`;
-    await powershell(WIN_SCRIPT.replace('ACTION', `Await ($s.${call}) ([bool]) | Out-Null; return`), 8000);
+    await psRun(WIN_SCRIPT.replace('ACTION', `Await ($s.${call}) ([bool]) | Out-Null; return`), 8000);
   }
 }
 
@@ -102,8 +106,9 @@ export async function micInUse(): Promise<string[]> {
     return [...new Set([...r.stdout.matchAll(/application\.name = "([^"]+)"/g)].map((m) => m[1]))];
   }
   if (process.platform === 'win32') {
-    const r = await powershell(`Get-ChildItem 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\microphone' -Recurse -ErrorAction SilentlyContinue | ForEach-Object { $p = Get-ItemProperty $_.PSPath; if ($p.LastUsedTimeStop -eq 0) { $_.PSChildName } }`, 8000);
-    return r.stdout.split(/\r?\n/).filter(Boolean).map((n) => n.replace(/#/g, '\\').split('\\').pop()!.replace(/\.exe$/i, ''));
+    // reg.exe is a small program; PowerShell would cost far more every ten seconds.
+    const r = await run(path.join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'reg.exe'), ['query', 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\microphone', '/s', '/v', 'LastUsedTimeStop'], 5000);
+    return parseRegMicInUse(r.stdout);
   }
   return [];
 }

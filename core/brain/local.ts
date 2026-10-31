@@ -13,6 +13,8 @@ import type { FileEntry } from '../types';
 import { BrainEngine, type Embedder } from './engine';
 import { extractText } from './extract';
 import { Harness, type HarnessEnv, type HarnessResult, type Visibility } from './harness';
+// More AI services (Responses API, Gemini, Bedrock) register themselves.
+import './adapters';
 import type { ChatMessage, ChatProvider } from './providers';
 import { VectorStore } from './vectors';
 
@@ -28,6 +30,8 @@ export interface LocalBrainOptions {
   home?: string;
   semantic?: () => BrainStatus['semantic'];
   semanticModel?: () => string | undefined;
+  /** skills the assistant may use (names and descriptions up front, bodies on use) */
+  skills?: () => HarnessEnv['skills'];
 }
 
 const norm = (p: string) => path.resolve(p).replace(/[\\/]+$/, '');
@@ -168,6 +172,7 @@ export class LocalBrain implements Brain {
     const all = () => ix().all().filter((f) => !this.isExcluded(f.path));
     return {
       visibility: this.o.visibility(),
+      skills: this.o.skills?.(),
       home: this.o.home,
       platform: process.platform,
       allowed: (p) => this.allowed(p),
