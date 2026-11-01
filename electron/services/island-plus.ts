@@ -23,6 +23,7 @@ import { callTitles, macMicApps, muteInApp, setSystemMicMuted, systemMicMuted } 
 import { HudWatcher } from './island-hud';
 import type { IslandService } from './island';
 import { micInUse } from './media';
+import { permissionNeeded } from './permission-nudge';
 
 const HOOK_EDITORS = [
   { id: 'cursor', name: 'Cursor', file: path.join(os.homedir(), '.cursor', 'hooks.json'), dir: path.join(os.homedir(), '.cursor') },
@@ -225,7 +226,8 @@ export class IslandPlus {
   }
 
   openNotifyPermission() {
-    if (process.platform === 'darwin') void shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility');
+    // Asked for from the Island: the exact pane, and Keeper's Permissions row highlighted for later.
+    if (process.platform === 'darwin') { permissionNeeded('accessibility', 'notifyMirror'); void shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility'); }
     else if (process.platform === 'win32') void shell.openExternal('ms-settings:privacy-notifications');
   }
 }

@@ -21,6 +21,8 @@ let package = Package(
                 .linkedFramework("ApplicationServices"),
                 .linkedFramework("CoreGraphics"),
                 .linkedFramework("EventKit"),
+                .linkedFramework("CoreLocation"),
+                .linkedFramework("UserNotifications"),
             ]
         ),
     ]

@@ -122,6 +122,7 @@ import { conditions, pace, poll, startGovernor, usage, whenIdle } from './servic
 import { applyFeatureSet, applyPreset, featureOn, featureSets, listFeatures, liveCosts, onFeature, onFeaturesChanged, removeFeatureSet, saveFeatureSet, setFeature, setPowerSets, startPowerSets } from './services/features';
 import { getSecret, hasSecret, onSettings, setSecret, settings, updateSettings } from './store';
 import { registerUsageStatsIpc } from './ipc/usage-stats';
+import { registerPermissionsIpc } from './ipc/permissions';
 
 void squarify; // the interface lays out the Space Map; kept for the CLI's future text treemap
 
@@ -1208,6 +1209,7 @@ app.whenReady().then(async () => {
   registerFirewallIpc({ alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }), broadcast });
   // Anonymous usage stats: on by default, off with one switch; at most one small report a day (Settings → Privacy).
   registerUsageStatsIpc();
+  registerPermissionsIpc();
   // Sync, backups and mirrors. Keeper Link and cloud connections attach when they are ready
   // (attachTransport / attachConnections); KEEPER_SYNC_LOOPBACK is for tests only.
   // Notes Everywhere: the hub of notes from every notes app (nothing runs until an app is connected).

@@ -6,6 +6,7 @@ import { mockIslandTools } from './mock-island-tools';
 import { mockCues } from './mock-cues';
 import { mockFeatures } from './mock-features';
 import { mockUsageStats } from './mock-usage-stats';
+import { mockPermissions } from './mock-permissions';
 import { mockAwake } from './mock-awake';
 import { mockStage } from './mock-stage';
 import { mockVoice } from './mock-voice';
@@ -324,6 +325,7 @@ export function createMockApi(): KeeperApi {
       listeners.get('settings-changed')?.forEach((cb) => (cb as (v: unknown) => void)(structuredClone(settings)));
     }, (ch) => listeners.get(ch)?.forEach((cb) => (cb as () => void)())),
     ...mockAbilities((ch, v) => listeners.get(ch)?.forEach((cb) => cb(v))),
+    ...mockPermissions(() => settings),
     preview: mockPreview(() => files, thumb),
     system: {
       info: async () => ({ platform: 'darwin', arch: 'arm64', osVersion: '15.4', appVersion: '0.1.0 (demo)', home: HOME, sep: '/' }),

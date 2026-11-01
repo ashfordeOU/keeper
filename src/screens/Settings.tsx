@@ -24,6 +24,7 @@ import { ThemeGallery, ThemeTweaks } from '../components/ThemeGallery';
 import { MeshPlaces } from './MeshParts';
 import { useT } from '../i18n';
 import { PimSettings } from '../pim/PimSettings';
+import { PermissionsPanel } from '../components/PermissionsPanel';
 import '../styles/screens-b.css';
 
 const MonitorSettingsPanel = lazy(() => import('./monitor/MonitorSettings').then((m) => ({ default: m.MonitorSettingsPanel })));
@@ -152,6 +153,11 @@ export function Settings() {
       <h2 id="brain" style={{ margin: '18px 0 8px' }}>AI &amp; Brain</h2>
       <div className="card settings-section" style={{ padding: '0 0 10px' }}>
         <BrainSettingsPanel />
+      </div>
+
+      <h2 id="permissions" style={{ margin: '18px 0 8px' }}>Permissions</h2>
+      <div className="card settings-section" style={{ padding: 16 }}>
+        <PermissionsPanel />
       </div>
 
       <h2 id="platform" style={{ margin: '18px 0 8px' }}>Works with your computer</h2>

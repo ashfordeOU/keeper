@@ -13,6 +13,7 @@ import { CaptureHistory, describeColor, mergeCaptureOptions, screenshotName, tid
 import { uniqueName } from '../../core/rules';
 import { readImage as readClipboardImage, writeText } from './clip';
 import { loadImage, ocrImage, ocrImageAuto, ocrTuned } from './vision';
+import { permissionNeeded } from './permission-nudge';
 
 export type Rect = { x: number; y: number; w: number; h: number };
 
@@ -75,6 +76,9 @@ async function grabDisplay(display: Electron.Display): Promise<Electron.NativeIm
   const scale = display.scaleFactor;
   const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: Math.round(width * scale), height: Math.round(height * scale) } });
   const src = sources.find((s) => s.display_id === String(display.id)) ?? sources[0];
+  if (!src || src.thumbnail.isEmpty()) {
+    if (process.platform === 'darwin') permissionNeeded('screen', 'capture');
+  }
   if (!src || src.thumbnail.isEmpty()) throw new Error('Keeper needs permission to see the screen (on macOS: System Settings → Privacy & Security → Screen Recording).');
   return src.thumbnail;
 }

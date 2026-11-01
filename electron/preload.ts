@@ -44,6 +44,8 @@ const api = {
   usage: group('usage', ['get']),
   ashforde: group('ashforde', ['overview', 'monorail', 'install', 'update', 'checkUpdate', 'uninstall', 'launch', 'quit', 'connect', 'openPermission', 'action', 'prefs', 'setPrefs', 'useShortcut', 'coexist']),
   usageStats: group('usageStats', ['status', 'setOn', 'resetId', 'setBlocked', 'page']),
+  // The system permissions Keeper's features use (first run, Settings → Permissions).
+  permissions: group('permissions', ['list', 'request', 'openSettings', 'test', 'restart']),
   features: group('features', ['list', 'set', 'preset', 'sets', 'saveSet', 'removeSet', 'applySet', 'setPowerSets', 'live']),
   stage: group('stage', ['status', 'start', 'stop', 'toggle', 'extend', 'settings', 'setSettings', 'savePreset', 'removePreset', 'support', 'journal', 'detect', 'modes', 'apps', 'preview', 'displayInputs', 'setDisplayInput', 'overlays', 'tray']),
   awake: group('awake', ['status', 'start', 'stop', 'toggle', 'extend', 'parse', 'settings', 'setSettings', 'saveTrigger', 'removeTrigger', 'reorderTriggers', 'testTrigger', 'blockers', 'stats', 'resetStats', 'apps', 'setupClosedDisplay']),

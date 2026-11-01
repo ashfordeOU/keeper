@@ -1,0 +1,34 @@
+/* SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 */
+/* The Permissions screen (Settings → Permissions and the first-run tour). */
+
+.perm-panel { display: flex; flex-direction: column; gap: 12px; }
+.perm-choice { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.perm-choice button { display: flex; flex-direction: column; gap: 2px; text-align: left; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: transparent; color: var(--text); font: inherit; cursor: default; }
+.perm-choice button.on { border-color: var(--accent); background: var(--accent-soft); }
+.perm-choice button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.perm-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.perm-runner { padding: 12px 14px; border-radius: 12px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); }
+.perm-runner p { margin: 4px 0 8px; }
+.perm-note { margin: 0; padding: 8px 10px; border-radius: 8px; background: var(--bg-sunk); }
+.perm-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.perm-row { display: flex; align-items: flex-start; gap: 12px; padding: 11px 6px; border-top: 1px solid var(--line); border-radius: 8px; transition: background .3s; }
+.perm-row:first-child { border-top: 0; }
+.perm-row.lit { background: var(--accent-soft); }
+.perm-row.current { background: color-mix(in srgb, var(--accent) 7%, transparent); }
+.perm-state { flex: none; width: 128px; justify-content: flex-start; margin-top: 1px; }
+.perm-name { font-weight: 600; }
+.perm-used { color: var(--text-2); margin-top: 2px; }
+.perm-detail { color: var(--text-2); margin-top: 2px; }
+.perm-revoke { margin-top: 4px; color: var(--text-3); }
+.perm-revoke summary { cursor: default; width: max-content; }
+.perm-act { flex: none; display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
+.perm-more > summary { cursor: default; color: var(--text-3); padding: 6px 0; }
+.perm-foot { margin: 0; }
+.perm-panel.in-tour { max-height: min(52vh, 520px); overflow-y: auto; padding-right: 4px; }
+.tour-card.wide { width: min(760px, calc(100vw - 32px)); }
+@media (max-width: 640px) {
+  .perm-choice { grid-template-columns: 1fr; }
+  .perm-row { flex-wrap: wrap; }
+  .perm-state { width: auto; }
+}
+@media (prefers-reduced-motion: reduce) { .perm-row { transition: none; } }

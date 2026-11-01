@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The command palette: jump anywhere or run any action by typing a few letters.
 
+import { openPermissions } from './PermissionsPanel';
 import { accessCommands } from '../screen/palette';
 import { FLOWS } from '../../core/guide/builtin';
 import { openGuide } from '../guide';
@@ -137,6 +138,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     { id: 'view', label: store.view === 'grid' ? 'Show as List' : 'Show as Grid', group: 'Actions', icon: store.view === 'grid' ? 'list' : 'grid', kbd: store.view === 'grid' ? `${mod}2` : `${mod}1`, run: () => store.setView(store.view === 'grid' ? 'list' : 'grid') },
     { id: 'inspector', label: store.inspector ? 'Hide Inspector' : 'Show Inspector', group: 'Actions', icon: 'info', kbd: mod === '⌘' ? '⌘⌥I' : 'Ctrl+Alt+I', run: () => store.setInspector(!store.inspector) },
     { id: 'sidebar-toggle', label: 'Fold or open the sidebar', group: 'Actions', icon: 'columns', kbd: mod === '⌘' ? '⌘⌥S' : 'Ctrl+Alt+S', run: () => window.dispatchEvent(new Event('keeper-toggle-sidebar')) },
+    { id: 'permissions', label: 'Permissions — set up what Keeper may use', group: 'Go to', icon: 'shield', keywords: 'permissions privacy accessibility screen recording microphone camera full disk access automation allow', run: () => openPermissions() },
     { id: 'inspector-settings', label: 'Inspector: when it shows…', group: 'Actions', icon: 'settings', run: () => store.go({ name: 'settings', arg: 'inspector' }) },
     // Cues: a new cue for the app or page in front (the composer pops up beside it).
     { id: 'cue-new', label: 'New Cue for What’s in Front…', group: 'Actions', icon: 'pin', keywords: 'cue remind reminder note checklist app page site when back later', run: () => void api.cues?.compose({ attach: ['page', 'app'] }) },

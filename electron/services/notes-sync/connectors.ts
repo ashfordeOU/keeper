@@ -22,6 +22,7 @@ import { SimplenoteApi } from '../../../core/notes-sync/connectors/simplenote';
 import { parseSnBackup, snRootKey, type Argon2 } from '../../../core/notes-sync/connectors/standardnotes';
 import type { ConnectorKind, RemoteNote } from '../../../core/notes-sync/types';
 import { readRows, runWrite } from './sqlite';
+import { permissionNeeded } from '../permission-nudge';
 
 export interface ConnectorConfig {
   id: string;
@@ -248,7 +249,7 @@ export async function connectorIO(c: ConnectorConfig, d: IoDeps): Promise<Connec
       const io: ConnectorIO = {
         async list() {
           let out: string;
-          try { out = await jxa(listScript(account)); } catch (e) { throw new ConnectorError('auth', /not allowed|-1743/.test(String(e)) ? 'Allow Keeper to control Notes: System Settings → Privacy & Security → Automation.' : `Notes did not answer: ${(e as Error).message}`); }
+          try { out = await jxa(listScript(account)); } catch (e) { if (/not allowed|-1743/.test(String(e))) permissionNeeded('automation.notes', 'notesSync'); throw new ConnectorError('auth', /not allowed|-1743/.test(String(e)) ? 'Allow Keeper to control Notes: System Settings → Privacy & Security → Automation.' : `Notes did not answer: ${(e as Error).message}`); }
           return { notes: fromAppleRows(JSON.parse(out) as AppleNoteRow[]), complete: true };
         },
         async test() { const r = await io.list(); return `Connected: ${r.notes.length} notes (${r.notes.filter((n) => n.locked).length} locked)`; },

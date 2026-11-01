@@ -15,6 +15,7 @@ import { Icon } from './components/Icon';
 import { resolveLanguage } from './i18n';
 import { useStore, type Route } from './state';
 import { TourUsageStats } from './components/UsageStatsPanel';
+import { openPermissions, PermissionsPanel, takeReopen } from './components/PermissionsPanel';
 import './styles/guide.css';
 
 // ---------------------------------------------------------------- shared state: which guide is open
@@ -340,9 +341,10 @@ export function CoachHost({ route }: { route: Route }) {
   );
 }
 
-const TOUR: { title: string; text: string; route?: Route; practice?: boolean; stats?: boolean }[] = [
+const TOUR: { title: string; text: string; route?: Route; practice?: boolean; stats?: boolean; permissions?: boolean }[] = [
   { title: 'Welcome to Keeper', text: 'Your files, your computer’s health and your privacy in one place. Here is a 30-second look around.' },
   { title: 'Anonymous usage stats', text: 'Keeper sends a small anonymous report once a day to help us improve it: its version, the kind of computer, which features and pages you use, and crash counts. Never your files, searches or names. Switch it off here or any time in Settings → Privacy.', stats: true },
+  { title: 'Permissions', text: 'Some features need your OK in the system’s settings: seeing the screen, the microphone, typing for you and so on. Set them up now, in one go, and nothing interrupts you later. You can change this any time in Settings → Permissions.', permissions: true },
   { title: 'Find anything', text: 'Type what you remember in the search bar — “pdfs from gmail last month”, “screenshots with wifi password”.' },
   { title: 'Your To do list', text: 'Keeper checks space, security, privacy, backups and updates, and lists what is worth doing — each with “Fix” that does it or walks you through it.', route: { name: 'todo' as Route['name'] } },
   { title: 'Ask how', text: 'Press ⌘K / Ctrl+K and type “How do I…” — free up space, stop apps watching my camera, encrypt my disk, back up my photos.' },
@@ -378,21 +380,46 @@ function PracticeCapture() {
   );
 }
 
+/** The tour's Permissions step: the choice, then the whole screen for "Set up everything now". */
+function TourPermissions({ step }: { step: number }) {
+  const { settings, updateSettings } = useStore();
+  const choice = settings?.permissionsSetup ?? '';
+  if (choice === 'all') return <PermissionsPanel inTour tourStep={step} />;
+  return (
+    <div className="col" style={{ gap: 8 }} data-testid="tour-permissions">
+      <div className="perm-choice" role="radiogroup" aria-label="How to set up permissions">
+        <button role="radio" aria-checked={false} data-testid="tour-perm-all" onClick={() => void updateSettings({ permissionsSetup: 'all' })}><b>Set up everything now</b><span className="small muted">Recommended</span></button>
+        <button role="radio" aria-checked={choice === 'onDemand'} className={choice === 'onDemand' ? 'on' : ''} data-testid="tour-perm-later" onClick={() => void updateSettings({ permissionsSetup: 'onDemand' })}><b>Only what I turn on</b><span className="small muted">Each feature asks when you first use it</span></button>
+      </div>
+      {choice === 'onDemand' ? <p className="small muted">Fine. Features ask when you turn them on; everything is in Settings → Permissions.</p> : null}
+    </div>
+  );
+}
+
 export function TourHost() {
-  const { go } = useStore();
-  const [i, setI] = useState<number | null>(() => (seen('tour') ? null : 0));
+  const { go, settings } = useStore();
+  const [i, setI] = useState<number | null>(() => {
+    // Back from "Restart Keeper now" in the tour: the Permissions step again.
+    const back = takeReopen();
+    if (back && back.tourStep !== null && !seen('tour')) return back.tourStep;
+    if (back) setTimeout(() => openPermissions(), 300);
+    return seen('tour') ? null : 0;
+  });
   if (i === null) return null;
   const step = TOUR[i];
   const end = () => { markSeen('tour'); setI(null); };
+  const wide = step.permissions && settings?.permissionsSetup === 'all';
   return (
     <div className="tour" role="dialog" aria-label="Welcome tour">
-      <div className="tour-card">
+      <div className={`tour-card ${wide ? 'wide' : ''}`}>
         <div className="small muted">{i + 1} / {TOUR.length}</div>
         <h3>{step.title}</h3>
         <p className="small">{step.text}</p>
         {step.practice ? <PracticeCapture /> : null}
         {step.stats ? <TourUsageStats /> : null}
+        {step.permissions ? <TourPermissions step={i} /> : null}
         <div className="btn-row" style={{ justifyContent: 'flex-end' }}>
+          {step.permissions ? <button className="btn sm ghost" data-testid="tour-perm-skip" onClick={() => setI(i + 1)}>Skip this step</button> : null}
           <button className="btn sm ghost" onClick={end}>Skip tour</button>
           {i < TOUR.length - 1 ? <button className="btn sm primary" onClick={() => { const n = i + 1; if (TOUR[n].route) go(TOUR[n].route!); setI(n); }}>Next</button> : <button className="btn sm primary" onClick={end}>Start</button>}
         </div>

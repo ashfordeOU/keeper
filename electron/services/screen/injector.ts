@@ -15,6 +15,7 @@ import { macCalls, winLines, WIN_INPUT_HOST, xdotoolBatches } from '../../../cor
 import type { HostDisplay, InputEvent } from '../../../core/screen/types';
 import { run } from '../../../core/platform';
 import { PortalInjector, usePortal } from './portal';
+import { permissionNeeded } from '../permission-nudge';
 
 export interface InjectorStatus {
   available: boolean;
@@ -144,6 +145,8 @@ class MacInjector implements Injector {
 
   /** Opens macOS's permission prompts. */
   async request() {
+    // Points to Settings → Permissions; macOS's own prompts only when the person did not set everything up first.
+    if (process.platform === 'darwin' && !permissionNeeded('accessibility', 'remoteScreen')) return;
     const h = await this.helper();
     await h?.call('input.request', undefined, { timeoutMs: 10_000 }).catch(() => undefined);
   }

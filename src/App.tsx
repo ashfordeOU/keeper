@@ -90,6 +90,7 @@ const RemoteDesktops = lazy(() => import('./screens/RemoteDesktop').then((m) => 
 import { ForceQuitHost } from './screens/Processes';
 import { FILE_ROUTES, mod, shift, useAsync, useStore, type Route, type RouteName } from './state';
 import { Splitter } from './components/Splitter';
+import { PermissionNudgeHost } from './components/PermissionsPanel';
 import { inspectorRange } from '../core/inspector';
 import { asSidebarMode, isRail, SIDEBAR_RAIL, SIDEBAR_RANGE } from '../core/sidebar-layout';
 import { setSidebarPinned, setSidebarWidth, useSidebarLocal } from './sidebar-state';
@@ -518,6 +519,13 @@ export function App() {
     return () => { window.removeEventListener('keydown', onKey); off(); offSide(); window.removeEventListener('keeper-toggle-sidebar', onSide); };
   }, [store, side.rail, side.mode]);
 
+  // Settings → Permissions, from the palette, a feature that needs one, or after "Restart Keeper now".
+  useEffect(() => {
+    const open = () => store.go({ name: 'settings', arg: 'permissions' });
+    window.addEventListener('keeper-open-permissions', open);
+    return () => window.removeEventListener('keeper-open-permissions', open);
+  }, [store.go]);
+
   // Scroll positions come back too, after a page change, an update or a restart.
   usePlaceMemory(store.route, contentEl);
 
@@ -545,6 +553,8 @@ export function App() {
       {/* Guided fixes: the step-by-step panel and the first-run tour. */}
       <GuideHost />
       <TourHost />
+      {/* A feature that needs a system permission points to Settings → Permissions. */}
+      <PermissionNudgeHost />
       <div className="toast-stack">
         {store.toasts.map((t) => (
           <div className="toast" key={t.id}>

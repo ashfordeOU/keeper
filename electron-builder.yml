@@ -125,6 +125,9 @@ mac:
     NSCalendarsUsageDescription: The Island shows your calendar's events and meeting links.
     NSRemindersFullAccessUsageDescription: The Island lets you check off your reminders.
     NSRemindersUsageDescription: The Island lets you check off your reminders.
+    NSLocationUsageDescription: The Toolbox can fill in where you are when you ask it to.
+    NSLocationWhenInUseUsageDescription: The Toolbox can fill in where you are when you ask it to.
+    NSLocalNetworkUsageDescription: Keeper finds and reaches your other devices, servers and shared folders on this network.
     NSSpeechRecognitionUsageDescription: Keeper turns speech in your recordings and videos into text on this Mac when you choose macOS's recognizer.
     LSUIElement: false
   # keeper-helper (native/macos) gives Keeper Apple Intelligence, Live Text and

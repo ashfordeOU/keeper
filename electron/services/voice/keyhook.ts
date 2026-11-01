@@ -13,6 +13,7 @@ import { createReadStream, promises as fsp, type ReadStream } from 'node:fs';
 import { ESC_CODES, KEY_CODES, keyboardsFromProcDevices, parseHookLine, parseInputEvents, Xi2Reader } from '../../../core/voice/keys';
 import type { HoldKey } from '../../../core/voice/types';
 import { run } from '../../../core/platform';
+import { permissionNeeded } from '../permission-nudge';
 
 export type HookEvent = 'down' | 'up' | 'esc';
 export interface HookResult { ok: boolean; how: string; note?: string }
@@ -46,6 +47,7 @@ class MacHook implements KeyHook {
           if (m) on(m.code === 'esc' ? 'esc' : m.down ? 'down' : 'up');
         },
       }).catch((e: Error) => {
+        if (!ready && /permission|not permitted|denied/i.test(e.message)) permissionNeeded('input', 'dictationHold');
         if (!ready) resolve({ ok: false, how: 'event tap', note: /permission|not permitted|denied/i.test(e.message) ? 'Allow Keeper in System Settings → Privacy & Security → Input Monitoring' : e.message });
       });
     });

@@ -398,6 +398,7 @@ export interface KeeperApi extends KeeperApiX {
   features: FeaturesApi;
   /** anonymous usage stats: the switch, exactly what is sent, and the install ID */
   usageStats: import('./telemetry').UsageStatsApi;
+  permissions: import('./permissions').PermissionsApi;
   /** Keeper's sister apps by Ashforde (Monorail on macOS) */
   ashforde: AshfordeApi;
   /** Keep Awake: sessions, triggers, closed-lid mode, statistics */
@@ -696,6 +697,8 @@ export interface KeeperApi extends KeeperApiX {
   on(channel: 'dictation', cb: (state: 'start' | 'stop') => void): () => void;
   on(channel: 'palette', cb: () => void): () => void;
   on(channel: 'toggle-inspector' | 'toggle-sidebar', cb: () => void): () => void;
+  /** a feature needs a system permission now (the window points to Settings → Permissions) */
+  on(channel: 'permission-needed', cb: (p: { id: string; feature?: string }) => void): () => void;
   /** the tool launcher was shown again (focus the search box); the menu-bar pop-over's live reading */
   on(channel: 'launcher-shown', cb: () => void): () => void;
   on(channel: 'sysmon-live', cb: (r: import('./monitor-tray').LiveReading) => void): () => void;

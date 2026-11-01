@@ -35,6 +35,7 @@ const isWin = process.platform === 'win32';
 
 async function jxa(script: string, timeout = 8000): Promise<unknown> {
   const r = await run('/usr/bin/osascript', ['-l', 'JavaScript', '-e', script], timeout);
+  if (!r.ok && /not allowed|1002|-1719|assistive/i.test(r.stderr ?? '')) permissionNeeded('accessibility', 'aiAgents');
   if (!r.ok) throw new Error(/not allowed|1002|-1719|assistive/i.test(r.stderr ?? '') ? 'Allow Keeper in System Settings → Privacy & Security → Accessibility.' : (r.stderr || 'System Events did not answer').split('\n')[0]);
   return JSON.parse(r.stdout.trim() || 'null');
 }
@@ -312,6 +313,7 @@ else:
     except Exception: pass
     print(json.dumps(bool(done)))
 `;
+import { permissionNeeded } from './permission-nudge';
 
 async function atspi(args: string[]): Promise<unknown> {
   return new Promise((resolve) => {

@@ -10,7 +10,8 @@
 // Methods: hello, chat, ocr, language, spotlight.index, spotlight.remove,
 // spotlight.removeAll, cancel, and for remote control of this Mac:
 // input.status, input.request, input.move, input.button, input.wheel,
-// input.key, input.text. Extras.swift adds speech.transcribe, ddc.list,
+// input.key, input.text. Permissions.swift adds permissions.status and
+// permissions.request (the Permissions screen). Extras.swift adds speech.transcribe, ddc.list,
 // ddc.get, ddc.set and translate; Calendar.swift the calendar.* methods.
 
 import Foundation
@@ -513,6 +514,10 @@ func handle(id: Int, method: String, params: [String: Any]) async {
         case "spotlight.removeAll":
             try await spotlightRemoveAll()
             Wire.shared.result(id, ["ok": true])
+        case "permissions.status":
+            Wire.shared.result(id, await permissionsStatus())
+        case "permissions.request":
+            Wire.shared.result(id, try await permissionsRequest(params))
         case "input.status":
             Wire.shared.result(id, inputStatus(prompt: false))
         case "input.request":
