@@ -13,6 +13,7 @@ import { TOOL_INFO } from '../../core/convert-types';
 import { setStandardOutput } from './convert';
 import { featureOn, onFeature } from './features';
 import { monitorSettings, onMonitorSettings } from './monitor-settings';
+import { keepUnmanaged, overlayOptions } from './unmanaged';
 
 export interface LauncherDeps {
   preload: string;
@@ -62,9 +63,11 @@ export function toggleLauncher() {
   const h = 440;
   if (!launcher || launcher.isDestroyed()) {
     launcher = new BrowserWindow({
+      ...overlayOptions('launcher'),
       width: w, height: h, frame: false, transparent: true, resizable: false, show: false, skipTaskbar: true, alwaysOnTop: true, fullscreenable: false, hasShadow: false,
       webPreferences: { preload: deps.preload, contextIsolation: true, sandbox: true },
     });
+    keepUnmanaged(launcher, 'launcher');
     deps.lockDown(launcher);
     loadQuery(launcher, { view: 'launcher' });
     launcher.on('blur', () => {

@@ -10,6 +10,7 @@ import { kindOf } from '../../core/classify';
 import { normalizeWidgets, snapBounds, type WidgetConfig } from '../../core/widgets';
 import { featureOn } from '../services/features';
 import { settings, updateSettings } from '../store';
+import { keepUnmanaged, overlayOptions } from '../services/unmanaged';
 
 export interface WidgetsContext {
   preload: string;
@@ -56,12 +57,14 @@ function openWidget(cfg: WidgetConfig) {
     return;
   }
   const win = new BrowserWindow({
+    ...overlayOptions('widget', { panel: process.platform !== 'linux' }),
     ...cfg.bounds, frame: false, transparent: true, resizable: movable, movable, skipTaskbar: true, alwaysOnTop: false,
     minimizable: false, maximizable: false, fullscreenable: false, hasShadow: false, show: false, backgroundColor: '#00000000',
     // On Linux a desktop-type window sits under ordinary windows, like a real desktop widget.
-    type: process.platform === 'linux' ? 'desktop' : undefined,
+    ...(process.platform === 'linux' ? { type: 'desktop' } : {}),
     webPreferences: { preload: c.preload, contextIsolation: true, sandbox: true },
   });
+  keepUnmanaged(win, 'widget');
   win.setVisibleOnAllWorkspaces(cfg.allWorkspaces);
   c.lockDown(win);
   loadView(win, { view: 'widget', id: cfg.id });

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   MONORAIL, MONORAIL_TOOLS, acceleratorCombo, avoidSlider, checkSignature, checksumFor, compareVersions, connectPatch, describeState, describeToolCall,
   findClashes, keeperAccelerators, missingFloatRules, monorailShortcuts, monorailThemeFor, monorailUrl, newestRelease, parseCodesign, parseState,
-  pickAssets, sliderBand, withFloatRules, MOD, type Release,
+  pickAssets, sliderBand, withFloatRules, withOverlayRules, OVERLAY_RULES, OVERLAY_TITLES, MOD, type Release,
 } from '../core/ashforde/monorail';
 import { ASHFORDE_APPS, offeredOn } from '../core/ashforde/apps';
 import { featureDef, featureStates, wanted } from '../core/features';
@@ -218,5 +218,24 @@ describe('the feature switch and the Island', () => {
     expect(t).toHaveLength(1);
     expect(t[0]).toMatchObject({ kind: 'workspace', title: 'Writing', trailing: '1/3' });
     expect(activitiesFrom({ ...(base as object), monorail: m } as never, now).some((a) => a.kind === 'workspace')).toBe(false);
+  });
+});
+
+describe('Monorail leaves Keeper\'s overlays alone', () => {
+  it('a float rule for every overlay title, added once, kept when the float switch goes off', () => {
+    const ids = OVERLAY_RULES.map((r) => r.ruleID);
+    expect(ids).toContain('keeper-overlay-island');
+    expect(OVERLAY_RULES.find((r) => r.ruleID === 'keeper-overlay-island')!.titleContains).toBe(OVERLAY_TITLES.island);
+    expect(OVERLAY_RULES.every((r) => r.float && r.bundleID === 'io.github.ashfordeou.keeper')).toBe(true);
+    // Stage's overlay and backdrop share one rule.
+    expect(OVERLAY_RULES.find((r) => r.ruleID === 'keeper-overlay-stage')!.titleContains).toBe('Keeper Stage');
+    expect(OVERLAY_TITLES.backdrop).toContain('Keeper Stage');
+    const mine = { bundleID: 'com.apple.Safari', name: 'Safari', float: false };
+    const once = withOverlayRules({ appRules: [mine] });
+    expect(once.appRules!.length).toBe(1 + OVERLAY_RULES.length);
+    expect(withOverlayRules(once)).toBe(once);
+    expect(withFloatRules(withFloatRules(once, true), false).appRules).toEqual(once.appRules);
+    // Every overlay title is matched by some rule (Monorail matches "title contains", any case).
+    for (const t of Object.values(OVERLAY_TITLES)) expect(OVERLAY_RULES.some((r) => t.toLowerCase().includes(r.titleContains!.toLowerCase())), t).toBe(true);
   });
 });

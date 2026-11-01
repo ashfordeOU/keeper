@@ -204,6 +204,40 @@ export const FLOAT_RULES: NonNullable<MonorailSettings['appRules']> = [
   { bundleID: KEEPER_BUNDLE_ID, name: 'Keeper — Capture', float: true, titleContains: 'Capture', ruleID: 'keeper-capture' },
 ];
 
+/** Keeper's overlays and floating windows, each with a fixed title (electron/services/unmanaged.ts). */
+export const OVERLAY_TITLES = {
+  island: 'Keeper Island',
+  clips: 'Keeper Clipboard',
+  popover: 'Keeper Glance',
+  voice: 'Keeper Voice',
+  cue: 'Keeper cue',
+  launcher: 'Keeper Launcher',
+  stage: 'Keeper Stage overlay',
+  backdrop: 'Keeper Stage backdrop',
+  widget: 'Keeper Widget',
+  wallpaper: 'Keeper Wallpaper',
+  quickConnect: 'Quick Connect — Keeper',
+  guide: 'Keeper guide',
+  sharing: 'Keeper — sharing this screen',
+} as const;
+export type OverlayKind = keyof typeof OVERLAY_TITLES;
+
+/**
+ * Monorail must never tile these: the Island sits in the notch, the rest float
+ * where Keeper puts them. Added whenever Monorail is installed (its own float
+ * switch only covers the windows above), and kept when that switch goes off.
+ */
+export const OVERLAY_RULES: NonNullable<MonorailSettings['appRules']> = (Object.entries(OVERLAY_TITLES) as [OverlayKind, string][])
+  .filter(([k]) => k !== 'backdrop') // "Keeper Stage" below covers the overlay and the backdrop
+  .map(([k, title]) => ({ bundleID: KEEPER_BUNDLE_ID, name: `Keeper — ${title.replace(/^Keeper\s*(—\s*)?/, '').replace(/ — Keeper$/, '')}`, float: true, titleContains: k === 'stage' ? 'Keeper Stage' : title, ruleID: `keeper-overlay-${k}` }));
+
+/** Monorail's settings with every overlay rule present (idempotent; other rules stay as they are). */
+export function withOverlayRules(s: MonorailSettings): MonorailSettings {
+  const have = new Set((s.appRules ?? []).map((r) => r.ruleID));
+  const add = OVERLAY_RULES.filter((r) => !have.has(r.ruleID));
+  return add.length ? { ...s, appRules: [...(s.appRules ?? []), ...add] } : s;
+}
+
 /** The rules to add (those not there yet, matched by id). */
 export function missingFloatRules(s: MonorailSettings): NonNullable<MonorailSettings['appRules']> {
   const have = new Set((s.appRules ?? []).map((r) => r.ruleID ?? `${r.bundleID}|${r.titleContains ?? ''}`));

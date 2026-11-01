@@ -9,6 +9,7 @@
 import { BrowserWindow, screen, type Display } from 'electron';
 import { backdropHtml, overlayHtml, spotRadius, type OverlayConfig } from '../../../core/stage/overlay';
 import type { StageSwitches } from '../../../core/stage/types';
+import { keepUnmanaged, overlayOptions } from '../unmanaged';
 
 const isMac = process.platform === 'darwin';
 const isWin = process.platform === 'win32';
@@ -27,12 +28,14 @@ let listening = false;
 
 function makeOverlay(d: Display): BrowserWindow {
   const w = new BrowserWindow({
+    ...overlayOptions('stage'),
     x: d.bounds.x, y: d.bounds.y, width: d.bounds.width, height: d.bounds.height,
     transparent: true, frame: false, resizable: false, movable: false, focusable: false, skipTaskbar: true, hasShadow: false,
     alwaysOnTop: true, fullscreenable: false, show: false, backgroundColor: '#00000000', enableLargerThanScreen: true,
     title: 'Keeper Stage overlay',
     webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, javascript: true, backgroundThrottling: false, spellcheck: false },
   });
+  keepUnmanaged(w, 'stage');
   w.setIgnoreMouseEvents(true);
   w.setAlwaysOnTop(true, 'screen-saver');
   if (isMac) w.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
@@ -193,6 +196,7 @@ export async function showBackdrop(b: StageSwitches['backdrop'], wallpaper?: str
     let w = backdrops.get(d.id);
     if (!w || w.isDestroyed()) {
       w = new BrowserWindow({
+        ...overlayOptions('backdrop', { panel: false }),
         x: d.bounds.x, y: d.bounds.y, width: d.bounds.width, height: d.bounds.height,
         frame: false, resizable: false, movable: false, focusable: false, skipTaskbar: true, hasShadow: false, show: false, fullscreenable: false,
         backgroundColor: '#111111', enableLargerThanScreen: true, title: 'Keeper Stage backdrop',
@@ -200,6 +204,7 @@ export async function showBackdrop(b: StageSwitches['backdrop'], wallpaper?: str
         ...(isWin ? {} : { type: 'desktop' as const }),
         webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, javascript: false, spellcheck: false },
       });
+      keepUnmanaged(w, 'backdrop');
       w.setIgnoreMouseEvents(true);
       if (isMac) w.setVisibleOnAllWorkspaces(true);
       backdrops.set(d.id, w);

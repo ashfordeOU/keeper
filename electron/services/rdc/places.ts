@@ -12,6 +12,7 @@ import { connectionFileFromArgv, DEFAULT_PLACES, fileMenuPlan, normalizePlaces, 
 import type { ConnectResult, Connection } from '../../../core/rdc/types';
 import { run } from '../../../core/platform';
 import { featureOn } from '../features';
+import { keepUnmanaged, overlayOptions } from '../unmanaged';
 
 export interface PlacesDeps {
   preload: string;
@@ -85,11 +86,13 @@ export function showQuick() {
   const width = 580;
   const height = 420;
   quickWin = new BrowserWindow({
+    ...overlayOptions('quickConnect'),
     width, height, x: Math.round(d.x + (d.width - width) / 2), y: Math.round(d.y + d.height * 0.18),
     frame: false, resizable: false, show: false, alwaysOnTop: true, skipTaskbar: true, title: 'Quick Connect — Keeper',
     backgroundColor: '#00000000', transparent: process.platform !== 'linux',
     webPreferences: { preload: deps.preload, contextIsolation: true, sandbox: true },
   });
+  keepUnmanaged(quickWin, 'quickConnect');
   const dev = process.env.VITE_DEV_SERVER_URL;
   if (dev) void quickWin.loadURL(`${dev}?view=rdc-quick`);
   else void quickWin.loadFile(path.join(__dirname, '..', 'dist', 'index.html'), { query: { view: 'rdc-quick' } });

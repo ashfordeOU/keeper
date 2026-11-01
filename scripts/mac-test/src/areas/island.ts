@@ -113,6 +113,29 @@ export async function runIsland(ctx: Ctx) {
     return verdict(tops.size <= 1 && drift === 0 && moved === 0, `top edge ${[...tops].join(' / ')} pt; ${drift} unexpected change(s) within a phase; ${moved} move(s) by the system put back; ${mismatches.length} requested≠actual of ${log.length} placement(s)`, { tops: [...tops], drift, moved, mismatches: mismatches.slice(0, 10) });
   });
 
+  await rec.check('island.unmanaged', 'Window arrangers leave the Island alone (not a standard window; moved by another app, it goes back)', 'auto', async (h) => {
+    const app = await ctx.app();
+    const pid = await app.pid();
+    if (app.fake || !pid) return pass('dry run: no windows to ask about');
+    // What Accessibility tilers (Monorail and others) see: the subrole of each of Keeper's windows.
+    const jxa = `const p = Application('System Events').processes.whose({ unixId: ${pid} })[0]; JSON.stringify(p.windows().map((w) => { let sr = ''; try { sr = w.subrole(); } catch (e) {} return { title: w.name(), subrole: sr, position: w.position(), size: w.size() }; }))`;
+    const r = await ctx.sys.run('/usr/bin/osascript', ['-l', 'JavaScript', '-e', jxa], { timeoutMs: 20_000 });
+    let wins: { title: string; subrole: string; position: number[]; size: number[] }[] = [];
+    try { wins = JSON.parse(r.stdout.trim()); } catch { /* no Accessibility for the terminal */ }
+    const island = wins.filter((w) => /Keeper Island/.test(w.title ?? ''));
+    const before = (await islandWindows(ctx)).map((w) => w.bounds);
+    // A stand-in window arranger: move every Island window the way a tiler would.
+    const move = `const p = Application('System Events').processes.whose({ unixId: ${pid} })[0]; let n = 0; for (const w of p.windows()) { try { if (/Keeper Island/.test(w.name())) { w.position = [200, 300]; n++; } } catch (e) {} } n`;
+    const mv = await ctx.sys.run('/usr/bin/osascript', ['-l', 'JavaScript', '-e', move], { timeoutMs: 20_000 });
+    await sleep(2000);
+    const after = (await islandWindows(ctx)).map((w) => w.bounds);
+    h.artifact(ctx.saveData('island-unmanaged.json', { windows: wins, before, after, moved: mv.stdout.trim(), moveError: mv.stderr.trim() }));
+    if (!r.ok || !wins.length) return skip(`Could not list Keeper's windows through Accessibility (${(r.stderr || r.stdout).trim().slice(0, 120) || 'no answer'}); give the terminal Accessibility access to run this check`);
+    const standard = island.filter((w) => w.subrole === 'AXStandardWindow');
+    const stayed = JSON.stringify(before) === JSON.stringify(after);
+    return verdict(island.length > 0 && !standard.length && stayed, `${island.length} Island window(s), subrole ${[...new Set(island.map((w) => w.subrole || '?'))].join(', ')}; moved by a stand-in arranger (${mv.stdout.trim() || '0'} window(s)): ${stayed ? 'back in place within 2 s' : `now at ${JSON.stringify(after)}`}`, { island, before, after });
+  });
+
   await rec.check('island.pictures', 'Pictures of the Island, collapsed and open', 'auto', async (h) => {
     const app = await ctx.app();
     const a = await ctx.shotWindow('island-collapsed', 'view=island');

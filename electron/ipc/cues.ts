@@ -15,6 +15,7 @@ import { registerKeeperMethod } from '../services/brain';
 import { CuesService } from '../services/cues';
 import { featureOn, onFeature } from '../services/features';
 import { linuxWindowBounds, type FrontWindow } from '../services/fg-watch';
+import { keepUnmanaged, overlayOptions } from '../services/unmanaged';
 
 export interface CuesContext {
   preload: string;
@@ -62,9 +63,11 @@ async function openPopup(cues: Cue[], front: FrontWindow | undefined, compose?: 
   const bounds = await placePopup(front, height);
   if (!popupWin || popupWin.isDestroyed()) {
     popupWin = new BrowserWindow({
+      ...overlayOptions('cue'),
       ...bounds, frame: false, transparent: true, resizable: false, show: false, skipTaskbar: true, alwaysOnTop: true, fullscreenable: false, hasShadow: false,
       title: 'Keeper cue', webPreferences: { preload: ctx.preload, contextIsolation: true, sandbox: true },
     });
+    keepUnmanaged(popupWin, 'cue');
     popupWin.setAlwaysOnTop(true, 'floating');
     popupWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
     ctx.lockDown(popupWin);

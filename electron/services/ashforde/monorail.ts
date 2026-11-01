@@ -18,7 +18,7 @@ import { app, shell } from 'electron';
 import {
   MONORAIL, MONORAIL_TOOLS, TOOL_PREFIX, avoidSlider, checkSignature, checksumFor, compareVersions, connectPatch, describeState, describeToolCall,
   findClashes, keeperAccelerators, missingFloatRules, monorailShortcuts, monorailThemeFor, monorailUrl, newestRelease, parseCodesign, parseState,
-  pickAssets, sliderBand, versionOf, withFloatRules, type MonorailLink, type MonorailSettings, type MonorailState, type Release,
+  pickAssets, sliderBand, versionOf, withFloatRules, withOverlayRules, type MonorailLink, type MonorailSettings, type MonorailState, type Release,
 } from '../../../core/ashforde/monorail';
 import { DEFAULT_ASHFORDE_PREFS, type AshfordePrefs, type MonorailStatus } from '../../../core/api-ashforde';
 import type { Placement } from '../../../core/island-place';
@@ -492,7 +492,7 @@ async function applyPrefsToMonorail() {
   if (!ms.localAPI) return;
   const p = stored.prefs;
   const wantRules = p.floatKeeperWindows;
-  if (wantRules ? missingFloatRules(ms).length > 0 : (ms.appRules ?? []).some((r) => r.ruleID?.startsWith('keeper-'))) {
+  if (wantRules ? missingFloatRules(ms).length > 0 : (ms.appRules ?? []).some((r) => r.ruleID?.startsWith('keeper-') && !r.ruleID.startsWith('keeper-overlay-'))) {
     await patchMonorailSettings((s) => ({ ...s, ...withFloatRules(s, wantRules) }));
   }
   if (p.matchTheme && deps) await syncTheme(deps.settings());
@@ -588,6 +588,19 @@ function scheduleUpdates() {
 export async function init(d: MonorailDeps) {
   deps = d;
   await loadStored();
+  // Even with the Ashforde integration off: when Monorail is installed, it must not tile the Island and Keeper's overlays.
+  if (isMac()) void keepOverlaysFloating().catch(() => undefined);
+}
+
+/**
+ * Adds Keeper's overlay float rules to Monorail's settings.json when Monorail
+ * has one (it is installed and has run). Only appRules changes, with the usual
+ * one-time copy kept as settings.json.before-keeper; Monorail reloads it by itself.
+ */
+export async function keepOverlaysFloating(): Promise<boolean> {
+  if (!existsSync(settingsFile())) return false;
+  await patchMonorailSettings((s) => ({ ...s, ...withOverlayRules(s) }));
+  return true;
 }
 
 /** The "monorail" feature went on or off. Off stops everything: no watch, no timers, no tools. */
@@ -604,6 +617,7 @@ export async function setEnabled(on: boolean) {
   const d = await detect(true);
   if (d.path) {
     await readMonorailSettings();
+    await keepOverlaysFloating().catch(() => undefined);
     startWatch();
     void verifyInstalled();
   }

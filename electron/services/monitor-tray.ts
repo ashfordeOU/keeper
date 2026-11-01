@@ -13,6 +13,7 @@ import {
 import { featureOn, onFeature } from './features';
 import { liveState, onLive, unwatchLive, watchLive } from './monitor-live';
 import { monitorSettings, onMonitorSettings } from './monitor-settings';
+import { keepUnmanaged, overlayOptions } from './unmanaged';
 
 const isMac = process.platform === 'darwin';
 const trays = new Map<string, Tray>();
@@ -143,10 +144,12 @@ export function togglePopover(anchor?: Tray) {
   const h = 460;
   if (!popover || popover.isDestroyed()) {
     popover = new BrowserWindow({
+      ...overlayOptions('popover'),
       width: w, height: h, frame: false, resizable: false, show: false, skipTaskbar: true, alwaysOnTop: true, fullscreenable: false, transparent: isMac,
       backgroundColor: isMac ? '#00000000' : nativeTheme.shouldUseDarkColors ? '#1b1b20' : '#fbfbfa', vibrancy: isMac ? 'popover' : undefined,
       webPreferences: { preload: deps.preload, contextIsolation: true, sandbox: true, backgroundThrottling: true },
     });
+    keepUnmanaged(popover, 'popover');
     deps.lockDown(popover);
     deps.load(popover, 'sysmon-popover');
     popover.on('blur', () => {

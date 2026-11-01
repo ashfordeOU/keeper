@@ -12,6 +12,7 @@ import type { FileService } from '../services/files';
 import type { IslandService } from '../services/island';
 import { placementFor, placementPreview, refreshPlaceEnv, wantedDisplays } from '../services/island-place';
 import { onFrontAppChange } from '../services/fg-watch';
+import { keepUnmanaged, overlayOptions } from '../services/unmanaged';
 import { settings } from '../store';
 
 export interface IslandContext {
@@ -222,16 +223,19 @@ export class IslandWindows {
       }
       const first = this.clampRect(d, this.bounds(d, false));
       const win = new BrowserWindow({
+        // Not an ordinary window: window arrangers (Monorail, tilers, FancyZones) leave it alone.
+        ...overlayOptions('island'),
         ...first, frame: false, transparent: true, resizable: false, movable: false, skipTaskbar: true, alwaysOnTop: true,
-        fullscreenable: false, hasShadow: false, focusable: true, show: false, backgroundColor: '#00000000',
+        fullscreenable: false, hasShadow: false, focusable: false, show: false, backgroundColor: '#00000000',
         // macOS would otherwise push the window below the menu bar, away from the notch.
         enableLargerThanScreen: process.platform === 'darwin' && !this.belowBarFallback,
         webPreferences: { preload: ctx.preload, contextIsolation: true, sandbox: true },
       });
+      keepUnmanaged(win, 'island');
       win.setAlwaysOnTop(true, 'status');
       // Clicks pass through the clear space around the pill to whatever is underneath.
       clickThrough(win, true);
-      win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: false });
+      win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: false, skipTransformProcessType: true });
       ctx.lockDown(win);
       loadView(win, { view: 'island', display: String(d.id) });
       win.once('ready-to-show', () => { if (!this.hidden) win.showInactive(); });
@@ -260,6 +264,8 @@ export class IslandWindows {
       else this.expanded.delete(id);
       this.place(id, win, this.bounds(d, v), v ? 'expand' : 'collapse');
       clickThrough(win, !v);
+      // Only the open Island takes the keyboard; the closed pill never takes focus from the app in front.
+      win.setFocusable(v);
       if (v) win.focus();
     }
   }
@@ -311,9 +317,11 @@ export function openClips() {
   const h = 520;
   if (!clips || clips.isDestroyed()) {
     clips = new BrowserWindow({
+      ...overlayOptions('clips'),
       width: w, height: h, frame: false, transparent: true, resizable: false, show: false, skipTaskbar: true, alwaysOnTop: true,
       fullscreenable: false, hasShadow: false, webPreferences: { preload: ctx.preload, contextIsolation: true, sandbox: true },
     });
+    keepUnmanaged(clips, 'clips');
     ctx.lockDown(clips);
     loadView(clips, { view: 'clips' });
     clips.on('blur', () => clips?.hide());

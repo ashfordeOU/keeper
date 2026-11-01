@@ -19,6 +19,7 @@ import { fullscreenNow } from '../fg-watch';
 import { allowRoot } from '../preview';
 import { ambience } from './store';
 import { attachBehindIcons } from './workerw';
+import { keepUnmanaged, overlayOptions } from '../unmanaged';
 
 const DEV_URL = process.env.VITE_DEV_SERVER_URL;
 
@@ -139,6 +140,7 @@ function webSession() {
 function createWindow(d: Electron.Display, src: WallpaperSource, strategy: WallpaperStrategy): Live {
   const isWeb = src.kind === 'web';
   const win = new BrowserWindow({
+    ...overlayOptions('wallpaper', { panel: false }),
     ...d.bounds, frame: false, transparent: false, resizable: false, movable: false, minimizable: false, maximizable: false, fullscreenable: false,
     skipTaskbar: true, focusable: false, hasShadow: false, show: false, enableLargerThanScreen: true, backgroundColor: '#000000',
     type: strategy === 'desktop-window' ? 'desktop' : undefined,
@@ -146,6 +148,7 @@ function createWindow(d: Electron.Display, src: WallpaperSource, strategy: Wallp
       ? { session: webSession(), contextIsolation: true, sandbox: true, nodeIntegration: false, backgroundThrottling: true, autoplayPolicy: 'user-gesture-required' }
       : { preload, contextIsolation: true, sandbox: true, backgroundThrottling: true },
   });
+  keepUnmanaged(win, 'wallpaper');
   win.setIgnoreMouseEvents(true);
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: false });
   if (isWeb) {

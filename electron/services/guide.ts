@@ -15,6 +15,7 @@ import { mergeFindings, summarize, verifyResult } from '../../core/guide/aggrega
 import { flowAsFinding, FLOWS, searchHowTo, type Platform } from '../../core/guide/builtin';
 import { desktopFrom, resolveLink } from '../../core/guide/links';
 import type { AutoFixPreview, AutoFixResult, Finding, FindingState, FindingView } from '../../core/guide/types';
+import { keepUnmanaged, overlayOptions } from './unmanaged';
 
 export type FindingsProducer = () => Promise<Finding[]> | Finding[];
 
@@ -232,10 +233,12 @@ export function showMini(id: string | null) {
     return;
   }
   mini = new BrowserWindow({
+    ...overlayOptions('guide'),
     width: 360, height: 440, minWidth: 300, minHeight: 260, show: false, alwaysOnTop: true, frame: false, resizable: true,
     skipTaskbar: true, fullscreenable: false, title: 'Keeper guide', backgroundColor: '#00000000', transparent: false,
     webPreferences: { preload: preloadPath, contextIsolation: true, sandbox: true },
   });
+  keepUnmanaged(mini, 'guide');
   mini.setAlwaysOnTop(true, 'floating');
   mini.setVisibleOnAllWorkspaces?.(true, { visibleOnFullScreen: true });
   const dev = process.env.VITE_DEV_SERVER_URL;

@@ -7,6 +7,7 @@
 import { BrowserWindow, desktopCapturer, screen, session } from 'electron';
 import path from 'node:path';
 import type { Corner } from '../../../core/voice/types';
+import { keepUnmanaged, overlayOptions } from '../unmanaged';
 
 export type HudShape = 'pill' | 'review' | 'offer' | 'meeting' | 'hidden';
 
@@ -42,11 +43,13 @@ export class Hud {
     }
     ses.setPermissionRequestHandler((_wc, perm, cb) => cb(perm === 'media' || perm === 'display-capture'));
     const win = new BrowserWindow({
+      ...overlayOptions('voice'),
       width: SIZES.pill.w, height: SIZES.pill.h, show: false, frame: false, transparent: true, resizable: false, movable: false,
       alwaysOnTop: true, skipTaskbar: true, focusable: false, hasShadow: false, fullscreenable: false, minimizable: false, maximizable: false,
       title: 'Keeper Voice',
       webPreferences: { preload: this.o.preload, contextIsolation: true, sandbox: false, partition: 'keeper-voice', backgroundThrottling: false, autoplayPolicy: 'no-user-gesture-required' },
     });
+    keepUnmanaged(win, 'voice');
     win.setAlwaysOnTop(true, 'screen-saver');
     win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
     this.o.lockDown(win);
