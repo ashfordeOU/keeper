@@ -122,7 +122,8 @@ const MSG = (subject, extra = '') => [
   await main.evaluate((u) => window.keeper.pim.addAccount({ kind: 'caldav', caldav: u, davUser: 'ana', password: 'secret', label: 'Home server' }), dav.url);
   for (let i = 0; i < 20; i++) {
     const cals = await main.evaluate(() => window.keeper.pim.calendars());
-    if (cals.some((c) => c.name === 'Work')) break;
+    // Both: the calendars are found one after the other.
+    if (cals.some((c) => c.name === 'Work') && cals.some((c) => c.name === 'Tasks')) break;
     await main.waitForTimeout(500);
   }
   const cals = await main.evaluate(() => window.keeper.pim.calendars());
