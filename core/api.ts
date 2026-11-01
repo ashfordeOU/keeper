@@ -695,6 +695,7 @@ export interface KeeperApi extends KeeperApiX {
   on(channel: 'navigate', cb: (route: string) => void): () => void;
   on(channel: 'dictation', cb: (state: 'start' | 'stop') => void): () => void;
   on(channel: 'palette', cb: () => void): () => void;
+  on(channel: 'toggle-inspector' | 'toggle-sidebar', cb: () => void): () => void;
   /** the tool launcher was shown again (focus the search box); the menu-bar pop-over's live reading */
   on(channel: 'launcher-shown', cb: () => void): () => void;
   on(channel: 'sysmon-live', cb: (r: import('./monitor-tray').LiveReading) => void): () => void;

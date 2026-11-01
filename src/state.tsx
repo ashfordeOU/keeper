@@ -12,12 +12,16 @@ import type { CleanResult, FileEntry } from '../core/types';
 import { api } from './api';
 import { applyTheme, onNewDay, onSystemAppearance } from './theme';
 import { formatBytes } from '../core/format';
+import { asInspectorMode, clampInspectorWidth, inspectorVisible, nextForced, INSPECTOR_DEFAULT_WIDTH } from '../core/inspector';
 
 export type RouteName =
   | 'home' | 'recents' | 'library' | 'screenshots' | 'search' | 'browse' | 'downloads' | 'source' | 'tag' | 'saved'
   | 'duplicates' | 'cleanup' | 'space' | 'large' | 'startup' | 'apps' | 'protection' | 'rules' | 'history'
   | 'assistant' | 'island' | 'settings' | 'tools' | 'health' | 'capture' | 'annotate' | 'convert' | 'widgets' | 'ambience' | 'weather' | 'network' | 'trash' | 'remote' | 'terminal' | 'sync' | 'devices' | 'netactivity' | 'vpn' | 'firewall' | 'agents' | 'graph' | 'mail' | 'calendar' | 'reminders' | 'alarms' | 'todo' | 'awake' | 'stage' | 'controls' | 'catalog' | 'appcontrols' | 'browsers' | 'noteshub' | 'notes' | 'rdc' | 'mesh' | 'tracks'
   | 'cues' | 'dictation' | 'meetings';
+
+/** Pages that list files, where the Inspector can show. */
+export const FILE_ROUTES: RouteName[] = ['home', 'recents', 'library', 'screenshots', 'source', 'tag', 'search', 'saved', 'browse', 'downloads', 'large'];
 
 export interface Route {
   name: RouteName;
@@ -70,8 +74,13 @@ interface Store {
   updateSettings(patch: Partial<AllSettings>): Promise<void>;
   selection: string[];
   setSelection(paths: string[]): void;
+  /** whether the Inspector shows now (the setting, the selection and the Show/Hide toggle together) */
   inspector: boolean;
+  /** Show/Hide Inspector: wins over the setting until the selection next starts or ends */
   setInspector(v: boolean): void;
+  /** this window's Inspector width (kept with the window's tabs, so it comes back after a restart) */
+  inspectorWidth: number;
+  setInspectorWidth(px: number): void;
   focused: FileEntry | null;
   setFocused(f: FileEntry | null): void;
   playing: FileEntry | null;
@@ -163,8 +172,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [info, setInfo] = useState<SystemInfo | null>(null);
   const [settings, setSettings] = useState<AllSettings | null>(null);
   const [selection, setSelection] = useState<string[]>([]);
-  const [inspector, setInspectorState] = useState<boolean>(() => load('inspector', true));
   const [focused, setFocused] = useState<FileEntry | null>(null);
+  const [inspectorForced, setInspectorForced] = useState<boolean | null>(null);
+  const [inspectorWidth, setInspectorWidthState] = useState<number>(() => clampInspectorWidth(boot.state?.inspectorWidth ?? load('inspectorWidth', INSPECTOR_DEFAULT_WIDTH)));
+  // Clearing the selection clears the file the Inspector follows too.
+  const select = useCallback((paths: string[]) => { setSelection(paths); if (!paths.length) setFocused(null); }, []);
   const [playing, play] = useState<FileEntry | null>(null);
   const [view, setViewState] = useState<'grid' | 'list'>(() => load('view', 'grid'));
   const [cardSize, setCardSizeState] = useState<number>(() => load('cardSize', 150));
@@ -218,8 +230,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const go = useCallback((r: Route) => {
     const intent = tabsOn ? takeNewTabIntent() : null;
     setWin((w) => (intent ? openTab(w, r, { background: intent.background }) : navigate(w, r)));
-    if (!intent || !intent.background) setSelection([]);
-  }, [tabsOn]);
+    if (!intent || !intent.background) select([]);
+  }, [tabsOn, select]);
 
   const back = useCallback(() => setWin(goBack), []);
   const forward = useCallback(() => setWin(goForward), []);
@@ -263,7 +275,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     active: win.active,
     closedCount: win.closed.length,
     open: (r, o) => setWin((w) => openTab(w, r, o)),
-    select: (id) => { setWin((w) => selectTab(w, id)); setSelection([]); },
+    select: (id) => { setWin((w) => selectTab(w, id)); select([]); },
     close: (id) => {
       for (const k of Object.keys(drafts.current)) if (k.startsWith(`${id}:`)) delete drafts.current[k];
       setWin((w) => closeTab(w, id));
@@ -298,21 +310,39 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const trash = useCallback(async (paths: string[], title?: string) => {
     const r = await api.files.trash(paths, title);
     refresh();
-    setSelection([]);
+    select([]);
     const msg = r.failed ? `Moved ${r.removed} to the Trash, ${r.failed} could not be moved` : `Moved ${r.removed} item${r.removed === 1 ? '' : 's'} to the Trash · ${formatBytes(r.freed)} freed`;
     toast(msg, r.journalId ? { label: 'Undo', run: () => void api.history.undo(r.journalId!).then(refresh) } : undefined);
     return r;
-  }, [refresh, toast]);
+  }, [refresh, toast, select]);
+
+  // The Inspector: shown by the setting and the selection, unless Show/Hide Inspector says otherwise.
+  const inspectorMode = asInspectorMode(settings?.inspectorMode);
+  const hasSelection = selection.length > 0 || !!focused;
+  const hadSelection = useRef(hasSelection);
+  useEffect(() => {
+    if (hadSelection.current === hasSelection) return;
+    setInspectorForced((f) => nextForced(f, inspectorMode, hadSelection.current, hasSelection));
+    hadSelection.current = hasSelection;
+  }, [hasSelection, inspectorMode]);
+  useEffect(() => setInspectorForced(null), [inspectorMode]);
+  const inspector = inspectorVisible({ mode: inspectorMode, hasSelection, filePage: FILE_ROUTES.includes(route.name), forced: inspectorForced });
+  const setInspectorWidth = useCallback((px: number) => {
+    const w = clampInspectorWidth(px);
+    setInspectorWidthState(w);
+    save('inspectorWidth', w);
+    setWin((x) => (x.inspectorWidth === w ? x : { ...x, inspectorWidth: w }));
+  }, []);
 
   const store = useMemo<Store>(() => ({
     route, go, back, canBack: tab.back.length > 0, forward, canForward: tab.fwd.length > 0, tabs, draft, setDraft, boot,
-    info, settings, updateSettings, selection, setSelection,
-    inspector, setInspector: (v) => { setInspectorState(v); save('inspector', v); },
+    info, settings, updateSettings, selection, setSelection: select,
+    inspector, setInspector: (v) => setInspectorForced(v), inspectorWidth, setInspectorWidth,
     focused, setFocused, playing, play,
     view, setView: (v) => { setViewState(v); save('view', v); },
     cardSize, setCardSize: (n) => { const c = Math.max(100, Math.min(280, n)); setCardSizeState(c); save('cardSize', c); },
     toasts, toast, version, refresh, trash,
-  }), [route, go, back, forward, tab, tabs, draft, setDraft, boot, info, settings, updateSettings, selection, inspector, focused, playing, view, cardSize, toasts, toast, version, refresh, trash]);
+  }), [route, go, back, forward, tab, tabs, draft, setDraft, boot, info, settings, updateSettings, selection, select, inspector, inspectorWidth, setInspectorWidth, focused, playing, view, cardSize, toasts, toast, version, refresh, trash]);
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>;
 }

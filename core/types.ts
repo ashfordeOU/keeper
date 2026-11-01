@@ -447,4 +447,8 @@ export interface Settings {
   /** open pages in tabs (⌘/Ctrl-click or middle-click, ⌘T); off keeps one page per window */
   tabs?: boolean;
   language: string;
+  /** when the details panel on the right shows (Settings → Appearance) */
+  inspectorMode: import('./inspector').InspectorMode;
+  /** the first-run Permissions step: set everything up now, only what gets turned on, or not chosen yet */
+  permissionsSetup: '' | 'all' | 'onDemand';
 }

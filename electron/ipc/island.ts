@@ -469,7 +469,14 @@ export function registerIslandShortcuts() {
   reg(s.pasteShortcut, () => (clipsWindowOpen() ? hideClips() : openClips()));
   reg(s.shelfShortcut, () => islandWindows.openOn('shelf'));
   // Opens the Island from anywhere, on the screen with the pointer.
-  reg(s.openShortcut ?? '', () => islandWindows.openOn('home'));
+  // While a Keeper window is in front its own ⌘⌥I / Ctrl+Alt+I (Show/Hide Inspector) wins: a system-wide
+  // shortcut never reaches the page, so it is passed on.
+  reg(s.openShortcut ?? '', () => {
+    const f = BrowserWindow.getFocusedWindow();
+    const url = f && !f.isDestroyed() ? f.webContents.getURL() : '';
+    if (url && (!url.includes('view=') || /[?&]view=app\b/.test(url)) && /^CommandOrControl\+Alt\+I$/i.test(s.openShortcut ?? '')) { f!.webContents.send('event:toggle-inspector'); return; }
+    islandWindows.openOn('home');
+  });
   // The player's controls from the keyboard's media keys, when the person wants the Island to answer them.
   if (s.mediaKeys) for (const [key, act] of [['MediaPlayPause', 'toggle'], ['MediaNextTrack', 'next'], ['MediaPreviousTrack', 'previous']] as const) reg(key, () => void ctx.islandSvc.media(act));
   reg(s.hideShortcut, () => ctx.islandSvc.hide(!ctx.islandSvc.hidden));

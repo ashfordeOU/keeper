@@ -24,7 +24,8 @@ function Preview({ file }: { file: FileEntry }) {
   );
 }
 
-export function Inspector() {
+/** `frozen` while it slides away: it keeps showing what it showed instead of jumping to "nothing selected". */
+export function Inspector({ frozen = false }: { frozen?: boolean } = {}) {
   const { focused, selection, setFocused, trash, toast, refresh, info, play } = useStore();
   const [file, setFile] = useState<FileEntry | null>(focused);
   const [renaming, setRenaming] = useState(false);
@@ -33,6 +34,7 @@ export function Inspector() {
 
   // Follow the selection; fetch fresh details (text, source) for the focused file.
   useEffect(() => {
+    if (frozen) return;
     const path = focused?.path ?? selection[0];
     if (!path) { setFile(null); return; }
     if (focused && focused.path === path) setFile(focused);
@@ -47,11 +49,11 @@ export function Inspector() {
       }
     });
     return () => { alive = false; };
-  }, [focused, selection]);
+  }, [focused, selection, frozen]);
 
   if (!file) {
     return (
-      <aside className="inspector">
+      <aside className="inspector" id="inspector" aria-label="Inspector">
         <div className="empty" style={{ padding: '80px 10px' }}>
           <Icon name="info" size={34} stroke={1.3} />
           <div className="small">Select a file to see its details.</div>
@@ -60,9 +62,9 @@ export function Inspector() {
     );
   }
 
-  if (selection.length > 1) {
+  if (selection.length > 1 && !frozen) {
     return (
-      <aside className="inspector">
+      <aside className="inspector" id="inspector" aria-label="Inspector">
         <h3>{selection.length} items selected</h3>
         <div className="insp-actions">
           <button className="btn sm" onClick={() => void api.island.addToShelf(selection)}><Icon name="island" size={12} /> Add to Shelf</button>
@@ -107,7 +109,7 @@ export function Inspector() {
   };
 
   return (
-    <aside className="inspector">
+    <aside className="inspector" id="inspector" aria-label="Inspector">
       <Preview file={file} />
       {renaming ? (
         <input

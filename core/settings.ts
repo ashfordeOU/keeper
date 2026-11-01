@@ -122,6 +122,8 @@ export function defaultSettings(folders: string[], rules: Rule[]): AllSettings {
     updatePlan: null,
     restorePlace: true,
     language: 'system',
+    inspectorMode: 'selection',
+    permissionsSetup: '',
     island: defaultIsland(),
   };
 }
@@ -160,5 +162,7 @@ export function mergeSettings(base: AllSettings, raw: unknown): AllSettings {
   out.agents = normalizeAgentSettings(out.agents);
   out.awake = normalizeAwakeSettings(out.awake, r.island && typeof r.island === 'object' ? (r.island as { awakeTriggers?: unknown }).awakeTriggers : undefined);
   if (!Array.isArray(out.featureSets)) out.featureSets = [];
+  if (!['selection', 'always', 'never'].includes(out.inspectorMode)) out.inspectorMode = 'selection';
+  if (!['', 'all', 'onDemand'].includes(out.permissionsSetup)) out.permissionsSetup = '';
   return out;
 }

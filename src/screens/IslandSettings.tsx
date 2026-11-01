@@ -14,9 +14,9 @@ import { IslandToolsSettings } from '../island/tools/ToolsSettings';
 import { PlusSettings } from '../island/PlusSettings';
 import '../styles/screens-b.css';
 
-export function Row({ title, desc, children }: { title: string; desc?: ReactNode; children: ReactNode }) {
+export function Row({ title, desc, children, id }: { title: string; desc?: ReactNode; children: ReactNode; id?: string }) {
   return (
-    <div className="setting">
+    <div className="setting" id={id}>
       <div className="txt"><div style={{ fontWeight: 550 }}>{title}</div>{desc ? <div className="d">{desc}</div> : null}</div>
       <div className="ctl">{children}</div>
     </div>

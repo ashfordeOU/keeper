@@ -88,7 +88,9 @@ import { Devices } from './screens/Devices';
 const Mesh = lazy(() => import('./screens/Mesh').then((m) => ({ default: m.Mesh })));
 const RemoteDesktops = lazy(() => import('./screens/RemoteDesktop').then((m) => ({ default: m.RemoteDesktops })));
 import { ForceQuitHost } from './screens/Processes';
-import { mod, shift, useAsync, useStore, type Route, type RouteName } from './state';
+import { FILE_ROUTES, mod, shift, useAsync, useStore, type Route, type RouteName } from './state';
+import { Splitter } from './components/Splitter';
+import { inspectorRange } from '../core/inspector';
 import { QuickLookHost } from './preview/QuickLook';
 import { toggleThemePatch } from './theme';
 
@@ -237,7 +239,7 @@ function Sidebar() {
 }
 
 function TopBar({ onPalette }: { onPalette: () => void }) {
-  const { route, go, back, canBack, forward, canForward, settings, updateSettings } = useStore();
+  const { route, go, back, canBack, forward, canForward, settings, updateSettings, inspector, setInspector } = useStore();
   const t = useT();
   const [text, setText] = useState(route.name === 'search' ? route.q ?? '' : '');
   useEffect(() => {
@@ -275,6 +277,9 @@ function TopBar({ onPalette }: { onPalette: () => void }) {
       </div>
       <div className="spacer" />
       <Player />
+      {FILE_ROUTES.includes(route.name) ? (
+        <button className={`btn ghost icon ${inspector ? 'on' : ''}`} aria-pressed={inspector} aria-controls="inspector" data-testid="inspector-toggle" title={`${inspector ? 'Hide' : 'Show'} Inspector (${mod === '⌘' ? '⌘⌥I' : 'Ctrl+Alt+I'})`} onClick={() => setInspector(!inspector)}><Icon name="info" size={16} /></button>
+      ) : null}
       <button className="btn ghost icon" title={`Command palette (${mod}K)`} onClick={onPalette}><Icon name="sparkle" size={16} /></button>
       <button
         className="btn ghost icon"
@@ -378,11 +383,48 @@ function Page() {
   return pages[route.name]();
 }
 
+/** How long the Inspector takes to slide in or out (none with reduced motion, see app.css). */
+const INSPECTOR_SLIDE_MS = 220;
+
+/** The Inspector's column: slides in when something is selected, out when the selection is cleared, and is sized by its left edge. */
+function InspectorPane({ shown }: { shown: boolean }) {
+  const { inspectorWidth, setInspectorWidth } = useStore();
+  const [mounted, setMounted] = useState(shown);
+  const [live, setLive] = useState<number | null>(null);
+  const [winW, setWinW] = useState(() => window.innerWidth);
+  useEffect(() => {
+    if (shown) { setMounted(true); return; }
+    // Kept until it has slid away, then let go (and its preview with it).
+    const t = window.setTimeout(() => setMounted(false), INSPECTOR_SLIDE_MS + 60);
+    return () => window.clearTimeout(t);
+  }, [shown]);
+  useEffect(() => {
+    const on = () => setWinW(window.innerWidth);
+    window.addEventListener('resize', on);
+    return () => window.removeEventListener('resize', on);
+  }, []);
+  const sidebar = document.querySelector<HTMLElement>('.sidebar')?.offsetWidth ?? 228;
+  const range = inspectorRange(winW, sidebar);
+  const w = Math.min(range.max, live ?? inspectorWidth);
+  return (
+    <div className={`inspector-pane ${shown ? 'open' : ''} ${live !== null ? 'live' : ''}`} style={{ ['--inspector' as string]: `${w}px` }} aria-hidden={!shown} inert={!shown} data-testid="inspector-pane">
+      {shown ? <Splitter width={w} range={range} label="Inspector width" controls="inspector" testId="inspector-splitter" className="inspector-splitter" onLive={setLive} onCommit={setInspectorWidth} /> : null}
+      {mounted ? <Inspector frozen={!shown} /> : null}
+    </div>
+  );
+}
+
+/** Clicking empty space on a file page clears the selection (and the Inspector slides away). */
+function clearsSelection(target: EventTarget | null): boolean {
+  const el = target as HTMLElement | null;
+  if (!el || !el.closest('.main > .content')) return false;
+  return !el.closest('[data-path], .shelf-card, .snippet, .large-row, .file-card, .file-row, button, a, input, textarea, select, label, [role], [contenteditable="true"], .menu, .modal');
+}
+
 export function App() {
   const store = useStore();
   const [palette, setPalette] = useState(false);
-  const fileRoutes: RouteName[] = ['home', 'recents', 'library', 'screenshots', 'source', 'tag', 'search', 'saved', 'browse', 'downloads', 'large'];
-  const showInspector = store.inspector && fileRoutes.includes(store.route.name);
+  const showInspector = store.inspector;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -399,7 +441,10 @@ export function App() {
         const files = store.selection;
         if (files.length) { e.preventDefault(); void api.library.readText(files).then((r) => { const t = r.map((x) => x.text).filter(Boolean).join('\n\n'); if (t) { void api.files.copyText(t); store.toast(`Copied text from ${r.filter((x) => x.text).length} file(s)`); } else store.toast('No text found in the selection'); }); }
       }
-      else if (cmd && !e.shiftKey && k === 'i') { e.preventDefault(); store.setInspector(!store.inspector); }
+      // ⌘⌥I / Ctrl+Alt+I (and ⌘I / Ctrl+I) shows or hides the Inspector.
+      else if (cmd && !e.shiftKey && (e.code === 'KeyI' || k === 'i')) { e.preventDefault(); store.setInspector(!store.inspector); }
+      // Escape clears the selection on a file page (dialogs and menus take Escape first).
+      else if (e.key === 'Escape' && !cmd && store.selection.length + (store.focused ? 1 : 0) > 0 && !(e.target as HTMLElement | null)?.closest?.('input, textarea, [contenteditable="true"], .modal, .palette, .menu, .tour, .guide-panel') && !document.querySelector('.modal, .palette, .menu, .ql')) { store.setSelection([]); }
       else if (cmd && k === '1') { e.preventDefault(); store.setView('grid'); }
       else if (cmd && k === '2') { e.preventDefault(); store.setView('list'); }
       else if (cmd && (k === '=' || k === '+')) { e.preventDefault(); store.setCardSize(store.cardSize + 20); }
@@ -408,14 +453,16 @@ export function App() {
       else if (cmd && k === ',') { e.preventDefault(); store.go({ name: 'settings' }); }
     };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    // The Island's own ⌘⌥I is a system-wide shortcut, so the main process passes it on while a Keeper window is in front.
+    const off = api.on('toggle-inspector', () => store.setInspector(!store.inspector));
+    return () => { window.removeEventListener('keydown', onKey); off(); };
   }, [store]);
 
   // Scroll positions come back too, after a page change, an update or a restart.
   usePlaceMemory(store.route, contentEl);
 
   return (
-    <div className="shell" style={{ gridTemplateColumns: `var(--sidebar) 1fr ${showInspector ? 'var(--inspector)' : '0px'}` }}>
+    <div className="shell" onClick={(e) => { if ((store.selection.length || store.focused) && clearsSelection(e.target)) store.setSelection([]); }}>
       <Sidebar />
       <main className="main">
         <TopBar onPalette={() => setPalette(true)} />
@@ -424,7 +471,7 @@ export function App() {
         <RecoveryNotice />
         <div className="content"><UpdateBanner /><CoachHost route={store.route} /><RouteHints route={store.route} /><PageBoundary route={`${store.route.name}:${store.route.arg ?? ''}:${store.route.q ?? ''}`}><Page /></PageBoundary></div>
       </main>
-      {showInspector ? <Inspector /> : <div />}
+      <InspectorPane shown={showInspector} />
       {palette ? <CommandPalette onClose={() => setPalette(false)} /> : null}
       <WhatsNew />
       <QuickLookHost />

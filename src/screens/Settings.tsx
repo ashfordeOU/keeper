@@ -5,7 +5,8 @@ import { lazy, Suspense, useEffect } from 'react';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
 import { PageHead, Toggle } from '../components/ui';
-import { useStore } from '../state';
+import { mod, useStore } from '../state';
+import { INSPECTOR_MODES } from '../../core/inspector';
 import { Row } from './IslandSettings';
 import { LanguageRow, LoginRow } from './SettingsMore';
 import { UpdatesPanel, WhatsNewHover } from '../components/Updates';
@@ -55,6 +56,9 @@ export function Settings() {
         </Row>
         <ThemeTweaks />
         <LanguageRow />
+        <Row id="inspector" title="Inspector" desc={`The details panel on the right of file pages. Show or hide it any time with ${mod === '⌘' ? '⌘⌥I' : 'Ctrl+Alt+I'}; drag its left edge to change its width.`}>
+          <div className="seg" role="radiogroup" aria-label="When the Inspector shows">{INSPECTOR_MODES.map((m) => <button key={m.id} role="radio" aria-checked={(s.inspectorMode ?? 'selection') === m.id} className={(s.inspectorMode ?? 'selection') === m.id ? 'on' : ''} onClick={() => void updateSettings({ inspectorMode: m.id })}>{m.label}</button>)}</div>
+        </Row>
       </div>
 
       <h2 id="features" style={{ margin: '18px 0 8px' }}>Features</h2>

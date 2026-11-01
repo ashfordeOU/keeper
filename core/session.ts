@@ -34,6 +34,8 @@ export interface WindowState {
   /** recently closed tabs, newest last, for "Reopen Closed Tab" */
   closed: Tab[];
   bounds?: { x: number; y: number; width: number; height: number };
+  /** this window's Inspector width in pixels (dragged by its left edge) */
+  inspectorWidth?: number;
 }
 
 export interface SessionSnapshot {
@@ -213,5 +215,6 @@ export function sanitizeWindow(w: unknown, key = 'main'): WindowState {
     key: typeof x.key === 'string' ? x.key : key, tabs, active, scroll: numMap(x.scroll), drafts: strMap(x.drafts),
     closed: (Array.isArray(x.closed) ? x.closed : []).filter((t) => t && typeof t.id === 'string' && okRoute(t.route)).slice(-MAX_CLOSED) as Tab[],
     ...(b && [b.x, b.y, b.width, b.height].every((n) => Number.isFinite(n)) ? { bounds: b } : {}),
+    ...(typeof x.inspectorWidth === 'number' && x.inspectorWidth >= 120 && x.inspectorWidth <= 2000 ? { inspectorWidth: Math.round(x.inspectorWidth) } : {}),
   };
 }
