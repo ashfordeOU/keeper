@@ -64,4 +64,4 @@ Everything is saved to one JSON file in the app's data folder.
 
 ## Building
 
-`scripts/build-main.mjs` bundles the main process, preload scripts and CLI with esbuild (only `tesseract.js` stays external, because it spawns worker threads). Vite builds the interface. `electron-builder.yml` packages installers for each OS, and `.github/workflows/release.yml` builds them on tag push.
+`scripts/build-main.mjs` bundles the main process, preload scripts and CLI with esbuild (only `tesseract.js` stays external, because it spawns worker threads). Vite builds the interface. `electron-builder.yml` packages installers for each OS, and `.github/workflows/release.yml` builds and publishes them when the version in `package.json` changes on `main` (see [How releases work](INSTALL.md#how-releases-work)).
