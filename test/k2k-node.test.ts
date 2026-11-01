@@ -197,10 +197,15 @@ describe('remote actions', () => {
     expect(exit).toMatch(/does not allow a terminal/);
     a.node.setPermissions(b.node.id, { ...a.node.state().devices[0].permissions, terminal: true });
     let out = '';
+    // A plain shell, so a fresh zsh's first-run questions cannot get in the way; cmd.exe on Windows.
+    const win = process.platform === 'win32';
+    const shell = process.env.SHELL;
+    if (!win) process.env.SHELL = '/bin/sh';
     const t = await remoteTerminal(b.node, a.node.id, 80, 24, (d) => (out += new TextDecoder().decode(d)), () => undefined);
-    t.write('echo k2k-$((40+2))\n');
-    await waitFor(() => out.includes('k2k-42'));
-    t.write('exit\n');
+    if (shell !== undefined) process.env.SHELL = shell;
+    t.write(win ? 'set /a 40+2\r\n' : 'echo k2k-$((40+2))\n');
+    await waitFor(() => (win ? /(^|\D)42(\D|$)/.test(out.replace(/40\+2/g, '')) : out.includes('k2k-42')));
+    t.write(win ? 'exit\r\n' : 'exit\n');
     t.close();
     expect(a.node.auditLog({ kind: 'terminal' })[0].title).toMatch(/terminal/);
   });

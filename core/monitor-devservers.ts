@@ -121,10 +121,12 @@ export function looksLikeDevServer(l: ListenerInfo, home?: string): boolean {
 
 /** The git root above a folder (a `.git` folder or file), or undefined. */
 export function gitRootOf(dir: string, exists: (p: string) => boolean): string | undefined {
-  let d = path.resolve(dir);
+  // Keep the path's own style (a POSIX path on Windows stays POSIX, and the other way round).
+  const p = /^[a-zA-Z]:[\\/]|\\/.test(dir) ? path.win32 : path.posix;
+  let d = p.resolve(dir);
   for (let i = 0; i < 40; i++) {
-    if (exists(path.join(d, '.git'))) return d;
-    const up = path.dirname(d);
+    if (exists(p.join(d, '.git'))) return d;
+    const up = p.dirname(d);
     if (up === d) return undefined;
     d = up;
   }

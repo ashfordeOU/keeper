@@ -333,7 +333,8 @@ export function setForPower(s: Pick<AllSettings, 'featureSetOnBattery' | 'featur
 
 /** Which preset the current choices match, if any. */
 export function currentPreset(s: AllSettings): PresetId | undefined {
-  return PRESETS.find((p) => FEATURES.every((f) => f.always || f.ownChoice || wanted(s, f.id) === p.on(f)))?.id;
+  // Features this system cannot run never count against a preset.
+  return PRESETS.find((p) => FEATURES.every((f) => f.always || f.ownChoice || (f.platforms && !f.platforms.includes(HOST as NodeJS.Platform)) || wanted(s, f.id) === p.on(f)))?.id;
 }
 
 function diff(prev: AllSettings, next: AllSettings): Partial<AllSettings> {
