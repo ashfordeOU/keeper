@@ -22,6 +22,9 @@ if (!official && home && path.isAbsolute(home)) {
     }
   };
   process.env.HOME = home;
+  // Never mistaken for the owner's own Keeper: its own name, and a "test" badge on its Dock icon.
+  try { app.setName('Keeper (test)'); } catch { /* fine */ }
+  void app.whenReady().then(() => { try { app.dock?.setBadge('test'); } catch { /* no Dock */ } });
   set('home', home);
   set('appData', path.join(home, 'Library', 'Application Support'));
   set('userData', userData);

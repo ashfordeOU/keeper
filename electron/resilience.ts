@@ -16,6 +16,7 @@ import path from 'node:path';
 import { encodeCheckpoint, pickCheckpoint, recentCrashes } from '../core/checkpoint';
 import { emptyWindow, sanitizeWindow, type SessionSnapshot, type WindowState } from '../core/session';
 import { registerSvcIpc } from './svc';
+import { instancePaths } from './instance';
 
 declare const __KEEPER_OFFICIAL__: boolean | undefined;
 const OFFICIAL_BUILD = typeof __KEEPER_OFFICIAL__ === 'boolean' ? __KEEPER_OFFICIAL__ : false;
@@ -321,7 +322,7 @@ function startWatchdog() {
   const script = path.join(__dirname, 'watchdog.cjs');
   if (!existsSync(script)) return;
   try {
-    const child = spawn(process.execPath, [script, JSON.stringify({ pid: process.pid, dir: dir(), cmd: relaunchCommand() })], {
+    const child = spawn(process.execPath, [script, JSON.stringify({ pid: process.pid, dir: dir(), cmd: relaunchCommand(), instance: instancePaths().file })], {
       detached: true, stdio: 'ignore', windowsHide: true,
       env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
     });

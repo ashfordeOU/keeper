@@ -10,7 +10,7 @@ import { execFileSync, spawn } from 'node:child_process';
 import { closeSync, fstatSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
-const { pid, dir, cmd } = JSON.parse(process.argv[2] ?? '{}') as { pid: number; dir: string; cmd: string[] };
+const { pid, dir, cmd, instance } = JSON.parse(process.argv[2] ?? '{}') as { pid: number; dir: string; cmd: string[]; instance?: string };
 if (!pid || !dir || !cmd?.length) process.exit(0);
 
 // Chromium does not mark its sockets close-on-exec, so this process inherits Keeper's (its
@@ -41,6 +41,17 @@ function stillOurs(): 'running' | 'quit' | 'other' {
     return r.pid === pid ? 'running' : 'other';
   } catch {
     return 'quit';
+  }
+}
+
+/** The pid in the one-per-person lock, when that Keeper is alive and is not the one that stopped. */
+function otherKeeper(): number | undefined {
+  if (!instance) return undefined;
+  try {
+    const r = JSON.parse(readFileSync(instance, 'utf8')) as { pid?: number };
+    return r.pid && r.pid !== pid && alive(r.pid) ? r.pid : undefined;
+  } catch {
+    return undefined;
   }
 }
 
@@ -95,6 +106,13 @@ const timer = setInterval(() => {
   const state = stillOurs();
   // Quit normally, or another Keeper has already taken over: nothing to do.
   if (state !== 'running') process.exit(0);
+  // Any copy of Keeper already running for this person (restarted by them, or by macOS) holds the
+  // one-per-person lock (electron/instance.ts): never start a second one.
+  const other = otherKeeper();
+  if (other) {
+    log(`Keeper (pid ${pid}) stopped unexpectedly; another Keeper (pid ${other}) is already running, so it is not started again`);
+    process.exit(0);
+  }
   // Helpers Keeper started (watchers, ffmpeg, the cloud daemon…) would otherwise linger,
   // holding files and ports; stop the ones that are still the same programs.
   stopLeftovers();

@@ -10,6 +10,7 @@ import { onBeforeInstall } from './services/updater';
 import { BRAND, COPYRIGHT, TRADEMARK, WEBSITE } from '../core/brand';
 // First, so local crash reports cover everything that follows.
 import { initResilience, restoreExtraWindows } from './resilience';
+import { anotherKeeperTookOver, holdInstanceLock, releaseInstanceLock } from './instance';
 import { onLimitAlert } from './svc/limits';
 import { app, BrowserWindow, dialog, globalShortcut, ipcMain, Menu, nativeImage, nativeTheme, protocol, screen, shell, Tray } from 'electron';
 import { existsSync, promises as fsp, statSync } from 'node:fs';
@@ -130,7 +131,14 @@ const DEV_URL = process.env.VITE_DEV_SERVER_URL;
 const isMac = process.platform === 'darwin';
 
 protocol.registerSchemesAsPrivileged([{ scheme: 'keeper-file', privileges: { stream: true, supportFetchAPI: true, corsEnabled: true, bypassCSP: false, standard: false } }]);
-if (!app.requestSingleInstanceLock()) app.quit();
+// One Keeper per person across every copy (installed, development, downloaded): a later start
+// hands its links and files to the running one and quits (electron/instance.ts). Electron's own
+// lock still covers two starts of the same copy.
+// A start that handed over does nothing more: not even the ready work below (quit does not stop 'ready').
+const handedOver = anotherKeeperTookOver() || !app.requestSingleInstanceLock();
+if (handedOver) app.quit();
+else holdInstanceLock((h) => (app.isReady() ? onSecondInstance(h.argv) : app.once('ready', () => onSecondInstance(h.argv))));
+app.on('will-quit', () => releaseInstanceLock());
 // Linux on Wayland: the Island needs XWayland to stay on top and in place (Settings can turn this off).
 applyWaylandSwitch();
 app.setAsDefaultProtocolClient('keeper');
@@ -546,14 +554,17 @@ app.on('open-url', (e, url) => {
   if (app.isReady()) handleDeepLink(url);
   else app.once('ready', () => handleDeepLink(url));
 });
-app.on('second-instance', (_e, argv) => {
+app.on('second-instance', (_e, argv) => onSecondInstance(argv));
+
+/** Another start of Keeper (this copy or any other) handed over its command line. */
+function onSecondInstance(argv: string[]) {
   // A .rdp or .vnc file double-clicked or "Connect with Keeper" in the file manager.
   if (handleRdcArgv(argv)) return;
   if (handlePlatformArgv(argv)) return;
   const link = argv.find((a) => a.startsWith('keeper://'));
   if (link) handleDeepLink(link);
   else showMain();
-});
+}
 
 // ---------------------------------------------------------------- library
 
@@ -1048,6 +1059,7 @@ function registerIpc() {
 // ---------------------------------------------------------------- start
 
 app.whenReady().then(async () => {
+  if (handedOver) return;
   // Decides when background work runs and how often regular checks look (battery, idle, locked screen).
   startGovernor();
   // Local files for previews and the music player: read-only, seekable, only from allowed places.
