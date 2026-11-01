@@ -27,6 +27,7 @@ import { MeshPlaces } from './MeshParts';
 import { useT } from '../i18n';
 import { PimSettings } from '../pim/PimSettings';
 import { PermissionsPanel } from '../components/PermissionsPanel';
+import { NativeAppsPanel } from '../components/NativeAppsPanel';
 import '../styles/screens-b.css';
 
 const MonitorSettingsPanel = lazy(() => import('./monitor/MonitorSettings').then((m) => ({ default: m.MonitorSettingsPanel })));
@@ -173,6 +174,11 @@ export function Settings() {
       <h2 id="pim" style={{ margin: '18px 0 8px' }}>Mail &amp; Calendar</h2>
       <div className="card settings-section" style={{ padding: 16 }}>
         <PimSettings />
+      </div>
+
+      <h2 id="open-with" style={{ margin: '18px 0 8px' }}>Open with</h2>
+      <div className="card settings-section" style={{ padding: 16 }}>
+        <NativeAppsPanel />
       </div>
 
       <h2 id="brain" style={{ margin: '18px 0 8px' }}>AI &amp; Brain</h2>

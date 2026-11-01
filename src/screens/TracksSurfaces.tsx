@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { LivePosition, TracksConfig } from '../../core/tracks/api';
 import { api } from '../api';
 import type { Route } from '../state';
+import { openNative } from '../lib/native';
 
 let cached: TracksConfig | null = null;
 let livePos: LivePosition[] = [];
@@ -77,6 +78,10 @@ export function useTracksCommands(go: (r: Route) => void): PaletteCommand[] {
     { id: 'tracks-import', label: 'Import Tracks or Location History…', group: 'Actions' as const, icon: 'down', keywords: 'gpx fit tcx kml google timeline takeout apple health', run: () => go({ name: 'tracks', arg: 'import' }) },
     { id: 'tracks-search', label: 'When Was I Last In…', group: 'Actions' as const, icon: 'search', keywords: 'last visit place timeline search where was i', run: () => go({ name: 'tracks', arg: 'search' }) },
     ...(liveOn ? livePos.map((p) => ({ id: `tracks-where-${p.id}`, label: `Where Is ${p.kind === 'person' || /^my /i.test(p.name) ? '' : 'My '}${p.name}?`, group: 'Actions' as const, icon: 'map', keywords: `where find locate ${p.kind} ${p.name} location`, run: () => go({ name: 'tracks', arg: `live:${p.id}` }) })) : []),
+    // Devices, items and people Find My reported open in Find My itself; the rest in Maps.
+    ...(liveOn ? livePos.map((p) => (p.source === 'findmy'
+      ? { id: `tracks-findmy-${p.id}`, label: `Open ${p.name} in Find My`, group: 'Actions' as const, icon: 'map', keywords: `find my locate ${p.kind} ${p.name} play sound lost`, run: () => openNative('findMy') }
+      : { id: `tracks-maps-${p.id}`, label: `Show ${p.name} in Maps`, group: 'Actions' as const, icon: 'map', keywords: `maps directions ${p.kind} ${p.name}`, run: () => openNative('maps', { lat: p.lat, lon: p.lon, label: p.name }) })) : []),
   ]), [on, v, go]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 

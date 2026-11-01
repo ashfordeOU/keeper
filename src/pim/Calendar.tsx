@@ -12,6 +12,8 @@ import type { CalEvent, CalendarInfo, Occurrence } from '../../core/pim/types';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
 import { Modal } from '../components/ui';
+import { MapButtons } from '../components/NativeOpen';
+import { openNative } from '../lib/native';
 import { useStore } from '../state';
 import { CalendarAccessCard, CalendarSources, useSystemAccess } from './CalendarSources';
 import { usePimChanges } from './Mail';
@@ -494,7 +496,11 @@ export function EventEditor({ event, instance, calendars, onClose }: { event: Ca
           </select>
         </div>
         <input className="input" placeholder="Place or video link" value={e.location ?? ''} disabled={readOnly} onChange={(x) => setE({ ...e, location: x.target.value || undefined })} />
-        {link ? <a className="btn sm" href={link} target="_blank" rel="noreferrer" style={{ alignSelf: 'flex-start' }}><Icon name="external" size={13} /> Join the meeting</a> : null}
+        <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+          {link ? <a className="btn sm" href={link} target="_blank" rel="noreferrer"><Icon name="external" size={13} /> Join the meeting</a> : null}
+          {e.location && !link ? <MapButtons place={{ address: e.location }} /> : null}
+          {event.id ? <button className="btn sm" onClick={() => void openNative('calendar', { eventUrl: event.openUrl, date: instance ?? e.start }, toast)}><Icon name="calendar" size={12} /> Open in Calendar</button> : null}
+        </div>
         <input className="input" placeholder="People (email addresses; they get an invitation from your calendar server)" value={people} disabled={readOnly} onChange={(x) => setPeople(x.target.value)} />
         <textarea className="input" rows={3} placeholder="Notes" value={e.description ?? ''} disabled={readOnly} onChange={(x) => setE({ ...e, description: x.target.value || undefined })} />
         {repeating && event.id && !readOnly ? (

@@ -11,6 +11,7 @@ import { shiftSpan, spanRange, type Span } from '../../core/tracks/timeline';
 import { SPORT_LABEL, type LivePosition, type TimelineEntry, type Trip } from '../../core/tracks/types';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
+import { MapButtons } from '../components/NativeOpen';
 import { Empty, Loading, PageHead } from '../components/ui';
 import { useAsync, useStore } from '../state';
 import { TracksMap, sportColour, type MapMarker } from './TracksMap';
@@ -107,6 +108,7 @@ export function EntryRow({ e, onPick, selected }: { e: TimelineEntry; onPick?: (
           </form>
         ) : null}
       </div>
+      {e.kind === 'stay' && !naming ? <MapButtons compact place={{ lat: e.lat, lon: e.lon, label: e.name }} /> : null}
       {e.kind === 'stay' && !e.place && !naming ? <button className="btn ghost sm" onClick={(x) => { x.stopPropagation(); setNaming(true); }}>Name</button> : null}
       {e.kind === 'activity' ? <button className="btn ghost sm" onClick={(x) => { x.stopPropagation(); go({ name: 'tracks', arg: `track:${e.track}` }); }}>Details</button> : null}
     </div>
@@ -260,6 +262,8 @@ function TripView({ trip }: { trip: Trip }) {
         <h3 className="tk-h grow">{trip.title}</h3>
         <button className="btn sm" onClick={() => void print()}><Icon name="document" size={13} />Print summary</button>
         <button className="btn sm" onClick={() => void api.tracks.export({ format: 'gpx', from: trip.start, to: trip.end, stays: true })}>Export GPX</button>
+        {/* The middle of the trip's area, named after its places, so Maps opens on where it was. */}
+        <MapButtons place={{ lat: (trip.bbox[1] + trip.bbox[3]) / 2, lon: (trip.bbox[0] + trip.bbox[2]) / 2, label: trip.places[0] ?? trip.title }} />
       </div>
       <div className="tk-stats">
         <Stat label="Days" value={String(trip.days.length)} />
@@ -335,6 +339,7 @@ function Live({ o, selected }: { o: TracksOverview; selected?: string }) {
                   <div className="muted small">{p.address ?? `${p.lat.toFixed(4)}, ${p.lon.toFixed(4)}`} · {ago(p.t)}{p.acc ? ` · ±${Math.round(p.acc)} m` : ''}</div>
                 </div>
                 {p.battery !== undefined ? <span className={`tk-batt ${p.battery < 20 ? 'low' : ''}`}><Icon name="battery" size={13} />{Math.round(p.battery)}%{p.charging ? ' ⚡' : ''}</span> : null}
+                <MapButtons compact place={{ lat: p.lat, lon: p.lon, label: p.name }} findMy={p.source === 'findmy'} />
               </div>
             ))}
           </div>

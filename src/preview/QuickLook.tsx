@@ -14,6 +14,7 @@ import { FilePreview, usePreviewInfo } from './Preview';
 import { getThumb } from './thumbs';
 import { fileUrl } from './util';
 import { Histogram } from './viewers/images';
+import { MapButtons } from '../components/NativeOpen';
 
 export interface QuickLookItem {
   path: string;
@@ -247,9 +248,7 @@ function InfoPanel({ info }: { info: PreviewInfo }) {
         <div className="ql-gps">
           <div className="ql-panel-title">Location</div>
           <div className="small mono">{ex.gps.lat.toFixed(5)}, {ex.gps.lon.toFixed(5)}{ex.gps.alt ? ` · ${Math.round(ex.gps.alt)} m` : ''}</div>
-          <button className="btn sm" onClick={() => void api.system.openExternal(`https://www.openstreetmap.org/?mlat=${ex.gps!.lat}&mlon=${ex.gps!.lon}#map=15/${ex.gps!.lat}/${ex.gps!.lon}`)}>
-            <Icon name="map" size={13} /> Show on a map
-          </button>
+          <MapButtons place={{ lat: ex.gps.lat, lon: ex.gps.lon }} />
         </div>
       ) : null}
       {showHistogram ? <><div className="ql-panel-title">Histogram</div><Histogram src={fileUrl(info.path)} /></> : null}

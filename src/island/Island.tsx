@@ -10,6 +10,7 @@ import { formatDuration } from '../../core/format';
 import type { LyricLine } from '../../core/island';
 import { describeCode } from '../../core/weather';
 import { api } from '../api';
+import { openNative } from '../lib/native';
 import { Icon } from '../components/Icon';
 import { ClipboardTab, ControlsTab, ShelfTab } from './IslandTabs';
 import { AskTool, CalendarTool, ConvertTool, EmojiTool, FocusExtras, MirrorTool, NotesTool, SalesTool, ShortcutsTool, StocksTool, SystemTool, TodosTool, UsageTool, WeatherTool, useFocusSound, useToolsStore } from './tools/IslandTools';
@@ -26,6 +27,9 @@ import { Leading, LiveCard, PrivacyDots, Trailing, useActivities, useGestures, u
 import { useFeatureStates } from '../features';
 import { useStore } from '../state';
 import '../styles/island.css';
+
+// Shown in the Island's own toast.
+const islandSay = (msg: string) => window.dispatchEvent(new CustomEvent('island-toast', { detail: msg }));
 
 type Tab = IslandToolId;
 type Mood = 'calm' | 'happy' | 'listening' | 'thinking' | 'needs' | 'done' | 'napping' | 'broken' | 'recording' | 'sleeping';
@@ -217,6 +221,7 @@ export function Island() {
   const focusLeft = state.focus.mode === 'idle' ? 0 : state.focus.pausedLeft ?? Math.max(0, state.focus.endsAt - now);
   const nextEv = state.events.find((e) => !e.allDay && e.end > now);
   const soon = nextEv && nextEv.start - now < 15 * 60_000 ? nextEv : undefined;
+  const openWeather = () => { const p = state.weather?.place; if (p) void openNative('weather', { lat: p.lat, lon: p.lon, label: p.name }, islandSay); };
   const np = state.nowPlaying;
   const hour = new Date(now).getHours();
   const night = hour >= 23 || hour < 6;
@@ -423,13 +428,13 @@ export function Island() {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {state.weather && isl?.weather !== false ? (
-                  <div className="tile">
+                  <div className="tile" role="button" tabIndex={0} title="Open in Weather" style={{ cursor: 'pointer' }} onClick={openWeather} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') openWeather(); }}>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}><span style={{ fontSize: 26, fontWeight: 800 }}>{Math.round(state.weather.current.temp)}°</span><span>{describeCode(state.weather.current.code).label}</span></div>
                     <div className="muted small">{state.weather.place.name} · H {Math.round(state.weather.daily[0]?.max ?? 0)}° L {Math.round(state.weather.daily[0]?.min ?? 0)}°{state.weather.current.aqi !== undefined ? ` · AQI ${Math.round(state.weather.current.aqi)}` : ''}</div>
                     {state.weather.nowcast ? <div className="small" style={{ color: '#93c5fd', marginTop: 4 }}>{state.weather.nowcast}</div> : null}
                   </div>
                 ) : null}
-                <div className="tile">
+                <div className="tile" role={nextEv ? 'button' : undefined} tabIndex={nextEv ? 0 : undefined} title={nextEv ? 'Open in Calendar' : undefined} style={nextEv ? { cursor: 'pointer' } : undefined} onClick={nextEv ? () => void openNative('calendar', { date: nextEv.start }, islandSay) : undefined}>
                   {nextEv ? <><span className="muted small">Next · {timeOf(nextEv.start)}</span><b className="ellipsis" style={{ display: 'block' }}>{nextEv.title}</b>{nextEv.location ? <span className="muted small">{nextEv.location}</span> : null}</> : <span className="muted">Nothing else today</span>}
                 </div>
                 <div className="tile" style={{ display: 'flex', gap: 10, alignItems: 'center' }}>

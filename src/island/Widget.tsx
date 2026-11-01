@@ -13,6 +13,7 @@ import { hemisphereFor } from '../../core/themes';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
 import '../styles/widgets.css';
+import { openNative } from '../lib/native';
 
 const FONTS: Record<WidgetConfig['style']['font'], string> = {
   system: 'var(--font)',
@@ -168,8 +169,9 @@ export function WidgetBody({ w }: { w: WidgetConfig }) {
     case 'weather': {
       const wx = isl?.weather;
       if (!wx) return <div className="wg-dim">Choose a place in Island settings to see the weather.</div>;
+      // Widgets move with a drag, so a double-click is what opens the forecast in the Weather app.
       return (
-        <div>
+        <div title="Double-click to open in Weather" onDoubleClick={() => void openNative('weather', { lat: wx.place.lat, lon: wx.place.lon, label: wx.place.name })}>
           <div className="wg-row" style={{ justifyContent: 'space-between' }}>
             <div><div className="wg-big">{Math.round(wx.current.temp)}°</div><div className="wg-dim">{wx.place.name}</div></div>
             <div style={{ textAlign: 'right' }}><b>{describeCode(wx.current.code).label}</b><div className="wg-dim">H {Math.round(wx.daily[0]?.max ?? 0)}° · L {Math.round(wx.daily[0]?.min ?? 0)}°</div></div>

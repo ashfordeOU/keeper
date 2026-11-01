@@ -8,6 +8,7 @@ import type { TripForecast } from '../../core/api-x';
 import { addPlace, aqiAdvice, mapTileUrl, moonPhase, movePlace, radarTileUrl, tileGrid, uvAdvice, type MonthlyClimate, type RadarFrame, type WeatherAlert } from '../../core/forecast';
 import { describeCode, type Place, type Weather as W } from '../../core/weather';
 import { api } from '../api';
+import { openNative } from '../lib/native';
 import { Chart } from '../components/Chart';
 import { Icon } from '../components/Icon';
 import { Empty, Loading, PageHead } from '../components/ui';
@@ -189,6 +190,10 @@ export function Weather() {
                 <div className="sub">{describeCode(w.current.code).label} · feels like {Math.round(w.current.feels)}{deg}</div>
                 {today ? <div className="small muted">High {Math.round(today.max)}° · Low {Math.round(today.min)}° · {today.rainChance}% chance of rain</div> : null}
                 {w.nowcast ? <div className="small" style={{ color: 'var(--accent)', marginTop: 4 }}>{w.nowcast}</div> : null}
+                <div className="row" style={{ gap: 6, marginTop: 8 }}>
+                  <button className="btn sm" data-testid="wx-open-native" onClick={() => void openNative('weather', { lat: place.lat, lon: place.lon, label: place.name }, toast)}><Icon name="external" size={12} /> Open in Weather</button>
+                  <button className="btn sm ghost" onClick={() => void openNative('maps', { lat: place.lat, lon: place.lon, label: place.name }, toast)}><Icon name="map" size={12} /> Show on map</button>
+                </div>
               </div>
             </div>
             <div className="wx-facts">

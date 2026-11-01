@@ -361,6 +361,9 @@ html[data-resizing], html[data-resizing] * { cursor: col-resize !important; user
 .kv { display: grid; grid-template-columns: 92px 1fr; gap: 6px 10px; font-size: 12.5px; }
 .kv dt { color: var(--text-3); }
 .kv dd { margin: 0; overflow-wrap: anywhere; user-select: text; }
+/* an address, number or place that opens in the person's own app (src/lib/native.ts) */
+.native-link { border: 0; background: none; color: var(--accent); padding: 0; font: inherit; text-align: left; cursor: pointer; overflow-wrap: anywhere; }
+.native-link:hover { text-decoration: underline; }
 .ocr-text { font-size: 12px; background: var(--bg-sunk); border-radius: 8px; padding: 8px 10px; max-height: 160px; overflow: auto; white-space: pre-wrap; user-select: text; }
 .tags { display: flex; flex-wrap: wrap; gap: 4px; }
 

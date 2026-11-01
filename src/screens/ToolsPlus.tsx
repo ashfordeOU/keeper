@@ -12,6 +12,7 @@ import { api } from '../api';
 import { Icon } from '../components/Icon';
 import { useStore } from '../state';
 import type { MoreTool } from './ToolsMore';
+import { MapButtons } from '../components/NativeOpen';
 
 function useProgress(task: string): [Progress | null, (p: Progress | null) => void] {
   const [p, setP] = useState<Progress | null>(null);
@@ -134,6 +135,7 @@ function Coordinates() {
         <button className="btn sm" onClick={here} title="Where this computer is (asks first)"><Icon name="globe" size={12} /> My location</button>
       </div>
       {a.trim() && !pa ? <span className="badge warn">Not coordinates Keeper can read</span> : null}
+      {pa ? <MapButtons place={{ lat: pa.lat, lon: pa.lon }} /> : null}
       {show(pa)}
       <div className="row">
         <input className="input grow" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Find a place or address (asks OpenStreetMap)" onKeyDown={(e) => e.key === 'Enter' && search.trim() && void lookup()} />

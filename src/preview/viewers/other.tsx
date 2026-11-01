@@ -12,6 +12,7 @@ import { parseIcs } from '../../../core/island';
 import { hexLines } from '../../../core/magic';
 import { api, isDemo } from '../../api';
 import { Icon } from '../../components/Icon';
+import { openNative } from '../../lib/native';
 import { KIND_COLOR } from '../../components/ui';
 import { Bar, BarButton, Loaded, PreviewMessage, useLoad, type ViewerProps } from '../Preview';
 import { fetchBytes, fileUrl, isDark, onLinkClick, sandboxDoc, sanitize } from '../util';
@@ -438,9 +439,9 @@ export function ContactViewer({ info, mode }: ViewerProps) {
                 </div>
               </div>
               <dl className="kv">
-                {c.phones.map((p, j) => <FragmentRow key={`p${j}`} k={p.type} v={p.value} />)}
-                {c.emails.map((p, j) => <FragmentRow key={`e${j}`} k={p.type === 'other' ? 'email' : p.type} v={p.value} />)}
-                {c.addresses.map((p, j) => <FragmentRow key={`a${j}`} k={p.type} v={p.value} />)}
+                {c.phones.map((p, j) => <FragmentRow key={`p${j}`} k={p.type} v={p.value} open={() => void openNative('call', { to: p.value })} title="Call" />)}
+                {c.emails.map((p, j) => <FragmentRow key={`e${j}`} k={p.type === 'other' ? 'email' : p.type} v={p.value} open={() => void openNative('mail', { to: p.value })} title="Write an email" />)}
+                {c.addresses.map((p, j) => <FragmentRow key={`a${j}`} k={p.type} v={p.value} open={() => void openNative('maps', { address: p.value.replace(/\s*\n\s*/g, ', ') })} title="Open in Maps" />)}
                 {c.urls.map((u, j) => <FragmentRow key={`u${j}`} k="web" v={u} />)}
                 {c.birthday ? <FragmentRow k="birthday" v={c.birthday} /> : null}
                 {c.note ? <FragmentRow k="note" v={c.note} /> : null}
@@ -454,8 +455,8 @@ export function ContactViewer({ info, mode }: ViewerProps) {
   );
 }
 
-function FragmentRow({ k, v }: { k: string; v: string }) {
-  return <><dt>{k}</dt><dd>{v}</dd></>;
+function FragmentRow({ k, v, open, title }: { k: string; v: string; open?: () => void; title?: string }) {
+  return <><dt>{k}</dt><dd>{open ? <button className="native-link" title={title} onClick={open}>{v}</button> : v}</dd></>;
 }
 
 export function CalendarViewer({ info, mode }: ViewerProps) {
@@ -481,7 +482,7 @@ export function CalendarViewer({ info, mode }: ViewerProps) {
                   <div key={e.uid} className="agenda-event">
                     <span className="num muted small">{e.allDay ? 'All day' : `${new Date(e.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} – ${new Date(e.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}</span>
                     <span className="agenda-title">{e.title}</span>
-                    {e.location ? <span className="small muted">{e.location}</span> : null}
+                    {e.location ? <button className="small native-link" title="Open in Maps" onClick={() => void openNative('maps', { address: e.location })}>{e.location}</button> : null}
                   </div>
                 ))}
               </div>

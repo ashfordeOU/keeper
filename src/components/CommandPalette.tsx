@@ -19,6 +19,7 @@ import '../styles/screens-a.css';
 import { useMeshCommands } from '../screens/MeshParts';
 import { useAmbienceCommands } from '../wallpaper/palette';
 import { useVoiceCommands } from '../voice/palette';
+import { openNative } from '../lib/native';
 
 interface Command {
   id: string;
@@ -160,6 +161,20 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
         ...[1, 2, 3, 4, 5].map((n) => ({ id: `monorail-workspace-${n}`, label: `Monorail: Go to Workspace ${n}`, group: 'Actions' as const, icon: 'columns', typed: true, keywords: `monorail workspace desktop space ${n}`, run: mono('workspace', n, `Workspace ${n}`) })),
         { id: 'monorail-settings', label: 'Monorail: Settings', group: 'Actions' as const, icon: 'columns', keywords: 'monorail preferences window manager', run: mono('settings', undefined, 'Opened Monorail’s settings') },
         { id: 'monorail-page', label: 'Ashforde Apps (Monorail)', group: 'Go to' as const, icon: 'columns', keywords: 'monorail ashforde apps window manager install update', run: () => store.go({ name: 'settings', arg: 'ashforde' }) },
+      ];
+    })(),
+    // Hand-offs to the system's own apps (Settings → Open with chooses which).
+    ...(() => {
+      const wx = store.settings?.island.place;
+      const mac = store.info?.platform === 'darwin';
+      return [
+        { id: 'native-weather', label: wx ? `Open ${wx.name} in the Weather App` : 'Open the Weather App', group: 'Actions' as const, icon: 'sun', keywords: 'weather forecast app native system', run: () => openNative('weather', wx ? { lat: wx.lat, lon: wx.lon, label: wx.name } : {}, store.toast) },
+        ...(wx ? [{ id: 'native-weather-map', label: `Show ${wx.name} on a Map`, group: 'Actions' as const, icon: 'map', keywords: 'maps apple google place', run: () => openNative('maps', { lat: wx.lat, lon: wx.lon, label: wx.name }, store.toast) }] : []),
+        ...(mac ? [{ id: 'native-findmy', label: 'Open Find My', group: 'Actions' as const, icon: 'map', keywords: 'find my devices items airtag people locate lost', run: () => openNative('findMy', {}, store.toast) }] : []),
+        { id: 'native-calendar', label: 'Open Today in the Calendar App', group: 'Actions' as const, icon: 'calendar', keywords: 'calendar app native system day events', run: () => openNative('calendar', { date: Date.now() }, store.toast) },
+        { id: 'native-contacts', label: 'Open the Contacts App', group: 'Actions' as const, icon: 'smile', typed: true, keywords: 'contacts address book people', run: () => openNative('contacts', {}, store.toast) },
+        { id: 'native-clock', label: 'Open the Clock App', group: 'Actions' as const, icon: 'clock', typed: true, keywords: 'clock alarm timer stopwatch world', run: () => openNative('clock', {}, store.toast) },
+        { id: 'native-settings', label: 'Open With: Choose Which Apps Keeper Uses', group: 'Go to' as const, icon: 'settings', keywords: 'open with default apps maps weather calendar mail google apple native', run: () => store.go({ name: 'settings', arg: 'open-with' }) },
       ];
     })(),
     { id: 'awake-page', label: 'Keep Awake', group: 'Go to', icon: 'coffee', keywords: 'caffeine sleep stay awake triggers closed lid lid statistics', run: () => store.go({ name: 'awake' }) },

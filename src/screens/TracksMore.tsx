@@ -14,6 +14,7 @@ import { Empty, Loading, Toggle } from '../components/ui';
 import { useAsync, useStore } from '../state';
 import { ago, dayLabel, Stat } from './Tracks';
 import { TracksMap, sportColour } from './TracksMap';
+import { MapButtons } from '../components/NativeOpen';
 
 const paceOrSpeed = (sport: Sport, s: ReturnType<typeof effectiveStats>) => (sport === 'run' || sport === 'walk' || sport === 'hike' ? fmtPace(paceSecPerKm(s)) : speedKmh(s) ? `${speedKmh(s)!.toFixed(1)} km/h` : '–');
 
@@ -210,6 +211,7 @@ export function Places() {
           <div key={f.id} className="tk-entry">
             <span className="tk-ico"><Icon name="pin" size={14} /></span>
             <div className="grow"><div className="tk-title">{f.name ?? `${f.lat.toFixed(4)}, ${f.lon.toFixed(4)}`}</div><div className="muted small">{f.visits} visits · {fmtDuration(f.totalMs / 1000)} in all · last {dayLabel(f.lastSeen, true)}</div></div>
+            <MapButtons compact place={{ lat: f.lat, lon: f.lon, label: f.name }} />
             <button className="btn sm ghost" onClick={() => void api.tracks.savePlace({ id: '', name: f.name ?? 'Home', lat: f.lat, lon: f.lon, radiusM: 150, kind: named.some((x) => x.kind === 'home') ? 'other' : 'home' }).then(reload)}>{named.some((x) => x.kind === 'home') ? 'Name it' : 'This is home'}</button>
           </div>
         ))}
@@ -238,6 +240,7 @@ function PlaceRow({ p, picked, onPick, onSaved }: { p: NamedPlace; picked: boole
       <input type="checkbox" checked={picked} onChange={(e) => onPick(e.target.checked)} title="Select to merge" />
       <span className="tk-ico"><Icon name={p.kind === 'home' ? 'home' : p.kind === 'work' ? 'laptop' : 'pin'} size={14} /></span>
       <div className="grow"><div className="tk-title">{p.name}</div><div className="muted small">{p.kind === 'other' ? 'Place' : p.kind === 'home' ? 'Home · hidden from exports' : 'Work · hidden from exports'} · {p.radiusM} m</div></div>
+      <MapButtons compact place={{ lat: p.lat, lon: p.lon, label: p.name }} />
       <button className="btn sm ghost" onClick={() => setEdit(p)}>Edit</button>
     </div>
   );

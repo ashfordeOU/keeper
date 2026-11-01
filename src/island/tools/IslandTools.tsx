@@ -19,6 +19,7 @@ import type { CalendarInfo, Occurrence, Reminder } from '../../../core/pim/types
 import { describeCode } from '../../../core/weather';
 import { formatBytes } from '../../../core/format';
 import { api } from '../../api';
+import { openNative } from '../../lib/native';
 import { Icon } from '../../components/Icon';
 import { useStore } from '../../state';
 
@@ -367,6 +368,7 @@ export function WeatherTool({ state }: { state: IslandState }) {
       <div className="tile wnow">
         <span className="big num">{Math.round(w.current.temp)}°</span>
         <div><b>{describeCode(w.current.code).label}</b><div className="muted small">{w.place.name} · feels {Math.round(w.current.feels ?? w.current.temp)}°{w.current.aqi !== undefined ? ` · AQI ${Math.round(w.current.aqi)}` : ''}</div>{w.nowcast ? <div className="small" style={{ color: '#93c5fd' }}>{w.nowcast}</div> : null}</div>
+        <button className="btn sm" style={{ marginLeft: 'auto' }} onClick={() => void openNative('weather', { lat: w.place.lat, lon: w.place.lon, label: w.place.name }, say)}><Icon name="external" size={12} /> Open in Weather</button>
       </div>
       <div className="wdays">
         {w.daily.slice(0, 7).map((d) => (
@@ -510,6 +512,8 @@ function AgendaRow({ e, now }: { e: AgendaItem; now: number }) {
         <b className="ellipsis">{e.title}</b>
         <span className="muted small ellipsis">{[!e.allDay && !e.past ? countdown(e.start, now, e.end) : '', e.join && e.location?.includes(e.join) ? (e.provider ?? '') : e.location ?? ''].filter(Boolean).join(' · ')}</span>
       </button>
+      {e.location && !(e.join && e.location.includes(e.join)) ? <button className="btn sm icon ghost" aria-label="Show the place on a map" title="Show on map" onClick={() => void openNative('maps', { address: e.location }, say)}><Icon name="map" size={12} /></button> : null}
+      <button className="btn sm icon ghost" aria-label="Open in Calendar" title="Open in Calendar" onClick={() => void openNative('calendar', { eventUrl: e.openUrl, date: e.start }, say)}><Icon name="calendar" size={12} /></button>
       {e.join && !e.past ? <button className="btn sm primary" title={e.provider ? `Join on ${e.provider}` : 'Join the meeting'} onClick={() => void api.system.openExternal(e.join!)}>Join</button> : null}
     </div>
   );
