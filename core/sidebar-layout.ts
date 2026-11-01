@@ -10,7 +10,7 @@ import type { SplitterRange } from './splitter';
 export type SidebarMode = 'auto' | 'full' | 'compact';
 
 export const SIDEBAR_MODES: { id: SidebarMode; label: string }[] = [
-  { id: 'auto', label: 'Compact until opened' },
+  { id: 'auto', label: 'Automatic' },
   { id: 'full', label: 'Always full' },
   { id: 'compact', label: 'Always compact' },
 ];
@@ -19,7 +19,7 @@ export const SIDEBAR_RAIL = 56;
 export const SIDEBAR_MIN = 180;
 export const SIDEBAR_MAX = 360;
 export const SIDEBAR_DEFAULT = 228;
-/** Kept for older callers and tests: the sidebar no longer opens by itself in wide windows. */
+/** Automatic turns into the rail below this window width. */
 export const SIDEBAR_AUTO_BELOW = 960;
 export const SECTION_LIMIT_DEFAULT = 5;
 
@@ -36,9 +36,8 @@ export function asSidebarMode(v: unknown): SidebarMode {
  */
 export function isRail(o: { mode: SidebarMode; windowWidth: number; pinned: boolean | null }): boolean {
   if (o.mode === 'full') return false;
-  // Compact by default, whatever the window's width: the sidebar opens only when the person
-  // opens it (pin button, shortcut, dragging the edge), and stays open until they fold it.
-  return o.pinned !== true;
+  if (o.pinned !== null) return !o.pinned;
+  return o.mode === 'compact' || o.windowWidth < SIDEBAR_AUTO_BELOW;
 }
 
 export interface NavUse { n: number; last: number }

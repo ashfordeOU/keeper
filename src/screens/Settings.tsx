@@ -100,7 +100,7 @@ export function Settings() {
 
       <h2 id="sidebar" style={{ margin: '18px 0 8px' }}>Sidebar</h2>
       <div className="card settings-section">
-        <Row title="Layout" desc={`The sidebar shows only icons until you open it: the button at its top, ${mod === '⌘' ? '⌘⌥S' : 'Ctrl+Alt+S'}, or dragging its right edge. It stays open until you fold it again.`}>
+        <Row title="Layout" desc={`Automatic shows only icons in a narrow window. Point at the icons, or press ${mod === '⌘' ? '⌘⌥S' : 'Ctrl+Alt+S'}, to open it; drag its right edge to change its width.`}>
           <div className="seg" role="radiogroup" aria-label="Sidebar layout">{SIDEBAR_MODES.map((m) => <button key={m.id} role="radio" aria-checked={(s.sidebarMode ?? 'auto') === m.id} className={(s.sidebarMode ?? 'auto') === m.id ? 'on' : ''} onClick={() => { setSidebarPinned(null); void updateSettings({ sidebarMode: m.id }); }}>{m.label}</button>)}</div>
         </Row>
         <Row title="Long sections show" desc="The items you use most come first; “Show all” opens the rest. The page you are on always stays in view.">

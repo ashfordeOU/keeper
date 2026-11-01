@@ -183,7 +183,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const navW = async () => Math.round((await main.locator('nav.sidebar').boundingBox())?.width ?? 0);
     check(await main.locator('nav.sidebar[aria-label="Sidebar"]').count() === 1, 'the sidebar is a labelled navigation landmark');
     check(await main.locator('nav.sidebar [aria-current="page"]').count() >= 1, 'the page you are on is marked as current');
-    check(await colW() <= 60, `the sidebar starts compact, even in a wide window (${await colW()} px)`);
+    check(await colW() > 150, `a wide window has the full sidebar (${await colW()} px)`);
     // A narrow window: the rail.
     await size(860, 640);
     check(await colW() <= 60, `a narrow window gives the icon rail (${await colW()} px)`);

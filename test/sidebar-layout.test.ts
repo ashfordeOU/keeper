@@ -6,18 +6,16 @@ import { defaultSettings, mergeSettings } from '../core/settings';
 const DAY = 86_400_000;
 
 describe('the sidebar rail', () => {
-  it('is compact until the person opens it, at any window width', () => {
+  it('is automatic by window width', () => {
     expect(isRail({ mode: 'auto', windowWidth: SIDEBAR_AUTO_BELOW - 1, pinned: null })).toBe(true);
-    expect(isRail({ mode: 'auto', windowWidth: 2560, pinned: null })).toBe(true);
-    expect(isRail({ mode: 'auto', windowWidth: 1440, pinned: true })).toBe(false);
-    expect(isRail({ mode: 'auto', windowWidth: SIDEBAR_AUTO_BELOW - 1, pinned: true })).toBe(false);
+    expect(isRail({ mode: 'auto', windowWidth: 1440, pinned: null })).toBe(false);
   });
   it('follows Always full and Always compact', () => {
     expect(isRail({ mode: 'full', windowWidth: 500, pinned: false })).toBe(false);
     expect(isRail({ mode: 'compact', windowWidth: 2000, pinned: null })).toBe(true);
   });
   it('the pin wins over the automatic choice', () => {
-    expect(isRail({ mode: 'auto', windowWidth: 900, pinned: true })).toBe(false);
+    expect(isRail({ mode: 'auto', windowWidth: 600, pinned: true })).toBe(false);
     expect(isRail({ mode: 'compact', windowWidth: 2000, pinned: true })).toBe(false);
     expect(isRail({ mode: 'auto', windowWidth: 2000, pinned: false })).toBe(true);
   });
