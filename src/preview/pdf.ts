@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // PDF rendering in the viewer, shared by the PDF viewer, iWork previews and
 // thumbnails.
 

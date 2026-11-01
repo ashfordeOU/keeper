@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Every AI service Keeper knows how to talk to, and how: which API style, where
 // it lives, how the key is sent, where its list of models is, and what it can
 // do. Model names change often, so none are fixed here: Keeper reads each

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The library index: every file in the folders the user chose, with the
 // details search needs. Kept in memory and saved to one JSON file, so the app
 // opens instantly and only re-reads what changed.

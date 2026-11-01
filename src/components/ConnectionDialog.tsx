@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Add or change a connection: a cloud service (sign in through the browser),
 // a server (SFTP, FTP, WebDAV, SMB) or a machine found on the network.
 

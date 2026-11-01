@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Shapes shared by the network activity view, the VPN page and their parsers.
 
 /** One network connection (or a listening/bound socket) as the operating system reports it. */

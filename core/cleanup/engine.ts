@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Measures and cleans cache targets. Caches are deleted for good (they rebuild,
 // and moving them to the Trash would free nothing); everything the user made
 // goes to the Trash through the platform layer, never through here.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Health history (one sample a minute for a day), "what used the most",
 // alerts for runaway apps, Docker containers, stopping process trees and
 // coding-agent sessions, temperatures, disk health and an internet speed test.

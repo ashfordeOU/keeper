@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // AWS Signature Version 4 for S3-compatible storage (AWS, Cloudflare R2,
 // Backblaze B2, MinIO, …): signed PUT uploads and presigned download links that
 // expire. Written from the published specification so no SDK is needed.

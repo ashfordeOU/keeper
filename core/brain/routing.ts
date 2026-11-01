@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Using more than one AI sensibly: a fallback chain (when one service fails,
 // the next answers), a privacy rule (once a conversation touches a private
 // folder, it continues on an AI that runs on this computer), and a meter that

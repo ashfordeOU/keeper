@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Which way traffic leaves the computer: the route a destination takes, what
 // kind of interface that is (a VPN tunnel, Wi-Fi, Ethernet), and plain-English
 // answers to "is everything going through the VPN?".

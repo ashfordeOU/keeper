@@ -1,4 +1,5 @@
 <!doctype html>
+<!-- SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -40,6 +41,13 @@
   .scr-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
   .scr-bar .btn { padding: 8px 10px; }
   .scr-bar .btn.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .badge { display: inline-block; min-width: 18px; margin-left: 4px; padding: 0 5px; border-radius: 9px; background: var(--bad); color: #fff; font-size: 12px; line-height: 18px; }
+  .ai-q { border-color: var(--accent); }
+  .ai-q .btns { display: flex; gap: 8px; margin-top: 10px; }
+  .ai-q .btns button { flex: 1; }
+  .btn.yes { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .ai-thumb { display: block; width: 100%; height: auto; border-radius: 10px; margin-top: 8px; border: 1px solid var(--line); }
+  pre.plan { white-space: pre-wrap; font-size: 12px; margin: 6px 0 0; }
   #scr-text { flex: 1; min-width: 0; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font: inherit; padding: 9px; }
 </style>
 </head>
@@ -55,11 +63,21 @@
     <button data-tab="files">Files</button>
     <button data-tab="clip">Clipboard</button>
     <button data-tab="screen">Screen</button>
+    <button data-tab="ai">AI<span id="ai-badge" class="badge hidden"></span></button>
   </nav>
   <section id="tab-send">
     <label class="big" for="pick">Choose photos or files</label>
     <input id="pick" type="file" multiple class="hidden">
     <p class="muted">They are saved in Downloads/Keeper on the computer. Everything is encrypted between this phone and the computer.</p>
+    <div class="card" id="scan-card">
+      <div class="t" style="font-weight:700">Scan a document</div>
+      <p class="muted">Photograph each page. The computer finds the page edges, straightens each page and makes one clean PDF.</p>
+      <label class="btn" for="scan-shot" style="display:inline-block">Take a page photo</label>
+      <input id="scan-shot" type="file" accept="image/*" capture="environment" multiple class="hidden">
+      <select id="scan-mode" class="btn"><option value="bw">Black and white</option><option value="gray">Grey</option><option value="color">Colour</option></select>
+      <div id="scan-pages" class="muted" style="margin:8px 0">No pages yet</div>
+      <button id="scan-make" class="big" disabled>Make PDF</button>
+    </div>
     <div id="uploads"></div>
   </section>
   <section id="tab-files" class="hidden"><div class="card" id="files"></div></section>
@@ -87,6 +105,14 @@
       </div>
       <div class="scr-bar" id="scr-typing"><input id="scr-text" placeholder="Type on the computer…" autocomplete="off" autocapitalize="off"><button class="btn" id="scr-send">Send</button></div>
       <button class="btn" id="screen-stop" style="width:100%">Stop watching</button>
+    </div>
+  </section>
+  <section id="tab-ai" class="hidden">
+    <div id="ai-pending"></div>
+    <div class="card">
+      <div class="muted" id="ai-caption">Nothing running</div>
+      <img id="ai-thumb" class="ai-thumb hidden" alt="What the AI is doing now">
+      <div id="ai-tasks"></div>
     </div>
   </section>
   <section id="tab-clip" class="hidden">

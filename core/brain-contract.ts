@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The shape of Keeper's brain as other parts see it: the built-in assistant,
 // the MCP server, the local API, and the platform integrations (Spotlight,
 // Shortcuts, Windows, GNOME and KDE search). Implemented in electron/services/brain.ts.

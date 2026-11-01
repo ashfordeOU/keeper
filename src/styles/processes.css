@@ -1,0 +1,23 @@
+/* SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 */
+/* System → Keeper's processes */
+.kproc-panel { display: flex; flex-direction: column; gap: 10px; }
+.kproc-head { display: flex; align-items: center; gap: 12px; }
+.kproc-held { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 8px; background: color-mix(in srgb, #f59e0b 14%, transparent); color: var(--text); }
+.kproc-table { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.kproc-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-top: 1px solid var(--line); }
+.kproc-row:first-child { border-top: 0; }
+.kproc-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--text-3); }
+.kproc-dot.running { background: #22c55e; }
+.kproc-dot.crashed { background: #ef4444; }
+.kproc-dot.starting { background: #f59e0b; }
+.kproc-name { font-weight: 600; display: flex; align-items: center; gap: 6px; }
+.kproc-kind { font-size: 10.5px; font-weight: 600; padding: 1px 6px; border-radius: 6px; background: var(--bg-sunk); color: var(--text-3); }
+.kproc-kind.warn { color: #b45309; background: color-mix(in srgb, #f59e0b 16%, transparent); }
+.kproc-num { width: 76px; text-align: right; font-variant-numeric: tabular-nums; flex: none; }
+.kproc-actions { display: flex; gap: 6px; flex: none; min-width: 170px; justify-content: flex-end; }
+.kproc-foot { display: flex; gap: 8px; flex-wrap: wrap; }
+.kproc-log summary { cursor: default; font-weight: 600; margin-bottom: 6px; }
+.kproc-log > div { padding: 2px 0; }
+.update-banner.recovery.safe { background: color-mix(in srgb, #f59e0b 16%, var(--bg-raised, var(--bg))); }
+
+.kproc-limits { margin: 12px 0 4px; padding: 10px 12px; border-radius: 8px; background: var(--surface-2, rgba(127, 127, 127, 0.08)); display: grid; gap: 4px; }

@@ -8,6 +8,9 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 
 First release of **Keeper by Ashforde®**, for macOS, Windows and Linux.
 
+### Licence
+- Keeper is now source-available under the [PolyForm Shield License 1.0.0](LICENSE.md) instead of the GNU AGPL v3 or later: still free to use for everyone, at home and at work, with the code public; selling it or offering a competing product or service needs permission from Ashforde OÜ (see [COMMERCIAL.md](COMMERCIAL.md) and [TRADEMARKS.md](TRADEMARKS.md)).
+
 ### Library and search
 - Visual library with shelves per kind, Home dashboard, Recents, Screenshots, tags, saved searches and pinned folders.
 - Folder browser with breadcrumbs, grid and list views, multi-select, drag out, right-click menu, batch rename with preview, compress to ZIP.
@@ -65,6 +68,7 @@ First release of **Keeper by Ashforde®**, for macOS, Windows and Linux.
 ### System, updates and installing
 - Task manager: every process and service, with Quit, Force Quit, Suspend/Resume, Restart, priority and Inspect.
 - Light on the computer: a governor paces background work; every feature can be switched off for real (Settings → Features); idle use about 0.5–0.9% of one core.
+- Anonymous usage stats, once a day, on by default and off with one switch (Settings → Privacy, the welcome tour, `KEEPER_TELEMETRY=0`, `DO_NOT_TRACK=1` or a policy file), with a viewer that shows exactly what is sent ([docs/PRIVACY-USAGE-STATS.md](docs/PRIVACY-USAGE-STATS.md)).
 - Updates from GitHub: automatic, ask, or only when you check; choose when an update installs (now, on quit, tonight, a time) with a countdown; Keeper reopens where you left off.
 - Install with the dmg, the Windows installer or portable exe, AppImage, deb, rpm or tar.gz, or with one-line scripts; Homebrew, npm, winget, Scoop, Chocolatey, AUR, Snap, Flathub, apt and dnf channels switch on as their publishing keys are added. Every release carries build attestations and a Sigstore signature of its checksums.
 

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // WebRTC pieces shared by the host banner and the viewer window: which ICE
 // servers to use, waiting for candidates, and checking that the certificate
 // DTLS actually used is the one stated over Keeper Link.

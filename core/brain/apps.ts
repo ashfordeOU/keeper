@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // AI apps that can use Keeper over MCP, where each keeps its list of servers,
 // and how to add or remove Keeper from that list without touching anything
 // else in the file. Pure: the app reads and writes the files (after asking,

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // VPN: the computer's VPN connections with Connect and Disconnect, whether all
 // traffic really goes through them (IPv6 and DNS leaks), the public address
 // seen from outside, importing WireGuard and OpenVPN files, and auto-reconnect.

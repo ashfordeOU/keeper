@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Demo data for shelves, the clipboard picker, devices and widgets (`npm run demo`).
 
 import type { IslandState, KeeperApi } from '../core/api';

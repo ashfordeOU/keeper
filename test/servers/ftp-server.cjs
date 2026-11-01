@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // A small FTP server over a folder, for tests: user "ana", password "secret".
 // Passive mode only (PASV and EPSV), Unix-style LIST.
 

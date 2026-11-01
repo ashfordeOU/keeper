@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // IMAP and SMTP for one account. A connection opens only when there is work
 // and closes after a minute of quiet; the inbox is watched with IMAP IDLE (the
 // server says when mail arrives), so nothing polls.

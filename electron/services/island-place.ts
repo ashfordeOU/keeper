@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Measures what the Island has to fit around: the Mac's notch and menu-bar
 // items, the Linux desktop, whether this is a laptop. Read once at start and
 // again when screens change, never on a timer.
@@ -128,8 +128,15 @@ export function placeOptions(): Partial<PlaceOptions> {
   };
 }
 
+/** Other apps that need room at the top of the screen (Monorail's slider bar) adjust the placement here. */
+let adjust: ((p: Placement, workArea: Electron.Rectangle) => Placement) | null = null;
+export function setPlacementAdjust(fn: typeof adjust) {
+  adjust = fn;
+}
+
 export function placementFor(d: Electron.Display): Placement {
-  return place(displayInfo(d), env, placeOptions());
+  const p = place(displayInfo(d), env, placeOptions());
+  return adjust ? adjust(p, d.workArea) : p;
 }
 
 export function wantedDisplays(): Electron.Display[] {

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Previews in the browser demo: sample contents for text-based files, the
 // demo thumbnails for pictures. Nothing touches a disk.
 

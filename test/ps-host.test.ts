@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 import { existsSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 

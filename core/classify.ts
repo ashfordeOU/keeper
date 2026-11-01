@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Decides which library shelf a file belongs on, from its name alone.
 
 import type { FileKind } from './types';

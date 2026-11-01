@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The pure logic behind the Island (the small live panel at the top of the
 // screen): calendar files, synced lyrics, AI-agent session status, clipboard
 // history and the focus timer. The Electron layer feeds these with data.

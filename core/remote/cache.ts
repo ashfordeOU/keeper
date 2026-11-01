@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The download cache for files opened from connections: kept under a size
 // limit by removing what was used longest ago. Files kept offline on purpose
 // and files open right now are never removed.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Requests and answers over a device channel. Each frame is a small JSON header
 // followed by optional bytes (a piece of a file).
 

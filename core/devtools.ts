@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // More Toolbox helpers, all pure: line diff, cron explainer, lorem ipsum,
 // number bases, colour conversion, HTML entities, CSV → JSON and a small,
 // safe Markdown renderer.

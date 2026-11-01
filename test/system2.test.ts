@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 import { describe, expect, it } from 'vitest';
 import { DICTIONARIES, TRANSLATION_KEYS, resolveLanguage, translate } from '../src/i18n-strings';
 import { applyTranslation, buildSubtitles, cleanSuggestedName, parseReceipt, parseSubtitles } from '../core/ai-actions';

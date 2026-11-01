@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Two Keeper devices in one process, talking over real sockets.
 import crypto from 'node:crypto';
 import { promises as fsp } from 'node:fs';

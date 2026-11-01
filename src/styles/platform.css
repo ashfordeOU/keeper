@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 */
 .platform-list { display: flex; flex-direction: column; }
 .platform-row { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-top: 1px solid var(--line); }
 .platform-row:first-child { border-top: 0; }

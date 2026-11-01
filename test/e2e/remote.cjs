@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Usage (Linux): xvfb-run -a node test/e2e/remote.cjs /tmp/kr /tmp/kr-shots
 // Drives the real Keeper app against SFTP and WebDAV servers started here:
 // adds an SFTP connection through the dialog (Test, then Add), browses it,

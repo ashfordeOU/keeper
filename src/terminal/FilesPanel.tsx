@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Files on another computer, beside the terminal: an SSH host (SFTP) or an FTP
 // server. Download, upload (button or drag and drop), new folder, rename, delete.
 

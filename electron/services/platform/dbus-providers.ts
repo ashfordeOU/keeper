@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Keeper's results in the Linux desktop's own search: GNOME Shell's
 // Activities overview (org.gnome.Shell.SearchProvider2) and KDE's KRunner
 // (org.kde.krunner1), over the session D-Bus. No Electron imports: tests run

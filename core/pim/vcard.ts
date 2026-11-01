@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Contacts as vCard 3.0 / 4.0 (RFC 6350): the fields Keeper uses for address
 // completion and attendees.
 

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Repeating events (RFC 5545 RRULE): daily, weekly, monthly and yearly rules
 // with intervals, counts, end dates, weekdays (also "second Tuesday", "last
 // Friday"), days of the month, months and set positions. Expansion happens on

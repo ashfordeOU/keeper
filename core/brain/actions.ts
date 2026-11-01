@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // What AI agents may do in Keeper, beyond reading. Every action has a
 // permission the person sets: off, ask each time, or allowed. Ask is the
 // default for anything that changes something; Keeper then shows who wants to

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The universal previewer. Works out what a file is, then hands it to the
 // right viewer; heavy viewers (PDF, 3D, spreadsheets, code) load on demand.
 
@@ -24,6 +24,7 @@ const media = () => import('./viewers/media');
 const docs = () => import('./viewers/docs');
 const text = () => import('./viewers/text');
 const other = () => import('./viewers/other');
+const cad = () => import('./viewers/cad');
 const pick = <K extends string>(loader: () => Promise<Record<K, ComponentType<ViewerProps>>>, name: K) => lazy(() => loader().then((m) => ({ default: m[name] })));
 
 const VIEWERS: Record<PreviewKind, ComponentType<ViewerProps>> = {
@@ -59,6 +60,7 @@ const VIEWERS: Record<PreviewKind, ComponentType<ViewerProps>> = {
   epub: pick(other, 'EpubViewer'),
   font: pick(other, 'FontViewer'),
   model: pick(other, 'ModelViewer'),
+  cad: pick(cad, 'CadViewer'),
   eml: pick(other, 'MailViewer'),
   vcf: pick(other, 'ContactViewer'),
   ics: pick(other, 'CalendarViewer'),

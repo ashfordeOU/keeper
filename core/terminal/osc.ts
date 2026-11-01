@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Shell integration: shells that print standard escape codes tell the terminal
 // where prompts start, which command ran, how it ended and which folder they
 // are in. Sequences can be split across chunks of output, so this parser keeps

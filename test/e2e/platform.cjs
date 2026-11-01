@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Usage (Linux): xvfb-run -a node test/e2e/platform.cjs /tmp/kp-platform /tmp/kp-platform-shots
 // Drives the real Keeper app on a private D-Bus session: switches on GNOME and
 // KDE search, then asks for results the way the desktop does (with gdbus),

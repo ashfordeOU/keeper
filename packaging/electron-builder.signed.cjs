@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // electron-builder configuration for signed builds. The release workflow uses it instead of
 // electron-builder.yml when signing secrets exist; with none, releases stay ad-hoc signed.
 //

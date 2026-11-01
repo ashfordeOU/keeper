@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The Terminal in the browser demo: a pretend shell that understands a few
 // commands, so the interface can be tried without a computer behind it.
 
@@ -135,6 +135,7 @@ export function mockTerminal(home: string, emit: Emit): { terminal: TerminalApi 
       { id: 'url', label: 'Web page on this computer', available: true },
     ],
     webToolCommand: async () => undefined,
+    openAt: async () => undefined,
     openWith: async () => undefined,
     openWindow: async () => undefined,
     toggleQuick: async () => undefined,

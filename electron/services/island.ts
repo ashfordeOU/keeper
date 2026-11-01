@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The Island's live state: shelf, clipboard history, focus timer, keep-awake,
 // download and screenshot alerts, coding agents, calendar, now playing,
 // weather, battery and dictation.
@@ -22,7 +22,7 @@ import { cleanLink, isUrl } from '../../core/textools';
 import type { FileEntry } from '../../core/types';
 import { fetchWeather, type Weather } from '../../core/weather';
 import { getSecret, settings } from '../store';
-import { lyricsFor, mediaAction, micInUse, nowPlaying } from './media';
+import { lyricsFor, mediaAction, micInUse, nowPlaying, watchMic } from './media';
 import { cameraInUse } from './island-place';
 import { readBattery } from './system';
 import { hasImage, readFileList, readImage, readText, writeImage, writePaths, writeText } from './clip';
@@ -70,6 +70,7 @@ export class IslandService {
   weather?: Weather;
   battery?: { percent: number; charging: boolean };
   mic: string[] = [];
+  private micEvents?: () => void;
   /** apps using a camera (Windows, Linux) */
   cam: string[] = [];
   alerts: IslandAlert[] = [];
@@ -83,6 +84,11 @@ export class IslandService {
   private lastImageSig = '';
   private activeSince = Date.now();
   private presentation = false;
+  /** Monorail's workspace and slide (Settings → Ashforde apps), set by ipc/ashforde */
+  monorail?: import('../../core/ashforde/monorail').MonorailState;
+  /** told when a Focus session or presentation mode starts or ends (Monorail follows them) */
+  modeHook?: (kind: 'focus' | 'presentation', on: boolean) => void;
+  private lastFocusOn = false;
   private file = path.join(app.getPath('userData'), 'island.json');
 
   constructor(private index: FileIndex, private emit: () => void) {}
@@ -93,25 +99,28 @@ export class IslandService {
     // computer, pauses while the screen is locked, and speeds up again on return.
     const win = process.platform === 'win32';
     const stops = [
-      poll('island.clipboard', { baseMs: 700, idleFactor: 4, pauseWhenLocked: true }, () => this.pollClipboard(), { feature: 'clipboard' }),
+      // While nobody is at the computer, copies are rare: look far less often.
+      poll('island.clipboard', { baseMs: 700, idleFactor: 10, pauseWhenLocked: true }, () => this.pollClipboard(), { feature: 'clipboard' }),
       // Once a second only while a focus timer runs or music plays; otherwise break reminders need far less.
       poll('island.tick', () => ({ baseMs: this.focus.mode !== 'idle' || this.playing?.playing ? 1000 : 15_000, idleFactor: this.focus.mode !== 'idle' ? 1 : 2 }), () => this.tick(), { feature: 'focus' }),
       poll('island.agents', { baseMs: 5000, idleFactor: 3, pauseWhenLocked: true }, () => this.pollAgents(), { feature: 'agents' }),
       poll('island.media', () => ({ baseMs: this.playing?.playing ? (win ? 5000 : 2500) : this.playing ? 10_000 : 15_000, idleFactor: this.playing?.playing ? 1.5 : 3, pauseWhenLocked: true }), () => this.pollMedia(), { feature: 'media' }),
       // Keep-awake has to notice its end even while nobody touches the computer.
-      poll('island.awake', { baseMs: 15_000, idleFactor: 1 }, () => this.checkAwake(), { feature: 'keepAwake' }),
+      // (the Keep Awake service checks on its own, and only while a session or a trigger needs it)
+      ...(this.awakeDriver ? [] : [poll('island.awake', { baseMs: 15_000, idleFactor: 1 }, () => this.checkAwake(), { feature: 'keepAwake' })]),
       poll('island.battery', { baseMs: 120_000, idleFactor: 2, pauseWhenLocked: true }, () => this.pollBattery(), { feature: 'island' }),
       poll('island.devices', { baseMs: 60_000, idleFactor: 3, pauseWhenLocked: true }, () => this.refreshDevices(), { feature: 'island' }),
       poll('island.housekeeping', { baseMs: 10_000, idleFactor: 1 }, () => this.housekeeping(), { feature: 'island' }),
       poll('island.fullscreen', () => ({ baseMs: settings().island.hideInFullscreen ? (win ? 5000 : 2500) : 60_000, idleFactor: 4, pauseWhenLocked: true }), () => this.checkFullscreen(), { feature: 'island' }),
-      poll('island.mic', { baseMs: 10_000, idleFactor: 3, pauseWhenLocked: true }, () => this.pollMic(), { feature: 'micIndicator' }),
+      // With a microphone event stream the regular look is only a safety net.
+      poll('island.mic', () => ({ baseMs: this.micEvents ? 120_000 : 10_000, idleFactor: this.micEvents ? 1 : 3, pauseWhenLocked: true }), () => this.pollMic(), { feature: 'micIndicator' }),
       poll('island.calendar', { baseMs: 15 * 60_000, idleFactor: 2, pauseWhenLocked: true }, () => this.pollCalendar(), { feature: 'calendar' }),
       poll('island.weather', { baseMs: 20 * 60_000, idleFactor: 2, pauseWhenLocked: true }, () => this.pollWeather(), { feature: 'islandWeather' }),
     ];
     // Switching a part off in Settings → Features clears what it showed and stops what it holds.
     const offs = [
       onFeature('notifyMirror', (on) => { if (!on) this.mirror.stop(); }),
-      onFeature('keepAwake', (on) => { if (!on && this.awake.on) this.keepAwake(false); }),
+      onFeature('keepAwake', (on) => { if (!on && this.awake.on && !this.awakeDriver) this.keepAwake(false); this.emit(); }),
       onFeature('media', (on) => { if (!on && this.playing) { this.playing = undefined; this.lyrics = undefined; this.lastTrack = ''; this.emit(); } }),
       onFeature('micIndicator', (on) => { if (!on && this.mic.length) { this.mic = []; this.emit(); } }),
       onFeature('islandWeather', (on) => { if (!on && this.weather) { this.weather = undefined; this.emit(); } }),
@@ -122,7 +131,13 @@ export class IslandService {
         else { this.watchers.forEach((w) => w.close()); this.watchers = []; }
       }),
     ];
-    this.stopPolls = () => { stops.forEach((s) => s()); offs.forEach((o) => o()); };
+    const micWatch = () => {
+      this.micEvents?.();
+      this.micEvents = featureOn('micIndicator') ? watchMic(() => pollNow('island.mic'), () => { this.micEvents = undefined; pollNow('island.mic'); }) : undefined;
+    };
+    micWatch();
+    offs.push(onFeature('micIndicator', () => micWatch()));
+    this.stopPolls = () => { stops.forEach((s) => s()); offs.forEach((o) => o()); this.micEvents?.(); this.micEvents = undefined; };
     // Plugging in or unplugging shows straight away.
     powerMonitor.on('on-ac', () => pollNow('island.battery'));
     powerMonitor.on('on-battery', () => pollNow('island.battery'));
@@ -161,9 +176,10 @@ export class IslandService {
     return {
       shelf: views.find((v) => v.id === this.store.active)?.items ?? [], shelves: views, activeShelf: this.store.active,
       closedShelves: this.store.closed.map((c) => ({ id: c.id, name: c.name, color: c.color, count: c.items.length })),
-      devices: this.devices, awakeTriggers: this.awakeTriggers, hidden: this.userHidden || this.fsHidden,
+      devices: this.devices, awakeTriggers: this.awakeTriggers, awakeAvailable: featureOn('keepAwake'), hidden: this.userHidden || this.fsHidden,
       clips: this.clips.items, focus: this.focus, keepAwake: this.awake, agents: this.agents, events: [...this.events, ...this.pimEvents].sort((a, b) => a.start - b.start), countdowns: this.countdowns,
       nowPlaying: this.playing, lyrics: this.lyrics, weather: this.weather, battery: this.battery, micInUse: this.mic, camInUse: this.cam, alerts: this.alerts, breakIn, recording: this.recording,
+      monorail: this.monorail,
     };
   }
 
@@ -193,7 +209,19 @@ export class IslandService {
     }, 500);
   }
 
+  /** Monorail's state changed (or it was switched off): show it without saving anything. */
+  setMonorail(m: import('../../core/ashforde/monorail').MonorailState | undefined) {
+    if (JSON.stringify(m) === JSON.stringify(this.monorail)) return;
+    this.monorail = m;
+    this.emit();
+  }
+
   private changed() {
+    const focusOn = this.focus.mode === 'focus';
+    if (focusOn !== this.lastFocusOn) {
+      this.lastFocusOn = focusOn;
+      this.modeHook?.('focus', focusOn);
+    }
     this.save();
     this.emit();
   }
@@ -244,7 +272,9 @@ export class IslandService {
 
   async addToShelf(paths: string[], id?: string) {
     const ok: string[] = [];
-    for (const p of paths) if (await this.loadEntry(p)) ok.push(p);
+    // With "keep copies" on, the shelf holds its own copies (Settings → Island).
+    const kept = await (await import('./island-tools')).keepShelfCopies(paths).catch(() => paths);
+    for (const p of kept) if (await this.loadEntry(p)) ok.push(p);
     this.setStore(shelves.addItems(this.store, ok, id ?? this.store.active));
   }
 
@@ -363,6 +393,8 @@ export class IslandService {
       const source = await frontmostApp().catch(() => undefined);
       // Copies made inside password managers and other ignored apps are never kept.
       if (source && s.clipIgnoreApps.some((a) => a && source.toLowerCase().includes(a.toLowerCase()))) return;
+      // Copies the app marked secret or short-lived (password managers, one-time codes) are never kept either.
+      if (await (await import('./clip-formats')).clipboardIsConcealed().catch(() => false)) return;
       let value = text;
       if (cleanLinks && isUrl(text)) {
         const clean = cleanLink(text);
@@ -514,7 +546,19 @@ export class IslandService {
 
   // ---------------------------------------------------------------- keep awake
 
+  /** Set by the Keep Awake service (electron/services/awake): sessions, triggers and holds live there. */
+  awakeDriver?: (on: boolean, options: KeepAwakeOptions, reason?: string) => KeepAwakeState;
+
+  /** The Keep Awake service tells the Island what is going on, so the Island, tray and palette show it. */
+  mirrorAwake(state: KeepAwakeState, matching: string[]) {
+    const same = JSON.stringify(state) === JSON.stringify(this.awake) && matching.join('\n') === this.awakeTriggers.join('\n');
+    this.awake = state;
+    this.awakeTriggers = matching;
+    if (!same) this.emit();
+  }
+
   keepAwake(on: boolean, options: KeepAwakeOptions = {}, reason?: string): KeepAwakeState {
+    if (this.awakeDriver) return this.awakeDriver(on, options, reason);
     if (this.blocker !== null) {
       powerSaveBlocker.stop(this.blocker);
       this.blocker = null;
@@ -535,6 +579,7 @@ export class IslandService {
   private fileWatch?: { size: number; since: number };
 
   private async checkAwake() {
+    if (this.awakeDriver) return;
     await this.checkTriggers();
     if (!this.awake.on) return;
     const o = this.awake.options ?? {};
@@ -664,6 +709,7 @@ export class IslandService {
   /** Presentation mode: stay awake and hide desktop icons (macOS). */
   async setPresentation(on: boolean): Promise<boolean> {
     this.presentation = on;
+    this.modeHook?.('presentation', on);
     this.keepAwake(on, {}, on ? 'Presentation mode' : undefined);
     if (process.platform === 'darwin') {
       await run('/usr/bin/defaults', ['write', 'com.apple.finder', 'CreateDesktop', on ? 'false' : 'true']);

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Settings: appearance, library folders, thresholds, assistant and about.
 
 import { useEffect } from 'react';
@@ -10,10 +10,13 @@ import { Row } from './IslandSettings';
 import { LanguageRow, LoginRow } from './SettingsMore';
 import { UpdatesPanel, WhatsNewHover } from '../components/Updates';
 import { UsagePanel } from '../components/UsagePanel';
+import { UsageStatsPanel } from '../components/UsageStatsPanel';
+import { ProcessesPanel } from '../components/ProcessesPanel';
 import { FeaturesPanel, SidebarPanel } from '../components/FeaturesPanel';
 import { LockedFoldersPanel } from '../components/LockDialog';
 import { BrainSettingsPanel } from '../components/BrainPanel';
 import { PlatformIntegrations } from '../components/PlatformIntegrations';
+import { AshfordeAppsPanel } from '../components/AshfordeApps';
 import { ThemeGallery, ThemeTweaks } from '../components/ThemeGallery';
 import { useT } from '../i18n';
 import { PimSettings } from '../pim/PimSettings';
@@ -136,9 +139,24 @@ export function Settings() {
         <PlatformIntegrations />
       </div>
 
+      <h2 id="ashforde" style={{ margin: '18px 0 8px' }}>Ashforde apps</h2>
+      <div className="settings-section">
+        <AshfordeAppsPanel />
+      </div>
+
+      <h2 id="privacy" style={{ margin: '18px 0 8px' }}>Privacy</h2>
+      <div className="card settings-section" style={{ padding: 16 }}>
+        <UsageStatsPanel />
+      </div>
+
       <h2 id="usage" style={{ margin: '18px 0 8px' }}>Keeper’s own usage</h2>
       <div className="card settings-section" style={{ padding: 16 }}>
         <UsagePanel />
+      </div>
+
+      <h2 id="processes" style={{ margin: '18px 0 8px' }}>Keeper’s processes</h2>
+      <div className="card settings-section" style={{ padding: 16 }}>
+        <ProcessesPanel />
       </div>
 
       <h2 id="updates" style={{ margin: '18px 0 8px' }}>{t('settings.updates')}</h2>
@@ -147,9 +165,16 @@ export function Settings() {
         <div className="row" style={{ justifyContent: 'space-between', marginTop: 14 }}>
           <div>
             <div style={{ fontWeight: 600 }}>Reopen where I left off</div>
-            <div className="small muted">After an update or a restart, Keeper opens the same page, scrolled to the same spot.</div>
+            <div className="small muted">After an update, a restart or a crash, Keeper opens every window and tab where it was: same pages, same scroll, unsent drafts.</div>
           </div>
           <Toggle on={s.restorePlace !== false} onChange={(v) => void updateSettings({ restorePlace: v })} />
+        </div>
+        <div className="row" style={{ justifyContent: 'space-between', marginTop: 14 }}>
+          <div>
+            <div style={{ fontWeight: 600 }}>Open pages in tabs</div>
+            <div className="small muted">Middle-click or ⌘/Ctrl-click anything to open it in a new tab; ⌘T / Ctrl+T for a new one. Tabs that are not in front use almost no memory.</div>
+          </div>
+          <Toggle on={s.tabs !== false} onChange={(v) => void updateSettings({ tabs: v })} />
         </div>
       </div>
 
@@ -158,13 +183,16 @@ export function Settings() {
         <Row title="Keeper by Ashforde®" desc={<WhatsNewHover only="current"><span style={{ textDecoration: 'underline dotted', textUnderlineOffset: 3 }}>Version {info?.appVersion ?? ''}</span></WhatsNewHover>}>
           <button className="btn" onClick={() => void api.system.openExternal('https://github.com/ashfordeOU/keeper')}><Icon name="external" size={13} /> Source code</button>
         </Row>
-        <Row title="License" desc="Free software under the GNU Affero General Public License, version 3 or later. You can use, study, share and change it.">
-          <button className="btn ghost" onClick={() => void api.system.openExternal('https://www.gnu.org/licenses/agpl-3.0.html')}>Read</button>
+        <Row title="License" desc="Free to use for everyone, at home and at work. The source code is public under the PolyForm Shield License 1.0.0: you may read and change it, but not sell it or offer a competing product.">
+          <button className="btn ghost" onClick={() => void api.system.openExternal('https://github.com/ashfordeOU/keeper/blob/main/LICENSE.md')}>Read</button>
         </Row>
-        <Row title="Trademark" desc="© 2026 Ashforde OÜ. Ashforde® is a registered trademark of Ashforde OÜ. The source code is free software; the name and logo identify the official Keeper.">
+        <Row title="Third-party licences" desc="Keeper is built with other people's work, used under their own licences. See who made it and the terms each part comes with.">
+          <button className="btn ghost" onClick={() => void api.system.openExternal('https://github.com/ashfordeOU/keeper/blob/main/THIRD-PARTY-NOTICES.md')}>Read</button>
+        </Row>
+        <Row title="Trademark" desc="© 2026 Ashforde OÜ. Ashforde® is a registered trademark of Ashforde OÜ. The source code is available under PolyForm Shield 1.0.0; the name and logo identify the official, signed Keeper.">
           <span className="small muted">®</span>
         </Row>
-        <Row title="Privacy" desc="No account, no tracking, no uploads. Search, text reading and duplicate checks run on this computer. The network is only used for the optional assistant, weather, lyrics, calendar and update checks you turn on." >
+        <Row title="Privacy" desc="No account and no uploads of your files. Search, text reading and duplicate checks run on this computer. Keeper sends anonymous usage stats once a day to help us improve it; you can switch this off any time under Privacy above, where you can see exactly what is sent. The network is otherwise only used for the assistant, weather, lyrics, calendar and update checks you turn on." >
           <Icon name="lock" size={16} />
         </Row>
       </div>

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 import { describe, expect, it } from 'vitest';
 import { bigToV6, inPrefix, procHexAddr, scopeOf, splitHostPort, v4ToInt, v6ToBig } from '../core/net/addr';
 import { applyRates, byApp, byDestination, flowKey, flowsToCsv, ifaceTotals, newInternetApps, portName, rateBetween, serviceFor, type FlowRow } from '../core/net/flows';

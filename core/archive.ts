@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Lists what is inside ZIP-based files (zip, jar, apk, ipa, epub, docx…) and
 // tar archives without unpacking them.
 

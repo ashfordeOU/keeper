@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Readers for what each operating system says about its network: open
 // connections and who owns them, bytes moved, routing tables, DNS servers,
 // VPN connections and Wi-Fi. Pure functions, tested against real output.

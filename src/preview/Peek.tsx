@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // A hover preview: rest the pointer on a file for a moment to see inside it.
 
 import { useEffect, useRef, useState } from 'react';

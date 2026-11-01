@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 */
 /* What themes need beyond the tokens in core/themes.ts (written to <html> by src/theme.ts):
    corner styles, density, a few theme signatures and code colours from the palette. */
 
@@ -100,7 +100,7 @@ html[data-theme-id='contrast'] a { text-decoration: underline; }
 .tg-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .tg-card.on { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .tg-name { font-weight: 650; font-size: 13px; display: flex; align-items: center; gap: 6px; }
-.tg-line { font-size: 11.5px; color: var(--text-2); line-height: 1.35; }
+.tg-card .tg-line { position: static; border: 0; opacity: 1; font-size: 11.5px; color: var(--text-2); line-height: 1.35; } /* scoped: the calendar has its own .tg-line */
 .tg-mode { font-size: 10.5px; font-weight: 600; color: var(--text-3); margin-left: auto; text-transform: uppercase; letter-spacing: .04em; }
 /* The mini window: everything inside uses the previewed theme's variables. */
 .tg-prev { height: 96px; border-radius: calc(var(--radius) - 4px); overflow: hidden; display: grid; grid-template-columns: 34% 1fr; background: var(--app-bg, var(--bg)); border: 1px solid var(--line); font-family: var(--font); color: var(--text); }
@@ -120,3 +120,59 @@ html[data-theme-id='contrast'] a { text-decoration: underline; }
 .tg-swatch.on { box-shadow: 0 0 0 2px var(--bg-elev), 0 0 0 4px var(--accent); }
 .tg-swatches { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 .tg-filter { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+
+/* ------------------------------------------------------------------ gallery controls */
+
+.tg-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.tg-tools .tg-search { flex: 1; min-width: 140px; max-width: 260px; height: 30px; }
+.tg-seasons { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--bg-sunk); }
+.tg-seasons-on { display: flex; align-items: center; gap: 8px; cursor: default; }
+
+/* ------------------------------------------------------------------ showpiece signatures (static: no animation loops, nothing repaints on its own) */
+
+/* Frosted Glass: translucent bars over the colour behind, where the system can blur; solid elsewhere. */
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  html[data-theme-id='glass']:not([data-resource='minimal']) :is(.sidebar, .topbar, .modal, .menu, .palette, .inspector) {
+    background: color-mix(in srgb, var(--bg-elev) 74%, transparent);
+    -webkit-backdrop-filter: blur(18px) saturate(1.5);
+    backdrop-filter: blur(18px) saturate(1.5);
+  }
+  html[data-theme-id='glass']:not([data-resource='minimal']) .card { background: color-mix(in srgb, var(--bg-elev) 86%, transparent); }
+}
+html[data-theme-id='glass'] :is(.card, .modal, .menu) { border-color: color-mix(in srgb, #ffffff 40%, var(--line)); }
+html[data-theme-id='glass'][data-theme='dark'] :is(.card, .modal, .menu) { border-color: rgba(255, 255, 255, .09); }
+
+/* Amber CRT: the glow of phosphor, like Terminal but warm. */
+html[data-theme-id='amber'] body { text-shadow: 0 0 6px rgba(255, 176, 0, .2); }
+html[data-theme-id='amber'] .btn.primary { text-shadow: none; box-shadow: 0 0 12px rgba(255, 176, 0, .35); }
+html[data-theme-id='amber'] .input { caret-color: var(--accent); }
+
+/* Blueprint: drafting lines on cards and a dashed focus ring. */
+html[data-theme-id='blueprint'] .card { border-style: solid; border-color: color-mix(in srgb, var(--accent) 22%, var(--line)); }
+html[data-theme-id='blueprint'][data-theme='dark'] .card { border-color: rgba(216, 236, 255, .22); }
+html[data-theme-id='blueprint'] :focus-visible { outline-style: dashed; }
+
+/* Aurora: a faint glow under the active item and the primary button. */
+html[data-theme-id='aurora'] .btn.primary { box-shadow: 0 0 16px rgba(92, 242, 181, .35); }
+html[data-theme-id='aurora'] .nav-item.active { box-shadow: inset 2px 0 0 var(--accent); }
+
+/* Ink Wash: brush-like rules and a red seal for the active item. */
+html[data-theme-id='inkwash'] .nav-item.active { box-shadow: inset 3px 0 0 var(--accent); }
+html[data-theme-id='inkwash'] h1 { letter-spacing: .01em; }
+
+/* Editorial: magazine headings. */
+html[data-theme-id='editorial'] h1 { font-weight: 800; letter-spacing: -.02em; }
+html[data-theme-id='editorial'] .nav-item.active { box-shadow: inset 3px 0 0 var(--accent); }
+
+/* Seasonal touches stay in the colours and the window background; Minimal resource mode drops the background flourishes. */
+html[data-resource='minimal']:is([data-theme-id='festive'], [data-theme-id='frost'], [data-theme-id='meadow'], [data-theme-id='summer'], [data-theme-id='autumn'], [data-theme-id='aurora'], [data-theme-id='glass']) body { background: var(--bg); }
+
+/* Section colours tuned to the themes that use few colours (the sidebar headings and icons). */
+html[data-theme-id='editorial'] { --sec-library: var(--accent); --sec-saved: var(--text-2); --sec-favorites: var(--text-3); --sec-locations: var(--accent); --sec-cloud: var(--text-2); --sec-devices: var(--text-3); --sec-sync: var(--accent); --sec-pim: var(--text-2); --sec-tags: var(--text-3); --sec-tidy: var(--accent); --sec-system: var(--text-2); --sec-more: var(--text-3); }
+html[data-theme-id='inkwash'] { --sec-library: var(--text-2); --sec-saved: var(--accent); --sec-favorites: var(--text-3); --sec-locations: var(--text-2); --sec-cloud: var(--accent); --sec-devices: var(--text-3); --sec-sync: var(--text-2); --sec-pim: var(--accent); --sec-tags: var(--text-3); --sec-tidy: var(--text-2); --sec-system: var(--accent); --sec-more: var(--text-3); }
+html[data-theme-id='amber'] { --sec-library: #ffb000; --sec-saved: #ffd36b; --sec-favorites: #e0a246; --sec-locations: #ff8c2a; --sec-cloud: #ffb000; --sec-devices: #ffd36b; --sec-sync: #e0a246; --sec-pim: #ff8c2a; --sec-tags: #ffb000; --sec-tidy: #ffd36b; --sec-system: #e0a246; --sec-more: #ff8c2a; }
+html[data-theme-id='blueprint'][data-theme='dark'] { --sec-library: #ffe14a; --sec-saved: #9ad0ff; --sec-favorites: #ffffff; --sec-locations: #c9b3ff; --sec-cloud: #ffe14a; --sec-devices: #9ad0ff; --sec-sync: #ffffff; --sec-pim: #c9b3ff; --sec-tags: #ffe14a; --sec-tidy: #9ad0ff; --sec-system: #ffffff; --sec-more: #c9b3ff; }
+html[data-theme-id='blueprint'][data-theme='light'] { --sec-library: #1a56b8; --sec-saved: #2f5582; --sec-favorites: #4f73a0; --sec-locations: #7a5ad6; --sec-cloud: #1a56b8; --sec-devices: #2f5582; --sec-sync: #4f73a0; --sec-pim: #7a5ad6; --sec-tags: #1a56b8; --sec-tidy: #2f5582; --sec-system: #4f73a0; --sec-more: #7a5ad6; }
+
+/* Dark modes use light reds for danger (so red text reads on dark panels); white text on those buttons would be faint. */
+html[data-theme-id][data-theme='dark'] .btn.danger { color: #1a0507; }

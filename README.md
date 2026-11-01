@@ -8,11 +8,11 @@
   <strong>A home for your files.</strong><br>
   Browse everything as big, clear thumbnails. Find any file by describing it. Read the text inside screenshots.<br>
   See where downloads came from. Clear duplicates and clutter safely. Keep a live Island at the top of your screen.<br>
-  Free, open source, private — on <b>Windows, macOS and Linux</b>.
+  Free to use, source available, private — on <b>Windows, macOS and Linux</b>.
 </p>
 
 <p align="center">
-  <a href="LICENSE"><img alt="License: AGPL v3 or later" src="https://img.shields.io/badge/license-AGPL--3.0--or--later-6d6dff"></a>
+  <a href="LICENSE.md"><img alt="License: PolyForm Shield 1.0.0" src="https://img.shields.io/badge/license-PolyForm%20Shield%201.0.0-6d6dff"></a>
   <img alt="Platforms" src="https://img.shields.io/badge/platforms-Windows%20%C2%B7%20macOS%20%C2%B7%20Linux-a35cf0">
   <img alt="Price" src="https://img.shields.io/badge/price-free%20forever-ff6fa3">
   <a href="https://github.com/ashfordeOU/keeper/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/ashfordeOU/keeper/actions/workflows/ci.yml/badge.svg"></a>
@@ -26,7 +26,7 @@ Keeper brings together a visual file library, plain-English search, a safe disk 
 a live Island panel, a clipboard history, a screen-text grabber, a keep-awake switch, a developer toolbox and an
 optional AI assistant — in one small app that never uploads your files.
 
-- **No account. No subscription. No ads. No tracking.** Everything runs on your computer.
+- **No account. No subscription. No ads.** Everything runs on your computer; your files are never uploaded. Keeper sends anonymous usage stats once a day, which you can switch off ([what is sent](docs/PRIVACY-USAGE-STATS.md)).
 - **Nothing is ever lost.** Your files only go to the Trash, every change is in History, and moves and renames can be undone.
 - **Works where you work.** One app for Windows, macOS and Linux, plus a `keeper` command for terminals and servers.
 
@@ -38,11 +38,11 @@ optional AI assistant — in one small app that never uploads your files.
 - [Everything Keeper does](#everything-keeper-does)
   - [Library and browsing](#library-and-browsing) · [Previews for every file](#previews-for-every-file) · [Plain-English search](#plain-english-search) · [Text in images](#text-in-images-and-on-screen) · [Downloaded From](#downloaded-from)
   - [Duplicates](#duplicates) · [Clean Up](#clean-up) · [Space Map](#space-map) · [Automations](#automations) · [History and undo](#history-and-undo)
-  - [Mail, calendar and clock](#mail-calendar-and-clock) · [Cloud & servers](#cloud--servers) · [Devices & remote access](#devices--remote-access) · [Remote screens and phones](#remote-screens-and-phones) · [The Island](#the-island) · [Locked folders](#locked-folders) · [Themes](#themes) · [Quick Search, tray and deep links](#quick-search-tray-and-deep-links) · [Works with your computer](#works-with-your-computer) · [Toolbox](#toolbox) · [Terminal](#terminal) · [System](#system) · [Network Activity and VPN](#network-activity-and-vpn) · [Keeper's brain](#keepers-brain) · [Agents and the knowledge graph](#agents-and-the-knowledge-graph) · [Assistant](#assistant)
+  - [Mail, calendar and clock](#mail-calendar-and-clock) · [Cloud & servers](#cloud--servers) · [Devices & remote access](#devices--remote-access) · [Remote screens and phones](#remote-screens-and-phones) · [The Island](#the-island) · [Locked folders](#locked-folders) · [Themes](#themes) · [Quick Search, tray and deep links](#quick-search-tray-and-deep-links) · [Works with your computer](#works-with-your-computer) · [Ashforde apps: Monorail](#ashforde-apps-monorail) · [Toolbox](#toolbox) · [Terminal](#terminal) · [System](#system) · [Keep Awake](#keep-awake) · [Network Activity and VPN](#network-activity-and-vpn) · [Notes](#notes) · [Keeper's brain](#keepers-brain) · [Agents and the knowledge graph](#agents-and-the-knowledge-graph) · [Abilities for every AI](#abilities-for-every-ai) · [Assistant](#assistant)
   - [Command line](#command-line)
 - [Keyboard shortcuts](#keyboard-shortcuts)
 - [Keeper compared with your system file manager](#keeper-compared-with-your-system-file-manager)
-- [Light on your computer](#light-on-your-computer) · [Privacy](#privacy) · [Safety model](#safety-model)
+- [Light on your computer](#light-on-your-computer) · [Privacy](#privacy) · [Usage stats](#usage-stats) · [Safety model](#safety-model)
 - [Install](#install) · [Build from source](#build-from-source) · [Project layout](#project-layout)
 - [Platform support](#platform-support) · [Roadmap](#roadmap) · [Contributing](#contributing) · [License](#license)
 
@@ -302,6 +302,22 @@ Limits: Linux on Wayland does not let apps keep a small window on top in a set p
 - **Dictation** — press the shortcut, speak, and the text is typed at the cursor in any app, using a speech-to-text service you choose (bring your own key, or a local server).
 - A small **buddy** face that reflects what is going on.
 
+**Island tools.** Twenty tools in tabs; choose which appear and in what order (drag them in Settings → Island → Tools, or right-click a tab). The Island opens on hover after a delay you set, on click, or with <kbd>Ctrl/⌘ Alt I</kbd>:
+
+- **Ask** — any AI you connected, local model first; quick actions (rewrite, shorter, summarize, extract, brainstorm, fix grammar) on the clipboard or a dropped file. Local-only mode is respected.
+- **AI Usage** — Claude Code, Codex, Copilot and Cursor use and limits, read from files those tools keep on this computer; exact limits from the provider only if you tick *Exact limits*.
+- **Sales** — today, this week and this month from Stripe, Shopify, Lemon Squeezy, Gumroad, Paddle, Polar and Dodo Payments, converted to one currency, with a 30-day chart and an optional note for each new sale. Keys stay in the system keychain; refunds, failed and test payments are left out.
+- **Stocks** — a watchlist of shares and crypto with sparklines (no key needed; a Twelve Data key is optional).
+- **Calendar** — a month view and the day's events from every calendar Keeper knows (and the Mac's own calendars), with *Join* buttons.
+- **To-Dos** — quick starred to-dos plus your reminders (and the Mac's Reminders app), checked off in place.
+- **Notes** — quick notes that save as you type, searchable and pinnable.
+- **Teleprompter** — your script scrolls just under the camera at your reading speed, or only while you speak; countdown, mirror flip, size and speed, keyboard control; import text, Markdown or Word files.
+- **Mirror** — a camera preview with flip, framing guides, a lighting hint and a microphone level.
+- **Focus** sounds (white, pink, brown noise, rain) and the Clock's timers; **Weather** for seven days; **System** (CPU, memory, disks, network); **Convert** units and currencies as you type (`5 ft in cm`, `€20 in usd`); **Emoji** search with skin tones and recents; **Shortcuts** (Mac Shortcuts, your rules and scripts).
+- The **Shelf** can share files and keep copies of what you drop (kept for the days you choose); **Clipboard** skips copies password managers mark secret or temporary, and Alt-click deletes one; media keys can control Now playing.
+
+Every tool that reaches the internet is off until you turn it on, and nothing runs while the Island is closed except the new-sale note you asked for. Details: [docs/ISLAND-TOOLS.md](docs/ISLAND-TOOLS.md).
+
 ### Locked folders
 
 Right-click a folder in Browse and choose **Lock Folder…**. Keeper encrypts everything inside into one file next to it, `Taxes.keeperlock`, reads the whole thing back to check every file, and only then removes the unencrypted folder. In Keeper a locked folder shows with a lock; double-click it to unlock.
@@ -322,7 +338,9 @@ Good to know:
 
 ### Themes
 
-Settings → Appearance shows every theme as a live preview; click one (or move with the arrow keys) and every window, the Island and widgets switch at once. Each also appears in the command palette as “Theme: …”.
+Settings → Appearance shows all 38 themes as live previews, on shelves you can filter (All, Main, Seasonal, Unique, Dark, Light) or search, plus **Surprise me**. Click one (or move with the arrow keys) and every window, the Island and widgets switch at once. Each also appears in the command palette as “Theme: …”.
+
+**Main collection**
 
 | Theme | Feel | Modes |
 |---|---|---|
@@ -344,6 +362,38 @@ Settings → Appearance shows every theme as a live preview; click one (or move 
 | Retro 95 | grey bevels on a teal desktop | light |
 | High Contrast | maximum legibility | light, dark |
 | Cozy Coffee | espresso, oat milk and caramel | light, dark |
+| Fjord | slate, mist and cold clear water | light, dark |
+| Terracotta | sun-baked clay and linen | light, dark |
+| Sage | soft botanical greens, rounded | light, dark |
+| Deep Sea | teal light falling into dark water | light, dark |
+| Dusk | lavender sky with a line of peach | light, dark |
+| Dune | wind-carved sand and warm light | light, dark |
+| Editorial | black ink on white with one bold red, serif | light, dark |
+| Solarpunk | leaf green and solar gold | light, dark |
+| Circuit | graphite with an electric blue current | light, dark |
+| Champagne | rosé and pearl, serif | light, dark |
+
+**Seasonal** — turn on **Follow the seasons** and Keeper switches by itself on the right day, for your half of the world (from your weather place, your time zone, or your choice). Choosing any theme by hand turns it off.
+
+| Theme | When | Modes |
+|---|---|---|
+| Frost | winter: snow light and ice blue | light, dark |
+| Spring Meadow | spring: fresh grass and blossom | light, dark |
+| Summer Haze | summer: sun, sand and a turquoise sea | light, dark |
+| Autumn Ember | autumn: maple, pumpkin and amber | light, dark |
+| Festive Lights | 15 December – 6 January everywhere: evergreen, gold and a string of lights | light, dark |
+
+**Unique showpieces**
+
+| Theme | Feel | Modes |
+|---|---|---|
+| Blueprint | technical drawing: grid paper and drafting blue, monospace | light (whiteprint), dark (blueprint) |
+| Aurora | green, blue and violet light over a polar night | dark |
+| Frosted Glass | translucent, blurred panels over soft colour (solid where the system cannot blur) | light, dark |
+| Ink Wash | brush ink on rice paper with a red seal, serif | light, dark |
+| Amber CRT | a warm amber monitor with scanlines, monospace | dark |
+
+Decorations are drawn once and never animate, so themes cost nothing while Keeper sits idle; Minimal resource mode drops the decorative backgrounds altogether.
 
 On top of any theme you can pick your own accent colour, a font (system, rounded, serif or mono, all from fonts already on your computer), compact density and sharp corners. Every theme’s text and buttons meet WCAG AA contrast, checked by the tests in `test/themes.test.ts`.
 
@@ -369,6 +419,16 @@ Keeper uses what your operating system already offers, each part switchable in *
 
 Honest limits: Siri phrases and Shortcuts actions of their own need an Xcode-built app (Keeper offers links and the `keeper` command instead); Windows' local AI model is only offered to Store-packaged apps.
 
+### Ashforde apps: Monorail
+
+Keeper works hand in hand with **[Monorail](https://github.com/ashfordeOU/monorail)**, Ashforde's free scrolling window manager for macOS. Switch it on in **Settings → Ashforde apps** (off by default; macOS 13 or later — coming to Windows and Linux when Monorail supports them). Details: [docs/ASHFORDE-APPS.md](docs/ASHFORDE-APPS.md).
+
+- **Install, update, uninstall** from Keeper: the latest GitHub release is downloaded, its **SHA-256 checksum** and **code signature** are checked (and the certificate is pinned, so later updates must come from the same signer) before it goes into Applications. Accessibility access is one click away.
+- **Connect** turns on Monorail's local API (this computer only, with a private key) and its state file, after keeping a copy of its settings.
+- **Together**: the Island tells you which workspace and slide you slid to; Monorail's actions and workspaces are in Keeper's command palette; Focus sessions and presentation mode switch Monorail's too; Keeper's small windows float above the strip; the Island stays clear of the slider bar; Monorail can follow Keeper's theme; and Keeper warns when both apps want the same shortcut (also on the To do list).
+- **AI apps** connected to Keeper's MCP server get Monorail's tools (`monorail_list_windows`, `monorail_pair_windows`, `monorail_apply_layout`…): looking is allowed, anything that moves a window asks you first (Off / Ask / Allow).
+- **Light**: while on, one file watch on Monorail's folder and an update check a day; off, nothing at all.
+
 ### Toolbox
 
 Small tools, all offline: copy text from screen (with QR), colour picker, dead-pixel test, keyboard-cleaning lock, link cleaner, **hide personal info before pasting into AI tools**, case converter, word counter, hidden-character inspector, password and passphrase generator, JSON formatter (with exact error position), Base64, SHA hashes, UUID v4/v7, JWT decoder, timestamp converter, regex tester, Wi-Fi sharing code, saved Wi-Fi passwords, and eject all drives.
@@ -389,13 +449,77 @@ A full terminal inside Keeper — on the **Terminal** page, in its own window (t
 
 More in [docs/TERMINAL.md](docs/TERMINAL.md).
 
+**Agent terminals and the agent hub.** AI agents get the same terminals people use, through MCP tools (`term_*`, `hub_*`), `keeper term …` / `keeper hub …` and the **Agents** view:
+
+- **Terminals built for agents**: exact start, end and exit code for every command in any shell; clean, bounded output (errors kept, the full log saved, secrets blanked); no hangs on pagers; a program waiting for an answer is reported instead of timing out. Agents can open **sub-workers** that run in parallel, end with their parent and have time limits and quotas.
+- **Mixed agents working together**: Claude Code, Codex, Gemini, Grok, Cursor, aider, opencode and others, even signed in to different accounts, see each other, message each other in rooms and directly, share a **task board** (post, claim, hand off with context), locks and notes. Agents without MCP are reached through the **bridge**, which types the message in when the agent is idle and passes its answer back.
+- **You stay in charge**: agents need your permission to use terminals; risky commands wait for a yes; allow and deny lists and folders agents must stay in; transcripts; take over any terminal and hand it back; **Stop all** at once. Ready-made teams: plan-build-review, fan-out, compare answers, consensus.
+
+Research and design notes: [docs/TERMINAL-RESEARCH.md](docs/TERMINAL-RESEARCH.md).
+
+### To do and guided fixes
+
+One **To do** list (sidebar → System, with a count) for everything worth doing about space, storage, security, privacy, speed, the network, backups and updates — most important first, each with why it matters and a **Fix**:
+
+- **Keeper does it** after showing exactly what will change (emptying the Trash, stopping heavy apps from starting at sign-in, locking folders again), with **Undo** where possible.
+- **Open it for me**: the exact page of macOS System Settings, Windows Settings, GNOME Settings or KDE System Settings, then numbered steps with a simple drawing of what to press. The steps can stay on top in a small window while you work in System Settings, and **I did it — check** confirms it worked.
+- **How do I…?** in the command palette and on the To do page: free up space, stop apps using my camera or microphone, encrypt my disk, turn on the firewall, back up my photos, block trackers, and more.
+- Findings also show on the pages they belong to (Clean Up, Space Map, Backups, VPN…), important new ones are mentioned once in the Island, and there is a short first-run tour plus one-time tips on complex pages. The guide speaks Keeper's ten languages. Details: [docs/GUIDE.md](docs/GUIDE.md).
+
 ### System
 
 - **Health**: CPU, memory, uptime and load; battery level, health and cycle count; the busiest processes (with Quit); **what is keeping the computer awake**; and **local servers listening on a port** (open in the browser or stop).
 - **Processes and Services** (Health → Processes): a full task manager. Every running process with CPU, memory, threads, energy, disk and network, sorted by any column, as a flat list, a parent–child tree or grouped by app, with live graphs per core and for memory, swap, disk and network. Quit, Force Quit, End Process Tree, Suspend and Resume, Restart, change priority, and Inspect (open files, connections, memory breakdown, children). Other users' and system processes ask for an administrator first, and processes the system needs to stay up are refused with a reason. **Force Quit Applications** opens with ⌥⌘Esc (Ctrl+Alt+Esc elsewhere). The Services tab starts, stops, restarts and enables system and user services (systemd, launchd, Windows services). It reads the system only while the page is open: about 1% of one core at one update a second on Linux.
 - **Startup Items**: apps that start with the computer, with a rough impact rating; switch them off with the same setting the OS uses (reversible; system-wide items ask for permission).
 - **Applications**: every installed app with size, version and last use; filter unused or large ones; uninstall via the app's own uninstaller (Windows), the Trash plus leftover support files (macOS) or Flatpak/Snap (Linux).
-- **Protection**: a score for the security already built into your system — Gatekeeper, XProtect, SIP, FileVault, firewall and updates on macOS; Defender, real-time protection, definitions, firewall, UAC, SmartScreen, device encryption and Windows Update on Windows; firewall, disk encryption, Secure Boot, AppArmor/SELinux and automatic updates on Linux — with how to fix what is off. Keeper is not an antivirus.
+- **Privacy & Security**: see [below](#privacy--security) — the old Protection score is now part of it.
+
+### Keep Awake
+
+Stop the computer sleeping when you need it, and let it sleep again on its own (System → **Keep Awake**). Details and the full feature list: [docs/KEEP-AWAKE.md](docs/KEEP-AWAKE.md).
+
+- **Sessions**: until you turn it off, for a while (your own list of quick durations, or type `1h30m`), until a time (`18:30`), or **while** something is true — an app runs or is in front, a file downloads, a folder keeps changing, a process or the computer is busy, sound plays, the network is busy, an external display / drive / USB / Bluetooth device is connected, on a Wi-Fi network, a VPN is up, an AI agent works, or Keeper has a job running. A timed session can be extended (+15 min, +1 h) and reminds you before it ends.
+- **What a session allows**: keep the screen on or let it sleep; allow the screen saver after N idle minutes; **keep running with the lid closed** (macOS after a one-time administrator step, Windows by setting the lid action and putting it back, Linux through systemd-inhibit) — it ends itself on low battery, Low Power Mode or heat, and a watchdog puts the setting back if Keeper quits or crashes; end below a battery level, in Low Power Mode or when you put the computer to sleep; only while plugged in; keep external drives spinning; nudge the pointer for apps that mark you away; Do Not Disturb (macOS through your Shortcuts, GNOME); notifications and sounds; lock the screen at the end.
+- **Triggers**: start and end sessions by themselves — days and times, apps, Wi-Fi, IP address or DNS server, VPN, battery and power, displays and mirroring, USB and Bluetooth devices, drives, idle time, sound output, processor use, calendar events, terminals and AI agents, downloads. Combine conditions with all/any and "not", order them by priority, test "would it match now?", and choose how long a trigger waits after you end its session by hand.
+- **From anywhere**: the page, the Island (with the time left), the tray menu, an optional separate menu-bar icon (five icon styles, time left next to it on macOS), the global shortcut, the command palette, `keeper awake on --for 2h`, `keeper://awake?for=30m` links, and Siri / Shortcuts on macOS.
+- **What keeps this computer awake**: every app's holds, from `pmset -g assertions`, `powercfg /requests` or `systemd-inhibit --list`. **Statistics**: sessions, time awake per day, longest, why each ended, battery used.
+- **Costs nothing when idle**: with no session and no trigger on there is no timer, no helper process and no polling at all; a session checks every 15 seconds, triggers every 30 seconds (slower while you are away).
+
+### Privacy & Security
+
+**Privacy & Security** (System → Privacy & Security) puts in one place who can watch you, where your data goes, how well the computer is protected, and checks for malware. It opens on a **score out of 100**, the **three things most worth doing**, and plain-English findings. Each finding has **Why**, a **Fix** (one click when Keeper can do it safely, otherwise the right settings page or step-by-step help) and **Ignore**. They also appear on the To do list.
+
+- **Who can watch**: which apps may use the camera, microphone, screen, location, contacts, files and accessibility. On macOS this comes from the privacy database, on Windows from its consent store, and on Linux from Flatpak and portal permissions plus PipeWire. It shows what is in use right now and recent camera and microphone use, and you can **revoke** access or open the system page.
+- **Connections**: for each app, how many trackers it talks to, in which countries, unencrypted traffic and how much data it sends (built on Network Activity). An optional **Keeper browser extension** ([browser-extension/](browser-extension/)) adds the same for each website. It only observes and reports to Keeper on this computer through native messaging, and it needs access to all sites to see them.
+- **Browsers**: each Chromium-family browser and Firefox profile, with:
+  - extensions and their risk (broad access, sensitive permissions, not from the store, known-bad ids);
+  - whether passwords are saved (the files are never opened);
+  - sync and Secure DNS.
+
+  There is also a **password check** using Have I Been Pwned's k-anonymity range (only the first 5 characters of a SHA-1 leave the computer).
+- **Security checks**:
+  - updates, firewall and disk encryption;
+  - SIP, Gatekeeper and XProtect on macOS, or Microsoft Defender on Windows;
+  - screen lock, automatic login and use of an administrator account;
+  - sharing services, open listening ports and Wi-Fi security;
+  - added root certificates and kernel extensions;
+  - diagnostics and telemetry.
+- **Malware**: protection in layers, using:
+  - Keeper's own heuristics;
+  - YARA rules (built-in plus your own);
+  - hash lists;
+  - **ClamAV** (installed and updated in one click, signatures kept in Keeper's folder);
+  - optional hash-only lookups at MalwareBazaar;
+  - Defender on Windows.
+
+  Keeper also offers:
+  - **real-time** checks of Downloads, Desktop and Documents;
+  - quick, full, custom and scheduled scans with progress and **Stop**;
+  - an **encrypted quarantine** (AES-256-GCM) with Put back and Delete.
+- **Startup items and behaviour**: alerts when something new sets itself up to start automatically (launch agents, systemd units, Run keys, scheduled tasks, cron), and when a coin miner or a program running from a temp folder appears.
+- **Timeline** of everything above, important events in the Island, and **Save report**.
+
+**No security tool detects everything, and Keeper doesn't either.** Detection depends on signatures and rules that are always behind the newest threats. Keeper adds layers to the protection already built into your system; it doesn't replace that protection. What each system supports, and what has been tested where, is in [docs/SECURITY-CENTER.md](docs/SECURITY-CENTER.md).
 
 ### Network Activity and VPN
 
@@ -411,6 +535,58 @@ More in [docs/TERMINAL.md](docs/TERMINAL.md).
 **VPN** (System → VPN) lists the VPN connections the system knows (NetworkManager, wg-quick and WireGuard on Linux; the VPNs in System Settings on macOS; built-in VPNs and WireGuard tunnels on Windows) with Connect and Disconnect, and answers *is everything really going through it?*: IPv4 and IPv6 routes, DNS servers outside the tunnel (a DNS leak), and **what the internet sees** — your public address, and the address outside the VPN for comparison (only when you press the button). Connections can **reconnect automatically** if they drop (not after you disconnect them yourself). **Import a VPN file** reads a WireGuard `.conf` or OpenVPN `.ovpn`, checks it (bad keys, missing IPv6 or DNS, weak ciphers), shows it with every key hidden, and hands it to the system's VPN manager — Keeper never keeps the keys in a plain file; it can keep an encrypted copy in the system keychain if you ask. Kill-switch advice for your system is one click away.
 
 What each system allows, in [docs/NETWORK.md](docs/NETWORK.md): per-connection amounts on macOS (nettop) and Linux (with `ss` from iproute2); on Windows, connections and owners without administrator rights but traffic amounts only for the whole computer. Reading happens only while the page is open: about 1% of one core every 2 seconds on Linux.
+
+**The map.** Network Activity's **Map** tab draws every connection as an arc from this computer to its server's country, coloured by whether it goes through the VPN, straight out, or is blocked; pick an app to see only its connections, click a place to see who talks to it. Each app's details have a small map too. The world outline (Natural Earth, public domain) ships with Keeper; nothing is looked up online.
+
+### Firewall
+
+A per-app network firewall, free. **Rules** say which app may connect where — by the app's path and code signature (so a rule survives the app moving), or for groups of apps (system processes, developer tools, browsers) — to a host, a domain with its subdomains, an address range, a port or range, a protocol, outgoing or incoming; the most specific rule wins, a tie goes to deny, and temporary rules last until Keeper quits or for an hour.
+
+- **Alerts** for new connections: who, where (country, network, known service, reverse name), code signature, path — allow or deny always, until quit, for an hour or once, for that host or its whole domain. **Explain** asks your AI what the connection is. Alerts also appear in the Island and as a small card on any page.
+- **Quiet modes**: allow and remember (decide later), or deny everything without a rule — per **profile**, and profiles switch by Wi-Fi name or router.
+- **Rule groups** of your own or **subscribed** from an address, refreshed daily, with a pinned checksum or a signing key if you want; **tidy-up** finds broken, expired, duplicate and redundant rules; import, export, and `keeper fw` on the command line.
+- **DNS filter** for every app: curated **blocklists** by topic (ads, trackers, malware, telemetry, gambling, attack addresses — off until you pick them, updated daily), your own blocked and allowed domains, trackers hidden behind an innocent alias caught too, a query log, and **encrypted DNS** over HTTPS or TLS (Quad9, Cloudflare, Mullvad or your own).
+- **Monitoring**: live connections by app, host or country with search tokens (`app:firefox host:google -country:us port:443`), the world map, **a year of traffic history** per app, warnings when an app sends far more than usual, optional sounds per rule.
+
+What is enforced depends on the system, and Keeper says so on the page: on **Windows** rules become Windows Defender Firewall rules per program (and can block whatever no rule allows); on **Linux** address and port rules go into nftables and per-app rules through OpenSnitch when it is installed; on **macOS** this build blocks addresses and ports with the system packet filter and hosts through the DNS filter — per-app blocking needs Apple's network-filter permission on the signing certificate (the filter's source is included). Details, sources and what was tested: [docs/FIREWALL.md](docs/FIREWALL.md).
+
+### Quick Controls
+
+Network, firewall, privacy and security settings in one place. The page lives in the System section; there are also tiles in the Island, a tray / menu-bar submenu and command-palette entries.
+
+| Group | Controls |
+|---|---|
+| Network | Wi-Fi, Bluetooth, airplane mode, VPN, encrypted DNS for the whole system, IPv6, hotspot, treating the network as public, AirDrop and Wake on LAN |
+| Firewall | the system firewall, stealth mode, block all incoming, Keeper's firewall mode, rules and DNS filter, and blocklists |
+| Privacy | camera, microphone and location (for all apps or one app at a time), advertising ID, diagnostics, clipboard history and sync, activity history, lock after sleep, Bluetooth discovery and Find My |
+| Security | Keeper's real-time protection and quarantine, Gatekeeper, Defender real-time protection, SmartScreen and automatic updates |
+
+Each control says honestly how it works on your computer:
+
+- **Direct:** Keeper switches it.
+- **Needs password:** the system asks for the administrator password, once for a whole batch.
+- **Opens Settings:** the system does not let apps change it, so Keeper opens the exact page.
+- **Not on this system.**
+
+Turning something to its less protective value always asks first and says why. Every change goes into a change list with **Undo**. Settings are read only when you look at them.
+
+The presets are **Public Wi-Fi**, **Home**, **Presenting / private** and **Lockdown**. Each shows its plan before it runs. A preset can follow a firewall profile, but it then applies only safe, password-free changes by itself. Each group can be switched off in Settings → Features.
+
+What each system allows, the exact commands, sources and what was tested: [docs/QUICK-CONTROLS.md](docs/QUICK-CONTROLS.md).
+
+### Notes
+
+Open **any folder of Markdown files as a vault** and write in it — the files stay plain `.md` files in that folder, so a vault you already keep with another notes app opens as it is and keeps working there too ([details and the full feature table](docs/NOTES.md)).
+
+- **Your vault, as it is**: `[[links]]` with `#headings`, `#^blocks` and `|aliases`, `![[embeds]]` of notes, sections, blocks, pictures, PDFs and audio, properties (frontmatter) with types, nested `#tags`, callouts, footnotes, `==highlights==`, `%%comments%%`, KaTeX math and Mermaid diagrams. The vault's own settings folder is read: where attachments and new notes go, how links are written, trash, daily notes, templates, bookmarks and property types.
+- **Editor**: live preview, source mode and reading view; `[[` suggests notes and aliases, `#` suggests tags, `/` inserts headings, tasks, callouts, tables, code, math and diagrams; tables line up on Tab; headings fold; Ctrl/Cmd-hover previews a link; optional vim keys and spellcheck; paste or drop pictures, or record audio, into the note.
+- **Find your way**: backlinks with linked and **unlinked mentions** (one click links them), outgoing links, outline, tags, bookmarks, recent files, a quick switcher (Ctrl+O), commands (Ctrl+P), random note, tabs and split panes, saved workspaces, and a **graph** of the vault or of the notes around one.
+- **Search with operators**: `path:` `file:` `tag:` `content:` `line:( )` `block:( )` `section:( )` `task:` `task-todo:` `task-done:` `[property:value]` `"phrases"` `OR` `-not` `( )` `/regex/` and `match-case:`.
+- **Renames keep links working**: renaming or moving a note or folder rewrites every link to it across the vault (wiki and Markdown links, headings and aliases kept), and canvases that show it.
+- **Daily, weekly and monthly notes** from templates (`{{title}}`, `{{date:dddd}}`, `{{time}}`, `{{yesterday}}`, `{{date+7d:YYYY-MM-DD}}`…), **canvas** boards saved as standard `.canvas` files, **bases** (`.base` table and card views with filters, formulas, sorting and grouping), the **note composer** (merge notes, extract a selection), **slides**, word count, **file recovery** snapshots, and **publishing** chosen notes as a plain static website.
+- **Keeper's own extras** (all opt-in): ask the vault and get answers that cite notes, summarize, continue writing, suggest links and tags (with the AI you chose for Keeper's brain); AI agents may edit notes only when you allow it, and the version before every change is kept; `keeper/notes` for agents and the command line (search, read, today's note, capture).
+- **Plugins**: a small sandboxed plugin model (a worker with no file, network or system access; only the calls you allow). Community plugins written for other notes apps are listed but not run — they expect full access to your computer.
+- **Light**: nothing runs while the Notes page is closed; a 10,000-note vault is indexed in about a second, and the editor, math, diagrams and code colouring load only when first needed.
 
 ### Keeper's brain
 
@@ -433,11 +609,47 @@ Any AI can work with Keeper — and do things in it, only as you allow.
 - **One click to connect** the Claude desktop app, Claude Code, Codex CLI, Gemini CLI, Cursor, VS Code, Windsurf, Zed, LM Studio, OpenClaw and Hermes Agent; **start agents** in a folder in Keeper's Terminal, with **profiles** so two accounts of the same agent stay signed in side by side.
 - **Skills** in the open SKILL.md format, shared with your other agents; the assistant reads one only when it needs it. *Save as skill* turns a good answer into one.
 - **Model gateway** for other tools (OpenAI- and Anthropic-compatible, on 127.0.0.1 with a token; `keeper/brain` answers from your files), **agent-to-agent** (A2A) and **`keeper acp`** for editors.
-- **Knowledge graph**: files, notes, tags, people, organisations and sources, linked by Markdown and `[[wiki]]` links and their backlinks, shared names, tags and similar meaning — Obsidian vaults work as they are. Smooth with thousands of nodes; agents can explore it too.
+- **Knowledge graph**: files, notes, tags, people, organisations and sources, linked by Markdown and `[[wiki]]` links and their backlinks, shared names, tags and similar meaning — existing Markdown vaults work as they are. Smooth with thousands of nodes; agents can explore it too.
 - **Learns your habits, privately** (off by default): repeated moves, opens and searches become suggested automations, pins and saved searches. Forget everything with one button.
 - **Siri and Alexa**: a Shortcut with `keeper ask --plain`, and an [Alexa skill template](integrations/alexa) that reaches your Keeper through your own tunnel.
 
 Details, safety and exactly what was tested: [docs/AGENTS.md](docs/AGENTS.md).
+
+### Abilities for every AI
+
+Whichever AI you use — Claude, OpenAI, Gemini, Grok, a model on this computer — and whichever agent (Claude Code, Codex, Cursor or any MCP client), it gets the same abilities through Keeper: in the Assistant, over MCP, through the gateway (ask for `model+abilities`, or turn it on for every model) and from other agents. Agents → **Abilities** sets each one to Off, Ask or Allow; **Stay on this computer** switches off everything that reaches the internet.
+
+- **Search the web** with numbered sources: SearXNG (yours), Brave, Tavily, Exa, Kagi, Google Programmable Search or xAI — or, with no key, encyclopedia and instant answers. **Read a page** (public addresses only, never your home network) and **research a question**: plan searches, read the best pages, write a cited report saved in your library, within step, page and time limits.
+- **Search posts**: X (with an xAI key), Hacker News, Mastodon hashtags, Bluesky (app password) and Reddit (your app id).
+- **Pictures**: make and edit with OpenAI, Gemini, xAI, Stability AI, or the Stable Diffusion web UI / ComfyUI on this computer; saved to *Pictures/Keeper AI*. **Look at a picture**: any AI that sees images gets it, plus the text read from it on this computer.
+- **Run code** — JavaScript or Python in a sealed workspace: no internet, your files hidden, a time limit (Linux: namespaces; macOS: the system sandbox; Windows: JavaScript only, in Node's permission model).
+- **Memory** you control: every memory listed, editable and deletable; shared, per persona or per project; memories go to cloud AIs only if you allow it.
+- **Schedules**: “every weekday at 8:30 summarise my calendar and mail”, “in 2 hours remind me…”, or a cron line — answered by your AI with its abilities, delivered to the Island, a notification or a file.
+- **Personas and projects**: how an assistant talks (never claiming to be a real person), and a set of folders, instructions and memories it keeps to.
+- **Voice**: talk to the Assistant (speech to text with any OpenAI-compatible service, including one on this computer) and hear answers in your computer's voices; hands-free if you like.
+- **Teams**: several AIs on one request — side by side, writer and reviewer, a panel with a chair, a planner with workers, or “best for the job” (private requests stay on this computer). Members are your AI services and agent sessions in Keeper's Terminal.
+
+Text from the web is passed to the AI marked as data, never as instructions. Web search, posts and cloud pictures need the service's key; [docs/ABILITIES.md](docs/ABILITIES.md) says what was tested and what needs a real account.
+
+### System Settings+, App controls and Browser tabs
+
+**System Settings+** (System section, or type a setting's name in the command palette) is a searchable catalogue of 397 settings that usually need a terminal command or a buried switch: 137 on macOS (`defaults`, `pmset`, Spotlight, Gatekeeper), 133 on Windows (registry, power, services, optional features such as WSL, Hyper-V and SMB 1.0) and 127 on Linux (GNOME `gsettings`, kernel `sysctl`, systemd services, the clock). Each entry says what it does, which versions it applies to, whether it needs the administrator password, what has to restart, how risky it is, and where it is documented. Keeper only runs catalogue operations: you see the exact command first, it saves a backup of the area before the first change each day, every change goes into a log with **Undo**, and backups restore in one click. Favourites, an AI **Explain** button, and **setup profiles** (export what you changed, preview and apply on another computer) are built in. Files Keeper should not edit for you (GRUB, fstab, hosts) are explained with steps. Full list: [docs/SETTINGS-CATALOG.md](docs/SETTINGS-CATALOG.md).
+
+**App controls** (and “App settings” on Applications, Processes and Network Activity) set things per app: network allow/block (a firewall rule), an upload limit (Windows QoS; Linux cgroup + nftables + tc; macOS by port only), routing through or around the VPN (Linux), CPU priority, a CPU limit (Windows job object, Linux cgroup v2; macOS background mode only), a memory limit (Windows, Linux), pause and resume, pause in the background (macOS), start at login, notifications (Windows, GNOME), always-light appearance and app language (macOS), app volume (Windows, PipeWire/PulseAudio), graphics card (Windows), default app for a file type (macOS, Linux) and keeping the computer awake while the app runs. Each control says what your system cannot do instead of pretending.
+
+**Browser tabs** shows every open tab across linked browsers (Chrome, Edge, Brave, Vivaldi, Opera and Firefox, through Keeper's extension) with mute, sleep, show and close, data used and the other sites each page talks to, per-site camera / microphone / location / notifications / JavaScript / cookies (Chromium browsers), tracker blocking from Keeper's blocklists, clearing a site's data and sending chosen sites through a proxy. Safari is not linked yet (Safari extensions can only talk to an app they ship inside).
+
+AI agents can use all three through abilities with permissions (search settings: allowed; change a setting, see or control tabs, tune an app: asks first). Each is a feature in Settings → Features and costs nothing in the background.
+
+### An AI that uses your computer, and the system's assistants
+
+- **Use this computer** (off until you turn it on): the Assistant — with Claude, OpenAI, Grok, Gemini, a local model or any other AI you set up — and agents connected over MCP (Claude Code, Codex, Cursor…) can see the screen, click, type, open apps and press buttons by name through accessibility. With Claude 5.5 and later Keeper uses Claude's own computer-use toolset; every other AI gets the same abilities as one tool. Keeper asks first, the Island shows it while it works with **Stop**, and **⌃⌥⌘.** / **Ctrl+Alt+Shift+.** stops every AI at once. Password managers, keychains, terminals and banking windows are off limits, passwords are never typed, and every action is logged with a small picture of what the AI saw.
+- **Keeper Browser and private desktops**: the AI can also work in a browser of its own, reading pages as numbered elements and clicking, typing, uploading and downloading. On Linux it can work in a private desktop that leaves your screen alone. It keeps a plan, checks that each step worked, notices when it is stuck and stays within step and time budgets. It always asks before buying, paying, sending, posting or deleting. Saved sign-ins (keychain, 1Password or Bitwarden) are filled by Keeper, so the AI never sees them. Web pages are treated as untrusted, so text hidden in a page can't take over. Take over a tab and hand it back, or record a job once and replay it with new values, on a schedule, when Keeper starts or when the computer wakes. On your own screen the AI clicks numbered controls (from accessibility, or text read off the screen on this computer). GPT and Gemini models use their own built-in computer tools, under the same rules. Your phone (Keeper Link) shows what the AI is doing and can answer its questions. More in [docs/COMPUTER-USE.md](docs/COMPUTER-USE.md).
+- **Siri, Spotlight and Shortcuts** (macOS): *“Ask Keeper”*, *“Search files with Keeper”*, *“Open Health in Keeper”*, *“Start focus with Keeper”*, *“Lock my folders with Keeper”*, plus Shortcuts actions that return answers and files — from a small App Intents helper inside Keeper.app.
+- **Writing Help** in every Keeper text field (right-click): proofread, rewrite, friendlier, more professional, shorter, summarize — with your AI, including Apple's on-device model.
+- **Copilot and Windows agents** through the Windows agent registry (MCP), and **Linux desktop assistants** through D-Bus (`org.ashfordeou.Keeper.Actions`: ask, search, open a page, focus, lock folders, run an automation).
+
+What works on each system and with each assistant — and what Apple and Microsoft do not allow third-party apps to do: [docs/AI-SYSTEM.md](docs/AI-SYSTEM.md).
 
 ### Assistant
 
@@ -467,9 +679,29 @@ keeper mcp                 Keeper as an MCP server for AI apps (stdio)
 keeper acp                 Keeper as an agent for editors (Agent Client Protocol, stdio)
 keeper ask --plain "…"     Just the answer, as text (for Siri Shortcuts and scripts)
 keeper link …              Keeper Link: devices, invite, pair, send <file> <device>, check, forward
+keeper awake [on|off|toggle|status|extend|blockers|stats]  Keep the computer awake (--for 2h, --until 18:30, --while-app Zoom, --allow-display-sleep, --closed-lid)
 
 --in <folders>  --json  --limit <n>  --hidden  --yes
 ```
+
+---
+
+## Everyday tools, checked one by one
+
+Keeper's Convert page, Toolbox, Capture and Annotate have about a hundred everyday tools:
+
+- **Video:** download, merge, burn in subtitles, crop, resize, replace the sound, media info.
+- **Audio:** clean up, and transcribe on this computer with a built-in speech model (every OS, no upload).
+- **Images:** hide faces, remove background, scan to PDF (finds and straightens the page, also from a phone's camera).
+- **PDFs:** a drag-and-drop page organizer, true redaction, fill and sign forms, make scans searchable, PDF to Word, and passwords with print and copy limits.
+- **Documents:** Word, presentations, spreadsheets, web pages and Markdown to PDF, plus translation of whole documents and subtitles that keeps their layout and timings.
+- **Files:** password ZIPs.
+- **Developer tools.**
+- **System:** external display brightness, contrast and volume, iPhone and iPad backups in the storage view, and tweaks for macOS, Windows and Linux.
+
+Every Convert tool also runs from the command line: `keeper tool list` lists them, and `keeper tool <name> <files> --json` runs one.
+
+[docs/TOOLS.md](docs/TOOLS.md) checks each tool against a standard 94-tool list and a screen-text-capture feature list. It says where each one lives, whether Keeper matches it or does more, and how each was tested.
 
 ---
 
@@ -483,9 +715,11 @@ keeper link …              Keeper Link: devices, invite, pair, send <file> <de
 | Search | <kbd>Ctrl F</kbd> | Bigger / smaller cards | <kbd>Ctrl +</kbd> / <kbd>Ctrl −</kbd> | Clean Up | <kbd>Ctrl Shift K</kbd> |
 | Command palette | <kbd>Ctrl K</kbd> | Inspector | <kbd>Ctrl I</kbd> | Play / pause | <kbd>Ctrl Space</kbd> |
 | Downloaded From | <kbd>Ctrl Shift J</kbd> | Preview | <kbd>Space</kbd> | Move to Trash | <kbd>Ctrl ⌫</kbd> / <kbd>Delete</kbd> |
-| Copy text in selected images | <kbd>Ctrl Shift C</kbd> | Switch theme | <kbd>Ctrl Shift T</kbd> | Back | <kbd>Ctrl [</kbd> |
+| Copy text in selected images | <kbd>Ctrl Shift C</kbd> | Switch theme | <kbd>Ctrl Shift L</kbd> | Back | <kbd>Ctrl [</kbd> |
 | Copy text from screen (any app) | <kbd>Ctrl Shift 2</kbd> | Settings | <kbd>Ctrl ,</kbd> | Dictation (any app) | <kbd>Ctrl Shift ;</kbd> |
 | | | Show / hide hidden files | <kbd>Ctrl Shift .</kbd> | | |
+| New tab / close tab | <kbd>Ctrl T</kbd> / <kbd>Ctrl W</kbd> | Reopen closed tab | <kbd>Ctrl Shift T</kbd> | Next / previous tab | <kbd>Ctrl Tab</kbd> / <kbd>Ctrl Shift Tab</kbd> |
+| Open in a new tab | middle-click or <kbd>Ctrl</kbd>-click | Tab 1–9 | <kbd>Alt 1–9</kbd> (<kbd>⌃1–9</kbd> on macOS) | | |
 
 Global shortcuts can be changed in Settings and Island settings.
 
@@ -517,6 +751,15 @@ Keeper works **alongside** Finder, File Explorer, Files or Dolphin — “Show i
 
 ---
 
+## Tabs, and never losing your place
+
+- **Tabs** in every window: middle-click or ⌘/Ctrl-click anything to open it in a new tab, or right-click a sidebar entry → *Open in New Tab*. ⌘T / Ctrl+T new tab, ⌘W / Ctrl+W close, ⌘⇧T / Ctrl+Shift+T reopen the last closed one; pin, duplicate, drag to reorder, or move a tab into its own window. Each tab keeps its own page, Back/Forward, scroll and drafts. Tabs in the back use almost no memory. (Switch theme is now ⌘⇧L / Ctrl+Shift+L.)
+- **Crash-proof.** Every window, tab, scroll position and unsent draft is saved within a second. A window that crashes reopens at once with its tabs; if Keeper itself is killed, a tiny watchdog starts it again with everything where it was, and after repeated crashes it starts in safe mode (only the library on) instead of looping.
+- **Parts run on their own.** Network Activity's sampling runs in its own process (stopped when not used); terminals live in their own session host and keep running when windows close.
+- **System → Keeper's processes** shows every Keeper process with CPU, memory, restarts and the last problem — Stop, Restart, Disable, *Stop all background work*, *Restart in safe mode*, *Copy report*. Crash reports stay on this computer.
+
+More in [docs/RESILIENCE.md](docs/RESILIENCE.md).
+
 ## Light on your computer
 
 Keeper does a lot, but it keeps out of the way. One part of it, the governor, decides when background work may run and how often anything looks at the computer:
@@ -526,7 +769,7 @@ Keeper does a lot, but it keeps out of the way. One part of it, the governor, de
 - **No programs started over and over.** Full-screen detection, now playing and the microphone check use one long-running helper or a tiny system tool instead of a new process every few seconds. Download sources are read for hundreds of files at once.
 - **Memory is let go.** Text recognition unloads a minute after the last picture; the main window's page is released after 15 minutes closed to the tray (2 in Minimal mode) and reopens where you were.
 - **Your choice.** Settings → Keeper's own usage shows Keeper's processor and memory use right now, what runs in the background and why it waits, with three modes: **Minimal**, **Balanced** (default) and **Performance**.
-- **Switch off what you do not use.** Settings → Features lists every part of Keeper with what it costs. Turning one off stops it completely: no window, no timers, no watchers, and its pages and menu items leave the sidebar. Presets: Everything, Balanced, Minimal and Files only.
+- **Switch off what you do not use.** Settings → Features lists every part of Keeper with what it costs. Turning one off stops it completely: no window, no timers, no watchers, and its pages and menu items leave the sidebar. Presets: Everything, Balanced, Minimal and Files only — plus **your own saved sets** (for example "Travel"), and a set to switch to by itself **on battery** and another **on power**. Each feature shows what it has running right now ("check every 15 s", or nothing). A test fails the build if a page, sidebar entry or command-palette entry has no feature that owns it.
 
 Measured on Linux with a 14,400-file library (Xvfb, one minute per state, all of Keeper's processes together; memory is PSS, which shares common pages fairly):
 
@@ -547,7 +790,7 @@ Meaning search, when you turn it on, builds its index at about 30 % of one core 
 ## Privacy
 
 - **Your files never leave your computer.** Indexing, search, text recognition, duplicate detection and cleanup all run locally.
-- **No account, no analytics, no telemetry.**
+- **No account, no ads.** Keeper sends anonymous usage stats once a day (see [Usage stats](#usage-stats)); switch them off any time.
 - Network requests Keeper makes, and only when the feature is on:
   - **Text-recognition language data** — downloaded once per language from the Tesseract data mirror, then cached. Images are never sent.
   - **Weather** — your chosen place's coordinates to [Open-Meteo](https://open-meteo.com) (no key, no account).
@@ -557,10 +800,24 @@ Meaning search, when you turn it on, builds its index at about 30 % of one core 
   - **Meaning-search model** — downloaded once from Hugging Face when you turn meaning search on, checked against a pinned SHA-256. Your text is never sent anywhere to build it.
   - **Dictation** — your recorded audio to the speech-to-text address you configured.
   - **Cloud & servers** — only to the services and servers you connect, directly from your computer. Signing in to a cloud service opens its own page in your browser.
+  - **Firewall** — nothing unless you turn something on: blocklist downloads (from the lists you pick, daily), rule subscriptions (from the addresses you add, daily), and DNS questions to the encrypted resolver you choose when the DNS filter is on.
   - **Network Activity** — host names for addresses through your normal DNS server (can be turned off); the country table from DB-IP once, if you turn countries on; latency checks to your router and one internet host while the Health tab is open; and *What the internet sees* asks api.ipify.org for your public address only when you press it.
   - **Update check** — once a day, the latest release number from GitHub (can be turned off).
+  - **Usage stats** — once a day, a small anonymous report to `telemetry.ashforde.org` (on by default; off with one switch). Listed in Keeper's firewall like any other app's connection, and blockable there.
 - API keys are encrypted with the operating system's keychain (Electron `safeStorage`). On Linux without a keyring, Keeper refuses to store keys rather than store them weakly.
 - Passwords and secret keys you copy are not kept in clipboard history.
+
+## Usage stats
+
+Keeper sends anonymous usage stats once a day to help us improve it. You can switch this off at any time, and here is exactly what is sent.
+
+- **What:** a random install ID made on your computer (resettable), Keeper's version and whether it is an official build, the operating system and its version, processor family and core count, memory rounded to 4/8/16/32/64+ GB, graphics maker, laptop or desktop, number of screens, the system's language and region setting, which features are on, which pages were opened (rough counts), how many AI services and devices are connected (numbers only), crash and restart counts, and Keeper's own memory, processor use and start-up time as ranges.
+- **Never:** file names, paths or contents, searches, AI prompts, account names, e-mail addresses, user or computer names, your internet address or location from it, serial numbers, MAC addresses, Wi-Fi names, or which apps you have.
+- **See it:** Settings → Privacy → *See exactly what's sent* shows the last report and the next one, field by field and as the exact text.
+- **Switch it off** in any of four ways: the switch in Settings → Privacy (or in the welcome tour), `KEEPER_TELEMETRY=0`, `DO_NOT_TRACK=1`, or an administrator's policy file (`{ "usageStats": false }` in `/etc/keeper/policy.json`, `/Library/Application Support/Keeper/policy.json` or `%ProgramData%\Keeper\policy.json`). Once off, nothing more is sent, not even a goodbye.
+- **How:** at most once a day, when the computer is idle and online; days that could not be sent wait, at most a week. Stored for 13 months, then only totals are kept.
+
+The full list with examples, the legal basis and how to ask about your data: [docs/PRIVACY-USAGE-STATS.md](docs/PRIVACY-USAGE-STATS.md). The server is in [server/telemetry](server/telemetry).
 
 ## Safety model
 
@@ -695,7 +952,7 @@ More detail in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | Copy text from screen | ✅ | ✅ | ✅ (X11; Wayland via portal) |
 | Startup items | Registry + Startup folder | Launch agents, login items | XDG autostart |
 | App uninstall | App's uninstaller | Trash + leftovers | Flatpak / Snap |
-| Protection check | ✅ | ✅ | ✅ |
+| Privacy & Security (posture, permissions, browsers, malware layers) | ✅ | ✅ | ✅ |
 | Now playing + lyrics | System media session | Music, Spotify | MPRIS (`playerctl`) |
 | Microphone-in-use | ✅ | — | ✅ |
 | Dictation typing | ✅ | ✅ | X11 `xdotool` / Wayland `wtype` |
@@ -724,14 +981,27 @@ Ideas and pull requests are welcome — see below.
 
 Contributions of every size are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) — in short: keep the core free of Electron, add tests for engine changes, follow the safety model, and keep the interface copy plain and friendly. Security issues: see [SECURITY.md](SECURITY.md). Changes are listed in [CHANGELOG.md](CHANGELOG.md).
 
+Before your first pull request, read the contributor terms in [CONTRIBUTING.md](CONTRIBUTING.md#contributor-terms): you keep the copyright in your work and give Ashforde OÜ a licence to use it, including in commercial versions of Keeper. Tick "I agree to CONTRIBUTING.md" in the pull request to confirm.
+
 ## License
 
-Keeper is free software: you can redistribute it and/or modify it under the terms of the **GNU Affero General Public License** as published by the Free Software Foundation, either **version 3** of the License, or (at your option) any later version. See [LICENSE](LICENSE).
+Keeper is **free to use**, for everyone, at home and at work. Its source code is public so you can read it, check what it does with your files, build it yourself and change it for your own use.
 
-Copyright © 2026 Keeper contributors.
+Keeper is **source-available**, not open source. It is licensed under the [PolyForm Shield License 1.0.0](LICENSE.md):
 
-Keeper uses [Electron](https://www.electronjs.org), [React](https://react.dev), [Tesseract.js](https://tesseract.projectnaptha.com) (Apache-2.0), [jsQR](https://github.com/cozmo/jsQR) (Apache-2.0) and the [Anthropic TypeScript SDK](https://github.com/anthropics/anthropic-sdk-typescript) (MIT); forecasts by [Open-Meteo](https://open-meteo.com) (CC BY 4.0) and lyrics by [LRCLIB](https://lrclib.net). [IP Geolocation by DB-IP](https://db-ip.com) (CC BY 4.0) when countries are turned on in Network Activity.
+- ✅ Use Keeper for any purpose, personal or professional, in any organisation.
+- ✅ Read, build and change the code for yourself or your organisation; fork it on GitHub to send changes.
+- ✅ Build tools, scripts and integrations that work with Keeper.
+- ❌ Do not sell, resell, rent or offer Keeper (or a modified Keeper) as a product or service that competes with it, paid or free, without written permission from Ashforde OÜ.
+
+"Keeper by Ashforde®", "Ashforde®" and the Keeper logo are trademarks of Ashforde OÜ. The licence grants no trademark rights: modified builds must use a different name and logo. Official builds are the signed ones from the official website and [GitHub Releases](https://github.com/ashfordeOU/keeper/releases). See [TRADEMARKS.md](TRADEMARKS.md).
+
+Want to do something the licence does not allow, or need a commercial licence? See [COMMERCIAL.md](COMMERCIAL.md) or write to **contact@ashforde.org**.
+
+Copyright © 2026 Ashforde OÜ.
+
+Keeper includes third-party components under their own licences, listed in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md). Among them: [Electron](https://www.electronjs.org) (MIT), [React](https://react.dev) (MIT), [Tesseract.js](https://tesseract.projectnaptha.com) (Apache-2.0), [jsQR](https://github.com/cozmo/jsQR) (Apache-2.0), [sharp](https://sharp.pixelplumbing.com) (Apache-2.0) with libvips (LGPL-3.0-or-later, dynamically linked), [libheif](https://github.com/strukturag/libheif) (LGPL-3.0) and the [Anthropic TypeScript SDK](https://github.com/anthropics/anthropic-sdk-typescript) (Apache-2.0). Video features use [FFmpeg](https://ffmpeg.org) (GPL-3.0-or-later), shipped as a separate program; its licence and source are listed in THIRD-PARTY-NOTICES.md. Forecasts by [Open-Meteo](https://open-meteo.com) (CC BY 4.0) and lyrics by [LRCLIB](https://lrclib.net). [IP Geolocation by DB-IP](https://db-ip.com) (CC BY 4.0) when countries are turned on in Network Activity. World map outlines from [Natural Earth](https://www.naturalearthdata.com) (public domain) via [world-atlas](https://github.com/topojson/world-atlas) (ISC).
 
 ---
 
-<p align="center"><sub><b>Keeper by Ashforde®</b> · © 2026 Ashforde OÜ · Ashforde® is a registered trademark of Ashforde OÜ.<br>The code is free software under the GNU AGPL v3 or later; the Keeper and Ashforde names and logos identify official builds.</sub></p>
+<p align="center"><sub><b>Keeper by Ashforde®</b> · © 2026 Ashforde OÜ · Ashforde® is a registered trademark of Ashforde OÜ.<br>Source-available under the PolyForm Shield License 1.0.0; free to use. The Keeper and Ashforde names and logos identify official builds.</sub></p>

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // A Unigram (SentencePiece-style) tokenizer, enough to feed the multilingual
 // sentence-embedding model Keeper uses for "search by meaning". It reads the
 // model's own tokenizer.json, so the ids match what the model was trained on.

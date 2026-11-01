@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 import { randomBytes } from 'node:crypto';
 import { promises as fsp, readFileSync } from 'node:fs';
 import os from 'node:os';

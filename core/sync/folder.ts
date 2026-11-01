@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // What a synced folder holds, file by file: size, date, the pieces it is made
 // of and who changed it last. Scanning compares the disk with this record and
 // notes every change with the device's own counter.

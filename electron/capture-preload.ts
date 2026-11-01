@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The screen overlays (area, window and colour pickers) can only report what
 // the user chose. The recorder page can only stream its chunks back.
 

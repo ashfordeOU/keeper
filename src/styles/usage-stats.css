@@ -1,0 +1,27 @@
+/* SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 */
+/* Anonymous usage stats: Settings → Privacy, the welcome tour, the firewall */
+.ustats-switch { display: flex; align-items: center; gap: 14px; }
+.ustats-switch.compact { padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg-sunk); }
+.ustats-viewer { margin-top: 12px; display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg-sunk); min-width: 0; }
+.ustats-viewer .seg { align-self: flex-start; }
+.ustats-payload { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.ustats-group { display: flex; flex-direction: column; }
+.ustats-group-name { font-size: 11px; font-weight: 650; text-transform: uppercase; letter-spacing: .04em; color: var(--text-3); margin: 4px 0 2px; }
+.ustats-row { display: grid; grid-template-columns: 110px minmax(0, 1fr) minmax(0, 1.3fr); gap: 10px; padding: 4px 0; border-bottom: 1px solid var(--line); align-items: baseline; font-size: 13px; }
+.ustats-key { font-family: var(--mono); font-size: 12px; color: var(--text-2); }
+.ustats-val { font-weight: 550; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.ustats-json { margin: 0; max-height: 280px; overflow: auto; padding: 10px; border-radius: 8px; background: var(--bg); border: 1px solid var(--line); font-family: var(--mono); font-size: 12px; white-space: pre; }
+.ustats-never ul { margin: 4px 0 0; padding-left: 18px; }
+.ustats-facts { display: flex; flex-direction: column; gap: 4px; margin: 12px 0; }
+.ustats-facts code { font-family: var(--mono); font-size: 12px; overflow-wrap: anywhere; }
+.ustats-conn { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; }
+.ustats-conn > svg { color: var(--accent); flex: none; }
+.ustats-more { margin-top: 10px; }
+.ustats-more code { font-family: var(--mono); }
+.tour-ustats-scroll { max-height: 46vh; overflow: auto; }
+.tour-ustats-scroll .ustats-row { grid-template-columns: 90px minmax(0, 1fr); }
+.tour-ustats-scroll .ustats-about { display: none; }
+@media (max-width: 640px) {
+  .ustats-row { grid-template-columns: 96px minmax(0, 1fr); }
+  .ustats-about { grid-column: 1 / -1; }
+}

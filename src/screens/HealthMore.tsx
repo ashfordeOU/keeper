@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The lower half of Health: the last 24 hours, what worked hardest, alert
 // rules, coding agents, Docker, temperatures, disk health and a speed test.
 

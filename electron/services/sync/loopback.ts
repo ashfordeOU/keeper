@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // A plain TCP connection between Keeper instances on one computer, for tests
 // and development only (no encryption, no pairing). It is used only when
 // KEEPER_SYNC_LOOPBACK is set, e.g. "self=A@47001;peer=B@47002".

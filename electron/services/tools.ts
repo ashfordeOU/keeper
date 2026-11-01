@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // System helpers behind the Toolbox (network details, OS tweaks, quarantine
 // and permission resets) and "Tidy this folder".
 
@@ -41,6 +41,9 @@ async function macTweaks(): Promise<Tweak[]> {
     { id: 'dock-delay', label: 'Dock show delay (seconds)', description: '0 makes a hidden Dock appear instantly. The system default is 0.5.', kind: 'number', value: delay, confirm: 'The Dock will restart.' },
     { id: 'screenshot-shadow', label: 'Window screenshots without shadow', description: 'Screenshots of a single window leave out the drop shadow.', kind: 'toggle', value: await defaultsBool('com.apple.screencapture', 'disable-shadow'), confirm: 'The screenshot service will restart.' },
     { id: 'restart-finder', label: 'Restart Finder', description: 'Fixes a Finder that stopped responding.', kind: 'action', confirm: 'Finder windows will close and reopen.' },
+    { id: 'mac-natural-scroll', label: 'Natural scrolling', description: 'Content follows your fingers. macOS uses one setting for the mouse and the trackpad.', kind: 'toggle', value: (await run('/usr/bin/defaults', ['read', '-g', 'com.apple.swipescrolldirection'])).stdout.trim() !== '0' },
+    { id: 'mac-wheel-speed', label: 'Mouse wheel speed', description: '0 to 5; higher scrolls further per notch (the system default is about 0.3). Applies after you log out and back in.', kind: 'number', value: parseFloat((await run('/usr/bin/defaults', ['read', '-g', 'com.apple.scrollwheel.scaling'])).stdout) || 0.3125 },
+    { id: 'mac-key-repeat', label: 'Faster key repeat', description: 'Held keys repeat sooner and faster than the System Settings slider allows.', kind: 'toggle', value: (parseFloat((await run('/usr/bin/defaults', ['read', '-g', 'KeyRepeat'])).stdout) || 6) <= 2 },
   ];
 }
 
@@ -57,13 +60,27 @@ async function winTweaks(): Promise<Tweak[]> {
     { id: 'win-extensions', label: 'Show file extensions', description: 'Show “.pdf”, “.jpg” and so on in File Explorer.', kind: 'toggle', value: (await winRegDword(ADV, 'HideFileExt')) === 0, confirm: 'File Explorer will refresh.' },
     { id: 'win-hidden', label: 'Show hidden files', description: 'Hidden files and folders become visible in File Explorer.', kind: 'toggle', value: (await winRegDword(ADV, 'Hidden')) === 1, confirm: 'File Explorer will refresh.' },
     { id: 'restart-explorer', label: 'Restart File Explorer', description: 'Fixes a stuck taskbar or Explorer window.', kind: 'action', confirm: 'The taskbar and Explorer windows will restart.' },
+    { id: 'win-wheel-lines', label: 'Lines per mouse-wheel notch', description: 'How far one notch of the wheel scrolls (Windows default: 3).', kind: 'number', value: Number((await run('reg', ['query', 'HKCU\\Control Panel\\Desktop', '/v', 'WheelScrollLines'])).stdout.match(/REG_SZ\s+(\d+)/)?.[1] ?? 3) },
+    { id: 'win-mouse-reverse', label: 'Reverse the mouse wheel (natural scrolling)', description: 'Only the mouse wheel; the touchpad keeps its own setting. Asks for administrator, then unplug and plug the mouse back in.', kind: 'toggle', value: /FlipFlopWheel\s+REG_DWORD\s+0x1/.test((await powershell("Get-ChildItem 'HKLM:\\SYSTEM\\CurrentControlSet\\Enum\\HID' -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.PSChildName -eq 'Device Parameters' -and ($_.GetValue('FlipFlopWheel') -ne $null) } | Select-Object -First 1 | ForEach-Object { 'FlipFlopWheel REG_DWORD 0x' + $_.GetValue('FlipFlopWheel') }")).stdout), confirm: 'Windows will ask for administrator permission.' },
   ];
 }
 
 async function linuxTweaks(): Promise<Tweak[]> {
   const r = await run('gsettings', ['get', 'org.gtk.Settings.FileChooser', 'show-hidden']);
   if (!r.ok) return [];
-  return [{ id: 'gtk-hidden', label: 'Show hidden files in file dialogs', description: 'Open and Save dialogs show dot-files.', kind: 'toggle', value: r.stdout.trim() === 'true' }];
+  const out: Tweak[] = [{ id: 'gtk-hidden', label: 'Show hidden files in file dialogs', description: 'Open and Save dialogs show dot-files.', kind: 'toggle', value: r.stdout.trim() === 'true' }];
+  // GNOME keeps the mouse and the touchpad apart, so each can scroll its own way.
+  const mouse = await run('gsettings', ['get', 'org.gnome.desktop.peripherals.mouse', 'natural-scroll']);
+  if (mouse.ok) {
+    const pad = await run('gsettings', ['get', 'org.gnome.desktop.peripherals.touchpad', 'natural-scroll']);
+    const speed = await run('gsettings', ['get', 'org.gnome.desktop.peripherals.mouse', 'speed']);
+    out.push(
+      { id: 'gnome-mouse-natural', label: 'Natural scrolling for the mouse', description: 'Only the mouse wheel; the touchpad keeps its own setting.', kind: 'toggle', value: mouse.stdout.trim() === 'true' },
+      { id: 'gnome-touchpad-natural', label: 'Natural scrolling for the touchpad', description: 'Only the touchpad.', kind: 'toggle', value: pad.stdout.trim() === 'true' },
+      { id: 'gnome-mouse-speed', label: 'Mouse pointer speed', description: 'From -1 (slow) to 1 (fast).', kind: 'number', value: parseFloat(speed.stdout) || 0 },
+    );
+  }
+  return out;
 }
 
 export async function tweaks(): Promise<Tweak[]> {
@@ -108,6 +125,34 @@ export async function setTweak(id: string, value?: boolean | number): Promise<Tw
       break;
     case 'restart-explorer':
       await powershell('Stop-Process -Name explorer -Force; Start-Sleep -Milliseconds 800; if (-not (Get-Process explorer -ErrorAction SilentlyContinue)) { Start-Process explorer }');
+      break;
+    case 'mac-natural-scroll':
+      await run('/usr/bin/defaults', ['write', '-g', 'com.apple.swipescrolldirection', '-bool', b]);
+      break;
+    case 'mac-wheel-speed':
+      await run('/usr/bin/defaults', ['write', '-g', 'com.apple.scrollwheel.scaling', '-float', String(Math.max(0, Math.min(5, Number(value) || 0)))]);
+      break;
+    case 'mac-key-repeat':
+      await run('/usr/bin/defaults', ['write', '-g', 'KeyRepeat', '-int', value ? '2' : '6']);
+      await run('/usr/bin/defaults', ['write', '-g', 'InitialKeyRepeat', '-int', value ? '15' : '25']);
+      break;
+    case 'win-wheel-lines':
+      await run('reg', ['add', 'HKCU\\Control Panel\\Desktop', '/v', 'WheelScrollLines', '/t', 'REG_SZ', '/d', String(Math.max(1, Math.min(100, Math.round(Number(value) || 3)))), '/f']);
+      break;
+    case 'win-mouse-reverse': {
+      const v = value ? 1 : 0;
+      const inner = `Get-ChildItem 'HKLM:\\SYSTEM\\CurrentControlSet\\Enum\\HID' -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.PSChildName -eq 'Device Parameters' -and ($_.GetValue('FlipFlopWheel') -ne $null) } | ForEach-Object { Set-ItemProperty -Path $_.PSPath -Name FlipFlopWheel -Value ${v} }`;
+      await powershell(`Start-Process powershell -Verb RunAs -WindowStyle Hidden -Wait -ArgumentList '-NoProfile','-Command',"${inner.replace(/"/g, '`"')}"`);
+      break;
+    }
+    case 'gnome-mouse-natural':
+      await run('gsettings', ['set', 'org.gnome.desktop.peripherals.mouse', 'natural-scroll', b]);
+      break;
+    case 'gnome-touchpad-natural':
+      await run('gsettings', ['set', 'org.gnome.desktop.peripherals.touchpad', 'natural-scroll', b]);
+      break;
+    case 'gnome-mouse-speed':
+      await run('gsettings', ['set', 'org.gnome.desktop.peripherals.mouse', 'speed', String(Math.max(-1, Math.min(1, Number(value) || 0)))]);
       break;
     case 'gtk-hidden':
       await run('gsettings', ['set', 'org.gtk.Settings.FileChooser', 'show-hidden', b]);

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // One device's side of sync: its folders, answering other devices, and rounds
 // with each online device that shares a folder.
 

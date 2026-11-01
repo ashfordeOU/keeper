@@ -1,10 +1,14 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Keeper's main process: windows, tray, shortcuts, the file index and every
 // action the interface can ask for.
 
+import { clipboardImage, readFile as readCaptureFile } from './services/capture';
 import { addBusyCheck } from './services/busy';
 import { onBeforeInstall } from './services/updater';
 import { BRAND, COPYRIGHT, TRADEMARK, WEBSITE } from '../core/brand';
+// First, so local crash reports cover everything that follows.
+import { initResilience, restoreExtraWindows } from './resilience';
+import { onLimitAlert } from './svc/limits';
 import { app, BrowserWindow, dialog, globalShortcut, ipcMain, Menu, nativeImage, nativeTheme, protocol, screen, shell, Tray } from 'electron';
 import { existsSync, promises as fsp, statSync } from 'node:fs';
 import os from 'node:os';
@@ -32,6 +36,8 @@ import { colorPick, quietly, recordingState, registerCaptureIpc, registerCapture
 import { FileService } from './services/files';
 import { IslandService } from './services/island';
 import { islandWindows, registerIslandIpc, registerIslandShortcuts, syncWidgets } from './ipc/island';
+import { registerIslandToolsIpc } from './ipc/island-tools';
+import { flushIslandTools } from './services/island-tools';
 import { checkProtection } from './services/protection';
 import { listStartup, toggleStartup } from './services/startup';
 import { disks, ejectAll, health, killProcess, wifiNetworks } from './services/system';
@@ -45,6 +51,10 @@ import { registerPlacesIpc } from './ipc/places';
 import { registerPlatformIpc } from './ipc/platform';
 import { handlePlatformArgv, handlePlatformUrl, initPlatform, platformLibraryChanged, startedForSearch, stopPlatform } from './services/platform';
 import { registerLockIpc } from './ipc/lock';
+import { handleAwakeLink, registerAwakeIpc } from './ipc/awake';
+import { registerGuideIpc } from './ipc/guide';
+import { registerBuiltinGuideSources } from './services/guide-sources';
+import { refresh as refreshGuide } from './services/guide';
 import { registerLinkIpc } from './ipc/link';
 import { registerScreenIpc, stopScreen } from './ipc/screen';
 import { linkNode, stopLink } from './services/link';
@@ -55,17 +65,34 @@ import { storeFromRemoteFs } from './services/sync/remote-adapter';
 import { registerRemoteIpc } from './ipc/remote';
 import { stopRemote } from './services/remote';
 import { openTerminalWindow, registerTerminalIpc, stopTerminal } from './ipc/terminal';
+import { registerAgentTermIpc, stopAgentTerminals } from './ipc/agentterm';
+import { registerAbilitiesIpc } from './ipc/abilities';
+import { unwireAbilities, wireAbilities } from './services/abilities/wire';
 import { registerBrainIpc } from './ipc/brain';
 import { brainSettingsChanged, startBrain, stopBrain, syncBrain } from './services/brain';
+import { wireComputer } from './services/computer';
+import { initWritingMenu } from './services/writing';
+import { handleIntentUrl, registerIntentsHelper, type IntentDeps } from './services/intents';
 import { registerAgentsIpc } from './ipc/agents';
 import { agentSettingsChanged, record as recordUsage, startAgents, stopAgents } from './services/agents';
 import { normalizeAgentSettings } from '../core/agents-config';
 import { applyWaylandSwitch } from './services/island-place';
 import { registerProcsIpc } from './ipc/procs';
 import { registerPimIpc } from './ipc/pim';
+import { registerNotesIpc } from './ipc/notes';
+import { allowRoot as allowPreviewRoot } from './services/preview';
 import { startPim, stopPim } from './services/pim';
 import { registerNetIpc } from './ipc/net';
+import { registerSecurityIpc, stopSecurityIpc } from './ipc/security';
+import { registerControlsIpc } from './ipc/controls';
+import { registerSettingsPlusIpc } from './ipc/settingsplus';
+import { ashfordeThemeChanged, monorailFocusChanged, monorailPresentationChanged, onMonorailState, registerAshfordeIpc } from './ipc/ashforde';
+import { cached as controlsCached, list as controlsList, onControlsChanged, set as controlsSet, applyPreset as controlsPreset } from './services/controls';
+import { PRESETS as CONTROL_PRESETS } from '../core/controls/catalog';
+import { registerFirewallIpc, stopFirewall } from './ipc/fw';
 import { registerSyncIpc } from './ipc/sync';
+import { registerNotesyncIpc } from './ipc/notesync';
+import { registerNotesCompanion } from './services/notes-sync';
 import { stopSync } from './services/sync';
 import { loopbackFromEnv } from './services/sync/loopback';
 import { pendingOnQuit, relockOnQuit } from './services/lock';
@@ -73,8 +100,9 @@ import { remoteFolders } from './services/places';
 import { emptyAndBroken, removeBrokenLink } from './services/tools';
 import { readDownloadSources, readFinderTags } from '../core/platform';
 import { conditions, pace, poll, startGovernor, usage, whenIdle } from './services/governor';
-import { applyPreset, featureOn, listFeatures, onFeature, onFeaturesChanged, setFeature } from './services/features';
+import { applyFeatureSet, applyPreset, featureOn, featureSets, listFeatures, liveCosts, onFeature, onFeaturesChanged, removeFeatureSet, saveFeatureSet, setFeature, setPowerSets, startPowerSets } from './services/features';
 import { getSecret, hasSecret, onSettings, setSecret, settings, updateSettings } from './store';
+import { registerUsageStatsIpc } from './ipc/usage-stats';
 
 void squarify; // the interface lays out the Space Map; kept for the CLI's future text treemap
 
@@ -86,8 +114,10 @@ if (!app.requestSingleInstanceLock()) app.quit();
 // Linux on Wayland: the Island needs XWayland to stay on top and in place (Settings can turn this off).
 applyWaylandSwitch();
 app.setAsDefaultProtocolClient('keeper');
+// Text fields get spelling, cut/copy/paste and writing help from the person's AI (Electron has no menu of its own).
+initWritingMenu((message) => islandSvc?.alert({ kind: 'info', title: 'Writing help did not work', detail: message }));
 // About Keeper (macOS app menu, Linux): Keeper by Ashforde®.
-app.setAboutPanelOptions({ applicationName: BRAND, applicationVersion: app.getVersion(), copyright: `${COPYRIGHT}. ${TRADEMARK}`, website: WEBSITE, credits: 'Free software under the GNU AGPL v3 or later.' });
+app.setAboutPanelOptions({ applicationName: BRAND, applicationVersion: app.getVersion(), copyright: `${COPYRIGHT}. ${TRADEMARK}`, website: WEBSITE, credits: 'Free to use. Source-available under the PolyForm Shield License 1.0.0.' });
 
 let main: BrowserWindow | null = null;
 let quick: BrowserWindow | null = null;
@@ -119,9 +149,14 @@ function libraryChanged() {
   }, 250);
 }
 
+declare const __KEEPER_OFFICIAL__: boolean | undefined;
+// Automated tests can skip the first-run tour; official builds ignore this.
+const NO_TOUR = !(typeof __KEEPER_OFFICIAL__ === 'boolean' && __KEEPER_OFFICIAL__) && process.env.KEEPER_SKIP_TOUR === '1';
+
 function load(win: BrowserWindow, view: string) {
-  if (DEV_URL) void win.loadURL(`${DEV_URL}?view=${view}`);
-  else void win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'), { query: { view } });
+  const extra: Record<string, string> = view === 'app' && NO_TOUR ? { notour: '1' } : {};
+  if (DEV_URL) void win.loadURL(`${DEV_URL}?${new URLSearchParams({ view, ...extra })}`);
+  else void win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'), { query: { view, ...extra } });
 }
 
 function lockDown(win: BrowserWindow) {
@@ -239,6 +274,38 @@ function trayUpdateItems(): Electron.MenuItemConstructorOptions[] {
   return [{ label: 'Check for Updates…', click: () => { showMain('settings:updates'); void checkUpdatesNow(true); } }];
 }
 
+/** The tray's Quick Controls: a few switches from the last reading, presets, and the page. */
+let trayControlsRead = false;
+function trayControls(): Electron.MenuItemConstructorOptions[] {
+  const v = controlsCached();
+  if (!v && !trayControlsRead) {
+    // Read once, a little after start; afterwards the menu follows changes made anywhere.
+    trayControlsRead = true;
+    setTimeout(() => void controlsList().then(() => updateTray()).catch(() => undefined), 10_000).unref?.();
+  }
+  const state = new Map(v?.states.map((s) => [s.id, s]) ?? []);
+  const toggles: Electron.MenuItemConstructorOptions[] = [];
+  for (const [id, label] of [['wifi', 'Wi-Fi'], ['bluetooth', 'Bluetooth'], ['vpn', 'VPN'], ['osFirewall', 'System Firewall'], ['dnsFilter', 'DNS Filter'], ['microphone', 'Microphone for Apps'], ['camera', 'Camera for Apps']] as const) {
+    const st = state.get(id);
+    if (!st || st.how === 'none' || st.how === 'guide' || typeof st.value !== 'boolean') continue;
+    const on = st.value;
+    toggles.push({ label: `${label}${st.how === 'admin' ? ' (password)' : ''}`, type: 'checkbox', checked: on, click: () => void controlsSet(id, !on).then((r) => {
+      // Making things less protected is confirmed on the page, never from a menu click.
+      if (r.needsConfirm) showMain('controls');
+      else if (!r.ok) islandSvc?.alert({ kind: 'info', title: 'Quick Controls', detail: r.message });
+    }) });
+  }
+  return [
+    ...(toggles.length ? toggles : [{ label: v ? 'Nothing to switch here' : 'Reading…', enabled: false }]),
+    { type: 'separator' },
+    { label: 'Presets', submenu: CONTROL_PRESETS.map((p) => ({ label: p.name, click: () => void controlsPreset(p.id).then((r) => {
+      if (r.needsConfirm) showMain('controls');
+      else islandSvc?.alert({ kind: 'info', title: p.name, detail: r.message });
+    }) })) },
+    { label: 'Open Quick Controls…', click: () => showMain('controls') },
+  ];
+}
+
 async function updateTray() {
   if (!settings().trayEnabled) {
     tray?.destroy();
@@ -303,13 +370,16 @@ async function updateTray() {
         { label: 'Area…', click: () => quietly(() => toggleRecording('area')) },
       ] },
     { label: 'Pick a Colour', click: () => quietly(() => colorPick()) },
-    { label: awake ? 'Stop Keeping Awake' : 'Keep Awake', submenu: awake ? undefined : [
+    // Keep Awake (Settings → Features can switch it off; its own menu-bar icon is optional, see ipc/awake.ts).
+    ...(featureOn('keepAwake') ? [{ label: awake ? 'Stop Keeping Awake' : 'Keep Awake', submenu: awake ? undefined : [
       { label: 'Until I turn it off', click: () => islandSvc.keepAwake(true) },
-      { label: 'For 1 hour', click: () => islandSvc.keepAwake(true, { minutes: 60 }) },
-      { label: 'For 3 hours', click: () => islandSvc.keepAwake(true, { minutes: 180 }) },
+      ...settings().awake.quick.map((m) => ({ label: m < 60 ? `For ${m} minutes` : `For ${m / 60} hour${m === 60 ? '' : 's'}`, click: () => islandSvc.keepAwake(true, { minutes: m }) })),
       { label: 'Let the screen sleep', click: () => islandSvc.keepAwake(true, { allowDisplaySleep: true }) },
-    ], click: awake ? () => { islandSvc.keepAwake(false); void updateTray(); } : undefined },
+      { type: 'separator' as const },
+      { label: 'Keep Awake…', click: () => showMain('awake') },
+    ], click: awake ? () => { islandSvc.keepAwake(false); void updateTray(); } : undefined }] : []),
     { label: 'Clean Up…', click: () => showMain('cleanup') },
+    ...(featureOn('quickControls') ? [{ label: 'Quick Controls', submenu: trayControls() }] : []),
     { type: 'separator' },
     ...trayUpdateItems(),
     { label: 'Quit Keeper', click: () => { quitting = true; app.quit(); } },
@@ -342,6 +412,18 @@ function registerShortcuts() {
   if (featureOn('capture')) void registerCaptureShortcuts();
 }
 
+/** Text from the clipboard's picture or a file, copied like a screen capture. */
+async function captureFrom(read: () => Promise<{ text: string; code?: string } | null>, empty: string) {
+  try {
+    const r = await read();
+    const out = r ? (r.code && !r.text ? r.code : r.text) : '';
+    if (out) await writeText(out);
+    islandSvc.alert({ kind: 'info', title: out ? 'Copied the text' : empty, detail: r?.code ? `QR code: ${r.code}` : out.slice(0, 120) });
+  } catch (e) {
+    islandSvc.alert({ kind: 'info', title: 'Could not read the text', detail: e instanceof Error ? e.message : String(e) });
+  }
+}
+
 async function doCapture() {
   try {
     const r = await captureText(capturePreload(), settings().ocrLanguages);
@@ -356,8 +438,26 @@ async function doCapture() {
   }
 }
 
+const intentDeps: IntentDeps = {
+  showMain: (route) => showMain(route),
+  focus: (action, minutes) => void islandSvc?.focusAction(action, minutes),
+  runRule: async (n) => {
+    const r = settings().rules.find((x) => x.id === n || x.name.toLowerCase() === n.toLowerCase());
+    if (!r) throw new Error('No automation with that name');
+    return runRule(r);
+  },
+  relockAll: async () => {
+    const { list, relock } = await import('./services/lock');
+    const open = list().filter((f) => f.state === 'unlocked');
+    for (const f of open) await relock(f.vault).catch(() => undefined);
+    return open.length;
+  },
+};
+
 function handleDeepLink(url: string) {
   if (handlePlatformUrl(url)) return;
+  // Pages, the focus timer, locking folders and automations, for Siri, Shortcuts and desktop assistants.
+  if (handleIntentUrl(url, intentDeps)) return;
   try {
     const u = new URL(url);
     const action = u.hostname || u.pathname.replace(/^\/+/, '');
@@ -365,7 +465,11 @@ function handleDeepLink(url: string) {
       const p = u.searchParams.get('path')!;
       showMain(`browse:${path.dirname(p)}`);
     } else if (action === 'search') showMain(`search:${u.searchParams.get('q') ?? ''}`);
+    // keeper://capture/clipboard reads the picture on the clipboard; keeper://capture/file?path=… reads an image or PDF.
+    else if (action === 'capture' && /clipboard/.test(u.pathname)) void captureFrom(() => clipboardImage(settings().ocrLanguages), 'No picture on the clipboard');
+    else if (action === 'capture' && /file/.test(u.pathname) && u.searchParams.get('path')) void captureFrom(() => readCaptureFile(u.searchParams.get('path')!, settings().ocrLanguages), 'No text found');
     else if (action === 'capture') void doCapture();
+    else if (action === 'settings') showMain(`settings:${u.pathname.replace(/^\/+/, '') || u.searchParams.get('section') || ''}`);
     else if (action === 'screenshot') quietly(() => screenshot((u.searchParams.get('mode') as 'full' | 'window' | 'area') ?? 'area'));
     else if (action === 'record') quietly(() => toggleRecording((u.searchParams.get('mode') as 'full' | 'window' | 'area') ?? 'full'));
     else if (action === 'color') quietly(() => colorPick());
@@ -373,7 +477,8 @@ function handleDeepLink(url: string) {
     else if (action === 'clean') showMain('cleanup');
     // keeper://terminal?cwd=/path opens the Terminal window in a folder.
     else if (action === 'terminal') openTerminalWindow(u.searchParams.get('cwd') ? { cwd: u.searchParams.get('cwd')! } : {});
-    else if (action === 'awake') islandSvc.keepAwake(u.searchParams.get('on') !== 'false', { minutes: Number(u.searchParams.get('minutes')) || undefined });
+    // keeper://awake?for=30m, ?until=18:30, ?app=Name; keeper://awake/off, /toggle, /extend
+    else if (action === 'awake') handleAwakeLink(u);
     else showMain(action || undefined);
   } catch {
     showMain();
@@ -835,6 +940,13 @@ function registerIpc() {
   handle('features.list', () => listFeatures());
   handle('features.set', (id: string, on: boolean) => setFeature(id, on));
   handle('features.preset', (id: Parameters<typeof applyPreset>[0]) => applyPreset(id));
+  handle('features.sets', () => featureSets());
+  handle('features.saveSet', (name: string, id?: string) => saveFeatureSet(name, id));
+  handle('features.removeSet', (id: string) => removeFeatureSet(id));
+  handle('features.applySet', (ref: string) => applyFeatureSet(ref));
+  handle('features.setPowerSets', (b: string, p: string) => setPowerSets(b, p));
+  handle('features.live', () => liveCosts());
+  startPowerSets();
   onFeaturesChanged(() => {
     broadcast('features-changed');
     // Shortcuts of features that went off are released; ones that came on are taken.
@@ -895,6 +1007,9 @@ app.whenReady().then(async () => {
   for (const f of ['ocr', 'docText'] as const) onFeature(f, (on) => { if (on && index) vision.schedule(index.all()); });
   onFeature('sources', (on) => { if (on && index) void index.enrichSources().then(() => index.saveSoon()); });
   islandSvc = new IslandService(index, () => broadcast('island-changed'));
+  onLimitAlert((title, detail) => islandSvc?.alert({ kind: 'info', title, detail }));
+  // Keep Awake: sessions, triggers, closed-lid mode, statistics (before the Island starts, which hands it keep-awake requests).
+  registerAwakeIpc({ islandSvc, broadcast, updateTray: () => void updateTray(), show: (route) => showMain(route) });
   registerIpc();
   registerIslandIpc({
     islandSvc, files, index, preload: preload(), lockDown, broadcast, updateTray: () => void updateTray(), setTrayTitle: (t) => tray?.setTitle(t),
@@ -909,6 +1024,8 @@ app.whenReady().then(async () => {
       return r.outputs;
     },
   });
+  // The Island's tools: Ask, AI usage, sales, stocks, notes, to-dos, teleprompter, shortcuts.
+  registerIslandToolsIpc({ rules: () => settings().rules.map((r) => ({ id: r.id, name: r.name, enabled: r.enabled })), runRule: async (id) => { const r = settings().rules.find((x) => x.id === id); if (r) await runRule(r); } });
   // Updates wait for work a restart would interrupt, and the window saves where you are first.
   addBusyCheck(() => (recordingState().recording ? 'Recording the screen' : undefined));
   onBeforeInstall(() => broadcast('save-place'));
@@ -928,6 +1045,12 @@ app.whenReady().then(async () => {
     setRemoteExclusions: (paths) => { index.excluded = [...new Set([...settings().excluded, ...paths])]; },
   });
   registerLockIpc({ broadcast, changed: libraryChanged });
+  // Guided fixes: what the person should do about space, security, privacy and more, and how.
+  registerGuideIpc({ broadcast, preload: preload(), alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }) });
+  registerBuiltinGuideSources({ index: () => index });
+  // First look a minute after start, then twice a day; opening the To do list checks again.
+  setTimeout(() => void refreshGuide(), 60_000).unref?.();
+  setInterval(() => void refreshGuide(), 12 * 3600_000).unref?.();
   // Remote screens over Link: view and control other devices, phones, Wake-on-LAN (attaches once Link is up).
   void registerScreenIpc({ broadcast, show: (route) => showMain(route), preload: preload(), alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }) }).catch(() => undefined);
   // Keeper Link: paired devices, the phone companion and the tunnel.
@@ -936,6 +1059,8 @@ app.whenReady().then(async () => {
       // Folder sync runs over Link once it is up (each device allows "sync" per device in Devices).
       const n = linkNode();
       if (n && !process.env.KEEPER_SYNC_LOOPBACK) void attachTransport(linkTransport(n), 'link');
+      // Notes Everywhere: search, read and jot notes from the phone companion.
+      if (n) registerNotesCompanion(n);
     })
     .catch(() => undefined);
   // Backups and mirrors to cloud services and servers go through Keeper's connections.
@@ -949,10 +1074,13 @@ app.whenReady().then(async () => {
   // Cloud & servers: cloud services, servers, home servers and other computers.
   void registerRemoteIpc({ broadcast, thumbnail: (p, size) => files.thumbnail(p, size) });
   registerBrainIpc();
+  registerAbilitiesIpc();
   registerAgentsIpc();
   registerProcsIpc();
   // Mail, calendars, reminders, alarms and contacts.
   registerPimIpc();
+  // Notes: vaults are read only while the Notes page is open.
+  registerNotesIpc({ broadcast, allowRoot: allowPreviewRoot });
   void startPim({
     broadcast,
     alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }),
@@ -960,8 +1088,25 @@ app.whenReady().then(async () => {
     islandTimers: (t) => islandSvc?.setCountdowns(t),
   });
   registerNetIpc({ alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }) });
+  // Privacy & Security: permissions, browsers, posture, real-time malware protection and quarantine.
+  registerSecurityIpc({ broadcast, alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }) });
+  // Quick Controls: system switches, read only when asked.
+  registerControlsIpc({ broadcast, alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }), show: (r) => showMain(r) });
+  // System Settings+, per-app controls and browser tab controls: nothing runs until used.
+  registerSettingsPlusIpc({ broadcast });
+  // Ashforde apps (Monorail on macOS): off until switched on in Settings → Ashforde apps.
+  registerAshfordeIpc({ broadcast, alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }) });
+  onMonorailState((m) => islandSvc?.setMonorail(m));
+  if (islandSvc) islandSvc.modeHook = (kind, on) => (kind === 'focus' ? monorailFocusChanged(on) : monorailPresentationChanged(on));
+  onControlsChanged(() => void updateTray());
+  // Firewall: rules, alerts, the DNS filter and traffic history (nothing runs until switched on).
+  registerFirewallIpc({ alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }), broadcast });
+  // Anonymous usage stats: on by default, off with one switch; at most one small report a day (Settings → Privacy).
+  registerUsageStatsIpc();
   // Sync, backups and mirrors. Keeper Link and cloud connections attach when they are ready
   // (attachTransport / attachConnections); KEEPER_SYNC_LOOPBACK is for tests only.
+  // Notes Everywhere: the hub of notes from every notes app (nothing runs until an app is connected).
+  void registerNotesyncIpc({ userData: app.getPath('userData'), broadcast }).catch(() => undefined);
   void registerSyncIpc({
     userData: app.getPath('userData'),
     broadcast,
@@ -1002,7 +1147,10 @@ app.whenReady().then(async () => {
 
   // The window opens straight away; the saved library fills it in a moment later.
   // Started at login to sit in the tray: the window's page loads only when it is first opened.
+  // Tabs, drafts and windows survive crashes; a watchdog brings Keeper back if it stops unexpectedly.
+  initResilience({ preload, lockDown, restore: () => settings().restorePlace !== false, main: () => main });
   if (!process.argv.includes('--hidden') || settings().resourceMode === 'performance') createMain();
+  restoreExtraWindows();
   await index.load();
   registerPlatformIpc({ ask: askKeeper });
   const platformDeps = { index: () => index, showMain, ask: askKeeper };
@@ -1025,7 +1173,35 @@ app.whenReady().then(async () => {
       // A window that was closed needs a moment to load before it takes the command.
       setTimeout(() => openTerminalWindow({ ...(o.cwd ? { cwd: o.cwd } : {}), run: o.run, title: o.title ?? '' }), 1200);
     },
-  }));
+  })).then(() =>
+    // Agents' own terminals (sub-workers, headless runs) and the hub where agents of every kind work together.
+    registerAgentTermIpc({ broadcast, alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }) }),
+  ).catch(() => undefined);
+  // macOS: Siri, Spotlight and Shortcuts learn Keeper's actions from its small helper app (once per version).
+  void registerIntentsHelper();
+  // Linux: the same actions on the session bus (org.ashfordeou.Keeper.Actions) for desktop assistants and launchers.
+  if (process.platform === 'linux' && process.env.DBUS_SESSION_BUS_ADDRESS) {
+    void import('./services/platform/dbus-actions').then(({ exportActions }) => exportActions({
+      openUrl: (url) => handleDeepLink(url),
+      ask: async (q) => (await import('./services/brain')).askBrain(q).then((r) => r.answer),
+      search: async (q, n) => (await import('./services/brain')).search(q, { limit: n }).then((hits) => hits.map((h) => h.path)),
+    })).catch(() => undefined);
+  }
+  // Abilities for every AI (web, research, posts, pictures, code, memory, schedules, personas, projects, teams).
+  const abilityDeps = {
+    broadcast,
+    alert: (title: string, detail?: string) => islandSvc?.alert({ kind: 'info', title, detail }),
+    ocr: async (p: string) => {
+      const { loadImage, ocrFile } = await import('./services/vision');
+      const img = await loadImage(p);
+      return img ? ocrFile(p, img, settings().ocrLanguages) : '';
+    },
+  };
+  onFeature('abilities', (on) => (on ? void wireAbilities(abilityDeps).catch(() => undefined) : unwireAbilities()), { now: true });
+  // An AI using this computer: off unless allowed under Agents; Stop in the Island or ⌃⌥⌘. / Ctrl+Alt+Shift+.
+  void wireComputer({ broadcast, alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }) });
+  // Keeper's browser for AIs, private desktops, task plans, saved sign-ins and recorded workflows.
+  void import('./services/cu').then((m) => m.initCu({ broadcast, alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }), downloaded: () => libraryChanged() })).catch((e) => console.error('computer use', e));
   libraryChanged();
   createIsland();
   syncWidgets();
@@ -1044,6 +1220,7 @@ app.whenReady().then(async () => {
   setTimeout(() => void runEnabledRules(), 5 * 60_000);
 
   onSettings((next, prev) => {
+    if (next.theme !== prev.theme || next.themeSeasons !== prev.themeSeasons) ashfordeThemeChanged();
     if (JSON.stringify(next.brain) !== JSON.stringify(prev.brain)) void brainSettingsChanged(next.brain, prev.brain);
     if (JSON.stringify(next.agents) !== JSON.stringify(prev.agents)) void agentSettingsChanged(normalizeAgentSettings(next.agents), normalizeAgentSettings(prev.agents));
     if (next.folders.join() !== prev.folders.join() || next.excluded.join() !== prev.excluded.join() || next.showHidden !== prev.showHidden || next.includeRemote !== prev.includeRemote) {
@@ -1070,6 +1247,8 @@ app.whenReady().then(async () => {
 // Folders set to lock again when Keeper quits are locked first; quitting then carries on.
 let relocking = false;
 app.on('before-quit', (e) => {
+  void stopFirewall();
+  void flushIslandTools().catch(() => undefined);
   if (!relocking && pendingOnQuit()) {
     e.preventDefault();
     relocking = true;
@@ -1079,10 +1258,13 @@ app.on('before-quit', (e) => {
   quitting = true;
   installOnQuitIfReady();
   stopPlatform();
+  stopSecurityIpc();
   void stopPim();
   void stopRemote();
   void stopAgents();
+  unwireAbilities();
   stopBrain();
+  void stopAgentTerminals();
   void stopTerminal();
   stopSync();
   stopScreen();

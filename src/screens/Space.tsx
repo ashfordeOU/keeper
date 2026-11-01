@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Space Map: every folder as a rectangle sized by the space it uses.
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -8,6 +8,7 @@ import { BubbleView } from '../components/BubbleView';
 import type { SpaceNode } from '../../core/types';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
+import { PhoneBackups } from '../components/PhoneBackups';
 import { ContextMenu, Empty, Loading, PageHead, type MenuItem } from '../components/ui';
 import { useAsync, useStore } from '../state';
 import { chartPalette } from '../theme';
@@ -159,6 +160,7 @@ export function Space() {
           </div>
         </div>
       </div>
+      <PhoneBackups />
       {menu ? <ContextMenu x={menu.x} y={menu.y} items={menuItems(menu.n)} onClose={() => setMenu(null)} /> : null}
     </div>
   );

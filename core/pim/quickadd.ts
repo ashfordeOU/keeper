@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // "lunch with Ana Friday 1pm", "dentist tomorrow 15:30 for 45 min",
 // "standup every weekday 9:15", "trip 12–15 March", "call mum in 2 hours at
 // home" → a new event. English only; runs on the computer, nothing is sent.

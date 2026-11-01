@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Keeper Link pieces used outside the Devices page: the sidebar section with
 // your devices (drop files on one to send them), and the prompts that can come
 // up anywhere — compare six digits, a file arriving, a phone asking to join.

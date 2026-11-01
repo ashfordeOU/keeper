@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 */
 /* Code colours for dark mode (the light ones come with the highlighter). */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) .hljs { color: #e6edf3; background: transparent; }

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Makes node_modules ready to package Keeper for another processor.
 //
 //   node scripts/prepare-arch.mjs <platform> <arch>     e.g. darwin x64

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // A believable Mac for the browser demo's process manager: apps with helpers,
 // system daemons, a dev server, and numbers that drift a little each second.
 

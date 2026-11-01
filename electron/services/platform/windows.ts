@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Windows: its own text recognition (Windows.Media.Ocr), "Search with Keeper"
 // in File Explorer, the taskbar menu, and registering Keeper with the
 // on-device agent registry so Copilot and other agents can use it.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Network Activity and VPN as the interface sees them.
 
 import type { NetSample } from './net/flows';

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // What the Island shows, and in what order. Everything going on (music, a
 // timer, a recording, a download, an agent waiting) becomes an activity with a
 // priority; the most important takes the pill, the next one a small bubble
@@ -10,7 +10,7 @@ import type { IslandState } from './api';
 
 export type ActivityKind =
   | 'dictation' | 'recording' | 'agent-waiting' | 'agent-stuck' | 'meeting' | 'charging' | 'battery-low' | 'timer'
-  | 'progress' | 'music' | 'agent-working' | 'rain' | 'copied' | 'headphones' | 'awake' | 'unlocked' | 'paused-music' | 'sharing';
+  | 'progress' | 'music' | 'agent-working' | 'rain' | 'copied' | 'headphones' | 'awake' | 'unlocked' | 'paused-music' | 'sharing' | 'ai-control' | 'workspace';
 
 export interface Activity {
   id: string;
@@ -51,6 +51,8 @@ export interface Presentation {
 }
 
 export const PRIORITY: Record<ActivityKind, number> = {
+  // An AI moving the pointer and typing: always on top, Stop one tap away.
+  'ai-control': 101,
   dictation: 100,
   // Someone else sees this screen: always visible, with Stop one tap away.
   sharing: 98,
@@ -69,6 +71,8 @@ export const PRIORITY: Record<ActivityKind, number> = {
   rain: 40,
   unlocked: 34,
   awake: 30,
+  // Monorail moved to another workspace: a quick note, never in the way.
+  workspace: 26,
   'paused-music': 20,
 };
 
@@ -87,6 +91,8 @@ export interface ExtraInputs {
   unlocked?: number;
   /** another device or phone watching (or controlling) this screen */
   sharing?: { sid: string; name: string; control: boolean; since: number }[];
+  /** AIs using this computer (screen, pointer, keyboard) right now */
+  aiControl?: { id: string; client: string; since: number; actions: number }[];
   /** kinds turned off in Settings */
   off?: string[];
 }
@@ -142,6 +148,7 @@ export function activitiesFrom(s: IslandState, now: number, x: ExtraInputs = {})
   if (s.weather?.nowcast && /rain|snow|shower|drizzle|storm/i.test(s.weather.nowcast)) {
     add({ id: 'rain', kind: 'rain', icon: 'drop', title: s.weather.nowcast, detail: s.weather.place.name, color: '#64d2ff' });
   }
+  for (const c of x.aiControl ?? []) add({ id: `ai-${c.id}`, kind: 'ai-control', icon: 'sparkle', title: `${c.client} is using this computer`, detail: `${c.actions} action${c.actions === 1 ? '' : 's'}`, trailing: mmss(now - c.since), color: '#ff9f0a', since: c.since, ref: c.id });
   for (const sh of x.sharing ?? []) add({ id: `share-${sh.sid}`, kind: 'sharing', icon: 'eye', title: `${sh.name} is ${sh.control ? 'controlling' : 'viewing'} this screen`, trailing: mmss(now - sh.since), color: '#ff453a', since: sh.since, ref: sh.sid });
   if (x.unlocked) add({ id: 'unlocked', kind: 'unlocked', icon: 'lock', title: `${x.unlocked} folder${x.unlocked === 1 ? '' : 's'} unlocked`, trailing: String(x.unlocked), color: '#fbbf24' });
   if (s.keepAwake.on) {
@@ -164,6 +171,11 @@ export function transientsFrom(prev: IslandState | null, next: IslandState, now:
   const clip = next.clips[0];
   if (clip && clip.id !== prev.clips[0]?.id && now - clip.at < 5000) {
     out.push({ id: `copied-${clip.id}`, kind: 'copied', priority: PRIORITY.copied, icon: 'clipboard', title: 'Copied', detail: clip.kind === 'image' ? 'An image' : (clip.text ?? '').slice(0, 80), color: '#bf5af2', until: now + 2000, ref: clip.id });
+  }
+  // Monorail (an Ashforde app) switched workspace or slide: say where you are for a moment.
+  const m = next.monorail;
+  if (m && prev.monorail && (m.workspace !== prev.monorail.workspace || m.slide !== prev.monorail.slide)) {
+    out.push({ id: `workspace-${now}`, kind: 'workspace', priority: PRIORITY.workspace, icon: 'columns', title: m.workspaceName || `Workspace ${m.workspace}`, detail: `Slide ${m.slide} of ${m.slides}${m.app ? ` · ${m.app}` : ''}`, trailing: `${m.slide}/${m.slides}`, progress: m.slides > 1 ? m.slide / m.slides : undefined, color: '#5e5ce6', until: now + 1800 });
   }
   const was = new Set((prev.devices?.bluetooth ?? []).map((b) => b.name));
   for (const b of next.devices?.bluetooth ?? []) {

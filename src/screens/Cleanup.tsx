@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Clean Up: one scan finds rebuildable clutter (deleted for good) and your own
 // forgotten files (always sent to the Trash, reviewable one by one).
 

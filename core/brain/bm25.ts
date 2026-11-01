@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The word index: classic BM25 ranking over passages. Documents are numbered;
 // removing one only marks it, and the postings are compacted once a good share
 // of them are gone, so keeping the index up to date stays cheap.

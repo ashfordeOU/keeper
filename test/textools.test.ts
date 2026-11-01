@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 import { describe, expect, it } from 'vitest';
 import { cameraName, readExif } from '../core/exif';
 import { asColor, cleanLink, convertCase, convertTimestamp, decodeJwt, formatJson, generatePassword, inspectUnicode, redactPersonal, textStats, wifiQrPayload } from '../core/textools';

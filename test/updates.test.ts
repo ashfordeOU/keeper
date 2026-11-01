@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 import { describe, expect, it } from 'vitest';
 import { compareVersions, notesToText, pickAsset, pickRelease, releaseFor, type GhRelease } from '../core/updates';
 

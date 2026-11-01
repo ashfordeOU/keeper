@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Runs cloudflared so this device can be reached from anywhere at a stable
 // https address, and keeps it running: it restarts after a crash (waiting a
 // little longer each time), after sleep or a network change, and when its

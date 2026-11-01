@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 # Every push and pull request: type checks, unit tests, a full build and an
 # unpacked app on Windows, macOS and Linux, so packaging problems show up here
 # and not on release day.
@@ -44,6 +44,12 @@ jobs:
           out=$(printf '{"id":1,"method":"hello"}\n' | .build/apple/Products/Release/keeper-helper)
           echo "$out"
           echo "$out" | grep -q '"result"'
+      # Siri, Spotlight and Shortcuts actions. New and not yet proven on a Mac, so it does not fail the build;
+      # its log says whether the App Intents metadata was produced.
+      - name: Build the Siri and Shortcuts helper
+        if: runner.os == 'macOS'
+        continue-on-error: true
+        run: native/macos/KeeperIntents/build.sh
       - name: Package the app (unpacked, no installer)
         run: npx electron-builder --dir --publish never
         env:
@@ -60,3 +66,4 @@ jobs:
         run: |
           npm install --no-save playwright-core@1.63.0
           xvfb-run -a -s "-screen 0 1440x900x24" node test/e2e/perf-budget.cjs
+          KEEPER_PERF_MODE=minimal xvfb-run -a -s "-screen 0 1440x900x24" node test/e2e/perf-budget.cjs

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The Terminal's words in the person's language. Missing ones fall back to
 // English. Programs inside a terminal choose their language from the profile's
 // locale setting.

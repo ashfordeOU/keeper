@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // "Tidy this folder": preview how loose files would be sorted into
 // sub-folders, then do it in one step that can be undone from History.
 

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // IPC for AI agents: services and costs, permissions and approvals, the model
 // gateway, agent apps, skills, learning and the knowledge graph.
 
@@ -20,6 +20,18 @@ export function registerAgentsIpc() {
   handle('pending', () => ag.pendingApprovals());
   handle('decide', (id: string, d: 'once' | 'always' | 'deny') => ag.decide(id, d));
   handle('audit', () => ag.auditLog());
+  handle('computerState', async () => (await import('../services/computer')).computerState());
+  handle('computerStop', async () => (await import('../services/computer')).stopAll());
+  handle('computerShot', async (file: string) => {
+    // Only pictures from Keeper's own activity folder, as data URLs for the log.
+    const path = await import('node:path');
+    const { app } = await import('electron');
+    const dir = path.join(app.getPath('userData'), 'agents', 'computer');
+    const p = path.resolve(file);
+    if (!p.startsWith(dir + path.sep)) return null;
+    const { promises: fsp } = await import('node:fs');
+    return fsp.readFile(p).then((b) => `data:image/jpeg;base64,${b.toString('base64')}`).catch(() => null);
+  });
   handle('gateway', () => ag.gatewayInfo());
   handle('rotateToken', () => ag.rotateGatewayToken());
   handle('clis', (refresh?: boolean) => ag.agentClis(refresh));

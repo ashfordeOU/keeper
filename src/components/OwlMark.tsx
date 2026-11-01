@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Keeper's mark, the Keyhole Owl: an owl whose body is a keyhole. One drawing
 // serves as the app logo (on its gradient tile) and as the Island buddy, whose
 // eyes and brows change with its mood.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Sample Places for the browser demo: a Mac with iCloud and Proton Drive, a USB
 // stick and a NAS at 192.168.0.252.
 

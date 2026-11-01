@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Keeper Relay: a tiny server anyone can run (or deploy as a Cloudflare
 // Worker, see relay/) that joins two devices when neither can reach the other
 // directly. It is blind: everything it passes along is already end-to-end

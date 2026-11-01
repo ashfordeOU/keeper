@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Browser demo of the operating-system integrations: a Mac with Apple Intelligence.
 
 import type { PlatformApi } from '../core/api-platform';

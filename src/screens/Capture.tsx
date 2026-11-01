@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Captures: text copied from the screen, QR codes and barcodes, screenshots,
 // recordings and picked colours — with the tools to make more.
 
@@ -210,6 +210,7 @@ export function Capture() {
           <div className="col" style={{ gap: 12 }}>
             <Opt label="Keep line breaks" hint="Off joins wrapped lines into paragraphs."><Toggle on={opts.keepLineBreaks} onChange={(v) => void setOpt({ keepLineBreaks: v })} /></Opt>
             <Opt label="Careful recognition" hint="Slower but reads small text better. Off is faster."><Toggle on={opts.accurate} onChange={(v) => void setOpt({ accurate: v })} /></Opt>
+            <Opt label="Detect the language" hint={navigator.platform.startsWith('Mac') ? "Works out the language by itself and reads neat handwriting, with macOS's own recognizer." : 'Works out the language and writing system by itself; the right reader is downloaded once.'}><Toggle on={opts.autoLanguage} onChange={(v) => void setOpt({ autoLanguage: v })} /></Opt>
             <Opt label="Offer to open links in QR codes" hint="Asks first; only web links."><Toggle on={opts.openQrLinks} onChange={(v) => void setOpt({ openQrLinks: v })} /></Opt>
             <Opt label="Open screenshots in the editor" hint="Right after taking one."><Toggle on={opts.annotateAfterScreenshot} onChange={(v) => void setOpt({ annotateAfterScreenshot: v })} /></Opt>
             <div className="divider" />

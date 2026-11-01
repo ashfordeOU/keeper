@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The phone companion's protocol, shared by the page the phone opens and the
 // app that serves it. The QR code carries a one-time secret in the part of the
 // address browsers never send (#k=…); after the phone is approved it gets its

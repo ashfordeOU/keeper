@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Batch rename: preview every new name before anything changes on disk.
 
 import type { FileEntry } from './types';

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The preview contract between the viewer and the main process.
 
 import type { ArchiveEntry } from './archive';

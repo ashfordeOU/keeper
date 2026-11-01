@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The contract between the interface and the main process. The preload script
 // exposes exactly this object as `window.keeper`; the demo build fakes it.
 
@@ -13,17 +13,25 @@ import type { KeeperApiX } from './api-x';
 import type { PlacesApi } from './api-places';
 import type { UsageApi } from './api-usage';
 import type { FeaturesApi } from './api-features';
+import type { AshfordeApi } from './api-ashforde';
 import type { RemoteApi } from './api-remote';
 import type { PlatformApi } from './api-platform';
 import type { LockApi } from './api-lock';
 import type { LinkApi } from './api-link';
 import type { ScreenApi } from './api-screen';
 import type { BrainApi, BrainDelta, BrainStep } from './api-brain';
+import type { AbilitiesApi } from './api-abilities';
 import type { AgentsApi, ApprovalRequest, AuditItem } from './api-agents';
 import type { ProcsApi } from './api-procs';
+import type { IslandToolsApi } from './api-island-tools';
 import type { NetApi } from './api-net';
+import type { FwApi } from './api-fw';
 import type { SyncApi } from './api-sync';
+import type { NoteSyncApi } from './api-notesync';
 import type { TerminalApi } from './api-terminal';
+import type { AgentTermApi } from './api-agentterm';
+import type { GuideApi } from './api-guide';
+import type { ControlsApi } from './api-controls';
 import type { PreviewApi } from './previewTypes';
 import type { WidgetConfig } from './widgets';
 import type {
@@ -197,6 +205,8 @@ export interface IslandState {
   devices?: DevicesState;
   /** reasons automatic keep-awake is on */
   awakeTriggers?: string[];
+  /** Keep Awake is switched on in Settings → Features (its controls show) */
+  awakeAvailable?: boolean;
   /** hidden by the user or because an app is full screen */
   hidden?: boolean;
   clips: ClipItem[];
@@ -218,6 +228,8 @@ export interface IslandState {
   /** countdown timers from Alarms (running: endsAt; paused: leftMs) */
   countdowns?: { id: string; label: string; endsAt?: number; leftMs?: number; durationMs: number }[];
   alerts: IslandAlert[];
+  /** Monorail's workspace and slide, when it is installed and switched on (Settings → Ashforde apps) */
+  monorail?: import('./ashforde/monorail').MonorailState;
 }
 
 export interface IslandPlacementPreview {
@@ -305,14 +317,42 @@ export interface IslandSettings {
   activitiesOff?: string[];
   /** open the Island when the pointer rests on it (tap or click always works) */
   hoverOpen?: boolean;
+  /** how long the pointer rests before it opens, in ms */
+  hoverDelayMs?: number;
+  /** the Island's tools in the person's order, and the ones turned off (see core/island-tools/tools.ts) */
+  toolOrder?: string[];
+  toolsOff?: string[];
+  /** a shortcut that opens the Island from anywhere */
+  openShortcut?: string;
+  /** a sound while focusing: off, white, pink or brown noise, or rain */
+  focusSound?: 'off' | 'white' | 'pink' | 'brown' | 'rain';
+  focusVolume?: number;
+  /** copy files dropped on the shelf into a folder, kept for a number of days */
+  shelfKeepCopies?: boolean;
+  shelfFolder?: string;
+  shelfRetentionDays?: number;
+  /** let the Island's player answer the keyboard's media keys */
+  mediaKeys?: boolean;
 }
 
 export interface KeeperApi extends KeeperApiX {
+  /** tabs and windows that survive crashes */
+  session: import('./api-session').SessionApi;
+  /** Keeper's own processes and services */
+  svc: import('./api-session').SvcApi;
+  /** the Island's tools: Ask, AI usage, sales, stocks, notes, to-dos, teleprompter, shortcuts */
+  islandTools: IslandToolsApi;
   places: PlacesApi;
   /** Keeper's own use of the computer */
   usage: UsageApi;
   /** switch parts of Keeper on and off */
   features: FeaturesApi;
+  /** anonymous usage stats: the switch, exactly what is sent, and the install ID */
+  usageStats: import('./telemetry').UsageStatsApi;
+  /** Keeper's sister apps by Ashforde (Monorail on macOS) */
+  ashforde: AshfordeApi;
+  /** Keep Awake: sessions, triggers, closed-lid mode, statistics */
+  awake: import('./api-awake').AwakeApi;
   /** Cloud & servers: cloud services, servers, home servers, NAS boxes and other computers */
   remote: RemoteApi;
   platform: PlatformApi;
@@ -323,20 +363,44 @@ export interface KeeperApi extends KeeperApiX {
   screen: ScreenApi;
   /** sync between your devices, backups to drives and cloud services, mirrors */
   sync: SyncApi;
+  /** Notes Everywhere: notes from every notes app in one hub */
+  notesync: NoteSyncApi;
   /** Keeper's brain: passage index, meaning search, the AI harness and the AI apps it serves */
   brain: BrainApi;
+  /** abilities any AI can use: the web, pictures, code, memory, schedules, personas, projects, teams */
+  abilities: AbilitiesApi;
   /** AI agents: services and costs, permissions and approvals, the gateway, skills, learning, the knowledge graph */
   agents: AgentsApi;
+  /** computer use: Keeper's browser for AIs, private desktops, plans, saved sign-ins, workflows */
+  cu: import('./api-cu').CuApi;
   /** the process manager and services in Health */
   procs: ProcsApi;
   /** Mail, calendars, reminders, alarms and contacts */
   pim: PimApi;
+  /** Notes: vaults of Markdown files, links, search, canvas, bases, publishing */
+  notes: import('./api-notes').NotesApi;
   /** Network Activity (who talks to whom, which way) and VPN connections */
   net: NetApi;
+  /** Keeper's firewall: rules, alerts, DNS filter, history */
+  fw: FwApi;
   /** the terminal: shells, profiles, sessions that outlive the window, remote files */
   terminal: TerminalApi;
+  /** agents' own terminals and the hub where agents of every kind work together */
+  agentterm: AgentTermApi;
+  /** guided fixes: the To do list, settings deep links and step-by-step help */
+  guide: GuideApi;
+  /** Quick Controls: system network, firewall, privacy and security switches */
+  controls: ControlsApi;
+  /** System Settings+: the catalogue of system settings */
+  catalog: import('./api-settingsplus').CatalogApi;
+  /** per-app controls */
+  appctl: import('./api-settingsplus').AppCtlApi;
+  /** tabs and site settings in browsers linked through Keeper's extension */
+  browserTabs: import('./api-settingsplus').BrowserTabsApi;
   /** universal file previews */
   preview: PreviewApi;
+  /** saved workflows and the outside engines the file kit can use */
+  filekit: import('./api-filekit').FileKitApi;
   /** video, audio, picture, PDF and file tools; results always go to a new folder */
   convert: {
     run(job: ConvertJob): Promise<ConvertResult>;
@@ -345,6 +409,24 @@ export interface KeeperApi extends KeeperApiX {
     duration(path: string): Promise<number | null>;
     /** how many pages a PDF has */
     pageCount(path: string): Promise<number | null>;
+    /** codecs, size, frame rate and details of a video or audio file */
+    mediaInfo(path: string): Promise<import('./media-ops').MediaInfo>;
+    /** the fields of a PDF form */
+    /** iPhone and iPad backups on this computer */
+    phoneBackups(): Promise<{ folders: string[]; backups: import('./phone-backups').PhoneBackup[] }>;
+    /** external displays and their brightness, contrast and volume (DDC/CI) */
+    displays(): Promise<{ displays: import('./display-control').DisplayInfo[]; note?: string }>;
+    setDisplay(id: string, control: import('./display-control').DisplayControl, value: number): Promise<void>;
+    /** small JPEG data URLs of every page, for the visual organizer */
+    pdfThumbs(path: string): Promise<string[]>;
+    pdfFields(path: string): Promise<{ name: string; type: string; value: string; options?: string[] }[]>;
+    /** saves a web page as a PDF (in Downloads unless a folder is given); returns the file */
+    webToPdf(url: string, o: { pageSize: 'a4' | 'letter'; onePage: boolean; outDir?: string }): Promise<string>;
+    /** saves a video (or its sound) from a web page into Downloads/Keeper Videos; progress arrives as 'download-video' */
+    downloadVideo(o: { url: string; quality: 'best' | '1080' | '720' | 'audio'; playlist?: boolean; cookiesFrom?: 'chrome' | 'firefox' | 'safari' | 'edge' | 'brave'; subtitles?: boolean; folder?: string }): Promise<string[]>;
+    cancelDownload(): Promise<void>;
+    /** saves a voice recording (base64 of the recorded bytes) under Music/Keeper Recordings; returns the file */
+    saveRecording(base64: string, ext: string): Promise<string>;
   };
   system: {
     info(): Promise<SystemInfo>;
@@ -464,6 +546,8 @@ export interface KeeperApi extends KeeperApiX {
   protection: {
     check(): Promise<ProtectionReport>;
   };
+  /** Privacy & Security: permissions, browsers, connections, posture, malware protection */
+  security: import('./api-security').SecurityApi;
   rules: {
     list(): Promise<Rule[]>;
     save(rule: Rule): Promise<Rule[]>;
@@ -539,7 +623,20 @@ export interface KeeperApi extends KeeperApiX {
   on(channel: 'widgets-changed', cb: () => void): () => void;
   on(channel: 'places-changed', cb: () => void): () => void;
   on(channel: 'features-changed', cb: () => void): () => void;
+  on(channel: 'ashforde-changed', cb: () => void): () => void;
+  on(channel: 'awake-changed', cb: (s: import('./api-awake').AwakeStatus) => void): () => void;
+  on(channel: 'resilience', cb: (e: { kind: 'reloaded' | 'service-restarted'; reason?: string; name?: string }) => void): () => void;
+  on(channel: 'svc-changed', cb: () => void): () => void;
   on(channel: 'remote-changed', cb: () => void): () => void;
+  on(channel: 'fw-changed', cb: () => void): () => void;
+  on(channel: 'fw-alert', cb: (a: import('./api-fw').FwAlert) => void): () => void;
+  on(channel: 'fw-event', cb: (e: import('./api-fw').FwEvent) => void): () => void;
+  on(channel: 'controls-changed', cb: () => void): () => void;
+  on(channel: 'catalog-changed', cb: () => void): () => void;
+  on(channel: 'browsers-changed', cb: () => void): () => void;
+  on(channel: 'guide-changed', cb: (s: import('./guide/types').GuideSummary) => void): () => void;
+  on(channel: 'notes-changed', cb: (e: { vault: string; paths: string[] }) => void): () => void;
+  on(channel: 'guide-mini', cb: (id: string) => void): () => void;
   on(channel: 'pim-changed', cb: (kind: string, extra?: unknown) => void): () => void;
   on(channel: 'pim-ring', cb: (r: import('./api-pim').Ring) => void): () => void;
   on(channel: 'pim-ring-stop', cb: (id: string) => void): () => void;
@@ -552,6 +649,9 @@ export interface KeeperApi extends KeeperApiX {
   on(channel: 'agent-approval', cb: (a: ApprovalRequest) => void): () => void;
   on(channel: 'agent-approval-done', cb: (id: string) => void): () => void;
   on(channel: 'agent-audit', cb: (e: AuditItem) => void): () => void;
+  on(channel: 'computer-state', cb: (s: import('./api-agents').ComputerState) => void): () => void;
+  on(channel: 'cu-changed', cb: () => void): () => void;
+  on(channel: 'computer-stopped', cb: (reason: string) => void): () => void;
   on(channel: 'brain-step', cb: (d: BrainStep) => void): () => void;
   on(channel: 'lock-progress', cb: (p: import('./vault').VaultProgress & { target: string }) => void): () => void;
   on(channel: 'island-open', cb: (tab: string) => void): () => void;
@@ -563,8 +663,12 @@ export interface KeeperApi extends KeeperApiX {
   on(channel: 'term-trigger', cb: (id: string, triggerId: string, line: string) => void): () => void;
   on(channel: 'term-notes', cb: (key: string, text: string) => void): () => void;
   on(channel: 'term-open', cb: (q: Record<string, string>) => void): () => void;
+  on(channel: 'security-event', cb: (e: import('./security/types').SecurityEvent) => void): () => void;
+  on(channel: 'security-scan', cb: (p: import('./security/types').ScanProgress) => void): () => void;
+  on(channel: 'agentterm-changed', cb: () => void): () => void;
   on(channel: 'island-layout', cb: (p: import('./island-place').Placement) => void): () => void;
   on(channel: 'link-changed', cb: () => void): () => void;
+  on(channel: 'notesync-changed', cb: () => void): () => void;
   on(channel: 'screen-state', cb: (s: import('./api-screen').ScreenState) => void): () => void;
   on(channel: 'screen-ask', cb: (a: { id: string; name: string; control: boolean }) => void): () => void;
   on(channel: 'screen-signal', cb: (sid: string, m: Record<string, unknown>) => void): () => void;

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // A small music player in the toolbar: double-click a song to play it here.
 // The other songs in the same folder become the queue, with shuffle, repeat,
 // seeking and volume.

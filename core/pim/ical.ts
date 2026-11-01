@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // iCalendar (RFC 5545): reading and writing events (VEVENT), tasks (VTODO) and
 // their alarms, with time zones, repeats, cancelled dates and changed
 // occurrences. Used for CalDAV, .ics subscriptions, imports and invitations.

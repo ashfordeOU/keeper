@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Runs a parsed Query against indexed files and ranks the results.
 
 import type { FileEntry, Query, SearchHit } from '../types';

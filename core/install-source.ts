@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Which package manager (if any) installed this copy of Keeper. A copy that a
 // package manager owns should be updated by that package manager, not replace
 // itself. Pure: the caller passes the executable path, the environment, the

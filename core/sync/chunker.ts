@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Content-defined chunking: cut points depend on the bytes themselves, so
 // inserting a byte early in a file moves only the chunks around it, and the
 // rest of the file is recognised as already there (by sync and by backups).

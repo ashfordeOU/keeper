@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Usage (Linux): xvfb-run -a node test/e2e/sync.cjs <scratch dir> <screenshots dir>
 // Two real Keeper apps on this computer, each with its own home folder, pair
 // over Keeper Link (through the windows, with the code and the six-digit check),

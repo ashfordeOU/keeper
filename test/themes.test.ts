@@ -1,9 +1,9 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 import { describe, expect, it } from 'vitest';
-import { checkTheme, contrast, parseColor, resolveMode, themeById, themeVariables, THEMES, TOKEN_KEYS } from '../core/themes';
+import { checkTheme, contrast, hemisphereFor, parseColor, resolveMode, seasonalThemeId, seasonFor, themeById, themeCategory, themeVariables, THEMES, TOKEN_KEYS } from '../core/themes';
 
 const NOT_COLOURS = new Set(['shadow', 'shadow-pop', 'radius', 'radius-sm', 'app-bg']);
-const ONLY_DARK = ['terminal', 'neon'];
+const ONLY_DARK = ['terminal', 'neon', 'aurora', 'amber'];
 const ONLY_LIGHT = ['candy', 'retro'];
 
 describe('colour maths', () => {
@@ -68,3 +68,79 @@ describe('themes', () => {
     expect(v['--font']).toContain('monospace');
   });
 });
+
+describe('the collection', () => {
+  it('has 38 themes: 28 in the main collection, 5 seasonal and 5 unique showpieces', () => {
+    const count = (c: string) => THEMES.filter((t) => themeCategory(t) === c).length;
+    expect(THEMES.length).toBe(38);
+    expect(count('main')).toBe(28);
+    expect(count('seasonal')).toBe(5);
+    expect(count('unique')).toBe(5);
+  });
+  it('has one seasonal theme for each season', () => {
+    const seasons = THEMES.filter((t) => t.season).map((t) => t.season).sort();
+    expect(seasons).toEqual(['autumn', 'festive', 'spring', 'summer', 'winter']);
+    for (const t of THEMES.filter((x) => x.season)) expect(themeCategory(t)).toBe('seasonal');
+  });
+  it('every theme has a name, a tagline and tags', () => {
+    for (const t of THEMES) {
+      expect(t.name.length, t.id).toBeGreaterThan(2);
+      expect(t.tagline.length, t.id).toBeGreaterThan(10);
+      expect(t.tags.length, t.id).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe('following the seasons', () => {
+  const d = (y: number, m: number, day: number) => new Date(y, m - 1, day, 12);
+  it('uses meteorological seasons in the north', () => {
+    expect(seasonFor(d(2026, 1, 20), 'north')).toBe('winter');
+    expect(seasonFor(d(2026, 3, 1), 'north')).toBe('spring');
+    expect(seasonFor(d(2026, 7, 15), 'north')).toBe('summer');
+    expect(seasonFor(d(2026, 10, 31), 'north')).toBe('autumn');
+    expect(seasonFor(d(2026, 12, 1), 'north')).toBe('winter');
+  });
+  it('flips them south of the equator', () => {
+    expect(seasonFor(d(2026, 1, 20), 'south')).toBe('summer');
+    expect(seasonFor(d(2026, 4, 10), 'south')).toBe('autumn');
+    expect(seasonFor(d(2026, 7, 15), 'south')).toBe('winter');
+    expect(seasonFor(d(2026, 10, 31), 'south')).toBe('spring');
+  });
+  it('has a festive stretch at the end of the year everywhere', () => {
+    for (const h of ['north', 'south'] as const) {
+      expect(seasonFor(d(2026, 12, 14), h)).not.toBe('festive');
+      expect(seasonFor(d(2026, 12, 15), h)).toBe('festive');
+      expect(seasonFor(d(2027, 1, 6), h)).toBe('festive');
+      expect(seasonFor(d(2027, 1, 7), h)).not.toBe('festive');
+    }
+  });
+  it('maps each season to its theme', () => {
+    expect(seasonalThemeId(d(2026, 1, 20), 'north')).toBe('frost');
+    expect(seasonalThemeId(d(2026, 4, 20), 'north')).toBe('meadow');
+    expect(seasonalThemeId(d(2026, 7, 20), 'north')).toBe('summer');
+    expect(seasonalThemeId(d(2026, 10, 20), 'north')).toBe('autumn');
+    expect(seasonalThemeId(d(2026, 12, 24), 'south')).toBe('festive');
+    expect(seasonalThemeId(d(2026, 7, 20), 'south')).toBe('frost');
+  });
+  it('finds the hemisphere from latitude first, then the time zone', () => {
+    expect(hemisphereFor(-33.9, 'Europe/London')).toBe('south');
+    expect(hemisphereFor(51.5, 'Australia/Sydney')).toBe('north');
+    expect(hemisphereFor(undefined, 'Australia/Sydney')).toBe('south');
+    expect(hemisphereFor(null, 'America/Sao_Paulo')).toBe('south');
+    expect(hemisphereFor(undefined, 'Pacific/Auckland')).toBe('south');
+    expect(hemisphereFor(undefined, 'Africa/Johannesburg')).toBe('south');
+    expect(hemisphereFor(undefined, 'Europe/Tallinn')).toBe('north');
+    expect(hemisphereFor(undefined, 'Asia/Kolkata')).toBe('north');
+    expect(hemisphereFor(undefined, undefined)).toBe('north');
+  });
+});
+
+describe('danger buttons', () => {
+  it('white text on light-mode danger and dark text on dark-mode danger both read (src/styles/themes.css)', () => {
+    for (const t of THEMES) {
+      if (t.light) expect(contrast('#ffffff', t.light.danger), `${t.id} light`).toBeGreaterThanOrEqual(4.5);
+      if (t.dark) expect(contrast('#1a0507', t.dark.danger), `${t.id} dark`).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+});
+

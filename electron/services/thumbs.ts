@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Thumbnails for every kind of file, cached on disk (keyed by path, size and
 // modification time) and trimmed oldest-first when the cache grows too big.
 

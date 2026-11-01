@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 # Builds Keeper's signed apt and dnf repositories for a release. Run by the release workflow
 # when KEEPER_GPG_PRIVATE_KEY is set (the key must already be imported; KEEPER_GPG_KEY_ID names it).
 #

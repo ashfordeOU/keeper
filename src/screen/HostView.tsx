@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The banner shown at the top of the screen while another device watches it.
 // It is also the part that captures the screen: it sends a WebRTC video track
 // when a direct connection works, and JPEG frames through Keeper Link when it

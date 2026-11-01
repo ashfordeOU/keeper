@@ -1,0 +1,39 @@
+/* SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 */
+/* Keeper's abilities: settings, teams, schedules, personas, memory. */
+.abil h2 { font-size: 15px; margin: 22px 0 8px; }
+.abil .card { margin-bottom: 10px; padding: 12px 14px; }
+.abil-head { gap: 14px; }
+.abil-group { padding: 6px 14px; }
+.abil-title { text-transform: uppercase; letter-spacing: .06em; font-size: 10.5px; padding: 6px 0 2px; }
+.abil-row { gap: 14px; padding: 9px 0; border-top: 1px solid var(--line); align-items: flex-start; }
+.abil-row:first-of-type { border-top: 0; }
+.abil-row .badge { margin-left: 6px; font-size: 10px; }
+.abil-form { display: flex; flex-direction: column; gap: 10px; }
+.abil-form label { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--text-2); }
+.abil-form label.row { flex-direction: row; align-items: center; }
+.abil-form .err, .abil .err { color: #d23b48; }
+.abil-teams { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
+.abil-team { display: flex; flex-direction: column; gap: 8px; margin: 0 !important; }
+.abil-team .row { gap: 8px; }
+.abil-team.new { border-style: dashed; background: transparent; }
+.abil-avatar { font-size: 20px; width: 28px; text-align: center; }
+.abil-members { display: flex; flex-direction: column; gap: 4px; max-height: 220px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; }
+.abil-members label { gap: 8px; color: var(--text); }
+.abil-compare { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; margin-top: 12px; }
+.abil-compare .card { margin: 0; padding: 10px 12px; }
+.abil-answer { white-space: pre-wrap; line-height: 1.5; margin: 6px 0; font-size: 13.5px; }
+.abil-transcript { margin-top: 12px; }
+.abil-entry { padding: 8px 0; border-top: 1px solid var(--line); }
+.abil-entry .badge { font-size: 10px; }
+.abil-entry.err { opacity: .7; }
+.abil-task .btn-row, .abil-team .btn-row { gap: 6px; }
+.abil-task { display: flex; flex-direction: column; gap: 6px; }
+.abil-mem { gap: 8px; padding: 6px 0; border-top: 1px solid var(--line); }
+.abil-mem:first-child { border-top: 0; }
+.abil-mem .btn.on { color: var(--accent); }
+.input.bare { border-color: transparent; background: transparent; padding: 2px 4px; width: 100%; }
+.input.bare:focus { border-color: var(--line); background: var(--bg-elev); }
+.abil-costs { width: 100%; border-collapse: collapse; font-size: 13px; }
+.abil-costs td { padding: 4px 6px; border-top: 1px solid var(--line); }
+.voice-btn.on { color: #d23b48; }
+.composer select.input { max-width: 150px; height: 42px; flex: none; }

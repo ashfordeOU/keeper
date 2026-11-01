@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The Weather page beyond the Island tile: saved places, health advice for air
 // quality and UV, official alerts (US), radar tiles, climate comparison and
 // forecasts for trips taken from the calendar.

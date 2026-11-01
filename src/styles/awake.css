@@ -1,0 +1,26 @@
+/* SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 */
+/* Keep Awake page */
+.awake-page .awake-h { margin: 18px 0 8px; font-size: 15px; }
+.awake-hero { display: flex; align-items: center; gap: 16px; padding: 16px; flex-wrap: wrap; }
+.awake-hero.on { background: linear-gradient(0deg, var(--warn-soft), var(--warn-soft)), var(--bg-elev); }
+.awake-switch { width: 64px; height: 64px; border-radius: 50%; border: 1px solid var(--line); background: var(--bg-sunk); color: var(--text-2); display: grid; place-items: center; cursor: default; flex: none; transition: background .15s, color .15s; }
+.awake-switch.on { background: var(--warn); color: #fff; border-color: transparent; box-shadow: 0 0 0 6px var(--warn-soft); }
+.awake-switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.awake-hero-txt { flex: 1 1 260px; min-width: 0; display: grid; gap: 3px; }
+.awake-state { font-size: 16px; font-weight: 650; }
+.awake-hero-ctl { display: flex; gap: 6px; flex-wrap: wrap; }
+.awake-notice { color: var(--warn); font-size: 12.5px; display: flex; gap: 5px; align-items: center; }
+.awake-cond .txt select, .awake-cond .txt input { max-width: 100%; }
+.awake-days { display: inline-flex; gap: 3px; }
+.awake-days .chip { border: 0; cursor: default; padding: 3px 7px; }
+.awake-days .chip.on { background: var(--accent); color: var(--accent-text); }
+.awake-editor { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: var(--bg-sunk); padding: 4px 0; }
+.awake-test { padding: 6px 14px; display: grid; gap: 3px; font-size: 12.5px; }
+.awake-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; padding: 10px 14px; }
+.awake-stats div { display: grid; }
+.awake-stats b { font-size: 17px; }
+.awake-stats span { color: var(--text-2); font-size: 12px; }
+.awake-week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; height: 90px; padding: 6px 14px 4px; align-items: end; }
+.awake-week div { display: grid; grid-template-rows: 1fr auto; height: 100%; align-items: end; justify-items: center; gap: 3px; }
+.awake-week i { width: 70%; min-height: 2px; background: var(--warn); border-radius: 4px 4px 1px 1px; display: block; }
+.awake-week span { font-size: 11px; color: var(--text-2); }

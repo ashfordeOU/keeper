@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // WebDAV: Nextcloud, ownCloud, home servers, NAS boxes and any server that
 // speaks it. Plain HTTP(S) requests; self-signed certificates only when the
 // person allowed them for this connection.

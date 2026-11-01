@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Usage (Linux CI): xvfb-run -a node test/e2e/brain.cjs /tmp/kb /tmp/kb-shots [models-dir]
 // Drives the real Keeper app with a made-up home folder and a stand-in AI
 // (a tiny OpenAI-compatible server in this process): the brain reads the

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // What the host runs to move the pointer and press keys, per OS, built from
 // sanitised events. Pure, so the exact commands are tested; the Electron side
 // only spawns them.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // CalDAV and CardDAV (RFC 4791, 6352, 6578): the request bodies Keeper sends
 // and the answers it reads. The HTTP side lives in the main process.
 

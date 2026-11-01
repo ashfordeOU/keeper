@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Sync between devices, backups and mirrors, as the window sees them.
 
 import type { SnapshotSummary } from './sync/backup';

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The Weather page's data: saved places, forecasts, official alerts, radar
 // frames, climate averages and forecasts for places in upcoming events.
 // Only coordinates of places the user chose are ever sent.

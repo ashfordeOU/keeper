@@ -1,0 +1,16 @@
+/* SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 */
+/* Tabs in the main window: compact, under the top bar, out of the way with one tab. */
+.tab-strip { display: flex; align-items: center; gap: 2px; padding: 4px 10px 0; border-bottom: 1px solid var(--line); background: var(--bg-sunk); overflow-x: auto; scrollbar-width: none; flex: none; -webkit-app-region: no-drag; }
+.tab-strip::-webkit-scrollbar { display: none; }
+.tab-strip .tab { display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 6px 0 10px; border-radius: 8px 8px 0 0; font-size: 12.5px; color: var(--text-2); min-width: 0; max-width: 220px; flex: 0 1 180px; cursor: default; border: 1px solid transparent; border-bottom: 0; position: relative; user-select: none; }
+.tab-strip .tab:hover { background: var(--bg-hover); color: var(--text); }
+.tab-strip .tab.on { background: var(--bg); color: var(--text); border-color: var(--line); font-weight: 550; }
+.tab-strip .tab.on::after { content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 1px; background: var(--bg); }
+.tab-strip .tab.pinned { flex: none; padding: 0 10px; }
+.tab-strip .tab.dragging { opacity: .45; }
+.tab-strip .tab-title { flex: 1; min-width: 0; }
+.tab-strip .tab-close { border: 0; background: none; color: inherit; width: 18px; height: 18px; border-radius: 5px; display: grid; place-items: center; opacity: 0; flex: none; padding: 0; }
+.tab-strip .tab:hover .tab-close, .tab-strip .tab.on .tab-close { opacity: .6; }
+.tab-strip .tab-close:hover { opacity: 1; background: var(--bg-active); }
+.tab-strip .tab-new { border: 0; background: none; color: var(--text-3); width: 26px; height: 26px; border-radius: 7px; display: grid; place-items: center; flex: none; margin-left: 2px; }
+.tab-strip .tab-new:hover { background: var(--bg-hover); color: var(--text); }

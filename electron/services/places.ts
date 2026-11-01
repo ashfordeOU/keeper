@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Places on this computer: favourite folders, cloud drives, disks, network
 // shares and servers announcing themselves on the network; Connect to Server,
 // ejecting, the Trash / Recycle Bin, and sharing (AirDrop and friends).
@@ -6,7 +6,7 @@
 import { BrowserWindow, dialog, ShareMenu, shell } from 'electron';
 import { spawn } from 'node:child_process';
 import dgram from 'node:dgram';
-import { existsSync, promises as fsp, readdirSync, statSync } from 'node:fs';
+import { existsSync, promises as fsp, readdirSync, statSync, watch as watchDir } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import type { ConnectRequest, ConnectResult, ShareTarget, TrashItem, TrashListing } from '../../core/api-places';
@@ -191,7 +191,17 @@ export function watchPlaces(onChange: () => void) {
   };
   stopWatch?.();
   clearInterval(watchTimer);
-  stopWatch = poll('places.mounts', { baseMs: 4000, idleFactor: 4, pauseWhenLocked: true }, tick, { feature: 'places' });
+  // On a Mac, /Volumes changes the moment a disk comes or goes, so the regular look can be rare.
+  let volWatch: import('node:fs').FSWatcher | undefined;
+  if (isMac) {
+    try {
+      volWatch = watchDir('/Volumes', () => void tick());
+    } catch {
+      volWatch = undefined;
+    }
+  }
+  const stopPoll = poll('places.mounts', { baseMs: volWatch ? 30_000 : 4000, idleFactor: volWatch ? 2 : 8, pauseWhenLocked: true }, tick, { feature: 'places' });
+  stopWatch = () => { stopPoll(); volWatch?.close(); };
 }
 
 // ---------------------------------------------------------------- eject

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Keeper's connections: cloud services, servers, home servers, NAS boxes and
 // other computers. Remembers them (passwords and sign-in tokens in the
 // system keychain, never in plain files), opens them when needed, keeps an

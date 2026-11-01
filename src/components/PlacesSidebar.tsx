@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Favourites and Locations in the sidebar, like a file manager's: the folders
 // people use, cloud drives, this computer, every disk (with eject), network
 // servers, AirDrop on a Mac, the Network page and the Trash.

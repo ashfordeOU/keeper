@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Keeper as a Model Context Protocol server, so any AI app that speaks MCP
 // (desktop chat apps, code editors, the operating system's agent hosts) can
 // search and read the person's files through Keeper's brain, with the same
@@ -39,7 +39,7 @@ export interface McpBackend {
   redact?: boolean;
   /** more tools: agent actions (each behind the person's permission), skills, the knowledge graph */
   extraTools?(): McpTool[];
-  callExtra?(name: string, args: Record<string, unknown>, client: string): Promise<{ text: string; isError?: boolean; structured?: unknown }>;
+  callExtra?(name: string, args: Record<string, unknown>, client: string): Promise<{ text: string; isError?: boolean; structured?: unknown; images?: { mime: string; data: string }[] }>;
   /** skills offered to agents as prompts */
   prompts?: { list(): { name: string; description: string }[]; get(name: string): string | undefined };
 }
@@ -58,9 +58,13 @@ function toolOnly(local: boolean): ChatProvider {
   return { id: 'mcp', label: 'MCP client', model: '', local, supportsTools: true, contextTokens: 200_000, chat: async () => ({ text: '', toolCalls: [], stop: 'end' }) };
 }
 
+const firstText = (c: { type: string; text?: string }[]) => c.find((x) => x.type === 'text')?.text ?? '';
+
 export class McpServer {
   private initialized = false;
   clientInfo?: { name?: string; version?: string };
+  /** who is calling, when Keeper knows (an agent it started carries a token: "hub:<agent id>") */
+  agent?: string;
 
   constructor(private backend: McpBackend) {}
 
@@ -132,9 +136,9 @@ export class McpServer {
           else if (uri.startsWith('keeper://saved/')) {
             const s = (this.backend.savedSearches?.() ?? []).find((x) => x.id === decodeURIComponent(uri.slice('keeper://saved/'.length)));
             if (!s) return fail(-32002, 'Resource not found');
-            text = (await this.callTool('search_files', { query: s.text, limit: 30 })).content[0].text;
+            text = firstText((await this.callTool('search_files', { query: s.text, limit: 30 })).content);
           } else if (uri.startsWith('keeper://search/')) {
-            text = (await this.callTool('search_files', { query: decodeURIComponent(uri.slice('keeper://search/'.length)), limit: 20 })).content[0].text;
+            text = firstText((await this.callTool('search_files', { query: decodeURIComponent(uri.slice('keeper://search/'.length)), limit: 20 })).content);
           } else return fail(-32002, 'Resource not found');
           return ok({ contents: [{ uri, mimeType, text }] });
         }
@@ -157,15 +161,17 @@ export class McpServer {
     return this.initialized;
   }
 
-  async callTool(name: string, args: Record<string, unknown>): Promise<{ content: { type: 'text'; text: string }[]; isError?: boolean; structuredContent?: unknown }> {
+  async callTool(name: string, args: Record<string, unknown>): Promise<{ content: ({ type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string })[]; isError?: boolean; structuredContent?: unknown }> {
     if (name === 'ask_keeper') {
       if (!this.backend.ask) return { content: [{ type: 'text', text: 'No AI is set up in Keeper. Use search_files and read_file instead.' }], isError: true };
       const r = await this.backend.ask(String(args.question ?? ''));
       return { content: [{ type: 'text', text: r.answer + (r.sources.length ? `\n\nSources:\n${r.sources.map((s) => `- ${s.path}`).join('\n')}` : '') }], structuredContent: { answer: r.answer, sources: r.sources.map((s) => s.path) } };
     }
     if (this.backend.callExtra && (this.backend.extraTools?.() ?? []).some((t) => t.name === name)) {
-      const r = await this.backend.callExtra(name, args, this.clientInfo?.name ?? 'an AI app');
-      return { content: [{ type: 'text', text: r.text }], ...(r.isError ? { isError: true } : {}), ...(r.structured !== undefined ? { structuredContent: r.structured } : {}) };
+      const r = await this.backend.callExtra(name, args, this.agent ?? this.clientInfo?.name ?? 'an AI app');
+      // Pictures (the computer tool's screenshots) go back as MCP image content.
+      const pics = (r.images ?? []).map((i) => ({ type: 'image' as const, data: i.data, mimeType: i.mime }));
+      return { content: [...pics, { type: 'text', text: r.text }], ...(r.isError ? { isError: true } : {}), ...(r.structured !== undefined ? { structuredContent: r.structured } : {}) };
     }
     if (name === 'propose_actions' || !this.tools().some((t) => t.name === name)) return { content: [{ type: 'text', text: `Unknown tool: ${name}` }], isError: true };
     const h = new Harness(toolOnly(this.backend.redact === false), this.backend.env);

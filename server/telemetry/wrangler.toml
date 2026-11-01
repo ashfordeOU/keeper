@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
+# Keeper's usage stats server. Step-by-step deploy: README.md in this folder.
+name = "keeper-telemetry"
+main = "src/worker.ts"
+compatibility_date = "2025-09-01"
+# Cloudflare's own request logging stays off: no Workers Logs, no Logpush of request details.
+workers_dev = true
+logpush = false
+
+[observability]
+enabled = false
+
+[observability.logs]
+enabled = false
+invocation_logs = false
+
+# The dashboard (plain HTML) is served from the same address at /.
+[assets]
+directory = "./dashboard"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "keeper-telemetry"
+# Replace with the id that `npx wrangler d1 create keeper-telemetry` prints.
+database_id = "00000000-0000-0000-0000-000000000000"
+
+# Daily at 03:17 UTC: keep yesterday's summary, delete raw rows older than 13 months.
+[triggers]
+crons = ["17 3 * * *"]
+
+# After the first deploy, attach the custom domain (README step 6), e.g.:
+# routes = [{ pattern = "telemetry.ashforde.org", custom_domain = true }]

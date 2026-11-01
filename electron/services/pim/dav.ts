@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Calendars, tasks and contacts over CalDAV/CardDAV (iCloud, Fastmail,
 // Nextcloud, Google, any standard server), .ics subscriptions, and Microsoft
 // 365 calendars through Microsoft Graph.

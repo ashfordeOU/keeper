@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Talks to keeper-helper, the small native program that gives Keeper macOS's
 // own abilities (the on-device model, Live Text, Spotlight). One process,
 // started on first use, JSON lines both ways. No Electron imports, so tests can

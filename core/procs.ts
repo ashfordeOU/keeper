@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The process manager's pure side: reading what each operating system reports
 // about running programs and services, CPU and disk rates from counters,
 // trees, grouping helpers under their app, and which processes must never be

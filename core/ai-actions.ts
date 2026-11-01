@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // File actions powered by the assistant: suggest a name, summarize, turn
 // receipts into a spreadsheet, describe an image, translate subtitles.
 // Unlike the assistant's chat, these send the file's text (or the image) to the

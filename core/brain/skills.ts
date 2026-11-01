@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Skills: instructions an AI loads only when it needs them. Each skill is a
 // folder with a SKILL.md (YAML front matter with a name and a description, then
 // Markdown) and optional files beside it — the open Agent Skills format, so

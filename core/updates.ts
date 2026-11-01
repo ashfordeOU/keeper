@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Finding a newer Keeper on GitHub Releases and the right installer for this
 // computer. Pure functions, shared by the app and its tests.
 

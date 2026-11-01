@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Applications: everything installed, how big it is, and when you last used it.
 
 import { useMemo, useState } from 'react';
@@ -14,7 +14,7 @@ type Filter = 'all' | 'unused' | 'large';
 type Sort = 'name' | 'size' | 'used';
 
 export function Apps() {
-  const { settings, toast, info } = useStore();
+  const { settings, toast, info, go } = useStore();
   const list = useAsync(() => api.apps.list(), []);
   const [filter, setFilter] = useState<Filter>('all');
   const [sort, setSort] = useState<{ key: Sort; desc: boolean }>({ key: 'size', desc: true });
@@ -83,6 +83,7 @@ export function Apps() {
                     <td className="muted">{a.lastUsed ? relativeTime(a.lastUsed) : 'Unknown'}</td>
                     <td style={{ textAlign: 'right' }}>
                       <button className="btn ghost sm icon" title="Show in folder" onClick={() => void api.files.reveal(a.path)}><Icon name="reveal" size={13} /></button>
+                      <button className="btn ghost sm icon" title="App settings: network, limits, login, language…" onClick={() => go({ name: 'appcontrols', arg: a.path })}><Icon name="settings" size={13} /></button>
                       {!a.system ? <button className="btn sm" onClick={() => setConfirm(a)}>Uninstall</button> : null}
                     </td>
                   </tr>

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Settings → Mail & Calendar: accounts, notifications, undo send, the week,
 // mail filters, trusted senders and the sign-in IDs for Google and Microsoft.
 

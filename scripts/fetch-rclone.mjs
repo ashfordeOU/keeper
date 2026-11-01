@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Downloads the rclone program Keeper uses for cloud storage (Google Drive,
 // OneDrive, Dropbox, S3 and about seventy more), checks it against a pinned
 // SHA-256 and puts it in vendor/rclone/current, which the packaged app ships.

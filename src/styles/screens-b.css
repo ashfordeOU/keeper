@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 */
 /* Styles for the Tidy, System and More pages. */
 
 .hero { display: flex; align-items: center; gap: 24px; padding: 24px; border-radius: 18px; background: linear-gradient(135deg, var(--accent-soft), transparent 70%), var(--bg-elev); border: 1px solid var(--line); box-shadow: var(--shadow); flex-wrap: wrap; }

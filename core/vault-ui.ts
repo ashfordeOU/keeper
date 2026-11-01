@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Parts of locked folders the interface needs too (no Node modules here).
 
 /** 0 (very weak) … 4 (strong): length and variety, with common patterns marked down. */

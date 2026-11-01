@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 # Installs Keeper on Windows.
 #
 #   irm https://raw.githubusercontent.com/ashfordeOU/keeper/main/scripts/install.ps1 | iex

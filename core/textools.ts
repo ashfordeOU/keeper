@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Pure helpers behind the Toolbox and clipboard: link cleaning, case
 // conversion, text stats, JWT decoding, passwords, Wi-Fi QR payloads, colours.
 
@@ -243,4 +243,133 @@ export function redactPersonal(s: string): { text: string; count: number } {
   ];
   const text = steps.reduce((t, f) => f(t), s);
   return { text, count };
+}
+
+// ---------------------------------------------------------------- more developer helpers
+
+/** MD5 (for comparing with old download pages and checksums; not for security). */
+export function md5(input: string | Uint8Array): string {
+  const bytes = typeof input === 'string' ? new TextEncoder().encode(input) : input;
+  const K = Array.from({ length: 64 }, (_, i) => Math.floor(Math.abs(Math.sin(i + 1)) * 2 ** 32) >>> 0);
+  const S = [7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20, 4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21];
+  const len = bytes.length;
+  const padded = new Uint8Array((((len + 8) >> 6) + 1) << 6);
+  padded.set(bytes);
+  padded[len] = 0x80;
+  const bits = len * 8;
+  const view = new DataView(padded.buffer);
+  view.setUint32(padded.length - 8, bits >>> 0, true);
+  view.setUint32(padded.length - 4, Math.floor(bits / 2 ** 32), true);
+  let a0 = 0x67452301, b0 = 0xefcdab89, c0 = 0x98badcfe, d0 = 0x10325476;
+  for (let off = 0; off < padded.length; off += 64) {
+    const M = Array.from({ length: 16 }, (_, i) => view.getUint32(off + i * 4, true));
+    let A = a0, B = b0, C = c0, D = d0;
+    for (let i = 0; i < 64; i++) {
+      let F: number, g: number;
+      if (i < 16) { F = (B & C) | (~B & D); g = i; }
+      else if (i < 32) { F = (D & B) | (~D & C); g = (5 * i + 1) % 16; }
+      else if (i < 48) { F = B ^ C ^ D; g = (3 * i + 5) % 16; }
+      else { F = C ^ (B | ~D); g = (7 * i) % 16; }
+      F = (F + A + K[i] + M[g]) >>> 0;
+      A = D;
+      D = C;
+      C = B;
+      B = (B + ((F << S[i]) | (F >>> (32 - S[i])))) >>> 0;
+    }
+    a0 = (a0 + A) >>> 0; b0 = (b0 + B) >>> 0; c0 = (c0 + C) >>> 0; d0 = (d0 + D) >>> 0;
+  }
+  return [a0, b0, c0, d0].map((w) => [0, 8, 16, 24].map((s) => ((w >>> s) & 0xff).toString(16).padStart(2, '0')).join('')).join('');
+}
+
+/** Checks an HS256/384/512 token's signature with a shared secret (Web Crypto, works in the app and the CLI). */
+export async function verifyJwtHmac(token: string, secret: string): Promise<{ ok: boolean; alg: string; reason?: string }> {
+  const parts = token.trim().split('.');
+  if (parts.length !== 3) return { ok: false, alg: '?', reason: 'A signed JWT has three parts' };
+  const header = JSON.parse(b64urlDecode(parts[0])) as { alg?: string };
+  const alg = header.alg ?? '?';
+  const hash = { HS256: 'SHA-256', HS384: 'SHA-384', HS512: 'SHA-512' }[alg];
+  if (!hash) return { ok: false, alg, reason: `${alg} tokens are checked with a public key, not a shared secret` };
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash }, false, ['sign']);
+  const sig = new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(`${parts[0]}.${parts[1]}`)));
+  let bin = '';
+  sig.forEach((b) => (bin += String.fromCharCode(b)));
+  const expected = btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return expected === parts[2] ? { ok: true, alg } : { ok: false, alg, reason: 'The signature does not match this secret' };
+}
+
+/** Base64 with the URL-safe alphabet and/or wrapped lines (MIME wraps at 76). */
+export function base64Options(b64: string, o: { urlSafe?: boolean; wrap?: number }): string {
+  let s = o.urlSafe ? b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '') : b64;
+  if (o.wrap && o.wrap > 0) s = s.replace(new RegExp(`(.{${o.wrap}})`, 'g'), '$1\n').trimEnd();
+  return s;
+}
+
+/** What a UUID is: its version, variant, and for v1/v6/v7 the time inside it. */
+export function inspectUuid(s: string): { version: number; variant: string; time?: number } | undefined {
+  const m = s.trim().toLowerCase().match(/^([0-9a-f]{8})-?([0-9a-f]{4})-?([0-9a-f]{4})-?([0-9a-f]{4})-?([0-9a-f]{12})$/);
+  if (!m) return undefined;
+  const hex = m.slice(1).join('');
+  const version = parseInt(hex[12], 16);
+  const v = parseInt(hex[16], 16);
+  const variant = v >= 0xe ? 'reserved' : v >= 0xc ? 'Microsoft' : v >= 0x8 ? 'RFC 9562' : 'NCS';
+  let time: number | undefined;
+  if (version === 7) time = parseInt(hex.slice(0, 12), 16);
+  else if (version === 1 || version === 6) {
+    const ts = version === 1 ? hex.slice(13, 16) + hex.slice(8, 12) + hex.slice(0, 8) : hex.slice(0, 12) + hex.slice(13, 16);
+    time = Number((BigInt('0x' + ts) - 122192928000000000n) / 10000n);
+  }
+  return { version, variant, time };
+}
+
+/** Seconds, milliseconds or microseconds (guessed from the length), or a date, shown in any time zone. */
+export function timestampIn(input: string, timeZone?: string): { ms: number; unit: 's' | 'ms' | 'µs' | 'date'; zoned: string; iso: string; seconds: number; millis: number; micros: string } | undefined {
+  const t = input.trim();
+  let ms: number;
+  let unit: 's' | 'ms' | 'µs' | 'date';
+  if (/^-?\d{1,11}(\.\d+)?$/.test(t)) { ms = Number(t) * 1000; unit = 's'; }
+  else if (/^-?\d{12,14}$/.test(t)) { ms = Number(t); unit = 'ms'; }
+  else if (/^-?\d{15,17}$/.test(t)) { ms = Number(t) / 1000; unit = 'µs'; }
+  else { ms = Date.parse(t); unit = 'date'; }
+  if (!Number.isFinite(ms)) return undefined;
+  const d = new Date(ms);
+  let zoned: string;
+  try {
+    zoned = d.toLocaleString(undefined, { timeZone, dateStyle: 'full', timeStyle: 'long' });
+  } catch {
+    zoned = d.toLocaleString();
+  }
+  return { ms, unit, zoned, iso: d.toISOString(), seconds: Math.floor(ms / 1000), millis: Math.floor(ms), micros: `${Math.floor(ms)}000` };
+}
+
+/** Placeholder text as plain paragraphs, HTML paragraphs or Markdown (with a heading and a list). */
+export function loremAs(text: string, format: 'text' | 'html' | 'markdown'): string {
+  const paras = text.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+  if (format === 'html') return paras.map((p) => `<p>${p}</p>`).join('\n');
+  if (format === 'markdown') {
+    const words = (paras[0] ?? '').split(/\s+/).slice(0, 3).join(' ').replace(/[.,]$/, '');
+    const items = (paras[1] ?? paras[0] ?? '').split(/(?<=\.)\s+/).slice(0, 3).map((s) => `- ${s}`);
+    return [`## ${words}`, '', ...paras.slice(0, 1), '', ...items, '', ...paras.slice(2).flatMap((p) => [p, ''])].join('\n').trim();
+  }
+  return paras.join('\n\n');
+}
+
+export interface SideRow { left: string | null; right: string | null; type: 'same' | 'add' | 'del' | 'change' }
+
+/** Pairs a line diff into two columns: removed and added lines that sit together become one "change" row. */
+export function sideBySide(lines: { type: 'same' | 'add' | 'del'; text: string }[]): SideRow[] {
+  const out: SideRow[] = [];
+  for (let i = 0; i < lines.length; ) {
+    const l = lines[i];
+    if (l.type === 'same') { out.push({ left: l.text, right: l.text, type: 'same' }); i++; continue; }
+    const dels: string[] = [];
+    const adds: string[] = [];
+    // A run of changes may list added lines before removed ones; pair them in order either way.
+    while (i < lines.length && lines[i].type !== 'same') (lines[i].type === 'del' ? dels : adds).push(lines[i++].text);
+    for (let k = 0; k < Math.max(dels.length, adds.length); k++) {
+      const left = dels[k] ?? null;
+      const right = adds[k] ?? null;
+      out.push({ left, right, type: left !== null && right !== null ? 'change' : left !== null ? 'del' : 'add' });
+    }
+  }
+  return out;
 }

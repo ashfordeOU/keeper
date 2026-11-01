@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Devices & Remote: this device, the devices paired with it and what each may
 // do, pairing a new one, files and ports between them, your phone, and how
 // far Keeper Link reaches (this network only, or the internet through a

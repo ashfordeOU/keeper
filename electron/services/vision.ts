@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // On-device text recognition, look-alike photo fingerprints, camera details
 // and plain-text extraction. Runs in the background, newest files first,
 // one at a time so the computer stays responsive.
@@ -12,6 +12,7 @@ import { cameraName, readExif } from '../../core/exif';
 import type { FileIndex } from '../../core/indexer';
 import type { FileEntry } from '../../core/types';
 import { pace, track } from './governor';
+import { guessLatinLanguage, languagesForScript, scriptOfLanguage } from '../../core/ocr-lang';
 
 type TesseractWorker = { recognize(img: Buffer): Promise<{ data: { text: string } }>; terminate(): Promise<unknown> };
 
@@ -73,6 +74,28 @@ export async function ocrImage(img: Electron.NativeImage | Buffer, langs: string
     const png = Buffer.isBuffer(img) ? img : img.toPNG();
     const { data } = await w.recognize(png);
     return data.text.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+  } finally {
+    inFlight--;
+    releaseWorkerSoon();
+  }
+}
+
+/**
+ * Lines of text with where they are (for numbering what is on a screen that
+ * has no accessibility information). Pixels in the image given.
+ */
+export async function ocrLines(png: Buffer, langs: string[] = ['eng']): Promise<{ text: string; x0: number; y0: number; x1: number; y1: number; confidence: number }[]> {
+  inFlight++;
+  clearTimeout(releaseTimer);
+  try {
+    const w = (await getWorker(langs)) as unknown as { recognize(img: Buffer, o?: unknown, out?: unknown): Promise<{ data: { blocks?: { paragraphs?: { lines?: { text: string; confidence: number; bbox: { x0: number; y0: number; x1: number; y1: number } }[] }[] }[] | null } }> };
+    const { data } = await w.recognize(png, {}, { blocks: true, text: false });
+    const out: { text: string; x0: number; y0: number; x1: number; y1: number; confidence: number }[] = [];
+    for (const b of data.blocks ?? []) for (const p of b.paragraphs ?? []) for (const l of p.lines ?? []) {
+      const t = l.text.trim();
+      if (t) out.push({ text: t, confidence: l.confidence, ...l.bbox });
+    }
+    return out;
   } finally {
     inFlight--;
     releaseWorkerSoon();
@@ -222,4 +245,65 @@ export class VisionQueue {
       this.index.setText(f.path, text.length > 3 ? text : '');
     }
   }
+}
+
+// ---------------------------------------------------------------- which language?
+
+type OsdWorker = { detect(img: Buffer): Promise<{ data: { script: string | null; script_confidence: number | null } }>; terminate(): Promise<unknown> };
+let osd: Promise<OsdWorker> | null = null;
+let osdTimer: NodeJS.Timeout | undefined;
+
+/** The writing system of the text in a picture (Latin, Cyrillic, Han…), or null when unsure. */
+export async function detectScript(png: Buffer): Promise<string | null> {
+  clearTimeout(osdTimer);
+  osd ??= import('tesseract.js').then(async (t) => {
+    const cachePath = path.join(app.getPath('userData'), 'tessdata');
+    await fsp.mkdir(cachePath, { recursive: true });
+    // Script detection needs the classic engine and its small detection model (downloaded once).
+    return (await (t as unknown as { createWorker(l: string, oem: number, o: object): Promise<OsdWorker> }).createWorker('osd', 0, { cachePath, legacyCore: true, legacyLang: true }));
+  });
+  osd.catch(() => (osd = null));
+  try {
+    const { data } = await (await osd).detect(png);
+    return data.script && (data.script_confidence ?? 0) >= 0.3 ? data.script : null;
+  } catch {
+    return null;
+  } finally {
+    osdTimer = setTimeout(() => {
+      const w = osd;
+      osd = null;
+      void w?.then((x) => x.terminate()).catch(() => undefined);
+    }, 60_000);
+  }
+}
+
+/**
+ * Text in a picture without knowing its language: the system's recognizer
+ * where there is one (it detects the language and reads neat handwriting),
+ * otherwise script detection, then the matching reader, then for Latin text
+ * a second read in the language the words turn out to be.
+ */
+export async function ocrImageAuto(img: Electron.NativeImage, chosen: string[]): Promise<{ text: string; langs: string[] }> {
+  if (nativeOcr) {
+    const tmp = path.join(app.getPath('temp'), `keeper-ocr-${process.pid}-${Date.now()}.png`);
+    try {
+      await fsp.writeFile(tmp, img.toPNG());
+      const native = await nativeOcr(tmp, []).catch(() => undefined);
+      if (native !== undefined) return { text: native.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim(), langs: ['auto'] };
+    } finally {
+      await fsp.rm(tmp, { force: true });
+    }
+  }
+  const png = img.toPNG();
+  const script = await detectScript(png);
+  let langs = languagesForScript(script, chosen);
+  let text = await ocrImage(png, langs);
+  if (!script || script === 'Latin') {
+    const guess = guessLatinLanguage(text);
+    if (guess && !langs.includes(guess)) {
+      langs = [guess, ...langs.filter((l) => scriptOfLanguage(l) === 'Latin')];
+      text = await ocrImage(png, langs);
+    }
+  }
+  return { text, langs };
 }

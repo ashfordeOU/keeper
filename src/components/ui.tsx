@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Shared building blocks: file thumbnails, grid and list views, chips, toggles,
 // context menu, modal, empty states.
 
@@ -383,6 +383,8 @@ export function useFileMenu() {
     { label: sel.length > 1 ? `Rename ${sel.length} Items…` : 'Rename…', icon: 'rename', run: () => setRenaming(sel) },
     { label: 'Compress', icon: 'zip', run: () => void api.files.compress(sel).then((p) => { store.toast(`Created ${p.split(/[\\/]/).pop()}`); store.refresh(); }) },
     { label: 'Convert…', icon: 'refresh', run: () => store.go({ name: 'convert', arg: JSON.stringify(sel) }) },
+    // Any format to another (pictures, documents, data, subtitles, fonts, 3D, drawings, mail…).
+    { label: 'Convert to…', icon: 'refresh', run: () => store.go({ name: 'convert', arg: JSON.stringify({ tool: 'convert.to', files: sel }) }) },
     ...(state.file.kind === 'image' ? [
       { label: 'Annotate…', icon: 'rename', run: () => store.go({ name: 'annotate', arg: state.file.path }) },
       { label: 'Read Text and Codes', icon: 'text', run: () => void api.capture.readFile(state.file.path).then((r) => { const t = r.code ?? r.text; if (t) { void api.files.copyText(t); store.toast(r.code ? `Copied code: ${r.code}` : 'Copied the text in this image'); } else store.toast('No text found'); }) },

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The Island's windows (one per display when asked), the clipboard picker,
 // desktop widgets, their shortcuts and IPC.
 
@@ -448,6 +448,10 @@ export function registerIslandShortcuts() {
   };
   reg(s.pasteShortcut, () => (clipsWindowOpen() ? hideClips() : openClips()));
   reg(s.shelfShortcut, () => islandWindows.openOn('shelf'));
+  // Opens the Island from anywhere, on the screen with the pointer.
+  reg(s.openShortcut ?? '', () => islandWindows.openOn('home'));
+  // The player's controls from the keyboard's media keys, when the person wants the Island to answer them.
+  if (s.mediaKeys) for (const [key, act] of [['MediaPlayPause', 'toggle'], ['MediaNextTrack', 'next'], ['MediaPreviousTrack', 'previous']] as const) reg(key, () => void ctx.islandSvc.media(act));
   reg(s.hideShortcut, () => ctx.islandSvc.hide(!ctx.islandSvc.hidden));
   reg(s.awakeShortcut, () => {
     const on = !ctx.islandSvc.awake.on;

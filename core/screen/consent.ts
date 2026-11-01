@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Who may see or control this screen, and when Keeper asks first.
 //
 // - A paired computer needs "See this screen" (and "Control this computer" to

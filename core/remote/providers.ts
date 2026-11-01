@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Turns rclone's own description of its storage providers into the list and
 // the sign-in forms Keeper shows, so every provider rclone knows works
 // without Keeper having to describe each one by hand.

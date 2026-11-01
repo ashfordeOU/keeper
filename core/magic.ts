@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Recognises a file from its first bytes, the way the `file` command does, so
 // previews work even when the extension is wrong or missing.
 

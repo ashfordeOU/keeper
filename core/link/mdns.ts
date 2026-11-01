@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Just enough multicast DNS (RFC 6762/6763) for Keeper devices to find each
 // other on the local network as _keeper._tcp, and to read what other services
 // announce. Packets only; the sockets live in the Electron service.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Archives, e-books, fonts, 3D models, e-mail, contacts, calendars, SQLite
 // databases, apps, folders, and a hex view for everything else.
 

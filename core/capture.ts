@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Pure helpers behind the screen tools: capture history, text clean-up,
 // colour formats, the annotate editor's geometry and the beautify layout.
 
@@ -38,6 +38,8 @@ export interface CaptureOptions {
   colorShortcut: string;
   /** after a screenshot, open it in the editor */
   annotateAfterScreenshot: boolean;
+  /** work out the language of the text first (and read handwriting with the system's recognizer where there is one) */
+  autoLanguage: boolean;
 }
 
 export function defaultCaptureOptions(): CaptureOptions {
@@ -54,6 +56,7 @@ export function defaultCaptureOptions(): CaptureOptions {
     recordShortcut: 'CommandOrControl+Alt+R',
     colorShortcut: 'CommandOrControl+Alt+C',
     annotateAfterScreenshot: false,
+    autoLanguage: true,
   };
 }
 
@@ -229,7 +232,10 @@ export interface BeautifyOptions {
   shadow: number;
   /** draw a window title bar above the image */
   frame: boolean;
+  /** a preset id, or any colour as #rrggbb */
   background: string;
+  /** widen or heighten the canvas to a shape for sharing (the picture stays centred) */
+  aspect?: 'free' | '16:9' | '4:5' | '1:1';
 }
 
 export const FRAME_HEIGHT = 34;
@@ -249,8 +255,17 @@ export const BACKGROUNDS: { id: string; label: string; css: string; stops?: [str
 export function beautifyLayout(imgW: number, imgH: number, o: BeautifyOptions): { width: number; height: number; image: { x: number; y: number; w: number; h: number }; window: { x: number; y: number; w: number; h: number } } {
   const pad = Math.max(0, Math.round(o.padding));
   const frame = o.frame ? FRAME_HEIGHT : 0;
-  const window = { x: pad, y: pad, w: imgW, h: imgH + frame };
-  return { width: imgW + pad * 2, height: imgH + frame + pad * 2, image: { x: pad, y: pad + frame, w: imgW, h: imgH }, window };
+  let width = imgW + pad * 2;
+  let height = imgH + frame + pad * 2;
+  if (o.aspect && o.aspect !== 'free') {
+    const [a, b] = o.aspect.split(':').map(Number);
+    if (width / height > a / b) height = Math.round((width * b) / a);
+    else width = Math.round((height * a) / b);
+  }
+  const x = Math.round((width - imgW) / 2);
+  const y = Math.round((height - imgH - frame) / 2);
+  const window = { x, y, w: imgW, h: imgH + frame };
+  return { width, height, image: { x, y: y + frame, w: imgW, h: imgH }, window };
 }
 
 // ---------------------------------------------------------------- files

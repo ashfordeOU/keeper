@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 import { describe, expect, it } from 'vitest';
 import { actionFor, comboFromEvent, conflicts, formatCombo, matches, parseCombo } from '../core/terminal/keys';
 import { close, equalize, leaf, leaves, neighbour, rects, resize, split, swap } from '../core/terminal/layout';

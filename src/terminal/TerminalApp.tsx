@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Keeper's Terminal: tabs of split panes, each pane a terminal (or a web tool,
 // shared notes or remote files). Terminals live in the session host, so this
 // window can close and open again without losing them.
@@ -12,6 +12,7 @@ import { close as closePane, findLeaf, leaf, leaves, neighbour, paneId, replaceL
 import type { PaneNode, SessionInfo, ShellInfo, SshHost, TerminalProfile, TerminalSettings, TerminalTab, WebTool, Workspace } from '../../core/terminal/types';
 import { useStore } from '../state';
 import { FilesPanel } from './FilesPanel';
+import { AgentBoard } from './AgentBoard';
 import { TerminalSettingsDialog } from './SettingsDialog';
 import { ACTION_NAMES } from './actions';
 import { useTT } from './strings';
@@ -47,6 +48,19 @@ export function TerminalApp({ mode = 'page', startCwd }: { mode?: Mode; startCwd
   const [tabs, setTabs] = useState<TerminalTab[]>([]);
   const [activeTab, setActiveTab] = useState('');
   const [panel, setPanel] = useState<'files' | 'notes' | 'sessions' | null>(null);
+  // Agents' terminals and the agent hub (a view of its own), and which panes agents control.
+  const [agentsView, setAgentsView] = useState(false);
+  const [agentTerms, setAgentTerms] = useState<Record<string, { agent: string; human: boolean }>>({});
+  useEffect(() => {
+    const load = () => void api.agentterm?.state().then((s) => {
+      const map: Record<string, { agent: string; human: boolean }> = {};
+      const walk = (ts: typeof s.terms) => { for (const t of ts) { map[t.id] = { agent: s.agents.find((a) => `agent:${a.id}` === t.owner)?.name ?? t.owner.replace(/^agent:/, ''), human: t.controller === 'human' }; walk(t.sub); } };
+      walk(s.terms);
+      setAgentTerms(map);
+    }).catch(() => undefined);
+    load();
+    return api.on('agentterm-changed', load);
+  }, []);
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
   const [dialog, setDialog] = useState<null | 'settings' | 'palette' | 'url' | 'workspace' | { kind: 'paste'; text: string; resolve: (ok: boolean) => void } | { kind: 'broadcast' } | { kind: 'rename'; id: string; title: string } | { kind: 'group'; id: string; group: string }>(null);
   const [findText, setFindText] = useState<string | null>(null);
@@ -109,6 +123,8 @@ export function TerminalApp({ mode = 'page', startCwd }: { mode?: Mode; startCwd
       api.on('term-sessions', (s) => setSessions(s)),
       api.on('term-settings', (s) => setSettings(s)),
       api.on('term-open', (q) => {
+        // An agent's terminal shown to the person (from the Agents view or the agent itself).
+        if (q.session) { showSession(q.session); return; }
         // Agents started from Keeper arrive with a command to run (and a title).
         if (q.run) void newTab({ cwd: q.cwd, run: q.run, title: q.title });
         else if (q.cwd) void newTab({ cwd: q.cwd });
@@ -149,6 +165,21 @@ export function TerminalApp({ mode = 'page', startCwd }: { mode?: Mode; startCwd
       return null;
     }
   };
+
+  /** A terminal that already runs (an agent's): its tab if one shows it, else a new tab. */
+  function showSession(id: string) {
+    const has = (n: PaneNode): boolean => (n.type === 'leaf' ? n.session === id : n.children.some(has));
+    let found: string | undefined;
+    setTabs((all) => {
+      const t = all.find((x) => has(x.root));
+      if (t) { found = t.id; return all; }
+      const l = leaf(id);
+      const nt: TerminalTab = { id: paneId(), root: l, focus: l.id };
+      found = nt.id;
+      return [...all, nt];
+    });
+    setTimeout(() => found && setActiveTab(found), 0);
+  }
 
   async function newTab(opts: Parameters<typeof api.terminal.create>[0] = {}) {
     const s = await create(opts);
@@ -439,6 +470,7 @@ export function TerminalApp({ mode = 'page', startCwd }: { mode?: Mode; startCwd
           {s ? <span className="tpane-dot" style={{ background: profileOf(s.id)?.color ?? 'var(--accent)' }} /> : null}
           <span className="ellipsis">{n.kind === 'web' ? (n.url ?? '').replace(/([?&](tkn|token)=)[^&]+/, '$1…') : n.kind === 'notes' ? tt('notes') : s ? `${s.title}${s.cwd ? ` — ${s.cwd.replace(info?.home ?? '\0', '~')}` : ''}` : tt('title')}</span>
           {s?.group ? <span className="badge">{s.group}</span> : null}
+          {agentTerms[n.session] ? <span className={`badge agent-badge ${agentTerms[n.session].human ? 'human' : ''}`} title={agentTerms[n.session].human ? 'You have taken this terminal over from the agent' : 'An agent controls this terminal'}>{agentTerms[n.session].human ? '✋ you' : `🤖 ${agentTerms[n.session].agent}`}</span> : null}
           {s?.running && s.running !== '…' ? <span className="badge accent">{s.running}</span> : null}
           <button className="tpane-x" title={tt('closePane')} onClick={() => void closeLeaf(t.id, n.id)}><Icon name="close" size={11} /></button>
         </div>
@@ -453,6 +485,7 @@ export function TerminalApp({ mode = 'page', startCwd }: { mode?: Mode; startCwd
             else panes.current.delete(n.id);
           }}
           session={n.session}
+          cwd={s?.cwd}
           profile={profileOf(n.session)}
           settings={settings}
           active={active}
@@ -515,6 +548,7 @@ export function TerminalApp({ mode = 'page', startCwd }: { mode?: Mode; startCwd
           <button className={`btn ghost sm ${panel === 'files' ? 'on' : ''}`} onClick={() => setPanel(panel === 'files' ? null : 'files')}><Icon name="server" size={13} /> {tt('files')}</button>
           <button className={`btn ghost sm ${panel === 'notes' ? 'on' : ''}`} onClick={() => setPanel(panel === 'notes' ? null : 'notes')}><Icon name="text" size={13} /> {tt('notes')}</button>
           <button className={`btn ghost sm ${panel === 'sessions' ? 'on' : ''}`} onClick={() => setPanel(panel === 'sessions' ? null : 'sessions')}><Icon name="list" size={13} /> {tt('sessions')} <span className="muted">{sessions.length}</span></button>
+          <button className={`btn ghost sm ${agentsView ? 'on' : ''}`} onClick={() => setAgentsView(!agentsView)} title="Agents' terminals, sub-workers, messages and the shared task board"><Icon name="assistant" size={13} /> Agents <span className="muted">{Object.keys(agentTerms).length || ''}</span></button>
           <span className="term-sep" />
           <button className="btn ghost sm icon" title={tt('workspaces')} onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setMenu({ x: r.right - 220, y: r.bottom + 4, items: [
             { label: tt('saveWorkspace'), icon: 'plus', run: () => setDialog('workspace') },
@@ -540,7 +574,8 @@ export function TerminalApp({ mode = 'page', startCwd }: { mode?: Mode; startCwd
       ) : null}
 
       <div className="term-body">
-        <div className="term-stage">
+        {agentsView ? <AgentBoard onShow={(id) => { setAgentsView(false); showSession(id); }} /> : null}
+        <div className="term-stage" style={agentsView ? { display: 'none' } : undefined}>
           {tabs.map((t) => (
             <div key={t.id} className="term-tab-body" style={{ display: t.id === tab?.id ? 'flex' : 'none' }}>
               {renderNode(t, t.root, t.id === tab?.id)}

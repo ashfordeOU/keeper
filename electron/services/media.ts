@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // What is playing right now, and play/pause/skip — through AppleScript on
 // macOS, MPRIS (playerctl) on Linux and the system media session on Windows.
 // Synced lyrics come from LRCLIB; only the title, artist and length are sent.
@@ -6,6 +6,7 @@
 import type { NowPlaying } from '../../core/api';
 import { parseLrc, type LyricLine } from '../../core/island';
 import { run } from '../../core/platform';
+import { spawn, type ChildProcess } from 'node:child_process';
 import path from 'node:path';
 import { parseRegMicInUse } from '../../core/awake';
 import { psRun } from './ps-host';
@@ -100,6 +101,34 @@ export async function lyricsFor(np: NowPlaying): Promise<LyricLine[] | undefined
 }
 
 /** Apps that are using the microphone right now (Windows and Linux). */
+/**
+ * Tells you when an app starts or stops using a microphone, without asking every few seconds.
+ * Linux only for now (PulseAudio/PipeWire event stream); returns undefined where not available.
+ */
+export function watchMic(onChange: () => void, onEnd: () => void): (() => void) | undefined {
+  if (process.platform !== 'linux') return undefined;
+  let child: ChildProcess | undefined;
+  try {
+    child = spawn('pactl', ['subscribe'], { stdio: ['ignore', 'pipe', 'ignore'] });
+  } catch {
+    return undefined;
+  }
+  let timer: NodeJS.Timeout | undefined;
+  let stopped = false;
+  // No pactl, or the sound server went away: fall back to regular looks.
+  const ended = () => { if (!stopped) { stopped = true; clearTimeout(timer); onEnd(); } };
+  child.on('error', ended);
+  child.on('exit', ended);
+  child.stdout?.setEncoding('utf8');
+  child.stdout?.on('data', (chunk: string) => {
+    if (!chunk.includes('source-output')) return;
+    // Events come in bursts; one look after they settle is enough.
+    clearTimeout(timer);
+    timer = setTimeout(onChange, 300);
+  });
+  return () => { stopped = true; clearTimeout(timer); child?.kill(); };
+}
+
 export async function micInUse(): Promise<string[]> {
   if (process.platform === 'linux') {
     const r = await run('pactl', ['list', 'source-outputs'], 3000);

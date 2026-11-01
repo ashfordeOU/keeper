@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // IPC for health history, the Weather page, Toolbox helpers, folder tidying,
 // AI file actions, updates and launch-at-login.
 

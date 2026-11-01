@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Where mail, calendars, reminders and alarms are kept on this computer:
 // small JSON files in Keeper's data folder, written one at a time through a
 // temporary file. Passwords and sign-in tokens go to the system keychain.

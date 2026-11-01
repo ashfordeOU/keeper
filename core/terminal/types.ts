@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The shapes shared by Keeper's terminal: profiles, sessions, layouts and the
 // events the session host sends. Pure types, used by the app, the host and tests.
 
@@ -52,6 +52,8 @@ export interface TerminalProfile {
   ssh?: string;
   /** a short emoji or letter shown on tabs */
   badge?: string;
+  /** read the starting folder's .env into the terminal's variables */
+  loadDotEnv?: boolean;
   color?: string;
 }
 
@@ -85,6 +87,8 @@ export interface SessionInfo {
   restored?: boolean;
   /** the program currently running, as told by the shell (OSC 133), when known */
   running?: string;
+  /** keeps running when Keeper quits (agent terminals) */
+  persist?: boolean;
   cols: number;
   rows: number;
 }
@@ -190,4 +194,12 @@ export interface TerminalSettings {
   /** the quick terminal: share of the screen height */
   quickHeight: number;
   webgl: boolean;
+  /** suggest fixes after a command fails (install, free a port, pull first…) */
+  quickFixes?: boolean;
+  /** keep the command whose output you are reading pinned at the top */
+  stickyScroll?: boolean;
+  /** screen readers can read the terminal (slower drawing) */
+  screenReader?: boolean;
+  /** opens file:line links, e.g. "code -g {file}:{line}:{col}" (empty: the file's usual app) */
+  editorCommand?: string;
 }

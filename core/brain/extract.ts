@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The text the brain reads from a file. Plain text, Markdown, code, HTML,
 // e-mails, subtitles and office documents (Word, PowerPoint, Excel,
 // OpenDocument, EPUB) are read here, whole; PDFs and images use the text the

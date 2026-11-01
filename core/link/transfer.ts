@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Sending files between devices: offered first (the other side may ask its
 // person), sent in chunks, resumable after a dropped connection, and checked
 // with SHA-256 end to end before the file gets its real name. Node only.

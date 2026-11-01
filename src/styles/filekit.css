@@ -1,0 +1,27 @@
+/* SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 */
+/* The file kit: format chooser, workflows. */
+.kit-formats { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+.kit-format { text-align: left; border: 1px solid var(--line); background: var(--bg-elev); border-radius: 10px; padding: 7px 10px; display: flex; flex-direction: column; gap: 1px; cursor: default; color: inherit; }
+.kit-format b { font: 600 13px var(--font-mono, ui-monospace, monospace); }
+.kit-format span { font-size: 11.5px; color: var(--text-3); }
+.kit-format i { font-style: normal; color: var(--accent); }
+.kit-format:hover { border-color: var(--line-strong); }
+.kit-format.on { border-color: var(--accent); background: var(--accent-soft); }
+.flow-wrap { display: grid; grid-template-columns: minmax(200px, 260px) 1fr; gap: 14px; align-items: start; }
+@media (max-width: 1000px) { .flow-wrap { grid-template-columns: 1fr; } }
+.flow-list { display: flex; flex-direction: column; gap: 6px; }
+.flow-graph { display: flex; flex-wrap: wrap; align-items: stretch; gap: 0; margin: 6px 0 12px; }
+.flow-node { position: relative; min-width: 170px; max-width: 240px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg-elev); padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; }
+.flow-node.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.flow-node .n { font-size: 10.5px; color: var(--text-3); text-transform: uppercase; letter-spacing: .04em; }
+.flow-node b { font-size: 13px; }
+.flow-node .tools { display: flex; gap: 2px; margin-top: 2px; }
+.flow-edge { align-self: center; width: 34px; height: 2px; background: var(--line-strong); position: relative; margin: 0 2px; }
+.flow-edge::after { content: ''; position: absolute; right: -1px; top: -4px; border: 5px solid transparent; border-left-color: var(--line-strong); }
+.flow-io { align-self: center; font-size: 11px; color: var(--text-3); padding: 6px 10px; border: 1px dashed var(--line-strong); border-radius: 999px; }
+button.flow-io { background: transparent; color: var(--accent); border-color: var(--accent); cursor: default; font: inherit; font-size: 11px; }
+button.flow-io:hover { background: var(--accent-soft); }
+/* With many tools in a category the options stay in view while the list scrolls. */
+.conv-grid > .conv-panel { position: sticky; top: 12px; max-height: calc(100vh - 110px); overflow: auto; }
+@media (max-width: 1000px) { .conv-grid > .conv-panel { position: static; max-height: none; } }
+.conv-find { margin-bottom: 4px; }

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Adaptive quality for a shared screen. Once a second the host feeds in what
 // WebRTC (or the frame stream) reports; the controller answers with a bitrate,
 // a frame rate and a scale. It backs off fast when the network struggles and

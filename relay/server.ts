@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Keeper Relay as a standalone program. Build: node relay/build.mjs
 // Run:   PORT=8080 node relay/dist/keeper-relay.mjs
 // Put it behind HTTPS (a reverse proxy, or a Cloudflare tunnel) and enter its

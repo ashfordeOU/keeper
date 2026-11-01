@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Locked folders and hidden files for the browser demo. Nothing is encrypted
 // here; it only shows how it looks.
 

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Checks that the security built into the operating system is switched on.
 // Keeper is not an antivirus; it only reports what the OS already has.
 

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Runs the meaning-search model off the main thread, so building vectors for
 // thousands of passages never makes Keeper stutter.
 

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // A folder-by-folder browser, for when you know where something lives.
 
 import { useEffect, useMemo, useState } from 'react';

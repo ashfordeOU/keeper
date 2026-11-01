@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Wall-clock time in a named time zone, with the system's own zone data
 // (Intl), so daylight-saving changes come out right without a bundled database.
 

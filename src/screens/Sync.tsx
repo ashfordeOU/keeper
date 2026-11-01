@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Sync & Backup: folders kept the same on your devices, encrypted backups to
 // drives and cloud services, mirrors to cloud folders, and older versions.
 

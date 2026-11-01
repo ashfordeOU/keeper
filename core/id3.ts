@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Song details and cover art from ID3v2 tags (MP3) and the "covr"/"©nam"
 // atoms of MPEG-4 audio (M4A). Only the start of the file is needed.
 

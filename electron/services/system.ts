@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Disks, system health, processes, listening servers, ejecting drives and
 // saved Wi-Fi networks — read through each OS's own command-line tools.
 

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Keeper updates itself from GitHub Releases.
 //
 //   Windows installer, Linux AppImage  electron-updater downloads and swaps in place

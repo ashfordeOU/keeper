@@ -19,4 +19,4 @@ keeper stats               Files per shelf and where downloads came from (--sour
 
 The desktop app installs the same `keeper` command, so you only need this package on machines without the app. See [docs/INSTALL.md](https://github.com/ashfordeOU/keeper/blob/main/docs/INSTALL.md) for every way to install Keeper.
 
-Licensed under the GNU AGPL v3 or later.
+Free to use. Source-available under the PolyForm Shield License 1.0.0; see LICENSE.md.

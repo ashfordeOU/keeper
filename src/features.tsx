@@ -1,17 +1,18 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Features in the interface: which are on (from the settings the main process
 // broadcasts), which pages and commands to hide, and the sidebar the person
 // customised.
 
 import { useMemo } from 'react';
-import { commandHidden, FEATURES, featureStates, hiddenRoutes, type FeatureState } from '../core/features';
+import { commandHidden, FEATURES, featureStates, hiddenRoutes, presetPatch, type FeatureState } from '../core/features';
 import { api } from './api';
 import { Icon } from './components/Icon';
 import { useStore } from './state';
 
 export function useFeatureStates(): Map<string, FeatureState> | null {
-  const { settings, info } = useStore();
-  return useMemo(() => (settings ? featureStates(settings, info?.platform ?? '') : null), [settings, info?.platform]);
+  const { settings, info, boot } = useStore();
+  // Safe mode: the same features off as in the main process (the "Files only" preset), for this run only.
+  return useMemo(() => (settings ? featureStates(boot.safeMode ? { ...settings, ...presetPatch(settings, 'files') } : settings, info?.platform ?? '') : null), [settings, info?.platform, boot.safeMode]);
 }
 
 export function useFeature(id: string): boolean {

@@ -1,0 +1,200 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 -->
+<!-- Keeper usage stats: a plain page that reads GET /v1/stats with the token you paste. No build step, no outside scripts. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src *; img-src 'self' data:">
+<title>Keeper usage stats</title>
+<style>
+  :root {
+    --bg: #f7f7f5; --card: #ffffff; --text: #1b1b1f; --muted: #6b6b75; --line: #e4e4e8; --accent: #3b6fd8; --accent-soft: #dfe8fb; --warn: #b4540a; --ok: #1f8a4c;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg: #141417; --card: #1d1d22; --text: #ececf1; --muted: #9a9aa6; --line: #2c2c33; --accent: #7aa2ff; --accent-soft: #24304d; --warn: #f0a35a; --ok: #59c98a; color-scheme: dark; }
+  }
+  :root[data-theme="dark"] { --bg: #141417; --card: #1d1d22; --text: #ececf1; --muted: #9a9aa6; --line: #2c2c33; --accent: #7aa2ff; --accent-soft: #24304d; --warn: #f0a35a; --ok: #59c98a; color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 16px; border-bottom: 1px solid var(--line); background: var(--card); }
+  header h1 { font-size: 17px; margin: 0 12px 0 0; }
+  input, button { font: inherit; color: inherit; }
+  input { padding: 6px 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); min-width: 0; }
+  #url { width: 260px; } #token { width: 240px; }
+  button { padding: 6px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  main { max-width: 1180px; margin: 0 auto; padding: 16px; }
+  .msg { color: var(--muted); padding: 24px 0; }
+  .msg.err { color: var(--warn); }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .kpi { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+  .kpi b { display: block; font-size: 24px; font-variant-numeric: tabular-nums; }
+  .kpi span { color: var(--muted); font-size: 12px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 12px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; min-width: 0; }
+  .card h2 { font-size: 13px; margin: 0 0 8px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+  .wide { grid-column: 1 / -1; }
+  .bar { display: grid; grid-template-columns: minmax(70px, 34%) 1fr 104px; gap: 8px; align-items: center; font-size: 13px; padding: 2px 0; }
+  .bar .k { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar .t { display: block; height: 10px; border-radius: 5px; background: var(--accent-soft); overflow: hidden; }
+  .bar .f { display: block; height: 100%; background: var(--accent); border-radius: 5px; }
+  .bar .v { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+  svg.line { width: 100%; height: 180px; display: block; }
+  svg.line .axis { stroke: var(--line); }
+  svg.line .lbl { fill: var(--muted); font-size: 10px; }
+  svg.line path.l { fill: none; stroke: var(--accent); stroke-width: 2; }
+  svg.line path.a { fill: var(--accent-soft); opacity: .7; }
+  .note { color: var(--muted); font-size: 12px; margin-top: 16px; }
+  @media (max-width: 560px) { #url, #token { width: 100%; } .grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Keeper usage stats</h1>
+  <input id="url" aria-label="Server address" placeholder="https://telemetry.ashforde.org">
+  <input id="token" type="password" aria-label="Stats token" placeholder="Paste the stats token">
+  <button class="primary" id="load">Load</button>
+  <button id="sample">Sample data</button>
+  <button id="theme" title="Light or dark">◐</button>
+</header>
+<main id="out"><div class="msg">Paste the stats token (the STATS_TOKEN secret) and press Load. The token stays in this tab only.</div></main>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const out = $('out');
+  const params = new URLSearchParams(location.search);
+  if (params.get('theme')) document.documentElement.dataset.theme = params.get('theme');
+  $('theme').onclick = () => {
+    const dark = document.documentElement.dataset.theme ? document.documentElement.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.dataset.theme = dark ? 'light' : 'dark';
+  };
+  const sameOrigin = location.protocol.startsWith('http') ? location.origin : 'https://telemetry.ashforde.org';
+  $('url').value = sessionStorage.getItem('ks.url') || sameOrigin;
+  $('token').value = sessionStorage.getItem('ks.token') || '';
+
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  const fmt = (n) => Number(n).toLocaleString();
+
+  function bars(title, rows, opts = {}) {
+    const list = (rows || []).slice(0, opts.max || 12);
+    const top = Math.max(1, ...list.map((r) => (opts.pct ? r.pct : r.count)));
+    const body = list.length ? list.map((r) => {
+      const v = opts.pct ? r.pct : r.count;
+      return `<div class="bar"><span class="k" title="${esc(r.key)}">${esc(opts.label ? opts.label(r.key) : r.key)}</span><span class="t"><span class="f" style="width:${(v / top) * 100}%"></span></span><span class="v">${opts.pct ? `${r.pct}%` : `${fmt(r.count)} · ${r.pct}%`}</span></div>`;
+    }).join('') : '<div class="msg">No data yet.</div>';
+    return `<section class="card ${opts.wide ? 'wide' : ''}"><h2>${esc(title)}</h2>${body}</section>`;
+  }
+
+  function line(series) {
+    const W = 1000, H = 180, P = 26;
+    const max = Math.max(1, ...series.map((s) => s.installs));
+    const x = (i) => P + (i * (W - 2 * P)) / Math.max(1, series.length - 1);
+    const y = (v) => H - P - (v / max) * (H - 2 * P);
+    const pts = series.map((s, i) => `${x(i).toFixed(1)},${y(s.installs).toFixed(1)}`);
+    const d = pts.length ? `M${pts.join(' L')}` : '';
+    const area = pts.length ? `${d} L${x(series.length - 1)},${H - P} L${x(0)},${H - P} Z` : '';
+    const ticks = series.length ? [0, Math.floor((series.length - 1) / 2), series.length - 1] : [];
+    return `<svg class="line" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Active installs per day">
+      <line class="axis" x1="${P}" x2="${W - P}" y1="${H - P}" y2="${H - P}"/><line class="axis" x1="${P}" x2="${W - P}" y1="${P}" y2="${P}" stroke-dasharray="4 4"/>
+      <text class="lbl" x="${P}" y="${P - 8}">${fmt(max)}</text>
+      <path class="a" d="${area}"/><path class="l" d="${d}"/>
+      ${ticks.map((i) => `<text class="lbl" x="${x(i)}" y="${H - 8}" text-anchor="${i === 0 ? 'start' : i === series.length - 1 ? 'end' : 'middle'}">${esc(series[i].day.slice(5))}</text>`).join('')}
+    </svg>`;
+  }
+
+  function render(s) {
+    const all = s.builds.official + s.builds.unofficial;
+    out.innerHTML = `
+      <div class="kpis">
+        <div class="kpi"><b>${fmt(s.active.daily)}</b><span>Active today</span></div>
+        <div class="kpi"><b>${fmt(s.active.weekly)}</b><span>Active this week</span></div>
+        <div class="kpi"><b>${fmt(s.active.monthly)}</b><span>Active in ${s.lookbackDays} days</span></div>
+        <div class="kpi"><b>${all ? Math.round((s.builds.official / all) * 100) : 0}%</b><span>Official builds (${fmt(s.builds.official)} / ${fmt(s.builds.unofficial)} unofficial)</span></div>
+        <div class="kpi"><b>${s.health.crashDaysPct}%</b><span>Days with a crash (${s.health.crashesPer100} per 100 days)</span></div>
+        <div class="kpi"><b>${s.health.restartsPer100}</b><span>Service restarts per 100 days</span></div>
+      </div>
+      <div class="grid">
+        <section class="card wide"><h2>Active installs per day</h2>${line(s.series || [])}</section>
+        ${bars('Version', s.by.version)}
+        ${bars('Operating system', s.by.osVersion)}
+        ${bars('Processor type', s.by.arch)}
+        ${bars('Machine class', s.by.machine)}
+        ${bars('Memory', s.by.ram)}
+        ${bars('Form factor', s.by.form)}
+        ${bars('Graphics', s.by.gpu)}
+        ${bars('Region', s.by.region)}
+        ${bars('Language', s.by.lang)}
+        ${bars('Installed via', s.by.via)}
+        ${bars('Displays', s.by.displays, { label: (k) => `${k} screen${k === '1' ? '' : 's'}` })}
+        ${bars('Startup time', s.by.startup)}
+        ${bars('Feature adoption (% of installs)', s.features, { pct: true, max: 40, wide: true })}
+        ${bars('Page popularity (% of installs that opened it)', s.pages, { pct: true, max: 30, wide: true })}
+        ${bars('Keeper memory', s.by.memory)}
+        ${bars('Keeper processor use', s.by.cpu)}
+        ${bars('AI services connected', s.by.aiProviders)}
+      </div>
+      <div class="note">For ${esc(s.day)}; breakdowns use each install's newest report in the last ${s.lookbackDays} days. ${fmt(s.health.installDays)} install-days. Raw rows are deleted after 13 months; daily totals are kept.</div>`;
+  }
+
+  async function load() {
+    const url = $('url').value.trim().replace(/\/+$/, '');
+    const token = $('token').value.trim();
+    sessionStorage.setItem('ks.url', url);
+    sessionStorage.setItem('ks.token', token);
+    out.innerHTML = '<div class="msg">Loading…</div>';
+    try {
+      const r = await fetch(`${url}/v1/stats`, { headers: { authorization: `Bearer ${token}` }, cache: 'no-store', referrerPolicy: 'no-referrer' });
+      if (r.status === 401) throw new Error('The token was not accepted.');
+      if (!r.ok) throw new Error(`The server answered ${r.status}.`);
+      render(await r.json());
+    } catch (e) {
+      out.innerHTML = `<div class="msg err">${esc(e.message || e)}</div>`;
+    }
+  }
+
+  // Made-up numbers in the same shape, to see the page without a server.
+  function sample() {
+    let seed = 7;
+    const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    const today = new Date().toISOString().slice(0, 10);
+    const day = (n) => new Date(Date.parse(today) - n * 86400000).toISOString().slice(0, 10);
+    const series = Array.from({ length: 30 }, (_, i) => ({ day: day(29 - i), installs: Math.round(820 + i * 14 + (rnd() - 0.5) * 120 - ([0, 6].includes(new Date(Date.parse(day(29 - i))).getUTCDay()) ? 160 : 0)) }));
+    const mk = (pairs, total) => pairs.map(([key, count]) => ({ key, count, pct: Math.round((count / total) * 1000) / 10 }));
+    const N = 2140;
+    return {
+      day: today, lookbackDays: 30,
+      active: { daily: series[29].installs, weekly: 1530, monthly: N }, series,
+      by: {
+        version: mk([['0.1.0', 1700], ['0.1.0-beta.3', 310], ['0.0.9', 130]], N),
+        osVersion: mk([['macos 15.1', 720], ['windows 11', 610], ['macos 14.6', 260], ['linux 6.8', 240], ['windows 10', 210], ['linux 6.11', 100]], N),
+        arch: mk([['arm64', 1060], ['x64', 1080]], N),
+        machine: mk([['Apple M3', 420], ['Apple M2', 330], ['Apple M1', 250], ['Intel Core i7 12th gen', 210], ['AMD Ryzen 7', 190], ['Intel Core i5 8th gen', 150], ['Apple M4', 130], ['Intel Core Ultra 7', 90]], N),
+        ram: mk([['16 GB', 980], ['8 GB', 450], ['32 GB', 470], ['64+ GB', 160], ['4 GB', 80]], N),
+        form: mk([['laptop', 1490], ['desktop', 610], ['unknown', 40]], N),
+        gpu: mk([['apple', 1130], ['intel', 480], ['nvidia', 320], ['amd', 210]], N),
+        region: mk([['US', 520], ['DE', 260], ['GB', 210], ['EE', 120], ['FR', 110], ['IN', 100], ['JP', 90], ['BR', 80]], N),
+        lang: mk([['en', 1180], ['de', 270], ['fr', 120], ['et', 95], ['ja', 90], ['pt', 85], ['es', 80]], N),
+        via: mk([['direct', 1100], ['brew', 540], ['winget', 260], ['flatpak', 120], ['snap', 70], ['aur', 50]], N),
+        displays: mk([['1', 1380], ['2', 640], ['3', 120]], N),
+        startup: mk([['<2s', 1490], ['2-5s', 520], ['5-10s', 100], ['10s+', 30]], N),
+        memory: mk([['250-500MB', 1210], ['<250MB', 480], ['500MB-1GB', 400], ['1GB+', 50]], N),
+        cpu: mk([['<1%', 1810], ['1-5%', 290], ['5-20%', 35], ['20%+', 5]], N),
+        aiProviders: mk([['0', 1240], ['1', 690], ['2', 170], ['3', 40]], N),
+      },
+      features: mk([['library', 2140], ['island', 1870], ['clipboard', 1750], ['updates', 1980], ['cleanup', 1690], ['duplicates', 1620], ['ocr', 1450], ['health', 1580], ['firewall', 410], ['brain', 520], ['terminal', 380], ['link', 300], ['usageStats', 2140]], N),
+      pages: mk([['home', 2050], ['search', 1720], ['library', 1390], ['cleanup', 980], ['settings', 870], ['todo', 760], ['duplicates', 610], ['space', 540], ['assistant', 450], ['firewall', 210]], N).map((p) => ({ ...p, opens: Math.round(p.count * (3 + rnd() * 12)) })),
+      health: { crashDaysPct: 1.8, crashesPer100: 2.1, restartsPer100: 0.7, installDays: 38500 },
+      builds: { official: 1960, unofficial: 180 },
+    };
+  }
+
+  $('load').onclick = load;
+  $('sample').onclick = () => render(sample());
+  if (params.get('sample') === '1') render(sample());
+})();
+</script>
+</body>
+</html>

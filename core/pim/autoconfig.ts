@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Finding a mail provider's servers from an address: well-known providers,
 // the provider's own autoconfig file, the public ISP database format, DNS SRV
 // records, and finally common host names.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Health: how hard your computer is working right now, and what keeps it awake.
 
 import { useEffect, useState } from 'react';

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Where you are in Keeper: the page, how you got there and how far you had
 // scrolled. Saved as you go, so an update or a restart opens the same place.
 
@@ -47,6 +47,23 @@ function write() {
 export const startPlace: Place | null = read();
 if (startPlace) current = { ...startPlace, scroll: { ...startPlace.scroll } };
 
+const scrollListeners = new Set<() => void>();
+
+/** Scroll positions saved with the tabs (crash-proof), put back when a window opens. */
+export function seedScroll(map: Record<string, number>) {
+  current.scroll = { ...current.scroll, ...map };
+}
+
+export function scrollMap(): Record<string, number> {
+  // Only the most recent hundred pages, so the saved session stays small.
+  return Object.fromEntries(Object.entries(current.scroll).slice(-100));
+}
+
+export function onScrollChanged(fn: () => void): () => void {
+  scrollListeners.add(fn);
+  return () => scrollListeners.delete(fn);
+}
+
 export function rememberRoute(route: Route, history: Route[]) {
   current.route = route;
   current.history = history.slice(-20);
@@ -85,6 +102,7 @@ export function usePlaceMemory(route: Route, el: () => HTMLElement | null) {
       frame = requestAnimationFrame(() => {
         frame = 0;
         current.scroll[key] = Math.round(box.scrollTop);
+        for (const l of scrollListeners) l();
       });
     };
     box.addEventListener('scroll', onScroll, { passive: true });

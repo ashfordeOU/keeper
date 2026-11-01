@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Remote screens between Keeper devices: what a session is, what the viewer
 // sends (input), and how the picture is tuned. Shared by the app, its tests and
 // the phone page.

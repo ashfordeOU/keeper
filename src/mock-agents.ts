@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // AI agents in the browser demo: the service catalogue, permissions, a pending
 // approval, a few skills, learned suggestions and a real knowledge graph built
 // from the demo files (plus a small set of linked notes).
@@ -24,6 +24,8 @@ const NOTES: { name: string; text: string }[] = [
   { name: 'Garden plan.md', text: 'Tomatoes, basil and beans. Seeds from Green Thumb Ltd. Marco Rossi lends the tiller. #garden' },
   { name: 'Reading list.md', text: 'Books Lena Fischer recommended. #books' },
 ];
+
+const params = typeof location !== 'undefined' ? new URLSearchParams(location.search) : new URLSearchParams();
 
 export function mockAgents(files: FileEntry[], emit: (channel: string, v: unknown) => void, home: string): { agents: AgentsApi } {
   const perms: Record<string, Permission> = {};
@@ -81,6 +83,9 @@ export function mockAgents(files: FileEntry[], emit: (channel: string, v: unknow
     actions: async () => (demoApproval(), ACTIONS).map((x) => ({ name: x.name, label: x.label, group: x.group, readOnly: x.readOnly, destructive: !!x.destructive, permission: permissionFor(x.name, perms, true), default: x.default })),
     setPermission: async (name, p) => { perms[name] = p; },
     pending: async () => pending.slice(),
+    computerState: async () => ({ sessions: params.has('computer') ? [{ id: 'demo', client: 'Claude in Keeper’s Assistant', since: Date.now() - 95_000, actions: 14 }] : [], stopShortcut: '⌃⌥⌘.' }),
+    computerStop: async () => emit('computer-stopped', 'stopped by the person'),
+    computerShot: async () => null,
     decide: async (id, d) => {
       const i = pending.findIndex((p) => p.id === id);
       if (i < 0) return;

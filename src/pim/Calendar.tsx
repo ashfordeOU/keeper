@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Calendar: day, week, month, agenda and year views across every calendar,
 // quick add in plain English, drag to move or resize, and an editor for
 // repeats, alerts, places and people.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Meaning vectors for passages, kept as 8-bit numbers (a quarter of the memory
 // of 32-bit floats, with almost no loss for ranking) and searched by brute
 // force, which stays fast for hundreds of thousands of passages.

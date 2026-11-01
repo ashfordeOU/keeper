@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Split panes as a tree: every leaf shows one terminal (or a web page, notes or
 // remote files); every split lays its children side by side or one above the other.
 

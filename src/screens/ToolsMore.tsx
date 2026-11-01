@@ -1,14 +1,14 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // More Toolbox tools: QR codes, internet speed, diff, lorem ipsum, speech,
 // number bases, colours, URL / HTML / Markdown / CSV / cron helpers, network
 // details, system tweaks, receipts to a spreadsheet and subtitle translation.
 
 import QRCode from 'qrcode';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ChangeEvent, type ReactNode } from 'react';
 import type { NetworkInfo, Tweak } from '../../core/api-x';
 import { colorFormats, convertBase, csvToJson, diffLines, explainCron, htmlDecode, htmlEncode, lorem, markdownToHtml } from '../../core/devtools';
 import type { SpeedResult } from '../../core/monitor';
-import { wifiQrPayload } from '../../core/textools';
+import { loremAs, sideBySide, wifiQrPayload } from '../../core/textools';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
 import { Modal, Toggle } from '../components/ui';
@@ -20,7 +20,7 @@ export interface MoreTool {
   name: string;
   desc: string;
   icon: string;
-  group: 'Text' | 'Developer' | 'Screen' | 'System';
+  group: 'Text' | 'Developer' | 'Screen' | 'System' | 'Media';
   render: () => ReactNode;
 }
 
@@ -187,16 +187,27 @@ function MacFixes() {
 function Diff() {
   const [a, setA] = useState('');
   const [b, setB] = useState('');
+  const [view, setView] = useState<'inline' | 'side'>('inline');
   const lines = useMemo(() => { try { return diffLines(a, b); } catch (e) { return e instanceof Error ? e.message : ''; } }, [a, b]);
   const changes = Array.isArray(lines) ? lines.filter((l) => l.type !== 'same').length : 0;
+  const open = (set: (v: string) => void) => (e: ChangeEvent<HTMLInputElement>) => { const f = e.target.files?.[0]; if (f) void f.text().then(set); e.target.value = ''; };
+  const pick = (label: string, set: (v: string) => void) => <label className="btn sm"><Icon name="document" size={12} /> {label}<input type="file" hidden onChange={open(set)} /></label>;
   return (
     <div className="col" style={{ gap: 10 }}>
+      <div className="row" style={{ gap: 6 }}>{pick('Open original…', setA)}{pick('Open changed…', setB)}<span style={{ flex: 1 }} /><div className="seg">{(['inline', 'side'] as const).map((v) => <button key={v} className={`btn sm${view === v ? ' primary' : ''}`} onClick={() => setView(v)}>{v === 'inline' ? 'Inline' : 'Side by side'}</button>)}</div></div>
       <div className="grid cols-2" style={{ gap: 8 }}><Area value={a} onChange={setA} placeholder="Original" /><Area value={b} onChange={setB} placeholder="Changed" /></div>
       {typeof lines === 'string' ? <span className="small" style={{ color: 'var(--danger)' }}>{lines}</span> : a || b ? (
         <>
           <span className="small muted">{changes ? `${changes} changed line${changes === 1 ? '' : 's'}` : 'The texts are the same'}</span>
           <div className="card" style={{ maxHeight: 320, overflow: 'auto', padding: '6px 0' }}>
-            {lines.map((l, i) => <div key={i} className={`diff-line ${l.type}`}>{l.type === 'add' ? '+ ' : l.type === 'del' ? '− ' : '  '}{l.text || ' '}</div>)}
+            {view === 'inline'
+              ? lines.map((l, i) => <div key={i} className={`diff-line ${l.type}`}>{l.type === 'add' ? '+ ' : l.type === 'del' ? '− ' : '  '}{l.text || ' '}</div>)
+              : sideBySide(lines).map((r, i) => (
+                  <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
+                    <div className={`diff-line ${r.left === null ? '' : r.type === 'same' ? 'same' : 'del'}`}>{r.left ?? ' '}</div>
+                    <div className={`diff-line ${r.right === null ? '' : r.type === 'same' ? 'same' : 'add'}`}>{r.right ?? ' '}</div>
+                  </div>
+                ))}
           </div>
         </>
       ) : null}
@@ -207,8 +218,9 @@ function Diff() {
 function Lorem() {
   const [p, setP] = useState(3);
   const [seed, setSeed] = useState(1);
-  const text = lorem(p, 5, seed);
-  return <div className="col" style={{ gap: 8 }}><div className="row"><span className="small">Paragraphs</span><input type="range" min={1} max={10} value={p} onChange={(e) => setP(+e.target.value)} /><span className="num">{p}</span><button className="btn sm" onClick={() => setSeed(seed + 1)}><Icon name="refresh" size={12} /> Shuffle</button><Copy text={text} /></div><div className="tool-out">{text}</div></div>;
+  const [format, setFormat] = useState<'text' | 'html' | 'markdown'>('text');
+  const text = loremAs(lorem(p, 5, seed), format);
+  return <div className="col" style={{ gap: 8 }}><div className="row"><span className="small">Paragraphs</span><input type="range" min={1} max={10} value={p} onChange={(e) => setP(+e.target.value)} /><span className="num">{p}</span><select value={format} onChange={(e) => setFormat(e.target.value as typeof format)}><option value="text">Plain text</option><option value="html">HTML</option><option value="markdown">Markdown</option></select><button className="btn sm" onClick={() => setSeed(seed + 1)}><Icon name="refresh" size={12} /> Shuffle</button><Copy text={text} /></div><div className="tool-out" style={{ whiteSpace: 'pre-wrap' }}>{text}</div></div>;
 }
 
 function Speak() {

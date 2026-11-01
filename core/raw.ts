@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Camera RAW files (CR2, CR3, NEF, ARW, DNG, ORF, RW2, RAF, …) carry a
 // full-size JPEG preview made by the camera. Finding the biggest embedded JPEG
 // gives an instant, accurate preview without a RAW decoder.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // A sidebar section that opens and closes on a click of its title and stays
 // the way the person left it. Each section has its own colour.
 

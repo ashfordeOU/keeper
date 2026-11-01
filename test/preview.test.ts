@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 import { gzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import { findZipDirectory, parseTar, parseZipDirectory, summarize } from '../core/archive';

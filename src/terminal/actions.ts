@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Names of the Terminal's keyboard actions, for menus and the shortcut editor.
 
 export const ACTION_NAMES: Record<string, string> = {

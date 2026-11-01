@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Automatic keep-awake: conditions that start a session on their own (an
 // external display, mains power, an app, a USB device, a Wi-Fi network, a VPN,
 // a busy CPU, a mounted drive) and the parsers for each OS's answers.

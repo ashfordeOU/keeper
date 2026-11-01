@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Turns the URL a file was downloaded from into a named source ("Gmail", "Slack", ...).
 //
 // Operating systems record download origins in different places; the platform

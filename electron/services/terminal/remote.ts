@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The file panel beside a terminal: browse, download, upload, rename and delete
 // on an SSH host (SFTP) or an FTP/FTPS server. SSH uses the running agent or
 // the key from ~/.ssh/config; passwords come from the system keychain only.

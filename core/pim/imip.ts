@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Meeting invitations by mail (iMIP, RFC 6047): read a REQUEST, CANCEL or
 // REPLY, and write your answer back to the organiser.
 

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Finding the shells on this computer: /etc/shells and PATH on macOS and Linux;
 // Command Prompt, both PowerShells, every WSL distribution and Git's bash on
 // Windows. The parsing is pure; the caller supplies file reads and lookups.

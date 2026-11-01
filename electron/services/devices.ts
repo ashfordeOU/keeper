@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Sound, screens and accessories: system volume, display brightness (built-in
 // and external monitors over DDC/CI), wireless-device batteries, and the
 // snapshot the automatic keep-awake rules look at.
@@ -225,7 +225,7 @@ export async function devicesState(): Promise<DevicesState> {
 // ---------------------------------------------------------------- keep-awake snapshot
 
 let lastCpu = os.cpus();
-function cpuPercent(): number {
+export function cpuPercent(): number {
   const now = os.cpus();
   let idle = 0;
   let total = 0;
@@ -250,13 +250,13 @@ export async function runningApps(): Promise<string[]> {
   }).filter(Boolean))];
 }
 
-async function usbDevices(): Promise<string[]> {
+export async function usbDevices(): Promise<string[]> {
   if (isMac) return parseMacUsb((await run('/usr/sbin/system_profiler', ['SPUSBDataType', '-json'], 15_000)).stdout);
   if (isWin) return (await powershell('Get-PnpDevice -PresentOnly -Class USB,HIDClass,AudioEndpoint,Image,WPD -ErrorAction SilentlyContinue | ForEach-Object FriendlyName', 20_000)).stdout.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
   return parseLsusb((await run('lsusb', [], 5000)).stdout);
 }
 
-async function wifiName(): Promise<string | undefined> {
+export async function wifiName(): Promise<string | undefined> {
   if (isMac) {
     const r = await run('/usr/sbin/ipconfig', ['getsummary', 'en0'], 5000);
     return parseMacSsid(r.stdout) ?? parseMacSsid((await run('/usr/sbin/networksetup', ['-getairportnetwork', 'en0'], 5000)).stdout);
@@ -265,7 +265,7 @@ async function wifiName(): Promise<string | undefined> {
   return parseNmcliSsid((await run('nmcli', ['-t', '-f', 'active,ssid', 'dev', 'wifi'], 5000)).stdout);
 }
 
-async function mountedVolumes(): Promise<string[]> {
+export async function mountedVolumes(): Promise<string[]> {
   if (isWin) return (await powershell('Get-CimInstance Win32_LogicalDisk | ForEach-Object { "$($_.DeviceID) $($_.VolumeName)" }', 10_000)).stdout.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
   const dirs = isMac ? ['/Volumes'] : [`/media/${os.userInfo().username}`, `/run/media/${os.userInfo().username}`, '/mnt'];
   const out: string[] = [];

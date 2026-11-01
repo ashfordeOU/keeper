@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Bundles Keeper Relay into one file with no dependencies: relay/dist/keeper-relay.mjs
 import { build } from 'esbuild';
 
@@ -9,6 +10,6 @@ await build({
   target: 'node20',
   format: 'esm',
   minify: true,
-  banner: { js: '// Keeper Relay — AGPL-3.0-or-later — https://github.com/ashfordeOU/keeper' },
+  banner: { js: '// Keeper Relay — PolyForm Shield 1.0.0 (LicenseRef-PolyForm-Shield-1.0.0) — © Ashforde OÜ — https://github.com/ashfordeOU/keeper' },
   logLevel: 'info',
 });

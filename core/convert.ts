@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The parts of file conversion that need no Electron: bitrate maths, page
 // ranges, output naming, file encryption, checksums, splitting and joining,
 // and reading the text of PDFs. Shared by the app, the CLI and the tests.

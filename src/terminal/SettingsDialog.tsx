@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Terminal settings in one dialog: profiles (shell, folder, variables, separate
 // sign-ins, language, colours, font), behaviour, keyboard shortcuts, triggers
 // and "Open in…" commands. Every change saves straight away.
@@ -80,6 +80,10 @@ export function TerminalSettingsDialog({ settings, shells, onClose, onChange }: 
                     <Toggle on={!!profile.isolateHome} onChange={(v) => setProfile({ isolateHome: v })} />
                   </div>
                 ) : null}
+                <div className="tsetting-row">
+                  <div><b>Load the folder's .env</b><div className="small muted">Variables from a .env file in the starting folder (never over the profile's own).</div></div>
+                  <Toggle on={!!profile.loadDotEnv} onChange={(v) => setProfile({ loadDotEnv: v })} />
+                </div>
                 <Field label={tt('locale')}>
                   <select className="input" value={profile.locale ?? ''} onChange={(e) => setProfile({ locale: e.target.value || undefined })}>
                     {PROGRAM_LOCALES.map((l) => <option key={l} value={l}>{l || 'Same as the system'}</option>)}
@@ -133,6 +137,12 @@ export function TerminalSettingsDialog({ settings, shells, onClose, onChange }: 
               <ToggleRow label={tt('confirmBroadcast')} on={settings.confirmBroadcast} set={(v) => onChange({ confirmBroadcast: v })} />
               <ToggleRow label={tt('copyOnSelect')} on={settings.copyOnSelect} set={(v) => onChange({ copyOnSelect: v })} />
               <ToggleRow label="Draw with the graphics card (faster; turn off if text looks wrong)" on={settings.webgl} set={(v) => onChange({ webgl: v })} />
+              <ToggleRow label="Suggest a fix when a command fails" on={settings.quickFixes !== false} set={(v) => onChange({ quickFixes: v })} />
+              <ToggleRow label="Pin the command you are reading the output of" on={settings.stickyScroll !== false} set={(v) => onChange({ stickyScroll: v })} />
+              <ToggleRow label="Screen reader support (slower drawing)" on={!!settings.screenReader} set={(v) => onChange({ screenReader: v })} />
+              <label className="small" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>Open file:line links with (empty: the file's usual app). Example: code -g {'{file}'}:{'{line}'}:{'{col}'}
+                <input className="input" defaultValue={settings.editorCommand ?? ''} placeholder="code -g {file}:{line}:{col}" onBlur={(e) => onChange({ editorCommand: e.target.value })} />
+              </label>
               <div className="row" style={{ gap: 12, flexWrap: 'wrap' }}>
                 <Field label="Lines of scrollback"><input className="input" type="number" min={500} max={200000} step={500} value={settings.scrollback} onChange={(e) => onChange({ scrollback: Number(e.target.value) })} /></Field>
                 <Field label={`${tt('quick')} — shortcut`}><ShortcutInput value={settings.quickShortcut} onChange={(v) => onChange({ quickShortcut: v })} /></Field>

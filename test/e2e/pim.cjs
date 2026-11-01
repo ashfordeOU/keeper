@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Usage (Linux, Dovecot installed): xvfb-run -a node test/e2e/pim.cjs /tmp/kp-pim /tmp/kp-pim-shots
 // Drives the real Keeper app against a local IMAP server (Dovecot), SMTP
 // server and CalDAV server: adds a mail account through the dialog, reads a

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Keeper Link in the interface: this device, paired devices, pairing, sending
 // files, shared folders, port forwarding, the phone companion and the tunnel.
 

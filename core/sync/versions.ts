@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Older versions of synced files. Before sync replaces or deletes a file it is
 // moved into the folder's .keeper-versions folder, named with the time, and
 // kept for as long as the folder's rule says.

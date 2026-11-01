@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // keeper — the command-line side of Keeper. Same engine as the app, for
 // terminals, servers and scripts. Read-only unless you pass --yes.
 
@@ -39,6 +39,9 @@ interface Args {
   flags: Record<string, string | boolean>;
 }
 
+/** `keeper awake` flags that take a value (`--for 2h`, `--while-app Zoom`). */
+const AWAKE_VALUE_FLAGS = ['for', 'until', 'minutes', 'while-app', 'while-file', 'while-folder', 'while-cpu', 'while-usb', 'while-wifi', 'while-drive', 'end-below'];
+
 function parseArgs(argv: string[]): Args {
   const flags: Record<string, string | boolean> = {};
   const rest: string[] = [];
@@ -47,7 +50,8 @@ function parseArgs(argv: string[]): Args {
     if (a.startsWith('--')) {
       const [k, v] = a.slice(2).split('=');
       if (v !== undefined) flags[k] = v;
-      else if (['in', 'limit', 'min'].includes(k) && argv[i + 1] && !argv[i + 1].startsWith('--')) flags[k] = argv[++i];
+      // `keeper tool …` takes --key value for every option (put options after the files).
+      else if (argv[i + 1] && !argv[i + 1].startsWith('--') && (['in', 'limit', 'min'].includes(k) || argv[0] === 'tool' || argv[0] === 'convert' || (argv[0] === 'awake' && AWAKE_VALUE_FLAGS.includes(k)))) flags[k] = argv[++i];
       else flags[k] = true;
     } else if (a === '-y') flags.yes = true;
     else if (a === '-h') flags.help = true;
@@ -314,11 +318,64 @@ async function cmdAcp() {
   });
 }
 
+/**
+ * keeper term … / keeper hub …: the same tools agents use, from a shell or a
+ * script (as the person, or as an agent when KEEPER_AGENT_TOKEN is set).
+ *   keeper term run "npm test"        keeper term list        keeper term read <id>
+ *   keeper hub agents                 keeper hub send <agent> <text>
+ *   keeper hub post <room> <text>     keeper hub tasks        keeper hub <tool> --args '{"…":…}'
+ */
+async function cmdAgentTool(kind: 'term' | 'hub', a: Args) {
+  const [sub, ...rest] = a.rest;
+  if (!sub) throw new Error(kind === 'term' ? 'Usage: keeper term run "<command>" | list | read <id> | close <id> | <tool> --args \'{json}\'' : 'Usage: keeper hub agents | send <agent> <text> | post <room> <text> | inbox | tasks | <tool> --args \'{json}\'');
+  const alias: Record<string, string> = { agents: 'list_agents', ls: 'list', task: 'post_task' };
+  const name = `${kind}_${alias[sub] ?? sub}`;
+  let args: Record<string, unknown> = {};
+  if (typeof a.flags.args === 'string') args = JSON.parse(a.flags.args);
+  else if (name === 'term_run') args = { session: typeof a.flags.session === 'string' ? a.flags.session : 'new', command: rest.join(' ') };
+  else if (['term_read', 'term_close', 'term_snapshot'].includes(name)) args = { session: rest[0] };
+  else if (name === 'term_write') args = { session: rest[0], text: rest.slice(1).join(' ') + '\r' };
+  else if (name === 'hub_send') args = { to: rest[0], text: rest.slice(1).join(' ') };
+  else if (name === 'hub_post') args = { room: rest[0], text: rest.slice(1).join(' ') };
+  else if (name === 'hub_read') args = { room: rest[0] };
+  else if (name === 'hub_post_task') args = { title: rest.join(' ') };
+  else if (['hub_claim'].includes(name)) args = { task_id: rest[0] };
+  else if (name === 'hub_complete') args = { task_id: rest[0], result: rest.slice(1).join(' ') };
+  const app = await connectToApp();
+  if (!app) throw new Error('Keeper is not running. Open the Keeper app first.');
+  const r = (await app.call('keeper/agent-tool', { name, args, agent: process.env.KEEPER_AGENT_TOKEN, session: process.env.KEEPER_SESSION })) as { text: string; isError?: boolean; structured?: unknown };
+  app.close();
+  out(r.structured ?? r, a.flags, () => console.log(r.text));
+  if (r.isError) process.exitCode = 1;
+}
+
 /** MCP over stdio for AI apps: proxies to the running app, or serves the saved index read-only. */
 async function cmdMcp() {
   const app = await connectToApp();
   if (app) {
-    const send = app.raw((line) => process.stdout.write(line + '\n'));
+    // Requests still waiting for their answer: when the agent closes its end, finish these first
+    // (a screenshot or a question to the AI can take a while).
+    const waiting = new Set<string>();
+    const idOf = (line: string): string | undefined => {
+      try {
+        const m = JSON.parse(line) as { id?: string | number; method?: string };
+        return m.id !== undefined && m.id !== null ? String(m.id) : undefined;
+      } catch {
+        return undefined;
+      }
+    };
+    let drained: (() => void) | null = null;
+    const send = app.raw((line) => {
+      process.stdout.write(line + '\n');
+      const id = idOf(line);
+      if (id !== undefined) waiting.delete(id);
+      if (!waiting.size) drained?.();
+    });
+    const forward = (line: string) => {
+      const id = idOf(line);
+      if (id !== undefined && /"method"\s*:/.test(line)) waiting.add(id);
+      send(line);
+    };
     let buf = '';
     process.stdin.setEncoding('utf8');
     process.stdin.on('data', (c: string) => {
@@ -327,10 +384,17 @@ async function cmdMcp() {
       while ((i = buf.indexOf('\n')) >= 0) {
         const line = buf.slice(0, i);
         buf = buf.slice(i + 1);
-        if (line.trim()) send(line);
+        if (line.trim()) forward(line);
       }
     });
-    await new Promise<void>((r) => process.stdin.on('end', () => { if (buf.trim()) send(buf); setTimeout(r, 200); }));
+    await new Promise<void>((r) => process.stdin.on('end', () => {
+      if (buf.trim()) forward(buf);
+      const done = () => setTimeout(r, 50);
+      if (!waiting.size) return done();
+      drained = done;
+      // Never hang for ever on an answer that will not come.
+      setTimeout(done, 300_000).unref();
+    }));
     app.close();
     return;
   }
@@ -371,6 +435,55 @@ async function cmdAgents(a: Args) {
   });
 }
 
+/** Every Convert tool from the command line, with the same engine as the app (pages are drawn with poppler when installed). */
+async function cmdTool(a: Args) {
+  const { TOOL_INFO } = await import('../core/convert-types');
+  // keeper convert <files…> --to <format>: any file to another format.
+  if (typeof a.flags.to === 'string' || (a.rest[0] && !(a.rest[0] in TOOL_INFO) && a.rest[0] !== 'list' && existsSync(a.rest[0]))) {
+    const { targetsFor } = await import('../core/filekit/matrix');
+    if (typeof a.flags.to !== 'string') {
+      const t = targetsFor(path.extname(a.rest[0]).slice(1));
+      return out(t, a.flags, () => console.log(t.length ? `${path.basename(a.rest[0])} can become:\n${t.map((x) => `  ${x.format.padEnd(8)} ${x.label}${x.engine ? dim(` (uses ${x.engine})`) : ''}`).join('\n')}\n\nkeeper convert ${a.rest[0]} --to ${t[0]?.format ?? 'pdf'}` : 'Keeper cannot convert this kind of file yet'));
+    }
+    a.rest.unshift('convert.to');
+    a.flags.format = a.flags.to;
+    delete a.flags.to;
+  }
+  const [name, ...files] = a.rest;
+  if (!name || name === 'list') {
+    const rows = Object.entries(TOOL_INFO).map(([id, t]) => ({ id, category: t.category, label: t.label, description: t.description }));
+    return out(rows, a.flags, () => {
+      let cat = '';
+      for (const r of rows) {
+        if (r.category !== cat) console.log(`\n${bold(r.category)}`);
+        cat = r.category;
+        console.log(`  ${r.id.padEnd(20)} ${r.label} — ${dim(r.description)}`);
+      }
+    });
+  }
+  if (!(name in TOOL_INFO)) throw new Error(`No tool called ${name}; see keeper tool list`);
+  if (a.flags.help) return console.log(`${name}: ${TOOL_INFO[name as keyof typeof TOOL_INFO].description}\nOptions are passed as --key value, e.g. --format mp3, --words "a,b", --password secret, --out ./folder`);
+  if (!files.length) throw new Error(`Usage: keeper tool ${name} <files…> [--option value]`);
+  // Options: numbers and booleans become numbers and booleans; --json '{…}' sets anything else.
+  const op: Record<string, unknown> = { tool: name };
+  for (const [k, v] of Object.entries(a.flags)) {
+    if (['json', 'out', 'yes'].includes(k)) continue;
+    op[k] = v === true ? true : v === 'false' ? false : /^-?\d+(\.\d+)?$/.test(String(v)) ? Number(v) : v;
+  }
+  if (typeof a.flags.json === 'string') Object.assign(op, JSON.parse(a.flags.json));
+  const { Converter } = await import('../electron/services/convert');
+  const conv = new Converter({ modelsDir: path.join(os.homedir(), '.cache', 'keeper', 'models'), onProgress: tty ? (f, phase) => process.stderr.write(`\r${dim(`${phase} ${Math.round(f * 100)}%`)}   `) : undefined });
+  const r = await conv.run({ op: op as never, inputs: files.map((f) => path.resolve(f)), outDir: typeof a.flags.out === 'string' ? path.resolve(a.flags.out) : undefined });
+  if (tty) process.stderr.write('\r\x1b[K');
+  out(r, a.flags, () => {
+    if (r.message) console.log(r.message);
+    for (const o of r.outputs) console.log(o);
+    for (const c of r.checksums ?? []) console.log(`${c.hash}  ${c.path}`);
+    for (const f of r.failed ?? []) console.log(`${f.path}: ${f.reason}`);
+    if (r.details) console.log(r.details);
+  });
+}
+
 function help() {
   console.log(`${bold('keeper')} ${VERSION} — Keeper by Ashforde® — find, understand and tidy your files
 
@@ -382,16 +495,29 @@ ${bold('Usage')}
   keeper stats               Files per shelf and where downloads came from (--sources)
   keeper rules               Preview the automatic tidy-up rules
   keeper agents              Status of Claude Code / Codex sessions on this computer
+  keeper convert <files> --to <format>
+                             Any file to another format: keeper convert notes.epub --to pdf
+                             (without --to: what the file can become)
+  keeper tool list           Every conversion tool (video, audio, pictures, PDF, documents, files)
+  keeper tool <name> <files> Run one: keeper tool pdf.redact contract.pdf --words "Jane Doe"
+                             options as --key value (see keeper tool <name> --help); results go to a new folder
   keeper ask <question>      Ask about your files with the AI chosen in Keeper (cites files)
   keeper search --semantic   Search Keeper's brain by meaning (--brain: words inside files too)
   keeper brain               What Keeper's brain has read
   keeper mcp                 Serve Keeper to AI apps over MCP (stdio)
   keeper acp                 Keeper as an agent for editors (Agent Client Protocol, stdio)
+  keeper term run "<cmd>"    Run in an agent terminal; also list, read <id>, close <id>, write <id> <text>
+  keeper hub agents          The agent hub: agents, send <agent> <text>, post <room> <text>, inbox, tasks
   keeper ask --plain "…"     Just the answer, as text (for Shortcuts and Siri)
   keeper link [status|devices|invite|pair|send|check|forward]
                              Keeper Link: your paired devices, files and ports between them
   keeper sync [status|pause|resume]
                              Folders synced between your devices, backups and mirrors
+  keeper awake [on|off|toggle|status|extend|blockers|stats] [--for 2h | --until 18:30] [--while-app Name]
+              [--while-file path] [--while-cpu 50] [--while-audio] [--allow-display-sleep] [--closed-lid]
+  keeper fw [status|rules|alerts|log [n]|profile [id]|silent allow|deny|off]
+  keeper fw allow|deny <host or address> [port] [--app /path]
+                             The firewall: its state, rules, alerts and quick rules
   keeper backup list|run|restore [name] [--snapshot S] [--to DIR] [--include a,b]
   keeper backup list|restore|verify --from <folder>
                              Open a backup straight from a drive or folder, without the app
@@ -403,7 +529,7 @@ ${bold('Options')}
   --hidden         include hidden files
   --yes, -y        actually make changes (everything else is a dry run)
 
-Licensed under the GNU AGPL v3 or later.`);
+Free to use. Source-available under the PolyForm Shield License 1.0.0 — see LICENSE.md.`);
 }
 
 // ---------------------------------------------------------------- sync and backups
@@ -432,6 +558,69 @@ async function cmdSync(a: Args) {
     for (const b of ov.backups) console.log(`  ${dim('backup')} ${b.name.padEnd(24)} ${b.state.padEnd(8)} ${b.lastRun ? relativeTime(b.lastRun) : 'never'}${b.lastMessage ? dim(` · ${b.lastMessage}`) : ''}`);
     for (const m of ov.mirrors) console.log(`  ${dim('mirror')} ${m.name.padEnd(24)} ${m.state.padEnd(8)} ${m.lastRun ? relativeTime(m.lastRun) : 'never'}`);
     if (!ov.check321.ok) console.log(dim(`\n${ov.check321.advice[0]}`));
+  });
+}
+
+/** keeper awake [on|off|toggle|status|extend|blockers|stats] [--for 2h] [--until 18:30] [--while-app Zoom] [--allow-display-sleep] [--closed-lid] … */
+async function cmdAwake(a: Args) {
+  const app = await connectToApp();
+  if (!app) throw new Error('Keeper is not running. Open the Keeper app first.');
+  let r: unknown;
+  try {
+    r = await app.call('keeper/awake', { cmd: a.rest[0] ?? 'status', ...a.flags });
+  } finally {
+    app.close();
+  }
+  out(r, a.flags, () => {
+    const cmd = a.rest[0] ?? 'status';
+    if (cmd === 'blockers') {
+      const b = r as { list: { who: string; what: string; why?: string }[]; source: string; error?: string };
+      if (b.error) console.log(dim(b.error));
+      for (const x of b.list) console.log(`  ${x.who.padEnd(24)} ${x.what}${x.why ? dim(` · ${x.why}`) : ''}`);
+      if (!b.list.length) console.log('Nothing is keeping this computer awake.');
+      return;
+    }
+    if (cmd === 'stats') {
+      const s = r as { sessions: number; totalMs: number; longestMs: number };
+      console.log(`${s.sessions} sessions · ${Math.round(s.totalMs / 3_600_000 * 10) / 10} h awake in total · longest ${Math.round(s.longestMs / 60_000)} min`);
+      return;
+    }
+    const s = r as import('../core/api-awake').AwakeStatus;
+    if (!s.on) console.log(`${bold('Keep Awake')} is off${s.matching.length ? dim(` · triggers matching: ${s.matching.join(', ')}`) : ''}`);
+    else {
+      const left = s.session?.endsAt ? ` · ${Math.max(0, Math.round((s.session.endsAt - Date.now()) / 60_000))} min left` : '';
+      console.log(`${bold('Keeping awake')} · ${s.session?.reason}${left}`);
+      console.log(dim(`  held by ${s.holds.join(', ')}${s.closedDisplay ? ' · lid may be closed' : ''}`));
+    }
+  });
+}
+
+/** keeper fw status|rules|alerts|log [n]|profile [id]|silent [allow|deny|off]|allow|deny <host|address> [port] [--app path] */
+async function cmdFw(a: Args) {
+  const app = await connectToApp();
+  if (!app) throw new Error('Keeper is not running. Open the Keeper app first.');
+  let r: unknown;
+  try {
+    const args = [...a.rest.slice(1)];
+    if (typeof a.flags.app === 'string') args.push('--app', a.flags.app);
+    r = await app.call('keeper/fw', { cmd: a.rest[0] ?? 'status', args });
+  } finally {
+    app.close();
+  }
+  out(r, a.flags, () => {
+    const cmd = a.rest[0] ?? 'status';
+    if (cmd === 'status') {
+      const s = r as { mode: string; profile: string; enforcement: { active: boolean; backend: string; message?: string }; dns: { running: boolean; port?: number; blocked: number; queries: number }; pending: number };
+      console.log(`${bold('Firewall')} · mode ${s.mode} · profile ${s.profile}`);
+      console.log(`  Enforcement: ${s.enforcement.active ? `on (${s.enforcement.backend})` : 'off — watching only'}${s.enforcement.message ? dim(` · ${s.enforcement.message}`) : ''}`);
+      console.log(`  DNS filter: ${s.dns.running ? `on, port ${s.dns.port} · ${s.dns.blocked}/${s.dns.queries} blocked` : 'off'}`);
+      if (s.pending) console.log(`  ${s.pending} connection${s.pending === 1 ? '' : 's'} waiting for an answer (keeper fw alerts)`);
+    } else if (cmd === 'rules') {
+      for (const g of r as { group: string; enabled: boolean; rules: { verdict: string; app: unknown; host?: string; ip?: string; port?: string; enabled: boolean }[] }[]) {
+        console.log(`${bold(g.group)}${g.enabled ? '' : dim(' (off)')}`);
+        for (const x of g.rules) console.log(`  ${x.verdict === 'deny' ? 'deny ' : 'allow'} ${typeof x.app === 'string' ? 'any app' : JSON.stringify(x.app)} → ${x.host ?? x.ip ?? 'anywhere'}${x.port ? `:${x.port}` : ''}${x.enabled ? '' : dim(' (off)')}`);
+      }
+    } else console.log(typeof r === 'string' ? r : JSON.stringify(r, null, 2));
   });
 }
 
@@ -525,6 +714,7 @@ async function main() {
   if (a.flags.help) return help();
   switch (a.cmd) {
     case 'search': case 'find': return cmdSearch(a);
+    case 'tool': case 'convert': return cmdTool(a);
     case 'dupes': case 'duplicates': return cmdDupes(a);
     case 'scan': return cmdScan(a);
     case 'clean': return cmdClean(a);
@@ -533,9 +723,15 @@ async function main() {
     case 'agents': return cmdAgents(a);
     case 'ask': return cmdAsk(a);
     case 'mcp': return cmdMcp();
+    // Native messaging host for Keeper's browser extension (started by the browser, not by people).
+    case 'browser-host': return (await import('./browser-host')).browserHost();
+    case 'term': return cmdAgentTool('term', a);
+    case 'hub': return cmdAgentTool('hub', a);
     case 'acp': return cmdAcp();
     case 'brain': return cmdBrain(a);
     case 'sync': return cmdSync(a);
+    case 'fw': case 'firewall': return cmdFw(a);
+    case 'awake': case 'caffeinate': return cmdAwake(a);
     case 'backup': case 'backups': return cmdBackup(a);
     case 'link': return cmdLink(a.rest, a.flags, (d, human) => out(d, a.flags, human));
     default: return help();

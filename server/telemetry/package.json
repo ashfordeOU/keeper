@@ -1,0 +1,16 @@
+{
+  "name": "keeper-telemetry",
+  "private": true,
+  "description": "Keeper's anonymous usage stats server (Cloudflare Worker + D1). See README.md.",
+  "license": "SEE LICENSE IN ../../LICENSE.md",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:init": "wrangler d1 execute keeper-telemetry --remote --file=schema.sql",
+    "db:init:local": "wrangler d1 execute keeper-telemetry --local --file=schema.sql"
+  },
+  "devDependencies": {
+    "wrangler": "^4.40.0"
+  }
+}

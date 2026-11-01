@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // One Keeper device on the Link network. Owns the endpoint other devices and
 // phones connect to, finds paired devices (local network, tunnel, relay,
 // mailbox notes), runs pairing, and answers requests within each device's
@@ -433,6 +433,11 @@ export class LinkNode {
   /** For features built on Link: extra requests a paired phone may make on its companion channel. */
   registerCompanionOp(op: string, fn: CompanionOp) {
     this.extraCompanion.set(op, fn);
+  }
+
+  /** Where files sent from other devices and phones are saved. */
+  receivedDir(): string {
+    return this.downloadDir();
   }
 
   /** A paired phone's name, for prompts. */

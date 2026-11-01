@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Small, dependency-free cryptography for places without WebCrypto or a
 // ChaCha20 cipher: the phone companion page served over plain HTTP on the
 // local network (browsers only offer crypto.subtle on secure pages), and the

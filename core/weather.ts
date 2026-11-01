@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Weather for the Island and Home, from Open-Meteo (free, no account, no key).
 // Only the chosen place's coordinates are sent.
 

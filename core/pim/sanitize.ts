@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Making a message's HTML safe to show: no scripts, no event handlers, no
 // forms or embedded frames, remote images and CSS held back until you allow
 // them, tracking pixels removed, links that show where they really go. The

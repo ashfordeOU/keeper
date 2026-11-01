@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Linux: registers Keeper with GNOME's and KDE's search (files in the
 // person's own ~/.local/share, removed again when switched off) and serves
 // results over D-Bus while Keeper runs.

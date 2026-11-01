@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Reading the network from each operating system, as cheaply as it allows:
 // Linux from /proc (plus ss and ip when installed), macOS from nettop and
 // netstat, Windows from netstat and route. One or two commands per reading.

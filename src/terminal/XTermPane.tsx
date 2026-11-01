@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // One terminal on screen. It shows what the session printed so far, then live
 // output; sends typing (to one terminal or, when broadcasting, to several);
 // marks each command with how it ended; and resizes the program to fit.
@@ -15,6 +15,27 @@ import { api } from '../api';
 import { quotePath } from '../../core/terminal/profiles';
 import { schemeById, xtermTheme } from '../../core/terminal/schemes';
 import type { SessionInfo, ShellEvent, TerminalProfile, TerminalSettings } from '../../core/terminal/types';
+import { findGitHashes, findProblems, quickFixes, recentCommands, suggest, type QuickFix } from '../../core/terminal/assist';
+
+const HISTORY_KEY = 'keeper.term.history';
+function loadHistory(): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(HISTORY_KEY) ?? '[]') as string[];
+  } catch {
+    return [];
+  }
+}
+function remember(cmd: string) {
+  const c = cmd.trim();
+  if (!c || c.length > 2000) return;
+  try {
+    const h = loadHistory().filter((x) => x !== c);
+    h.push(c);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(h.slice(-500)));
+  } catch {
+    /* storage unavailable */
+  }
+}
 
 export interface PaneHandle {
   focus(): void;
@@ -45,6 +66,8 @@ interface Props {
   confirmPaste(text: string): Promise<boolean>;
   restored?: boolean;
   onRestart?(): void;
+  /** the shell's folder (relative file:line links are opened from it) */
+  cwd?: string;
 }
 
 /** The current Keeper theme as terminal colours. */
@@ -64,7 +87,10 @@ export const XTermPane = forwardRef<PaneHandle, Props>(function XTermPane(p, ref
   const term = useRef<Terminal | null>(null);
   const fit = useRef<FitAddon | null>(null);
   const search = useRef<SearchAddon | null>(null);
-  const marks = useRef<{ marker: IMarker; exit?: number; started: number; ended?: number }[]>([]);
+  const marks = useRef<{ marker: IMarker; exit?: number; started: number; ended?: number; command?: string }[]>([]);
+  const [fixes, setFixes] = useState<QuickFix[]>([]);
+  const [sticky, setSticky] = useState<string | null>(null);
+  const [picker, setPicker] = useState<{ kind: 'recent' | 'suggest'; filter: string; items: string[]; index: number; typed?: string } | null>(null);
   const props = useRef(p);
   props.current = p;
   const [status, setStatus] = useState<{ exit?: number; ms?: number } | null>(null);
@@ -164,7 +190,35 @@ export const XTermPane = forwardRef<PaneHandle, Props>(function XTermPane(p, ref
       }).catch(() => undefined);
     }
 
+    t.options.screenReaderMode = !!pp.settings.screenReader;
     const subs: IDisposable[] = [];
+    // file:line:col from compilers, linters and tests, and git commit ids, become links.
+    subs.push(t.registerLinkProvider({
+      provideLinks(y, cb) {
+        const text = t.buffer.active.getLine(y - 1)?.translateToString(true) ?? '';
+        const links = [
+          ...findProblems(text).map((p) => ({
+            range: { start: { x: p.start + 1, y }, end: { x: p.end, y } },
+            text: text.slice(p.start, p.end),
+            activate: () => void api.terminal.openAt(p.file, p.line, p.col, props.current.cwd).catch(() => undefined),
+          })),
+          ...findGitHashes(text).map((h) => ({
+            range: { start: { x: h.start + 1, y }, end: { x: h.end, y } },
+            text: h.hash,
+            // Types "git show <hash>" (does not run it) so the person sees the change.
+            activate: () => { send(`git show ${h.hash}`); t.focus(); },
+          })),
+        ];
+        cb(links.length ? links : undefined);
+      },
+    }));
+    // Sticky scroll: the command whose output is at the top of the screen stays pinned there.
+    subs.push(t.onScroll(() => {
+      if (props.current.settings.stickyScroll === false) return setSticky(null);
+      const top = t.buffer.active.viewportY;
+      const above = [...marks.current].reverse().find((m) => m.command && m.marker.line >= 0 && m.marker.line < top);
+      setSticky(above && top < t.buffer.active.baseY ? above.command ?? null : null);
+    }));
     subs.push(t.onData((d) => send(d)));
     subs.push(t.onBinary((d) => send(d)));
     subs.push(t.onResize(({ cols, rows }) => !props.current.restored && api.terminal.resize(props.current.session, cols, rows)));
@@ -177,6 +231,19 @@ export const XTermPane = forwardRef<PaneHandle, Props>(function XTermPane(p, ref
     t.attachCustomKeyEventHandler((e) => {
       // Let the window's shortcuts (split, new tab…) through; the rest goes to the program.
       if (e.type !== 'keydown') return true;
+      // Ctrl+Alt+R: run a recent command; Ctrl+Space: suggestions for what is typed.
+      if (e.ctrlKey && e.altKey && e.key.toLowerCase() === 'r') {
+        const h = loadHistory();
+        setPicker({ kind: 'recent', filter: '', items: recentCommands(h, ''), index: 0 });
+        return false;
+      }
+      if (e.ctrlKey && !e.altKey && e.code === 'Space') {
+        const b = t.buffer.active;
+        const lineText = b.getLine(b.baseY + b.cursorY)?.translateToString(true).slice(0, b.cursorX) ?? '';
+        const typed = lineText.replace(/^.*?(?:[$#%>❯]|PS [^>]*>)\s/, '');
+        setPicker({ kind: 'suggest', filter: typed, typed, items: suggest(typed, { history: loadHistory() }), index: 0 });
+        return false;
+      }
       const mod = e.metaKey || e.ctrlKey;
       const mac = navigator.platform.toLowerCase().includes('mac');
       if (mac && e.metaKey && e.key.toLowerCase() === 'c' && t.hasSelection()) {
@@ -218,7 +285,9 @@ export const XTermPane = forwardRef<PaneHandle, Props>(function XTermPane(p, ref
       if (id !== props.current.session) return;
       if (ev.kind === 'command-start') {
         const marker = t.registerMarker(0);
-        if (marker) marks.current.push({ marker, started: Date.now() });
+        if (marker) marks.current.push({ marker, started: Date.now(), command: ev.command });
+        if (ev.command) remember(ev.command);
+        setFixes([]);
         if (marks.current.length > 500) marks.current.shift()?.marker.dispose();
         setStatus(null);
       } else if (ev.kind === 'command-end') {
@@ -233,6 +302,15 @@ export const XTermPane = forwardRef<PaneHandle, Props>(function XTermPane(p, ref
             el.title = `${ev.exit ? `Exit ${ev.exit}` : 'Done'} · ${formatMs(last.ended! - last.started)}`;
           });
           setStatus({ exit: ev.exit, ms: last.ended - last.started });
+          // A failed command: look at its last lines for a likely fix.
+          if (ev.exit && props.current.settings.quickFixes !== false) {
+            const b = t.buffer.active;
+            const from = Math.max(last.marker.line, b.length - 80);
+            const lines: string[] = [];
+            for (let y = from; y < b.length; y++) lines.push(b.getLine(y)?.translateToString(true) ?? '');
+            const plat = navigator.platform.toLowerCase().includes('mac') ? 'darwin' : navigator.platform.toLowerCase().includes('win') ? 'win32' : 'linux';
+            setFixes(quickFixes(last.command ?? '', ev.exit, lines.join('\n'), plat));
+          }
         }
       } else if (ev.kind === 'prompt') {
         const marker = t.registerMarker(0);
@@ -294,6 +372,21 @@ export const XTermPane = forwardRef<PaneHandle, Props>(function XTermPane(p, ref
     if (p.active && p.visible) term.current?.focus();
   }, [p.active, p.visible]);
 
+  useEffect(() => {
+    if (term.current) term.current.options.screenReaderMode = !!p.settings.screenReader;
+  }, [p.settings.screenReader]);
+
+  const choose = (item: string, run: boolean) => {
+    const pk = picker;
+    setPicker(null);
+    if (!pk) return;
+    // Suggestions add what is missing; recent commands replace the line (Ctrl+U clears it first).
+    if (pk.kind === 'suggest') send(item.slice((pk.typed ?? '').length));
+    else send('\x15' + item);
+    if (run) send('\r');
+    term.current?.focus();
+  };
+
   // Theme changes (profile scheme or Keeper's own theme).
   useEffect(() => {
     const t = term.current;
@@ -328,6 +421,38 @@ export const XTermPane = forwardRef<PaneHandle, Props>(function XTermPane(p, ref
       onDrop={(e) => void onDrop(e)}
     >
       <div className="term-host" ref={host} />
+      {sticky ? <div className="term-sticky" title="The command this output belongs to" onClick={() => { const m = [...marks.current].reverse().find((x) => x.command === sticky); if (m) term.current?.scrollToLine(m.marker.line); }}>$ {sticky}</div> : null}
+      {fixes.length ? (
+        <div className="term-fixes">
+          <span title="Suggested next commands (typed in, not run)">💡</span>
+          {fixes.map((f) => <button key={f.command} className="btn sm" title={f.command} onClick={() => { send(f.command); setFixes([]); term.current?.focus(); }}>{f.label}</button>)}
+          <button className="btn sm ghost" onClick={() => setFixes([])}>×</button>
+        </div>
+      ) : null}
+      {picker ? (
+        <div className="term-picker" onMouseDown={(e) => e.stopPropagation()}>
+          <input
+            autoFocus
+            className="input"
+            placeholder={picker.kind === 'recent' ? 'Run a recent command… (Alt+Enter types it without running)' : 'Suggestions'}
+            value={picker.filter}
+            onChange={(e) => {
+              const f = e.target.value;
+              setPicker({ ...picker, filter: f, index: 0, items: picker.kind === 'recent' ? recentCommands(loadHistory(), f) : suggest(f, { history: loadHistory() }), typed: picker.kind === 'suggest' ? f : picker.typed });
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') { setPicker(null); term.current?.focus(); }
+              else if (e.key === 'ArrowDown') { e.preventDefault(); setPicker({ ...picker, index: Math.min(picker.items.length - 1, picker.index + 1) }); }
+              else if (e.key === 'ArrowUp') { e.preventDefault(); setPicker({ ...picker, index: Math.max(0, picker.index - 1) }); }
+              else if (e.key === 'Enter' && picker.items[picker.index]) { e.preventDefault(); choose(picker.items[picker.index], picker.kind === 'recent' && !e.altKey); }
+            }}
+          />
+          <div className="term-picker-list">
+            {picker.items.map((it, i) => <div key={it} className={`term-picker-row ${i === picker.index ? 'on' : ''}`} onMouseDown={() => choose(it, picker.kind === 'recent')}>{it}</div>)}
+            {!picker.items.length ? <div className="muted small">Nothing matches.</div> : null}
+          </div>
+        </div>
+      ) : null}
       {p.broadcastTo && p.broadcastTo.length > 1 ? <div className="term-badge broadcast" title="Typing goes to every pane in this tab">⇶</div> : null}
       {status && status.exit !== undefined ? <div className={`term-badge exit ${status.exit ? 'bad' : 'good'}`}>{status.exit ? `✕ ${status.exit}` : '✓'} · {formatMs(status.ms ?? 0)}</div> : null}
       {p.restored || exited !== null ? (

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Windows: one PowerShell that stays open for the questions Keeper asks every
 // few seconds (what is playing). Starting PowerShell costs a few hundred
 // milliseconds of processor each time; asking a running one costs almost

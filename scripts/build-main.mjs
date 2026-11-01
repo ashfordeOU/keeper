@@ -1,6 +1,8 @@
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Bundles the Electron main process, the preload script and the CLI with esbuild.
 // Dependencies are bundled in, so the packaged app ships no node_modules except
-// the ones listed in `external` (tesseract.js loads its worker from disk).
+// the ones listed in `external` (tesseract.js loads its worker from disk; libheif-js
+// is LGPL-3.0, so it ships as its own module that people can swap for another build).
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { build, context } from 'esbuild';
 
@@ -16,9 +18,11 @@ const common = {
   format: 'cjs',
   sourcemap: true,
   logLevel: 'info',
-  define: { __KEEPER_VERSION__: JSON.stringify(version) },
+  // KEEPER_OFFICIAL_BUILD=1 is set only by Ashforde's release workflow; every other build reports itself as unofficial.
+  define: { __KEEPER_VERSION__: JSON.stringify(version), __KEEPER_OFFICIAL__: JSON.stringify(process.env.KEEPER_OFFICIAL_BUILD === '1') },
+  // libheif-js (LGPL-3.0) stays a separate module under node_modules so it can be replaced; see THIRD-PARTY-NOTICES.md.
   // usocket and x11 are optional extras of the D-Bus client (abstract sockets, X11 bus lookup); it works without them.
-  external: ['electron', 'tesseract.js', 'ffmpeg-static', 'pdfjs-dist', 'sharp', 'onnxruntime-node', 'usocket', 'x11', 'cpu-features', '*.node', 'node-pty'],
+  external: ['electron', 'tesseract.js', 'ffmpeg-static', 'pdfjs-dist', 'sharp', 'onnxruntime-node', 'usocket', 'x11', 'cpu-features', '*.node', 'node-pty', 'libheif-js'],
 };
 
 const targets = [
@@ -32,8 +36,13 @@ if (!cliOnly) {
     { ...common, entryPoints: ['electron/preload.ts'], outfile: 'dist-electron/preload.cjs' },
     { ...common, entryPoints: ['electron/capture-preload.ts'], outfile: 'dist-electron/capture-preload.cjs' },
     { ...common, entryPoints: ['electron/brain-worker.ts'], outfile: 'dist-electron/brain-worker.cjs' },
+    // Privacy & Security: content checks (fingerprints, heuristics, YARA) off the main thread.
+    { ...common, entryPoints: ['electron/security-worker.ts'], outfile: 'dist-electron/security-worker.cjs' },
     // The terminal session host runs as its own process so terminals outlive the window.
     { ...common, entryPoints: ['electron/terminal-host.ts'], outfile: 'dist-electron/term-host.cjs' },
+    // The watchdog that starts Keeper again after an unexpected stop, and the service hosts.
+    { ...common, entryPoints: ['electron/watchdog.ts'], outfile: 'dist-electron/watchdog.cjs', sourcemap: false },
+    { ...common, entryPoints: ['electron/svc/net-host.ts'], outfile: 'dist-electron/svc-net.cjs' },
     // The page a phone opens to use Keeper Link without an app (served by the app itself).
     { bundle: true, platform: 'browser', target: 'es2020', format: 'iife', minify: !watch, logLevel: 'info', entryPoints: ['companion/app.ts'], outfile: 'dist-electron/companion/app.js' },
   );

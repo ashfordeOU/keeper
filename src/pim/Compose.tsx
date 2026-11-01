@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Writing mail: address suggestions, Markdown (bold, lists, links) turned into
 // a proper message, attachments by button or drag (also from Browse), send
 // later, and a few seconds to undo after pressing Send.
@@ -55,7 +55,7 @@ function AddressField({ label, value, onChange, autoFocus }: { label: string; va
 }
 
 export function Compose({ draft, accounts, onClose, onSent }: { draft: Draft & { account?: string }; accounts: Account[]; onClose: () => void; onSent: (o: Outbox) => void }) {
-  const { toast } = useStore();
+  const { toast, setDraft } = useStore();
   const ids = useMemo(() => accounts.flatMap((a) => (a.identities.length ? a.identities : [{ name: '', email: a.email ?? '' }]).map((i) => ({ account: a.id, ...i }))), [accounts]);
   const [from, setFrom] = useState(() => ids.find((i) => i.account === draft.account && (!draft.from || i.email === draft.from)) ?? ids[0]);
   const [to, setTo] = useState(draft.to);
@@ -74,6 +74,12 @@ export function Compose({ draft, accounts, onClose, onSent }: { draft: Draft & {
   const bodyRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => { if (draft.to.length) bodyRef.current?.focus(); }, [draft.to.length]);
+
+  // Kept with the tab (saved within a second), so a crash never loses what was typed.
+  useEffect(() => {
+    setDraft('mail.compose', JSON.stringify({ account: from?.account, from: from?.email, to, cc, bcc, subject, body, quoted: quoted || undefined, inReplyTo: draft.inReplyTo, references: draft.references, attachments: files.map((p) => ({ path: p })) }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [from, to, cc, bcc, subject, body, quoted, files]);
 
   const build = (): Draft & { account: string } => ({ account: from.account, from: from.email, to, cc, bcc, subject, body, quoted: quoted || undefined, inReplyTo: draft.inReplyTo, references: draft.references, attachments: files.map((p) => ({ path: p })) });
 

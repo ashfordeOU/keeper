@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Wake-on-LAN: a sleeping computer listens for a "magic packet" — six 0xFF
 // bytes and then its network card's address sixteen times — sent as a UDP
 // broadcast on its own network. Keeper learns each paired computer's addresses

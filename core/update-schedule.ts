@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // When a downloaded update goes in. The person picks: now, when they quit
 // Keeper, in an hour, tonight, tomorrow morning or at a time of their own.
 // Nothing installs while Keeper is busy with something they would lose, and

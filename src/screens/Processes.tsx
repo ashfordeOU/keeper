@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Health → Processes and Services: every running program with what it uses,
 // and quitting, force quitting, suspending, restarting and re-prioritising
 // them; the system's services with start, stop and start-at-boot.
@@ -160,7 +160,7 @@ const ROW_H = 30;
 // ---------------------------------------------------------------- Processes
 
 export function Processes() {
-  const { toast, info, route } = useStore();
+  const { toast, info, route, go } = useStore();
   const platform = info?.platform ?? 'linux';
   const [tab, setTab] = remembered<Tab>('procs.tab', 'cpu');
   const [mode, setMode] = remembered<'list' | 'tree' | 'apps'>('procs.mode', 'apps');
@@ -325,6 +325,7 @@ export function Processes() {
         { sep: true, label: '' },
         ...(one ? [
           { label: 'Change Priority…', icon: 'bolt', run: () => setPrio(one) },
+          { label: 'App Settings…', icon: 'settings', run: () => go({ name: 'appcontrols', arg: one.path ?? one.name }) },
           { label: 'Inspect…', icon: 'info', kbd: `${mod}I`, run: () => setInspect(one.pid) },
           ...(one.path ? [{ label: platform === 'darwin' ? 'Show in Finder' : platform === 'win32' ? 'Show in Explorer' : 'Show in Folder', icon: 'reveal', run: () => void api.procs.reveal(one.path!) }] : []),
           { label: 'Copy Process ID', icon: 'copy', run: () => void navigator.clipboard.writeText(String(one.pid)) },

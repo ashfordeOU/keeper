@@ -1,10 +1,11 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Runs conversions: video and audio through ffmpeg, pictures through sharp,
 // PDFs through pdf-lib (and qpdf for passwords), background removal through
 // a small on-device model. Nothing here imports Electron: the few OS-specific
 // fallbacks (HEIC decoding, drawing PDF pages) are passed in, so the same code
 // runs in tests and in the command-line tool.
 
+import { randomBytes } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { existsSync, promises as fsp } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -19,12 +20,15 @@ import type { ConvertCapabilities, ConvertJob, ConvertOp, ConvertResult, Corner,
 import { formatBytes } from '../../core/format';
 import { lowerPriority } from './governor';
 import { decryptPdf, encryptPdf } from '../../core/pdfcrypt';
+import { Extra, findTool, officeCandidates, type ExtraHooks } from './convert-extra';
+import { FileKit } from './filekit';
+import { isKitTool, type KitOp } from '../../core/filekit/tools';
 
 type Sharp = typeof import('sharp');
 
 const req = createRequire(__filename);
 
-export interface ConverterHooks {
+export interface ConverterHooks extends ExtraHooks {
   /** decodes an image sharp cannot read (HEIC on Windows) into PNG bytes */
   decodeImage?: (file: string) => Promise<Buffer | null>;
   /** draws PDF pages to PNG bytes at the given scale (needs a canvas) */
@@ -36,6 +40,8 @@ export interface ConverterOptions {
   modelsDir: string;
   onProgress?: (fraction: number, phase: string) => void;
   hooks?: ConverterHooks;
+  /** adds a file to Keeper's brain (the "Prepare for AI" tool) */
+  toBrain?: (file: string) => Promise<string>;
 }
 
 /** ffmpeg ships inside the app; when packaged it lives outside the asar archive. */
@@ -94,7 +100,21 @@ const VIDEO_EXT = /\.(mp4|mov|m4v|mkv|avi|webm|wmv|flv|mpg|mpeg|3gp|mts|m2ts|ts|
 
 export class Converter {
   private sharpMod: Sharp | null = null;
-  constructor(private opts: ConverterOptions) {}
+  readonly extra: Extra;
+  private kitMod: FileKit | null = null;
+  constructor(private opts: ConverterOptions) {
+    this.extra = new Extra({ ffmpeg: ffmpegPath(), modelsDir: opts.modelsDir, sharp: () => this.sharp(), hooks: opts.hooks ?? {} });
+  }
+
+  /** The file kit (more PDF tools, "Convert to…"), made on first use. */
+  get kit(): FileKit {
+    this.kitMod ??= new FileKit({
+      extra: this.extra, sharp: () => this.sharp(), ffmpeg: ffmpegPath(), hooks: this.opts.hooks ?? {},
+      runOp: (op, inputs, outDir) => this.run({ op, inputs, outDir }),
+      toBrain: this.opts.toBrain,
+    });
+    return this.kitMod;
+  }
 
   private sharp(): Sharp {
     this.sharpMod ??= req('sharp') as Sharp;
@@ -120,6 +140,11 @@ export class Converter {
       sips: process.platform === 'darwin',
       bgRemoval: bg,
       pdfRender: !!this.opts.hooks?.renderPdf || !!(await which('pdftoppm')),
+      office: !!(await findTool(officeCandidates())),
+      speech: await this.extra.speechAvailable(),
+      transcribe: !!ffmpegPath(),
+      transcribeService: !!this.opts.hooks?.transcribe,
+      speechModels: await this.extra.whisper.installed(),
     };
   }
 
@@ -130,8 +155,18 @@ export class Converter {
     const outDir = outputFolder(job.inputs, job.outDir);
     const needsDir = !['file.checksum', 'file.verify'].includes(op.tool);
     if (needsDir) await fsp.mkdir(outDir, { recursive: true });
+    if (isKitTool(op.tool)) {
+      const r = await this.kit.run(op as KitOp, job.inputs, outDir, (f, phase) => this.progress(f, phase));
+      this.progress(1, 'Done');
+      return r;
+    }
 
     // Tools that take all inputs at once.
+    const together = await this.extra.many(op, job.inputs, outDir, (f, phase) => this.progress(f, phase));
+    if (together) {
+      this.progress(1, 'Done');
+      return together;
+    }
     if (op.tool === 'pdf.merge') return { outputs: [await this.pdfMerge(job.inputs, outDir)] };
     if (op.tool === 'image.toPdf') return { outputs: [await this.imagesToPdf(job.inputs, outDir, op.pageSize)] };
     if (op.tool === 'file.checksum' || op.tool === 'file.verify') return this.checksums(job.inputs, op);
@@ -145,13 +180,18 @@ export class Converter {
 
     const outputs: string[] = [];
     const failed: { path: string; reason: string }[] = [];
+    const details: string[] = [];
+    const messages: string[] = [];
     let before = 0;
     let after = 0;
     for (let i = 0; i < job.inputs.length; i++) {
       const input = job.inputs[i];
       const base = (f: number, phase: string) => this.progress((i + f) / job.inputs.length, job.inputs.length > 1 ? `${phase} (${i + 1} of ${job.inputs.length})` : phase);
       try {
-        const made = await this.one(op, input, outDir, base);
+        const extra = await this.extra.one(op, input, outDir, base);
+        if (extra?.details) details.push(extra.details);
+        if (extra?.message) messages.push(extra.message);
+        const made = extra ? extra.outputs : await this.one(op, input, outDir, base);
         outputs.push(...made);
         before += (await fsp.stat(input)).size;
         for (const m of made) after += (await fsp.stat(m).catch(() => ({ size: 0 }))).size;
@@ -160,9 +200,9 @@ export class Converter {
       }
     }
     this.progress(1, 'Done');
-    if (!outputs.length && failed.length) throw new Error(failed[0].reason);
+    if (!outputs.length && !details.length && failed.length) throw new Error(failed[0].reason);
     const shrink = /compress|preset|strip|resize/.test(op.tool) && before > after ? `Saved ${formatBytes(before - after)} (${Math.round((1 - after / before) * 100)}% smaller)` : undefined;
-    return { outputs, failed: failed.length ? failed : undefined, message: shrink };
+    return { outputs, failed: failed.length ? failed : undefined, message: shrink ?? (messages.length === 1 ? messages[0] : messages.length ? messages.join(' · ') : undefined), details: details.length ? details.join('\n\n') : undefined };
   }
 
   private async one(op: ConvertOp, input: string, outDir: string, progress: (f: number, phase: string) => void): Promise<string[]> {
@@ -197,7 +237,7 @@ export class Converter {
         if (!(op.end > op.start)) throw new Error('The end must be after the start');
         const isVideo = VIDEO_EXT.test(input);
         const o = out(isVideo ? 'mp4' : path.extname(input).slice(1) || 'm4a', ' trimmed');
-        const codec = isVideo ? ['-c:v', 'libx264', '-crf', '20', '-preset', 'medium', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '160k', '-movflags', '+faststart'] : [];
+        const codec = op.lossless ? ['-c', 'copy', '-avoid_negative_ts', 'make_zero', ...(isVideo ? ['-movflags', '+faststart'] : [])] : isVideo ? ['-c:v', 'libx264', '-crf', '20', '-preset', 'medium', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '160k', '-movflags', '+faststart'] : [];
         await this.ffmpeg(input, ['-t', String(op.end - op.start), ...codec], o, progress, ['-ss', String(op.start)], op.end - op.start);
         return [o];
       }
@@ -237,6 +277,7 @@ export class Converter {
           wav: ['-c:a', 'pcm_s16le'],
           flac: ['-c:a', 'flac'],
           ogg: ['-c:a', 'libvorbis', '-q:a', '5'],
+          aiff: ['-c:a', 'pcm_s16be'],
         };
         const o = out(op.format);
         await this.ffmpeg(input, ['-vn', ...codecs[op.format]], o, progress);
@@ -254,6 +295,13 @@ export class Converter {
       case 'image.convert': {
         const fmt = op.format;
         const o = out(fmt);
+        if (fmt === 'heic') {
+          if (process.platform !== 'darwin') throw new Error('Saving HEIC needs a Mac (Windows and Linux can read HEIC but not write it)');
+          progress(0.3, 'Converting');
+          const r = await run('/usr/bin/sips', ['-s', 'format', 'heic', '-s', 'formatOptions', String(op.quality ?? 85), input, '--out', o]);
+          if (r.code !== 0) throw new Error(r.stderr.trim() || 'Could not save as HEIC');
+          return [o];
+        }
         progress(0.2, 'Converting');
         const img = await this.image(input);
         const q = op.quality ?? 85;
@@ -268,7 +316,9 @@ export class Converter {
         const h = meta.height ?? 0;
         const o = out(this.keepExt(input), ' resized');
         progress(0.3, 'Resizing');
-        const resized = op.percent
+        const resized = op.width && op.height
+          ? img.resize({ width: op.width, height: op.height, fit: 'fill' })
+          : op.percent
           ? img.resize({ width: Math.max(1, Math.round((w * op.percent) / 100)) })
           : img.resize({ width: op.maxSide ?? 1600, height: op.maxSide ?? 1600, fit: 'inside', withoutEnlargement: true });
         await this.encodeLike(resized, o).toFile(o);
@@ -309,8 +359,15 @@ export class Converter {
         await this.encodeLike(this.sharp()(buf).composite([{ input: Buffer.from(svg), top: 0, left: 0 }]), o).toFile(o);
         return [o];
       }
-      case 'image.removeBg':
-        return [await this.removeBackground(input, out('png', ' cut out'), progress)];
+      case 'image.removeBg': {
+        const o = await this.removeBackground(input, out('png', ' cut out'), progress);
+        if (!op.background) return [o];
+        // On a colour instead of transparent (white for shops and passports).
+        const flat = out('jpg', ' on colour');
+        await this.sharp()(o).flatten({ background: op.background }).jpeg({ quality: 92 }).toFile(flat);
+        await fsp.rm(o, { force: true });
+        return [flat];
+      }
 
       // ---------------------------------------------------------- PDF
       case 'pdf.split': {
@@ -398,7 +455,7 @@ export class Converter {
         progress(0.2, op.tool === 'pdf.encrypt' ? 'Locking' : 'Unlocking');
         const bytes = await fsp.readFile(input);
         try {
-          const result = op.tool === 'pdf.encrypt' ? await encryptPdf(bytes, op.password) : await decryptPdf(bytes, op.password);
+          const result = op.tool === 'pdf.encrypt' ? await encryptPdf(bytes, op.password, ownerOf(op), { print: op.allowPrint, copy: op.allowCopy, edit: op.allowEdit }) : await decryptPdf(bytes, op.password);
           await fsp.writeFile(o, result);
           return [o];
         } catch (e) {
@@ -407,7 +464,9 @@ export class Converter {
           if (msg !== 'PACKED' && !/could not|parse|invalid/i.test(msg)) throw e;
           const qpdf = await which('qpdf');
           if (!qpdf) throw new Error('This PDF stores its pages in a packed form Keeper cannot unlock by itself. Install the free “qpdf” tool and try again.');
-          const args = op.tool === 'pdf.encrypt' ? ['--encrypt', op.password, op.password, '256', '--', input, o] : [`--password=${op.password}`, '--decrypt', input, o];
+          const args = op.tool === 'pdf.encrypt'
+            ? ['--encrypt', op.password, ownerOf(op), '256', ...(op.allowPrint === false ? ['--print=none'] : []), ...(op.allowCopy === false ? ['--extract=n'] : []), ...(op.allowEdit === false ? ['--modify=none', '--annotate=n', '--form=n', '--assemble=n'] : []), '--', input, o]
+            : [`--password=${op.password}`, '--decrypt', input, o];
           const r = await run(qpdf, args);
           if (r.code !== 0 && r.code !== 3) throw new Error(/invalid password/i.test(r.stderr) ? 'Wrong password' : r.stderr.trim().split('\n').pop() || 'Could not process the file');
           return [o];
@@ -765,4 +824,15 @@ function watermarkSvg(text: string, w: number, h: number, size: number, pos: Cor
   const y = pos.startsWith('top') ? m + size : pos === 'center' ? h / 2 + size / 3 : h - m;
   const t = escapeXml(text);
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><style>.t{font:600 ${size}px sans-serif}</style><text x="${x}" y="${y}" text-anchor="${anchor}" class="t" fill="#000" fill-opacity="${opacity * 0.35}" transform="translate(1.5,1.5)">${t}</text><text x="${x}" y="${y}" text-anchor="${anchor}" class="t" fill="#fff" fill-opacity="${opacity}">${t}</text></svg>`;
+}
+
+/**
+ * The owner password: the one given, or, when printing, copying or changes
+ * are limited, a long random one nobody knows (so the limits cannot be lifted
+ * by typing the open password).
+ */
+function ownerOf(op: { password: string; ownerPassword?: string; allowPrint?: boolean; allowCopy?: boolean; allowEdit?: boolean }): string {
+  if (op.ownerPassword) return op.ownerPassword;
+  const limited = op.allowPrint === false || op.allowCopy === false || op.allowEdit === false;
+  return limited ? randomBytes(24).toString('base64url') : op.password;
 }

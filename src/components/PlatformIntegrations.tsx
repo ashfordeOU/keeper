@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Settings → Keeper inside your computer: Apple Intelligence, Spotlight,
 // Windows agents, GNOME and KDE search, MCP for any AI app, Ask Keeper.
 

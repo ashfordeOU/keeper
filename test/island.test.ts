@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 import { describe, expect, it } from 'vitest';
 import { ClipHistory, agentStateFromTail, currentLine, focusLeft, looksSecret, newFocus, nextEvent, parseIcs, parseLrc, pauseFocus, resumeFocus, startFocus, tickFocus } from '../core/island';
 

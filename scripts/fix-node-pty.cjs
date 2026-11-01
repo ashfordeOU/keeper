@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // node-pty's macOS packages ship `spawn-helper` without the execute bit, so
 // every terminal fails with "posix_spawnp failed". Put the bit back.
 // Used after install, when packaging, and by the terminal host before it starts a shell.

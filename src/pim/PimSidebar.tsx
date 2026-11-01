@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The Mail & Calendar part of the sidebar, with the unread count and the
 // number of reminders due today. Hidden when all four parts are switched off.
 

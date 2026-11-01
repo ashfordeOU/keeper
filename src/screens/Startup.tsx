@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Startup Items: what opens when you sign in, and a switch to stop it.
 
 import { useState } from 'react';

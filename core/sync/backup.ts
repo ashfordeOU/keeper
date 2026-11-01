@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Backups that work on any storage: a folder, a drive, a NAS, a server or any
 // cloud service Keeper connects to. Files are cut into pieces by content, each
 // piece is compressed and encrypted on this device and stored once, however

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Mail: every inbox together or one folder at a time, conversations, a safe
 // reading pane (remote pictures held back, links that show where they go),
 // replies with Markdown, undo send, snooze, invitations and AI help.
@@ -61,7 +61,7 @@ function snoozeTimes(): { label: string; at: number }[] {
 }
 
 export function Mail() {
-  const { toast, go, route } = useStore();
+  const { toast, go, route, draft, setDraft } = useStore();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [folders, setFolders] = useState<MailFolder[]>([]);
   const [view, setView] = useState<MailView>({ folder: 'unified', threaded: true, filter: 'all' });
@@ -69,7 +69,11 @@ export function Mail() {
   const [list, setList] = useState<{ messages: MessageSummary[]; threads?: Thread[] }>({ messages: [] });
   const [selected, setSelected] = useState<string | null>(null);
   const [checked, setChecked] = useState<Set<string>>(new Set());
-  const [compose, setCompose] = useState<(Draft & { account?: string }) | null>(null);
+  // A message being written comes back after a restart or a crash, with what was typed.
+  const [compose, setComposeState] = useState<(Draft & { account?: string }) | null>(() => {
+    try { const d = draft('mail.compose'); return d ? (JSON.parse(d) as Draft & { account?: string }) : null; } catch { return null; }
+  });
+  const setCompose = (d: (Draft & { account?: string }) | null) => { setComposeState(d); if (!d) setDraft('mail.compose', ''); };
   const [adding, setAdding] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [outbox, setOutbox] = useState<Outbox[]>([]);

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Places: the folders, cloud drives, disks and network servers a person reaches
 // for, on macOS, Windows and Linux. Pure parsing and classification; the
 // Electron layer collects the raw command output and hands it in here.

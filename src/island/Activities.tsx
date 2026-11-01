@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The Island's activities: what is going on, drawn around the notch (or the
 // camera), a second one as a bubble beside it, and a Live Activity card with
 // controls. Everything here reacts to events; nothing polls.
@@ -66,6 +66,17 @@ function useSharing(): NonNullable<ExtraInputs['sharing']> {
   return list;
 }
 
+/** AIs using this computer right now (Agents → Use this computer). */
+function useAiControl(): NonNullable<ExtraInputs['aiControl']> {
+  const [list, setList] = useState<NonNullable<ExtraInputs['aiControl']>>([]);
+  useEffect(() => {
+    const apply = (s: { sessions: NonNullable<ExtraInputs['aiControl']> }) => setList(s.sessions);
+    void api.agents?.computerState?.().then(apply).catch(() => undefined);
+    return api.on('computer-state', apply as never);
+  }, []);
+  return list;
+}
+
 /** Folders unlocked right now, refreshed when locks change. */
 function useUnlocked(): { count: number; folders: string[] } {
   const [u, setU] = useState<{ count: number; folders: string[] }>({ count: 0, folders: [] });
@@ -91,6 +102,7 @@ export function useActivities(state: IslandState | null, now: number, dictation:
   const jobs = useJobs();
   const unlocked = useUnlocked();
   const sharing = useSharing();
+  const aiControl = useAiControl();
   const prev = useRef<IslandState | null>(null);
   const [transient, setTransient] = useState<Activity[]>([]);
 
@@ -109,11 +121,11 @@ export function useActivities(state: IslandState | null, now: number, dictation:
   return useMemo(() => {
     if (!state) return { pres: { more: 0 }, all: [], dots: { camera: [], mic: [] }, unlocked: [] };
     const all = [
-      ...activitiesFrom(state, now, { dictation: dictation === 'off' ? undefined : dictation, jobs, unlocked: unlocked.count, sharing, off }),
+      ...activitiesFrom(state, now, { dictation: dictation === 'off' ? undefined : dictation, jobs, unlocked: unlocked.count, sharing, aiControl, off }),
       ...transient.filter((a) => !off.includes(a.kind)),
     ];
     return { pres: present(all, now), all, dots: { camera: state.camInUse ?? [], mic: state.micInUse ?? [] }, unlocked: unlocked.folders };
-  }, [state, now, dictation, jobs, unlocked, sharing, transient, off]);
+  }, [state, now, dictation, jobs, unlocked, sharing, aiControl, transient, off]);
 }
 
 // ---------------------------------------------------------------- glyphs
@@ -231,7 +243,16 @@ export function LiveCard({ a, state, now, unlocked, onMore, reload }: { a: Activ
       </>
     );
   } else if (a.kind === 'awake') {
-    actions = <button className="btn sm" onClick={() => void api.island.keepAwake(false).then(reload)}>Stop keeping awake</button>;
+    actions = (
+      <>
+        <button className="btn sm" onClick={() => void api.awake.extend(15).then(reload)}>+15 min</button>
+        <button className="btn sm" onClick={() => void api.awake.extend(60).then(reload)}>+1 h</button>
+        <button className="btn sm" onClick={() => void api.island.keepAwake(false).then(reload)}>Stop keeping awake</button>
+      </>
+    );
+  } else if (a.kind === 'ai-control') {
+    body = <div><div className="live-big num" style={{ color: a.color }}>{a.trailing}</div><div className="muted small">It can see the screen, move the pointer and type. {a.detail}.</div></div>;
+    actions = <button className="btn sm danger" onClick={() => void api.agents.computerStop()}>Stop</button>;
   } else if (a.kind === 'sharing') {
     body = <div><div className="live-big num" style={{ color: a.color }}>{a.trailing}</div><div className="muted small">The other side sees everything on this screen.</div></div>;
     actions = <button className="btn sm danger" onClick={() => void api.screen.stop(a.ref!)}>Stop sharing</button>;

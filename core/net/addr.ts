@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // IP addresses as numbers: parsing, prefixes, and what kind of place an
 // address is (this computer, the local network, the internet).
 

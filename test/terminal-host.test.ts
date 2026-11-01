@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The terminal session host as a real process, spoken to over its real socket:
 // creating terminals, live output with offsets, several viewers, resizing,
 // refusing strangers, and scrollback saved and restored across a restart.

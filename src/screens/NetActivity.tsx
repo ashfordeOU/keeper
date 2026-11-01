@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Network Activity: which app talks to whom, how much, and which way the
 // traffic leaves the computer (through a VPN, straight out through the router,
 // or only on the local network). Readings happen only while this page is open.
@@ -11,12 +11,13 @@ import { flag } from '../../core/net/geo';
 import type { PathKind } from '../../core/net/route';
 import { api } from '../api';
 import { Sparkline } from '../components/Chart';
+import { homePoint, WorldMap, type MapPoint } from '../components/WorldMap';
 import { Icon } from '../components/Icon';
 import { Empty, Loading, Modal, PageHead, Toggle } from '../components/ui';
 import { useStore } from '../state';
 import '../styles/net.css';
 
-type Tab = 'apps' | 'dests' | 'conns' | 'health';
+type Tab = 'apps' | 'dests' | 'conns' | 'map' | 'health';
 type Scope = 'all' | 'internet' | 'lan' | 'listening';
 
 const rate = (b?: number) => (b === undefined ? '—' : b < 1 ? '0' : `${formatBytes(b)}/s`);
@@ -182,7 +183,7 @@ export function NetActivity() {
 
       <div className="procs-bar">
         <div className="seg" role="tablist">
-          {([['apps', 'Apps'], ['dests', 'Destinations'], ['conns', 'Connections'], ['health', 'Health']] as const).map(([k, l]) => (
+          {([['apps', 'Apps'], ['dests', 'Destinations'], ['conns', 'Connections'], ['map', 'Map'], ['health', 'Health']] as const).map(([k, l]) => (
             <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>
           ))}
         </div>
@@ -213,6 +214,8 @@ export function NetActivity() {
         <DestTable dests={dests} amounts={s.amounts} />
       ) : tab === 'conns' ? (
         <ConnTable flows={flows} amounts={s.amounts} />
+      ) : tab === 'map' ? (
+        <NetMap flows={flows} apps={apps.map((a) => a.app)} />
       ) : (
         <Health sample={s} vpn={vpn} />
       )}
@@ -223,6 +226,7 @@ export function NetActivity() {
 }
 
 function AppsTable({ apps, flows, open, setOpen, icons, amounts }: { apps: AppTraffic[]; flows: FlowRow[]; open: string | null; setOpen: (a: string | null) => void; icons: Record<string, string>; amounts: NetSample['amounts'] }) {
+  const { go } = useStore();
   if (!apps.length) return <Empty icon="globe" title="Nothing matches">No app has a connection like that right now.</Empty>;
   const perConn = amounts === 'connection';
   return (
@@ -249,6 +253,8 @@ function AppsTable({ apps, flows, open, setOpen, icons, amounts }: { apps: AppTr
             </button>
             {on ? (
               <div className="net-sub">
+                <div className="btn-row" style={{ padding: '4px 8px' }}><button className="btn ghost sm" onClick={() => go({ name: 'appcontrols', arg: a.appPath ?? a.app })}><Icon name="settings" size={12} /> App settings: block, limit bandwidth, route through VPN…</button></div>
+                {mine.some((f) => f.country) ? <div className="net-sub-map"><WorldMap points={mapPoints(mine)} home={homePoint()} height={170} /></div> : null}
                 {mine.map((f) => (
                   <div key={f.key} className="net-row sub">
                     <span><Where f={f} /></span>
@@ -442,5 +448,58 @@ function NetOptions({ onClose }: { onClose: () => void }) {
         <label className="row"><div className="grow"><b>Tell me when an app goes online for the first time</b><div className="small muted">Looks every couple of minutes in the background (less often when you're away) and shows a note in the Island. The first look only learns what is already running.</div></div><Toggle on={st.alertNewApps} onChange={(v) => void set({ alertNewApps: v })} /></label>
       </div>
     </Modal>
+  );
+}
+
+/** Connections as map points: one per place, coloured by the way the traffic goes. */
+export function mapPoints(flows: FlowRow[]): MapPoint[] {
+  return flows.filter((f) => f.country && f.scope === 'internet').map((f) => ({
+    country: f.country, label: f.host ?? f.remote, weight: (f.rateIn ?? 0) + (f.rateOut ?? 0) + 1, kind: f.path === 'vpn' ? 'vpn' : 'direct', ref: f,
+  }));
+}
+
+function NetMap({ flows, apps }: { flows: FlowRow[]; apps: string[] }) {
+  const { settings } = useStore();
+  const [app, setApp] = useState('');
+  const [picked, setPicked] = useState<FlowRow[] | null>(null);
+  const [geo, setGeo] = useState<GeoStatus | null>(null);
+  useEffect(() => { void api.net.geoStatus().then(setGeo); }, []);
+  const shown = useMemo(() => flows.filter((f) => !app || f.app === app), [flows, app]);
+  const points = useMemo(() => mapPoints(shown), [shown]);
+  const home = useMemo(() => homePoint((settings?.island as { place?: { lat?: number; lon?: number } | null } | undefined)?.place), [settings]);
+  if (geo && geo.state !== 'ready') {
+    return (
+      <Empty icon="globe" title="Countries are needed for the map">
+        The map places each server by its country, from a table kept on this computer (about 20 MB, downloaded once; no address is ever looked up online).
+        <div style={{ marginTop: 10 }}><button className="btn primary" onClick={() => void api.net.setSettings({ countries: true }).then(() => api.net.geoDownload()).then(setGeo)}>{geo.state === 'downloading' ? `Downloading… ${Math.round((geo.progress ?? 0) * 100)}%` : 'Download the country table'}</button></div>
+      </Empty>
+    );
+  }
+  return (
+    <div className="net-map">
+      <div className="row" style={{ gap: 8, marginBottom: 8 }}>
+        <select className="input sm" value={app} onChange={(e) => { setApp(e.target.value); setPicked(null); }}>
+          <option value="">Every app</option>
+          {apps.map((a) => <option key={a} value={a}>{a}</option>)}
+        </select>
+        <span className="small muted">{points.length} connection{points.length === 1 ? '' : 's'} to {new Set(points.map((p) => p.country)).size} countries · click a place to see who talks to it</span>
+      </div>
+      <WorldMap points={points} home={home} onPick={(ps) => setPicked(ps.map((p) => p.ref as FlowRow))} selected={picked?.[0]?.country} />
+      {picked?.length ? (
+        <div className="net-table" style={{ marginTop: 10 }}>
+          <div className="net-row head"><span>{flag(picked[0].country)} {picked.length} connection{picked.length === 1 ? '' : 's'}</span></div>
+          {picked.map((f) => (
+            <div key={f.key} className="net-row sub">
+              <span><b>{f.app}</b></span>
+              <span><Where f={f} /></span>
+              <span className="small muted ellipsis">{f.asn ?? ''}</span>
+              <span className="num">{rate(f.rateIn)}</span>
+              <span className="num">{rate(f.rateOut)}</span>
+              <span><PathBadge path={f.path} iface={f.iface} /></span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
   );
 }

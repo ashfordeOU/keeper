@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // What another device may do on this one. Every request that arrives over a
 // link is checked here first; nothing is allowed by default except offering
 // files, which still asks before anything is saved.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // AI actions in the Inspector: suggest a name, summarize, describe an image.
 // Each one says exactly what it sends and to whom, and only runs on a click.
 

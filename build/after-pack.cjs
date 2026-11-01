@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Runs after electron-builder copies the app, before the installer is made.
 // Several native packages ship binaries for every system (and GPU builds Keeper
 // never uses); keeping only this platform's makes downloads several times smaller.

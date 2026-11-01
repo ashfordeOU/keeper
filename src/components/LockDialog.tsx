@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Locking and unlocking folders: choose how to unlock (your account or a
 // password), save the recovery key, then watch it encrypt and check itself.
 

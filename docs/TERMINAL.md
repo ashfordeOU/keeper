@@ -133,3 +133,32 @@ Not yet checked on real hardware:
 - **Windows**: the PowerShell, Command Prompt, WSL and Git Bash detection is unit-tested, but nothing has run on a real Windows machine.
 - **macOS**: nothing has run on a real Mac.
 - **The code editor's web server**: not installed here, so that path was not run.
+
+## Agents
+
+Agents use Keeper's terminals through MCP tools served by `keeper mcp`, the agent-to-agent layer, the command line and the **Agents** view in the Terminal window. Turn it off under *Features → Agent hub*.
+
+**Terminal tools**: `term_create` (parent, group, time limit, headless), `term_run` (wait for exit, a pattern or nothing; stdin; timeout with interrupt), `term_read`, `term_write`, `term_keys`, `term_wait`, `term_list`, `term_snapshot`, `term_resize`, `term_close` (closes sub-workers too), `term_show` (shows it to you, optionally handing it over).
+
+**Hub tools**: `hub_whoami`, `hub_list_agents`, `hub_set_status`, `hub_send`, `hub_ask`, `hub_inbox`, `hub_post`, `hub_read`, `hub_rooms`, `hub_post_task`, `hub_tasks`, `hub_claim`, `hub_complete`, `hub_handoff`, `hub_lock`, `hub_unlock`, `hub_locks`, `hub_scratch_put`, `hub_scratch_get`, `hub_wait`.
+
+From a shell:
+
+```bash
+keeper term run "npm test"
+keeper term list
+keeper hub agents
+keeper hub post general "@reviewer ready for review"
+```
+
+**Identity**: agents Keeper starts get `KEEPER_AGENT_TOKEN` and `KEEPER_SESSION`; `keeper mcp` presents them, so every call is tied to one agent (harness, account/profile, terminal). Other apps that connect are asked about once.
+
+**The bridge**: for agents without MCP, Keeper waits until the agent's prompt is idle, types the message, presses Enter after a short pause, waits for it to finish and sends the answer back as a reply. Messages queue; agents are never interrupted mid-work.
+
+**Safety**: permission to use terminals (once, always or never per agent); risky commands (deleting, force-pushing, administrator commands, piping downloads into a shell, publishing, changing live systems) always ask; allow and deny lists and folders agents must stay in, under *Rules*; per-agent permissions (send, receive, tasks, handoff, terminals, same account only); transcripts kept 14 days; a 🤖 badge on agent tabs; **Stop all**; take over / hand back.
+
+**Limits** (defaults): 12 terminals per agent, a 2-hour time limit (at most 24 hours), 30 minutes per command, 16,000 characters of output per call (the full output is saved to a file).
+
+**Editor helpers for people**: quick fixes after a failed command, sticky scroll, *Run recent command* (Ctrl+Alt+R), suggestions (Ctrl+Space), `file:line:col` links that open in your editor (*Settings → Editor command*), git commit ids that run `git show`, loading a folder's `.env` per profile, and screen-reader mode.
+
+Checked: 24 automated tests with a real session host and bash, and an end-to-end run of the app with three stand-in agents of different kinds (`test/e2e/agentterm.cjs`). Not checked: real agent programs talking through the hub, Windows and macOS shells. See [TERMINAL-RESEARCH.md](TERMINAL-RESEARCH.md).

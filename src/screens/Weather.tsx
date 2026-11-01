@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Weather: saved places, conditions, hourly charts, the week, air quality and
 // UV advice, official alerts, a rain radar, climate comparison and forecasts
 // for places in upcoming calendar events.

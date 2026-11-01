@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Usage (Linux): xvfb-run -a node test/e2e/lock.cjs /tmp/kl /tmp/kl-shots
 // Drives the real Keeper app: shows and hides hidden files with the toolbar
 // button and the shortcut, locks a folder with a password through the dialogs,

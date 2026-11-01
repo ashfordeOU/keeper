@@ -1,9 +1,8 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The Island: what it shows and how it behaves, plus keep-awake and presentation mode.
 
 import { useEffect, useState, type ReactNode } from 'react';
 import type { IslandSettings as IS, KeepAwakeOptions, KeepAwakeState, ScriptAction, UploadSettings } from '../../core/api';
-import { describeTrigger, type AwakeTrigger, type TriggerKind } from '../../core/awake';
 import { relativeTime } from '../../core/format';
 import type { Place } from '../../core/weather';
 import { api } from '../api';
@@ -11,6 +10,7 @@ import { Icon } from '../components/Icon';
 import { PageHead, Toggle } from '../components/ui';
 import { useAsync, useStore } from '../state';
 import { PlacementSettings } from '../island/PlacementSettings';
+import { IslandToolsSettings } from '../island/tools/ToolsSettings';
 import '../styles/screens-b.css';
 
 export function Row({ title, desc, children }: { title: string; desc?: ReactNode; children: ReactNode }) {
@@ -25,7 +25,7 @@ export function Row({ title, desc, children }: { title: string; desc?: ReactNode
 const pretty = (s: string) => s.replace('CommandOrControl', navigator.platform.includes('Mac') ? '⌘' : 'Ctrl').replace(/\+/g, ' ');
 
 export function IslandSettings() {
-  const { settings, updateSettings, toast } = useStore();
+  const { settings, updateSettings, toast, go } = useStore();
   const isl = settings?.island;
   const state = useAsync(() => api.island.state(), []);
   const hasKey = useAsync(() => api.settings.hasSecret('dictation'), []);
@@ -38,7 +38,6 @@ export function IslandSettings() {
   const [presenting, setPresenting] = useState(false);
   const hasUpload = useAsync(() => api.settings.hasSecret('upload'), []);
   const [uploadKey, setUploadKey] = useState('');
-  const [awakeNow, setAwakeNow] = useState<string[] | null>(null);
 
   useEffect(() => { if (state.data) setAwake(state.data.keepAwake); }, [state.data]);
   useEffect(() => {
@@ -80,6 +79,9 @@ export function IslandSettings() {
 
       <h2 style={{ margin: '8px 0' }}>Placement</h2>
       <PlacementSettings isl={isl} set={set} />
+
+      <h2 style={{ margin: '18px 0 8px' }}>Tools</h2>
+      <IslandToolsSettings isl={isl} set={set} />
 
       <h2 style={{ margin: '18px 0 8px' }}>What it shows</h2>
       <div className="card settings-section">
@@ -130,6 +132,17 @@ export function IslandSettings() {
           </Row>
         ) : null}
         <ScriptActions list={isl.scriptActions} onChange={(l) => set({ scriptActions: l })} />
+        <Row title="Keep copies of dropped files" desc="Files dropped on the shelf are copied into a folder, so the shelf keeps them even after the originals move or a downloads folder is cleaned.">
+          <Toggle on={!!isl.shelfKeepCopies} onChange={(v) => set({ shelfKeepCopies: v })} />
+        </Row>
+        {isl.shelfKeepCopies ? (
+          <Row title="Keep them for" desc={isl.shelfFolder ? isl.shelfFolder : 'In Keeper’s own folder.'}>
+            <select className="input" value={isl.shelfRetentionDays ?? 7} onChange={(e) => set({ shelfRetentionDays: Number(e.target.value) })}>
+              <option value={1}>1 day</option><option value={7}>1 week</option><option value={30}>1 month</option><option value={0}>Until I remove them</option>
+            </select>
+            <button className="btn" onClick={async () => { const d = await api.settings.pickFolder(); if (d) set({ shelfFolder: d }); }}>Choose folder…</button>
+          </Row>
+        ) : null}
       </div>
 
       <h2 style={{ margin: '18px 0 8px' }}>Weather</h2>
@@ -182,11 +195,9 @@ export function IslandSettings() {
 
       <h2 style={{ margin: '18px 0 8px' }}>Keep awake automatically</h2>
       <div className="card settings-section">
-        <Row title="Rules" desc={awakeNow === null ? 'Start keeping awake by itself when any of these is true, and stop when none is.' : awakeNow.length ? `Right now: ${awakeNow.join(' · ')}` : 'None of these is true right now.'}>
-          <button className="btn sm" onClick={() => void api.island.awakeStatus().then((r) => setAwakeNow(r.active))}>Check now</button>
-          <button className="btn sm" onClick={() => set({ awakeTriggers: [...isl.awakeTriggers, { id: `t${Date.now().toString(36)}`, kind: 'display', enabled: true }] })}><Icon name="plus" size={12} /> Add rule</button>
+        <Row title="Triggers, durations and closed-lid mode" desc="Keep Awake has its own page: sessions that end by themselves, triggers that start them, statistics and the menu-bar icon.">
+          <button className="btn sm" onClick={() => go({ name: 'awake' })}>Open Keep Awake</button>
         </Row>
-        {isl.awakeTriggers.map((t) => <TriggerRow key={t.id} t={t} onChange={(n) => set({ awakeTriggers: isl.awakeTriggers.map((x) => (x.id === t.id ? n : x)) })} onRemove={() => set({ awakeTriggers: isl.awakeTriggers.filter((x) => x.id !== t.id) })} />)}
         <Row title="Keep an external drive awake" desc={isl.driveKeepAwake ? `Touching a hidden file on ${isl.driveKeepAwake.path} every ${isl.driveKeepAwake.seconds} seconds so it does not spin down.` : 'Some drives fall asleep and pause your work while they spin up again.'}>
           {isl.driveKeepAwake ? <button className="btn sm" onClick={() => set({ driveKeepAwake: null })}>Stop</button> : <button className="btn sm" onClick={() => void api.settings.pickFolder().then((p) => p && set({ driveKeepAwake: { path: p, seconds: 60 } }))}>Choose drive…</button>}
         </Row>
@@ -219,9 +230,11 @@ export function IslandSettings() {
         <Row title="Copy text from the screen" desc="Drag over any area to copy the text in it — QR codes too."><kbd className="badge">{pretty(isl.captureShortcut)}</kbd></Row>
         <Row title="Quick Search"><kbd className="badge">{pretty(settings?.quickSearchShortcut ?? '')}</kbd></Row>
         <Row title="Dictation"><kbd className="badge">{pretty(isl.dictationShortcut)}</kbd></Row>
-        {(['captureShortcut', 'pasteShortcut', 'shelfShortcut', 'hideShortcut', 'awakeShortcut', 'dictationShortcut'] as const).map((k) => (
-          <Row key={k} title={`Change: ${({ captureShortcut: 'copy text from screen', pasteShortcut: 'clipboard picker', shelfShortcut: 'open shelf', hideShortcut: 'hide Island', awakeShortcut: 'keep awake', dictationShortcut: 'dictation' })[k]}`} desc="Use names like CommandOrControl+Shift+V, Alt+Space or F9.">
-            <input className="input" style={{ width: 230 }} defaultValue={isl[k]} onBlur={(e) => e.target.value.trim() !== isl[k] && set({ [k]: e.target.value.trim() } as Partial<IS>)} />
+        <Row title="Open the Island"><kbd className="badge">{pretty(isl.openShortcut ?? '')}</kbd></Row>
+        <Row title="Media keys" desc="Let the Island’s player answer the keyboard’s play/pause, next and previous keys. Off leaves them to your music app."><Toggle on={!!isl.mediaKeys} onChange={(v) => set({ mediaKeys: v })} /></Row>
+        {(['captureShortcut', 'pasteShortcut', 'shelfShortcut', 'hideShortcut', 'awakeShortcut', 'dictationShortcut', 'openShortcut'] as const).map((k) => (
+          <Row key={k} title={`Change: ${({ captureShortcut: 'copy text from screen', pasteShortcut: 'clipboard picker', shelfShortcut: 'open shelf', hideShortcut: 'hide Island', awakeShortcut: 'keep awake', dictationShortcut: 'dictation', openShortcut: 'open the Island' })[k]}`} desc="Use names like CommandOrControl+Shift+V, Alt+Space or F9.">
+            <input className="input" style={{ width: 230 }} defaultValue={isl[k] ?? ''} onBlur={(e) => e.target.value.trim() !== (isl[k] ?? '') && set({ [k]: e.target.value.trim() } as Partial<IS>)} />
           </Row>
         ))}
       </div>
@@ -229,30 +242,6 @@ export function IslandSettings() {
   );
 }
 
-const TRIGGER_KINDS: { kind: TriggerKind; label: string; needs?: 'value' | 'threshold'; placeholder?: string }[] = [
-  { kind: 'display', label: 'An external display is connected' },
-  { kind: 'power', label: 'Plugged into power' },
-  { kind: 'app', label: 'An app is running', needs: 'value', placeholder: 'App name, e.g. Zoom' },
-  { kind: 'usb', label: 'A USB device is connected', needs: 'value', placeholder: 'Device name, e.g. Logitech' },
-  { kind: 'wifi', label: 'On a Wi-Fi network', needs: 'value', placeholder: 'Network name' },
-  { kind: 'vpn', label: 'A VPN is connected' },
-  { kind: 'cpu', label: 'The processor is busy', needs: 'threshold' },
-  { kind: 'drive', label: 'A drive is mounted', needs: 'value', placeholder: 'Drive name, e.g. Backup' },
-];
-
-function TriggerRow({ t, onChange, onRemove }: { t: AwakeTrigger; onChange: (t: AwakeTrigger) => void; onRemove: () => void }) {
-  const meta = TRIGGER_KINDS.find((k) => k.kind === t.kind)!;
-  return (
-    <Row title={describeTrigger(t)} desc={t.allowDisplaySleep ? 'The screen may sleep; the computer stays on.' : 'Keeps the screen on too.'}>
-      <Toggle on={t.enabled} onChange={(v) => onChange({ ...t, enabled: v })} />
-      <select className="input" value={t.kind} onChange={(e) => onChange({ ...t, kind: e.target.value as TriggerKind })}>{TRIGGER_KINDS.map((k) => <option key={k.kind} value={k.kind}>{k.label}</option>)}</select>
-      {meta.needs === 'value' ? <input className="input" style={{ width: 160 }} placeholder={meta.placeholder} defaultValue={t.value ?? ''} onBlur={(e) => onChange({ ...t, value: e.target.value.trim() })} /> : null}
-      {meta.needs === 'threshold' ? <select className="input" value={t.threshold ?? 50} onChange={(e) => onChange({ ...t, threshold: Number(e.target.value) })}>{[30, 50, 70, 90].map((n) => <option key={n} value={n}>Above {n}%</option>)}</select> : null}
-      <button className="btn sm" title={t.allowDisplaySleep ? 'Keep the screen on' : 'Let the screen sleep'} onClick={() => onChange({ ...t, allowDisplaySleep: !t.allowDisplaySleep })}><Icon name={t.allowDisplaySleep ? 'moon' : 'sun'} size={12} /></button>
-      <button className="btn sm icon" title="Remove" onClick={onRemove}><Icon name="close" size={12} /></button>
-    </Row>
-  );
-}
 
 function UploadFields({ u, onChange }: { u: UploadSettings; onChange: (u: UploadSettings) => void }) {
   const f = (k: keyof UploadSettings, title: string, desc?: string, placeholder?: string, width = 300) => (

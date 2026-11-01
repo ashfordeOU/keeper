@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Keeper's brain: every indexed file split into passages, with a word index
 // (BM25) and, when turned on, meaning vectors from a model on this computer.
 // Search mixes three signals — words inside the file, meaning, and the name

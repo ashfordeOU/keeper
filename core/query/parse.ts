@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Plain-English search: "pdfs from last week over 5 MB" -> a structured Query
 // plus the chips the interface shows, so the user can see and edit how Keeper
 // read their words. Runs entirely on-device; no language model involved.

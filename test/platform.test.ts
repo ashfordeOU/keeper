@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { BrainHit } from '../core/brain-contract';
@@ -122,7 +123,10 @@ describe('Windows pieces', () => {
 
   it('describes the MCP server for the agent registry', () => {
     const m = odrManifest('C:\\K\\Keeper.exe', ['C:\\K\\resources\\app.asar\\dist-cli\\keeper.cjs', 'mcp'], '0.1.0');
-    expect(m.server.mcp_config).toEqual({ command: 'C:\\K\\Keeper.exe', args: ['C:\\K\\resources\\app.asar\\dist-cli\\keeper.cjs', 'mcp'] });
+    expect(m.server.mcp_config).toEqual({ command: 'C:\\K\\Keeper.exe', args: ['C:\\K\\resources\\app.asar\\dist-cli\\keeper.cjs', 'mcp'], env: {} });
+    // The MCP bundle manifest format Windows reads (modelcontextprotocol/mcpb, version 0.3).
+    expect(m.manifest_version).toBe('0.3');
+    expect(m.tools.map((t) => t.name)).toContain('computer');
     expect(m.display_name).toBe('Keeper by Ashforde®');
   });
 });

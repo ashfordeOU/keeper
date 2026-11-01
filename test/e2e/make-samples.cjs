@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Usage: node test/e2e/make-samples.cjs <folder>
 // Generates one real file of every kind the previewer supports.
 const path = require('path');

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Annotate and beautify an image: arrows, shapes, pen, highlighter, text,
 // numbered steps, pixelate, crop — then padding, background, rounded corners,
 // shadow and a window frame. Saves next to the original, never over it.
@@ -11,14 +11,14 @@ import { Empty, Loading, PageHead } from '../components/ui';
 import { useStore } from '../state';
 import '../styles/capture.css';
 
-type Tool = 'arrow' | 'rect' | 'ellipse' | 'line' | 'pen' | 'marker' | 'text' | 'step' | 'blur' | 'crop';
+type Tool = 'arrow' | 'rect' | 'ellipse' | 'line' | 'pen' | 'marker' | 'text' | 'step' | 'blur' | 'smooth' | 'redact' | 'crop';
 
 type Shape =
   | { t: 'arrow' | 'rect' | 'ellipse' | 'line'; a: Pt; b: Pt; color: string; width: number }
   | { t: 'pen' | 'marker'; pts: Pt[]; color: string; width: number }
   | { t: 'text'; at: Pt; text: string; color: string; size: number }
   | { t: 'step'; at: Pt; n: number; color: string; size: number }
-  | { t: 'blur'; a: Pt; b: Pt }
+  | { t: 'blur' | 'smooth' | 'redact'; a: Pt; b: Pt }
   | { t: 'crop'; a: Pt; b: Pt };
 
 const TOOLS: { id: Tool; icon: string; label: string; key: string }[] = [
@@ -31,6 +31,8 @@ const TOOLS: { id: Tool; icon: string; label: string; key: string }[] = [
   { id: 'text', icon: 'text', label: 'Text', key: 't' },
   { id: 'step', icon: 'plus', label: 'Numbered step', key: 'n' },
   { id: 'blur', icon: 'eye', label: 'Pixelate', key: 'b' },
+  { id: 'smooth', icon: 'drop', label: 'Blur', key: 'u' },
+  { id: 'redact', icon: 'lock', label: 'Black out', key: 'k' },
   { id: 'crop', icon: 'screenshot', label: 'Crop', key: 'c' },
 ];
 
@@ -124,6 +126,25 @@ function drawShape(ctx: CanvasRenderingContext2D, s: Shape, img: HTMLImageElemen
       ctx.fillText(String(s.n), s.at.x, s.at.y + 1);
       break;
     }
+    case 'redact': {
+      // A solid box: nothing of what was under it survives in the saved picture.
+      const r = normRect(s.a, s.b, img.naturalWidth, img.naturalHeight);
+      ctx.fillStyle = '#000';
+      ctx.fillRect(r.x, r.y, r.w, r.h);
+      break;
+    }
+    case 'smooth': {
+      const r = normRect(s.a, s.b, img.naturalWidth, img.naturalHeight);
+      if (r.w < 2 || r.h < 2) break;
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(r.x, r.y, r.w, r.h);
+      ctx.clip();
+      ctx.filter = `blur(${Math.max(6, Math.round(Math.min(r.w, r.h) / 10))}px)`;
+      ctx.drawImage(img, r.x - 20, r.y - 20, r.w + 40, r.h + 40, r.x - 20, r.y - 20, r.w + 40, r.h + 40);
+      ctx.restore();
+      break;
+    }
     case 'blur': {
       const r = normRect(s.a, s.b, img.naturalWidth, img.naturalHeight);
       if (r.w < 2 || r.h < 2) break;
@@ -142,6 +163,12 @@ function drawShape(ctx: CanvasRenderingContext2D, s: Shape, img: HTMLImageElemen
 }
 
 function paintBackground(ctx: CanvasRenderingContext2D, w: number, h: number, bg: string) {
+  // Any colour, picked by the person.
+  if (/^#[0-9a-f]{3,8}$/i.test(bg)) {
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, w, h);
+    return;
+  }
   const def = BACKGROUNDS.find((b) => b.id === bg);
   if (!def || def.id === 'none') return;
   if (def.stops) {
@@ -276,7 +303,7 @@ export function Annotate() {
       return;
     }
     if (tool === 'pen' || tool === 'marker') setDraft({ t: tool, pts: [p], color, width });
-    else if (tool === 'blur' || tool === 'crop') setDraft({ t: tool, a: p, b: p });
+    else if (tool === 'blur' || tool === 'smooth' || tool === 'redact' || tool === 'crop') setDraft({ t: tool, a: p, b: p });
     else setDraft({ t: tool, a: p, b: p, color, width });
   };
   const onMove = (e: React.MouseEvent) => {
@@ -404,6 +431,10 @@ export function Annotate() {
           {BACKGROUNDS.map((b) => (
             <button key={b.id} title={b.label} aria-label={`Background ${b.label}`} className={`bg-dot ${beauty.background === b.id ? 'on' : ''}`} style={{ background: b.id === 'none' ? 'repeating-conic-gradient(#ccc 0 25%, #fff 0 50%) 0 0/8px 8px' : b.css }} onClick={() => setBeauty({ ...beauty, background: b.id, padding: b.id !== 'none' && beauty.padding === 0 ? 48 : beauty.padding })} />
           ))}
+          <input type="color" title="Any colour" aria-label="Background colour" value={/^#/.test(beauty.background) ? beauty.background : '#6d6dff'} onChange={(e) => setBeauty({ ...beauty, background: e.target.value, padding: beauty.padding || 48 })} style={{ width: 26, height: 22, padding: 0, border: 0, background: 'none' }} />
+        </div>
+        <div className="seg" title="Shape of the finished picture">
+          {(['free', '16:9', '4:5', '1:1'] as const).map((a) => <button key={a} className={(beauty.aspect ?? 'free') === a ? 'on' : ''} onClick={() => setBeauty({ ...beauty, aspect: a, padding: beauty.padding || 48, background: beauty.background === 'none' ? 'dusk' : beauty.background })}>{a === 'free' ? 'Any shape' : a}</button>)}
         </div>
         <button className="btn sm" onClick={() => setBeauty({ padding: 64, radius: 14, shadow: 40, frame: true, background: 'dusk' })}>One-click polish</button>
         <button className="btn ghost sm" onClick={() => setBeauty({ padding: 0, radius: 0, shadow: 0, frame: false, background: 'none' })}>Reset</button>

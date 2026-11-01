@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Colour schemes for terminals. 'keeper' follows the app's own theme; the rest
 // are Keeper's own palettes, each checked for readable text on its background.
 

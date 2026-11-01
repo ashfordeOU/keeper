@@ -2,7 +2,10 @@
     "version": "0.1.0",
     "description": "Find, understand and tidy your files.",
     "homepage": "https://github.com/ashfordeOU/keeper",
-    "license": "AGPL-3.0-or-later",
+    "license": {
+        "identifier": "LicenseRef-PolyForm-Shield-1.0.0",
+        "url": "https://github.com/ashfordeOU/keeper/blob/main/LICENSE.md"
+    },
     "notes": "Update Keeper with: scoop update keeper",
     "architecture": {
         "64bit": {

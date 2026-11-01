@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The brain in the browser demo: real search over the demo files, and an
 // assistant that answers a few questions the way the real one would.
 

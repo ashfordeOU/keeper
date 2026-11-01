@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // When alarms, reminders and event alerts ring. One timer in the main process
 // waits for the earliest; after sleep or a clock change it asks again, rings
 // what was missed by a little (late, once), and skips what is long gone.

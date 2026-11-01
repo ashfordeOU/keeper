@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 */
 /* Remote screens: the "being viewed" banner, the viewer window, prompts and the phones panel. */
 
 html[data-view='screenhost'], html[data-view='screenhost'] body { background: #1c1c1e; overflow: hidden; }

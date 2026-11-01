@@ -1,8 +1,13 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Sample data for the browser demo (`npm run demo`). Nothing here touches a disk.
 
 import { mockUsage } from './mock-usage';
+import { mockIslandTools } from './mock-island-tools';
 import { mockFeatures } from './mock-features';
+import { mockUsageStats } from './mock-usage-stats';
+import { mockAwake } from './mock-awake';
+import { mockAshforde } from './mock-ashforde';
+import { featureStates } from '../core/features';
 import type { BrowseEntry, IslandState, KeeperApi } from '../core/api';
 import { extOf, kindOf, looksLikeScreenshot } from '../core/classify';
 import { search } from '../core/query/match';
@@ -13,10 +18,20 @@ import { createMockCapture, DEMO_SHOT } from './mock-capture';
 import { mockX } from './mock-x';
 import { mockPlaces } from './mock-places';
 import { mockRemote } from './mock-remote';
+import { mockSession } from './mock-session';
 import { mockProcs } from './mock-procs';
 import { mockPim } from './mock-pim';
+import { mockNotes } from './mock-notes';
+import { mockFileKit } from './mock-filekit';
+import { mockGuide } from './mock-guide';
+import { mockControls } from './mock-controls';
+import { mockSettingsPlus } from './mock-settingsplus';
 import { mockNet } from './mock-net';
+import { mockSecurity } from './mock-security';
+import { mockFw } from './mock-fw';
 import { mockSync } from './mock-sync';
+import { mockNotesync } from './mock-notesync';
+import { mockAgentTerm } from './mock-agentterm';
 import { mockPlatform } from './mock-platform';
 import { mockLock } from './mock-lock';
 import { mockLink } from './mock-link';
@@ -24,6 +39,8 @@ import { mockScreen } from './mock-screen';
 import { mockTerminal } from './mock-terminal';
 import { mockBrain } from './mock-brain';
 import { mockAgents } from './mock-agents';
+import { mockCu } from './mock-cu';
+import { mockAbilities } from './mock-abilities';
 import { createMockIsland } from './mock-island';
 import type { CleanupGroup, DuplicateGroup, FileEntry, FileKind, Rule, SpaceNode } from '../core/types';
 import { mockPreview } from './preview/mock';
@@ -181,6 +198,14 @@ const rules: Rule[] = [
 
 export function createMockApi(): KeeperApi {
   const settings = defaultSettings(['Desktop', 'Documents', 'Downloads', 'Pictures', 'Movies', 'Music'].map((n) => `${HOME}/${n}`), rules);
+  // Demo only: ?theme=<id>&appearance=light|dark opens the demo in that theme (used for screenshots).
+  {
+    const q = typeof location !== 'undefined' ? new URLSearchParams(location.search) : new URLSearchParams();
+    const th = q.get('theme');
+    const ap = q.get('appearance');
+    if (th) settings.theme = th;
+    if (ap === 'light' || ap === 'dark') settings.appearance = ap;
+  }
   settings.savedSearches = [
     { id: 's1', name: 'Big videos', text: 'videos over 500 MB', createdAt: now },
     { id: 's2', name: 'Gmail PDFs', text: 'pdfs from gmail', createdAt: now },
@@ -241,15 +266,31 @@ export function createMockApi(): KeeperApi {
     ...mockX(),
     ...mockPlaces(),
     ...mockRemote(),
+    ...mockSession(),
     ...mockProcs(),
+    ...mockIslandTools(),
     ...mockPim((ch, ...args) => listeners.get(ch)?.forEach((cb) => (cb as (...a: unknown[]) => void)(...args))),
+    ...mockFileKit(),
+    ...mockNotes((ch, ...args) => listeners.get(ch)?.forEach((cb) => (cb as (...a: unknown[]) => void)(...args))),
+    ...mockGuide((ch, ...args) => listeners.get(ch)?.forEach((cb) => (cb as (...a: unknown[]) => void)(...args))),
+    ...mockControls((ch, ...args) => listeners.get(ch)?.forEach((cb) => (cb as (...a: unknown[]) => void)(...args))),
+    ...mockSettingsPlus(),
+    ...mockAshforde((id) => featureStates(settings, 'darwin').get(id)?.on ?? false, (ch, ...args) => listeners.get(ch)?.forEach((cb) => (cb as (...a: unknown[]) => void)(...args))),
     ...mockNet(),
+    ...mockSecurity((ch, ...args) => listeners.get(ch)?.forEach((cb) => (cb as (...a: unknown[]) => void)(...args))),
+    ...mockFw((ch, ...args) => listeners.get(ch)?.forEach((cb) => (cb as (...a: unknown[]) => void)(...args))),
     ...mockSync(),
+    ...mockNotesync((ch, ...args) => listeners.get(ch)?.forEach((cb) => (cb as (...a: unknown[]) => void)(...args))),
+    ...mockAgentTerm((ch, ...args) => listeners.get(ch)?.forEach((cb) => (cb as (...a: unknown[]) => void)(...args))),
     ...mockPlatform(),
     lock: lockX.lock,
     ...mockScreen(),
     ...mockLink(HOME, (ch, ...args) => listeners.get(ch)?.forEach((cb) => (cb as (...a: unknown[]) => void)(...args))),
     usage: mockUsage(),
+    ...mockAwake(() => settings, (patch) => {
+      Object.assign(settings, patch);
+      listeners.get('settings-changed')?.forEach((cb) => (cb as (v: unknown) => void)(structuredClone(settings)));
+    }, (ch, ...args) => listeners.get(ch)?.forEach((cb) => (cb as (...a: unknown[]) => void)(...args))),
     features: mockFeatures(() => settings, (patch) => {
       Object.assign(settings, patch);
       listeners.get('settings-changed')?.forEach((cb) => (cb as (v: unknown) => void)(structuredClone(settings)));
@@ -257,6 +298,12 @@ export function createMockApi(): KeeperApi {
     ...mockTerminal(HOME, (ch, ...args) => listeners.get(ch)?.forEach((cb) => (cb as (...a: unknown[]) => void)(...args))),
     ...mockBrain(files, (ch, v) => listeners.get(ch)?.forEach((cb) => cb(v)), HOME),
     ...mockAgents(files, (ch, v) => listeners.get(ch)?.forEach((cb) => cb(v)), HOME),
+    ...mockCu(),
+    ...mockUsageStats(() => settings, (patch) => {
+      Object.assign(settings, patch);
+      listeners.get('settings-changed')?.forEach((cb) => (cb as (v: unknown) => void)(structuredClone(settings)));
+    }, (ch) => listeners.get(ch)?.forEach((cb) => (cb as () => void)())),
+    ...mockAbilities((ch, v) => listeners.get(ch)?.forEach((cb) => cb(v))),
     preview: mockPreview(() => files, thumb),
     system: {
       info: async () => ({ platform: 'darwin', arch: 'arm64', osVersion: '15.4', appVersion: '0.1.0 (demo)', home: HOME, sep: '/' }),
@@ -302,11 +349,23 @@ export function createMockApi(): KeeperApi {
           const checksums = job.inputs.map((p) => ({ path: p, algo: 'sha256' as const, hash: 'b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9' }));
           return { outputs: [], checksums, verified: job.op.tool === 'file.verify' ? true : undefined, message: job.op.tool === 'file.verify' ? 'The checksum matches — the file is intact.' : undefined };
         }
-        return { outputs: job.inputs.map((p) => `${dir}/${(p.split('/').pop() ?? 'file').replace(/\.[^.]+$/, '')}.${ext}`), message: /compress|preset/.test(job.op.tool) ? 'Saved 1.8 GB (76% smaller)' : undefined };
+        if (job.op.tool === 'video.info') return { outputs: [], details: `${first.split('/').pop()}\nLength 6:52 · 8120 kb/s overall · mov,mp4,m4a\nVideo: h264 1920×1080 · 29.97 fps · yuv420p · 7860 kb/s\nAudio: aac · 48000 Hz · stereo · 256 kb/s\ncreation_time: 2026-10-12T09:41:00.000000Z` };
+        if (job.op.tool === 'audio.transcribe') return { outputs: [`${dir}/Meeting transcript.${job.op.format === 'srt' ? 'srt' : job.op.format === 'vtt' ? 'vtt' : 'txt'}`], details: 'Thanks everyone for joining. Let us start with the launch plan for November, then budget, then the open questions from last week.' };
+        return { outputs: job.inputs.map((p) => `${dir}/${(p.split('/').pop() ?? 'file').replace(/\.[^.]+$/, '')}.${ext}`), message: /compress|preset/.test(job.op.tool) ? 'Saved 1.8 GB (76% smaller)' : job.op.tool === 'image.faces' ? 'Hid 3 faces' : job.op.tool === 'pdf.redact' ? 'Removed 4 matches on 2 pages; document details were stripped too' : undefined };
       },
-      capabilities: async () => ({ ffmpeg: true, qpdf: false, sips: true, bgRemoval: true, pdfRender: true }),
+      capabilities: async () => ({ ffmpeg: true, qpdf: false, sips: true, bgRemoval: true, pdfRender: true, office: true, speech: true, transcribe: true }),
       duration: async () => 412,
       pageCount: async () => 12,
+      mediaInfo: async () => ({ duration: 412, subtitles: 0, metadata: {}, video: { codec: 'h264', width: 1920, height: 1080, fps: 29.97 }, audio: { codec: 'aac', sampleRate: 48000, channels: 'stereo' } }),
+      phoneBackups: async () => ({ folders: ['~/Library/Application Support/MobileSync/Backup'], backups: [{ id: '00008110-001A', path: '/Users/me/Library/Application Support/MobileSync/Backup/00008110-001A', deviceName: 'Ana’s iPhone', model: 'iPhone 15 Pro', productType: 'iPhone16,1', iosVersion: '19.1', lastBackup: Date.now() - 86_400_000 * 3, size: 48_300_000_000, encrypted: true }] }),
+      displays: async () => ({ displays: [{ id: 'win:0', name: 'Studio monitor', external: true, brightness: 60, contrast: 50, volume: 30 }] }),
+      setDisplay: async () => undefined,
+      pdfThumbs: async () => Array.from({ length: 5 }, (_, i) => `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='120' height='160'><rect width='120' height='160' fill='white'/><text x='60' y='90' font-size='40' text-anchor='middle' fill='#555'>${i + 1}</text></svg>`)}`),
+      pdfFields: async () => [{ name: 'Full name', type: 'text', value: '' }, { name: 'Date of birth', type: 'text', value: '' }, { name: 'I agree', type: 'checkbox', value: '' }, { name: 'Country', type: 'dropdown', value: '', options: ['Estonia', 'Germany', 'United Kingdom'] }],
+      downloadVideo: async (o) => { await delay(0, 2500); return [`${HOME}/Downloads/Keeper Videos/Launch keynote [x1y2z3].${o.quality === 'audio' ? 'mp3' : 'mp4'}`]; },
+      cancelDownload: async () => undefined,
+      saveRecording: async () => `${HOME}/Music/Keeper Recordings/Recording 2026-10-31 12.40.m4a`,
+      webToPdf: async (url) => { await delay(0, 1500); return `${HOME}/Downloads/${url.replace(/^https?:\/\/(www\.)?/, '').split('/')[0]} 2026-10-31.pdf`; },
     },
     library: {
       status: async () => ({ indexing: false, files: files.length, lastScan: now - 120_000, ocrPending: 0 }),

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 */
 /* Cloud & servers: the sidebar section, the connection dialog and browsing a connection. */
 
 .conn-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--line-strong, var(--text-3)); margin-left: 6px; }

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Turning a profile into a program to start: the shell, its folder and the
 // variables around it, including a separate config folder per profile so
 // tools signed in under one profile never see another's sign-in.

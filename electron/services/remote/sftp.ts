@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // SFTP: files on Linux machines, Macs with Remote Login, NAS boxes and home
 // servers, over SSH. Signs in with a password, a key file or the SSH agent.
 // A server's key is remembered the first time and checked every time after.

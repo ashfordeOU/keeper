@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Reads QR codes and barcodes (EAN, UPC, Code 128/39/93, ITF, Codabar,
 // Data Matrix, Aztec, PDF417) from raw pixels.
 

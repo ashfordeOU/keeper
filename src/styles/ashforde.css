@@ -1,0 +1,11 @@
+/* SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 */
+/* Settings → Ashforde apps */
+.ashforde-icon { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; color: #fff; background: linear-gradient(135deg, #5e5ce6, #0a84ff); flex: none; }
+.ashforde-note { display: flex; gap: 6px; align-items: center; margin-top: 10px; }
+.ashforde-together { margin: 10px 0 0 52px; padding-left: 16px; line-height: 1.6; }
+.ashforde-busy { margin-bottom: 8px; }
+.ashforde-bar { height: 6px; border-radius: 3px; background: var(--line, rgba(127, 127, 127, 0.2)); overflow: hidden; margin-top: 4px; }
+.ashforde-bar i { display: block; height: 100%; background: var(--accent); transition: width 0.2s; }
+.ashforde-live { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 10px; margin: 6px 0; border-radius: 8px; background: color-mix(in srgb, #5e5ce6 10%, transparent); }
+.ashforde-clashes { padding: 8px 10px; margin: 6px 0; border-radius: 8px; background: color-mix(in srgb, #f59e0b 12%, transparent); display: grid; gap: 4px; }
+.ashforde-app .setting { padding-left: 0; padding-right: 0; }

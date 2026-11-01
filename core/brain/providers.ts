@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // One shape for every AI Keeper can talk to: Claude, anything that speaks the
 // OpenAI chat format (OpenAI, OpenRouter, Groq, Mistral, DeepSeek, Gemini's
 // compatible endpoint, LM Studio, llama.cpp, Azure, …), Ollama, and the
@@ -24,6 +24,8 @@ export interface ChatMessage {
   /** tool turns: which call this answers */
   toolCallId?: string;
   isError?: boolean;
+  /** tool turns: pictures that belong to the result (a screenshot from the computer tool) */
+  images?: { mime: string; data: string }[];
   /** the provider's own form of an assistant turn (thinking blocks and all), sent back unchanged */
   raw?: unknown;
   rawProvider?: string;
@@ -34,6 +36,28 @@ export interface ToolSpec {
   description: string;
   /** JSON Schema for the arguments */
   parameters: Record<string, unknown>;
+  /**
+   * The AI's own built-in form of this tool, used instead of the function when
+   * the provider supports it (Claude's computer-use toolset). Its calls come
+   * back as calls to this tool, with the member's name in args.action.
+   */
+  native?: {
+    anthropic?: Record<string, unknown>;
+    anthropicToolsetName?: string;
+    /** OpenAI's computer tool (Responses API): the screenshot size the tool works in */
+    openai?: { width: number; height: number };
+    /** Gemini's computer-use tool, and which environment it drives */
+    gemini?: 'desktop' | 'browser';
+  };
+}
+
+/** Claude models that take the computer-use toolset (5.5 and later on the Claude API). */
+export function supportsAnthropicToolset(model: string): boolean {
+  const m = model.match(/claude-(?:opus|sonnet|haiku|fable)-(\d+)(?:-(\d+))?/);
+  if (!m) return false;
+  const major = Number(m[1]);
+  const minor = Number(m[2] ?? 0);
+  return major > 5 || (major === 5 && minor >= 5);
 }
 
 export interface ChatResult {
@@ -141,7 +165,10 @@ function anthropicProvider(c: ProviderConfig): ChatProvider {
           continue;
         }
         if (m.role === 'tool') {
-          const block: Anthropic.Beta.BetaToolResultBlockParam = { type: 'tool_result', tool_use_id: m.toolCallId!, content: m.content, ...(m.isError ? { is_error: true } : {}) };
+          const content: Anthropic.Beta.BetaToolResultBlockParam['content'] = m.images?.length
+            ? [...m.images.map((i) => ({ type: 'image' as const, source: { type: 'base64' as const, media_type: i.mime as 'image/png', data: i.data } })), { type: 'text' as const, text: m.content || ' ' }]
+            : m.content;
+          const block: Anthropic.Beta.BetaToolResultBlockParam = { type: 'tool_result', tool_use_id: m.toolCallId!, content, ...(m.isError ? { is_error: true } : {}) };
           const last = out[out.length - 1];
           // All results for one turn go in one user message.
           if (last?.role === 'user' && Array.isArray(last.content) && last.content.every((b) => (b as { type: string }).type === 'tool_result')) (last.content as Anthropic.Beta.BetaToolResultBlockParam[]).push(block);
@@ -156,18 +183,25 @@ function anthropicProvider(c: ProviderConfig): ChatProvider {
           max_tokens: opts.maxTokens ?? 16000,
           system: system || undefined,
           messages: out,
-          tools: tools.map((t) => ({ name: t.name, description: t.description, input_schema: t.parameters as Anthropic.Beta.BetaTool.InputSchema })),
+          tools: tools.map((t) => (t.native?.anthropic && supportsAnthropicToolset(model) ? t.native.anthropic : { name: t.name, description: t.description, input_schema: t.parameters as Anthropic.Beta.BetaTool.InputSchema })),
           thinking: { type: 'adaptive' },
           output_config: { effort: 'medium' },
           betas: ['server-side-fallback-2026-07-01'],
           fallbacks: 'default',
-        } as Anthropic.Beta.MessageCreateParamsStreaming,
+        } as unknown as Anthropic.Beta.MessageCreateParamsStreaming,
         { signal: opts.signal },
       );
       if (opts.onDelta) stream.on('text', (d) => opts.onDelta!(d));
       const msg = await stream.finalMessage();
       const text = msg.content.flatMap((b) => (b.type === 'text' ? [b.text] : [])).join('');
-      const toolCalls = msg.content.flatMap((b) => (b.type === 'tool_use' ? [{ id: b.id, name: b.name, args: (b.input ?? {}) as Record<string, unknown> }] : []));
+      // A member of a built-in toolset (e.g. "left_click" of the computer toolset) becomes a call to Keeper's tool of that name.
+      const toolsetOwner = (set?: string) => tools.find((t) => t.native?.anthropicToolsetName && t.native.anthropicToolsetName === set);
+      const toolCalls = msg.content.flatMap((b) => {
+        if (b.type !== 'tool_use') return [];
+        const owner = toolsetOwner((b as { toolset_name?: string }).toolset_name);
+        if (owner) return [{ id: b.id, name: owner.name, args: { action: b.name, ...((b.input ?? {}) as Record<string, unknown>) } }];
+        return [{ id: b.id, name: b.name, args: (b.input ?? {}) as Record<string, unknown> }];
+      });
       const stop = msg.stop_reason === 'refusal' ? 'refusal' : msg.stop_reason === 'max_tokens' ? 'length' : toolCalls.length ? 'tool' : 'end';
       return { text, toolCalls, stop, raw: msg.content };
     },
@@ -184,12 +218,17 @@ interface OaiMessage {
 }
 
 function toOai(messages: ChatMessage[]): OaiMessage[] {
-  return messages.map((m) => {
-    if (m.role === 'tool') return { role: 'tool', content: m.content, tool_call_id: m.toolCallId };
-    if (m.role === 'assistant' && m.toolCalls?.length) {
-      return { role: 'assistant', content: m.content || null, tool_calls: m.toolCalls.map((t) => ({ id: t.id, type: 'function' as const, function: { name: t.name, arguments: JSON.stringify(t.args) } })) };
+  return messages.flatMap((m): OaiMessage[] => {
+    if (m.role === 'tool') {
+      const out: OaiMessage[] = [{ role: 'tool', content: m.content, tool_call_id: m.toolCallId }];
+      // Tool messages carry text only; a picture that belongs to the result follows as the user's.
+      if (m.images?.length) out.push({ role: 'user', content: [{ type: 'text', text: 'Screenshot from the last tool call:' }, ...m.images.map((i) => ({ type: 'image_url', image_url: { url: `data:${i.mime};base64,${i.data}` } }))] as unknown as string });
+      return out;
     }
-    return { role: m.role, content: m.content };
+    if (m.role === 'assistant' && m.toolCalls?.length) {
+      return [{ role: 'assistant', content: m.content || null, tool_calls: m.toolCalls.map((t) => ({ id: t.id, type: 'function' as const, function: { name: t.name, arguments: JSON.stringify(t.args) } })) }];
+    }
+    return [{ role: m.role, content: m.content }];
   });
 }
 
@@ -297,7 +336,8 @@ function ollamaProvider(c: ProviderConfig): ChatProvider {
       const body: Record<string, unknown> = {
         model,
         stream: true,
-        messages: messages.map((m) => (m.role === 'assistant' && m.toolCalls?.length ? { role: 'assistant', content: m.content, tool_calls: m.toolCalls.map((t) => ({ function: { name: t.name, arguments: t.args } })) } : { role: m.role, content: m.content })),
+        // Ollama takes pictures as a list of base64 strings on the message (vision models only).
+        messages: messages.map((m) => (m.role === 'assistant' && m.toolCalls?.length ? { role: 'assistant', content: m.content, tool_calls: m.toolCalls.map((t) => ({ function: { name: t.name, arguments: t.args } })) } : { role: m.role, content: m.content, ...(m.images?.length ? { images: m.images.map((i) => i.data) } : {}) })),
       };
       if (tools.length && this.supportsTools) body.tools = tools.map((t) => ({ type: 'function', function: { name: t.name, description: t.description, parameters: t.parameters } }));
       const res = await fetch(`${base}/api/chat`, { method: 'POST', signal: opts.signal, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).catch(() => {

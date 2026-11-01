@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The rules every destructive action passes through. Keeper never decides what
 // to remove from a path the interface sends; it re-derives the target from a
 // known category and checks the resolved, real path against these rules.

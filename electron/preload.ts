@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Exposes the KeeperApi to the interface. Every call is a named IPC message;
 // the renderer never gets Node or Electron access of its own.
 
@@ -15,7 +15,8 @@ const api = {
   capture: group('capture', ['text', 'clipboardImage', 'readFile', 'screenshot', 'record', 'stopRecording', 'recordState', 'color', 'colors', 'history', 'removeHistory', 'clearHistory', 'options', 'setOptions', 'openLink']),
   weather: group('weather', ['get', 'search']),
   settings: group('settings', ['get', 'set', 'setSecret', 'hasSecret', 'pickFolder', 'pickFiles']),
-  convert: group('convert', ['run', 'capabilities', 'duration', 'pageCount']),
+  filekit: group('filekit', ['workflows', 'saveWorkflow', 'deleteWorkflow', 'runWorkflow', 'engines']),
+  convert: group('convert', ['run', 'capabilities', 'duration', 'pageCount', 'mediaInfo', 'pdfFields', 'pdfThumbs', 'displays', 'setDisplay', 'phoneBackups', 'webToPdf', 'downloadVideo', 'cancelDownload', 'saveRecording']),
   library: group('library', ['status', 'rescan', 'totals', 'recent', 'list', 'search', 'bySource', 'tags', 'setTags', 'inspect', 'readText', 'largeFiles']),
   files: {
     ...group('files', ['browse', 'thumbnail', 'icon', 'open', 'openWith', 'reveal', 'copyPaths', 'copyText', 'trash', 'move', 'copy', 'rename', 'previewRename', 'applyRename', 'newFolder', 'compress', 'readImage', 'writeImage', 'copyImage']),
@@ -33,6 +34,7 @@ const api = {
   startup: group('startup', ['list', 'toggle']),
   apps: group('apps', ['list', 'uninstall']),
   protection: group('protection', ['check']),
+  security: group('security', ['overview', 'permissions', 'revoke', 'browsers', 'connections', 'installBrowserHost', 'persistence', 'scan', 'stopScan', 'scans', 'quarantine', 'quarantineFile', 'restore', 'deleteQuarantined', 'events', 'settings', 'setSettings', 'ignore', 'fix', 'installClamav', 'updateSignatures', 'checkPassword', 'exportReport']),
   rules: group('rules', ['list', 'save', 'remove', 'plan', 'run']),
   history: group('history', ['list', 'undo']),
   ai: group('ai', ['ask']),
@@ -40,27 +42,42 @@ const api = {
   forecast: group('forecast', ['places', 'savePlaces', 'get', 'alerts', 'radar', 'climate', 'trips']),
   platform: group('platform', ['list', 'set', 'action', 'ask']),
   usage: group('usage', ['get']),
-  features: group('features', ['list', 'set', 'preset']),
+  ashforde: group('ashforde', ['overview', 'monorail', 'install', 'update', 'checkUpdate', 'uninstall', 'launch', 'quit', 'connect', 'openPermission', 'action', 'prefs', 'setPrefs']),
+  usageStats: group('usageStats', ['status', 'setOn', 'resetId', 'setBlocked', 'page']),
+  features: group('features', ['list', 'set', 'preset', 'sets', 'saveSet', 'removeSet', 'applySet', 'setPowerSets', 'live']),
+  awake: group('awake', ['status', 'start', 'stop', 'toggle', 'extend', 'parse', 'settings', 'setSettings', 'saveTrigger', 'removeTrigger', 'reorderTriggers', 'testTrigger', 'blockers', 'stats', 'resetStats', 'apps', 'setupClosedDisplay']),
   places: {
     ...group('places', ['list', 'eject', 'connect', 'discover', 'recentServers', 'forgetServer', 'folderSize', 'openAirDrop', 'shareTargets', 'share']),
     trash: group('places.trash', ['list', 'restore', 'remove', 'empty']),
   },
+  controls: group('controls', ['list', 'set', 'preview', 'applyPreset', 'undo', 'open', 'bind', 'perApp', 'perAppSet', 'showPage']),
+  catalog: group('catalog', ['list', 'search', 'read', 'preview', 'apply', 'reset', 'log', 'undo', 'backups', 'restoreBackup', 'favourites', 'setFavourite', 'exportProfile', 'previewProfile', 'applyProfile']),
+  appctl: group('appctl', ['controls', 'list', 'get', 'preview', 'set', 'clear', 'running']),
+  browserTabs: group('browserTabs', ['sessions', 'tab', 'info', 'siteSettings', 'setSite', 'clearSite', 'blockThirdPartyCookies', 'syncBlocking', 'siteBlocking', 'siteProxy', 'installHost']),
+  guide: { ...group('guide', ['list', 'refresh', 'summary', 'setState', 'preview', 'apply', 'undo', 'open', 'verify', 'mini', 'flows', 'get', 'howTo', 'explain']), focus: () => ipcRenderer.send('guide.focus') },
+  agentterm: group('agentterm', ['state', 'messages', 'post', 'send', 'postTask', 'handoff', 'takeOver', 'show', 'close', 'stopAll', 'pause', 'approve', 'setPerms', 'setPolicy', 'addAgent', 'transcript', 'runRecipe']),
   terminal: {
-    ...group('terminal', ['settings', 'setSettings', 'shells', 'sshHosts', 'sessions', 'create', 'attach', 'kill', 'rename', 'setGroup', 'clear', 'notes', 'setNotes', 'saveWorkspace', 'webTools', 'webToolCommand', 'openWith', 'openWindow', 'toggleQuick', 'shellKind', 'integrationScript', 'remoteList', 'remoteDownload', 'remoteUpload', 'remoteMkdir', 'remoteRemove', 'remoteRename', 'remoteSavePassword', 'remoteDisconnect', 'hostPid']),
+    ...group('terminal', ['settings', 'setSettings', 'shells', 'sshHosts', 'sessions', 'create', 'attach', 'kill', 'rename', 'setGroup', 'clear', 'notes', 'setNotes', 'saveWorkspace', 'webTools', 'webToolCommand', 'openWith', 'openAt', 'openWindow', 'toggleQuick', 'shellKind', 'integrationScript', 'remoteList', 'remoteDownload', 'remoteUpload', 'remoteMkdir', 'remoteRemove', 'remoteRename', 'remoteSavePassword', 'remoteDisconnect', 'hostPid']),
     input: (id: string, data: string) => ipcRenderer.send('terminal.input', id, data),
     resize: (id: string, cols: number, rows: number) => ipcRenderer.send('terminal.resize', id, cols, rows),
     detach: (id: string) => ipcRenderer.send('terminal.detach', id),
   },
   pim: group('pim', ['accounts', 'discover', 'testAccount', 'addAccount', 'signIn', 'cancelSignIn', 'updateAccount', 'removeAccount', 'oauthReady', 'folders', 'messages', 'refresh', 'older', 'open', 'setRead', 'setFlagged', 'move', 'archive', 'trash', 'junk', 'snooze', 'saveAttachment', 'openAttachment', 'unsubscribe', 'trustSender', 'draftFor', 'send', 'undoSend', 'outbox', 'saveDraft', 'suggest', 'ai', 'respond', 'rules', 'saveRules', 'pickFiles', 'calendars', 'setCalendar', 'occurrences', 'saveEvent', 'deleteEvent', 'quickAdd', 'parseQuick', 'subscribe', 'importIcs', 'exportIcs', 'syncCalendars', 'reminders', 'saveReminder', 'deleteReminder', 'alarms', 'saveAlarm', 'deleteAlarm', 'snoozeAlarm', 'stopRinging', 'startTimer', 'timerAction', 'saveClocks', 'scheduleWake', 'contacts', 'saveContact', 'deleteContact', 'prefs', 'setPrefs']),
+  notes: group('notes', ['vaults', 'addVault', 'createVault', 'removeVault', 'open', 'close', 'vaultPath', 'read', 'write', 'create', 'createFolder', 'newNote', 'remove', 'rename', 'saveAttachment', 'fileUrl', 'reveal', 'backlinks', 'outgoing', 'unlinked', 'linkMention', 'tags', 'search', 'suggest', 'resolve', 'unresolved', 'graph', 'random', 'periodic', 'templates', 'fillTemplate', 'base', 'merge', 'extract', 'publish', 'render', 'preview', 'snapshots', 'snapshot', 'bookmarks', 'setBookmarks', 'capture', 'settings', 'setSettings', 'ask', 'assist', 'plugins', 'pluginCode', 'setPlugin']),
+  islandTools: group('islandTools', ['store', 'saveStore', 'ask', 'askConnections', 'usage', 'setUsageOnline', 'usageOnline', 'salesConfig', 'setSalesProvider', 'removeSalesProvider', 'setSalesPrefs', 'sales', 'rates', 'quotes', 'chart', 'stocksKey', 'setStocksKey', 'shortcuts', 'runShortcut', 'importScript', 'macEvents', 'macReminders', 'setMacReminder']),
   procs: group('procs', ['sample', 'act', 'setPriority', 'details', 'icons', 'reveal', 'apps', 'restartKeeper', 'services', 'serviceAction']),
+  fw: group('fw', ['status', 'setSettings', 'setMode', 'setProfile', 'saveProfile', 'removeProfile', 'setAutoSwitch', 'saveRule', 'removeRule', 'saveGroup', 'removeGroup', 'subscribe', 'refreshSubscriptions', 'tidy', 'exportRules', 'importRules', 'answer', 'connections', 'history', 'queryLog', 'setDomain', 'refreshLists', 'addList', 'apply', 'uninstall', 'testInject']),
   net: group('net', ['sample', 'health', 'vpnStatus', 'vpnAction', 'importPick', 'importText', 'importInstall', 'publicIp', 'settings', 'setSettings', 'geoStatus', 'geoDownload', 'geoRemove', 'exportCsv', 'icons']),
-  agents: group('agents', ['catalog', 'addConnection', 'listModels', 'usage', 'actions', 'setPermission', 'pending', 'decide', 'audit', 'gateway', 'rotateToken', 'clis', 'saveProfile', 'removeProfile', 'launch', 'skills', 'saveSkill', 'removeSkill', 'setSkillEnabled', 'importSkill', 'otherSkills', 'exportSkill', 'draftSkill', 'learning', 'suggestions', 'applySuggestion', 'dismissSuggestion', 'forget', 'record', 'graph']),
+  cu: group('cu', ['state', 'settings', 'setSettings', 'saveSecret', 'removeSecret', 'show', 'takeOver', 'closeTab', 'record', 'stopRecording', 'runWorkflow', 'removeWorkflow', 'resume', 'forgetTask', 'editPlan', 'addSchedule', 'setSchedule', 'removeSchedule', 'runSchedule']),
+  agents: group('agents', ['catalog', 'addConnection', 'listModels', 'usage', 'actions', 'setPermission', 'pending', 'decide', 'audit', 'gateway', 'rotateToken', 'clis', 'saveProfile', 'removeProfile', 'launch', 'skills', 'saveSkill', 'removeSkill', 'setSkillEnabled', 'importSkill', 'otherSkills', 'exportSkill', 'draftSkill', 'learning', 'suggestions', 'applySuggestion', 'dismissSuggestion', 'forget', 'record', 'graph', 'computerState', 'computerStop', 'computerShot']),
+  abilities: group('abilities', ['settings', 'save', 'list', 'providers', 'setKey', 'testSearch', 'call', 'memories', 'addMemory', 'editMemory', 'removeMemory', 'clearMemories', 'costs', 'saveTask', 'removeTask', 'runTask', 'describeSchedule', 'savePersona', 'removePersona', 'saveProject', 'removeProject', 'members', 'saveTeam', 'removeTeam', 'runTeam', 'cancelTeam', 'transcribe', 'speak']),
   brain: group('brain', ['status', 'search', 'ask', 'cancel', 'setSemantic', 'removeModel', 'rebuild', 'connections', 'testConnection', 'apps', 'setAppConnected', 'server', 'modelSize']),
   remote: {
     ...group('remote', ['list', 'cloudAvailable', 'providers', 'providerForm', 'signIn', 'cancelSignIn', 'test', 'save', 'remove', 'check', 'quota', 'listDir', 'mkdir', 'rename', 'removeEntries', 'thumbnail', 'open', 'preview', 'uploadPick', 'upload', 'download', 'transfers', 'cancelTransfer', 'setOffline', 'search', 'scanLan', 'shares', 'mount']),
     startDrag: (id: string, entry: unknown) => ipcRenderer.send('remote.startDrag', id, entry),
   },
   sync: group('sync', ['overview', 'setPaused', 'setOptions', 'addFolder', 'updateFolder', 'removeFolder', 'ignoreOffer', 'rescan', 'conflicts', 'resolveConflict', 'versions', 'restoreVersion', 'versionsFor', 'destinations', 'addBackup', 'updateBackup', 'removeBackup', 'runBackup', 'cancelBackup', 'snapshots', 'snapshotFiles', 'restore', 'verifyBackup', 'addMirror', 'updateMirror', 'removeMirror', 'runMirror']),
+  notesync: group('notesync', ['overview', 'setOptions', 'addConnector', 'updateConnector', 'removeConnector', 'test', 'plan', 'sync', 'search', 'tags', 'note', 'saveNote', 'copyTo', 'migrate', 'conflicts', 'resolveConflict', 'duplicates', 'resolveDuplicate', 'trash', 'restore', 'snapshots', 'snapshotNow', 'restoreSnapshot', 'exportAs', 'history', 'shareWithDevices', 'shortcutGuide']),
   lock: group('lock', ['status', 'canLock', 'newRecoveryKey', 'saveRecoveryKey', 'lock', 'inspect', 'unlock', 'relock', 'list', 'forget', 'setRelock', 'cancel']),
   link: {
     ...group('link', ['state', 'setSettings', 'rename', 'discover', 'invite', 'cancelInvite', 'pair', 'confirmPair', 'forget', 'setPermissions', 'renameDevice', 'check', 'sendFiles', 'answerOffer', 'sendClipboard', 'shares', 'list', 'download', 'addShare', 'removeShare', 'addForward', 'removeForward', 'companionInvite', 'answerCompanion', 'forgetCompanion', 'pending']),
@@ -75,6 +92,14 @@ const api = {
   tools: group('tools', ['networkInfo', 'publicIp', 'tweaks', 'setTweak', 'clearQuarantine', 'resetPermissions', 'pickApp', 'pickFiles', 'saveAs']),
   folders: group('folders', ['tidy']),
   aiActions: group('aiActions', ['provider', 'suggestName', 'summarize', 'receipts', 'altText', 'translateSubtitles']),
+  // Tabs and windows that survive crashes (see electron/resilience.ts).
+  session: {
+    ...group('session', ['openWindow', 'lastSession', 'log', 'openDumps', 'report', 'relaunch']),
+    initial: () => ipcRenderer.sendSync('session.initial'),
+    save: (w: unknown) => ipcRenderer.send('session.save', w),
+  },
+  // Keeper's own processes and services (System → Keeper's processes).
+  svc: group('svc', ['list', 'stop', 'restart', 'stopAllWork', 'held', 'limits']),
   appInfo: group('appInfo', ['updateStatus', 'checkForUpdates', 'installUpdate', 'downloadUpdate', 'whatsNew', 'releasesPage', 'versionNotes', 'scheduleUpdate', 'loginItem', 'setLoginItem']),
   island: {
     ...group('island', ['state', 'addToShelf', 'removeFromShelf', 'clearShelf', 'copyClip', 'pinClip', 'removeClip', 'clearClips', 'focus', 'keepAwake', 'presentation', 'media', 'openAgent', 'transcribe', 'typeText', 'dismiss']),

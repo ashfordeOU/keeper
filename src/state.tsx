@@ -1,20 +1,22 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // App-wide state: the current page, selection, inspector, music player,
 // settings and toasts. Small enough that plain React context does the job.
 
-import { rememberRoute, setPlaceMemory, startPlace } from './place';
+import { rememberRoute, scrollMap, seedScroll, setPlaceMemory, startPlace, onScrollChanged } from './place';
+import { activeTab, closeOthers, closeTab, closeToRight, detachTab, duplicateTab, emptyWindow, goBack, goForward, moveTab, navigate, openTab, pinTab, reopenClosed, selectTab, type Tab, type WindowState } from '../core/session';
+import type { SessionInitial } from '../core/api-session';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { SystemInfo } from '../core/api';
 import type { AllSettings } from '../core/settings';
 import type { CleanResult, FileEntry } from '../core/types';
 import { api } from './api';
-import { applyTheme, onSystemAppearance } from './theme';
+import { applyTheme, onNewDay, onSystemAppearance } from './theme';
 import { formatBytes } from '../core/format';
 
 export type RouteName =
   | 'home' | 'recents' | 'library' | 'screenshots' | 'search' | 'browse' | 'downloads' | 'source' | 'tag' | 'saved'
   | 'duplicates' | 'cleanup' | 'space' | 'large' | 'startup' | 'apps' | 'protection' | 'rules' | 'history'
-  | 'assistant' | 'island' | 'settings' | 'tools' | 'health' | 'capture' | 'annotate' | 'convert' | 'widgets' | 'weather' | 'network' | 'trash' | 'remote' | 'terminal' | 'sync' | 'devices' | 'netactivity' | 'vpn' | 'agents' | 'graph' | 'mail' | 'calendar' | 'reminders' | 'alarms';
+  | 'assistant' | 'island' | 'settings' | 'tools' | 'health' | 'capture' | 'annotate' | 'convert' | 'widgets' | 'weather' | 'network' | 'trash' | 'remote' | 'terminal' | 'sync' | 'devices' | 'netactivity' | 'vpn' | 'firewall' | 'agents' | 'graph' | 'mail' | 'calendar' | 'reminders' | 'alarms' | 'todo' | 'awake' | 'controls' | 'catalog' | 'appcontrols' | 'browsers' | 'noteshub' | 'notes';
 
 export interface Route {
   name: RouteName;
@@ -30,11 +32,38 @@ export interface Toast {
   action?: { label: string; run: () => void };
 }
 
+export interface TabsApi {
+  tabs: Tab[];
+  active: string;
+  /** opens a page in a new tab (in the background when asked) */
+  open(r: Route, opts?: { background?: boolean }): void;
+  select(id: string): void;
+  close(id: string): void;
+  reopenClosed(): void;
+  closedCount: number;
+  move(id: string, to: number): void;
+  pin(id: string, pinned: boolean): void;
+  duplicate(id: string): void;
+  closeOthers(id: string): void;
+  closeToRight(id: string): void;
+  /** moves a tab into a window of its own */
+  toWindow(id: string): void;
+}
+
 interface Store {
   route: Route;
   go(r: Route): void;
   back(): void;
   canBack: boolean;
+  forward(): void;
+  canForward: boolean;
+  /** this window's tabs (each keeps its own page, history, scroll and drafts) */
+  tabs: TabsApi;
+  /** text typed into a field and not yet sent, kept per tab across crashes and restarts */
+  draft(field: string): string;
+  setDraft(field: string, text: string): void;
+  /** what this window opened with (crash, safe mode) */
+  boot: SessionInitial;
   info: SystemInfo | null;
   settings: AllSettings | null;
   updateSettings(patch: Partial<AllSettings>): Promise<void>;
@@ -78,10 +107,58 @@ function save(key: string, v: unknown) {
   }
 }
 
+/** What this window opens with: its saved tabs (after a restart, an update or a crash), or a fresh Home tab. */
+function readBoot(): SessionInitial {
+  const fallback: SessionInitial = { key: 'main', state: null, crashed: false, safeMode: false };
+  try {
+    return (api.session?.initial?.() as SessionInitial | undefined) ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+// A middle-click, or ⌘/Ctrl-click, on anything that opens a page opens it in a new tab instead.
+let newTabIntent: { background: boolean; at: number } | null = null;
+if (typeof window !== 'undefined') {
+  window.addEventListener('click', (e) => {
+    if (e.metaKey || e.ctrlKey) newTabIntent = { background: !e.shiftKey, at: Date.now() };
+  }, true);
+  window.addEventListener('mousedown', (e) => {
+    // No autoscroll or paste on a middle-click over something clickable.
+    if (e.button === 1 && (e.target as HTMLElement | null)?.closest('button, a, [role="button"], .nav-item')) e.preventDefault();
+  }, true);
+  window.addEventListener('auxclick', (e) => {
+    if (e.button !== 1) return;
+    const el = (e.target as HTMLElement | null)?.closest<HTMLElement>('button, a, [role="button"], .nav-item');
+    if (!el || el.closest('.tab-strip')) return;
+    e.preventDefault();
+    newTabIntent = { background: true, at: Date.now() };
+    el.click();
+    newTabIntent = null;
+  }, true);
+}
+function takeNewTabIntent(): { background: boolean } | null {
+  const i = newTabIntent;
+  newTabIntent = null;
+  return i && Date.now() - i.at < 400 ? i : null;
+}
+
 export function StoreProvider({ children }: { children: ReactNode }) {
-  // An update or restart reopens the page you were on (Settings → Reopen where I left off).
-  const [route, setRoute] = useState<Route>(() => startPlace?.route ?? { name: 'home' });
-  const history = useRef<Route[]>(startPlace?.history ?? []);
+  // Tabs, pages and drafts come back after an update, a restart or a crash (Settings → Reopen where I left off).
+  const boot = useMemo(readBoot, []);
+  const [win, setWin] = useState<WindowState>(() => {
+    if (boot.state) {
+      seedScroll(boot.state.scroll);
+      return boot.state;
+    }
+    const w = emptyWindow(boot.key, startPlace?.route ?? { name: 'home' });
+    w.tabs[0].back = (startPlace?.history ?? []).slice(-30);
+    return w;
+  });
+  const tab = activeTab(win);
+  const route = tab.route as Route;
+  const history = useRef<Route[]>([]);
+  history.current = tab.back as Route[];
   const [info, setInfo] = useState<SystemInfo | null>(null);
   const [settings, setSettings] = useState<AllSettings | null>(null);
   const [selection, setSelection] = useState<string[]>([]);
@@ -106,13 +183,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const i = r.indexOf(':');
         const name = i < 0 ? r : r.slice(0, i);
         const arg = i < 0 ? undefined : r.slice(i + 1);
-        setRoute({ name: name as RouteName, arg });
+        setWin((w) => navigate(w, { name: name as RouteName, arg }));
       }),
     ];
     return () => offs.forEach((o) => o());
   }, []);
 
-  useEffect(() => rememberRoute(route, history.current), [route]);
+  useEffect(() => rememberRoute(route, tab.back as Route[]), [route, tab.back]);
+  // Anonymous usage stats count page opens by name only (nothing is kept while they are off).
+  useEffect(() => { void api.usageStats?.page(route.name).catch(() => undefined); }, [route.name]);
   useEffect(() => {
     if (settings) setPlaceMemory(settings.restorePlace !== false);
   }, [settings]);
@@ -121,21 +200,80 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!settings) return;
     applyTheme(settings);
-    return onSystemAppearance(() => applyTheme(settings));
+    const offSystem = onSystemAppearance(() => applyTheme(settings));
+    // "Follow the seasons" moves on at midnight on the day the season changes.
+    const offDay = settings.themeSeasons ? onNewDay(() => applyTheme(settings)) : () => undefined;
+    return () => { offSystem(); offDay(); };
   }, [settings]);
 
+  const tabsOn = settings?.tabs !== false;
   const go = useCallback((r: Route) => {
-    setRoute((cur) => {
-      if (cur.name !== r.name || cur.arg !== r.arg || cur.q !== r.q) history.current.push(cur);
-      return r;
-    });
-    setSelection([]);
-  }, []);
+    const intent = tabsOn ? takeNewTabIntent() : null;
+    setWin((w) => (intent ? openTab(w, r, { background: intent.background }) : navigate(w, r)));
+    if (!intent || !intent.background) setSelection([]);
+  }, [tabsOn]);
 
-  const back = useCallback(() => {
-    const prev = history.current.pop();
-    if (prev) setRoute(prev);
+  const back = useCallback(() => setWin(goBack), []);
+  const forward = useCallback(() => setWin(goForward), []);
+
+  // Drafts: whatever was typed and not yet sent, per tab, saved with the tabs.
+  const drafts = useRef<Record<string, string>>(boot.state?.drafts ?? {});
+  const [draftsVersion, bumpDrafts] = useState(0);
+  // Depends on draftsVersion so pages re-render (and controlled fields keep what was typed) after each change.
+  const draft = useCallback((field: string) => drafts.current[`${win.active}:${field}`] ?? '', [win.active, draftsVersion]);
+
+  // Saved within a second of any change (tabs, pages, scroll or drafts), and right away when the window goes away.
+  const saveTimer = useRef<number | undefined>(undefined);
+  const winRef = useRef(win);
+  winRef.current = win;
+  const saveNow = useCallback(() => {
+    window.clearTimeout(saveTimer.current);
+    try { api.session?.save?.({ ...winRef.current, scroll: scrollMap(), drafts: drafts.current }); } catch { /* not available */ }
   }, []);
+  const saveSoon = useCallback(() => {
+    window.clearTimeout(saveTimer.current);
+    saveTimer.current = window.setTimeout(saveNow, 500);
+  }, [saveNow]);
+  const setDraft = useCallback((field: string, text: string) => {
+    const k = `${winRef.current.active}:${field}`;
+    if (text) drafts.current[k] = text;
+    else delete drafts.current[k];
+    bumpDrafts((n) => n + 1);
+    saveSoon();
+  }, [saveSoon]);
+  useEffect(() => { saveSoon(); }, [win, saveSoon]);
+  useEffect(() => {
+    const off = onScrollChanged(saveSoon);
+    const hide = () => { if (document.visibilityState === 'hidden') saveNow(); };
+    window.addEventListener('pagehide', saveNow);
+    document.addEventListener('visibilitychange', hide);
+    return () => { off(); window.removeEventListener('pagehide', saveNow); document.removeEventListener('visibilitychange', hide); };
+  }, [saveSoon, saveNow]);
+
+  const tabs = useMemo<TabsApi>(() => ({
+    tabs: win.tabs,
+    active: win.active,
+    closedCount: win.closed.length,
+    open: (r, o) => setWin((w) => openTab(w, r, o)),
+    select: (id) => { setWin((w) => selectTab(w, id)); setSelection([]); },
+    close: (id) => {
+      for (const k of Object.keys(drafts.current)) if (k.startsWith(`${id}:`)) delete drafts.current[k];
+      setWin((w) => closeTab(w, id));
+    },
+    reopenClosed: () => setWin(reopenClosed),
+    move: (id, to) => setWin((w) => moveTab(w, id, to)),
+    pin: (id, p) => setWin((w) => pinTab(w, id, p)),
+    duplicate: (id) => setWin((w) => { const d = duplicateTab({ ...w, drafts: drafts.current }, id); drafts.current = d.drafts; return d; }),
+    closeOthers: (id) => setWin((w) => closeOthers(w, id)),
+    closeToRight: (id) => setWin((w) => closeToRight(w, id)),
+    toWindow: (id) => {
+      const { rest, tab: moved, drafts: d } = detachTab({ ...winRef.current, drafts: drafts.current }, id);
+      if (!moved) return;
+      drafts.current = rest.drafts;
+      setWin(rest);
+      void api.session?.openWindow?.({ key: 'new', tabs: [moved], active: moved.id, scroll: scrollMap(), drafts: d, closed: [] });
+    },
+  }), [win]);
 
   const updateSettings = useCallback(async (patch: Partial<AllSettings>) => {
     setSettings(await api.settings.set(patch));
@@ -159,13 +297,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [refresh, toast]);
 
   const store = useMemo<Store>(() => ({
-    route, go, back, canBack: history.current.length > 0, info, settings, updateSettings, selection, setSelection,
+    route, go, back, canBack: tab.back.length > 0, forward, canForward: tab.fwd.length > 0, tabs, draft, setDraft, boot,
+    info, settings, updateSettings, selection, setSelection,
     inspector, setInspector: (v) => { setInspectorState(v); save('inspector', v); },
     focused, setFocused, playing, play,
     view, setView: (v) => { setViewState(v); save('view', v); },
     cardSize, setCardSize: (n) => { const c = Math.max(100, Math.min(280, n)); setCardSizeState(c); save('cardSize', c); },
     toasts, toast, version, refresh, trash,
-  }), [route, go, back, info, settings, updateSettings, selection, inspector, focused, playing, view, cardSize, toasts, toast, version, refresh, trash]);
+  }), [route, go, back, forward, tab, tabs, draft, setDraft, boot, info, settings, updateSettings, selection, inspector, focused, playing, view, cardSize, toasts, toast, version, refresh, trash]);
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>;
 }

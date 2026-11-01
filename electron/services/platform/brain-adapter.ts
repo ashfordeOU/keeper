@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The platform integrations ask "the brain" for results. Until the brain
 // service hands itself over with useBrain(), a plain library search stands in,
 // so Spotlight, GNOME, KRunner and links keep working either way.

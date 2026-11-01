@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The model behind "search by meaning": multilingual-e5-small (MIT licence,
 // about 100 languages), 8-bit, 118 MB. Downloaded once, when the person turns
 // meaning search on, from a pinned revision, and checked against known

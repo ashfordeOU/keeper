@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { defaultRules, globToRegExp, planRule, resolveDestination, uniqueName } from '../core/rules';

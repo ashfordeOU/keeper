@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 */
 /* Settings → Features and Sidebar */
 .feature-presets { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
 .feature-preset { display: flex; flex-direction: column; gap: 3px; text-align: left; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--text); cursor: default; font: inherit; }
@@ -22,3 +22,8 @@
 .sidebar-custom-row { display: flex; align-items: center; gap: 8px; padding: 6px 2px; border-bottom: 1px solid var(--line); }
 .sidebar-custom-row .sec-dot { width: 8px; height: 8px; border-radius: 3px; flex: none; }
 .chip { display: inline-flex; align-items: center; gap: 4px; margin: 2px; padding: 2px 8px; border-radius: 99px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font: inherit; font-size: 12px; }
+.feature-sets { margin: 10px 0 14px; }
+.feature-sets .feature-row { gap: 8px; align-items: center; flex-wrap: wrap; }
+.feature-sets .feature-row.current { box-shadow: inset 3px 0 0 var(--accent); }
+.feature-sets label select { margin-left: 4px; }
+.feature-live { margin-top: 2px; }

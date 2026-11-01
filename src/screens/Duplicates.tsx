@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Duplicates: identical copies, look-alike photos and the same photo saved in two formats.
 
 import { useEffect, useMemo, useState } from 'react';

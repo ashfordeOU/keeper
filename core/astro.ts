@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Sun and moon for widgets: sunrise and sunset (NOAA's simplified solar
 // position) and the moon's phase, computed locally from the date.
 

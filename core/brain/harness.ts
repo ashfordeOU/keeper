@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The harness: the same file-aware assistant on top of whichever AI the person
 // uses. The AI gets tools to search the brain, read files page by page, look
 // at folders and recent activity, and suggest changes. Suggestions come back
@@ -36,7 +36,20 @@ export interface HarnessEnv {
   home?: string;
   platform?: string;
   now?: number;
+  /**
+   * Tools from elsewhere in Keeper (using the computer, for one). They are
+   * offered alongside the file tools and may return pictures.
+   */
+  extraTools?: {
+    specs: ToolSpec[];
+    run(call: ToolCall): Promise<{ content: string; summary: string; images?: { mime: string; data: string }[] }>;
+    /** a line for the instructions when these tools are on */
+    instructions?: string;
+  };
 }
+
+/** Screenshots kept in the conversation; older ones become a short note to save room. */
+const KEEP_IMAGES = 3;
 
 export type ProposedAction =
   | { type: 'trash'; path: string; reason: string }
@@ -158,6 +171,7 @@ export function harnessTools(env: HarnessEnv): ToolSpec[] {
       required: ['actions'],
     },
   });
+  if (env.extraTools) t.push(...env.extraTools.specs);
   return t;
 }
 
@@ -207,7 +221,8 @@ export class Harness {
     for (const h of hits) if (!this.seen.has(h.path)) this.seen.set(h.path, h);
   }
 
-  async runTool(call: ToolCall, actions: ProposedAction[]): Promise<{ content: string; summary: string; error?: boolean }> {
+  async runTool(call: ToolCall, actions: ProposedAction[]): Promise<{ content: string; summary: string; error?: boolean; images?: { mime: string; data: string }[] }> {
+    if (this.env.extraTools?.specs.some((s) => s.name === call.name)) return this.env.extraTools.run(call);
     const a = call.args;
     const env = this.env;
     const num = (v: unknown, d: number, max: number) => Math.max(1, Math.min(max, Number.isFinite(Number(v)) ? Number(v) : d));
@@ -309,6 +324,14 @@ export class Harness {
 
   /** Keeps the conversation inside the model's context: oldest turns go first. */
   private fit(messages: ChatMessage[]): ChatMessage[] {
+    // Only the latest screenshots stay; each costs well over a thousand tokens.
+    let pics = 0;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i];
+      if (!m.images?.length) continue;
+      if (pics >= KEEP_IMAGES) messages[i] = { ...m, images: undefined, content: `${m.content}\n[older screenshot removed to save room]` };
+      else pics++;
+    }
     const limit = Math.floor(this.provider.contextTokens * 0.7);
     let total = messages.reduce((n, m) => n + tokensOf(m.content) + 8, 0);
     if (total <= limit) return messages;
@@ -336,7 +359,7 @@ export class Harness {
     const trace: TraceStep[] = [];
     const skillList = env.skills?.list() ?? [];
     const skillText = skillList.length && this.provider.supportsTools ? `\n\nSkills you can use (call use_skill with the name to read one before following it):\n${skillList.map((k) => `- ${k.name}: ${k.description}`).join('\n')}` : '';
-    const sys = `${SYSTEM}${skillText}\n\nComputer: ${env.platform ?? 'unknown'}. Today: ${new Date(env.now ?? Date.now()).toISOString().slice(0, 10)}. Home folder: ${env.home ?? '~'}.${env.visibility === 'names' ? ' The person allows only file names and details, not text inside files.' : ''}`;
+    const sys = `${SYSTEM}${skillText}${env.extraTools?.instructions ? `\n\n${env.extraTools.instructions}` : ''}\n\nComputer: ${env.platform ?? 'unknown'}. Today: ${new Date(env.now ?? Date.now()).toISOString().slice(0, 10)}. Home folder: ${env.home ?? '~'}.${env.visibility === 'names' ? ' The person allows only file names and details, not text inside files.' : ''}`;
     let messages: ChatMessage[] = history.length ? [...history] : [{ role: 'system', content: sys }];
     const tools = this.provider.supportsTools ? harnessTools(env) : [];
     let retrievalOnly = false;
@@ -375,7 +398,7 @@ export class Harness {
           const step: TraceStep = { tool: call.name, args: call.args, summary: r.summary, ms: Date.now() - t0 };
           trace.push(step);
           this.opts.onStep?.(step);
-          return { role: 'tool' as const, content, toolCallId: call.id };
+          return { role: 'tool' as const, content, toolCallId: call.id, ...(r.images?.length ? { images: r.images } : {}) };
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
           const step: TraceStep = { tool: call.name, args: call.args, summary: msg, ms: Date.now() - t0, error: true };

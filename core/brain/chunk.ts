@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Splits the text of a file into passages of about 800 characters, so search
 // and AI can point at the part of a long file that matters. Prose is cut at
 // headings, paragraphs and sentences; source code at top-level declarations.

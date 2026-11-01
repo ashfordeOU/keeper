@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // History of everything Keeper changed on disk, newest first. Moves and renames
 // can be undone directly; Trash moves can be put back where the OS supports it.
 

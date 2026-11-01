@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Settings for AI agents in Keeper: what they may do, the model gateway,
 // agent-to-agent access, fallback and privacy routing, usage learning and
 // skills. No Node modules here (the interface reads these too).
@@ -6,6 +6,7 @@
 import type { AgentProfile } from './brain/agents';
 import type { Permission } from './brain/actions';
 import type { Price } from './brain/catalog';
+import { defaultComputerPolicy, normalizeComputerPolicy, type ComputerPolicy } from './computer';
 
 export interface AgentSettings {
   /** agents connected over MCP may use action tools (each still behind its permission) */
@@ -36,6 +37,8 @@ export interface AgentSettings {
   skillsOff: string[];
   /** saved agent profiles (separate accounts) */
   profiles: AgentProfile[];
+  /** letting an AI use this computer (screen, pointer, keyboard): off unless the person turns it on */
+  computer: ComputerPolicy;
 }
 
 export function defaultAgentSettings(): AgentSettings {
@@ -55,6 +58,7 @@ export function defaultAgentSettings(): AgentSettings {
     dismissed: [],
     skillsOff: [],
     profiles: [],
+    computer: defaultComputerPolicy(),
   };
 }
 
@@ -73,6 +77,7 @@ export function normalizeAgentSettings(raw: unknown): AgentSettings {
     skillsOff: arr(r.skillsOff),
     profiles: Array.isArray(r.profiles) ? r.profiles.filter((p) => p && typeof p.id === 'string' && typeof p.agent === 'string') : [],
     prices: r.prices && typeof r.prices === 'object' ? r.prices : {},
+    computer: normalizeComputerPolicy(r.computer),
   };
   for (const k of ['actions', 'gateway', 'a2a', 'learn'] as const) if (typeof out[k] !== 'boolean') out[k] = d[k];
   if (!Number.isInteger(out.gatewayPort) || out.gatewayPort < 0 || out.gatewayPort > 65535) out.gatewayPort = 0;

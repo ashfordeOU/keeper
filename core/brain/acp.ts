@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Keeper as an agent for editors that speak the Agent Client Protocol: the
 // editor starts `keeper acp` and talks JSON-RPC over stdio. A session is a
 // conversation with Keeper's assistant; answers stream back as

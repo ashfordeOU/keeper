@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Before anything from a file is sent to an AI on the internet, secrets are
 // blanked out: API keys and tokens, private keys, password lines, card numbers
 // and bank account numbers. Local models see the text as it is, unless the

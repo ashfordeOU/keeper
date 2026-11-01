@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Which files a synced folder leaves out: a .keeperignore file in the folder
 // (one pattern per line, the same rules as a .gitignore) plus Keeper's own
 // working files and the usual system clutter.

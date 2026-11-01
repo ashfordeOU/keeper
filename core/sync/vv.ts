@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Version vectors: each device counts its own changes to a file. Comparing two
 // vectors tells whether one change came after the other, or whether two devices
 // changed the file without seeing each other's change (a conflict).

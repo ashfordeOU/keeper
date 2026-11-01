@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Keeper's terminal session host. A small Node process (started by Keeper with
 // ELECTRON_RUN_AS_NODE) that owns the terminals, so they keep running when the
 // window closes and, if the person wants, after Keeper quits. It remembers the
@@ -357,6 +357,11 @@ function handle(c: Client, m: ClientMsg) {
     case 'keepAlive':
       keepAlive = m.mode;
       return;
+    case 'persist': {
+      const s = sessions.get(m.id);
+      if (s) s.info.persist = m.on;
+      return;
+    }
     case 'shutdown':
       reply(m.rid, true);
       setTimeout(() => shutdown(m.save), 20);
@@ -376,7 +381,9 @@ const server = net.createServer((sock) => {
     clients.delete(c);
     for (const s of sessions.values()) s.subscribers.delete(c);
     // Keeper quit without asking to keep terminals: end them, keeping their scrollback.
-    if (c.name === 'app' && keepAlive !== 'quit' && ![...clients].some((x) => x.authed && x.name === 'app')) {
+    // Terminals an agent asked to keep (headless work) keep the host alive too.
+    const pinned = [...sessions.values()].some((s) => s.pty && s.info.persist);
+    if (c.name === 'app' && keepAlive !== 'quit' && !pinned && ![...clients].some((x) => x.authed && x.name === 'app')) {
       shutdown(true);
       return;
     }

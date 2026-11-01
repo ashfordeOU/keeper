@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Keeper as a model gateway: other tools that speak the OpenAI or Anthropic
 // API point at Keeper (127.0.0.1, with a token) and get the person's own AI
 // connections — and, through the "keeper/brain" model, answers grounded in

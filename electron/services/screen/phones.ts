@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Phones on this computer's screen: Android through scrcpy (with its own adb),
 // iPhone and iPad through an AirPlay receiver. scrcpy is downloaded once on
 // first use and its SHA-256 checked before it ever runs; the receiver is the

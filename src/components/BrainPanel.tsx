@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Settings → AI & Brain: what Keeper has read, meaning search, which AI to use,
 // what AIs may see, and connecting other AI apps to Keeper.
 

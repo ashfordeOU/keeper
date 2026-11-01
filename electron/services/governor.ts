@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // One place that decides when Keeper's background work may run and how often
 // its regular checks look at things. It watches the battery, the locked
 // screen, sleep, heat, how long the computer has been idle, Keeper's own
@@ -9,6 +9,8 @@
 //   poll('media', rule, fn)        a regular check that slows down when nobody looks
 //   track('ocr', 'Reading text')   shows up in Settings → Keeper's own usage
 
+import { jobHelpers, trackHelper } from '../helpers-registry';
+import { DEFAULT_LIMITS } from '../../core/limits';
 import { app, BrowserWindow, powerMonitor } from 'electron';
 import type { ChildProcess } from 'node:child_process';
 import os from 'node:os';
@@ -98,8 +100,39 @@ export function startGovernor() {
   });
 }
 
+// ---------------------------------------------------------------- "Stop all background work now"
+
+let heldUntil = 0;
+let holdTimer: NodeJS.Timeout | undefined;
+let holdReason = 'Stopped by you (Keeper’s processes → Resume)';
+
+/** Holds every piece of background work (indexing, reading text, sync, backups, regular checks) until resumed or the time is up. */
+export function holdAllWork(ms = 60 * 60_000, reason = 'Stopped by you (Keeper’s processes → Resume)') {
+  holdReason = reason;
+  heldUntil = Date.now() + ms;
+  clearTimeout(holdTimer);
+  holdTimer = setTimeout(() => resumeAllWork(), ms);
+  holdTimer.unref?.();
+  changed();
+}
+
+export function resumeAllWork() {
+  if (!heldUntil) return;
+  heldUntil = 0;
+  clearTimeout(holdTimer);
+  changed();
+}
+
+/** When held work starts again on its own (0: not held). */
+export function workHeldUntil(): number {
+  return heldUntil > Date.now() ? heldUntil : 0;
+}
+
 /** May this kind of work run right now? With a reason for the settings page when not. */
 export function canWork(kind: WorkKind) {
+  if (workHeldUntil()) return { ok: false as const, reason: holdReason };
+  // Too many helper programs (video conversion, text recognition…) at once: new background work waits.
+  if (jobHelpers().length >= DEFAULT_LIMITS.maxHelpers) return { ok: false as const, reason: `${jobHelpers().length} helper programs already running` };
   return decide(kind, conditions());
 }
 
@@ -141,8 +174,8 @@ const pollers = new Map<string, Poller>();
 function schedule(p: Poller) {
   clearTimeout(p.timer);
   if (p.stopped) return;
-  // A feature that is off has no timer at all; switching it on starts the check again.
-  const ms = p.features?.some((f) => !featureOn(f)) ? null : pollDelay(typeof p.rule === 'function' ? p.rule() : p.rule, conditions());
+  // A feature that is off has no timer at all; switching it on starts the check again. Held work waits too.
+  const ms = workHeldUntil() || p.features?.some((f) => !featureOn(f)) ? null : pollDelay(typeof p.rule === 'function' ? p.rule() : p.rule, conditions());
   // Paused (locked or asleep): the next change of conditions starts it again.
   if (ms === null) {
     p.paused = true;
@@ -256,7 +289,7 @@ export function usage(): import('../../core/api-usage').KeeperUsage {
       const d = decide(t.kind, c);
       return { ...t, state: t.state === 'working' && !d.ok ? 'waiting' as const : t.state, detail: !d.ok && t.state !== 'idle' ? d.reason : t.detail };
     }),
-    checks: [...pollers.values()].map((p) => ({ name: p.name, everyMs: p.features?.some((f) => !featureOn(f)) ? null : pollDelay(typeof p.rule === 'function' ? p.rule() : p.rule, c), runs: p.runs })),
+    checks: [...pollers.values()].map((p) => ({ name: p.name, everyMs: p.features?.some((f) => !featureOn(f)) || p.paused ? null : pollDelay(typeof p.rule === 'function' ? p.rule() : p.rule, c), runs: p.runs, features: p.features })),
   };
 }
 
@@ -266,6 +299,8 @@ export type { KeeperUsage } from '../../core/api-usage';
 export function lowerPriority(child: ChildProcess | number | undefined) {
   const pid = typeof child === 'number' ? child : child?.pid;
   if (!pid) return;
+  // Helpers never outlive Keeper: if Keeper is killed, the watchdog stops what is left.
+  if (typeof child === 'object' && child) trackHelper(child);
   try {
     os.setPriority(pid, os.constants.priority.PRIORITY_BELOW_NORMAL);
   } catch {

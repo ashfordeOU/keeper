@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 import { describe, expect, it } from 'vitest';
 import { moonPhase, sunTimes } from '../core/astro';
 import { activeTriggers, describeTrigger, isVpnInterface, parseLsusb, parseMacSsid, parseMacUsb, parseNetshSsid, parseNmcliSsid, triggerActive, type AwakeTrigger, type SystemSnapshot } from '../core/awake';

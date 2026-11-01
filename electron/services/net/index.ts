@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Network Activity and VPN: which app talks to whom, through which interface,
 // how much; the system's VPN connections and whether traffic really goes
 // through them. Nothing runs in the background unless the person turns on
@@ -7,27 +7,27 @@
 import { app, dialog, net as enet } from 'electron';
 import { randomUUID } from 'node:crypto';
 import { existsSync, promises as fsp } from 'node:fs';
-import { promises as dnsp } from 'node:dns';
 import https from 'node:https';
-import nodeNet from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import readline from 'node:readline';
 import { Readable } from 'node:stream';
 import zlib from 'node:zlib';
 import type { GeoStatus, NetHealth, NetSettings, PublicIpResult, VpnImportPreview, VpnStatus } from '../../../core/api-net';
-import { familyOf, scopeOf } from '../../../core/net/addr';
-import { applyRates, byApp, byDestination, flowKey, flowsToCsv, ifaceTotals, newInternetApps, serviceFor, type FlowRow, type IfaceTraffic, type NetSample } from '../../../core/net/flows';
-import { asnValue, countryValue, dbipUrls, RangeTable, RangeTableBuilder } from '../../../core/net/geo';
+import { scopeOf } from '../../../core/net/addr';
+import { flowsToCsv, newInternetApps, type NetSample } from '../../../core/net/flows';
+import { asnValue, countryValue, dbipUrls, RangeTableBuilder } from '../../../core/net/geo';
 import type { DnsServer } from '../../../core/net/parse';
-import { defaultRoute, killSwitchAdvice, pathFor, trafficVerdict } from '../../../core/net/route';
-import type { IfaceKind, VpnConn } from '../../../core/net/types';
+import { killSwitchAdvice, trafficVerdict } from '../../../core/net/route';
+import type { VpnConn } from '../../../core/net/types';
 import { parseVpnConfig } from '../../../core/net/vpnconf';
 import { run } from '../../../core/platform';
 import { setSecret } from '../../store';
 import { poll } from '../governor';
 import { icons as procIcons } from '../procs';
-import { PLATFORM, preciseRoutes, processNames, readConnections, readDns, readIfaceBytes, readIfaces, readRoutes, readVpns, readWifi, tool, vpnConnect } from './system';
+import { PLATFORM, readDns, readIfaces, readRoutes, readVpns, tool, vpnConnect } from './system';
+import * as local from './sampler';
+import { HostError, ServiceHost } from '../../svc/host';
 
 const dir = () => path.join(app.getPath('userData'), 'network');
 const settingsFile = () => path.join(dir(), 'settings.json');
@@ -52,49 +52,38 @@ async function saveSettings() {
   await fsp.writeFile(settingsFile(), JSON.stringify(settings, null, 2));
 }
 
-// ---------------------------------------------------------------- names for addresses
+// ---------------------------------------------------------------- the sampling process
 
-const hostCache = new Map<string, { host?: string; at: number }>();
-let lookups = 0;
+// Sampling runs in its own process: a crash there never reaches the rest of
+// Keeper, and its memory (the country table alone is 19 MB) is given back a
+// minute after Network Activity is closed. If a service process cannot start,
+// the same code runs here instead.
+const netHost = new ServiceHost({ name: 'net', label: 'Network Activity', script: 'svc-net.cjs', feature: 'netwatch', idleStopMs: 60_000, init: () => ({ dataDir: dir() }) });
+let inProcess = false;
 
-/** Reverse DNS through the computer's normal resolver, a few at a time, remembered for an hour. */
-function hostFor(ip: string): string | undefined {
-  const c = hostCache.get(ip);
-  if (c && Date.now() - c.at < 3600_000) return c.host;
-  if (!c && lookups < 6) {
-    hostCache.set(ip, { at: Date.now() });
-    lookups++;
-    void Promise.race([dnsp.reverse(ip), new Promise<string[]>((_, rej) => setTimeout(() => rej(new Error('timeout')), 2500))])
-      .then((names) => hostCache.set(ip, { host: names[0], at: Date.now() }))
-      .catch(() => hostCache.set(ip, { at: Date.now() }))
-      .finally(() => { lookups--; });
-  }
-  if (hostCache.size > 5000) hostCache.clear();
-  return c?.host;
-}
-
-// ---------------------------------------------------------------- countries and networks
-
-let geo: { country?: RangeTable; asn?: RangeTable; date?: string } | null = null;
-let geoState: GeoStatus = { state: 'off' };
-
-async function loadGeo(): Promise<void> {
-  if (geo) return;
-  try {
-    const c = RangeTable.deserialize(await fsp.readFile(path.join(dir(), 'countries.bin')));
-    let asn: RangeTable | undefined;
+async function viaHost<T>(method: 'sample' | 'health' | 'geoInfo' | 'dropGeo', ...args: unknown[]): Promise<T> {
+  if (!inProcess) {
     try {
-      asn = RangeTable.deserialize(await fsp.readFile(path.join(dir(), 'networks.bin'))).table;
-    } catch {
-      /* countries only */
+      return await netHost.call<T>(method, ...args);
+    } catch (e) {
+      if (!(e instanceof HostError) || e.code !== 'NO_HOST') throw e;
+      inProcess = true;
     }
-    geo = { country: c.table, asn, date: c.meta.date as string };
-    geoState = { state: 'ready', date: geo.date, ranges: c.table.size + (asn?.size ?? 0) };
-  } catch {
-    geo = null;
-    if (geoState.state !== 'downloading') geoState = { state: 'off' };
   }
+  local.configure(dir());
+  return (local[method] as (...a: unknown[]) => Promise<T>)(...args);
 }
+
+/** Keeper's own processes, so their connections show as Keeper. */
+function keeperPids(): number[] {
+  const pids = new Set<number>([process.pid]);
+  try { for (const m of app.getAppMetrics()) pids.add(m.pid); } catch { /* not ready */ }
+  return [...pids];
+}
+
+let geoState: GeoStatus = { state: 'off' };
+let lastSample: NetSample | null = null;
+let vpnIfaceNames = new Set<string>();
 
 /** Downloads the free DB-IP Lite files (CC BY 4.0) once and keeps a compact table. */
 async function buildGeo(kind: 'country' | 'asn', out: string, onProgress: (p: number) => void): Promise<string> {
@@ -124,7 +113,8 @@ async function buildGeo(kind: 'country' | 'asn', out: string, onProgress: (p: nu
 
 export async function geoStatus(): Promise<GeoStatus> {
   await loadSettings();
-  if (settings.countries) await loadGeo();
+  if (geoState.state === 'downloading' || geoState.state === 'error') return geoState;
+  geoState = settings.countries ? await viaHost<GeoStatus>('geoInfo', true).catch(() => geoState) : { state: 'off' };
   return geoState;
 }
 
@@ -137,9 +127,8 @@ export async function geoDownload(): Promise<GeoStatus> {
       await buildGeo('asn', path.join(dir(), 'networks.bin'), (p) => (geoState = { state: 'downloading', progress: 0.4 + p * 0.6 }));
       settings.countries = true;
       await saveSettings();
-      geo = null;
-      await loadGeo();
-      geoState = { ...geoState, date };
+      await viaHost('dropGeo').catch(() => undefined);
+      geoState = { ...(await viaHost<GeoStatus>('geoInfo', true).catch(() => ({ state: 'ready' as const }))), date };
     } catch (e) {
       geoState = { state: 'error', message: `Could not download the country table: ${e instanceof Error ? e.message : e}` };
     }
@@ -149,7 +138,7 @@ export async function geoDownload(): Promise<GeoStatus> {
 
 export async function geoRemove(): Promise<GeoStatus> {
   for (const f of ['countries.bin', 'networks.bin']) await fsp.rm(path.join(dir(), f), { force: true });
-  geo = null;
+  await viaHost('dropGeo').catch(() => undefined);
   settings.countries = false;
   await saveSettings();
   geoState = { state: 'off' };
@@ -158,110 +147,15 @@ export async function geoRemove(): Promise<GeoStatus> {
 
 // ---------------------------------------------------------------- sampling
 
-let prevFlows = new Map<string, { bytesIn?: number; bytesOut?: number; t: number; firstSeen: number }>();
-let prevIfaceBytes: { at: number; map: Map<string, { rx: number; tx: number }> } | null = null;
-let lastSample: NetSample | null = null;
-let vpnIfaceNames = new Set<string>();
-
-function kindsOf(ifaces: { name: string; kind: IfaceKind }[]): Map<string, IfaceKind> {
-  return new Map(ifaces.map((i) => [i.name, i.kind]));
-}
-
 export async function sample(): Promise<NetSample> {
   await loadSettings();
-  if (settings.countries) await loadGeo();
-  const now = Date.now();
-  const [reading, procs, { routes, descriptions }, bytes] = await Promise.all([readConnections(), processNames(), readRoutes(), readIfaceBytes()]);
-  const ifaces = await readIfaces(routes, descriptions, vpnIfaceNames);
-  const kinds = kindsOf(ifaces);
-  const internet = reading.conns.filter((c) => c.remote && scopeOf(c.remote) === 'internet').map((c) => c.remote!);
-  const precise = await preciseRoutes(internet);
-  const self = process.pid;
-
-  const flows: FlowRow[] = reading.conns.map((c) => {
-    const listening = !c.remote && (c.state === 'Listen' || c.proto === 'UDP');
-    const p = c.pid !== undefined ? procs.get(c.pid) : undefined;
-    const appName = c.pid === self ? 'Keeper' : p?.name ?? c.name ?? (c.pid !== undefined ? `Process ${c.pid}` : 'System or another user');
-    const hint = c.iface ?? (c.remote ? precise.get(c.remote)?.iface : undefined);
-    const route = listening ? { path: 'local' as const } : pathFor(c.remote, routes, kinds, hint);
-    const scope = listening ? 'listening' as const : c.remote ? scopeOf(c.remote) : 'unspecified' as const;
-    const host = c.remote && settings.hostNames && (scope === 'internet' || scope === 'lan') ? hostFor(c.remote) : undefined;
-    const country = c.remote && scope === 'internet' ? geo?.country?.lookup(c.remote) : undefined;
-    const asn = c.remote && scope === 'internet' ? geo?.asn?.lookup(c.remote) : undefined;
-    return {
-      key: flowKey(c), proto: c.proto, family: c.family, local: c.local, localPort: c.localPort, remote: c.remote, remotePort: c.remotePort, state: c.state,
-      pid: c.pid, app: appName, appPath: p?.path, scope, path: route.path, iface: route.iface, gateway: route.gateway,
-      host, service: serviceFor(host, asn), country, asn, bytesIn: c.bytesIn, bytesOut: c.bytesOut, firstSeen: now,
-    };
-  });
-  prevFlows = applyRates(flows, prevFlows, now);
-
-  // Interface rates from the byte counters.
-  const ifaceRows: IfaceTraffic[] = ifaces.map((i) => {
-    const b = bytes.map.get(i.name);
-    const pb = prevIfaceBytes?.map.get(i.name);
-    const ms = prevIfaceBytes ? bytes.at - prevIfaceBytes.at : 0;
-    return { ...i, rx: b?.rx, tx: b?.tx, rxRate: b && pb && ms > 0 ? (Math.max(0, b.rx - pb.rx) * 1000) / ms : undefined, txRate: b && pb && ms > 0 ? (Math.max(0, b.tx - pb.tx) * 1000) / ms : undefined };
-  });
-  const all = bytes.map.get('all');
-  if (all) {
-    const pb = prevIfaceBytes?.map.get('all');
-    const ms = prevIfaceBytes ? bytes.at - prevIfaceBytes.at : 0;
-    ifaceRows.push({ name: 'all', kind: 'other', label: 'All interfaces', up: true, addresses: [], rx: all.rx, tx: all.tx, rxRate: pb && ms > 0 ? (Math.max(0, all.rx - pb.rx) * 1000) / ms : undefined, txRate: pb && ms > 0 ? (Math.max(0, all.tx - pb.tx) * 1000) / ms : undefined });
-  }
-  prevIfaceBytes = bytes;
-
-  const notes = [...reading.notes];
-  if (PLATFORM === 'linux' && !tool('ip') && routes.some((r) => r.iface.startsWith('wg'))) notes.push('Without the "ip" tool Keeper reads only the main routing table, so tunnels set up with policy routing may show as direct.');
-  lastSample = {
-    t: now, flows, apps: byApp(flows), dests: byDestination(flows), ifaces: ifaceRows, totals: ifaceTotals(ifaceRows), amounts: reading.amounts, notes,
-  };
+  lastSample = await viaHost<NetSample>('sample', settings, keeperPids(), [...vpnIfaceNames]);
   return lastSample;
-}
-
-// ---------------------------------------------------------------- health
-
-const gatewayMs: (number | null)[] = [];
-const internetMs: (number | null)[] = [];
-let wifiCache: { at: number; v: NetHealth['wifi'] } = { at: 0, v: undefined };
-let dnsCache: { at: number; v: DnsServer[] } = { at: 0, v: [] };
-
-/** Round trip of a TCP connection attempt; a refusal still proves the host answered. */
-function tcpPing(host: string, ports: number[], timeout = 1500): Promise<number | null> {
-  return new Promise((resolve) => {
-    const port = ports[0];
-    const start = process.hrtime.bigint();
-    const s = nodeNet.connect({ host, port, timeout });
-    const done = (ok: boolean) => {
-      s.destroy();
-      if (ok) resolve(Number(process.hrtime.bigint() - start) / 1e6);
-      else if (ports.length > 1) void tcpPing(host, ports.slice(1), timeout).then(resolve);
-      else resolve(null);
-    };
-    s.once('connect', () => done(true));
-    s.once('timeout', () => done(false));
-    s.once('error', (e: NodeJS.ErrnoException) => done(e.code === 'ECONNREFUSED'));
-  });
 }
 
 export async function health(): Promise<NetHealth> {
   await loadSettings();
-  const { routes } = await readRoutes();
-  const def = defaultRoute(routes, 4);
-  const now = Date.now();
-  if (now - dnsCache.at > 30_000) dnsCache = { at: now, v: await readDns().catch(() => []) };
-  if (now - wifiCache.at > 30_000) wifiCache = { at: now, v: await readWifi().catch(() => undefined) };
-  if (settings.latency) {
-    const [g, i] = await Promise.all([
-      def?.gateway && familyOf(def.gateway) ? tcpPing(def.gateway, [53, 80, 443]) : Promise.resolve(null),
-      tcpPing(settings.probeHost, [443, 80]),
-    ]);
-    gatewayMs.push(def?.gateway ? g : null);
-    internetMs.push(i);
-    while (gatewayMs.length > 60) gatewayMs.shift();
-    while (internetMs.length > 60) internetMs.shift();
-  }
-  return { gateway: def?.gateway, gatewayIface: def?.iface, dns: dnsCache.v, wifi: wifiCache.v, gatewayMs: [...gatewayMs], internetMs: [...internetMs], probeHost: settings.probeHost };
+  return viaHost<NetHealth>('health', settings);
 }
 
 // ---------------------------------------------------------------- VPN
@@ -278,7 +172,7 @@ export async function vpnStatus(): Promise<VpnStatus> {
   // Fill in the interface of connected VPNs that didn't say (macOS): the tunnel carrying their traffic.
   const tunnels = ifaces.filter((i) => i.kind === 'vpn' && i.up).map((i) => i.name);
   for (const v of vpns) if (v.state === 'connected' && !v.iface && tunnels.length === 1) v.iface = tunnels[0];
-  const verdict = trafficVerdict(routes, kindsOf(ifaces), vpns, dns);
+  const verdict = trafficVerdict(routes, new Map(ifaces.map((i) => [i.name, i.kind])), vpns, dns);
   return { vpns, ifaces, verdict, dns, notes, advice: killSwitchAdvice(PLATFORM), autoReconnect: settings.autoReconnect };
 }
 
@@ -429,7 +323,7 @@ export async function setSettings(patch: Partial<NetSettings>): Promise<NetSetti
   settings = { ...settings, ...patch };
   if (patch.probeHost !== undefined && !/^[\w.:-]{1,253}$/.test(patch.probeHost)) settings.probeHost = DEFAULTS.probeHost;
   await saveSettings();
-  if (patch.countries === false) geo = null;
+  if (patch.countries === false) void viaHost('dropGeo').catch(() => undefined);
   startWatchers();
   return settings;
 }

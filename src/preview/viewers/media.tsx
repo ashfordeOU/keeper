@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Video and audio: plays everything — formats Chromium cannot play are
 // converted on this computer first. Frame strip, subtitles, speed, loop and
 // frame stepping for video; cover art, tags and a waveform for audio.

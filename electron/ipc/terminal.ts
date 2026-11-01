@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // IPC for the Terminal: the calls the window makes, and the fast one-way
 // messages for typing and resizing.
 
@@ -28,6 +28,7 @@ export function registerTerminalIpc(deps: t.TerminalDeps) {
   handle('webTools', (_e, refresh: boolean) => t.webTools(!!refresh));
   handle('webToolCommand', (_e, id: 'editor' | 'notebook', folder: string, token: string) => t.webToolCommand(id, folder, token));
   handle('openWith', (_e, command: string, folder: string) => t.openWith(command, folder));
+  handle('openAt', (_e, file: string, line: number, col?: number, cwd?: string) => t.openAt(file, line, col, cwd));
   handle('openWindow', (_e, query?: Record<string, string>) => t.openTerminalWindow(query));
   handle('toggleQuick', () => t.toggleQuickTerminal());
   handle('shellKind', (_e, profileId?: string) => t.shellKindFor(profileId));

@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "Keeper by Ashforde® — Privacy",
+  "version": "0.2.0",
+  "description": "Shows Keeper which third parties each site loads, and lets you control tabs and site permissions from Keeper. Talks only to the Keeper app on this computer.",
+  "permissions": [
+    "webRequest",
+    "nativeMessaging",
+    "tabs",
+    "storage",
+    "declarativeNetRequest",
+    "contentSettings",
+    "browsingData",
+    "cookies",
+    "proxy",
+    "privacy"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "icons": {
+    "128": "icon128.png"
+  },
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA2lJSZEJCvrSJ3NEQdErFSU6FpLNF69b75izimTndkLa6jViK9tR5dm97ofvU3MiorZ9QykZ6MmGnxSmcu57kxuJc0+UtFMUNpxua+yJUcqs9ehptIk46CTdRlh2hFmflrmDyx3HEH+1z2TJGfPOsBZtzcEIqDnetgQLRfuy6yf9RS7kCEyQahrqf8YCS7f9Fq0j5eKJ0Z+ndhDBR8PBuFVtk+T8/Cjg/kz7em3XtEV347yriGXVwwc/NER4INyEi5+h7EOGMRlNOUOoInJj720w3VOQ8/iG/v7PTKEw5NqlNssRJYYSDC9G0FahNa65ptvFZmtdRn8OUWqgMKu4GTQIDAQAB"
+}

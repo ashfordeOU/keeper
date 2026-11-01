@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Small, dependency-free readers for e-mail (MIME), contact cards (vCard),
 // RTF and subtitle files, used by the previewer.
 

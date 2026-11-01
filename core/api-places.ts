@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The Places part of the interface ↔ main-process contract: favourites, cloud
 // drives, disks, network servers, Connect to Server, the Trash and sharing.
 

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Full photo details from EXIF (JPEG APP1 or a bare TIFF/RAW header): camera,
 // lens, exposure, ISO, focal length, date, orientation and GPS position.
 

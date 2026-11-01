@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 import { extOf, kindOf, looksLikeScreenshot } from '../core/classify';
 import type { FileEntry } from '../core/types';
 

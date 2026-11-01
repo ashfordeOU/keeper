@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // keeper-helper: one JSON message per line on stdin and stdout.
 //
 //   host → helper   {"id": 1, "method": "hello"}
@@ -10,7 +10,8 @@
 // Methods: hello, chat, ocr, language, spotlight.index, spotlight.remove,
 // spotlight.removeAll, cancel, and for remote control of this Mac:
 // input.status, input.request, input.move, input.button, input.wheel,
-// input.key, input.text.
+// input.key, input.text. Extras.swift adds speech.transcribe, ddc.list,
+// ddc.get, ddc.set and translate.
 
 import Foundation
 import Vision
@@ -20,6 +21,7 @@ import ImageIO
 import UniformTypeIdentifiers
 import CoreGraphics
 import ApplicationServices
+import EventKit
 #if canImport(FoundationModels)
 import FoundationModels
 #endif
@@ -401,6 +403,73 @@ func inputText(_ p: [String: Any]) throws {
     }
 }
 
+// MARK: - Calendar and Reminders (EventKit), for the Island
+
+let eventStore = EKEventStore()
+
+func ekAccess(_ type: EKEntityType) async throws -> Bool {
+    if #available(macOS 14.0, *) {
+        return type == .event ? try await eventStore.requestFullAccessToEvents() : try await eventStore.requestFullAccessToReminders()
+    }
+    return try await withCheckedThrowingContinuation { (c: CheckedContinuation<Bool, Error>) in
+        eventStore.requestAccess(to: type) { ok, err in
+            if let err = err { c.resume(throwing: err) } else { c.resume(returning: ok) }
+        }
+    }
+}
+
+func ekDenied(_ what: String) -> NSError {
+    NSError(domain: "keeper", code: 10, userInfo: [NSLocalizedDescriptionKey: "\(what) access was not allowed (System Settings → Privacy & Security)"])
+}
+
+/** Events between two times (ms since 1970) from every calendar on this Mac. */
+func ekEvents(_ p: [String: Any]) async throws -> [[String: Any]] {
+    guard try await ekAccess(.event) else { throw ekDenied("Calendar") }
+    let now = Date().timeIntervalSince1970 * 1000
+    let from = Date(timeIntervalSince1970: ((p["from"] as? Double) ?? now) / 1000)
+    let to = Date(timeIntervalSince1970: ((p["to"] as? Double) ?? (now + 86_400_000 * 31)) / 1000)
+    let pred = eventStore.predicateForEvents(withStart: from, end: to, calendars: nil)
+    return eventStore.events(matching: pred).prefix(600).map { e in
+        var o: [String: Any] = [
+            "id": e.eventIdentifier ?? UUID().uuidString,
+            "title": e.title ?? "",
+            "start": e.startDate.timeIntervalSince1970 * 1000,
+            "end": e.endDate.timeIntervalSince1970 * 1000,
+            "allDay": e.isAllDay,
+            "calendar": e.calendar?.title ?? "",
+        ]
+        if let l = e.location { o["location"] = l }
+        if let u = e.url?.absoluteString { o["url"] = u }
+        if let n = e.notes { o["notes"] = String(n.prefix(2000)) }
+        return o
+    }
+}
+
+/** Open reminders from every list on this Mac. */
+func ekReminders() async throws -> [[String: Any]] {
+    guard try await ekAccess(.reminder) else { throw ekDenied("Reminders") }
+    let pred = eventStore.predicateForIncompleteReminders(withDueDateStarting: nil, ending: nil, calendars: nil)
+    return await withCheckedContinuation { (c: CheckedContinuation<[[String: Any]], Never>) in
+        eventStore.fetchReminders(matching: pred) { rs in
+            let list: [[String: Any]] = (rs ?? []).prefix(300).map { r in
+                var o: [String: Any] = ["id": r.calendarItemIdentifier, "title": r.title ?? "", "done": r.isCompleted, "list": r.calendar?.title ?? ""]
+                if let dc = r.dueDateComponents, let d = Calendar.current.date(from: dc) { o["due"] = d.timeIntervalSince1970 * 1000 }
+                return o
+            }
+            c.resume(returning: list)
+        }
+    }
+}
+
+func ekSetReminder(_ p: [String: Any]) async throws {
+    guard try await ekAccess(.reminder) else { throw ekDenied("Reminders") }
+    guard let id = p["id"] as? String, let r = eventStore.calendarItem(withIdentifier: id) as? EKReminder else {
+        throw NSError(domain: "keeper", code: 11, userInfo: [NSLocalizedDescriptionKey: "That reminder is gone"])
+    }
+    r.isCompleted = (p["done"] as? Bool) ?? true
+    try eventStore.save(r, commit: true)
+}
+
 // MARK: - dispatch
 
 func handle(id: Int, method: String, params: [String: Any]) async {
@@ -414,6 +483,24 @@ func handle(id: Int, method: String, params: [String: Any]) async {
         case "language":
             let lang: Any = dominantLanguage(params["text"] as? String ?? "").map { $0 as Any } ?? NSNull()
             Wire.shared.result(id, ["lang": lang])
+        case "speech.transcribe":
+            guard let path = params["path"] as? String else { throw NSError(domain: "keeper", code: 4, userInfo: [NSLocalizedDescriptionKey: "No path"]) }
+            Wire.shared.result(id, ["segments": try await speechTranscribe(path: path, language: params["language"] as? String)])
+        case "ddc.list":
+            Wire.shared.result(id, ddcList())
+        case "ddc.get":
+            Wire.shared.result(id, try ddcGet(params))
+        case "ddc.set":
+            Wire.shared.result(id, try ddcSet(params))
+        case "translate":
+            Wire.shared.result(id, try await translateTexts(params))
+        case "eventkit.events":
+            Wire.shared.result(id, try await ekEvents(params))
+        case "eventkit.reminders":
+            Wire.shared.result(id, try await ekReminders())
+        case "eventkit.setReminder":
+            try await ekSetReminder(params)
+            Wire.shared.result(id, ["ok": true])
         case "spotlight.index":
             let n = try await spotlightIndex(params["items"] as? [[String: Any]] ?? [])
             Wire.shared.result(id, ["count": n])

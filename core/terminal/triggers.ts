@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Triggers watch a terminal's output for a pattern (a question waiting for an
 // answer, an error) and highlight it or let you know. Lines are matched as
 // plain text, a few times a second at most, so they cost next to nothing.

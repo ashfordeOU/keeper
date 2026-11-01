@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Google and Microsoft sign-in: the browser opens the provider's own page,
 // the answer comes back to a one-time address on this computer, and the
 // tokens are kept in the system keychain and renewed when they run out.

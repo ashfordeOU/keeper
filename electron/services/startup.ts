@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Apps that start with the computer. Switching one off uses the same setting
 // the OS's own tools use, so it can always be switched back on.
 

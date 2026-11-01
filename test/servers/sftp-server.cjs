@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // A small SFTP server over a folder, for tests: password "secret" for any user.
 
 const fs = require('node:fs');

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Which country and which network (ASN) an internet address belongs to, from a
 // table kept on this computer. Nothing is looked up online. The table is built
 // once from the free DB-IP Lite files (CC BY 4.0) when the person turns

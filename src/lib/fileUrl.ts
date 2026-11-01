@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // keeper-file:// URLs for playing local audio and video in the desktop app.
 // Each path segment is encoded on its own so names with #, ? or % still work.
 

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Space Map bubbles: every folder is a bubble sized by the space it uses.
 // Grab one and throw it — they bounce off each other and the walls.
 

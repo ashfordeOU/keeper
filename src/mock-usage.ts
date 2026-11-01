@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Demo data for Settings → Keeper's own usage.
 
 import type { UsageApi } from '../core/api-usage';

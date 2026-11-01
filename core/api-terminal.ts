@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The Terminal part of the interface ↔ main-process contract.
 
 import type { RemoteEntry, SessionInfo, ShellEvent, ShellInfo, SshHost, TerminalProfile, TerminalSettings, WebTool, Workspace } from './terminal/types';
@@ -40,6 +40,7 @@ export interface TerminalApi {
   saveWorkspace(ws: Workspace): Promise<TerminalSettings>;
   webTools(refresh?: boolean): Promise<WebTool[]>;
   webToolCommand(id: 'editor' | 'notebook', folder: string, token: string): Promise<string | undefined>;
+  openAt(file: string, line: number, col?: number, cwd?: string): Promise<void>;
   openWith(command: string, folder: string): Promise<void>;
   openWindow(query?: Record<string, string>): Promise<void>;
   toggleQuick(): Promise<void>;

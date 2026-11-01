@@ -1,6 +1,6 @@
 # Contributing to Keeper
 
-Thank you for helping. Keeper is a community project licensed under the GNU AGPL v3 or later; by contributing you agree that your work is released under the same license.
+Thank you for helping. Keeper by Ashforde® is made by Ashforde OÜ and is source-available under the [PolyForm Shield License 1.0.0](LICENSE.md). Before you send a pull request, please read the [contributor terms](#contributor-terms) below.
 
 ## Getting started
 
@@ -26,7 +26,7 @@ npm test
 ## Code style
 
 - TypeScript, strict mode, 2-space indent, single quotes.
-- Each file starts with `// SPDX-License-Identifier: AGPL-3.0-or-later` and a short comment saying what the file is for.
+- Each file starts with `// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0` and a short comment saying what the file is for.
 - Comments explain *why*, not *what*.
 - Run `npm run typecheck && npm test` before opening a pull request.
 
@@ -37,6 +37,18 @@ npm test
 - **A search phrase** — extend `core/query/parse.ts` and add a case to `test/parse.test.ts`.
 - **A toolbox tool** — pure helpers go in `core/textools.ts` (with tests); the card goes in `src/screens/Tools.tsx`.
 - **An IPC call** — add it to `core/api.ts`, `electron/preload.ts`, `electron/main.ts` and the demo data in `src/mock.ts`.
+
+## Contributor terms
+
+<!-- To be reviewed by a lawyer before the first outside contribution is merged. -->
+
+Keeper is free to use and its code is public, and Ashforde OÜ also offers commercial licences. To keep both possible, every contribution comes with these terms:
+
+- **You keep your copyright.** Your work stays yours.
+- **You give Ashforde OÜ a licence to it.** By sending a contribution (code, documentation, translations, artwork or anything else), you grant Ashforde OÜ a perpetual, worldwide, royalty-free, irrevocable licence to use, copy, change, publish, distribute, sublicense and relicense your contribution, under the PolyForm Shield License 1.0.0, under commercial terms or under any other licence.
+- **You have the right to send it.** You confirm the contribution is your own work, or that you have the right to submit it under these terms, and that it does not knowingly include anyone else's code under incompatible terms. If your employer has rights in your work, make sure they agree.
+
+To confirm, tick **"I agree to CONTRIBUTING.md"** in your pull request. If you do not want to agree, open an issue to describe the change instead, and we will write it ourselves.
 
 ## Reporting bugs
 

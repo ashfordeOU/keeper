@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Linux: shows other apps' notifications in the Island by listening to the
 // desktop notification bus (read-only; the normal notification still appears).
 

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // A small CalDAV server for tests: one user (ana / secret), a calendar home
 // with "Work" (events) and "Tasks" (to-dos), well-known redirect, PROPFIND,
 // calendar-query, calendar-multiget, sync-collection with tokens, PUT and

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Reading ~/.ssh/config so the hosts people already use show up in Keeper.
 // Connections themselves go through the system's ssh, so keys, the agent,
 // jump hosts and everything else in that file keep working.

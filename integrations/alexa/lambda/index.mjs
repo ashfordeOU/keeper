@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Keeper by Ashforde® — an Alexa custom skill handler that forwards a spoken
 // question to *your own* Keeper through *your own* tunnel, and reads the answer.
 // Set two environment variables on the function:

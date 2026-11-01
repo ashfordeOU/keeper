@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Settings → Keeper's own usage: how much of the computer Keeper uses right
 // now, what its background work is doing (and why it waits), and the mode.
 

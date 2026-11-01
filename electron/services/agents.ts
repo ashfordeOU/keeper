@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // AI agents in Keeper. Everything here builds on the brain:
 //   - more AI services, a fallback chain, privacy routing and a token meter
 //     around whichever AI the person chose;
@@ -39,6 +39,7 @@ import type { AiConnection } from '../../core/brain/config';
 import type { Rule } from '../../core/types';
 import { getSecret, setSecret, settings, updateSettings } from '../store';
 import { askBrain, brainSettings, localBrain, mcpServer, providerForConnection, setMcpExtras, setProviderWrapper, setSkillsProvider } from './brain';
+import { chatWithAbilities, type InjectRunner } from '../../core/abilities/inject';
 import { readText, writeText } from './clip';
 import type { FileService } from './files';
 import { act as procAct, sample as procSample } from './procs';
@@ -65,7 +66,7 @@ export function agentSettings(): AgentSettings {
   return normalizeAgentSettings(settings().agents);
 }
 
-async function saveAgents(patch: Partial<AgentSettings>): Promise<AgentSettings> {
+export async function saveAgents(patch: Partial<AgentSettings>): Promise<AgentSettings> {
   const next = { ...agentSettings(), ...patch };
   await updateSettings({ agents: next });
   return next;
@@ -213,6 +214,17 @@ function askApproval(client: string, action: string, args: Record<string, unknow
   });
 }
 
+/** For other parts of Keeper (using the computer): the same prompt, with their own words. */
+export function requestApproval(client: string, action: string, description: string, destructive = false): Promise<'once' | 'always' | 'deny'> {
+  const a: Approval = { id: randomUUID(), client, action, description, destructive, at: Date.now() };
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => decide(a.id, 'deny'), 120_000);
+    pending.set(a.id, { a, resolve, timer });
+    deps?.broadcast('agent-approval', a);
+    deps?.alert?.(`${client} wants to ${description}`, 'Open Keeper to allow or deny');
+  });
+}
+
 export function decide(id: string, d: 'once' | 'always' | 'deny') {
   const p = pending.get(id);
   if (!p) return;
@@ -220,7 +232,8 @@ export function decide(id: string, d: 'once' | 'always' | 'deny') {
   pending.delete(id);
   p.resolve(d);
   deps?.broadcast('agent-approval-done', id);
-  if (d === 'always') void saveAgents({ permissions: { ...agentSettings().permissions, [p.a.action]: 'allow' } });
+  if (d === 'always' && p.a.action === 'computer') void saveAgents({ computer: { ...agentSettings().computer, permission: 'allow' } });
+  else if (d === 'always') void saveAgents({ permissions: { ...agentSettings().permissions, [p.a.action]: 'allow' } });
 }
 
 export function pendingApprovals(): Approval[] {
@@ -234,9 +247,11 @@ export interface AuditEntry {
   client: string;
   action: string;
   description: string;
-  status: 'done' | 'denied' | 'error' | 'off';
+  status: 'done' | 'denied' | 'refused' | 'error' | 'off';
   detail?: string;
   journalId?: string;
+  /** using the computer: a small picture of what the AI saw (a file in Keeper's data) */
+  shot?: string;
 }
 
 let audit: AuditEntry[] = [];
@@ -248,6 +263,11 @@ function logAudit(e: AuditEntry) {
   if (audit.length > 500) audit.length = 500;
   auditSave.soon();
   deps?.broadcast('agent-audit', e);
+}
+
+/** Lets other parts of Keeper (using the computer) write to the same activity log. */
+export function recordAgentActivity(e: AuditEntry) {
+  logAudit(e);
 }
 
 export function auditLog(): AuditEntry[] {
@@ -653,13 +673,50 @@ const GRAPH_TOOLS: McpTool[] = [
   { name: 'graph_search', description: 'Find nodes (files, tags, people, organisations) in the knowledge graph by name.', inputSchema: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] }, annotations: { readOnlyHint: true } },
 ];
 
-function extraTools(): McpTool[] {
-  const a = agentSettings();
-  const actions = visibleActions(a.permissions, a.actions).map((x) => ({ name: x.name, description: x.description, inputSchema: x.parameters, annotations: { readOnlyHint: x.readOnly, destructiveHint: !!x.destructive, openWorldHint: false, title: x.label } }));
-  return [...actions, ...GRAPH_TOOLS];
+// Using the computer (electron/services/computer.ts), registered by main.ts.
+let computerHook: { spec: () => { name: string; description: string; parameters: Record<string, unknown> }; run: (client: string, args: Record<string, unknown>) => Promise<{ text: string; isError?: boolean; images?: { mime: string; data: string }[] }> } | null = null;
+export function setComputerHook(h: typeof computerHook) {
+  computerHook = h;
 }
 
-async function callExtra(name: string, args: Record<string, unknown>, client: string): Promise<{ text: string; isError?: boolean; structured?: unknown }> {
+// More tools from other parts of Keeper (agent terminals and the agent hub), registered by main.ts.
+interface ToolProvider {
+  tools(): McpTool[];
+  call(name: string, args: Record<string, unknown>, client: string): Promise<{ text: string; isError?: boolean; structured?: unknown; images?: { mime: string; data: string }[] }>;
+}
+const toolProviders = new Map<string, ToolProvider>();
+export function setToolProvider(id: string, p: ToolProvider | null) {
+  if (p) toolProviders.set(id, p);
+  else toolProviders.delete(id);
+}
+const providedTools = () => [...toolProviders.values()].flatMap((p) => p.tools());
+
+// Agents Keeper starts get an identity (a token in their environment) from the hub.
+let launchIdentity: ((o: { agent: string; label: string; profile?: string; cwd: string }) => Record<string, string>) | null = null;
+export function setLaunchIdentity(fn: typeof launchIdentity) {
+  launchIdentity = fn;
+}
+
+function extraTools(): McpTool[] {
+  return [...extraToolsBase(), ...providedTools()];
+}
+
+function extraToolsBase(): McpTool[] {
+  const a = agentSettings();
+  if (computerHook && a.computer.permission !== 'off') {
+    const s = computerHook.spec();
+    return [...actionTools(a), ...GRAPH_TOOLS, { name: s.name, description: s.description, inputSchema: s.parameters, annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: true, title: 'Use this computer' } }];
+  }
+  return [...actionTools(a), ...GRAPH_TOOLS];
+}
+
+function actionTools(a: AgentSettings): McpTool[] {
+  return visibleActions(a.permissions, a.actions).map((x) => ({ name: x.name, description: x.description, inputSchema: x.parameters, annotations: { readOnlyHint: x.readOnly, destructiveHint: !!x.destructive, openWorldHint: false, title: x.label } }));
+}
+
+async function callExtra(name: string, args: Record<string, unknown>, client: string): Promise<{ text: string; isError?: boolean; structured?: unknown; images?: { mime: string; data: string }[] }> {
+  if (name === 'computer' && computerHook) return computerHook.run(client, args);
+  for (const p of toolProviders.values()) if (p.tools().some((t) => t.name === name)) return p.call(name, args, client);
   if (name === 'graph_neighbors') {
     const p = expand(String(args.path ?? ''));
     if (!inLibrary(p)) return { text: 'That path is outside the library', isError: true };
@@ -718,7 +775,8 @@ export async function launchAgent(agentId: string, o: { profileId?: string; cwd?
   if (!a) return { ok: false, message: 'Unknown agent' };
   const prof = o.profileId ? agentSettings().profiles.find((p) => p.id === o.profileId) : undefined;
   const cwd = o.cwd || prof?.cwd || os.homedir();
-  const line = launchLine(a, prof, process.platform);
+  const ident = launchIdentity?.({ agent: a.id, label: prof ? `${a.label} — ${prof.label}` : a.label, profile: prof?.label, cwd }) ?? {};
+  const line = launchLine(a, prof ? { ...prof, env: { ...(prof.env ?? {}), ...ident } } : { id: '', agent: a.id, label: '', env: ident }, process.platform);
   if (deps?.openTerminal) {
     await deps.openTerminal({ cwd, run: line, title: prof ? `${a.label} — ${prof.label}` : a.label });
     return { ok: true, message: `Started ${a.label} in Keeper's Terminal.` };
@@ -797,8 +855,18 @@ async function chatOrBrain(model: string | undefined, messages: ChatMessage[], t
     if (sources) opts.onDelta?.(sources);
     return { text: r.answer + sources, toolCalls: [], stop: 'end' };
   }
-  const { p } = await providerFor(model);
+  // "<model>+abilities", or the setting: Keeper adds its abilities and runs the ones the AI calls.
+  const wantsAbilities = !!model?.endsWith('+abilities');
+  const { p } = await providerFor(wantsAbilities ? model!.slice(0, -'+abilities'.length) || undefined : model);
+  const runner = gatewayAbilities?.(wantsAbilities);
+  if (runner) return chatWithAbilities(p, messages, tools, runner, opts);
   return p.chat(messages, tools, opts);
+}
+
+/** Keeper's abilities for gateway clients (registered by main.ts); undefined when not offered. */
+let gatewayAbilities: ((asked: boolean) => InjectRunner | undefined) | null = null;
+export function setGatewayAbilities(fn: typeof gatewayAbilities) {
+  gatewayAbilities = fn;
 }
 
 async function startServer() {

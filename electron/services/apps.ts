@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Installed applications: size, version, when they were last opened, and
 // removal — through the app's own uninstaller on Windows, the Trash on macOS
 // (with its leftover support files), and the package manager on Linux.

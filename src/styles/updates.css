@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 */
 /* App updates: Settings panel, banner and release notes. */
 
 .update-card { display: flex; gap: 14px; align-items: center; padding: 14px 16px; border-radius: 14px; background: var(--bg-sunk); border: 1px solid var(--line); flex-wrap: wrap; }

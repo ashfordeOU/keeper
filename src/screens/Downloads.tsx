@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Downloaded From: every download grouped by the site or service it came from.
 
 import { formatBytes, relativeTime } from '../../core/format';

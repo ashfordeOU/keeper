@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // IPC for remote screens (view and control other Keeper devices, phones on
 // this screen, Wake-on-LAN) and the cross-device "Send to" sheet.
 

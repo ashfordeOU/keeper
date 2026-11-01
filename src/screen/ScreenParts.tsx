@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Remote screens in the main window: the "X wants to see this screen" prompt
 // (on any page), the screen card on a device's page, phones on this screen
 // (Android mirroring, iPhone through AirPlay), and the "Send to Device" sheet.

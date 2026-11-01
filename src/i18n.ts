@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Interface translations. Only Keeper's own words are translated — never file
 // names or anything the user wrote. Missing keys fall back to English.
 

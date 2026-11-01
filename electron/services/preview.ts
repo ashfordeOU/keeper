@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The main-process side of previews: serves files to the viewer with seeking,
 // works out what a file is, reads its details, lists archives, and converts
 // what Chromium cannot show (HEIC, RAW, PSD, exotic video and audio) into
@@ -44,9 +44,16 @@ export function grant(p: string) {
   granted.add(path.resolve(p));
 }
 
+/** Folders whose files may be shown (open note vaults: their pictures, PDFs and audio). */
+const roots = new Set<string>();
+export function allowRoot(dir: string) {
+  roots.add(path.resolve(dir));
+}
+
 function allowed(p: string): boolean {
   const r = path.resolve(p);
   if (granted.has(r)) return true;
+  for (const root of roots) if (isInside(r, root)) return true;
   if (isInside(r, previewTemp())) return true;
   // Files inside a folder the user previewed (a folder mosaic, a sidecar subtitle).
   for (const g of granted) if (isInside(r, g) && r.split(path.sep).length - g.split(path.sep).length <= 2) return true;

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Phones on the computer's screen.
 //
 //   Android  scrcpy (Apache-2.0) with its own adb: mirror and control over USB

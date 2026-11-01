@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Turning raw connections into "which app talks to whom, how much, and which
 // way": rates between two readings, grouping by app and by destination, names
 // for well-known services, and CSV export.

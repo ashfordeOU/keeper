@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 import { describe, expect, it } from 'vitest';
 import { activitiesFrom, cameraUsers, parseConsentStore, present, transientsFrom, type Activity } from '../core/island-activities';
 import { cameraEdgeFor, chooseDisplays, desktopOf, freeMenuBarMiddle, macNotch, needsXWayland, place, type DisplayInfo, type PlaceEnv, type Rect } from '../core/island-place';

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Locked folders. A folder is encrypted into one file next to it
 // ("Taxes.keeperlock"), checked by decrypting every byte back, and only then is
 // the original removed. Unlocking does the same in reverse. Pure Node, shared by

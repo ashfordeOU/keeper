@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Desktop widgets: small always-on-desktop windows showing the time, weather,
 // your next events, a countdown, photos and more, each styled by the user.
 

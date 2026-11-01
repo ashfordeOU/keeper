@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Keeper Link for the browser demo: a few paired devices, a phone, a tunnel.
 // Nothing leaves the page.
 

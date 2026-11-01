@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Usage (Linux CI): xvfb-run -a node test/e2e/agents.cjs /tmp/ka /tmp/ka-shots
 // Drives the real Keeper app with a made-up home folder and a stand-in AI
 // (an OpenAI-compatible server in this process):
@@ -109,6 +109,11 @@ async function post(port, token, pathname, body, headers = {}) {
   }
   main.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
   await main.setViewportSize({ width: 1440, height: 900 }).catch(() => undefined);
+  // The first-run tour covers the window; skip it.
+  await main.waitForSelector('.sidebar', { timeout: 60000 });
+  await main.waitForTimeout(2500);
+  const skip = await main.$('.tour button:has-text("Skip tour")');
+  if (skip) await skip.click();
   for (let i = 0; i < 60; i++) {
     const st = await main.evaluate(() => window.keeper.brain.status());
     if (st.withText >= 5) break;

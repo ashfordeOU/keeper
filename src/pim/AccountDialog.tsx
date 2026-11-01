@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Adding a mail or calendar account: type your address and Keeper finds the
 // servers; sign in with Google or Microsoft, or use an (app) password; or add
 // a CalDAV calendar or a calendar link.

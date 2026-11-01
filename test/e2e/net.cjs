@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Usage (Linux CI): xvfb-run -a node test/e2e/net.cjs /tmp/kp /tmp/kp-shots [app folder]
 // Drives the real Keeper app: Network Activity must attribute connections to
 // the right program and interface (one of Keeper's own and one from another

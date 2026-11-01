@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Ready-made AI endpoints, shared by the app and its interface (no Node modules here).
 
 /** Ready-made endpoints people pick from; all speak the OpenAI chat format. */

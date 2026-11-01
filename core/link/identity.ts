@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Each Keeper has its own identity: an Ed25519 key pair made on first use.
 // Other devices remember the public key when they pair and check it on every
 // connection afterwards, whatever path the connection takes. Node only.

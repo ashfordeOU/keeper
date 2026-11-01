@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 # Rendered by scripts/render-packaging.mjs and published to the ashfordeOU/homebrew-keeper tap.
 # Only the `keeper` command (no app), for servers and terminals; works on macOS and Linux.
 #   brew install ashfordeou/keeper/keeper-cli
@@ -8,7 +8,7 @@ class KeeperCli < Formula
   homepage "https://github.com/ashfordeOU/keeper"
   url "https://github.com/ashfordeOU/keeper/releases/download/v{{version}}/keeper-cli-{{version}}.tgz"
   sha256 "{{sha256:keeper-cli-{{version}}.tgz}}"
-  license "AGPL-3.0-or-later"
+  license :cannot_represent # PolyForm Shield 1.0.0 (LicenseRef-PolyForm-Shield-1.0.0), see LICENSE.md
 
   livecheck do
     url :stable

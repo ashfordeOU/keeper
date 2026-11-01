@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Usage (Linux CI): xvfb-run -a -s "-screen 0 1600x1000x24" node test/e2e/island.cjs /tmp/ki /tmp/ki-shots
 // Drives the real Keeper app: where the Island sits, that a closed Island covers
 // only itself, and that activities, the Live Activity card and the panel open and close.

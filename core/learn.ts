@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Learning from how the person uses Keeper — off until they turn it on, kept
 // only on this computer, and easy to forget. Keeper notes coarse events it
 // already sees (a file opened, a search, a move, a rule run, a clean-up choice)

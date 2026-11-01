@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The optional assistant. It only ever sees file names, folders, sizes, dates
 // and kinds — never file contents — and it can only suggest; nothing is removed
 // without the user pressing a button. Works with Claude, OpenAI, or a model

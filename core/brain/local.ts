@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The brain over a library on this computer: the engine, its files on disk,
 // and everything the harness and MCP need (reading files, listing folders,
 // recent activity). Used by the app, and by `keeper mcp` / `keeper ask` when
@@ -215,10 +215,11 @@ export class LocalBrain implements Brain {
   }
 
   /** One question to the person's AI, grounded in the brain. */
-  async ask(question: string, opts: { signal?: AbortSignal; onDelta?: (t: string) => void; history?: ChatMessage[]; onStep?: (s: HarnessResult['trace'][number]) => void } = {}): Promise<HarnessResult> {
+  async ask(question: string, opts: { signal?: AbortSignal; onDelta?: (t: string) => void; history?: ChatMessage[]; onStep?: (s: HarnessResult['trace'][number]) => void; extraTools?: HarnessEnv['extraTools']; maxRounds?: number } = {}): Promise<HarnessResult> {
     const provider = await this.o.provider?.();
     if (!provider) throw new Error('No AI is set up yet. Choose one in Settings → AI & Brain.');
-    const h = new Harness(provider, this.harnessEnv(), { signal: opts.signal, onDelta: opts.onDelta, onStep: opts.onStep, redactAlways: this.o.redactAlways?.() });
+    const env = opts.extraTools ? { ...this.harnessEnv(), extraTools: opts.extraTools } : this.harnessEnv();
+    const h = new Harness(provider, env, { signal: opts.signal, onDelta: opts.onDelta, onStep: opts.onStep, redactAlways: this.o.redactAlways?.(), ...(opts.maxRounds ? { maxRounds: opts.maxRounds } : {}) });
     return h.ask(question, opts.history ?? []);
   }
 }

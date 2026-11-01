@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // IPC for Places: favourites, cloud drives, disks, servers, the Trash and sharing.
 
 import { ipcMain } from 'electron';

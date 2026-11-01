@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // IPC for Keeper's brain: status, search, asking the AI, meaning search,
 // AI connections and the AI apps Keeper serves.
 
@@ -17,9 +17,9 @@ function handle(name: string, fn: (...args: never[]) => unknown) {
 export function registerBrainIpc() {
   handle('brain.status', () => status());
   handle('brain.search', (q: string, o?: { limit?: number; mode?: 'hybrid' }) => search(q, o));
-  ipcMain.handle('brain.ask', async (e, reqId: string, question: string, history?: ChatMessage[]) => {
+  ipcMain.handle('brain.ask', async (e, reqId: string, question: string, history?: ChatMessage[], o?: { computer?: boolean; persona?: string; project?: string }) => {
     const send = (channel: string, ...args: unknown[]) => { if (!e.sender.isDestroyed()) e.sender.send(`event:${channel}`, ...args); };
-    return ask(reqId, question, history, send);
+    return ask(reqId, question, history, send, { computer: !!o?.computer, persona: o?.persona, project: o?.project });
   });
   handle('brain.cancel', (reqId: string) => cancelAsk(reqId));
   handle('brain.setSemantic', async (on: boolean) => {

@@ -1,0 +1,7 @@
+{"version":"004","items":[
+ {"uuid":"n-1","content_type":"Note","created_at":"2026-10-01T09:00:00.000Z","updated_at":"2026-10-20T10:00:00.000Z","content":{"title":"Book ideas","text":"- A lighthouse keeper\n- Owls as messengers","references":[],"appData":{}}},
+ {"uuid":"n-2","content_type":"Note","created_at":"2026-10-02T09:00:00.000Z","updated_at":"2026-10-03T10:00:00.000Z","content":{"title":"Diary","text":"private","protected":true,"references":[]}},
+ {"uuid":"n-3","content_type":"Note","created_at":"2026-10-02T09:00:00.000Z","updated_at":"2026-10-03T10:00:00.000Z","content":{"title":"Old","text":"bin","trashed":true,"references":[]}},
+ {"uuid":"tag-1","content_type":"Tag","created_at":"2026-10-01T09:00:00.000Z","updated_at":"2026-10-01T09:00:00.000Z","content":{"title":"writing","references":[{"uuid":"n-1","content_type":"Note"}]}},
+ {"uuid":"x-1","content_type":"SN|UserPreferences","content":{"prefs":{}}}
+]}

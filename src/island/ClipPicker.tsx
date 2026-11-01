@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The clipboard picker: a small window over any app. Type to filter, arrows to
 // choose, Return pastes into the app you were in, 1–9 paste instantly.
 

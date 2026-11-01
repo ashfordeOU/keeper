@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 */
 /* Desktop widgets and the clipboard picker. */
 
 html[data-view='widget'] body, html[data-view='clips'] body { background: transparent; }

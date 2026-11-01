@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // macOS: the on-device Apple Intelligence model, Live Text recognition and
 // Spotlight, all through keeper-helper. When the helper is missing (a build
 // without it, or an older Mac) every caller falls back quietly.
@@ -40,6 +40,13 @@ function helper(): HelperClient | null {
   if (!p) return null;
   client = new HelperClient(p);
   return client;
+}
+
+/** Any helper method (the Island's Calendar and Reminders use this); rejects without a helper. */
+export function macHelperCall<T = unknown>(method: string, params?: unknown, timeoutMs = 30_000): Promise<T> {
+  const h = helper();
+  if (!h) return Promise.reject(new Error('The macOS helper is not available'));
+  return h.call<T>(method, params, { timeoutMs });
 }
 
 /** What the helper says about this Mac; null without a helper. Asked once. */

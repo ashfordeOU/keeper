@@ -1,15 +1,18 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 appId: io.github.ashfordeou.keeper
 productName: Keeper
-copyright: Copyright © 2026 Ashforde OÜ · Keeper by Ashforde® · GNU AGPL v3 or later
+copyright: Copyright © 2026 Ashforde OÜ · Keeper by Ashforde®
 directories:
   output: release
   buildResources: build
 # The main process, preload scripts and most libraries are bundled by esbuild;
-# only tesseract.js ships as a module because it starts its own worker threads.
+# tesseract.js ships as a module because it starts its own worker threads, and
+# libheif-js (LGPL-3.0) ships as a module so people can replace it with their own build.
 afterPack: build/after-pack.cjs
 files:
   - dist/**
+  # Privacy & Security's optional browser extension (loaded unpacked from here).
+  - browser-extension/**
   - dist-electron/**
   - '!dist-electron/*.map'
   # The keeper command, run by the installers' shim through the app's own runtime.
@@ -19,12 +22,17 @@ files:
   - '!node_modules/**/{test,tests,docs,example,examples}/**'
   - build/tray*.png
   - build/icon.png
-  - LICENSE
+  # Licence terms, trademark rules and the third-party notices travel with every copy.
+  - LICENSE.md
+  - TRADEMARKS.md
+  - THIRD-PARTY-NOTICES.md
   - package.json
 asar: true
 # Native pieces are prebuilt per processor (see scripts/prepare-arch.mjs); never recompile them.
 npmRebuild: false
 asarUnpack:
+  - browser-extension/**
+  - dist-cli/keeper.cjs
   - node_modules/tesseract.js/**
   - node_modules/tesseract.js-core/**
   - node_modules/ffmpeg-static/**
@@ -34,6 +42,8 @@ asarUnpack:
   - node_modules/onnxruntime-node/**
   # The terminal's pseudo-terminal library (and its macOS spawn helper, which must stay executable).
   - node_modules/node-pty/**
+  # LGPL-3.0: kept as plain files outside the archive so it can be swapped for a modified build.
+  - node_modules/libheif-js/**
 # rclone (MIT) for cloud storage: put in vendor/rclone/current by scripts/fetch-rclone.mjs
 # (prepare-arch runs it for the target). Without it Keeper still connects to SFTP, FTP,
 # WebDAV and SMB servers; only the cloud services ask for it.
@@ -41,6 +51,11 @@ extraResources:
   - from: vendor/rclone/current
     to: rclone
     filter: ['rclone', 'rclone.exe', '*.txt']
+  # Plain copies next to the archive, so package managers (AUR) and people can read them without unpacking.
+  - from: LICENSE.md
+    to: LICENSE.md
+  - from: THIRD-PARTY-NOTICES.md
+    to: THIRD-PARTY-NOTICES.md
 # No version in file names, so releases/latest/download/<name> links never go stale.
 artifactName: ${productName}-${os}-${arch}.${ext}
 # Update information (latest*.yml) points at GitHub Releases; CI builds with
@@ -69,7 +84,8 @@ nsis:
   # The name in Settings → Apps and the installer's title.
   uninstallDisplayName: Keeper by Ashforde®
   include: build/installer.nsh
-  license: LICENSE
+  # Plain-text copy of LICENSE.md made by scripts/license-txt.mjs (NSIS shows Markdown as raw text).
+  license: build/license_en.txt
   artifactName: ${productName}-setup-${arch}.${ext}
 portable:
   artifactName: ${productName}-portable.${ext}
@@ -89,7 +105,13 @@ mac:
     NSDocumentsFolderUsageDescription: Keeper shows and searches the files in Documents.
     NSDownloadsFolderUsageDescription: Keeper shows your downloads and where they came from.
     NSAppleEventsUsageDescription: Keeper reads what is playing in Music or Spotify and can paste dictated text.
-    NSMicrophoneUsageDescription: Keeper listens only while you hold the dictation shortcut.
+    NSMicrophoneUsageDescription: Keeper listens only while you dictate, check your microphone in the Island's mirror, or let the teleprompter follow your voice.
+    NSCameraUsageDescription: The Island's mirror shows your camera so you can check how you look before a call.
+    NSCalendarsFullAccessUsageDescription: The Island shows your calendar's events and meeting links.
+    NSCalendarsUsageDescription: The Island shows your calendar's events and meeting links.
+    NSRemindersFullAccessUsageDescription: The Island lets you check off your reminders.
+    NSRemindersUsageDescription: The Island lets you check off your reminders.
+    NSSpeechRecognitionUsageDescription: Keeper turns speech in your recordings and videos into text on this Mac when you choose macOS's recognizer.
     LSUIElement: false
   # keeper-helper (native/macos) gives Keeper Apple Intelligence, Live Text and
   # Spotlight. It sits next to the app's executable so it shares the app's
@@ -97,6 +119,9 @@ mac:
   extraFiles:
     - from: native/macos/KeeperHelper/.build/apple/Products/Release/keeper-helper
       to: MacOS/keeper-helper
+    # Siri, Spotlight and Shortcuts actions (native/macos/KeeperIntents); builds without it still work.
+    - from: native/macos/KeeperIntents/build/Release/Keeper Intents.app
+      to: Library/Helpers/Keeper Intents.app
 dmg:
   title: Keeper by Ashforde®
   window: { width: 540, height: 380 }

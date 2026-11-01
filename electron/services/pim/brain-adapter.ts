@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // What AI agents (Keeper's assistant, MCP clients) may use from mail and
 // calendars: searching mail and listing events read only what is already on
 // this computer; creating an event is a change and is meant to be offered

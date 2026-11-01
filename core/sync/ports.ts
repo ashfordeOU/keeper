@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // What sync and backup need from the outside world, and nothing more: a way to
 // talk to another Keeper device, and a place to keep files. Keeper Link and the
 // cloud connections plug in here; tests use the in-memory versions below.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Keyboard shortcuts written as text ("CmdOrCtrl+Shift+D") and matched against
 // key presses, so people can change them in a simple editor.
 

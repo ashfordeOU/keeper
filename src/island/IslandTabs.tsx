@@ -1,6 +1,7 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The bigger Island tabs: shelves, clipboard, controls and the camera mirror.
 
+import { ShareButton } from './tools/IslandTools';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { IslandSettings, IslandState, ShelfAction } from '../../core/api';
 import type { ClipKind } from '../../core/island';
@@ -11,6 +12,7 @@ import { Icon } from '../components/Icon';
 import { Thumb } from '../components/ui';
 import { filterClips, KIND_ICON } from './ClipPicker';
 import { usePeek } from '../preview/Peek';
+import { QuickTiles } from './QuickTiles';
 
 const say = (msg: string) => window.dispatchEvent(new CustomEvent('island-toast', { detail: msg }));
 const fail = (e: unknown) => say(e instanceof Error ? e.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '') : String(e));
@@ -100,6 +102,7 @@ export function ShelfTab({ state, settings, reload }: { state: IslandState; sett
           <button className="btn sm" onClick={() => run('zip')}><Icon name="zip" size={12} /> Zip</button>
           <button className="btn sm" onClick={() => run('copyText')} title="Copy the text in these images and documents"><Icon name="text" size={12} /> Text</button>
           <button className="btn sm" onClick={() => run('copyPaths')}><Icon name="copy" size={12} /> Copy</button>
+          <ShareButton paths={paths} />
           <button className="btn sm" onClick={() => run('moveTo')}><Icon name="folder" size={12} /> Move to…</button>
           {items.some((f) => f.kind === 'image') ? <button className="btn sm" onClick={() => run('resize', '1600')} title="Make smaller copies (1600 px)"><Icon name="image" size={12} /> Resize</button> : null}
           {settings?.upload.kind && settings.upload.kind !== 'none' ? <button className="btn sm" onClick={() => run('upload')} title="Upload to your own storage and copy a link"><Icon name="send" size={12} /> Share link</button> : null}
@@ -141,7 +144,7 @@ export function ClipboardTab({ state, reload }: { state: IslandState; reload: ()
       {items.length === 0 ? <div className="muted" style={{ textAlign: 'center', padding: 20 }}>{state.clips.length ? 'Nothing matches.' : 'Things you copy will appear here.'}</div> : null}
       {items.map((c) => (
         <div key={c.id}>
-          <div className="clip" onClick={() => void api.island.copyClip(c.id).then(() => say('Copied'))} title="Click to copy">
+          <div className="clip" onClick={(e) => (e.altKey ? void api.island.removeClip(c.id).then(reload) : void api.island.copyClip(c.id).then(() => say('Copied')))} title="Click to copy · Option/Alt-click to delete">
             {c.pinned ? <Icon name="pin" size={12} /> : null}
             {c.kind === 'color' && c.text ? <span className="swatch" style={{ background: c.text }} /> : c.image ? <img src={c.image} alt="" style={{ height: 28, borderRadius: 4 }} /> : <Icon name={KIND_ICON[c.kind] ?? 'text'} size={12} />}
             <span className="t">
@@ -211,11 +214,12 @@ export function ControlsTab({ state, reload }: { state: IslandState; reload: () 
           {d?.bluetooth.map((b) => <div key={b.name} className="ctl-dev"><span className="ellipsis">{b.name}</span><b style={{ color: b.percent <= 20 ? '#f87171' : undefined }}>{b.percent}%</b></div>)}
           {!state.battery && !d?.bluetooth.length ? <div className="muted small">{busy ? 'Checking…' : 'No batteries reported.'}</div> : null}
         </div>
-        <div className="tile">
+        {state.awakeAvailable === false ? null : <div className="tile">
           <div className="ctl-head"><Icon name="coffee" size={13} /> Keep awake
             <button className={`btn sm ${state.keepAwake.on ? 'primary' : ''}`} style={{ marginLeft: 'auto' }} onClick={() => void api.island.keepAwake(!state.keepAwake.on).then(reload)}>{state.keepAwake.on ? 'On' : 'Off'}</button></div>
-          <div className="muted small">{state.keepAwake.on ? state.keepAwake.reason ?? 'Until you turn it off' : state.awakeTriggers?.length ? state.awakeTriggers.join(' · ') : 'Automatic rules can be set in Island settings.'}</div>
-        </div>
+          <div className="muted small">{state.keepAwake.on ? state.keepAwake.reason ?? 'Until you turn it off' : state.awakeTriggers?.length ? state.awakeTriggers.join(' · ') : 'Triggers can be set on the Keep Awake page.'}</div>
+        </div>}
+        <QuickTiles />
         <button className="btn sm" onClick={() => void api.island.hide(true)}><Icon name="eye" size={12} /> Hide the Island (shortcut brings it back)</button>
       </div>
     </div>

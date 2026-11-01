@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // IPC for previews and the keeper-file:// protocol.
 
 import { ipcMain, protocol } from 'electron';

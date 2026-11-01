@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Keeper's mail and calendar clients against real servers started here:
 // Dovecot for IMAP (skipped when Dovecot is not installed), an in-process
 // SMTP server, and a small CalDAV server.

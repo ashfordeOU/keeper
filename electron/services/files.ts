@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Everyday file operations. User files only ever go to the system Trash, and
 // every change is written to the history so it can be undone.
 

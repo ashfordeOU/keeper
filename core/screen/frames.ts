@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The fallback picture path: still JPEG frames inside the encrypted Link
 // channel (or the phone's companion channel), used when a direct WebRTC
 // connection cannot be made (strict firewalls, relay or tunnel only) and for

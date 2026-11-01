@@ -1,13 +1,17 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The command palette: jump anywhere or run any action by typing a few letters.
 
+import { FLOWS } from '../../core/guide/builtin';
+import { openGuide } from '../guide';
 import { useCommandFilter } from '../features';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { THEMES } from '../../core/themes';
+import { TOOL_INFO, type ConvertTool } from '../../core/convert-types';
 import { api } from '../api';
 import { themePatch, toggleThemePatch } from '../theme';
 import { mod, shift, useStore, type Route } from '../state';
 import { Icon } from './Icon';
+import { CATALOG } from '../../core/settings-catalog';
 import '../styles/screens-a.css';
 
 interface Command {
@@ -19,10 +23,19 @@ interface Command {
   keywords?: string;
   /** listed only once something is typed (e.g. one entry per theme) */
   typed?: boolean;
+  /** the page it opens (hidden while the feature owning that page is off) */
+  route?: string;
   run: () => unknown;
 }
 
 /** Subsequence match with a bonus for word starts; -1 when it does not match. */
+const HOWTO_WORDS: Record<string, string> = {
+  'free-space': 'disk full storage clean junk room', 'camera-access': 'webcam watching privacy', 'microphone-access': 'mic listening privacy',
+  'screen-access': 'screen recording capture', 'encrypt-disk': 'filevault bitlocker encryption stolen', 'turn-on-firewall': 'firewall block incoming',
+  'backup-photos': 'backup back up pictures safe', 'block-trackers': 'ads tracking trackers privacy', 'startup-apps': 'startup login items slow boot',
+  'storage-optimise': 'storage sense optimize empty trash automatically', 'lock-folder': 'password protect private hide folder', 'software-updates': 'update windows update security updates',
+};
+
 export function fuzzyScore(text: string, query: string): number {
   const t = text.toLowerCase();
   const q = query.toLowerCase().trim();
@@ -64,6 +77,9 @@ const PAGES: [Route, string, string, string?][] = [
   [{ name: 'startup' }, 'Startup Items', 'power'],
   [{ name: 'apps' }, 'Applications', 'app'],
   [{ name: 'protection' }, 'Protection', 'shield'],
+  [{ name: 'notes' }, 'Notes', 'document'],
+  [{ name: 'notes', arg: 'today' }, 'Today’s Daily Note', 'calendar'],
+  [{ name: 'notes', arg: 'graph' }, 'Notes Graph', 'graph'],
   [{ name: 'assistant' }, 'Assistant', 'assistant'],
   [{ name: 'tools' }, 'Toolbox', 'terminal'],
   [{ name: 'island' }, 'Island', 'island'],
@@ -78,13 +94,18 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
   const listRef = useRef<HTMLDivElement>(null);
 
   const commands = useMemo<Command[]>(() => [
-    ...PAGES.map(([route, label, icon, kbd]) => ({ id: `go-${label}`, label, group: 'Go to' as const, icon, kbd, run: () => store.go(route) })),
+    ...PAGES.map(([route, label, icon, kbd]) => ({ id: `go-${label}`, label, group: 'Go to' as const, icon, kbd, route: route.name, run: () => store.go(route) })),
     { id: 'browse', label: 'Browse Home Folder', group: 'Go to', icon: 'folder', run: () => store.go({ name: 'browse', arg: store.info?.home }) },
     { id: 'rescan', label: 'Rescan Library', group: 'Actions', icon: 'refresh', keywords: 'index refresh reload', run: async () => { await api.library.rescan(); store.toast('Reading your folders…'); } },
     { id: 'terminal', label: 'Terminal', group: 'Actions', icon: 'terminal', keywords: 'shell console command line ssh sftp tabs panes', run: () => store.go({ name: 'terminal' }) },
     { id: 'terminal-window', label: 'New Terminal Window', group: 'Actions', icon: 'terminal', keywords: 'shell console', run: () => void api.terminal.openWindow() },
     { id: 'terminal-quick', label: 'Drop-down Terminal', group: 'Actions', icon: 'terminal', keywords: 'quake shell console', run: () => void api.terminal.toggleQuick() },
-    { id: 'look', label: 'Switch Theme (last two used)', group: 'Actions', icon: 'palette', kbd: `${mod}${shift}T`, keywords: 'theme look colour color playful minimal', run: () => store.settings && store.updateSettings(toggleThemePatch(store.settings)) },
+    { id: 'look', label: 'Switch Theme (last two used)', group: 'Actions', icon: 'palette', kbd: `${mod}${shift}L`, keywords: 'theme look colour color playful minimal', run: () => store.settings && store.updateSettings(toggleThemePatch(store.settings)) },
+    // Every conversion tool, found by typing ("redact", "gif", "transcribe"…).
+    ...(Object.keys(TOOL_INFO) as ConvertTool[]).map((t) => ({ id: `convert-${t}`, label: `${{ video: 'Video', audio: 'Audio', image: 'Pictures', pdf: 'PDF', doc: 'Documents', file: 'Files', convert: 'Convert' }[TOOL_INFO[t].category]}: ${TOOL_INFO[t].label}`, group: 'Actions' as const, icon: 'refresh', typed: true, keywords: `convert ${TOOL_INFO[t].description}`, run: () => store.go({ name: 'convert', arg: JSON.stringify({ tool: t, files: store.selection }) }) })),
+    // "How do I…?": every guided flow, found by what the person wants to do.
+    { id: 'todo', label: 'To do — what is worth fixing', group: 'Go to', icon: 'check', keywords: 'todo fix issues problems recommendations space security privacy', run: () => store.go({ name: 'todo' }) },
+    ...FLOWS.map((f) => ({ id: `howto-${f.id}`, label: `How do I… ${f.title.toLowerCase()}?`, group: 'Actions' as const, icon: 'sparkle', typed: true, keywords: `how do i how to help ${f.title} ${HOWTO_WORDS[f.id] ?? ''}`, run: () => openGuide(`flow:${f.id}`) })),
     ...THEMES.map((t) => ({ id: `theme-${t.id}`, label: `Theme: ${t.name}`, group: 'Actions' as const, icon: 'palette', typed: true, keywords: `theme look ${t.tags.join(' ')}`, run: () => store.settings && store.updateSettings(themePatch(store.settings, t.id)) })),
     { id: 'hidden-files', label: store.settings?.showHidden ? 'Hide Hidden Files' : 'Show Hidden Files', group: 'Actions', icon: store.settings?.showHidden ? 'eyeOff' : 'eye', kbd: `${mod}${shift}.`, keywords: 'dot files dotfiles invisible show hide', run: () => store.settings && store.updateSettings({ showHidden: !store.settings.showHidden }) },
     { id: 'locked-folders', label: 'Locked Folders', group: 'Actions', icon: 'lock', keywords: 'lock unlock encrypt password protect vault private', run: () => store.go({ name: 'settings', arg: 'locked' }) },
@@ -93,6 +114,23 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     { id: 'inspector', label: store.inspector ? 'Hide Inspector' : 'Show Inspector', group: 'Actions', icon: 'info', kbd: `${mod}I`, run: () => store.setInspector(!store.inspector) },
     { id: 'awake', label: 'Keep Awake for 1 Hour', group: 'Actions', icon: 'coffee', keywords: 'caffeine sleep stay awake', run: async () => { await api.island.keepAwake(true, { minutes: 60 }); store.toast('Staying awake for the next hour'); } },
     { id: 'awake-off', label: 'Allow Sleep Again', group: 'Actions', icon: 'moon', keywords: 'keep awake stop', run: async () => { await api.island.keepAwake(false); store.toast('Your computer can sleep again'); } },
+    { id: 'awake-toggle', label: 'Turn Keep Awake On or Off', group: 'Actions', icon: 'coffee', keywords: 'caffeine sleep stay awake toggle insomnia', run: async () => { const s = await api.awake.toggle(); store.toast(s.on ? 'Keeping awake until you turn it off' : 'Your computer can sleep again'); } },
+    ...(store.settings?.awake?.quick ?? []).filter((m) => m !== 60).map((m) => ({ id: `awake-${m}`, label: `Keep Awake for ${m >= 60 ? `${m / 60} Hour${m === 60 ? '' : 's'}` : `${m} Minutes`}`, group: 'Actions' as const, icon: 'coffee', typed: true, keywords: 'caffeine sleep stay awake', run: async () => { await api.awake.start({ minutes: m }); store.toast(`Staying awake for ${m >= 60 ? `${m / 60} h` : `${m} min`}`); } })),
+    // Monorail (Settings → Ashforde apps); hidden unless that feature is on.
+    ...(() => {
+      const mono = (kind: string, arg?: string | number | boolean, done?: string) => async () => { const r = await api.ashforde.action(kind, arg); store.toast(r.ok ? (done ?? 'Done') : (r.message ?? 'Monorail did not answer')); };
+      return [
+        { id: 'monorail-palette', label: 'Monorail: Command Palette', group: 'Actions' as const, icon: 'columns', keywords: 'monorail windows tile strip actions', run: mono('palette', undefined, 'Opened Monorail’s palette') },
+        { id: 'monorail-focus-on', label: 'Monorail: Focus Mode On', group: 'Actions' as const, icon: 'columns', keywords: 'monorail focus dim windows', run: mono('focus-mode', true, 'Monorail focus mode is on') },
+        { id: 'monorail-focus-off', label: 'Monorail: Focus Mode Off', group: 'Actions' as const, icon: 'columns', keywords: 'monorail focus dim windows', run: mono('focus-mode', false, 'Monorail focus mode is off') },
+        { id: 'monorail-present', label: 'Monorail: Presentation Mode On', group: 'Actions' as const, icon: 'columns', keywords: 'monorail present slides', run: mono('presentation-mode', true, 'Monorail presentation mode is on') },
+        { id: 'monorail-present-off', label: 'Monorail: Presentation Mode Off', group: 'Actions' as const, icon: 'columns', keywords: 'monorail present slides', run: mono('presentation-mode', false, 'Monorail presentation mode is off') },
+        ...[1, 2, 3, 4, 5].map((n) => ({ id: `monorail-workspace-${n}`, label: `Monorail: Go to Workspace ${n}`, group: 'Actions' as const, icon: 'columns', typed: true, keywords: `monorail workspace desktop space ${n}`, run: mono('workspace', n, `Workspace ${n}`) })),
+        { id: 'monorail-settings', label: 'Monorail: Settings', group: 'Actions' as const, icon: 'columns', keywords: 'monorail preferences window manager', run: mono('settings', undefined, 'Opened Monorail’s settings') },
+        { id: 'monorail-page', label: 'Ashforde Apps (Monorail)', group: 'Go to' as const, icon: 'columns', keywords: 'monorail ashforde apps window manager install update', run: () => store.go({ name: 'settings', arg: 'ashforde' }) },
+      ];
+    })(),
+    { id: 'awake-page', label: 'Keep Awake', group: 'Go to', icon: 'coffee', keywords: 'caffeine sleep stay awake triggers closed lid lid statistics', run: () => store.go({ name: 'awake' }) },
     { id: 'capture', label: 'Copy Text from Screen Area', group: 'Actions', icon: 'text', keywords: 'ocr capture scan qr barcode', run: async () => {
       const r = await api.capture.text();
       if (!r) return;
@@ -107,6 +145,19 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     { id: 'focus-stop', label: 'Stop Focus Timer', group: 'Actions', icon: 'timer', run: async () => { await api.island.focus('stop'); } },
     { id: 'present', label: 'Presentation Mode', group: 'Actions', icon: 'eye', keywords: 'hide desktop do not disturb', run: async () => { const on = await api.island.presentation(true); store.toast(on ? 'Presentation mode on' : 'Presentation mode is not available here'); } },
     { id: 'present-off', label: 'End Presentation Mode', group: 'Actions', icon: 'eye', run: async () => { await api.island.presentation(false); } },
+    { id: 'firewall', label: 'Firewall', group: 'Go to', icon: 'shield', keywords: 'network block allow rules connections outgoing incoming', run: () => store.go({ name: 'firewall' }) },
+    { id: 'firewall-quiet', label: 'Firewall: Quiet Mode (allow and remember)', group: 'Actions', icon: 'shield', keywords: 'silent mode network', run: () => void api.fw.setMode('silent-allow').then(() => store.toast('Firewall: quiet mode')) },
+    { id: 'firewall-ask', label: 'Firewall: Ask About New Connections', group: 'Actions', icon: 'shield', keywords: 'alert mode network', run: () => void api.fw.setMode('alert').then(() => store.toast('Firewall: asking about new connections')) },
+    { id: 'controls', label: 'Quick Controls', group: 'Go to', icon: 'settings', keywords: 'wifi bluetooth airplane vpn dns firewall camera microphone privacy toggle switch settings', run: () => store.go({ name: 'controls' }) },
+    { id: 'controls-public', label: 'Quick Controls: Public Wi-Fi Preset', group: 'Actions', icon: 'shield', keywords: 'cafe hotel airport lock down network', run: () => store.go({ name: 'controls', arg: 'preset:public-wifi' }) },
+    { id: 'controls-lockdown', label: 'Quick Controls: Lockdown Preset', group: 'Actions', icon: 'shield', keywords: 'block everything privacy', run: () => store.go({ name: 'controls', arg: 'preset:lockdown' }) },
+    { id: 'catalog', label: 'System Settings+', group: 'Go to', icon: 'settings', keywords: 'defaults registry gsettings sysctl tweak hidden setting catalogue terminal command', run: () => store.go({ name: 'catalog' }) },
+    { id: 'appcontrols', label: 'App Controls', group: 'Go to', icon: 'cpu', keywords: 'per app limit bandwidth cpu memory priority vpn route notifications volume gpu', run: () => store.go({ name: 'appcontrols' }) },
+    { id: 'browsers', label: 'Browser Tabs', group: 'Go to', icon: 'globe', keywords: 'tabs chrome firefox edge mute sleep site permissions trackers', run: () => store.go({ name: 'browsers' }) },
+    // Every catalogue setting for this system, found by typing ("swappiness", "show hidden files"…).
+    ...CATALOG.filter((x) => x.os === (store.info?.platform ?? 'darwin')).map((x) => ({ id: `catalog-${x.id}`, label: `Setting: ${x.title}`, group: 'Actions' as const, icon: 'settings', typed: true, keywords: `${x.category} ${(x.keywords ?? []).join(' ')}`, run: () => store.go({ name: 'catalog', q: x.title }) })),
+    { id: 'controls-wifi', label: 'Turn Wi-Fi On or Off', group: 'Actions', icon: 'globe', keywords: 'wireless radio network', run: () => store.go({ name: 'controls', q: 'wi-fi' }) },
+    { id: 'firewall-map', label: 'Network Map', group: 'Go to', icon: 'globe', keywords: 'world map connections countries servers', run: () => store.go({ name: 'firewall', arg: 'connections' }) },
     { id: 'force-quit', label: 'Force Quit Applications…', group: 'Actions', icon: 'warning', kbd: mod === '⌘' ? '⌥⌘⎋' : 'Ctrl+Alt+Esc', keywords: 'kill end task frozen not responding hung', run: () => window.dispatchEvent(new Event('keeper:force-quit-anywhere')) },
     { id: 'eject', label: 'Eject All Disks', group: 'Actions', icon: 'arrowUp', keywords: 'unmount drives usb', run: async () => { const r = await api.system.ejectAll(); store.toast(r.ejected.length ? `Ejected ${r.ejected.join(', ')}` : 'No disks to eject'); } },
     { id: 'mail-compose', label: 'New Mail Message', group: 'Actions', icon: 'mail', keywords: 'email write compose send', run: () => store.go({ name: 'mail', arg: 'compose' }) },
@@ -125,7 +176,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     const q = text.trim();
     const scored = commands
       // Commands of features that are off are not offered.
-      .filter((c) => allowed(c.id))
+      .filter((c) => allowed(c.id) && (!c.route || allowed(c.route)))
       .map((c) => ({ c, s: q ? Math.max(fuzzyScore(c.label, q), fuzzyScore(c.keywords ?? '', q) - 10) : 0 }))
       .filter((x) => x.s >= 0 && (q || !x.c.typed))
       .sort((a, b) => b.s - a.s)

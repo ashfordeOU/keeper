@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // WireGuard (.conf) and OpenVPN (.ovpn) files: read them, check them, and show
 // them with every secret blanked. Keeper never keeps a copy of the secrets in
 // plain text; the system's own VPN manager gets the file and stores it.

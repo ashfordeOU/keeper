@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Sync and backup settings. No Node modules here: the window reads this too.
 
 import type { RetentionPolicy } from './backup';

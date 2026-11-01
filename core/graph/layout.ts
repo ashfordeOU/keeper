@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // A force layout for the knowledge graph that stays quick with many thousands
 // of nodes: Barnes–Hut repulsion (a quadtree, so each step is n·log n), springs
 // along links, and a gentle pull to the middle. Deterministic for a given seed,

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The phone companion: a small page Keeper serves to phones and tablets so they
 // can send files to the computer, open its shared folders and use its
 // clipboard without installing anything. Talks to the computer over an
@@ -178,7 +178,7 @@ function ready(name: string) {
 for (const b of document.querySelectorAll<HTMLButtonElement>('nav button')) {
   b.onclick = () => {
     for (const x of document.querySelectorAll('nav button')) x.classList.toggle('on', x === b);
-    for (const t of ['send', 'files', 'clip', 'screen']) $(`tab-${t}`).classList.toggle('hidden', t !== b.dataset.tab);
+    for (const t of ['send', 'files', 'clip', 'screen', 'ai']) $(`tab-${t}`).classList.toggle('hidden', t !== b.dataset.tab);
   };
 }
 
@@ -190,8 +190,9 @@ $<HTMLInputElement>('pick').onchange = async (e) => {
   for (const f of files) await upload(f);
 };
 
-async function upload(f: File) {
-  if (!ch) return;
+async function upload(f: File): Promise<string | undefined> {
+  if (!ch) return undefined;
+  let saved: string | undefined;
   const row = document.createElement('div');
   row.className = 'card';
   row.innerHTML = '<div class="grow"></div><div class="bar"><i style="width:0%"></i></div><div class="muted"></div>';
@@ -210,14 +211,53 @@ async function upload(f: File) {
       bar.style.width = `${Math.round((off / f.size) * 100)}%`;
       note.textContent = `${size(off)} of ${size(f.size)}`;
       const res = r.header.r as { done?: boolean; savedAs?: string };
-      if (res?.done) note.textContent = `Sent · saved as ${res.savedAs}`;
+      if (res?.done) { note.textContent = `Sent · saved as ${res.savedAs}`; saved = res.savedAs; }
     }
     if (f.size === 0) note.textContent = 'Sent';
   } catch (err) {
     note.textContent = err instanceof Error ? err.message : String(err);
     note.classList.add('err');
   }
+  return saved;
 }
+
+// ---------------------------------------------------------------- scan a document
+
+const scanPages: string[] = [];
+
+function showScanPages() {
+  $('scan-pages').textContent = scanPages.length ? `${scanPages.length} page${scanPages.length === 1 ? '' : 's'} ready` : 'No pages yet';
+  $<HTMLButtonElement>('scan-make').disabled = !scanPages.length;
+}
+
+$<HTMLInputElement>('scan-shot').onchange = async (e) => {
+  const files = [...((e.target as HTMLInputElement).files ?? [])];
+  (e.target as HTMLInputElement).value = '';
+  for (const f of files) {
+    const ext = (f.name.match(/\.(jpe?g|png|heic|heif|webp)$/i)?.[1] ?? 'jpg').toLowerCase();
+    const saved = await upload(new File([f], `scan-${Date.now()}-${scanPages.length + 1}.${ext}`, { type: f.type }));
+    if (saved) scanPages.push(saved);
+    showScanPages();
+  }
+};
+
+$<HTMLButtonElement>('scan-make').onclick = async () => {
+  if (!ch || !scanPages.length) return;
+  const btn = $<HTMLButtonElement>('scan-make');
+  btn.disabled = true;
+  btn.textContent = 'Making the PDF…';
+  try {
+    const r = await ch.req('scan.make', { files: scanPages, mode: $<HTMLSelectElement>('scan-mode').value });
+    const res = r.header.r as { savedAs?: string; message?: string };
+    message(`Saved ${res.savedAs ?? 'the scan'} on the computer${res.message ? ` · ${res.message}` : ''}`);
+    scanPages.length = 0;
+  } catch (err) {
+    message(err instanceof Error ? err.message : String(err), true);
+  } finally {
+    btn.textContent = 'Make PDF';
+    showScanPages();
+  }
+};
 
 // ---------------------------------------------------------------- files
 
@@ -514,4 +554,91 @@ $('scr-text').addEventListener('keydown', (e) => {
   }
 });
 
-void connect();
+// ---------------------------------------------------------------- the AI: what it is doing, and its questions
+
+interface AiState {
+  off: boolean;
+  pending?: { id: string; client: string; description: string; at: number }[];
+  thumb?: { mime: string; data: string; caption: string } | null;
+  tasks?: { client: string; goal: string; steps: number; plan: string }[];
+}
+
+let aiTimer: number | undefined;
+async function aiPoll() {
+  clearTimeout(aiTimer);
+  if (ch) {
+    try {
+      showAi((await ch.req('cu.state')).header.r as AiState);
+    } catch {
+      /* an older Keeper on the computer: no AI tab there */
+    }
+  }
+  // Quicker while the tab is open; otherwise only the badge needs keeping up to date.
+  aiTimer = window.setTimeout(() => void aiPoll(), $('tab-ai').classList.contains('hidden') ? 6000 : 1500);
+}
+
+function showAi(st: AiState) {
+  const pending = st.pending ?? [];
+  $('ai-badge').textContent = String(pending.length);
+  $('ai-badge').classList.toggle('hidden', !pending.length);
+  const box = $('ai-pending');
+  box.textContent = '';
+  if (st.off) {
+    const c = document.createElement('div');
+    c.className = 'card muted';
+    c.textContent = 'Answering from the phone is off on the computer (Agents → Keeper’s browser).';
+    box.append(c);
+  }
+  for (const p of pending) {
+    const c = document.createElement('div');
+    c.className = 'card ai-q';
+    const t = document.createElement('div');
+    t.innerHTML = '<b></b> wants to:';
+    (t.firstChild as HTMLElement).textContent = p.client;
+    const d = document.createElement('div');
+    d.style.marginTop = '4px';
+    d.textContent = p.description;
+    const btns = document.createElement('div');
+    btns.className = 'btns';
+    const no = document.createElement('button');
+    no.className = 'btn';
+    no.textContent = 'Don’t allow';
+    const yes = document.createElement('button');
+    yes.className = 'btn yes';
+    yes.textContent = 'Allow once';
+    const answer = (ok: boolean) => async () => {
+      yes.disabled = no.disabled = true;
+      try {
+        await ch?.req('cu.decide', { id: p.id, ok });
+        c.remove();
+      } catch (e) {
+        d.textContent = e instanceof Error ? e.message : String(e);
+      }
+      void aiPoll();
+    };
+    no.onclick = answer(false);
+    yes.onclick = answer(true);
+    btns.append(no, yes);
+    c.append(t, d, btns);
+    box.append(c);
+  }
+  const img = $<HTMLImageElement>('ai-thumb');
+  if (st.thumb) {
+    img.src = `data:${st.thumb.mime};base64,${st.thumb.data}`;
+    img.classList.remove('hidden');
+    $('ai-caption').textContent = st.thumb.caption;
+  } else {
+    img.classList.add('hidden');
+    $('ai-caption').textContent = st.off ? '' : 'No AI is using Keeper’s browser or a private desktop right now.';
+  }
+  const tasks = $('ai-tasks');
+  tasks.textContent = '';
+  for (const t of st.tasks ?? []) {
+    const pre = document.createElement('pre');
+    pre.className = 'plan';
+    pre.textContent = t.plan || `${t.client}: ${t.goal || 'working'} (${t.steps} steps)`;
+    tasks.append(pre);
+  }
+}
+
+void connect().then(() => void aiPoll());

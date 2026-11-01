@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Cleanup cards built from the file index: things the user made or downloaded,
 // so they are only ever moved to the Trash, one reviewable file at a time.
 

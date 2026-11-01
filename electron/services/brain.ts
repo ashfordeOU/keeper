@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Keeper's brain in the app: keeps the passage index in step with the library,
 // builds meaning vectors in the background (off the main thread, paused on
 // battery and while the person is busy), answers questions with whichever AI
@@ -306,10 +306,31 @@ export async function providerForConnection(id: string): Promise<ChatProvider> {
   return p;
 }
 
-/** Asks Keeper's assistant (for other agents, the gateway and voice assistants). */
-export async function askBrain(question: string, opts: { signal?: AbortSignal; onDelta?: (t: string) => void; history?: ChatMessage[] } = {}): Promise<HarnessResult> {
+/** Asks Keeper's assistant (for other agents, the gateway and voice assistants), with Keeper's abilities. */
+export async function askBrain(question: string, opts: { signal?: AbortSignal; onDelta?: (t: string) => void; history?: ChatMessage[]; client?: string; persona?: string; project?: string } = {}): Promise<HarnessResult> {
   if (!lb) throw new Error('Keeper is still starting');
-  return lb.ask(question, opts);
+  const extra = abilityTools?.({ client: opts.client ?? 'assistant', persona: opts.persona, project: opts.project });
+  return lb.ask(question, { signal: opts.signal, onDelta: opts.onDelta, history: opts.history, ...(extra ? { extraTools: extra } : {}) });
+}
+
+/**
+ * Abilities any AI can use through Keeper (the web, pictures, code, memory,
+ * schedules), registered by main.ts; undefined when they are switched off.
+ */
+type ExtraTools = NonNullable<import('../../core/brain/harness').HarnessEnv['extraTools']>;
+let abilityTools: ((o: { client: string; persona?: string; project?: string }) => ExtraTools | undefined) | null = null;
+export function setAbilityTools(fn: typeof abilityTools) {
+  abilityTools = fn;
+}
+
+/** Two sets of extra tools offered together, each running its own calls. */
+function mergeExtra(a: ExtraTools | undefined, b: ExtraTools | undefined): ExtraTools | undefined {
+  if (!a || !b) return a ?? b;
+  return {
+    specs: [...a.specs, ...b.specs.filter((s) => !a.specs.some((x) => x.name === s.name))],
+    run: (c) => (a.specs.some((s) => s.name === c.name) ? a.run(c) : b.run(c)),
+    instructions: [a.instructions, b.instructions].filter(Boolean).join('\n\n'),
+  };
 }
 
 /** The brain over the library, for the knowledge graph (similar files) and agents. */
@@ -345,19 +366,33 @@ export async function testConnection(id: string): Promise<{ ok: boolean; message
 
 // ---------------------------------------------------------------- asking
 
+/** Tools that let the Assistant use the computer (set by main.ts; undefined when that is switched off). */
+let computerTools: (() => import('../../core/brain/harness').HarnessEnv['extraTools'] | undefined) | null = null;
+export function setComputerTools(fn: typeof computerTools) {
+  computerTools = fn;
+}
+
 export async function ask(
   reqId: string, question: string, history: ChatMessage[] | undefined, send: (channel: string, ...args: unknown[]) => void,
+  o: { computer?: boolean; persona?: string; project?: string } = {},
 ): Promise<HarnessResult> {
   if (!lb) throw new Error('Keeper is still starting');
   const ctrl = new AbortController();
   asks.set(reqId, ctrl);
+  // Using the computer takes many small steps: more rounds than a question about files.
+  const computer = o.computer ? computerTools?.() : undefined;
+  const extra = mergeExtra(computer, abilityTools?.({ client: 'assistant', persona: o.persona, project: o.project }));
   try {
-    return await lb.ask(question, {
+    const r = await lb.ask(question, {
       signal: ctrl.signal,
       history,
       onDelta: (text) => send('brain-delta', { reqId, text }),
       onStep: (s: TraceStep) => send('brain-step', { reqId, step: s }),
+      ...(extra ? { extraTools: extra, maxRounds: computer ? 40 : 16 } : {}),
     });
+    // Screenshots stay here: the conversation that goes back to the window (and on to follow-ups) keeps a note instead.
+    if (r.messages?.some((m) => m.images?.length)) r.messages = r.messages.map((m) => (m.images?.length ? { ...m, images: undefined, content: `${m.content}\n[screenshot]` } : m));
+    return r;
   } finally {
     asks.delete(reqId);
   }
@@ -395,10 +430,21 @@ const sameToken = (t: string) => {
   return a.length === b.length && timingSafeEqual(a, b);
 };
 
-const extraMethods = new Map<string, (params: Record<string, unknown>) => Promise<unknown> | unknown>();
+const extraMethods = new Map<string, (params: Record<string, unknown>, notify: (method: string, params: unknown) => void) => Promise<unknown> | unknown>();
+
+/** Maps an agent's hub token (and terminal) to who it is; set by the agent hub. */
+let agentResolver: ((token?: string, session?: string) => string | undefined) | null = null;
+export function setAgentResolver(fn: typeof agentResolver) {
+  agentResolver = fn;
+}
 
 /** Lets other parts of Keeper answer the keeper command through the same socket (e.g. "keeper/sync.status"). */
 export function registerKeeperMethod(method: string, fn: (params: Record<string, unknown>) => Promise<unknown> | unknown) {
+  extraMethods.set(method, fn);
+}
+
+/** Like registerKeeperMethod, for long-running calls that send notifications back to the caller (e.g. the browser extension's link). */
+export function registerKeeperStream(method: string, fn: (params: Record<string, unknown>, notify: (method: string, params: unknown) => void) => Promise<unknown> | unknown) {
   extraMethods.set(method, fn);
 }
 
@@ -410,7 +456,7 @@ async function keeperMethod(m: JsonRpcRequest, notify: (method: string, params: 
     if (m.method === 'keeper/status') return { jsonrpc: '2.0', id, result: status() };
     if (m.method === 'keeper/search') return { jsonrpc: '2.0', id, result: await search(String(p.query ?? ''), { limit: Number(p.limit) || 20, mode: p.mode as 'hybrid' }) };
     const extra = extraMethods.get(m.method);
-    if (extra) return { jsonrpc: '2.0', id, result: await extra(p) };
+    if (extra) return { jsonrpc: '2.0', id, result: await extra(p, notify) };
     if (m.method === 'keeper/ask') {
       const r = await lb!.ask(String(p.question ?? ''), { onDelta: (text) => notify('keeper/delta', { text }), onStep: (s) => notify('keeper/step', s) });
       return { jsonrpc: '2.0', id, result: { answer: r.answer, sources: r.sources, actions: r.actions, provider: r.provider, model: r.model } };
@@ -445,7 +491,14 @@ async function startSocket() {
         let msg: JsonRpcRequest & { token?: string };
         try { msg = JSON.parse(line); } catch { write({ jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } }); continue; }
         if (!authed) {
-          if (typeof msg.token === 'string' && sameToken(msg.token)) { authed = true; server = mcpServer(); write({ ok: true }); }
+          if (typeof msg.token === 'string' && sameToken(msg.token)) {
+            authed = true;
+            server = mcpServer();
+            // An agent Keeper started presents its hub token (from its environment), and the terminal it runs in.
+            const m = msg as { agent?: unknown; session?: unknown };
+            server.agent = agentResolver?.(typeof m.agent === 'string' ? m.agent : undefined, typeof m.session === 'string' ? m.session : undefined);
+            write({ ok: true });
+          }
           else { conn.end(JSON.stringify({ ok: false, error: 'Not allowed' }) + '\n'); return; }
           continue;
         }

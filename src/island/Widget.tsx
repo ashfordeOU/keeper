@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // A desktop widget. The same body draws inside its own small window and as a
 // live preview on the Widgets page.
 

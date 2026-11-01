@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Usage (Linux CI): xvfb-run -a node test/e2e/places.cjs /tmp/kp /tmp/kp-shots
 // Drives the real Keeper app with a made-up home folder: a Dropbox folder, a
 // deleted file in the freedesktop Trash. Checks Places, the sidebar and Put Back.

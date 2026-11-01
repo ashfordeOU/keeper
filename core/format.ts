@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Human-friendly numbers and dates, shared by the interface and the CLI.
 
 export const KB = 1024;

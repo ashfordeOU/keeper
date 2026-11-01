@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Keeper's terminal, main-process side: finds the shells, starts (or finds) the
 // session host, opens terminals for profiles, passes typing and output between
 // windows and the host, watches output for triggers, and runs the web tools.
@@ -9,6 +9,7 @@ import { existsSync, promises as fsp, readdirSync, readFileSync } from 'node:fs'
 import os from 'node:os';
 import path from 'node:path';
 import { parseCombo } from '../../../core/terminal/keys';
+import { parseDotEnv } from '../../../core/terminal/assist';
 import { normalizeTerminalSettings, resolveLaunch, quotePath } from '../../../core/terminal/profiles';
 import { socketPath, type HostMsg } from '../../../core/terminal/protocol';
 import { parseWhere, shellKindOf, unixShells, windowsShells } from '../../../core/terminal/shells';
@@ -35,6 +36,11 @@ const DEV_URL = process.env.VITE_DEV_SERVER_URL;
 let deps: TerminalDeps;
 let settingsCache: TerminalSettings | null = null;
 let client: HostClient | null = null;
+
+/** The terminal session host's process, for the Processes page (it keeps terminals running when Keeper's windows close). */
+export function terminalHostPid(): number | undefined {
+  return client?.hostPid;
+}
 let connecting: Promise<HostClient> | null = null;
 let shellsCache: ShellInfo[] | null = null;
 /** which windows show which terminal, and in how many panes (a terminal can be mirrored) */
@@ -189,7 +195,48 @@ async function connect(): Promise<HostClient> {
   return connecting;
 }
 
+/** Profiles that ask for it get the starting folder's .env variables (never overriding what the profile sets). */
+async function addDotEnv(profile: TerminalProfile, launch: { cwd: string; env: Record<string, string> }) {
+  if (!profile.loadDotEnv) return;
+  try {
+    const vars = parseDotEnv(await fsp.readFile(path.join(launch.cwd, '.env'), 'utf8'), launch.env);
+    for (const [k, v] of Object.entries(vars)) if (!(k in (profile.env ?? {}))) launch.env[k] = v;
+  } catch {
+    /* no .env here */
+  }
+}
+
+// Agent terminals (services/terminal/agents.ts) see the host's messages too.
+let hostTap: ((m: HostMsg) => void) | null = null;
+export function setHostTap(fn: typeof hostTap) {
+  hostTap = fn;
+}
+
+/** The connected session host (started if needed). */
+export function hostClient(): Promise<HostClient> {
+  return connect();
+}
+
+/** How an agent terminal starts: a profile (the default one unless named), its folder and the agent's variables. */
+export async function agentLaunch(req: { profileId?: string; cwd?: string; env: Record<string, string>; title: string; group?: string; cols: number; rows: number }) {
+  const s = terminalSettings();
+  const profile = s.profiles.find((p) => p.id === (req.profileId ?? s.defaultProfile)) ?? s.profiles[0];
+  const launch = resolveLaunch(profile, { platform: process.platform, env: process.env, home: os.homedir(), dataDir: dataDir(), shells: detectShells(), sessionId: 'pending' }, req.cwd);
+  if (launch.configDir) await fsp.mkdir(launch.configDir, { recursive: true });
+  // No start-up command for agents: their first command must find a plain prompt.
+  launch.startup = undefined;
+  await addDotEnv(profile, launch);
+  Object.assign(launch.env, req.env);
+  if (req.group) {
+    launch.env.KEEPER_SHARED_DIR = await sharedDir(req.group);
+    launch.env.KEEPER_GROUP = req.group;
+  }
+  const spec: SessionSpec = { profile, cols: req.cols, rows: req.rows, cwd: req.cwd, title: req.title, group: req.group };
+  return { spec, launch, scrollback: profile.scrollback ?? s.scrollback, shellKind: shellKindOf(launch.file) };
+}
+
 function onHostMessage(m: HostMsg) {
+  hostTap?.(m);
   if (m.t === 'sessions') {
     broadcastAll('term-sessions', m.sessions);
     return;
@@ -258,6 +305,7 @@ export async function createSession(req: CreateRequest): Promise<SessionInfo> {
     platform: process.platform, env: process.env, home: os.homedir(), dataDir: dataDir(), shells: detectShells(), sessionId: 'pending',
   }, cwd);
   if (launch.configDir) await fsp.mkdir(launch.configDir, { recursive: true });
+  await addDotEnv(profile, launch);
   if (req.group) {
     // Terminals in a group share a folder (and its notes file) that programs inside can read and write.
     launch.env.KEEPER_SHARED_DIR = await sharedDir(req.group);
@@ -412,6 +460,20 @@ export function webToolCommand(id: 'editor' | 'notebook', folder: string, token:
     return `jupyter ${lab ? 'lab' : 'notebook'} --no-browser --ip=127.0.0.1 --port=0 --IdentityProvider.token=${token} --notebook-dir=${q(folder)}${root}`;
   }
   return undefined;
+}
+
+/** Opens file:line from terminal output in the person's editor (Settings → editor command), or with its usual app. */
+export async function openAt(file: string, line: number, col = 1, cwd?: string): Promise<void> {
+  const full = path.isAbsolute(file) ? file : path.resolve(cwd ?? os.homedir(), file.replace(/^~(?=[/\\])/, os.homedir()));
+  if (!existsSync(full)) throw new Error(`Not found: ${full}`);
+  const tpl = terminalSettings().editorCommand?.trim();
+  if (!tpl) {
+    await shell.openPath(full);
+    return;
+  }
+  const q = quotePath(full, process.platform === 'win32' ? 'cmd' : 'posix');
+  const cmd = tpl.replace(/\{file\}/g, q).replace(/\{line\}/g, String(line)).replace(/\{col\}/g, String(col));
+  spawn(cmd, { shell: true, detached: true, stdio: 'ignore', cwd: path.dirname(full), windowsHide: true }).unref();
 }
 
 export async function openWith(command: string, folder: string): Promise<void> {

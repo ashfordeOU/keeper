@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Reading WebDAV PROPFIND answers (Nextcloud, ownCloud, home servers, NAS
 // boxes, Apache, nginx…) without an XML library: namespaces vary by server,
 // so elements are matched by their local name.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // AI agents that run in a terminal, and how Keeper starts them: in a chosen
 // folder, with Keeper's MCP server attached, and — for people with more than
 // one account — with a separate settings folder per profile so each stays

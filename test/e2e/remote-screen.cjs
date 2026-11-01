@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Usage (Linux): xvfb-run -a -s "-screen 0 1600x900x24" node test/e2e/remote-screen.cjs /tmp/kscreen /tmp/kscreen-shots
 // Two real Keeper apps on one computer (separate homes), paired over Keeper Link.
 // The laptop asks to control the desk's screen; the desk is asked and allows it;

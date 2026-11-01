@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Mirroring: the same files, as ordinary files, in a folder here and a folder
 // on a cloud service or drive — so they also show in the service's own app or
 // web page. One way (this computer → there, or there → here) or both ways.

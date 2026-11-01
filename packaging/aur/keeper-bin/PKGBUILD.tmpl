@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 # Maintainer: Ashforde OÜ <contact@ashforde.org>
 # Rendered by scripts/render-packaging.mjs and pushed to https://aur.archlinux.org/packages/keeper-bin
 pkgname=keeper-bin
@@ -7,7 +7,7 @@ pkgrel=1
 pkgdesc='Find, understand and tidy your files'
 arch=('x86_64' 'aarch64')
 url='https://github.com/ashfordeOU/keeper'
-license=('AGPL-3.0-or-later')
+license=('LicenseRef-PolyForm-Shield-1.0.0')
 depends=('gtk3' 'libnotify' 'nss' 'libxss' 'libxtst' 'xdg-utils' 'at-spi2-core' 'util-linux-libs' 'libsecret' 'alsa-lib')
 optdepends=('playerctl: now playing in the Island'
             'xdotool: paste dictated text on X11'
@@ -33,5 +33,7 @@ ELECTRON_RUN_AS_NODE=1 exec /opt/Keeper/keeper /opt/Keeper/resources/app.asar/di
 SH
   chmod 755 "${pkgdir}/usr/bin/keeper"
   chmod 4755 "${pkgdir}/opt/Keeper/chrome-sandbox"
+  install -Dm644 "${pkgdir}/opt/Keeper/resources/LICENSE.md" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE.md"
+  install -Dm644 "${pkgdir}/opt/Keeper/resources/THIRD-PARTY-NOTICES.md" "${pkgdir}/usr/share/licenses/${pkgname}/THIRD-PARTY-NOTICES.md"
   install -Dm644 "${pkgdir}/opt/Keeper/LICENSE.electron.txt" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE.electron.txt"
 }

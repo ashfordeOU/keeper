@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // End-to-end check of Keeper's Terminal in the real app (Linux, under xvfb):
 //   xvfb-run -a node test/e2e/terminal.cjs <empty home dir> [screenshot dir]
 // Opens the Terminal, runs commands, splits, uses a separate-sign-in profile,

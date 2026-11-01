@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Mail, calendars, reminders, alarms and contacts in Keeper. Each part is a
 // feature that can be switched off; when off, nothing connects, nothing is
 // checked and nothing waits. Mail arrives through IMAP IDLE (the server says

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Pairing two devices for the first time.
 //
 // The device being added to ("host") shows either a 6-digit code, or a QR code

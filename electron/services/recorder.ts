@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Screen recording: the whole screen, one window or an area, with optional
 // microphone and system sound. A hidden page records with the browser's
 // MediaRecorder and streams chunks here; when it stops, ffmpeg (bundled)

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // How two paired devices find each other over the internet with no server of
 // their own: each leaves a short note ("you can reach me at …") on a topic of
 // a public push service that speaks the ntfy HTTP API (ntfy.sh, or a

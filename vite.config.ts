@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 

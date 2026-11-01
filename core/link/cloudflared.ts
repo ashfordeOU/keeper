@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Cloudflare Tunnel (cloudflared) for reaching this device from anywhere:
 // which binary to fetch and check, how to start it, how to read its output,
 // and how long to wait before restarting it. The supervisor that runs it is

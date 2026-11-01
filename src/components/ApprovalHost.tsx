@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // When an agent asks to do something that needs the person's yes (move files,
 // send to the Trash, quit a program…), Keeper shows who wants to do what.
 // Nothing happens until they answer; no answer within two minutes means no.
@@ -34,7 +34,10 @@ export function ApprovalHost() {
             <div className="approval-text"><b>{a.client}</b> wants to {a.description}.</div>
           </div>
         </div>
-        {a.destructive ? <div className="small approval-warn"><Icon name="warning" size={13} /> This can lose work. Files only go to the Trash, but a program that quits loses what it had not saved.</div> : null}
+        {a.action === 'computer' ? (
+          <div className="small approval-warn"><Icon name="warning" size={13} /> It will act as you in whatever is on screen. Password managers, keychains and terminals stay off limits, passwords are never typed, and the Island shows it while it works.</div>
+        ) : a.action === 'terminal' && a.destructive ? <div className="small approval-warn"><Icon name="warning" size={13} /> A terminal command runs as you; what it deletes or changes does not go to the Trash and cannot be undone by Keeper.</div>
+        : a.destructive ? <div className="small approval-warn"><Icon name="warning" size={13} /> This can lose work. Files only go to the Trash, but a program that quits loses what it had not saved.</div> : null}
         <div className="btn-row" style={{ justifyContent: 'flex-end', marginTop: 14 }}>
           <button className="btn" onClick={() => decide('deny')} autoFocus>Don't allow</button>
           <button className="btn" onClick={() => decide('always')} title="Allow this kind of action from now on (change it under Agents → What agents may do)">Always allow</button>

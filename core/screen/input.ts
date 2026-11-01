@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Turning what the viewer does into what the host's operating system needs:
 // where on which screen (in the units each OS's input API uses), which key
 // (each OS numbers keys differently), and the special combinations a viewer

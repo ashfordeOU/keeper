@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Finds other machines on the local network (home servers, NAS boxes, Macs,
 // Windows PCs, Linux computers), says what each one is and how best to open
 // its files, and lists the folders it shares, including external drives

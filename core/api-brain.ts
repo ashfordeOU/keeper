@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // What the interface can ask of Keeper's brain.
 
 import type { BrainHit, BrainStatus } from './brain-contract';
@@ -42,7 +42,8 @@ export interface BrainApi {
   status(): Promise<BrainStatus>;
   search(query: string, opts?: { limit?: number; mode?: 'hybrid' | 'words' | 'meaning' }): Promise<BrainHit[]>;
   /** answers with the active AI; deltas and steps arrive as 'brain-delta' / 'brain-step' events with the same reqId */
-  ask(reqId: string, question: string, history?: ChatMessage[]): Promise<AskResult>;
+  /** `computer`: the AI may also use this computer (screen, pointer, keyboard), within the person's rules */
+  ask(reqId: string, question: string, history?: ChatMessage[], o?: { computer?: boolean; persona?: string; project?: string }): Promise<AskResult>;
   cancel(reqId: string): Promise<void>;
   setSemantic(on: boolean): Promise<BrainStatus>;
   removeModel(): Promise<BrainStatus>;

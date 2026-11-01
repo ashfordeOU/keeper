@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The Space Map's bubble view: circles sized by folder size, packed into a
 // box, with a tiny physics step so bubbles can be dragged, thrown and bump.
 

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // PDF passwords without outside tools.
 //
 // Locking uses the modern standard (AES-256, revision 6), which every current
@@ -133,10 +133,32 @@ function transformAll(doc: PDFDocument, encryptRef: PDFRef | undefined, fn: Tran
 // ---------------------------------------------------------------- locking
 
 /**
- * Encrypts a PDF with AES-256. `ownerPassword` defaults to the user password;
- * all permissions are granted to whoever has the password.
+ * Encrypts a PDF with AES-256. `ownerPassword` defaults to the user password.
+ * `permissions` limits printing, copying and changes for people who open it
+ * with the user password (give a different owner password for that to hold).
  */
-export async function encryptPdf(bytes: Uint8Array, userPassword: string, ownerPassword = userPassword): Promise<Uint8Array> {
+export interface PdfPermissions { print?: boolean; copy?: boolean; edit?: boolean }
+
+/**
+ * The /P value (a signed 32-bit number) for what someone who opens the file
+ * with the user password may do. Bits as in ISO 32000-2 table 22: 3 print,
+ * 12 high-quality print, 5 copy, 4/6/9/11 change, annotate, fill forms,
+ * assemble; bit 10 (accessibility) always stays on.
+ */
+export function permissionBits(p: PdfPermissions = {}): number {
+  let bits = 0xfffffffc;
+  if (p.print === false) bits &= ~(4 | 2048);
+  if (p.copy === false) bits &= ~16;
+  if (p.edit === false) bits &= ~(8 | 32 | 256 | 1024);
+  return bits | 0;
+}
+
+/** What a /P value allows, for showing and for tests. */
+export function readPermissions(P: number): Required<PdfPermissions> {
+  return { print: !!(P & 4), copy: !!(P & 16), edit: !!(P & 8) };
+}
+
+export async function encryptPdf(bytes: Uint8Array, userPassword: string, ownerPassword = userPassword, permissions: PdfPermissions = {}): Promise<Uint8Array> {
   if (!userPassword) throw new Error('Type the password');
   const doc = await PDFDocument.load(bytes, { updateMetadata: false });
   if (doc.isEncrypted) throw new Error('This PDF already has a password');
@@ -154,7 +176,7 @@ export async function encryptPdf(bytes: Uint8Array, userPassword: string, ownerP
   const oks = randomBytes(8);
   const O = Buffer.concat([hashR6(op, ovs, U), ovs, oks]);
   const OE = aesCbcNoPad(hashR6(op, oks, U), Buffer.alloc(16), fileKey);
-  const P = -4;
+  const P = permissionBits(permissions);
   const perms = Buffer.alloc(16);
   perms.writeInt32LE(P, 0);
   perms.writeUInt32LE(0xffffffff, 4);

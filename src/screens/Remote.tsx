@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Browsing a connection: a cloud service, a server, a home server or another
 // computer. Pictures get thumbnails as they scroll into view; opening a file
 // fetches it once and keeps a copy for next time; saving it in its app sends

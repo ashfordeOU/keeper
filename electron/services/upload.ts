@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // "Upload & share" for shelves: sends files to the user's own WebDAV server or
 // S3-compatible bucket and returns a link. Nothing goes to a Keeper server.
 

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Is the app in front in full screen? Asked every few seconds by the Island
 // (it hides during full-screen video and presentations). Starting a program for
 // every question costs far more than the answer, so one small helper keeps

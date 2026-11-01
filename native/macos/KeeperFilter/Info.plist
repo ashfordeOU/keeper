@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleIdentifier</key><string>org.ashforde.keeper.filter</string>
+  <key>CFBundleName</key><string>Keeper Network Filter</string>
+  <key>CFBundlePackageType</key><string>SYSX</string>
+  <key>NSSystemExtensionUsageDescription</key><string>Keeper checks each new network connection against your firewall rules.</string>
+  <key>NetworkExtension</key>
+  <dict>
+    <key>NEMachServiceName</key><string>$(TeamIdentifierPrefix)org.ashforde.keeper.filter</string>
+    <key>NEProviderClasses</key>
+    <dict><key>com.apple.networkextension.filter-data</key><string>$(PRODUCT_MODULE_NAME).FilterDataProvider</string></dict>
+  </dict>
+</dict>
+</plist>

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Keeper's own use of the computer, for Settings → Keeper's own usage.
 
 import type { ResourceMode, WorkKind } from './governor';
@@ -14,7 +14,7 @@ export interface KeeperUsage {
   /** background work, what it is doing and why it waits */
   tasks: { id: string; label: string; kind: WorkKind; state: 'working' | 'waiting' | 'idle'; detail?: string; pending?: number }[];
   /** regular checks and how often they look right now (null = paused) */
-  checks: { name: string; everyMs: number | null; runs: number }[];
+  checks: { name: string; everyMs: number | null; runs: number; /** the features that own it */ features?: string[] }[];
 }
 
 export interface UsageApi {

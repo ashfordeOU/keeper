@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Helpers shared by every viewer: file addresses, loading bytes, and the
 // sanitizer that keeps documents from running code or calling home.
 

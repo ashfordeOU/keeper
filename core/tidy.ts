@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // "Tidy this folder": sort the loose files of one folder into sub-folders by
 // kind, by month or by extension. Folders that are already there stay put.
 

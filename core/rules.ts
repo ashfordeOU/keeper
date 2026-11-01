@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Automatic tidy-up rules. Every rule is off until the user turns it on, can be
 // previewed as a dry run, only moves files or sends them to the Trash, and is
 // recorded in the history so it can be undone.

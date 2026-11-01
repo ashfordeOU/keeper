@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Home: how full the disk is, what is on each shelf, and what arrived lately.
 
 import { KIND_LABEL } from '../../core/classify';

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Sync over Keeper Link: each sync channel is one Link stream (end-to-end
 // encrypted, on whatever path Link chose), carrying length-prefixed messages.
 // Only devices whose Link permissions include "sync" can open one.

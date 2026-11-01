@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Network: servers announcing themselves nearby, shares already connected
 // (with eject), and Connect to Server with remembered addresses.
 

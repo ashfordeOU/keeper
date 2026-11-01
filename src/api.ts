@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The bridge to the main process. In the browser demo (`npm run demo`) there is
 // no main process, so a fake with sample data stands in and nothing touches the disk.
 

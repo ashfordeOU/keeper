@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 import { describe, expect, it } from 'vitest';
 import { parseQuery, queryToText, removeChip } from '../core/query/parse';
 import { DAY, NOW } from './helpers';

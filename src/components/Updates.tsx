@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // App updates in the interface: the Settings panel (how updates happen, check
 // now, release notes), a banner when a new version is out, and "What's new"
 // once after Keeper has been updated.

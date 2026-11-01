@@ -1,9 +1,10 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // AI agents: connect any agent or AI app to Keeper, start agents in a folder
 // with their own accounts, choose what they may do, add AI services and see
 // what they cost, write skills, serve other tools through the model gateway,
 // and (if wanted) let Keeper learn habits privately and suggest automations.
 
+import { AbilitiesPanel, MemoryPanel, PersonasPanel, SchedulesPanel, TeamsPanel } from '../components/AbilitiesPanels';
 import { useEffect, useMemo, useState } from 'react';
 import type { ActionInfo, AuditItem, GatewayInfo, SkillInfo } from '../../core/api-agents';
 import type { McpAppInfo } from '../../core/api-brain';
@@ -14,11 +15,13 @@ import { relativeTime } from '../../core/format';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
 import { Empty, Modal, PageHead, Toggle } from '../components/ui';
+import { AuditShot, ComputerUsePanel } from '../components/ComputerUse';
+import { BrowserAgentPanel } from '../components/BrowserAgent';
 import { useAsync, useStore } from '../state';
 import '../styles/agents.css';
 
-type Tab = 'connect' | 'services' | 'permissions' | 'skills' | 'gateway' | 'learning';
-const TABS: [Tab, string][] = [['connect', 'Agents & apps'], ['services', 'AI services'], ['permissions', 'What agents may do'], ['skills', 'Skills'], ['gateway', 'Gateway'], ['learning', 'Learning']];
+type Tab = 'connect' | 'services' | 'abilities' | 'teams' | 'schedules' | 'personas' | 'memory' | 'permissions' | 'skills' | 'gateway' | 'learning';
+const TABS: [Tab, string][] = [['connect', 'Agents & apps'], ['services', 'AI services'], ['abilities', 'Abilities'], ['teams', 'Teams'], ['schedules', 'Schedules'], ['personas', 'Personas & projects'], ['memory', 'Memory'], ['permissions', 'What agents may do'], ['skills', 'Skills'], ['gateway', 'Gateway'], ['learning', 'Learning']];
 
 /** A draft skill handed over from the Assistant ("Save as skill"). */
 let pendingDraft: string | null = null;
@@ -43,7 +46,7 @@ export function Agents() {
       <div className="seg agents-tabs">
         {TABS.map(([t, label]) => <button key={t} className={tab === t ? 'on' : ''} onClick={() => go({ name: 'agents', arg: t })}>{label}</button>)}
       </div>
-      {tab === 'connect' ? <Connect /> : tab === 'services' ? <Services /> : tab === 'permissions' ? <Permissions /> : tab === 'skills' ? <Skills /> : tab === 'gateway' ? <Gateway /> : <Learning />}
+      {tab === 'connect' ? <Connect /> : tab === 'services' ? <Services /> : tab === 'abilities' ? <AbilitiesPanel /> : tab === 'teams' ? <TeamsPanel /> : tab === 'schedules' ? <SchedulesPanel /> : tab === 'personas' ? <PersonasPanel /> : tab === 'memory' ? <MemoryPanel /> : tab === 'permissions' ? <Permissions /> : tab === 'skills' ? <Skills /> : tab === 'gateway' ? <Gateway /> : <Learning />}
     </div>
   );
 }
@@ -262,12 +265,15 @@ function Permissions() {
           ))}
         </div>
       ))}
+      <ComputerUsePanel />
+      <BrowserAgentPanel />
       <h2 style={{ marginTop: 22 }}>What agents did</h2>
       <div className="card">
         {(audit.data ?? []).length ? (audit.data ?? []).slice(0, 60).map((e: AuditItem, i) => (
           <div key={i} className="row audit-row">
             <span className={`dot ${e.status}`} />
-            <div className="grow"><b>{e.client}</b> {e.status === 'done' ? '' : e.status === 'denied' ? 'was declined: ' : e.status === 'off' ? 'was not allowed to ' : 'failed to '}{e.description}{e.detail && e.status === 'error' ? <span className="small muted"> — {e.detail}</span> : null}</div>
+            <div className="grow"><b>{e.client}</b> {e.status === 'done' ? '' : e.status === 'denied' ? 'was declined: ' : e.status === 'refused' ? 'was refused: ' : e.status === 'off' ? 'was not allowed to ' : 'failed to '}{e.description}{e.detail && (e.status === 'error' || e.status === 'refused') ? <span className="small muted"> — {e.detail}</span> : null}</div>
+            {e.shot ? <AuditShot file={e.shot} /> : null}
             <span className="small muted">{relativeTime(e.at)}</span>
           </div>
         )) : <div className="small muted">Nothing yet.</div>}

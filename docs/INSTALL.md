@@ -256,7 +256,7 @@ A release is a pushed tag such as `v0.2.0` (see [`.github/workflows/release.yml`
 - **macOS.** Gatekeeper accepts only an Apple Developer ID certificate ($99 a year) plus notarization. Without one, builds are ad-hoc signed, which is enough for Apple silicon to run them once the user allows it.
   - When `CSC_LINK` is set, the workflow builds with [`packaging/electron-builder.signed.cjs`](../packaging/electron-builder.signed.cjs). That turns on the hardened runtime with [`build/entitlements.mac.plist`](../build/entitlements.mac.plist), and notarizes when the Apple ID secrets are present too.
 - **Windows.** SmartScreen trusts only certificates from recognised authorities. Three options:
-  - [SignPath Foundation](https://signpath.org) signs open-source projects for free after an application.
+  - [SignPath](https://signpath.io) on a paid plan. Its free foundation programme is only for projects under an OSI-approved licence, which Keeper no longer has.
   - Azure Trusted Signing costs a few dollars a month but needs an organisation with three years of history.
   - A standard OV certificate also works.
 

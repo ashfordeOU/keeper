@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Reaching a port on another device through the encrypted link, as if it
 // were on this one: localhost:3000 here goes to localhost:3000 there. A SOCKS5
 // proxy does the same for any address the other device may reach (its own

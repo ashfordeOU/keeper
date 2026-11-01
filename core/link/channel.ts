@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // An end-to-end encrypted channel between two Keeper devices that already
 // trust each other, over any carrier (the local network, a relay, a tunnel,
 // WebRTC). The carrier only ever sees ciphertext.

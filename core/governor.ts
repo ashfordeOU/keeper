@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // When Keeper may do background work, and how often it may look at things.
 // Pure decisions, so they can be tested; electron/services/governor.ts feeds
 // them the computer's state (battery, idle time, locked screen, heat, Keeper's

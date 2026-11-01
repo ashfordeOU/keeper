@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Installing the named tunnel as a system service, so it keeps running when
 // Keeper is closed and starts with the computer. Needs an administrator, so
 // the system's own password prompt is shown (pkexec, the macOS administrator

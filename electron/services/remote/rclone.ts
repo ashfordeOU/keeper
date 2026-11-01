@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Cloud storage through rclone (MIT licence, bundled with Keeper): Google
 // Drive, OneDrive, Dropbox, Box, pCloud, MEGA, S3 and compatible stores and
 // about seventy more. rclone runs only while it is needed, answers only on

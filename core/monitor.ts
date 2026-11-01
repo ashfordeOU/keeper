@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // System health history: a 24-hour ring of one-minute samples, "what used the
 // most today", and alert rules for apps that misbehave.
 

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Signing in to Google and Microsoft with OAuth 2.0 for installed apps:
 // authorization code with PKCE (RFC 7636) and a loopback redirect
 // (RFC 8252). No client secret is needed by Microsoft; Google issues one for

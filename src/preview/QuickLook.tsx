@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Quick Look: press Space on any file for a full-window preview. Arrow keys
 // move through the list, files inside archives open in place, two files can
 // be compared side by side, and images can play as a slideshow.

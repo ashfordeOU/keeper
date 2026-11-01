@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Remote screens for the browser demo: a recent session in the log, an Android
 // phone on USB, nothing that leaves the page.
 

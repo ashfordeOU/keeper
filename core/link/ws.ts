@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // A small WebSocket server (RFC 6455) for Keeper's link endpoint and relay,
 // with no dependencies, and a client built on the platform's own WebSocket.
 // Both are exposed as a Wire. Binary messages only; text is accepted for the

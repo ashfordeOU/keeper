@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // A small XML reader for WebDAV/CalDAV answers and mail autoconfig files.
 // Namespaces are resolved, so `d:href` and `D:href` both become
 // `{DAV:}href`; text is unescaped. Not a validating parser.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The `keeper` command talking to the running app over its private channel
 // (a socket only this user can open, plus a token), or — when the app is
 // closed — loading the saved library and brain itself, read-only.
@@ -52,7 +52,8 @@ export async function connectToApp(dataDir = keeperDataDir()): Promise<AppConnec
   const ok = await new Promise<boolean>((resolve) => {
     const h = (line: string) => { lineHandlers.delete(h); try { resolve(!!JSON.parse(line).ok); } catch { resolve(false); } };
     lineHandlers.add(h);
-    sock.write(JSON.stringify({ token: ep.token }) + '\n');
+    // Agents Keeper started carry a hub token and their terminal's id in the environment.
+    sock.write(JSON.stringify({ token: ep.token, agent: process.env.KEEPER_AGENT_TOKEN, session: process.env.KEEPER_SESSION }) + '\n');
     sock.once('close', () => resolve(false));
   });
   if (!ok) { sock.destroy(); return null; }

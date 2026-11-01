@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Starts a throwaway Dovecot IMAP server (if Dovecot is installed) for the
 // mail tests: one user "ana" with password "secret", plain IMAP on 127.0.0.1.
 const { spawn, execFileSync } = require('child_process');

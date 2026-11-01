@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Keeper inside the operating system: what each platform offers, and the pure
 // pieces (escaping, message shapes, line protocol) the integrations are built
 // from. Nothing here touches the system; electron/services/platform does.
@@ -325,16 +325,19 @@ export function searchInFromArgv(argv: string[]): string | undefined {
 /** A manifest for the Windows on-device agent registry describing Keeper's MCP server. */
 export function odrManifest(command: string, args: string[], version: string) {
   return {
-    manifest_version: '0.1',
+    // MCP bundle manifest (github.com/modelcontextprotocol/mcpb), version 0.3.
+    manifest_version: '0.3',
     name: 'keeper',
     display_name: BRAND,
     version,
     description: 'Search, read and understand the files on this PC with Keeper’s on-device index.',
     author: { name: COMPANY },
-    server: { type: 'binary', entry_point: command, mcp_config: { command, args } },
+    server: { type: 'binary', entry_point: command, mcp_config: { command, args, env: {} } },
     tools: [
       { name: 'search_files', description: 'Find files by name, content, kind, date or source' },
       { name: 'read_file', description: 'Read the text of a file in the library' },
+      { name: 'ask_keeper', description: 'Ask about the files with the AI chosen in Keeper' },
+      { name: 'computer', description: 'Use this PC (screen, pointer, keyboard) when the person allows it in Keeper' },
     ],
   };
 }
@@ -370,7 +373,7 @@ export function krunnerDesktopFile(): string {
     `X-KDE-PluginInfo-Author=${COMPANY}`,
     'X-KDE-PluginInfo-Name=keeper',
     'X-KDE-PluginInfo-Version=1.0',
-    'X-KDE-PluginInfo-License=AGPL-3.0-or-later',
+    'X-KDE-PluginInfo-License=LicenseRef-PolyForm-Shield-1.0.0',
     'X-KDE-PluginInfo-EnabledByDefault=true',
     'X-Plasma-API=DBus',
     `X-Plasma-DBusRunner-Service=${KRUNNER_BUS_NAME}`,

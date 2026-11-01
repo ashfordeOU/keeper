@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Where each kind of rebuildable clutter lives, per operating system.
 // A `*` segment matches every sub-folder (browser profiles, Firefox profiles, ...).
 

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The Island window: a pill at the top of the screen that opens into a small
 // panel with music, shelf, clipboard, agents, focus timer and calendar.
 
@@ -11,12 +11,16 @@ import type { LyricLine } from '../../core/island';
 import { describeCode } from '../../core/weather';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
-import { CameraTab, ClipboardTab, ControlsTab, ShelfTab } from './IslandTabs';
+import { ClipboardTab, ControlsTab, ShelfTab } from './IslandTabs';
+import { AskTool, CalendarTool, ConvertTool, EmojiTool, FocusExtras, MirrorTool, NotesTool, SalesTool, ShortcutsTool, StocksTool, SystemTool, TodosTool, UsageTool, WeatherTool, useFocusSound, useToolsStore } from './tools/IslandTools';
+import { TeleprompterTool } from './tools/Teleprompter';
+import { ISLAND_TOOLS, moveTool, orderedTools, toggleTool, type IslandToolId } from '../../core/island-tools/tools';
 import { Leading, LiveCard, PrivacyDots, Trailing, useActivities, useGestures, useLayout } from './Activities';
+import { useFeatureStates } from '../features';
 import { useStore } from '../state';
 import '../styles/island.css';
 
-type Tab = 'home' | 'shelf' | 'clipboard' | 'agents' | 'focus' | 'calendar' | 'controls' | 'camera';
+type Tab = IslandToolId;
 type Mood = 'calm' | 'happy' | 'listening' | 'thinking' | 'needs' | 'done' | 'napping' | 'broken' | 'recording' | 'sleeping';
 
 function lineAt(lines: LyricLine[], t: number): number {
@@ -38,8 +42,12 @@ function mmss(ms: number): string {
 const timeOf = (t: number) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
 export function Island() {
-  const { settings } = useStore();
+  const { settings, updateSettings } = useStore();
   const isl = settings?.island;
+  const [tools, saveTools] = useToolsStore();
+  const featureStates = useFeatureStates();
+  const [tabMenu, setTabMenu] = useState<{ id: Tab; x: number } | null>(null);
+  const hoverTimer = useRef<number | undefined>(undefined);
   const tr = (key: string) => translate(resolveLanguage(settings?.language), key);
   const [state, setState] = useState<IslandState | null>(null);
   // compact: the pill; live: one activity's card; panel: everything (tabs)
@@ -144,7 +152,7 @@ export function Island() {
 
   // The shelf shortcut (and the tray) open a tab directly.
   useEffect(() => api.on('island-open', (t: string) => {
-    setTab(t as Tab);
+    setTab((ISLAND_TOOLS.some((x) => x.id === t) ? t : 'home') as Tab);
     show('panel');
   }), []);
 
@@ -159,6 +167,8 @@ export function Island() {
   }, []);
 
   const acts = useActivities(state, now, listening, isl?.activitiesOff ?? []);
+  // Focus sounds play only while a focus session is running (not during breaks or pauses).
+  useFocusSound(isl?.focusSound, !!state && state.focus.mode === 'focus' && state.focus.pausedLeft === undefined, isl?.focusVolume ?? 0.4);
   const gestures = useGestures({
     tap: () => (acts.pres.primary ? show('live', acts.pres.primary.id) : show('panel')),
     hold: () => (acts.pres.primary ? show('live', acts.pres.primary.id) : show('panel')),
@@ -215,7 +225,7 @@ export function Island() {
   else if (focusLeft) liveText = <>{state.focus.mode === 'break' ? 'Break' : 'Focus'} · <b className="num">{mmss(focusLeft)}</b></>;
   else if (np) liveText = <>{np.playing ? '♪' : '❚❚'} {np.title} — <span className="muted">{np.artist}</span></>;
   else if (working) liveText = <><b>{working.project}</b> is working</>;
-  else if (state.keepAwake.on) liveText = <>☕ Staying awake</>;
+  else if (state.keepAwake.on) liveText = <>☕ Staying awake{state.keepAwake.until ? <> · <b className="num">{mmss(state.keepAwake.until - now)}</b> left</> : null}</>;
   else if (state.weather && isl?.weather) liveText = <>{Math.round(state.weather.current.temp)}° {describeCode(state.weather.current.code).label}</>;
 
   const view: 'compact' | 'alert' | 'live' | 'panel' = mode === 'panel' ? 'panel' : alert && mode === 'compact' ? 'alert' : mode === 'live' ? 'live' : 'compact';
@@ -244,8 +254,12 @@ export function Island() {
   const enter = () => {
     if (view === 'compact') {
       if (!hover) return;
-      if (primary) show('live', primary.id);
-      else show('panel');
+      // Rests a moment before opening, so passing the pointer over the top of the screen does not open it.
+      window.clearTimeout(hoverTimer.current);
+      hoverTimer.current = window.setTimeout(() => {
+        if (primary) show('live', primary.id);
+        else show('panel');
+      }, Math.max(0, isl?.hoverDelayMs ?? 250));
     } else window.clearTimeout(closeTimer.current);
   };
   const cameraDot = isl?.cameraDot && layout?.cutout.kind === 'camera' && layout.anchor === 'edge';
@@ -310,16 +324,20 @@ export function Island() {
   }
 
   // ---------------------------------------------------------------- expanded panel
-  const tabs: { id: Tab; icon: string; label: string; badge?: number }[] = [
-    { id: 'home', icon: 'home', label: tr('island.home') },
-    { id: 'shelf', icon: 'archive', label: tr('island.shelf'), badge: state.shelf.length || undefined },
-    ...(isl?.clipboard !== false ? [{ id: 'clipboard' as Tab, icon: 'clipboard', label: tr('island.clipboard') }] : []),
-    ...(isl?.agents !== false ? [{ id: 'agents' as Tab, icon: 'terminal', label: tr('island.agents'), badge: state.agents.filter((a) => a.state === 'waiting').length || undefined }] : []),
-    { id: 'focus', icon: 'timer', label: tr('island.focus') },
-    { id: 'calendar', icon: 'calendar', label: tr('island.today') },
-    { id: 'controls', icon: 'settings', label: 'Controls' },
-    { id: 'camera', icon: 'camera', label: 'Mirror' },
-  ];
+  // The person's tools, in their order (Settings → Island → Tools, or right-click a tab).
+  const toolIds = orderedTools(isl?.toolOrder, isl?.toolsOff, (id) => {
+    if (id === 'clipboard') return isl?.clipboard !== false;
+    if (id === 'agents') return isl?.agents !== false;
+    const f = ISLAND_TOOLS.find((x) => x.id === id)?.feature;
+    return !f || f === 'island' || featureStates?.get(f)?.on !== false;
+  });
+  const LABELS: Partial<Record<Tab, string>> = { home: tr('island.home'), shelf: tr('island.shelf'), clipboard: tr('island.clipboard'), agents: tr('island.agents'), focus: tr('island.focus') };
+  const BADGES: Partial<Record<Tab, number | undefined>> = { shelf: state.shelf.length || undefined, agents: state.agents.filter((a) => a.state === 'waiting').length || undefined };
+  const tabs: { id: Tab; icon: string; label: string; badge?: number }[] = toolIds.map((id) => {
+    const t = ISLAND_TOOLS.find((x) => x.id === id)!;
+    return { id, icon: t.icon, label: LABELS[id] ?? t.label, badge: BADGES[id] };
+  });
+  const setIsl = (p: Partial<NonNullable<typeof isl>>) => isl && void updateSettings({ island: { ...isl, ...p } });
 
   const lyricIdx = np && state.lyrics ? lineAt(state.lyrics, np.position) : -1;
 
@@ -328,14 +346,23 @@ export function Island() {
         <div className="tabs">
           {isl?.buddy !== false ? <span style={{ marginRight: 6, display: 'grid', placeItems: 'center' }}><Buddy mood={mood} /></span> : null}
           {tabs.map((t) => (
-            <button key={t.id} className={tab === t.id ? 'on' : ''} onClick={() => setTab(t.id)}>
-              <Icon name={t.icon} size={13} /> {t.label}{t.badge ? <span style={{ background: '#fbbf24', color: '#000', borderRadius: 8, padding: '0 5px', fontSize: 10 }}>{t.badge}</span> : null}
+            <button key={t.id} className={tab === t.id ? 'on' : ''} title={t.label} onClick={() => setTab(t.id)} onContextMenu={(e) => { e.preventDefault(); setTabMenu({ id: t.id, x: (e.currentTarget as HTMLElement).offsetLeft }); }}>
+              <Icon name={t.icon} size={13} />{tabs.length <= 8 || tab === t.id ? <> {t.label}</> : null}{t.badge ? <span style={{ background: '#fbbf24', color: '#000', borderRadius: 8, padding: '0 5px', fontSize: 10 }}>{t.badge}</span> : null}
             </button>
           ))}
           <span style={{ flex: 1 }} />
-          <button title={state.keepAwake.on ? 'Stop keeping awake' : 'Keep awake'} className={state.keepAwake.on ? 'on' : ''} onClick={() => void api.island.keepAwake(!state.keepAwake.on).then(load)}><Icon name="coffee" size={13} /></button>
+          {state.awakeAvailable === false ? null : <button title={state.keepAwake.on ? 'Stop keeping awake' : 'Keep awake'} className={state.keepAwake.on ? 'on' : ''} onClick={() => void api.island.keepAwake(!state.keepAwake.on).then(load)}><Icon name="coffee" size={13} /></button>}
         </div>
 
+        {tabMenu ? (
+          <div className="shelf-pop tab-menu" style={{ left: tabMenu.x + 8, top: 40 }} onMouseLeave={() => setTabMenu(null)}>
+            <button onClick={() => { setIsl({ toolOrder: moveTool(isl?.toolOrder, tabMenu.id, Math.max(0, orderedTools(isl?.toolOrder, []).indexOf(tabMenu.id) - 1)) }); setTabMenu(null); }}><Icon name="chevronLeft" size={11} /> Move left</button>
+            <button onClick={() => { setIsl({ toolOrder: moveTool(isl?.toolOrder, tabMenu.id, orderedTools(isl?.toolOrder, []).indexOf(tabMenu.id) + 1) }); setTabMenu(null); }}><Icon name="chevronRight" size={11} /> Move right</button>
+            {tabMenu.id !== 'home' ? <button onClick={() => { setIsl({ toolsOff: toggleTool(isl?.toolsOff, tabMenu.id, false) }); if (tab === tabMenu.id) setTab('home'); setTabMenu(null); }}><Icon name="close" size={11} /> Hide this tool</button> : null}
+            <div className="muted small" style={{ padding: '4px 8px' }}>Show</div>
+            {ISLAND_TOOLS.filter((x) => !toolIds.includes(x.id)).map((x) => <button key={x.id} onClick={() => { setIsl({ toolsOff: toggleTool(isl?.toolsOff, x.id, true) }); setTab(x.id); setTabMenu(null); }}><Icon name={x.icon} size={11} /> {x.label}</button>)}
+          </div>
+        ) : null}
         {toast ? <div className="isl-toast">{toast}</div> : null}
         <div className="body">
           {tab === 'home' ? (
@@ -389,7 +416,7 @@ export function Island() {
                   {state.battery ? <span><Icon name={state.battery.charging ? 'bolt' : 'battery'} size={13} /> {Math.round(state.battery.percent)}%</span> : null}
                   {state.micInUse?.length ? <span style={{ color: '#fbbf24' }}><Icon name="mic" size={13} /> {state.micInUse[0]}</span> : null}
                   {state.recording ? <span style={{ color: '#ff453a' }}><span className="rec-dot" /> {mmss(now - state.recording.since)}</span> : null}
-                  {state.keepAwake.on ? <span><Icon name="coffee" size={13} /> Awake</span> : null}
+                  {state.keepAwake.on ? <span title={state.keepAwake.reason}><Icon name="coffee" size={13} /> Awake{state.keepAwake.until ? ` · ${mmss(state.keepAwake.until - now)}` : ''}</span> : null}
                   {focusLeft ? <span><Icon name="timer" size={13} /> {mmss(focusLeft)}</span> : null}
                 </div>
               </div>
@@ -402,7 +429,19 @@ export function Island() {
 
           {tab === 'controls' ? <ControlsTab state={state} reload={load} /> : null}
 
-          {tab === 'camera' ? <CameraTab /> : null}
+          {tab === 'camera' ? <MirrorTool /> : null}
+          {tab === 'ask' ? <AskTool /> : null}
+          {tab === 'usage' ? <UsageTool /> : null}
+          {tab === 'sales' ? <SalesTool /> : null}
+          {tab === 'system' ? <SystemTool /> : null}
+          {tab === 'weather' ? <WeatherTool state={state} /> : null}
+          {tab === 'convert' ? <ConvertTool /> : null}
+          {tab === 'shortcuts' ? <ShortcutsTool /> : null}
+          {tools && tab === 'stocks' ? <StocksTool store={tools} save={saveTools} /> : null}
+          {tools && tab === 'reminders' ? <TodosTool store={tools} save={saveTools} /> : null}
+          {tools && tab === 'notes' ? <NotesTool store={tools} save={saveTools} /> : null}
+          {tools && tab === 'emoji' ? <EmojiTool store={tools} save={saveTools} /> : null}
+          {tools && tab === 'prompter' ? <TeleprompterTool store={tools} save={saveTools} /> : null}
 
           {tab === 'agents' ? (
             <div>
@@ -420,7 +459,8 @@ export function Island() {
           ) : null}
 
           {tab === 'focus' ? (
-            <div style={{ display: 'flex', gap: 18, alignItems: 'center', height: '100%' }}>
+            <div className="focus-tab">
+            <div style={{ display: 'flex', gap: 18, alignItems: 'center', flex: 1 }}>
               <div style={{ textAlign: 'center', flex: 1 }}>
                 <div className="big-time">{focusLeft ? mmss(focusLeft) : `${state.focus.focusMin}:00`}</div>
                 <div className="muted">{state.focus.mode === 'idle' ? `${state.focus.rounds} round${state.focus.rounds === 1 ? '' : 's'} today` : state.focus.mode === 'break' ? 'Break — stretch and look away' : state.focus.pausedLeft !== undefined ? 'Paused' : 'Focusing'}</div>
@@ -445,26 +485,14 @@ export function Island() {
                     <button className="btn" onClick={() => void api.island.focus('stop').then(load)}>Stop</button>
                   </div>
                 )}
-                <button className="btn sm" onClick={() => void api.island.keepAwake(!state.keepAwake.on).then(load)}><Icon name="coffee" size={12} /> {state.keepAwake.on ? 'Stop keeping awake' : 'Keep awake'}</button>
+                {state.awakeAvailable === false ? null : <button className="btn sm" onClick={() => void api.island.keepAwake(!state.keepAwake.on).then(load)}><Icon name="coffee" size={12} /> {state.keepAwake.on ? 'Stop keeping awake' : 'Keep awake'}</button>}
               </div>
+            </div>
+            <FocusExtras />
             </div>
           ) : null}
 
-          {tab === 'calendar' ? (
-            <div>
-              <div style={{ fontWeight: 700, marginBottom: 6 }}>{new Date(now).toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' })}</div>
-              {state.events.length === 0 ? <div className="muted">{isl?.calendarUrl ? 'Nothing coming up.' : 'Add a calendar link in Keeper › Island to see your day here.'}</div> : null}
-              {state.events.slice(0, 12).map((e) => (
-                <div key={e.uid} className="ev" style={{ opacity: e.end < now ? 0.45 : 1 }}>
-                  <span className="time">{e.allDay ? 'All day' : timeOf(e.start)}</span>
-                  <div style={{ minWidth: 0 }}>
-                    <b className="ellipsis" style={{ display: 'block' }}>{e.title}</b>
-                    <span className="muted small">{new Date(e.start).toDateString() !== new Date(now).toDateString() ? new Date(e.start).toLocaleDateString([], { weekday: 'short' }) + ' · ' : ''}{e.location ?? ''}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : null}
+          {tab === 'calendar' ? <CalendarTool state={state} now={now} /> : null}
         </div>
       </div>
   );

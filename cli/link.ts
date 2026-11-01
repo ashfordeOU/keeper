@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // `keeper link …`: Keeper Link from the command line. Talks to the running
 // app on this computer (loopback only, with the token in Keeper's data folder).
 

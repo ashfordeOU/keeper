@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Keeper Link inside the app: keeps the device node and the tunnel running,
 // stores their data in Keeper's folder (keys in the system keychain when
 // there is one), and turns their questions into prompts in the window.

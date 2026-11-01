@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Watching (and, when allowed, controlling) another Keeper device's screen.
 // The picture comes over a direct WebRTC connection when one can be made, or
 // as frames through Keeper Link. Pointer and keys go back over Link.

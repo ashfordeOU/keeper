@@ -1,12 +1,14 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The main window: sidebar, search bar, the current page, and the inspector.
 
+import { TabStrip } from './components/TabStrip';
+import { RecoveryNotice } from './components/RecoveryNotice';
 import { Alarms, RingHost } from './pim/Alarms';
 import { Calendar } from './pim/Calendar';
 import { Mail } from './pim/Mail';
 import { PimSidebar } from './pim/PimSidebar';
 import { Reminders } from './pim/Reminders';
-import { Component, useEffect, useState, type ReactNode } from 'react';
+import { Component, lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import type { FileKind } from '../core/types';
 import { api } from './api';
 import { CommandPalette } from './components/CommandPalette';
@@ -32,6 +34,11 @@ import { Cleanup } from './screens/Cleanup';
 import { Downloads } from './screens/Downloads';
 import { Duplicates } from './screens/Duplicates';
 import { Health } from './screens/Health';
+import { KeepAwake } from './screens/KeepAwake';
+import { Controls } from './screens/Controls';
+import { Catalog } from './screens/Catalog';
+import { AppControls } from './screens/AppControls';
+import { Browsers } from './screens/Browsers';
 import { Weather } from './screens/Weather';
 import { useT } from './i18n';
 import { History } from './screens/History';
@@ -40,7 +47,9 @@ import { IslandSettings } from './screens/IslandSettings';
 import { Widgets } from './screens/Widgets';
 import { Large } from './screens/Large';
 import { Library } from './screens/Library';
-import { Protection } from './screens/Protection';
+import { Security } from './screens/Security';
+import { Todo } from './screens/Todo';
+import { CoachHost, GuideHost, RouteHints, TourHost, useTodoCount } from './guide';
 import { Rules } from './screens/Rules';
 import { Search } from './screens/Search';
 import { Settings } from './screens/Settings';
@@ -55,7 +64,11 @@ import { Trash } from './screens/Trash';
 import { Remote } from './screens/Remote';
 import { NetActivity } from './screens/NetActivity';
 import { Vpn } from './screens/Vpn';
+import { Firewall, FirewallAlerts } from './screens/Firewall';
 import { Sync } from './screens/Sync';
+import { NotesHub } from './screens/NotesHub';
+// Notes (with its editor) loads the first time the page opens.
+const NotesApp = lazy(() => import('./notes/NotesApp').then((m) => ({ default: m.NotesApp })));
 import { CloudSidebar } from './components/CloudSidebar';
 import { DevicesSidebar, LinkPrompts } from './components/LinkParts';
 import { ScreenPrompts } from './screen/ScreenParts';
@@ -69,8 +82,14 @@ const contentEl = () => document.querySelector<HTMLElement>('.main > .content');
 
 const SHELVES: FileKind[] = ['image', 'video', 'audio', 'document', 'archive', 'installer', 'app'];
 
+/** To do, with how many things are worth doing. */
+function TodoNav() {
+  const n = useTodoCount();
+  return <NavItem route={{ name: 'todo' }} icon="check" label="To do" count={n || undefined} />;
+}
+
 function NavItem({ route, icon, label, count, color }: { route: Route; icon?: string; label: string; count?: number | string; color?: string }) {
-  const { route: cur, go, settings, updateSettings } = useStore();
+  const { route: cur, go, settings, updateSettings, tabs } = useStore();
   const hiddenRoutes = useHiddenRoutes();
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const active = cur.name === route.name && (cur.arg ?? '') === (route.arg ?? '');
@@ -81,6 +100,7 @@ function NavItem({ route, icon, label, count, color }: { route: Route; icon?: st
     <>
     {menu ? (
       <ContextMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)} items={[
+        ...(settings?.tabs !== false ? [{ label: 'Open in New Tab', icon: 'plus', run: () => tabs.open(route) }, { sep: true, label: '' }] : []),
         { label: 'Remove from Sidebar', icon: 'close', run: () => settings && void updateSettings({ sidebarHidden: [...(settings.sidebarHidden ?? []), key] }) },
         { label: 'Customize Sidebar…', icon: 'settings', run: () => go({ name: 'settings', arg: 'sidebar' }) },
       ]} />
@@ -136,6 +156,7 @@ function Sidebar() {
         <NavItem route={{ name: 'sync', arg: 'backups' }} icon="shield" label="Backups" />
         <NavItem route={{ name: 'sync', arg: 'mirrors' }} icon="cloud" label="Cloud mirrors" />
         <NavItem route={{ name: 'sync', arg: 'versions' }} icon="history" label="Older versions" />
+        <NavItem route={{ name: 'noteshub' }} icon="note" label="Notes Everywhere" />
       </NavSection>
 
       {tags.data?.length ? (
@@ -154,15 +175,24 @@ function Sidebar() {
       </NavSection>
 
       <NavSection id="system" title={t('section.system')}>
+        <TodoNav />
         <NavItem route={{ name: 'health' }} icon="bolt" label={t('nav.health')} />
+        <NavItem route={{ name: 'awake' }} icon="coffee" label="Keep Awake" />
         <NavItem route={{ name: 'startup' }} icon="power" label={t('nav.startup')} />
         <NavItem route={{ name: 'apps' }} icon="app" label={t('nav.apps')} />
         <NavItem route={{ name: 'protection' }} icon="shield" label={t('nav.protection')} />
         <NavItem route={{ name: 'netactivity' }} icon="globe" label={t('nav.netactivity')} />
         <NavItem route={{ name: 'vpn' }} icon="lock" label={t('nav.vpn')} />
+        <NavItem route={{ name: 'firewall' }} icon="shield" label="Firewall" />
+        <NavItem route={{ name: 'controls' }} icon="settings" label="Quick Controls" />
+        <NavItem route={{ name: 'catalog' }} icon="settings" label="System Settings+" />
+        <NavItem route={{ name: 'appcontrols' }} icon="cpu" label="App controls" />
+        <NavItem route={{ name: 'browsers' }} icon="globe" label="Browser tabs" />
+        <NavItem route={{ name: 'settings', arg: 'processes' }} icon="power" label="Keeper’s processes" />
       </NavSection>
 
       <NavSection id="more" title={t('section.more')}>
+        <NavItem route={{ name: 'notes' }} icon="document" label="Notes" />
         <NavItem route={{ name: 'assistant' }} icon="assistant" label={t('nav.assistant')} />
         <NavItem route={{ name: 'agents' }} icon="agent" label="Agents" />
         <NavItem route={{ name: 'graph' }} icon="graph" label="Knowledge Graph" />
@@ -179,7 +209,7 @@ function Sidebar() {
 }
 
 function TopBar({ onPalette }: { onPalette: () => void }) {
-  const { route, go, back, canBack, settings, updateSettings } = useStore();
+  const { route, go, back, canBack, forward, canForward, settings, updateSettings } = useStore();
   const t = useT();
   const [text, setText] = useState(route.name === 'search' ? route.q ?? '' : '');
   useEffect(() => {
@@ -198,6 +228,7 @@ function TopBar({ onPalette }: { onPalette: () => void }) {
   return (
     <header className="topbar">
       <button className="btn ghost icon sm" disabled={!canBack} onClick={back} title="Back"><Icon name="chevronLeft" size={16} /></button>
+      {canForward ? <button className="btn ghost icon sm" onClick={forward} title="Forward"><Icon name="chevronRight" size={16} /></button> : null}
       <div className="searchbox">
         <Icon name="search" size={15} />
         <input
@@ -271,7 +302,8 @@ function Page() {
     large: () => <Large />,
     startup: () => <Startup />,
     apps: () => <Apps />,
-    protection: () => <Protection />,
+    protection: () => <Security />,
+    todo: () => <Todo />,
     rules: () => <Rules />,
     history: () => <History />,
     assistant: () => <Assistant />,
@@ -281,6 +313,7 @@ function Page() {
     tools: () => <Tools />,
     convert: () => <Convert />,
     health: () => <Health />,
+    awake: () => <KeepAwake />,
     weather: () => <Weather />,
     capture: () => <Capture />,
     annotate: () => <Annotate />,
@@ -291,7 +324,14 @@ function Page() {
     agents: () => <Agents />,
     graph: () => <Graph />,
     vpn: () => <Vpn />,
+    firewall: () => <Firewall />,
+    controls: () => <Controls />,
+    catalog: () => <Catalog />,
+    appcontrols: () => <AppControls />,
+    browsers: () => <Browsers />,
     sync: () => <Sync key={route.arg ?? ''} />,
+    noteshub: () => <NotesHub key={route.arg ?? ''} />,
+    notes: () => <Suspense fallback={null}><NotesApp /></Suspense>,
     terminal: () => <TerminalApp mode="page" startCwd={route.arg} />,
     devices: () => <Devices />,
     mail: () => <Mail />,
@@ -313,7 +353,7 @@ export function App() {
       const cmd = e.metaKey || e.ctrlKey;
       const k = e.key.toLowerCase();
       if (cmd && k === 'k') { e.preventDefault(); setPalette((p) => !p); }
-      else if (cmd && e.shiftKey && k === 't' && store.settings) { e.preventDefault(); void store.updateSettings(toggleThemePatch(store.settings)); }
+      else if (cmd && e.shiftKey && k === 'l' && store.settings) { e.preventDefault(); void store.updateSettings(toggleThemePatch(store.settings)); }
       // ⌘⇧. / Ctrl+Shift+. shows or hides hidden files, as in the system file manager.
       else if (cmd && e.shiftKey && (e.code === 'Period' || k === '.' || k === '>') && store.settings) { e.preventDefault(); void store.updateSettings({ showHidden: !store.settings.showHidden }); store.toast(store.settings.showHidden ? 'Hidden files are hidden' : 'Hidden files are shown'); }
       else if (cmd && e.shiftKey && k === 'd') { e.preventDefault(); store.go({ name: 'duplicates' }); }
@@ -343,7 +383,10 @@ export function App() {
       <Sidebar />
       <main className="main">
         <TopBar onPalette={() => setPalette(true)} />
-        <div className="content"><UpdateBanner /><PageBoundary route={`${store.route.name}:${store.route.arg ?? ''}:${store.route.q ?? ''}`}><Page /></PageBoundary></div>
+        {/* Tabs: middle-click or ⌘/Ctrl-click anything to open it in a new one; they survive restarts and crashes. */}
+        <TabStrip />
+        <RecoveryNotice />
+        <div className="content"><UpdateBanner /><CoachHost route={store.route} /><RouteHints route={store.route} /><PageBoundary route={`${store.route.name}:${store.route.arg ?? ''}:${store.route.q ?? ''}`}><Page /></PageBoundary></div>
       </main>
       {showInspector ? <Inspector /> : <div />}
       {palette ? <CommandPalette onClose={() => setPalette(false)} /> : null}
@@ -354,7 +397,11 @@ export function App() {
       <LinkPrompts />
       <ScreenPrompts />
       <ForceQuitHost />
+      <FirewallAlerts />
       <ApprovalHost />
+      {/* Guided fixes: the step-by-step panel and the first-run tour. */}
+      <GuideHost />
+      <TourHost />
       <div className="toast-stack">
         {store.toasts.map((t) => (
           <div className="toast" key={t.id}>

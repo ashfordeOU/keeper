@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Sync between your Keeper devices, backups and mirrors, run in the background.
 // The device network (Keeper Link), cloud connections and the background-work
 // rules are handed in by main.ts, so this works with whatever is available.

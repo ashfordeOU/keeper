@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Keeper's icon set: simple 24px stroke icons, drawn for this project.
 
 const P: Record<string, string> = {
@@ -33,6 +33,7 @@ const P: Record<string, string> = {
   pin: 'M9 4h6l-1 6 3 3H7l3-3zM12 13v8',
   star: 'M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z',
   grid: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z',
+  columns: 'M3 5h5v14H3zM10 5h5v14h-5zM17 5h4v14h-4z',
   list: 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',
   close: 'M6 6l12 12M18 6L6 18',
   plus: 'M12 5v14M5 12h14',
@@ -102,6 +103,13 @@ const P: Record<string, string> = {
   flag: 'M5 21V4M5 4h11l-2 4 2 4H5',
   inbox: 'M4 13l2-8h12l2 8M4 13v6h16v-6M4 13h5a3 3 0 0 0 6 0h5',
   alarm: 'M12 21a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM12 9v4l2 2M4 4 2 6M20 4l2 2',
+  chart: 'M3 3v18h18M7 15l4-4 3 3 5-6',
+  smile: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM8.5 14.5s1.3 2 3.5 2 3.5-2 3.5-2M9 9.5h.01M15 9.5h.01',
+  coin: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM15 8.8c-.6-.9-1.7-1.3-3-1.3-1.7 0-3 .9-3 2.2 0 3 6 1.6 6 4.6 0 1.3-1.3 2.2-3 2.2-1.4 0-2.6-.5-3.2-1.5M12 5.5v13',
+  note: 'M5 3h10l4 4v14H5zM15 3v4h4M8 12h8M8 16h5',
+  ruler: 'M3 17 17 3l4 4L7 21zM7 13l2 2M10 10l2 2M13 7l2 2',
+  prompter: 'M4 5h16v11H4zM8 20h8M12 16v4M7 9h10M7 12h6',
+  cpu: 'M7 7h10v10H7zM10 10h4v4h-4zM9 3v4M15 3v4M9 17v4M15 17v4M3 9h4M3 15h4M17 9h4M17 15h4',
   stopwatch: 'M12 21a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM12 9v4M10 2h4M18.5 6.5 20 5',
   listCheck: 'M4 6l1.5 1.5L8 5M4 12l1.5 1.5L8 11M4 18l1.5 1.5L8 17M11 6h9M11 12h9M11 18h9',
   paperclip: 'M20 11.5 12.5 19a5 5 0 0 1-7-7L13 4.5a3.3 3.3 0 0 1 4.7 4.7L10.2 16.7a1.7 1.7 0 0 1-2.4-2.4L14.5 7.6',

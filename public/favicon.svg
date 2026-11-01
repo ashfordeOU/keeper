@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
-  <!-- SPDX-License-Identifier: AGPL-3.0-or-later · Keeper app icon: the Keyhole Owl -->
+  <!-- SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 · Keeper app icon: the Keyhole Owl -->
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#ffb45e"/>

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The interface ↔ main-process contract for Keeper inside the operating
 // system: Spotlight, desktop search, Explorer, Windows agents, MCP.
 

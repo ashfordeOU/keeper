@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Documents: PDF (pages, thumbnails, search, selectable text), Word, every
 // spreadsheet format, PowerPoint slides laid out as designed, OpenDocument,
 // RTF, Apple iWork and legacy Office files.

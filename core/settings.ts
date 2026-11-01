@@ -1,6 +1,8 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Default settings and a lenient reader for settings loaded from disk.
 
+import { defaultAwakeSettings, normalizeAwakeSettings } from './awake-engine';
+import { defaultAbilities } from './abilities/config';
 import type { IslandSettings } from './api';
 import { defaultBrainSettings, normalizeBrainSettings } from './brain/config';
 import { defaultAgentSettings, normalizeAgentSettings } from './agents-config';
@@ -60,6 +62,13 @@ export function defaultIsland(): IslandSettings {
     privacyDots: true,
     activitiesOff: [],
     hoverOpen: true,
+    hoverDelayMs: 250,
+    openShortcut: 'CommandOrControl+Alt+I',
+    focusSound: 'off',
+    focusVolume: 0.4,
+    shelfKeepCopies: false,
+    shelfRetentionDays: 7,
+    mediaKeys: false,
   };
 }
 
@@ -72,6 +81,8 @@ export function defaultSettings(folders: string[], rules: Rule[]): AllSettings {
     font: 'theme',
     density: 'comfortable',
     corners: 'theme',
+    themeSeasons: false,
+    hemisphere: 'auto',
     folders,
     excluded: [],
     showHidden: false,
@@ -92,6 +103,7 @@ export function defaultSettings(folders: string[], rules: Rule[]): AllSettings {
     includeRemote: false,
     ai: { provider: 'anthropic', model: '', ollamaUrl: 'http://127.0.0.1:11434' },
     brain: defaultBrainSettings(),
+    abilities: defaultAbilities(),
     agents: defaultAgentSettings(),
     sync: defaultSyncSettings(),
     widgets: [],
@@ -101,6 +113,10 @@ export function defaultSettings(folders: string[], rules: Rule[]): AllSettings {
     resourceMode: 'balanced',
     features: {},
     sidebarHidden: [],
+    featureSets: [],
+    featureSetOnBattery: '',
+    featureSetOnPower: '',
+    awake: defaultAwakeSettings(),
     sidebarOrder: [],
     lastRunVersion: '',
     updatePlan: null,
@@ -136,9 +152,13 @@ export function mergeSettings(base: AllSettings, raw: unknown): AllSettings {
   if (!['theme', 'system', 'rounded', 'serif', 'mono'].includes(out.font)) out.font = 'theme';
   if (!['comfortable', 'compact'].includes(out.density)) out.density = 'comfortable';
   if (!['theme', 'rounded', 'sharp'].includes(out.corners)) out.corners = 'theme';
+  out.themeSeasons = out.themeSeasons === true;
+  if (!['auto', 'north', 'south'].includes(out.hemisphere ?? '')) out.hemisphere = 'auto';
   // Settings from before the brain had one AI choice; it becomes the active connection.
   out.brain = normalizeBrainSettings(r.brain && typeof r.brain === 'object' ? out.brain : undefined, out.ai);
   out.sync = normalizeSyncSettings(out.sync, base.sync);
   out.agents = normalizeAgentSettings(out.agents);
+  out.awake = normalizeAwakeSettings(out.awake, r.island && typeof r.island === 'object' ? (r.island as { awakeTriggers?: unknown }).awakeTriggers : undefined);
+  if (!Array.isArray(out.featureSets)) out.featureSets = [];
   return out;
 }

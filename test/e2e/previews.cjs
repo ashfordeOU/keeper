@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Usage (Linux CI): node test/e2e/make-samples.cjs /tmp/kh/Documents/samples && xvfb-run -a node test/e2e/previews.cjs /tmp/kh /tmp/kh-shots [light|dark] [minimal]
 // Drives the real Keeper app: opens Quick Look on every sample file and checks each viewer.
 const { _electron } = require('playwright');
@@ -40,7 +40,7 @@ fs.mkdirSync(SHOTS, { recursive: true });
       const pv = document.querySelector('.ql .ql-pane .pv');
       const msg = document.querySelector('.ql .ql-pane .pv-message');
       const title = document.querySelector('.ql-title span')?.textContent;
-      const content = pv ? pv.querySelectorAll('img, canvas, video, audio, iframe, .pv-code, .pv-doc, .pv-grid, .tree-row, .pv-json, .j-row, .pv-hex, .pv-log, .agenda-event, .contact, .pv-table, .pv-font-hero, .pv-slide, .pv-cues, .mail-head').length : 0;
+      const content = pv ? pv.querySelectorAll('img, canvas, video, audio, iframe, .pv-code, .pv-doc, .pv-grid, .tree-row, .pv-json, .j-row, .pv-hex, .pv-log, .agenda-event, .contact, .pv-table, .pv-font-hero, .pv-slide, .pv-cues, .mail-head, .pv-pdf-page').length : 0;
       return { title, kind: pv?.getAttribute('data-kind'), message: msg?.textContent ?? null, content, pwned: !!window.__pwned || document.title === 'pwned' };
     });
     const name = (r.title || `file-${i}`).replace(/[^\w.-]+/g, '_');

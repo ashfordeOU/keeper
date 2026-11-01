@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Keeper Relay as a Cloudflare Worker with Durable Objects (same protocol as
 // relay/server.ts; see core/link/relay.ts). One Durable Object per listening
 // device holds its control socket and joins calls to it. Deploy:

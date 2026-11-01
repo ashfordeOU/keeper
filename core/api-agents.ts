@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // What the interface can ask of the agents layer: AI services and costs,
 // actions and approvals, the model gateway, agent apps and launchers, skills,
 // usage learning and the knowledge graph.
@@ -24,9 +24,18 @@ export interface AuditItem {
   client: string;
   action: string;
   description: string;
-  status: 'done' | 'denied' | 'error' | 'off';
+  /** denied: the person said no · refused: Keeper's own safety rules blocked it */
+  status: 'done' | 'denied' | 'refused' | 'error' | 'off';
   detail?: string;
   journalId?: string;
+  /** using the computer: a small picture of what the AI saw */
+  shot?: string;
+}
+
+export interface ComputerState {
+  sessions: { id: string; client: string; since: number; actions: number }[];
+  /** the shortcut that stops every session */
+  stopShortcut: string;
 }
 
 export interface ActionInfo {
@@ -79,6 +88,12 @@ export interface AgentsApi {
   pending(): Promise<ApprovalRequest[]>;
   decide(id: string, d: 'once' | 'always' | 'deny'): Promise<void>;
   audit(): Promise<AuditItem[]>;
+  /** AIs using this computer right now */
+  computerState(): Promise<ComputerState>;
+  /** stops every AI using this computer */
+  computerStop(): Promise<void>;
+  /** a picture from the activity log, as a data URL */
+  computerShot(file: string): Promise<string | null>;
 
   gateway(): Promise<GatewayInfo>;
   rotateToken(): Promise<GatewayInfo>;

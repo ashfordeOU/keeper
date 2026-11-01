@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Image viewers: zoom, pan, rotate, flip, a colour picker under the pointer and
 // a histogram — for everyday images, SVG, TIFF (every page), Photoshop files,
 // and anything the main process has to decode first (HEIC, RAW, JPEG XL, …).

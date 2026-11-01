@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Reminders and to-dos: a local list and the task lists of your calendar
 // accounts, with due dates, priorities and a nudge when they are due.
 

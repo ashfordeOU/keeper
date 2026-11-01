@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The session host and the app talk over a local socket, one JSON message per
 // line. The first message must carry the token from a file only this user can
 // read, so other programs on the computer cannot type into your terminals.
@@ -20,6 +20,8 @@ export type ClientMsg =
   | { t: 'clear'; id: string }
   | { t: 'shutdown'; rid: number; save: boolean }
   | { t: 'keepAlive'; mode: 'window' | 'quit' | 'never' }
+  /** keep this terminal (and so the host) running even when Keeper quits — for agents' headless work */
+  | { t: 'persist'; id: string; on: boolean }
   | { t: 'ping'; rid: number };
 
 export type HostMsg =

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Runs Keeper's GNOME and KRunner search providers on a private dbus-daemon
 // and calls them the way the desktop does. Skipped where dbus-daemon is missing.
 

@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 # Push a tag like v0.2.0 to build Keeper for every platform and processor and
 # publish the installers, plus the update information installed copies read, as
 # a GitHub Release. Tags with a hyphen (v0.3.0-beta.1) become pre-releases.
@@ -45,11 +45,19 @@ jobs:
       - name: Native libraries for ${{ matrix.platform }}-${{ matrix.arch }}
         run: node scripts/prepare-arch.mjs ${{ matrix.platform }} ${{ matrix.arch }}
       - run: npm run build
+        env:
+          # Marks the app as an official Ashforde build (anonymous usage stats report official: true).
+          KEEPER_OFFICIAL_BUILD: '1'
       # Apple Intelligence, Live Text and Spotlight on macOS (universal, so either processor's build can carry it).
       - name: macOS helper
         if: matrix.platform == 'darwin'
         working-directory: native/macos/KeeperHelper
         run: swift build -c release --arch arm64 --arch x86_64
+      # Siri, Spotlight and Shortcuts actions; optional (the app works without it).
+      - name: Siri and Shortcuts helper
+        if: matrix.platform == 'darwin'
+        continue-on-error: true
+        run: native/macos/KeeperIntents/build.sh
       - name: Package
         shell: bash
         env:
@@ -380,6 +388,9 @@ jobs:
       - run: npm ci
       - run: node scripts/prepare-arch.mjs linux x64
       - run: npm run build
+        env:
+          # Marks the app as an official Ashforde build (anonymous usage stats report official: true).
+          KEEPER_OFFICIAL_BUILD: '1'
       - run: npx electron-builder --linux snap --x64 --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false

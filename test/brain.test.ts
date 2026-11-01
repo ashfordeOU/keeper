@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';

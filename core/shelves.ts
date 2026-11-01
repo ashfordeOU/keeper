@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Named shelves: places to park files on the way somewhere else. Pure state
 // changes, so the Island, the tray and the tests share one set of rules.
 

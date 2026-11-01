@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Thumbnails the viewer draws itself when the system cannot: PDF first pages,
 // font samples, and a miniature page for text, code, tables and documents.
 // They are handed back to the main process to be cached on disk.

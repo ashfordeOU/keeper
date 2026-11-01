@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Chooses the viewer for a file from its extension, falling back to its
 // first bytes when the extension is unknown or lies.
 
@@ -10,7 +10,7 @@ export type PreviewKind =
   | 'pdf' | 'docx' | 'sheet' | 'pptx' | 'odt' | 'rtf' | 'iwork' | 'legacy-office'
   | 'markdown' | 'json' | 'html' | 'xml' | 'notebook' | 'log' | 'code' | 'text' | 'subtitle'
   | 'archive' | 'tar' | 'archive-tool' | 'epub'
-  | 'font' | 'model' | 'eml' | 'vcf' | 'ics' | 'sqlite' | 'app' | 'folder' | 'binary';
+  | 'font' | 'model' | 'cad' | 'eml' | 'vcf' | 'ics' | 'sqlite' | 'app' | 'folder' | 'binary';
 
 const BROWSER_IMAGES = new Set(['jpg', 'jpeg', 'jpe', 'jfif', 'png', 'apng', 'gif', 'webp', 'avif', 'bmp', 'ico', 'cur']);
 const RAW = new Set(['raw', 'cr2', 'cr3', 'crw', 'nef', 'nrw', 'arw', 'srf', 'sr2', 'dng', 'orf', 'rw2', 'raf', 'pef', 'srw', 'x3f', '3fr', 'erf', 'kdc', 'mrw', 'mos', 'iiq', 'rwl']);
@@ -71,6 +71,7 @@ export function previewKindOf(name: string, ext: string, isDir: boolean, magic?:
   if (TEXT.has(e)) return 'text';
   if (FONTS.has(e)) return 'font';
   if (MODELS.has(e)) return 'model';
+  if (e === 'dxf') return 'cad';
   if (e === 'eml' || e === 'emlx' || e === 'mbox') return 'eml';
   if (e === 'vcf' || e === 'vcard') return 'vcf';
   if (e === 'ics' || e === 'ical' || e === 'ifb') return 'ics';
@@ -146,7 +147,7 @@ const LABELS: Record<string, string> = {
   dng: 'RAW photo (DNG)', cr2: 'Canon RAW photo', cr3: 'Canon RAW photo', nef: 'Nikon RAW photo', arw: 'Sony RAW photo', orf: 'Olympus RAW photo', rw2: 'Panasonic RAW photo', raf: 'Fujifilm RAW photo', pef: 'Pentax RAW photo', srw: 'Samsung RAW photo',
   md: 'Markdown document', markdown: 'Markdown document', csv: 'CSV table', tsv: 'Tab-separated table', log: 'Log file', srt: 'Subtitles', vtt: 'Subtitles', ipynb: 'Notebook',
   json: 'JSON data', yaml: 'YAML data', yml: 'YAML data', toml: 'TOML settings', xml: 'XML document', html: 'Web page', htm: 'Web page', svg: 'SVG image', rtf: 'Rich text document',
-  heic: 'HEIC photo', heif: 'HEIF photo', psd: 'Photoshop document', ai: 'Illustrator document', sketch: 'Sketch design', fig: 'Design file', stl: '3D model (STL)', obj: '3D model (OBJ)', glb: '3D model (glTF)', gltf: '3D model (glTF)', fbx: '3D model (FBX)',
+  heic: 'HEIC photo', heif: 'HEIF photo', psd: 'Photoshop document', ai: 'Illustrator document', sketch: 'Sketch design', fig: 'Design file', stl: '3D model (STL)', dxf: 'CAD drawing (DXF)', obj: '3D model (OBJ)', glb: '3D model (glTF)', gltf: '3D model (glTF)', fbx: '3D model (FBX)',
   ttf: 'TrueType font', otf: 'OpenType font', woff: 'Web font', woff2: 'Web font', eml: 'E-mail message', vcf: 'Contact card', ics: 'Calendar', sqlite: 'SQLite database', db: 'Database',
   'tar.gz': 'Compressed tar archive', tgz: 'Compressed tar archive', 'tar.xz': 'Compressed tar archive', 'tar.bz2': 'Compressed tar archive',
   py: 'Python script', js: 'JavaScript', ts: 'TypeScript', tsx: 'TypeScript (React)', jsx: 'JavaScript (React)', go: 'Go source', rs: 'Rust source', java: 'Java source', c: 'C source', cpp: 'C++ source', cs: 'C# source', rb: 'Ruby script', php: 'PHP script', sh: 'Shell script', swift: 'Swift source', kt: 'Kotlin source',

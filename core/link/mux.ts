@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Many independent streams over one encrypted channel: requests, file
 // transfers and forwarded ports share a connection without blocking each
 // other. Each stream has its own flow-control window, so a fast sender cannot

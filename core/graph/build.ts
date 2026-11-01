@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The knowledge graph: files, folders, tags, people, organisations and where
 // things came from, linked the way they relate — Markdown and wiki links
 // ([[Note]]) with their backlinks, shared tags, shared names mentioned inside,

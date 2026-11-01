@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Where Keeper's brain keeps its files on each system, and the private channel
 // between the app and the `keeper` command (shared by both; Node only).
 

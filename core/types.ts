@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Data contracts shared by the core engine, the Electron main process, the CLI
 // and the interface. Sizes are bytes, times are epoch milliseconds.
 
@@ -378,6 +378,10 @@ export interface Settings {
   font: 'theme' | 'system' | 'rounded' | 'serif' | 'mono';
   density: 'comfortable' | 'compact';
   corners: 'theme' | 'rounded' | 'sharp';
+  /** switch to the seasonal theme for the time of year (Winter, Spring, Summer, Autumn, Festive) */
+  themeSeasons?: boolean;
+  /** which half of the world the seasons follow; 'auto' uses the weather place or the time zone */
+  hemisphere?: 'auto' | 'north' | 'south';
   /** folders the library indexes */
   folders: string[];
   /** never index or touch anything under these */
@@ -405,6 +409,8 @@ export interface Settings {
   ai: { provider: AiProvider; model: string; ollamaUrl: string };
   /** Keeper's brain: the passage index, meaning search, the AIs it works with and the apps it serves */
   brain: import('./brain/config').BrainSettings;
+  /** abilities any AI can use through Keeper: web, pictures, code, memory, schedules, personas, projects, teams */
+  abilities?: import('./abilities/config').AbilitiesSettings;
   /** AI agents: what they may do, the model gateway, agent-to-agent, skills, learning */
   agents: import('./agents-config').AgentSettings;
   /** sync between your devices, backups and mirrors */
@@ -424,6 +430,12 @@ export interface Settings {
   features: Record<string, boolean>;
   /** sidebar entries the person hid, by id ("section:tidy", "nav:health") */
   sidebarHidden: string[];
+  /** feature sets the person saved ("Work", "Travel"), and which set to use on battery / on power */
+  featureSets: { id: string; name: string; features: Record<string, boolean> }[];
+  featureSetOnBattery: string;
+  featureSetOnPower: string;
+  /** Keep Awake: defaults for new sessions, triggers, menu-bar item and statistics (core/awake-engine.ts) */
+  awake: import('./awake-engine').AwakeSettings;
   /** sidebar sections in the person's order, by id */
   sidebarOrder: string[];
   /** the version that ran last, to show "What's new" once after an update */
@@ -432,5 +444,7 @@ export interface Settings {
   updatePlan?: import('./update-schedule').UpdatePlan | null;
   /** reopen the page you were on after an update or restart */
   restorePlace?: boolean;
+  /** open pages in tabs (⌘/Ctrl-click or middle-click, ⌘T); off keeps one page per window */
+  tabs?: boolean;
   language: string;
 }

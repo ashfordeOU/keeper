@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Multicast DNS on the local network: answers "which Keeper devices are
 // here?" with this device, and listens for the others. Quiet by design: it
 // announces when something changes and answers questions; it never polls.

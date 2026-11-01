@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Settings for Keeper's brain and the AIs it works with. No Node modules here:
 // the interface reads these too. Where the brain's files live is in paths.ts.
 

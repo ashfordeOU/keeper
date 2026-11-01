@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Agent-to-agent: other agents can hand Keeper a task ("find the lease and
 // tell me when it ends") over the A2A protocol's JSON-RPC binding, and read
 // Keeper's Agent Card to learn what it can do. Version 1.0 method names are

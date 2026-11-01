@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Connections to storage that is not on this computer: cloud services,
 // servers, home servers and NAS boxes, and other computers on the network.
 

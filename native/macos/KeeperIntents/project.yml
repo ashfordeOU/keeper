@@ -1,0 +1,39 @@
+# SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
+# Keeper Intents: a small helper app inside Keeper.app that tells macOS about
+# Keeper's actions, so Siri, Spotlight and the Shortcuts app list them.
+# App Intents are found by Xcode's build (appintentsmetadataprocessor), which
+# needs an Xcode project: XcodeGen makes one from this file. See build.sh.
+name: KeeperIntents
+options:
+  bundleIdPrefix: io.github.ashfordeou
+  deploymentTarget:
+    macOS: "14.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.10"
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGN_STYLE: Manual
+    DEVELOPMENT_TEAM: ""
+    ENABLE_HARDENED_RUNTIME: NO
+    ARCHS: "arm64 x86_64"
+    ONLY_ACTIVE_ARCH: NO
+targets:
+  KeeperIntents:
+    type: application
+    platform: macOS
+    sources: [Sources]
+    info:
+      path: Info.plist
+      properties:
+        CFBundleName: Keeper
+        CFBundleDisplayName: Keeper
+        CFBundleShortVersionString: "1.0"
+        LSUIElement: true
+        LSMinimumSystemVersion: "14.0"
+        NSHumanReadableCopyright: "© 2026 Ashforde OÜ. Keeper by Ashforde®"
+    settings:
+      base:
+        PRODUCT_NAME: "Keeper Intents"
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.ashfordeou.keeper.intents

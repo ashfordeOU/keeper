@@ -1,9 +1,9 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Settings → Features: every part of Keeper with an on/off switch and what it
 // costs, presets, and Customize sidebar.
 
-import { useMemo, useState } from 'react';
-import { currentPreset, FEATURE_GROUPS, FEATURES, featureDef, PRESETS, type CostLevel } from '../../core/features';
+import { useEffect, useMemo, useState } from 'react';
+import { currentPreset, currentSet, FEATURE_GROUPS, FEATURES, featureDef, PRESETS, type CostLevel, type FeatureSet } from '../../core/features';
 import { api } from '../api';
 import { useFeatureStates } from '../features';
 import { useStore } from '../state';
@@ -20,6 +20,19 @@ export function FeaturesPanel() {
   const [q, setQ] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   const preset = settings ? currentPreset(settings) : undefined;
+  const [sets, setSets] = useState<{ sets: FeatureSet[]; onBattery: string; onPower: string } | null>(null);
+  const [live, setLive] = useState<Record<string, { name: string; everyMs: number | null; runs: number }[]>>({});
+  const [newName, setNewName] = useState('');
+  useEffect(() => { void api.features.sets().then(setSets); }, [settings?.featureSets]);
+  // What each feature has running now: looked up while this page is open, every 5 seconds.
+  useEffect(() => {
+    const load = () => void api.features.live().then((l) => setLive(Object.fromEntries(l.map((x) => [x.id, x.checks]))));
+    load();
+    const t = setInterval(load, 5000);
+    return () => clearInterval(t);
+  }, []);
+  const mySet = settings && sets ? currentSet(settings, sets.sets, info?.platform ?? '') : undefined;
+  const choices = [...PRESETS.map((p) => ({ ref: `preset:${p.id}`, name: p.name })), ...(sets?.sets ?? []).map((x) => ({ ref: x.id, name: x.name }))];
   const list = useMemo(() => {
     const t = q.trim().toLowerCase();
     return FEATURES.filter((f) => !f.platforms || f.platforms.includes((info?.platform ?? '') as NodeJS.Platform))
@@ -49,6 +62,33 @@ export function FeaturesPanel() {
           </button>
         ))}
       </div>
+      <div className="feature-sets" data-testid="feature-sets">
+        <div className="feature-group-title">Your sets</div>
+        {(sets?.sets ?? []).map((x) => (
+          <div key={x.id} className={`feature-row ${mySet === x.id ? 'current' : ''}`}>
+            <div className="grow"><div className="feature-name">{x.name}{mySet === x.id ? <span className="badge" style={{ marginLeft: 6 }}>In use</span> : null}</div>
+              <div className="small muted">{Object.values(x.features).filter(Boolean).length} features on</div></div>
+            <button className="btn sm" onClick={() => void api.features.applySet(x.id)}>Use</button>
+            <button className="btn sm" title="Save the current choices into this set" onClick={() => void api.features.saveSet(x.name, x.id).then(setSets)}>Update</button>
+            <button className="btn sm ghost icon" aria-label={`Remove ${x.name}`} onClick={() => void api.features.removeSet(x.id).then(setSets)}><Icon name="close" size={12} /></button>
+          </div>
+        ))}
+        <div className="feature-row">
+          <input className="input grow" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Name for the current choices, e.g. Travel" aria-label="New set name" />
+          <button className="btn sm" disabled={!newName.trim()} onClick={() => void api.features.saveSet(newName).then((r) => { setSets(r); setNewName(''); toast('Saved'); })}>Save as a set</button>
+        </div>
+        <div className="feature-row">
+          <div className="grow"><div className="feature-name">Switch by power source</div><div className="small muted">Use a lighter set on battery and everything on power, automatically.</div></div>
+          <label className="small">On battery{' '}
+            <select className="input" value={sets?.onBattery ?? ''} onChange={(e) => sets && void api.features.setPowerSets(e.target.value, sets.onPower).then(setSets)}>
+              <option value="">Leave as is</option>{choices.map((c) => <option key={c.ref} value={c.ref}>{c.name}</option>)}
+            </select></label>
+          <label className="small">On power{' '}
+            <select className="input" value={sets?.onPower ?? ''} onChange={(e) => sets && void api.features.setPowerSets(sets.onBattery, e.target.value).then(setSets)}>
+              <option value="">Leave as is</option>{choices.map((c) => <option key={c.ref} value={c.ref}>{c.name}</option>)}
+            </select></label>
+        </div>
+      </div>
       <div className="feature-search">
         <Icon name="search" size={14} />
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a feature" aria-label="Find a feature" />
@@ -74,6 +114,11 @@ export function FeaturesPanel() {
                       {f.cost.windows ? <> · {f.cost.windows}</> : null}
                       {f.cost.memory ? <> · {f.cost.memory}</> : null}
                     </div>
+                    {st?.on && live[f.id]?.length ? (
+                      <div className="small muted feature-live" data-testid={`feature-live-${f.id}`}>
+                        Now: {live[f.id].map((c) => `${c.name.replace(/^[^.]*\./, '')} ${c.everyMs === null ? 'paused' : `every ${c.everyMs >= 60_000 ? `${Math.round(c.everyMs / 60_000)} min` : `${Math.round(c.everyMs / 1000) || '<1'} s`}`}`).join(' · ')}
+                      </div>
+                    ) : st?.on === false ? <div className="small muted feature-live">Now: nothing running</div> : null}
                     {st?.blockedBy?.length && wanted ? (
                       <div className="small warn-text">Off until {st.blockedBy.map((b) => featureDef(b)?.name ?? b).join(' and ')} {st.blockedBy.length > 1 ? 'are' : 'is'} on</div>
                     ) : null}

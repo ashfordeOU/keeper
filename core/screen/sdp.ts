@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Binding WebRTC to Keeper Link. The offer and answer only ever travel inside an
 // authenticated Link channel (keys pinned at pairing), and each side also states
 // its DTLS certificate fingerprint there. Before the picture is trusted, both

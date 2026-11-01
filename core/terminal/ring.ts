@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // A terminal's memory: the most recent output, kept within a line and byte
 // budget so a chatty program can never make Keeper grow without end.
 

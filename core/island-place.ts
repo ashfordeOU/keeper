@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Where the Island sits on each screen. Pure: the Electron side measures the
 // displays (bounds, the area left after menu bars, panels and taskbars, scale,
 // rotation, built-in or not) and this decides where the camera is, what the

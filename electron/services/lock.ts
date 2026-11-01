@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Locked folders in the app: this computer's key (kept by the system keychain),
 // confirming it is really you (Touch ID, Windows Hello, the account password or
 // polkit), the list of locked folders, and locking them again automatically.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // FTP and FTPS (explicit TLS). One control connection does one thing at a
 // time, so requests wait their turn; a dropped connection is opened again.
 

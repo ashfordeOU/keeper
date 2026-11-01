@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Settings › Island › Placement: a picture of each screen showing what Keeper
 // found (menu bar or top bar, the notch or camera) and where the Island sits,
 // with the controls to change it.

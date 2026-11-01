@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Assistant: ask anything about your files, with whichever AI you use. It
 // searches and reads through Keeper's brain, cites the files it used, and
 // suggests changes as buttons; nothing changes until you press one.
@@ -13,6 +13,8 @@ import { formatBytes, relativeTime } from '../../core/format';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
 import { PageHead } from '../components/ui';
+import { PersonaPicker, VoiceButton } from '../components/VoiceTalk';
+import { normalizeAgentSettings } from '../../core/agents-config';
 import { useAsync, useStore } from '../state';
 import '../styles/screens-b.css';
 import '../styles/brain.css';
@@ -70,11 +72,16 @@ function actionLabel(a: ProposedAction): string {
 }
 
 export function Assistant() {
-  const { settings, updateSettings, go, trash, info, route, toast } = useStore();
+  const { settings, updateSettings, go, trash, info, route, toast, draft, setDraft } = useStore();
   const conns = useAsync(() => api.brain.connections(), [settings?.brain]);
   const [turns, setTurns] = useState<Turn[]>([]);
-  const [text, setText] = useState('');
+  // The question being typed is kept with the tab, across restarts and crashes.
+  const text = draft('assistant');
+  const setText = (v: string) => setDraft('assistant', v);
   const [busy, setBusy] = useState<string | null>(null);
+  // "Use this computer" for this conversation; only offered when the person allows it under Agents.
+  const computerAllowed = normalizeAgentSettings(settings?.agents).computer.permission !== 'off';
+  const [useComputer, setUseComputer] = useState(false);
   const history = useRef<ChatMessage[]>([]);
   const end = useRef<HTMLDivElement>(null);
   const b = settings?.brain;
@@ -97,6 +104,13 @@ export function Assistant() {
     return () => { offD(); offS(); };
   }, []);
 
+  // Stop (Island or shortcut) also ends the answer in progress.
+  useEffect(() => api.on('computer-stopped', () => { if (busy) void api.brain.cancel(busy); }), [busy]);
+
+  // Abilities: a persona or project for this conversation, and voice.
+  const abil = useAsync(() => api.abilities.settings(), []);
+  const [who, setWho] = useState<{ persona?: string; project?: string }>({});
+
   const ask = async (q: string) => {
     q = q.trim();
     if (!q || busy) return;
@@ -105,7 +119,7 @@ export function Assistant() {
     setText('');
     setBusy(reqId);
     try {
-      const r = await api.brain.ask(reqId, q, history.current.length ? history.current : undefined);
+      const r = await api.brain.ask(reqId, q, history.current.length ? history.current : undefined, { ...(computerAllowed && useComputer ? { computer: true } : {}), persona: who.persona, project: who.project });
       history.current = r.messages;
       setTurns((t) => t.map((x) => (x.reqId === reqId ? { ...x, text: r.answer, result: r } : x)));
     } catch (e) {
@@ -229,14 +243,22 @@ export function Assistant() {
             </div>
           ))}
           <div ref={end} />
-          <div className="composer">
+          {computerAllowed ? (
+            <label className={`computer-toggle ${useComputer ? 'on' : ''}`} title="The AI may see the screen, move the pointer, click and type, within your rules under Agents. Stop it any time from the Island.">
+              <input type="checkbox" checked={useComputer} onChange={(e) => setUseComputer(e.target.checked)} />
+              <Icon name="laptop" size={13} /> Let it use this computer
+            </label>
+          ) : null}
+          <div className="composer" style={{ position: 'relative' }}>
+            <PersonaPicker personas={abil.data?.personas ?? []} projects={abil.data?.projects ?? []} persona={who.persona} project={who.project} onChange={setWho} />
             <textarea
               className="input"
-              placeholder="Ask anything about your files…"
+              placeholder={useComputer && computerAllowed ? 'Ask it to do something on this computer…' : 'Ask anything about your files…'}
               value={text}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void ask(text); } }}
             />
+            {abil.data?.enabled && abil.data.voice.stt !== 'off' ? <VoiceButton onText={(t) => void ask(t)} busy={!!busy} lastAnswer={turns[turns.length - 1]?.text} handsFree={abil.data.voice.handsFree} /> : null}
             {busy ? (
               <button className="btn" onClick={() => void api.brain.cancel(busy)} style={{ height: 42 }}><Icon name="close" size={14} /> Stop</button>
             ) : (

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Reads the camera make/model and capture date from a JPEG's EXIF block.
 // Only the first 128 KB of the file are needed.
 

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Types for render-packaging.mjs, so the tests can import it.
 
 export type Sums = Record<string, string>;

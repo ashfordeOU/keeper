@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // macOS Finder tags: Keeper reads them while indexing and writes changes back,
 // so tags set in Keeper show in Finder and the other way round. Other systems
 // keep Keeper's own tags.

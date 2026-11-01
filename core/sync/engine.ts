@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Folder sync between Keeper devices. Each device keeps a record of its copy
 // (see folder.ts) and asks the others what changed since it last looked. Files
 // are rebuilt from pieces: pieces already on this device (from any file, so a

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Fills the package-manager manifests in packaging/ with a release's version and
 // checksums, so Homebrew, Scoop, winget, Chocolatey, AUR, Flatpak and npm all
 // describe exactly the files that were published.
@@ -92,8 +92,8 @@ export function renderAll({ version, sums, date, out, only, cli, allowMissing = 
     if (channel === 'npm') {
       if (!cli || !existsSync(cli)) throw new Error('the npm package needs --cli <path to dist-cli/keeper.cjs>');
       copyFileSync(cli, path.join(out, 'npm', 'keeper.cjs'));
-      copyFileSync(path.join(ROOT, 'LICENSE'), path.join(out, 'npm', 'LICENSE'));
-      written.push(path.join(out, 'npm', 'keeper.cjs'), path.join(out, 'npm', 'LICENSE'));
+      copyFileSync(path.join(ROOT, 'LICENSE.md'), path.join(out, 'npm', 'LICENSE.md'));
+      written.push(path.join(out, 'npm', 'keeper.cjs'), path.join(out, 'npm', 'LICENSE.md'));
     }
   }
   return written;
