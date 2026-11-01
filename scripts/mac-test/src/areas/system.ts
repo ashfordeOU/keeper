@@ -212,6 +212,13 @@ export async function runPermissions(ctx: Ctx) {
       const now = (await ctx.probe('tcc')) ?? {};
       ctx.facts.tcc = now;
       if (granted(now[p.field])) return pass(`Allowed for ${term}`);
+      if (p.key === 'accessibility' && !ctx.dry) {
+        // A second opinion: System Events answers for the terminal itself, so this tells a missing
+        // permission apart from macOS not crediting a helper program started from the terminal.
+        const se = await ctx.sys.run('/usr/bin/osascript', ['-e', 'tell application "System Events" to get UI elements enabled'], { timeoutMs: 15_000 });
+        if (se.ok && /true/.test(se.stdout)) return pass(`Allowed for ${term} (System Events confirms it). The test's helper program is not credited with it, so checks that move the pointer may still skip`, { now: now[p.field], systemEvents: true });
+      }
+      if (p.key === 'accessibility' || p.key === 'input') ctx.say(color.dim(`If ${term} is already switched on there, macOS may be holding an old entry (common after a macOS or ${term} update): select ${term}, press −, then + and add it again from Applications → Utilities, quit ${term} fully (⌘Q) and run the test again with --skip-build.`));
       return fail(`Still not allowed for ${term} after the owner said done${p.key === 'screen' ? ' (macOS may only apply it after the terminal app restarts)' : ''}`, undefined, { now: now[p.field] });
     });
   }

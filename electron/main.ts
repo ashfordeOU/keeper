@@ -2,6 +2,8 @@
 // Keeper's main process: windows, tray, shortcuts, the file index and every
 // action the interface can ask for.
 
+// Must stay the first import: test runs move every folder before anything reads one.
+import './test-home';
 import { clipboardImage, readFile as readCaptureFile } from './services/capture';
 import { addBusyCheck } from './services/busy';
 import { onBeforeInstall } from './services/updater';
