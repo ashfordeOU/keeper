@@ -10,6 +10,7 @@ import * as mono from '../services/ashforde/monorail';
 import * as coexist from '../services/ashforde/coexist';
 import { poll } from '../services/governor';
 import { patchAtPath } from '../../core/ashforde/coexist';
+import { featurePatch } from '../../core/features';
 import { setAwakePeer } from '../services/awake';
 import { registerKeeperMethod } from '../services/brain';
 import { requestApproval, setToolProvider } from '../services/agents';
@@ -47,6 +48,14 @@ export function registerAshfordeIpc(c: AshfordeCtx) {
   }).then(() => {
     // Off by default; on a Mac only. Off means no watch, no timers, no tools.
     onFeature('monorail', (on) => void mono.setEnabled(on).then(() => { if (on) void coexist.hello(); }), { now: true });
+    // Monorail found for the first time: the two work together from now on (once; turning it
+    // off in Features is remembered and never undone). Window coexistence never needs the switch.
+    void mono.claimAutoOn().then(async (first) => {
+      if (!first || featureOn('monorail')) return;
+      await updateSettings(featurePatch(settings(), 'monorail', true));
+      await mono.connect().catch(() => undefined);
+      c.alert('Keeper and Monorail now work together', 'Focus, presentation and Keep Awake stay in step, and Monorail shows in the Island. Turn this off in Keeper → Settings → Features.');
+    }).catch(() => undefined);
     // Monorail keeps Keeper's hello in memory only: say it again whenever Monorail's API
     // starts (relaunch, crash, its own update), forget Monorail when its API stops, and
     // say it every ten minutes as a safety net.

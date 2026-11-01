@@ -50,6 +50,8 @@ interface Stored {
   update?: MonorailStatus['update'];
   /** theme Keeper last gave Monorail, so a theme the person picked in Monorail is not fought over */
   lastTheme?: string;
+  /** the Monorail switch was turned on by itself once, when Monorail was first found; never again after that */
+  autoOnDone?: boolean;
 }
 
 let deps: MonorailDeps | null = null;
@@ -542,6 +544,18 @@ export async function launch(): Promise<MonorailStatus> {
 export async function quit(): Promise<MonorailStatus> {
   await quitRunning();
   return status(true);
+}
+
+/**
+ * Monorail is installed and Keeper has never switched working with it on by itself: true once,
+ * and remembered, so a person who turns the switch off later is never overruled.
+ */
+export async function claimAutoOn(): Promise<boolean> {
+  if (!isMac() || stored.autoOnDone) return false;
+  if (!(await detect(true)).path) return false;
+  stored.autoOnDone = true;
+  await saveStored();
+  return true;
 }
 
 /** Turns on Monorail's local API and state.json, and applies Keeper's float rules and theme when chosen. */
