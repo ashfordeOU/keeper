@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // A sidebar section that opens and closes on a click of its title and stays
-// the way the person left it. Each section has its own colour. A long section
+// the way the person left it. Sections start folded (only their titles show,
+// plus the page you are on); the person opens the ones they want. Each section has its own colour. A long section
 // shows its most used items and "Show all" (Settings → Sidebar); the page you
 // are on always stays in view.
 
@@ -11,23 +12,27 @@ import { Icon } from './Icon';
 import { ContextMenu, type MenuItem } from './ui';
 import { useStore } from '../state';
 
-// Closed sections by id, and `all:<id>` for a long section showing all its items.
+// `all:<id>` for a long section showing all its items (kept under the old key).
 const KEY = 'sidebar.closed';
+// Sections the person opened; every other section starts folded.
+const OPEN_KEY = 'sidebar.opened';
 const listeners = new Set<() => void>();
 
-function load(): Set<string> {
+function load(key: string): Set<string> {
   try {
-    return new Set(JSON.parse(localStorage.getItem(KEY) ?? '[]') as string[]);
+    return new Set(JSON.parse(localStorage.getItem(key) ?? '[]') as string[]);
   } catch {
     return new Set();
   }
 }
 
-let closed = load();
+let closed = load(KEY);
+let opened = load(OPEN_KEY);
 
 function save() {
   try {
     localStorage.setItem(KEY, JSON.stringify([...closed]));
+    localStorage.setItem(OPEN_KEY, JSON.stringify([...opened]));
   } catch {
     /* storage unavailable: still works until Keeper quits */
   }
@@ -35,17 +40,21 @@ function save() {
 }
 
 export function setSectionOpen(id: string, open: boolean) {
-  closed = new Set(closed);
-  if (open) closed.delete(id);
-  else closed.add(id);
+  opened = new Set(opened);
+  if (open) opened.add(id);
+  else opened.delete(id);
   save();
 }
 
 /** Opens or closes every section at once (each one's "Show all" stays as it was). */
 export function setAllSections(ids: string[], open: boolean) {
-  const all = [...closed].filter((k) => k.startsWith('all:'));
-  closed = new Set(open ? all : [...all, ...ids]);
+  opened = new Set(open ? ids : []);
   save();
+}
+
+/** Folded unless the person opened it. Automated test runs see every section open, so their selectors keep working. */
+function sectionClosed(id: string): boolean {
+  return compactionAllowed() && !opened.has(id);
 }
 
 /** A long section shows all its items, or only its most used ones. */
@@ -63,6 +72,10 @@ const navKeyOf = (row: HTMLElement): string => {
 
 function useClosed(): Set<string> {
   return useSyncExternalStore((fn) => { listeners.add(fn); return () => listeners.delete(fn); }, () => closed);
+}
+
+function useOpened(): Set<string> {
+  return useSyncExternalStore((fn) => { listeners.add(fn); return () => listeners.delete(fn); }, () => opened);
 }
 
 /** Section colours, in the order they appear; themes may override --sec-<id>. */
@@ -92,7 +105,8 @@ export function NavSection({ id, title, children, className, menuItems = [], ...
   menuItems?: MenuItem[];
 } & Omit<React.HTMLAttributes<HTMLDivElement>, 'title'>) {
   const closedSet = useClosed();
-  const isClosed = closedSet.has(id);
+  useOpened();
+  const isClosed = sectionClosed(id);
   const showAll = closedSet.has(`all:${id}`);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const { settings, updateSettings, go } = useStore();
@@ -136,7 +150,7 @@ export function NavSection({ id, title, children, className, menuItems = [], ...
         onClick={(e) => (e.altKey ? setAllSections(SECTION_IDS, isClosed) : setSectionOpen(id, isClosed))}
         onContextMenu={(e) => { e.preventDefault(); setMenu({ x: e.clientX, y: e.clientY }); }}
       >
-        <span className="nav-title-text"><i className="sec-dot" />{title}</span>
+        <span className="nav-title-text"><i className="sec-dot" /><span className="nav-title-label">{title}</span></span>
         <Icon name="chevronDown" size={12} className="nav-chevron" />
       </button>
       {/* A closed section keeps showing the page you are on, so you never lose your place. */}
