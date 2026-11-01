@@ -129,6 +129,96 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     check(await paneW() < 2, 'Ctrl+Alt+I hides it again');
   }
 
+  // ---------------------------------------------------------------- the sidebar
+  if (want('sidebar')) {
+    await nav('home');
+    const col = main.locator('[data-testid="sidebar-col"]');
+    const colW = async () => Math.round((await col.boundingBox())?.width ?? 0);
+    const navW = async () => Math.round((await main.locator('nav.sidebar').boundingBox())?.width ?? 0);
+    check(await main.locator('nav.sidebar[aria-label="Sidebar"]').count() === 1, 'the sidebar is a labelled navigation landmark');
+    check(await main.locator('nav.sidebar [aria-current="page"]').count() >= 1, 'the page you are on is marked as current');
+    check(await colW() > 150, `a wide window has the full sidebar (${await colW()} px)`);
+    // A narrow window: the rail.
+    await size(860, 640);
+    check(await colW() <= 60, `a narrow window gives the icon rail (${await colW()} px)`);
+    check(await main.locator('nav.sidebar .nav-item .label').first().isVisible() === false, 'the rail shows icons only');
+    await both('sidebar-rail');
+    // Hovering opens it over the page, without moving the page.
+    const mainX = (await main.locator('main.main').boundingBox()).x;
+    await main.mouse.move(28, 300);
+    await sleep(700);
+    check(await navW() > 150, `pointing at the rail opens it (${await navW()} px)`);
+    check(Math.round((await main.locator('main.main').boundingBox()).x) === Math.round(mainX), 'it opens over the page (the page does not move)');
+    await both('sidebar-rail-open');
+    await main.mouse.move(700, 300);
+    await sleep(500);
+    check(await navW() <= 60, 'moving away folds it again');
+    // The pin keeps it open (and the page makes room).
+    await main.mouse.move(28, 300);
+    await sleep(700);
+    await main.click('[data-testid="sidebar-pin"]');
+    await main.mouse.move(700, 300);
+    await sleep(500);
+    check(await colW() > 150, `the pin keeps it open (${await colW()} px)`);
+    // ⌘⌥S / Ctrl+Alt+S folds it again.
+    await main.keyboard.press('Control+Alt+s');
+    await sleep(400);
+    check(await colW() <= 60, 'Ctrl+Alt+S folds it to the rail');
+    // Keyboard focus opens the rail.
+    await main.locator('nav.sidebar .nav-item').first().focus();
+    await main.keyboard.press('Tab');
+    await sleep(300);
+    check(await navW() > 150, 'keyboard focus opens the rail');
+    await main.keyboard.press('Escape');
+    await main.keyboard.press('Control+Alt+s');
+    await size(1440, 900);
+    await sleep(300);
+    check(await colW() > 150, 'pinned open, it stays full in a wide window');
+
+    // Resizing by the right edge, kept after a reload.
+    const sep = main.locator('[data-testid="sidebar-splitter"]');
+    const b = await sep.boundingBox();
+    const w0 = await colW();
+    await main.mouse.move(b.x + 3, b.y + 300);
+    await main.mouse.down();
+    for (let i = 1; i <= 4; i++) await main.mouse.move(b.x + 3 + i * 15, b.y + 300);
+    await main.mouse.up();
+    await sleep(400);
+    const w1 = await colW();
+    check(Math.abs(w1 - (w0 + 60)) <= 4, `dragging the edge resizes it (${w0} → ${w1})`);
+    await reload();
+    check(Math.abs(await colW() - w1) <= 2, `the width is kept after a reload (${await colW()})`);
+    // Dragging well below the narrowest snaps to the rail.
+    const b2 = await main.locator('[data-testid="sidebar-splitter"]').boundingBox();
+    await main.mouse.move(b2.x + 3, b2.y + 300);
+    await main.mouse.down();
+    for (let i = 1; i <= 8; i++) await main.mouse.move(b2.x + 3 - i * 25, b2.y + 300);
+    await main.mouse.up();
+    await sleep(400);
+    check(await colW() <= 60, 'dragging it narrower than its minimum snaps to the rail');
+    await main.evaluate(() => localStorage.setItem('sidebar.pinned', 'null'));
+
+    // "Show all" in a long section (automated runs see everything unless they opt in).
+    await main.evaluate(() => { localStorage.setItem('sidebar.compactInTests', '1'); localStorage.removeItem('sidebar.closed'); });
+    await reload();
+    const sys = main.locator('.nav-section', { has: main.locator('[data-testid="nav-more-system"]') });
+    const shown = async () => sys.locator('.nav-items > .nav-item:visible').count();
+    const n0 = await shown();
+    check(n0 >= 5 && n0 <= 6, `a long section shows its first five (${n0})`);
+    const more = main.locator('[data-testid="nav-more-system"]');
+    check(/Show all \(\d+\)/.test(await more.textContent()), `with a "${(await more.textContent()).trim()}" row`);
+    await more.scrollIntoViewIfNeeded();
+    await both('sidebar-compact');
+    await more.click();
+    await sleep(300);
+    const n1 = await shown();
+    check(n1 > n0, `"Show all" opens the rest in place (${n0} → ${n1})`);
+    await reload();
+    check(await shown() === n1, 'and stays open after a reload');
+    await main.locator('[data-testid="nav-more-system"]').click();
+    await main.evaluate(() => localStorage.removeItem('sidebar.compactInTests'));
+  }
+
   check(!errors.length, `no page errors${errors.length ? ': ' + errors.slice(0, 3).join(' | ') : ''}`);
   await app.close();
 })().catch((e) => { console.error(e); process.exit(1); });

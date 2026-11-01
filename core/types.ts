@@ -449,6 +449,10 @@ export interface Settings {
   language: string;
   /** when the details panel on the right shows (Settings → Appearance) */
   inspectorMode: import('./inspector').InspectorMode;
+  /** the sidebar: full, an icons-only rail, or the rail in narrow windows (Settings → Sidebar) */
+  sidebarMode: import('./sidebar-layout').SidebarMode;
+  /** long sidebar sections show this many items (most used first) and "Show all"; 0 shows everything */
+  sidebarSectionLimit: number;
   /** the first-run Permissions step: set everything up now, only what gets turned on, or not chosen yet */
   permissionsSetup: '' | 'all' | 'onDemand';
 }

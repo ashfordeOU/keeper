@@ -136,6 +136,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     { id: 'appearance', label: 'Toggle Dark Mode', group: 'Actions', icon: 'moon', keywords: 'theme light appearance', run: () => store.settings && store.updateSettings({ appearance: store.settings.appearance === 'dark' ? 'light' : 'dark' }) },
     { id: 'view', label: store.view === 'grid' ? 'Show as List' : 'Show as Grid', group: 'Actions', icon: store.view === 'grid' ? 'list' : 'grid', kbd: store.view === 'grid' ? `${mod}2` : `${mod}1`, run: () => store.setView(store.view === 'grid' ? 'list' : 'grid') },
     { id: 'inspector', label: store.inspector ? 'Hide Inspector' : 'Show Inspector', group: 'Actions', icon: 'info', kbd: mod === '⌘' ? '⌘⌥I' : 'Ctrl+Alt+I', run: () => store.setInspector(!store.inspector) },
+    { id: 'sidebar-toggle', label: 'Fold or open the sidebar', group: 'Actions', icon: 'columns', kbd: mod === '⌘' ? '⌘⌥S' : 'Ctrl+Alt+S', run: () => window.dispatchEvent(new Event('keeper-toggle-sidebar')) },
     { id: 'inspector-settings', label: 'Inspector: when it shows…', group: 'Actions', icon: 'settings', run: () => store.go({ name: 'settings', arg: 'inspector' }) },
     // Cues: a new cue for the app or page in front (the composer pops up beside it).
     { id: 'cue-new', label: 'New Cue for What’s in Front…', group: 'Actions', icon: 'pin', keywords: 'cue remind reminder note checklist app page site when back later', run: () => void api.cues?.compose({ attach: ['page', 'app'] }) },

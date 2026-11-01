@@ -123,6 +123,8 @@ export function defaultSettings(folders: string[], rules: Rule[]): AllSettings {
     restorePlace: true,
     language: 'system',
     inspectorMode: 'selection',
+    sidebarMode: 'auto',
+    sidebarSectionLimit: 5,
     permissionsSetup: '',
     island: defaultIsland(),
   };
@@ -163,6 +165,8 @@ export function mergeSettings(base: AllSettings, raw: unknown): AllSettings {
   out.awake = normalizeAwakeSettings(out.awake, r.island && typeof r.island === 'object' ? (r.island as { awakeTriggers?: unknown }).awakeTriggers : undefined);
   if (!Array.isArray(out.featureSets)) out.featureSets = [];
   if (!['selection', 'always', 'never'].includes(out.inspectorMode)) out.inspectorMode = 'selection';
+  if (!['auto', 'full', 'compact'].includes(out.sidebarMode)) out.sidebarMode = 'auto';
+  out.sidebarSectionLimit = Number.isFinite(out.sidebarSectionLimit) ? Math.max(0, Math.min(50, Math.round(out.sidebarSectionLimit))) : 5;
   if (!['', 'all', 'onDemand'].includes(out.permissionsSetup)) out.permissionsSetup = '';
   return out;
 }

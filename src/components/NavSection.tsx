@@ -1,12 +1,17 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // A sidebar section that opens and closes on a click of its title and stays
-// the way the person left it. Each section has its own colour.
+// the way the person left it. Each section has its own colour. A long section
+// shows its most used items and "Show all" (Settings → Sidebar); the page you
+// are on always stays in view.
 
-import { useState, useSyncExternalStore } from 'react';
+import { useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { pickVisible, SECTION_LIMIT_DEFAULT } from '../../core/sidebar-layout';
+import { compactionAllowed, useSidebarLocal } from '../sidebar-state';
 import { Icon } from './Icon';
 import { ContextMenu, type MenuItem } from './ui';
 import { useStore } from '../state';
 
+// Closed sections by id, and `all:<id>` for a long section showing all its items.
 const KEY = 'sidebar.closed';
 const listeners = new Set<() => void>();
 
@@ -36,11 +41,25 @@ export function setSectionOpen(id: string, open: boolean) {
   save();
 }
 
-/** Opens or closes every section at once. */
+/** Opens or closes every section at once (each one's "Show all" stays as it was). */
 export function setAllSections(ids: string[], open: boolean) {
-  closed = open ? new Set() : new Set(ids);
+  const all = [...closed].filter((k) => k.startsWith('all:'));
+  closed = new Set(open ? all : [...all, ...ids]);
   save();
 }
+
+/** A long section shows all its items, or only its most used ones. */
+export function setSectionAll(id: string, all: boolean) {
+  closed = new Set(closed);
+  if (all) closed.add(`all:${id}`);
+  else closed.delete(`all:${id}`);
+  save();
+}
+
+const navKeyOf = (row: HTMLElement): string => {
+  const b = row.matches('.nav-item') ? row : row.querySelector<HTMLElement>('.nav-item');
+  return b?.dataset.navKey || b?.getAttribute('title') || b?.textContent || '';
+};
 
 function useClosed(): Set<string> {
   return useSyncExternalStore((fn) => { listeners.add(fn); return () => listeners.delete(fn); }, () => closed);
@@ -72,9 +91,33 @@ export function NavSection({ id, title, children, className, menuItems = [], ...
   /** extra entries for the title's right-click menu */
   menuItems?: MenuItem[];
 } & Omit<React.HTMLAttributes<HTMLDivElement>, 'title'>) {
-  const isClosed = useClosed().has(id);
+  const closedSet = useClosed();
+  const isClosed = closedSet.has(id);
+  const showAll = closedSet.has(`all:${id}`);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const { settings, updateSettings, go } = useStore();
+  const { usage } = useSidebarLocal();
+  const limit = compactionAllowed() ? settings?.sidebarSectionLimit ?? SECTION_LIMIT_DEFAULT : 0;
+  const itemsRef = useRef<HTMLDivElement>(null);
+  const [counts, setCounts] = useState({ total: 0, more: 0 });
+  // Marks the items beyond the most used ones (they hide until "Show all"); runs again when the items change.
+  useLayoutEffect(() => {
+    const el = itemsRef.current;
+    if (!el) return;
+    const apply = () => {
+      const rows = [...el.children].filter((c) => c.matches('.nav-item') || c.querySelector('.nav-item')) as HTMLElement[];
+      const keys = rows.map(navKeyOf);
+      const activeRow = rows.find((r) => r.matches('.nav-item.active') || r.querySelector('.nav-item.active'));
+      const keep = pickVisible(keys, usage, limit, activeRow ? navKeyOf(activeRow) : null, Date.now());
+      let more = 0;
+      rows.forEach((r, i) => { const m = !keep.has(keys[i]); if (m) more++; if (r.hasAttribute('data-more') !== m) r.toggleAttribute('data-more', m); });
+      setCounts((c) => (c.total === rows.length && c.more === more ? c : { total: rows.length, more }));
+    };
+    apply();
+    const mo = new MutationObserver(apply);
+    mo.observe(el, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+    return () => mo.disconnect();
+  }, [usage, limit]);
   // Hidden or moved with "Customize sidebar…".
   if (settings?.sidebarHidden?.includes(`section:${id}`)) return null;
   const at = settings?.sidebarOrder?.indexOf(id) ?? -1;
@@ -82,7 +125,7 @@ export function NavSection({ id, title, children, className, menuItems = [], ...
   return (
     <div
       {...rest}
-      className={`nav-section ${isClosed ? 'closed' : ''} ${className ?? ''}`}
+      className={`nav-section ${isClosed ? 'closed' : ''} ${showAll ? 'show-all' : ''} ${className ?? ''}`}
       style={{ ['--sec' as string]: `var(--sec-${id}, ${SECTION_COLOR[id] ?? 'var(--accent)'})`, order }}
     >
       <button
@@ -97,7 +140,13 @@ export function NavSection({ id, title, children, className, menuItems = [], ...
         <Icon name="chevronDown" size={12} className="nav-chevron" />
       </button>
       {/* A closed section keeps showing the page you are on, so you never lose your place. */}
-      <div className="nav-items">{children}</div>
+      <div className="nav-items" ref={itemsRef}>{children}</div>
+      {counts.more > 0 && !isClosed ? (
+        <button className="nav-more" aria-expanded={showAll} data-testid={`nav-more-${id}`} title={showAll ? 'Show only the ones you use most' : `Show all ${counts.total}`} onClick={() => setSectionAll(id, !showAll)}>
+          <Icon name={showAll ? 'minus' : 'plus'} size={14} />
+          <span className="label">{showAll ? 'Show fewer' : `Show all (${counts.total})`}</span>
+        </button>
+      ) : null}
       {menu ? (
         <ContextMenu
           x={menu.x}

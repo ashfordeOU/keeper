@@ -8,7 +8,7 @@ import { Calendar } from './pim/Calendar';
 import { Mail } from './pim/Mail';
 import { PimSidebar } from './pim/PimSidebar';
 import { Reminders } from './pim/Reminders';
-import { Component, lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
+import { Component, lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { FileKind } from '../core/types';
 import { api } from './api';
 import { CommandPalette } from './components/CommandPalette';
@@ -91,6 +91,8 @@ import { ForceQuitHost } from './screens/Processes';
 import { FILE_ROUTES, mod, shift, useAsync, useStore, type Route, type RouteName } from './state';
 import { Splitter } from './components/Splitter';
 import { inspectorRange } from '../core/inspector';
+import { asSidebarMode, isRail, SIDEBAR_RAIL, SIDEBAR_RANGE } from '../core/sidebar-layout';
+import { setSidebarPinned, setSidebarWidth, useSidebarLocal } from './sidebar-state';
 import { QuickLookHost } from './preview/QuickLook';
 import { toggleThemePatch } from './theme';
 
@@ -127,7 +129,7 @@ function NavItem({ route, icon, label, count, color }: { route: Route; icon?: st
         { label: 'Customize Sidebar…', icon: 'settings', run: () => go({ name: 'settings', arg: 'sidebar' }) },
       ]} />
     ) : null}
-    <button className={`nav-item ${active ? 'active' : ''}`} onClick={() => go(route)} title={label} onContextMenu={(e) => { e.preventDefault(); setMenu({ x: e.clientX, y: e.clientY }); }}>
+    <button className={`nav-item ${active ? 'active' : ''}`} aria-current={active ? 'page' : undefined} data-nav-key={key} onClick={() => go(route)} title={label} onContextMenu={(e) => { e.preventDefault(); setMenu({ x: e.clientX, y: e.clientY }); }}>
       {color ? <span className="dot" style={{ background: color }} /> : <Icon name={icon ?? 'folder'} size={15} />}
       <span className="label ellipsis">{label}</span>
       {count !== undefined ? <span className="count">{count}</span> : null}
@@ -136,7 +138,57 @@ function NavItem({ route, icon, label, count, color }: { route: Route; icon?: st
   );
 }
 
-function Sidebar() {
+/** The sidebar's layout: full, or an icons-only rail that opens over the page on hover or keyboard focus. */
+function useSidebarLayout() {
+  const { settings } = useStore();
+  const local = useSidebarLocal();
+  const [winW, setWinW] = useState(() => window.innerWidth);
+  useEffect(() => {
+    const on = () => setWinW(window.innerWidth);
+    window.addEventListener('resize', on);
+    return () => window.removeEventListener('resize', on);
+  }, []);
+  const mode = asSidebarMode(settings?.sidebarMode);
+  const rail = isRail({ mode, windowWidth: winW, pinned: local.pinned });
+  return { mode, rail, width: local.width };
+}
+
+/** Pins the rail open, or folds the open sidebar back to the rail. */
+function toggleSidebar(rail: boolean, mode: string, toast: (t: string) => void) {
+  if (mode === 'full') { toast('The sidebar is set to Always full (Settings → Sidebar)'); return; }
+  setSidebarPinned(rail);
+}
+
+function Sidebar({ rail, width, mode }: { rail: boolean; width: number; mode: string }) {
+  const [open, setOpen] = useState(false);
+  const [live, setLive] = useState<number | null>(null);
+  const timer = useRef<number | undefined>(undefined);
+  const { toast } = useStore();
+  useEffect(() => { if (!rail) setOpen(false); }, [rail]);
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+  const expanded = !rail || open;
+  return (
+    <div
+      className={`sidebar-col ${rail ? 'rail' : ''} ${rail && open ? 'rail-open' : ''}`}
+      data-testid="sidebar-col"
+      style={{ ['--sidebar-w' as string]: `${live ?? width}px` }}
+      onMouseEnter={() => { if (!rail) return; window.clearTimeout(timer.current); timer.current = window.setTimeout(() => setOpen(true), 300); }}
+      onMouseLeave={() => { window.clearTimeout(timer.current); if (rail && !(document.activeElement as HTMLElement | null)?.closest?.('.sidebar')?.matches(':focus-within')) setOpen(false); }}
+      onFocus={(e) => { if (rail && (e.target as HTMLElement).matches(':focus-visible')) setOpen(true); }}
+      onBlur={(e) => { if (rail && !e.currentTarget.contains(e.relatedTarget as Node | null)) setOpen(false); }}
+      onKeyDown={(e) => { if (rail && open && e.key === 'Escape') { setOpen(false); (document.activeElement as HTMLElement | null)?.blur(); } }}
+    >
+      <SidebarNav rail={rail} expanded={expanded} onToggle={() => toggleSidebar(rail, mode, toast)} canPin={mode !== 'full'} />
+      {rail ? (
+        <Splitter width={SIDEBAR_RAIL} range={{ ...SIDEBAR_RANGE, min: SIDEBAR_RAIL }} label="Sidebar width" controls="sidebar" testId="sidebar-splitter" className="sidebar-splitter" onLive={() => undefined} onCommit={(px) => { if (px > SIDEBAR_RAIL + 40) { setSidebarWidth(Math.max(px, SIDEBAR_RANGE.min)); setSidebarPinned(true); } }} />
+      ) : (
+        <Splitter width={live ?? width} range={SIDEBAR_RANGE} label="Sidebar width" controls="sidebar" testId="sidebar-splitter" className="sidebar-splitter" onLive={setLive} onCommit={setSidebarWidth} onBelowMin={mode === 'full' ? undefined : () => setSidebarPinned(false)} />
+      )}
+    </div>
+  );
+}
+
+function SidebarNav({ rail, expanded, onToggle, canPin }: { rail: boolean; expanded: boolean; onToggle: () => void; canPin: boolean }) {
   const { settings, version, info } = useStore();
   const t = useT();
   const tt = useTT();
@@ -144,8 +196,10 @@ function Sidebar() {
   const tags = useAsync(() => api.library.tags(), [version]);
   const short = (n?: number) => (n === undefined ? undefined : n >= 1000 ? `${(n / 1000).toFixed(n >= 10_000 ? 0 : 1)}k` : String(n));
   return (
-    <aside className="sidebar">
-      <div className="brand" title="Keeper by Ashforde®"><OwlMark tile size={26} title="Keeper by Ashforde®" /><span className="brand-name">Keeper<small>by Ashforde®</small></span></div>
+    <nav className="sidebar" id="sidebar" aria-label="Sidebar" data-expanded={expanded ? '1' : undefined}>
+      <div className="brand" title="Keeper by Ashforde®"><OwlMark tile size={26} title="Keeper by Ashforde®" /><span className="brand-name">Keeper<small>by Ashforde®</small></span>
+        {canPin && expanded ? <button className="btn ghost icon sm sidebar-pin" data-testid="sidebar-pin" aria-pressed={!rail} title={rail ? `Keep the sidebar open (${mod === '⌘' ? '⌘⌥S' : 'Ctrl+Alt+S'})` : `Fold the sidebar to icons (${mod === '⌘' ? '⌘⌥S' : 'Ctrl+Alt+S'})`} onClick={onToggle}><Icon name={rail ? 'pin' : 'chevronLeft'} size={13} /></button> : null}
+      </div>
       <NavItem route={{ name: 'home' }} icon="home" label={t('nav.home')} />
       <NavItem route={{ name: 'recents' }} icon="clock" label={t('nav.recents')} />
       <NavItem route={{ name: 'browse', arg: info?.home }} icon="folder" label={t('nav.browse')} />
@@ -234,7 +288,7 @@ function Sidebar() {
         <NavItem route={{ name: 'history' }} icon="history" label={t('nav.history')} />
         <NavItem route={{ name: 'settings' }} icon="settings" label={t('nav.settings')} />
       </NavSection>
-    </aside>
+    </nav>
   );
 }
 
@@ -403,7 +457,7 @@ function InspectorPane({ shown }: { shown: boolean }) {
     window.addEventListener('resize', on);
     return () => window.removeEventListener('resize', on);
   }, []);
-  const sidebar = document.querySelector<HTMLElement>('.sidebar')?.offsetWidth ?? 228;
+  const sidebar = document.querySelector<HTMLElement>('.sidebar-col')?.offsetWidth ?? 228;
   const range = inspectorRange(winW, sidebar);
   const w = Math.min(range.max, live ?? inspectorWidth);
   return (
@@ -425,6 +479,7 @@ export function App() {
   const store = useStore();
   const [palette, setPalette] = useState(false);
   const showInspector = store.inspector;
+  const side = useSidebarLayout();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -441,6 +496,8 @@ export function App() {
         const files = store.selection;
         if (files.length) { e.preventDefault(); void api.library.readText(files).then((r) => { const t = r.map((x) => x.text).filter(Boolean).join('\n\n'); if (t) { void api.files.copyText(t); store.toast(`Copied text from ${r.filter((x) => x.text).length} file(s)`); } else store.toast('No text found in the selection'); }); }
       }
+      // ⌘⌥S / Ctrl+Alt+S folds the sidebar to its rail or keeps it open.
+      else if (cmd && e.altKey && !e.shiftKey && e.code === 'KeyS') { e.preventDefault(); toggleSidebar(side.rail, side.mode, store.toast); }
       // ⌘⌥I / Ctrl+Alt+I (and ⌘I / Ctrl+I) shows or hides the Inspector.
       else if (cmd && !e.shiftKey && (e.code === 'KeyI' || k === 'i')) { e.preventDefault(); store.setInspector(!store.inspector); }
       // Escape clears the selection on a file page (dialogs and menus take Escape first).
@@ -455,15 +512,18 @@ export function App() {
     window.addEventListener('keydown', onKey);
     // The Island's own ⌘⌥I is a system-wide shortcut, so the main process passes it on while a Keeper window is in front.
     const off = api.on('toggle-inspector', () => store.setInspector(!store.inspector));
-    return () => { window.removeEventListener('keydown', onKey); off(); };
-  }, [store]);
+    const onSide = () => toggleSidebar(side.rail, side.mode, store.toast);
+    const offSide = api.on('toggle-sidebar', onSide);
+    window.addEventListener('keeper-toggle-sidebar', onSide);
+    return () => { window.removeEventListener('keydown', onKey); off(); offSide(); window.removeEventListener('keeper-toggle-sidebar', onSide); };
+  }, [store, side.rail, side.mode]);
 
   // Scroll positions come back too, after a page change, an update or a restart.
   usePlaceMemory(store.route, contentEl);
 
   return (
-    <div className="shell" onClick={(e) => { if ((store.selection.length || store.focused) && clearsSelection(e.target)) store.setSelection([]); }}>
-      <Sidebar />
+    <div className={`shell ${side.rail ? 'has-rail' : ''}`} style={{ ['--sidebar' as string]: `${side.rail ? SIDEBAR_RAIL : side.width}px` }} onClick={(e) => { if ((store.selection.length || store.focused) && clearsSelection(e.target)) store.setSelection([]); }}>
+      <Sidebar rail={side.rail} width={side.width} mode={side.mode} />
       <main className="main">
         <TopBar onPalette={() => setPalette(true)} />
         {/* Tabs: middle-click or ⌘/Ctrl-click anything to open it in a new one; they survive restarts and crashes. */}

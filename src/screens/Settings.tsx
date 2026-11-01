@@ -7,6 +7,8 @@ import { Icon } from '../components/Icon';
 import { PageHead, Toggle } from '../components/ui';
 import { mod, useStore } from '../state';
 import { INSPECTOR_MODES } from '../../core/inspector';
+import { SIDEBAR_MODES } from '../../core/sidebar-layout';
+import { setSidebarPinned } from '../sidebar-state';
 import { Row } from './IslandSettings';
 import { LanguageRow, LoginRow } from './SettingsMore';
 import { UpdatesPanel, WhatsNewHover } from '../components/Updates';
@@ -68,7 +70,18 @@ export function Settings() {
       </div>
 
       <h2 id="sidebar" style={{ margin: '18px 0 8px' }}>Sidebar</h2>
-      <div className="card settings-section" style={{ padding: 16 }}>
+      <div className="card settings-section">
+        <Row title="Layout" desc={`Automatic shows only icons in a narrow window. Point at the icons, or press ${mod === '⌘' ? '⌘⌥S' : 'Ctrl+Alt+S'}, to open it; drag its right edge to change its width.`}>
+          <div className="seg" role="radiogroup" aria-label="Sidebar layout">{SIDEBAR_MODES.map((m) => <button key={m.id} role="radio" aria-checked={(s.sidebarMode ?? 'auto') === m.id} className={(s.sidebarMode ?? 'auto') === m.id ? 'on' : ''} onClick={() => { setSidebarPinned(null); void updateSettings({ sidebarMode: m.id }); }}>{m.label}</button>)}</div>
+        </Row>
+        <Row title="Long sections show" desc="The items you use most come first; “Show all” opens the rest. The page you are on always stays in view.">
+          <select className="input" aria-label="Items shown in a long section" value={s.sidebarSectionLimit ?? 5} onChange={(e) => void updateSettings({ sidebarSectionLimit: Number(e.target.value) })}>
+            {[3, 5, 8, 12].map((n) => <option key={n} value={n}>{n} items</option>)}
+            <option value={0}>Everything</option>
+          </select>
+        </Row>
+      </div>
+      <div className="card settings-section" style={{ padding: 16, marginTop: 10 }}>
         <SidebarPanel />
       </div>
 
