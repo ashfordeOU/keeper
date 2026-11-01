@@ -193,6 +193,11 @@ export async function hello(): Promise<CoexistStatus['peer']> {
   return peer;
 }
 
+/** Monorail's local API stopped (it quit, or the API was switched off): it no longer knows Keeper. */
+export function forgetPeer() {
+  peer = undefined;
+}
+
 /** What Keeper tells Monorail (and anything else on its own channel) about itself. */
 export function helloPayload() {
   return keeperHello({ version: app.getVersion(), pid: process.pid, focus: !!deps?.focusOn(), awake: !!deps?.awakeOn(), stage: !!deps?.stageOn() });

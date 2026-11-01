@@ -252,12 +252,15 @@ function startWatch() {
   try {
     // state.json is replaced (written atomically), so watch the folder, not the file.
     watcher = watch(supportDir(), { persistent: false }, (_ev, name) => {
-      // Monorail writes a new api-port and api-token each time it starts (a relaunch, a
-      // crash, its own update): it has forgotten Keeper then, so Keeper says hello again.
-      if (name === 'api-port' || name === 'api-token') {
-        if (!apiTimer) apiTimer = setTimeout(() => { apiTimer = null; if (enabled) for (const l of apiListeners) l(); }, 1500);
+      // Monorail replaces api-port each time its local API starts (a launch, a crash restart,
+      // its own update, the API switched on) and deletes it when the API stops. A new one means
+      // Monorail has forgotten Keeper (it keeps the hello in memory), so Keeper says it again;
+      // a missing one means Monorail went away. (api-token is written once: no signal.)
+      if (name === 'api-port') {
+        if (!apiTimer) apiTimer = setTimeout(() => { apiTimer = null; if (enabled) { const up = existsSync(path.join(supportDir(), 'api-port')); for (const l of apiListeners) l(up); } }, 1500);
         return;
       }
+      if (name === 'api-token') return;
       if (name && name !== 'state.json' && name !== 'settings.json') return;
       if (timer) return;
       timer = setTimeout(() => {
@@ -280,11 +283,11 @@ function stopWatch() {
   apiTimer = null;
 }
 
-const apiListeners = new Set<() => void>();
+const apiListeners = new Set<(up: boolean) => void>();
 let apiTimer: NodeJS.Timeout | null = null;
 
-/** Monorail's local API was (re)started: a new port or key file, while the switch is on. */
-export function onApiRestarted(fn: () => void): () => void {
+/** Monorail's local API started (true: a new api-port) or stopped (false: api-port deleted), while the switch is on. */
+export function onApiRestarted(fn: (up: boolean) => void): () => void {
   apiListeners.add(fn);
   return () => apiListeners.delete(fn);
 }

@@ -48,8 +48,9 @@ export function registerAshfordeIpc(c: AshfordeCtx) {
     // Off by default; on a Mac only. Off means no watch, no timers, no tools.
     onFeature('monorail', (on) => void mono.setEnabled(on).then(() => { if (on) void coexist.hello(); }), { now: true });
     // Monorail keeps Keeper's hello in memory only: say it again whenever Monorail's API
-    // restarts (relaunch, crash, its own update), and every ten minutes as a safety net.
-    mono.onApiRestarted(() => void coexist.hello());
+    // starts (relaunch, crash, its own update), forget Monorail when its API stops, and
+    // say it every ten minutes as a safety net.
+    mono.onApiRestarted((up) => (up ? void coexist.hello() : coexist.forgetPeer()));
     poll('monorail.rehello', { baseMs: 10 * 60_000, idleFactor: 1, pauseWhenLocked: true }, () => (mono.enabledNow() ? coexist.hello() : undefined), { feature: 'monorail', now: false });
   });
 
