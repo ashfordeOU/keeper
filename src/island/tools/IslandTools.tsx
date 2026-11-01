@@ -7,7 +7,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { IslandState } from '../../../core/api';
 import type { IslandShortcut, SalesConfigView } from '../../../core/api-island-tools';
 import { addRecent, buildIndex, GROUPS, searchEmoji, TONES, withTone, type EmojiEntry } from '../../../core/island-tools/emoji';
-import { noteTitle, searchNotes, upsert, type IslandToolsStore, type QuickNote } from '../../../core/island-tools/notes';
+import { isTodayPad, noteTitle, searchNotes, takeLine, todayPad, upsert, type IslandToolsStore, type QuickNote } from '../../../core/island-tools/notes';
+import { dayKey } from '../../../core/pim/tasks';
+import { addTaskFromText } from '../../pim/tasks-ui';
+import { useFeature } from '../../features';
 import type { SalesSummary } from '../../../core/island-tools/sales';
 import { parseWatchlist, sparkPath, type Point, type Quote } from '../../../core/island-tools/stocks';
 import { answer, type Rates } from '../../../core/island-tools/units';
@@ -290,15 +293,34 @@ export function NotesTool({ store, save }: { store: IslandToolsStore; save: (p: 
     save({ notes: [n, ...store.notes] });
     setId(n.id);
   };
+  // Today's pad: one note a day, made the first time it is opened.
+  const openToday = () => {
+    const p = todayPad(store.notes, dayKey(Date.now()));
+    if (p.created) save({ notes: [p.note, ...store.notes] });
+    setId(p.note.id);
+  };
+  const tasksOn = useFeature('islandTodos');
+  // ⌘/Ctrl+Enter: the line under the cursor becomes a task for today (plain words work: "call Ana 3pm !!").
+  const lineToTask = (e: React.KeyboardEvent<HTMLTextAreaElement>, n: QuickNote) => {
+    if (!tasksOn || e.key !== 'Enter' || !(e.metaKey || e.ctrlKey)) return;
+    e.preventDefault();
+    const el = e.currentTarget;
+    const r = takeLine(n.text, el.selectionStart);
+    if (!r) return;
+    update({ ...n, text: r.text, updated: Date.now() });
+    window.requestAnimationFrame(() => el.setSelectionRange(r.caret, r.caret));
+    void addTaskFromText(r.task, { plannedFor: dayKey(Date.now()) }).then((t) => t && say(`Task added: ${t.title}`));
+  };
   return (
     <div className="itool notes">
       <div className="nlist">
         <div className="row-x"><input className="input sm grow" placeholder="Search notes" value={q} onChange={(e) => setQ(e.target.value)} /><button className="btn sm icon" title="New note" onClick={create}><Icon name="plus" size={11} /></button></div>
-        {list.map((n) => <button key={n.id} className={`nitem ${n.id === id ? 'on' : ''}`} onClick={() => setId(n.id)}>{n.pinned ? '📌 ' : ''}{noteTitle(n)}</button>)}
+        <button className={`nitem ${cur && cur.id === todayPad([], dayKey(Date.now())).note.id ? 'on' : ''}`} onClick={openToday} data-testid="notes-today"><Icon name="sun" size={10} /> Today</button>
+        {list.filter((n) => !isTodayPad(n) || n.id !== todayPad([], dayKey(Date.now())).note.id).map((n) => <button key={n.id} className={`nitem ${n.id === id ? 'on' : ''}`} onClick={() => setId(n.id)}>{n.pinned ? '📌 ' : ''}{noteTitle(n)}</button>)}
       </div>
       {cur ? (
         <div className="nedit">
-          <textarea className="input" value={cur.text} placeholder="Write anything; it saves as you type." onChange={(e) => update({ ...cur, text: e.target.value, updated: Date.now() })} autoFocus />
+          <textarea className="input" value={cur.text} placeholder={tasksOn ? 'Write anything; it saves as you type. ⌘/Ctrl+Enter turns a line into a task.' : 'Write anything; it saves as you type.'} onChange={(e) => update({ ...cur, text: e.target.value, updated: Date.now() })} onKeyDown={(e) => lineToTask(e, cur)} autoFocus />
           <div className="row-x">
             <button className="btn sm" onClick={() => update({ ...cur, pinned: !cur.pinned, updated: Date.now() })}><Icon name="pin" size={11} /> {cur.pinned ? 'Unpin' : 'Pin'}</button>
             <button className="btn sm" onClick={() => void navigator.clipboard.writeText(cur.text).then(() => say('Copied'))}><Icon name="copy" size={11} /> Copy</button>
