@@ -13,6 +13,7 @@ import type { IslandService } from '../services/island';
 import { placementFor, placementPreview, refreshPlaceEnv, wantedDisplays } from '../services/island-place';
 import { onFrontAppChange } from '../services/fg-watch';
 import { keepUnmanaged, overlayOptions } from '../services/unmanaged';
+import { TugGuard } from '../../core/ashforde/coexist';
 import { settings } from '../store';
 
 export interface IslandContext {
@@ -65,7 +66,7 @@ export class IslandWindows {
   private wins = new Map<number, BrowserWindow>();
   /** where each window was put; anything that moves it elsewhere is put back */
   private want = new Map<number, Rect>();
-  private snaps = new Map<number, number[]>();
+  private tug = new TugGuard(12, 10_000, 30_000);
   /**
    * macOS: windows are allowed past the menu bar (to sit in the notch). If the
    * system keeps moving one anyway, the Island goes back to the older, stable
@@ -130,23 +131,20 @@ export class IslandWindows {
     if (!r || win.isDestroyed()) return;
     const got = win.getBounds();
     if (sameRect(got, r)) return;
-    const now = Date.now();
-    const recent = (this.snaps.get(id) ?? []).filter((t) => now - t < 10_000);
-    recent.push(now);
-    this.snaps.set(id, recent);
     logPlace(id, 'moved by the system, putting back', r, got);
-    if (recent.length > 12 && process.platform === 'darwin' && !this.belowBarFallback) {
-      // A tug of war with the window server: the stable placement below the menu bar instead.
-      console.warn('[island] macOS keeps moving the Island; placing it below the menu bar from now on');
-      this.belowBarFallback = true;
-      this.destroyAll();
-      setImmediate(() => this.ensure(true));
-      return;
-    }
-    // Never a tight loop: past the fallback (or off macOS), a window that keeps being moved is left
-    // where it is for a while instead of being fought over on every event.
-    if (recent.length > 12) {
-      if (recent.length === 13) console.warn(`[island] display ${id}: still being moved; leaving it where it is for a while`);
+    // Never an endless tug of war with a window arranger or the window server: at most 12 put-backs
+    // in 10 s, then 30 s of leaving it be (the same rule Keeper uses with Monorail, core/ashforde/coexist.ts).
+    const trips = this.tug.trips;
+    if (!this.tug.allow(String(id))) {
+      if (this.tug.trips === trips) return; // still cooling down
+      console.warn(`[island] display ${id}: moved ${12} times in 10 s by something else; not putting it back for 30 s`);
+      if (process.platform === 'darwin' && !this.belowBarFallback) {
+        // The first time on a Mac: the stable placement below the menu bar instead.
+        console.warn('[island] placing the Island below the menu bar from now on');
+        this.belowBarFallback = true;
+        this.destroyAll();
+        setImmediate(() => this.ensure(true));
+      }
       return;
     }
     setImmediate(() => { if (!win.isDestroyed()) this.place(id, win, r, 'put back'); });
