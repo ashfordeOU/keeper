@@ -3,7 +3,7 @@
 // with the same code the app uses, and nothing read or sent anywhere.
 
 import type { AccountView, AiUsageApi, UsageOverview } from '../core/api-ai-usage';
-import { renderLabel } from '../core/usage-tracker/label';
+import { glanceUsage, renderLabel } from '../core/usage-tracker/label';
 import { defaultTrackerSettings, newId, normalizeTrackerSettings, type AccountState } from '../core/usage-tracker/model';
 import { prioritize, summarize, type HistoryPoint } from '../core/usage-tracker/priority';
 import { dueReminders, monthlyTotals, subscriptionLimits } from '../core/usage-tracker/subscriptions';
@@ -31,7 +31,7 @@ export function mockAiUsage(): { aiUsage: AiUsageApi } {
     for (const a of accounts) if (a.subscription) st[a.id] = { accountId: a.id, at: now, state: 'ok', accuracy: 'manual', source: 'Kept by hand', limits: subscriptionLimits(a.subscription, Date.now()) };
     const items = prioritize(accounts, st, recent, settings.thresholds, Date.now());
     return {
-      on: true, menuBarOn: true, settings, accounts, states: st, items, summary: summarize(items), label: renderLabel(items, settings.menuBar, Date.now()),
+      on: true, settings, accounts, states: st, items, summary: summarize(items), label: renderLabel(items, settings.menuBar, Date.now()),
       nextUpdateAt: Date.now() + 120_000, recent, costs: { m4: { [new Date().toISOString().slice(0, 7)]: 12.4 } },
       subscriptions: { monthly: monthlyTotals(accounts.flatMap((a) => (a.subscription ? [a.subscription] : [])), Date.now()), upcoming: dueReminders(accounts, Date.now()) },
       keysInMemory: false,
@@ -55,10 +55,8 @@ export function mockAiUsage(): { aiUsage: AiUsageApi } {
       detect: async () => [],
       setStatusLine: async () => ({ ok: false, message: 'Not in the demo' }),
       scanReceipts: async () => [],
-      showPopover: async () => undefined,
-      closePopover: async () => undefined,
       openPage: async () => undefined,
-      trayState: async () => ({ visible: true, text: ov().label.text, tooltip: ov().label.tooltip }),
+      glanceState: async () => ({ card: glanceUsage(ov().items, settings.menuBar, Date.now()), text: ov().label.text, tooltip: ov().label.tooltip, notices: [] }),
     },
   };
 }

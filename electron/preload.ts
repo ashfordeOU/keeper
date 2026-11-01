@@ -45,7 +45,7 @@ const api = {
   native: group('native', ['open', 'apps']),
   usage: group('usage', ['get']),
   ashforde: group('ashforde', ['overview', 'monorail', 'install', 'update', 'checkUpdate', 'uninstall', 'launch', 'quit', 'connect', 'openPermission', 'action', 'prefs', 'setPrefs', 'useShortcut', 'coexist']),
-  aiUsage: group('aiUsage', ['overview', 'refresh', 'saveAccount', 'removeAccount', 'reorder', 'setSettings', 'history', 'exportCsv', 'detect', 'setStatusLine', 'scanReceipts', 'showPopover', 'closePopover', 'openPage', 'trayState']),
+  aiUsage: group('aiUsage', ['overview', 'refresh', 'saveAccount', 'removeAccount', 'reorder', 'setSettings', 'history', 'exportCsv', 'detect', 'setStatusLine', 'scanReceipts', 'openPage', 'glanceState']),
   usageStats: group('usageStats', ['status', 'setOn', 'resetId', 'setBlocked', 'page']),
   // The system permissions Keeper's features use (first run, Settings → Permissions).
   permissions: group('permissions', ['list', 'request', 'openSettings', 'test', 'restart']),

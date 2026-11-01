@@ -3,23 +3,23 @@
 
 Keeper tracks what is left of each of your AI accounts: the coding tools' 5-hour and weekly limits, credits, balances and monthly budgets. It also tracks the subscriptions you pay for. It warns you before something runs out and tells you when it comes back.
 
-You can keep as many accounts per service as you like. Each account has its own name, colour and badge. You can reorder accounts, pause them, leave them out of the menu-bar label and choose which of their limits to show. Keys are kept in the system keychain through Keeper's secret store. On a system with no keychain, Keeper keeps keys only until it quits, and the Accounts tab says so.
+You can keep as many accounts per service as you like. Each account has its own name, colour and badge. You can reorder accounts, pause them, leave them out of the glance card and choose which of their limits to show. Keys are kept in the system keychain through Keeper's secret store. On a system with no keychain, Keeper keeps keys only until it quits, and the Accounts tab says so.
 
 | Surface | What it does |
 |---|---|
-| **Menu bar / tray** | A ring showing the share left of the most urgent limit (amber when low, red when used up), with a label beside it. The label can be one of four things, chosen in Settings → Menu Bar: **Icon only**; **Most urgent**, the 1–3 limits closest to running out (`CC 25%  CX 0% · 22h 10m`); **Reset countdowns** (`CX Reset 22h 10m`); or **Busy day**, which always shows the lowest limits. A `+N` shows how many more need attention. You can also hide the item completely while nothing is running out. On macOS the label is text beside the ring. Windows and Linux show only pictures, so the number is drawn inside the ring and the full label goes in the tooltip. Right-click opens Refresh now, Usage page, Menu Bar Settings and Pause tracking. |
-| **Pop-over** | Click the item to open it. It follows Keeper's theme, light or dark, and is translucent on macOS. **Priority** lists *Running Out* rows, each with a ring and service badge, the limit, the account name, "N% left" and the reset countdown. Below that are greyed *Used Up* rows with "resets in …", then *Use It Before It Resets*. When nothing needs attention it shows **All Clear** ("Nothing is running out."). **All Metrics** lists every account and limit, grouped by service, with bars, amounts (tokens, requests, $ spent against the budget) and a sparkline of the last week. The footer shows "Next update in 2m" and a ••• menu: Refresh now, Open Usage page, Settings…, Pause tracking. |
+| **The owl's glance** | Keeper has one icon in the menu bar or tray, the owl. The tracker has no item of its own: an **AI usage** card in the owl's glance shows the most urgent limits, with a bar for the share used (amber when low, red when used up), and opens the Usage page. What the card says is chosen in Settings → Menu bar: **Most urgent**, the 1–3 limits closest to running out (`CC 25%  CX 0% · 22h 10m`); **Reset countdowns** (`CX Reset 22h 10m`); **Busy day**, which always shows the lowest limits; or **Just how it stands** (All clear, Running low, Used up). A `+N` shows how many more need attention. The card can show only while something runs low, and can be switched off like any glance card. On Windows and Linux the owl's tooltip includes it. |
+| **Usage page, Overview** | **Priority** lists *Running out* rows, each with a ring and service badge, the limit, the account name, "N% left" and the reset countdown. Below that are greyed *Used up* rows with "resets in …", then *Use it before it resets*. When nothing needs attention it shows **All clear**. Each account's card shows its limits with bars, amounts (tokens, requests, $ spent against the budget) and a sparkline of the last week. |
 | **Usage page** (sidebar → More → Usage) | **Overview** (priority list and a card per account); **Accounts** (add, edit, reorder, remove, plus coding tools' folders found on this computer); **Subscriptions** (monthly total per currency, renewals, trials, allowances, *Look for receipts in Mail*); **Costs** (per month, chart and table); **History** (7, 30 or 90 days per limit); **Settings**. Export CSV writes the history and the monthly costs. |
-| **Island** | While a limit is running out or used up, an activity with a ring of the share left. It opens to Details (the pop-over) and the Usage page, and can be turned off like any other activity kind. |
+| **Island** | While a limit is running out or used up, an activity with a ring of the share left. It opens to Details (the owl's glance) and the Usage page, and can be turned off like any other activity kind. |
 | **Notifications** | A limit runs low or is used up ("Codex Plus Weekly: 3% left"), which also raises an Island alert. A limit resets ("Codex Team 5-hour reset: 95% available"). Unused allowance is about to reset (off by default). A subscription renews or a trial ends, a set number of days before. Each warning is sent once per window. |
-| **Command palette** | *Usage: Show AI Usage*, *Open the Menu-bar Pop-over*, *Refresh Now*, *Add an Account…*, *Subscriptions*, *Costs per Month*, *Export CSV…*, *Pause or Resume Tracking*, *Menu Bar Settings…* |
+| **Command palette** | *Usage: Show AI Usage*, *Show in the Glance*, *Refresh Now*, *Add an Account…*, *Subscriptions*, *Costs per Month*, *Export CSV…*, *Pause or Resume Tracking*, *Glance and Warning Settings…* |
 | **CLI** | `keeper usage [--json] [--refresh]`. When the app is closed, it shows the last saved numbers and says they are old. |
 | **AI ability / MCP** | `usage_status` is read-only and allowed by default. It returns the text summary and JSON (running out, used up, expiring, every limit with its reset), so agents can check their own limits before a big job. |
-| **Features** | `usageTracker` is on by default and costs nothing until an account is added. `usageMenuBar` (on by default) needs `usageTracker`. |
+| **Features** | `usageTracker` is on by default and costs nothing until an account is added. (The old `usageMenuBar` switch is gone: someone who had switched it off has the AI usage card left out of the glance instead.) |
 
 ## What counts as urgent
 
-The logic is in `core/usage-tracker/priority.ts`, which is pure and unit-tested. You can change the thresholds in Settings → Menu Bar or Usage → Settings.
+The logic is in `core/usage-tracker/priority.ts`, which is pure and unit-tested. You can change the thresholds in Settings → Menu bar or Usage → Settings.
 
 - **Running out**: at or below *Running out at* (default 30% left). It also counts as running out when *Also when the pace says so* is on and the pace says the limit runs out before its reset. Keeper measures the pace from the last two hours of history in this window when there is enough of it. Otherwise it uses the average since the window began, but only after 15% of the window has passed.
 - **Used up**: at least 99.5% used. These rows are greyed, with "resets in …".
@@ -58,17 +58,17 @@ The logic is in `core/usage-tracker/priority.ts`, which is pure and unit-tested.
 - **Antigravity, Kiro, Amp, Windsurf.** No local record or stable endpoint was found.
 - **Gemini API quota.** It lives only in Cloud Monitoring, which needs OAuth or a service account.
 
-## Settings (all in Settings → Menu Bar and Usage → Settings)
+## Settings (all in Settings → Menu bar and Usage → Settings)
 
 | Group | Option | Default |
 |---|---|---|
-| Menu bar | *AI usage in the menu bar* (the `usageMenuBar` feature) | on (shown once an account exists) |
-| | *The label shows*: Icon only, Most urgent, Reset countdowns, Busy day | Most urgent |
+| Glance | *AI usage in the glance* (the glance's AI usage card) | on (shown once an account exists) |
+| | *The card shows*: Most urgent, Reset countdowns, Busy day, Just how it stands | Most urgent |
 | | *How many*: 1–3 | 1 |
 | | *Show “+N” for the rest* | on |
 | | *Service letters before each number* | on |
-| | *Nothing in the menu bar when all is clear* | off |
-| | *Show in the menu bar* (per account) | on |
+| | *Only when something runs low* | off |
+| | *Show in the glance* (per account) | on |
 | Running out | *Running out at* N% left | 30% |
 | | *Used up at* N% used | 99.5% |
 | | *Also when the pace says so* (forecast) | on |
@@ -76,15 +76,15 @@ The logic is in `core/usage-tracker/priority.ts`, which is pure and unit-tested.
 | | *Only for windows of at least* H hours | 48 h |
 | Notifications | *When a limit runs low or is used up* (also an Island alert) | on |
 | | *When a limit resets* | on |
-| | *Unused allowance about to reset* (opt-in; the pop-over always shows these) | **off** |
+| | *Unused allowance about to reset* (opt-in; the Usage page always shows these) | **off** |
 | | *Subscriptions renewing and trials ending* (days before, per subscription) | on, 3 days |
 | How often | Files on this computer / Services | 2 min / 10 min |
-| | *Pause tracking* (also in the ••• and tray menus) | off |
+| | *Pause tracking* (also on the Usage page and in the command palette) | off |
 | Per account | the unofficial switches above, *Limits to show*, *Paused* | off / all / off |
 
 ## Cost and privacy
 
-- **Nothing runs with no accounts.** There are no polls, no watcher and no menu-bar item. The e2e test checks this before the first account is added and after the last one is removed.
+- **Nothing runs with no accounts.** There are no polls, no watcher and no glance card. The e2e test checks this before the first account is added and after the last one is removed.
 - Every look goes through the governor: `poll('aiUsage.local')` runs every 2 minutes by default, `poll('aiUsage.api')` every 10 (5–120 allowed). Both slow down while you are away and stop while the screen is locked. A failing account backs off (2×, 4×, … up to an hour).
 - Parsed files are cached by size and modification time, so a look re-reads only files that changed. Folders untouched since the window began are skipped.
 - The status-line file is watched (one folder, not recursive) instead of polled.
@@ -96,10 +96,10 @@ The logic is in `core/usage-tracker/priority.ts`, which is pure and unit-tested.
 - `core/usage-tracker/model.ts`: types, the list of sources, settings, formatting
 - `core/usage-tracker/sources.ts`: every parser and response mapping
 - `core/usage-tracker/priority.ts`: running out, used up, expiring, the pace forecast, transitions
-- `core/usage-tracker/label.ts`: the menu-bar label and the tray ring picture
+- `core/usage-tracker/label.ts`: the short label and the glance card (`glanceUsage`)
 - `core/usage-tracker/subscriptions.ts`: renewals, reminders, totals, receipts, history, CSV
 - `core/usage-tracker/rate-store.ts`: rate-limit headers from Keeper's own calls
 - `electron/services/usage-tracker.ts` and `electron/ipc/usage-tracker.ts`: the main process, IPC, `keeper/usage` and `usage_status`
-- `src/screens/usage/`: the pop-over, the page, the settings and the palette commands
+- `src/screens/usage/`: the page, the settings and the palette commands; the card itself is drawn by the glance (`src/glance/`)
 - `cli/usage.ts`
 - Tests: `test/usage-tracker.test.ts`, `test/usage-tracker-sources.test.ts` (fixtures in `test/fixtures/usage-tracker/`) and `test/e2e/usage-tracker.cjs`

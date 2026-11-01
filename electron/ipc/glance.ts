@@ -50,7 +50,18 @@ async function inputs(d: GlanceIpcDeps, light: boolean): Promise<GlanceInputs> {
   const online = Object.values(os.networkInterfaces()).some((l) => l?.some((a) => !a.internal && a.family === 'IPv4'));
   out.network = { downBps: r?.netIn, upBps: r?.netOut, wifi: wifi?.name, online };
   if (isl) out.awake = { on: isl.awake.on, until: isl.awake.until, reason: isl.awake.reason };
-  if (!light) try {
+  // AI usage: the tracker's accounts (Keeper → Usage) when there are any (its last readings, so cheap
+  // enough for the tooltip too); else what the coding tools wrote, only while the glance is open.
+  let tracked = false;
+  try {
+    const { glanceCard } = await import('../services/usage-tracker');
+    const card = await glanceCard(now);
+    tracked = card !== undefined;
+    if (card) out.aiUsage = card;
+  } catch {
+    /* the tracker is not ready */
+  }
+  if (!light && !tracked) try {
     const { usage } = await import('../services/island-tools');
     out.usage = (await usage()).flatMap((u) => u.windows.filter((x) => typeof x.usedPercent === 'number').map((x) => ({ label: `${u.label} · ${x.label}`, percent: x.usedPercent!, resetsAt: x.resetsAt })));
   } catch {

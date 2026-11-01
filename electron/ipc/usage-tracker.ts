@@ -24,10 +24,8 @@ export function registerUsageTrackerIpc(deps: t.UsageTrackerDeps) {
   h('detect', () => t.detect());
   h('setStatusLine', (id: string, on: boolean) => t.setStatusLine(String(id), !!on));
   h('scanReceipts', () => t.scanReceipts());
-  h('showPopover', () => t.togglePopover());
-  h('closePopover', () => t.closePopover());
   h('openPage', (tab?: string) => deps.showMain(tab ? `aiusage:${tab}` : 'aiusage'));
-  h('trayState', () => t.trayState());
+  h('glanceState', () => t.glanceState());
 
   // `keeper usage [--json]`
   registerKeeperMethod('keeper/usage', async (p) => {

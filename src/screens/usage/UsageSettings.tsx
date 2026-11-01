@@ -1,55 +1,63 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
-// Settings for the AI usage tracker: what the menu-bar label shows, when a
-// limit counts as running out, which warnings to send and how often to look.
-// Shown in Settings → Menu Bar and on the Usage page.
+// Settings for the AI usage tracker: its card in the owl's glance (Keeper's one
+// menu-bar icon), when a limit counts as running out, which warnings to send
+// and how often to look. Shown in Settings → Menu bar and on the Usage page.
 
 import { useEffect, useState } from 'react';
-import { renderLabel } from '../../../core/usage-tracker/label';
+import type { GlanceSettings } from '../../../core/glance';
+import { glanceUsage, renderLabel } from '../../../core/usage-tracker/label';
 import type { LabelMode, TrackerSettings } from '../../../core/usage-tracker/model';
 import { api } from '../../api';
 import { Toggle } from '../../components/ui';
-import { useFeature } from '../../features';
 import { Row } from '../IslandSettings';
 import { useUsage } from './parts';
 
 const MODES: [LabelMode, string, string][] = [
-  ['icon', 'Icon only', 'A ring, coloured when something runs low.'],
   ['urgent', 'Most urgent', 'The share left of the one to three limits closest to running out, e.g. “CC 69%”.'],
   ['countdown', 'Reset countdowns', 'When the most urgent limits come back, e.g. “Reset 1d 6h”.'],
   ['busy', 'Busy day', 'Always the lowest limits, even when nothing is running out yet.'],
+  ['icon', 'Just how it stands', '“All clear”, “Running low” or “Used up”, without numbers.'],
 ];
 
 export function UsageSettings() {
   const { o } = useUsage();
   const [s, setS] = useState<TrackerSettings | null>(null);
-  const menuBarOn = useFeature('usageMenuBar');
+  const [g, setG] = useState<GlanceSettings | null>(null);
   useEffect(() => { if (o && !s) setS(o.settings); }, [o, s]);
+  useEffect(() => { void api.glance.settings().then(setG).catch(() => undefined); }, []);
   if (!s || !o) return null;
   const save = (patch: Partial<TrackerSettings>) => {
     const next = { ...s, ...patch, thresholds: { ...s.thresholds, ...patch.thresholds }, menuBar: { ...s.menuBar, ...patch.menuBar }, notify: { ...s.notify, ...patch.notify } };
     setS(next);
     void api.aiUsage.setSettings(patch).then(setS);
   };
+  const inGlance = !!g?.cards.includes('usage');
+  const showInGlance = (on: boolean) => {
+    if (!g) return;
+    const cards = on ? [...g.cards.filter((c) => c !== 'usage'), 'usage' as const] : g.cards.filter((c) => c !== 'usage');
+    void api.glance.setSettings({ cards }).then(setG);
+  };
   const preview = renderLabel(o.items, s.menuBar, Date.now());
+  const card = glanceUsage(o.items, s.menuBar, Date.now());
   return (
     <div className="card settings-section" data-testid="usage-settings">
-      <Row title="AI usage in the menu bar" desc={o.accounts.length ? 'A ring with the most urgent limits; click it for every account.' : 'Shows once you add an AI account on the Usage page.'}>
-        <Toggle label="AI usage in the menu bar" on={menuBarOn} onChange={(v) => void api.features.set('usageMenuBar', v)} />
+      <Row title="AI usage in the glance" desc={o.accounts.length ? 'A card in the owl’s glance with the most urgent limits; click it for the Usage page.' : 'Shows once you add an AI account on the Usage page.'}>
+        <Toggle label="AI usage in the glance" on={inGlance} onChange={showInGlance} />
       </Row>
-      <Row title="The label shows" desc={MODES.find((m) => m[0] === s.menuBar.mode)?.[2]}>
-        <select className="input" aria-label="The label shows" value={s.menuBar.mode} onChange={(e) => save({ menuBar: { ...s.menuBar, mode: e.target.value as LabelMode } })}>
+      <Row title="The card shows" desc={MODES.find((m) => m[0] === s.menuBar.mode)?.[2]}>
+        <select className="input" aria-label="The card shows" value={s.menuBar.mode} onChange={(e) => save({ menuBar: { ...s.menuBar, mode: e.target.value as LabelMode } })}>
           {MODES.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
         </select>
       </Row>
       {s.menuBar.mode !== 'icon' ? (
         <Row title="How many" desc="Limits shown side by side; “+N” counts the rest.">
-          <div className="seg">{([1, 2, 3] as const).map((n) => <button key={n} className={s.menuBar.count === n ? 'on' : ''} onClick={() => save({ menuBar: { ...s.menuBar, count: n } })}>{n}</button>)}</div>
+          <div className="seg">{([1, 2, 3] as const).map((n) => <button key={n} className={s.menuBar.count === n ? 'on' : ''} aria-pressed={s.menuBar.count === n} onClick={() => save({ menuBar: { ...s.menuBar, count: n } })}>{n}</button>)}</div>
         </Row>
       ) : null}
       <Row title="Show “+N” for the rest"><Toggle label="Show +N" on={s.menuBar.overflow} onChange={(v) => save({ menuBar: { ...s.menuBar, overflow: v } })} /></Row>
       <Row title="Service letters before each number"><Toggle label="Service letters" on={s.menuBar.glyph} onChange={(v) => save({ menuBar: { ...s.menuBar, glyph: v } })} /></Row>
-      <Row title="Nothing in the menu bar when all is clear" desc="The item appears only while something is running out or used up."><Toggle label="Hide when all clear" on={s.menuBar.hideWhenClear} onChange={(v) => save({ menuBar: { ...s.menuBar, hideWhenClear: v } })} /></Row>
-      <Row title="Preview"><span className="ulabel-preview" data-testid="usage-label-preview">{preview.visible ? preview.text || '◯' : '(hidden)'}</span></Row>
+      <Row title="Only when something runs low" desc="The card appears only while a limit is running out or used up."><Toggle label="Only when something runs low" on={s.menuBar.hideWhenClear} onChange={(v) => save({ menuBar: { ...s.menuBar, hideWhenClear: v } })} /></Row>
+      <Row title="Preview"><span className="ulabel-preview" data-testid="usage-label-preview">{card ? `${card.value} · ${card.detail}` : preview.visible ? 'Nothing to show yet' : '(no card while all is clear)'}</span></Row>
 
       <h3 style={{ margin: '16px 0 4px', fontSize: 14 }}>Running out</h3>
       <Row title="Running out at" desc="A limit counts as running out with this much left or less.">
@@ -70,7 +78,7 @@ export function UsageSettings() {
       <h3 style={{ margin: '16px 0 4px', fontSize: 14 }}>Notifications</h3>
       <Row title="When a limit runs low or is used up"><Toggle label="Threshold notifications" on={s.notify.thresholds} onChange={(v) => save({ notify: { ...s.notify, thresholds: v } })} /></Row>
       <Row title="When a limit resets" desc="“Codex weekly reset: 100% available”."><Toggle label="Reset notifications" on={s.notify.resets} onChange={(v) => save({ notify: { ...s.notify, resets: v } })} /></Row>
-      <Row title="Unused allowance about to reset" desc="“Use it before it resets” as a notification too (off by default; it always shows in the pop-over)."><Toggle label="Expiring notifications" on={s.notify.expiring} onChange={(v) => save({ notify: { ...s.notify, expiring: v } })} /></Row>
+      <Row title="Unused allowance about to reset" desc="“Use it before it resets” as a notification too (off by default; it always shows on the Usage page)."><Toggle label="Expiring notifications" on={s.notify.expiring} onChange={(v) => save({ notify: { ...s.notify, expiring: v } })} /></Row>
       <Row title="Subscriptions renewing and trials ending"><Toggle label="Renewal reminders" on={s.notify.renewals} onChange={(v) => save({ notify: { ...s.notify, renewals: v } })} /></Row>
 
       <h3 style={{ margin: '16px 0 4px', fontSize: 14 }}>How often</h3>

@@ -8,6 +8,7 @@ import type { IslandSettings } from './api';
 import { defaultBrainSettings, normalizeBrainSettings } from './brain/config';
 import { defaultAgentSettings, normalizeAgentSettings } from './agents-config';
 import { defaultSyncSettings, normalizeSyncSettings } from './sync/config';
+import { defaultGlanceSettings } from './glance';
 import { DEFAULT_PLATFORM } from './platform-integrations';
 import { defaultHomeSettings, normalizeHome } from './home-layout';
 import { DEFAULT_THEME, THEMES } from './themes';
@@ -175,6 +176,16 @@ export function mergeSettings(base: AllSettings, raw: unknown): AllSettings {
   out.agents = normalizeAgentSettings(out.agents);
   out.awake = normalizeAwakeSettings(out.awake, r.island && typeof r.island === 'object' ? (r.island as { awakeTriggers?: unknown }).awakeTriggers : undefined);
   if (!Array.isArray(out.featureSets)) out.featureSets = [];
+  // The AI usage tracker's own menu-bar item became a card in the owl's glance: someone who had
+  // switched the item off does not get the card either. (The old feature switch is dropped.)
+  if (out.features && 'usageMenuBar' in out.features) {
+    const { usageMenuBar, ...rest } = out.features as Record<string, boolean>;
+    out.features = rest;
+    if (usageMenuBar === false) {
+      const cards = Array.isArray(out.glance?.cards) ? out.glance.cards : defaultGlanceSettings('any').cards;
+      out.glance = { ...(out.glance ?? {}), cards: cards.filter((c) => c !== 'usage') };
+    }
+  }
   if (!['selection', 'always', 'never'].includes(out.inspectorMode)) out.inspectorMode = 'selection';
   if (!['auto', 'full', 'compact'].includes(out.sidebarMode)) out.sidebarMode = 'auto';
   out.home = normalizeHome(r.home);

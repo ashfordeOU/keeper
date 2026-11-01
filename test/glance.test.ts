@@ -55,3 +55,20 @@ describe('glance settings', () => {
     expect(s).toEqual({ cards: ['weather', 'tip'], actions: ['terminal'], hover: true });
   });
 });
+
+describe('AI usage from the tracker', () => {
+  it('the tracker\'s card wins over the coding tools\' files and opens the Usage page', () => {
+    const [card] = glanceCards({ ...full, aiUsage: { value: 'CX 3%  +2', detail: 'Codex Plus Weekly, resets in 22h', usedPercent: 97, tone: 'bad' } }, ['usage']);
+    expect(card).toMatchObject({ id: 'usage', title: 'AI usage', value: 'CX 3%  +2', bar: 97, tone: 'bad', open: 'aiusage' });
+  });
+  it('someone who had switched the old menu-bar item off does not get the card', async () => {
+    const { defaultSettings, mergeSettings } = await import('../core/settings');
+    const off = mergeSettings(defaultSettings([], []), { features: { usageMenuBar: false, notes: true } });
+    expect(off.features).toEqual({ notes: true });
+    expect(off.glance?.cards).not.toContain('usage');
+    expect(off.glance?.cards).toContain('weather');
+    const on = mergeSettings(defaultSettings([], []), { features: { usageMenuBar: true }, glance: { cards: ['usage', 'tip'] } });
+    expect(on.features).toEqual({});
+    expect(on.glance?.cards).toEqual(['usage', 'tip']);
+  });
+});

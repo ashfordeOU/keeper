@@ -98,7 +98,7 @@ function Accounts({ o, onEdit, reload }: { o: O; onEdit: (a: Partial<AccountInpu
               <button className="btn ghost icon sm" aria-label={`Move ${a.name} down`} disabled={i === o.accounts.length - 1} onClick={() => move(i, 1)}><Icon name="chevronDown" size={12} /></button>
             </span>
             <Badge a={a} />
-            <div className="meta"><b>{a.name}{a.paused ? <span className="muted"> · paused</span> : null}{a.hideInMenuBar ? <span className="muted"> · not in menu bar</span> : null}</b><span>{providerInfo(a.provider).label}{a.configDir ? ` · ${a.configDir}` : ''}{a.hasKey ? ' · key in keychain' : ''}</span></div>
+            <div className="meta"><b>{a.name}{a.paused ? <span className="muted"> · paused</span> : null}{a.hideInMenuBar ? <span className="muted"> · not in the glance</span> : null}</b><span>{providerInfo(a.provider).label}{a.configDir ? ` · ${a.configDir}` : ''}{a.hasKey ? ' · key in keychain' : ''}</span></div>
             <span className="row" style={{ gap: 6 }}>
               <button className="btn sm" onClick={() => onEdit(a)}>Edit</button>
               <button className="btn sm ghost" onClick={() => { if (confirm(`Stop tracking ${a.name}? Its history and key are removed.`)) void api.aiUsage.removeAccount(a.id).then(reload); }}>Remove</button>
@@ -342,8 +342,8 @@ function AccountEditor({ init, o, onClose }: { init: Partial<AccountInput>; o: O
             }} />{l.label}</label>
           ))}</span>
         </> : null}
-        <label>Menu bar</label>
-        <span className="row" style={{ gap: 8 }}><Toggle label="Show in the menu bar" on={!a.hideInMenuBar} onChange={(v) => set({ hideInMenuBar: !v })} /><span className="small">Count it in the menu-bar label</span></span>
+        <label>Glance</label>
+        <span className="row" style={{ gap: 8 }}><Toggle label="Show in the glance" on={!a.hideInMenuBar} onChange={(v) => set({ hideInMenuBar: !v })} /><span className="small">Count it in the AI usage card of the owl’s glance</span></span>
         <label>Paused</label>
         <span className="row" style={{ gap: 8 }}><Toggle label="Paused" on={!!a.paused} onChange={(v) => set({ paused: v })} /><span className="small">Keep it, but read nothing</span></span>
         {msg ? <div className="full small" role="status">{msg}</div> : null}

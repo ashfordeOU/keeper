@@ -4,7 +4,7 @@
 // (renewals, reminders, monthly totals, receipts); history and CSV.
 
 import { describe, expect, it } from 'vitest';
-import { renderLabel, renderRing } from '../core/usage-tracker/label';
+import { glanceUsage, renderLabel, renderRing } from '../core/usage-tracker/label';
 import { amountText, countdown, defaultTrackerSettings, money, normalizeTrackerSettings, providerInfo, type Account, type AccountState, type Limit, type MenuBarSettings } from '../core/usage-tracker/model';
 import { classify, forecastRunOut, prioritize, summarize, transitions } from '../core/usage-tracker/priority';
 import { addPoint, compactHistory, dueReminders, historyCsv, monthlyTotals, nextRenewal, receiptFrom, subscriptionLimits } from '../core/usage-tracker/subscriptions';
@@ -86,7 +86,7 @@ describe('priority', () => {
   });
 });
 
-describe('menu-bar label', () => {
+describe('the short label and the glance card', () => {
   const accounts = [acct('a', 'cc', 'Work'), acct('b', 'codex', 'Codex'), acct('c', 'openrouter', 'OR', { hideInMenuBar: true }), acct('d', 'cc', 'Personal')];
   const states = {
     a: st('a', [{ key: '5h', label: '5-hour', usedPercent: 31, resetsAt: NOW + 2 * H, windowMs: 5 * H }, { key: 'weekly', label: 'Weekly', usedPercent: 75, resetsAt: NOW + 30 * H, windowMs: 7 * D }]),
@@ -127,6 +127,17 @@ describe('menu-bar label', () => {
     const calm = prioritize([accounts[2]], { c: states.c }, {}, TH, NOW);
     expect(renderLabel(calm, { ...S, hideWhenClear: true }, NOW).visible).toBe(false);
     expect(renderLabel([], { ...S, hideWhenClear: false }, NOW)).toMatchObject({ visible: true, text: '', tooltip: 'AI usage: nothing is running out', tone: 'ok' });
+  });
+
+  it('the AI usage card in the owl\'s glance', () => {
+    expect(glanceUsage(items, S, NOW)).toMatchObject({ value: 'CC 25%  +1', detail: 'Work Weekly, resets in 1d 6h', usedPercent: 75, tone: 'bad' });
+    expect(glanceUsage(items, { ...S, mode: 'icon' }, NOW)).toMatchObject({ value: 'Used up', tone: 'bad' });
+    const calm = prioritize([accounts[0]], { a: st('a', [{ key: '5h', label: '5-hour', usedPercent: 31 }]) }, {}, TH, NOW);
+    expect(glanceUsage(calm, S, NOW)).toMatchObject({ value: 'All clear', detail: 'Lowest: Work 5-hour, 69% left', usedPercent: 31, tone: 'ok' });
+    // Only when something runs low, and never for hidden accounts.
+    expect(glanceUsage(calm, { ...S, hideWhenClear: true }, NOW)).toBeUndefined();
+    expect(glanceUsage(prioritize([accounts[2]], { c: states.c }, {}, TH, NOW), S, NOW)).toBeUndefined();
+    expect(glanceUsage([], S, NOW)).toBeUndefined();
   });
 
   it('draws a ring with the share left', () => {

@@ -66,6 +66,8 @@ export interface GlanceInputs {
   network?: { downBps?: number; upBps?: number; wifi?: string; vpn?: string; mesh?: string; online: boolean };
   awake?: { on: boolean; until?: number; reason?: string };
   usage?: { label: string; percent: number; resetsAt?: number }[];
+  /** the AI usage tracker's accounts (Keeper → Usage), when any are tracked; shown instead of `usage` */
+  aiUsage?: { value: string; detail: string; usedPercent?: number; tone: 'ok' | 'warn' | 'bad' };
   next?: { title: string; start: number; link?: string };
   tipIndex?: number;
 }
@@ -121,6 +123,8 @@ export function glanceCards(i: GlanceInputs, chosen: GlanceCardId[]): GlanceCard
     } else if (id === 'awake' && i.awake) {
       const a = i.awake;
       out.push({ id, title: 'Keep Awake', value: a.on ? (a.until ? `${fmtLeft(a.until - i.now)} left` : 'On, no end') : 'Off', detail: a.on ? a.reason : 'The computer can sleep as usual', open: 'action:keepAwake' });
+    } else if (id === 'usage' && i.aiUsage) {
+      out.push({ id, title: 'AI usage', value: i.aiUsage.value, detail: i.aiUsage.detail, bar: i.aiUsage.usedPercent, tone: i.aiUsage.tone, open: 'aiusage' });
     } else if (id === 'usage' && i.usage?.length) {
       const top = [...i.usage].sort((a, b) => b.percent - a.percent)[0];
       out.push({ id, title: 'AI usage', value: `${Math.round(top.percent)}% used`, detail: `${top.label}${top.resetsAt ? ` · resets ${clock(top.resetsAt)}` : ''}`, bar: Math.round(top.percent), tone: top.percent >= 90 ? 'bad' : top.percent >= 75 ? 'warn' : 'ok', open: 'island' });

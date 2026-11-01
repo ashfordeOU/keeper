@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Usage (Linux CI): KEEPER_SKIP_TOUR=1 xvfb-run -a -s "-screen 0 1440x900x24" node test/e2e/usage-tracker.cjs /tmp/kus /tmp/kus-shots
 // Drives the real Keeper app's AI usage tracker on Linux with a fake home:
-//   - nothing runs with no accounts (no polls, no menu-bar item)
+//   - nothing runs with no accounts (no polls, no card in the owl's glance)
 //   - two accounts of the Anthropic coding CLI (two config folders: one exact through its
 //     status line, one estimated) and two Codex accounts (two CODEX_HOME folders), plus
 //     OpenRouter and DeepSeek answered by a local stub (honoured only in unofficial builds)
 //     and a subscription kept by hand
-//   - the menu-bar label, the pop-over's Priority (running out, used up, expiring, all clear)
-//     and All Metrics, custom names, the Usage page, CSV export, `keeper usage --json`
-// Screenshots of the pop-over in three states and of the page, light and dark.
+//   - the AI usage card in the owl's glance (Keeper's one menu-bar icon): running out, used up,
+//     all clear, "only when something runs low"; custom names, the Usage page with its
+//     Priority, CSV export, `keeper usage --json`
+// Screenshots of the glance in three states and of the page, light and dark.
 const { _electron } = require('playwright');
 const { execFileSync, execSync } = require('child_process');
 const fs = require('fs');
@@ -122,7 +123,7 @@ const server = http.createServer((req, res) => {
 
   // ---- nothing runs with no accounts
   check((await checks()).length === 0, 'no usage checks run with no accounts');
-  check(!(await u('trayState')).visible, 'no menu-bar item with no accounts');
+  check(!(await u('glanceState')).card, 'no AI usage card in the glance with no accounts');
   const found = await u('detect');
   check(found.some((f) => f.provider === 'cc' && f.configDir === work) && found.some((f) => f.provider === 'codex' && f.configDir === codexA), `the coding tools' folders are found (${found.map((f) => f.name).join(', ')})`);
 
@@ -157,32 +158,32 @@ const server = http.createServer((req, res) => {
   check((await checks()).length === 2, 'checks run once accounts exist');
   check(o.summary.runningOut.some((i) => i.accountName === 'Codex Plus' && i.limit.key === 'weekly') && o.summary.runningOut.some((i) => i.accountName === 'Work') && o.summary.usedUp.some((i) => i.accountName === 'Codex Team'), 'running out and used up are sorted out');
 
-  // ---- the menu-bar label
-  const ts = await until(async () => { const t = await u('trayState'); return t.visible ? t : null; }, 5000);
-  check(!!ts && ts.text === 'CX 3%  +2', `menu-bar label: "${ts?.text}"`);
-  check(ts?.tooltip.includes('Codex Team 5-hour: used up'), 'the tooltip names custom accounts');
+  // ---- the AI usage card in the owl's glance (no menu-bar item of its own)
+  const gs = await until(async () => { const t = await u('glanceState'); return t.card ? t : null; }, 5000);
+  check(!!gs && gs.text === 'CX 3%  +2' && gs.card.value === 'CX 3%  +2' && gs.card.tone === 'bad', `glance card: "${gs?.card?.value}" (${gs?.card?.detail})`);
+  check(gs?.tooltip.includes('Codex Team 5-hour: used up'), 'the summary names custom accounts');
   await u('setSettings', { menuBar: { mode: 'countdown', count: 2 } });
-  check((await u('trayState')).text.startsWith('CX Reset 22h'), `countdown label: "${(await u('trayState')).text}"`);
+  check((await u('glanceState')).card.value.startsWith('CX Reset 22h'), `countdown: "${(await u('glanceState')).card.value}"`);
   await u('setSettings', { menuBar: { mode: 'urgent', count: 1 } });
-
-  // ---- the pop-over: Priority, All Metrics
-  const shoot = async (pop, name) => { await wait(600); await pop.screenshot({ path: path.join(SHOTS, `${name}.png`) }); };
-  await u('showPopover');
-  const pop = await until(async () => app.windows().find((w) => w.url().includes('view=ai-usage-popover')), 8000);
-  check(!!pop, 'the pop-over opens');
-  pop.on('pageerror', (e) => errors.push(`popover: ${e.message}`));
-  await pop.waitForSelector('[data-testid=usage-priority]', { timeout: 8000 });
-  const txt = await pop.locator('[data-testid=usage-priority]').innerText();
-  check(/Running Out/i.test(txt) && /Used Up/i.test(txt), 'Priority: Running Out and Used Up');
-  check(txt.includes('Codex Plus') && txt.includes('3% left') && txt.includes('Work') && /resets in 22h/.test(txt), 'rows show custom names, share left and the reset countdown');
-  check(/Next update in/.test(await pop.locator('[data-testid=usage-next]').innerText()), 'footer: next update');
-  await shoot(pop, 'popover-running-out-light');
-  await pop.locator('button[role=tab]:has-text("All Metrics")').click();
-  await pop.waitForSelector('[data-testid=usage-all]');
-  const all = await pop.locator('[data-testid=usage-all]').innerText();
-  check(['Work', 'Personal', 'Codex Plus', 'Codex Team', 'Router', 'DeepSeek', 'Design AI'].every((n) => all.includes(n)) && /\$12\.40 \/ \$50\.00/.test(all) && /tokens/.test(all), 'All Metrics: every account, with amounts');
-  await shoot(pop, 'popover-all-metrics-light');
-  await pop.locator('button[role=tab]:has-text("Priority")').click();
+  // A glance that has already closed itself (it hides when it loses focus) is just not pictured.
+  const shoot = async (pop, name) => { await wait(600); await pop.screenshot({ path: path.join(SHOTS, `${name}.png`), timeout: 10_000 }).catch(() => undefined); };
+  // Opens the glance afresh (as a click on the owl does) and returns its AI usage card's text, or null.
+  const glanceCard = async () => {
+    await main.evaluate(() => window.keeper.glance.close()).catch(() => undefined);
+    await main.evaluate(() => window.keeper.glance.show());
+    const g = await until(async () => app.windows().find((w) => w.url().includes('view=glance')), 8000);
+    await g.waitForSelector('[data-testid=glance]', { timeout: 8000 });
+    // A glance shown again keeps its last view until the next live reading (every 2 s).
+    await wait(2600);
+    await g.waitForSelector('[data-testid^="glance-card-"]', { timeout: 8000 }).catch(() => undefined);
+    const card = g.locator('[data-testid="glance-card-usage"]');
+    return { g, text: (await card.count()) ? await card.getAttribute('aria-label') : null };
+  };
+  let gc = await glanceCard();
+  check(!!gc.text && gc.text.startsWith('AI usage: CX 3%  +2') && /Codex Plus Weekly/.test(gc.text), `the glance shows the card ("${gc.text}")`);
+  gc.g.on('pageerror', (e) => errors.push(`glance: ${e.message}`));
+  await shoot(gc.g, 'glance-running-out-light');
+  check(!app.windows().some((w) => w.url().includes('ai-usage-popover')), 'no pop-over window of its own');
 
   // ---- expiring resets: nothing low, a weekly allowance mostly unused resets soon
   codexRollout(codexA, 10, 15, { week: 10 * H });
@@ -193,11 +194,10 @@ const server = http.createServer((req, res) => {
   await u('saveAccount', { ...list.find((a) => a.name === 'Design AI'), subscription: { cost: 20, currency: 'USD', cycle: 'monthly', renews, remindDays: 3 } });
   const o2 = await until(async () => { const x = await u('refresh'); return x.summary.allClear && x.summary.expiring.length ? x : null; }, 15_000, 1000);
   check(!!o2 && o2.summary.expiring.some((i) => i.accountName === 'Codex Plus' && i.limit.key === 'weekly'), 'expiring: unused weekly allowance about to reset');
-  await pop.waitForSelector('[data-testid=usage-all-clear]', { timeout: 5000 }).catch(() => undefined);
-  const txt2 = await pop.locator('[data-testid=usage-priority]').innerText();
-  check(/Nothing is running out/.test(txt2) && /Use It Before It Resets/i.test(txt2), 'pop-over: All Clear with the expiring section');
-  await shoot(pop, 'popover-expiring-light');
-  const notes = (await u('trayState')).notices;
+  gc = await glanceCard();
+  check(!!gc.text && /AI usage: All clear/.test(gc.text), `glance: all clear ("${gc.text}")`);
+  await shoot(gc.g, 'glance-expiring-light');
+  const notes = (await u('glanceState')).notices;
   check(notes.some((n) => /Codex Team 5-hour reset: \d+% available/.test(n)), `a reset is announced (${notes.join(' | ')})`);
   check(notes.some((n) => /Design AI renews in 2 days/.test(n)), 'a renewal reminder is sent');
 
@@ -205,15 +205,23 @@ const server = http.createServer((req, res) => {
   codexRollout(codexA, 10, 15, { week: 5 * 86_400_000 });
   const o3 = await until(async () => { const x = await u('refresh'); return x.summary.allClear && !x.summary.expiring.length ? x : null; }, 15_000, 1000);
   check(!!o3, 'all clear');
-  check((await u('trayState')).text === '', 'the label is just the ring when all is clear');
+  check((await u('glanceState')).card?.value === 'All clear', 'the card says all clear');
   await u('setSettings', { menuBar: { hideWhenClear: true } });
-  check(!!(await until(async () => !(await u('trayState')).visible, 4000)), 'nothing in the menu bar when all clear (if chosen)');
+  check(!!(await until(async () => !(await u('glanceState')).card, 4000)) && (await glanceCard()).text === null, 'no card when all is clear (if chosen)');
   await u('setSettings', { menuBar: { hideWhenClear: false } });
-  await wait(800);
-  await shoot(pop, 'popover-all-clear-light');
+  // Switched off in Settings → Menu bar: the glance leaves the card out.
+  await main.evaluate(async () => { const g = await window.keeper.glance.settings(); await window.keeper.glance.setSettings({ cards: g.cards.filter((c) => c !== 'usage') }); });
+  check((await glanceCard()).text === null, 'the card can be switched off');
+  await main.evaluate(async () => { const g = await window.keeper.glance.settings(); await window.keeper.glance.setSettings({ cards: [...g.cards, 'usage'] }); });
+  gc = await glanceCard();
+  await shoot(gc.g, 'glance-all-clear-light');
+  await main.evaluate(() => window.keeper.glance.close());
 
   // ---- the Usage page
   await main.locator('.sidebar button[title="Usage"]').first().click();
+  // The compact sidebar opens over the page while the pointer rests on it: move away.
+  await main.mouse.move(1000, 600);
+  await wait(500);
   await main.waitForSelector('[data-testid=usage-page]', { timeout: 8000 });
   check(await main.locator('[data-testid=usage-account-card]').count() === 7, 'the page shows every account');
   await main.screenshot({ path: path.join(SHOTS, 'page-overview-light.png') });
@@ -242,16 +250,20 @@ const server = http.createServer((req, res) => {
   await main.locator('.usage-page button[role=tab]:has-text("Overview")').click();
   await wait(1200);
   await main.screenshot({ path: path.join(SHOTS, 'page-overview-dark.png') });
-  await shoot(pop, 'popover-all-clear-dark');
+  await shoot((await glanceCard()).g, 'glance-all-clear-dark');
   codexRollout(codexA, 10, 15, { week: 10 * H });
   await until(async () => (await u('refresh')).summary.expiring.length > 0, 10_000, 1000);
-  await shoot(pop, 'popover-expiring-dark');
   codexRollout(codexA, 20, 97);
   codexRollout(codexB, 100, 30, { h5: 22 });
   await until(async () => (await u('refresh')).summary.runningOut.length > 0, 10_000, 1000);
-  await shoot(pop, 'popover-running-out-dark');
-  await pop.locator('button[role=tab]:has-text("All Metrics")').click();
-  await shoot(pop, 'popover-all-metrics-dark');
+  gc = await glanceCard();
+  check(!!gc.text && /AI usage: CX/.test(gc.text), `dark: the card follows the newest readings ("${gc.text}")`);
+  await shoot(gc.g, 'glance-running-out-dark');
+  await main.evaluate(() => window.keeper.glance.close());
+  await wait(800);
+  const pageText = await main.locator('[data-testid=usage-page]').innerText();
+  check(/Running out/i.test(pageText) && /Used up/i.test(pageText) && pageText.includes('Codex Plus'), 'the Usage page lists what is running out and used up');
+  await main.screenshot({ path: path.join(SHOTS, 'page-running-out-dark.png') });
   // The Island's ring activity follows the most urgent limit.
   const isl = await main.evaluate(() => window.keeper.island.state()).catch(() => null);
   check(!isl || (isl.usageAlert && /Codex/.test(isl.usageAlert.title)), `the Island gets a usage activity (${isl?.usageAlert?.title ?? 'no Island here'})`);
@@ -288,7 +300,7 @@ const server = http.createServer((req, res) => {
   check(!('statusLine' in JSON.parse(fs.readFileSync(path.join(work, 'settings.json'), 'utf8'))), 'the status line setting is put back');
   for (const a of await u('overview').then((x) => x.accounts)) await u('removeAccount', a.id);
   await wait(800);
-  check((await checks()).length === 0 && !(await u('trayState')).visible, 'no accounts: no checks and no menu-bar item again');
+  check((await checks()).length === 0 && !(await u('glanceState')).card, 'no accounts: no checks and no card again');
 
   check(!errors.length, `no page errors${errors.length ? `: ${errors.join(' | ')}` : ''}`);
   await app.close();

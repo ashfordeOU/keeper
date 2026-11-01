@@ -7,7 +7,7 @@
 // until an account is added; every look goes through the governor; only the
 // services' own endpoints are called, with the person's own keys.
 
-import { app, BrowserWindow, dialog, Menu, nativeImage, nativeTheme, Notification, Tray } from 'electron';
+import { app, BrowserWindow, dialog, Notification } from 'electron';
 import { execFile } from 'node:child_process';
 import { existsSync, promises as fsp, watch, type FSWatcher } from 'node:fs';
 import os from 'node:os';
@@ -15,8 +15,7 @@ import path from 'node:path';
 import type { AccountInput, AccountView, DetectedAccount, UsageOverview } from '../../core/api-ai-usage';
 import { claudeTokenLines, copilotQuota, copilotToken, cursorUsage, type TokenLine } from '../../core/island-tools/usage';
 import { geminiReplies, opencodeReply, type ReplyLine } from '../../core/island-tools/usage-more';
-import { toBgra } from '../../core/monitor-tray';
-import { renderLabel, renderRing, toneColor, type MenuBarLabel } from '../../core/usage-tracker/label';
+import { glanceUsage, renderLabel, type GlanceUsage, type MenuBarLabel } from '../../core/usage-tracker/label';
 import { countdown, defaultTrackerSettings, newId, normalizeTrackerSettings, providerInfo, PROVIDERS, type Account, type AccountState, type Limit, type ProviderId, type TrackerSettings } from '../../core/usage-tracker/model';
 import { prioritize, summarize, transitions, type HistoryPoint, type PriorityItem, type Urgency } from '../../core/usage-tracker/priority';
 import { rateHeadersFor } from '../../core/usage-tracker/rate-store';
@@ -28,7 +27,6 @@ import { addPoint, dueReminders, historyCsv, monthlyTotals, MONTHLY_FACTOR, rece
 import { getSecret, setSecret } from '../store';
 import { featureOn, onFeature } from './features';
 import { poll } from './governor';
-import { popoverBounds } from './monitor-tray';
 
 declare const __KEEPER_OFFICIAL__: boolean | undefined;
 const OFFICIAL = typeof __KEEPER_OFFICIAL__ === 'boolean' && __KEEPER_OFFICIAL__;
@@ -513,7 +511,6 @@ function after() {
   s.prevLeft = Object.fromEntries(items.map((i) => [`${i.accountId}:${i.limit.key}`, i.left]));
   label = renderLabel(items, s.settings.menuBar, now);
   void persist();
-  syncTray();
   deps?.broadcast('ai-usage', { at: now });
   for (const l of islandListeners) l();
 }
@@ -560,78 +557,20 @@ function syncWatchers() {
   }
 }
 
-// ---------------------------------------------------------------- the menu-bar item and its pop-over
+// ---------------------------------------------------------------- the AI usage card in the owl's glance
 
-let tray: Tray | null = null;
-let popover: BrowserWindow | null = null;
+// Keeper has one icon in the menu bar, the owl. The tracker has no item of its own: its summary is
+// a card in the owl's glance (core/glance.ts), read only while the glance is open.
 
-function trayImage(): Electron.NativeImage {
-  const dark = isMac ? false : nativeTheme.shouldUseDarkColorsForSystemIntegratedUI ?? nativeTheme.shouldUseDarkColors;
-  const ink: [number, number, number, number] = dark ? [240, 240, 240, 255] : [20, 20, 20, 255];
-  const size = isMac ? 36 : 32;
-  const left = store?.settings.menuBar.mode === 'icon' ? undefined : label.parts[0] ? items.find((i) => i.accountId === label.parts[0].accountId && i.limit.key === label.parts[0].limitKey)?.left : undefined;
-  const bmp = renderRing(size, left, ink, toneColor(label.tone));
-  const img = nativeImage.createFromBitmap(Buffer.from(toBgra(bmp)), { width: size, height: size, scaleFactor: 2 });
-  if (isMac && label.tone === 'ok') img.setTemplateImage(true);
-  return img;
-}
-
-function trayMenu(): Menu {
-  const paused = !!store?.settings.paused;
-  return Menu.buildFromTemplate([
-    { label: 'Show AI Usage…', click: () => togglePopover() },
-    { label: 'Refresh Now', click: () => void lookOnce('all', undefined, true) },
-    { type: 'separator' },
-    { label: 'Open Usage Page', click: () => deps?.showMain('aiusage') },
-    { label: 'Menu Bar Settings…', click: () => deps?.showMain('settings:menubar') },
-    { label: paused ? 'Resume Tracking' : 'Pause Tracking', click: () => void setSettings({ paused: !paused }) },
-  ]);
-}
-
-function syncTray() {
-  const s = store;
-  const want = !!s && featureOn('usageTracker') && featureOn('usageMenuBar') && s.accounts.some((a) => !a.hideInMenuBar) && label.visible;
-  if (!want) {
-    tray?.destroy();
-    tray = null;
-    if (!s?.accounts.length) popover?.close();
-    return;
-  }
-  if (!tray || tray.isDestroyed()) {
-    tray = new Tray(trayImage());
-    tray.on('click', () => togglePopover(tray ?? undefined));
-    tray.on('right-click', () => tray?.popUpContextMenu(trayMenu()));
-    if (!isMac) tray.setContextMenu(trayMenu());
-  } else tray.setImage(trayImage());
-  if (isMac) tray.setTitle(label.text, { fontType: 'monospacedDigit' });
-  tray.setToolTip(label.text ? `${label.text}\n${label.tooltip}` : label.tooltip);
-  if (!isMac) tray.setContextMenu(trayMenu());
-}
-
-export function togglePopover(anchor?: Tray) {
-  if (!deps) return;
-  if (popover && !popover.isDestroyed() && popover.isVisible()) {
-    popover.hide();
-    return;
-  }
-  const w = 360;
-  const h = 520;
-  if (!popover || popover.isDestroyed()) {
-    popover = new BrowserWindow({
-      width: w, height: h, frame: false, resizable: false, show: false, skipTaskbar: true, alwaysOnTop: true, fullscreenable: false, transparent: isMac,
-      backgroundColor: isMac ? '#00000000' : nativeTheme.shouldUseDarkColors ? '#1b1b20' : '#fbfbfa', vibrancy: isMac ? 'popover' : undefined,
-      webPreferences: { preload: deps.preload, contextIsolation: true, sandbox: true, backgroundThrottling: true },
-    });
-    deps.lockDown(popover);
-    deps.load(popover, 'ai-usage-popover');
-    popover.on('blur', () => {
-      if (!popover?.webContents.isDevToolsOpened() && !process.env.KEEPER_POPOVER_STAYS) popover?.hide();
-    });
-    popover.on('closed', () => { popover = null; });
-  }
-  popover.setBounds(popoverBounds(anchor, w, h));
-  popover.show();
-  popover.focus();
+/**
+ * The glance's AI usage card: undefined while the tracker is off or has no accounts (the glance
+ * then reads the coding tools itself), null while it tracks accounts but has nothing to show.
+ */
+export async function glanceCard(now = Date.now()): Promise<GlanceUsage | null | undefined> {
+  if (!featureOn('usageTracker')) return undefined;
+  const s = await load();
+  if (!s.accounts.length) return undefined;
+  return glanceUsage(items, s.settings.menuBar, now) ?? null;
 }
 
 // ---------------------------------------------------------------- the Island's ring
@@ -678,7 +617,6 @@ export async function overview(): Promise<UsageOverview> {
   const everyMs = Math.min(...[s.accounts.some(isLocal) ? s.settings.localEveryMin : Infinity, s.accounts.some((a) => !isLocal(a)) ? s.settings.apiEveryMin : Infinity]) * 60_000;
   return {
     on: featureOn('usageTracker'),
-    menuBarOn: featureOn('usageMenuBar'),
     settings: s.settings,
     accounts: await Promise.all(s.accounts.map(view)),
     states: s.states,
@@ -865,13 +803,10 @@ export async function scanReceipts(): Promise<ReceiptGuess[]> {
 
 // ---------------------------------------------------------------- tests and Settings
 
-export async function trayState(): Promise<{ visible: boolean; text: string; tooltip: string; image?: string; notices: string[] }> {
-  await load();
-  return { visible: !!tray && !tray.isDestroyed(), text: label.text, tooltip: label.tooltip, image: tray && !tray.isDestroyed() ? trayImage().toDataURL() : undefined, notices: [...notices] };
-}
-
-export function closePopover() {
-  popover?.hide();
+/** What the glance's AI usage card and the short label show right now (tests, Settings preview). */
+export async function glanceState(): Promise<{ card?: GlanceUsage; text: string; tooltip: string; notices: string[] }> {
+  const card = (await glanceCard()) ?? undefined;
+  return { card, text: label.text, tooltip: label.tooltip, notices: [...notices] };
 }
 
 /** A plain-text summary for the CLI and AI agents. */
@@ -912,25 +847,17 @@ export async function initUsageTracker(d: UsageTrackerDeps) {
       label = renderLabel(items, s.settings.menuBar, Date.now());
     }
     syncPolling();
-    syncTray();
   };
   onFeature('usageTracker', (on) => {
     if (!on) {
       syncPolling();
-      tray?.destroy();
-      tray = null;
-      popover?.close();
       for (const l of islandListeners) l();
     } else void start();
   }, { now: true });
-  onFeature('usageMenuBar', () => syncTray());
-  nativeTheme.on('updated', () => { if (tray) syncTray(); });
 }
 
 export function stopUsageTracker() {
   for (const w of watchers.values()) w.close();
   watchers.clear();
-  tray?.destroy();
-  tray = null;
 }
 

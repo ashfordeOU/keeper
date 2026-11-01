@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
-// The tracker's menu-bar / tray label: an icon only, the most urgent one to
-// three limits ("CC 69%"), reset countdowns ("Reset 1d 6h"), "+N" for the
-// rest, a busy-day mode that always shows the lowest, and nothing at all when
-// all is clear (if chosen). Also draws the tray picture: a ring with the
-// share left, for systems that show pictures only. Pure.
+// The tracker's short label: the most urgent one to three limits ("CC 69%"),
+// reset countdowns ("Reset 1d 6h"), "+N" for the rest, a busy-day mode that
+// always shows the lowest, and nothing at all when all is clear (if chosen).
+// It is what the AI usage card in the owl's glance shows (glanceUsage below),
+// what `keeper usage` reports, and the Settings preview. Also a ring picture
+// with the share left. Pure.
 
 import { drawText, textWidth, type Bitmap, type Rgba } from '../monitor-tray';
 import { countdown, type MenuBarSettings } from './model';
@@ -67,7 +68,35 @@ export function renderLabel(items: PriorityItem[], s: MenuBarSettings, now: numb
   return { visible: true, text, parts, overflow, tooltip, ring: take[0]?.left ?? (urgent[0]?.left), tone };
 }
 
-// ---------------------------------------------------------------- the tray picture
+/** The AI usage card in the owl's glance (core/glance.ts), or nothing when there is nothing to show. */
+export interface GlanceUsage {
+  value: string;
+  detail: string;
+  /** share used of the most urgent limit, for the card's bar */
+  usedPercent?: number;
+  tone: 'ok' | 'warn' | 'bad';
+  tooltip: string;
+}
+
+export function glanceUsage(items: PriorityItem[], s: MenuBarSettings, now: number): GlanceUsage | undefined {
+  const shown = items.filter((i) => !i.hideInMenuBar && i.left !== undefined);
+  if (!shown.length) return undefined;
+  const label = renderLabel(items, s, now);
+  if (!label.visible) return undefined;
+  const urgent = shown.filter((i) => i.urgency === 'running-out' || i.urgency === 'used-up');
+  const top = urgent[0] ?? [...shown].sort((a, b) => (a.left ?? 100) - (b.left ?? 100))[0];
+  const reset = top.limit.resetsAt ? `, resets in ${countdown(top.limit.resetsAt - now)}` : '';
+  const tone = label.tone === 'out' ? 'bad' : label.tone === 'low' ? 'warn' : 'ok';
+  return {
+    value: label.text || (tone === 'bad' ? 'Used up' : tone === 'warn' ? 'Running low' : 'All clear'),
+    detail: urgent.length ? `${short(top)}${reset}` : `Lowest: ${short(top)}, ${Math.round(top.left ?? 0)}% left`,
+    usedPercent: Math.round(100 - (top.left ?? 100)),
+    tone,
+    tooltip: label.tooltip,
+  };
+}
+
+// ---------------------------------------------------------------- the ring picture
 
 function put(b: Bitmap, x: number, y: number, c: Rgba, a = 1) {
   if (x < 0 || y < 0 || x >= b.width || y >= b.height) return;

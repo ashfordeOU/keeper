@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The AI usage and subscription tracker's interface (electron/services/usage-tracker.ts).
 
-import type { MenuBarLabel } from './usage-tracker/label';
+import type { GlanceUsage, MenuBarLabel } from './usage-tracker/label';
 import type { Account, AccountState, ProviderId, TrackerSettings } from './usage-tracker/model';
 import type { HistoryPoint, PriorityItem, PrioritySummary } from './usage-tracker/priority';
 import type { ReceiptGuess, Reminder } from './usage-tracker/subscriptions';
@@ -16,7 +16,6 @@ export interface AccountView extends Account {
 export interface UsageOverview {
   /** the tracker feature is on */
   on: boolean;
-  menuBarOn: boolean;
   settings: TrackerSettings;
   accounts: AccountView[];
   states: Record<string, AccountState>;
@@ -66,9 +65,7 @@ export interface AiUsageApi {
   setStatusLine(accountId: string, on: boolean): Promise<{ ok: boolean; message: string }>;
   /** receipts from AI services in Mail (sender, subject and preview only) */
   scanReceipts(): Promise<ReceiptGuess[]>;
-  showPopover(): Promise<void>;
-  closePopover(): Promise<void>;
   openPage(tab?: string): Promise<void>;
-  /** what the menu-bar item shows right now (tests, Settings preview) */
-  trayState(): Promise<{ visible: boolean; text: string; tooltip: string; image?: string }>;
+  /** what the AI usage card in the owl's glance and the short label show right now (tests, Settings preview) */
+  glanceState(): Promise<{ card?: GlanceUsage; text: string; tooltip: string; notices: string[] }>;
 }

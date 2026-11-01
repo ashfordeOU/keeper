@@ -383,7 +383,7 @@ export function LiveCard({ a, state, now, unlocked, onMore, reload }: { a: Activ
     );
   } else if (a.kind === 'usage') {
     body = <div><div className="live-big num" style={{ color: a.color }}>{a.trailing} left</div><div className="live-bar"><i style={{ width: `${(a.progress ?? 0) * 100}%`, background: a.color }} /></div>{a.detail ? <div className="muted small">{a.detail}</div> : null}</div>;
-    actions = <><button className="btn sm primary" onClick={() => void api.aiUsage.showPopover()}>Details</button><button className="btn sm" onClick={() => void api.aiUsage.openPage()}>Usage page</button></>;
+    actions = <><button className="btn sm primary" onClick={() => void api.glance.show()}>Details</button><button className="btn sm" onClick={() => void api.aiUsage.openPage()}>Usage page</button></>;
   } else if (a.kind === 'copied') {
     body = <div className="live-copied ellipsis">{a.detail}</div>;
   }
