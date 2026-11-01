@@ -8,7 +8,11 @@ import { backdropHtml, keyLabel, overlayHtml, showKey, spotRadius } from '../cor
 import { planStage, staysOnScreen, SWITCHES, type StageEnv } from '../core/stage/plan';
 import { BUILT_IN, copyPreset, countOn, defaultStageSettings, LEGACY_PRESENTATION, NO_SWITCHES, normalizeStageSettings } from '../core/stage/presets';
 import { redactIsland } from '../core/stage/private';
-import { parseRead, readCmd, restoreScript, targetKey, UNSET, winSetModeScript, writeCmds } from '../core/stage/targets';
+import { macShowAppsScript, parseMacAppList, parseRead, readCmd, restoreScript, targetKey, UNSET, winSetModeScript, writeCmds } from '../core/stage/targets';
+import { spawnSync } from 'node:child_process';
+import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import type { JournalEntry, StageSwitches } from '../core/stage/types';
 import { inputLabel, inputsFromCapabilities, inputsFromDdcutilCapabilities, parseDdcutilInput, stepLevel } from '../core/display-control';
 import type { IslandState } from '../core/api';
@@ -182,6 +186,56 @@ describe('the journal', () => {
     expect(ps).not.toContain('bad;rm');
     const linux = restoreScript([entry({ target: { t: 'display-mode', display: 'HDMI-1', how: 'xrandr', prior: { width: 2560, height: 1440, refresh: 59.95 } } })], 'linux');
     expect(linux).toContain("xrandr --output 'HDMI-1' --mode '2560x1440' --rate '59.95'");
+  });
+});
+
+describe('the crash watchdog brings hidden Mac apps back', () => {
+  const hidden = entry({ seq: 4, switch: 'hideOtherApps', label: 'Other apps hidden', target: { t: 'apps-hidden', ids: ['Mail', 'Notes "2"', 'Odd'], bundles: ['com.apple.mail', 'com.apple.Notes', "x'; rm -rf ~; '"], how: 'mac' }, prior: undefined, applied: undefined });
+
+  it('reads the visible apps with their bundle ids', () => {
+    expect(parseMacAppList('Safari\tcom.apple.Safari\nTerminal\tcom.apple.Terminal\nOld App\t\n\n')).toEqual([
+      { name: 'Safari', bundle: 'com.apple.Safari' }, { name: 'Terminal', bundle: 'com.apple.Terminal' }, { name: 'Old App', bundle: '' },
+    ]);
+  });
+
+  it('shows each app by bundle id, then by name, in one System Events call (the same script Stop runs)', () => {
+    const osa = macShowAppsScript(['Mail', 'Notes "2"', 'Odd'], ['com.apple.mail', 'com.apple.Notes', "x'; rm -rf ~; '"]);
+    expect(osa.startsWith('tell application "System Events"\n')).toBe(true);
+    expect(osa).toContain('set visible of (first process whose bundle identifier is "com.apple.mail") to true\non error\ntry\nset visible of process "Mail" to true');
+    expect(osa).toContain('set visible of process "Notes \\"2\\"" to true');
+    // A bundle id that is not one is never put into the script; the name still is.
+    expect(osa).not.toContain('rm -rf');
+    expect(osa).toContain('set visible of process "Odd" to true');
+    const sh = restoreScript([hidden], 'darwin');
+    expect(sh).toContain("'/usr/bin/osascript' -e 'tell application \"System Events\"\n");
+    expect(sh).toContain("end tell' >/dev/null 2>&1 || { '/usr/bin/osascript' -e");
+  });
+
+  it('runs as a shell script: one call, and each app on its own if that call fails', () => {
+    if (process.platform === 'win32') return;
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'stage-restore-'));
+    const log = path.join(dir, 'calls.log');
+    const stub = path.join(dir, 'osascript');
+    // A stand-in for osascript: records each script; the first (all apps at once) fails when asked to.
+    writeFileSync(stub, `#!/bin/sh\nprintf '%s\\n===\\n' "$2" >> ${JSON.stringify(log)}\nn=$(grep -c '^===$' ${JSON.stringify(log)})\n[ "$FAIL_FIRST" = 1 ] && [ "$n" = 1 ] && exit 1\nexit 0\n`);
+    chmodSync(stub, 0o755);
+    const script = path.join(dir, 'stage-restore.sh');
+    writeFileSync(script, restoreScript([hidden], 'darwin').replaceAll("'/usr/bin/osascript'", JSON.stringify(stub)));
+    const calls = () => readFileSync(log, 'utf8').split('===\n').filter((c) => c.trim());
+
+    expect(spawnSync('/bin/sh', [script], { encoding: 'utf8' }).status).toBe(0);
+    expect(calls()).toHaveLength(1);
+    expect(calls()[0]).toContain('bundle identifier is "com.apple.Notes"');
+    expect(calls()[0]).toContain('process "Notes \\"2\\""');
+
+    writeFileSync(log, '');
+    expect(spawnSync('/bin/sh', [script], { encoding: 'utf8', env: { ...process.env, FAIL_FIRST: '1' } }).status).toBe(0);
+    const c = calls();
+    expect(c).toHaveLength(4);
+    expect(c[1]).toContain('"com.apple.mail"');
+    expect(c[2]).toContain('process "Notes \\"2\\""');
+    expect(c[3]).toContain('process "Odd"');
+    expect(c[3]).not.toContain('bundle identifier');
   });
 });
 

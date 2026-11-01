@@ -53,6 +53,13 @@ export function restoreScript(s: Snapshot): string {
   return lines.join('\n') || 'true';
 }
 
+/** Keeper's own process (the dev build runs as "Electron") is not one of the apps Stage hides or shows. */
+const KEEPER_PROCS = new Set(['Electron', 'Keeper']);
+export function withoutKeeper(s: Snapshot): Snapshot {
+  if (!s.visibleApps || s.visibleApps === '<unset>') return s;
+  return { ...s, visibleApps: s.visibleApps.split(', ').filter((a) => a && !KEEPER_PROCS.has(a)).join(', ') };
+}
+
 /** Which snapshot keys differ (visibleApps compares as sets). */
 export function diff(a: Snapshot, b: Snapshot, keys = Object.keys(a)): string[] {
   return keys.filter((k) => (a[k] ?? '') !== (b[k] ?? ''));
@@ -161,13 +168,16 @@ export async function runStage(ctx: Ctx) {
     const switches = allOff(base);
     switches.hideDock = true;
     switches.muteAlerts = true;
+    // The full run also hides the other apps, so the watchdog has to show them again by itself.
+    if (!ctx.args.quick) switches.hideOtherApps = true;
     await app.call('stage.savePreset', { id: 'mactest-crash', name: 'Mac test: crash', switches, countdown: 0, limitMin: 5, shortcut: '' });
-    const b = await readSnapshot(ctx);
+    // Keeper itself is gone after the kill; it is not an app the watchdog should bring back.
+    const b = withoutKeeper(await readSnapshot(ctx));
     await app.call('stage.start', 'mactest-crash', { skipCountdown: true });
     const during = (await until(async () => { const s = await readSnapshot(ctx); return s.dockAutohide === 'true' ? s : null; }, 6000, 500)) ?? (await readSnapshot(ctx));
     const watch = await ctx.sys.run('/usr/bin/pgrep', ['-fl', 'stage-restore']);
     await ctx.closeApp('kill');
-    const after = (await until(async () => { const s = await readSnapshot(ctx); return diff(b, s, STAGE_KEYS).length ? null : s; }, 20_000, 1000)) ?? (await readSnapshot(ctx));
+    const after = (await until(async () => { const s = withoutKeeper(await readSnapshot(ctx)); return diff(b, s, STAGE_KEYS).length ? null : s; }, 20_000, 1000)) ?? withoutKeeper(await readSnapshot(ctx));
     const left = diff(b, after, STAGE_KEYS);
     const watchAfter = await ctx.sys.run('/usr/bin/pgrep', ['-fl', 'stage-restore']);
     h.artifact(ctx.saveData('stage-crash.json', { before: b, during, after, watchdog: watch.stdout, watchdogAfter: watchAfter.stdout }));

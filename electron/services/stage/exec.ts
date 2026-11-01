@@ -10,7 +10,7 @@ import { nativeImage } from 'electron';
 import { powershell, run } from '../../../core/platform';
 import { chooseMode, dedupe, parseWinModes, parseWlrRandr, parseXrandr } from '../../../core/stage/display';
 import type { StageEnv } from '../../../core/stage/plan';
-import { osq, parseRead, psq, readCmd, winModesScript, winSetModeScript, writeCmds, type Cmd } from '../../../core/stage/targets';
+import { macShowAppsScript, MAC_VISIBLE_APPS, osq, parseMacAppList, parseRead, psq, readCmd, winModesScript, winSetModeScript, writeCmds, type Cmd } from '../../../core/stage/targets';
 import type { ActionTarget, StageDisplayMode, StageOs, ValueTarget } from '../../../core/stage/types';
 import { macHelperCall } from '../platform/mac';
 
@@ -60,7 +60,7 @@ export async function gatherEnv(): Promise<StageEnv> {
 // ---------------------------------------------------------------- hiding other apps
 
 /** Window ids (Windows HWNDs, X11 ids) or app names (macOS) that were hidden. */
-export interface Hidden { ids: string[]; how: 'mac' | 'win' | 'x11' }
+export interface Hidden { ids: string[]; how: 'mac' | 'win' | 'x11'; bundles?: string[] }
 
 const WIN_WINDOWS = (mode: 'except' | 'only', names: string[], self: number) => `Add-Type -TypeDefinition @'
 using System; using System.Text; using System.Runtime.InteropServices; using System.Collections.Generic;
@@ -125,14 +125,14 @@ async function x11Minimize(id: string) {
  */
 export async function hideApps(mode: 'except' | 'only', names: string[], staying: (app: string) => boolean): Promise<Hidden | null> {
   if (OS === 'darwin') {
-    const list = (await run(OSA, ['-e', 'tell application "System Events" to get name of every process whose visible is true and background only is false'], 8000)).stdout.trim();
+    const list = parseMacAppList((await run(OSA, ['-e', MAC_VISIBLE_APPS], 8000)).stdout);
     const front = (await run(OSA, ['-e', 'tell application "System Events" to get name of first process whose frontmost is true'], 4000)).stdout.trim();
-    const apps = list.split(/,\s*/).map((s) => s.trim()).filter(Boolean)
-      .filter((a) => (mode === 'only' ? names.some((n) => n.toLowerCase() === a.toLowerCase()) : a !== front && a !== 'Finder' && !staying(a)));
-    if (!apps.length) return { ids: [], how: 'mac' };
-    const script = apps.map((a) => `set visible of process ${osq(a)} to false`).join('\n');
+    const apps = list.filter((a) => (mode === 'only' ? names.some((n) => n.toLowerCase() === a.name.toLowerCase()) : a.name !== front && a.name !== 'Finder' && !staying(a.name)));
+    if (!apps.length) return { ids: [], bundles: [], how: 'mac' };
+    const script = apps.map((a) => `set visible of process ${osq(a.name)} to false`).join('\n');
     await run(OSA, ['-e', `tell application "System Events"\n${script}\nend tell`], 10_000);
-    return { ids: apps, how: 'mac' };
+    // Bundle ids too, so Stop and the crash watchdog find each app again even if its name is not unique.
+    return { ids: apps.map((a) => a.name), bundles: apps.map((a) => a.bundle), how: 'mac' };
   }
   if (OS === 'win32') {
     const keepNames = mode === 'only' ? names : (await import('../devices')).runningApps().then((r) => r.filter(staying));
@@ -157,8 +157,7 @@ export async function showApps(h: Extract<ActionTarget, { t: 'apps-hidden' }>) {
   if (!h.ids.length) return;
   if (h.how === 'mac') {
     const front = (await run(OSA, ['-e', 'tell application "System Events" to get name of first process whose frontmost is true'], 4000)).stdout.trim();
-    const script = h.ids.map((a) => `try\nset visible of process ${osq(a)} to true\nend try`).join('\n');
-    await run(OSA, ['-e', `tell application "System Events"\n${script}\nend tell`], 10_000);
+    await run(OSA, ['-e', macShowAppsScript(h.ids, h.bundles)], 10_000);
     if (front) await run(OSA, ['-e', `tell application "System Events" to set frontmost of process ${osq(front)} to true`], 4000);
   } else if (h.how === 'win') {
     const ids = h.ids.filter((x) => /^\d+$/.test(x));

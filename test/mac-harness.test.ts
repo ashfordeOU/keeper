@@ -7,7 +7,7 @@ import { checkPaths } from '../scripts/mac-test/src/app';
 import { parseArgs } from '../scripts/mac-test/src/args';
 import { chooseAreas } from '../scripts/mac-test/src/areas';
 import { keeperHolds } from '../scripts/mac-test/src/areas/awake';
-import { allOff, diff, normalise, restoreScript } from '../scripts/mac-test/src/areas/stage';
+import { allOff, diff, normalise, restoreScript, withoutKeeper } from '../scripts/mac-test/src/areas/stage';
 import { cpuTime, parsePs, treeOf } from '../scripts/mac-test/src/areas/usage';
 import { peakDb, wordMatch } from '../scripts/mac-test/src/areas/voice';
 import { permissionChanges } from '../scripts/mac-test/src/areas/permscreen';
@@ -140,6 +140,9 @@ describe('small parsers', () => {
     expect(normalise('desktopIcons', '1')).toBe('true');
     expect(normalise('visibleApps', 'Terminal, Finder')).toBe('Finder, Terminal');
     expect(diff({ a: '1', b: '2' }, { a: '1', b: '3' })).toEqual(['b']);
+    // Keeper's own process disappears when it is killed; that is not an app left hidden.
+    expect(diff(withoutKeeper({ visibleApps: 'Electron, Finder, Safari' }), withoutKeeper({ visibleApps: 'Finder, Safari' }))).toEqual([]);
+    expect(withoutKeeper({ visibleApps: '<unset>' }).visibleApps).toBe('<unset>');
     const sh = restoreScript({ desktopIcons: '<unset>', dockAutohide: 'false', menubarAutohide: 'true', alertVolume: '75', cursorSize: '1', visibleApps: "Finder, Sam's \"App\"" });
     expect(sh).toMatch(/defaults delete com.apple.finder CreateDesktop/);
     expect(sh).toMatch(/set autohide of dock preferences to false/);

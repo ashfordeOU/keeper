@@ -392,7 +392,7 @@ export class StageService {
           const h = await hideApps('only', hide, () => false);
           if (!h) return false;
           ids = h.ids;
-          return { target: { t: 'apps-hidden', ids: h.ids, how: h.how } };
+          return { target: { t: 'apps-hidden', ids: h.ids, how: h.how, bundles: h.bundles } };
         });
         this.note('apps', `Hide ${hide.join(', ')}`, ok, ok && !ids.length ? 'None of them had windows open' : undefined);
       }
@@ -413,7 +413,7 @@ export class StageService {
         const h = await hideApps('except', [], (a) => staysOnScreen(a, keep, ALWAYS_KEEP));
         if (!h) return false;
         n = h.ids.length;
-        return { target: { t: 'apps-hidden', ids: h.ids, how: h.how } };
+        return { target: { t: 'apps-hidden', ids: h.ids, how: h.how, bundles: h.bundles } };
       });
       this.note('hideOtherApps', 'Hide other apps', ok, ok ? `${n} hidden` : 'Needs wmctrl and xdotool (X11)');
     }

@@ -137,7 +137,7 @@ export type ValueTarget =
 
 /** Something Stage changed that is not a plain setting. */
 export type ActionTarget =
-  | { t: 'apps-hidden'; ids: string[]; how: 'mac' | 'win' | 'x11' }
+  | { t: 'apps-hidden'; ids: string[]; how: 'mac' | 'win' | 'x11'; /** macOS: each app's bundle id, in the order of ids ('' when it has none) */ bundles?: string[] }
   | { t: 'apps-quit'; apps: { name: string; path?: string }[] }
   | { t: 'music-paused'; player?: string }
   | { t: 'display-mode'; display: string; prior: { width: number; height: number; refresh?: number; modeId?: string }; how: 'mac' | 'win' | 'xrandr' | 'wlr' }

@@ -154,6 +154,40 @@ export function targetKey(t: ValueTarget): string {
   }
 }
 
+/** macOS: every visible app with a window, one "name<tab>bundle id" line each. */
+export const MAC_VISIBLE_APPS = `tell application "System Events"
+set out to ""
+repeat with p in (every process whose visible is true and background only is false)
+set b to ""
+try
+set b to bundle identifier of p
+end try
+if b is missing value then set b to ""
+set out to out & (name of p) & tab & b & linefeed
+end repeat
+end tell
+return out`;
+
+export function parseMacAppList(text: string): { name: string; bundle: string }[] {
+  return text.split(/\r?\n/).map((l) => l.split('\t')).filter(([n]) => n && n.trim()).map(([n, b]) => ({ name: n.trim(), bundle: (b ?? '').trim() }));
+}
+
+/**
+ * macOS: AppleScript that shows apps Stage hid again, by bundle id first (a
+ * name can change with the language or be shared) and by process name when
+ * that finds nothing. One System Events conversation for every app; an app
+ * that has quit since is skipped. Used by Stop and by the crash watchdog.
+ */
+export function macShowAppsScript(names: string[], bundles: string[] = []): string {
+  const lines = names.map((name, i) => {
+    const b = bundles[i];
+    const byName = `try\nset visible of process ${osq(name)} to true\nend try`;
+    if (!b || !/^[\w.-]+$/.test(b)) return byName;
+    return `try\nset visible of (first process whose bundle identifier is ${osq(b)}) to true\non error\n${byName}\nend try`;
+  });
+  return `tell application "System Events"\n${lines.join('\n')}\nend tell`;
+}
+
 export const isValueTarget = (t: JournalEntry['target']): t is ValueTarget => !['apps-hidden', 'apps-quit', 'music-paused', 'display-mode', 'awake', 'focus'].includes(t.t);
 
 const shCmd = (c: Cmd) => ('ps' in c ? '' : [c.cmd, ...c.args].map(shq).join(' '));
@@ -194,8 +228,10 @@ export function restoreScript(entries: JournalEntry[], os: StageOs, helper?: str
       const read = readCmd(t);
       if (raw !== null && !('ps' in read)) out.push(`[ "$(${shCmd(read)} 2>/dev/null)" = ${shq(raw)} ] && ${write}`);
       else out.push(`${write} 2>/dev/null`);
-    } else if (t.t === 'apps-hidden' && t.how === 'mac') {
-      for (const name of t.ids) out.push(`${shq(OSA)} -e ${shq(`tell application "System Events" to set visible of process ${osq(name)} to true`)} 2>/dev/null`);
+    } else if (t.t === 'apps-hidden' && t.how === 'mac' && t.ids.length) {
+      // The same script Stop runs; if System Events cannot be reached as a whole, each app is asked on its own.
+      const each = t.ids.map((name, i) => `${shq(OSA)} -e ${shq(macShowAppsScript([name], [t.bundles?.[i] ?? '']))} >/dev/null 2>&1`).join('; ');
+      out.push(`${shq(OSA)} -e ${shq(macShowAppsScript(t.ids, t.bundles))} >/dev/null 2>&1 || { ${each}; }`);
     } else if (t.t === 'apps-hidden' && t.how === 'x11') {
       for (const id of t.ids) if (/^(0x)?[0-9a-f]+$/i.test(id)) out.push(`xdotool windowmap ${shq(id)} 2>/dev/null`);
     } else if (t.t === 'display-mode' && t.how === 'xrandr') {
