@@ -11,7 +11,7 @@
 // spotlight.removeAll, cancel, and for remote control of this Mac:
 // input.status, input.request, input.move, input.button, input.wheel,
 // input.key, input.text. Extras.swift adds speech.transcribe, ddc.list,
-// ddc.get, ddc.set and translate.
+// ddc.get, ddc.set and translate; Calendar.swift the calendar.* methods.
 
 import Foundation
 import Vision
@@ -503,6 +503,7 @@ func handle(id: Int, method: String, params: [String: Any]) async {
         case "eventkit.setReminder":
             try await ekSetReminder(params)
             Wire.shared.result(id, ["ok": true])
+        case let m where m.hasPrefix("calendar."): Wire.shared.result(id, try await calendarCall(id: id, method: m, params: params))
         case "spotlight.index":
             let n = try await spotlightIndex(params["items"] as? [[String: Any]] ?? [])
             Wire.shared.result(id, ["count": n])
@@ -582,11 +583,16 @@ func dispatch(_ line: String) {
     }
 }
 
-// Reads requests on the main thread; the work itself runs in tasks. When
-// Keeper closes stdin it is done with the helper.
-while let line = readLine(strippingNewline: true) {
-    dispatch(line)
+// Reads requests on a thread of its own; the work itself runs in tasks. The
+// main thread serves the main queue, where some system frameworks deliver
+// their notifications (EventKit's "the calendar changed"). When Keeper closes
+// stdin it is done with the helper.
+Thread.detachNewThread {
+    while let line = readLine(strippingNewline: true) {
+        dispatch(line)
+    }
+    // Input closed: finish what was asked (answers are written from other threads), then leave.
+    _ = inFlight.wait(timeout: .now() + 30)
+    exit(0)
 }
-// Input closed: finish what was asked (answers are written from other threads), then leave.
-_ = inFlight.wait(timeout: .now() + 30)
-exit(0)
+dispatchMain()
