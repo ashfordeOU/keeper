@@ -7,8 +7,9 @@
 // reading is one pass per operating system — /proc files on Linux, one `ps`
 // on a Mac, one query to a PowerShell that stays open on Windows (starting
 // PowerShell every second would cost more than everything else together).
+// No Electron at load time: the `keeper` command (ps, top, kill, process) runs
+// this module in plain Node, inside the app's runtime with ELECTRON_RUN_AS_NODE.
 
-import { app, shell } from 'electron';
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { closeSync, openSync, promises as fsp, readdirSync, readFileSync, readlinkSync, readSync } from 'node:fs';
 import os from 'node:os';
@@ -687,6 +688,7 @@ function hexAddr(s: string): string {
 const iconCache = new Map<string, string>();
 
 export async function icons(paths: string[]): Promise<Record<string, string>> {
+  const { app } = await import('electron');
   const out: Record<string, string> = {};
   await Promise.all([...new Set(paths)].slice(0, 200).map(async (p) => {
     if (!p || !path.isAbsolute(p)) return;
@@ -709,6 +711,7 @@ export async function icons(paths: string[]): Promise<Record<string, string>> {
 }
 
 export async function reveal(p: string) {
+  const { shell } = await import('electron');
   if (p && path.isAbsolute(p)) shell.showItemInFolder(PLATFORM === 'darwin' ? macAppBundle(p) ?? p : p);
 }
 
@@ -741,6 +744,7 @@ export async function apps(): Promise<ForceQuitApp[]> {
 }
 
 export async function restartKeeper() {
+  const { app } = await import('electron');
   app.relaunch();
   app.quit();
 }

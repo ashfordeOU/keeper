@@ -1,7 +1,11 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 # Every push and pull request: type checks, unit tests, a full build and an
 # unpacked app on Windows, macOS and Linux, so packaging problems show up here
-# and not on release day.
+# and not on release day. The native parts are proven too: the macOS helpers
+# are built and asked questions, and every piece of C# Keeper compiles on
+# Windows at run time is compiled with Windows' own compilers.
+# Pushes to main and manual runs also start the packaged app on macOS and
+# Windows and check it against the real system (native-e2e below).
 name: CI
 
 on:
@@ -37,20 +41,27 @@ jobs:
       - run: npm run build
       - name: CLI smoke test
         run: node dist-cli/keeper.cjs --version
-      - name: Build and check the macOS helper
+      - name: Build the macOS helper
         if: runner.os == 'macOS'
         working-directory: native/macos/KeeperHelper
-        run: |
-          swift build -c release --arch arm64 --arch x86_64
-          out=$(printf '{"id":1,"method":"hello"}\n' | .build/apple/Products/Release/keeper-helper)
-          echo "$out"
-          echo "$out" | grep -q '"result"'
-      # Siri, Spotlight and Shortcuts actions. New and not yet proven on a Mac, so it does not fail the build;
-      # its log says whether the App Intents metadata was produced.
+        run: swift build -c release --arch arm64 --arch x86_64
+      - name: The macOS helper answers (methods that need no permission)
+        if: runner.os == 'macOS'
+        run: node scripts/ci/helper-smoke.mjs native/macos/KeeperHelper/.build/apple/Products/Release/keeper-helper
+      # Siri, Spotlight and Shortcuts actions; the build also checks Xcode produced the App Intents metadata.
       - name: Build the Siri and Shortcuts helper
         if: runner.os == 'macOS'
-        continue-on-error: true
         run: native/macos/KeeperIntents/build.sh
+      # Keeper compiles C# at run time on Windows (Add-Type in Windows PowerShell 5.1, csc.exe for
+      # the Keeper Link service). Both take C# 5 only, so newer syntax would break on people's PCs.
+      - name: Every piece of C# compiles with Windows' own compilers
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          node scripts/ci/csharp-sources.mjs csharp-out
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ci/compile-csharp.ps1 csharp-out
+          if ($LASTEXITCODE -ne 0) { exit 1 }
       - name: Package the app (unpacked, no installer)
         run: npx electron-builder --dir --publish never
         env:
@@ -68,3 +79,50 @@ jobs:
           npm install --no-save playwright-core@1.63.0
           xvfb-run -a -s "-screen 0 1440x900x24" node test/e2e/perf-budget.cjs
           KEEPER_PERF_MODE=minimal xvfb-run -a -s "-screen 0 1440x900x24" node test/e2e/perf-budget.cjs
+
+  # The packaged app on real macOS and Windows machines: Keeper's own read-only
+  # commands against the system (ports, routes, sensors, powercfg/pmset, WMI,
+  # the registry and defaults behind the settings catalogue, Stage's dry run),
+  # then the app itself (start, Settings, Keep Awake, the monitor, Stage,
+  # Remote Desktops' commands, the keeper command). Nothing here needs a
+  # permission prompt; see docs/PLATFORM-TESTING.md for what still needs a person.
+  native-e2e:
+    name: native e2e (${{ matrix.os }})
+    if: github.event_name != 'pull_request'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Build the macOS helper (packaged inside the app)
+        if: runner.os == 'macOS'
+        working-directory: native/macos/KeeperHelper
+        run: swift build -c release --arch arm64 --arch x86_64
+      - name: Package the app (unpacked, no installer)
+        run: npx electron-builder --dir --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+      - run: npm install --no-save playwright-core@1.63.0
+      - name: Keeper's read-only system commands against this machine
+        shell: bash
+        run: |
+          npx esbuild test/native/system-probe.ts --bundle --platform=node --format=cjs --outfile=dist-ci/system-probe.cjs --log-level=warning
+          node dist-ci/system-probe.cjs
+      - name: The packaged app (start, Settings, Keep Awake, monitor, Stage, Remote Desktops, keeper command)
+        shell: bash
+        run: node test/e2e/native-smoke.cjs "" native-shots
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-shots-${{ matrix.os }}
+          path: native-shots
+          if-no-files-found: ignore
