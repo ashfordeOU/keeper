@@ -7,7 +7,8 @@
 // in safe mode (only the library on) instead of looping.
 
 import { execFileSync, spawn } from 'node:child_process';
-import { closeSync, fstatSync, readFileSync, writeFileSync } from 'node:fs';
+import { closeSync, fstatSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 const { pid, dir, cmd, instance } = JSON.parse(process.argv[2] ?? '{}') as { pid: number; dir: string; cmd: string[]; instance?: string };
@@ -100,12 +101,50 @@ function stopLeftovers() {
   if (stopped) log(`stopped ${stopped} helper program(s) the stopped Keeper had left running`);
 }
 
-const timer = setInterval(() => {
+const startedAt = Date.now();
+
+/**
+ * macOS: did the system record a crash of Keeper (a crash report) or end it for memory (a jetsam
+ * report) since the watchdog started? A Force Quit, Activity Monitor or `kill` leaves neither: the
+ * person stopped Keeper on purpose, and it must stay stopped. Crash reports take a few seconds.
+ */
+async function macCrashRecorded(): Promise<boolean> {
+  const dirs = [path.join(os.homedir(), 'Library', 'Logs', 'DiagnosticReports'), '/Library/Logs/DiagnosticReports'];
+  const name = path.basename(cmd[0] ?? 'Keeper').toLowerCase();
+  const look = () => dirs.some((d) => {
+    let files: string[] = [];
+    try { files = readdirSync(d); } catch { return false; }
+    return files.some((f) => {
+      const l = f.toLowerCase();
+      if (!/\.(ips|crash)$/.test(l)) return false;
+      if (!(l.startsWith(`${name}-`) || l.startsWith(`${name}_`) || l.startsWith('keeper') || l.startsWith('jetsamevent'))) return false;
+      try {
+        if (statSync(path.join(d, f)).mtimeMs < startedAt - 1000) return false;
+        // A jetsam report covers every process: count it only when it names Keeper.
+        return !l.startsWith('jetsamevent') || /keeper/i.test(readFileSync(path.join(d, f), 'utf8'));
+      } catch { return false; }
+    });
+  });
+  for (let i = 0; i < 6; i++) {
+    if (look()) return true;
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+  return false;
+}
+
+const timer = setInterval(() => void check(), 3000);
+
+async function check() {
   if (alive(pid)) return;
   clearInterval(timer);
   const state = stillOurs();
   // Quit normally, or another Keeper has already taken over: nothing to do.
   if (state !== 'running') process.exit(0);
+  if (process.platform === 'darwin' && !(await macCrashRecorded())) {
+    log(`Keeper (pid ${pid}) was stopped without a crash (Force Quit or similar); it is not started again`);
+    stopLeftovers();
+    process.exit(0);
+  }
   // Any copy of Keeper already running for this person (restarted by them, or by macOS) holds the
   // one-per-person lock (electron/instance.ts): never start a second one.
   const other = otherKeeper();
@@ -128,4 +167,4 @@ const timer = setInterval(() => {
     log(`could not start Keeper again: ${(e as Error).message}`);
   }
   setTimeout(() => process.exit(0), 500);
-}, 3000);
+}

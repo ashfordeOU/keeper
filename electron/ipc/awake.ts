@@ -13,7 +13,7 @@ import { registerKeeperMethod } from '../services/brain';
 import { runningApps } from '../services/devices';
 import { featureOn, onFeature } from '../services/features';
 import type { IslandService } from '../services/island';
-import { settings } from '../store';
+import { onSettings, settings } from '../store';
 
 function handle(name: string, fn: (...args: never[]) => unknown) {
   ipcMain.handle(name, async (_e, ...args) => fn(...(args as never[])));
@@ -97,6 +97,8 @@ export function registerAwakeIpc(c: { islandSvc: IslandService; broadcast: (chan
 
   menuBar.init(svc);
   onFeature('keepAwake', () => menuBar.update(svc.status()));
+  // Showing or hiding its own menu-bar icon (Settings) takes effect straight away.
+  onSettings((next, prev) => { if (next.awake?.menuItem !== prev?.awake?.menuItem) void menuBar.update(svc.status()); });
 }
 
 /** keeper://awake?for=30m | ?until=18:30 | ?app=Name ; keeper://awake/off (or ?do=off) ; keeper://awake/toggle ; /extend?for=30m */

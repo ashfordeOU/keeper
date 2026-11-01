@@ -1043,6 +1043,17 @@ function registerIpc() {
 
 app.whenReady().then(async () => {
   if (handedOver) return;
+  // Keeper keeps one icon in the menu bar (the owl). Once, for people who had them on before: the
+  // separate Keep Awake icon and the readings move into the owl's glance and the Island. Done
+  // before any menu-bar item exists, so none appears for a moment and vanishes again.
+  if (!settings().menuBarOneIcon) {
+    await updateSettings({ menuBarOneIcon: true, awake: { ...settings().awake, menuItem: false } }).catch(() => undefined);
+    await import('./services/monitor-settings').then(({ monitorSettings, setMonitorSettings }) => {
+      const m = monitorSettings();
+      if (m.surfaces.tray) return setMonitorSettings({ surfaces: { ...m.surfaces, tray: false } });
+      return undefined;
+    }).catch(() => undefined);
+  }
   // Decides when background work runs and how often regular checks look (battery, idle, locked screen).
   startGovernor();
   // Local files for previews and the music player: read-only, seekable, only from allowed places.
@@ -1268,16 +1279,6 @@ app.whenReady().then(async () => {
   // The window opens straight away; the saved library fills it in a moment later.
   // Started at login to sit in the tray: the window's page loads only when it is first opened.
   // Tabs, drafts and windows survive crashes; a watchdog brings Keeper back if it stops unexpectedly.
-  // Keeper keeps one icon in the menu bar (the owl). Once, for people who had them on before: the
-  // separate Keep Awake icon and the readings move into the owl's glance and the Island.
-  if (!settings().menuBarOneIcon) {
-    void updateSettings({ menuBarOneIcon: true, awake: { ...settings().awake, menuItem: false } }).catch(() => undefined);
-    void import('./services/monitor-settings').then(({ monitorSettings, setMonitorSettings }) => {
-      const m = monitorSettings();
-      if (m.surfaces.tray) return setMonitorSettings({ surfaces: { ...m.surfaces, tray: false } });
-      return undefined;
-    }).catch(() => undefined);
-  }
   initResilience({ preload, lockDown, restore: () => settings().restorePlace !== false, main: () => main });
   // What Keeper was doing, kept where a crash cannot erase it (session/breadcrumbs.json).
   startBreadcrumbs({ polls: pollerSnapshot, crashedLastTime: lastRun.unclean });
