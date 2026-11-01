@@ -648,6 +648,8 @@ export interface KeeperApi extends KeeperApiX {
     typeText(text: string): Promise<void>;
     dismiss(alertId: string): Promise<void>;
     setExpanded(expanded: boolean): void;
+    /** the pointer is over the closed pill: take clicks there, let them through elsewhere */
+    setInteractive?(on: boolean): void;
     /** the closed pill's size, so the window covers nothing else */
     setSize(width: number, height: number): void;
     createShelf(name?: string): Promise<void>;

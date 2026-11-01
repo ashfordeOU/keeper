@@ -1039,6 +1039,7 @@ function registerIpc() {
   handle('island.openAgent', (id: string) => islandSvc.openAgent(id));
   handle('island.dismiss', (id: string) => islandSvc.dismiss(id));
   ipcMain.on('island.setExpanded', (e, v: boolean) => islandWindows.setExpanded(e.sender, v));
+  ipcMain.on('island.setInteractive', (e, v: boolean) => islandWindows.setInteractive(e.sender, !!v));
 }
 
 // ---------------------------------------------------------------- start

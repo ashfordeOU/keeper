@@ -493,8 +493,8 @@ export function Island() {
       </div>
       <div
         className={`isl isl-content view-${view}`}
-        onMouseEnter={enter}
-        onMouseLeave={() => (view === 'compact' ? undefined : collapse())}
+        onMouseEnter={() => { api.island.setInteractive?.(true); enter(); }}
+        onMouseLeave={() => { if (view === 'compact') api.island.setInteractive?.(false); else collapse(); }}
         onClick={(e) => {
           if (view !== 'compact') return;
           // Alt/Option-click hides the Island for a minute (alerts still come back after).

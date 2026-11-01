@@ -39,6 +39,12 @@ let ctx: IslandContext;
 
 // ---------------------------------------------------------------- Island windows
 
+/** Lets clicks fall through the window while still telling the page where the pointer is (macOS and Windows; Linux cannot forward). */
+function clickThrough(win: BrowserWindow, on: boolean) {
+  if (process.platform === 'linux' || win.isDestroyed()) return;
+  win.setIgnoreMouseEvents(on, on ? { forward: true } : undefined);
+}
+
 export class IslandWindows {
   private wins = new Map<number, BrowserWindow>();
   private expanded = new Set<number>();
@@ -139,9 +145,13 @@ export class IslandWindows {
       const win = new BrowserWindow({
         ...this.bounds(d, false), frame: false, transparent: true, resizable: false, movable: false, skipTaskbar: true, alwaysOnTop: true,
         fullscreenable: false, hasShadow: false, focusable: true, show: false, backgroundColor: '#00000000',
+        // macOS would otherwise push the window below the menu bar, away from the notch.
+        enableLargerThanScreen: process.platform === 'darwin',
         webPreferences: { preload: ctx.preload, contextIsolation: true, sandbox: true },
       });
       win.setAlwaysOnTop(true, 'status');
+      // Clicks pass through the clear space around the pill to whatever is underneath.
+      clickThrough(win, true);
       win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: false });
       ctx.lockDown(win);
       loadView(win, { view: 'island', display: String(d.id) });
@@ -165,7 +175,16 @@ export class IslandWindows {
       if (v) this.expanded.add(id);
       else this.expanded.delete(id);
       win.setBounds(this.bounds(d, v), false);
+      clickThrough(win, !v);
       if (v) win.focus();
+    }
+  }
+
+  /** The pointer is over the pill (true) or has left it (false) while the Island is closed. */
+  setInteractive(sender: WebContents, on: boolean) {
+    for (const [id, win] of this.wins) {
+      if (win.webContents !== sender || this.expanded.has(id)) continue;
+      clickThrough(win, !on);
     }
   }
 
