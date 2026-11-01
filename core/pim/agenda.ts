@@ -71,8 +71,8 @@ export interface AgendaItem {
 const startOfDay = (t: number) => { const d = new Date(t); d.setHours(0, 0, 0, 0); return d.getTime(); };
 const nextDay = (t: number) => { const d = new Date(startOfDay(t)); d.setDate(d.getDate() + 1); return d.getTime(); };
 
-/** Calendars whose events belong in the Island: visible ones not switched off for it. */
-export const inIsland = (c: CalendarInfo | undefined) => !!c && c.visible && c.island !== false && !c.tasks;
+/** Calendars whose events belong in the Island: visible ones not switched off for it (a task list has no events to show). */
+export const inIsland = (c: CalendarInfo | undefined) => !!c && c.visible && c.island !== false;
 
 /**
  * Occurrences as agenda rows for one day, all-day ones first, the same meeting

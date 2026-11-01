@@ -508,7 +508,7 @@ function AgendaRow({ e, now }: { e: AgendaItem; now: number }) {
       <span className="time">{e.allDay ? 'All day' : timeOf(e.start)}</span>
       <button className="ev-open" title={`${e.calendarName}${e.openUrl ? ' · opens where it lives' : ' · opens in Keeper'}`} onClick={() => void api.pim.openEvent(e.eventId, e.instance)}>
         <b className="ellipsis">{e.title}</b>
-        <span className="muted small ellipsis">{!e.allDay && !e.past ? `${countdown(e.start, now, e.end)}${e.location ? ` · ${e.location}` : ''}` : e.location ?? ''}</span>
+        <span className="muted small ellipsis">{[!e.allDay && !e.past ? countdown(e.start, now, e.end) : '', e.join && e.location?.includes(e.join) ? (e.provider ?? '') : e.location ?? ''].filter(Boolean).join(' · ')}</span>
       </button>
       {e.join && !e.past ? <button className="btn sm primary" title={e.provider ? `Join on ${e.provider}` : 'Join the meeting'} onClick={() => void api.system.openExternal(e.join!)}>Join</button> : null}
     </div>

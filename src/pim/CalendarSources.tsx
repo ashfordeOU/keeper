@@ -25,18 +25,18 @@ const SETTINGS_URL: Record<string, string> = {
 
 /** The card that asks for (or explains) access to this computer's calendars. */
 export function CalendarAccessCard({ access, onChange, compact }: { access: SystemAccess | null; onChange: (a: SystemAccess) => void; compact?: boolean }) {
-  if (!access || access.state === 'granted') return null;
-  if (compact && access.state === 'unavailable') return null;
+  // Nothing to do when it works, or when there is nothing to ask for (said in the sources' own row).
+  if (!access || access.state === 'granted' || access.state === 'unavailable') return null;
   const settingsUrl = access.via ? SETTINGS_URL[access.via] : undefined;
   return (
     <div className="cal-access-card" role="note" data-testid="calendar-access-card">
       <Icon name="calendar" size={18} />
       <div className="grow" style={{ minWidth: 0 }}>
-        <div style={{ fontWeight: 600 }}>{access.state === 'notDetermined' ? 'See your calendars from this computer' : access.state === 'unavailable' ? 'This computer’s calendars' : 'Calendar access is off'}</div>
+        <div style={{ fontWeight: 600 }}>{access.state === 'notDetermined' ? (compact ? 'See this computer’s calendars' : 'See your calendars from this computer') : 'Calendar access is off'}</div>
         <div className="small muted">{access.message}</div>
       </div>
       {access.canRequest ? <button className="btn sm primary" onClick={() => void api.pim.systemAccess(true).then(onChange)}>Allow calendar access</button> : null}
-      {!access.canRequest && settingsUrl && access.state !== 'unavailable' ? <button className="btn sm" onClick={() => void api.system.openExternal(settingsUrl)}>Open System Settings</button> : null}
+      {!access.canRequest && settingsUrl ? <button className="btn sm" onClick={() => void api.system.openExternal(settingsUrl)}>Open System Settings</button> : null}
     </div>
   );
 }
@@ -92,14 +92,14 @@ export function CalendarSources() {
   };
   if (!prefs) return null;
   const groups = new Map<string, CalendarInfo[]>();
-  for (const c of cals.filter((x) => !x.tasks)) {
+  for (const c of cals.filter((x) => !x.tasks || x.account === 'local')) {
     const g = c.source === 'system' ? `This computer${c.group ? ` · ${c.group}` : ''}` : c.source ? 'Holidays and birthdays' : c.account === 'local' ? 'Keeper' : 'Connected';
     groups.set(g, [...(groups.get(g) ?? []), c]);
   }
   return (
     <div className="cal-sources" data-testid="calendar-sources">
       <div className="row" style={{ justifyContent: 'space-between', gap: 16, padding: '10px 0', borderBottom: '1px solid var(--line)' }}>
-        <div><div style={{ fontWeight: 600 }}>This computer’s calendars</div><div className="small muted">{access?.state === 'granted' ? access.message : 'The accounts already set up in your system’s Calendar (iCloud, Google, Exchange, Outlook…), read live.'}</div></div>
+        <div><div style={{ fontWeight: 600 }}>This computer’s calendars</div><div className="small muted" data-testid="system-calendars-state">{access && (access.state === 'granted' || access.state === 'unavailable') ? access.message : 'The accounts already set up in your system’s Calendar (iCloud, Google, Exchange, Outlook…), read live.'}</div></div>
         <Toggle on={prefs.systemCalendars !== false} onChange={(v) => void set({ systemCalendars: v })} />
       </div>
       {prefs.systemCalendars !== false ? <CalendarAccessCard access={access} onChange={(a) => { setAccess(a); load(); }} /> : null}

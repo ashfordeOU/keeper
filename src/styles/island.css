@@ -255,7 +255,7 @@ html[data-view='island'], html[data-view='island'] body, html[data-view='island'
 .isl .sgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
 .isl .sbtn { display: flex; gap: 8px; align-items: center; border: 0; color: #fff; cursor: default; text-align: left; }
 .isl .sbtn:hover { background: rgba(255, 255, 255, .12); }
-.isl .cal { flex-direction: row; gap: 12px; }
+.isl .cal { flex-direction: row; gap: 12px; height: 100%; min-height: 0; }
 .isl .cal .mgrid { width: 230px; flex: none; }
 .isl .cal .mdays { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; text-align: center; margin-top: 4px; }
 .isl .cal .mday { position: relative; border: 0; background: none; color: #e4e4e7; font-size: 11.5px; height: 26px; border-radius: 7px; font-variant-numeric: tabular-nums; cursor: default; }
@@ -267,12 +267,12 @@ html[data-view='island'], html[data-view='island'] body, html[data-view='island'
 .isl .cal .ev { display: flex; gap: 8px; align-items: center; min-height: 30px; }
 .isl .cal .ev.past { opacity: .45; }
 .isl .cal .ev.now .time { color: var(--island-accent, #a78bfa); font-weight: 700; }
-.isl .cal .ev .time { flex: none; width: 52px; font-size: 11.5px; font-variant-numeric: tabular-nums; color: #d4d4d8; }
+.isl .cal .ev .time { flex: none; min-width: 58px; white-space: nowrap; font-size: 11.5px; font-variant-numeric: tabular-nums; color: #d4d4d8; }
 .isl .cal .cal-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; }
 .isl .cal .ev-open { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; border: 0; background: none; color: #fff; text-align: left; padding: 2px 4px; border-radius: 7px; cursor: default; }
 .isl .cal .ev-open b { display: block; max-width: 100%; }
 .isl .cal .ev-open:hover, .isl .cal .ev-open:focus-visible { background: rgba(255, 255, 255, .1); outline: none; }
-.isl .cal .mlist { overflow-y: auto; }
+.isl .cal .mlist { overflow-y: auto; max-height: 100%; padding-right: 2px; }
 .isl .cal .cal-quick { display: flex; gap: 6px; }
 .isl .cal .cal-quick input { flex: 1; min-width: 0; }
 .isl .cal .cal-quick select { max-width: 120px; }
