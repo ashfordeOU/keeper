@@ -178,8 +178,8 @@ function hostTerminal(node: LinkNode, st: Stream, device: string, deps: OpsDeps)
       pty.onData((d) => out(d));
       pty.onExit((e) => finish(e.exitCode));
     } else {
-      // Without node-pty: a pseudo-terminal from `script` where there is one, plain pipes otherwise.
-      const viaScript = process.platform === 'linux' ? { file: 'script', args: ['-qfc', `${shell} -i`, '/dev/null'] } : process.platform === 'darwin' ? { file: 'script', args: ['-q', '/dev/null', shell, '-i'] } : { file: shell, args: [] };
+      // Without node-pty: a pseudo-terminal from `script` on Linux, plain pipes elsewhere (macOS's script needs a real terminal as its input).
+      const viaScript = process.platform === 'linux' ? { file: 'script', args: ['-qfc', `${shell} -i`, '/dev/null'] } : process.platform === 'darwin' ? { file: shell, args: ['-i'] } : { file: shell, args: [] };
       child = spawn(viaScript.file, viaScript.args, { cwd, env: { ...process.env, TERM: 'xterm-256color', COLUMNS: String(c.cols), LINES: String(c.rows) }, windowsHide: true });
       child.stdout?.on('data', (d: Buffer) => out(new Uint8Array(d)));
       child.stderr?.on('data', (d: Buffer) => out(new Uint8Array(d)));
@@ -336,7 +336,7 @@ export function installCompanionTerminal(node: LinkNode, deps: Pick<OpsDeps, 'pt
       t.pty.onData(push);
       t.pty.onExit((e) => (t.exit = `Exited (${e.exitCode})`));
     } else {
-      const s = process.platform === 'linux' ? { file: 'script', args: ['-qfc', `${shell} -i`, '/dev/null'] } : process.platform === 'darwin' ? { file: 'script', args: ['-q', '/dev/null', shell, '-i'] } : { file: shell, args: [] };
+      const s = process.platform === 'linux' ? { file: 'script', args: ['-qfc', `${shell} -i`, '/dev/null'] } : process.platform === 'darwin' ? { file: shell, args: ['-i'] } : { file: shell, args: [] };
       t.child = spawn(s.file, s.args, { cwd: os.homedir(), env: { ...process.env, TERM: 'xterm-256color', COLUMNS: String(cols), LINES: String(rows) }, windowsHide: true });
       t.child.stdout?.on('data', (d: Buffer) => push(d.toString()));
       t.child.stderr?.on('data', (d: Buffer) => push(d.toString()));
