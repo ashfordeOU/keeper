@@ -20,7 +20,18 @@ if (!platform || !arch) {
 }
 
 // 1. The image library: sharp ships one prebuilt package per platform and processor.
-const optional = JSON.parse(readFileSync(require.resolve('sharp/package.json'), 'utf8')).optionalDependencies ?? {};
+// sharp 0.35 does not export its package.json: find it from the main file instead.
+function packageJsonOf(name) {
+  let dir = path.dirname(require.resolve(name));
+  for (;;) {
+    const p = path.join(dir, 'package.json');
+    if (existsSync(p) && JSON.parse(readFileSync(p, 'utf8')).name === name) return p;
+    const up = path.dirname(dir);
+    if (up === dir) throw new Error(`Cannot find ${name}'s package.json`);
+    dir = up;
+  }
+}
+const optional = JSON.parse(readFileSync(packageJsonOf('sharp'), 'utf8')).optionalDependencies ?? {};
 const wanted = Object.entries(optional)
   .filter(([name]) => name === `@img/sharp-${platform}-${arch}` || name === `@img/sharp-libvips-${platform}-${arch}`)
   .map(([name, version]) => `${name}@${version}`);
