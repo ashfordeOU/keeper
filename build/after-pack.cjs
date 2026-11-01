@@ -87,4 +87,8 @@ exports.default = async function afterPack(context) {
   }
 
   console.log(`  • after-pack: removed ${(freed / 1024 / 1024).toFixed(0)} MB of files for other systems`);
+
+  // Everything Keeper needs travels inside the package: nothing to install afterwards.
+  const appDir = platform === 'darwin' ? path.join(context.appOutDir, `${context.packager.appInfo.productFilename}.app`) : context.appOutDir;
+  require('../scripts/verify-package.cjs').verifyPackage({ appDir, resources, platform, arch, strict: process.env.KEEPER_REQUIRE_ALL === '1' });
 };

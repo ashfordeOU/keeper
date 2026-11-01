@@ -55,13 +55,15 @@ jobs:
         working-directory: native/macos/KeeperHelper
         run: swift build -c release --arch arm64 --arch x86_64
       # Siri, Spotlight and Shortcuts actions; optional (the app works without it).
+      # Required for releases: the package check (scripts/verify-package.cjs) refuses a Mac app without it.
       - name: Siri and Shortcuts helper
         if: matrix.platform == 'darwin'
-        continue-on-error: true
         run: native/macos/KeeperIntents/build.sh
       - name: Package
         shell: bash
         env:
+          # Every piece (rclone, Keeper Intents too) must be inside the package, or packaging stops.
+          KEEPER_REQUIRE_ALL: '1'
           # All optional. Without them macOS builds are ad-hoc signed and Windows builds unsigned.
           CSC_LINK: ${{ matrix.platform == 'darwin' && secrets.CSC_LINK || '' }}
           CSC_KEY_PASSWORD: ${{ matrix.platform == 'darwin' && secrets.CSC_KEY_PASSWORD || '' }}
