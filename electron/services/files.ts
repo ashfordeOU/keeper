@@ -127,7 +127,7 @@ export class FileService {
   async copyPaths(paths: string[]) {
     await writePaths(paths);
     // Windows Explorer pastes files from its own clipboard format.
-    if (process.platform === 'win32') await powershell(`Set-Clipboard -Path ${paths.map((p) => `'${p.replace(/'/g, "''")}'`).join(',')}`);
+    if (process.platform === 'win32') await powershell(`Set-Clipboard -Path ${paths.map((p) => `'${p.replace(/['‘’‚‛]/g, '$&$&')}'`).join(',')}`);
   }
 
   async copyText(text: string) {
@@ -266,7 +266,7 @@ export class FileService {
         ? (await run('/usr/bin/ditto', ['-c', '-k', '--sequesterRsrc', '--keepParent', paths[0], out], 600_000)).ok
         : (await runIn(dir, '/usr/bin/zip', ['-r', '-q', out, ...names])).ok;
     } else if (process.platform === 'win32') {
-      ok = (await powershell(`Compress-Archive -LiteralPath ${paths.map((p) => `'${p.replace(/'/g, "''")}'`).join(',')} -DestinationPath '${out.replace(/'/g, "''")}'`, 600_000)).ok;
+      ok = (await powershell(`Compress-Archive -LiteralPath ${paths.map((p) => `'${p.replace(/['‘’‚‛]/g, '$&$&')}'`).join(',')} -DestinationPath '${out.replace(/['‘’‚‛]/g, '$&$&')}'`, 600_000)).ok;
     } else {
       ok = (await runIn(dir, 'zip', ['-r', '-q', out, ...names])).ok;
     }

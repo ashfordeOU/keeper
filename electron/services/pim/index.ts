@@ -10,8 +10,6 @@ import { randomUUID } from 'node:crypto';
 import { promises as fsp } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { marked } from 'marked';
-import { simpleParser } from 'mailparser';
 import type { DueReminder, MailView, NewAccount, OpenMessage, Outbox, PimApi, Ring } from '../../../core/api-pim';
 import { addLog, insights as insightsOf, type LogEntry } from '../../../core/pim/insights';
 import { completeTask, moveToDay, todosToTasks, type OldTodo } from '../../../core/pim/tasks';
@@ -19,7 +17,7 @@ import { autoconfigUrls, fromSrv, guess, knownProvider, parseAutoconfig, type Ma
 import { WELL_KNOWN_CALDAV, WELL_KNOWN_CARDDAV } from '../../../core/pim/caldav';
 import { occurrences as expandOccurrences, parseEvents, serializeEvents } from '../../../core/pim/ical';
 import { readInvitation, replyTo } from '../../../core/pim/imip';
-import { makeReply, matchesQuery, ruleMatches, snippetOf, threadMessages, type Draft, type MailRule } from '../../../core/pim/mail';
+import { makeReply, matchesQuery, riskyAttachment, ruleMatches, snippetOf, threadMessages, type Draft, type MailRule } from '../../../core/pim/mail';
 import type { PimPrefsView } from '../../../core/pim/prefs';
 import { parseQuickAdd } from '../../../core/pim/quickadd';
 import { dueKey, dueNow, meetingLink, nextAlarmTime, type Due } from '../../../core/pim/alarms';
@@ -28,7 +26,6 @@ import { BIRTHDAYS_CALENDAR, birthdayEvents, HOLIDAY_COUNTRIES, holidayCalendarI
 import { CALENDAR_ONLY_SCOPES } from '../../../core/pim/oauth';
 import { adoptSnapshot, calendarPollMs, ICS_MIN_MS, type SystemAccess } from '../../../core/pim/syscal';
 import { systemDriver, type SystemDriver } from './system-calendars';
-import { sanitizeMail, textToHtml } from '../../../core/pim/sanitize';
 import type { Account, Address, Alarm, CalEvent, CalendarInfo, Contact, CountdownTimer, MailFolder, MessageSummary, Reminder, WorldClock } from '../../../core/pim/types';
 import { suggest as suggestAddresses, serializeVCard } from '../../../core/pim/vcard';
 import { redact } from '../../../core/brain/redact';
@@ -414,6 +411,8 @@ async function openMessage(id: string, opts: { allowRemote?: boolean; markRead?:
   if (!summary.snippet && cached.body.text) summary.snippet = snippetOf(cached.body.text);
   const sender = summary.from?.address.toLowerCase();
   const allow = !!opts.allowRemote || (!!sender && state.prefs.trustedSenders.includes(sender));
+  // The mail cleaner and parsers are large: they load the first time a message is opened.
+  const { sanitizeMail, textToHtml } = await import('../../../core/pim/sanitize');
   const clean = cached.body.html ? sanitizeMail(cached.body.html, { allowRemote: allow, cid: cached.cid }) : { html: textToHtml(cached.body.text ?? ''), blocked: 0, trackers: 0 };
   if (opts.markRead !== false && !summary.seen) {
     summary.seen = true;
@@ -433,6 +432,7 @@ async function rawAttachment(id: string, att: string): Promise<{ filename: strin
   const { account, folder, uid } = splitId(id);
   const a = acct(account);
   if (!a) throw new Error('This account was removed');
+  const { simpleParser } = await import('mailparser');
   const parsed = await simpleParser(await mailbox(a).source(folder, uid));
   const x = parsed.attachments[Number(att)];
   if (!x) throw new Error('That attachment is not in the message');
@@ -451,6 +451,7 @@ async function queue(d: Draft & { account: string; sendAt?: number; markdown?: b
   const from = identityOf(a, d.from);
   const sig = a.identities.find((x) => x.email === from.address)?.signature;
   const body = [d.body, sig ? `-- \n${sig}` : '', d.quoted ?? ''].filter(Boolean).join('\n\n');
+  const { marked } = await import('marked');
   const html = d.markdown !== false ? (marked.parse(body.replace(/^>.*$/gm, (l) => l), { async: false, gfm: true, breaks: true }) as string) : undefined;
   const atts = (d.attachments ?? []).map((x) => ({ filename: x.name ?? path.basename(x.path), path: x.path }));
   const { raw, envelope } = await compose({ from, to: d.to, cc: d.cc, bcc: d.bcc, subject: d.subject, text: body, html, inReplyTo: d.inReplyTo, references: d.references, attachments: atts });
@@ -1142,7 +1143,9 @@ export const pim: PimApi = {
     const dir = await fsp.mkdtemp(path.join(os.tmpdir(), 'keeper-att-'));
     const p = path.join(dir, filename);
     await fsp.writeFile(p, content);
-    await shell.openPath(p);
+    // Programs, scripts and macro documents are never started from a mail: they are shown in their folder instead.
+    if (riskyAttachment(filename)) shell.showItemInFolder(p);
+    else await shell.openPath(p);
   },
   async unsubscribe(id) {
     const o = await openMessage(id, { markRead: false });

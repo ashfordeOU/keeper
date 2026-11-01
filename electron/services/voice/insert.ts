@@ -3,9 +3,9 @@
 //   paste  the clipboard, then the paste keystroke; the clipboard is put back after
 //   type   keystrokes one character at a time (terminals and fields that block pasting)
 //   copy   only copied: needs no accessibility permission at all
-// Never into a password field: macOS (secure text field) and Windows (UI
-// Automation's IsPassword) are asked first; when it is one, the take is kept
-// in history instead.
+// Never into a password field: macOS (secure text field), Windows (UI
+// Automation's IsPassword) and Linux (AT-SPI's PASSWORD_TEXT role, see
+// atspi.ts) are asked first; when it is one, the take is kept in history instead.
 
 import { powershell, run } from '../../../core/platform';
 import { readText, writeText } from '../clip';
@@ -56,7 +56,8 @@ public static class KeeperType {
 
 /**
  * Is the focused field a password field? `null` when the system can't say
- * (Linux, or no permission): then the app exclusion list is the guard.
+ * (no permission, no accessibility bus on Linux, or an app that does not
+ * expose its fields): then the app exclusion list is the guard.
  */
 export async function focusedIsSecure(): Promise<boolean | null> {
   try {
@@ -70,6 +71,7 @@ export async function focusedIsSecure(): Promise<boolean | null> {
       const s = r.stdout.trim().toLowerCase();
       return s === 'true' ? true : s === 'false' ? false : null;
     }
+    if (process.platform === 'linux') return await (await import('./atspi')).linuxPasswordFocused();
   } catch {
     /* unknown */
   }

@@ -62,7 +62,7 @@ export function BaseView({ path, source }: { path?: string; source?: string }) {
         <span className="nt-spacer" />
         <input className="nt-base-q" placeholder="Filter rows" value={quick} onChange={(e) => setQuick(e.target.value)} aria-label="Filter rows" />
         <span className="nt-base-count">{rows.length} of {res.total}</span>
-        {path ? <button className="nt-icon-btn" title="Edit the base file" onClick={() => setEditingSrc((x) => !x)}><Icon name="code" size={14} /></button> : null}
+        {path ? <button className="nt-icon-btn" title="Edit the base file" aria-label="Edit the base file" onClick={() => setEditingSrc((x) => !x)}><Icon name="code" size={14} /></button> : null}
       </div>
       {res.errors.length ? <div className="nt-base-err"><Icon name="warning" size={13} /> {res.errors.join(' · ')}</div> : null}
       {editingSrc ? (

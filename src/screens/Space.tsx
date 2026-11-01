@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Space Map: every folder as a rectangle sized by the space it uses.
 
+import { readableOn } from '../../core/themes';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { formatBytes } from '../../core/format';
 import { squarify, topWithRest } from '../../core/treemap';
@@ -130,8 +131,13 @@ export function Space() {
                 <div
                   key={t.item.path || `rest-${i}`}
                   className="tile"
-                  style={{ left: t.x, top: t.y, width: t.w, height: t.h, background: t.item.path ? palette[i % palette.length] : 'var(--text-3)', opacity: loading ? 0.6 : 1 }}
+                  // Text in black or white, whichever reads better on the tile's colour.
+                  style={{ left: t.x, top: t.y, width: t.w, height: t.h, background: t.item.path ? palette[i % palette.length] : 'var(--text-3)', color: t.item.path && palette[i % palette.length].startsWith('#') ? readableOn(palette[i % palette.length]) : undefined, opacity: loading ? 0.6 : 1 }}
                   title={`${t.item.name} — ${formatBytes(t.item.size)}`}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`${t.item.name}, ${formatBytes(t.item.size)}`}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(t.item); } }}
                   onClick={() => open(t.item)}
                   onContextMenu={(e) => { e.preventDefault(); if (t.item.path) setMenu({ x: e.clientX, y: e.clientY, n: t.item }); }}
                 >

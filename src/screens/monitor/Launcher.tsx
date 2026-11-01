@@ -47,17 +47,17 @@ export function Launcher() {
     <div className="launch" onKeyDown={key}>
       <div className="q">
         <Icon name="grid" size={18} />
-        <input ref={input} autoFocus placeholder="Find a tool — compress video, JSON, hash, speed test…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Find a tool" />
+        <input ref={input} autoFocus placeholder="Find a tool — compress video, JSON, hash, speed test…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Find a tool" role="combobox" aria-expanded="true" aria-controls="launch-list" aria-activedescendant={results[sel] ? `launch-opt-${sel}` : undefined} />
       </div>
-      <ul ref={list} role="listbox">
+      <ul ref={list} role="listbox" id="launch-list" aria-label="Tools">
         {results.map((t, i) => (
-          <li key={t.id} role="option" aria-selected={i === sel} className={i === sel ? 'on' : ''} onMouseMove={() => setSel(i)} onClick={() => open(t.id)}>
+          <li key={t.id} id={`launch-opt-${i}`} role="option" aria-selected={i === sel} className={i === sel ? 'on' : ''} onMouseMove={() => setSel(i)} onClick={() => open(t.id)}>
             <span className="ic"><Icon name={t.icon} size={15} /></span>
             <span className="t"><b>{t.name}</b><span>{t.desc}</span></span>
             <span className="g">{!q && recent.includes(t.id) ? 'Recent' : t.group}</span>
           </li>
         ))}
-        {!results.length ? <li className="muted">No tool matches “{q}”.</li> : null}
+        {!results.length ? <li className="muted" role="option" aria-disabled="true" aria-selected="false">No tool matches “{q}”.</li> : null}
       </ul>
       <div className="foot"><span><kbd>↑</kbd> <kbd>↓</kbd> choose</span><span><kbd>Enter</kbd> open in its own window</span><span><kbd>Esc</kbd> close</span></div>
     </div>

@@ -147,7 +147,7 @@ export function VideoViewer({ info, mode }: ViewerProps) {
       {full && strip.length ? (
         <div className="pv-strip">
           {strip.map((f, i) => (
-            <button key={f} onClick={() => { const v = video.current; if (v && v.duration) v.currentTime = ((i + 0.5) * v.duration) / strip.length; }}>
+            <button aria-label={`Jump to ${Math.round(((i + 0.5) / strip.length) * 100)}%`} key={f} onClick={() => { const v = video.current; if (v && v.duration) v.currentTime = ((i + 0.5) * v.duration) / strip.length; }}>
               <img src={f} alt="" />
             </button>
           ))}

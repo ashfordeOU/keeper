@@ -8,6 +8,7 @@ import { cmdMesh } from './mesh';
 import { cmdRdc } from './rdc';
 import { cmdAgentsRunning, cmdContainers, cmdDev, cmdHistory, cmdVolume, cmdKill, cmdPorts, cmdProcess, cmdPs, cmdSensors, cmdTop, MONITOR_HELP } from './monitor';
 import { cmdDisplay, cmdStage } from './stage';
+import { cmdUsage } from './usage';
 import { existsSync, statSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -524,6 +525,7 @@ ${bold('Usage')}
                              Remote Desktops: RDP, VNC, SSH and more, from any terminal
   keeper mesh [up|down|status|peers|ip [device]|ping <device>|exit-node <device|off>|routes advertise <cidr>|rules …]
                              Keeper Mesh: a WireGuard network between your devices
+  keeper usage [--refresh]   What is left of your AI accounts' limits, credits and budgets
   keeper sync [status|pause|resume]
                              Folders synced between your devices, backups and mirrors
   keeper stage [on|off|toggle|status|extend|presets|journal|detect|support] [--preset Recording] [--now]
@@ -877,6 +879,7 @@ async function main() {
     case 'dictation': case 'dictate': return cmdVoice(a, 'dictation');
     case 'meeting': case 'meetings': return cmdVoice(a, 'meeting');
     case 'cues': case 'cue': return cmdCues(a);
+    case 'usage': return cmdUsage(a.flags, (d, human) => out(d, a.flags, human));
     case 'stage': return cmdStage(a.rest, a.flags, (d, human) => out(d, a.flags, human));
     case 'display': case 'displays': return cmdDisplay(a.rest, a.flags, (d, human) => out(d, a.flags, human));
     case 'ambience': return cmdAmbience(a);

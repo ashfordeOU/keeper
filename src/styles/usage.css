@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 */
-/* Settings → Keeper's own usage */
+/* Settings → Performance */
 .usage-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .usage-stat { display: flex; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 10px; background: var(--bg-sunk); }
 .usage-stat > svg { color: var(--accent); flex: none; }
@@ -12,4 +12,6 @@
 .usage-dot.waiting { background: #f59e0b; }
 .usage-checks { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; }
 .usage-check { display: flex; gap: 10px; padding: 4px 2px; border-bottom: 1px solid var(--line); font-size: 13px; }
+.usage-memory { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
+.usage-memory-row { display: flex; gap: 12px; align-items: flex-start; }
 @media (max-width: 640px) { .usage-stats { grid-template-columns: 1fr; } }

@@ -12,7 +12,7 @@ import { countdownShort } from './pim/agenda';
 export type ActivityKind =
   | 'dictation' | 'recording' | 'agent-waiting' | 'agent-stuck' | 'meeting' | 'charging' | 'battery-low' | 'timer'
   | 'progress' | 'music' | 'agent-working' | 'rain' | 'copied' | 'headphones' | 'awake' | 'unlocked' | 'paused-music' | 'sharing' | 'ai-control' | 'workspace' | 'remote' | 'mesh-exit'
-  | 'call' | 'level' | 'cue' | 'alert' | 'reminder' | 'update';
+  | 'call' | 'level' | 'cue' | 'alert' | 'reminder' | 'update' | 'usage';
 
 export interface Activity {
   id: string;
@@ -77,6 +77,8 @@ export const PRIORITY: Record<ActivityKind, number> = {
   timer: 72,
   // A cue for the app or page in front.
   cue: 70,
+  // An AI limit running out (the usage tracker): a ring of what is left.
+  usage: 45,
   progress: 66,
   music: 60,
   copied: 58,
@@ -152,6 +154,10 @@ export function activitiesFrom(s: IslandState, now: number, x: ExtraInputs = {})
     add({ id: `reminder-${r.id}`, kind: 'reminder', icon: 'listCheck', title: r.title, detail: late ? `Due ${new Date(r.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : 'Due now', trailing: late ? '!' : 'now', color: '#bf5af2', since: r.at, ref: r.id });
   }
   if (x.updateReady) add({ id: 'update', kind: 'update', icon: 'down', title: `Keeper ${x.updateReady} is ready`, detail: 'Installs when Keeper restarts', trailing: 'new', color: '#30d158', ref: x.updateReady });
+  if (s.usageAlert) {
+    const u = s.usageAlert;
+    add({ id: `usage-${u.id}`, kind: 'usage', icon: 'chart', title: u.title, detail: u.detail, trailing: u.urgency === 'used-up' ? '0%' : `${u.left}%`, progress: u.left / 100, color: u.urgency === 'used-up' ? '#ff453a' : '#ff9f0a', ref: u.id });
+  }
   if (s.cueHere) add({ id: `cue-${s.cueHere.id}`, kind: 'cue', icon: 'pin', title: s.cueHere.title, detail: s.cueHere.count > 1 ? `${s.cueHere.count} cues here` : 'A cue for this place', trailing: s.cueHere.count > 1 ? String(s.cueHere.count) : undefined, color: '#ff9f0a', ref: s.cueHere.id });
 
   for (const a of s.agents) {

@@ -133,6 +133,17 @@ export function syncTray() {
   }
 }
 
+/** Where a pop-over of this size goes: under the clicked item when the system says where it is; else at the cursor. */
+export function popoverBounds(anchor: Tray | undefined, w: number, h: number): { x: number; y: number; width: number; height: number } {
+  const b = anchor && !anchor.isDestroyed() ? anchor.getBounds() : undefined;
+  const pt = b && b.width ? { x: b.x + b.width / 2, y: b.y + b.height } : screen.getCursorScreenPoint();
+  const wa = screen.getDisplayNearestPoint(pt).workArea;
+  const x = Math.round(Math.min(Math.max(wa.x + 8, pt.x - w / 2), wa.x + wa.width - w - 8));
+  const top = pt.y < wa.y + wa.height / 2;
+  const y = Math.round(top ? Math.max(wa.y + 4, pt.y + 4) : Math.min(wa.y + wa.height - h - 4, pt.y - h - 4));
+  return { x, y, width: w, height: h };
+}
+
 /** The small window of details under the menu-bar readings. */
 export function togglePopover(anchor?: Tray) {
   if (!deps) return;
@@ -161,14 +172,7 @@ export function togglePopover(anchor?: Tray) {
       popover = null;
     });
   }
-  // Under the clicked item when the system says where it is; else at the cursor.
-  const b = anchor && !anchor.isDestroyed() ? anchor.getBounds() : undefined;
-  const pt = b && b.width ? { x: b.x + b.width / 2, y: b.y + b.height } : screen.getCursorScreenPoint();
-  const wa = screen.getDisplayNearestPoint(pt).workArea;
-  const x = Math.round(Math.min(Math.max(wa.x + 8, pt.x - w / 2), wa.x + wa.width - w - 8));
-  const top = pt.y < wa.y + wa.height / 2;
-  const y = Math.round(top ? Math.max(wa.y + 4, pt.y + 4) : Math.min(wa.y + wa.height - h - 4, pt.y - h - 4));
-  popover.setBounds({ x, y, width: w, height: h });
+  popover.setBounds(popoverBounds(anchor, w, h));
   watchLive('popover', 1000);
   popover.show();
   popover.focus();

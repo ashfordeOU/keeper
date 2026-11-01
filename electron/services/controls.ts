@@ -129,7 +129,7 @@ async function adminPowerShell(script: string): Promise<{ ok: boolean; message: 
   const f = path.join(dir, `change-${Date.now()}.ps1`);
   await fsp.writeFile(f, script, { mode: 0o600 });
   const exe = path.join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
-  const q = (x: string) => `'${x.replace(/'/g, "''")}'`;
+  const q = (x: string) => `'${x.replace(/['‘’‚‛]/g, '$&$&')}'`;
   const launcher = `$p = Start-Process -FilePath ${q(exe)} -Verb RunAs -WindowStyle Hidden -Wait -PassThru -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File',${q(f)}); exit $p.ExitCode`;
   const r = await powershell(launcher, 180_000);
   await fsp.rm(f, { force: true });

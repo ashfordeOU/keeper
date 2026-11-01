@@ -1,0 +1,23 @@
+{
+ "session_id": "s",
+ "model": {
+  "display_name": "X"
+ },
+ "rate_limits": {
+  "five_hour": {
+   "used_percentage": 71.5,
+   "resets_at": 1793563200
+  },
+  "seven_day": {
+   "used_percentage": 12,
+   "resets_at": 1793908800
+  },
+  "spend_limit": {
+   "used_percentage": 40,
+   "resets_at": 1796083200,
+   "used_usd": 20,
+   "limit_usd": 50,
+   "period": "monthly"
+  }
+ }
+}

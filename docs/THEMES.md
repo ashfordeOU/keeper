@@ -40,7 +40,7 @@ With **Settings → Appearance → Follow the seasons** on, the theme on screen 
 - 15 December – 6 January, anywhere: **Festive Lights**;
 - otherwise meteorological seasons (winter is December–February in the north), flipped south of the equator: **Frost**, **Spring Meadow**, **Summer Haze**, **Autumn Ember**.
 
-The hemisphere is chosen in Settings, or found automatically: from the weather place's latitude when one is set, else from the time zone (`hemisphereFor` in `core/themes.ts`). The change happens just after midnight; Keeper sets one timer a day for it, no polling. Choosing a theme by hand, from the gallery, the command palette or ⌘⇧T, turns following the seasons off.
+The hemisphere is chosen in Settings, or found automatically: from the weather place's latitude when one is set, else from the time zone (`hemisphereFor` in `core/themes.ts`). The change happens just after midnight; Keeper sets one timer a day for it, no polling. Choosing a theme by hand, from the gallery, the command palette or ⌘⇧L, turns following the seasons off.
 
 ## Staying light
 

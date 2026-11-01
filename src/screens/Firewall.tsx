@@ -268,7 +268,7 @@ function Rules({ s, act }: { s: FwStatus; act: Act }) {
               {r.until ? <span className="badge">{r.until === 'quit' ? 'until quit' : `until ${new Date(r.until).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}</span> : null}
               {r.priority === 'high' ? <span className="badge warn">high priority</span> : null}
               <span className="small muted" title="Times used">{r.hits ? `${r.hits}×` : ''}{r.lastUsed ? ` · ${relativeTime(r.lastUsed)}` : ''}</span>
-              {g.source.kind === 'local' ? <><Toggle on={r.enabled} onChange={(v) => void act(api.fw.saveRule(g.id, { ...r, enabled: v }))} /><button className="btn xs ghost icon" title="Edit" onClick={() => setEdit({ group: g.id, rule: r })}><Icon name="rename" size={12} /></button><button className="btn xs ghost icon" title="Delete" onClick={() => void act(api.fw.removeRule(g.id, r.id))}><Icon name="trash" size={12} /></button></> : null}
+              {g.source.kind === 'local' ? <><Toggle on={r.enabled} onChange={(v) => void act(api.fw.saveRule(g.id, { ...r, enabled: v }))} /><button className="btn xs ghost icon" title="Edit" aria-label="Edit" onClick={() => setEdit({ group: g.id, rule: r })}><Icon name="rename" size={12} /></button><button className="btn xs ghost icon" title="Delete" aria-label="Delete" onClick={() => void act(api.fw.removeRule(g.id, r.id))}><Icon name="trash" size={12} /></button></> : null}
             </div>
           ))}
         </section>

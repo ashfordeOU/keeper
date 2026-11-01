@@ -82,7 +82,7 @@ export function PlacesSidebar() {
         </button>
         {used !== undefined ? <div className="place-bar" aria-hidden><i style={{ width: `${Math.round(used * 100)}%`, background: used > 0.9 ? 'var(--danger)' : undefined }} /></div> : null}
         {p.ejectable ? (
-          <button className="place-eject" title={`Eject ${p.name}`} disabled={ejecting === p.path} onClick={(e) => { e.stopPropagation(); void doEject(p); }}>
+          <button className="place-eject" title={`Eject ${p.name}`} aria-label={`Eject ${p.name}`} disabled={ejecting === p.path} onClick={(e) => { e.stopPropagation(); void doEject(p); }}>
             {ejecting === p.path ? <div className="spinner" style={{ width: 11, height: 11 }} /> : <Icon name="eject" size={12} />}
           </button>
         ) : null}

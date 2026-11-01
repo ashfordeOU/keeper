@@ -66,8 +66,8 @@ button.net-row:hover, .net-row:not(.head):hover { background: var(--bg-hover); }
 .vpn-title { font-size: 17px; font-weight: 650; margin-bottom: 3px; }
 .vpn-checks { list-style: none; padding: 0; margin: 10px 0 0; display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; }
 .vpn-checks li { display: flex; gap: 6px; align-items: center; }
-.vpn-checks li.ok { color: #16a34a; }
-.vpn-checks li.bad { color: #d97706; }
+.vpn-checks li.ok { color: var(--ok-ink, var(--ok)); }
+.vpn-checks li.bad { color: var(--warn-ink, var(--warn)); }
 .vpn-ip { width: 290px; flex: none; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
 .warn-text { color: #b45309; }
 .ok-text { color: #16a34a; display: flex; gap: 6px; align-items: center; }

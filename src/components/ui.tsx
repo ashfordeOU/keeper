@@ -14,6 +14,8 @@ import { mod, shift, useStore } from '../state';
 import { Icon } from './Icon';
 import { isQuickLookOpen, openQuickLook } from '../preview/QuickLook';
 import { canRenderThumb, renderThumb } from '../preview/thumbs';
+import { arrowNav, isTypeKey, labelFromContext, useFocusTrap, useTypeahead } from '../a11y';
+import { readableOn } from '../../core/themes';
 
 export const KIND_COLOR: Record<FileKind | 'folder', string> = {
   image: 'var(--c-image)', video: 'var(--c-video)', audio: 'var(--c-audio)', document: 'var(--c-document)', archive: 'var(--c-archive)',
@@ -85,9 +87,24 @@ export function useThumb(path: string, kind: string, size = 256, el?: React.RefO
   return src;
 }
 
+const inkCache = new Map<string, string>();
+/** Black or white for text on a shelf colour, whichever reads better in the current theme. */
+function inkOnKind(kind: FileKind): string | undefined {
+  if (typeof document === 'undefined') return undefined;
+  const root = document.documentElement;
+  const key = `${root.dataset.themeId}|${root.dataset.theme}|${root.dataset.look}|${kind}`;
+  let ink = inkCache.get(key);
+  if (!ink) {
+    const c = getComputedStyle(root).getPropertyValue(`--c-${kind}`).trim();
+    ink = c.startsWith('#') || c.startsWith('rgb') ? readableOn(c) : '#ffffff';
+    inkCache.set(key, ink);
+  }
+  return ink;
+}
+
 export function ExtTile({ ext, kind }: { ext: string; kind: FileKind | 'folder' }) {
   if (kind === 'folder') return <Icon name="folder" size={48} stroke={1.4} style={{ color: 'var(--accent)' }} />;
-  return <div className="ext-tile" style={{ background: KIND_COLOR[kind] }}>{(ext || kind).slice(0, 5).toUpperCase()}</div>;
+  return <div className="ext-tile" style={{ background: KIND_COLOR[kind], color: inkOnKind(kind) }}>{(ext || kind).slice(0, 5).toUpperCase()}</div>;
 }
 
 export function Thumb({ file, size = 256 }: { file: Pick<FileEntry, 'path' | 'kind' | 'ext'>; size?: number }) {
@@ -111,6 +128,17 @@ export async function copyFullText(f: Pick<FileEntry, 'path' | 'text' | 'textCut
 export function useFileSelection(files: FileEntry[]) {
   const { selection, setSelection, setFocused, play, trash } = useStore();
   const anchor = useRef<number>(-1);
+  const typeahead = useTypeahead();
+  /** Moves the selection (and keyboard focus) to the file at i. */
+  const pick = (i: number) => {
+    setSelection([files[i].path]);
+    setFocused(files[i]);
+    anchor.current = i;
+    const el = document.querySelector<HTMLElement>(`[data-path="${CSS.escape(files[i].path)}"]`);
+    el?.scrollIntoView({ block: 'nearest' });
+    // Keyboard focus follows when it is already in the grid or list.
+    if (el && document.activeElement?.closest('.file-grid, .file-list')) el.focus({ preventScroll: true });
+  };
 
   const click = (e: React.MouseEvent, i: number) => {
     const p = files[i].path;
@@ -135,18 +163,25 @@ export function useFileSelection(files: FileEntry[]) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement;
-      if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable) return;
+      if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable) return;
+      // Menus and dialogs handle their own keys, and so do buttons, tabs and other controls outside the files.
+      if (t.closest?.('.menu, .modal, .palette, .ql, [role="dialog"]')) return;
+      if (t !== document.body && !t.closest?.('.file-grid, .file-list') && t.matches?.('button, a[href], summary, [role="button"], [role="tab"], [role="radio"], [role="switch"], [role="checkbox"], [role="option"], [role="menuitem"], [role="slider"], [role="treeitem"], [tabindex]:not([tabindex="-1"])')) return;
       const cur = files.findIndex((f) => f.path === selection[selection.length - 1]);
       const cmd = e.metaKey || e.ctrlKey;
       if ((e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowUp') && files.length) {
         const cols = Math.max(1, Math.round((document.querySelector('.file-grid')?.clientWidth ?? 1) / ((document.querySelector('.file-card') as HTMLElement)?.offsetWidth + 14 || 1)));
         const step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowDown' ? (document.querySelector('.file-grid') ? cols : 1) : (document.querySelector('.file-grid') ? -cols : -1);
         const next = Math.max(0, Math.min(files.length - 1, (cur < 0 ? -step : cur) + step));
-        setSelection([files[next].path]);
-        setFocused(files[next]);
-        anchor.current = next;
-        document.querySelector(`[data-path="${CSS.escape(files[next].path)}"]`)?.scrollIntoView({ block: 'nearest' });
+        pick(next);
         e.preventDefault();
+      } else if ((e.key === 'Home' || e.key === 'End') && files.length && t.closest?.('.file-grid, .file-list')) {
+        e.preventDefault();
+        pick(e.key === 'Home' ? 0 : files.length - 1);
+      } else if (isTypeKey(e) && files.length && (t === document.body || t.closest?.('.file-grid, .file-list'))) {
+        // Type-to-select: the first letters of a name jump to it.
+        const i = typeahead(e.key, files.map((f) => f.name), cur);
+        if (i >= 0) { e.preventDefault(); pick(i); }
       } else if (e.key === 'Enter' && cur >= 0) {
         open(files[cur]);
       } else if (e.key === ' ' && cur >= 0) {
@@ -210,17 +245,24 @@ const pathOf = (f: FileEntry) => f.path;
 const isHiddenFile = (f: FileEntry) => !!f.hidden || /(^|[\\/])\.[^\\/.]/.test(f.path);
 
 export function FileGrid({ files, onContext }: { files: FileEntry[]; onContext?: (e: React.MouseEvent, f: FileEntry) => void }) {
-  const { cardSize } = useStore();
+  const { cardSize, setSelection, setFocused } = useStore();
   const { selection, click, open } = useFileSelection(files);
   const menu = useFileMenu();
   const { shown, more, sentinel } = useProgressive(files, selection, pathOf);
   const picked = useMemo(() => new Set(selection), [selection]);
   return (
-    <div className="file-grid" style={{ ['--card' as string]: `${cardSize}px` }}>
+    <div className="file-grid" role="listbox" aria-label="Files" aria-multiselectable="true" aria-orientation="horizontal" style={{ ['--card' as string]: `${cardSize}px` }}>
       {shown.map((f, i) => (
         <div
           key={f.path}
           data-path={f.path}
+          role="option"
+          aria-selected={picked.has(f.path)}
+          aria-label={`${f.name}, ${formatBytes(f.size)}, ${relativeTime(f.mtime)}`}
+          // One stop in the Tab order: the selected file (or the first one).
+          tabIndex={picked.size ? (picked.has(f.path) && f.path === selection[selection.length - 1] ? 0 : -1) : i === 0 ? 0 : -1}
+          onFocus={(e) => { if (!picked.has(f.path) && e.currentTarget.matches(':focus-visible')) { setSelection([f.path]); setFocused(f); } }}
+          onKeyDown={(e) => { if ((e.key === 'F10' && e.shiftKey) || e.key === 'ContextMenu') { e.preventDefault(); const r = e.currentTarget.getBoundingClientRect(); (onContext ?? menu.open)({ preventDefault: () => undefined, clientX: r.left + 20, clientY: r.top + 20 } as React.MouseEvent, f); } }}
           className={`file-card ${picked.has(f.path) ? 'selected' : ''} ${isHiddenFile(f) ? 'is-hidden' : ''}`}
           onClick={(e) => click(e, i)}
           onDoubleClick={() => open(f)}
@@ -235,7 +277,7 @@ export function FileGrid({ files, onContext }: { files: FileEntry[]; onContext?:
           </div>
           {f.text && f.kind === 'image' ? (
             <div className="hover-actions">
-              <button className="btn sm icon" title="Copy text in image" onClick={(e) => { e.stopPropagation(); void copyFullText(f); }}>
+              <button className="btn sm icon" title="Copy text in image" aria-label="Copy text in image" onClick={(e) => { e.stopPropagation(); void copyFullText(f); }}>
                 <Icon name="text" size={13} />
               </button>
             </div>
@@ -253,21 +295,22 @@ export function FileGrid({ files, onContext }: { files: FileEntry[]; onContext?:
 type SortKey = 'name' | 'date' | 'size' | 'kind';
 
 export function FileList({ files, sort, onSort, showSource }: { files: FileEntry[]; sort?: { key: SortKey; desc: boolean }; onSort?: (k: SortKey) => void; showSource?: boolean }) {
+  const { setSelection, setFocused } = useStore();
   const { selection, click, open } = useFileSelection(files);
   const menu = useFileMenu();
   const { shown, more, sentinel } = useProgressive(files, selection, pathOf);
   const picked = useMemo(() => new Set(selection), [selection]);
   const th = (k: SortKey, label: string, style?: React.CSSProperties) => (
-    <th style={style} onClick={() => onSort?.(k)}>
-      {label} {sort?.key === k ? (sort.desc ? '↓' : '↑') : ''}
+    <th style={style} aria-sort={sort?.key === k ? (sort.desc ? 'descending' : 'ascending') : undefined}>
+      {onSort ? <button className="th-sort" onClick={() => onSort(k)}>{label} <span aria-hidden>{sort?.key === k ? (sort.desc ? '↓' : '↑') : ''}</span></button> : label}
     </th>
   );
   return (
     <>
-      <table className="file-list">
+      <table className="file-list" aria-label="Files" aria-multiselectable="true">
         <thead>
           <tr>
-            <th className="icon-cell" />
+            <th className="icon-cell"><span className="sr-only">Preview</span></th>
             {th('name', 'Name')}
             {th('date', 'Modified', { width: 130 })}
             {th('size', 'Size', { width: 90, textAlign: 'right' })}
@@ -280,6 +323,10 @@ export function FileList({ files, sort, onSort, showSource }: { files: FileEntry
             <tr
               key={f.path}
               data-path={f.path}
+              aria-selected={picked.has(f.path)}
+              tabIndex={picked.size ? (picked.has(f.path) && f.path === selection[selection.length - 1] ? 0 : -1) : i === 0 ? 0 : -1}
+              onFocus={(e) => { if (!picked.has(f.path) && e.currentTarget.matches(':focus-visible')) { setSelection([f.path]); setFocused(f); } }}
+              onKeyDown={(e) => { if ((e.key === 'F10' && e.shiftKey) || e.key === 'ContextMenu') { e.preventDefault(); const r = e.currentTarget.getBoundingClientRect(); menu.open({ preventDefault: () => undefined, clientX: r.left + 40, clientY: r.top + 10 } as React.MouseEvent, f); } }}
               className={`${picked.has(f.path) ? 'selected' : ''} ${isHiddenFile(f) ? 'is-hidden' : ''}`}
               onClick={(e) => click(e, i)}
               onDoubleClick={() => open(f)}
@@ -321,31 +368,61 @@ export interface MenuItem {
   sep?: boolean;
 }
 
-export function ContextMenu({ x, y, items, onClose }: { x: number; y: number; items: MenuItem[]; onClose: () => void }) {
+export function ContextMenu({ x, y, items, onClose, label }: { x: number; y: number; items: MenuItem[]; onClose: () => void; label?: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ x, y });
   useEffect(() => {
     const el = ref.current;
     if (el) setPos({ x: Math.min(x, window.innerWidth - el.offsetWidth - 8), y: Math.min(y, window.innerHeight - el.offsetHeight - 8) });
     const close = () => onClose();
-    const esc = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('mousedown', close);
-    window.addEventListener('keydown', esc);
     window.addEventListener('blur', close);
     return () => {
       window.removeEventListener('mousedown', close);
-      window.removeEventListener('keydown', esc);
       window.removeEventListener('blur', close);
     };
   }, [x, y, onClose]);
+  // Keyboard: focus starts on the first item and goes back where it was when the menu closes.
+  const opener = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    const before = document.activeElement as HTMLElement | null;
+    opener.current = before;
+    ref.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus({ preventScroll: true });
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } };
+    window.addEventListener('keydown', esc, true);
+    return () => {
+      window.removeEventListener('keydown', esc, true);
+      if (before?.isConnected) before.focus({ preventScroll: true });
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   return createPortal(
-    <div className="menu" ref={ref} style={{ left: pos.x, top: pos.y }} onMouseDown={(e) => e.stopPropagation()}>
+    <div
+      className="menu"
+      role="menu"
+      aria-label={label}
+      ref={ref}
+      style={{ left: pos.x, top: pos.y }}
+      onMouseDown={(e) => e.stopPropagation()}
+      onKeyDown={(e) => {
+        if (arrowNav(e, e.currentTarget, '[role="menuitem"]')) return;
+        if (e.key === 'Tab') { e.preventDefault(); onClose(); }
+        else if (isTypeKey(e)) {
+          // A letter jumps to the next item starting with it.
+          const list = [...e.currentTarget.querySelectorAll<HTMLElement>('[role="menuitem"]')];
+          const i = list.indexOf(document.activeElement as HTMLElement);
+          const k = e.key.toLowerCase();
+          const hit = [...list.slice(i + 1), ...list.slice(0, i + 1)].find((b) => (b.textContent ?? '').trim().toLowerCase().startsWith(k));
+          hit?.focus();
+        }
+      }}
+    >
       {items.map((it, i) =>
-        it.sep ? <hr key={i} /> : (
-          <button key={i} className={it.danger ? 'danger' : ''} onClick={() => { onClose(); it.run?.(); }}>
-            {it.icon ? <Icon name={it.icon} size={14} /> : <span style={{ width: 14 }} />}
+        it.sep ? <hr key={i} role="separator" /> : (
+          <button key={i} role="menuitem" tabIndex={-1} className={it.danger ? 'danger' : ''} onClick={() => { if (opener.current?.isConnected) opener.current.focus({ preventScroll: true }); onClose(); it.run?.(); }}>
+            {it.icon ? <Icon name={it.icon} size={14} /> : <span style={{ width: 14 }} aria-hidden />}
             {it.label}
-            {it.kbd ? <kbd>{it.kbd}</kbd> : null}
+            {it.kbd ? <kbd aria-hidden>{it.kbd}</kbd> : null}
           </button>
         ),
       )}
@@ -477,16 +554,27 @@ export function RenameDialog({ paths, onClose }: { paths: string[]; onClose: () 
 
 // ------------------------------------------------------------------ small pieces
 
-export function Modal({ title, children, onClose, width }: { title?: ReactNode; children: ReactNode; onClose: () => void; width?: number }) {
+let modalSeq = 0;
+
+export function Modal({ title, children, onClose, width, label }: { title?: ReactNode; children: ReactNode; onClose: () => void; width?: number; /** a name for screen readers when there is no title */ label?: string }) {
+  const box = useRef<HTMLDivElement>(null);
+  const [id] = useState(() => `modal-title-${++modalSeq}`);
+  // Focus moves into the dialog, Tab stays inside it, and goes back where it was afterwards.
+  useFocusTrap(box);
   useEffect(() => {
-    const esc = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    const esc = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      // Only the top-most dialog closes.
+      const all = document.querySelectorAll('.modal');
+      if (all[all.length - 1] === box.current) onClose();
+    };
     window.addEventListener('keydown', esc);
     return () => window.removeEventListener('keydown', esc);
   }, [onClose]);
   return createPortal(
     <div className="modal-back" onMouseDown={onClose}>
-      <div className="modal" style={width ? { width } : undefined} onMouseDown={(e) => e.stopPropagation()}>
-        {title ? <div className="row" style={{ marginBottom: 14 }}><h2 className="grow">{title}</h2><button className="btn ghost sm icon" onClick={onClose}><Icon name="close" size={14} /></button></div> : null}
+      <div className="modal" ref={box} role="dialog" aria-modal="true" aria-labelledby={title ? id : undefined} aria-label={title ? undefined : label} tabIndex={-1} style={width ? { width } : undefined} onMouseDown={(e) => e.stopPropagation()}>
+        {title ? <div className="row" style={{ marginBottom: 14 }}><h2 className="grow" id={id}>{title}</h2><button aria-label="Close" title="Close" className="btn ghost sm icon modal-close" onClick={onClose}><Icon name="close" size={14} /></button></div> : null}
         {children}
       </div>
     </div>,
@@ -507,6 +595,7 @@ export function HiddenToggle({ compact }: { compact?: boolean }) {
       aria-pressed={on}
       onClick={() => settings && void updateSettings({ showHidden: !on })}
       title={`${on ? 'Hide' : 'Show'} hidden files and folders (${mod}${shift}.)`}
+      aria-label={compact ? 'Hidden files and folders' : undefined}
     >
       <Icon name={on ? 'eye' : 'eyeOff'} size={14} />
       {compact ? null : on ? ' Hidden shown' : ' Hidden files'}
@@ -514,13 +603,30 @@ export function HiddenToggle({ compact }: { compact?: boolean }) {
   );
 }
 
-export function Toggle({ on, onChange, label }: { on: boolean; onChange: (v: boolean) => void; label?: string }) {
-  return <button role="switch" aria-checked={on} aria-label={label} className={`toggle ${on ? 'on' : ''}`} onClick={() => onChange(!on)} />;
+export function Toggle({ on, onChange, label, disabled }: { on: boolean; onChange: (v: boolean) => void; label?: string; disabled?: boolean }) {
+  const ref = useRef<HTMLButtonElement>(null);
+  useRowLabel(ref, label);
+  return <button ref={ref} role="switch" aria-checked={on} aria-label={label} disabled={disabled} className={`toggle ${on ? 'on' : ''}`} onClick={() => onChange(!on)} />;
 }
 
-export function Check({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
+/**
+ * A control drawn without its own text (a switch, a tick box) takes its
+ * accessible name from the row it sits in, when it was not given one.
+ */
+export function useRowLabel(ref: React.RefObject<HTMLElement | null>, label?: string) {
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || label || el.hasAttribute('aria-labelledby') || el.hasAttribute('aria-label')) return;
+    const text = labelFromContext(el);
+    if (text) el.setAttribute('aria-label', text.slice(0, 120));
+  });
+}
+
+export function Check({ on, onChange, label }: { on: boolean; onChange: (v: boolean) => void; label?: string }) {
+  const ref = useRef<HTMLButtonElement>(null);
+  useRowLabel(ref, label);
   return (
-    <button className={`check ${on ? 'on' : ''}`} onClick={(e) => { e.stopPropagation(); onChange(!on); }} aria-pressed={on} style={{ padding: 0 }}>
+    <button ref={ref} role="checkbox" aria-checked={on} aria-label={label} className={`check ${on ? 'on' : ''}`} onClick={(e) => { e.stopPropagation(); onChange(!on); }} style={{ padding: 0 }}>
       {on ? <Icon name="check" size={11} stroke={3} /> : null}
     </button>
   );
@@ -537,7 +643,7 @@ export function Empty({ icon = 'search', title, children }: { icon?: string; tit
 }
 
 export function Loading({ label = 'Loading…' }: { label?: string }) {
-  return <div className="empty"><div className="spinner" /><div className="small">{label}</div></div>;
+  return <div className="empty" role="status" aria-live="polite"><div className="spinner" aria-hidden /><div className="small">{label}</div></div>;
 }
 
 export function SafetyBadge({ safety }: { safety: 'safe' | 'review' | 'permanent' }) {
@@ -562,7 +668,7 @@ export function ViewControls({ sort, onSort }: { sort?: { key: SortKey; desc: bo
   return (
     <div className="btn-row">
       {sort && onSort ? (
-        <select className="input" value={`${sort.key}:${sort.desc ? 'desc' : 'asc'}`} onChange={(e) => { const [k, d] = e.target.value.split(':'); onSort({ key: k as SortKey, desc: d === 'desc' }); }} style={{ height: 30 }}>
+        <select className="input" aria-label="Sort by" value={`${sort.key}:${sort.desc ? 'desc' : 'asc'}`} onChange={(e) => { const [k, d] = e.target.value.split(':'); onSort({ key: k as SortKey, desc: d === 'desc' }); }} style={{ height: 30 }}>
           <option value="date:desc">Newest first</option>
           <option value="date:asc">Oldest first</option>
           <option value="size:desc">Biggest first</option>
@@ -572,8 +678,8 @@ export function ViewControls({ sort, onSort }: { sort?: { key: SortKey; desc: bo
         </select>
       ) : null}
       <div className="seg">
-        <button className={view === 'grid' ? 'on' : ''} onClick={() => setView('grid')} title={`Grid (${mod}1)`}><Icon name="grid" size={14} /></button>
-        <button className={view === 'list' ? 'on' : ''} onClick={() => setView('list')} title={`List (${mod}2)`}><Icon name="list" size={14} /></button>
+        <button className={view === 'grid' ? 'on' : ''} aria-pressed={view === 'grid'} onClick={() => setView('grid')} title={`Grid (${mod}1)`} aria-label={`Grid (${mod}1)`}><Icon name="grid" size={14} /></button>
+        <button className={view === 'list' ? 'on' : ''} aria-pressed={view === 'list'} onClick={() => setView('list')} title={`List (${mod}2)`} aria-label={`List (${mod}2)`}><Icon name="list" size={14} /></button>
       </div>
     </div>
   );

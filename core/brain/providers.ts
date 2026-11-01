@@ -5,7 +5,9 @@
 // operating system's own on-device model (registered by the platform layer).
 // The harness only ever sees ChatProvider, so switching AI changes nothing else.
 
-import Anthropic from '@anthropic-ai/sdk';
+// The SDK is large: it loads the first time this provider is used.
+import type Anthropic from '@anthropic-ai/sdk';
+import { noteRateHeaders } from '../usage-tracker/rate-store';
 import { COMPATIBLE_PRESETS, isLocalUrl } from './presets';
 
 export { COMPATIBLE_PRESETS, isLocalUrl };
@@ -153,7 +155,7 @@ function anthropicProvider(c: ProviderConfig): ChatProvider {
     contextTokens: c.contextTokens ?? contextFor(model),
     async chat(messages, tools, opts = {}) {
       if (!c.apiKey) throw new Error('Add your Anthropic API key in Settings → AI & Brain.');
-      const client = new Anthropic({ apiKey: c.apiKey, ...(c.baseUrl ? { baseURL: c.baseUrl } : {}) });
+      const client = new (await import('@anthropic-ai/sdk')).default({ apiKey: c.apiKey, ...(c.baseUrl ? { baseURL: c.baseUrl } : {}) });
       const system = messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n\n');
       const out: Anthropic.Beta.BetaMessageParam[] = [];
       for (const m of messages) {
@@ -193,6 +195,8 @@ function anthropicProvider(c: ProviderConfig): ChatProvider {
       );
       if (opts.onDelta) stream.on('text', (d) => opts.onDelta!(d));
       const msg = await stream.finalMessage();
+      // Rate limits left, for the usage tracker (headers only; nothing is stored).
+      noteRateHeaders('anthropic', (n) => stream.response?.headers.get(n));
       const text = msg.content.flatMap((b) => (b.type === 'text' ? [b.text] : [])).join('');
       // A member of a built-in toolset (e.g. "left_click" of the computer toolset) becomes a call to Keeper's tool of that name.
       const toolsetOwner = (set?: string) => tools.find((t) => t.native?.anthropicToolsetName && t.native.anthropicToolsetName === set);
@@ -283,6 +287,7 @@ function compatibleProvider(c: ProviderConfig, label = 'OpenAI-compatible'): Cha
       }).catch((e) => {
         throw new Error(local ? `Could not reach the model at ${base}. Is it running?` : `Could not reach ${base}: ${e instanceof Error ? e.message : e}`);
       });
+      noteRateHeaders(base, (n) => res.headers.get(n));
       if (!res.ok) throw new Error(`${new URL(base).hostname} returned ${res.status}: ${(await res.text()).slice(0, 300)}`);
       let text = '';
       const calls = new Map<number, { id: string; name: string; args: string }>();

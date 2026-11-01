@@ -393,8 +393,8 @@ export function Annotate() {
         </div>
         <label className="row small" style={{ gap: 6 }}>Size <input type="range" min={2} max={16} value={width} onChange={(e) => setWidth(+e.target.value)} /></label>
         <div className="grow" />
-        <button className="btn sm icon" title="Undo" disabled={!shapes.length} onClick={undo}><Icon name="undo" size={13} /></button>
-        <button className="btn sm icon" title="Redo" disabled={!redo.length} onClick={redoOne}><Icon name="refresh" size={13} /></button>
+        <button className="btn sm icon" title="Undo" aria-label="Undo" disabled={!shapes.length} onClick={undo}><Icon name="undo" size={13} /></button>
+        <button className="btn sm icon" title="Redo" aria-label="Redo" disabled={!redo.length} onClick={redoOne}><Icon name="refresh" size={13} /></button>
         <button className="btn sm" disabled={!shapes.length} onClick={() => { setRedo([]); setShapes([]); }}>Clear</button>
       </div>
 

@@ -70,7 +70,7 @@ export function pathFromUri(v: string): string {
 
 /** PowerShell for Windows: set the picture with SystemParametersInfo (SPI_SETDESKWALLPAPER, saved and broadcast). */
 export function windowsSetScript(imagePath: string): string {
-  const p = imagePath.replace(/'/g, "''");
+  const p = imagePath.replace(/['‘’‚‛]/g, '$&$&');
   return `Add-Type -TypeDefinition 'using System.Runtime.InteropServices; public class KeeperWp { [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern bool SystemParametersInfo(int a, int b, string c, int d); }'
 if ([KeeperWp]::SystemParametersInfo(20, 0, '${p}', 3)) { 'ok' } else { 'failed' }`;
 }

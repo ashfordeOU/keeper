@@ -61,6 +61,9 @@ function metaWords(f: FileEntry): string[] {
   return terms(`${f.name.replace(/\.[^.]+$/, '')} ${f.ext} ${folders} ${(f.tags ?? []).join(' ')} ${f.source ? `${f.source.name} ${f.source.host}` : ''} ${f.kind}${f.screenshot ? ' screenshot' : ''}`);
 }
 
+/** At most about 8 MB of recently read text (two bytes a character at worst). */
+const TEXT_CACHE_CHARS = 4_000_000;
+
 export class BrainEngine {
   files = new Map<string, BrainFile>();
   /** doc number -> [path, chunk index (-1 = name and details)] */
@@ -92,7 +95,8 @@ export class BrainEngine {
       this.pendingSet.delete(d);
     }
     this.files.delete(p);
-    this.textCache.delete(p);
+    const cached = this.textCache.get(p);
+    if (cached) { this.textCacheChars -= cached.text.length; this.textCache.delete(p); }
   }
 
   /** (Re)reads one file into the brain. */
@@ -142,6 +146,7 @@ export class BrainEngine {
     }
     o.onProgress?.(done, todo.length);
     this.textCache.clear();
+    this.textCacheChars = 0;
     return done;
   }
 
@@ -220,9 +225,20 @@ export class BrainEngine {
 
   // ------------------------------------------------------------ text
 
+  // Recently read texts, so answering a question does not read the same files twice.
+  // Bounded by count and by size: a few long documents must not stay in memory.
+  private textCacheChars = 0;
   private remember(p: string, mtime: number, text: string) {
+    if (text.length > TEXT_CACHE_CHARS / 4) return;
+    const old = this.textCache.get(p);
+    if (old) { this.textCacheChars -= old.text.length; this.textCache.delete(p); }
     this.textCache.set(p, { mtime, text });
-    if (this.textCache.size > 64) this.textCache.delete(this.textCache.keys().next().value!);
+    this.textCacheChars += text.length;
+    while (this.textCache.size > 64 || this.textCacheChars > TEXT_CACHE_CHARS) {
+      const [k, v] = this.textCache.entries().next().value!;
+      this.textCache.delete(k);
+      this.textCacheChars -= v.text.length;
+    }
   }
 
   async textOf(f: FileEntry): Promise<string | undefined> {

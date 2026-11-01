@@ -142,7 +142,7 @@ export async function setTweak(id: string, value?: boolean | number): Promise<Tw
     case 'win-mouse-reverse': {
       const v = value ? 1 : 0;
       const inner = `Get-ChildItem 'HKLM:\\SYSTEM\\CurrentControlSet\\Enum\\HID' -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.PSChildName -eq 'Device Parameters' -and ($_.GetValue('FlipFlopWheel') -ne $null) } | ForEach-Object { Set-ItemProperty -Path $_.PSPath -Name FlipFlopWheel -Value ${v} }`;
-      await powershell(`Start-Process powershell -Verb RunAs -WindowStyle Hidden -Wait -ArgumentList '-NoProfile','-Command',"${inner.replace(/"/g, '`"')}"`);
+      await powershell(`Start-Process powershell -Verb RunAs -WindowStyle Hidden -Wait -ArgumentList '-NoProfile','-Command','${inner.replace(/['‘’‚‛]/g, '$&$&')}'`);
       break;
     }
     case 'gnome-mouse-natural':

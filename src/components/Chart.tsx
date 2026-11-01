@@ -29,15 +29,26 @@ export function Chart({ series, labels, height = 140, min, max, rightMax, yForma
     return () => ro.disconnect();
   }, []);
   const H = height;
-  const pad = { l: 34, r: series.some((s) => s.right) ? 34 : 8, t: 8, b: 20 };
   const n = labels.length;
-  const left = series.filter((s) => !s.right).flatMap((s) => s.values.filter((v): v is number => v !== null));
+  // Two or more bar series on the left scale stack on each other.
+  const leftBars = series.filter((s) => s.bars && !s.right);
+  const stacked = leftBars.length > 1;
+  const below = (si: number, i: number) => leftBars.slice(0, leftBars.indexOf(series[si])).reduce((t, s) => t + Math.max(0, s.values[i] ?? 0), 0);
+  const left = [
+    ...series.filter((s) => !s.right && !(stacked && s.bars)).flatMap((s) => s.values.filter((v): v is number => v !== null)),
+    ...(stacked ? labels.map((_, i) => leftBars.reduce((t, s) => t + Math.max(0, s.values[i] ?? 0), 0)) : []),
+  ];
   const lo = min ?? Math.min(0, ...left);
   const hi = max ?? Math.max(1, ...left) * 1.08;
   const rhi = rightMax ?? Math.max(1, ...series.filter((s) => s.right).flatMap((s) => s.values.filter((v): v is number => v !== null))) * 1.1;
+  const fmt = yFormat ?? ((v: number) => String(Math.round(v)));
+  // Room for a long scale label, so "$21.60" is not cut off (short ones keep the usual 34 px other pages line up with).
+  const longest = Math.max(...[lo, (lo + hi) / 2, hi].map((v) => fmt(v).length));
+  const pad = { l: longest > 5 ? longest * 6 + 10 : 34, r: series.some((s) => s.right) ? 34 : 8, t: 8, b: 20 };
+  // The last bar stays inside the chart.
+  if (series.some((s) => s.bars)) pad.r = Math.max(pad.r, Math.min(40, (W - pad.l) / Math.max(1, n) / 2.4));
   const x = (i: number) => pad.l + (n <= 1 ? 0 : (i / (n - 1)) * (W - pad.l - pad.r));
   const y = (v: number, right?: boolean) => pad.t + (1 - (v - (right ? 0 : lo)) / ((right ? rhi : hi) - (right ? 0 : lo) || 1)) * (H - pad.t - pad.b);
-  const fmt = yFormat ?? ((v: number) => String(Math.round(v)));
   const ticks = useMemo(() => [lo, lo + (hi - lo) / 2, hi], [lo, hi]);
 
   const paths = series.map((s) => {
@@ -76,9 +87,11 @@ export function Chart({ series, labels, height = 140, min, max, rightMax, yForma
         ))}
         {series.map((s, si) =>
           s.bars ? (
-            s.values.map((v, i) => (v === null || v <= 0 ? null : (
-              <rect key={`${si}-${i}`} x={x(i) - Math.max(1.5, (W - pad.l - pad.r) / n / 2.6)} width={Math.max(3, (W - pad.l - pad.r) / n / 1.3)} y={y(v, s.right)} height={Math.max(0, y(s.right ? 0 : lo, s.right) - y(v, s.right))} fill={s.color} opacity={0.55} rx={1.5} />
-            )))
+            s.values.map((v, i) => {
+              if (v === null || v <= 0) return null;
+              const base = stacked && !s.right ? below(si, i) : s.right ? 0 : lo;
+              return <rect key={`${si}-${i}`} x={x(i) - Math.max(1.5, (W - pad.l - pad.r) / n / 2.6)} width={Math.max(3, (W - pad.l - pad.r) / n / 1.3)} y={y(base + (stacked && !s.right ? v : v - base), s.right)} height={Math.max(0, y(base, s.right) - y(base + (stacked && !s.right ? v : v - base), s.right))} fill={s.color} opacity={stacked ? 0.8 : 0.55} rx={1.5} />;
+            })
           ) : (
             <g key={si}>
               <path d={paths[si]!.area} fill={s.color} opacity={0.14} />
@@ -86,7 +99,7 @@ export function Chart({ series, labels, height = 140, min, max, rightMax, yForma
             </g>
           ),
         )}
-        {labels.map((l, i) => (i % every === 0 ? <text key={i} x={x(i)} y={H - 5} textAnchor="middle" fontSize={10} fill="var(--text-3)">{l}</text> : null))}
+        {labels.map((l, i) => (i % every === 0 ? <text key={i} x={x(i)} y={H - 5} textAnchor={x(i) + String(l).length * 3 > W ? 'end' : 'middle'} fontSize={10} fill="var(--text-3)">{l}</text> : null))}
         {hover !== null ? <line x1={x(hover)} x2={x(hover)} y1={pad.t} y2={H - pad.b} stroke="var(--text-3)" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" /> : null}
       </svg>
       {hover !== null ? (

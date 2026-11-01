@@ -211,7 +211,7 @@ describe('enforcement: commands and logs', () => {
     expect(s).toContain("-DisplayName 'Keeper: x''; calc'''");
     expect(s).toMatch(/-Action Block/);
     expect(s).toMatch(/-RemotePort '443'/);
-    expect(psq('a’b')).toBe("'a''b'");
+    expect(psq('a’b')).toBe("'a’’b'");
     // Host rules need resolved addresses on Windows.
     expect(windowsRuleScript(rule({ host: 'example.com' }))).toBeNull();
     expect(windowsRuleScript(rule({ host: 'example.com' }), ['93.184.216.34'])).toContain("-RemoteAddress @('93.184.216.34')");

@@ -5,7 +5,8 @@
 
 import { createHash } from 'node:crypto';
 import { promises as fsp } from 'node:fs';
-import { Client, type ConnectConfig, type SFTPWrapper } from 'ssh2';
+// The SSH library loads the first time an SFTP server is opened.
+import type { Client, ConnectConfig, SFTPWrapper } from 'ssh2';
 import type { Connection, Quota, RemoteEntry, RemoteFs } from '../../../core/remote/types';
 import { joinRemote, normalizeRemote, onServer } from '../../../core/remote/paths';
 
@@ -27,13 +28,14 @@ export interface SftpAuth {
 }
 
 export class SftpFs implements RemoteFs {
-  private client = new Client();
+  private client!: Client;
   private sftp!: SFTPWrapper;
 
   private constructor(private conn: Connection) {}
 
   static async open(conn: Connection, auth: SftpAuth, keys: HostKeys, timeoutMs = 15_000): Promise<SftpFs> {
     const fs = new SftpFs(conn);
+    fs.client = new (await import('ssh2')).Client();
     const host = conn.host ?? '';
     const where = `${host}:${conn.port ?? 22}`;
     let changed = false;

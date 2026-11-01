@@ -21,7 +21,7 @@ export const MAX_BODY_BYTES = 32 * 1024;
 
 // ---------------------------------------------------------------- the schema
 
-export const INSTALL_SOURCES = ['brew', 'winget', 'scoop', 'choco', 'flatpak', 'snap', 'aur', 'apt-repo', 'dnf-repo', 'direct'] as const;
+export const INSTALL_SOURCES = ['brew', 'winget', 'scoop', 'choco', 'msstore', 'flatpak', 'snap', 'aur', 'apt-repo', 'dnf-repo', 'direct'] as const;
 export const OS_FAMILIES = ['macos', 'windows', 'linux', 'other'] as const;
 export const ARCHES = ['x64', 'arm64', 'ia32', 'arm', 'other'] as const;
 export const CPU_VENDORS = ['apple', 'intel', 'amd', 'qualcomm', 'other'] as const;

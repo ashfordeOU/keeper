@@ -139,7 +139,7 @@ export function Capture() {
         </button>
       </div>
 
-      {busy ? <div className="progress indeterminate" style={{ margin: '14px 0' }}><i /></div> : null}
+      {busy ? <div className="progress indeterminate" role="progressbar" aria-label="Working" style={{ margin: '14px 0' }}><i /></div> : null}
 
       {result ? (
         <div className="card pad capture-result">
@@ -148,7 +148,7 @@ export function Capture() {
             {result.text ? <button className="btn sm" onClick={() => void api.files.copyText(result.text)}><Icon name="copy" size={12} /> Copy text</button> : null}
             {result.code ? <button className="btn sm" onClick={() => void api.files.copyText(result.code!)}><Icon name="copy" size={12} /> Copy code</button> : null}
             {result.code && isHttpUrl(result.code) ? <button className="btn sm" onClick={() => void api.capture.openLink(result.code!)}><Icon name="external" size={12} /> Open link</button> : null}
-            <button className="btn ghost sm icon" onClick={() => setResult(null)}><Icon name="close" size={12} /></button>
+            <button aria-label="Close" title="Close" className="btn ghost sm icon" onClick={() => setResult(null)}><Icon name="close" size={12} /></button>
           </div>
           <div className="row" style={{ alignItems: 'flex-start' }}>
             {result.image ? <img className="result-thumb" src={result.image} alt="" /> : null}
@@ -190,15 +190,15 @@ export function Capture() {
                   <>
                     <button className="btn sm" onClick={() => void api.files.open(e.path!)}>Open</button>
                     {e.kind === 'screenshot' ? <button className="btn sm" onClick={() => go({ name: 'annotate', arg: e.path })}><Icon name="rename" size={12} /> Annotate</button> : null}
-                    <button className="btn sm icon" title="Show in folder" onClick={() => void api.files.reveal(e.path!)}><Icon name="reveal" size={12} /></button>
+                    <button className="btn sm icon" title="Show in folder" aria-label="Show in folder" onClick={() => void api.files.reveal(e.path!)}><Icon name="reveal" size={12} /></button>
                   </>
                 ) : (
                   <>
                     <button className="btn sm" onClick={() => { void api.files.copyText(e.value); toast('Copied'); }}><Icon name="copy" size={12} /> Copy</button>
-                    {isHttpUrl(e.value) ? <button className="btn sm icon" title="Open link" onClick={() => void api.capture.openLink(e.value)}><Icon name="external" size={12} /></button> : null}
+                    {isHttpUrl(e.value) ? <button className="btn sm icon" title="Open link" aria-label="Open link" onClick={() => void api.capture.openLink(e.value)}><Icon name="external" size={12} /></button> : null}
                   </>
                 )}
-                <button className="btn ghost sm icon" title="Remove" onClick={() => void api.capture.removeHistory(e.id).then(reload)}><Icon name="close" size={12} /></button>
+                <button className="btn ghost sm icon" title="Remove" aria-label="Remove" onClick={() => void api.capture.removeHistory(e.id).then(reload)}><Icon name="close" size={12} /></button>
               </div>
             </div>
           ))}

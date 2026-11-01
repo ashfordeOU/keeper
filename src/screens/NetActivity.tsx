@@ -207,7 +207,7 @@ export function NetActivity() {
         </select>
         <button className="btn sm" onClick={() => setPaused(!paused)}><Icon name={paused ? 'play' : 'pause'} size={12} /> {paused ? 'Resume' : 'Pause'}</button>
         <button className="btn sm" onClick={() => void exportCsv()} title="Save the connections as a spreadsheet (CSV)"><Icon name="down" size={12} /> Export</button>
-        <button className="btn sm icon" onClick={() => setSettingsOpen(true)} title="Options"><Icon name="settings" size={13} /></button>
+        <button className="btn sm icon" onClick={() => setSettingsOpen(true)} title="Options" aria-label="Options"><Icon name="settings" size={13} /></button>
       </div>
 
       {!s ? <Loading label="Reading connections…" /> : tab === 'apps' ? (
@@ -438,7 +438,7 @@ function NetOptions({ onClose }: { onClose: () => void }) {
           <div className="grow">
             <b>Countries and networks</b>
             <div className="small muted">Shows the country and owner of each internet address from a table kept on this computer. The table (about 12 MB to download, from DB-IP Lite) is fetched once when you turn this on; no address is ever looked up online.</div>
-            {geo?.state === 'downloading' ? <div className="progress" style={{ marginTop: 6 }}><i style={{ width: `${Math.round((geo.progress ?? 0) * 100)}%` }} /></div> : null}
+            {geo?.state === 'downloading' ? <div className="progress" role="progressbar" aria-label="Progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(Number(Math.round((geo.progress ?? 0) * 100)) || 0)} style={{ marginTop: 6 }}><i style={{ width: `${Math.round((geo.progress ?? 0) * 100)}%` }} /></div> : null}
             {geo?.state === 'ready' ? <div className="small muted">Data from {geo.date} · {geo.ranges?.toLocaleString()} address ranges. <a href="https://db-ip.com" onClick={(e) => { e.preventDefault(); void api.system.openExternal('https://db-ip.com'); }}>IP Geolocation by DB-IP</a> (CC BY 4.0).</div> : null}
             {geo?.state === 'error' ? <div className="small" style={{ color: 'var(--danger, #d33)' }}>{geo.message}</div> : null}
           </div>

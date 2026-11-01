@@ -16,7 +16,7 @@ function run(cmd: string, args: string[]): Promise<void> {
 }
 
 const shq = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`;
-const psq = (s: string) => `'${s.replace(/'/g, "''")}'`;
+const psq = (s: string) => `'${s.replace(/['‘’‚‛]/g, '$&$&')}'`;
 
 export async function installTunnelService(on: boolean, bin: string, token: string | undefined) {
   if (on && !token) throw new Error('A tunnel that keeps running needs a named tunnel and its token');

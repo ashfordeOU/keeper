@@ -217,7 +217,7 @@ export function SalesTool() {
         <label className="small"><input type="checkbox" checked={conf.ping} onChange={(e) => void api.islandTools.setSalesPrefs({ ping: e.target.checked }).then(setConf)} /> Ping on new sales</label>
         <select className="input sm" value={conf.currency} onChange={(e) => void api.islandTools.setSalesPrefs({ currency: e.target.value }).then(() => load(true))}>{['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD', 'INR', 'CHF', 'SEK', 'BRL'].map((c) => <option key={c}>{c}</option>)}</select>
         <label className="small" title="Convert other currencies with the European Central Bank's daily rates (downloads the rates once a day)"><input type="checkbox" checked={conf.convert} onChange={(e) => void api.islandTools.setSalesPrefs({ convert: e.target.checked }).then(() => load(true))} /> Convert currencies</label>
-        <button className="btn sm" onClick={() => load(true)}><Icon name="refresh" size={11} /></button>
+        <button aria-label="Refresh" title="Refresh" className="btn sm" onClick={() => load(true)}><Icon name="refresh" size={11} /></button>
       </div>
       {adding ? (() => {
         const p = conf.providers.find((x) => x.id === adding)!;
@@ -314,7 +314,7 @@ export function NotesTool({ store, save }: { store: IslandToolsStore; save: (p: 
   return (
     <div className="itool notes">
       <div className="nlist">
-        <div className="row-x"><input className="input sm grow" placeholder="Search notes" value={q} onChange={(e) => setQ(e.target.value)} /><button className="btn sm icon" title="New note" onClick={create}><Icon name="plus" size={11} /></button></div>
+        <div className="row-x"><input className="input sm grow" placeholder="Search notes" value={q} onChange={(e) => setQ(e.target.value)} /><button className="btn sm icon" title="New note" aria-label="New note" onClick={create}><Icon name="plus" size={11} /></button></div>
         <button className={`nitem ${cur && cur.id === todayPad([], dayKey(Date.now())).note.id ? 'on' : ''}`} onClick={openToday} data-testid="notes-today"><Icon name="sun" size={10} /> Today</button>
         {list.filter((n) => !isTodayPad(n) || n.id !== todayPad([], dayKey(Date.now())).note.id).map((n) => <button key={n.id} className={`nitem ${n.id === id ? 'on' : ''}`} onClick={() => setId(n.id)}>{n.pinned ? '📌 ' : ''}{noteTitle(n)}</button>)}
       </div>
@@ -561,7 +561,7 @@ export function CalendarTool({ now }: { state: IslandState; now: number }) {
   return (
     <div className={`itool cal${drop ? ' dropping' : ''}`} onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); setDrop(true); } }} onDragLeave={() => setDrop(false)} onDrop={(e) => void onDrop(e)}>
       <div className="mgrid">
-        <div className="row-x"><button className="btn sm icon" aria-label="Previous month" onClick={() => setMonth(new Date(m0.getFullYear(), m0.getMonth() - 1, 1).getTime())}><Icon name="chevronLeft" size={11} /></button><b className="grow" style={{ textAlign: 'center' }}>{m0.toLocaleDateString([], { month: 'long', year: 'numeric' })}</b><button className="btn sm icon" aria-label="Next month" onClick={() => setMonth(new Date(m0.getFullYear(), m0.getMonth() + 1, 1).getTime())}><Icon name="chevronRight" size={11} /></button></div>
+        <div className="row-x"><button className="btn sm icon" aria-label="Previous month" title="Previous month" onClick={() => setMonth(new Date(m0.getFullYear(), m0.getMonth() - 1, 1).getTime())}><Icon name="chevronLeft" size={11} /></button><b className="grow" style={{ textAlign: 'center' }}>{m0.toLocaleDateString([], { month: 'long', year: 'numeric' })}</b><button className="btn sm icon" aria-label="Next month" title="Next month" onClick={() => setMonth(new Date(m0.getFullYear(), m0.getMonth() + 1, 1).getTime())}><Icon name="chevronRight" size={11} /></button></div>
         <div className="mdays" role="grid" aria-label="Month">
           {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => <span key={i} className="muted small" aria-hidden>{d}</span>)}
           {days.map((d) => {

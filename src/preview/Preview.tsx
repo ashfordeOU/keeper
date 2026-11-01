@@ -173,7 +173,7 @@ export function Bar({ children }: { children: ReactNode }) {
 
 export function BarButton({ icon, label, onClick, on, disabled }: { icon?: string; label?: string; onClick: () => void; on?: boolean; disabled?: boolean }) {
   return (
-    <button className={`pv-btn ${on ? 'on' : ''}`} onClick={onClick} title={label} disabled={disabled} aria-pressed={on}>
+    <button className={`pv-btn ${on ? 'on' : ''}`} onClick={onClick} title={label} aria-label={icon ? label : undefined} disabled={disabled} aria-pressed={on}>
       {icon ? <Icon name={icon} size={14} /> : null}
       {label && !icon ? <span>{label}</span> : null}
     </button>

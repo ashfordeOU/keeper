@@ -49,7 +49,7 @@ function startVnc() {
   bg('wish', [tcl], { DISPLAY: VNC_DISPLAY });
   const pw = path.join(ROOT, 'vncpasswd');
   execFileSync('x11vnc', ['-storepasswd', VNC_PW, pw], { stdio: 'ignore' });
-  bg('x11vnc', ['-display', VNC_DISPLAY, '-rfbport', String(VNC_PORT), '-rfbauth', pw, '-forever', '-shared', '-localhost', '-quiet', '-noxdamage']);
+  bg('x11vnc', ['-display', VNC_DISPLAY, '-rfbport', String(VNC_PORT), '-rfbauth', pw, '-forever', '-shared', '-localhost', '-noxdamage', '-o', path.join(ROOT, 'x11vnc.log')]);
 }
 const SSH_PORT = 2299;
 function startSshd() {
@@ -158,6 +158,16 @@ async function pair(A, B) {
   check(!!typed, `typing reaches the VNC server (the remote text box says “${typed ?? (fs.existsSync(typedFile) ? fs.readFileSync(typedFile, 'utf8') : '')}”)`);
   await wait(800);
   await shot(main, 'rdc-vnc');
+
+  // The same desktop with “fast” pictures: Tight (fill, zlib and JPEG rectangles), JPEG drawn by the window's image decoder.
+  const fastConn = await api(main, 'rdc.save', { name: 'Test desktop (Tight)', protocol: 'vnc', host: '127.0.0.1', port: VNC_PORT, vnc: { picture: 'fast' } });
+  const fastRes = await api(main, 'rdc.connect', fastConn.id, { password: VNC_PW });
+  const tightBlue = await until(async () => { const c = await canvasColour(main); return near(c, [51, 102, 204]) ? c : null; }, 20000);
+  const xlog = fs.existsSync(path.join(ROOT, 'x11vnc.log')) ? fs.readFileSync(path.join(ROOT, 'x11vnc.log'), 'utf8') : '';
+  check(!!tightBlue && /Using tight encoding/.test(xlog), `with “fast” pictures the server used Tight (its log: ${/Using JPEG[^\n]*/.exec(xlog)?.[0] ?? 'no JPEG line'}) and the picture renders (pixel ${JSON.stringify(tightBlue)})`);
+  await shot(main, 'rdc-vnc-tight');
+  if (fastRes?.session) await api(main, 'rdc.disconnect', fastRes.session.id);
+  await wait(500);
 
   // ---------------------------------------------------------------- SSH in a terminal tab against a real sshd
   const sshConn = await api(main, 'rdc.save', { name: 'Local sshd', protocol: 'ssh', host: '127.0.0.1', port: SSH_PORT, user: os.userInfo().username, auth: 'key', keyFile: clientKey });

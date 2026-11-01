@@ -19,7 +19,7 @@
   --line-strong: rgba(20, 20, 30, .16);
   --text: #18181b;
   --text-2: #55555e;
-  --text-3: #8a8a93;
+  --text-3: #63636b;
   --accent: #5b5bf0;
   --accent-soft: rgba(91, 91, 240, .12);
   --accent-text: #fff;
@@ -56,7 +56,7 @@
     --line-strong: rgba(255, 255, 255, .15);
     --text: #f4f4f5;
     --text-2: #b4b4bc;
-    --text-3: #7c7c86;
+    --text-3: #919199;
     --accent: #8282ff;
     --accent-soft: rgba(130, 130, 255, .16);
     --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 6px 24px rgba(0, 0, 0, .3);
@@ -74,7 +74,7 @@
   --line-strong: rgba(255, 255, 255, .15);
   --text: #f4f4f5;
   --text-2: #b4b4bc;
-  --text-3: #7c7c86;
+  --text-3: #919199;
   --accent: #8282ff;
   --accent-soft: rgba(130, 130, 255, .16);
   --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 6px 24px rgba(0, 0, 0, .3);
@@ -281,14 +281,14 @@ html[data-look='minimal'] .toggle.on::after { background: var(--bg); }
 .divider { height: 1px; background: var(--line); margin: 12px 0; }
 
 .badge { display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 7px; border-radius: 20px; font-size: 11px; font-weight: 600; background: var(--bg-active); color: var(--text-2); white-space: nowrap; }
-.badge.safe, .badge.ok { background: var(--ok-soft); color: var(--ok); }
-.badge.review, .badge.warn { background: var(--warn-soft); color: var(--warn); }
-.badge.permanent, .badge.off, .badge.danger { background: var(--danger-soft); color: var(--danger); }
-.badge.accent { background: var(--accent-soft); color: var(--accent); }
+.badge.safe, .badge.ok { background: var(--ok-soft); color: var(--ok-ink, var(--ok)); }
+.badge.review, .badge.warn { background: var(--warn-soft); color: var(--warn-ink, var(--warn)); }
+.badge.permanent, .badge.off, .badge.danger { background: var(--danger-soft); color: var(--danger-ink, var(--danger)); }
+.badge.accent { background: var(--accent-soft); color: var(--accent-ink, var(--accent)); }
 
 .chip {
   display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 6px 0 10px; border-radius: 20px;
-  background: var(--accent-soft); color: var(--accent); font-weight: 600; font-size: 12px; border: 0; white-space: nowrap;
+  background: var(--accent-soft); color: var(--accent-ink, var(--accent)); font-weight: 600; font-size: 12px; border: 0; white-space: nowrap;
 }
 .chip button { border: 0; background: none; color: inherit; opacity: .6; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; padding: 0; cursor: default; }
 .chip button:hover { opacity: 1; background: var(--bg-hover); }

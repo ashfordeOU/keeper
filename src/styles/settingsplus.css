@@ -4,7 +4,7 @@
 .sp-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 12px; }
 .sp-cats { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 12px; }
 .sp-cats .chip { cursor: pointer; border: 1px solid var(--line); background: var(--bg-elev); }
-.sp-cats .chip.on { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+.sp-cats .chip.on { background: var(--accent-soft); color: var(--accent-ink, var(--accent)); border-color: transparent; }
 .sp-tech { font-family: var(--mono, ui-monospace, monospace); font-size: 11px; color: var(--text-3, var(--text-2)); margin-top: 2px; word-break: break-all; }
 .sp-ctl { display: flex; align-items: center; gap: 6px; flex: none; }
 .sp-ctl select, .sp-ctl input { height: 28px; max-width: 220px; }

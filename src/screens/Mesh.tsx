@@ -225,7 +225,7 @@ function Peer({ p, net, act, copy, exit }: { p: MeshPeerView; net: string; act: 
       <span className="num small">↓ {formatBytes(p.rx)}<br />↑ {formatBytes(p.tx)}</span>
       <span className="mesh-actions">
         {p.routes.length ? <label className="small" title={p.routes.join(', ')}><input type="checkbox" checked={p.routesAccepted} onChange={(e) => void act(api.mesh.acceptRoutes(p.device, e.target.checked))} /> use {p.routes.length === 1 ? p.routes[0] : `${p.routes.length} networks`}</label> : null}
-        <button className="btn ghost sm" title="Remove from this network" onClick={() => void act(api.mesh.removeMember(net, p.device))}><Icon name="close" size={12} /></button>
+        <button className="btn ghost sm" title="Remove from this network" aria-label="Remove from this network" onClick={() => void act(api.mesh.removeMember(net, p.device))}><Icon name="close" size={12} /></button>
       </span>
     </div>
   );
@@ -242,7 +242,7 @@ function Rules({ n, act }: { n: MeshNetView; act: (p: Promise<unknown>, done?: s
       {n.rules.map((r) => (
         <div key={r.id} className="row mesh-rule">
           <span className="grow small">{who(r.from)} → {r.ports.trim().toLowerCase() === 'all' ? 'every port' : `port ${r.ports}`}{r.proto === 'any' ? '' : ` (${r.proto.toUpperCase()})`}</span>
-          <button className="btn ghost sm" onClick={() => void act(api.mesh.removeRule(n.id, r.id))}><Icon name="close" size={12} /></button>
+          <button aria-label="Remove rule" title="Remove rule" className="btn ghost sm" onClick={() => void act(api.mesh.removeRule(n.id, r.id))}><Icon name="close" size={12} /></button>
         </div>
       ))}
       <div className="row mesh-rule-add">

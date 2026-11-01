@@ -64,13 +64,18 @@ export function QuickSearch() {
   const alt = isMac ? '⌥' : 'Alt';
 
   return (
-    <div className="quick">
+    <div className="quick" role="dialog" aria-label="Quick Search">
       <div className="q-input">
         <Icon name={mode === 'ask' ? 'sparkle' : 'search'} size={20} />
         <input
           ref={input}
           autoFocus
           value={text}
+          role="combobox"
+          aria-label={mode === 'ask' ? 'Ask about your files (Tab switches to finding files)' : 'Find any file (Tab switches to asking)'}
+          aria-expanded="true"
+          aria-controls="quick-results"
+          aria-activedescendant={mode === 'find' && files[index] ? `quick-opt-${index}` : undefined}
           placeholder={mode === 'ask' ? 'Ask about your files…' : 'Find any file…'}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
@@ -88,18 +93,18 @@ export function QuickSearch() {
           {parsed.chips.map((c, i) => <span key={i} className="chip" style={{ paddingRight: 10 }}>{c.label}</span>)}
         </div>
       ) : null}
-      <div className="q-results" ref={list}>
+      <div className="q-results" ref={list} id="quick-results" role="listbox" aria-label={mode === 'ask' ? 'Ask' : 'Files'}>
         {mode === 'ask' ? (
-          <div className="q-row on" onClick={() => { if (text.trim()) { void api.platform.ask(text.trim()); window.close(); } }}>
+          <div className="q-row on" role="option" aria-selected="true" onClick={() => { if (text.trim()) { void api.platform.ask(text.trim()); window.close(); } }}>
             <Icon name="sparkle" size={18} />
             <div className="grow ellipsis" style={{ fontWeight: 550 }}>{text.trim() ? `Ask Keeper: “${text.trim()}”` : 'Type a question, for example “when does my passport expire?”'}</div>
           </div>
         ) : null}
         {mode === 'find' && cues.length ? (
           <>
-            <div className="small muted" style={{ padding: '4px 10px' }}>Cues</div>
+            <div className="small muted" role="presentation" style={{ padding: '4px 10px' }}>Cues</div>
             {cues.map((c) => (
-              <div key={c.id} className="q-row" data-testid="quick-cue" onClick={() => { void api.cues.openPage(c.id); window.close(); }}>
+              <div key={c.id} className="q-row" role="option" aria-selected="false" data-testid="quick-cue" onClick={() => { void api.cues.openPage(c.id); window.close(); }}>
                 <div style={{ width: 30, height: 30, borderRadius: 7, background: 'var(--bg-sunk)', display: 'grid', placeItems: 'center', flex: 'none', color: '#ff9f0a' }}><Icon name="pin" size={16} /></div>
                 <div className="grow">
                   <div className="ellipsis" style={{ fontWeight: 550 }}>{c.title}</div>
@@ -107,12 +112,12 @@ export function QuickSearch() {
                 </div>
               </div>
             ))}
-            <div className="small muted" style={{ padding: '4px 10px' }}>Files</div>
+            <div className="small muted" role="presentation" style={{ padding: '4px 10px' }}>Files</div>
           </>
         ) : null}
-        {!text ? <div className="small muted" style={{ padding: '4px 10px' }}>Recent</div> : null}
+        {!text ? <div className="small muted" role="presentation" style={{ padding: '4px 10px' }}>Recent</div> : null}
         {files.map((f, i) => (
-          <div key={f.path} className={`q-row ${mode === 'find' && i === index ? 'on' : ''}`} onMouseEnter={() => setIndex(i)} onClick={(e) => act(f, e)}
+          <div key={f.path} id={`quick-opt-${i}`} role="option" aria-selected={mode === 'find' && i === index} className={`q-row ${mode === 'find' && i === index ? 'on' : ''}`} onMouseMove={() => { if (i !== index) setIndex(i); }} onClick={(e) => act(f, e)}
             draggable onDragStart={(e) => { e.preventDefault(); api.files.startDrag([f.path]); }}>
             <div style={{ width: 30, height: 30, borderRadius: 7, overflow: 'hidden', background: 'var(--bg-sunk)', display: 'grid', placeItems: 'center', flex: 'none' }}><Thumb file={f} size={64} /></div>
             <div className="grow">
@@ -121,7 +126,7 @@ export function QuickSearch() {
             </div>
           </div>
         ))}
-        {text && !files.length ? <div className="empty small">No matches</div> : null}
+        {text && !files.length ? <div className="empty small" role="status">No matches</div> : null}
       </div>
       <div className="q-foot">{mode === 'ask' ? <span>↩ ask</span> : null}<span>⇥ {mode === 'ask' ? 'find files' : 'ask instead'}</span>{mode === 'find' ? <span>↩ open</span> : null}<span>{cmd}↩ show in Keeper</span><span>{alt}↩ show in folder</span><span>esc close</span></div>
     </div>

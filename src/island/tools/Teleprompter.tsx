@@ -148,7 +148,7 @@ export function TeleprompterTool({ store, save }: { store: IslandToolsStore; sav
       </div>
       <div className="row-x">
         <button className="btn sm primary" onClick={() => (running ? setRunning(false) : setCountdown(3))}><Icon name={running ? 'pause' : 'play'} size={11} /> {running ? 'Pause' : 'Start'}</button>
-        <button className="btn sm" onClick={() => { setRunning(false); restart(); }} title="Back to the top (R)"><Icon name="undo" size={11} /></button>
+        <button className="btn sm" onClick={() => { setRunning(false); restart(); }} title="Back to the top (R)" aria-label="Back to the top (R)"><Icon name="undo" size={11} /></button>
         <span className="small muted">Speed</span><input type="range" min={60} max={300} step={10} value={wpm} onChange={(e) => setWpm(Number(e.target.value))} style={{ width: 80 }} /><span className="small num">{wpm}</span>
         <span className="small muted">Size</span><input type="range" min={14} max={48} value={font} onChange={(e) => setFont(Number(e.target.value))} style={{ width: 60 }} />
         <button className={`chip ${mirror ? 'on' : ''}`} onClick={() => setMirror(!mirror)} title="Flip for a mirror rig (M)">Flip</button>

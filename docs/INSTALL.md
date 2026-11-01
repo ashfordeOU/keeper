@@ -280,10 +280,13 @@ A release is a version bump in `package.json` on `main`, or a pushed tag such as
 | Chocolatey `keeper-files` | Needs a secret, then moderation | `CHOCO_API_KEY` from community.chocolatey.org. The first version waits for human moderation. |
 | AUR `keeper-bin` | Needs a one-time step and a secret | Create the AUR account and add its SSH key. `AUR_SSH_KEY` is the private key. The first push creates the package. |
 | Snap Store | Needs a one-time step and a secret | `snapcraft register keeper`, then request classic confinement on the forum. `SNAPCRAFT_STORE_CREDENTIALS` comes from `snapcraft export-login -`. |
-| Flathub | One-time manual submission | Open a pull request to `flathub/flathub` with the files from `packaging/flatpak` (rendered: `node scripts/render-packaging.mjs --only flatpak`). Flathub's bot proposes updates after that. |
+| Flathub | One-time manual submission | Open a pull request to `flathub/flathub` with the files from `packaging/flatpak` (rendered: `node scripts/render-packaging.mjs --only flatpak`). Flathub's bot proposes updates after that. Steps: [STORES.md → Flathub](STORES.md#flathub). |
+| Microsoft Store | One-time Partner Center setup, then a manual upload per version | The `msstore` job builds the `.msix` as a workflow artifact. Variables `MSSTORE_IDENTITY_NAME` and `MSSTORE_PUBLISHER` come from Partner Center. Steps: [STORES.md](STORES.md#microsoft-store). |
 | GPG signatures, apt and dnf repositories | Needs a secret and a one-time step | `KEEPER_GPG_PRIVATE_KEY` (plus `KEEPER_GPG_PASSPHRASE` if the key has one); see [KEYS/keeper-release.asc](../KEYS/keeper-release.asc). Enable GitHub Pages from the `gh-pages` branch for the dnf repository. |
 | macOS Developer ID and notarization | Optional, paid | `CSC_LINK` (base64 .p12 Developer ID Application certificate), `CSC_KEY_PASSWORD`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID` |
 | Windows code signing | Optional | A certificate: `WIN_CSC_LINK`, `WIN_CSC_KEY_PASSWORD`. Or Azure Trusted Signing: secrets `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` and variables `AZURE_TRUSTED_SIGNING_ENDPOINT`, `AZURE_TRUSTED_SIGNING_ACCOUNT`, `AZURE_TRUSTED_SIGNING_PROFILE` |
+
+Pre-release tags (`v0.2.0-beta.1`) go to GitHub only and skip every channel above. See [BETA.md](BETA.md).
 
 **Signing, honestly.**
 

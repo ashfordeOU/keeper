@@ -118,9 +118,9 @@ function Timers({ timers }: { timers: CountdownTimer[] }) {
               <div className="timer-left">{fmt(left)}</div>
               <div className="small muted ellipsis">{t.label}{t.endsAt === undefined ? ' (paused)' : ''}</div>
               <div className="btn-row" style={{ justifyContent: 'center' }}>
-                {t.endsAt !== undefined ? <button className="btn sm" onClick={() => void api.pim.timerAction(t.id, 'pause')}><Icon name="pause" size={12} /></button> : <button className="btn sm" onClick={() => void api.pim.timerAction(t.id, 'resume')}><Icon name="play" size={12} /></button>}
-                <button className="btn sm" onClick={() => void api.pim.timerAction(t.id, 'restart')}><Icon name="refresh" size={12} /></button>
-                <button className="btn sm" onClick={() => void api.pim.timerAction(t.id, 'cancel')}><Icon name="close" size={12} /></button>
+                {t.endsAt !== undefined ? <button aria-label="Pause timer" title="Pause timer" className="btn sm" onClick={() => void api.pim.timerAction(t.id, 'pause')}><Icon name="pause" size={12} /></button> : <button aria-label="Resume timer" title="Resume timer" className="btn sm" onClick={() => void api.pim.timerAction(t.id, 'resume')}><Icon name="play" size={12} /></button>}
+                <button aria-label="Restart timer" title="Restart timer" className="btn sm" onClick={() => void api.pim.timerAction(t.id, 'restart')}><Icon name="refresh" size={12} /></button>
+                <button aria-label="Cancel timer" title="Cancel timer" className="btn sm" onClick={() => void api.pim.timerAction(t.id, 'cancel')}><Icon name="close" size={12} /></button>
               </div>
             </div>
           );

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Default settings and a lenient reader for settings loaded from disk.
 
+import { defaultA11y, normalizeA11y } from './a11y';
 import { defaultAwakeSettings, normalizeAwakeSettings } from './awake-engine';
 import { defaultAbilities } from './abilities/config';
 import type { IslandSettings } from './api';
@@ -85,6 +86,7 @@ export function defaultSettings(folders: string[], rules: Rule[]): AllSettings {
     corners: 'theme',
     themeSeasons: false,
     hemisphere: 'auto',
+    a11y: defaultA11y(),
     folders,
     excluded: [],
     showHidden: false,
@@ -166,6 +168,7 @@ export function mergeSettings(base: AllSettings, raw: unknown): AllSettings {
   if (!['theme', 'rounded', 'sharp'].includes(out.corners)) out.corners = 'theme';
   out.themeSeasons = out.themeSeasons === true;
   if (!['auto', 'north', 'south'].includes(out.hemisphere ?? '')) out.hemisphere = 'auto';
+  out.a11y = normalizeA11y(out.a11y);
   // Settings from before the brain had one AI choice; it becomes the active connection.
   out.brain = normalizeBrainSettings(r.brain && typeof r.brain === 'object' ? out.brain : undefined, out.ai);
   out.sync = normalizeSyncSettings(out.sync, base.sync);

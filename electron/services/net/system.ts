@@ -381,9 +381,9 @@ export async function vpnConnect(v: VpnConn, up: boolean): Promise<{ ok: boolean
     return r.ok ? { ok: true } : { ok: false, message: r.stdout.trim().split(/\r?\n/).filter(Boolean).pop() ?? 'Windows refused.' };
   }
   if (v.source === 'wireguard-service') {
-    const svc = `WireGuardTunnel$${v.name}`.replace(/'/g, "''");
+    const svc = `WireGuardTunnel$${v.name}`.replace(/['‘’‚‛]/g, '$&$&');
     const cmd = up ? `Start-Service -Name '${svc}'` : `Stop-Service -Name '${svc}'`;
-    const r = await powershell(`try { $p = Start-Process -FilePath powershell.exe -ArgumentList '-NoProfile','-Command',"${cmd.replace(/"/g, '`"')}" -Verb RunAs -WindowStyle Hidden -PassThru -Wait; exit $p.ExitCode } catch { exit 5 }`, 120_000);
+    const r = await powershell(`try { $p = Start-Process -FilePath powershell.exe -ArgumentList '-NoProfile','-Command','${cmd.replace(/['‘’‚‛]/g, '$&$&')}' -Verb RunAs -WindowStyle Hidden -PassThru -Wait; exit $p.ExitCode } catch { exit 5 }`, 120_000);
     return r.ok ? { ok: true } : { ok: false, message: 'Windows needs administrator approval to switch WireGuard tunnels.', needsAdmin: true };
   }
   return { ok: false, message: 'Keeper can\'t switch this connection; use the app that manages it.' };

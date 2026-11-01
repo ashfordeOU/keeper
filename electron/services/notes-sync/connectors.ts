@@ -19,7 +19,7 @@ import { BEAR_DB_REL, BEAR_SQL, bearCreateUrl, bearTrashUrl, bearUpdateUrl, from
 import { NotionApi } from '../../../core/notes-sync/connectors/notion';
 import { OneNoteApi } from '../../../core/notes-sync/connectors/onenote';
 import { SimplenoteApi } from '../../../core/notes-sync/connectors/simplenote';
-import { parseSnBackup, snRootKey, type Argon2 } from '../../../core/notes-sync/connectors/standardnotes';
+import { parseSnBackup, snRootKey, StandardNotesApi, type Argon2, type SnSession } from '../../../core/notes-sync/connectors/standardnotes';
 import type { ConnectorKind, RemoteNote } from '../../../core/notes-sync/types';
 import { readRows, runWrite } from './sqlite';
 import { permissionNeeded } from '../permission-nudge';
@@ -40,6 +40,8 @@ export interface ConnectorConfig {
 
 export interface IoDeps {
   secret(name: string): Promise<string | undefined>;
+  /** stores (or, with undefined, forgets) a secret in the system keychain */
+  saveSecret?(name: string, value: string | undefined): Promise<void>;
   openUrl(url: string): Promise<void>;
   trashFile(p: string): Promise<void>;
   /** Keeper's own quick notes (the Island) */
@@ -75,13 +77,25 @@ const need = (v: string | undefined, what: string) => {
   return v;
 };
 
-// Node 24 (in Electron) has Argon2 built in; the type definitions here are older.
+// Node 24 has crypto.argon2, but Electron's build of it (BoringSSL) answers
+// "Argon2 algorithm not supported"; then a pure JavaScript Argon2id is used,
+// in small steps so the app keeps responding (a few seconds, once per sign-in).
 type NodeArgon2 = (algo: 'argon2id', p: { message: string; nonce: Uint8Array; parallelism: number; tagLength: number; memory: number; passes: number }, cb: (err: Error | null, key: Buffer) => void) => void;
-const argon2: Argon2 = (password, salt, o) => new Promise((resolve, reject) => {
+export const argon2: Argon2 = async (password, salt, o) => {
   const fn = (nodeCrypto as unknown as { argon2?: NodeArgon2 }).argon2;
-  if (typeof fn !== 'function') return reject(new Error('Opening encrypted backups needs a newer Keeper.'));
-  fn('argon2id', { message: password, nonce: salt, parallelism: o.parallelism, tagLength: o.length, memory: o.memoryKiB, passes: o.iterations }, (err, key) => (err ? reject(err) : resolve(new Uint8Array(key))));
-});
+  if (typeof fn === 'function') {
+    const native = await new Promise<Uint8Array | null>((resolve) => {
+      try {
+        fn('argon2id', { message: password, nonce: salt, parallelism: o.parallelism, tagLength: o.length, memory: o.memoryKiB, passes: o.iterations }, (err, key) => resolve(err ? null : new Uint8Array(key)));
+      } catch {
+        resolve(null);
+      }
+    });
+    if (native) return native;
+  }
+  const { argon2idAsync } = await import('@noble/hashes/argon2');
+  return argon2idAsync(new TextEncoder().encode(password), salt, { t: o.iterations, m: o.memoryKiB, p: o.parallelism, dkLen: o.length, asyncTick: 10 });
+};
 
 // ---------------------------------------------------------------- plain folders
 
@@ -190,6 +204,27 @@ export async function connectorIO(c: ConnectorConfig, d: IoDeps): Promise<Connec
         }
         return r.notes;
       });
+
+    case 'standardnotes-sync': {
+      const name = `notesync.${c.id}.session`;
+      let session: SnSession | undefined;
+      try { session = JSON.parse((await d.secret(name)) ?? 'null') ?? undefined; } catch { session = undefined; }
+      const code = await sec('code');
+      return new StandardNotesApi({
+        server: c.fields.server || undefined,
+        email: need(c.fields.email, 'your Standard Notes email'),
+        password: need(await sec('password'), 'your Standard Notes password'),
+        code: code || undefined,
+        session,
+        fetch: fetchFn,
+        argon2,
+        onSession: async (s) => {
+          await d.saveSecret?.(name, s ? JSON.stringify(s) : undefined);
+          // a two-step code works once: forget it after signing in
+          if (s && code) await d.saveSecret?.(`notesync.${c.id}.code`, undefined);
+        },
+      });
+    }
 
     case 'notesnook':
       return importOnly(async () => {

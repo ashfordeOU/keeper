@@ -197,23 +197,23 @@ describe('live receivers', () => {
   it('takes OwnTracks and OsmAnd posts with the token, refuses without it', async () => {
     const got: LivePosition[] = [];
     const p = port();
-    await startReceiver({ port: p, lan: false, token: 'tok', ownTracks: true, osmand: true, onPosition: (x) => got.push(x), onName: () => undefined });
+    await startReceiver({ port: p, lan: false, token: 'tok-0123456789abcd', ownTracks: true, osmand: true, onPosition: (x) => got.push(x), onName: () => undefined });
     expect(receiverStatus()).toMatchObject({ running: true, url: `http://127.0.0.1:${p}` });
     const base = `http://127.0.0.1:${p}`;
     const body = JSON.stringify({ _type: 'location', lat: 52.52, lon: 13.4, tst: 1778760000, tid: 'AX' });
     expect((await fetch(`${base}/owntracks`, { method: 'POST', body })).status).toBe(401);
-    const ok = await fetch(`${base}/owntracks`, { method: 'POST', body, headers: { authorization: `Basic ${Buffer.from('alex:tok').toString('base64')}`, 'x-limit-u': 'alex', 'x-limit-d': 'phone', 'content-type': 'application/json' } });
+    const ok = await fetch(`${base}/owntracks`, { method: 'POST', body, headers: { authorization: `Basic ${Buffer.from('alex:tok-0123456789abcd').toString('base64')}`, 'x-limit-u': 'alex', 'x-limit-d': 'phone', 'content-type': 'application/json' } });
     expect(ok.status).toBe(200);
     expect(await ok.json()).toEqual([]);
-    expect((await fetch(`${base}/?id=77&lat=59.4&lon=24.7&token=tok`)).status).toBe(200);
-    expect((await fetch(`${base}/osmand?id=77&lat=bad&lon=24.7&token=tok`)).status).toBe(400);
+    expect((await fetch(`${base}/?id=77&lat=59.4&lon=24.7&token=tok-0123456789abcd`)).status).toBe(200);
+    expect((await fetch(`${base}/osmand?id=77&lat=bad&lon=24.7&token=tok-0123456789abcd`)).status).toBe(400);
     expect(got.map((x) => x.id)).toEqual(['owntracks:alex/phone', 'osmand:77']);
   });
 
   it('answers 404 for a receiver that is switched off', async () => {
     const p = port();
-    await startReceiver({ port: p, lan: false, token: 't', ownTracks: false, osmand: true, onPosition: () => undefined, onName: () => undefined });
-    expect((await fetch(`http://127.0.0.1:${p}/owntracks?token=t`, { method: 'POST', body: '{}' })).status).toBe(404);
+    await startReceiver({ port: p, lan: false, token: 't-0123456789abcdef', ownTracks: false, osmand: true, onPosition: () => undefined, onName: () => undefined });
+    expect((await fetch(`http://127.0.0.1:${p}/owntracks?token=t-0123456789abcdef`, { method: 'POST', body: '{}' })).status).toBe(404);
   });
 
   it('subscribes to an MQTT broker and receives OwnTracks positions', async () => {

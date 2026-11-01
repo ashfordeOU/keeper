@@ -87,7 +87,7 @@ export function Trash() {
               </div>
               <span className="small muted">{i.deletedAt ? relativeTime(i.deletedAt) : '—'}</span>
               <span className="small" style={{ textAlign: 'right' }}>{formatBytes(i.size)}</span>
-              <button className="btn ghost sm icon" title="Put back" disabled={!list.canRestore || busy} onClick={(e) => { e.stopPropagation(); void restore([i.id]); }}><Icon name="undo" size={13} /></button>
+              <button className="btn ghost sm icon" title="Put back" aria-label="Put back" disabled={!list.canRestore || busy} onClick={(e) => { e.stopPropagation(); void restore([i.id]); }}><Icon name="undo" size={13} /></button>
             </div>
           ))}
         </div>

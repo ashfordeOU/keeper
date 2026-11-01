@@ -57,7 +57,7 @@ export function ConnectDialog({ initial = '', onClose }: { initial?: string; onC
               <div key={s} className="recent-server">
                 <Icon name="server" size={14} />
                 <button className="btn ghost sm grow" style={{ justifyContent: 'flex-start', fontFamily: 'var(--mono)' }} onClick={() => setAddress(s)} onDoubleClick={() => void connect(s)}>{s}</button>
-                <button className="btn ghost sm icon" title="Forget" onClick={() => void api.places.forgetServer(s).then(setRecent)}><Icon name="close" size={12} /></button>
+                <button className="btn ghost sm icon" title="Forget" aria-label="Forget" onClick={() => void api.places.forgetServer(s).then(setRecent)}><Icon name="close" size={12} /></button>
               </div>
             ))}
           </div>
@@ -113,7 +113,7 @@ export function Network() {
                 {p.protocol ? <span className="proto">{p.protocol}</span> : null}
               </div>
               <button className="btn sm" onClick={() => go({ name: 'browse', arg: p.path })}>Open</button>
-              <button className="btn ghost sm icon" title={`Disconnect ${p.name}`} onClick={() => void eject(p.path, p.name)}><Icon name="eject" size={13} /></button>
+              <button className="btn ghost sm icon" title={`Disconnect ${p.name}`} aria-label={`Disconnect ${p.name}`} onClick={() => void eject(p.path, p.name)}><Icon name="eject" size={13} /></button>
             </div>
           ))}
         </div>

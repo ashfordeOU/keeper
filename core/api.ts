@@ -247,6 +247,8 @@ export interface IslandState {
   cueHere?: { id: string; title: string; count: number };
   /** the AI allowance closest to its limit, pinned beside the pill when asked */
   usagePin?: { tool: string; label: string; percent: number };
+  /** an AI limit running out or used up (the usage tracker), shown as a ring activity */
+  usageAlert?: { id: string; title: string; detail: string; left: number; urgency: 'running-out' | 'used-up' };
   /** where other apps' notifications come from here, and why not when they cannot */
   notifyMode?: { mode: string; problem?: string };
 }
@@ -405,6 +407,8 @@ export interface KeeperApi extends KeeperApiX {
   /** anonymous usage stats: the switch, exactly what is sent, and the install ID */
   usageStats: import('./telemetry').UsageStatsApi;
   permissions: import('./permissions').PermissionsApi;
+  /** AI usage and subscriptions: limits left per account, warnings, the menu-bar pop-over */
+  aiUsage: import('./api-ai-usage').AiUsageApi;
   /** Keeper's sister apps by Ashforde (Monorail on macOS) */
   ashforde: AshfordeApi;
   /** Keep Awake: sessions, triggers, closed-lid mode, statistics */

@@ -138,22 +138,22 @@ export function Player() {
           <i style={{ width: `${progress * 100}%` }} />
         </div>
       </div>
-      <button className="btn ghost sm icon" title="Previous" onClick={() => step(-1)}><Icon name="prev" size={12} /></button>
-      <button className="btn ghost sm icon" title="Play / pause" onClick={toggle}><Icon name={paused ? 'play' : 'pause'} size={12} /></button>
-      <button className="btn ghost sm icon" title="Next" onClick={() => step(1)}><Icon name="next" size={12} /></button>
-      <button className={`btn ghost sm icon ${shuffle ? 'on' : ''}`} title={shuffle ? 'Shuffle on' : 'Shuffle off'} style={{ color: shuffle ? 'var(--accent)' : undefined }} onClick={() => setShuffle(!shuffle)}><Icon name="shuffle" size={12} /></button>
+      <button className="btn ghost sm icon" title="Previous" aria-label="Previous" onClick={() => step(-1)}><Icon name="prev" size={12} /></button>
+      <button className="btn ghost sm icon" title="Play / pause" aria-label="Play / pause" onClick={toggle}><Icon name={paused ? 'play' : 'pause'} size={12} /></button>
+      <button className="btn ghost sm icon" title="Next" aria-label="Next" onClick={() => step(1)}><Icon name="next" size={12} /></button>
+      <button className={`btn ghost sm icon ${shuffle ? 'on' : ''}`} title={shuffle ? 'Shuffle on' : 'Shuffle off'} aria-label={shuffle ? 'Shuffle on' : 'Shuffle off'} style={{ color: shuffle ? 'var(--accent)' : undefined }} onClick={() => setShuffle(!shuffle)}><Icon name="shuffle" size={12} /></button>
       <button className="btn ghost sm icon" title={repeat === 'off' ? 'Repeat off' : repeat === 'all' ? 'Repeat folder' : 'Repeat this song'} style={{ color: repeat !== 'off' ? 'var(--accent)' : undefined, position: 'relative' }} onClick={() => setRepeat(repeat === 'off' ? 'all' : repeat === 'all' ? 'one' : 'off')}>
         <Icon name="repeat" size={12} />{repeat === 'one' ? <span style={{ position: 'absolute', fontSize: 8, bottom: 1, right: 3 }}>1</span> : null}
       </button>
       <div style={{ position: 'relative' }}>
-        <button className="btn ghost sm icon" title={`Volume ${Math.round(volume * 100)}%`} onClick={() => setShowVol(!showVol)}><Icon name="audio" size={12} /></button>
+        <button className="btn ghost sm icon" title={`Volume ${Math.round(volume * 100)}%`} aria-label={`Volume ${Math.round(volume * 100)}%`} onClick={() => setShowVol(!showVol)}><Icon name="audio" size={12} /></button>
         {showVol ? (
           <div className="menu" style={{ position: 'absolute', top: 30, right: 0, minWidth: 0, padding: 8 }} onMouseLeave={() => setShowVol(false)}>
             <input type="range" min={0} max={1} step={0.05} value={volume} onChange={(e) => setVolume(+e.target.value)} style={{ width: 120 }} aria-label="Volume" />
           </div>
         ) : null}
       </div>
-      <button className="btn ghost sm icon" title="Stop" onClick={() => play(null)}><Icon name="close" size={12} /></button>
+      <button className="btn ghost sm icon" title="Stop" aria-label="Stop" onClick={() => play(null)}><Icon name="close" size={12} /></button>
       <audio
         ref={audio}
         src={src}

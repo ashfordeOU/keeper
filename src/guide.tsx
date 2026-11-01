@@ -154,7 +154,7 @@ export function GuideBody({ id, compact, onClose }: { id: string; compact?: bool
       <div className="guide-head">
         <span className={`badge ${SEV_CLASS[f.severity]}`}>{AREA_LABEL[f.area]}</span>
         <h3 className="grow">{f.title}</h3>
-        {onClose ? <button className="btn sm ghost icon" title="Close" onClick={onClose}><Icon name="close" size={13} /></button> : null}
+        {onClose ? <button className="btn sm ghost icon" title="Close" aria-label="Close" onClick={onClose}><Icon name="close" size={13} /></button> : null}
       </div>
       {!compact ? <p className="small"><b>{gt('why', lang)}:</b> {f.why}</p> : null}
       {f.impact ? <div className="guide-impact small">{f.impact}</div> : null}
@@ -192,7 +192,7 @@ export function GuideBody({ id, compact, onClose }: { id: string; compact?: bool
             if (!r.ok) toast(r.message ?? 'Could not open it');
             else if (!compact) void api.guide.mini(id);
           }}><Icon name="external" size={13} /> {fix.label || gt('openForMe', lang)}</button>
-          {!compact ? <button className="btn ghost sm" title={gt('keepOnTop', lang)} onClick={() => void api.guide.mini(id)}><Icon name="pin" size={12} /></button> : null}
+          {!compact ? <button className="btn ghost sm" title={gt('keepOnTop', lang)} aria-label={gt('keepOnTop', lang)} onClick={() => void api.guide.mini(id)}><Icon name="pin" size={12} /></button> : null}
         </div>
       ) : null}
 
@@ -257,7 +257,7 @@ export function GuideMini() {
   useEffect(() => { document.documentElement.dataset.view = 'guide-mini'; }, []);
   return (
     <div className="guide-mini">
-      <div className="guide-mini-bar"><Icon name="sparkle" size={13} /><span className="grow">Keeper</span><button className="btn sm ghost icon" title="Close" onClick={() => void api.guide.mini(null)}><Icon name="close" size={12} /></button></div>
+      <div className="guide-mini-bar"><Icon name="sparkle" size={13} /><span className="grow">Keeper</span><button className="btn sm ghost icon" title="Close" aria-label="Close" onClick={() => void api.guide.mini(null)}><Icon name="close" size={12} /></button></div>
       {id ? <GuideBody id={id} compact /> : null}
     </div>
   );

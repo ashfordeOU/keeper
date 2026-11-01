@@ -159,8 +159,8 @@ export function SidebarPanel() {
           <div key={id} className="sidebar-custom-row">
             <i className="sec-dot" style={{ background: SECTION_COLOR[id] }} />
             <span className="grow">{SECTION_NAMES[id] ?? id}</span>
-            <button className="btn sm ghost icon" title="Move up" disabled={i === 0} onClick={() => move(i, -1)}><Icon name="arrowUp" size={13} /></button>
-            <button className="btn sm ghost icon" title="Move down" disabled={i === order.length - 1} onClick={() => move(i, 1)}><Icon name="chevronDown" size={13} /></button>
+            <button className="btn sm ghost icon" title="Move up" aria-label="Move up" disabled={i === 0} onClick={() => move(i, -1)}><Icon name="arrowUp" size={13} /></button>
+            <button className="btn sm ghost icon" title="Move down" aria-label="Move down" disabled={i === order.length - 1} onClick={() => move(i, 1)}><Icon name="chevronDown" size={13} /></button>
             <Toggle on={shown} onChange={(v) => toggle(`section:${id}`, v)} />
           </div>
         );

@@ -226,7 +226,7 @@ export function Graph() {
         <canvas ref={canvas} className="graph-canvas" aria-label="Knowledge graph" />
         {sel ? (
           <div className="card graph-side">
-            <div className="row" style={{ gap: 8 }}><span className="dot" style={{ background: colorOf(sel) }} /><b className="grow ellipsis">{sel.label}</b><button className="btn sm ghost icon" onClick={() => { setSel(null); selRef.current = -1; }}><Icon name="close" size={12} /></button></div>
+            <div className="row" style={{ gap: 8 }}><span className="dot" style={{ background: colorOf(sel) }} /><b className="grow ellipsis">{sel.label}</b><button aria-label="Close" title="Close" className="btn sm ghost icon" onClick={() => { setSel(null); selRef.current = -1; }}><Icon name="close" size={12} /></button></div>
             {sel.path ? <div className="small muted ellipsis" title={sel.path}>{sel.path}</div> : null}
             <div className="btn-row" style={{ margin: '8px 0' }}>
               {sel.type === 'file' && sel.path ? <button className="btn sm" onClick={() => void api.files.open(sel.path!)}>Open</button> : null}

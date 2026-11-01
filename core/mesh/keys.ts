@@ -51,6 +51,8 @@ export interface MeshRecord {
   a4?: string;
   /** the UDP port its mesh socket listens on */
   port: number;
+  /** its WireGuard listen port, for the direct handoff (optional: older records have none) */
+  wgp?: number;
   cands: Candidate[];
   /** half of the key that authenticates path probes (secret: travels only inside Link) */
   pk: string;
@@ -110,6 +112,7 @@ export function verifyRecord(pinnedPub: Uint8Array, s: SignedRecord, want: { net
     if (!p || familyOf(r.a4) !== 4 || !inPrefix(r.a4, p.net, p.prefix)) return { ok: false, why: 'IPv4 address outside the network' };
   }
   if (!Number.isInteger(r.port) || r.port < 1 || r.port > 65535) return { ok: false, why: 'bad port' };
+  if (r.wgp !== undefined && (!Number.isInteger(r.wgp) || r.wgp < 1 || r.wgp > 65535)) return { ok: false, why: 'bad WireGuard port' };
   if (!Array.isArray(r.cands) || r.cands.length > 32) return { ok: false, why: 'bad candidates' };
   for (const c of r.cands) if (!c || !['lan', 'public', 'relay'].includes(c.kind) || typeof c.addr !== 'string' || c.addr.length > 300) return { ok: false, why: 'bad candidate' };
   for (const rt of r.routes ?? []) if (!parseCidr(rt)) return { ok: false, why: 'bad route' };

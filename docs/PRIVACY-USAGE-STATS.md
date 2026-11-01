@@ -41,7 +41,7 @@ One report describes one day. Every field, with an example:
 | `version` | `0.1.0` | Keeper's version |
 | `channel` | `stable` | Stable release or test release (`prerelease`) |
 | `official` | `true` | Built and signed by Ashforde's release workflow (`false` for builds made by anyone else from the source) |
-| `via` | `brew` | How Keeper was installed: `direct`, `brew`, `winget`, `scoop`, `choco`, `flatpak`, `snap`, `aur`, `apt-repo` or `dnf-repo` |
+| `via` | `brew` | How Keeper was installed: `direct`, `brew`, `winget`, `scoop`, `choco`, `msstore` (the Microsoft Store), `flatpak`, `snap`, `aur`, `apt-repo` or `dnf-repo` |
 | **system** | | |
 | `os` | `macos` | `macos`, `windows`, `linux` or `other` |
 | `osVersion` | `15.1` | Main version only (`11` for Windows 11, the kernel's `6.8` on Linux) |

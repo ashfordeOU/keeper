@@ -223,6 +223,6 @@ export function expandHome(p: string, home: string): string {
 /** Quotes a path for pasting into a shell of this kind. */
 export function quotePath(p: string, kind: 'posix' | 'cmd' | 'powershell' | string): string {
   if (kind === 'cmd') return /[\s&()^|<>%!"]/.test(p) ? `"${p.replace(/"/g, '')}"` : p;
-  if (kind === 'powershell') return /[\s'`$&(){}@#;,|<>"]/.test(p) ? `'${p.replace(/'/g, "''")}'` : p;
+  if (kind === 'powershell') return /[\s'‘’‚‛`$&(){}@#;,|<>"]/.test(p) ? `'${p.replace(/['‘’‚‛]/g, '$&$&')}'` : p;
   return /^[A-Za-z0-9_@%+=:,./-]+$/.test(p) ? p : `'${p.replace(/'/g, `'\\''`)}'`;
 }

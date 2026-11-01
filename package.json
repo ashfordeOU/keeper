@@ -16,7 +16,7 @@
   },
   "private": true,
   "type": "module",
-  "main": "dist-electron/main.cjs",
+  "main": "dist-electron/main.mjs",
   "bin": {
     "keeper": "dist-cli/keeper.cjs"
   },
@@ -24,7 +24,7 @@
     "node": ">=22.12"
   },
   "scripts": {
-    "dev": "concurrently -k -n vite,main,app \"vite\" \"node scripts/build-main.mjs --watch\" \"wait-on tcp:5180 file:dist-electron/main.cjs file:dist-electron/preload.cjs && cross-env VITE_DEV_SERVER_URL=http://localhost:5180 electron .\"",
+    "dev": "concurrently -k -n vite,main,app \"vite\" \"node scripts/build-main.mjs --watch\" \"wait-on tcp:5180 file:dist-electron/main.mjs file:dist-electron/preload.cjs && cross-env VITE_DEV_SERVER_URL=http://localhost:5180 electron .\"",
     "demo": "vite",
     "fetch:rclone": "node scripts/fetch-rclone.mjs",
     "postinstall": "node scripts/fix-node-pty.cjs",
@@ -43,6 +43,7 @@
     "notices": "node scripts/third-party-notices.mjs"
   },
   "dependencies": {
+    "@noble/hashes": "^1.8.0",
     "asn1js": "^3.1.0",
     "basic-ftp": "^6.2.4",
     "dbus-next": "^0.10.2",

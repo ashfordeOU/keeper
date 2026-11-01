@@ -182,7 +182,12 @@ export function safeEntryPath(name: string): string | undefined {
   return parts.join('/');
 }
 
-export function unzip(b: Buffer, password?: string): UnpackedEntry[] {
+/** Most an archive may unpack to in memory: a small "zip bomb" must not take the whole app down. */
+export const UNPACK_LIMIT = 2 * 1024 ** 3;
+const tooBig = () => new Error('This archive unpacks to more than 2 GB; use 7-Zip or your system’s archive tool for it');
+
+export function unzip(b: Buffer, password?: string, limit = UNPACK_LIMIT): UnpackedEntry[] {
+  let total = 0;
   let eocd = -1;
   for (let i = b.length - 22; i >= Math.max(0, b.length - 65_557); i--) if (b.readUInt32LE(i) === 0x06054b50) { eocd = i; break; }
   if (eocd < 0) throw new Error('This is not a ZIP file, or it is damaged');
@@ -220,12 +225,15 @@ export function unzip(b: Buffer, password?: string): UnpackedEntry[] {
     let plain: Buffer;
     try {
       if (method === 0) plain = Buffer.from(data);
-      else if (method === 8) plain = inflateRawSync(data, { maxOutputLength: 2 ** 31 - 1 });
+      else if (method === 8) plain = inflateRawSync(data, { maxOutputLength: Math.max(1, Math.min(2 ** 31 - 1, limit - total)) });
       else throw new Error(`An entry uses a compression method Keeper cannot unpack (${method}); try 7-Zip`);
     } catch (e) {
+      if ((e as NodeJS.ErrnoException)?.code === 'ERR_BUFFER_TOO_LARGE' || (e instanceof RangeError)) throw tooBig();
       if (flags & 1) throw new Error('Wrong password');
       throw e;
     }
+    total += plain.length;
+    if (total > limit) throw tooBig();
     if (crc32(plain) !== crc) throw new Error(flags & 1 ? 'Wrong password' : `${name} is damaged`);
     out.push({ name, dir: false, data: plain });
   }
@@ -233,8 +241,15 @@ export function unzip(b: Buffer, password?: string): UnpackedEntry[] {
 }
 
 /** Plain or gzip-compressed TAR. */
-export function untar(b: Buffer): UnpackedEntry[] {
-  if (b[0] === 0x1f && b[1] === 0x8b) b = gunzipSync(b);
+export function untar(b: Buffer, limit = UNPACK_LIMIT): UnpackedEntry[] {
+  if (b[0] === 0x1f && b[1] === 0x8b) {
+    try {
+      b = gunzipSync(b, { maxOutputLength: Math.min(2 ** 31 - 1, limit) });
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException)?.code === 'ERR_BUFFER_TOO_LARGE' || e instanceof RangeError) throw tooBig();
+      throw e;
+    }
+  }
   const out: UnpackedEntry[] = [];
   let p = 0;
   let longName: string | undefined;

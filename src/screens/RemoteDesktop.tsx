@@ -248,7 +248,7 @@ function Connections({ s, reload }: { s: RdcState; reload: () => void }) {
           <option value="">All folders</option>
           {folders.map((f) => <option key={f} value={f}>{f}</option>)}
         </select>
-        <button className={`btn ${favs ? 'primary' : ''}`} onClick={() => setFavs(!favs)} title="Favourites only"><Icon name="star" size={14} /></button>
+        <button className={`btn ${favs ? 'primary' : ''}`} onClick={() => setFavs(!favs)} title="Favourites only" aria-label="Favourites only"><Icon name="star" size={14} /></button>
         <div className="grow" />
         {picked.size ? <button className="btn primary" onClick={() => void openMany()}>Open {picked.size} in Tabs</button> : null}
         <button className="btn primary" onClick={() => setEdit(blank())} data-testid="rdc-new"><Icon name="plus" size={14} /> New Connection</button>
@@ -283,10 +283,10 @@ function Connections({ s, reload }: { s: RdcState; reload: () => void }) {
               </div>
               <div className="row" style={{ gap: 6 }}>
                 <button className="btn sm primary" onClick={() => void open(c)} data-testid="rdc-connect">Connect</button>
-                {c.mac ? <button className="btn sm ghost" title="Wake it up (Wake-on-LAN)" onClick={() => void api.rdc.wake(c.id).then((r) => toast(`Sent the wake-up signal (${r.sent} packets)`)).catch((e) => toast(clean(e)))}><Icon name="power" size={13} /></button> : null}
+                {c.mac ? <button className="btn sm ghost" title="Wake it up (Wake-on-LAN)" aria-label="Wake it up (Wake-on-LAN)" onClick={() => void api.rdc.wake(c.id).then((r) => toast(`Sent the wake-up signal (${r.sent} packets)`)).catch((e) => toast(clean(e)))}><Icon name="power" size={13} /></button> : null}
                 <div className="grow" />
-                <button className="btn sm ghost icon" title="Edit" onClick={() => setEdit(c)}><Icon name="rename" size={13} /></button>
-                <button className="btn sm ghost icon" title="More" onClick={(e) => cardMenu(c, e.clientX, e.clientY)}><Icon name="chevronDown" size={13} /></button>
+                <button className="btn sm ghost icon" title="Edit" aria-label="Edit" onClick={() => setEdit(c)}><Icon name="rename" size={13} /></button>
+                <button className="btn sm ghost icon" title="More" aria-label="More" onClick={(e) => cardMenu(c, e.clientX, e.clientY)}><Icon name="chevronDown" size={13} /></button>
               </div>
             </div>
           ))}
@@ -308,7 +308,7 @@ function Connections({ s, reload }: { s: RdcState; reload: () => void }) {
                 <div className="small muted">{d.online ? 'Reachable now' : 'Not reachable'}</div>
                 <div className="row" style={{ gap: 6 }}>
                   <button className="btn sm primary" disabled={!d.online} onClick={() => void api.screen.view(d.id, { control: true }).catch((e) => toast(clean(e)))}>Connect</button>
-                  <button className="btn sm ghost" title="Wake it up" onClick={() => void api.screen.wake(d.id).then((r) => toast(r.sent ? 'Sent the wake-up signal' : 'Keeper does not know its network card yet')).catch((e) => toast(clean(e)))}><Icon name="power" size={13} /></button>
+                  <button className="btn sm ghost" title="Wake it up" aria-label="Wake it up" onClick={() => void api.screen.wake(d.id).then((r) => toast(r.sent ? 'Sent the wake-up signal' : 'Keeper does not know its network card yet')).catch((e) => toast(clean(e)))}><Icon name="power" size={13} /></button>
                   <button className="btn sm ghost" title="Add a Remote Desktop or VNC connection that goes through this device" onClick={() => setEdit({ ...blank('rdp'), name: d.name, host: 'localhost', gateway: { kind: 'link', device: d.id } })}>Add RDP/VNC via Link</button>
                 </div>
               </div>

@@ -9,6 +9,7 @@ import type { Outbox } from '../../core/api-pim';
 import { formatAddress, parseAddressList, type Draft } from '../../core/pim/mail';
 import type { Account, Address } from '../../core/pim/types';
 import { api } from '../api';
+import { sanitize } from '../preview/util';
 import { Icon } from '../components/Icon';
 import { ContextMenu, type MenuItem } from '../components/ui';
 import { useStore } from '../state';
@@ -114,7 +115,7 @@ export function Compose({ draft, accounts, onClose, onSent }: { draft: Draft & {
         onDrop={(e) => { e.preventDefault(); setDrag(false); const p = [...e.dataTransfer.files].map((f) => api.files.pathOf?.(f) ?? '').filter(Boolean); if (p.length) setFiles([...files, ...p]); }}>
         <header className="compose-head">
           <b className="grow">{subject || (draft.inReplyTo ? 'Reply' : 'New message')}</b>
-          <button className="btn sm ghost icon" title="Close (Esc)" onClick={onClose}><Icon name="close" size={13} /></button>
+          <button className="btn sm ghost icon" title="Close (Esc)" aria-label="Close (Esc)" onClick={onClose}><Icon name="close" size={13} /></button>
         </header>
         {ids.length > 1 ? (
           <div className="compose-field"><span className="compose-label">From</span>
@@ -128,7 +129,7 @@ export function Compose({ draft, accounts, onClose, onSent }: { draft: Draft & {
         <div className="compose-field"><span className="compose-label">Subject</span><input className="compose-subject" value={subject} onChange={(e) => setSubject(e.target.value)} aria-label="Subject" /></div>
         <div className="compose-body">
           {preview
-            ? <div className="compose-preview" dangerouslySetInnerHTML={{ __html: (marked.parse(body || '*Nothing written yet*', { async: false, gfm: true, breaks: true }) as string).replace(/<(script|iframe|object|embed|style)[\s\S]*?<\/\1>/gi, '').replace(/\son\w+="[^"]*"/gi, '') }} />
+            ? <div className="compose-preview" dangerouslySetInnerHTML={{ __html: sanitize(marked.parse(body || '*Nothing written yet*', { async: false, gfm: true, breaks: true }) as string).html }} />
             : <textarea ref={bodyRef} value={body} onChange={(e) => setBody(e.target.value)} placeholder="Write your message. **bold**, *italic*, - lists and [links](https://…) work." aria-label="Message" />}
           {quoted ? (
             <div className="compose-quote">
@@ -145,7 +146,7 @@ export function Compose({ draft, accounts, onClose, onSent }: { draft: Draft & {
         <footer className="compose-foot">
           <div className="btn-split">
             <button className="btn primary" disabled={sending} onClick={() => void send()}><Icon name="send" size={14} /> Send</button>
-            <button className="btn primary icon" title="Send later or save as draft" onClick={later}><Icon name="chevronDown" size={13} /></button>
+            <button className="btn primary icon" title="Send later or save as draft" aria-label="Send later or save as draft" onClick={later}><Icon name="chevronDown" size={13} /></button>
           </div>
           <button className="btn ghost sm" onClick={async () => { const p = await api.pim.pickFiles(); if (p.length) setFiles([...files, ...p]); }}><Icon name="paperclip" size={14} /> Attach</button>
           <button className={`btn ghost sm ${preview ? 'on' : ''}`} onClick={() => setPreview(!preview)}><Icon name="eye" size={14} /> {preview ? 'Edit' : 'Preview'}</button>

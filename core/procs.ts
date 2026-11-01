@@ -411,7 +411,7 @@ export function parseWinProcesses(json: string): WinRaw[] {
  * PowerShell also treats as quotes).
  */
 export function psQuote(s: string): string {
-  return `'${String(s).replace(/['‘’‚‛]/g, "''")}'`;
+  return `'${String(s).replace(/['‘’‚‛]/g, '$&$&')}'`;
 }
 
 /** Names we pass to service managers: letters, digits and a few separators only. */

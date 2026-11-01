@@ -13,6 +13,7 @@ import { api } from '../api';
 import { themePatch, toggleThemePatch } from '../theme';
 import { mod, shift, useStore, type Route } from '../state';
 import { Icon } from './Icon';
+import { useFocusTrap } from '../a11y';
 import { CATALOG } from '../../core/settings-catalog';
 import { useTracksCommands } from '../screens/TracksSurfaces';
 import '../styles/screens-a.css';
@@ -20,6 +21,7 @@ import { useMeshCommands } from '../screens/MeshParts';
 import { useAmbienceCommands } from '../wallpaper/palette';
 import { useVoiceCommands } from '../voice/palette';
 import { openNative } from '../lib/native';
+import { usageCommands } from '../screens/usage/palette';
 
 interface Command {
   id: string;
@@ -100,6 +102,9 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
   const [text, setText] = useState('');
   const [index, setIndex] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
+  // Tab stays in the palette; focus goes back where it was when it closes.
+  useFocusTrap(boxRef);
 
   const meshCmds = useMeshCommands(store.toast, store.go);
   const ambienceCmds = useAmbienceCommands(store.toast, store.go);
@@ -120,6 +125,8 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     ...meshCmds,
     ...ambienceCmds,
     ...voiceCmds,
+    // AI usage: "Usage: …" (hidden with the tracker).
+    ...usageCommands(store.toast, store.go),
     ...PAGES.map(([route, label, icon, kbd]) => ({ id: `go-${label}`, label, group: 'Go to' as const, icon, kbd, route: route.name, run: () => store.go(route) })),
     { id: 'browse', label: 'Browse Home Folder', group: 'Go to', icon: 'folder', run: () => store.go({ name: 'browse', arg: store.info?.home }) },
     { id: 'rescan', label: 'Rescan Library', group: 'Actions', icon: 'refresh', keywords: 'index refresh reload', run: async () => { await api.library.rescan(); store.toast('Reading your folders…'); } },
@@ -268,11 +275,17 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="palette-back" onMouseDown={onClose}>
-      <div className="quick palette" onMouseDown={(e) => e.stopPropagation()}>
+      <div className="quick palette" ref={boxRef} role="dialog" aria-modal="true" aria-label="Command palette" onMouseDown={(e) => e.stopPropagation()}>
         <div className="q-input">
           <Icon name="sparkle" size={18} />
           <input
             autoFocus
+            role="combobox"
+            aria-label="Command palette"
+            aria-expanded="true"
+            aria-controls="palette-results"
+            aria-autocomplete="list"
+            aria-activedescendant={results[index] ? `palette-opt-${index}` : undefined}
             value={text}
             placeholder="Type a command, a page, or what you are looking for…"
             onChange={(e) => setText(e.target.value)}
@@ -280,24 +293,28 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
               if (e.key === 'Escape') onClose();
               else if (e.key === 'ArrowDown') { e.preventDefault(); setIndex((i) => Math.min(results.length - 1, i + 1)); }
               else if (e.key === 'ArrowUp') { e.preventDefault(); setIndex((i) => Math.max(0, i - 1)); }
+              else if (e.key === 'Home' && e.ctrlKey) { e.preventDefault(); setIndex(0); }
+              else if (e.key === 'End' && e.ctrlKey) { e.preventDefault(); setIndex(Math.max(0, results.length - 1)); }
+              else if (e.key === 'PageDown') { e.preventDefault(); setIndex((i) => Math.min(results.length - 1, i + 8)); }
+              else if (e.key === 'PageUp') { e.preventDefault(); setIndex((i) => Math.max(0, i - 8)); }
               else if (e.key === 'Enter') run(results[index]);
             }}
           />
         </div>
-        <div className="q-results" ref={listRef}>
+        <div className="q-results" ref={listRef} id="palette-results" role="listbox" aria-label="Commands">
           {results.map((c, i) => (
-            <div key={c.id}>
-              {i === 0 || results[i - 1].group !== c.group ? <div className="group">{c.group}</div> : null}
-              <div className={`q-row ${i === index ? 'on' : ''}`} onMouseEnter={() => setIndex(i)} onClick={() => run(c)}>
+            <div key={c.id} role="presentation">
+              {i === 0 || results[i - 1].group !== c.group ? <div className="group" role="presentation" aria-hidden>{c.group}</div> : null}
+              <div id={`palette-opt-${i}`} role="option" aria-selected={i === index} className={`q-row ${i === index ? 'on' : ''}`} onMouseMove={() => { if (i !== index) setIndex(i); }} onClick={() => run(c)}>
                 <Icon name={c.icon} size={15} />
                 <span className="ellipsis">{c.label}</span>
-                {c.kbd ? <span className="kbd">{c.kbd}</span> : null}
+                {c.kbd ? <span className="kbd" aria-hidden>{c.kbd}</span> : null}
               </div>
             </div>
           ))}
-          {!results.length ? <div className="empty small">No matching command</div> : null}
+          {!results.length ? <div className="empty small" role="status">No matching command</div> : null}
         </div>
-        <div className="q-foot"><span>↑↓ to move</span><span>↩ to run</span><span>esc to close</span></div>
+        <div className="q-foot" aria-hidden><span>↑↓ to move</span><span>↩ to run</span><span>esc to close</span></div>
       </div>
     </div>
   );

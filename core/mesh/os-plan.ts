@@ -63,7 +63,7 @@ export const linuxIface = (netId: string) => `km-${netId.slice(0, 4)}`;
 /** A Windows tunnel name (also its adapter's name). */
 export const windowsTunnel = (name: string) => `Keeper-${name.replace(/[^A-Za-z0-9_=+.-]/g, '').slice(0, 24) || 'Mesh'}`;
 
-const psq = (s: string) => `'${String(s).replace(/'/g, "''")}'`;
+const psq = (s: string) => `'${String(s).replace(/['‘’‚‛]/g, '$&$&')}'`;
 const ps = (script: string, ignoreError = false): Step => ({ file: 'powershell', args: ['-NoProfile', '-NonInteractive', '-Command', script], ...(ignoreError ? { ignoreError } : {}) });
 const v6net = (p: string) => parseCidr(p)!;
 
@@ -76,7 +76,10 @@ export function ifaceUp(c: IfaceCtx): Step[] {
       steps.push({ file: 'ip', args: ['link', 'add', 'dev', c.iface, 'type', 'wireguard'] });
       steps.push({ file: c.wg ?? 'wg', args: ['setconf', c.iface, '/dev/stdin'], stdin: c.conf });
     } else {
-      steps.push({ file: c.bin!, args: [c.iface], env: { WG_PROCESS_FOREGROUND: '0' } });
+      // wireguard-go goes to the background by itself. Do not set WG_PROCESS_FOREGROUND=0: it adds
+      // WG_PROCESS_FOREGROUND=1 for its background copy, Go reads the first of the two, and each copy
+      // starts another, without end (found by the namespace test with a real wireguard-go).
+      steps.push({ file: c.bin!, args: [c.iface] });
       steps.push({ file: 'uapi', args: [c.iface], stdin: c.conf });
     }
     if (!c.noV6) steps.push({ file: 'ip', args: ['-6', 'address', 'add', `${c.a6}/${v6net(c.prefix6).prefix}`, 'dev', c.iface] });
@@ -86,7 +89,7 @@ export function ifaceUp(c: IfaceCtx): Step[] {
   }
   if (c.os === 'darwin') {
     const steps: Step[] = [
-      { file: c.bin!, args: [c.iface], env: { WG_PROCESS_FOREGROUND: '0' } },
+      { file: c.bin!, args: [c.iface] }, // goes to the background by itself (see the Linux note above)
       { file: 'uapi', args: [c.iface], stdin: c.conf },
       ...(c.noV6 ? [] : [
         { file: 'ifconfig', args: [c.iface, 'inet6', c.a6, 'prefixlen', '128', 'alias'] },

@@ -157,8 +157,8 @@ function Timeline({ o, search }: { o: TracksOverview; search?: boolean }) {
         ) : null}
         <div className="row tk-nav">
           <div className="seg">{(['day', 'week', 'month', 'year'] as Span[]).map((s) => <button key={s} className={span === s ? 'on' : ''} onClick={() => setSpan(s)}>{s[0].toUpperCase() + s.slice(1)}</button>)}</div>
-          <button className="btn sm icon" title="Earlier" onClick={() => setAt(shiftSpan(span, at, -1))}><Icon name="chevronLeft" size={13} /></button>
-          <button className="btn sm icon" title="Later" onClick={() => setAt(shiftSpan(span, at, 1))}><Icon name="chevronRight" size={13} /></button>
+          <button className="btn sm icon" title="Earlier" aria-label="Earlier" onClick={() => setAt(shiftSpan(span, at, -1))}><Icon name="chevronLeft" size={13} /></button>
+          <button className="btn sm icon" title="Later" aria-label="Later" onClick={() => setAt(shiftSpan(span, at, 1))}><Icon name="chevronRight" size={13} /></button>
           <button className="btn sm ghost" onClick={() => setAt(Date.now())}>Today</button>
           {o.range ? <button className="btn sm ghost" onClick={() => setAt(o.range![1])}>Latest</button> : null}
         </div>
@@ -249,6 +249,8 @@ function TripView({ trip }: { trip: Trip }) {
     const html = await api.tracks.tripHtml(trip.id);
     const f = document.createElement('iframe');
     f.className = 'tk-print-frame';
+    // No scripts in the printed page, whatever a place or event is called.
+    f.setAttribute('sandbox', 'allow-same-origin allow-modals');
     f.srcdoc = html;
     document.body.appendChild(f);
     f.onload = () => { f.contentWindow?.print(); setTimeout(() => f.remove(), 2000); };

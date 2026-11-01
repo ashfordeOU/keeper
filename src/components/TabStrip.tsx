@@ -125,7 +125,7 @@ export function TabStrip() {
           </div>
         );
       })}
-      <button className="tab-new" title={`New Tab (${isMac ? '⌘' : 'Ctrl+'}T)`} onClick={() => tabs.open({ name: 'home' })}>
+      <button className="tab-new" title={`New Tab (${isMac ? '⌘' : 'Ctrl+'}T)`} aria-label={`New Tab (${isMac ? '⌘' : 'Ctrl+'}T)`} onClick={() => tabs.open({ name: 'home' })}>
         <Icon name="plus" size={13} />
       </button>
       {menu ? <ContextMenu x={menu.x} y={menu.y} items={items(menu.tab)} onClose={() => setMenu(null)} /> : null}

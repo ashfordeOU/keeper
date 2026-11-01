@@ -60,7 +60,8 @@ export function registerAshfordeIpc(c: AshfordeCtx) {
     // starts (relaunch, crash, its own update), forget Monorail when its API stops, and
     // say it every ten minutes as a safety net.
     mono.onApiRestarted((up) => (up ? void coexist.hello() : coexist.forgetPeer()));
-    poll('monorail.rehello', { baseMs: 10 * 60_000, idleFactor: 1, pauseWhenLocked: true }, () => (mono.enabledNow() ? coexist.hello() : undefined), { feature: 'monorail', now: false });
+    // Monorail is Mac-only, so other systems do not even list the check.
+    if (process.platform === 'darwin') poll('monorail.rehello', { baseMs: 10 * 60_000, idleFactor: 1, pauseWhenLocked: true }, () => (mono.enabledNow() ? coexist.hello() : undefined), { feature: 'monorail', now: false });
   });
 
   setToolProvider('monorail', { tools: () => mono.tools() as never, call: (name, args, client) => mono.callTool(name, args, client) });

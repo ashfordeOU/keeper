@@ -32,7 +32,7 @@ export function RecoveryNotice() {
       </span>
       <button className="btn sm ghost" onClick={() => go({ name: 'settings', arg: 'processes' })}>Details</button>
       {shown === 'safe' ? <button className="btn sm primary" onClick={() => void api.session.relaunch(false)}>Start normally</button> : null}
-      <button className="btn sm ghost icon" title="Dismiss" onClick={() => setShown(null)}><Icon name="close" size={13} /></button>
+      <button className="btn sm ghost icon" title="Dismiss" aria-label="Dismiss" onClick={() => setShown(null)}><Icon name="close" size={13} /></button>
     </div>
   );
 }

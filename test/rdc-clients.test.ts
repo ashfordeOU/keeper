@@ -4,7 +4,7 @@
 // in a note (it goes to standard input or a private 0600 file).
 
 import { describe, expect, it } from 'vitest';
-import { freerdpArgs, launchPlan, NoEngine, sshArgs, visibleParts, type LaunchCtx } from '../core/rdc/clients';
+import { freerdpArgs, launchPlan, NoEngine, sshArgs, visibleParts, wslPath, type LaunchCtx } from '../core/rdc/clients';
 import { vncUnobfuscate } from '../core/rdc/des';
 import { engineInfo, ENGINES } from '../core/rdc/engines';
 import type { Connection } from '../core/rdc/types';
@@ -117,10 +117,26 @@ describe('rdc: outside viewers', () => {
     expect(String(x.files![0].content)).toContain('command=MATE');
   });
 
+  it('Mosh on Windows: inside WSL, or MSYS2/Cygwin through their bash; Windows paths translated', () => {
+    expect(wslPath('C:\\Users\\Ana\\.ssh\\id_ed25519')).toBe('/mnt/c/Users/Ana/.ssh/id_ed25519');
+    expect(wslPath('relative\\x')).toBeUndefined();
+    const c = conn({ protocol: 'mosh', host: 'dev', user: 'ana', keyFile: 'D:\\keys\\dev' });
+    const w = launchPlan(c, ctx('win32', { mosh: F('C:\\Windows\\System32\\wsl.exe', 'wsl') }, { port: 2222, home: 'C:\\Users\\Ana' }));
+    expect(w.file).toBe('C:\\Windows\\System32\\wsl.exe');
+    expect(w.args).toEqual(['--exec', 'mosh', '--ssh=ssh -p 2222 -i /mnt/d/keys/dev -o UserKnownHostsFile=/mnt/c/Users/Ana/.ssh/known_hosts', 'ana@box.lan']);
+    expect(w.env).toBeUndefined(); // no askpass file: ssh asks in the terminal
+    expect(w.files).toBeUndefined();
+    const m = launchPlan(c, ctx('win32', { mosh: F('C:\\msys64\\usr\\bin\\mosh', 'mosh') }, { port: 22 }));
+    expect(m.file).toBe('C:\\msys64\\usr\\bin\\bash.exe');
+    expect(m.args).toEqual(['-lc', 'exec mosh "$@"', 'mosh', '--ssh=ssh -i D:/keys/dev', 'ana@box.lan']);
+    expect(() => launchPlan(c, ctx('win32', {}))).toThrow(NoEngine);
+  });
+
   it('lists each engine with an install hint for this system', () => {
     const fr = engineInfo(ENGINES.find((e) => e.id === 'freerdp')!, 'linux', null);
     expect(fr).toMatchObject({ found: false, hint: expect.stringContaining('apt install freerdp3-x11') });
-    expect(engineInfo(ENGINES.find((e) => e.id === 'mosh')!, 'win32', null).na).toBe(true);
+    const moshWin = engineInfo(ENGINES.find((e) => e.id === 'mosh')!, 'win32', null);
+    expect(moshWin).toMatchObject({ na: false, found: false, hint: expect.stringContaining('wsl --install') });
     for (const e of ENGINES) expect(e.url).toMatch(/^https:\/\//);
   });
 });

@@ -49,7 +49,7 @@ export const METHOD_PERMISSION: Record<string, Permission | null> = {
 };
 
 export function allowed(perms: PermissionSet | undefined, method: string): boolean {
-  if (!(method in METHOD_PERMISSION)) return false;
+  if (!Object.hasOwn(METHOD_PERMISSION, method)) return false;
   const need = METHOD_PERMISSION[method];
   return need === null || !!perms?.[need];
 }

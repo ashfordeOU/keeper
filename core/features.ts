@@ -46,7 +46,16 @@ export interface FeatureDef {
   platforms?: NodeJS.Platform[];
   /** an older setting already switches this: read and write through it */
   bridge?: { get(s: AllSettings): boolean; set(on: boolean, s: AllSettings): Partial<AllSettings> };
+  /**
+   * How it fares in a store edition, where the build differs from the direct download.
+   * Planning data only (docs/MAS-EDITION.md): nothing reads it yet. Absent means "available".
+   */
+  edition?: Partial<Record<KeeperEdition, EditionSupport>>;
 }
+
+/** Builds of Keeper that differ in what they may do: the Mac App Store's sandboxed one so far. */
+export type KeeperEdition = 'mas';
+export type EditionSupport = 'available' | 'reduced' | 'unavailable';
 
 const island = (key: keyof AllSettings['island']) => ({
   get: (s: AllSettings) => s.island?.[key] !== false,
@@ -129,6 +138,8 @@ export const FEATURES: FeatureDef[] = [
   { id: 'assistant', name: 'Assistant', description: 'Ask about your files with the AI you choose.', group: 'AI', defaultOn: true, routes: ['assistant'], commands: ['assistant*', 'ask*'], cost: { level: 'none', background: 'Only while you ask' } },
   { id: 'abilities', name: 'AI abilities', description: 'Web search with sources, research reports, posts, pictures, code in a sealed workspace, memory, schedules, personas, projects and teams — for whichever AI you use.', group: 'AI', defaultOn: true, routes: [], commands: ['abilit*', 'team*'], cost: { level: 'none', background: 'Only while an AI uses one, and a timer for scheduled requests' } },
   { id: 'aiAgents', name: 'AI agents', description: 'Agents that work on your files with the AI you choose, asking before they change anything.', group: 'AI', defaultOn: true, routes: ['agents'], commands: ['agent*'], cost: { level: 'none', background: 'Only while an agent runs' } },
+  { id: 'usageTracker', name: 'AI usage and subscriptions', description: 'How much of each AI account’s limits, credits and budget is left (coding tools on this computer, service usage and balance endpoints with your keys, Keeper’s own calls), with warnings before they run out and your subscriptions’ renewals.', group: 'AI', defaultOn: true, routes: ['aiusage'], commands: ['usage-*'], cost: { level: 'none', background: 'Nothing until you add an account; then a look at local files every 2 minutes and at services every 10 (slower when you are away, none while locked)' } },
+  { id: 'usageMenuBar', name: 'AI usage in the menu bar', description: 'A ring and the most urgent limits in the menu bar or tray, with a pop-over of every account.', group: 'AI', defaultOn: true, requires: ['usageTracker'], cost: { level: 'none', background: 'Shown only once an account is added; redrawn after each look', windows: 'A small pop-over while open' } },
   { id: 'platform', name: 'Works with your computer', description: 'Spotlight, desktop search, Explorer menu, Siri Shortcuts and the system’s text recognition.', group: 'AI', defaultOn: true, cost: { level: 'low', background: 'Small helpers for the integrations you turn on' } },
 
   // ---------------------------------------------------------------- Connections
@@ -136,6 +147,7 @@ export const FEATURES: FeatureDef[] = [
   { id: 'link', name: 'Keeper on your other devices', description: 'Reach this computer’s files from your phone and other computers, and see your devices in one place.', group: 'Connections', defaultOn: true, routes: ['devices'], commands: ['link*', 'devices'], cost: { level: 'low', background: 'Answers your paired devices over the network while on' } },
   { id: 'remoteScreen', name: 'Remote screens', description: 'See and control your other computers, let them (or your phone) see this one when you allow it, and wake them from sleep.', group: 'Connections', defaultOn: true, requires: ['link'], commands: ['screen*'], cost: { level: 'none', background: 'Nothing until a session starts; while one runs, the screen is captured and sent', windows: 'A viewer window, or a small banner while this screen is shared' } },
   { id: 'keeperMesh', name: 'Keeper Mesh', description: 'A private network between your paired devices (WireGuard): every app reaches them by address or by name, with an exit node and shared subnets if you want.', group: 'Connections', defaultOn: false, requires: ['link'], routes: ['mesh'], commands: ['mesh*'], cost: { level: 'low', background: 'Nothing while off. While on: a WireGuard network card, a keepalive every 25 s only while a device is in use, and a look for new addresses every few minutes', memory: 'About 5 MB' } },
+  { id: 'meshDirectHandoff', name: 'Keeper Mesh: direct WireGuard handoff', description: 'Once a direct path to a device is steady, WireGuard sends to it itself, so packets bypass Keeper; Keeper takes over again if that path stops working.', group: 'Connections', defaultOn: true, requires: ['keeperMesh'], cost: { level: 'low', background: 'While a direct path is handed off: a look at WireGuard’s counters every 2 s', memory: 'None' } },
   { id: 'remoteDesktops', name: 'Remote Desktops', description: 'Connect to other computers by Remote Desktop (RDP), VNC, SSH, Mosh, serial, SPICE, PowerShell and web consoles, from saved connections or a quick-connect bar.', group: 'Connections', defaultOn: true, routes: ['rdc'], commands: ['rdc*'], cost: { level: 'none', background: 'Nothing until you open the page or a connection; while the page is open, one light knock on each saved computer every 30 seconds', windows: 'Outside programs (FreeRDP, viewers) only while a connection uses them' } },
   { id: 'rdcHosting', name: 'Let others reach this computer', description: 'Switch on this computer’s own remote desktop or VNC server, reach it through Keeper Link without opening ports, and check it is safe.', group: 'Connections', defaultOn: false, ownChoice: true, requires: ['remoteDesktops'], cost: { level: 'none', background: 'Nothing until you switch a server on; a VNC server Keeper starts runs while Keeper is open' } },
   { id: 'linkDirect', name: 'Direct connections between your devices', description: 'Files, ports, sync and screens go straight from one device to the other when the routers allow it, instead of through a relay or tunnel. Respects “This network only”.', group: 'Connections', defaultOn: true, requires: ['link'], cost: { level: 'none', background: 'Only while a device is connected through a relay or tunnel: one look for a direct path, then one small network socket while it is used' } },

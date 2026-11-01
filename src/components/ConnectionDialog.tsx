@@ -178,7 +178,7 @@ function ProviderForm({ provider, edit, onBack, onDone }: { provider: ProviderIn
   return (
     <div className="conn-form">
       <div className="row" style={{ gap: 8, marginBottom: 10 }}>
-        {onBack ? <button className="btn ghost sm icon" onClick={onBack} title="Back"><Icon name="chevronLeft" size={14} /></button> : null}
+        {onBack ? <button className="btn ghost sm icon" onClick={onBack} title="Back" aria-label="Back"><Icon name="chevronLeft" size={14} /></button> : null}
         <b className="grow">{provider.name}</b>
         {provider.beta ? <span className="badge warn" title="Works, but the service may change how it allows sign-in">Beta</span> : null}
       </div>

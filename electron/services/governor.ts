@@ -7,7 +7,7 @@
 //   await whenIdle('embed')        wait until this kind of work may run
 //   await pace('ocr')              a short pause between two items
 //   poll('media', rule, fn)        a regular check that slows down when nobody looks
-//   track('ocr', 'Reading text')   shows up in Settings → Keeper's own usage
+//   track('ocr', 'Reading text')   shows up in Settings → Performance
 
 import { jobHelpers, trackHelper } from '../helpers-registry';
 import { DEFAULT_LIMITS } from '../../core/limits';
@@ -285,6 +285,7 @@ export function usage(): import('../../core/api-usage').KeeperUsage {
     memory,
     processes,
     mode: c.mode,
+    hardwareGraphics: (() => { try { return app.isHardwareAccelerationEnabled(); } catch { return undefined; } })(),
     conditions: { onBattery: c.onBattery, locked: c.locked, idleSec: c.idleSec, thermal: c.thermal, lowPower: c.lowPower, memoryLow: c.memoryLow },
     tasks: [...tasks.values()].map((t) => {
       const d = decide(t.kind, c);

@@ -50,7 +50,7 @@ export function AppControls() {
           {!running ? <div className="muted sp-more">Looking for apps…</div> : apps.map((a) => {
             const s = saved.find((x) => x.app.path === a.path || x.app.name === a.name);
             return (
-              <div key={(a.path ?? a.name) + (a.pid ?? '')} className={`sp-app ${pick && pick.name === a.name && pick.path === a.path ? 'on' : ''}`} onClick={() => setPick(a)} data-testid={`appctl-app-${a.name}`}>
+              <div key={(a.path ?? a.name) + (a.pid ?? '')} className={`sp-app ${pick && pick.name === a.name && pick.path === a.path ? 'on' : ''}`} role="button" tabIndex={0} aria-pressed={!!pick && pick.name === a.name && pick.path === a.path} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPick(a); } }} onClick={() => setPick(a)} data-testid={`appctl-app-${a.name}`}>
                 <span>{a.name}</span>{a.pid ? null : <span className="muted small">not running</span>}
                 {s ? <span className="badge">set</span> : null}
               </div>

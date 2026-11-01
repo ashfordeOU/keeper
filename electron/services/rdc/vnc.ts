@@ -7,9 +7,10 @@
 import net from 'node:net';
 import tls from 'node:tls';
 import type { WebContents } from 'electron';
-import { createInflater } from '../../../core/rdc/inflate';
+import { ardResponse } from '../../../core/rdc/ard';
+import { createInflater, createTightInflaters } from '../../../core/rdc/inflate';
 import { comboEvents, COMBOS } from '../../../core/rdc/keysym';
-import { RfbClient, type RfbEvent } from '../../../core/rdc/rfb';
+import { FAST_ENCODINGS, RfbClient, type RfbEvent } from '../../../core/rdc/rfb';
 import type { VncInput } from '../../../core/rdc/api';
 
 export interface VncOpen {
@@ -19,6 +20,8 @@ export interface VncOpen {
   username?: string;
   shared?: boolean;
   viewOnly?: boolean;
+  /** 'fast': Tight with JPEG first, for slow links */
+  picture?: 'lossless' | 'fast';
   onState(state: 'connected' | 'closed' | 'error', info?: { width?: number; height?: number; desktop?: string; error?: string; security?: string }): void;
 }
 
@@ -26,6 +29,7 @@ export class VncSession {
   private sock: net.Socket | tls.TLSSocket | null = null;
   private client: RfbClient | null = null;
   private inflater = createInflater();
+  private tightInflater = createTightInflaters();
   private viewer: WebContents | null = null;
   private seq = 0;
   private cursor: Extract<RfbEvent, { t: 'cursor' }> | null = null;
@@ -62,6 +66,9 @@ export class VncSession {
         username: this.o.username,
         shared: this.o.shared,
         inflate: this.inflater.inflate,
+        tightInflate: this.tightInflater.inflate,
+        ard: ardResponse,
+        encodings: this.o.picture === 'fast' ? FAST_ENCODINGS : undefined,
         startTls: () => new Promise<void>((res, rej) => {
           sock.off('data', onData);
           const t = tls.connect({ socket: sock, rejectUnauthorized: false, servername: net.isIP(this.o.host) ? undefined : this.o.host }, () => res());
@@ -174,6 +181,7 @@ export class VncSession {
     this.sock?.destroy();
     this.sock = null;
     this.inflater.close();
+    this.tightInflater.close();
     if (!this.ended) {
       this.ended = true;
       this.send('rdc-vnc', { t: 'closed' });

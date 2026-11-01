@@ -5,6 +5,7 @@
 // your own broker. Every request needs the receiver's token. Listens on this
 // computer only unless you allow your local network.
 
+import { timingSafeEqual } from 'node:crypto';
 import http from 'node:http';
 import net from 'node:net';
 import os from 'node:os';
@@ -26,14 +27,22 @@ let server: http.Server | null = null;
 let current: ReceiverOptions | null = null;
 let lastError: string | undefined;
 
-function authorized(req: http.IncomingMessage, url: URL, token: string): boolean {
-  if (url.searchParams.get('token') === token) return true;
-  if (req.headers['x-keeper-token'] === token) return true;
+/** Constant-time match; an empty or short token never lets anything in. */
+function same(given: unknown, token: string): boolean {
+  if (typeof given !== 'string' || token.length < 16) return false;
+  const a = Buffer.from(given);
+  const b = Buffer.from(token);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+export function authorized(req: http.IncomingMessage, url: URL, token: string): boolean {
+  if (same(url.searchParams.get('token'), token)) return true;
+  if (same(req.headers['x-keeper-token'], token)) return true;
   const auth = req.headers.authorization ?? '';
-  if (auth.startsWith('Bearer ') && auth.slice(7) === token) return true;
+  if (auth.startsWith('Bearer ') && same(auth.slice(7), token)) return true;
   if (auth.startsWith('Basic ')) {
-    const [, pass] = Buffer.from(auth.slice(6), 'base64').toString().split(':');
-    return pass === token;
+    const plain = Buffer.from(auth.slice(6), 'base64').toString();
+    return same(plain.slice(plain.indexOf(':') + 1), token);
   }
   return false;
 }

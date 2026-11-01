@@ -4,7 +4,6 @@
 // without the user pressing a button. Works with Claude, OpenAI, or a model
 // running locally through Ollama (nothing leaves the computer at all).
 
-import Anthropic from '@anthropic-ai/sdk';
 import { formatBytes, formatDate } from './format';
 import type { AiMessage, AiProvider, AiReply, AiSuggestion, CleanupGroup, DuplicateGroup, FileEntry, Safety } from './types';
 
@@ -92,7 +91,8 @@ async function callProvider(system: string, history: AiMessage[], opts: AskOptio
   const model = opts.model || DEFAULT_MODELS[opts.provider];
   if (opts.provider === 'anthropic') {
     if (!opts.apiKey) throw new Error('Add your Anthropic API key in Settings → Assistant.');
-    const client = new Anthropic({ apiKey: opts.apiKey });
+    // The SDK is large: it loads the first time this provider is used.
+    const client = new (await import('@anthropic-ai/sdk')).default({ apiKey: opts.apiKey });
     const response = await client.beta.messages.create(
       {
         model,

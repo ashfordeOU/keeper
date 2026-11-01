@@ -281,7 +281,7 @@ function PdfOrganizer({ files, set }: { files: string[]; set: (p: OrganizePage[]
               <span className="num small">{i + 1}{fileCount > 1 ? <span className="muted"> · {p.file.split(/[\\/]/).pop()?.slice(0, 10)}</span> : null}</span>
               <button className="btn sm icon" title="Turn left" onClick={() => commit(items.map((x, k) => (k === i ? { ...x, rotate: normRotate(x.rotate - 90) } : x)))}>⟲</button>
               <button className="btn sm icon" title="Turn right" onClick={() => commit(items.map((x, k) => (k === i ? { ...x, rotate: normRotate(x.rotate + 90) } : x)))}>⟳</button>
-              <button className="btn sm icon" title="Remove page" onClick={() => commit(items.filter((_, k) => k !== i))}><Icon name="trash" size={12} /></button>
+              <button className="btn sm icon" title="Remove page" aria-label="Remove page" onClick={() => commit(items.filter((_, k) => k !== i))}><Icon name="trash" size={12} /></button>
             </div>
           </div>
         ))}
@@ -741,11 +741,11 @@ export function Convert() {
                 <span className="ellipsis grow" title={p}>{name(p)}</span>
                 {files.length > 1 ? (
                   <>
-                    <button className="btn ghost sm icon" title="Move up" disabled={i === 0} onClick={() => move(i, -1)}><Icon name="arrowUp" size={12} /></button>
-                    <button className="btn ghost sm icon" title="Move down" disabled={i === files.length - 1} onClick={() => move(i, 1)}><Icon name="chevronDown" size={12} /></button>
+                    <button className="btn ghost sm icon" title="Move up" aria-label="Move up" disabled={i === 0} onClick={() => move(i, -1)}><Icon name="arrowUp" size={12} /></button>
+                    <button className="btn ghost sm icon" title="Move down" aria-label="Move down" disabled={i === files.length - 1} onClick={() => move(i, 1)}><Icon name="chevronDown" size={12} /></button>
                   </>
                 ) : null}
-                <button className="btn ghost sm icon" title="Remove" onClick={() => setFiles(files.filter((x) => x !== p))}><Icon name="close" size={12} /></button>
+                <button className="btn ghost sm icon" title="Remove" aria-label="Remove" onClick={() => setFiles(files.filter((x) => x !== p))}><Icon name="close" size={12} /></button>
               </div>
             ))}
           </div>
@@ -812,7 +812,7 @@ export function Convert() {
 
           {running && progress ? (
             <div style={{ marginTop: 12 }}>
-              <div className="progress"><i style={{ width: `${pct}%` }} /></div>
+              <div className="progress" role="progressbar" aria-label="Progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(Number(pct) || 0)}><i style={{ width: `${pct}%` }} /></div>
               <div className="small muted" style={{ marginTop: 4 }}>{progress.phase} · {pct}%</div>
             </div>
           ) : null}

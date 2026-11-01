@@ -71,7 +71,7 @@ export function PlatformIntegrations() {
             {i.actions?.map((a) => (
               <button key={a.id} className="btn sm" disabled={busy === a.id} onClick={() => void act(a.id)}>{a.label}</button>
             ))}
-            {i.toggle ? <Toggle on={i.enabled} onChange={(v) => i.available && busy !== i.id && void set(i, v)} /> : null}
+            {i.toggle ? <Toggle label={i.label} on={i.enabled} onChange={(v) => i.available && busy !== i.id && void set(i, v)} /> : null}
           </div>
         </div>
       ))}

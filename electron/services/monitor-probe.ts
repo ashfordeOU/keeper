@@ -486,7 +486,7 @@ export async function codeSignature(file: string): Promise<CodeSignature> {
     ]);
     sig = parseCodesign(`${d.stdout}\n${d.stderr}`, v.ok, e.stdout);
   } else if (PLATFORM === 'win32') {
-    const q = file.replace(/'/g, "''");
+    const q = file.replace(/['‘’‚‛]/g, '$&$&');
     const r = await ps(`$s = Get-AuthenticodeSignature -LiteralPath '${q}'; @{ Status = [int]$s.Status; StatusMessage = $s.StatusMessage; IsOSBinary = $s.IsOSBinary; Subject = $s.SignerCertificate.Subject; Issuer = $s.SignerCertificate.Issuer } | ConvertTo-Json -Compress`, 20_000);
     sig = parseAuthenticode(r.stdout.trim());
   } else {

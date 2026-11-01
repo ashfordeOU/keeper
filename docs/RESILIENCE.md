@@ -81,11 +81,17 @@ Measured on the same Linux machine, same method (proportional set size from
 | GNOME Files (Nautilus) | 0.08 % | 228 MB | 299 MB |
 | **Keeper, before** (old CI budget's own notes, larger library) | 0.4–1.0 % | about 455 MB | — |
 | **Keeper, before** (our reading, empty library, settled 3 min) | 0.16 % | 409 MB | 823 MB |
-| **Keeper, now, default** (2,000-file library, after it settles) | 0.47–0.52 % | 317–475 MB | — |
-| **Keeper, now, Minimal mode** | 0.37–0.40 % | 315–480 MB | — |
+| **Keeper, earlier, default** (2,000-file library, after it settles) | 0.40–0.44 % | 382–473 MB (private 244–308, anonymous 259–261) | — |
+| **Keeper, earlier, Minimal mode** | 0.27–0.38 % | 471–483 MB (private 306–318, anonymous 259–271) | — |
+| **Keeper, now, default** (one page process, split main bundle) | 0.24–0.31 % | 420–448 MB (private 280–305, anonymous 204–228) | — |
+| **Keeper, now, Minimal mode** (also no graphics card) | 0.20–0.22 % | 328–400 MB (private 213–265, anonymous 184–219) | — |
 
-Readings vary a lot from run to run (memory ranged from 317 to 480 MB over
-seven runs, nearly all of it the main process's heap), so ranges are given.
+The old and new builds were run in turn on the same quiet machine, three runs
+each. PSS and private memory move with how many other processes share
+Electron's library pages: on a busier machine the same builds read 364–485 MB
+before and 288–329 MB now by default. Anonymous memory (what Keeper allocates
+itself) is the steady figure and the one to compare. `test/e2e/perf-budget.cjs`
+lists all three for every process.
 
 Published figures for the others (not measured here): Finder about 93 MB in
 Activity Monitor on a recent Mac, with its thumbnail cache able to grow to
@@ -101,16 +107,17 @@ Keeper does things they do not (clipboard history, the Island's clock, mounts,
 microphone and fullscreen checks, the library index). Its memory is in the
 range of GNOME Files plus a browser tab, not of Dolphin: Keeper is an Electron
 app, and a browser process, a graphics process, a network process and one
-renderer per window are its floor (about 250 MB before any Keeper code runs).
-Minimal mode slows every regular check down, which saves processor time, not
-memory.
+renderer process are its floor (about 230 MB PSS for an empty Electron window
+on the same machine). Minimal mode slows every regular check down and draws
+without the graphics card (from the next start), which takes the graphics
+process from about 50–80 MB to about 20 MB.
 
 Where the idle processor time goes (default mode, profiled over 60 s): almost
 all of the main process's ~0.2 % is starting small programs for regular checks —
 the Island's microphone check (every 30 s) and the disk list for Places (every
 16 s while away) — plus clipboard history reading the clipboard every 2.8 s
 while away. Each is small; together they are the floor. They belong to those
-features and are listed in Settings → Keeper's own usage; switching a feature
+features and are listed in Settings → Performance; switching a feature
 off removes its check.
 
 ### macOS at idle: what was changed, and what it should save
@@ -162,12 +169,43 @@ Keeper did, on System → Keeper's processes.
 - **Background tabs are not mounted** (a sleeping tab costs nothing) and the
   Network Activity process stops 60 s after its last request (was 3 min).
 - **Caches drop under memory pressure** (`onMemoryPressure` in the governor).
-- **Not done, and why.** A shared renderer for small windows and destroying
-  hidden windows sooner would change how the Island and Quick Search open (they
-  must appear instantly); V8 heap limits cap memory by crashing, which the
-  window ceiling above does more gently; `--js-flags=--optimize-for-size` saved
-  1 MB. Lazy loading per feature needs the main bundle split (esbuild cannot
-  split CommonJS); it is the largest remaining saving in the main process.
+- **One page process for every Keeper window** (`electron/perf-switches.ts`,
+  Chromium's `--process-per-site`): the main window, the Island, Quick Search,
+  widgets and cues share one renderer instead of one each (anonymous memory of
+  the page processes 97 → 84 MB with the main window and the Island; on a busy
+  machine PSS fell by about 50 MB, on a quiet one by about 12 MB, because one
+  process no longer shares its library pages with a second). Windows still open instantly (faster,
+  since the process is already running). The cost: a page that hangs or crashes
+  takes the others in that process with it; each is reloaded with its tabs as
+  before. Pages from elsewhere (Keeper's browser, a separate partition such as
+  the dictation pill) keep processes of their own. `KEEPER_SEPARATE_PAGES=1`
+  turns it off for comparison.
+- **The main bundle is split** (`scripts/build-main.mjs`: ES modules with code
+  splitting). Only what starts with Keeper is read at start (about 4 MB of the
+  14 MB); mail, SSH/FTP, PDF and signing, code readers, QR codes, the AI SDK and
+  D-Bus search providers load the first time they are used. Script source held by
+  the main process went from about 22 MB to 10 MB and its heap from about 31 MB to
+  20 MB. Dynamic imports of CommonJS packages are given their named exports by a
+  small build step (`__keeperInterop`).
+- **Closing the window frees it** (Settings → Performance, "Close the window to
+  free memory", on unless Performance mode): with Keeper in the tray, the main
+  window's page is let go 2 s after it is closed (kept while it plays sound).
+  Reopening paints in about 0.35–0.55 s on the test machine (0.7–0.95 s with
+  separate page processes) and puts back tabs, scroll positions and drafts from
+  the checkpoint. Off keeps the earlier behaviour (15 minutes, 2 in Minimal mode).
+- **Minimal mode leaves the graphics card alone** (`app.disableHardwareAcceleration`
+  at the next start) unless a live wallpaper is playing; 3D previews say they need it.
+- **The Island's clock** redraws once a minute when nothing on show counts seconds
+  (it redrew the whole Island every second).
+- **Measured and not kept:** more `--disable-features` (spare renderer, back/forward
+  cache, hints, media router, translate: no gain beyond the spread),
+  `--js-flags=--lite-mode` (about 5 MB for slower scripts), a smaller V8 heap limit
+  (caps memory by crashing), loading each view's code separately in the renderer
+  (no gain once the windows share a process).
+- **Not done:** clipboard change events. Electron has none; X11 XFixes, macOS
+  change counts and Windows' clipboard listener all need native code or a resident
+  helper (a resident PowerShell costs 60+ MB). The clipboard check stays a governor
+  poll (0.7 s while you work, 7 s while away, paused when locked).
 
 ### Phase B: one "connections" process — measured, not done
 

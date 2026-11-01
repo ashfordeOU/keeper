@@ -110,12 +110,12 @@ export function FilesPanel({ hosts, initial }: { hosts: SshHost[]; initial?: str
       <div className="row" style={{ gap: 6, marginBottom: 6 }}>
         <span className="badge">{conn.protocol.toUpperCase()}</span>
         <span className="ellipsis grow" style={{ fontWeight: 600 }}>{conn.target}</span>
-        <button className="btn ghost sm icon" title="Disconnect" onClick={() => { void api.terminal.remoteDisconnect(conn); setConn(null); }}><Icon name="eject" size={12} /></button>
+        <button className="btn ghost sm icon" title="Disconnect" aria-label="Disconnect" onClick={() => { void api.terminal.remoteDisconnect(conn); setConn(null); }}><Icon name="eject" size={12} /></button>
       </div>
       <div className="row" style={{ gap: 4, marginBottom: 6 }}>
-        <button className="btn ghost sm icon" title={tt('up')} onClick={up}><Icon name="arrowUp" size={12} /></button>
+        <button className="btn ghost sm icon" title={tt('up')} aria-label={tt('up')} onClick={up}><Icon name="arrowUp" size={12} /></button>
         <input className="input sm grow" value={dir} onChange={(e) => setDir(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void load(conn, dir)} />
-        <button className="btn ghost sm icon" title="Reload" onClick={() => void load(conn, dir)}>{busy ? <div className="spinner" /> : <Icon name="refresh" size={12} />}</button>
+        <button className="btn ghost sm icon" title="Reload" aria-label="Reload" onClick={() => void load(conn, dir)}>{busy ? <div className="spinner" /> : <Icon name="refresh" size={12} />}</button>
       </div>
       <div className="row" style={{ gap: 4, marginBottom: 6, flexWrap: 'wrap' }}>
         <button className="btn sm" onClick={() => void api.settings.pickFiles({ title: tt('upload') }).then((f) => void (f.length && act(() => api.terminal.remoteUpload(conn, f, dir), `Uploaded ${f.length}`)))}><Icon name="arrowUp" size={12} /> {tt('upload')}</button>

@@ -4,7 +4,9 @@
 
 import { describe, expect, it } from 'vitest';
 import { FEATURES, presetPatch, featureStates, setPatch } from '../core/features';
+import { INSTALL_SOURCES as KNOWN_SOURCES } from '../core/install-source';
 import { defaultSettings } from '../core/settings';
+import { INSTALL_SOURCES as SENT_SOURCES } from '../core/telemetry';
 import {
   buildPayload, coarseCpu, macHasBattery, coarseOsVersion, countBucket, enqueue, gpuVendor, localeParts, offReason, parsePolicy, policyPath, ramBucket,
   USAGE_SCHEMA, uuidFromBytes, validateBody, validatePayload, type TelemetryInputs, type UsagePayload,
@@ -76,6 +78,13 @@ describe('the payload', () => {
     expect(p.usage.features).toEqual(['island', 'library', 'usageStats']);
     expect(p.health).toEqual({ crashes: 1, restarts: 0, memory: '250-500MB', cpu: '<1%', startup: '<2s' });
     expect(p.build).toEqual({ version: '0.1.0', channel: 'stable', official: false, via: 'direct' });
+  });
+
+  it('knows every way Keeper can be installed, the Microsoft Store included', () => {
+    expect([...SENT_SOURCES].sort()).toEqual(Object.keys(KNOWN_SOURCES).sort());
+    const p = buildPayload({ ...inputs(), installSource: 'msstore' });
+    expect(p.build.via).toBe('msstore');
+    expect(validatePayload(p).errors).toEqual([]);
   });
 
   it('drops anything private that sneaks into the inputs', () => {

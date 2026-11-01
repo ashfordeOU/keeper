@@ -11,11 +11,11 @@
 .qc-na { font-size: 12px; }
 .qc-busy { opacity: .5; pointer-events: none; }
 .qc-how { font-size: 10.5px; font-weight: 600; padding: 1px 6px; border-radius: 999px; background: var(--bg-sunk); color: var(--text-2); white-space: nowrap; }
-.qc-how-direct { background: var(--ok-soft); color: var(--ok); }
-.qc-how-admin { background: var(--warn-soft); color: var(--warn); }
-.qc-how-guide { background: var(--accent-soft); color: var(--accent); }
+.qc-how-direct { background: var(--ok-soft); color: var(--ok-ink, var(--ok)); }
+.qc-how-admin { background: var(--warn-soft); color: var(--warn-ink, var(--warn)); }
+.qc-how-guide { background: var(--accent-soft); color: var(--accent-ink, var(--accent)); }
 .qc-how-keeper { background: var(--bg-active, var(--bg-sunk)); }
-.qc-how-weak { background: var(--danger-soft); color: var(--danger); margin-left: 6px; }
+.qc-how-weak { background: var(--danger-soft); color: var(--danger-ink, var(--danger)); margin-left: 6px; }
 .qc-plan li .qc-how { margin-left: 6px; }
 .qc-search { display: flex; align-items: center; gap: 8px; padding: 6px 10px; margin: 0 0 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg-elev); color: var(--text-2); }
 .qc-search input { flex: 1; border: 0; background: none; outline: none; color: var(--text); font: inherit; }

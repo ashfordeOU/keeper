@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
-// Settings → Keeper's own usage: how much of the computer Keeper uses right
-// now, what its background work is doing (and why it waits), and the mode.
+// Settings → Performance: how much of the computer Keeper uses right now, what
+// its background work is doing (and why it waits), the mode, and memory choices.
 
 import { useEffect, useState } from 'react';
 import type { KeeperUsage } from '../../core/api-usage';
@@ -9,10 +9,11 @@ import { formatBytes } from '../../core/format';
 import { api } from '../api';
 import { useStore } from '../state';
 import { Icon } from './Icon';
+import { Toggle } from './ui';
 import '../styles/usage.css';
 
 const MODES: [ResourceMode, string, string][] = [
-  ['minimal', 'Minimal', 'The least use of your computer. Reading text in pictures and understanding files wait until you take a break on mains power; checks look less often.'],
+  ['minimal', 'Minimal', 'The least use of your computer. Reading text in pictures and understanding files wait until you take a break on mains power; checks look less often. From the next start Keeper also draws without the graphics card (about 60 MB less), unless a live wallpaper is playing.'],
   ['balanced', 'Balanced', 'Background work fits around you: it slows down while you work, waits on battery for the heavy parts and catches up when you are away.'],
   ['performance', 'Performance', 'Gets everything ready as fast as possible, even while you work or on battery. Keeper’s window also stays loaded when closed to the tray.'],
 ];
@@ -91,6 +92,21 @@ export function UsagePanel() {
             </div>
           </label>
         ))}
+      </div>
+
+      {u && u.hardwareGraphics !== undefined && (mode === 'minimal') === u.hardwareGraphics ? (
+        <div className="small muted" style={{ marginTop: 8 }}><Icon name="info" size={13} style={{ verticalAlign: -2 }} /> {mode === 'minimal' ? 'Keeper stops using the graphics card the next time it starts.' : 'Keeper uses the graphics card again the next time it starts.'}</div>
+      ) : null}
+
+      <div className="usage-memory">
+        <div className="usage-memory-row">
+          <div className="grow">
+            <b>Close the window to free memory</b>
+            <div className="small muted">When you close Keeper’s window and it keeps running in the tray, its page is let go a moment later (about 50–80 MB). Opening it again takes under a second and brings back your tabs, pages, scroll positions and drafts. Off keeps it loaded{mode === 'performance' ? '' : ' for a while (15 minutes, 2 in Minimal mode)'}.</div>
+          </div>
+          <Toggle label="Close the window to free memory" on={settings.freeWindowOnClose ?? mode !== 'performance'} onChange={(v) => void updateSettings({ freeWindowOnClose: v })} />
+        </div>
+        <div className="small muted">All of Keeper’s windows (the main window, the Island, Quick Search, widgets) share one page process instead of one each, which saves memory for every small window. Most of the memory left is Keeper’s engine itself: the window system, graphics and network parts every app built this way carries.</div>
       </div>
 
       <button className="notes-toggle" style={{ marginTop: 10 }} onClick={() => setShowChecks(!showChecks)}>

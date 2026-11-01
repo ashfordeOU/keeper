@@ -1,0 +1,104 @@
+# SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
+name: Beta bug
+description: Something in a Keeper beta does not work as it should (see docs/BETA-CHECKLIST.md)
+title: "[beta] "
+labels: [bug, beta]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for testing. If this came from the [beta checklist](https://github.com/ashfordeOU/keeper/blob/main/docs/BETA-CHECKLIST.md), put the item's ID in the title (for example `[beta] AWAKE-2 lid closed, Mac slept`).
+        Leave out private file names, if you'd rather not share them.
+  - type: input
+    id: item
+    attributes:
+      label: Checklist item
+      description: The ID from the beta checklist, if any.
+      placeholder: AWAKE-2
+  - type: input
+    id: version
+    attributes:
+      label: Keeper version
+      description: Settings → About, or the first line of Keeper's report.
+      placeholder: 0.1.0-beta.1
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How Keeper was installed
+      options:
+        - Download from GitHub (dmg, setup.exe, AppImage, deb, rpm)
+        - Portable (Windows) or tar.gz (Linux)
+        - Microsoft Store
+        - Homebrew, winget, Scoop, Chocolatey, Snap, Flatpak, AUR or Keeper's apt/dnf repository
+        - Built from source
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: System
+      options:
+        - macOS
+        - Windows 11 Home
+        - Windows 11 Pro
+        - Windows 10 Home
+        - Windows 10 Pro
+        - Windows (other edition)
+        - Linux
+    validations:
+      required: true
+  - type: input
+    id: os-version
+    attributes:
+      label: System version
+      description: "macOS: Apple menu → About This Mac (for example 15.4.1). Windows: run `winver` (for example 24H2, build 26100.4061). Linux: distribution and desktop."
+    validations:
+      required: true
+  - type: input
+    id: hardware
+    attributes:
+      label: Hardware
+      description: Model and processor. On a Mac, say whether the screen has a notch. Add displays (how many, scaling) if the problem is about windows, the Island or the screen.
+      placeholder: MacBook Pro 14" M3 (notch), one external 4K display at 150%
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: And what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    id: report
+    attributes:
+      label: Keeper's report (diagnostics)
+      description: Settings → Keeper's processes → **Copy report**, then paste it here. It has the version, system, safe mode and the last problems Keeper noted.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: files
+    attributes:
+      label: Logs, crash reports and screenshots
+      description: |
+        Drag files here. Useful ones: the zipped crash reports (Settings → Keeper's processes → Crash reports), `session/log.jsonl` from Keeper's data folder (macOS `~/Library/Application Support/Keeper`, Windows `%APPDATA%\Keeper`, Linux `~/.config/Keeper`), the console log from starting Keeper with `--enable-logging`, and a screenshot or short recording.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you send
+      options:
+        - label: I checked that this still happens on the newest beta.
+        - label: I read the logs I attached and am happy to share what is in them.

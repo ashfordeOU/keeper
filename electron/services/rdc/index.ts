@@ -9,7 +9,7 @@
 // program Keeper starts is tracked and stopped when Keeper quits.
 
 import { app, dialog, safeStorage, type WebContents } from 'electron';
-import { spawn, type ChildProcess } from 'node:child_process';
+import { execFile, spawn, type ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import dgram from 'node:dgram';
 import { existsSync, promises as fsp } from 'node:fs';
@@ -114,12 +114,26 @@ async function which(bin: string): Promise<string | null> {
   return null;
 }
 
+/** wsl.exe, when WSL's default distribution has this program (asked once, with a time limit). */
+async function wslWith(program: string): Promise<string | null> {
+  const exe = path.join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'wsl.exe');
+  if (!existsSync(exe)) return null;
+  const out = await new Promise<string>((resolve) => {
+    execFile(exe, ['--exec', 'sh', '-c', `command -v ${program}`], { timeout: 8000, windowsHide: true }, (e, o) => resolve(e ? '' : String(o)));
+  });
+  return out.trim() ? exe : null;
+}
+
 async function detect(refresh = false) {
   if (engineCache && !refresh && Date.now() - engineCache.at < 5 * 60_000) return engineCache.list;
   const list = await Promise.all(ENGINES.map(async (def) => {
     for (const bin of def.bins[OS] ?? []) {
       const p = await which(bin);
       if (p) return { def, found: { path: p, bin: path.basename(bin).replace(/\.exe$/i, '').toLowerCase() } };
+    }
+    if (def.id === 'mosh' && OS === 'win32') {
+      const wsl = await wslWith('mosh');
+      if (wsl) return { def, found: { path: wsl, bin: 'wsl' } };
     }
     return { def, found: null };
   }));
@@ -309,7 +323,7 @@ export async function connect(target: string | Connection, opts: { password?: st
       const info: RdcSession = { id: sid, connId: c.id, name: c.name, protocol: 'vnc', kind: 'inapp', state: 'connecting', started: Date.now(), via: endpoint.via };
       const { VncSession } = await import('./vnc');
       const vnc = new VncSession(sid, {
-        host: endpoint.host, port: endpoint.port, password, username: c.user, shared: c.vnc?.shared !== false, viewOnly: c.vnc?.viewOnly,
+        host: endpoint.host, port: endpoint.port, password, username: c.user, shared: c.vnc?.shared !== false, viewOnly: c.vnc?.viewOnly, picture: c.vnc?.picture,
         onState: (st, i) => {
           const l = live.get(sid);
           if (!l) return;

@@ -9,7 +9,7 @@
 .rdc-search { flex: 0 1 300px; min-width: 180px; }
 .rdc-tags { display: flex; gap: 6px; flex-wrap: wrap; }
 .rdc-tags .chip { cursor: default; }
-.rdc-tags .chip.on { background: var(--accent-soft); color: var(--accent); }
+.rdc-tags .chip.on { background: var(--accent-soft); color: var(--accent-ink, var(--accent)); }
 .rdc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 12px; }
 .rdc-card { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px 12px 16px; position: relative; overflow: hidden; }
 .rdc-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--rdc-color, var(--line)); }

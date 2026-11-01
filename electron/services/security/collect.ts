@@ -222,7 +222,7 @@ export async function signerOf(file: string): Promise<{ signed: boolean; signer?
     return { signed: r.ok, signer: auth };
   }
   if (process.platform === 'win32') {
-    const r = await powershell(`$s=Get-AuthenticodeSignature -LiteralPath '${file.replace(/'/g, "''")}'; @{status=[string]$s.Status;signer=[string]$s.SignerCertificate.Subject} | ConvertTo-Json -Compress`, 15_000);
+    const r = await powershell(`$s=Get-AuthenticodeSignature -LiteralPath '${file.replace(/['‘’‚‛]/g, '$&$&')}'; @{status=[string]$s.Status;signer=[string]$s.SignerCertificate.Subject} | ConvertTo-Json -Compress`, 15_000);
     try {
       const o = JSON.parse(r.stdout);
       return { signed: o.status === 'Valid', signer: o.signer?.match(/CN=([^,]+)/)?.[1] };

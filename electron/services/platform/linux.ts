@@ -9,7 +9,8 @@ import path from 'node:path';
 import {
   dbusServiceFile, GNOME_BUS_NAME, gnomeProviderIni, KRUNNER_BUS_NAME, krunnerDesktopFile,
 } from '../../../core/platform-integrations';
-import { exportProvider, type Exported, type ProviderDeps } from './dbus-providers';
+// The D-Bus providers (and the D-Bus library) load only when a search provider is exported.
+import type { Exported, ProviderDeps } from './dbus-providers';
 
 const share = () => process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share');
 
@@ -61,7 +62,7 @@ export async function serve(kind: 'gnome' | 'krunner', deps: ProviderDeps): Prom
   if (running.has(kind)) return { ok: true };
   if (!hasSessionBus()) return { ok: false, message: 'No desktop session bus found' };
   try {
-    running.set(kind, await exportProvider(kind, deps));
+    running.set(kind, await (await import('./dbus-providers')).exportProvider(kind, deps));
     return { ok: true };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : String(e) };

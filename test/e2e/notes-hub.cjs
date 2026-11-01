@@ -138,6 +138,51 @@ async function until(fn, ms = 15_000, step = 250) {
   check(!!(await until(async () => (await ns('snapshots')).length >= 2)), 'snapshots kept (one before each sync, one by hand)');
   await shot('08-backups');
 
+  // ---- Standard Notes: the account connection is offered as two-way, and the sign-in form asks for the right things
+  await main.getByTestId('nh-tab-apps').click();
+  const snBtn = main.getByTestId('nh-connect-standardnotes-sync');
+  check(await snBtn.count() === 1 && /Standard Notes/.test(await snBtn.innerText()) && /Two-way/i.test(await snBtn.innerText()), 'Standard Notes (account sync) is offered as two-way');
+  await snBtn.click();
+  check(await main.getByTestId('nh-field-email').count() === 1 && await main.getByTestId('nh-field-server').count() === 1 && await main.getByTestId('nh-field-code').count() === 1, 'its form asks for email, password, an optional self-hosted server and a two-step code');
+  await shot('09-standard-notes-form');
+  await main.keyboard.press('Escape').catch(() => undefined);
+
+  // ---- …and its sign-in and sync, in Electron's own runtime (whose crypto has no Argon2), against the stand-in server
+  {
+    const { buildSync } = require('esbuild');
+    const out = path.join(HOME, 'sn-probe.cjs');
+    // Run as plain Node inside Electron, so the Electron API is not there: a stand-in for the
+    // parts a shared helper names at load time (it is never called on this path).
+    const stub = path.join(HOME, 'electron-stub.cjs');
+    fs.writeFileSync(stub, 'module.exports = { BrowserWindow: class {}, app: {}, shell: {} };\n');
+    buildSync({
+      stdin: { resolveDir: APP, loader: 'ts', contents: `
+        import { argon2 } from './electron/services/notes-sync/connectors';
+        import { StandardNotesApi, snSalt, SN_ARGON2 } from './core/notes-sync/connectors/standardnotes';
+        const { startStandin } = require('./test/fixtures/notes-sync/sn-standin.cjs');
+        const account = require('./test/fixtures/notes-sync/sn-account.json');
+        (async () => {
+          const vec = Buffer.from(await argon2('foobarfoo🔒', snSalt('foo', 'bar'), { ...SN_ARGON2, length: 32 })).toString('hex');
+          const s = await startStandin({ account });
+          const fetchFn = async (u, i) => { const r = await fetch(u, i); return { ok: r.ok, status: r.status, headers: r.headers, json: () => r.json(), text: () => r.text() }; };
+          const api = new StandardNotesApi({ server: s.url, email: account.email, password: 'Lighthouse keeper 7', fetch: fetchFn, argon2 });
+          const { notes } = await api.list();
+          const book = notes.find((n) => n.title === 'Book ideas');
+          await api.update({ ...book, body: book.body + '\\n- from Electron' });
+          const sent = s.requests.map((r) => r.body).join('');
+          console.log(JSON.stringify({ node: process.versions.node, vec, titles: notes.map((n) => n.title).sort(), plaintextSent: /lighthouse|from Electron/i.test(sent) }));
+          await s.close();
+        })().catch((e) => { console.log(JSON.stringify({ error: String(e) })); });
+      ` },
+      outfile: out, bundle: true, platform: 'node', format: 'cjs', target: 'node22', logLevel: 'error', alias: { electron: stub },
+    });
+    const r = require('child_process').spawnSync(path.join(APP, 'node_modules/.bin/electron'), [out], { env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }, encoding: 'utf8', timeout: 120_000 });
+    let j = {};
+    try { j = JSON.parse(r.stdout.trim().split('\n').pop()); } catch { j = { error: r.stderr || r.stdout }; }
+    check(j.vec === 'bb6ec440708c271ce34decd7f997e2444d309b1105992779ccdb47f78a5fda6f', `Argon2id in Electron’s runtime (Node ${j.node}) matches Standard Notes’ published vector${j.error ? ' — ' + j.error : ''}`);
+    check(JSON.stringify(j.titles) === JSON.stringify(['Book ideas', 'Diary', 'Gift ideas', 'Old draft']) && j.plaintextSent === false, `signed in to the stand-in Standard Notes server, opened the notes on this computer, wrote one back, and sent no plain text (${JSON.stringify(j.titles)})`);
+  }
+
   check(errors.length === 0, `no page errors${errors.length ? ': ' + errors.join(' | ') : ''}`);
   await app.close();
   console.log(process.exitCode ? 'SOME CHECKS FAILED' : 'ALL CHECKS PASSED');

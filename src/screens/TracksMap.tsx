@@ -218,7 +218,7 @@ export function TracksMap({ lines = [], markers = [], heat, height = 420, colour
       {heat ? <canvas ref={heatRef} className="tk-heat" style={{ width: w, height }} /> : null}
       {hover ? (() => { const [x, y] = sx(hover.lat, hover.lon); return <div className="tk-tip" style={{ left: x + 10, top: y - 10 }}><b>{hover.label}</b>{hover.sub ? <span>{hover.sub}</span> : null}</div>; })() : null}
       <div className="tk-zoom">
-        <button className="btn sm icon" title="Zoom in" onClick={() => zoomAt(1)}><Icon name="plus" size={13} /></button>
+        <button className="btn sm icon" title="Zoom in" aria-label="Zoom in" onClick={() => zoomAt(1)}><Icon name="plus" size={13} /></button>
         <button className="btn sm icon" title="Zoom out" onClick={() => zoomAt(-1)}>−</button>
       </div>
       <div className="tk-attr">

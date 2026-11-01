@@ -18,7 +18,7 @@ import { decide, defaultFwState, exportRules, importRules, profileForNetwork, re
 import type { NetSample } from '../../../core/net/flows';
 import { run } from '../../../core/platform';
 import { poll } from '../governor';
-import { backendFor, type Backend } from './backends';
+import { backendFor, FW_TESTABLE, type Backend } from './backends';
 import { Resolver } from './resolver';
 
 const dir = () => path.join(app.getPath('userData'), 'firewall');
@@ -130,7 +130,7 @@ export function signerOf(p?: string): Promise<string | undefined> {
       }
       if (process.platform === 'win32') {
         const ps = path.join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
-        const r = await run(ps, ['-NoProfile', '-NonInteractive', '-Command', `(Get-AuthenticodeSignature -LiteralPath '${p.replace(/'/g, "''")}').SignerCertificate.Subject`], 8000);
+        const r = await run(ps, ['-NoProfile', '-NonInteractive', '-Command', `(Get-AuthenticodeSignature -LiteralPath '${p.replace(/['‘’‚‛]/g, '$&$&')}').SignerCertificate.Subject`], 8000);
         return r.stdout.match(/CN=("[^"]+"|[^,]+)/)?.[1]?.replace(/"/g, '').trim() || undefined;
       }
       const r = await run('dpkg', ['-S', p], 4000);
@@ -239,7 +239,7 @@ async function startResolver() {
       blocked: nameBlockedBy,
       onLog: (e) => { queryLog.unshift(e); if (queryLog.length > 2000) queryLog.length = 2000; if (e.blockedBy) event({ kind: 'denied', host: e.name, message: `${e.name} blocked by ${e.blockedBy}` }); },
       onAnswer: (name, addrs) => { for (const a of addrs) ipNames.set(a, name); if (ipNames.size > 20_000) ipNames.delete(ipNames.keys().next().value!); },
-      test: process.env.KEEPER_FW_TEST_CA ? { ca: await fsp.readFile(process.env.KEEPER_FW_TEST_CA), rejectUnauthorized: true } : undefined,
+      test: FW_TESTABLE && process.env.KEEPER_FW_TEST_CA ? { ca: await fsp.readFile(process.env.KEEPER_FW_TEST_CA), rejectUnauthorized: true } : undefined,
     });
     const port = await r.start();
     settings.dnsPort = port;
@@ -520,7 +520,7 @@ export const fwApi = {
   async apply() { await load(); await applyNow(); return status(); },
   async uninstall() { await load(); const r = await (backend ??= backendFor()).remove(); settings.enforce = false; enforcement = { active: false, backend: backend.name, message: r.message }; restartWatch(); changed(); return status(); },
   async testInject(c: Partial<Conn> & { host?: string; ip: string; port: number }) {
-    if (!process.env.KEEPER_FW_FAKE) throw new Error('Only in tests');
+    if (!FW_TESTABLE || !process.env.KEEPER_FW_FAKE) throw new Error('Only in tests');
     await load();
     const appPath = (c.app as { path?: string } | undefined)?.path ?? '/usr/bin/curl';
     if (c.host) ipNames.set(c.ip, c.host);

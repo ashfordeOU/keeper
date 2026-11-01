@@ -2,7 +2,8 @@
 // FTP and FTPS (explicit TLS). One control connection does one thing at a
 // time, so requests wait their turn; a dropped connection is opened again.
 
-import { Client, type FileInfo } from 'basic-ftp';
+// The FTP library loads the first time an FTP server is opened.
+import type { Client, FileInfo } from 'basic-ftp';
 import { PassThrough, Readable } from 'node:stream';
 import type { Connection, RemoteEntry, RemoteFs } from '../../../core/remote/types';
 import { joinRemote, normalizeRemote, onServer } from '../../../core/remote/paths';
@@ -21,7 +22,7 @@ export class FtpFs implements RemoteFs {
 
   private async ready(): Promise<Client> {
     if (this.client && !this.client.closed) return this.client;
-    const c = new Client(this.timeoutMs);
+    const c = new (await import('basic-ftp')).Client(this.timeoutMs);
     try {
       await c.access({
       host: this.conn.host,

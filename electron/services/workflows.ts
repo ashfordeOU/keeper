@@ -13,7 +13,7 @@ import type { Converter } from './convert';
 
 export interface WorkflowOptions {
   file: string;
-  converter: () => Converter;
+  converter: () => Converter | Promise<Converter>;
   /** waits until heavy work may run (the governor), for watched and scheduled runs */
   waitTurn?: () => Promise<void>;
   onRun?: (w: Workflow, r: ConvertResult | Error) => void;
@@ -127,7 +127,7 @@ export class Workflows {
     if (this.running.has(id)) throw new Error('This workflow is already running');
     this.running.add(id);
     try {
-      const r = await runSteps(this.o.converter(), w, files);
+      const r = await runSteps(await this.o.converter(), w, files);
       w.lastRun = { at: Date.now(), ok: !r.failed?.length, outputs: r.outputs.length, message: r.message };
       await this.persist();
       this.o.onRun?.(w, r);

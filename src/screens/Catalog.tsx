@@ -171,8 +171,8 @@ export function Catalog() {
             <input placeholder="Search settings — e.g. hidden files, swappiness, telemetry, key repeat" value={q} onChange={(e) => { setQ(e.target.value); setShown(PAGE); }} aria-label="Search settings" data-testid="cat-search" autoFocus />
           </div>
           <div className="sp-cats">
-            <span className={`chip ${!cat ? 'on' : ''}`} onClick={() => setCat(null)}>All</span>
-            {cats.map((c) => <span key={c} className={`chip ${cat === c ? 'on' : ''}`} onClick={() => setCat(cat === c ? null : c)}>{c}</span>)}
+            <button className={`chip ${!cat ? 'on' : ''}`} aria-pressed={!cat} onClick={() => setCat(null)}>All</button>
+            {cats.map((c) => <button key={c} className={`chip ${cat === c ? 'on' : ''}`} aria-pressed={cat === c} onClick={() => setCat(cat === c ? null : c)}>{c}</button>)}
           </div>
           {!list.length ? <Empty title="No settings match" /> : (
             <div className="card">

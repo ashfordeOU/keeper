@@ -359,7 +359,7 @@ function ConnectorCard({ c, plan, setPlan, reload }: { c: ConnectorView; plan?: 
         <button className="btn sm" onClick={() => void api.notesync.test(c.id).then((r) => toast(r.message))}>Test</button>
         <button className="btn sm" data-testid="nh-dryrun" disabled={plan === 'loading' || c.state === 'unavailable'} onClick={() => void dryRun()}>Dry run</button>
         <button className="btn sm primary" data-testid="nh-sync" disabled={busy || !c.reviewed || c.state === 'unavailable'} title={c.reviewed ? '' : 'Look at the dry run first'} onClick={() => void sync()}>{busy ? 'Syncing…' : 'Sync now'}</button>
-        <button className="btn sm ghost icon" title="Remove this connection" onClick={() => setAskRemove(true)}><Icon name="trash" size={13} /></button>
+        <button className="btn sm ghost icon" title="Remove this connection" aria-label="Remove this connection" onClick={() => setAskRemove(true)}><Icon name="trash" size={13} /></button>
       </div>
       {askRemove ? (
         <div className="nh-confirm row small">

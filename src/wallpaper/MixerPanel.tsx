@@ -36,7 +36,7 @@ export function MixerPanel() {
         <Icon name="audio" size={15} />
         <b className="grow">Ambient sound</b>
         {active ? <span className="badge">{active.emoji} {active.name}</span> : null}
-        <button className="btn ghost icon sm" title="Close (sound keeps playing)" onClick={() => void api.ambience.closeMixer()}><Icon name="close" size={13} /></button>
+        <button className="btn ghost icon sm" title="Close (sound keeps playing)" aria-label="Close (sound keeps playing)" onClick={() => void api.ambience.closeMixer()}><Icon name="close" size={13} /></button>
       </div>
       <MixerControls state={state} compact />
       <div className="amb-panel-foot small muted">Made on this computer — no recordings, nothing downloaded.</div>

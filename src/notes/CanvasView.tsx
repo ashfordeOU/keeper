@@ -208,16 +208,16 @@ export function CanvasView({ path }: { path: string }) {
       </div>
       <div className="nt-cv-tools" onPointerDown={(e) => e.stopPropagation()}>
         <button className="nt-icon-btn" title="Add a card" aria-label="Add card" onClick={() => { const r = box.current!.getBoundingClientRect(); const p = toBoard(r.left + r.width / 2, r.top + r.height / 2); newCard(p.x, p.y); }}><Icon name="plus" size={15} /></button>
-        <button className="nt-icon-btn" title="Add a note or file from the vault" onClick={() => setAdding((a) => !a)}><Icon name="document" size={15} /></button>
-        <button className="nt-icon-btn" title="Add a group" onClick={() => { const r = box.current!.getBoundingClientRect(); const p = toBoard(r.left + r.width / 2, r.top + r.height / 2); save(addNode(data, { type: 'group', label: 'Group', x: Math.round(p.x - 250), y: Math.round(p.y - 200), width: 500, height: 400 } as never)); }}><Icon name="grid" size={15} /></button>
+        <button className="nt-icon-btn" title="Add a note or file from the vault" aria-label="Add a note or file from the vault" onClick={() => setAdding((a) => !a)}><Icon name="document" size={15} /></button>
+        <button className="nt-icon-btn" title="Add a group" aria-label="Add a group" onClick={() => { const r = box.current!.getBoundingClientRect(); const p = toBoard(r.left + r.width / 2, r.top + r.height / 2); save(addNode(data, { type: 'group', label: 'Group', x: Math.round(p.x - 250), y: Math.round(p.y - 200), width: 500, height: 400 } as never)); }}><Icon name="grid" size={15} /></button>
         {selNode ? (
           <>
             {['1', '2', '3', '4', '5', '6'].map((c) => <button key={c} className="nt-cv-swatch" style={{ background: colorOf(c) }} title={`Colour ${c}`} onClick={() => save({ ...data, nodes: data.nodes.map((x) => (x.id === selNode.id ? { ...x, color: c } : x)) })} />)}
-            <button className="nt-icon-btn" title="Remove card" onClick={() => { save(removeNodes(data, [selNode.id])); setSel(null); }}><Icon name="trash" size={14} /></button>
+            <button className="nt-icon-btn" title="Remove card" aria-label="Remove card" onClick={() => { save(removeNodes(data, [selNode.id])); setSel(null); }}><Icon name="trash" size={14} /></button>
           </>
         ) : null}
         <span className="nt-cv-zoom">{Math.round(view.k * 100)}%</span>
-        <button className="nt-icon-btn" title="Reset zoom" onClick={() => setView({ x: 0, y: 0, k: 1 })}><Icon name="refresh" size={14} /></button>
+        <button className="nt-icon-btn" title="Reset zoom" aria-label="Reset zoom" onClick={() => setView({ x: 0, y: 0, k: 1 })}><Icon name="refresh" size={14} /></button>
       </div>
       {adding ? (
         <div className="nt-cv-picker" onPointerDown={(e) => e.stopPropagation()}>

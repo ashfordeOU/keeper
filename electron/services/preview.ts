@@ -12,7 +12,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { Readable } from 'node:stream';
 import { gunzipSync, inflateRawSync } from 'node:zlib';
-import { findZipDirectory, parseTar, parseZipDirectory, type ArchiveEntry } from '../../core/archive';
+import { extractCommands, findZipDirectory, parseTar, parseZipDirectory, type ArchiveEntry } from '../../core/archive';
 import { extOf, kindOf } from '../../core/classify';
 import { readExifDetails } from '../../core/exifDetails';
 import { readId3, readMp4Tags } from '../../core/id3';
@@ -210,7 +210,7 @@ async function appInfo(p: string, ext: string, isDir: boolean): Promise<Record<s
       if (get('CFBundleIdentifier')) out.Identifier = get('CFBundleIdentifier')!;
     }
   } else if ((ext === 'exe' || ext === 'msi' || ext === 'dll') && process.platform === 'win32') {
-    const r = await run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', `(Get-Item -LiteralPath '${p.replace(/'/g, "''")}').VersionInfo | Select-Object ProductName,FileDescription,ProductVersion,CompanyName,LegalCopyright | ConvertTo-Json -Compress`]);
+    const r = await run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', `(Get-Item -LiteralPath '${p.replace(/['‘’‚‛]/g, '$&$&')}').VersionInfo | Select-Object ProductName,FileDescription,ProductVersion,CompanyName,LegalCopyright | ConvertTo-Json -Compress`]);
     try {
       const d = JSON.parse(r.stdout) as Record<string, string | null>;
       const labels: Record<string, string> = { ProductName: 'Name', FileDescription: 'Description', ProductVersion: 'Version', CompanyName: 'Publisher', LegalCopyright: 'Copyright' };
@@ -414,7 +414,13 @@ export async function zipEntry(p: string, pick: (name: string, all: string[]) =>
   const method = dv.getUint16(8, true);
   const start = e.offset + 30 + dv.getUint16(26, true) + dv.getUint16(28, true);
   const packed = Buffer.from(await readHead(p, e.packed ?? e.size, start));
-  const data = method === 0 ? packed : method === 8 ? inflateRawSync(packed) : null;
+  // The sizes in the directory can lie: never inflate past what was asked for.
+  let data: Buffer | null;
+  try {
+    data = method === 0 ? packed : method === 8 ? inflateRawSync(packed, { maxOutputLength: Math.max(1, maxBytes) }) : null;
+  } catch {
+    return null;
+  }
   return data ? { name: e.name, data } : null;
 }
 
@@ -440,7 +446,7 @@ export async function extract(p: string, entryName: string): Promise<string> {
     const method = dv.getUint16(8, true);
     const start = e.offset + 30 + dv.getUint16(26, true) + dv.getUint16(28, true);
     const packed = await readHead(p, e.packed ?? e.size, start);
-    const data = method === 0 ? packed : method === 8 ? inflateRawSync(packed) : null;
+    const data = method === 0 ? packed : method === 8 ? inflateRawSync(packed, { maxOutputLength: 2 ** 31 - 1 }) : null;
     if (!data) throw new Error('This compression method is not supported for preview');
     await fsp.writeFile(out, data);
     return out;
@@ -475,7 +481,8 @@ export async function extract(p: string, entryName: string): Promise<string> {
       }
     }
   }
-  for (const [bin, args] of [['tar', ['-xf', p, '-C', dir, entryName]], ['7z', ['x', '-y', `-o${dir}`, p, entryName]], ['7zz', ['x', '-y', `-o${dir}`, p, entryName]], ['unrar', ['x', '-y', p, entryName, dir + path.sep]]] as const) {
+  // `--` ends the options: an entry called "--to-command=…" is a name, never an instruction to tar.
+  for (const [bin, args] of extractCommands(p, entryName, dir, path.sep)) {
     const r = await run(bin, [...args], 120_000);
     if (r.ok && existsSync(out)) return out;
   }

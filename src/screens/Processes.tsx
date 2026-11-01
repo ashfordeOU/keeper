@@ -471,7 +471,7 @@ export function Processes() {
         <button className={`btn sm ${paused ? 'primary' : ''}`} onClick={() => setPaused(!paused)} title={paused ? 'Resume updates' : 'Pause updates'}>
           <Icon name={paused ? 'play' : 'pause'} size={13} /> {paused ? 'Paused' : 'Pause'}
         </button>
-        <button className="btn sm ghost icon" title="Columns" onClick={(e) => setColMenu({ x: e.clientX, y: e.clientY })}><Icon name="list" size={14} /></button>
+        <button className="btn sm ghost icon" title="Columns" aria-label="Columns" onClick={(e) => setColMenu({ x: e.clientX, y: e.clientY })}><Icon name="list" size={14} /></button>
         <button className="btn sm ghost" title="Save the list as a spreadsheet" onClick={async () => { const p = await api.tools.saveAs(`Processes ${new Date().toISOString().slice(0, 16).replace(':', '.')}.csv`, procsCsv([...procs].sort(cmp))); if (p) toast(`Saved ${p.split(/[\\/]/).pop()}`); }}>CSV</button>
         <button className="btn sm" onClick={() => setForceQuit(true)} title="Force Quit Applications">Force Quit…</button>
       </div>

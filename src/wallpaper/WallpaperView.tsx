@@ -8,11 +8,32 @@ import type { WallpaperFrame } from '../../core/scenes/api';
 import type { RenderPolicy } from '../../core/scenes/policy';
 import { api } from '../api';
 import { SceneRenderer } from './scene-gl';
+import { reduceMotion } from '../../core/a11y';
 import '../styles/ambience.css';
 
 const fileUrl = (p: string) => api.preview.url(p);
 
-function Scene({ frame, policy, still }: { frame: WallpaperFrame; policy: RenderPolicy; still: boolean }) {
+/**
+ * Reduce motion (Settings → Accessibility, or the system's own setting): scenes
+ * draw one still frame and videos and pictures hold still.
+ */
+function useCalm(): boolean {
+  const sys = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const [pref, setPref] = useState<string | undefined>(undefined);
+  const [system, setSystem] = useState(sys);
+  useEffect(() => {
+    const read = () => void api.settings?.get?.().then((s) => setPref(s?.a11y?.motion)).catch(() => undefined);
+    read();
+    const off = api.on?.('settings-changed', (s: { a11y?: { motion?: string } }) => setPref(s?.a11y?.motion));
+    const mq = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
+    const onMq = () => setSystem(sys());
+    mq?.addEventListener('change', onMq);
+    return () => { off?.(); mq?.removeEventListener('change', onMq); };
+  }, []);
+  return reduceMotion(pref as 'system' | 'reduce' | 'full' | undefined, system);
+}
+
+function Scene({ frame, policy, still, calm }: { frame: WallpaperFrame; policy: RenderPolicy; still: boolean; calm?: boolean }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const r = useRef<SceneRenderer | null>(null);
   const [error, setError] = useState('');
@@ -31,11 +52,13 @@ function Scene({ frame, policy, still }: { frame: WallpaperFrame; policy: Render
     if (src.kind !== 'scene' || !r.current) return;
     r.current.setScene(src.scene, frame.palette.colors, src.params);
     if (still) r.current.drawOnce(() => api.ambience.ready());
-  }, [frame, still]);
+    else if (calm) r.current.drawOnce();
+  }, [frame, still, calm]);
   useEffect(() => {
-    if (!still) r.current?.setPolicy(policy.run, policy.fps, policy.scale);
+    if (!still && !calm) r.current?.setPolicy(policy.run, policy.fps, policy.scale);
     else r.current?.setPolicy(false, 30, 1);
-  }, [policy, still]);
+    if (calm && !still) r.current?.drawOnce();
+  }, [policy, still, calm]);
   // No WebGL here (no graphics driver, or blocked): the palette as a slowly breathing gradient instead.
   if (error) return <div className={`wp-fallback ${still ? '' : 'wp-breathe'}`} data-error={error} style={{ background: `radial-gradient(120% 90% at 25% 20%, ${frame.palette.colors[3]}66, transparent 60%), linear-gradient(160deg, ${frame.palette.colors.join(', ')})`, animationPlayState: policy.run && !still ? 'running' : 'paused' }} ref={() => { if (still) api.ambience.ready(); }} />;
   return <canvas ref={ref} className="wp-canvas" />;
@@ -82,6 +105,7 @@ export function WallpaperView() {
   const [frame, setFrame] = useState<WallpaperFrame | null>(null);
   const [policy, setPolicy] = useState<RenderPolicy>({ run: false, fps: 30, scale: 0.75 });
   const [fade, setFade] = useState(false);
+  const calm = useCalm();
   useEffect(() => {
     document.documentElement.dataset.view = 'wallpaper';
     let first = true;
@@ -99,10 +123,10 @@ export function WallpaperView() {
   }, []);
   if (!frame) return <div className="wp-root" />;
   const s = frame.source;
-  const run = policy.run;
+  const run = policy.run && !calm;
   return (
-    <div className={`wp-root ${fade ? 'fading' : ''}`} data-running={run ? '1' : '0'} data-kind={s.kind}>
-      {s.kind === 'scene' ? <Scene frame={frame} policy={policy} still={still} /> : null}
+    <div className={`wp-root ${fade ? 'fading' : ''}`} data-running={run ? '1' : '0'} data-kind={s.kind} aria-hidden>
+      {s.kind === 'scene' ? <Scene frame={frame} policy={policy} still={still} calm={calm} /> : null}
       {s.kind === 'video' ? <Video path={s.path} run={run} still={still} rate={s.rate} /> : null}
       {s.kind === 'image' ? <Picture path={s.path} motion={s.motion} run={run} still={still} /> : null}
       {s.kind === 'folder' ? <Folder folder={s.path} interval={s.interval} motion={s.motion} shuffle={s.shuffle} run={run} still={still} /> : null}

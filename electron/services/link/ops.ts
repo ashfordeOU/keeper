@@ -9,7 +9,7 @@ import { execFile, spawn, type ChildProcess } from 'node:child_process';
 import { promises as fsp, statfsSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { clipOutput, powerCommand, printCommand, shellCommand, type PowerAction, type SysInfo } from '../../../core/link/actions';
+import { clipOutput, powerCommand, printable, printCommand, shellCommand, type PowerAction, type SysInfo } from '../../../core/link/actions';
 import { commandHash } from '../../../core/link/fleet';
 import { call, type Stream } from '../../../core/link/mux';
 import { safeName } from '../../../core/link/transfer';
@@ -140,6 +140,10 @@ async function receivePrint(node: LinkNode, st: Stream, device: string, run: Non
   const name = safeName(String(st.meta.name ?? 'document'));
   const size = Number(st.meta.size) || 0;
   if (size > 200 * 1024 * 1024) return st.reset('Too large to print');
+  if (!printable(name)) {
+    node.audit({ kind: 'print', direction: 'in', device, deviceName: who, title: `${who} tried to print ${name} here; that kind of file is not printed`, ok: false });
+    return st.end({ ok: false, error: 'This kind of file cannot be printed remotely. Send a PDF, a picture, text or an Office document.' });
+  }
   const dir = await fsp.mkdtemp(path.join(os.tmpdir(), 'keeper-print-'));
   const file = path.join(dir, name);
   try {

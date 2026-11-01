@@ -178,7 +178,7 @@ export function Cleanup() {
                     <div className="mini"><Thumb file={f} size={64} /></div>
                     <div className="grow ellipsis" title={f.path}>{f.name}<div className="small muted ellipsis">{short(f.path)}</div></div>
                     <span className="muted num">{formatBytes(f.size)}</span>
-                    <button className="btn ghost sm icon" title="Show in folder" onClick={() => void api.files.reveal(f.path)}><Icon name="reveal" size={13} /></button>
+                    <button className="btn ghost sm icon" title="Show in folder" aria-label="Show in folder" onClick={() => void api.files.reveal(f.path)}><Icon name="reveal" size={13} /></button>
                   </div>
                 ))}
               </div>
@@ -310,7 +310,7 @@ function EntryPicker({ group, picked, onChange, onReset, short }: {
               <span className="small muted" style={{ width: 90, textAlign: 'right' }}>{relativeTime(e.mtime)}</span>
               <span className="small muted num" style={{ width: 80, textAlign: 'right' }}>{e.isDir ? `${e.files.toLocaleString()} file${e.files === 1 ? '' : 's'}` : ''}</span>
               <span className="num" style={{ width: 80, textAlign: 'right', fontWeight: 600 }}>{formatBytes(e.size)}</span>
-              <button className="btn ghost sm icon" title="Show in folder" onClick={() => void api.files.reveal(e.path)}><Icon name="reveal" size={13} /></button>
+              <button className="btn ghost sm icon" title="Show in folder" aria-label="Show in folder" onClick={() => void api.files.reveal(e.path)}><Icon name="reveal" size={13} /></button>
             </div>
           );
         })}

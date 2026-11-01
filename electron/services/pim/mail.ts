@@ -3,10 +3,14 @@
 // and closes after a minute of quiet; the inbox is watched with IMAP IDLE (the
 // server says when mail arrives), so nothing polls.
 
-import { ImapFlow, type FetchMessageObject } from 'imapflow';
-import { simpleParser, type AddressObject, type ParsedMail } from 'mailparser';
-import nodemailer from 'nodemailer';
-import MailComposer from 'nodemailer/lib/mail-composer';
+import type { FetchMessageObject, ImapFlow } from 'imapflow';
+import type { AddressObject, ParsedMail } from 'mailparser';
+
+// The mail libraries are large (about 2 MB of code): they load the first time mail is used.
+const imapFlow = async () => (await import('imapflow')).ImapFlow;
+const parseMail = async (source: Buffer | string, opts: import('mailparser').SimpleParserOptions = {}): Promise<ParsedMail> => (await import('mailparser')).simpleParser(source, opts);
+const mailer = async () => (await import('nodemailer')).default;
+const mailComposer = async () => (await import('nodemailer/lib/mail-composer')).default;
 import { parseUnsubscribe, snippetOf } from '../../../core/pim/mail';
 import type { Account, Address, Attachment, MailFolder, MessageBody, MessageSummary, ServerSettings, SpecialUse } from '../../../core/pim/types';
 import { files, readJson, writeJson, type FolderCache } from './store';
@@ -73,7 +77,7 @@ export class MailAccount {
 
   private async open(): Promise<ImapFlow> {
     if (this.ops?.usable) return this.ops;
-    const c = new ImapFlow(imapOptions(this.account.imap!, await this.auth(), this.account.insecureTls));
+    const c = new (await imapFlow())(imapOptions(this.account.imap!, await this.auth(), this.account.insecureTls));
     c.on('error', () => undefined);
     await c.connect();
     this.ops = c;
@@ -101,7 +105,7 @@ export class MailAccount {
   }
 
   async test(): Promise<void> {
-    const c = new ImapFlow(imapOptions(this.account.imap!, await this.auth(), this.account.insecureTls));
+    const c = new (await imapFlow())(imapOptions(this.account.imap!, await this.auth(), this.account.insecureTls));
     c.on('error', () => undefined);
     await c.connect();
     await c.logout().catch(() => c.close());
@@ -194,7 +198,7 @@ export class MailAccount {
               const s = known.get(m.uid);
               if (!s || !m.source) continue;
               try {
-                const p = await simpleParser(m.source, { skipHtmlToText: false, skipImageLinks: true, skipTextLinks: true });
+                const p = await parseMail(m.source, { skipHtmlToText: false, skipImageLinks: true, skipTextLinks: true });
                 s.snippet = snippetOf(p.text ?? '');
               } catch {
                 /* a preview is a nicety */
@@ -258,7 +262,7 @@ export class MailAccount {
 
   async body(folder: string, uid: number): Promise<{ body: MessageBody; parsed: ParsedMail }> {
     const id = `${this.account.id}:${folder}:${uid}`;
-    const parsed = await simpleParser(await this.source(folder, uid));
+    const parsed = await parseMail(await this.source(folder, uid));
     return { body: toBody(id, parsed), parsed };
   }
 
@@ -323,7 +327,7 @@ export class MailAccount {
     clearTimeout(this.idleRetry);
     try {
       // This connection only waits, so it goes into IDLE almost at once.
-      const c = new ImapFlow({ ...imapOptions(this.account.imap!, await this.auth(), this.account.insecureTls), disableAutoIdle: false, autoIdleDelay: 500 });
+      const c = new (await imapFlow())({ ...imapOptions(this.account.imap!, await this.auth(), this.account.insecureTls), disableAutoIdle: false, autoIdleDelay: 500 });
       c.on('error', () => undefined);
       c.on('exists', () => onNew());
       c.on('close', () => {
@@ -407,7 +411,7 @@ export interface Outgoing {
 /** The finished message (what is sent and what is saved to Sent). */
 export async function compose(o: Outgoing): Promise<{ raw: Buffer; envelope: { from: string; to: string[] }; messageId: string }> {
   const fmt = (a: Address) => (a.name ? { name: a.name, address: a.address } : a.address);
-  const mail = new MailComposer({
+  const mail = new (await mailComposer())({
     from: fmt(o.from), to: o.to.map(fmt), cc: o.cc.map(fmt), bcc: o.bcc.map(fmt), subject: o.subject,
     text: o.text, html: o.html, inReplyTo: o.inReplyTo ? `<${o.inReplyTo}>` : undefined,
     references: o.references?.map((r) => `<${r}>`), attachments: o.attachments, icalEvent: o.icalEvent,
@@ -422,7 +426,7 @@ export async function compose(o: Outgoing): Promise<{ raw: Buffer; envelope: { f
 
 export async function smtpSend(account: Account, auth: Auth, raw: Buffer | string, envelope: { from: string; to: string[] }) {
   const s = account.smtp!;
-  const t = nodemailer.createTransport({
+  const t = (await mailer()).createTransport({
     host: s.host, port: s.port, secure: s.security === 'tls', requireTLS: s.security === 'starttls', ignoreTLS: s.security === 'none',
     auth: 'pass' in auth ? { user: auth.user, pass: auth.pass } : { type: 'OAuth2', user: auth.user, accessToken: auth.accessToken },
     tls: account.insecureTls ? { rejectUnauthorized: false } : undefined,
@@ -437,7 +441,7 @@ export async function smtpSend(account: Account, auth: Auth, raw: Buffer | strin
 
 export async function smtpVerify(account: Account, auth: Auth) {
   const s = account.smtp!;
-  const t = nodemailer.createTransport({
+  const t = (await mailer()).createTransport({
     host: s.host, port: s.port, secure: s.security === 'tls', requireTLS: s.security === 'starttls', ignoreTLS: s.security === 'none',
     auth: 'pass' in auth ? { user: auth.user, pass: auth.pass } : { type: 'OAuth2', user: auth.user, accessToken: auth.accessToken },
     tls: account.insecureTls ? { rejectUnauthorized: false } : undefined, connectionTimeout: 15_000,

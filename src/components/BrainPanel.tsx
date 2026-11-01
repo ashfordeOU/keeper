@@ -44,8 +44,8 @@ function StatusCard({ st }: { st: BrainStatus | null }) {
       <div><b>{(st.passages ?? 0).toLocaleString()}</b><span>passages</span></div>
       <div><b>{st.semantic === 'ready' ? st.embedded.toLocaleString() : '—'}</b><span>understood by meaning</span></div>
       <div className="brain-progress">
-        {read < 1 ? <><div className="small muted">Reading files… {Math.round(read * 100)}%</div><div className="progress"><i style={{ width: `${read * 100}%` }} /></div></> : null}
-        {st.semantic === 'ready' && st.pending ? <><div className="small muted">Building meaning search… {Math.round(vecDone * 100)}% {st.message ? `· ${st.message}` : ''}</div><div className="progress"><i style={{ width: `${vecDone * 100}%` }} /></div></> : null}
+        {read < 1 ? <><div className="small muted">Reading files… {Math.round(read * 100)}%</div><div className="progress" role="progressbar" aria-label="Progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(Number(read * 100) || 0)}><i style={{ width: `${read * 100}%` }} /></div></> : null}
+        {st.semantic === 'ready' && st.pending ? <><div className="small muted">Building meaning search… {Math.round(vecDone * 100)}% {st.message ? `· ${st.message}` : ''}</div><div className="progress" role="progressbar" aria-label="Progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(Number(vecDone * 100) || 0)}><i style={{ width: `${vecDone * 100}%` }} /></div></> : null}
         {read >= 1 && !(st.semantic === 'ready' && st.pending) ? <div className="small muted"><Icon name="check" size={12} /> Up to date{st.updatedAt ? ` · ${relativeTime(st.updatedAt)}` : ''}</div> : null}
       </div>
       <button className="btn sm ghost" disabled={busy} title="Read every file again from scratch" onClick={async () => { setBusy(true); await api.brain.rebuild(); setBusy(false); }}><Icon name="refresh" size={12} /> Rebuild</button>

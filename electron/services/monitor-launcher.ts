@@ -10,7 +10,7 @@ import path from 'node:path';
 import { parseToolId, standardOutputDir } from '../../core/tool-catalog';
 import { launcherTools } from '../../core/tool-catalog';
 import { TOOL_INFO } from '../../core/convert-types';
-import { setStandardOutput } from './convert';
+import { setStandardOutput } from './convert-shared';
 import { featureOn, onFeature } from './features';
 import { monitorSettings, onMonitorSettings } from './monitor-settings';
 import { keepUnmanaged, overlayOptions } from './unmanaged';

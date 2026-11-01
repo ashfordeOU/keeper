@@ -497,7 +497,7 @@ export function TerminalApp({ mode = 'page', startCwd, openSession }: { mode?: M
           {s?.group ? <span className="badge">{s.group}</span> : null}
           {agentTerms[n.session] ? <span className={`badge agent-badge ${agentTerms[n.session].human ? 'human' : ''}`} title={agentTerms[n.session].human ? 'You have taken this terminal over from the agent' : 'An agent controls this terminal'}>{agentTerms[n.session].human ? '✋ you' : `🤖 ${agentTerms[n.session].agent}`}</span> : null}
           {s?.running && s.running !== '…' ? <span className="badge accent">{s.running}</span> : null}
-          <button className="tpane-x" title={tt('closePane')} onClick={() => void closeLeaf(t.id, n.id)}><Icon name="close" size={11} /></button>
+          <button className="tpane-x" title={tt('closePane')} aria-label={tt('closePane')} onClick={() => void closeLeaf(t.id, n.id)}><Icon name="close" size={11} /></button>
         </div>
       );
       let body: React.ReactNode;
@@ -558,29 +558,29 @@ export function TerminalApp({ mode = 'page', startCwd, openSession }: { mode?: M
                 <span className="ellipsis">{tabTitle(t)}</span>
                 {t.broadcast ? <span title={tt('broadcastOn')}>⇶</span> : null}
                 {leaves(t.root).length > 1 ? <span className="muted small">{leaves(t.root).length}</span> : null}
-                <button className="tab-x" onMouseDown={(e) => e.stopPropagation()} onClick={() => closeTab(t.id)} title={tt('close')}><Icon name="close" size={11} /></button>
+                <button className="tab-x" onMouseDown={(e) => e.stopPropagation()} onClick={() => closeTab(t.id)} title={tt('close')} aria-label={tt('close')}><Icon name="close" size={11} /></button>
               </div>
             );
           })}
-          <button className="btn ghost sm icon" title={`${tt('newTab')} (${formatCombo(settings.keybindings['tab.new'], MAC)})`} onClick={() => void newTab()}><Icon name="plus" size={14} /></button>
-          <button className="btn ghost sm icon" title={tt('newTerminal')} onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setMenu({ x: r.left, y: r.bottom + 4, items: newMenuItems() }); }}><Icon name="chevronDown" size={13} /></button>
+          <button className="btn ghost sm icon" title={`${tt('newTab')} (${formatCombo(settings.keybindings['tab.new'], MAC)})`} aria-label={`${tt('newTab')} (${formatCombo(settings.keybindings['tab.new'], MAC)})`} onClick={() => void newTab()}><Icon name="plus" size={14} /></button>
+          <button className="btn ghost sm icon" title={tt('newTerminal')} aria-label={tt('newTerminal')} onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setMenu({ x: r.left, y: r.bottom + 4, items: newMenuItems() }); }}><Icon name="chevronDown" size={13} /></button>
         </div>
         <div className="term-tools">
           <button className={`btn ghost sm icon ${tab?.broadcast ? 'on' : ''}`} title={`${tt('broadcast')} (${formatCombo(settings.keybindings['broadcast.toggle'], MAC)})`} onClick={toggleBroadcast}>⇶</button>
-          <button className="btn ghost sm icon" title={`${tt('splitRight')} (${formatCombo(settings.keybindings['pane.splitRight'], MAC)})`} onClick={() => void splitPane('row')}><span className="split-ico v" /></button>
-          <button className="btn ghost sm icon" title={`${tt('splitDown')} (${formatCombo(settings.keybindings['pane.splitDown'], MAC)})`} onClick={() => void splitPane('col')}><span className="split-ico h" /></button>
+          <button className="btn ghost sm icon" title={`${tt('splitRight')} (${formatCombo(settings.keybindings['pane.splitRight'], MAC)})`} aria-label={`${tt('splitRight')} (${formatCombo(settings.keybindings['pane.splitRight'], MAC)})`} onClick={() => void splitPane('row')}><span className="split-ico v" /></button>
+          <button className="btn ghost sm icon" title={`${tt('splitDown')} (${formatCombo(settings.keybindings['pane.splitDown'], MAC)})`} aria-label={`${tt('splitDown')} (${formatCombo(settings.keybindings['pane.splitDown'], MAC)})`} onClick={() => void splitPane('col')}><span className="split-ico h" /></button>
           <span className="term-sep" />
           <button className={`btn ghost sm ${panel === 'files' ? 'on' : ''}`} onClick={() => setPanel(panel === 'files' ? null : 'files')}><Icon name="server" size={13} /> {tt('files')}</button>
           <button className={`btn ghost sm ${panel === 'notes' ? 'on' : ''}`} onClick={() => setPanel(panel === 'notes' ? null : 'notes')}><Icon name="text" size={13} /> {tt('notes')}</button>
           <button className={`btn ghost sm ${panel === 'sessions' ? 'on' : ''}`} onClick={() => setPanel(panel === 'sessions' ? null : 'sessions')}><Icon name="list" size={13} /> {tt('sessions')} <span className="muted">{sessions.length}</span></button>
           <button className={`btn ghost sm ${agentsView ? 'on' : ''}`} onClick={() => setAgentsView(!agentsView)} title="Agents' terminals, sub-workers, messages and the shared task board"><Icon name="assistant" size={13} /> Agents <span className="muted">{Object.keys(agentTerms).length || ''}</span></button>
           <span className="term-sep" />
-          <button className="btn ghost sm icon" title={tt('workspaces')} onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setMenu({ x: r.right - 220, y: r.bottom + 4, items: [
+          <button className="btn ghost sm icon" title={tt('workspaces')} aria-label={tt('workspaces')} onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setMenu({ x: r.right - 220, y: r.bottom + 4, items: [
             { label: tt('saveWorkspace'), icon: 'plus', run: () => setDialog('workspace') },
             ...settings.workspaces.map((w) => ({ label: w.name, icon: 'grid', run: () => openWorkspace(w) })),
           ] }); }}><Icon name="grid" size={14} /></button>
-          {mode === 'page' ? <button className="btn ghost sm icon" title="Open in its own window" onClick={() => void api.terminal.openWindow()}><Icon name="external" size={14} /></button> : null}
-          <button className="btn ghost sm icon" title={tt('settings')} onClick={() => setDialog('settings')}><Icon name="settings" size={14} /></button>
+          {mode === 'page' ? <button className="btn ghost sm icon" title="Open in its own window" aria-label="Open in its own window" onClick={() => void api.terminal.openWindow()}><Icon name="external" size={14} /></button> : null}
+          <button className="btn ghost sm icon" title={tt('settings')} aria-label={tt('settings')} onClick={() => setDialog('settings')}><Icon name="settings" size={14} /></button>
         </div>
       </div>
 
@@ -592,9 +592,9 @@ export function TerminalApp({ mode = 'page', startCwd, openSession }: { mode?: M
               if (e.key === 'Enter' && focusLeaf) panes.current.get(focusLeaf.id)?.find(findText, e.shiftKey);
               if (e.key === 'Escape') { setFindText(null); if (focusLeaf) { panes.current.get(focusLeaf.id)?.clearFind(); panes.current.get(focusLeaf.id)?.focus(); } }
             }} />
-          <button className="btn ghost sm icon" onClick={() => focusLeaf && panes.current.get(focusLeaf.id)?.find(findText, true)}><Icon name="arrowUp" size={12} /></button>
-          <button className="btn ghost sm icon" onClick={() => focusLeaf && panes.current.get(focusLeaf.id)?.find(findText)}><Icon name="chevronDown" size={12} /></button>
-          <button className="btn ghost sm icon" onClick={() => setFindText(null)}><Icon name="close" size={12} /></button>
+          <button aria-label="Find previous" title="Find previous" className="btn ghost sm icon" onClick={() => focusLeaf && panes.current.get(focusLeaf.id)?.find(findText, true)}><Icon name="arrowUp" size={12} /></button>
+          <button aria-label="Find next" title="Find next" className="btn ghost sm icon" onClick={() => focusLeaf && panes.current.get(focusLeaf.id)?.find(findText)}><Icon name="chevronDown" size={12} /></button>
+          <button aria-label="Close find" title="Close find" className="btn ghost sm icon" onClick={() => setFindText(null)}><Icon name="close" size={12} /></button>
         </div>
       ) : null}
 
@@ -702,9 +702,9 @@ function WebPane({ url }: { url: string }) {
   return (
     <div className="tweb-pane">
       <div className="tweb-bar">
-        <button className="btn ghost sm icon" title="Reload" onClick={() => setKey((k) => k + 1)}><Icon name="refresh" size={12} /></button>
+        <button className="btn ghost sm icon" title="Reload" aria-label="Reload" onClick={() => setKey((k) => k + 1)}><Icon name="refresh" size={12} /></button>
         <span className="ellipsis small muted grow">{url.replace(/([?&](tkn|token)=)[^&]+/, '$1…')}</span>
-        <button className="btn ghost sm icon" title="Open in the browser" onClick={() => void api.system.openExternal(url)}><Icon name="external" size={12} /></button>
+        <button className="btn ghost sm icon" title="Open in the browser" aria-label="Open in the browser" onClick={() => void api.system.openExternal(url)}><Icon name="external" size={12} /></button>
       </div>
       <iframe key={key} src={url} title={url} />
     </div>
@@ -749,7 +749,7 @@ function SessionsList({ sessions, shown, onOpen, onKill }: { sessions: SessionIn
             <div className="small muted ellipsis">{s.profileName}{s.group ? ` · ${s.group}` : ''}{s.cwd ? ` · ${s.cwd}` : ''}{s.running && s.running !== '…' ? ` · ${tt('running')}: ${s.running}` : ''}</div>
           </div>
           {!shown.has(s.id) ? <button className="btn sm" onClick={() => onOpen(s.id)}>{tt('open')}</button> : <span className="badge">on screen</span>}
-          <button className="btn ghost sm icon" title={tt('close')} onClick={() => onKill(s.id)}><Icon name="close" size={12} /></button>
+          <button className="btn ghost sm icon" title={tt('close')} aria-label={tt('close')} onClick={() => onKill(s.id)}><Icon name="close" size={12} /></button>
         </div>
       ))}
       {!sessions.length ? <div className="muted small">{tt('empty')}</div> : null}

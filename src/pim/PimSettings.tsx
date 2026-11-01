@@ -60,7 +60,7 @@ export function PimSettings() {
               ? <><input className="input" type="password" autoFocus placeholder="Password" value={pw.value} onChange={(e) => setPw({ id: a.id, value: e.target.value })} style={{ width: 160 }} /><button className="btn sm primary" onClick={async () => { await api.pim.updateAccount(a.id, { password: pw.value } as Partial<Account>); setPw(null); toast('Password saved'); }}>Save</button></>
               : <button className="btn sm ghost" onClick={() => setPw({ id: a.id, value: '' })}>Password…</button>
           ) : a.oauth ? <button className="btn sm ghost" onClick={async () => { try { await api.pim.signIn(a.oauth!, a.email); await api.pim.removeAccount(a.id); } catch (e) { toast(String(e)); } }}>Sign in again</button> : null}
-          <button className="btn sm ghost icon" title="Remove account" onClick={() => { if (window.confirm(`Remove ${a.label} from Keeper? Mail and events stay on the server.`)) void api.pim.removeAccount(a.id); }}><Icon name="trash" size={13} /></button>
+          <button className="btn sm ghost icon" title="Remove account" aria-label="Remove account" onClick={() => { if (window.confirm(`Remove ${a.label} from Keeper? Mail and events stay on the server.`)) void api.pim.removeAccount(a.id); }}><Icon name="trash" size={13} /></button>
         </div>
       )) : <div className="small muted">No accounts yet.</div>}
       <button className="btn sm" style={{ marginTop: 8 }} onClick={() => setAdding(true)}><Icon name="plus" size={13} /> Add account</button>

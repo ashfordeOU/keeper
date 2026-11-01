@@ -11,6 +11,7 @@ import type { AllSettings } from '../core/settings';
 import type { CleanResult, FileEntry } from '../core/types';
 import { api } from './api';
 import { applyTheme, onNewDay, onSystemAppearance } from './theme';
+import { applyA11y } from './a11y';
 import { formatBytes } from '../core/format';
 import { asInspectorMode, clampInspectorWidth, inspectorVisible, nextForced, INSPECTOR_DEFAULT_WIDTH } from '../core/inspector';
 
@@ -18,7 +19,7 @@ export type RouteName =
   | 'home' | 'recents' | 'library' | 'screenshots' | 'search' | 'browse' | 'downloads' | 'source' | 'tag' | 'saved'
   | 'duplicates' | 'cleanup' | 'space' | 'large' | 'startup' | 'apps' | 'protection' | 'rules' | 'history'
   | 'assistant' | 'island' | 'settings' | 'tools' | 'health' | 'capture' | 'annotate' | 'convert' | 'widgets' | 'ambience' | 'weather' | 'network' | 'trash' | 'remote' | 'terminal' | 'sync' | 'devices' | 'netactivity' | 'vpn' | 'firewall' | 'agents' | 'graph' | 'mail' | 'calendar' | 'reminders' | 'planner' | 'alarms' | 'todo' | 'awake' | 'stage' | 'controls' | 'catalog' | 'appcontrols' | 'browsers' | 'noteshub' | 'notes' | 'rdc' | 'mesh' | 'tracks'
-  | 'cues' | 'dictation' | 'meetings';
+  | 'cues' | 'dictation' | 'meetings' | 'aiusage';
 
 /** Pages that list files, where the Inspector can show. */
 export const FILE_ROUTES: RouteName[] = ['home', 'recents', 'library', 'screenshots', 'source', 'tag', 'search', 'saved', 'browse', 'downloads', 'large'];
@@ -225,6 +226,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const offDay = settings.themeSeasons ? onNewDay(() => applyTheme(settings)) : () => undefined;
     return () => { offSystem(); offDay(); };
   }, [settings]);
+  // Settings → Accessibility: motion, text size and focus outlines, in every window.
+  useEffect(() => (settings ? applyA11y(settings.a11y) : undefined), [settings]);
 
   const tabsOn = settings?.tabs !== false;
   const go = useCallback((r: Route) => {

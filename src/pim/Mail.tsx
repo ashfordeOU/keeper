@@ -220,7 +220,7 @@ export function Mail() {
             <Icon name="search" size={14} />
             <input ref={searchRef} className="input" placeholder="Search mail (from:, subject:, is:unread)" value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => e.key === 'Escape' && setQuery('')} />
           </div>
-          <button className="btn icon sm" title="Check for new mail" onClick={() => void refresh()}>{refreshing ? <div className="spinner" /> : <Icon name="refresh" size={14} />}</button>
+          <button className="btn icon sm" title="Check for new mail" aria-label="Check for new mail" onClick={() => void refresh()}>{refreshing ? <div className="spinner" /> : <Icon name="refresh" size={14} />}</button>
         </div>
         <div className="mail-list-filters">
           <div className="seg">
@@ -234,7 +234,7 @@ export function Mail() {
             <button className="btn sm ghost" onClick={() => void act(() => api.pim.setRead([...checked], true))}>Mark read</button>
             <button className="btn sm ghost" onClick={() => void act(() => api.pim.archive([...checked]), 'Archived')}>Archive</button>
             <button className="btn sm ghost" onClick={() => void act(() => api.pim.trash([...checked]), 'Moved to Trash')}>Delete</button>
-            <button className="btn sm ghost icon" onClick={() => setChecked(new Set())}><Icon name="close" size={13} /></button>
+            <button aria-label="Clear selection" title="Clear selection" className="btn sm ghost icon" onClick={() => setChecked(new Set())}><Icon name="close" size={13} /></button>
           </div>
         ) : null}
         <div className="mail-rows" role="listbox" aria-label="Messages">
@@ -336,13 +336,13 @@ function Conversation({ row, accounts, onReply, act }: {
     <div className="conversation">
       <div className="reader-toolbar">
         <button className="btn sm ghost" title="Reply (r)" onClick={() => onReply('reply', last.id)}><Icon name="reply" size={14} /> Reply</button>
-        <button className="btn sm ghost" title="Reply all (a)" onClick={() => onReply('replyAll', last.id)}><Icon name="replyAll" size={14} /></button>
-        <button className="btn sm ghost" title="Forward (f)" onClick={() => onReply('forward', last.id)}><Icon name="forward" size={14} /></button>
+        <button className="btn sm ghost" title="Reply all (a)" aria-label="Reply all (a)" onClick={() => onReply('replyAll', last.id)}><Icon name="replyAll" size={14} /></button>
+        <button className="btn sm ghost" title="Forward (f)" aria-label="Forward (f)" onClick={() => onReply('forward', last.id)}><Icon name="forward" size={14} /></button>
         <span className="sep" />
-        <button className="btn sm ghost" title="Archive (e)" onClick={() => void act(() => api.pim.archive(ids), 'Archived')}><Icon name="archive" size={14} /></button>
-        <button className="btn sm ghost" title="Delete (#)" onClick={() => void act(() => api.pim.trash(ids), 'Moved to Trash')}><Icon name="trash" size={14} /></button>
-        <button className="btn sm ghost" title="Flag (s)" onClick={() => void act(() => api.pim.setFlagged([last.id], !last.flagged))}><Icon name="flag" size={14} style={last.flagged ? { color: 'var(--warn)' } : undefined} /></button>
-        <button className="btn sm ghost" title="Mark as unread (u)" onClick={() => void act(() => api.pim.setRead([last.id], false))}><Icon name="mail" size={14} /></button>
+        <button className="btn sm ghost" title="Archive (e)" aria-label="Archive (e)" onClick={() => void act(() => api.pim.archive(ids), 'Archived')}><Icon name="archive" size={14} /></button>
+        <button className="btn sm ghost" title="Delete (#)" aria-label="Delete (#)" onClick={() => void act(() => api.pim.trash(ids), 'Moved to Trash')}><Icon name="trash" size={14} /></button>
+        <button className="btn sm ghost" title="Flag (s)" aria-label="Flag (s)" onClick={() => void act(() => api.pim.setFlagged([last.id], !last.flagged))}><Icon name="flag" size={14} style={last.flagged ? { color: 'var(--warn)' } : undefined} /></button>
+        <button className="btn sm ghost" title="Mark as unread (u)" aria-label="Mark as unread (u)" onClick={() => void act(() => api.pim.setRead([last.id], false))}><Icon name="mail" size={14} /></button>
         <span className="grow" />
         <button className="btn sm ghost" disabled={!!busy} onClick={() => void runAi('summarize')}>{busy === 'summarize' ? <div className="spinner" /> : <Icon name="sparkle" size={13} />} Summarize</button>
         <button className="btn sm ghost" disabled={!!busy} onClick={() => void runAi('reply')}>{busy === 'reply' ? <div className="spinner" /> : <Icon name="sparkle" size={13} />} Draft reply</button>
@@ -351,7 +351,7 @@ function Conversation({ row, accounts, onReply, act }: {
       <h2 className="reader-subject">{last.subject}</h2>
       {ai ? (
         <div className="ai-card">
-          <div className="row" style={{ gap: 6 }}><Icon name="sparkle" size={13} /><b>{ai.task === 'summarize' ? 'Summary' : ai.task === 'reply' ? 'Suggested reply' : 'Dates found'}</b><span className="grow" /><button className="btn sm ghost icon" onClick={() => setAi(null)}><Icon name="close" size={12} /></button></div>
+          <div className="row" style={{ gap: 6 }}><Icon name="sparkle" size={13} /><b>{ai.task === 'summarize' ? 'Summary' : ai.task === 'reply' ? 'Suggested reply' : 'Dates found'}</b><span className="grow" /><button aria-label="Close" title="Close" className="btn sm ghost icon" onClick={() => setAi(null)}><Icon name="close" size={12} /></button></div>
           {ai.task === 'extract' && ai.events ? (
             ai.events.length ? ai.events.map((e, i) => (
               <div key={i} className="row" style={{ gap: 8, marginTop: 6 }}>
@@ -446,8 +446,8 @@ function MessageCard({ summary, accounts, onCollapse, act }: { summary: MessageS
                 <div key={a.id} className="attachment" title={a.filename}>
                   <Icon name={/pdf|text|word|sheet|presentation/.test(a.contentType) ? 'document' : /image/.test(a.contentType) ? 'image' : /calendar/.test(a.contentType) ? 'calendar' : 'paperclip'} size={18} />
                   <div className="grow" style={{ minWidth: 0 }}><div className="ellipsis">{a.filename}</div><div className="small muted">{formatBytes(a.size)}</div></div>
-                  <button className="btn sm ghost icon" title="Open" onClick={() => void act(() => api.pim.openAttachment(summary.id, a.id))}><Icon name="external" size={13} /></button>
-                  <button className="btn sm ghost icon" title={`Save to ${info?.platform === 'win32' ? 'a folder' : 'Downloads'}`} onClick={async () => { const p = await api.pim.saveAttachment(summary.id, a.id); if (p) toast(`Saved ${p.split(/[\\/]/).pop()}`); }}><Icon name="down" size={13} /></button>
+                  <button className="btn sm ghost icon" title="Open" aria-label="Open" onClick={() => void act(() => api.pim.openAttachment(summary.id, a.id))}><Icon name="external" size={13} /></button>
+                  <button className="btn sm ghost icon" title={`Save to ${info?.platform === 'win32' ? 'a folder' : 'Downloads'}`} aria-label={`Save to ${info?.platform === 'win32' ? 'a folder' : 'Downloads'}`} onClick={async () => { const p = await api.pim.saveAttachment(summary.id, a.id); if (p) toast(`Saved ${p.split(/[\\/]/).pop()}`); }}><Icon name="down" size={13} /></button>
                 </div>
               ))}
             </div>

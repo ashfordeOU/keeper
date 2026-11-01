@@ -131,7 +131,7 @@ function Folders({ ov, onChange, reload }: { ov: SyncOverview; onChange: (o: Syn
               <div className="small muted">{f.files.toLocaleString()} file{f.files === 1 ? '' : 's'} · {formatBytes(f.bytes)}{f.lastScan ? ` · looked ${relativeTime(f.lastScan)}` : ''}{f.message ? ` · ${f.message}` : ''}</div>
               {f.progress ? (
                 <div className="sync-progress">
-                  <div className="progress"><i style={{ width: `${f.progress.total ? Math.round((f.progress.done / f.progress.total) * 100) : 0}%` }} /></div>
+                  <div className="progress" role="progressbar" aria-label="Progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(Number(f.progress.total ? Math.round((f.progress.done / f.progress.total) * 100) : 0) || 0)}><i style={{ width: `${f.progress.total ? Math.round((f.progress.done / f.progress.total) * 100) : 0}%` }} /></div>
                   <span className="small muted ellipsis">{f.progress.file} · {f.progress.queued} more</span>
                 </div>
               ) : null}
@@ -145,9 +145,9 @@ function Folders({ ov, onChange, reload }: { ov: SyncOverview; onChange: (o: Syn
               </div>
             </div>
             <div className="btn-row">
-              <button className="btn sm ghost icon" title="Look for changes now" onClick={() => void api.sync.rescan(f.id).then(reload)}><Icon name="refresh" size={14} /></button>
-              <button className="btn sm ghost icon" title={f.paused ? 'Resume' : 'Pause'} onClick={() => void api.sync.updateFolder(f.id, { paused: !f.paused }).then(onChange)}><Icon name={f.paused ? 'play' : 'pause'} size={14} /></button>
-              <button className="btn sm ghost icon" title="Settings" onClick={() => setEditing(f)}><Icon name="settings" size={14} /></button>
+              <button className="btn sm ghost icon" title="Look for changes now" aria-label="Look for changes now" onClick={() => void api.sync.rescan(f.id).then(reload)}><Icon name="refresh" size={14} /></button>
+              <button className="btn sm ghost icon" title={f.paused ? 'Resume' : 'Pause'} aria-label={f.paused ? 'Resume' : 'Pause'} onClick={() => void api.sync.updateFolder(f.id, { paused: !f.paused }).then(onChange)}><Icon name={f.paused ? 'play' : 'pause'} size={14} /></button>
+              <button className="btn sm ghost icon" title="Settings" aria-label="Settings" onClick={() => setEditing(f)}><Icon name="settings" size={14} /></button>
             </div>
           </div>
         </div>
@@ -321,7 +321,7 @@ function Backups({ ov, onChange, reload }: { ov: SyncOverview; onChange: (o: Syn
               </div>
               {b.progress ? (
                 <div className="sync-progress">
-                  <div className="progress"><i style={{ width: `${b.progress.totalBytes ? Math.min(100, Math.round((b.progress.bytes / b.progress.totalBytes) * 100)) : 30}%` }} /></div>
+                  <div className="progress" role="progressbar" aria-label="Progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(Number(b.progress.totalBytes ? Math.min(100, Math.round((b.progress.bytes / b.progress.totalBytes) * 100)) : 30) || 0)}><i style={{ width: `${b.progress.totalBytes ? Math.min(100, Math.round((b.progress.bytes / b.progress.totalBytes) * 100)) : 30}%` }} /></div>
                   <span className="small muted ellipsis">{b.progress.files.toLocaleString()} files · {formatBytes(b.progress.bytes)}{b.progress.file ? ` · ${b.progress.file}` : ''}</span>
                 </div>
               ) : null}
@@ -333,8 +333,8 @@ function Backups({ ov, onChange, reload }: { ov: SyncOverview; onChange: (o: Syn
                 <button className="btn sm primary" onClick={() => withPassword(b, (pw) => void api.sync.runBackup(b.id, pw).then(onChange))}><Icon name="arrowUp" size={13} /> Back up now</button>
               )}
               <button className="btn sm" onClick={() => withPassword(b, () => setRestoring(b))}><Icon name="undo" size={13} /> Restore…</button>
-              <button className="btn sm ghost icon" title="Check the backup" onClick={() => verify(b)}><Icon name="shield" size={14} /></button>
-              <button className="btn sm ghost icon" title="Remove (the backup itself stays where it is)" onClick={() => void api.sync.removeBackup(b.id).then(onChange)}><Icon name="trash" size={14} /></button>
+              <button className="btn sm ghost icon" title="Check the backup" aria-label="Check the backup" onClick={() => verify(b)}><Icon name="shield" size={14} /></button>
+              <button className="btn sm ghost icon" title="Remove (the backup itself stays where it is)" aria-label="Remove (the backup itself stays where it is)" onClick={() => void api.sync.removeBackup(b.id).then(onChange)}><Icon name="trash" size={14} /></button>
             </div>
           </div>
         </div>
@@ -573,11 +573,11 @@ function Mirrors({ ov, onChange }: { ov: SyncOverview; onChange: (o: SyncOvervie
               <div className="row" style={{ gap: 8 }}><b className="ellipsis">{m.name}</b><span className="badge">{dir(m)}</span><StateBadge state={m.state} /></div>
               <div className="small muted ellipsis">{m.local} ↔ {m.destLabel}</div>
               <div className="small muted">{m.schedule === 'live' ? 'As soon as something changes' : m.schedule === 'hourly' ? 'Every hour' : 'When I start it'}{m.lastRun ? ` · last ${relativeTime(m.lastRun)}${m.lastMessage ? `: ${m.lastMessage}` : ''}` : ''}</div>
-              {m.progress ? <div className="sync-progress"><div className="progress"><i style={{ width: `${Math.round((m.progress.done / Math.max(1, m.progress.total)) * 100)}%` }} /></div><span className="small muted ellipsis">{m.progress.file}</span></div> : null}
+              {m.progress ? <div className="sync-progress"><div className="progress" role="progressbar" aria-label="Progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(Number(Math.round((m.progress.done / Math.max(1, m.progress.total)) * 100)) || 0)}><i style={{ width: `${Math.round((m.progress.done / Math.max(1, m.progress.total)) * 100)}%` }} /></div><span className="small muted ellipsis">{m.progress.file}</span></div> : null}
             </div>
             <div className="btn-row">
               <button className="btn sm" onClick={() => void api.sync.runMirror(m.id).then(onChange)}><Icon name="refresh" size={13} /> Run now</button>
-              <button className="btn sm ghost icon" title="Remove (files stay on both sides)" onClick={() => void api.sync.removeMirror(m.id).then(onChange)}><Icon name="trash" size={14} /></button>
+              <button className="btn sm ghost icon" title="Remove (files stay on both sides)" aria-label="Remove (files stay on both sides)" onClick={() => void api.sync.removeMirror(m.id).then(onChange)}><Icon name="trash" size={14} /></button>
             </div>
           </div>
         </div>

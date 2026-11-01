@@ -140,7 +140,7 @@ if ($k::LogonUser($env:USERNAME, $env:USERDOMAIN, $pw, 2, 0, [ref]$h)) { $k::Clo
 `;
 
 async function hello(reason?: string): Promise<'ok' | 'unavailable' | 'cancelled' | 'failed'> {
-  const script = reason ? `& { ${HELLO} } '${reason.replace(/'/g, "''")}'` : HELLO;
+  const script = reason ? `& { ${HELLO} } '${reason.replace(/['‘’‚‛]/g, '$&$&')}'` : HELLO;
   const r = await run(PS(), ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script], 180_000);
   const out = r.stdout.trim();
   if (out === 'available' || out === 'result:Verified') return 'ok';

@@ -91,9 +91,9 @@ export function WorkflowsPanel({ files, renderOptions, defaults }: { files: stri
                     <span className="n">Step {i + 1} · {CAT_LABEL[TOOL_INFO[s.op.tool]?.category ?? 'file']}</span>
                     <b>{TOOL_INFO[s.op.tool]?.label ?? s.op.tool}</b>
                     <div className="tools">
-                      <button className="btn ghost sm icon" title="Earlier" disabled={i === 0} onClick={(e) => { e.stopPropagation(); move(i, -1); }}><Icon name="chevronLeft" size={12} /></button>
-                      <button className="btn ghost sm icon" title="Later" disabled={i === edit.steps.length - 1} onClick={(e) => { e.stopPropagation(); move(i, 1); }}><Icon name="chevronRight" size={12} /></button>
-                      <button className="btn ghost sm icon" title="Remove step" disabled={edit.steps.length === 1} onClick={(e) => { e.stopPropagation(); setEdit({ ...edit, steps: edit.steps.filter((_, j) => j !== i) }); setSel(Math.max(0, Math.min(sel, edit.steps.length - 2))); }}><Icon name="close" size={12} /></button>
+                      <button className="btn ghost sm icon" title="Earlier" aria-label="Earlier" disabled={i === 0} onClick={(e) => { e.stopPropagation(); move(i, -1); }}><Icon name="chevronLeft" size={12} /></button>
+                      <button className="btn ghost sm icon" title="Later" aria-label="Later" disabled={i === edit.steps.length - 1} onClick={(e) => { e.stopPropagation(); move(i, 1); }}><Icon name="chevronRight" size={12} /></button>
+                      <button className="btn ghost sm icon" title="Remove step" aria-label="Remove step" disabled={edit.steps.length === 1} onClick={(e) => { e.stopPropagation(); setEdit({ ...edit, steps: edit.steps.filter((_, j) => j !== i) }); setSel(Math.max(0, Math.min(sel, edit.steps.length - 2))); }}><Icon name="close" size={12} /></button>
                     </div>
                   </div>
                 </div>

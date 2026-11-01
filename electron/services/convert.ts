@@ -5,7 +5,7 @@
 // fallbacks (HEIC decoding, drawing PDF pages) are passed in, so the same code
 // runs in tests and in the command-line tool.
 
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { existsSync, promises as fsp } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -24,15 +24,15 @@ import { Extra, findTool, officeCandidates, type ExtraHooks } from './convert-ex
 import { FileKit } from './filekit';
 import { isKitTool, type KitOp } from '../../core/filekit/tools';
 
-/** The person's standard output folder (set by the app; the command line keeps results next to the originals). */
-let standardOutput: (tool: string) => string | undefined = () => undefined;
-export function setStandardOutput(fn: (tool: string) => string | undefined) {
-  standardOutput = fn;
-}
+// The standard output folder (set by the app) and ffmpeg's place live in convert-shared.ts.
+export { setStandardOutput } from './convert-shared';
+import { ffmpegPath, standardOutput } from './convert-shared';
 
 type Sharp = typeof import('sharp').default;
 
 const req = createRequire(__filename);
+/** SHA-256 of rembg's u2netp.onnx (v0.0.0 release), the background-removal model. */
+const U2NETP_SHA256 = '309c8469258dda742793dce0ebea8e6dd393174f89934733ecc8b14c76f4ddd8';
 
 export interface ConverterHooks extends ExtraHooks {
   /** decodes an image sharp cannot read (HEIC on Windows) into PNG bytes */
@@ -51,16 +51,7 @@ export interface ConverterOptions {
 }
 
 /** ffmpeg ships inside the app; when packaged it lives outside the asar archive. */
-export function ffmpegPath(): string | null {
-  try {
-    const p = (req('ffmpeg-static') as string | null) ?? null;
-    if (!p) return null;
-    const unpacked = p.replace(`app.asar${path.sep}`, `app.asar.unpacked${path.sep}`);
-    return existsSync(unpacked) ? unpacked : existsSync(p) ? p : null;
-  } catch {
-    return null;
-  }
-}
+export { ffmpegPath } from './convert-shared';
 
 function which(cmd: string): Promise<string | null> {
   return new Promise((resolve) => {
@@ -658,6 +649,8 @@ export class Converter {
         if (!res.ok) throw new Error(`Could not download the cut-out model (${res.status})`);
         const buf = Buffer.from(await res.arrayBuffer());
         if (buf.length < 1_000_000) throw new Error('The cut-out model download was incomplete');
+        // Pinned: the same file rembg publishes (its MD5 8e83ca70… matches), so nothing else is ever loaded.
+        if (createHash('sha256').update(buf).digest('hex') !== U2NETP_SHA256) throw new Error('The cut-out model did not match its published fingerprint, so Keeper did not use it');
         await fsp.writeFile(file + '.partial', buf);
         await fsp.rename(file + '.partial', file);
       }

@@ -116,7 +116,7 @@ function Shares({ s }: { s: LinkState }) {
             <div key={sh.id} className="link-row">
               <Icon name="folder" size={15} />
               <div className="grow ellipsis"><b>{sh.name}</b> <span className="small muted">{sh.path}</span></div>
-              <button className="btn ghost sm icon" title="Stop sharing" onClick={() => void api.link.removeShare(sh.id)}><Icon name="close" size={12} /></button>
+              <button className="btn ghost sm icon" title="Stop sharing" aria-label="Stop sharing" onClick={() => void api.link.removeShare(sh.id)}><Icon name="close" size={12} /></button>
             </div>
           ))}
         </div>
@@ -137,12 +137,12 @@ function Transfers({ s }: { s: LinkState }) {
             <Icon name={t.direction === 'send' ? 'send' : 'down'} size={15} />
             <div className="grow" style={{ minWidth: 0 }}>
               <div className="ellipsis">{t.name} <span className="small muted">{t.direction === 'send' ? 'to' : 'from'} {name(t.peer)}</span></div>
-              {t.state === 'sending' || t.state === 'receiving' || t.state === 'checking' ? <div className="progress"><i style={{ width: `${t.size ? Math.round((t.done / t.size) * 100) : 0}%` }} /></div> : null}
+              {t.state === 'sending' || t.state === 'receiving' || t.state === 'checking' ? <div className="progress" role="progressbar" aria-label="Progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(Number(t.size ? Math.round((t.done / t.size) * 100) : 0) || 0)}><i style={{ width: `${t.size ? Math.round((t.done / t.size) * 100) : 0}%` }} /></div> : null}
             </div>
             <span className={`small ${t.state === 'failed' || t.state === 'declined' ? 'danger-text' : 'muted'}`}>
               {t.state === 'done' ? formatBytes(t.size) : t.state === 'failed' ? t.error ?? 'Failed' : t.state === 'declined' ? 'Declined' : t.state === 'checking' ? 'Checking…' : t.state === 'waiting' ? 'Waiting to be accepted…' : `${formatBytes(t.done)} of ${formatBytes(t.size)}`}
             </span>
-            {t.savedAs ? <button className="btn ghost sm icon" title="Show in folder" onClick={() => void api.files.reveal(t.savedAs!)}><Icon name="reveal" size={13} /></button> : null}
+            {t.savedAs ? <button className="btn ghost sm icon" title="Show in folder" aria-label="Show in folder" onClick={() => void api.files.reveal(t.savedAs!)}><Icon name="reveal" size={13} /></button> : null}
           </div>
         ))}
       </div>
@@ -213,7 +213,7 @@ function PairDialog({ start, onClose }: { start: 'host' | 'join'; onClose: () =>
               <div className="small muted">Or paste this pairing link there (it also works from the QR code):</div>
               <div className="row" style={{ gap: 6 }}>
                 <input className="input grow mono small" readOnly value={invite.link} onFocus={(e) => e.target.select()} />
-                <button className="btn sm" onClick={() => void navigator.clipboard.writeText(invite.link).then(() => toast('Link copied'))}><Icon name="copy" size={13} /></button>
+                <button aria-label="Copy link" title="Copy link" className="btn sm" onClick={() => void navigator.clipboard.writeText(invite.link).then(() => toast('Link copied'))}><Icon name="copy" size={13} /></button>
               </div>
               <div className="small muted">Waiting… The code works for 10 minutes. You will both see six digits to compare.</div>
             </div>
@@ -284,7 +284,7 @@ function DeviceDetail({ s, d }: { s: LinkState; d: LinkDevice }) {
         <div className="btn-row">
           <button className="btn primary" onClick={() => void api.link.sendFiles(d.id).catch((e) => toast(clean(e)))}><Icon name="send" size={14} /> Send Files…</button>
           <button className="btn" onClick={() => void api.link.sendClipboard(d.id).then(() => toast('Clipboard sent'), (e) => toast(clean(e)))}><Icon name="clipboard" size={14} /> Send Clipboard</button>
-          <button className="btn ghost" onClick={() => void api.link.check(d.id).then((r) => toast(r.ok ? `${viaLabel(r.via)}, ${r.rtt} ms` : r.error ?? 'Not reachable'))}><Icon name="refresh" size={14} /></button>
+          <button aria-label="Check connection" title="Check connection" className="btn ghost" onClick={() => void api.link.check(d.id).then((r) => toast(r.ok ? `${viaLabel(r.via)}, ${r.rtt} ms` : r.error ?? 'Not reachable'))}><Icon name="refresh" size={14} /></button>
         </div>
       </div>
 
@@ -344,7 +344,7 @@ function DeviceDetail({ s, d }: { s: LinkState; d: LinkDevice }) {
             <Icon name="plug" size={15} />
             <div className="grow mono small">{f.kind === 'socks' ? `SOCKS5 proxy on localhost:${f.localPort}` : `localhost:${f.localPort} → ${d.name} ${f.host}:${f.port}`}</div>
             {f.error ? <span className="small danger-text">{f.error}</span> : <span className="badge ok">On</span>}
-            <button className="btn ghost sm icon" title="Remove" onClick={() => void api.link.removeForward(f.id)}><Icon name="close" size={12} /></button>
+            <button className="btn ghost sm icon" title="Remove" aria-label="Remove" onClick={() => void api.link.removeForward(f.id)}><Icon name="close" size={12} /></button>
           </div>
         ))}
         <form className="row link-fwd-form" onSubmit={(e) => { e.preventDefault(); void api.link.addForward({ device: d.id, kind: fwd.kind, localPort: Number(fwd.localPort), port: fwd.kind === 'port' ? Number(fwd.port || fwd.localPort) : undefined }).then(() => setFwd({ ...fwd, localPort: '', port: '' }), (x) => toast(clean(x))); }}>
@@ -468,7 +468,7 @@ function Remote({ s, reload }: { s: LinkState; reload: () => void }) {
           </div>
           {t && t.state !== 'off' ? <span className={`badge ${t.state === 'connected' ? 'ok' : t.state === 'error' ? 'warn' : ''}`} data-testid="tunnel-state">{t.state === 'downloading' ? `Downloading ${t.download ?? 0}%` : t.state === 'connected' ? `Connected · ${t.connections} links` : t.state}</span> : null}
         </div>
-        {t?.url ? <div className="row" style={{ gap: 6, marginTop: 10 }}><Icon name="globe" size={14} /><code className="grow">{t.url}</code><button className="btn sm" onClick={() => void navigator.clipboard.writeText(t.url!).then(() => toast('Copied'))}><Icon name="copy" size={13} /></button></div> : null}
+        {t?.url ? <div className="row" style={{ gap: 6, marginTop: 10 }}><Icon name="globe" size={14} /><code className="grow">{t.url}</code><button aria-label="Copy address" title="Copy address" className="btn sm" onClick={() => void navigator.clipboard.writeText(t.url!).then(() => toast('Copied'))}><Icon name="copy" size={13} /></button></div> : null}
         {t?.lastError && t.state !== 'connected' ? <div className="small danger-text" style={{ marginTop: 6 }}>{t.lastError}</div> : null}
         {t && t.restarts ? <div className="small muted">Restarted {t.restarts} time{t.restarts === 1 ? '' : 's'}{t.since ? ` · up since ${relativeTime(t.since)}` : ''}</div> : null}
         <div className="link-tunnel-modes">

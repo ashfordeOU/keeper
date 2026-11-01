@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 -->
+<plist version="1.0">
+<dict>
+  <key>CFBundleIdentifier</key><string>org.ashforde.keeper.mesh-tunnel</string>
+  <key>CFBundleName</key><string>Keeper Mesh</string>
+  <key>CFBundleDisplayName</key><string>Keeper Mesh</string>
+  <key>CFBundlePackageType</key><string>SYSX</string>
+  <key>CFBundleExecutable</key><string>$(EXECUTABLE_NAME)</string>
+  <key>CFBundleShortVersionString</key><string>$(MARKETING_VERSION)</string>
+  <key>CFBundleVersion</key><string>$(CURRENT_PROJECT_VERSION)</string>
+  <key>LSMinimumSystemVersion</key><string>12.0</string>
+  <key>NSSystemExtensionUsageDescription</key><string>Keeper Mesh connects your paired devices in a private network (WireGuard), without a helper that asks for your password.</string>
+  <key>NetworkExtension</key>
+  <dict>
+    <key>NEMachServiceName</key><string>$(TeamIdentifierPrefix)org.ashforde.keeper.mesh-tunnel</string>
+    <key>NEProviderClasses</key>
+    <dict><key>com.apple.networkextension.packet-tunnel</key><string>$(PRODUCT_MODULE_NAME).PacketTunnelProvider</string></dict>
+  </dict>
+</dict>
+</plist>

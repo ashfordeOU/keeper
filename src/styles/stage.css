@@ -29,7 +29,7 @@
 .stage-name { font-weight: 650; font-size: 15px; min-width: 160px; max-width: 260px; }
 .stage-key { width: 170px; font-family: var(--mono, ui-monospace, monospace); font-size: 12px; }
 .stage-group h3 { margin: 14px 0 0; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-3); }
-.stage-note { color: var(--warn); }
+.stage-note { color: var(--warn-ink, var(--warn)); }
 .stage-apps { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: flex-end; max-width: 460px; }
 .stage-apps .chip select { border: 0; background: transparent; font-size: 11.5px; padding: 0 2px; color: var(--text-2); }
 .stage-apps input[list] { width: 150px; }
@@ -41,8 +41,8 @@
 .stage-support table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12.5px; }
 .stage-support th, .stage-support td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
 .stage-support th.here, .stage-support td.here { background: var(--accent-soft); }
-.stage-support td.built { color: var(--ok); }
-.stage-support td.partial, .stage-support td.guide { color: var(--warn); }
+.stage-support td.built { color: var(--ok-ink, var(--ok)); }
+.stage-support td.partial, .stage-support td.guide { color: var(--warn-ink, var(--warn)); }
 .stage-support td.none { color: var(--text-3); }
 .stage-support td .muted { display: block; color: var(--text-3); }
 @media (max-width: 760px) {

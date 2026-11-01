@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // A compact VNC (RFB 3.3 / 3.7 / 3.8) client: the handshake, sign-in (none,
-// VNC password, VeNCrypt with TLS when the transport can start it), and the
-// picture in Raw, CopyRect, RRE, Hextile and ZRLE, with the pointer shape,
-// desktop resizes and the clipboard. It only turns bytes into events and
+// VNC password, Apple's own sign-in (type 30) when given a user name, VeNCrypt
+// with TLS when the transport can start it), and the picture in Raw, CopyRect,
+// RRE, Hextile, ZRLE and Tight (JPEG rectangles are passed on as JPEG for the
+// window to decode), with the pointer shape, desktop resizes and the clipboard. It only turns bytes into events and
 // events into bytes: the caller owns the connection (a TCP socket in the main
 // process) and the inflater ZRLE needs, so this file runs anywhere and is
 // tested against recorded bytes and a tiny server.
@@ -10,19 +11,27 @@
 // Pixels are asked for as 32-bit little-endian with red in the lowest byte,
 // so every decoded rectangle is ready to draw as RGBA.
 
+import type { ArdChallenge } from './ard';
 import { vncResponse } from './des';
 
 export const ENC = {
-  raw: 0, copyRect: 1, rre: 2, hextile: 5, zrle: 16,
+  raw: 0, copyRect: 1, rre: 2, hextile: 5, tight: 7, zrle: 16,
   cursor: -239, desktopSize: -223, lastRect: -224, extendedDesktopSize: -308,
+  /** Tight's JPEG quality 0–9 (-32…-23) and zlib level 0–9 (-256…-247) */
+  jpegQuality6: -26, compressLevel2: -254,
 } as const;
 
-export const DEFAULT_ENCODINGS = [ENC.zrle, ENC.hextile, ENC.rre, ENC.copyRect, ENC.raw, ENC.cursor, ENC.desktopSize, ENC.extendedDesktopSize, ENC.lastRect];
+/** Lossless pictures first (ZRLE); Tight for servers without it. */
+export const DEFAULT_ENCODINGS = [ENC.zrle, ENC.tight, ENC.hextile, ENC.rre, ENC.copyRect, ENC.raw, ENC.cursor, ENC.desktopSize, ENC.extendedDesktopSize, ENC.lastRect, ENC.compressLevel2];
+/** For slow links: Tight first, with JPEG for photo-like areas. */
+export const FAST_ENCODINGS = [ENC.tight, ENC.zrle, ENC.hextile, ENC.rre, ENC.copyRect, ENC.raw, ENC.cursor, ENC.desktopSize, ENC.extendedDesktopSize, ENC.lastRect, ENC.jpegQuality6, ENC.compressLevel2];
 
 export type FrameOp =
   | { t: 'img'; x: number; y: number; w: number; h: number; data: Uint8Array }
   | { t: 'copy'; sx: number; sy: number; x: number; y: number; w: number; h: number }
-  | { t: 'fill'; x: number; y: number; w: number; h: number; rgba: [number, number, number] };
+  | { t: 'fill'; x: number; y: number; w: number; h: number; rgba: [number, number, number] }
+  /** a JPEG picture (Tight): the window decodes it with its own image decoder */
+  | { t: 'jpeg'; x: number; y: number; w: number; h: number; data: Uint8Array };
 
 export type RfbEvent =
   | { t: 'security'; type: number; name: string }
@@ -44,6 +53,10 @@ export interface RfbOptions {
   startTls?: () => Promise<void>;
   /** a persistent zlib stream for ZRLE (one per connection) */
   inflate?: (data: Uint8Array) => Promise<Uint8Array>;
+  /** Tight's four zlib streams (reset: start that stream afresh first) */
+  tightInflate?: (stream: number, data: Uint8Array, reset: boolean) => Promise<Uint8Array>;
+  /** Apple's sign-in (type 30): the answer to the server's key exchange (core/rdc/ard.ts) */
+  ard?: (c: ArdChallenge, user: string, password: string) => Uint8Array;
 }
 
 const SEC_NAMES: Record<number, string> = { 1: 'None', 2: 'VNC password', 19: 'VeNCrypt', 30: 'Apple Remote Desktop', 16: 'Tight' };
@@ -232,9 +245,12 @@ export class RfbClient {
   }
 
   private chooseSecurity(types: number[]): number {
-    // No password needed is simplest; then the VNC password; then VeNCrypt (TLS) when the transport can do it.
-    const pref = this.opts.startTls ? [19, 1, 2] : [1, 2];
+    // No password needed is simplest; then VeNCrypt (TLS) when the transport can do it; Apple's
+    // sign-in when a user name is set (it carries the Mac account's name and password); then the VNC password.
+    const ard = this.opts.ard ? (this.opts.username ? [30] : []) : [];
+    const pref = this.opts.startTls ? [19, 1, ...ard, 2] : [1, ...ard, 2];
     for (const p of pref) if (types.includes(p)) return p;
+    if (this.opts.ard && types.includes(30)) throw new Error('This Mac asks for an account name and password: add the user name to the connection, then connect again.');
     const names = types.map((t) => SEC_NAMES[t] ?? `type ${t}`).join(', ');
     throw new Error(`This server only offers sign-in methods Keeper cannot use here (${names}). Open it in an outside viewer instead.`);
   }
@@ -259,6 +275,16 @@ export class RfbClient {
       return;
     }
     if (type === 19) return this.vencrypt(ours);
+    if (type === 30) {
+      const head = await this.q.read(4);
+      const len = u16(head, 2);
+      if (!len || len > 1024) throw new Error('The Mac sent an unusable key exchange');
+      const rest = await this.q.read(len * 2);
+      if (this.opts.password === undefined) throw new Error('PASSWORD_NEEDED');
+      this.send(this.opts.ard!({ generator: u16(head, 0), prime: rest.subarray(0, len), serverKey: rest.subarray(len) }, this.opts.username ?? '', this.opts.password));
+      await this.securityResult(ours);
+      return;
+    }
     throw new Error(`Sign-in method ${type} is not supported`);
   }
 
@@ -340,6 +366,7 @@ export class RfbClient {
       } else if (enc === ENC.rre) ops.push({ t: 'img', x, y, w, h: hh, data: await this.rre(w, hh) });
       else if (enc === ENC.hextile) ops.push({ t: 'img', x, y, w, h: hh, data: await this.hextile(w, hh) });
       else if (enc === ENC.zrle) ops.push({ t: 'img', x, y, w, h: hh, data: await this.zrle(w, hh) });
+      else if (enc === ENC.tight) ops.push(await this.tight(x, y, w, hh));
       else if (enc === ENC.cursor) {
         const px = await this.pixels(w * hh);
         const mask = await this.q.read(((w + 7) >> 3) * hh);
@@ -422,6 +449,51 @@ export class RfbClient {
     return decodeZrle(await this.opts.inflate(packed), w, h);
   }
 
+  /** Tight's compact length: 1–3 bytes, 7 bits each, low bits first. */
+  private async compactLength(): Promise<number> {
+    let b = (await this.q.read(1))[0];
+    let len = b & 0x7f;
+    if (b & 0x80) {
+      b = (await this.q.read(1))[0];
+      len |= (b & 0x7f) << 7;
+      if (b & 0x80) len |= (await this.q.read(1))[0] << 14;
+    }
+    return len;
+  }
+
+  private tightResets = 0;
+
+  /** Tight: fill, JPEG, or "basic" (copy, palette or gradient filter, zlib unless tiny). */
+  private async tight(x: number, y: number, w: number, h: number): Promise<FrameOp> {
+    const ctl = (await this.q.read(1))[0];
+    this.tightResets |= ctl & 0x0f;
+    const kind = ctl >> 4;
+    if (kind === 8) {
+      const p = await this.q.read(3);
+      return { t: 'fill', x, y, w, h, rgba: [p[0], p[1], p[2]] };
+    }
+    if (kind === 9) return { t: 'jpeg', x, y, w, h, data: await this.q.read(await this.compactLength()) };
+    if (kind > 9) throw new Error(`Unknown Tight rectangle (${kind})`);
+    const stream = kind & 3;
+    const filter = kind & 4 ? (await this.q.read(1))[0] : TIGHT_COPY;
+    let palette: Uint8Array | undefined;
+    if (filter === TIGHT_PALETTE) {
+      const n = (await this.q.read(1))[0] + 1;
+      palette = await this.q.read(n * 3);
+    } else if (filter !== TIGHT_COPY && filter !== TIGHT_GRADIENT) throw new Error(`Unknown Tight filter (${filter})`);
+    const size = tightDataSize(w, h, palette);
+    let data: Uint8Array;
+    if (size < 12) data = await this.q.read(size);
+    else {
+      const packed = await this.q.read(await this.compactLength());
+      if (!this.opts.tightInflate) throw new Error('Tight needs an inflater');
+      const reset = !!(this.tightResets & (1 << stream));
+      this.tightResets &= ~(1 << stream);
+      data = await this.opts.tightInflate(stream, packed, reset);
+    }
+    return { t: 'img', x, y, w, h, data: decodeTightBasic(data, w, h, filter, palette) };
+  }
+
   // ---------------------------------------------------------------- messages to the server
 
   requestUpdate(incremental = true, x = 0, y = 0, w = this.width, h = this.height) {
@@ -455,6 +527,59 @@ function fillRect(out: Uint8Array, stride: number, x: number, y: number, w: numb
       out[o + 3] = 255;
     }
   }
+}
+
+export const TIGHT_COPY = 0;
+export const TIGHT_PALETTE = 1;
+export const TIGHT_GRADIENT = 2;
+
+/** How many bytes a basic Tight rectangle's pixels take before compression. */
+export function tightDataSize(w: number, h: number, palette?: Uint8Array): number {
+  if (!palette) return w * h * 3;
+  return palette.length / 3 <= 2 ? ((w + 7) >> 3) * h : w * h;
+}
+
+/** Tight's basic pixels (3 bytes each for this pixel format) to RGBA, undoing the palette or gradient filter. */
+export function decodeTightBasic(d: Uint8Array, w: number, h: number, filter: number, palette?: Uint8Array): Uint8Array {
+  const out = new Uint8Array(w * h * 4);
+  if (d.length < tightDataSize(w, h, filter === TIGHT_PALETTE ? palette : undefined)) throw new Error('Tight data ended early');
+  if (filter === TIGHT_PALETTE && palette) {
+    const n = palette.length / 3;
+    const stride = (w + 7) >> 3;
+    for (let yy = 0; yy < h; yy++) {
+      for (let xx = 0; xx < w; xx++) {
+        const idx = n <= 2 ? (d[yy * stride + (xx >> 3)] >> (7 - (xx & 7))) & 1 : d[yy * w + xx];
+        const o = (yy * w + xx) * 4;
+        const p = Math.min(idx, n - 1) * 3;
+        out[o] = palette[p]; out[o + 1] = palette[p + 1]; out[o + 2] = palette[p + 2]; out[o + 3] = 255;
+      }
+    }
+    return out;
+  }
+  if (filter === TIGHT_GRADIENT) {
+    // each component is predicted from left + above − above-left (clamped), and the data is the difference
+    const prev = new Uint8Array(w * 3);
+    const row = new Uint8Array(w * 3);
+    for (let yy = 0; yy < h; yy++) {
+      for (let xx = 0; xx < w; xx++) {
+        for (let c = 0; c < 3; c++) {
+          const left = xx ? row[(xx - 1) * 3 + c] : 0;
+          const up = prev[xx * 3 + c];
+          const upLeft = xx ? prev[(xx - 1) * 3 + c] : 0;
+          const pred = Math.max(0, Math.min(255, left + up - upLeft));
+          row[xx * 3 + c] = (pred + d[(yy * w + xx) * 3 + c]) & 255;
+        }
+        const o = (yy * w + xx) * 4;
+        out[o] = row[xx * 3]; out[o + 1] = row[xx * 3 + 1]; out[o + 2] = row[xx * 3 + 2]; out[o + 3] = 255;
+      }
+      prev.set(row);
+    }
+    return out;
+  }
+  for (let i = 0, o = 0; i < w * h; i++, o += 4) {
+    out[o] = d[i * 3]; out[o + 1] = d[i * 3 + 1]; out[o + 2] = d[i * 3 + 2]; out[o + 3] = 255;
+  }
+  return out;
 }
 
 /** ZRLE: 64×64 tiles of 3-byte pixels, raw, solid, packed palette, RLE or palette RLE. */

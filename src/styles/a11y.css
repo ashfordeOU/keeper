@@ -1,0 +1,134 @@
+/* SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 */
+/* Accessibility: focus rings, the skip link, screen-reader-only text, reduced
+   motion, larger text, and the system's high-contrast and forced-colours modes.
+   The Accessibility settings arrive as data attributes on <html> (src/a11y.ts). */
+
+/* ------------------------------------------------------------------ helpers */
+
+.sr-only {
+  position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0;
+}
+
+/* Skip to content: off screen until it has keyboard focus. */
+.skip-link {
+  position: fixed; left: 12px; top: -48px; z-index: 10000;
+  padding: 8px 14px; border-radius: var(--radius-sm); border: 0;
+  background: var(--accent); color: var(--accent-text); font-weight: 600;
+  box-shadow: var(--shadow-pop); transition: top .12s var(--ease);
+}
+.skip-link:focus, .skip-link:focus-visible { top: 10px; outline: 2px solid var(--text); outline-offset: 2px; }
+.content:focus { outline: none; }
+.content:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* Sortable column headings are buttons. */
+.file-list th .th-sort { all: unset; cursor: default; display: inline-flex; gap: 4px; align-items: center; }
+.file-list tbody tr:focus { outline: none; }
+.file-list tbody tr:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* Muted text on a selected row or card uses the second text colour, which reads on the accent tint. */
+html:not([data-view='island']) :is(.file-card.selected, .file-list tr.selected, .q-row.on, .nav-item.active, .chip.on, .here, [aria-selected='true']) :is(.meta, .muted, .count, .kbd, .n) { color: var(--text-2); }
+.here:is(.muted, .none) { color: var(--text-2); }
+
+/* ------------------------------------------------------------------ status text on its own tint */
+
+/* Badges and chips put a status colour on a soft wash of itself; pulling the text
+   a third of the way toward the body text keeps the hue and reads at 4.5:1 in
+   every theme (test/a11y-contrast.test.ts). Stylesheets use them as var(--ok-ink, var(--ok)). */
+html {
+  --ok-ink: color-mix(in srgb, var(--ok) 65%, var(--text));
+  --warn-ink: color-mix(in srgb, var(--warn) 65%, var(--text));
+  --danger-ink: color-mix(in srgb, var(--danger) 65%, var(--text));
+  --accent-ink: color-mix(in srgb, var(--accent) 65%, var(--text));
+}
+html .sec-tab.on { color: var(--accent-text); }
+/* Unavailable rows and days outside the month stay readable; the difference is in colour, not fading. */
+html .qc-row.off { opacity: 1; }
+html .qc-row.off :is(svg, .toggle) { opacity: .5; }
+html .mini-day.out { opacity: 1; }
+
+/* ------------------------------------------------------------------ focus rings */
+
+/* Every theme: a clear ring in the theme's accent, only after keyboard use.
+   Important, so a component's own `outline: none` cannot hide where focus is. */
+html :is(a, button, summary, select, [tabindex], [role='button'], [role='tab'], [role='option'], [role='menuitem'], [role='switch'], [role='checkbox'], [role='radio'], [role='slider'], [role='treeitem'], [role='gridcell']):focus-visible {
+  outline: 2px solid var(--focus-ring, var(--accent)) !important;
+  outline-offset: 2px;
+}
+/* Inside menus, lists and cards the ring sits inside the item. */
+html :is(.menu button, .q-row, .nav-item, .file-card, .tab, [role='tab'], [role='option'], [role='menuitem']):focus-visible { outline-offset: -2px; }
+/* Text fields keep their soft glow and gain the ring too. */
+html :is(input, textarea, [contenteditable='true']):focus-visible { outline: 2px solid var(--focus-ring, var(--accent)); outline-offset: 1px; }
+/* The Island and pills sit on their own dark surface: use its accent. */
+html:is([data-view='island'], [data-view='voice'], [data-view='cue'], [data-view='launcher'], [data-view='sysmon-popover']) { --focus-ring: var(--island-accent, var(--accent)); }
+/* The Minimal look's accent is the text colour; that is the ring. */
+
+/* "Always show focus outlines": after a click too. */
+html[data-focus-always='true'] :is(a, button, input, select, textarea, summary, [tabindex], [role='button'], [role='tab'], [role='option'], [role='menuitem'], [role='switch'], [role='checkbox'], [role='radio']):focus {
+  outline: 2px solid var(--focus-ring, var(--accent)) !important;
+  outline-offset: 2px;
+}
+
+/* ------------------------------------------------------------------ reduced motion */
+
+/* Cut animations and transitions to a single frame (end events still fire, so nothing waits forever). */
+html[data-motion='reduce'] *, html[data-motion='reduce'] *::before, html[data-motion='reduce'] *::after {
+  animation-duration: .001ms !important;
+  animation-iteration-count: 1 !important;
+  animation-delay: 0s !important;
+  transition-duration: .001ms !important;
+  transition-delay: 0s !important;
+  scroll-behavior: auto !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) *, html:not([data-motion='full']) *::before, html:not([data-motion='full']) *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0s !important;
+    transition-duration: .001ms !important;
+    transition-delay: 0s !important;
+    scroll-behavior: auto !important;
+  }
+}
+/* A spinner that cannot spin still sits next to its "Loading…" text, so it stays as a static ring. */
+
+/* ------------------------------------------------------------------ larger text */
+
+/* The main window, terminal and Quick Search windows scale as a whole; the Island and pills keep their size. */
+html[data-scaled='true']:is([data-view='app'], [data-view='terminal']) #root { zoom: var(--ui-scale, 1); height: calc(100% / var(--ui-scale, 1)); }
+/* Dialogs and Quick Look are drawn outside the page (straight in <body>), so they scale on their own. */
+html[data-scaled='true']:is([data-view='app'], [data-view='terminal']) body > .modal-back > .modal,
+html[data-scaled='true']:is([data-view='app'], [data-view='terminal']) body > .ql > .ql-window { zoom: var(--ui-scale, 1); }
+
+/* ------------------------------------------------------------------ more contrast */
+
+@media (prefers-contrast: more) {
+  html {
+    --text-3: var(--text-2) !important;
+    --line: var(--line-strong) !important;
+  }
+  :is(.btn, .input, .seg, .check, .toggle, .card, .menu, .modal, .searchbox) { border-color: var(--text-3) !important; }
+  .btn.ghost { border: 1px solid var(--line-strong); }
+  .muted, .small.muted, .file-card .meta { color: var(--text-2) !important; }
+}
+
+/* ------------------------------------------------------------------ forced colours (Windows high contrast) */
+
+@media (forced-colors: active) {
+  html { --focus-ring: Highlight; }
+  html :focus-visible { outline: 2px solid Highlight !important; outline-offset: 2px; }
+  :is(.btn, .input, .seg, .seg button, .check, .card, .menu, .modal, .searchbox, .file-card, .nav-item, .q-row, .tab, .toast) { border: 1px solid CanvasText; }
+  :is(.nav-item.active, .seg button.on, .q-row.on, .file-card.selected, .file-list tr.selected, .tab.active, [aria-selected='true'], [aria-pressed='true'], [aria-checked='true']) {
+    outline: 2px solid Highlight; outline-offset: -2px;
+  }
+  /* Switches: a track and a knob that are always visible, filled when on. */
+  .toggle { border: 1px solid ButtonText; background: Canvas; forced-color-adjust: none; }
+  .toggle::after { background: ButtonText; }
+  .toggle.on { background: Highlight; border-color: Highlight; }
+  .toggle.on::after { background: HighlightText; }
+  .check { forced-color-adjust: none; border: 1px solid ButtonText; background: Canvas; color: ButtonText; }
+  .check.on { background: Highlight; color: HighlightText; }
+  .bar i, .dot, .sec-dot, .ext-tile { forced-color-adjust: none; }
+  .skip-link { border: 2px solid ButtonText; }
+  svg { forced-color-adjust: auto; }
+}

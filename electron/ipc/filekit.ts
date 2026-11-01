@@ -7,7 +7,6 @@ import path from 'node:path';
 import type { EngineInfo } from '../../core/api-filekit';
 import type { Workflow } from '../../core/filekit/workflow';
 import type { Converter } from '../services/convert';
-import { findTool, officeCandidates } from '../services/convert-extra';
 import { featureOn, onFeature } from '../services/features';
 import { whenIdle } from '../services/governor';
 import { Workflows } from '../services/workflows';
@@ -24,7 +23,7 @@ export const ENGINES: Omit<EngineInfo, 'found' | 'path'>[] = [
   { id: 'openssl', name: 'OpenSSL', for: 'Reading .p12/.pfx signing certificates', license: 'Apache-2.0', url: 'https://openssl-library.org' },
 ];
 
-export function registerFileKitIpc(converter: () => Converter) {
+export function registerFileKitIpc(converter: () => Converter | Promise<Converter>) {
   const flows = new Workflows({
     file: path.join(app.getPath('userData'), 'workflows.json'),
     converter,
@@ -39,9 +38,13 @@ export function registerFileKitIpc(converter: () => Converter) {
   ipcMain.handle('filekit.saveWorkflow', (_e, w: Workflow) => { need(); return flows.save(w); });
   ipcMain.handle('filekit.deleteWorkflow', (_e, id: string) => flows.remove(id));
   ipcMain.handle('filekit.runWorkflow', (_e, id: string, inputs?: string[]) => { need(); return flows.run(id, inputs); });
-  ipcMain.handle('filekit.engines', async (): Promise<EngineInfo[]> => Promise.all(ENGINES.map(async (e) => {
-    const names = e.id === 'soffice' ? officeCandidates() : e.id === 'gs' ? (process.platform === 'win32' ? ['gswin64c', 'gswin32c'] : ['gs']) : e.id === 'poppler' ? ['pdftoppm'] : [e.id];
-    const p = await findTool(names);
-    return { ...e, found: !!p, path: p ?? undefined };
-  })));
+  ipcMain.handle('filekit.engines', async (): Promise<EngineInfo[]> => {
+    // The converters load only when they are asked about.
+    const { findTool, officeCandidates } = await import('../services/convert-extra');
+    return Promise.all(ENGINES.map(async (e) => {
+      const names = e.id === 'soffice' ? officeCandidates() : e.id === 'gs' ? (process.platform === 'win32' ? ['gswin64c', 'gswin32c'] : ['gs']) : e.id === 'poppler' ? ['pdftoppm'] : [e.id];
+      const p = await findTool(names);
+      return { ...e, found: !!p, path: p ?? undefined };
+    }));
+  });
 }

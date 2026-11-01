@@ -142,7 +142,7 @@ export class VoiceService {
         keyHow: this.hookResult.ok ? this.hookResult.how : (this.hookResult.note ?? (featureOn('dictationHold') ? 'Starting…' : 'Hold-to-talk is off (Settings → Features)')),
         systemAudio: process.platform !== 'linux' || true,
         systemHow: process.platform === 'darwin' ? 'ScreenCaptureKit (macOS 13 or later, Screen & System Audio Recording permission)' : process.platform === 'win32' ? 'WASAPI loopback' : 'the output’s monitor source (PipeWire or PulseAudio)',
-        passwordGuard: process.platform === 'darwin' || process.platform === 'win32',
+        passwordGuard: process.platform === 'darwin' || process.platform === 'win32' || (process.platform === 'linux' && (await (await import('./atspi')).atspiAvailable())),
         typeInsert: true,
         systemEngine: process.platform === 'darwin',
       },

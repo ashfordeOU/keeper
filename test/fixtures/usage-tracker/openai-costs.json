@@ -1,0 +1,40 @@
+{
+ "object": "page",
+ "data": [
+  {
+   "object": "bucket",
+   "start_time": 1793491200,
+   "end_time": 1793577600,
+   "results": [
+    {
+     "object": "organization.costs.result",
+     "amount": {
+      "value": 0.13080438340307526,
+      "currency": "usd"
+     },
+     "line_item": null,
+     "project_id": null,
+     "organization_id": "org-x"
+    }
+   ]
+  },
+  {
+   "object": "bucket",
+   "start_time": 1793577600,
+   "end_time": 1793664000,
+   "results": [
+    {
+     "object": "organization.costs.result",
+     "amount": {
+      "value": 12.5,
+      "currency": "usd"
+     },
+     "line_item": null,
+     "project_id": null
+    }
+   ]
+  }
+ ],
+ "has_more": false,
+ "next_page": null
+}

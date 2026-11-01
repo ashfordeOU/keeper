@@ -382,6 +382,8 @@ export interface Settings {
   themeSeasons?: boolean;
   /** which half of the world the seasons follow; 'auto' uses the weather place or the time zone */
   hemisphere?: 'auto' | 'north' | 'south';
+  /** Settings → Accessibility: motion, text size and focus outlines */
+  a11y?: import('./a11y').A11ySettings;
   /** folders the library indexes */
   folders: string[];
   /** never index or touch anything under these */
@@ -428,6 +430,8 @@ export interface Settings {
   updateBetaChosen: boolean;
   /** how much of the computer Keeper's background work may use (see core/governor.ts) */
   resourceMode: import('./governor').ResourceMode;
+  /** closing the main window while Keeper stays in the tray lets its page go (unset: yes, except in Performance mode) */
+  freeWindowOnClose?: boolean;
   /** features switched away from their default (see core/features.ts) */
   features: Record<string, boolean>;
   /** sidebar entries the person hid, by id ("section:tidy", "nav:health") */

@@ -4,11 +4,12 @@
 // reading routes and counters, and the troubleshooting commands.
 //
 // Seam for macOS: MacDataPlane picks how the utun interface is made. Today it
-// is wireguard-go run by Keeper's helper. A Network Extension variant (a
-// packet tunnel provider inside the app, no helper, no password) needs
-// Apple's com.apple.developer.networking.networkextension entitlement and a
-// Developer ID-signed, notarised build with a system extension; it would
-// implement the same three calls and replace the helper on macOS.
+// is wireguard-go run by Keeper's helper. The Network Extension variant (a
+// packet tunnel system extension running WireGuardKit, no helper, no
+// password) is written in native/macos/KeeperMeshTunnel with its client in
+// netext.ts; it needs Apple's com.apple.developer.networking.networkextension
+// entitlement and a Developer ID-signed, notarised build, so it reports
+// itself available only when that build's keeper-mesh-ne tool is in the app.
 
 import { execFile, spawn } from 'node:child_process';
 import crypto from 'node:crypto';
@@ -23,6 +24,7 @@ import { linuxIface, windowsTunnel, NAMES, type MeshOS, type Step } from '../../
 import type { IfaceState, MeshDiag, MeshNetwork } from '../../../core/mesh/types';
 import { parseUapiGet, parseWgDump, type WgPeerStats } from '../../../core/mesh/wgconfig';
 import type { MeshDriver } from './engine';
+import { NetworkExtensionPlane } from './netext';
 
 const run = (file: string, args: string[], timeout = 15_000) =>
   new Promise<{ ok: boolean; out: string; err: string }>((resolve) => {
@@ -49,11 +51,8 @@ export interface MacDataPlane {
   why?: string;
 }
 
-export const NETWORK_EXTENSION: MacDataPlane = {
-  kind: 'network-extension',
-  available: async () => false,
-  why: 'needs Apple’s Network Extension entitlement and a Developer ID-signed build',
-};
+/** The Network Extension variant (netext.ts): up, sync, endpoint, stats and down through keeper-mesh-ne. */
+export const NETWORK_EXTENSION: MacDataPlane & NetworkExtensionPlane = new NetworkExtensionPlane();
 
 export class RealDriver implements MeshDriver {
   os: MeshOS;
@@ -155,7 +154,7 @@ export class RealDriver implements MeshDriver {
   private async runWindows(steps: Step[]) {
     const wg = steps.find((s) => s.args[0] === '/installtunnelservice');
     if (wg && !existsSync(wg.file)) await this.installWindows();
-    const psq = (s: string) => `'${s.replace(/'/g, "''")}'`;
+    const psq = (s: string) => `'${s.replace(/['‘’‚‛]/g, '$&$&')}'`;
     const lines: string[] = [];
     // A watchdog, started once with the first tunnel: if Keeper's process goes away, it removes
     // Keeper's tunnels, name rules, firewall rules and NAT (all found by their fixed names).

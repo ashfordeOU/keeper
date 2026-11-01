@@ -51,7 +51,7 @@ export function AgentBoard({ onShow }: { onShow(id: string): void }) {
         {t.controller === 'human'
           ? <button className="btn sm" onClick={() => act(api.agentterm.takeOver(t.id, true), 'Handed back to the agent')}>Hand back</button>
           : <button className="btn sm" disabled={t.status === 'exited'} onClick={() => { act(api.agentterm.takeOver(t.id), 'You have the terminal; the agent waits'); onShow(t.id); }}>Take over</button>}
-        <button className="btn sm ghost danger" title="Close it and its sub-workers" onClick={() => act(api.agentterm.close(t.id), 'Closed')}><Icon name="close" size={12} /></button>
+        <button className="btn sm ghost danger" title="Close it and its sub-workers" aria-label="Close it and its sub-workers" onClick={() => act(api.agentterm.close(t.id), 'Closed')}><Icon name="close" size={12} /></button>
       </div>
       {t.sub.map((c) => termRow(c, depth + 1))}
     </div>

@@ -57,7 +57,7 @@ export function BrowserAgentPanel() {
               <div className="grow ellipsis"><b>{t.client}</b> {t.takenOver ? 'is waiting — you have the controls' : 'is working'} · {t.title || t.url} <span className="small muted">· {t.steps} steps{t.downloads.length ? ` · ${t.downloads.length} downloaded` : ''}</span></div>
               <button className="btn sm" onClick={() => void api.cu.show(t.id, !t.visible).then(reload)}>{t.visible ? 'Hide' : 'Watch'}</button>
               <button className="btn sm" onClick={() => void api.cu.takeOver(t.id, !t.takenOver).then(reload)}>{t.takenOver ? 'Hand back' : 'Take over'}</button>
-              <button className="btn sm ghost icon" title="Close this tab" onClick={() => void api.cu.closeTab(t.id).then(reload)}><Icon name="close" size={12} /></button>
+              <button className="btn sm ghost icon" title="Close this tab" aria-label="Close this tab" onClick={() => void api.cu.closeTab(t.id).then(reload)}><Icon name="close" size={12} /></button>
             </div>
           ))}
           {s.desktops.map((d) => <div key={d.id} className="row cu-tab"><span className="dot error" /><div className="grow"><b>{d.client}</b> is using a private desktop ({d.display}) since {relativeTime(d.since)}</div></div>)}
@@ -112,7 +112,7 @@ export function BrowserAgentPanel() {
         {c.secrets.map((x) => (
           <div key={x.name} className="row small">
             <Icon name="key" size={12} /> <b>{x.name}</b> <span className="muted grow">on {x.sites.join(', ')} · {x.source === 'keychain' ? 'system keychain' : x.source === 'op' ? '1Password' : 'Bitwarden'}</span>
-            <button className="btn sm ghost icon" title="Remove" onClick={() => void api.cu.removeSecret(x.name).then(reload)}><Icon name="close" size={11} /></button>
+            <button className="btn sm ghost icon" title="Remove" aria-label="Remove" onClick={() => void api.cu.removeSecret(x.name).then(reload)}><Icon name="close" size={11} /></button>
           </div>
         ))}
         {adding ? (
@@ -172,7 +172,7 @@ function WorkflowRow({ w, schedules, reload }: { w: WorkflowView; schedules: CuS
         <Icon name="play" size={12} /> <b>{w.name}</b> <span className="muted grow">{w.site} · {w.steps} steps{w.params.length ? ` · blanks: ${w.params.map((p) => p.name).join(', ')}` : ''}</span>
         <button className="btn sm" onClick={() => setOpen(open === 'run' ? null : 'run')}>Run…</button>
         <button className="btn sm" onClick={() => setOpen(open === 'schedule' ? null : 'schedule')}><Icon name="clock" size={11} /> Automate…</button>
-        <button className="btn sm ghost icon" title="Delete" onClick={() => void api.cu.removeWorkflow(w.id).then(reload)}><Icon name="close" size={11} /></button>
+        <button className="btn sm ghost icon" title="Delete" aria-label="Delete" onClick={() => void api.cu.removeWorkflow(w.id).then(reload)}><Icon name="close" size={11} /></button>
       </div>
       {schedules.map((x) => (
         <div key={x.id} className="row small cu-sched">
@@ -180,7 +180,7 @@ function WorkflowRow({ w, schedules, reload }: { w: WorkflowView; schedules: CuS
             <span className="muted">{x.next && x.enabled ? ` · next ${new Date(x.next).toLocaleString()}` : ''}{x.lastResult ? ` · last run ${x.lastResult.ok ? 'finished' : `stopped: ${x.lastResult.note.split(/(?<=\.) /)[0]}`}` : ''}</span>
           </label>
           <button className="btn sm ghost" onClick={() => void api.cu.runSchedule(x.id).then((r) => { if (r) toast(r.note); reload(); })}>Run now</button>
-          <button className="btn sm ghost icon" title="Stop running it by itself" onClick={() => void api.cu.removeSchedule(x.id).then(reload)}><Icon name="close" size={11} /></button>
+          <button className="btn sm ghost icon" title="Stop running it by itself" aria-label="Stop running it by itself" onClick={() => void api.cu.removeSchedule(x.id).then(reload)}><Icon name="close" size={11} /></button>
         </div>
       ))}
       {open ? (

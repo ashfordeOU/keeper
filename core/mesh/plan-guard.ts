@@ -7,7 +7,7 @@
 // is tested on every system.
 
 import { familyOf, parseCidr } from '../net/addr';
-import { NAMES, type MeshOS, type Step } from './os-plan';
+import { NAMES, withHostsBlock, type MeshOS, type Step } from './os-plan';
 
 export interface GuardOpts {
   os: MeshOS;
@@ -22,6 +22,12 @@ const isCidr = (s: string) => !!parseCidr(s);
 const isIp = (s: string) => familyOf(s) !== 0;
 const WAN = /^[A-Za-z0-9._-]{1,15}$/;
 const SYSCTL = new Set(['net.ipv4.ip_forward', 'net.ipv6.conf.all.forwarding', 'net.inet.ip.forwarding', 'net.inet6.ip6.forwarding']);
+const WG_KEY = /^[A-Za-z0-9+/]{42}[AEIMQUYcgkosw048]=$/;
+/** "1.2.3.4:51820" or "[fd00::1]:51820" */
+const isEndpoint = (x: string) => {
+  const m = /^\[([^\]]+)\]:(\d{1,5})$/.exec(x) ?? /^([\d.]+):(\d{1,5})$/.exec(x);
+  return !!m && familyOf(m[1]) !== 0 && Number(m[2]) > 0 && Number(m[2]) < 65536;
+};
 const SUFFIX = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$/;
 
 /** Returns why a step is refused, or null when it may run. */
@@ -39,7 +45,11 @@ export function checkStep(s: Step, o: GuardOpts): string | null {
       return a.length === 1 && iface(a[0]) && typeof s.stdin === 'string' && /^(set|get)=1\n/.test(s.stdin) ? null : 'uapi: bad request';
     case 'wg':
     case o.wg:
-      return a.length === 3 && ['setconf', 'syncconf'].includes(a[0]) && iface(a[1]) && a[2] === '/dev/stdin' ? null : a.length === 3 && a[0] === 'show' && iface(a[1]) && a[2] === 'dump' ? null : 'wg: not allowed';
+      if (a.length === 3 && ['setconf', 'syncconf'].includes(a[0]) && iface(a[1]) && a[2] === '/dev/stdin') return null;
+      if (a.length === 3 && a[0] === 'show' && iface(a[1]) && a[2] === 'dump') return null;
+      // direct handoff: one peer's endpoint, nothing else
+      if (a.length === 6 && a[0] === 'set' && iface(a[1]) && a[2] === 'peer' && WG_KEY.test(a[3]) && a[4] === 'endpoint' && isEndpoint(a[5])) return null;
+      return 'wg: not allowed';
     case 'ip':
       return checkIp(a, iface);
     case 'nft':
@@ -143,6 +153,27 @@ export function checkPlan(steps: Step[], o: GuardOpts): string | null {
   for (const s of steps) {
     const why = checkStep(s, o);
     if (why) return why;
+  }
+  return null;
+}
+
+/**
+ * The helper may rewrite /etc/hosts only to change Keeper's own block: every
+ * other line stays exactly as it is, and the block holds only mesh (ULA)
+ * addresses with plain host names. So a program running as you cannot use the
+ * helper to send any name it likes somewhere else for every user.
+ */
+export function hostsChangeAllowed(current: string, next: string): string | null {
+  if (withHostsBlock(next, []) !== withHostsBlock(current, [])) return 'hosts: only Keeper\'s block may change';
+  let inside = false;
+  for (const raw of next.split(/\r?\n/)) {
+    const l = raw.trim();
+    if (l === NAMES.hostsBegin) { inside = true; continue; }
+    if (l === NAMES.hostsEnd) { inside = false; continue; }
+    if (!inside || !l) continue;
+    const [ip, ...names] = l.split(/\s+/);
+    if (familyOf(ip) !== 6 || !/^f[cd]/i.test(ip)) return 'hosts: only mesh addresses in Keeper\'s block';
+    if (!names.length || names.some((n) => !SUFFIX.test(n.toLowerCase()) || !n.includes('.') || /^localhost\b/.test(n))) return 'hosts: bad name in Keeper\'s block';
   }
   return null;
 }

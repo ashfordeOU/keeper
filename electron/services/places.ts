@@ -511,7 +511,7 @@ export async function restoreTrash(ids: string[]): Promise<{ restored: number; f
   let restored = 0;
   const failed: string[] = [];
   if (isWin) {
-    const list = ids.map((i) => `'${i.replace(/'/g, "''")}'`).join(',');
+    const list = ids.map((i) => `'${i.replace(/['‘’‚‛]/g, '$&$&')}'`).join(',');
     const r = await powershell(`$want = @(${list}); $b = (New-Object -ComObject Shell.Application).NameSpace(10); $n = 0; foreach ($i in @($b.Items())) { if ($want -contains $i.Path) { $i.InvokeVerb('undelete'); $n++ } }; $n`, 120_000);
     restored = Number(r.stdout.trim()) || 0;
     if (restored < ids.length) failed.push(`${ids.length - restored} item(s) could not be put back`);

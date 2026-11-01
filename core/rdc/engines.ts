@@ -54,7 +54,9 @@ export const ENGINES: EngineDef[] = [
   },
   {
     id: 'mosh', name: 'Mosh', for: 'Terminals that survive roaming and sleep', license: 'GPL-3.0', url: 'https://mosh.org',
-    bins: { linux: ['mosh'], darwin: ['mosh'] }, install: { linux: 'sudo apt install mosh', darwin: 'brew install mosh', win32: 'Use it inside WSL: sudo apt install mosh' },
+    // Windows: mosh from MSYS2 or Cygwin (run through their bash), else Keeper looks inside WSL (see the Remote Desktops service)
+    bins: { linux: ['mosh'], darwin: ['mosh'], win32: ['C:\\msys64\\usr\\bin\\mosh', 'C:\\cygwin64\\bin\\mosh', 'C:\\cygwin\\bin\\mosh'] },
+    install: { linux: 'sudo apt install mosh', darwin: 'brew install mosh', win32: 'Install WSL (in PowerShell: wsl --install), then in it: sudo apt install mosh. Or install mosh in MSYS2 (pacman -S mosh) or Cygwin.' },
   },
   {
     id: 'telnet', name: 'Telnet client', for: 'Telnet consoles (switches, old devices)', license: 'BSD', url: 'https://www.gnu.org/software/inetutils/',

@@ -65,7 +65,7 @@ export function TerminalSettingsDialog({ settings, shells, onClose, onChange }: 
                 </Field>
                 {profile.shell === 'custom' ? <Field label="Program and arguments"><input className="input" value={[profile.command, ...(profile.args ?? [])].filter(Boolean).join(' ')} onChange={(e) => { const [command, ...args] = e.target.value.split(' '); setProfile({ command, args }); }} placeholder="/usr/local/bin/fish -l" /></Field> : null}
                 <Field label="SSH host (connects on start)"><input className="input" value={profile.ssh ?? ''} onChange={(e) => setProfile({ ssh: e.target.value || undefined })} placeholder="alias from ~/.ssh/config or user@host" /></Field>
-                <Field label="Starts in folder"><div className="row" style={{ gap: 6 }}><input className="input grow" value={profile.cwd ?? ''} onChange={(e) => setProfile({ cwd: e.target.value || undefined })} placeholder="~" /><button className="btn sm" onClick={() => void api.settings.pickFolder().then((f) => f && setProfile({ cwd: f }))}><Icon name="folder" size={12} /></button></div></Field>
+                <Field label="Starts in folder"><div className="row" style={{ gap: 6 }}><input className="input grow" value={profile.cwd ?? ''} onChange={(e) => setProfile({ cwd: e.target.value || undefined })} placeholder="~" /><button aria-label="Choose folder" title="Choose folder" className="btn sm" onClick={() => void api.settings.pickFolder().then((f) => f && setProfile({ cwd: f }))}><Icon name="folder" size={12} /></button></div></Field>
                 <Field label="Run when it opens"><input className="input" value={profile.startup ?? ''} onChange={(e) => setProfile({ startup: e.target.value || undefined })} placeholder="e.g. a command-line AI assistant, a dev server, htop" /></Field>
                 <Field label="Variables (NAME=value, one per line; ${PATH} refers to the current value)">
                   <textarea className="input" rows={3} value={Object.entries(profile.env ?? {}).map(([k, v]) => `${k}=${v}`).join('\n')} onChange={(e) => setProfile({ env: Object.fromEntries(e.target.value.split('\n').map((l) => l.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)=(.*)$/)).filter((m): m is RegExpMatchArray => !!m).map((m) => [m[1], m[2]])) })} />
@@ -161,7 +161,7 @@ export function TerminalSettingsDialog({ settings, shells, onClose, onChange }: 
                 <div key={l.id} className="row" style={{ gap: 6, marginBottom: 6 }}>
                   <input className="input" style={{ width: 160 }} value={l.name} onChange={(e) => onChange({ launchers: settings.launchers.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)) })} />
                   <input className="input grow" value={l.command} onChange={(e) => onChange({ launchers: settings.launchers.map((x, j) => (j === i ? { ...x, command: e.target.value } : x)) })} />
-                  <button className="btn ghost sm icon" onClick={() => onChange({ launchers: settings.launchers.filter((_, j) => j !== i) })}><Icon name="close" size={12} /></button>
+                  <button aria-label="Remove launcher" title="Remove launcher" className="btn ghost sm icon" onClick={() => onChange({ launchers: settings.launchers.filter((_, j) => j !== i) })}><Icon name="close" size={12} /></button>
                 </div>
               ))}
               <button className="btn sm" onClick={() => onChange({ launchers: [...settings.launchers, { id: `l${Date.now()}`, name: 'My IDE', command: MAC ? 'open -a "AppName" {path}' : 'ide-command {path}' }] })}><Icon name="plus" size={12} /> Add</button>
@@ -249,7 +249,7 @@ function TriggersEditor({ triggers, onChange }: { triggers: Trigger[]; onChange:
             <select className="input" value={t.action} onChange={(e) => set(i, { action: e.target.value as Trigger['action'] })}>
               <option value="island">Island</option><option value="notify">Notification</option><option value="highlight">Highlight</option><option value="sound">Sound</option>
             </select>
-            <button className="btn ghost sm icon" onClick={() => onChange(triggers.filter((_, j) => j !== i))}><Icon name="close" size={12} /></button>
+            <button aria-label="Remove trigger" title="Remove trigger" className="btn ghost sm icon" onClick={() => onChange(triggers.filter((_, j) => j !== i))}><Icon name="close" size={12} /></button>
           </div>
         );
       })}

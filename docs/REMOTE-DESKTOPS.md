@@ -18,7 +18,7 @@ Keeper by Ashforde® connects to your other computers by any protocol, and can m
 | VNC, outside viewer (optional) | TigerVNC `vncviewer` | TigerVNC, else Screen Sharing (`open vnc://…`) | TigerVNC `vncviewer` |
 | Remote Desktop (RDP) | `mstsc` with a temporary .rdp file | FreeRDP if installed, else the system's .rdp app through `open` | FreeRDP (`xfreerdp3`, `sdl-freerdp3`, `xfreerdp`…) |
 | SSH | Terminal tab (`ssh.exe`) | Terminal tab | Terminal tab |
-| Mosh | Not available (use WSL) | Terminal tab | Terminal tab |
+| Mosh | Terminal tab: mosh inside WSL, or MSYS2/Cygwin's mosh; otherwise a hint how to get it | Terminal tab | Terminal tab |
 | Telnet | Terminal tab (`telnet` or `plink`) | Terminal tab | Terminal tab |
 | Serial console | Terminal tab (`plink -serial`) | Terminal tab (`picocom`, `minicom`, `screen`, `cu`) | Terminal tab (same) |
 | SPICE | `remote-viewer` with a .vv file | `remote-viewer` | `remote-viewer` |
@@ -27,7 +27,7 @@ Keeper by Ashforde® connects to your other computers by any protocol, and can m
 | Web consoles | In a Keeper tab | In a Keeper tab | In a Keeper tab |
 | Keeper devices | Keeper's remote screen viewer | same | same |
 
-**VNC in Keeper** is Keeper's own small RFB client (`core/rdc/rfb.ts`): protocol 3.3/3.7/3.8; sign-in with no password, the VNC password, or VeNCrypt with TLS (X509/TLS subtypes, with VNC or Plain inside); pictures in Raw, CopyRect, RRE, Hextile and ZRLE; the pointer shape, desktop resizes and the clipboard both ways. Tight and Apple's own sign-in are not built; such servers can be opened in an outside viewer. The TCP connection lives in the main process; each update is decoded there to RGBA and sent to the tab, and the next update is asked for only after the tab has drawn the last, so a hidden tab costs nothing. The toolbar has *Fit*/*100 %*, *View only*, special keys (Ctrl+Alt+Del, Ctrl+Alt+End, the Windows key, Alt+Tab, Print Screen, Ctrl+Alt+F1/F2), *Send clipboard* and *move to its own window*.
+**VNC in Keeper** is Keeper's own small RFB client (`core/rdc/rfb.ts`): protocol 3.3/3.7/3.8; sign-in with no password, the VNC password, Apple's own sign-in (security type 30, as a Mac's Screen Sharing asks: Diffie-Hellman, then the account name and password sent with AES-128; used when the connection has a user name, `core/rdc/ard.ts`), or VeNCrypt with TLS (X509/TLS subtypes, with VNC or Plain inside); pictures in Raw, CopyRect, RRE, Hextile, ZRLE and Tight (fill, JPEG, and zlib with the copy, palette and gradient filters, on Tight's four zlib streams); the pointer shape, desktop resizes and the clipboard both ways. ZRLE is asked for first (lossless); a connection set to *fast* pictures (`vnc.picture: "fast"`, or a `.vnc` file with `PreferredEncoding=Tight`) asks for Tight with JPEG first. JPEG rectangles are passed to the tab as they are and decoded by its own image decoder (`createImageBitmap`), in order with the rest of the update. The TCP connection lives in the main process; each update is decoded there to RGBA and sent to the tab, and the next update is asked for only after the tab has drawn the last, so a hidden tab costs nothing. The toolbar has *Fit*/*100 %*, *View only*, special keys (Ctrl+Alt+Del, Ctrl+Alt+End, the Windows key, Alt+Tab, Print Screen, Ctrl+Alt+F1/F2), *Send clipboard* and *move to its own window*.
 
 **RDP inside Keeper is not built.** A JavaScript or WebAssembly RDP client would need TLS, NLA (CredSSP with NTLM/Kerberos) and several bitmap codecs; that is not reasonable here, so Keeper starts the system's client or FreeRDP with the options mapped: size or full screen, all monitors, resize with the window, clipboard, your home folder as a drive, sound here/there/off, Network Level Authentication, the admin (console) session, certificate handling (trust on first use, or accept any), and a Remote Desktop Gateway (FreeRDP 2 and 3 spellings). Embedding FreeRDP inside the Keeper window (`/parent-window:`) was not attempted: Electron gives no child X11 window to embed into, and drawing into the top-level window would cover Keeper.
 
@@ -40,6 +40,8 @@ Keeper by Ashforde® connects to your other computers by any protocol, and can m
 Passwords go into the system keychain through Keeper's secret store (Electron safeStorage), never into the connections file. Where there is no keychain (Linux without a keyring) Keeper asks each time. *Ask every time* is a per-connection choice. A password in an imported .vnc file goes straight into the keychain.
 
 Passwords never go on a command line. FreeRDP reads it from standard input (`/from-stdin:force`); SSH and Mosh get an `SSH_ASKPASS` helper that answers only password prompts from a private file (mode 0600, in a private temporary folder, removed after a minute); TigerVNC reads a scrambled password file (0600); `remote-viewer` reads a 0600 .vv file it deletes itself. `mstsc`, the Mac's Remote Desktop app, X2Go and PowerShell ask for the password themselves.
+
+**Mosh on Windows.** Keeper looks for mosh from MSYS2 (`C:\msys64\usr\bin\mosh`) or Cygwin (`C:\cygwin64\bin\mosh`) and runs it with their own bash (`bash -lc 'exec mosh "$@"'`, the arguments passed as they are); otherwise it asks WSL (`wsl.exe --exec sh -c "command -v mosh"`, with a time limit) and runs `wsl.exe --exec mosh …`. Paths are translated (`C:\Users\Ana\.ssh\id` → `/mnt/c/Users/Ana/.ssh/id`), and inside WSL ssh is pointed at the known_hosts file Keeper checked the host key against. There is no askpass helper there, so ssh asks for the password in the terminal. With none of these, *Programs Keeper can use* says how to get it: `wsl --install`, then `sudo apt install mosh` in WSL, or mosh from MSYS2 or Cygwin.
 
 ### Gateways
 
@@ -105,11 +107,15 @@ Verified on Linux (Ubuntu 24.04 under Xvfb) by `test/e2e/rdc.cjs`, with real ser
 - **through Keeper Link**: a second Keeper, paired, reaches the first one's VNC server through a Link port forward that goes away on disconnect;
 - the status check stops when the page closes.
 
-Unit tests (`test/rdc*.test.ts`) cover link parsing, .rdp/.vnc/ssh-config/JSON round trips, DES (the standard vector and x11vnc's stored password), known_hosts (plain, `[host]:port`, hashed, changed), the programs and arguments per system, the redaction check, the RFB handshake from recorded bytes and a tiny RFB server over TCP (Raw, CopyRect, RRE, Hextile, ZRLE, cursor, resize, clipboard, keys, pointer), the port knock, SOCKS5 and HTTP proxies, hosting parsers and plans, and the places.
+- **Tight** with *fast* pictures against the same x11vnc: its log shows it chose Tight (with JPEG quality set), and the picture renders in the tab. (A separate run against x11vnc showing a noisy picture got JPEG rectangles, decoded by the client.)
+
+Unit tests (`test/rdc*.test.ts`) cover link parsing, .rdp/.vnc/ssh-config/JSON round trips, DES (the standard vector and x11vnc's stored password), known_hosts (plain, `[host]:port`, hashed, changed), the programs and arguments per system, the redaction check, the RFB handshake from recorded bytes and a tiny RFB server over TCP (Raw, CopyRect, RRE, Hextile, ZRLE, cursor, resize, clipboard, keys, pointer), Tight byte by byte (`test/rdc-tight-ard.test.ts`: fill, JPEG, raw and zlib copy, two- and four-colour palettes, gradient with clamping, a stream reset), Apple's sign-in against a vector computed independently (Python's `pow` and `hashlib`, OpenSSL's AES-128-ECB) and against a stand-in Mac that decrypts the name and password, the Mosh plans for WSL and MSYS2/Cygwin with translated paths, the port knock, SOCKS5 and HTTP proxies, hosting parsers and plans, and the places.
 
 Not verified (built, but not run against the real thing here):
 
 - Windows (`mstsc`, the registry and firewall plan, the Explorer verb, PowerShell remoting) and macOS (`open` with .rdp, Screen Sharing fallback, `kickstart`), including the double-click file association in packaged builds;
+- Apple's sign-in against a real Mac (only the vector and a stand-in server), and JPEG rectangles drawn in the window from a real server (x11vnc chose Tight for the solid test picture; JPEG decoding in the window is the browser's own `createImageBitmap`);
+- Mosh on Windows (WSL, MSYS2, Cygwin): only the plans are tested;
 - VeNCrypt/TLS sign-in (no TLS VNC server was available), web consoles against a real iDRAC/Proxmox (the certificate pin logic is in place), SPICE, X2Go, Mosh, Telnet, serial and `pwsh` launches (only their arguments are tested), GNOME Remote Desktop, KRdp and wayvnc switching, HTTP/SOCKS/SSH gateways for VNC/RDP end to end (the proxy dialling itself is tested), and Wake-on-LAN packets reaching a real machine;
 - FreeRDP actually signing in to a Windows host;
 - the tray menu as drawn by a real desktop.

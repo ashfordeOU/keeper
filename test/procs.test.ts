@@ -75,7 +75,7 @@ describe('Windows', () => {
   });
   it('quotes PowerShell strings so names cannot break out', () => {
     expect(psQuote("it's")).toBe("'it''s'");
-    expect(psQuote('a\u2019b')).toBe("'a''b'");
+    expect(psQuote('a\u2019b')).toBe("'a\u2019\u2019b'");
     // Nothing else is special inside single quotes: $(...) and backticks stay literal.
     expect(psQuote('$(Remove-Item C:\\)`;')).toBe("'$(Remove-Item C:\\)`;'");
     expect(safeServiceName('wuauserv')).toBe(true);

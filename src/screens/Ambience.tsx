@@ -91,7 +91,7 @@ function VibesTab({ state }: { state: AmbienceState }) {
               {a.activeVibe === v.id ? <span className="badge amb-vibe-active"><Icon name="check" size={10} /> Active</span> : null}
             </button>
             <div className="amb-vibe-body">
-              <div className="row"><b className="grow ellipsis">{v.name}</b><button className="btn ghost icon sm" title="Edit" onClick={() => setEditing(editing === v.id ? null : v.id)}><Icon name="settings" size={13} /></button></div>
+              <div className="row"><b className="grow ellipsis">{v.name}</b><button className="btn ghost icon sm" title="Edit" aria-label="Edit" onClick={() => setEditing(editing === v.id ? null : v.id)}><Icon name="settings" size={13} /></button></div>
               <div className="muted small ellipsis">{[v.wallpaper ? describeSource(v.wallpaper) : null, v.sound ? (v.sound.playing ? describeMix(v.sound.mix) : 'Silence') : null, v.theme ? THEMES.find((t) => t.id === v.theme)?.name : null, v.widgets ? `${v.widgets.length} widgets` : null].filter(Boolean).join(' · ') || 'Changes nothing yet'}</div>
             </div>
             {editing === v.id ? <VibeEditor v={v} state={state} onDone={() => setEditing(null)} /> : null}
@@ -186,7 +186,7 @@ function WallpaperTab({ state }: { state: AmbienceState }) {
             <ParamSlider label="Vignette" k="vignette" min={0} max={1} step={0.02} params={scene.params} set={(p) => setDraft({ ...scene, params: p })} />
             <div className="amb-palettes">
               {allPalettes.map((p) => <button key={p.id} title={p.name} className={`amb-palette ${scene.palette === p.id ? 'on' : ''}`} style={{ background: paletteCss(p.colors) }} onClick={() => setDraft({ ...scene, palette: p.id })} />)}
-              <button className="amb-palette add" title="Palette from a photo" onClick={() => void fromPhoto()}><Icon name="image" size={13} /></button>
+              <button className="amb-palette add" title="Palette from a photo" aria-label="Palette from a photo" onClick={() => void fromPhoto()}><Icon name="image" size={13} /></button>
             </div>
           </div>
         ) : null}
@@ -270,8 +270,8 @@ function ScheduleTab({ state }: { state: AmbienceState }) {
           <div key={r.id} className="card amb-rule">
             <Toggle on={r.enabled} onChange={(v) => save(s.rules.map((x) => (x.id === r.id ? { ...x, enabled: v } : x)))} />
             <span className="grow">{describeRule(r, vibes)}</span>
-            <button className="btn ghost icon sm" disabled={!i} onClick={() => move(i, -1)} title="Higher priority"><Icon name="arrowUp" size={12} /></button>
-            <button className="btn ghost icon sm" onClick={() => save(s.rules.filter((x) => x.id !== r.id))} title="Remove"><Icon name="trash" size={12} /></button>
+            <button className="btn ghost icon sm" disabled={!i} onClick={() => move(i, -1)} title="Higher priority" aria-label="Higher priority"><Icon name="arrowUp" size={12} /></button>
+            <button className="btn ghost icon sm" onClick={() => save(s.rules.filter((x) => x.id !== r.id))} title="Remove" aria-label="Remove"><Icon name="trash" size={12} /></button>
           </div>
         ))}
         {!s.rules.length ? <div className="muted small" style={{ padding: 10 }}>No rules yet: add one below, or start from a preset.</div> : null}

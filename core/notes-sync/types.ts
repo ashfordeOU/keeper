@@ -6,7 +6,7 @@
 export type Capability = 'two-way' | 'import-limited-write' | 'import-only';
 
 export type ConnectorKind =
-  | 'folder' | 'joplin' | 'joplin-files' | 'standardnotes' | 'notesnook' | 'onenote' | 'notion'
+  | 'folder' | 'joplin' | 'joplin-files' | 'standardnotes' | 'standardnotes-sync' | 'notesnook' | 'onenote' | 'notion'
   | 'simplenote' | 'evernote' | 'applenotes' | 'bear' | 'sticky' | 'keep' | 'samsung' | 'island';
 
 export interface ConnectorField {

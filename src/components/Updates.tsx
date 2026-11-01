@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { UpdateStatus } from '../../core/api-x';
 import { formatBytes, relativeTime } from '../../core/format';
 import { api } from '../api';
+import { sanitize } from '../preview/util';
 import { useStore } from '../state';
 import { Icon } from './Icon';
 import { ContextMenu, Modal, Toggle } from './ui';
@@ -83,12 +84,8 @@ export function WhatsNewHover({ children, only }: { children: React.ReactNode; o
 function Notes({ md }: { md: string }) {
   const html = useMemo(() => {
     const raw = marked.parse(md || 'No notes for this version.', { async: false, gfm: true }) as string;
-    // Strip anything active; images would load from the network, so they become their alt text.
-    return raw
-      .replace(/<(script|style|iframe|object|embed)[\s\S]*?<\/\1>/gi, '')
-      .replace(/<img[^>]*alt="([^"]*)"[^>]*>/gi, '$1')
-      .replace(/<img[^>]*>/gi, '')
-      .replace(/\son\w+="[^"]*"/gi, '');
+    // Nothing active, and images would load from the network, so they become their alt text.
+    return sanitize(raw.replace(/<img[^>]*alt="([^"]*)"[^>]*>/gi, '$1').replace(/<img[^>]*>/gi, '')).html;
   }, [md]);
   return (
     <div
@@ -215,7 +212,7 @@ export function UpdatesPanel() {
             {s?.checkedAt ? ` · checked ${relativeTime(s.checkedAt)}` : ''}
           </div>
           {s?.state === 'ready' && s.countdown === undefined && !s.waitingFor && s.method !== 'package' ? <div className="small" style={{ marginTop: 4 }}>{describePlan(s.plan ?? null)}. You’ll come back to the page you were on.</div> : s?.message ? <div className="small" style={{ marginTop: 4 }}>{s.message}</div> : null}
-          {s?.state === 'downloading' ? <div className="progress" style={{ marginTop: 8 }}><i style={{ width: `${s.percent ?? 0}%` }} /></div> : null}
+          {s?.state === 'downloading' ? <div className="progress" role="progressbar" aria-label="Progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(Number(s.percent ?? 0) || 0)} style={{ marginTop: 8 }}><i style={{ width: `${s.percent ?? 0}%` }} /></div> : null}
         </div>
         <div className="btn-row">
           {s ? <Primary s={s} onChange={setS} /> : null}
@@ -258,7 +255,9 @@ export function UpdatesPanel() {
         <Toggle on={wantsBeta((s?.current ?? info?.appVersion ?? '').replace(/\s.*$/, ''), settings.updateBeta, settings.updateBetaChosen)} onChange={(v) => void updateSettings({ updateBeta: v, updateBetaChosen: true })} />
       </div>
       <div className="small muted" style={{ marginTop: 12 }}>
-        {s?.method === 'manager'
+        {s?.method === 'manager' && s.state === 'unsupported'
+          ? s.message
+          : s?.method === 'manager'
           ? <>Installed with {s.manager?.label}, so it updates Keeper: {s.manager?.command ? <code>{s.manager.command}</code> : 'use its usual update command'}. Keeper still tells you when a new version is out.</>
           : s?.method === 'package'
           ? 'Installed with your system’s package manager: Keeper downloads the new package and asks for your password to install it.'
@@ -316,7 +315,7 @@ export function UpdateBanner() {
       </span>
       <WhatsNewHover only="newer"><button className="btn sm ghost" onClick={() => go({ name: 'settings', arg: 'updates' })}>What’s new</button></WhatsNewHover>
       {s.state !== 'downloading' ? <Primary s={s} onChange={setS} /> : null}
-      <button className="btn sm ghost icon" title="Later" onClick={dismiss}><Icon name="close" size={13} /></button>
+      <button className="btn sm ghost icon" title="Later" aria-label="Later" onClick={dismiss}><Icon name="close" size={13} /></button>
     </div>
   );
 }

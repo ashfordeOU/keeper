@@ -140,7 +140,7 @@ export function Inspector({ frozen = false }: { frozen?: boolean } = {}) {
         <button className="btn sm" onClick={() => (file.kind === 'audio' ? play(file) : void api.files.open(file.path))}><Icon name={file.kind === 'audio' ? 'play' : 'external'} size={12} /> {file.kind === 'audio' ? 'Play' : 'Open'}</button>
         <button className="btn sm" onClick={() => void api.files.reveal(file.path)}><Icon name="reveal" size={12} /> Show</button>
         <button className="btn sm" onClick={() => void api.island.addToShelf([file.path]).then(() => toast('Added to the Shelf'))}><Icon name="island" size={12} /> Shelf</button>
-        <button className="btn sm danger icon" title="Move to Trash" onClick={() => void trash([file.path])}><Icon name="trash" size={12} /></button>
+        <button className="btn sm danger icon" title="Move to Trash" aria-label="Move to Trash" onClick={() => void trash([file.path])}><Icon name="trash" size={12} /></button>
       </div>
 
       <dl className="kv">

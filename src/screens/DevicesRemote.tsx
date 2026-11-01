@@ -155,7 +155,7 @@ export function DeviceManage({ d }: { d: LinkDevice }) {
                 {meta.commands.map((c) => (
                   <span key={c.id} className="chip">
                     <button className="btn ghost sm" disabled={busy || !d.online} onClick={() => void run(c.command)} title={c.command}>{c.name}</button>
-                    <button className="btn ghost sm icon" title="Remove" onClick={() => save({ commands: meta.commands.filter((x) => x.id !== c.id) })}><Icon name="close" size={10} /></button>
+                    <button className="btn ghost sm icon" title="Remove" aria-label="Remove" onClick={() => save({ commands: meta.commands.filter((x) => x.id !== c.id) })}><Icon name="close" size={10} /></button>
                   </span>
                 ))}
               </div>

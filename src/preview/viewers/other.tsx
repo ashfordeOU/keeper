@@ -340,7 +340,12 @@ export function ModelViewer({ info, mode }: ViewerProps) {
         renderer.dispose();
         renderer.domElement.remove();
       };
-    })().catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)));
+    })().catch((e: unknown) => setError(
+      // Minimal mode draws without the graphics card, and 3D needs it.
+      document.documentElement.dataset.resource === 'minimal' && /webgl/i.test(String(e))
+        ? '3D previews need the graphics card, which Minimal mode leaves off. Choose Balanced in Settings → Performance and restart Keeper to see them.'
+        : e instanceof Error ? e.message : String(e),
+    ));
     return () => { disposed = true; cleanup(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [info.path]);

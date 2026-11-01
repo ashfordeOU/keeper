@@ -339,7 +339,7 @@ export function Tools({ only }: { only?: string } = {}) {
           <div className="row" style={{ marginBottom: 12 }}>
             <div className="tool-card" style={{ padding: 0, border: 0, boxShadow: 'none', background: 'none' }}><div className="ic"><Icon name={current.icon} size={16} /></div></div>
             <div className="grow"><h2>{current.name}</h2><div className="small muted">{current.desc}</div></div>
-            <button className="btn ghost sm icon" onClick={() => setOpen(null)}><Icon name="close" size={14} /></button>
+            <button aria-label="Close" title="Close" className="btn ghost sm icon" onClick={() => setOpen(null)}><Icon name="close" size={14} /></button>
           </div>
           {current.render()}
         </div>

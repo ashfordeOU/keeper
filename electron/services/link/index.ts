@@ -8,7 +8,6 @@ import crypto from 'node:crypto';
 import { existsSync, promises as fsp } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import QRCode from 'qrcode';
 import type { CompanionInvite, FileOffer, LinkSettings, LinkState, PairPrompt, TunnelStatus } from '../../../core/api-link';
 import type { TunnelConfig, TunnelMode } from '../../../core/link/cloudflared';
 import type { PermissionSet } from '../../../core/link/perms';
@@ -112,7 +111,8 @@ export async function startLink(deps: { broadcast: Broadcast; show: (route?: str
         return d === os.homedir() && existsSync(path.join(d, 'Downloads')) ? path.join(d, 'Downloads') : d;
       },
       companionDir: () => path.join(__dirname, 'companion'),
-      qr: (t) => QRCode.toDataURL(t, { margin: 1, width: 360 }),
+      // The QR code maker loads the first time a code is shown.
+      qr: async (t) => (await import('qrcode')).default.toDataURL(t, { margin: 1, width: 360 }),
       tunnel: () => tunnel?.status,
       // Direct paths: only with the feature on and background work not held.
       directAllowed: () => featureOn('linkDirect') && !workHeldUntil(),

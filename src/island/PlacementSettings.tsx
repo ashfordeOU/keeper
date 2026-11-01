@@ -14,7 +14,7 @@ const KIND_LABEL: [ActivityKind, string][] = [
   ['music', 'Music'], ['timer', 'Focus timer'], ['recording', 'Screen recording'], ['meeting', 'Next meeting'], ['progress', 'Long jobs (convert, clean up, locking)'],
   ['charging', 'Charging'], ['battery-low', 'Battery low'], ['copied', 'Copied'], ['headphones', 'Headphones connected'], ['agent-waiting', 'Agent needs you'],
   ['agent-working', 'Agent working'], ['rain', 'Rain soon'], ['awake', 'Keeping awake'], ['unlocked', 'Unlocked folders'],
-  ['reminder', 'Reminders due'], ['update', 'Update ready'],
+  ['reminder', 'Reminders due'], ['update', 'Update ready'], ['usage', 'AI usage running out'],
 ];
 
 function ScreenPicture({ d, wanted }: { d: IslandPlacementPreview['displays'][number]; wanted: boolean }) {

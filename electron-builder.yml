@@ -68,6 +68,9 @@ publish:
   owner: ashfordeOU
   repo: keeper
   releaseType: release
+# Betas (v0.2.0-beta.1) write latest*.yml too, not beta*.yml: the release workflow uploads
+# latest*.yml, and the in-app updater falls back to it for pre-releases (see docs/BETA.md).
+detectUpdateChannel: false
 protocols:
   - name: Keeper
     schemes: [keeper]
@@ -107,6 +110,29 @@ nsis:
   artifactName: ${productName}-setup-${arch}.${ext}
 portable:
   artifactName: ${productName}-portable.${ext}
+# Microsoft Store package (MSIX). Built only on request (`--win appx`, the release workflow's
+# msstore job) and uploaded to Partner Center by hand; the Store signs it. The identity values
+# are placeholders until the name is reserved: Partner Center → Product identity gives the real
+# ones, and the workflow passes them with -c.appx.identityName / -c.appx.publisher (repository
+# variables MSSTORE_IDENTITY_NAME and MSSTORE_PUBLISHER). Tiles and logos are in build/appx,
+# made from build/icon.svg by scripts/store-assets.mjs. The protocol and the .rdp/.vnc file
+# associations above are declared in the package. The Store updates this build: Keeper's own
+# updater stays off in it (electron/services/updater.ts). See docs/STORES.md.
+appx:
+  identityName: AshfordeOU.KeeperbyAshforde
+  publisher: CN=00000000-0000-0000-0000-000000000000
+  publisherDisplayName: Ashforde OÜ
+  displayName: Keeper by Ashforde
+  applicationId: Keeper
+  backgroundColor: transparent
+  languages: [en-US]
+  showNameOnTiles: true
+  # runFullTrust is always added (a desktop app); internetClient for updates of models, maps and AI.
+  capabilities: [runFullTrust, internetClient]
+  # Windows 10 1809 and later; tested up to Windows 11 24H2.
+  minVersion: 10.0.17763.0
+  maxVersionTested: 10.0.26100.0
+  artifactName: ${productName}-store-${arch}.msix
 
 mac:
   icon: build/icon.png

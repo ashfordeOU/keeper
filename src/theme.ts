@@ -72,7 +72,7 @@ export function onSystemAppearance(fn: () => void): () => void {
 
 const PREV = 'theme.prev';
 
-/** The settings change that switches to a theme, remembering the one before for ⌘⇧T. */
+/** The settings change that switches to a theme, remembering the one before for ⌘⇧L. */
 export function themePatch(s: Pick<Settings, 'theme' | 'look'>, id: string): Partial<Settings> {
   const cur = currentThemeId(s);
   if (cur !== id) {
@@ -83,11 +83,11 @@ export function themePatch(s: Pick<Settings, 'theme' | 'look'>, id: string): Par
     }
   }
   const look = id === 'minimal' ? 'minimal' : 'playful';
-  // Choosing a theme by hand (gallery, palette, ⌘⇧T) stops following the seasons.
+  // Choosing a theme by hand (gallery, palette, ⌘⇧L) stops following the seasons.
   return { theme: themeById(id).id, look, themeSeasons: false };
 }
 
-/** ⌘⇧T: back and forth between the last two themes used (Playful and Minimal to begin with). */
+/** ⌘⇧L: back and forth between the last two themes used (Playful and Minimal to begin with). */
 export function toggleThemePatch(s: Pick<Settings, 'theme' | 'look'>): Partial<Settings> {
   const cur = currentThemeId(s);
   let prev: string | null = null;

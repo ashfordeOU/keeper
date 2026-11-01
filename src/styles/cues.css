@@ -71,7 +71,7 @@ button.cue-chip { cursor: default; }
 .cues-page .cues-side { display: flex; flex-direction: column; gap: 12px; position: sticky; top: 0; }
 .cues-page .cues-filters { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 4px 0 12px; }
 .cues-page .cues-filters .chip { cursor: default; border: 1px solid transparent; }
-.cues-page .cues-filters .chip.on { background: var(--accent-soft); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 30%, transparent); }
+.cues-page .cues-filters .chip.on { background: var(--accent-soft); color: var(--accent-ink, var(--accent)); border-color: color-mix(in srgb, var(--accent) 30%, transparent); }
 .cues-page .cues-filters .chip .n { color: var(--text-3); font-variant-numeric: tabular-nums; }
 .cues-page .cues-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; align-items: start; }
 .cues-page .cues-section h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-3); margin: 18px 0 8px; font-weight: 650; }

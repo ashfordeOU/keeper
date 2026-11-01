@@ -201,6 +201,12 @@ let deps: ResilienceDeps;
 const extraWindows = new Map<string, BrowserWindow>();
 const pendingWindows = new Map<string, WindowState>();
 
+/** The main window and its extra windows keep tabs in the session; small windows (the Island, widgets…) do not. */
+function hasSession(wc: WebContents): boolean {
+  const url = wc.getURL();
+  return !/[?&]view=/.test(url) || /[?&]view=app\b/.test(url);
+}
+
 function keyOf(wc: WebContents): string {
   for (const [k, w] of extraWindows) if (!w.isDestroyed() && w.webContents === wc) return k;
   return 'main';
@@ -273,13 +279,18 @@ function watchContents(wc: WebContents) {
     const win = BrowserWindow.fromWebContents(wc);
     if (!win || win.isDestroyed()) return;
     const key = keyOf(wc);
-    logEvent('page-crashed', `${key}: ${d.reason} (exit code ${d.exitCode})`);
-    const times = [...(recentRendererCrashes.get(key) ?? []), Date.now()].filter((t) => Date.now() - t < 60_000);
-    recentRendererCrashes.set(key, times);
+    // Keeper's windows share one page process, so one crash stops them all at once: each is
+    // counted on its own (the Island, Quick Search and widgets are not the main window).
+    const view = /[?&]view=([^&#]+)/.exec(wc.getURL())?.[1] ?? 'app';
+    const session = hasSession(wc);
+    const countKey = session ? key : `${view}:${wc.id}`;
+    logEvent('page-crashed', `${session ? key : view}: ${d.reason} (exit code ${d.exitCode})`);
+    const times = [...(recentRendererCrashes.get(countKey) ?? []), Date.now()].filter((t) => Date.now() - t < 60_000);
+    recentRendererCrashes.set(countKey, times);
     if (times.length <= 1) {
       // Once: reload straight away; the checkpoint puts every tab back.
       flushNow();
-      reloadedKeys.add(key);
+      if (session) reloadedKeys.add(key);
       wc.reload();
       return;
     }
@@ -358,6 +369,13 @@ export function initResilience(d: ResilienceDeps) {
 
   // The window asks what it should open with (synchronously, so the first frame is already right).
   ipcMain.on('session.initial', (e) => {
+    // Only windows with tabs (the main window and its extra windows) have a session; the
+    // Island, Quick Search and widgets start fresh and must not take the main window's state
+    // (they reload together with it when their shared page process crashes).
+    if (!hasSession(e.sender)) {
+      e.returnValue = { key: 'view', state: null, crashed: false, safeMode: SAFE_MODE, reloaded: false };
+      return;
+    }
     const key = keyOf(e.sender);
     const pending = pendingWindows.get(key);
     pendingWindows.delete(key);
@@ -371,7 +389,7 @@ export function initResilience(d: ResilienceDeps) {
       reloaded,
     };
   });
-  ipcMain.on('session.save', (e, w: WindowState) => saveWindow({ ...w, key: keyOf(e.sender) }));
+  ipcMain.on('session.save', (e, w: WindowState) => { if (hasSession(e.sender)) saveWindow({ ...w, key: keyOf(e.sender) }); });
   ipcMain.handle('session.openWindow', (_e, w: WindowState) => {
     const key = `w${Date.now().toString(36)}`;
     openWindow(key, sanitizeWindow({ ...w, key }, key));

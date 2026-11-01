@@ -16,11 +16,20 @@
 // responder answering on a mesh address, and access rules allowing one port
 // and dropping another.
 //
-// What stands in: WireGuard itself. This kernel has no WireGuard module and
-// building or downloading wireguard-go was not allowed here, so the mesh
-// interface is a veth pair with the same name (km-xxxx), with ARP off so it
-// behaves like WireGuard's point-to-point layer-3 link. The script first tries
-// `ip link add … type wireguard` and reports what the kernel says.
+// What stands in: for the first part, WireGuard itself. This kernel has no
+// WireGuard module, so the mesh interface is a veth pair with the same name
+// (km-xxxx), with ARP off so it behaves like WireGuard's point-to-point
+// layer-3 link. The script first tries `ip link add … type wireguard` and
+// reports what the kernel says.
+//
+// Then real WireGuard: wireguard-go built from the pinned source snapshot (its
+// SHA-256 checked first; Go's module checksums for its dependencies), on two
+// TUN interfaces in the two devices. A real WireGuard handshake and pings go
+// through Keeper's shims over the hole-punched path; then the direct handoff
+// gives the path to WireGuard itself (packets no longer pass through Keeper),
+// and when the direct path is blocked, WireGuard is pointed back at the shim.
+// Set KEEPER_WG_GO to a wireguard-go binary to skip the build; with neither
+// that nor a Go toolchain this part is skipped and says so.
 
 const { spawnSync, spawn } = require('node:child_process');
 const path = require('node:path');
@@ -38,7 +47,7 @@ if (process.getuid() !== 0) { console.log('SKIP: needs root (network namespaces)
 const { buildSync } = require('esbuild');
 buildSync({ entryPoints: [path.join(__dirname, 'mesh-netns-child.ts')], outfile: path.join(OUT, 'child.cjs'), bundle: true, platform: 'node', format: 'cjs', target: 'node22', logLevel: 'error' });
 buildSync({
-  stdin: { contents: `export * from './core/mesh/address'; export * from './core/mesh/os-plan'; export * from './core/mesh/plan-guard'; export * from './core/mesh/rules'; export * from './core/mesh/keys'; export * from './core/mesh/wgconfig'; export { runSteps } from './electron/services/mesh/helper';`, resolveDir: ROOT, loader: 'ts' },
+  stdin: { contents: `export * from './core/mesh/binaries'; export * from './core/mesh/address'; export * from './core/mesh/os-plan'; export * from './core/mesh/plan-guard'; export * from './core/mesh/rules'; export * from './core/mesh/keys'; export * from './core/mesh/wgconfig'; export { runSteps } from './electron/services/mesh/helper';`, resolveDir: ROOT, loader: 'ts' },
   outfile: path.join(OUT, 'lib.cjs'), bundle: true, platform: 'node', format: 'cjs', target: 'node22', logLevel: 'error',
 });
 const K = require(path.join(OUT, 'lib.cjs'));
@@ -63,8 +72,8 @@ except Exception: sys.exit(1)`;
 const ping = (n, dst, wait = 2) => ({ status: sh(['ip', 'netns', 'exec', n, 'python3', '-I', '-c', PYPING, dst, String(wait)]).status });
 
 /** Runs Keeper plan steps in a namespace with the helper's own runner (each step checked by its guard first). */
-async function runPlan(n, steps, label) {
-  const r = await K.runSteps(steps, { os: 'linux', wg: 'wg' }, (file, args) => ['ip', ['netns', 'exec', n, file, ...args]]);
+async function runPlan(n, steps, label, wgGo) {
+  const r = await K.runSteps(steps, { os: 'linux', wg: 'wg', wgGo }, (file, args) => ['ip', ['netns', 'exec', n, file, ...args]]);
   if (!r.ok) throw new Error(`${label}: ${r.message}`);
   return true;
 }
@@ -73,6 +82,8 @@ const kids = [];
 const run = (...a) => { const p = spawn(...a); kids.push(p); if (p.stdout) void lineOf(p, '__attach__').catch(() => undefined); return p; };
 function teardown() {
   for (const p of kids.splice(0)) try { p.kill('SIGKILL'); } catch { /* gone */ }
+  // removing wireguard-go's control socket makes it exit (as Keeper's own cleanup does)
+  for (const f of ['km-aaa1', 'km-bbb2']) fs.rmSync(`/var/run/wireguard/${f}.sock`, { force: true });
   for (const n of NSS) sh(['ip', 'netns', 'del', n]);
 }
 
@@ -231,12 +242,113 @@ async function main() {
   check(true, 'the cleanup plan runs twice without harm');
 
   for (const p of [da, db]) p.stdin.write(JSON.stringify({ cmd: 'quit' }) + '\n');
-  stunP.kill();
   web.kill();
+
+  await realWireGuard({ a4, b4, p4, p6, A, B });
+  stunP.kill();
+}
+
+/** wireguard-go: $KEEPER_WG_GO, or built from the pinned source snapshot (checked) with the Go toolchain here. */
+function wireguardGo() {
+  if (process.env.KEEPER_WG_GO && fs.existsSync(process.env.KEEPER_WG_GO)) return { bin: process.env.KEEPER_WG_GO, how: 'given by KEEPER_WG_GO' };
+  const go = sh(['go', 'version']);
+  if (go.status !== 0) return { why: 'no Go toolchain here to build it' };
+  const src = K.WIREGUARD_GO_SOURCE;
+  const dir = path.join(os.tmpdir(), `keeper-wggo-${src.sha256.slice(0, 12)}`);
+  const bin = path.join(dir, 'wireguard-go');
+  if (!fs.existsSync(bin)) {
+    fs.mkdirSync(dir, { recursive: true });
+    const tar = path.join(dir, 'src.tar.xz');
+    const dl = sh(['curl', '-fsSL', '-o', tar, src.url]);
+    if (dl.status !== 0) return { why: `the pinned source could not be downloaded (${(dl.stderr || '').trim().slice(0, 120)})` };
+    const sum = require('node:crypto').createHash('sha256').update(fs.readFileSync(tar)).digest('hex');
+    if (sum !== src.sha256) { fs.rmSync(tar); return { why: `the downloaded source does not match the pinned SHA-256 (${sum})` }; }
+    if (sh(['tar', '-xJf', tar, '-C', dir]).status !== 0) return { why: 'the source could not be unpacked' };
+    const top = fs.readdirSync(dir).find((d) => d.startsWith('wireguard-go-'));
+    const b = sh(['go', 'build', '-trimpath', '-ldflags=-s -w -buildid=', '-o', bin, '.'], { cwd: path.join(dir, top), env: { ...process.env, GOFLAGS: '-mod=readonly', GOTOOLCHAIN: 'local', CGO_ENABLED: '0' }, timeout: 600_000 });
+    if (b.status !== 0) return { why: `go build failed: ${(b.stderr || '').trim().slice(0, 200)}` };
+  }
+  const sum = require('node:crypto').createHash('sha256').update(fs.readFileSync(bin)).digest('hex');
+  return { bin, how: `built from wireguard-go ${K.WIREGUARD_GO_VERSION} (source SHA-256 ${src.sha256.slice(0, 12)}… checked) with ${go.stdout.trim().split(' ')[2]}; binary SHA-256 ${sum}`, sum };
+}
+
+/** Real WireGuard between the two devices: through Keeper's shims first, then handed off, then back. */
+async function realWireGuard({ a4, b4, p4, p6, A, B }) {
+  const wgo = wireguardGo();
+  if (!wgo.bin) { note(`real WireGuard part skipped: ${wgo.why}`); return; }
+  note(`wireguard-go: ${wgo.how}`);
+  const local = K.WIREGUARD_GO_LOCAL_BUILD;
+  if (wgo.sum && local) note(wgo.sum === local.sha256 ? `the build is reproducible: same SHA-256 as recorded for ${local.go} on ${local.target}` : `this build's SHA-256 differs from the one recorded for ${local.go} on ${local.target} (another Go version?)`);
+  const IFA = 'km-aaa1', IFB = 'km-bbb2', WGP = 51820;
+  const wa = K.newWgKey(), wb = K.newWgKey();
+  const ctx = (who) => ({ noV6: true, os: 'linux', impl: 'wireguard-go', bin: wgo.bin, iface: who === 'a' ? IFA : IFB, a6: '', a4: who === 'a' ? a4 : b4, prefix6: p6, prefix4: p4, mtu: 1280, conf: K.uapiSet({ priv: who === 'a' ? wa.priv : wb.priv, listenPort: WGP, peers: [] }) });
+  await runPlan('k-hosta', K.ifaceUp(ctx('a')), 'wireguard-go desk', wgo.bin);
+  await runPlan('k-hostb', K.ifaceUp(ctx('b')), 'wireguard-go laptop', wgo.bin);
+  check(/tun/.test(ns('k-hosta', 'ip', '-d', 'link', 'show', IFA).stdout) && ns('k-hostb', 'ip', 'link', 'show', IFB).status === 0, `Keeper’s helper steps started wireguard-go on TUN interfaces ${IFA} and ${IFB} (checked by the guard, configured over its control socket)`);
+  const key = require('node:crypto').randomBytes(32).toString('hex');
+  const child = (n, o) => run('ip', ['netns', 'exec', n, process.execPath, path.join(OUT, 'child.cjs'), 'wgdevice', JSON.stringify(o)], { stdio: ['pipe', 'pipe', 'inherit'] });
+  const da = child('k-hosta', { me: A, peer: B, key, stun: '198.51.100.1', lan: '10.0.1.2', iface: IFA, wgPort: WGP, peerWgPort: WGP, peerPub: wb.pub, peerAddr: b4, wgGo: wgo.bin, lib: path.join(OUT, 'lib.cjs') });
+  const db = child('k-hostb', { me: B, peer: A, key, stun: '198.51.100.1', lan: '10.0.2.2', iface: IFB, wgPort: WGP, peerWgPort: WGP, peerPub: wa.pub, peerAddr: a4, wgGo: wgo.bin, lib: path.join(OUT, 'lib.cjs') });
+  const ra = await lineOf(da, 'ready');
+  const rb = await lineOf(db, 'ready');
+  da.stdin.write(JSON.stringify({ cmd: 'punch', cands: rb.cands }) + '\n');
+  db.stdin.write(JSON.stringify({ cmd: 'punch', cands: ra.cands }) + '\n');
+  const pa = await lineOf(da, 'punched');
+  const pb = await lineOf(db, 'punched');
+  check(pa.state === 'direct' && pb.state === 'direct', `Keeper’s data path punched through both NATs again (desk → ${pa.best?.host}:${pa.best?.port}); WireGuard sees each peer at 127.0.0.1:<shim>`);
+  const counters = async (p) => { p.stdin.write(JSON.stringify({ cmd: 'counters' }) + '\n'); return lineOf(p, 'counters'); };
+  let ok = false;
+  for (let i = 0; i < 20 && !ok; i++) ok = ping('k-hosta', b4, 1).status === 0;
+  const c1 = await counters(da);
+  check(ok && ping('k-hostb', a4, 1).status === 0, `a real WireGuard handshake, then ping ${b4} ↔ ${a4} over wireguard-go, through Keeper’s shims and the punched path`);
+  check(c1.tx > 0 && c1.rx > 0 && c1.wg?.lastHandshake > 0 && /^127\.0\.0\.1:/.test(c1.wg?.endpoint ?? ''), `those packets passed through Keeper (shim counters: ${c1.tx} bytes out, ${c1.rx} in; WireGuard’s endpoint ${c1.wg?.endpoint})`);
+
+  // ---- the handoff: WireGuard gets the direct endpoint itself
+  for (const p of [da, db]) p.stdin.write(JSON.stringify({ cmd: 'handoff' }) + '\n');
+  const pinger = run('ip', ['netns', 'exec', 'k-hosta', 'python3', '-I', '-c', `import subprocess,time\nwhile True:\n  subprocess.run(['python3','-I','-c',${JSON.stringify(PYPING)},'${b4}','1'])\n  time.sleep(0.3)`], { stdio: 'ignore' });
+  const until = async (p, state, ms = 40_000) => {
+    const end = Date.now() + ms;
+    for (;;) {
+      const m = await lineOf(p, 'handoff', Math.max(1000, end - Date.now())).catch(() => null);
+      if (m?.state === state) return m;
+      if (!m || Date.now() > end) return null;
+    }
+  };
+  const ha = await until(da, 'direct');
+  const hb = await until(db, 'direct');
+  pinger.kill();
+  check(!!ha && !!hb, `direct handoff: both WireGuards now send to each other themselves (desk → ${ha?.endpoint}, laptop → ${hb?.endpoint})`);
+  const s0 = await counters(da);
+  check(s0.wg?.endpoint === '198.51.100.12:51820', `WireGuard’s own endpoint for the laptop is its NAT’s public address with WireGuard’s port: ${s0.wg?.endpoint}`);
+  let pings = 0;
+  for (let i = 0; i < 5; i++) pings += ping('k-hosta', b4, 2).status === 0 ? 1 : 0;
+  const s1 = await counters(da);
+  check(pings === 5 && s1.wg.rx > s0.wg.rx, `5 of 5 pings over WireGuard after the handoff (WireGuard received ${s1.wg.rx - s0.wg.rx} more bytes)`);
+  check(s1.tx === s0.tx && s1.rx === s0.rx, `…and none of those packets passed through Keeper: the shim counters did not move (${s0.tx}/${s0.rx})`);
+
+  // ---- the direct path breaks: only WireGuard's port is blocked at the laptop's router; Keeper's own path still works
+  must(ns('k-natb', 'nft', 'add table ip block; add chain ip block wgonly { type filter hook forward priority -10 ; } ; add rule ip block wgonly udp dport 51820 drop ; add rule ip block wgonly udp sport 51820 drop'), 'block');
+  const pinger2 = run('ip', ['netns', 'exec', 'k-hosta', 'python3', '-I', '-c', `import subprocess,time\nwhile True:\n  subprocess.run(['python3','-I','-c',${JSON.stringify(PYPING)},'${b4}','1'])\n  time.sleep(0.3)`], { stdio: 'ignore' });
+  const fa = await until(da, 'shim', 30_000);
+  const fb = await until(db, 'shim', 30_000);
+  pinger2.kill();
+  check(!!fa || !!fb, `with WireGuard’s direct path blocked, Keeper noticed (sending, nothing back) and pointed WireGuard back at the shim (desk: ${fa ? 'shim' : 'still ' + 'direct'}, laptop: ${fb ? 'shim' : 'still direct'})`);
+  const f0 = await counters(da);
+  let back = false;
+  for (let i = 0; i < 15 && !back; i++) back = ping('k-hosta', b4, 1).status === 0;
+  const f1 = await counters(da);
+  check(back && f1.tx > f0.tx && /^127\.0\.0\.1:/.test(f1.wg?.endpoint ?? ''), `pings work again through Keeper’s shim (shim counters moving again, WireGuard’s endpoint ${f1.wg?.endpoint})`);
+  ns('k-natb', 'nft', 'delete table ip block');
+
+  for (const p of [da, db]) p.stdin.write(JSON.stringify({ cmd: 'quit' }) + '\n');
+  await runPlan('k-hosta', K.ifaceDown({ os: 'linux', iface: IFA, impl: 'wireguard-go' }), 'down desk');
+  await runPlan('k-hostb', K.ifaceDown({ os: 'linux', iface: IFB, impl: 'wireguard-go' }), 'down laptop');
+  await new Promise((r) => setTimeout(r, 500));
+  check(ns('k-hosta', 'ip', 'link', 'show', IFA).status !== 0 && !fs.existsSync(`/var/run/wireguard/${IFA}.sock`), 'cleanup: the interfaces and wireguard-go’s control sockets are gone');
 }
 
 /** Every JSON line a child prints is kept, so nothing is lost while the script waits on another child. */
-function lineOf(p, ev) {
+function lineOf(p, ev, ms = 15000) {
   if (!p.msgs) {
     p.msgs = [];
     p.waiters = [];
@@ -255,7 +367,7 @@ function lineOf(p, ev) {
     });
   }
   return new Promise((resolve, reject) => {
-    const t = setTimeout(() => reject(new Error(`timed out waiting for ${ev}`)), 15000);
+    const t = setTimeout(() => { const i = p.waiters.indexOf(look); if (i >= 0) p.waiters.splice(i, 1); reject(new Error(`timed out waiting for ${ev}`)); }, ms);
     const look = () => {
       const i = p.msgs.findIndex((m) => m.ev === ev || m.ev === 'error');
       if (i < 0) return void p.waiters.push(look);

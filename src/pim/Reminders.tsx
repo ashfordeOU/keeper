@@ -88,8 +88,8 @@ export function Reminders() {
                 </div>
               </div>
               <input type="datetime-local" className="input rem-date" aria-label="Due" value={r.due !== undefined ? new Date(r.due - new Date(r.due).getTimezoneOffset() * 60_000).toISOString().slice(0, 16) : ''} onChange={(e) => void save({ ...r, due: e.target.value ? new Date(e.target.value).getTime() : undefined, remindAt: undefined })} />
-              <button className="btn sm ghost icon" title="Priority" onClick={() => void save({ ...r, priority: (((r.priority ?? 0) + 1) % 4) as Reminder['priority'] })}><Icon name="flag" size={13} style={r.priority ? { color: 'var(--warn)' } : undefined} /></button>
-              <button className="btn sm ghost icon" title="Delete (Undo for a few seconds)" onClick={() => void deleteTask(r)}><Icon name="trash" size={13} /></button>
+              <button className="btn sm ghost icon" title="Priority" aria-label="Priority" onClick={() => void save({ ...r, priority: (((r.priority ?? 0) + 1) % 4) as Reminder['priority'] })}><Icon name="flag" size={13} style={r.priority ? { color: 'var(--warn)' } : undefined} /></button>
+              <button className="btn sm ghost icon" title="Delete (Undo for a few seconds)" aria-label="Delete" onClick={() => void deleteTask(r)}><Icon name="trash" size={13} /></button>
             </div>
           ))}
           {!shown.length ? <div className="empty small muted" style={{ padding: 30 }}>{showDone ? 'Nothing here.' : 'All done.'}</div> : null}

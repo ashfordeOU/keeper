@@ -1,32 +1,51 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 # Flatpak manifest, rendered by scripts/render-packaging.mjs. Flathub takes it through a one-time
-# submission pull request to github.com/flathub/flathub (see docs/INSTALL.md → Maintainers);
-# after that, Flathub's bot opens update pull requests from the x-checker-data below.
+# submission pull request to github.com/flathub/flathub (see docs/STORES.md → Flathub);
+# after that, Flathub's bot opens update pull requests from the x-checker-data below
+# (stable releases only: /releases/latest never returns a pre-release).
 # Build locally:
 #   flatpak-builder --user --install --force-clean build-dir io.github.ashfordeou.keeper.yml
+#   flatpak run --command=flatpak-builder-lint org.flatpak.Builder manifest io.github.ashfordeou.keeper.yml
+#
+# This repackages the official Linux build (Keeper is not open source, so Flathub cannot build
+# it from source); the metainfo says so with a LicenseRef licence and Flathub shows it as proprietary.
 id: io.github.ashfordeou.keeper
 runtime: org.freedesktop.Platform
-runtime-version: '24.08'
+runtime-version: '26.08'
 sdk: org.freedesktop.Sdk
+# Electron's base app: zypak (Chromium's sandbox inside Flatpak) and the libraries Electron needs.
 base: org.electronjs.Electron2.BaseApp
-base-version: '24.08'
+base-version: '26.08'
 command: keeper
 separate-locales: false
+# Why each permission is needed (Flathub reviews these):
 finish-args:
+  # The window: Wayland, or X11 where there is no Wayland. ipc is for X11's shared memory.
   - --share=ipc
-  - --share=network
-  - --socket=x11
   - --socket=wayland
+  - --socket=fallback-x11
+  # Weather, maps, mail, calendars, cloud storage, Keeper Link between your devices, AI providers
+  # you choose, update notes, and model downloads (speech, search by meaning) on first use.
+  - --share=network
+  # Dictation, meeting recording, ambient sound and alerts.
   - --socket=pulseaudio
+  # Hardware-accelerated drawing (the library grid, live wallpaper, video previews).
   - --device=dri
-  # Keeper is a file library: it shows, searches and tidies the files in your home folder.
+  # Keeper is a file library: it shows, searches, de-duplicates and tidies the files in your
+  # home folder, and cleans caches there. The file chooser portal is not enough for that.
   - --filesystem=home
+  # Removable drives and second disks, which Keeper lists with free space and can search.
   - --filesystem=/media
   - --filesystem=/run/media
+  # Alerts (downloads finished, rules run, reminders) where the notification portal is missing.
   - --talk-name=org.freedesktop.Notifications
+  # The tray icon (StatusNotifierItem), on KDE and on GNOME with the AppIndicator extension.
   - --talk-name=org.kde.StatusNotifierWatcher
+  # Passwords for mail, servers and AI keys go in the system keyring (Electron's safeStorage).
   - --talk-name=org.freedesktop.secrets
+  # "Now playing" in the Island: reads and controls the music or video app that is playing.
   - --talk-name=org.mpris.MediaPlayer2.*
+  # Moving files to the Trash through GIO, which works inside the sandbox.
   - --env=ELECTRON_TRASH=gio
 modules:
   - name: keeper

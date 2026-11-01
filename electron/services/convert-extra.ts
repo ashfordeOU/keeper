@@ -671,7 +671,7 @@ export class Extra {
       return (await exec('/usr/bin/osascript', ['-e', script])).code === 0 && existsSync(output);
     }
     if (process.platform === 'win32') {
-      const q = (s: string) => `'${s.replace(/'/g, "''")}'`;
+      const q = (s: string) => `'${s.replace(/['‘’‚‛]/g, '$&$&')}'`;
       const ps = ['pptx', 'ppt', 'odp'].includes(e)
         ? `$a = New-Object -ComObject PowerPoint.Application; $p = $a.Presentations.Open(${q(input)}, $true, $false, $false); $p.SaveAs(${q(output)}, 32); $p.Close(); $a.Quit()`
         : ['xlsx', 'xls', 'ods', 'csv'].includes(e)

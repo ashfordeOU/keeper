@@ -11,7 +11,8 @@ import { extractPdfText } from '../../core/convert';
 import { TOOL_INFO, type ConvertJob, type ConvertResult } from '../../core/convert-types';
 import type { FileEntry, JournalOp, Progress } from '../../core/types';
 import type { Journal } from '../../core/journal';
-import { Converter, ffmpegPath } from '../services/convert';
+import type { Converter } from '../services/convert';
+import { ffmpegPath } from '../services/convert-shared';
 import { registerFileKitIpc } from './filekit';
 import { VideoDownloader, type DownloadOptions } from '../services/video-download';
 import type { Segment } from '../../core/media-ops';
@@ -156,7 +157,7 @@ async function transcribe(file: string): Promise<Segment[]> {
  * Scanning with a phone: the companion page uploads the photos it took, then
  * asks for them to be made into one straightened, cleaned-up PDF here.
  */
-async function registerPhoneScan(converter: Converter, deps: Deps) {
+async function registerPhoneScan(converter: () => Promise<Converter>, deps: Deps) {
   for (let i = 0; i < 120 && !linkNode(); i++) await new Promise((r) => setTimeout(r, 250));
   const node = linkNode();
   if (!node) return;
@@ -166,7 +167,7 @@ async function registerPhoneScan(converter: Converter, deps: Deps) {
     if (!names.length) throw new Error('No photos to make a scan from');
     const inputs = names.map((n) => path.join(dir, n));
     const mode = h.mode === 'color' || h.mode === 'gray' ? h.mode : 'bw';
-    const result = await converter.run({ op: { tool: 'image.scan', mode, pageSize: 'fit', straighten: true }, inputs, outDir: dir });
+    const result = await (await converter()).run({ op: { tool: 'image.scan', mode, pageSize: 'fit', straighten: true }, inputs, outDir: dir });
     for (const p of inputs) await fsp.rm(p, { force: true });
     // A name a person recognises: "Phone scan 2026-10-31 14.05.pdf".
     const { freeName } = await import('../../core/convert');
@@ -246,7 +247,9 @@ function downloadsDir(): string {
 
 export function registerConvertIpc(deps: Deps) {
   let label = 'Converting';
-  const converter = new Converter({
+  // The converters, and the PDF, image and signing libraries they use, load the first time something is converted.
+  let made: Promise<Converter> | undefined;
+  const converter = () => (made ??= import('../services/convert').then(({ Converter }) => new Converter({
     modelsDir: path.join(app.getPath('userData'), 'models'),
     onProgress: (f, phase) => deps.progress({ task: 'convert', phase: phase || label, done: Math.round(f * 1000), total: 1000 }),
     hooks: { decodeImage, renderPdf, printToPdf, transcribe, systemTranscribe, ocrWords, translate },
@@ -256,8 +259,8 @@ export function registerConvertIpc(deps: Deps) {
       await b.syncBrain();
       return 'Keeper’s brain reads it when the folder is part of your library';
     },
-  });
-  registerFileKitIpc(() => converter);
+  })));
+  registerFileKitIpc(converter);
   let busy = false;
   void registerPhoneScan(converter, deps);
 
@@ -266,7 +269,7 @@ export function registerConvertIpc(deps: Deps) {
     busy = true;
     label = 'Converting';
     try {
-      const result = await converter.run(job);
+      const result = await (await converter()).run(job);
       const ops: JournalOp[] = [];
       for (const o of result.outputs) {
         const size = (await fsp.stat(o).catch(() => ({ size: 0 }))).size;
@@ -281,8 +284,8 @@ export function registerConvertIpc(deps: Deps) {
       deps.progress({ task: 'convert', phase: 'Done', done: 1, total: 1 });
     }
   });
-  ipcMain.handle('convert.capabilities', () => converter.capabilities());
-  ipcMain.handle('convert.duration', async (_e, p: string) => (await converter.probeDuration(p).catch(() => undefined)) ?? null);
+  ipcMain.handle('convert.capabilities', async () => (await converter()).capabilities());
+  ipcMain.handle('convert.duration', async (_e, p: string) => (await (await converter()).probeDuration(p).catch(() => undefined)) ?? null);
   const downloader = new VideoDownloader(path.join(app.getPath('userData'), 'bin'), ffmpegPath);
   ipcMain.handle('convert.downloadVideo', async (_e, o: Omit<DownloadOptions, 'folder'> & { folder?: string }) => {
     const folder = o.folder || path.join(downloadsDir(), 'Keeper Videos');
@@ -315,7 +318,7 @@ export function registerConvertIpc(deps: Deps) {
     deps.changed();
     return m4a;
   });
-  ipcMain.handle('convert.mediaInfo', async (_e, p: string) => converter.extra.info(p));
+  ipcMain.handle('convert.mediaInfo', async (_e, p: string) => (await converter()).extra.info(p));
   // iPhone and iPad backups for the storage view.
   ipcMain.handle('convert.phoneBackups', async () => (await import('../services/phone-backups')).phoneBackups());
   // External displays: brightness, contrast and volume over DDC/CI.

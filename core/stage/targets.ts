@@ -16,7 +16,7 @@ const DEFAULTS = '/usr/bin/defaults';
 const KILLALL = '/usr/bin/killall';
 
 /** PowerShell single-quoted string. */
-export const psq = (s: string) => `'${s.replace(/'/g, "''")}'`;
+export const psq = (s: string) => `'${s.replace(/['‘’‚‛]/g, '$&$&')}'`;
 /** POSIX shell single-quoted string. */
 export const shq = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`;
 /** AppleScript string literal. */

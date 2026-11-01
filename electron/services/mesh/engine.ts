@@ -24,6 +24,7 @@ import { cleanSuffix, conflicts, deviceAddr4, deviceAddr6, dnsLabel, inMesh, net
 import { MeshDnsServer } from '../../../core/mesh/dns';
 import { pathKey, shortKey, signRecord, verifyRecord, type MeshRecord, type SignedRecord, type WgKeyPair } from '../../../core/mesh/keys';
 import { aclUp, cleanupPlan, dnsUp, emptyApplied, exitServeUp, exitUseUp, hostsWrite, ifaceSync, ifaceUp, routesUp, withHostsBlock, type Applied, type IfaceCtx, type MeshOS, type Step } from '../../../core/mesh/os-plan';
+import { freshHandoff, peerEndpointStep, stepHandoff, type HandoffPeer } from '../../../core/mesh/handoff';
 import { PacketRelayClient } from '../../../core/mesh/packet-relay';
 import { joinAddr, splitAddr } from '../../../core/mesh/paths';
 import { compileAcl, parsePorts } from '../../../core/mesh/rules';
@@ -94,6 +95,8 @@ export interface MeshData {
   /** half of each path key (secret; only sent inside Link) */
   pk: string;
   exit: { using?: string; net?: string; killSwitch: boolean; dnsThrough: boolean; allowLan: boolean };
+  /** give steady direct paths to WireGuard itself (on unless switched off) */
+  directHandoff?: boolean;
   offerExit: boolean;
   advertise: string[];
   acceptRoutes: string[];
@@ -112,6 +115,8 @@ interface NetRuntime {
   tag: Buffer;
   cands: Candidate[];
   up: boolean;
+  /** direct handoff per peer device (see core/mesh/handoff.ts) */
+  handoff: Map<string, HandoffPeer>;
 }
 
 const tagOf = (net: string) => Buffer.from(net.slice(0, 8), 'hex');
@@ -133,7 +138,7 @@ export class MeshEngine {
   /** test hook: never try direct paths (to prove the relay) */
   forceRelay = false;
 
-  constructor(private link: LinkPort, private driver: MeshDriver, private hooks: MeshHooks, private opts: { bind?: string; basePort?: number; feature?: () => boolean } = {}) {}
+  constructor(private link: LinkPort, private driver: MeshDriver, private hooks: MeshHooks, private opts: { bind?: string; basePort?: number; feature?: () => boolean; handoff?: () => boolean } = {}) {}
 
   // ---------------------------------------------------------------- life
 
@@ -277,7 +282,7 @@ export class MeshEngine {
     await dp.start();
     net.port = dp.port;
     const iface = await this.driver.ifaceName(net, index);
-    const r: NetRuntime = { net, dp, iface, tag, cands: [], up: false };
+    const r: NetRuntime = { net, dp, iface, tag, cands: [], up: false, handoff: new Map() };
     this.rt.set(net.id, r);
     await this.gather(r);
     // peers already known from earlier exchanges work at once
@@ -328,6 +333,11 @@ export class MeshEngine {
         next = Math.min(next, r.dp.tick(now));
         for (const d of r.dp.devices()) if (now < (r.dp.peer(d)?.path.activeUntil ?? 0)) keep = true;
       }
+      if (now - this.handoffAt >= 2000) {
+        this.handoffAt = now;
+        void this.handoffTick(now).catch(() => undefined);
+      }
+      if ([...this.rt.values()].some((r) => [...r.handoff.values()].some((h) => h.state !== 'shim'))) next = Math.min(next, 2000);
       // keepalives only while peers are active: otherwise wake rarely
       if (keep !== this.keepalive) {
         this.keepalive = keep;
@@ -339,6 +349,62 @@ export class MeshEngine {
   }
 
   private keepalive = false;
+  private handoffAt = 0;
+  private handoffBusy = false;
+
+  /** Where WireGuard sends to this peer itself (direct handoff), if it does. */
+  private handedOff(r: NetRuntime | undefined, device: string): string | undefined {
+    const h = r?.handoff.get(device);
+    return h && h.state !== 'shim' ? h.endpoint : undefined;
+  }
+
+  /**
+   * Direct handoff: a steady direct path is given to WireGuard itself, so packets bypass Keeper;
+   * WireGuard's counters are watched and the shim takes over again when the path stops working.
+   */
+  private async handoffTick(now: number) {
+    if (this.handoffBusy) return;
+    this.handoffBusy = true;
+    try {
+      const impl = this.impl?.impl;
+      const on = this.data.directHandoff !== false && (this.opts.handoff?.() ?? true) && this.driver.os !== 'win32' && (impl === 'kernel' || impl === 'wireguard-go') && !this.forceRelay;
+      for (const r of this.rt.values()) {
+        if (!r.up) continue;
+        if (!on && ![...r.handoff.values()].some((h) => h.state !== 'shim')) continue;
+        const stats = new Map((await this.driver.stats(r.iface, impl ?? '').catch(() => [] as WgPeerStats[])).map((x) => [x.pub, x]));
+        for (const d of r.dp.devices()) {
+          const rec = this.data.peers[`${r.net.id}/${d}`]?.rec;
+          const peer = r.dp.peer(d);
+          if (!rec || !peer) continue;
+          const st = stats.get(rec.wg);
+          const killSwitchExit = this.data.exit.using === d && this.data.exit.net === r.net.id && this.data.exit.killSwitch;
+          const before = r.handoff.get(d) ?? freshHandoff(now);
+          const { next, set } = stepHandoff(before, {
+            now,
+            direct: peer.path.state === 'direct',
+            best: peer.path.best,
+            peerWgPort: rec.wgp,
+            active: now < peer.path.activeUntil,
+            stats: st ? { endpoint: st.endpoint, rx: st.rx, tx: st.tx } : undefined,
+            allowed: on && !killSwitchExit,
+          });
+          // traffic WireGuard moves by itself still counts as "in use" for keepalives and probes
+          if (next.state !== 'shim' && st && (st.rx !== before.rx || st.tx !== before.tx)) peer.path.touch(now);
+          r.handoff.set(d, next);
+          if (!set) continue;
+          const shim = r.dp.shimPort(d);
+          const ep = set === 'shim' ? (shim ? `127.0.0.1:${shim}` : undefined) : set;
+          const step = ep ? peerEndpointStep({ os: this.driver.os, impl: impl ?? '', iface: r.iface, wg: this.impl?.wg }, rec.wg, ep) : null;
+          if (!step) continue;
+          const res = await this.driver.run([step]).catch((e: Error) => ({ ok: false, message: e.message }));
+          if (!res.ok && set !== 'shim') r.handoff.set(d, { ...next, state: 'shim', endpoint: undefined, failures: next.failures + 1, retryAt: now + 300_000 });
+          this.changed();
+        }
+      }
+    } finally {
+      this.handoffBusy = false;
+    }
+  }
   /** the mesh is on and running here (even with no networks yet) */
   private running = false;
 
@@ -386,7 +452,7 @@ export class MeshEngine {
         name: rec.name,
         pub: rec.wg,
         allowed: allowedIps(rec, { exit: isExit, acceptRoutes: this.data.acceptRoutes.includes(rec.dev) }),
-        endpoint: shim ? `127.0.0.1:${shim}` : undefined,
+        endpoint: this.handedOff(r, rec.dev) ?? (shim ? `127.0.0.1:${shim}` : undefined),
         keepalive: active ? 25 : 0,
       };
     });
@@ -441,6 +507,7 @@ export class MeshEngine {
     let ok = true;
     let message = '';
     for (const r of this.rt.values()) {
+      r.handoff.clear(); // a fresh interface starts on the shims
       const ctx = this.ifaceCtx(r);
       const routes = this.acceptedRoutes(r.net.id);
       const steps = [...ifaceUp(ctx), ...routesUp(this.driver.os, r.iface, routes), ...aclUp(this.driver.os, r.iface, this.acl(r.net), this.dns?.port ?? 53)];
@@ -870,6 +937,7 @@ export class MeshEngine {
       a6,
       ...(a4 ? { a4 } : {}),
       port: r?.dp.port ?? n.port ?? MESH_PORT,
+      ...(n.wgPort ? { wgp: n.wgPort } : {}),
       cands: this.forceRelay ? (r?.cands ?? []).filter((c) => c.kind === 'relay') : (r?.cands ?? []),
       pk: this.data.pk,
       ...(this.data.offerExit ? { exit: true } : {}),
@@ -950,6 +1018,7 @@ export class MeshEngine {
           wgKey: rec ? shortKey(rec.wg) : undefined,
           path: peer?.path.path ?? 'none',
           endpoint: peer?.path.best ? joinAddr(peer.path.best.host, peer.path.best.port) : peer?.path.state === 'relay' ? this.relay?.url : undefined,
+          bypass: r?.handoff.get(m.device)?.state === 'direct' || undefined,
           latencyMs: peer?.path.best?.rtt,
           lastHandshake: st?.lastHandshake || undefined,
           rx: st?.rx ?? peer?.rx ?? 0,

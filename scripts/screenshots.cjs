@@ -560,7 +560,7 @@ async function hero() {
   const appShots = SHOTS.filter((s) => s.engine === 'app' && want(s.id));
   const demoShots = SHOTS.filter((s) => s.engine === 'demo' && want(s.id));
   if (appShots.length && !has('--skip-app')) {
-    if (!fs.existsSync(path.join(ROOT, 'dist-electron/main.cjs')) || !fs.existsSync(path.join(ROOT, 'dist/index.html'))) {
+    if (!fs.existsSync(path.join(ROOT, 'dist-electron/main.mjs')) || !fs.existsSync(path.join(ROOT, 'dist/index.html'))) {
       console.error('Build first: npx vite build && node scripts/build-main.mjs');
       process.exit(1);
     }

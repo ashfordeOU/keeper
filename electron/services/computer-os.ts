@@ -182,7 +182,7 @@ export async function openApp(name: string): Promise<string> {
   }
   if (isWin) {
     // Start-Process finds apps registered under App Paths (msedge, winword, notepad…).
-    const safe = name.replace(/'/g, "''");
+    const safe = name.replace(/['‘’‚‛]/g, '$&$&');
     await ps(`try { Start-Process -FilePath '${safe}'; 'true' } catch { throw }`, 8000).catch(() => { throw new Error(`No app called “${name}” was found`); });
     return `Opened ${name}`;
   }

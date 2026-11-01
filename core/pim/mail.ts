@@ -226,3 +226,9 @@ export function matchesQuery(m: MessageSummary & { text?: string }, q: string): 
     return [m.subject, addr(m.from), ...m.to.map(addr), m.snippet, m.text ?? ''].join(' ').toLowerCase().includes(word);
   });
 }
+
+/** Kinds of attachment that run code when opened (programs, scripts, shortcuts, macro documents, disk images). */
+const RISKY_ATTACHMENT = /\.(exe|msi|msix|appx|bat|cmd|com|scr|pif|cpl|msc|js|jse|vbs|vbe|wsf|wsh|hta|ps1|psm1|lnk|url|scf|reg|jar|chm|iso|img|vhd|vhdx|docm|dotm|xlsm|xltm|xlam|pptm|potm|ppam|sh|command|tool|app|desktop|appimage|run|bin|dmg|pkg|mpkg|terminal|workflow|scpt|applescript)$/i;
+export function riskyAttachment(name: string): boolean {
+  return RISKY_ATTACHMENT.test(name.trim().replace(/[.\s]+$/, ''));
+}

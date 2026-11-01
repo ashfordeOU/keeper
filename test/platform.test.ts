@@ -84,7 +84,7 @@ describe('Windows pieces', () => {
       expect(q.startsWith("'") && q.endsWith("'")).toBe(true);
       const inner = q.slice(1, -1);
       // Every quote character inside comes in pairs, so the literal never ends early.
-      expect(inner.replace(/''/g, '')).not.toMatch(/['‘’‚‛]/);
+      expect(inner.replace(/['‘’‚‛]{2}/g, '')).not.toMatch(/['‘’‚‛]/);
     }
     expect(psQuote("a'b")).toBe("'a''b'");
     expect(psQuote('a\0b')).toBe("'ab'");

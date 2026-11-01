@@ -80,7 +80,7 @@ export function Properties({ text, onChange }: { text: string; onChange: (t: str
                 : ['multitext', 'tags', 'aliases'].includes(type) ? <Chips values={Array.isArray(v) ? v.map(String) : v == null ? [] : [String(v)]} onChange={(list) => set(k, list)} tag={type === 'tags'} />
                 : <input defaultValue={v == null ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v)} key={String(v)} onBlur={(e) => e.target.value !== String(v ?? '') && set(k, e.target.value)} />}
             </span>
-            <button className="nt-icon-btn" title="Remove property" onClick={() => set(k, undefined)}><Icon name="close" size={11} /></button>
+            <button className="nt-icon-btn" title="Remove property" aria-label="Remove property" onClick={() => set(k, undefined)}><Icon name="close" size={11} /></button>
           </div>
         );
       })}
@@ -260,7 +260,7 @@ export function NoteView({ path, mode, setMode, subpath, active, onEditor }: { p
       <div className="nt-note-bar">
         <span className="nt-crumbs">{path.replace(/\.md$/, '').split('/').map((p, i, a) => <span key={i} className={i === a.length - 1 ? 'is-last' : ''}>{p}{i < a.length - 1 ? ' / ' : ''}</span>)}</span>
         <span className="nt-spacer" />
-        <button className={`nt-icon-btn ${recording ? 'is-on' : ''}`} title={recording ? 'Stop recording' : 'Record audio into this note'} onClick={() => void record()}><Icon name="mic" size={14} /></button>
+        <button className={`nt-icon-btn ${recording ? 'is-on' : ''}`} title={recording ? 'Stop recording' : 'Record audio into this note'} aria-label={recording ? 'Stop recording' : 'Record audio into this note'} onClick={() => void record()}><Icon name="mic" size={14} /></button>
         <div className="nt-seg" role="group" aria-label="View">
           <button className={mode === 'live' ? 'on' : ''} onClick={() => setMode('live')} title="Live preview">Live</button>
           <button className={mode === 'source' ? 'on' : ''} onClick={() => setMode('source')} title="Source mode">Source</button>

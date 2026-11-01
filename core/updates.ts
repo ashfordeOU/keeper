@@ -146,3 +146,14 @@ export function versionNotes(releases: GhRelease[], current: string, beta = fals
     .slice(0, limit)
     .map((r) => ({ version: r.tag_name.replace(/^v/i, ''), date: r.published_at ?? undefined, url: r.html_url, short: shortNotes(r.body ?? ''), prerelease: r.prerelease }));
 }
+
+/** Where updates may come from: https, or http on this computer only (a test feed). */
+export function feedAllowed(feed: string | undefined): boolean {
+  if (!feed) return false;
+  try {
+    const u = new URL(feed);
+    return u.protocol === 'https:' || (u.protocol === 'http:' && ['127.0.0.1', 'localhost', '[::1]'].includes(u.hostname));
+  } catch {
+    return false;
+  }
+}

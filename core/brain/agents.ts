@@ -46,7 +46,7 @@ export interface AgentProfile {
 }
 
 const shQuote = (s: string) => (/^[\w@%+=:,./-]+$/.test(s) ? s : `'${s.replace(/'/g, `'\\''`)}'`);
-const psQuote = (s: string) => `'${s.replace(/'/g, "''")}'`;
+const psQuote = (s: string) => `'${s.replace(/['‘’‚‛]/g, '$&$&')}'`;
 
 /** The line typed into a shell to start an agent with a profile. */
 export function launchLine(a: AgentCli, p: AgentProfile | undefined, platform: string, extraArgs: string[] = []): string {

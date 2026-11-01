@@ -21,8 +21,8 @@ import { chmodSync, chownSync, copyFileSync, existsSync, mkdirSync, mkdtempSync,
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
-import { checkStep, type GuardOpts } from '../../../core/mesh/plan-guard';
-import type { Step } from '../../../core/mesh/os-plan';
+import { checkStep, hostsChangeAllowed, type GuardOpts } from '../../../core/mesh/plan-guard';
+import { withHostsBlock, type Step } from '../../../core/mesh/os-plan';
 
 const SAFE_PATH = '/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/sbin:/usr/local/bin:/opt/homebrew/bin';
 
@@ -98,10 +98,27 @@ function exec(s: Step, wrap?: Wrap): Promise<{ code: number; out: string; err: s
 }
 
 /** Runs steps in order, each checked by the guard first. Stops at the first real failure. */
+function readHosts(): string {
+  try {
+    return readFileSync('/etc/hosts', 'utf8');
+  } catch {
+    return '';
+  }
+}
+
 export async function runSteps(steps: Step[], guard: GuardOpts, wrap?: Wrap): Promise<StepResult> {
   const outputs: string[] = [];
-  for (const s of steps) {
-    const why = checkStep(s, guard);
+  for (let s of steps) {
+    let why = checkStep(s, guard);
+    if (!why && s.file === 'tee' && s.args[0] === '/etc/hosts') {
+      const now = readHosts();
+      why = hostsChangeAllowed(now, s.stdin ?? '');
+      // A cleanup written earlier may predate other edits: taking Keeper's block out is always safe.
+      if (why && s.ignoreError) {
+        s = { ...s, stdin: withHostsBlock(now, []) };
+        why = null;
+      }
+    }
     if (why) return { ok: false, message: `Refused: ${why}`, outputs };
     try {
       if (s.file === 'uapi') {

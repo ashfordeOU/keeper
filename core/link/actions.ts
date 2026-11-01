@@ -26,9 +26,17 @@ export function powerCommand(action: PowerAction, platform: string): Cmd {
   return { file: 'systemctl', args: ['reboot'] };
 }
 
+/** Kinds of file a paired device may send to print. On Windows printing goes through the file's
+ *  own app (the shell's Print verb), so scripts, shortcuts and macro documents are never printed. */
+const PRINTABLE = new Set(['pdf', 'txt', 'md', 'csv', 'log', 'png', 'jpg', 'jpeg', 'gif', 'bmp', 'tif', 'tiff', 'webp', 'heic', 'docx', 'xlsx', 'pptx', 'odt', 'ods', 'odp', 'rtf', 'ps', 'xps', 'oxps']);
+export function printable(name: string): boolean {
+  const m = /\.([a-z0-9]+)$/i.exec(name);
+  return !!m && PRINTABLE.has(m[1].toLowerCase());
+}
+
 /** Prints a file on the default printer. */
 export function printCommand(file: string, platform: string): Cmd {
-  if (platform === 'win32') return { file: 'powershell.exe', args: ['-NoProfile', '-NonInteractive', '-Command', `Start-Process -FilePath '${file.replace(/'/g, "''")}' -Verb Print -WindowStyle Hidden`] };
+  if (platform === 'win32') return { file: 'powershell.exe', args: ['-NoProfile', '-NonInteractive', '-Command', `Start-Process -FilePath '${file.replace(/['‘’‚‛]/g, '$&$&')}' -Verb Print -WindowStyle Hidden`] };
   return { file: 'lp', args: ['--', file] };
 }
 

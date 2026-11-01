@@ -108,7 +108,7 @@ function ActivityDetail({ id, onBack }: { id: string; onBack: () => void }) {
           <form className="row grow" onSubmit={(e) => { e.preventDefault(); void api.tracks.renameTrack(t.id, name).then(() => { setName(null); tr.reload(); }); }}><input className="input grow" autoFocus value={name} onChange={(e) => setName(e.target.value)} /><button className="btn sm primary">Save</button></form>
         )}
         <button className="btn sm" onClick={() => void api.tracks.export({ format: 'gpx', ids: [t.id] })}>Export GPX</button>
-        <button className="btn sm ghost danger" onClick={() => void api.tracks.removeTrack(t.id).then(onBack)}><Icon name="trash" size={13} /></button>
+        <button aria-label="Delete track" title="Delete track" className="btn sm ghost danger" onClick={() => void api.tracks.removeTrack(t.id).then(onBack)}><Icon name="trash" size={13} /></button>
       </div>
       <div className="muted small">{dayLabel(t.start, true)} · {SPORT_LABEL[t.sport]} · from {t.source}{t.planned ? ' · planned route' : ''}</div>
       <div className="tk-stats">

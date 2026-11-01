@@ -34,9 +34,9 @@ function elevatedPowerShell(script: string, timeout = 120_000): Promise<{ ok: bo
     await fsp.mkdir(dir(), { recursive: true });
     const file = path.join(dir(), `apply-${Date.now()}.ps1`);
     const done = `${file}.done`;
-    await fsp.writeFile(file, `$ErrorActionPreference = 'Stop'\ntry {\n${script}\n'ok' | Out-File -Encoding ascii '${done.replace(/'/g, "''")}'\n} catch { $_.Exception.Message | Out-File -Encoding utf8 '${done.replace(/'/g, "''")}' }\n`, { mode: 0o600 });
+    await fsp.writeFile(file, `$ErrorActionPreference = 'Stop'\ntry {\n${script}\n'ok' | Out-File -Encoding ascii '${done.replace(/['‘’‚‛]/g, '$&$&')}'\n} catch { $_.Exception.Message | Out-File -Encoding utf8 '${done.replace(/['‘’‚‛]/g, '$&$&')}' }\n`, { mode: 0o600 });
     const ps = path.join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
-    const launcher = `Start-Process -FilePath '${ps.replace(/'/g, "''")}' -Verb RunAs -WindowStyle Hidden -Wait -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File','${file.replace(/'/g, "''")}')`;
+    const launcher = `Start-Process -FilePath '${ps.replace(/['‘’‚‛]/g, '$&$&')}' -Verb RunAs -WindowStyle Hidden -Wait -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File','${file.replace(/['‘’‚‛]/g, '$&$&')}')`;
     const r = await run(ps, ['-NoProfile', '-NonInteractive', '-Command', launcher], timeout);
     const out = await fsp.readFile(done, 'utf8').catch(() => '');
     await fsp.rm(file, { force: true });
@@ -59,9 +59,9 @@ function windowsBackend(): Backend {
       }
       scripts.push(windowsDefaultBlockScript(opts.defaultBlock));
       // Blocked attempts are logged to a file this user may read, so Keeper can ask about them without running as administrator.
-      scripts.push(`New-Item -ItemType Directory -Force -Path '${path.dirname(logFile).replace(/'/g, "''")}' | Out-Null`);
-      scripts.push(`Set-NetFirewallProfile -Profile Domain,Private,Public -LogBlocked True -LogMaxSizeKilobytes 4096 -LogFileName '${logFile.replace(/'/g, "''")}'`);
-      scripts.push(`icacls '${path.dirname(logFile).replace(/'/g, "''")}' /grant "$env:USERNAME:(OI)(CI)R" | Out-Null`);
+      scripts.push(`New-Item -ItemType Directory -Force -Path '${path.dirname(logFile).replace(/['‘’‚‛]/g, '$&$&')}' | Out-Null`);
+      scripts.push(`Set-NetFirewallProfile -Profile Domain,Private,Public -LogBlocked True -LogMaxSizeKilobytes 4096 -LogFileName '${logFile.replace(/['‘’‚‛]/g, '$&$&')}'`);
+      scripts.push(`icacls '${path.dirname(logFile).replace(/['‘’‚‛]/g, '$&$&')}' /grant "$env:USERNAME:(OI)(CI)R" | Out-Null`);
       scripts.push(WINDOWS_AUDIT_ON);
       return elevatedPowerShell(scripts.join('\n'));
     },
@@ -190,8 +190,12 @@ export function fakeBackend(): Backend & { inject(a: BlockedAttempt): void; appl
   };
 }
 
+declare const __KEEPER_OFFICIAL__: boolean | undefined;
+/** Test doubles never in an official build: an environment variable must not be able to switch the firewall off. */
+export const FW_TESTABLE = !(typeof __KEEPER_OFFICIAL__ === 'boolean' && __KEEPER_OFFICIAL__);
+
 export function backendFor(platform = process.platform): Backend {
-  if (process.env.KEEPER_FW_FAKE) return fakeBackend();
+  if (FW_TESTABLE && process.env.KEEPER_FW_FAKE) return fakeBackend();
   if (platform === 'win32') return windowsBackend();
   if (platform === 'darwin') return macBackend();
   return linuxBackend();

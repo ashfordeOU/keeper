@@ -62,7 +62,7 @@ function DownloadVideo() {
         <button className="btn primary" disabled={!url.trim() || busy} onClick={() => void go()}>{busy ? <span className="spinner" /> : <Icon name="down" size={14} />} {busy ? 'Downloading…' : 'Download'}</button>
         {busy ? <button className="btn ghost" onClick={() => void api.convert.cancelDownload()}>Stop</button> : null}
       </div>
-      {busy && p ? <div><div className="progress"><i style={{ width: `${pct}%` }} /></div><div className="small muted" style={{ marginTop: 4 }}>{p.phase} · {pct}%</div></div> : null}
+      {busy && p ? <div><div className="progress" role="progressbar" aria-label="Progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(Number(pct) || 0)}><i style={{ width: `${pct}%` }} /></div><div className="small muted" style={{ marginTop: 4 }}>{p.phase} · {pct}%</div></div> : null}
       {err ? <div className="conv-error small"><Icon name="warning" size={14} /> {err}</div> : null}
       {files.map((f) => <div key={f} className="conv-out"><Icon name="check" size={14} /><span className="ellipsis grow" title={f}>{f.split(/[\\/]/).pop()}</span><button className="btn sm" onClick={() => void api.files.open(f)}>Open</button><button className="btn sm ghost" onClick={() => void api.files.reveal(f)}>Show</button></div>)}
       <p className="small muted">Saved to Downloads/Keeper Videos. Works with most video sites. Only download what you have the right to keep.</p>
@@ -127,7 +127,7 @@ function Coordinates() {
     }
   };
   const here = () => navigator.geolocation?.getCurrentPosition((pos) => setA(`${pos.coords.latitude.toFixed(6)}, ${pos.coords.longitude.toFixed(6)}`), () => toast('Location is not available or was not allowed'), { enableHighAccuracy: true, timeout: 10000 });
-  const show = (p: LatLon | undefined) => p ? allFormats(p).map((f) => <div key={f.label} className="row"><span className="badge" style={{ width: 170 }}>{f.label}</span><code className="mono grow ellipsis" title={f.value}>{f.value}</code><button className="btn sm ghost" onClick={() => { void api.files.copyText(f.value); toast('Copied'); }}><Icon name="copy" size={12} /></button></div>) : null;
+  const show = (p: LatLon | undefined) => p ? allFormats(p).map((f) => <div key={f.label} className="row"><span className="badge" style={{ width: 170 }}>{f.label}</span><code className="mono grow ellipsis" title={f.value}>{f.value}</code><button aria-label="Copy" title="Copy" className="btn sm ghost" onClick={() => { void api.files.copyText(f.value); toast('Copied'); }}><Icon name="copy" size={12} /></button></div>) : null;
   return (
     <div className="col" style={{ gap: 10 }}>
       <div className="row">

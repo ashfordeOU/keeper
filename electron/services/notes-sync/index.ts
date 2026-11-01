@@ -85,6 +85,7 @@ async function ioFor(c: ConnectorConfig): Promise<ConnectorIO> {
   const h = await store();
   return connectorIO(c, {
     secret: (n) => getSecret(n),
+    saveSecret: async (n, v) => { await setSecret(n, v ?? ''); },
     openUrl: (u) => shell.openExternal(u),
     trashFile: (p) => shell.trashItem(p),
     island: {
@@ -478,6 +479,8 @@ export const notesApi: NoteSyncApi = {
   async updateConnector(id, patch) {
     const c = await conn(id);
     for (const [k, v] of Object.entries(patch.secrets ?? {})) await setSecret(`notesync.${id}.${k}`, v);
+    // a new password, email or server: sign in afresh (the kept session and keys belong to the old one)
+    if (patch.secrets?.password || patch.fields?.email !== undefined || patch.fields?.server !== undefined) await setSecret(`notesync.${id}.session`, '');
     if (patch.writeBack && connectorDef(c.kind).capability === 'import-only') throw new Error(`${appName(c.kind)} is import only: Keeper cannot write to it.`);
     Object.assign(c, { ...patch, secrets: undefined, fields: patch.fields ? { ...c.fields, ...patch.fields } : c.fields });
     delete (c as { secrets?: unknown }).secrets;
@@ -490,6 +493,7 @@ export const notesApi: NoteSyncApi = {
   async removeConnector(id) {
     const c = await conf();
     stopPolls.get(id)?.();
+    await setSecret(`notesync.${id}.session`, '');
     // The hub keeps its copies; only the link to the app is forgotten.
     await save({ connectors: c.connectors.filter((x) => x.id !== id) });
     changed();

@@ -47,7 +47,7 @@ export class Hud {
       width: SIZES.pill.w, height: SIZES.pill.h, show: false, frame: false, transparent: true, resizable: false, movable: false,
       alwaysOnTop: true, skipTaskbar: true, focusable: false, hasShadow: false, fullscreenable: false, minimizable: false, maximizable: false,
       title: 'Keeper Voice',
-      webPreferences: { preload: this.o.preload, contextIsolation: true, sandbox: false, partition: 'keeper-voice', backgroundThrottling: false, autoplayPolicy: 'no-user-gesture-required' },
+      webPreferences: { preload: this.o.preload, contextIsolation: true, sandbox: true, partition: 'keeper-voice', backgroundThrottling: false, autoplayPolicy: 'no-user-gesture-required' },
     });
     keepUnmanaged(win, 'voice');
     win.setAlwaysOnTop(true, 'screen-saver');

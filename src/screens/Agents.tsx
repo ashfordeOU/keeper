@@ -100,7 +100,7 @@ function Connect() {
                 {profiles.map((p) => (
                   <span key={p.id} className="profile-chip">
                     <button className="btn sm" onClick={async () => toast((await api.agents.launch(a.id, { profileId: p.id, cwd: cwd || undefined })).message)}>{p.label}</button>
-                    <button className="btn sm ghost icon" title="Remove profile" onClick={async () => { await api.agents.removeProfile(p.id); clis.reload(); }}><Icon name="close" size={11} /></button>
+                    <button className="btn sm ghost icon" title="Remove profile" aria-label="Remove profile" onClick={async () => { await api.agents.removeProfile(p.id); clis.reload(); }}><Icon name="close" size={11} /></button>
                   </span>
                 ))}
                 {a.configEnv ? <button className="btn sm ghost" onClick={() => { setProfileFor(a.id); setLabel(''); }}><Icon name="plus" size={12} /> Profile</button> : null}
@@ -166,7 +166,7 @@ function Services() {
                         {[c.model, ...models[c.id].filter((m) => m !== c.model)].filter(Boolean).map((m) => <option key={m}>{m}</option>)}
                       </select>
                     ) : <span className="mono small">{c.model || '—'}</span>}
-                    <button className="btn sm ghost icon" title="Fetch the service's model list" onClick={async () => { const r = await api.agents.listModels(c.id); if (r.ok) setModels({ ...models, [c.id]: r.models }); else toast(r.message ?? 'Could not list models'); }}><Icon name="refresh" size={12} /></button>
+                    <button className="btn sm ghost icon" title="Fetch the service's model list" aria-label="Fetch the service's model list" onClick={async () => { const r = await api.agents.listModels(c.id); if (r.ok) setModels({ ...models, [c.id]: r.models }); else toast(r.message ?? 'Could not list models'); }}><Icon name="refresh" size={12} /></button>
                   </td>
                   <td>{u ? `${u.calls}${u.errors ? ` (${u.errors} failed)` : ''}` : '0'}</td>
                   <td className="small">{u ? `${fmt(u.input)} / ${fmt(u.output)}` : '—'}</td>
@@ -186,7 +186,7 @@ function Services() {
       <div className="card">
         <p className="small muted" style={{ marginTop: 0 }}>Once a conversation touches one of these folders, it continues on a local AI, and nothing from them reaches a cloud service.</p>
         <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-          {a.privateFolders.map((f) => <span key={f} className="chip">{f}<button className="link-like" onClick={() => void setA({ privateFolders: a.privateFolders.filter((x) => x !== f) })}><Icon name="close" size={10} /></button></span>)}
+          {a.privateFolders.map((f) => <span key={f} className="chip">{f}<button aria-label="Remove folder" title="Remove folder" className="link-like" onClick={() => void setA({ privateFolders: a.privateFolders.filter((x) => x !== f) })}><Icon name="close" size={10} /></button></span>)}
           <button className="btn sm" onClick={async () => { const p = window.prompt('Folder path'); if (p) await setA({ privateFolders: [...a.privateFolders, p] }); }}><Icon name="plus" size={12} /> Folder</button>
           <span className="grow" />
           <span className="small">Local AI</span>
@@ -405,7 +405,7 @@ function Gateway() {
         <b>Reach it from elsewhere</b>
         <div className="small muted">Phones, Siri Shortcuts or a voice assistant can reach Keeper through your own tunnel (Devices → tunnel). Add the tunnel's host name here; the token is still required.</div>
         <div className="row" style={{ gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-          {a.remoteHosts.map((h) => <span key={h} className="chip mono">{h}<button className="link-like" onClick={() => void setA({ remoteHosts: a.remoteHosts.filter((x) => x !== h) })}><Icon name="close" size={10} /></button></span>)}
+          {a.remoteHosts.map((h) => <span key={h} className="chip mono">{h}<button aria-label="Remove host" title="Remove host" className="link-like" onClick={() => void setA({ remoteHosts: a.remoteHosts.filter((x) => x !== h) })}><Icon name="close" size={10} /></button></span>)}
           <input className="input sm" placeholder="keeper.example.com" value={host} onChange={(e) => setHost(e.target.value)} />
           <button className="btn sm" disabled={!host.trim()} onClick={() => { void setA({ remoteHosts: [...a.remoteHosts, host.trim().toLowerCase()] }); setHost(''); }}>Add</button>
         </div>

@@ -13,6 +13,12 @@ Examples of what we want to hear about:
 - Ways for web content, a downloaded file's metadata, clipboard content or an AI reply to run code or trigger file actions.
 - Leaks of API keys or file contents off the computer.
 
+## Security review
+
+The latest first-party review — scope, method, every finding with its status, the risks that remain and what an outside audit should look at — is in [docs/SECURITY-REVIEW.md](docs/SECURITY-REVIEW.md). Its regression tests are in `test/security-review.test.ts`.
+
+Also in scope for reports: Keeper Link and Help mode (pairing, the encrypted channel, the relay), remote screens and unattended access, the mesh helper and other parts that run as the administrator, the local servers (MCP, the agents gateway, the location receiver), and anything an AI model, a web page, a mail or another agent can make Keeper do without asking.
+
 ## Verify your download
 
 Every release file is built by GitHub Actions from this repository and comes with:

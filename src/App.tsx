@@ -51,6 +51,7 @@ import { IslandSettings } from './screens/IslandSettings';
 import { Widgets } from './screens/Widgets';
 // Wallpaper & Vibes loads the first time the page opens.
 const Ambience = lazy(() => import('./screens/Ambience').then((m) => ({ default: m.Ambience })));
+const UsagePage = lazy(() => import('./screens/usage/UsagePage').then((m) => ({ default: m.UsagePage })));
 import { Large } from './screens/Large';
 import { Library } from './screens/Library';
 import { Security } from './screens/Security';
@@ -97,6 +98,7 @@ import { asSidebarMode, isRail, SIDEBAR_RAIL, SIDEBAR_RANGE } from '../core/side
 import { setSidebarPinned, setSidebarWidth, useSidebarLocal } from './sidebar-state';
 import { QuickLookHost } from './preview/QuickLook';
 import { toggleThemePatch } from './theme';
+import { useProgressAnnouncer } from './a11y';
 
 const contentEl = () => document.querySelector<HTMLElement>('.main > .content');
 
@@ -132,7 +134,7 @@ function NavItem({ route, icon, label, count, color }: { route: Route; icon?: st
       ]} />
     ) : null}
     <button className={`nav-item ${active ? 'active' : ''}`} aria-current={active ? 'page' : undefined} data-nav-key={key} onClick={() => go(route)} title={label} onContextMenu={(e) => { e.preventDefault(); setMenu({ x: e.clientX, y: e.clientY }); }}>
-      {color ? <span className="dot" style={{ background: color }} /> : <Icon name={icon ?? 'folder'} size={15} />}
+      {color ? <span className="dot" style={{ background: color }} aria-hidden /> : <Icon name={icon ?? 'folder'} size={15} />}
       <span className="label ellipsis">{label}</span>
       {count !== undefined ? <span className="count">{count}</span> : null}
     </button>
@@ -182,9 +184,9 @@ function Sidebar({ rail, width, mode }: { rail: boolean; width: number; mode: st
     >
       <SidebarNav rail={rail} expanded={expanded} onToggle={() => toggleSidebar(rail, mode, toast)} canPin={mode !== 'full'} />
       {rail ? (
-        <Splitter width={SIDEBAR_RAIL} range={{ ...SIDEBAR_RANGE, min: SIDEBAR_RAIL }} label="Sidebar width" controls="sidebar" testId="sidebar-splitter" className="sidebar-splitter" onLive={() => undefined} onCommit={(px) => { if (px > SIDEBAR_RAIL + 40) { setSidebarWidth(Math.max(px, SIDEBAR_RANGE.min)); setSidebarPinned(true); } }} />
+        <Splitter width={SIDEBAR_RAIL} range={{ ...SIDEBAR_RANGE, min: SIDEBAR_RAIL }} label="Sidebar width" controls="app-sidebar" testId="sidebar-splitter" className="sidebar-splitter" onLive={() => undefined} onCommit={(px) => { if (px > SIDEBAR_RAIL + 40) { setSidebarWidth(Math.max(px, SIDEBAR_RANGE.min)); setSidebarPinned(true); } }} />
       ) : (
-        <Splitter width={live ?? width} range={SIDEBAR_RANGE} label="Sidebar width" controls="sidebar" testId="sidebar-splitter" className="sidebar-splitter" onLive={setLive} onCommit={setSidebarWidth} onBelowMin={mode === 'full' ? undefined : () => setSidebarPinned(false)} />
+        <Splitter width={live ?? width} range={SIDEBAR_RANGE} label="Sidebar width" controls="app-sidebar" testId="sidebar-splitter" className="sidebar-splitter" onLive={setLive} onCommit={setSidebarWidth} onBelowMin={mode === 'full' ? undefined : () => setSidebarPinned(false)} />
       )}
     </div>
   );
@@ -198,7 +200,7 @@ function SidebarNav({ rail, expanded, onToggle, canPin }: { rail: boolean; expan
   const tags = useAsync(() => api.library.tags(), [version]);
   const short = (n?: number) => (n === undefined ? undefined : n >= 1000 ? `${(n / 1000).toFixed(n >= 10_000 ? 0 : 1)}k` : String(n));
   return (
-    <nav className="sidebar" id="sidebar" aria-label="Sidebar" data-expanded={expanded ? '1' : undefined}>
+    <nav className="sidebar" id="app-sidebar" aria-label="Sidebar" data-expanded={expanded ? '1' : undefined}>
       <div className="brand" title="Keeper by Ashforde®"><OwlMark tile size={26} title="Keeper by Ashforde®" /><span className="brand-name">Keeper<small>by Ashforde®</small></span>
         {canPin && expanded ? <button className="btn ghost icon sm sidebar-pin" data-testid="sidebar-pin" aria-pressed={!rail} title={rail ? `Keep the sidebar open (${mod === '⌘' ? '⌘⌥S' : 'Ctrl+Alt+S'})` : `Fold the sidebar to icons (${mod === '⌘' ? '⌘⌥S' : 'Ctrl+Alt+S'})`} onClick={onToggle}><Icon name={rail ? 'pin' : 'chevronLeft'} size={13} /></button> : null}
       </div>
@@ -277,6 +279,7 @@ function SidebarNav({ rail, expanded, onToggle, canPin }: { rail: boolean; expan
         <NavItem route={{ name: 'cues' }} icon="pin" label="Cues" />
         <NavItem route={{ name: 'assistant' }} icon="assistant" label={t('nav.assistant')} />
         <NavItem route={{ name: 'agents' }} icon="agent" label="Agents" />
+        <NavItem route={{ name: 'aiusage' }} icon="chart" label="Usage" />
         <NavItem route={{ name: 'graph' }} icon="graph" label="Knowledge Graph" />
         <NavItem route={{ name: 'capture' }} icon="screenshot" label={t('nav.capture')} />
         <NavItem route={{ name: 'dictation' }} icon="mic" label="Dictation" />
@@ -313,12 +316,13 @@ function TopBar({ onPalette }: { onPalette: () => void }) {
   }, []);
   return (
     <header className="topbar">
-      <button className="btn ghost icon sm" disabled={!canBack} onClick={back} title="Back"><Icon name="chevronLeft" size={16} /></button>
-      {canForward ? <button className="btn ghost icon sm" onClick={forward} title="Forward"><Icon name="chevronRight" size={16} /></button> : null}
+      <button className="btn ghost icon sm" disabled={!canBack} onClick={back} title="Back" aria-label="Back"><Icon name="chevronLeft" size={16} /></button>
+      {canForward ? <button className="btn ghost icon sm" onClick={forward} title="Forward" aria-label="Forward"><Icon name="chevronRight" size={16} /></button> : null}
       <div className="searchbox">
         <Icon name="search" size={15} />
         <input
           id="search"
+          aria-label={t('search.placeholder')}
           value={text}
           placeholder={t('search.placeholder')}
           onChange={(e) => {
@@ -329,17 +333,17 @@ function TopBar({ onPalette }: { onPalette: () => void }) {
             if (e.key === 'Escape') { setText(''); (e.target as HTMLInputElement).blur(); }
           }}
         />
-        <kbd>{mod}F</kbd>
+        <kbd aria-hidden>{mod}F</kbd>
       </div>
       <div className="spacer" />
       <Player />
       {FILE_ROUTES.includes(route.name) ? (
-        <button className={`btn ghost icon ${inspector ? 'on' : ''}`} aria-pressed={inspector} aria-controls="inspector" data-testid="inspector-toggle" title={`${inspector ? 'Hide' : 'Show'} Inspector (${mod === '⌘' ? '⌘⌥I' : 'Ctrl+Alt+I'})`} onClick={() => setInspector(!inspector)}><Icon name="info" size={16} /></button>
+        <button className={`btn ghost icon ${inspector ? 'on' : ''}`} aria-pressed={inspector} aria-controls={inspector ? 'inspector' : undefined} data-testid="inspector-toggle" title={`${inspector ? 'Hide' : 'Show'} Inspector (${mod === '⌘' ? '⌘⌥I' : 'Ctrl+Alt+I'})`} onClick={() => setInspector(!inspector)}><Icon name="info" size={16} /></button>
       ) : null}
-      <button className="btn ghost icon" title={`Command palette (${mod}K)`} onClick={onPalette}><Icon name="sparkle" size={16} /></button>
+      <button className="btn ghost icon" title={`Command palette (${mod}K)`} aria-label={`Command palette (${mod}K)`} onClick={onPalette}><Icon name="sparkle" size={16} /></button>
       <button
         className="btn ghost icon"
-        title={`Switch theme (${mod}${shift}T)`}
+        title={`Switch theme (${mod}${shift}L)`} aria-label={`Switch theme (${mod}${shift}L)`}
         onClick={() => settings && void updateSettings(toggleThemePatch(settings))}
       >
         <Icon name="palette" size={16} />
@@ -416,6 +420,7 @@ function Page() {
     remote: () => <Remote />,
     netactivity: () => <NetActivity />,
     agents: () => <Agents />,
+    aiusage: () => <Suspense fallback={null}><UsagePage key={route.arg ?? ''} initial={route.arg} /></Suspense>,
     graph: () => <Graph />,
     vpn: () => <Vpn />,
     firewall: () => <Firewall />,
@@ -530,16 +535,20 @@ export function App() {
 
   // Scroll positions come back too, after a page change, an update or a restart.
   usePlaceMemory(store.route, contentEl);
+  // Screen readers hear when long jobs start and finish.
+  useProgressAnnouncer();
 
   return (
     <div className={`shell ${side.rail ? 'has-rail' : ''}`} style={{ ['--sidebar' as string]: `${side.rail ? SIDEBAR_RAIL : side.width}px` }} onClick={(e) => { if ((store.selection.length || store.focused) && clearsSelection(e.target)) store.setSelection([]); }}>
+      {/* Keyboard users can jump past the sidebar straight to the page. */}
+      <button className="skip-link" onClick={() => contentEl()?.focus()}>Skip to content</button>
       <Sidebar rail={side.rail} width={side.width} mode={side.mode} />
       <main className="main">
         <TopBar onPalette={() => setPalette(true)} />
         {/* Tabs: middle-click or ⌘/Ctrl-click anything to open it in a new one; they survive restarts and crashes. */}
         <TabStrip />
         <RecoveryNotice />
-        <div className="content"><UpdateBanner /><CoachHost route={store.route} /><RouteHints route={store.route} /><PageBoundary route={`${store.route.name}:${store.route.arg ?? ''}:${store.route.q ?? ''}`}><Page /></PageBoundary></div>
+        <div className="content" id="content" tabIndex={-1}><UpdateBanner /><CoachHost route={store.route} /><RouteHints route={store.route} /><PageBoundary route={`${store.route.name}:${store.route.arg ?? ''}:${store.route.q ?? ''}`}><Page /></PageBoundary></div>
       </main>
       <InspectorPane shown={showInspector} />
       {palette ? <CommandPalette onClose={() => setPalette(false)} /> : null}
@@ -557,7 +566,7 @@ export function App() {
       <TourHost />
       {/* A feature that needs a system permission points to Settings → Permissions. */}
       <PermissionNudgeHost />
-      <div className="toast-stack">
+      <div className="toast-stack" role="status" aria-live="polite">
         {store.toasts.map((t) => (
           <div className="toast" key={t.id}>
             <span>{t.text}</span>

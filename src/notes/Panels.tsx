@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
 import { ContextMenu, type MenuItem } from '../components/ui';
+import { arrowNav } from '../a11y';
 import type { Bookmark } from '../../core/notes/config';
 import { parseNote } from '../../core/notes/parse';
 import type { NotesAnswer } from '../../core/api-notes';
@@ -16,7 +17,7 @@ import { VaultGraph } from './VaultGraph';
 const ROW = 26;
 
 /** Draws only the rows in view. */
-function Virtual<T>({ items, row, height = ROW, className }: { items: T[]; row: (t: T, i: number) => React.ReactNode; height?: number; className?: string }) {
+function Virtual<T>({ items, row, height = ROW, className, role, label, onKeyDown }: { items: T[]; row: (t: T, i: number) => React.ReactNode; height?: number; className?: string; role?: string; label?: string; onKeyDown?: React.KeyboardEventHandler<HTMLDivElement> }) {
   const box = useRef<HTMLDivElement>(null);
   const [top, setTop] = useState(0);
   const [h, setH] = useState(600);
@@ -30,9 +31,9 @@ function Virtual<T>({ items, row, height = ROW, className }: { items: T[]; row: 
   const first = Math.max(0, Math.floor(top / height) - 10);
   const last = Math.min(items.length, Math.ceil((top + h) / height) + 10);
   return (
-    <div ref={box} className={`nt-virtual ${className ?? ''}`} onScroll={(e) => setTop((e.target as HTMLElement).scrollTop)}>
-      <div style={{ height: items.length * height, position: 'relative' }}>
-        {items.slice(first, last).map((t, i) => <div key={first + i} style={{ position: 'absolute', top: (first + i) * height, left: 0, right: 0, height }}>{row(t, first + i)}</div>)}
+    <div ref={box} className={`nt-virtual ${className ?? ''}`} role={role} aria-label={label} onKeyDown={onKeyDown} onScroll={(e) => setTop((e.target as HTMLElement).scrollTop)}>
+      <div style={{ height: items.length * height, position: 'relative' }} role={role ? 'none' : undefined}>
+        {items.slice(first, last).map((t, i) => <div key={first + i} role={role ? 'none' : undefined} style={{ position: 'absolute', top: (first + i) * height, left: 0, right: 0, height }}>{row(t, first + i)}</div>)}
       </div>
     </div>
   );
@@ -100,6 +101,8 @@ export function Explorer({ onNew, onMenu }: { onNew: (kind: 'note' | 'folder' | 
     void Promise.all(files.map(async (f) => api.notes.saveAttachment(n.vault.id, folder ? `${folder}/x.md` : 'x.md', f.name, new Uint8Array(await f.arrayBuffer())))).then(() => n.refresh());
   };
 
+  // One stop in the Tab order: the open note's row, or the first row.
+  const activeShown = rows.some((r) => r.path === n.activePath);
   return (
     <div className="nt-explorer" onDragOver={(e) => { e.preventDefault(); setDropOn(''); }} onDrop={(e) => drop(e, '')}>
       <div className="nt-panel-tools">
@@ -108,11 +111,27 @@ export function Explorer({ onNew, onMenu }: { onNew: (kind: 'note' | 'folder' | 
         <button className="nt-icon-btn" title="New canvas" aria-label="New canvas" onClick={() => onNew('canvas', '')}><Icon name="grid" size={14} /></button>
         <button className="nt-icon-btn" title="New base" aria-label="New base" onClick={() => onNew('base', '')}><Icon name="list" size={14} /></button>
         <span className="nt-spacer" />
-        <button className="nt-icon-btn" title={sort === 'name' ? 'Sorted by name' : 'Sorted by last change'} onClick={() => setSort((s) => (s === 'name' ? 'modified' : 'name'))}><Icon name={sort === 'name' ? 'text' : 'clock'} size={14} /></button>
-        <button className="nt-icon-btn" title="Close all folders" onClick={() => setOpenDirs(new Set())}><Icon name="minus" size={14} /></button>
+        <button className="nt-icon-btn" title={sort === 'name' ? 'Sorted by name' : 'Sorted by last change'} aria-label={sort === 'name' ? 'Sorted by name' : 'Sorted by last change'} onClick={() => setSort((s) => (s === 'name' ? 'modified' : 'name'))}><Icon name={sort === 'name' ? 'text' : 'clock'} size={14} /></button>
+        <button className="nt-icon-btn" title="Close all folders" aria-label="Close all folders" onClick={() => setOpenDirs(new Set())}><Icon name="minus" size={14} /></button>
       </div>
-      <Virtual items={rows} className="nt-tree" row={(r) => (
+      <Virtual items={rows} className="nt-tree" role="tree" label="Notes" onKeyDown={(e) => {
+        // Up and Down move between rows, Right opens a folder, Left closes it, Enter opens the note.
+        const t = e.target as HTMLElement;
+        const path = t.dataset.path;
+        const r = rows.find((x) => x.path === path);
+        if (arrowNav(e, e.currentTarget, '[role="treeitem"]', 'vertical')) return;
+        if (!r) return;
+        const toggle = (open: boolean) => setOpenDirs((s) => { const x = new Set(s); if (open) x.add(r.path); else x.delete(r.path); return x; });
+        if (e.key === 'ArrowRight' && r.folder && !r.open) { e.preventDefault(); toggle(true); }
+        else if (e.key === 'ArrowLeft' && r.folder && r.open) { e.preventDefault(); toggle(false); }
+        else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); t.click(); }
+      }} row={(r, i) => (
         <div
+          role="treeitem"
+          aria-level={r.depth + 1}
+          aria-expanded={r.folder ? !!r.open : undefined}
+          aria-selected={n.activePath === r.path}
+          tabIndex={(activeShown ? n.activePath === r.path : i === 0) ? 0 : -1}
           className={`nt-tree-row ${r.folder ? 'is-folder' : ''} ${n.activePath === r.path ? 'is-active' : ''} ${dropOn === r.path ? 'is-drop' : ''}`}
           style={{ paddingLeft: 8 + r.depth * 14 }}
           draggable

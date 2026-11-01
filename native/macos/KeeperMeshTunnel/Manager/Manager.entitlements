@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 -->
+<!-- For Keeper.app itself (its main executable and keeper-mesh-ne are signed with these):
+     installing a system extension and managing a packet tunnel. NEEDS A DEVELOPER ID WITH THE
+     NETWORK EXTENSION ENTITLEMENT, merged into Keeper's own entitlements at signing time. -->
+<plist version="1.0">
+<dict>
+  <key>com.apple.developer.system-extension.install</key><true/>
+  <key>com.apple.developer.networking.networkextension</key>
+  <array><string>packet-tunnel-provider-systemextension</string></array>
+  <key>com.apple.security.application-groups</key>
+  <array><string>$(TeamIdentifierPrefix)group.org.ashforde.keeper</string></array>
+</dict>
+</plist>

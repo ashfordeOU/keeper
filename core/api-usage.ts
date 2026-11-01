@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
-// Keeper's own use of the computer, for Settings → Keeper's own usage.
+// Keeper's own use of the computer, for Settings → Performance.
 
 import type { ResourceMode, WorkKind } from './governor';
 
@@ -10,6 +10,8 @@ export interface KeeperUsage {
   memory: number;
   processes: number;
   mode: ResourceMode;
+  /** drawing with the graphics card at this start (Minimal mode turns it off from the next start) */
+  hardwareGraphics?: boolean;
   conditions: { onBattery: boolean; locked: boolean; idleSec: number; thermal: string; lowPower: boolean; memoryLow: boolean };
   /** background work, what it is doing and why it waits */
   tasks: { id: string; label: string; kind: WorkKind; state: 'working' | 'waiting' | 'idle'; detail?: string; pending?: number }[];

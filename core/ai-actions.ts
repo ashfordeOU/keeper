@@ -5,7 +5,8 @@
 // chosen provider — so the interface asks first, every time, and a local model
 // keeps everything on the computer.
 
-import Anthropic from '@anthropic-ai/sdk';
+// The SDK is large: it loads the first time this provider is used.
+import type Anthropic from '@anthropic-ai/sdk';
 import { DEFAULT_MODELS, type AskOptions } from './ai';
 
 export interface ImageInput {
@@ -19,7 +20,7 @@ export async function complete(system: string, prompt: string, opts: AskOptions,
   const model = opts.model || (image && opts.provider === 'ollama' ? 'llava' : DEFAULT_MODELS[opts.provider]);
   if (opts.provider === 'anthropic') {
     if (!opts.apiKey) throw new Error('Add your Anthropic API key in Settings → Assistant.');
-    const client = new Anthropic({ apiKey: opts.apiKey });
+    const client = new (await import('@anthropic-ai/sdk')).default({ apiKey: opts.apiKey });
     const content: Anthropic.Beta.BetaContentBlockParam[] = [];
     if (image) content.push({ type: 'image', source: { type: 'base64', media_type: image.mime, data: image.data } });
     content.push({ type: 'text', text: prompt });

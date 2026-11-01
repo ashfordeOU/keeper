@@ -66,7 +66,7 @@ export function PlusAlertActions({ alert, onDone }: { alert: IslandAlert; onDone
       <div className="btn-row">
         <button className="btn sm primary" onClick={() => { void api.cues.complete(id); onDone(); }}>Done</button>
         <button className="btn sm" onClick={() => { void api.cues.snooze(id, '1h'); onDone(); }}>1 h</button>
-        <button className="btn sm icon" title="Open" onClick={() => { void api.cues.openPage(id); onDone(); }}><Icon name="external" size={12} /></button>
+        <button className="btn sm icon" title="Open" aria-label="Open" onClick={() => { void api.cues.openPage(id); onDone(); }}><Icon name="external" size={12} /></button>
       </div>
     );
   }
@@ -126,8 +126,8 @@ export function MediaModes({ np, reload }: { np: NowPlaying; reload: () => void 
   if (!np.canShuffle && np.shuffle === undefined) return null;
   return (
     <>
-      <button className={`btn sm icon ${np.shuffle ? 'on' : ''}`} title={np.shuffle ? 'Shuffle is on' : 'Shuffle'} aria-pressed={!!np.shuffle} onClick={() => void api.islandx.mediaMode('shuffle').then(reload)}><Icon name="shuffle" size={12} /></button>
-      <button className={`btn sm icon ${np.repeat ? 'on' : ''}`} title={np.repeat ? 'Repeat is on' : 'Repeat'} aria-pressed={!!np.repeat} onClick={() => void api.islandx.mediaMode('repeat').then(reload)}><Icon name="repeat" size={12} /></button>
+      <button className={`btn sm icon ${np.shuffle ? 'on' : ''}`} title={np.shuffle ? 'Shuffle is on' : 'Shuffle'} aria-label={np.shuffle ? 'Shuffle is on' : 'Shuffle'} aria-pressed={!!np.shuffle} onClick={() => void api.islandx.mediaMode('shuffle').then(reload)}><Icon name="shuffle" size={12} /></button>
+      <button className={`btn sm icon ${np.repeat ? 'on' : ''}`} title={np.repeat ? 'Repeat is on' : 'Repeat'} aria-label={np.repeat ? 'Repeat is on' : 'Repeat'} aria-pressed={!!np.repeat} onClick={() => void api.islandx.mediaMode('repeat').then(reload)}><Icon name="repeat" size={12} /></button>
     </>
   );
 }

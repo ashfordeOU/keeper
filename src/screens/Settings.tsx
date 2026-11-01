@@ -29,7 +29,16 @@ import { useT } from '../i18n';
 import { PimSettings } from '../pim/PimSettings';
 import { PermissionsPanel } from '../components/PermissionsPanel';
 import { NativeAppsPanel } from '../components/NativeAppsPanel';
+import { AccessibilityPanel } from '../components/AccessibilityPanel';
 import '../styles/screens-b.css';
+import { useFeature } from '../features';
+
+// Settings → Menu bar: the AI usage label (loads only when shown), under the glance settings.
+const UsageSettings = lazy(() => import('./usage/UsageSettings').then((m) => ({ default: m.UsageSettings })));
+function MenuBarSection() {
+  if (!useFeature('usageTracker')) return null;
+  return <div style={{ marginTop: 12 }}><Suspense fallback={null}><UsageSettings /></Suspense></div>;
+}
 
 const MonitorSettingsPanel = lazy(() => import('./monitor/MonitorSettings').then((m) => ({ default: m.MonitorSettingsPanel })));
 
@@ -92,6 +101,11 @@ export function Settings() {
         </Row>
       </div>
 
+      <h2 id="accessibility" style={{ margin: '18px 0 8px' }}>Accessibility</h2>
+      <div className="card settings-section">
+        <AccessibilityPanel />
+      </div>
+
       <h2 id="features" style={{ margin: '18px 0 8px' }}>Features</h2>
       <div className="card settings-section" style={{ padding: 16 }}>
         <div className="small muted" style={{ marginBottom: 12 }}>Switch off what you do not use: it stops completely, with no windows, timers or work in the background, and leaves the sidebar and menus.</div>
@@ -121,7 +135,7 @@ export function Settings() {
           <div className="list-box">
             {s.folders.map((f) => (
               <div key={f} className="li"><Icon name="folder" size={13} /><span className="grow ellipsis">{f}</span>
-                <button className="btn ghost sm icon" title="Remove" onClick={() => void updateSettings({ folders: s.folders.filter((x) => x !== f) })}><Icon name="close" size={12} /></button></div>
+                <button className="btn ghost sm icon" title="Remove" aria-label="Remove" onClick={() => void updateSettings({ folders: s.folders.filter((x) => x !== f) })}><Icon name="close" size={12} /></button></div>
             ))}
           </div>
           <button className="btn sm" onClick={() => void addFolder('folders')}><Icon name="plus" size={12} /> Add folder</button>
@@ -132,7 +146,7 @@ export function Settings() {
           <div className="list-box">
             {s.excluded.map((f) => (
               <div key={f} className="li"><Icon name="lock" size={13} /><span className="grow ellipsis">{f}</span>
-                <button className="btn ghost sm icon" onClick={() => void updateSettings({ excluded: s.excluded.filter((x) => x !== f) })}><Icon name="close" size={12} /></button></div>
+                <button aria-label="Remove" title="Remove" className="btn ghost sm icon" onClick={() => void updateSettings({ excluded: s.excluded.filter((x) => x !== f) })}><Icon name="close" size={12} /></button></div>
             ))}
           </div>
           <button className="btn sm" onClick={() => void addFolder('excluded')}><Icon name="plus" size={12} /> Add folder</button>
@@ -171,6 +185,7 @@ export function Settings() {
 
       <h2 id="menubar" style={{ margin: '18px 0 8px' }}>{info?.platform === 'darwin' ? 'Menu bar' : 'Tray'}</h2>
       <MenuBarSettings mac={info?.platform === 'darwin'} trayOn={s.trayEnabled} />
+      <MenuBarSection />
 
       <h2 id="pim" style={{ margin: '18px 0 8px' }}>Mail &amp; Calendar</h2>
       <div className="card settings-section" style={{ padding: 16 }}>
@@ -212,7 +227,7 @@ export function Settings() {
         <UsageStatsPanel />
       </div>
 
-      <h2 id="usage" style={{ margin: '18px 0 8px' }}>Keeper’s own usage</h2>
+      <h2 id="usage" style={{ margin: '18px 0 8px' }}>Performance</h2>
       <div className="card settings-section" style={{ padding: 16 }}>
         <UsagePanel />
       </div>

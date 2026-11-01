@@ -84,7 +84,7 @@ export function safePid(pid: number | undefined): number {
 }
 
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, Math.round(n)));
-const psq = (s: string) => `'${s.replace(/'/g, "''")}'`;
+const psq = (s: string) => `'${s.replace(/['‘’‚‛]/g, '$&$&')}'`;
 const exeName = (p: string) => p.split(/[\\/]/).pop()!;
 /** short stable tag for names, cgroups and marks */
 export function appTag(app: AppRef): string {

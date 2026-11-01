@@ -166,10 +166,10 @@ function HistoryTab() {
             <div className="voice-take" key={t.id}>
               <div className="meta"><b>{t.app ?? 'Unknown app'}</b><span>{ago(t.at)}</span><span>{t.words} words · {(t.durationMs / 1000).toFixed(1)} s</span>{t.outcome !== 'typed' ? <span className="badge">{t.outcome === 'kept' ? 'kept, not typed' : t.outcome}</span> : null}{t.language ? <span>{langName(t.language)}</span> : null}</div>
               <div className="acts">
-                <button className="btn icon sm ghost" title="Copy" onClick={() => void api.voice.reuseTake(t.id, 'copy').then(() => toast('Copied'))}><Icon name="copy" size={13} /></button>
-                <button className="btn icon sm ghost" title="Fix the words (Keeper learns the corrections)" onClick={() => setEdit({ id: t.id, text: t.text })}><Icon name="rename" size={13} /></button>
-                {t.audio ? <button className="btn icon sm ghost" title="Play the recording" onClick={() => { const a = new Audio(api.preview.url(t.audio!)); void a.play(); }}><Icon name="play" size={13} /></button> : null}
-                <button className="btn icon sm ghost" title="Delete" onClick={() => void api.voice.removeTake(t.id).then(load)}><Icon name="trash" size={13} /></button>
+                <button className="btn icon sm ghost" title="Copy" aria-label="Copy" onClick={() => void api.voice.reuseTake(t.id, 'copy').then(() => toast('Copied'))}><Icon name="copy" size={13} /></button>
+                <button className="btn icon sm ghost" title="Fix the words (Keeper learns the corrections)" aria-label="Fix the words (Keeper learns the corrections)" onClick={() => setEdit({ id: t.id, text: t.text })}><Icon name="rename" size={13} /></button>
+                {t.audio ? <button className="btn icon sm ghost" title="Play the recording" aria-label="Play the recording" onClick={() => { const a = new Audio(api.preview.url(t.audio!)); void a.play(); }}><Icon name="play" size={13} /></button> : null}
+                <button className="btn icon sm ghost" title="Delete" aria-label="Delete" onClick={() => void api.voice.removeTake(t.id).then(load)}><Icon name="trash" size={13} /></button>
               </div>
               {edit?.id === t.id ? (
                 <div style={{ display: 'grid', gap: 6 }}>
@@ -237,13 +237,13 @@ function WordsTab({ cfg, save }: { cfg: VoiceSettings; save: (p: DeepPartial<Voi
                     <tr key={e.id}>
                       <td><b>{e.word}</b></td>
                       <td className="muted">{(e.heard ?? []).join(', ') || '—'}</td>
-                      <td style={{ width: 32 }}><button className="btn icon sm ghost" title="Remove" onClick={() => void setDict(cfg.dictionary.filter((x) => x.id !== e.id))}><Icon name="close" size={12} /></button></td>
+                      <td style={{ width: 32 }}><button className="btn icon sm ghost" title="Remove" aria-label="Remove" onClick={() => void setDict(cfg.dictionary.filter((x) => x.id !== e.id))}><Icon name="close" size={12} /></button></td>
                     </tr>
                   ))}
                   <tr>
                     <td><input className="input" placeholder="e.g. Kubernetes" value={word} onChange={(e) => setWord(e.target.value)} data-testid="dictation-word" /></td>
                     <td><input className="input" placeholder="cooper netties (optional)" value={heard} onChange={(e) => setHeard(e.target.value)} /></td>
-                    <td><button className="btn icon sm" title="Add" disabled={!word.trim()} data-testid="dictation-word-add" onClick={() => { void setDict([...cfg.dictionary, { id: uid(), word: word.trim(), heard: heard.split(',').map((x) => x.trim()).filter(Boolean) }]); setWord(''); setHeard(''); }}><Icon name="plus" size={12} /></button></td>
+                    <td><button className="btn icon sm" title="Add" aria-label="Add" disabled={!word.trim()} data-testid="dictation-word-add" onClick={() => { void setDict([...cfg.dictionary, { id: uid(), word: word.trim(), heard: heard.split(',').map((x) => x.trim()).filter(Boolean) }]); setWord(''); setHeard(''); }}><Icon name="plus" size={12} /></button></td>
                   </tr>
                 </tbody>
               </table>
@@ -262,13 +262,13 @@ function WordsTab({ cfg, save }: { cfg: VoiceSettings; save: (p: DeepPartial<Voi
                     <tr key={s.id}>
                       <td><b>{s.trigger}</b></td>
                       <td className="muted" style={{ whiteSpace: 'pre-wrap' }}>{s.text.length > 80 ? s.text.slice(0, 79) + '…' : s.text}</td>
-                      <td style={{ width: 32 }}><button className="btn icon sm ghost" title="Remove" onClick={() => void setSnips(cfg.snippets.filter((x) => x.id !== s.id))}><Icon name="close" size={12} /></button></td>
+                      <td style={{ width: 32 }}><button className="btn icon sm ghost" title="Remove" aria-label="Remove" onClick={() => void setSnips(cfg.snippets.filter((x) => x.id !== s.id))}><Icon name="close" size={12} /></button></td>
                     </tr>
                   ))}
                   <tr>
                     <td><input className="input" placeholder="my address" value={trig} onChange={(e) => setTrig(e.target.value)} /></td>
                     <td><textarea className="input" rows={1} placeholder="12 High Street…" value={text} onChange={(e) => setText(e.target.value)} /></td>
-                    <td><button className="btn icon sm" title="Add" disabled={!trig.trim() || !text} onClick={() => { void setSnips([...cfg.snippets, { id: uid(), trigger: trig.trim(), text }]); setTrig(''); setText(''); }}><Icon name="plus" size={12} /></button></td>
+                    <td><button className="btn icon sm" title="Add" aria-label="Add" disabled={!trig.trim() || !text} onClick={() => { void setSnips([...cfg.snippets, { id: uid(), trigger: trig.trim(), text }]); setTrig(''); setText(''); }}><Icon name="plus" size={12} /></button></td>
                   </tr>
                 </tbody>
               </table>
@@ -313,7 +313,7 @@ function AppsTab({ cfg, save }: { cfg: VoiceSettings; save: (p: DeepPartial<Voic
                 <td><select className="input" value={r.insert ?? ''} onChange={(e) => void upd(r.id, { insert: (e.target.value || undefined) as AppRule['insert'] })}><option value="">Default</option><option value="paste">Pasting</option><option value="type">Typing keys</option><option value="copy">Copying only</option></select></td>
                 <td><select className="input" value={r.commands === undefined ? '' : r.commands ? 'on' : 'off'} onChange={(e) => void upd(r.id, { commands: e.target.value === '' ? undefined : e.target.value === 'on' })}><option value="">Default</option><option value="on">On</option><option value="off">Off</option></select></td>
                 <td><Toggle on={!!r.exclude} onChange={(v) => void upd(r.id, { exclude: v })} /></td>
-                <td><button className="btn icon sm ghost" title="Remove" onClick={() => void set(cfg.apps.filter((x) => x.id !== r.id))}><Icon name="close" size={12} /></button></td>
+                <td><button className="btn icon sm ghost" title="Remove" aria-label="Remove" onClick={() => void set(cfg.apps.filter((x) => x.id !== r.id))}><Icon name="close" size={12} /></button></td>
               </tr>
             ))}
           </tbody>
@@ -386,7 +386,7 @@ function SettingsTab({ cfg, st, save, refresh }: { cfg: VoiceSettings; st: Voice
 
       <h2 className="voice-h">Putting text in</h2>
       <div className="card settings-section">
-        <Row title="How" desc={`Pasting is quickest (your clipboard is put back). Typing keys works where pasting is blocked. Copying only needs no permission. ${st.supports.passwordGuard ? 'Never types into password fields.' : 'Password fields can’t be detected here: add password managers under Per app.'}`}>
+        <Row title="How" desc={`Pasting is quickest (your clipboard is put back). Typing keys works where pasting is blocked. Copying only needs no permission. ${st.supports.passwordGuard ? (st.platform === 'linux' ? 'Never types into password fields that apps show to the accessibility service; keep password managers under Per app too.' : 'Never types into password fields.') : 'Password fields can’t be detected here: add password managers under Per app.'}`}>
           <div className="seg">{(['paste', 'type', 'copy'] as const).map((m) => <button key={m} className={d.insert === m ? 'on' : ''} onClick={() => void save({ dictation: { insert: m } })}>{{ paste: 'Paste', type: 'Type keys', copy: 'Copy only' }[m]}</button>)}</div>
         </Row>
         <Row title="Microphone">

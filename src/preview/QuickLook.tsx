@@ -10,6 +10,7 @@ import type { PreviewInfo } from '../../core/previewTypes';
 import { api, isDemo } from '../api';
 import { Icon } from '../components/Icon';
 import { useStore } from '../state';
+import { useFocusTrap } from '../a11y';
 import { FilePreview, usePreviewInfo } from './Preview';
 import { getThumb } from './thumbs';
 import { fileUrl } from './util';
@@ -117,7 +118,7 @@ function QuickLook({ items: initial, start }: { items: QuickLookItem[]; start: n
         return;
       }
       const cmd = e.metaKey || e.ctrlKey;
-      if (e.key === 'Escape' || (e.key === ' ' && !cmd && !(t.tagName === 'VIDEO' || t.tagName === 'AUDIO'))) {
+      if (e.key === 'Escape' || (e.key === ' ' && !cmd && !(t.tagName === 'VIDEO' || t.tagName === 'AUDIO' || t.tagName === 'BUTTON' || t.getAttribute?.('role') === 'button'))) {
         e.preventDefault();
         if (nested.length && e.key === 'Escape') setNested((n) => n.slice(0, -1));
         else if (document.fullscreenElement) void document.exitFullscreen();
@@ -139,13 +140,15 @@ function QuickLook({ items: initial, start }: { items: QuickLookItem[]; start: n
     return () => window.removeEventListener('keydown', onKey, true);
   });
 
+  // Tab stays inside Quick Look; focus goes back to the file when it closes.
+  useFocusTrap(root, !!item);
   if (!item) return null;
   const other = compare && items.length > 1 ? items[(index + 1) % items.length] : null;
   return (
-    <div className="ql" ref={root} role="dialog" aria-label={`Quick Look: ${item.name}`} onMouseDown={(e) => { if (e.target === e.currentTarget) closeQuickLook(); }}>
+    <div className="ql" ref={root} role="dialog" aria-modal="true" tabIndex={-1} aria-label={`Quick Look: ${item.name}`} onMouseDown={(e) => { if (e.target === e.currentTarget) closeQuickLook(); }}>
       <div className="ql-window">
         <header className="ql-head">
-          <button className="pv-btn" onClick={closeQuickLook} title="Close (Esc)"><Icon name="close" size={15} /></button>
+          <button className="pv-btn" onClick={closeQuickLook} title="Close (Esc)" aria-label="Close (Esc)"><Icon name="close" size={15} /></button>
           {nested.length ? <button className="pv-btn" onClick={() => setNested((n) => n.slice(0, -1))} title="Back to the archive"><Icon name="chevronLeft" size={14} /> Back</button> : null}
           <div className="ql-title">
             <span className="ellipsis">{info?.name ?? item.name}</span>
@@ -154,20 +157,20 @@ function QuickLook({ items: initial, start }: { items: QuickLookItem[]; start: n
           <div className="ql-actions">
             {items.length > 1 ? (
               <>
-                <button className="pv-btn" onClick={() => go(-1)} title="Previous ([)"><Icon name="chevronLeft" size={15} /></button>
-                <button className="pv-btn" onClick={() => go(1)} title="Next (])"><Icon name="chevronRight" size={15} /></button>
-                <button className={`pv-btn ${slideshow ? 'on' : ''}`} onClick={() => setSlideshow((s) => !s)} title="Slideshow"><Icon name={slideshow ? 'pause' : 'play'} size={14} /></button>
-                <button className={`pv-btn ${compare ? 'on' : ''}`} onClick={() => setCompare((c) => !c)} title="Compare with the next file"><Icon name="dupes" size={14} /></button>
+                <button className="pv-btn" onClick={() => go(-1)} title="Previous ([)" aria-label="Previous ([)"><Icon name="chevronLeft" size={15} /></button>
+                <button className="pv-btn" onClick={() => go(1)} title="Next (])" aria-label="Next (])"><Icon name="chevronRight" size={15} /></button>
+                <button className={`pv-btn ${slideshow ? 'on' : ''}`} aria-pressed={slideshow} onClick={() => setSlideshow((s) => !s)} title="Slideshow" aria-label="Slideshow"><Icon name={slideshow ? 'pause' : 'play'} size={14} /></button>
+                <button className={`pv-btn ${compare ? 'on' : ''}`} aria-pressed={compare} onClick={() => setCompare((c) => !c)} title="Compare with the next file" aria-label="Compare with the next file"><Icon name="dupes" size={14} /></button>
               </>
             ) : null}
             <span className="pv-sep" />
-            <button className="pv-btn" onClick={() => void copyText()} title="Copy text (Ctrl/⌘ Shift C)"><Icon name="text" size={14} /></button>
-            <button className="pv-btn" onClick={() => path && void api.files.open(path)} title="Open"><Icon name="external" size={14} /></button>
-            <button className="pv-btn" onClick={() => path && void api.files.reveal(path)} title="Show in folder"><Icon name="reveal" size={14} /></button>
-            {!nested.length ? <button className="pv-btn danger" onClick={() => void trash()} title="Move to Trash (Ctrl/⌘ ⌫)"><Icon name="trash" size={14} /></button> : null}
+            <button className="pv-btn" onClick={() => void copyText()} title="Copy text (Ctrl/⌘ Shift C)" aria-label="Copy text (Ctrl/⌘ Shift C)"><Icon name="text" size={14} /></button>
+            <button className="pv-btn" onClick={() => path && void api.files.open(path)} title="Open" aria-label="Open"><Icon name="external" size={14} /></button>
+            <button className="pv-btn" onClick={() => path && void api.files.reveal(path)} title="Show in folder" aria-label="Show in folder"><Icon name="reveal" size={14} /></button>
+            {!nested.length ? <button className="pv-btn danger" onClick={() => void trash()} title="Move to Trash (Ctrl/⌘ ⌫)" aria-label="Move to Trash (Ctrl/⌘ ⌫)"><Icon name="trash" size={14} /></button> : null}
             <span className="pv-sep" />
-            <button className={`pv-btn ${panel ? 'on' : ''}`} onClick={() => setPanel((p) => !p)} title="Details (I)"><Icon name="info" size={14} /></button>
-            <button className="pv-btn" onClick={() => void (document.fullscreenElement ? document.exitFullscreen() : root.current?.requestFullscreen())} title="Full screen (F)"><Icon name="arrowUp" size={14} /></button>
+            <button className={`pv-btn ${panel ? 'on' : ''}`} aria-pressed={panel} onClick={() => setPanel((p) => !p)} title="Details (I)" aria-label="Details (I)"><Icon name="info" size={14} /></button>
+            <button className="pv-btn" onClick={() => void (document.fullscreenElement ? document.exitFullscreen() : root.current?.requestFullscreen())} title="Full screen (F)" aria-label="Full screen (F)"><Icon name="arrowUp" size={14} /></button>
           </div>
         </header>
         <div className="ql-body">
@@ -212,7 +215,7 @@ function StripThumb({ item, on, onClick }: { item: QuickLookItem; on: boolean; o
     return () => io.disconnect();
   }, [item.path]);
   return (
-    <button ref={ref} className={on ? 'on' : ''} onClick={onClick} title={item.name}>
+    <button ref={ref} className={on ? 'on' : ''} onClick={onClick} title={item.name} aria-label={item.name} aria-current={on ? 'true' : undefined}>
       {src ? <img src={src} alt="" /> : <span>{(item.name.split('.').pop() ?? '').slice(0, 4).toUpperCase()}</span>}
     </button>
   );

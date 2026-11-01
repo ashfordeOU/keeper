@@ -3,6 +3,7 @@
 
 import { mockUsage } from './mock-usage';
 import { mockIslandTools } from './mock-island-tools';
+import { mockAiUsage } from './mock-ai-usage';
 import { mockCues } from './mock-cues';
 import { mockFeatures } from './mock-features';
 import { mockUsageStats } from './mock-usage-stats';
@@ -294,6 +295,7 @@ export function createMockApi(): KeeperApi {
       return { show: async () => undefined, view, settings: async () => gs, setSettings: async (p: Partial<GlanceSettings>) => (gs = normalizeGlanceSettings({ ...gs, ...p }, 'darwin')), close: async () => undefined, run: async () => undefined, open: async () => undefined, openFile: async () => undefined };
     })(),
     ...mockIslandTools(),
+    ...mockAiUsage(),
     ...mockPim((ch, ...args) => listeners.get(ch)?.forEach((cb) => (cb as (...a: unknown[]) => void)(...args))),
     ...mockFileKit(),
     ...mockNotes((ch, ...args) => listeners.get(ch)?.forEach((cb) => (cb as (...a: unknown[]) => void)(...args))),

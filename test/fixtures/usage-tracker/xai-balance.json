@@ -1,0 +1,15 @@
+{
+ "changes": [
+  {
+   "teamId": "t1",
+   "changeOrigin": "PURCHASE",
+   "topupStatus": "SUCCEEDED",
+   "amount": {
+    "val": "-2500"
+   }
+  }
+ ],
+ "total": {
+  "val": "-1800"
+ }
+}

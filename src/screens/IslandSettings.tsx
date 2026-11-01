@@ -287,7 +287,7 @@ function ScriptActions({ list, onChange }: { list: ScriptAction[]; onChange: (l:
       </Row>
       {list.map((a) => (
         <Row key={a.id} title={a.name} desc={<code>{a.command}</code>}>
-          <button className="btn sm icon" title="Remove" onClick={() => onChange(list.filter((x) => x.id !== a.id))}><Icon name="close" size={12} /></button>
+          <button className="btn sm icon" title="Remove" aria-label="Remove" onClick={() => onChange(list.filter((x) => x.id !== a.id))}><Icon name="close" size={12} /></button>
         </Row>
       ))}
     </>

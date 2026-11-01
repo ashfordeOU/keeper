@@ -27,9 +27,19 @@ function useSession(sid: string): RdcSession | null | undefined {
   return s;
 }
 
-function drawOps(ctx: CanvasRenderingContext2D, ops: FrameOp[]) {
+/** Draws one update; JPEG rectangles (Tight) are decoded by the window's own image decoder first, so order is kept. */
+async function drawOps(ctx: CanvasRenderingContext2D, ops: FrameOp[]) {
+  const jpegs = new Map<FrameOp, ImageBitmap | null>();
+  await Promise.all(ops.map(async (op) => {
+    if (op.t !== 'jpeg') return;
+    const bytes = new Uint8Array(op.data);
+    jpegs.set(op, await createImageBitmap(new Blob([bytes], { type: 'image/jpeg' })).catch(() => null));
+  }));
   for (const op of ops) {
-    if (op.t === 'img') {
+    if (op.t === 'jpeg') {
+      const bmp = jpegs.get(op);
+      if (bmp) { ctx.drawImage(bmp, op.x, op.y, op.w, op.h); bmp.close(); }
+    } else if (op.t === 'img') {
       if (!op.w || !op.h) continue;
       const data = new Uint8ClampedArray(op.data.buffer as ArrayBuffer, op.data.byteOffset, op.data.byteLength);
       ctx.putImageData(new ImageData(data, op.w, op.h), op.x, op.y);
@@ -67,9 +77,8 @@ export function VncView({ sid }: { sid: string }) {
     const offFrame = api.on('rdc-frame', (f) => {
       if (f.sid !== sid) return;
       const ctx = canvas.current?.getContext('2d');
-      if (ctx) drawOps(ctx, f.ops);
       // Drawn: the next picture may come.
-      api.rdc.vncAck(sid, f.seq);
+      void (ctx ? drawOps(ctx, f.ops) : Promise.resolve()).finally(() => api.rdc.vncAck(sid, f.seq));
     });
     const offVnc = api.on('rdc-vnc', (s, e) => {
       if (s !== sid) return;
@@ -127,7 +136,7 @@ export function VncView({ sid }: { sid: string }) {
         <button className={`btn sm ${viewOnly ? 'primary' : ''}`} onClick={() => { setViewOnly(!viewOnly); void api.rdc.vncSetViewOnly(sid, !viewOnly); }} title="View only: your keyboard and mouse are not sent"><Icon name={viewOnly ? 'eyeOff' : 'eye'} size={13} /> {viewOnly ? 'View only' : 'Control'}</button>
         <button className="btn sm" onClick={(e) => setMenu({ x: e.clientX, y: e.clientY })}>Keys <Icon name="chevronDown" size={12} /></button>
         <button className="btn sm" title="Type or paste text to send to the remote clipboard" onClick={() => void navigator.clipboard.readText().then((t) => setPaste(t)).catch(() => setPaste(''))}><Icon name="clipboard" size={13} /> Send clipboard</button>
-        <button className="btn sm ghost" title="Move this tab into a window of its own" onClick={() => tabs.toWindow(tabs.active)}><Icon name="external" size={13} /></button>
+        <button className="btn sm ghost" title="Move this tab into a window of its own" aria-label="Move this tab into a window of its own" onClick={() => tabs.toWindow(tabs.active)}><Icon name="external" size={13} /></button>
         <button className="btn sm ghost" onClick={() => void api.rdc.disconnect(sid)}>Disconnect</button>
       </div>
       <div className={`rdc-stage ${fit ? 'fit' : ''}`}>
@@ -207,9 +216,9 @@ export function WebConsole({ sid }: { sid: string }) {
   return (
     <div className="rdc-viewer" data-testid="rdc-web">
       <div className="rdc-viewer-bar">
-        <button className="btn sm ghost icon" title="Back" onClick={() => void api.rdc.webAction(sid, 'back')}><Icon name="chevronLeft" size={14} /></button>
-        <button className="btn sm ghost icon" title="Forward" onClick={() => void api.rdc.webAction(sid, 'forward')}><Icon name="chevronRight" size={14} /></button>
-        <button className="btn sm ghost icon" title="Reload" onClick={() => void api.rdc.webAction(sid, 'reload')}><Icon name="refresh" size={14} /></button>
+        <button className="btn sm ghost icon" title="Back" aria-label="Back" onClick={() => void api.rdc.webAction(sid, 'back')}><Icon name="chevronLeft" size={14} /></button>
+        <button className="btn sm ghost icon" title="Forward" aria-label="Forward" onClick={() => void api.rdc.webAction(sid, 'forward')}><Icon name="chevronRight" size={14} /></button>
+        <button className="btn sm ghost icon" title="Reload" aria-label="Reload" onClick={() => void api.rdc.webAction(sid, 'reload')}><Icon name="refresh" size={14} /></button>
         <b className="ellipsis">{info?.title || session.name}</b>
         <span className="small muted ellipsis mono">{info?.url}</span>
         {info?.cert ? <span className={`badge ${info.cert.trusted ? 'ok' : 'warn'}`} title={info.cert.fingerprint}><Icon name="lock" size={11} /> {info.cert.trusted ? 'Certificate trusted' : 'Not trusted'}</span> : null}

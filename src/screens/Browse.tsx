@@ -127,7 +127,7 @@ export function Browse() {
     <div>
       <div className="page-head" style={{ alignItems: 'center' }}>
         <div className="row" style={{ minWidth: 0, gap: 6 }}>
-          <button className="btn ghost sm icon" disabled={!parent} onClick={() => parent && go({ name: 'browse', arg: parent })} title="Enclosing folder"><Icon name="arrowUp" size={14} /></button>
+          <button className="btn ghost sm icon" disabled={!parent} onClick={() => parent && go({ name: 'browse', arg: parent })} title="Enclosing folder" aria-label="Enclosing folder"><Icon name="arrowUp" size={14} /></button>
           {typed !== null ? (
             <div className="browse-pathbar" style={{ marginBottom: 0, minWidth: 320 }}>
               <input className="input" autoFocus value={typed} placeholder="/path, ~/folder, smb://server/share, \\server\share" onChange={(e) => setTyped(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') goTyped(); if (e.key === 'Escape') setTyped(null); }} onBlur={() => setTyped(null)} />
@@ -142,7 +142,7 @@ export function Browse() {
             ))}
           </div>
           )}
-          <button className="btn ghost sm icon" title="Go to a path or server address" onClick={() => setTyped(typed === null ? dir : null)}><Icon name="terminal" size={13} /></button>
+          <button className="btn ghost sm icon" title="Go to a path or server address" aria-label="Go to a path or server address" onClick={() => setTyped(typed === null ? dir : null)}><Icon name="terminal" size={13} /></button>
         </div>
         <div className="btn-row">
           <HiddenToggle />

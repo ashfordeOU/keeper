@@ -423,12 +423,12 @@ export function ViewerView({ sid: sidProp, embedded }: { sid?: string; embedded?
             {keysOpen ? <div className="viewer-menu">{combos.map((c) => <button key={c.id} onClick={() => combo(c.id)}>{c.label}</button>)}</div> : null}
           </div>
         ) : null}
-        {info?.control ? <button className="viewer-btn" onClick={() => void sendClipboard()} title="Send this computer’s clipboard"><Icon name="clipboard" size={14} /></button> : null}
-        {info?.control ? <button className="viewer-btn" onClick={() => void api.screen.signal(sid, { t: 'clipget' })} title="Copy the other computer’s clipboard here"><Icon name="down" size={14} /></button> : null}
-        <button className="viewer-btn" onClick={() => info && void api.link.sendFiles(info.peer)} title="Send files (or drop them on the picture)"><Icon name="send" size={14} /></button>
-        <button className={`viewer-btn ${chatOpen ? 'on' : ''}`} onClick={() => setChatOpen(!chatOpen)} title="Chat"><Icon name="mail" size={14} /></button>
-        <button className={`viewer-btn ${voice !== 'off' ? 'on' : ''}`} onClick={() => void toggleVoice()} title="Voice chat (both sides turn it on)" data-testid="viewer-voice"><Icon name="mic" size={14} /></button>
-        {!ex?.help ? <button className={`viewer-btn ${filesOpen ? 'on' : ''}`} onClick={() => setFilesOpen(!filesOpen)} title="Files on both sides" data-testid="viewer-files"><Icon name="folder" size={14} /></button> : null}
+        {info?.control ? <button className="viewer-btn" onClick={() => void sendClipboard()} title="Send this computer’s clipboard" aria-label="Send this computer’s clipboard"><Icon name="clipboard" size={14} /></button> : null}
+        {info?.control ? <button className="viewer-btn" onClick={() => void api.screen.signal(sid, { t: 'clipget' })} title="Copy the other computer’s clipboard here" aria-label="Copy the other computer’s clipboard here"><Icon name="down" size={14} /></button> : null}
+        <button className="viewer-btn" onClick={() => info && void api.link.sendFiles(info.peer)} title="Send files (or drop them on the picture)" aria-label="Send files (or drop them on the picture)"><Icon name="send" size={14} /></button>
+        <button className={`viewer-btn ${chatOpen ? 'on' : ''}`} onClick={() => setChatOpen(!chatOpen)} title="Chat" aria-label="Chat"><Icon name="mail" size={14} /></button>
+        <button className={`viewer-btn ${voice !== 'off' ? 'on' : ''}`} onClick={() => void toggleVoice()} title="Voice chat (both sides turn it on)" aria-label="Voice chat (both sides turn it on)" data-testid="viewer-voice"><Icon name="mic" size={14} /></button>
+        {!ex?.help ? <button className={`viewer-btn ${filesOpen ? 'on' : ''}`} onClick={() => setFilesOpen(!filesOpen)} title="Files on both sides" aria-label="Files on both sides" data-testid="viewer-files"><Icon name="folder" size={14} /></button> : null}
         <div className="viewer-menu-wrap">
           <button className={`viewer-btn ${moreOpen ? 'on' : ''}`} onClick={() => setMoreOpen(!moreOpen)} data-testid="viewer-more">More <Icon name="chevronDown" size={12} /></button>
           {moreOpen ? (
@@ -465,8 +465,8 @@ export function ViewerView({ sid: sidProp, embedded }: { sid?: string; embedded?
             </div>
           ) : null}
         </div>
-        <button className={`viewer-btn ${recording ? 'rec' : ''}`} onClick={record} title={recording ? 'Stop recording' : 'Record this session (saved on this computer)'}><span className="viewer-rec" /></button>
-        <button className="viewer-btn" onClick={() => (document.fullscreenElement ? void document.exitFullscreen() : void document.documentElement.requestFullscreen())} title="Full screen"><Icon name="grid" size={14} /></button>
+        <button className={`viewer-btn ${recording ? 'rec' : ''}`} onClick={record} title={recording ? 'Stop recording' : 'Record this session (saved on this computer)'} aria-label={recording ? 'Stop recording' : 'Record this session (saved on this computer)'}><span className="viewer-rec" /></button>
+        <button className="viewer-btn" onClick={() => (document.fullscreenElement ? void document.exitFullscreen() : void document.documentElement.requestFullscreen())} title="Full screen" aria-label="Full screen"><Icon name="grid" size={14} /></button>
         <button className="viewer-btn danger" onClick={() => void api.screen.stop(sid)}>End</button>
       </div>
       {ex?.help ? <div className="viewer-note">{info?.control ? `You are helping ${info.peerName} and may use their mouse and keyboard. They can take it back at any time.` : `You are helping ${info?.peerName ?? 'them'}. View only until they let you control.`}</div> : null}

@@ -63,7 +63,7 @@ export function capabilities(platform: Platform, opts: { filterExtension?: boole
 // ---------------------------------------------------------------- Windows
 
 /** A PowerShell single-quoted literal: only ' needs doubling, nothing inside is ever run. */
-export const psq = (s: string) => `'${String(s).replace(/['‘’‚‛]/g, "''")}'`;
+export const psq = (s: string) => `'${String(s).replace(/['‘’‚‛]/g, '$&$&')}'`;
 
 const ruleName = (r: FwRule) => `Keeper ${r.id}`;
 

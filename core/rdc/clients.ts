@@ -180,16 +180,39 @@ export function sshPlan(c: Connection, ctx: LaunchCtx): LaunchPlan {
   return { where: 'terminal', engine: 'ssh', file: ssh.path, args: sshArgs(c, ctx), env: ap?.env, files: ap?.files, cleanupMs: 60_000 };
 }
 
+/** A Windows path as WSL sees it: C:\Users\Ana\.ssh\id becomes /mnt/c/Users/Ana/.ssh/id. */
+export function wslPath(p: string): string | undefined {
+  const m = /^([A-Za-z]):[\\/](.*)$/.exec(p);
+  return m ? `/mnt/${m[1].toLowerCase()}/${m[2].replace(/\\/g, '/')}` : undefined;
+}
+
 export function moshPlan(c: Connection, ctx: LaunchCtx): LaunchPlan {
   const mosh = need(ctx, 'mosh', 'Mosh');
+  // On Windows mosh runs inside WSL (wsl.exe) or in MSYS2/Cygwin (their bash): paths are theirs, and
+  // they have no SSH_ASKPASS helper from Keeper, so ssh asks for the password in the terminal.
+  const wsl = ctx.os === 'win32' && mosh.bin === 'wsl';
+  const posixWin = ctx.os === 'win32' && !wsl;
+  const pathFor = (p: string) => (wsl ? wslPath(p) : posixWin ? p.replace(/\\/g, '/') : p);
   const sshOpts: string[] = [];
   if (ctx.port !== 22) sshOpts.push(`-p ${ctx.port}`);
-  if (c.keyFile && !/\s/.test(c.keyFile)) sshOpts.push(`-i ${c.keyFile}`);
+  const key = c.keyFile ? pathFor(c.keyFile) : undefined;
+  if (key && !/\s/.test(key)) sshOpts.push(`-i ${key}`);
   if (c.jump?.length) sshOpts.push(`-J ${c.jump.join(',')}`);
   if (ctx.aliasOf) sshOpts.push(`-o HostKeyAlias=${ctx.aliasOf}`);
+  // Inside WSL, ssh would ask about the host key again: point it at the known_hosts Keeper checked.
+  if (wsl) {
+    const kh = wslPath(ctx.knownHosts ?? `${ctx.home.replace(/[\\/]+$/, '')}\\.ssh\\known_hosts`);
+    if (kh && !/\s/.test(kh)) sshOpts.push(`-o UserKnownHostsFile=${kh}`);
+  }
   const args = sshOpts.length ? [`--ssh=ssh ${sshOpts.join(' ')}`] : [];
   const user = userOk(c.user);
   args.push(user ? `${user}@${ctx.host}` : ctx.host);
+  if (wsl) return { where: 'terminal', engine: 'mosh', file: mosh.path, args: ['--exec', 'mosh', ...args], note: 'Mosh runs inside WSL; ssh asks for the password in the terminal.' };
+  if (posixWin) {
+    // MSYS2's and Cygwin's mosh is a script: run it with their own bash, arguments passed as "$@" (no quoting games).
+    const bash = mosh.path.replace(/[^\\/]+$/, 'bash.exe');
+    return { where: 'terminal', engine: 'mosh', file: bash, args: ['-lc', 'exec mosh "$@"', 'mosh', ...args], note: 'ssh asks for the password in the terminal.' };
+  }
   const ap = askpass(ctx);
   return { where: 'terminal', engine: 'mosh', file: mosh.path, args, env: ap?.env, files: ap?.files, cleanupMs: 60_000 };
 }
@@ -219,7 +242,7 @@ export function serialPlan(c: Connection, ctx: LaunchCtx): LaunchPlan {
   }
 }
 
-const psQ = (s: string) => `'${s.replace(/'/g, "''")}'`;
+const psQ = (s: string) => `'${s.replace(/['‘’‚‛]/g, '$&$&')}'`;
 
 export function winrmPlan(c: Connection, ctx: LaunchCtx): LaunchPlan {
   const ps = need(ctx, 'pwsh', 'PowerShell remoting');

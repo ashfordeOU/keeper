@@ -14,7 +14,7 @@ export interface RunCmd { file: string; args: string[]; admin?: boolean }
 export interface RunResult { ok: boolean; message: string; outputs: string[] }
 
 const posixQ = (a: string) => (/^[\w@%+=:,./-]+$/.test(a) ? a : `'${a.replace(/'/g, `'\\''`)}'`);
-const psQ = (a: string) => `'${a.replace(/'/g, "''")}'`;
+const psQ = (a: string) => `'${a.replace(/['‘’‚‛]/g, '$&$&')}'`;
 const WIN_PS = () => path.join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
 
 /** Windows tools by full path, so a program of the same name elsewhere on PATH is never run. */

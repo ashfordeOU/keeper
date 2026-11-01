@@ -8,7 +8,6 @@ import { app, BrowserWindow, desktopCapturer, ipcMain, nativeImage, screen } fro
 import { existsSync, promises as fsp } from 'node:fs';
 import path from 'node:path';
 import type { CaptureResult } from '../../core/api';
-import { decodeCode } from '../../core/codes';
 import { CaptureHistory, describeColor, mergeCaptureOptions, screenshotName, tidyText, type CaptureEntry, type CaptureOptions, type PickedColor } from '../../core/capture';
 import { uniqueName } from '../../core/rules';
 import { readImage as readClipboardImage, writeText } from './clip';
@@ -213,8 +212,10 @@ export async function pickWindow(preload: string): Promise<{ id: string; name: s
 
 // ---------------------------------------------------------------- reading text and codes
 
-function decodeBarcode(img: Electron.NativeImage) {
+// The code readers are large; they load the first time a picture is read.
+async function decodeBarcode(img: Electron.NativeImage) {
   const { width, height } = img.getSize();
+  const { decodeCode } = await import('../../core/codes');
   return decodeCode(img.toBitmap(), width, height, true);
 }
 
@@ -222,7 +223,7 @@ function decodeBarcode(img: Electron.NativeImage) {
 export async function readImage(img: Electron.NativeImage, langs: string[], o?: CaptureOptions): Promise<CaptureResult> {
   const opts = o ?? (await getOptions());
   const { width, height } = img.getSize();
-  const code = decodeBarcode(img);
+  const code = await decodeBarcode(img);
   // Careful mode scales small crops up (Tesseract reads ~30 px letters best); fast mode scales big ones down.
   const longest = Math.max(width, height);
   const factor = opts.accurate ? (longest < 1200 ? Math.min(3, 1800 / Math.max(1, longest)) : 1) : longest > 1400 ? 1400 / longest : 1;

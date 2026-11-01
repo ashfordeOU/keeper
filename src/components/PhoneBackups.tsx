@@ -45,7 +45,7 @@ export function PhoneBackups() {
             <span className="muted small">Last backed up {ago(b.lastBackup)}</span>
           </div>
           <span className="num">{formatBytes(b.size)}</span>
-          <button className="btn sm ghost" title="Show in folder" onClick={() => void api.files.reveal(b.path)}><Icon name="reveal" size={12} /></button>
+          <button className="btn sm ghost" title="Show in folder" aria-label="Show in folder" onClick={() => void api.files.reveal(b.path)}><Icon name="reveal" size={12} /></button>
           <button className="btn sm" onClick={() => void remove(b)}><Icon name="trash" size={12} /> Move to Trash</button>
         </div>
       ))}

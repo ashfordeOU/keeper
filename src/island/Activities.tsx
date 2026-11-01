@@ -202,7 +202,7 @@ function Ring({ value, color, size = 18, children }: { value: number; color: str
   const r = size / 2 - 2;
   const c = 2 * Math.PI * r;
   return (
-    <span className="act-ring" style={{ width: size, height: size }}>
+    <span className="act-ring" style={{ width: size, height: size }} role="progressbar" aria-label="Progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(Math.max(0, Math.min(1, value)) * 100)}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden>
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,.18)" strokeWidth={2.4} />
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={2.4} strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - Math.max(0, Math.min(1, value)))} transform={`rotate(-90 ${size / 2} ${size / 2})`} />
@@ -214,7 +214,7 @@ function Ring({ value, color, size = 18, children }: { value: number; color: str
 
 /** Five bars that dance while music plays or someone speaks; CSS-only, paused when not shown. */
 function Wave({ color }: { color: string }) {
-  return <span className="act-wave" style={{ color }}>{[0, 1, 2, 3, 4].map((i) => <i key={i} />)}</span>;
+  return <span className="act-wave" style={{ color }} aria-hidden>{[0, 1, 2, 3, 4].map((i) => <i key={i} />)}</span>;
 }
 
 /** Left of the notch: what it is. */
@@ -272,9 +272,9 @@ export function LiveCard({ a, state, now, unlocked, onMore, reload }: { a: Activ
     );
     actions = (
       <>
-        <button className="btn sm icon" title="Previous" onClick={() => void api.island.media('previous').then(reload)}><Icon name="prev" size={13} /></button>
-        <button className="btn sm icon primary" title={np.playing ? 'Pause' : 'Play'} onClick={() => void api.island.media('toggle').then(reload)}><Icon name={np.playing ? 'pause' : 'play'} size={13} /></button>
-        <button className="btn sm icon" title="Next" onClick={() => void api.island.media('next').then(reload)}><Icon name="next" size={13} /></button>
+        <button className="btn sm icon" title="Previous" aria-label="Previous" onClick={() => void api.island.media('previous').then(reload)}><Icon name="prev" size={13} /></button>
+        <button className="btn sm icon primary" title={np.playing ? 'Pause' : 'Play'} aria-label={np.playing ? 'Pause' : 'Play'} onClick={() => void api.island.media('toggle').then(reload)}><Icon name={np.playing ? 'pause' : 'play'} size={13} /></button>
+        <button className="btn sm icon" title="Next" aria-label="Next" onClick={() => void api.island.media('next').then(reload)}><Icon name="next" size={13} /></button>
         <MediaModes np={np} reload={reload} />
       </>
     );
@@ -381,6 +381,9 @@ export function LiveCard({ a, state, now, unlocked, onMore, reload }: { a: Activ
         <button className="btn sm" onClick={() => void api.cues.openPage(id)}>Open</button>
       </>
     );
+  } else if (a.kind === 'usage') {
+    body = <div><div className="live-big num" style={{ color: a.color }}>{a.trailing} left</div><div className="live-bar"><i style={{ width: `${(a.progress ?? 0) * 100}%`, background: a.color }} /></div>{a.detail ? <div className="muted small">{a.detail}</div> : null}</div>;
+    actions = <><button className="btn sm primary" onClick={() => void api.aiUsage.showPopover()}>Details</button><button className="btn sm" onClick={() => void api.aiUsage.openPage()}>Usage page</button></>;
   } else if (a.kind === 'copied') {
     body = <div className="live-copied ellipsis">{a.detail}</div>;
   }

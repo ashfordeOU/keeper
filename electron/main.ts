@@ -17,6 +17,7 @@ import { registerGlanceIpc } from './ipc/glance';
 import { glanceTooltip, type GlanceActionId } from '../core/glance';
 import { startBreadcrumbs } from './breadcrumbs';
 import { anotherKeeperTookOver, holdInstanceLock, releaseInstanceLock } from './instance';
+import { installNavGuard } from './nav-guard';
 import { onLimitAlert } from './svc/limits';
 import { app, BrowserWindow, dialog, globalShortcut, ipcMain, Menu, nativeImage, nativeTheme, protocol, screen, shell, Tray } from 'electron';
 import { existsSync, promises as fsp, statSync } from 'node:fs';
@@ -100,8 +101,11 @@ import { registerAgentsIpc } from './ipc/agents';
 import { agentSettingsChanged, record as recordUsage, startAgents, stopAgents } from './services/agents';
 import { normalizeAgentSettings } from '../core/agents-config';
 import { applyWaylandSwitch } from './services/island-place';
+import { applyPerfSwitches } from './perf-switches';
 import { registerProcsIpc } from './ipc/procs';
 import { registerSysmonIpc } from './ipc/sysmon';
+import { registerUsageTrackerIpc } from './ipc/usage-tracker';
+import { flushUsageTracker } from './services/usage-tracker';
 import { registerLauncherShortcut, toggleLauncher } from './services/monitor-launcher';
 import { setMonitorIslandAlert } from './services/monitor';
 import { registerPimIpc } from './ipc/pim';
@@ -135,6 +139,7 @@ import { nativeApps, nativeOpen } from './services/native-apps';
 void squarify; // the interface lays out the Space Map; kept for the CLI's future text treemap
 
 const DEV_URL = process.env.VITE_DEV_SERVER_URL;
+installNavGuard(path.join(__dirname, '..', 'dist'), DEV_URL);
 const isMac = process.platform === 'darwin';
 
 protocol.registerSchemesAsPrivileged([{ scheme: 'keeper-file', privileges: { stream: true, supportFetchAPI: true, corsEnabled: true, bypassCSP: false, standard: false } }]);
@@ -148,6 +153,8 @@ else holdInstanceLock((h) => (app.isReady() ? onSecondInstance(h.argv) : app.onc
 app.on('will-quit', () => releaseInstanceLock());
 // Linux on Wayland: the Island needs XWayland to stay on top and in place (Settings can turn this off).
 applyWaylandSwitch();
+// One page process for all of Keeper's windows; Minimal mode also leaves the graphics card alone.
+applyPerfSwitches();
 app.setAsDefaultProtocolClient('keeper');
 // Text fields get spelling, cut/copy/paste and writing help from the person's AI (Electron has no menu of its own).
 initWritingMenu((message) => islandSvc?.alert({ kind: 'info', title: 'Writing help did not work', detail: message }));
@@ -237,17 +244,33 @@ function createMain() {
   main.on('closed', () => (main = null));
 }
 
-// A window closed to the tray keeps its page in memory for a while so it reopens
-// instantly; after that the page is let go (about 150 MB) and Keeper reopens it
-// where you were, in about a second. Performance mode keeps it.
+// A window closed to the tray lets its page go a moment later (about 50–80 MB);
+// opening it again takes under half a second and puts back every tab, page,
+// scroll position and draft (the session checkpoint in resilience.ts). Settings →
+// Performance can keep it loaded instead, as Performance mode does: then the
+// page goes only after a long while (15 minutes, 2 in Minimal mode).
 let releaseTimer: NodeJS.Timeout | undefined;
+function freeOnClose(s: Pick<AllSettings, 'resourceMode' | 'freeWindowOnClose'>): boolean {
+  return s.freeWindowOnClose ?? (s.resourceMode ?? 'balanced') !== 'performance';
+}
 function releaseMainLater() {
   clearTimeout(releaseTimer);
-  const mode = settings().resourceMode ?? 'balanced';
-  if (mode === 'performance') return;
-  releaseTimer = setTimeout(() => {
-    if (main && !main.isDestroyed() && !main.isVisible()) main.destroy();
-  }, (mode === 'minimal' ? 2 : 15) * 60_000);
+  const s = settings();
+  const mode = s.resourceMode ?? 'balanced';
+  const free = freeOnClose(s);
+  if (!free && mode === 'performance') return;
+  // Two seconds: the page has saved where it was (it does so the moment it is hidden).
+  const delay = free ? 2000 : (mode === 'minimal' ? 2 : 15) * 60_000;
+  const release = () => {
+    if (!main || main.isDestroyed() || main.isVisible()) return;
+    // Music or a video still playing in the window keeps it for now.
+    if (main.webContents.isCurrentlyAudible()) {
+      releaseTimer = setTimeout(release, 60_000);
+      return;
+    }
+    main.destroy();
+  };
+  releaseTimer = setTimeout(release, delay);
 }
 
 function showMain(route?: string) {
@@ -1258,6 +1281,8 @@ app.whenReady().then(async () => {
     },
     quit: () => { quitting = true; app.quit(); },
   });
+  // AI usage and subscriptions: nothing runs until an account is added.
+  registerUsageTrackerIpc({ preload: preload(), load, lockDown, showMain: (route) => showMain(route), broadcast, alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }) });
   setMonitorIslandAlert((title, detail) => islandSvc?.alert({ kind: 'info', title, detail }));
   // Mail, calendars, reminders, alarms and contacts.
   registerPimIpc();
@@ -1448,6 +1473,7 @@ let relocking = false;
 app.on('before-quit', (e) => {
   void stopFirewall();
   void flushIslandTools().catch(() => undefined);
+  void flushUsageTracker();
   if (!relocking && pendingOnQuit()) {
     e.preventDefault();
     relocking = true;

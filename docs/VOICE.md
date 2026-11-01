@@ -123,7 +123,7 @@ The ✅/🟡/❌ marks match the research files.
 | 28 | HUD (pill in 6 positions, Island), sounds | ✓ | ✓ | ✓ | ✅ |
 | 29 | History with search, app, raw text, kept audio, cap | ✓ | ✓ | ✓ | ✅ |
 | 30 | Copy-only mode | ✓ | ✓ | ✓ | ✅ |
-| 22b | Password-field guard | secure field / secure input | UIA `IsPassword` | not detectable; use the exclusion list | 🟡 on Linux |
+| 22b | Password-field guard | secure field / secure input | UIA `IsPassword` | AT-SPI role `PASSWORD_TEXT` where apps expose it; else the exclusion list | 🟡 on Linux |
 | 23b | Per-app exclusions (kept in history) | ✓ | ✓ | ✓ | ✅ |
 | 35 | URL scheme, CLI, palette, tray; Shortcuts actions | ✓ + Shortcuts actions | ✓ | ✓ | ✅ |
 | 36 | Local statistics (words, time saved, active days, sparkline), PNG export | ✓ | ✓ | ✓ | ✅ |
@@ -210,7 +210,10 @@ They use `keeper://dictation?do=…` and `keeper://meeting?do=…`, and `keeper 
 
 **Unit tests:** `test/voice-tidy.test.ts` and `test/voice-core.test.ts` (46 tests): pipeline, numbers, keys, Linux hook parsers, voice activity, streaming agreement, voice prints and clustering, echo removal, detection, exports, notes, history, settings, Whisper token tables/BPE, code-term ranking (including a real temporary git project), and voice-profile suggestions.
 
+**Linux password-field guard** (`electron/services/voice/atspi.ts`, `test/voice-atspi.test.ts`, 5 tests): Keeper finds the accessibility bus (`org.a11y.Bus.GetAddress`), asks the registry for focus changes and remembers the focused object; when a take starts it asks that object's role, and `PASSWORD_TEXT` (40) keeps the text out of the field (it stays in history). Before any focus change is seen it looks under the active window (bounded: 600 objects, under a second). Verified against a private `dbus-daemon` where a stand-in desktop answers as AT-SPI does (the bus address, the registry, an app with a text field and a password field, focus signals). Where it cannot tell (no AT-SPI, or an app that does not expose its fields), the per-app exclusions remain the guard. Keeper does not switch the desktop's accessibility on for everyone: GTK apps expose their fields; Chromium/Electron apps and Qt apps often only when accessibility is on.
+
 **Not verified** (no hardware or toolchain here):
+- The Linux password guard with real at-spi2-core and real apps (this container has no at-spi2-core).
 - Voice.swift is not compiled (no Swift toolchain in this environment). On real Macs, the following are untested: the event tap, ScreenCaptureKit audio, the secure-field check and the mic state.
 - Windows: the PowerShell `WH_KEYBOARD_LL` hook, loopback capture, UIA `IsPassword` and SendInput typing.
 - Linux: `/dev/input` with real keyboards, X11 `xinput` events, `parec`/`pw-record` capture, and `xdotool` paste and type.

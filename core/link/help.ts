@@ -21,10 +21,15 @@
 //   traffic keys = HKDF(X25519(eA, eB) ‖ k, T)
 // Both sides then run the normal encrypted channel and mux over the wire.
 //
-// Strength: 9 digits and 6 password characters are about 60 bits. A passive
+// Strength: 9 digits and 6 password characters are about 60 bits, but the
+// code alone is only ~30 bits and anyone on the network can recover it from
+// the mDNS tag, so the password (~28 bits) is what really stands. A passive
 // watcher learns nothing (X25519). Someone in the middle who impersonates the
-// host to the helper gets one HMAC they could brute-force offline; at 60 bits
-// and 10 minutes of validity that is out of reach in practice.
+// host to the helper gets one HMAC they could attack offline, and anyone who
+// reads the Mailbox note could test passwords against it; so since version 2
+// both keys come from scrypt (about 0.1 s per guess), which puts the ~4·10⁸
+// passwords far out of reach within the code's 10 minutes. Version 1 helpers
+// (plain HKDF) are still answered; v1 notes are still read, never written.
 
 import crypto from 'node:crypto';
 import { Session, enc, dec, reader, type Wire } from './channel';
@@ -54,6 +59,27 @@ function secret(code: string, password: string): Buffer {
   return Buffer.from(`${normalizeCode(code)}|${normalizePassword(password)}`);
 }
 
+/** scrypt cost for the code+password: ~0.1 s and 32 MB per guess. */
+export const HELP_SCRYPT = { N: 1 << 15, r: 8, p: 1, maxmem: 96 * 1024 * 1024 };
+
+/** The slow (v2) secret: every offline guess at the password costs a full scrypt. */
+export function slowSecretSync(code: string, password: string, salt: Uint8Array): Buffer {
+  return crypto.scryptSync(secret(code, password), salt, 32, HELP_SCRYPT);
+}
+
+export function slowSecret(code: string, password: string, salt: Uint8Array): Promise<Buffer> {
+  return new Promise((resolve, reject) => crypto.scrypt(secret(code, password), salt, 32, HELP_SCRYPT, (e, k) => (e ? reject(e) : resolve(k))));
+}
+
+const noteSalt = (code: string) => Buffer.from(`keeper help note salt|${helpTopic(code)}`);
+// A helper reads every note on the topic with the same code and password: one scrypt, not one per note.
+let noteKeyCache: { id: string; key: Buffer } | null = null;
+function noteKeyV2(code: string, password: string): Buffer {
+  const id = `${normalizeCode(code)}|${normalizePassword(password)}`;
+  if (noteKeyCache?.id !== id) noteKeyCache = { id, key: hkdf(slowSecretSync(code, password, noteSalt(code)), Buffer.alloc(0), 'keeper help note v2', 32) };
+  return noteKeyCache.key;
+}
+
 /** The short tag in mDNS announcements: lets helpers on the network find the host from the code alone. */
 export function helpTag(code: string): string {
   return sha256(Buffer.from('keeper-help-tag'), Buffer.from(normalizeCode(code))).subarray(0, 6).toString('hex');
@@ -73,20 +99,24 @@ export interface HelpReach {
   at: number;
 }
 
+/** Seals where to reach the host (v2: the key costs a scrypt, so the note is no fast password oracle). */
 export function sealHelpNote(code: string, password: string, reach: HelpReach): string {
-  const key = hkdf(secret(code, password), Buffer.alloc(0), 'keeper help note', 32);
+  const key = noteKeyV2(code, password);
   const iv = crypto.randomBytes(12);
   const c = crypto.createCipheriv('aes-256-gcm', key, iv);
   const ct = Buffer.concat([c.update(JSON.stringify(reach)), c.final(), c.getAuthTag()]);
-  return 'h1.' + Buffer.concat([iv, ct]).toString('base64url');
+  return 'h2.' + Buffer.concat([iv, ct]).toString('base64url');
 }
 
 export function openHelpNote(code: string, password: string, note: string, now = Date.now()): HelpReach | null {
-  if (!note.startsWith('h1.')) return null;
+  const v = note.startsWith('h2.') ? 2 : note.startsWith('h1.') ? 1 : 0;
+  if (!v) return null;
   const raw = Buffer.from(note.slice(3), 'base64url');
   if (raw.length < 12 + 16) return null;
   try {
-    const key = hkdf(secret(code, password), Buffer.alloc(0), 'keeper help note', 32);
+    const key = v === 2
+      ? noteKeyV2(code, password)
+      : hkdf(secret(code, password), Buffer.alloc(0), 'keeper help note', 32);
     const d = crypto.createDecipheriv('aes-256-gcm', key, raw.subarray(0, 12));
     d.setAuthTag(raw.subarray(raw.length - 16));
     const r = JSON.parse(Buffer.concat([d.update(raw.subarray(12, raw.length - 16)), d.final()]).toString()) as HelpReach;
@@ -121,7 +151,7 @@ export async function helpAsHelper(wire: Wire, code: string, password: string, n
   const e = ephemeral();
   const nA = crypto.randomBytes(16);
   const nm = name.slice(0, 60);
-  wire.send(enc({ t: 'hp1', v: 1, e: b64(e.publicKey), n: b64(nA), name: nm }));
+  wire.send(enc({ t: 'hp1', v: 2, e: b64(e.publicKey), n: b64(nA), name: nm }));
   const m2 = dec(await rd.next(timeoutMs));
   if (m2.t === 'herr') throw new Error(String(m2.error ?? 'Refused'));
   if (m2.t !== 'hp2') throw new Error('That is not a Keeper waiting for help');
@@ -129,7 +159,7 @@ export async function helpAsHelper(wire: Wire, code: string, password: string, n
   const nB = unb64(m2.n);
   if (eB.length !== 32 || nB.length !== 16) throw new Error('Broken answer');
   const t = sha256(PROTO, e.publicKey, nA, eB, nB, Buffer.from(nm));
-  const keys = derive(dh(e, eB), secret(code, password), t);
+  const keys = derive(dh(e, eB), await slowSecret(code, password, t), t);
   wire.send(enc({ t: 'hp3', mac: b64(hmac(keys.k, Buffer.from('helper'), t)) }));
   const m4 = dec(await rd.next(timeoutMs));
   if (m4.t === 'herr') throw new Error(String(m4.error ?? 'The code or password is not right'));
@@ -152,7 +182,7 @@ export interface HostCheck {
 export async function helpAsHost(wire: Wire, first: Uint8Array, code: string, check: HostCheck, timeoutMs = 15_000): Promise<HelpPeer> {
   const rd = reader(wire);
   const m1 = dec(first);
-  if (m1.t !== 'hp1' || m1.v !== 1) throw new Error('Not a help request');
+  if (m1.t !== 'hp1' || (m1.v !== 1 && m1.v !== 2)) throw new Error('Not a help request');
   const eA = unb64(m1.e);
   const nA = unb64(m1.n);
   const nm = String(m1.name ?? 'Helper').slice(0, 60);
@@ -169,7 +199,7 @@ export async function helpAsHost(wire: Wire, first: Uint8Array, code: string, ch
   const nB = crypto.randomBytes(16);
   wire.send(enc({ t: 'hp2', e: b64(e.publicKey), n: b64(nB) }));
   const t = sha256(PROTO, eA, nA, e.publicKey, nB, Buffer.from(nm));
-  const keys = derive(dh(e, eA), secret(code, pw), t);
+  const keys = derive(dh(e, eA), m1.v === 2 ? await slowSecret(code, pw, t) : secret(code, pw), t);
   const m3 = dec(await rd.next(timeoutMs));
   const got = unb64(m3.mac);
   const want = hmac(keys.k, Buffer.from('helper'), t);

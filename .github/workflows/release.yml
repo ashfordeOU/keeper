@@ -11,6 +11,13 @@
 # KEEPER_SIGNING_CERT / KEEPER_SIGNING_PASSWORD exist (scripts/make-signing-cert.sh),
 # so macOS keeps Keeper's permissions across updates.
 #
+# Pre-releases are published on GitHub only (with their update information, for testers
+# who switch on "Include beta versions"), never to Homebrew, winget, Chocolatey, Scoop,
+# Snap, the AUR, npm or the apt/dnf repositories. See docs/BETA.md.
+#
+# The msstore job also builds the Microsoft Store package (.msix) as a workflow artifact;
+# it is uploaded to Partner Center by hand (docs/STORES.md), never attached to the release.
+#
 # Every release is certified for free: GitHub build attestations for each file,
 # a Sigstore (cosign) signature of SHA256SUMS.txt, and, once KEEPER_GPG_PRIVATE_KEY
 # exists, GPG signatures plus signed apt and dnf repositories. Platform signing
@@ -372,7 +379,8 @@ jobs:
             has snap "$SNAPCRAFT_STORE_CREDENTIALS"
           } | tee -a "$GITHUB_OUTPUT"
 
-  # ---- Channels. Each runs only when its secret exists; stable releases only, except npm (tag "next").
+  # ---- Channels. Each runs only when its secret exists, and only for stable releases:
+  # a pre-release (a tag with a hyphen) never reaches a package manager.
   scoop:
     needs: release
     if: needs.release.outputs.prerelease == 'false'
@@ -461,7 +469,7 @@ jobs:
 
   npm:
     needs: release
-    if: needs.release.outputs.npm == 'true'
+    if: needs.release.outputs.npm == 'true' && needs.release.outputs.prerelease == 'false'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -478,8 +486,7 @@ jobs:
       - name: Publish keeper-cli with provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          TAG: ${{ needs.release.outputs.prerelease == 'true' && 'next' || 'latest' }}
-        run: npm publish packaging-out/keeper-cli-*.tgz --provenance --access public --tag "$TAG"
+        run: npm publish packaging-out/keeper-cli-*.tgz --provenance --access public --tag latest
 
   winget:
     needs: release
@@ -557,6 +564,50 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: false
       - run: sudo snap install snapcraft --classic
       - run: snapcraft upload --release=stable release/Keeper-linux-amd64.snap
+
+  # ---- Microsoft Store package (.msix), built for every tag and kept as a workflow artifact
+  # (not attached to the release, not submitted). Unsigned: the Store signs what it publishes.
+  # The package identity comes from the repository variables MSSTORE_IDENTITY_NAME and
+  # MSSTORE_PUBLISHER (Partner Center → Product identity); without them the placeholders in
+  # electron-builder.yml are used, which is fine for checking the build but not for uploading.
+  msstore:
+    name: Microsoft Store (MSIX)
+    needs: tag
+    if: needs.tag.outputs.build == 'true'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Native libraries for win32-x64
+        run: node scripts/prepare-arch.mjs win32 x64
+      - run: npm run build
+        env:
+          KEEPER_OFFICIAL_BUILD: '1'
+      - name: Store tiles and logos are present and the right sizes
+        run: node scripts/store-assets.mjs --check
+      - name: Package
+        shell: bash
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          MSSTORE_IDENTITY_NAME: ${{ vars.MSSTORE_IDENTITY_NAME }}
+          MSSTORE_PUBLISHER: ${{ vars.MSSTORE_PUBLISHER }}
+        run: |
+          extra=()
+          if [ -n "$MSSTORE_IDENTITY_NAME" ]; then extra+=("-c.appx.identityName=$MSSTORE_IDENTITY_NAME"); fi
+          if [ -n "$MSSTORE_PUBLISHER" ]; then extra+=("-c.appx.publisher=$MSSTORE_PUBLISHER"); fi
+          if [ -z "$MSSTORE_IDENTITY_NAME" ] || [ -z "$MSSTORE_PUBLISHER" ]; then
+            echo "::warning::MSSTORE_IDENTITY_NAME or MSSTORE_PUBLISHER is not set; this .msix has placeholder identity values and Partner Center will refuse it."
+          fi
+          npx electron-builder --config electron-builder.yml --win appx --x64 --publish never "${extra[@]}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: msstore-x64
+          path: release/*.msix
+          if-no-files-found: error
 
   pages:
     needs: release

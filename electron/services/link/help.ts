@@ -195,7 +195,8 @@ export class HelpSessions {
     const r = await fetch(`${server.replace(/\/+$/, '')}/${helpTopic(code)}/json?poll=1&since=15m`, { signal: AbortSignal.timeout(8000) });
     if (!r.ok) return null;
     let best: HelpReach | null = null;
-    for (const line of (await r.text()).split('\n')) {
+    // Anyone can post to a topic: look at the newest few notes only.
+    for (const line of (await r.text()).split('\n').filter((l) => l.trim()).slice(-50)) {
       try {
         const ev = JSON.parse(line) as { event?: string; message?: string };
         if (ev.event !== 'message' || !ev.message) continue;

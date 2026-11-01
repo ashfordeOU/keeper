@@ -58,7 +58,7 @@ export function VoiceHud() {
 
   if (st.phase === 'review') {
     return (
-      <div className="vhud vhud-card" data-testid="voice-review">
+      <div className="vhud vhud-card" data-testid="voice-review" role="dialog" aria-label={st.ask ? 'Edit by voice' : 'Ready to type'}>
         <div className="vhud-head"><Icon name={st.ask ? 'sparkle' : 'mic'} size={14} /> {st.ask ? 'Edit by voice' : 'Ready to type'}{st.app ? <span className="vhud-app">{st.app}</span> : null}</div>
         {st.ask ? <div className="vhud-ask">{st.ask}</div> : <div className="vhud-review-text">{st.review}</div>}
         <div className="vhud-actions">
@@ -82,15 +82,15 @@ export function VoiceHud() {
   if (st.phase !== 'idle') {
     const listening = st.phase === 'listening' || st.phase === 'locked' || st.phase === 'editing';
     return (
-      <div className={`vhud vhud-pill ${st.phase}`} data-testid="voice-pill">
-        <div className={`vhud-mic${listening ? ' live' : ''}`}><Icon name={st.phase === 'editing' ? 'sparkle' : 'mic'} size={16} /></div>
+      <div className={`vhud vhud-pill ${st.phase}`} data-testid="voice-pill" role="region" aria-label={listening ? 'Listening' : 'Dictation'}>
+        <div className={`vhud-mic${listening ? ' live' : ''}`} aria-hidden><Icon name={st.phase === 'editing' ? 'sparkle' : 'mic'} size={16} /></div>
         <div className="vhud-body">
           <div className="vhud-text" ref={textEl}>
             {capErr ? <span className="vhud-err">{capErr}</span>
               : st.stable || st.pending ? <><span>{st.stable}</span> <span className="vhud-pending">{st.pending}</span></>
               : <span className="vhud-hint">{st.phase === 'working' ? 'Writing it down…' : st.phase === 'editing' ? 'Say how to change the selected text…' : 'Listening…'}</span>}
           </div>
-          <div className="vhud-sub">
+          <div className="vhud-sub" role="status">
             {st.phase === 'working' ? 'Tidying up' : st.how === 'locked' || st.how === 'toggle' ? `Locked on · ${st.how === 'locked' ? `press ${keyName}` : 'press the shortcut'} to finish · Esc cancels` : st.how === 'hands-free' ? 'Hands-free · stops after a pause · Esc cancels' : st.how === 'hold' ? `Release ${keyName} to finish · Esc cancels` : 'Esc cancels'}
             {st.app ? <> · <b>{st.app}</b>{st.tone ? ` (${st.tone})` : ''}</> : null}
           </div>
@@ -102,7 +102,7 @@ export function VoiceHud() {
 
   if (offer && !meeting) {
     return (
-      <div className="vhud vhud-card" data-testid="voice-offer">
+      <div className="vhud vhud-card" data-testid="voice-offer" role="alertdialog" aria-label={`Record this ${offer.app} call?`}>
         <div className="vhud-head"><span className="vhud-rec" /> Record this {offer.app} call?</div>
         <div className="vhud-ask">{offer.reason}{offer.event ? ` · “${offer.event.title}”` : ''}.</div>
         <div className="vhud-consent"><Icon name="info" size={12} /> Tell everyone it’s being recorded first — in many places their consent is required.</div>
@@ -125,8 +125,8 @@ export function VoiceHud() {
           <div className="vhud-text"><b>{meeting.paused ? 'Paused' : 'Recording'}</b> · {clock(elapsed / 1000)} · {meeting.title}</div>
           <div className="vhud-sub">{last ? `${last.track === 'mic' ? 'You' : 'Others'}: ${last.text}` : meeting.systemNote ?? 'Microphone and the computer’s sound'}</div>
         </div>
-        <button className="btn icon sm ghost" title={meeting.paused ? 'Resume' : 'Pause'} onClick={() => void api.voice.pauseMeeting(!meeting.paused)}><Icon name={meeting.paused ? 'play' : 'pause'} size={13} /></button>
-        <button className="btn icon sm ghost" title="Stop and save" onClick={() => void api.voice.stopMeeting()}><Icon name="check" size={13} /></button>
+        <button className="btn icon sm ghost" title={meeting.paused ? 'Resume' : 'Pause'} aria-label={meeting.paused ? 'Resume' : 'Pause'} onClick={() => void api.voice.pauseMeeting(!meeting.paused)}><Icon name={meeting.paused ? 'play' : 'pause'} size={13} /></button>
+        <button className="btn icon sm ghost" title="Stop and save" aria-label="Stop and save" onClick={() => void api.voice.stopMeeting()}><Icon name="check" size={13} /></button>
       </div>
     );
   }

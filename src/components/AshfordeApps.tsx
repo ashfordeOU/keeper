@@ -123,8 +123,8 @@ function MonorailCard({ app }: { app: AshfordeOverview['apps'][number] }) {
                   {Array.from({ length: Math.min(st.state.workspaceCount, 9) }, (_, i) => (
                     <button key={i} className={`btn sm ${st.state?.workspace === i + 1 ? 'primary' : 'ghost'}`} onClick={() => void api.ashforde.action('workspace', i + 1)} title={`Go to workspace ${i + 1}`}>{i + 1}</button>
                   ))}
-                  <button className="btn sm ghost" onClick={() => void api.ashforde.action('palette')} title="Monorail’s command palette"><Icon name="search" size={12} /></button>
-                  <button className="btn sm ghost" onClick={() => void api.ashforde.action('settings')} title="Monorail’s settings"><Icon name="settings" size={12} /></button>
+                  <button className="btn sm ghost" onClick={() => void api.ashforde.action('palette')} title="Monorail’s command palette" aria-label="Monorail’s command palette"><Icon name="search" size={12} /></button>
+                  <button className="btn sm ghost" onClick={() => void api.ashforde.action('settings')} title="Monorail’s settings" aria-label="Monorail’s settings"><Icon name="settings" size={12} /></button>
                 </div>
               ) : null}
 

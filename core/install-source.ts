@@ -4,7 +4,7 @@
 // itself. Pure: the caller passes the executable path, the environment, the
 // platform and a way to test whether a path exists.
 
-export type InstallSource = 'brew' | 'winget' | 'scoop' | 'choco' | 'flatpak' | 'snap' | 'aur' | 'apt-repo' | 'dnf-repo' | 'direct';
+export type InstallSource = 'brew' | 'winget' | 'scoop' | 'choco' | 'msstore' | 'flatpak' | 'snap' | 'aur' | 'apt-repo' | 'dnf-repo' | 'direct';
 
 export interface InstallSourceInfo {
   label: string;
@@ -21,6 +21,8 @@ export const INSTALL_SOURCES: Record<InstallSource, InstallSourceInfo> = {
   winget: { label: 'winget', selfUpdate: true, updateCommand: 'winget upgrade Ashforde.Keeper' },
   scoop: { label: 'Scoop', selfUpdate: false, updateCommand: 'scoop update keeper' },
   choco: { label: 'Chocolatey', selfUpdate: false, updateCommand: 'choco upgrade keeper-files' },
+  // The Microsoft Store (MSIX) installs updates itself; Keeper never downloads one (see docs/STORES.md).
+  msstore: { label: 'the Microsoft Store', selfUpdate: false },
   flatpak: { label: 'Flatpak', selfUpdate: false, updateCommand: 'flatpak update io.github.ashfordeou.keeper' },
   snap: { label: 'Snap', selfUpdate: false, updateCommand: 'sudo snap refresh keeper' },
   aur: { label: 'the AUR', selfUpdate: false, updateCommand: 'yay -Syu keeper-bin' },
@@ -54,6 +56,8 @@ function detectMac(execPath: string, env: Env, exists: (p: string) => boolean): 
 
 function detectWindows(execPath: string, env: Env, exists: (p: string) => boolean): InstallSource {
   const p = execPath.replace(/\//g, '\\').toLowerCase();
+  // MSIX packages (the Microsoft Store build) always run from Program Files\WindowsApps.
+  if (p.includes('\\windowsapps\\')) return 'msstore';
   if (p.includes('\\scoop\\apps\\')) return 'scoop';
   if (p.includes('\\chocolatey\\lib\\')) return 'choco';
   if (p.includes('\\microsoft\\winget\\packages\\')) return 'winget';

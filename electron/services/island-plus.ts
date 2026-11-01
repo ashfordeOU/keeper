@@ -24,6 +24,7 @@ import { HudWatcher } from './island-hud';
 import type { IslandService } from './island';
 import { micInUse } from './media';
 import { permissionNeeded } from './permission-nudge';
+import { onUsageChange, usageIslandAlert } from './usage-tracker';
 
 const HOOK_EDITORS = [
   { id: 'cursor', name: 'Cursor', file: path.join(os.homedir(), '.cursor', 'hooks.json'), dir: path.join(os.homedir(), '.cursor') },
@@ -51,6 +52,8 @@ export class IslandPlus {
       poll('island.disk', { baseMs: 10 * 60_000, idleFactor: 2, pauseWhenLocked: true }, () => this.pollDisk(), { feature: 'island' }),
       onFeature('islandHud', (on) => void this.hudOn(on), { now: true }),
       onFeature('islandCalls', (on) => { if (!on && this.call) { this.call = undefined; this.emit(); } }),
+      // The usage tracker's ring: redrawn when its numbers change.
+      onUsageChange(() => this.emit()),
     );
   }
 
@@ -64,7 +67,7 @@ export class IslandPlus {
   decorate(s: IslandState): IslandState {
     const m = this.island.mirror;
     return {
-      ...s, call: this.call, hud: this.hud, usagePin: plusSetting(settings().island, 'usagePin') ? this.usagePin : undefined, cueHere: this.cueHere,
+      ...s, call: this.call, hud: this.hud, usagePin: plusSetting(settings().island, 'usagePin') ? this.usagePin : undefined, cueHere: this.cueHere, usageAlert: usageIslandAlert(),
       notifyMode: settings().island.notifyMirror ? { mode: m.mode, problem: m.problem } : undefined,
     };
   }

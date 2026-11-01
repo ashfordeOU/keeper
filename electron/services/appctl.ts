@@ -47,6 +47,7 @@ async function save() {
 /** Moves the app into its own cgroup: a systemd user scope when possible (no password), else Keeper's tree (as root). */
 async function linuxCgroup(a: AppRef): Promise<{ rel: string; dir: string; unit?: string }> {
   const pid = a.pid!;
+  if (!Number.isInteger(pid) || pid <= 0) throw new Error('The app is not running');
   if (!existsSync('/sys/fs/cgroup/cgroup.controllers')) throw new Error('This system uses the older cgroup v1; per-app limits need cgroup v2 (standard on current distributions)');
   if (!pid) throw new Error('The app is not running');
   const own = async () => (await fsp.readFile(`/proc/${pid}/cgroup`, 'utf8')).split('\n').find((l) => l.startsWith('0::'))?.slice(3).trim() ?? '';
@@ -86,7 +87,7 @@ async function linuxLimits(a: AppRef, o: { cpuPercent?: number; memMB?: number }
     try {
       await fsp.writeFile(path.join(g.dir, w.file), w.value);
     } catch {
-      const r = await runCmds([{ file: 'sh', args: ['-c', `echo '${w.value}' > '${path.join(g.dir, w.file)}'`], admin: true }]);
+      const r = await runCmds([{ file: 'sh', args: ['-c', `echo "$1" > "$2"`, 'sh', w.value, path.join(g.dir, w.file)], admin: true }]);
       if (!r.ok) throw new Error(r.message);
     }
   }
@@ -125,6 +126,8 @@ function linuxDesktopId(a: AppRef): string | undefined {
 
 async function enrich(a: AppRef): Promise<AppRef> {
   const out = { ...a };
+  // The process id ends up in administrator commands: only a real number gets through.
+  if (out.pid !== undefined && !(Number.isInteger(out.pid) && out.pid > 0)) delete out.pid;
   if (OS === 'darwin' && !out.bundleId) out.bundleId = await macBundleId(a.path);
   if (OS === 'linux' && !out.appId) out.appId = linuxDesktopId(a);
   return out;

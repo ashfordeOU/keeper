@@ -33,8 +33,8 @@ export function IslandToolsSettings({ isl, set }: { isl: IS; set: (p: Partial<IS
               <Icon name="drag" size={12} />
               <Icon name={t.icon} size={14} />
               <span className="grow">{t.label}</span>
-              <button className="btn sm icon" disabled={i === 0} title="Move up" onClick={() => set({ toolOrder: moveTool(isl.toolOrder, id, i - 1) })}><Icon name="arrowUp" size={11} /></button>
-              <button className="btn sm icon" disabled={i === all.length - 1} title="Move down" onClick={() => set({ toolOrder: moveTool(isl.toolOrder, id, i + 1) })}><Icon name="chevronDown" size={11} /></button>
+              <button className="btn sm icon" disabled={i === 0} title="Move up" aria-label="Move up" onClick={() => set({ toolOrder: moveTool(isl.toolOrder, id, i - 1) })}><Icon name="arrowUp" size={11} /></button>
+              <button className="btn sm icon" disabled={i === all.length - 1} title="Move down" aria-label="Move down" onClick={() => set({ toolOrder: moveTool(isl.toolOrder, id, i + 1) })}><Icon name="chevronDown" size={11} /></button>
               {id === 'home' ? <span className="small muted" style={{ width: 40 }}>always</span> : <Toggle on={shown.has(id)} onChange={(v) => set({ toolsOff: toggleTool(isl.toolsOff, id, v) })} />}
             </div>
           );

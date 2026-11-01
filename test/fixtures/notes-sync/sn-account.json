@@ -1,0 +1,86 @@
+{
+  "note": "A recorded Standard Notes account for the stand-in sync server (test/fixtures/notes-sync/sn-standin.cjs). Password: \"Lighthouse keeper 7\". Items are 004 ciphertext only.",
+  "email": "ana@example.com",
+  "keyParams": {
+    "identifier": "ana@example.com",
+    "pw_nonce": "b1a3f0c6d9e24a7f8c5e1d2b3a4f5e6d7c8b9a0f1e2d3c4b5a69788766554433",
+    "version": "004",
+    "origination": "registration",
+    "created": "1730000000000"
+  },
+  "serverPasswordSha256": "d4d3a4ff8a984fc7085a9930c37f6903e83ba562993481973aea71777a3a88e3",
+  "items": [
+    {
+      "uuid": "6c1f0e5a-7d0b-4c47-9a49-2a4cbbd0a001",
+      "content_type": "SN|ItemsKey",
+      "items_key_id": null,
+      "enc_item_key": "004:01a701a701a701a701a701a701a701a701a701a701a701a7:JruBcOoMv5osV5WYaEVbkHZVeEg/gzZOoecfSyxSRxQW9ZPtx3pWtI0Qse33qQVug6nDdZjp40iEW5GNKMwLRsEwOEwoTAMFmI2ovb/Ip9M=:eyJrcCI6eyJjcmVhdGVkIjoiMTczMDAwMDAwMDAwMCIsImlkZW50aWZpZXIiOiJhbmFAZXhhbXBsZS5jb20iLCJvcmlnaW5hdGlvbiI6InJlZ2lzdHJhdGlvbiIsInB3X25vbmNlIjoiYjFhM2YwYzZkOWUyNGE3ZjhjNWUxZDJiM2E0ZjVlNmQ3YzhiOWEwZjFlMmQzYzRiNWE2OTc4ODc2NjU1NDQzMyIsInZlcnNpb24iOiIwMDQifSwidSI6IjZjMWYwZTVhLTdkMGItNGM0Ny05YTQ5LTJhNGNiYmQwYTAwMSIsInYiOiIwMDQifQ==:e30=",
+      "content": "004:02a702a702a702a702a702a702a702a702a702a702a702a7:uuNhj8lEbtf1jnUF0wuNHBuRsggti3qCxo4NIELF7s7Y9E+FDDkkUIYWWaqEhxQ4MFnOS062JwsKBsCCcPxjLa9VK5zzKMpBaSHlx0Qi3J0lKrvWRIpcl2hOnG8lhxyLMd5IWYk026WUIxYm5mPfvm91yAtk9Idcmycx9J833EfT9a9fuui8lrEpo8CPicPF0czE4KzhH9EZINivkA==:eyJrcCI6eyJjcmVhdGVkIjoiMTczMDAwMDAwMDAwMCIsImlkZW50aWZpZXIiOiJhbmFAZXhhbXBsZS5jb20iLCJvcmlnaW5hdGlvbiI6InJlZ2lzdHJhdGlvbiIsInB3X25vbmNlIjoiYjFhM2YwYzZkOWUyNGE3ZjhjNWUxZDJiM2E0ZjVlNmQ3YzhiOWEwZjFlMmQzYzRiNWE2OTc4ODc2NjU1NDQzMyIsInZlcnNpb24iOiIwMDQifSwidSI6IjZjMWYwZTVhLTdkMGItNGM0Ny05YTQ5LTJhNGNiYmQwYTAwMSIsInYiOiIwMDQifQ==:e30=",
+      "created_at": "2026-01-02T10:00:00.000Z",
+      "updated_at": "2026-01-02T10:00:00.000Z",
+      "created_at_timestamp": 1767348000000000,
+      "updated_at_timestamp": 1767348000000000,
+      "deleted": false
+    },
+    {
+      "uuid": "0d7c5b1e-1f3a-4f0e-8a51-7a0a2c1b0b01",
+      "content_type": "Note",
+      "items_key_id": "6c1f0e5a-7d0b-4c47-9a49-2a4cbbd0a001",
+      "enc_item_key": "004:0ba70ba70ba70ba70ba70ba70ba70ba70ba70ba70ba70ba7:s7jOQ5s8q8Q0JfMbrI1zC5YGXKZSy15vRdai8ccA9I8dyHvVzzf0MEMdYRDjDZuDEcu0iNqIWWuTLu2AwB4LlCYSwnTFnKZFaOiAmYfRyh4=:eyJ1IjoiMGQ3YzViMWUtMWYzYS00ZjBlLThhNTEtN2EwYTJjMWIwYjAxIiwidiI6IjAwNCJ9:e30=",
+      "content": "004:29a729a729a729a729a729a729a729a729a729a729a729a7:bXhAKR4wm+1ZqaMidWrzqQcdxZOZBay0XzHvXDVKSlujBxHeRy+9ux6oRpEadd/g33NOzPoXS3wOZQEES4ob2B/+/qc4h7BFbfl1rzuX1WZgeQai8Z5M6tBJLE1uK0Oi3JCNu2saURNlgREQc43o320SqVZicSDr4KWJ1ztyGEaYIReD18lgQ3/fIHQ3Nyej7ZZJ216cNhiZU8obRlhEfNWrF6QU/pycUs6TSImTvX8uG+Toe4TkS4mG:eyJ1IjoiMGQ3YzViMWUtMWYzYS00ZjBlLThhNTEtN2EwYTJjMWIwYjAxIiwidiI6IjAwNCJ9:e30=",
+      "created_at": "2026-03-01T09:00:00.000Z",
+      "updated_at": "2026-03-01T09:00:00.000Z",
+      "created_at_timestamp": 1772355600000000,
+      "updated_at_timestamp": 1772355600000000,
+      "deleted": false
+    },
+    {
+      "uuid": "0d7c5b1e-1f3a-4f0e-8a51-7a0a2c1b0b02",
+      "content_type": "Note",
+      "items_key_id": "6c1f0e5a-7d0b-4c47-9a49-2a4cbbd0a001",
+      "enc_item_key": "004:0ca70ca70ca70ca70ca70ca70ca70ca70ca70ca70ca70ca7:IXEjHXgYaLdfHMRgpcYPYQZyANKLSpMWmmiiu23/a3Cigo0aPmEIMXJtLlGIPkUgqjfOJjq+aVlMxZvE32TAi4cLybrBYxvNXAw+oyCgBXI=:eyJ1IjoiMGQ3YzViMWUtMWYzYS00ZjBlLThhNTEtN2EwYTJjMWIwYjAyIiwidiI6IjAwNCJ9:e30=",
+      "content": "004:2aa72aa72aa72aa72aa72aa72aa72aa72aa72aa72aa72aa7:yxXKsnYM0opOhDv6Jm847I3k7bS+o+zf8p6KUg7hzY++7KUEk4PYGy8bNDLxWJM6XWutch3ZZhztnnDA5UYcBAr5VnpbsgFugPbcJN/kVh+V88lMeIET+9TiEcBiF7XzXILm9OQ0DH0kENVbzRNc2xGGMX/L0E4PJls=:eyJ1IjoiMGQ3YzViMWUtMWYzYS00ZjBlLThhNTEtN2EwYTJjMWIwYjAyIiwidiI6IjAwNCJ9:e30=",
+      "created_at": "2026-03-02T09:00:00.000Z",
+      "updated_at": "2026-03-02T09:00:00.000Z",
+      "created_at_timestamp": 1772442000000000,
+      "updated_at_timestamp": 1772442000000000,
+      "deleted": false
+    },
+    {
+      "uuid": "0d7c5b1e-1f3a-4f0e-8a51-7a0a2c1b0b03",
+      "content_type": "Note",
+      "items_key_id": "6c1f0e5a-7d0b-4c47-9a49-2a4cbbd0a001",
+      "enc_item_key": "004:0da70da70da70da70da70da70da70da70da70da70da70da7:2HTkriCzfQNz2HKXeHsba1Ynp/tGWUaC/grhfAK1DdWx4oG2kQB2oDvMEOaZ7YE5gxtjDUPl9KUfZ5Nkb+7gXfMYq1ocUDVD8xX4PN6Jne0=:eyJ1IjoiMGQ3YzViMWUtMWYzYS00ZjBlLThhNTEtN2EwYTJjMWIwYjAzIiwidiI6IjAwNCJ9:e30=",
+      "content": "004:2ba72ba72ba72ba72ba72ba72ba72ba72ba72ba72ba72ba7:ga4G8rixdnWTx79z4B7aF+cnsMoi/2QQXec7vbj4OlNzla8uzKQulA6CXdHwsv/oZ0zD3v7kaZ+C2lPsJfwEmcwsIa/u4/TFPsub2GQWS6nrhFpd+bRapk2C6J5GOhm/fdEaZwM7:eyJ1IjoiMGQ3YzViMWUtMWYzYS00ZjBlLThhNTEtN2EwYTJjMWIwYjAzIiwidiI6IjAwNCJ9:e30=",
+      "created_at": "2026-03-03T09:00:00.000Z",
+      "updated_at": "2026-03-03T09:00:00.000Z",
+      "created_at_timestamp": 1772528400000000,
+      "updated_at_timestamp": 1772528400000000,
+      "deleted": false
+    },
+    {
+      "uuid": "0d7c5b1e-1f3a-4f0e-8a51-7a0a2c1b0b04",
+      "content_type": "Tag",
+      "items_key_id": "6c1f0e5a-7d0b-4c47-9a49-2a4cbbd0a001",
+      "enc_item_key": "004:0ea70ea70ea70ea70ea70ea70ea70ea70ea70ea70ea70ea7:hWgOH9QYfmIZGY5dLXCrAFNB1+/MFfCTFy0jgnBYgQaZ5xf7eWRxxuNbHanZrkTsh8aZdRMw/Ey1fLpUp9y6QoDz/Rkx8HV487p9CGn5G8A=:eyJ1IjoiMGQ3YzViMWUtMWYzYS00ZjBlLThhNTEtN2EwYTJjMWIwYjA0IiwidiI6IjAwNCJ9:e30=",
+      "content": "004:2ca72ca72ca72ca72ca72ca72ca72ca72ca72ca72ca72ca7:Oapkpx5VN1kWF00DS0HqvUfDFaicrs96Mob116k8wdzoOzGJJfNAI/S+5Id1xOtTtlWiI2hndYYcyInarsJuB4ozdO/ee8KNzXBqOJtT4giySxv5Q7nnhwmmqp5OGreLnrSnDE7pqA7UA5IBKSxtfT8nQbGm9YnVTiCw4HqyUq1jfobKpA==:eyJ1IjoiMGQ3YzViMWUtMWYzYS00ZjBlLThhNTEtN2EwYTJjMWIwYjA0IiwidiI6IjAwNCJ9:e30=",
+      "created_at": "2026-03-01T09:00:00.000Z",
+      "updated_at": "2026-03-01T09:00:00.000Z",
+      "created_at_timestamp": 1772355600000000,
+      "updated_at_timestamp": 1772355600000000,
+      "deleted": false
+    },
+    {
+      "uuid": "0d7c5b1e-1f3a-4f0e-8a51-7a0a2c1b0b05",
+      "content_type": "Note",
+      "items_key_id": "6c1f0e5a-7d0b-4c47-9a49-2a4cbbd0a001",
+      "enc_item_key": "004:0fa70fa70fa70fa70fa70fa70fa70fa70fa70fa70fa70fa7:WzD8yg5FDO6VMjn14P/jEXDhvrjBwhrwxfS5u1jv6kbg3fdxpwGa85J0wCCSwkc0VNXLHcly3zf6dqq7jrdCt8EcP48rBhURr1dmOjlN7os=:eyJ1IjoiMGQ3YzViMWUtMWYzYS00ZjBlLThhNTEtN2EwYTJjMWIwYjA1IiwidiI6IjAwNCJ9:e30=",
+      "content": "004:2da72da72da72da72da72da72da72da72da72da72da72da7:EUI2SZhmELr2pPcgsiNtjbcTEt/seDS2LgWCjJgJcRtpWDSolTbHZDd27lPeZIh+gKiPgfxU4i7pgTLIRyCGos3+wHKSbqKE/77g35tab2fGkddJqp1vR/IyC+AyPoA=:eyJ1IjoiMGQ3YzViMWUtMWYzYS00ZjBlLThhNTEtN2EwYTJjMWIwYjA1IiwidiI6IjAwNCJ9:e30=",
+      "created_at": "2026-03-04T09:00:00.000Z",
+      "updated_at": "2026-03-04T09:00:00.000Z",
+      "created_at_timestamp": 1772614800000000,
+      "updated_at_timestamp": 1772614800000000,
+      "deleted": false
+    }
+  ]
+}

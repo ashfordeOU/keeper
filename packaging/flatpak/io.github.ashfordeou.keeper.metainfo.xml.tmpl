@@ -5,7 +5,8 @@
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>LicenseRef-proprietary=https://github.com/ashfordeOU/keeper/blob/main/LICENSE.md</project_license>
   <name>Keeper by Ashforde®</name>
-  <summary>Find, understand and tidy your files</summary>
+  <!-- Flathub's quality guidelines keep the summary to 35 characters. -->
+  <summary>Find, understand and tidy files</summary>
   <developer id="io.github.ashfordeou">
     <name>Ashforde OÜ</name>
   </developer>
@@ -53,7 +54,26 @@
     <color type="primary" scheme_preference="light">#e8f0ff</color>
     <color type="primary" scheme_preference="dark">#1b2a4a</color>
   </branding>
-  <content_rating type="oars-1.1"/>
+  <!-- Usage stats are anonymous and on by default (social-info moderate). Help mode and remote
+       screens have unmoderated text and voice chat with another person (social-chat, social-audio).
+       Places & Tracks can share this computer's location with your paired devices (social-location). -->
+  <content_rating type="oars-1.1">
+    <content_attribute id="social-chat">intense</content_attribute>
+    <content_attribute id="social-audio">intense</content_attribute>
+    <content_attribute id="social-location">intense</content_attribute>
+    <content_attribute id="social-info">moderate</content_attribute>
+  </content_rating>
+  <recommends>
+    <display_length compare="ge">768</display_length>
+  </recommends>
+  <keywords>
+    <keyword>files</keyword>
+    <keyword>search</keyword>
+    <keyword>duplicates</keyword>
+    <keyword>cleanup</keyword>
+    <keyword>disk space</keyword>
+    <keyword>screenshots</keyword>
+  </keywords>
   <supports>
     <control>pointing</control>
     <control>keyboard</control>

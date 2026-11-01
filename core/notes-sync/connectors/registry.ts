@@ -39,14 +39,24 @@ export const CONNECTORS: ConnectorDef[] = [
     limits: ['Read only: Joplin itself writes this folder.', 'End-to-end encrypted items are skipped.'],
   },
   {
-    kind: 'standardnotes', name: 'Standard Notes', how: 'Imports a backup file; the keys stay on this computer',
+    kind: 'standardnotes', name: 'Standard Notes backup', how: 'Imports a backup file; the keys stay on this computer',
     capability: 'import-only', hubFolder: 'Standard Notes',
     fields: [
       { key: 'path', label: 'Backup file (.txt or .json)', type: 'file', help: 'In Standard Notes: Preferences → Backups → Download backup.' },
       { key: 'password', label: 'Password (only for an encrypted backup)', type: 'secret', optional: true },
-      { key: 'server', label: 'Server (self-hosted)', type: 'url', placeholder: 'https://api.standardnotes.com', optional: true },
     ],
-    limits: ['Signing in to the sync server is not built yet: use a backup file for now.', 'Encrypted backups are opened on this computer; your password is never sent anywhere.'],
+    limits: ['Encrypted backups are opened on this computer; your password is never sent anywhere.', 'For two-way sync, connect your Standard Notes account instead.'],
+  },
+  {
+    kind: 'standardnotes-sync', name: 'Standard Notes', how: 'Signs in to your Standard Notes sync server; notes are opened and sealed on this computer',
+    capability: 'two-way', hubFolder: 'Standard Notes',
+    fields: [
+      { key: 'email', label: 'Email', type: 'text' },
+      { key: 'password', label: 'Password', type: 'secret', help: 'Stays on this computer: it is turned into your keys here, and only the derived sign-in key is sent, as Standard Notes’ own apps do.' },
+      { key: 'server', label: 'Server (self-hosted)', type: 'url', placeholder: 'https://api.standardnotes.com', optional: true },
+      { key: 'code', label: 'Two-step code (only when asked)', type: 'secret', optional: true, help: 'The current code from your authenticator app. It is used once, then forgotten.' },
+    ],
+    limits: ['End-to-end encrypted: Keeper decrypts and encrypts on this computer; the server only ever sees encrypted notes.', 'Protected notes and notes in shared vaults are listed but not opened.', 'Deleting moves the note to Standard Notes’ trash.', 'Accounts that sign in with a security key cannot be used.'],
   },
   {
     kind: 'notesnook', name: 'Notesnook', how: 'Imports a Notesnook export or backup',

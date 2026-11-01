@@ -164,7 +164,7 @@ export function parseVnc(text: string, fileName = ''): Imported[] {
       host,
       port: port && port !== 5900 ? port : undefined,
       user: conn?.get('username') || undefined,
-      vnc: { viewOnly: flag('viewonly') || undefined, shared: flag('shared') === false ? false : undefined, scale: scaling === 'none' || scaling === '100%' ? 'none' : undefined },
+      vnc: { viewOnly: flag('viewonly') || undefined, shared: flag('shared') === false ? false : undefined, scale: scaling === 'none' || scaling === '100%' ? 'none' : undefined, picture: /^tight$/i.test(opts.get('preferredencoding') ?? opts.get('preferred_encoding') ?? '') ? 'fast' : undefined },
     },
     secret,
   }];

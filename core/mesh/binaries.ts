@@ -56,6 +56,15 @@ export const WIREGUARD_GO_SOURCE: PinnedFile = {
   sha256: 'c7eeffb13e5eb43b93e54a21d78dd71414771af9e07112da5275690493695c9c',
 };
 
+/**
+ * The build is reproducible: from the pinned source with
+ * `go build -trimpath -ldflags="-s -w -buildid="` (CGO off, the module
+ * checksums in its go.sum) the same Go version gives the same bytes. This one
+ * was made twice, separately, in Keeper's test machine; the release workflow
+ * should get the same hash with the same Go and can pin it below.
+ */
+export const WIREGUARD_GO_LOCAL_BUILD = { target: 'linux-x64', go: 'go1.24.7', sha256: '0d9d9de75250cf7e2cd9d9169a6ac075e63f944082136603ccfc7d3a4c427ef3' };
+
 export const WIREGUARD_GO_BUILDS: Record<string, PinnedFile | undefined> = {
   'darwin-arm64': undefined,
   'darwin-x64': undefined,

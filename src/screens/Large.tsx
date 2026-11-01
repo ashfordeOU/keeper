@@ -49,7 +49,7 @@ export function Large() {
               </div>
               <span className="small muted" style={{ width: 100 }}>{formatDate(f.mtime)}</span>
               <span className="num" style={{ width: 80, textAlign: 'right', fontWeight: 600 }}>{formatBytes(f.size)}</span>
-              <button className="btn ghost sm icon" title="Show in folder" onClick={(e) => { e.stopPropagation(); void api.files.reveal(f.path); }}><Icon name="reveal" size={13} /></button>
+              <button className="btn ghost sm icon" title="Show in folder" aria-label="Show in folder" onClick={(e) => { e.stopPropagation(); void api.files.reveal(f.path); }}><Icon name="reveal" size={13} /></button>
             </div>
           ))}
         </div>

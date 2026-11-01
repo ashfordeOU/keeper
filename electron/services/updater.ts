@@ -25,7 +25,7 @@ import path from 'node:path';
 import type { UpdateStatus } from '../../core/api-x';
 import { run } from '../../core/platform';
 import { detectInstallSource, INSTALL_SOURCES } from '../../core/install-source';
-import { compareVersions, pickAsset, pickRelease, releaseFor, versionNotes, wantsBeta, type GhAsset, type GhRelease, type InstallKind, type VersionNote } from '../../core/updates';
+import { compareVersions, feedAllowed, pickAsset, pickRelease, releaseFor, versionNotes, wantsBeta, type GhAsset, type GhRelease, type InstallKind, type VersionNote } from '../../core/updates';
 import { CHECKSUMS_FILE, checksumProblem, designatedRequirement, isAdHocRequirement } from '../../core/update-verify';
 import { describePlan, nextStep, planFor, type UpdateWhen } from '../../core/update-schedule';
 import { isSkipped } from '../../core/update-window';
@@ -40,7 +40,9 @@ const CHECK_EVERY = 6 * 3600_000;
  * served over HTTP for testing. It must contain releases.json (the GitHub
  * releases list format) and the latest*.yml files next to the installers.
  */
-const FEED = process.env.KEEPER_UPDATE_FEED?.replace(/\/$/, '');
+const RAW_FEED = process.env.KEEPER_UPDATE_FEED?.replace(/\/$/, '');
+// A feed over plain http from another computer could hand over anything: only https, or this computer.
+const FEED = feedAllowed(RAW_FEED) ? RAW_FEED : undefined;
 
 let status: UpdateStatus = { state: 'idle', current: app.getVersion() };
 let listeners: ((s: UpdateStatus) => void)[] = [];
@@ -88,6 +90,9 @@ async function detectKind(): Promise<InstallKind> {
 // repositories installed is updated by them, so Keeper only says how.
 const source = detectInstallSource(process.execPath, process.env, process.platform, existsSync);
 const managed = app.isPackaged && !INSTALL_SOURCES[source].selfUpdate;
+// The Microsoft Store build (MSIX) is updated by the Store alone: no checks against GitHub, no downloads.
+const STORE = app.isPackaged && (source === 'msstore' || !!process.windowsStore);
+const STORE_STATUS: Partial<UpdateStatus> = { state: 'unsupported', method: 'manager', canInstall: false, manager: { label: 'the Microsoft Store' }, message: 'The Microsoft Store keeps Keeper up to date.' };
 
 function methodFor(k: InstallKind): Pick<UpdateStatus, 'method' | 'canInstall' | 'manager'> {
   if (managed) return { method: 'manager', canInstall: false, manager: { label: INSTALL_SOURCES[source].label, command: INSTALL_SOURCES[source].updateCommand } };
@@ -114,6 +119,7 @@ async function fetchReleases(): Promise<GhRelease[]> {
 
 /** Looks for a newer version. `user` = the person pressed the button (works even when checks are off). */
 export async function checkForUpdates(user = true): Promise<UpdateStatus> {
+  if (STORE) return (set(STORE_STATUS), status);
   if (status.state === 'downloading' || status.state === 'installing') return status;
   set({ state: 'checking', message: undefined });
   try {
@@ -219,7 +225,7 @@ async function verifyMacSignature(next: string) {
 export async function downloadUpdate(): Promise<UpdateStatus> {
   if (!release) await checkForUpdates();
   if (!release || status.state === 'downloading') return status;
-  if (managed) return status;
+  if (managed || STORE) return status;
   if (!status.canInstall || !asset) {
     // Portable copies, tarballs and source checkouts: hand over to the release page.
     await shell.openExternal(release.html_url);
@@ -502,6 +508,7 @@ export async function initUpdater(onNotify: (s: UpdateStatus) => boolean) {
     n?.show();
   };
   kind = await detectKind();
+  if (STORE) return void set(STORE_STATUS);
   set({ ...methodFor(kind), state: kind === 'source' ? 'idle' : status.state });
   const tick = () => {
     if (settings().updateMode !== 'off') void checkForUpdates(false);

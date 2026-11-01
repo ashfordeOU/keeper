@@ -5,6 +5,10 @@
 //   cd relay/cloudflare && npx wrangler deploy
 // then enter https://<your worker>.workers.dev in Keeper → Remote Access → Keeper Relay.
 // It only ever passes along end-to-end encrypted bytes between paired devices.
+// Keeper Mesh's packet path (/v1/pkt, see pkt.js) lives in one more Durable
+// Object, named "pkt", so every device on it can reach every other.
+
+import { ID_RE as PKT_ID_RE, PacketHub } from './pkt.js';
 
 const ID_RE = /^[a-z2-9]{16}$/;
 const B32 = 'abcdefghijkmnpqrstuvwxyz23456789';
@@ -37,6 +41,10 @@ export default {
       return Response.json(out, { headers: { 'access-control-allow-origin': '*' } });
     }
     if (req.headers.get('upgrade') !== 'websocket') return new Response('not found', { status: 404 });
+    if (u.pathname === '/v1/pkt') {
+      if (!PKT_ID_RE.test(u.searchParams.get('id') ?? '')) return new Response('bad request', { status: 400 });
+      return env.RELAY.get(env.RELAY.idFromName('pkt')).fetch(req);
+    }
     let id;
     if (u.pathname === '/v1/listen') id = u.searchParams.get('id');
     else if (u.pathname === '/v1/dial') id = u.searchParams.get('to');
@@ -47,15 +55,26 @@ export default {
 };
 
 export class Relay {
-  constructor(state) {
+  constructor(state, env) {
     this.state = state;
+    this.env = env ?? {};
     this.listener = null;
     this.pending = new Map();
+    this.pkt = null;
   }
 
   async fetch(req) {
     const u = new URL(req.url);
     if (u.pathname === '/online') return new Response(this.listener ? '1' : '0');
+    if (u.pathname === '/v1/pkt') {
+      this.pkt ??= new PacketHub({ bytesPerSecond: Number(this.env.BYTES_PER_SECOND) || 0, maxDevices: Number(this.env.MAX_DEVICES) || 10_000 });
+      const id = u.searchParams.get('id');
+      if (!this.pkt.admits(id)) return new Response('bad request', { status: 400 });
+      const [client, server] = Object.values(new WebSocketPair());
+      server.accept();
+      this.pkt.join(server, id);
+      return new Response(null, { status: 101, webSocket: client });
+    }
     const [client, server] = Object.values(new WebSocketPair());
     server.accept();
     if (u.pathname === '/v1/listen') this.listen(server, u.searchParams.get('id'));
@@ -93,9 +112,16 @@ export class Relay {
 
   dial(ws, to) {
     if (!this.listener) return ws.close(1000, 'offline');
+    // A flood of calls must not make the called device open connection after connection.
+    if (this.pending.size >= 8) return ws.close(1013, 'busy');
     const tag = `${to}.${crypto.randomUUID().replace(/-/g, '')}`;
     const early = [];
-    const onMsg = (e) => early.length < 64 && early.push(e.data);
+    let bytes = 0;
+    const onMsg = (e) => {
+      bytes += typeof e.data === 'string' ? e.data.length : e.data.byteLength;
+      if (early.length >= 64 || bytes > 256 * 1024) return ws.close(1009, 'too much before the call was answered');
+      early.push(e.data);
+    };
     ws.addEventListener('message', onMsg);
     const timer = setTimeout(() => { this.pending.delete(tag); ws.close(1000, 'no answer'); }, 15_000);
     this.pending.set(tag, { ws, early, onMsg, timer });

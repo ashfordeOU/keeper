@@ -70,6 +70,8 @@ export interface MeshPeerView {
   wgKey?: string;
   path: MeshPath;
   endpoint?: string;
+  /** WireGuard sends to this peer itself (direct handoff): its packets bypass Keeper */
+  bypass?: boolean;
   latencyMs?: number;
   lastHandshake?: number;
   rx: number;

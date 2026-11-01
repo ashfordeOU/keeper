@@ -480,13 +480,13 @@ export function MemoryPanel() {
       <div className="card">
         {shown.length ? shown.map((m) => (
           <div key={m.id} className="row abil-mem">
-            <button className={`btn sm ghost icon ${m.pinned ? 'on' : ''}`} title={m.pinned ? 'Unpin' : 'Pin (always included)'} onClick={async () => setList(await api.abilities.editMemory(m.id, { pinned: !m.pinned }))}><Icon name="pin" size={13} /></button>
+            <button className={`btn sm ghost icon ${m.pinned ? 'on' : ''}`} title={m.pinned ? 'Unpin' : 'Pin (always included)'} aria-label={m.pinned ? 'Unpin' : 'Pin (always included)'} onClick={async () => setList(await api.abilities.editMemory(m.id, { pinned: !m.pinned }))}><Icon name="pin" size={13} /></button>
             <div className="grow">
               <input className="input bare" defaultValue={m.text} onBlur={async (e) => { if (e.target.value.trim() && e.target.value !== m.text) setList(await api.abilities.editMemory(m.id, { text: e.target.value })); }} />
               <div className="small muted">{scopeLabel(m)} · by {m.by} · {relativeTime(m.updatedAt)}</div>
             </div>
             <label className="small row" style={{ gap: 4 }} title="May go to AIs on the internet"><input type="checkbox" checked={m.cloud} disabled={!s.memory.cloud} onChange={async (e) => setList(await api.abilities.editMemory(m.id, { cloud: e.target.checked }))} /> cloud</label>
-            <button className="btn sm ghost icon" title="Delete" onClick={async () => setList(await api.abilities.removeMemory(m.id))}><Icon name="trash" size={13} /></button>
+            <button className="btn sm ghost icon" title="Delete" aria-label="Delete" onClick={async () => setList(await api.abilities.removeMemory(m.id))}><Icon name="trash" size={13} /></button>
           </div>
         )) : <div className="small muted">Nothing remembered yet. Ask any AI in Keeper to “remember that …”.</div>}
       </div>

@@ -69,11 +69,11 @@ function Radar({ place }: { place: Place }) {
         <div className="wx-pin" title={place.name} />
       </div>
       <div className="row" style={{ marginTop: 8 }}>
-        <button className="btn sm icon" onClick={() => setPlaying(!playing)} title={playing ? 'Pause' : 'Play'}><Icon name={playing ? 'pause' : 'play'} size={12} /></button>
+        <button className="btn sm icon" onClick={() => setPlaying(!playing)} title={playing ? 'Pause' : 'Play'} aria-label={playing ? 'Pause' : 'Play'}><Icon name={playing ? 'pause' : 'play'} size={12} /></button>
         <input type="range" min={0} max={index.frames.length - 1} value={frame} onChange={(e) => { setPlaying(false); setFrame(+e.target.value); }} className="grow" />
         <span className="small muted num" style={{ width: 70 }}>{hhmm(f.time)}{f.time > Date.now() ? ' (forecast)' : ''}</span>
-        <button className="btn sm icon" onClick={() => setZ(Math.max(3, z - 1))} title="Zoom out"><Icon name="minus" size={12} /></button>
-        <button className="btn sm icon" onClick={() => setZ(Math.min(9, z + 1))} title="Zoom in"><Icon name="plus" size={12} /></button>
+        <button className="btn sm icon" onClick={() => setZ(Math.max(3, z - 1))} title="Zoom out" aria-label="Zoom out"><Icon name="minus" size={12} /></button>
+        <button className="btn sm icon" onClick={() => setZ(Math.min(9, z + 1))} title="Zoom in" aria-label="Zoom in"><Icon name="plus" size={12} /></button>
       </div>
       <div className="small muted" style={{ marginTop: 6 }}>Radar © RainViewer · Map © OpenStreetMap contributors</div>
     </div>
@@ -172,9 +172,9 @@ export function Weather() {
       <div className="row wx-places">
         {places.map((p, i) => (
           <div key={`${p.lat},${p.lon}`} className={`chip wx-place ${i === sel ? 'on' : ''}`} onClick={() => setSel(i)}>
-            {i > 0 ? <button title="Move left" onClick={(e) => { e.stopPropagation(); void save(movePlace(places, i, i - 1)); setSel(i - 1); }}><Icon name="chevronLeft" size={10} /></button> : null}
+            {i > 0 ? <button title="Move left" aria-label="Move left" onClick={(e) => { e.stopPropagation(); void save(movePlace(places, i, i - 1)); setSel(i - 1); }}><Icon name="chevronLeft" size={10} /></button> : null}
             <span>{p.name}</span>
-            <button title={t('common.remove')} onClick={(e) => { e.stopPropagation(); void save(places.filter((_, k) => k !== i)); setSel(0); }}><Icon name="close" size={10} /></button>
+            <button title={t('common.remove')} aria-label={t('common.remove')} onClick={(e) => { e.stopPropagation(); void save(places.filter((_, k) => k !== i)); setSel(0); }}><Icon name="close" size={10} /></button>
           </div>
         ))}
         <PlaceSearch onPick={(p) => { const next = addPlace(places, p); void save(next); setSel(next.findIndex((x) => x.lat === p.lat && x.lon === p.lon)); toast(`Added ${p.name}`); }} />

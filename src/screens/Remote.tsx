@@ -171,7 +171,7 @@ export function Remote() {
     <div className={`remote ${over ? 'drop-over' : ''}`} onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); setOver(true); } }} onDragLeave={() => setOver(false)} onDrop={(e) => void onDrop(e)}>
       <div className="page-head" style={{ alignItems: 'center' }}>
         <div className="row" style={{ minWidth: 0, gap: 6 }}>
-          <button className="btn ghost sm icon" disabled={!parent} onClick={() => parent && go({ name: 'remote', arg: remoteRoute(id, parent) })} title="Enclosing folder"><Icon name="arrowUp" size={14} /></button>
+          <button className="btn ghost sm icon" disabled={!parent} onClick={() => parent && go({ name: 'remote', arg: remoteRoute(id, parent) })} title="Enclosing folder" aria-label="Enclosing folder"><Icon name="arrowUp" size={14} /></button>
           <Icon name={deviceIcon(conn?.device)} size={16} />
           <div className="crumbs">
             {crumbs.map((c, i) => (
@@ -186,7 +186,7 @@ export function Remote() {
           <button className="btn sm" onClick={() => setNaming({ kind: 'folder', value: 'New folder' })}><Icon name="plus" size={13} /> New Folder</button>
           <button className="btn sm" onClick={async () => { const r = await api.remote.uploadPick(id, dir); if (r.done || r.failed.length) toast(r.failed.length ? `Uploaded ${r.done}; ${r.failed[0]}` : `Uploaded ${r.done} file${r.done === 1 ? '' : 's'}`); refresh(); }}><Icon name="arrowUp" size={13} /> Upload</button>
           <button className="btn sm" disabled={!selected.size} onClick={() => void download(chosen())}><Icon name="down" size={13} /> Download</button>
-          <button className="btn sm ghost icon" title="Refresh" onClick={refresh}><Icon name="refresh" size={13} /></button>
+          <button className="btn sm ghost icon" title="Refresh" aria-label="Refresh" onClick={refresh}><Icon name="refresh" size={13} /></button>
           <select className="input sm" value={sort} onChange={(e) => setSort(e.target.value as Sort)} style={{ width: 'auto' }}>
             <option value="name">Name</option><option value="date">Newest</option><option value="size">Largest</option>
           </select>
@@ -216,8 +216,8 @@ export function Remote() {
               <Icon name={t.direction === 'up' ? 'arrowUp' : 'down'} size={13} />
               <span className="grow ellipsis small">{t.label}</span>
               <span className="small muted">{t.total ? `${Math.round((t.bytes / t.total) * 100)}%` : formatBytes(t.bytes)}</span>
-              <div className="progress" style={{ width: 120 }}><i style={{ width: `${t.total ? (t.bytes / t.total) * 100 : 30}%` }} /></div>
-              <button className="btn ghost sm icon" title="Cancel" onClick={() => void api.remote.cancelTransfer(t.id)}><Icon name="close" size={12} /></button>
+              <div className="progress" role="progressbar" aria-label="Progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(Number(t.total ? (t.bytes / t.total) * 100 : 30) || 0)} style={{ width: 120 }}><i style={{ width: `${t.total ? (t.bytes / t.total) * 100 : 30}%` }} /></div>
+              <button className="btn ghost sm icon" title="Cancel" aria-label="Cancel" onClick={() => void api.remote.cancelTransfer(t.id)}><Icon name="close" size={12} /></button>
             </div>
           ))}
         </div>

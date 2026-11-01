@@ -70,7 +70,7 @@ export function Browsers() {
                   <button className="btn ghost sm" disabled={t.discarded || t.active} title="Frees the tab's memory; it reloads when you open it" onClick={() => act(t, 'discard')}>Sleep</button>
                   <button className="btn ghost sm" onClick={() => act(t, 'focus')}>Show</button>
                   {/^https?:/.test(t.url) ? <button className="btn ghost sm" onClick={() => void openSite(t)}>Site settings</button> : null}
-                  <button className="btn ghost sm" onClick={() => act(t, 'close')}><Icon name="close" size={12} /></button>
+                  <button aria-label="Close tab" title="Close tab" className="btn ghost sm" onClick={() => act(t, 'close')}><Icon name="close" size={12} /></button>
                 </div>
               </div>
             ))}

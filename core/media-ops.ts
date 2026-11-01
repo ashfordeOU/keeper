@@ -307,7 +307,7 @@ export function ttsCommand(platform: string, textFile: string, outFile: string, 
     return { cmd: '/usr/bin/say', args: [...(voice ? ['-v', voice] : []), ...(rate ? ['-r', String(Math.round(175 * rate))] : []), '-f', textFile, '-o', outFile], ext: 'aiff' };
   }
   if (platform === 'win32') {
-    const q = (s: string) => `'${s.replace(/'/g, "''")}'`;
+    const q = (s: string) => `'${s.replace(/['‘’‚‛]/g, '$&$&')}'`;
     const script = [
       'Add-Type -AssemblyName System.Speech',
       '$s = New-Object System.Speech.Synthesis.SpeechSynthesizer',

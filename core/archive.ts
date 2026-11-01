@@ -137,3 +137,17 @@ export function summarize(entries: ArchiveEntry[]): { files: number; folders: nu
   }
   return { files, folders, size, packed };
 }
+
+/**
+ * The outside tools that can unpack one entry, in the order to try them. Every
+ * list ends its options with `--`, so an entry named like an option (for
+ * example "--to-command=…" for tar) is only ever read as a name.
+ */
+export function extractCommands(archive: string, entry: string, dir: string, sep = '/'): [string, string[]][] {
+  return [
+    ['tar', ['-xf', archive, '-C', dir, '--', entry]],
+    ['7z', ['x', '-y', `-o${dir}`, '--', archive, entry]],
+    ['7zz', ['x', '-y', `-o${dir}`, '--', archive, entry]],
+    ['unrar', ['x', '-y', '--', archive, entry, dir + sep]],
+  ];
+}

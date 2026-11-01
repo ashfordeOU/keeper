@@ -28,3 +28,17 @@ export function createInflater(): { inflate: (data: Uint8Array) => Promise<Uint8
   };
   return { inflate, close: () => inf.destroy() };
 }
+
+/** Tight's four zlib streams, each kept for the connection; a reset flag starts one afresh. */
+export function createTightInflaters(): { inflate: (stream: number, data: Uint8Array, reset: boolean) => Promise<Uint8Array>; close: () => void } {
+  const streams: ({ inflate: (data: Uint8Array) => Promise<Uint8Array>; close: () => void } | null)[] = [null, null, null, null];
+  return {
+    inflate: (stream, data, reset) => {
+      const i = stream & 3;
+      if (reset && streams[i]) { streams[i]!.close(); streams[i] = null; }
+      streams[i] ??= createInflater();
+      return streams[i]!.inflate(data);
+    },
+    close: () => { for (const s of streams) s?.close(); },
+  };
+}

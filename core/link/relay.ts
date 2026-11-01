@@ -23,18 +23,29 @@ interface Pending {
   dialer: WsServerConn;
   timer: NodeJS.Timeout;
   early: Uint8Array[];
+  earlyBytes: number;
+  to: string;
 }
+
+/** What a call may send before it is picked up (the handshake is a few hundred bytes). */
+export const RELAY_EARLY_BYTES = 256 * 1024;
 
 export interface RelayLimits {
   /** bytes a single call may relay per second (0 = no limit) */
   bytesPerSecond?: number;
   maxListeners?: number;
+  /** calls waiting to be picked up, per device (default 8) and in all (default 2000) */
+  maxPendingPerDevice?: number;
+  maxPending?: number;
+  /** connections that have not yet proved their id (default 1000) */
+  maxUnproven?: number;
 }
 
 /** The relay's state, attachable to any http.Server (or used by relay/server.ts). */
 export class RelayServer {
   readonly listeners = new Map<string, WsServerConn>();
   private pending = new Map<string, Pending>();
+  private unproven = 0;
   stats = { calls: 0, bytes: 0 };
 
   constructor(private limits: RelayLimits = {}) {}
@@ -69,8 +80,12 @@ export class RelayServer {
     if (path === '/v1/listen') {
       const id = q.get('id') ?? '';
       if (!ID_RE.test(id) || (this.limits.maxListeners && this.listeners.size >= this.limits.maxListeners)) return void socket.end('HTTP/1.1 400 Bad Request\r\n\r\n');
+      if (this.unproven >= (this.limits.maxUnproven ?? 1000)) return void socket.end('HTTP/1.1 503 Service Unavailable\r\n\r\n');
       const ws = acceptWebSocket(req, socket, head, 'relay');
       if (!ws) return;
+      this.unproven++;
+      let counted = true;
+      const proven = () => { if (counted) { counted = false; this.unproven--; } };
       const challenge = crypto.randomBytes(32).toString('base64');
       let ok = false;
       const t = setTimeout(() => !ok && ws.close('no proof'), 10_000);
@@ -81,6 +96,7 @@ export class RelayServer {
             const pub = Buffer.from(String(m.pub), 'base64');
             if (deviceId(pub) !== id || !verify(pub, Buffer.from('keeper-relay ' + challenge), Buffer.from(String(m.sig), 'base64'))) return ws.close('bad proof');
             ok = true;
+            proven();
             clearTimeout(t);
             this.listeners.get(id)?.close('replaced');
             this.listeners.set(id, ws);
@@ -92,6 +108,7 @@ export class RelayServer {
       };
       ws.onclose = () => {
         clearTimeout(t);
+        proven();
         if (this.listeners.get(id) === ws) this.listeners.delete(id);
       };
       ws.sendText(JSON.stringify({ t: 'challenge', n: challenge }));
@@ -100,12 +117,20 @@ export class RelayServer {
     if (path === '/v1/dial') {
       const to = q.get('to') ?? '';
       const target = this.listeners.get(to);
+      // A flood of calls must not make the called device open connection after connection.
+      let waiting = 0;
+      for (const x of this.pending.values()) if (x.to === to) waiting++;
+      if (target && (waiting >= (this.limits.maxPendingPerDevice ?? 8) || this.pending.size >= (this.limits.maxPending ?? 2000))) return void socket.end('HTTP/1.1 429 Too Many Requests\r\n\r\n');
       const ws = acceptWebSocket(req, socket, head, 'relay');
       if (!ws) return;
       if (!target) return ws.close('offline');
       const tag = crypto.randomBytes(18).toString('base64url');
-      const p: Pending = { dialer: ws, early: [], timer: setTimeout(() => { this.pending.delete(tag); ws.close('no answer'); }, 15_000) };
-      ws.onmessage = (d) => p.early.length < 64 && p.early.push(d);
+      const p: Pending = { dialer: ws, early: [], earlyBytes: 0, to, timer: setTimeout(() => { this.pending.delete(tag); ws.close('no answer'); }, 15_000) };
+      ws.onmessage = (d) => {
+        p.earlyBytes += d.length;
+        if (p.early.length >= 64 || p.earlyBytes > RELAY_EARLY_BYTES) return ws.close('too much before the call was answered');
+        p.early.push(d);
+      };
       ws.onclose = () => { clearTimeout(p.timer); this.pending.delete(tag); };
       this.pending.set(tag, p);
       target.sendText(JSON.stringify({ t: 'incoming', tag }));

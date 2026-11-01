@@ -121,7 +121,7 @@ function VaultChooser({ onOpen }: { onOpen: (v: VaultInfo) => void }) {
                 <button className="nt-vault-open" disabled={v.missing} onClick={() => onOpen(v)}>
                   <strong>{v.name}</strong><span className="nt-dim">{v.path}{v.missing ? ' — not found' : ''}</span>
                 </button>
-                <button className="nt-icon-btn" title="Remove from this list (the folder is kept)" onClick={() => void api.notes.removeVault(v.id).then(setList)}><Icon name="close" size={12} /></button>
+                <button className="nt-icon-btn" title="Remove from this list (the folder is kept)" aria-label="Remove from this list (the folder is kept)" onClick={() => void api.notes.removeVault(v.id).then(setList)}><Icon name="close" size={12} /></button>
               </div>
             ))}
           </div>
@@ -470,12 +470,12 @@ export function NotesApp() {
     <Ctx.Provider value={ctx}>
       <div className="nt-root" data-testid="notes-root">
         <div className="nt-ribbon" aria-label="Notes tools">
-          <button className="nt-icon-btn" title="Show or hide the file panel" onClick={() => setLayout((l) => ({ ...l, leftOpen: !l.leftOpen }))}><Icon name="columns" size={15} /></button>
+          <button className="nt-icon-btn" title="Show or hide the file panel" aria-label="Show or hide the file panel" onClick={() => setLayout((l) => ({ ...l, leftOpen: !l.leftOpen }))}><Icon name="columns" size={15} /></button>
           <button className="nt-icon-btn" title="Open note (Ctrl+O)" aria-label="Quick switcher" onClick={() => setModal({ kind: 'switcher' })}><Icon name="search" size={15} /></button>
           <button className="nt-icon-btn" title="Today’s daily note (Ctrl+Shift+D)" aria-label="Daily note" onClick={() => void daily('day')}><Icon name="calendar" size={15} /></button>
           <button className="nt-icon-btn" title="Graph view" aria-label="Graph view" onClick={() => open(GRAPH, { newTab: true })}><Icon name="graph" size={15} /></button>
-          <button className="nt-icon-btn" title="New canvas" onClick={() => void newFile('canvas')}><Icon name="grid" size={15} /></button>
-          <button className="nt-icon-btn" title="Random note" onClick={() => void api.notes.random(vault.id).then((p) => p && open(p))}><Icon name="shuffle" size={15} /></button>
+          <button className="nt-icon-btn" title="New canvas" aria-label="New canvas" onClick={() => void newFile('canvas')}><Icon name="grid" size={15} /></button>
+          <button className="nt-icon-btn" title="Random note" aria-label="Random note" onClick={() => void api.notes.random(vault.id).then((p) => p && open(p))}><Icon name="shuffle" size={15} /></button>
           <button className="nt-icon-btn" title="Commands (Ctrl+P)" aria-label="Commands" onClick={() => setModal({ kind: 'palette' })}><Icon name="terminal" size={15} /></button>
           <span className="nt-spacer" />
           <button className="nt-icon-btn" title="Notes settings" aria-label="Notes settings" onClick={() => setModal({ kind: 'settings' })}><Icon name="settings" size={15} /></button>
@@ -512,7 +512,7 @@ export function NotesApp() {
                 ))}
                 <button className="nt-icon-btn nt-tab-new" title="New note" aria-label="New tab" onClick={() => void newFile('note')}><Icon name="plus" size={13} /></button>
                 <span className="nt-spacer" />
-                {pi === L.panes.length - 1 ? <button className="nt-icon-btn" title="Show or hide the side panel" onClick={() => setLayout((l) => ({ ...l, rightOpen: !l.rightOpen }))}><Icon name="columns" size={14} /></button> : null}
+                {pi === L.panes.length - 1 ? <button className="nt-icon-btn" title="Show or hide the side panel" aria-label="Show or hide the side panel" onClick={() => setLayout((l) => ({ ...l, rightOpen: !l.rightOpen }))}><Icon name="columns" size={14} /></button> : null}
               </div>
               <div className="nt-pane-body">
                 {p.tabs.length ? p.tabs.map((t) => (

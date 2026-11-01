@@ -334,8 +334,8 @@ export function LockedFoldersPanel() {
           ) : r.state === 'locked' ? (
             <button className="btn sm" onClick={() => setUnlocking(r.vault)}><Icon name="unlock" size={13} /> Unlock…</button>
           ) : null}
-          <button className="btn sm ghost icon" title="Show" disabled={r.state === 'missing'} onClick={() => void api.files.reveal(r.state === 'unlocked' && r.folder ? r.folder : r.vault)}><Icon name="reveal" size={13} /></button>
-          <button className="btn sm ghost icon" title="Stop listing it here (the locked file is kept)" onClick={() => void api.lock.forget(r.vault).then(setRows)}><Icon name="close" size={13} /></button>
+          <button className="btn sm ghost icon" title="Show" aria-label="Show" disabled={r.state === 'missing'} onClick={() => void api.files.reveal(r.state === 'unlocked' && r.folder ? r.folder : r.vault)}><Icon name="reveal" size={13} /></button>
+          <button className="btn sm ghost icon" title="Stop listing it here (the locked file is kept)" aria-label="Stop listing it here (the locked file is kept)" onClick={() => void api.lock.forget(r.vault).then(setRows)}><Icon name="close" size={13} /></button>
         </div>
       ))}
       {unlocking ? <UnlockDialog vault={unlocking} onClose={() => setUnlocking(null)} onUnlocked={(f) => go({ name: 'browse', arg: f })} /> : null}

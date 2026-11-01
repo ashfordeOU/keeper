@@ -28,11 +28,16 @@ const IDLE: Record<string, RegExp[]> = {
 };
 const SHELL = /(?:[$#%>❯]|\]\$)\s*$/;
 
-/** True when the end of the screen looks like this program is waiting at its prompt. */
-export function looksIdle(harness: string, screenTail: string): boolean {
+/**
+ * True when the end of the screen looks like this program is waiting at its prompt.
+ * `strict` (used before typing anything in) accepts only the program's own prompt,
+ * never a plain shell prompt: if the agent has quit and left a shell behind, a
+ * message typed there would run as a command ("$(…)", ";" and the like).
+ */
+export function looksIdle(harness: string, screenTail: string, strict = false): boolean {
   const tail = screenTail.replace(/\s+$/, '').split('\n').slice(-8).join('\n');
   const pats = IDLE[harness] ?? [];
-  return pats.some((re) => re.test(tail)) || SHELL.test(tail.split('\n').pop() ?? '');
+  return pats.some((re) => re.test(tail)) || (!strict && SHELL.test(tail.split('\n').pop() ?? ''));
 }
 
 /** The text typed in for a message (one paragraph; programs treat newlines as "send"). */
@@ -63,13 +68,18 @@ export async function deliverQueued(hub: AgentHub, terms: AgentTerminals, agent:
   const t = terms.get(agent.session)!;
   if (t.controller === 'human') return { delivered: 0, answered: 0 };
   const quiet = o.now() - t.lastOutput;
-  if (quiet < o.idleMs || !looksIdle(agent.harness, terms.snapshot(agent.session, owner, 12))) return { delivered: 0, answered: 0 };
+  if (t.status === 'exited' || quiet < o.idleMs || !looksIdle(agent.harness, terms.snapshot(agent.session, owner, 12), true)) return { delivered: 0, answered: 0 };
   const mcp = agent.via === 'mcp';
   // Agents with tools read their own inbox: only peek, and nudge them once.
   const mail = hub.inbox(agent.id, mcp);
   if (!mail.length) return { delivered: 0, answered: 0 };
   let answered = 0;
-  for (const m of mcp ? mail.slice(0, 1) : mail) {
+  for (const [i, m] of (mcp ? mail.slice(0, 1) : mail).entries()) {
+    // Before each later message, the program must still be the one at its own prompt.
+    if (i > 0) {
+      const cur = terms.get(agent.session);
+      if (!cur || cur.status === 'exited' || !looksIdle(agent.harness, terms.snapshot(agent.session, owner, 12), true)) break;
+    }
     const before = terms.read(agent.session, owner, { cursor: Number.MAX_SAFE_INTEGER }).cursor;
     const text = deliveryText(m, hub.get(m.from), mcp);
     terms.write(agent.session, owner, text);

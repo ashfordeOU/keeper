@@ -42,7 +42,8 @@ Find it in the sidebar under **Sync & Backup → Notes Everywhere**.
 | Markdown or text folder | Reads and writes `.md` and `.txt` files | Two-way | Everywhere |
 | Joplin | Its Web Clipper service on `localhost:41184`, with your token | Two-way | Everywhere |
 | Joplin sync folder | Reads a file-system/WebDAV sync folder or a `.jex` export | Import only | Everywhere |
-| Standard Notes | A backup file (decrypted, or encrypted and opened on this computer) | Import only (for now) | Everywhere |
+| Standard Notes | Your account on its sync server (the official one or self-hosted), end-to-end encrypted on this computer | Two-way | Everywhere |
+| Standard Notes backup | A backup file (decrypted, or encrypted and opened on this computer) | Import only | Everywhere |
 | Notesnook | Markdown/HTML exports or an unencrypted backup | Import only | Everywhere |
 | OneNote | Microsoft Graph, with an access token you give | Two-way | Everywhere |
 | Notion | The official API, with an integration token | Two-way | Everywhere |
@@ -63,12 +64,27 @@ Find it in the sidebar under **Sync & Backup → Notes Everywhere**.
   to Markdown and may be simplified; drawings and scans are not copied.
 - **Google Keep and Samsung Notes are import only.** There is no public way to
   write to them. Re-importing a newer export updates notes and never deletes.
-- **Standard Notes:** signing in to the sync server (including a self-hosted
-  one) is not built yet; use **Preferences → Backups → Download backup**.
-  Encrypted backups (protocol 004) are opened on this computer with your
-  password (Argon2id key derivation, XChaCha20-Poly1305); the password and
-  keys never leave this computer; the password is stored only in the system
-  keychain.
+- **Standard Notes** signs in to your sync server (the official
+  `api.standardnotes.com` or your own) the way its own apps do. Your password
+  is turned into your keys on this computer (Argon2id, protocol 004); only the
+  derived sign-in half is sent, never the password. Every note is opened and
+  sealed on this computer (XChaCha20-Poly1305): the server only ever sees
+  encrypted items. Each note is checked to belong to the item it came with, so
+  a server cannot swap one note's text into another.
+  - Two-step sign-in: when asked, type the current code from your
+    authenticator app in the connection's settings and sync; the code is used
+    once and forgotten. Accounts that sign in with a security key cannot be
+    used.
+  - Keeper keeps the session (and the derived key, so Argon2 runs once per
+    sign-in) in the system keychain. A changed password, email or server
+    signs in afresh. Without a keychain (Linux without a keyring) the password
+    cannot be stored, so the account cannot be connected.
+  - Protected notes and notes in shared vaults are listed but not opened.
+    Deleting moves a note to Standard Notes' trash. A note changed there while
+    Keeper was sending it is refused by the server and merged on the next sync,
+    never overwritten.
+  - Backups (protocol 004) are still read as before with **Standard Notes
+    backup**, opened on this computer with your password.
 - **Notesnook:** there is no documented way to write notes back, so it is
   import only. Encrypted backups cannot be opened; export as Markdown instead.
 - **Evernote:** writing back through Evernote's own service needs keys that
@@ -129,4 +145,39 @@ everything from one app to another** copies all notes of one app into another
   connectors take a `fetch` function so tests use recorded answers).
 - `electron/services/notes-sync/` — disk, network and scripts; the service.
 - `core/api-notesync.ts` — the window's API (`window.keeper.notesync`).
+- Standard Notes' sync (`connectors/standardnotes.ts`, `StandardNotesApi`):
+  `POST /v2/login-params` with a PKCE challenge (and `mfa_code` when asked),
+  `POST /v2/login` with the derived server password and the PKCE verifier,
+  `POST /v1/items` (pages via `cursor_token`, `sync_token`, conflicts as
+  `sync_conflict` with the server's item), `POST /v1/sessions/refresh` after a
+  498. Argon2id comes from Node when its crypto has it; Electron's (BoringSSL)
+  does not, so a pure JavaScript Argon2id (`@noble/hashes`, in small steps so
+  the window keeps responding) is used.
 - Tests: `test/notes-sync-*.test.ts`; end to end: `test/e2e/notes-hub.cjs`.
+
+## Verified, and not verified
+
+**Verified here:**
+- Standard Notes' own published vectors: Argon2id with the 004 settings
+  ("argon2 generated salt" and the libsodium vector), XChaCha20-Poly1305
+  ("xchacha predefined string"), and a real items key from Standard Notes'
+  test suite opened with its password (`test/notes-sync-standardnotes.test.ts`).
+- The whole service against a local stand-in sync server answering from a
+  recorded account (`test/fixtures/notes-sync/sn-standin.cjs`,
+  `sn-account.json`, ciphertext only): PKCE, the two-step code (asked, wrong,
+  right, then forgotten), pages, an expired session refreshed, a revoked one
+  signed in again, the dry run and sync through the engine, write-back sealed
+  on this computer and opened as another device would, tags, a conflict kept
+  for review, a change refused by the server mid-send, delete to the trash,
+  and every request body checked for plain text (none).
+- In the real app (`test/e2e/notes-hub.cjs`): the two-way Standard Notes card
+  and its form; Argon2id in Electron's own runtime (where Node's crypto has
+  none) matching the published vector; sign-in, sync and write-back against
+  the stand-in server from Electron's runtime.
+
+**Not verified:**
+- Against the real `api.standardnotes.com` or a real self-hosted server (no
+  account here); the stand-in follows the API as Standard Notes' apps call it.
+- Sign-in through the window under Xvfb: there is no keyring there, so the
+  password cannot be stored and the sync was driven from Electron's runtime
+  directly instead.

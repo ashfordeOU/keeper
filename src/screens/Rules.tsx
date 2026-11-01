@@ -81,7 +81,7 @@ export function Rules() {
               </div>
               <button className="btn ghost sm" onClick={() => void showPlan(r)}><Icon name="eye" size={13} /> Preview</button>
               <button className="btn ghost sm" onClick={() => void run(r)} disabled={running === r.id}>{running === r.id ? <div className="spinner" /> : <Icon name="play" size={12} />} Run now</button>
-              <button className="btn ghost sm icon" title="Edit" onClick={() => setEditing(structuredClone(r))}><Icon name="rename" size={13} /></button>
+              <button className="btn ghost sm icon" title="Edit" aria-label="Edit" onClick={() => setEditing(structuredClone(r))}><Icon name="rename" size={13} /></button>
               <Toggle on={r.enabled} onChange={(v) => void save({ ...r, enabled: v })} label={`Turn ${r.name} on`} />
             </div>
           </div>
@@ -154,7 +154,7 @@ function RuleEditor({ rule, isNew, onClose, onSave, onDelete }: { rule: Rule; is
           <span className="small muted">Look in</span>
           <div className="list-box">
             {r.scope.map((s) => (
-              <div key={s} className="li"><Icon name="folder" size={13} /><span className="grow ellipsis">{s}</span><button className="btn ghost sm icon" onClick={() => setR({ ...r, scope: r.scope.filter((x) => x !== s) })}><Icon name="close" size={12} /></button></div>
+              <div key={s} className="li"><Icon name="folder" size={13} /><span className="grow ellipsis">{s}</span><button aria-label="Remove folder" title="Remove folder" className="btn ghost sm icon" onClick={() => setR({ ...r, scope: r.scope.filter((x) => x !== s) })}><Icon name="close" size={12} /></button></div>
             ))}
           </div>
           <button className="btn sm" style={{ alignSelf: 'flex-start' }} onClick={async () => { const p = await api.settings.pickFolder(); if (p && !r.scope.includes(p)) setR({ ...r, scope: [...r.scope, p] }); }}><Icon name="plus" size={12} /> Add folder</button>
@@ -189,7 +189,7 @@ function RuleEditor({ rule, isNew, onClose, onSave, onDelete }: { rule: Rule; is
               ) : c.type === 'query' ? (
                 <input className="input grow" value={c.text} placeholder="screenshots older than a month" onChange={(e) => setCond(i, { type: 'query', text: e.target.value })} />
               ) : <span className="grow" />}
-              {r.conditions.length > 1 ? <button className="btn ghost sm icon" onClick={() => setR({ ...r, conditions: r.conditions.filter((_, j) => j !== i) })}><Icon name="minus" size={12} /></button> : null}
+              {r.conditions.length > 1 ? <button aria-label="Remove condition" title="Remove condition" className="btn ghost sm icon" onClick={() => setR({ ...r, conditions: r.conditions.filter((_, j) => j !== i) })}><Icon name="minus" size={12} /></button> : null}
             </div>
           ))}
           <button className="btn sm" style={{ alignSelf: 'flex-start' }} onClick={() => setR({ ...r, conditions: [...r.conditions, blank('olderThanDays')] })}><Icon name="plus" size={12} /> And…</button>

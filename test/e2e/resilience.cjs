@@ -122,6 +122,8 @@ async function mainPid(page) {
   check(!!(await until(() => page.locator('.term-app').count(), 15000)), 'the terminal tab opens');
 
   // ---------------------------------------------------------------- 4. a service process crashes
+  // Less-used System pages sit behind "More" in the sidebar.
+  if (!(await page.locator('.sidebar [title="Network Activity"]').isVisible())) await page.locator('[data-testid="nav-more-system"]').click().catch(() => undefined);
   await page.click('.sidebar [title="Network Activity"]');
   const svc = await until(() => page.evaluate(() => window.keeper.svc.list().then((l) => l.find((p) => p.id === 'svc:net' && p.pid))), 30000, 500);
   check(!!svc, `Network Activity runs in its own process (pid ${svc?.pid}, ${Math.round((svc?.memory ?? 0) / 1048576)} MB)`);

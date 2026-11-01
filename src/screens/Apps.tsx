@@ -82,8 +82,8 @@ export function Apps() {
                     <td className="num">{a.size ? formatBytes(a.size) : '—'}</td>
                     <td className="muted">{a.lastUsed ? relativeTime(a.lastUsed) : 'Unknown'}</td>
                     <td style={{ textAlign: 'right' }}>
-                      <button className="btn ghost sm icon" title="Show in folder" onClick={() => void api.files.reveal(a.path)}><Icon name="reveal" size={13} /></button>
-                      <button className="btn ghost sm icon" title="App settings: network, limits, login, language…" onClick={() => go({ name: 'appcontrols', arg: a.path })}><Icon name="settings" size={13} /></button>
+                      <button className="btn ghost sm icon" title="Show in folder" aria-label="Show in folder" onClick={() => void api.files.reveal(a.path)}><Icon name="reveal" size={13} /></button>
+                      <button className="btn ghost sm icon" title="App settings: network, limits, login, language…" aria-label="App settings: network, limits, login, language…" onClick={() => go({ name: 'appcontrols', arg: a.path })}><Icon name="settings" size={13} /></button>
                       {!a.system ? <button className="btn sm" onClick={() => setConfirm(a)}>Uninstall</button> : null}
                     </td>
                   </tr>

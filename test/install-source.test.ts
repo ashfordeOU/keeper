@@ -32,6 +32,8 @@ describe('detectInstallSource', () => {
     expect(detectInstallSource(user, {}, 'win32', has('C:\\ProgramData\\chocolatey\\lib\\keeper-files'))).toBe('direct');
     expect(detectInstallSource(user, {}, 'win32', has('C:\\Users\\me\\AppData\\Local\\Programs\\Keeper\\.installed-by-winget'))).toBe('winget');
     expect(detectInstallSource('C:\\Users\\me\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Ashforde.Keeper_x\\Keeper.exe', {}, 'win32')).toBe('winget');
+    // The Microsoft Store's MSIX package.
+    expect(detectInstallSource('C:\\Program Files\\WindowsApps\\AshfordeOU.KeeperbyAshforde_0.1.0.0_x64__abc123\\app\\Keeper.exe', {}, 'win32')).toBe('msstore');
   });
 
   it('Linux: sandboxes first, then the package repositories', () => {
@@ -58,7 +60,8 @@ describe('detectInstallSource', () => {
     expect(detectInstallSource('/usr/local/bin/keeper', {}, 'freebsd')).toBe('direct');
     for (const [k, v] of Object.entries(INSTALL_SOURCES)) {
       expect(v.selfUpdate).toBe(k === 'direct' || k === 'brew' || k === 'winget');
-      if (k !== 'direct') expect(v.updateCommand).toBeTruthy();
+      // The Microsoft Store updates on its own; there is no command to show.
+      if (k !== 'direct' && k !== 'msstore') expect(v.updateCommand).toBeTruthy();
     }
   });
 });

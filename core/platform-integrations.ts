@@ -247,7 +247,7 @@ export function parseKeeperUrl(url: string): UrlAction | null {
 
 /** A PowerShell single-quoted string: only ' needs doubling, nothing inside is expanded. */
 export function psQuote(s: string): string {
-  return `'${String(s).replace(/\0/g, '').replace(/['‘’‚‛]/g, "''")}'`;
+  return `'${String(s).replace(/\0/g, '').replace(/['‘’‚‛]/g, '$&$&')}'`;
 }
 
 /**

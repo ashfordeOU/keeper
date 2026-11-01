@@ -74,7 +74,7 @@ async function macItems(): Promise<StartupItem[]> {
 async function macToggle(item: StartupItem, enabled: boolean): Promise<void> {
   if (item.id.startsWith('login:')) {
     if (enabled) throw new Error('Add it back in System Settings → General → Login Items');
-    const name = item.id.slice(6).replace(/"/g, '\\"');
+    const name = item.id.slice(6).replace(/[\\"]/g, '\\$&');
     await run('/usr/bin/osascript', ['-e', `tell application "System Events" to delete login item "${name}"`]);
     return;
   }
@@ -147,7 +147,7 @@ async function winToggle(item: StartupItem, enabled: boolean): Promise<void> {
   }
   const args = ['add', key, '/v', name, '/t', 'REG_BINARY', '/d', data, '/f'];
   if (item.scope === 'system') {
-    const r = await powershell(`Start-Process reg -ArgumentList '${args.map((a) => `"${a}"`).join(' ').replace(/'/g, "''")}' -Verb RunAs -Wait -WindowStyle Hidden`, 120_000);
+    const r = await powershell(`Start-Process reg -ArgumentList '${args.map((a) => `"${a}"`).join(' ').replace(/['‘’‚‛]/g, '$&$&')}' -Verb RunAs -Wait -WindowStyle Hidden`, 120_000);
     if (!r.ok) throw new Error('Administrator permission was not given');
   } else {
     const r = await run('reg', args);

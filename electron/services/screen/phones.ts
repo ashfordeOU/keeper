@@ -93,7 +93,7 @@ export function installAndroidTools(onProgress?: (f: number) => void): Promise<s
       throw new Error('The downloaded scrcpy did not match its published checksum, so Keeper did not use it.');
     }
     if (dl.kind === 'zip' && process.platform === 'win32') {
-      const r = await run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', `Expand-Archive -LiteralPath '${archive.replace(/'/g, "''")}' -DestinationPath '${dir.replace(/'/g, "''")}' -Force`], 120_000);
+      const r = await run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', `Expand-Archive -LiteralPath '${archive.replace(/['‘’‚‛]/g, '$&$&')}' -DestinationPath '${dir.replace(/['‘’‚‛]/g, '$&$&')}' -Force`], 120_000);
       if (!r.ok) throw new Error('Could not unpack scrcpy');
     } else {
       const r = await run('tar', ['-xf', archive, '-C', dir], 120_000);

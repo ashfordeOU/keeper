@@ -74,6 +74,8 @@ export interface VncOptions {
   shared?: boolean;
   /** open in an outside viewer instead of a Keeper tab */
   external?: boolean;
+  /** lossless (ZRLE first, the default) or fast (Tight with JPEG first, for slow links) */
+  picture?: 'lossless' | 'fast';
 }
 
 export interface SshOptions {

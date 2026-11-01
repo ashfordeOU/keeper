@@ -39,7 +39,7 @@ function fakeFetch(routes: [RegExp, (url: string, init?: { method?: string; body
 
 describe('registry', () => {
   it('declares an honest capability and platform for every app', () => {
-    expect(CONNECTORS.map((c) => c.kind)).toEqual(['folder', 'joplin', 'joplin-files', 'standardnotes', 'notesnook', 'onenote', 'notion', 'simplenote', 'evernote', 'applenotes', 'bear', 'sticky', 'keep', 'samsung', 'island']);
+    expect(CONNECTORS.map((c) => c.kind)).toEqual(['folder', 'joplin', 'joplin-files', 'standardnotes', 'standardnotes-sync', 'notesnook', 'onenote', 'notion', 'simplenote', 'evernote', 'applenotes', 'bear', 'sticky', 'keep', 'samsung', 'island']);
     expect(connectorDef('keep').capability).toBe('import-only');
     expect(connectorDef('samsung').capability).toBe('import-only');
     expect(connectorDef('evernote').capability).toBe('import-limited-write');

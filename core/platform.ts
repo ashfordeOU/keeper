@@ -131,7 +131,7 @@ export async function trashWithoutElectron(p: string): Promise<boolean> {
     return r.ok;
   }
   if (process.platform === 'win32') {
-    const lit = p.replace(/'/g, "''");
+    const lit = p.replace(/['‘’‚‛]/g, '$&$&');
     const r = await powershell(`Add-Type -AssemblyName Microsoft.VisualBasic; if (Test-Path -LiteralPath '${lit}' -PathType Container) { [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteDirectory('${lit}','OnlyErrorDialogs','SendToRecycleBin') } else { [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile('${lit}','OnlyErrorDialogs','SendToRecycleBin') }`);
     return r.ok;
   }

@@ -25,7 +25,7 @@
 .mail-folder:hover { background: var(--bg-hover); color: var(--text); }
 .mail-folder.on { background: var(--bg-active); color: var(--text); font-weight: 600; }
 .mail-folder .count { font-size: 11px; color: var(--text-3); font-variant-numeric: tabular-nums; }
-.mail-folder.on .count { color: var(--accent); }
+.mail-folder.on .count { color: var(--accent-ink, var(--accent)); }
 .mail-account { margin-top: 10px; }
 .mail-account-name { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--text-3); padding: 4px 8px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .mail-account-name i { width: 7px; height: 7px; border-radius: 2px; flex: none; }

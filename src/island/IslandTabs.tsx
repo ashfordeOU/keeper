@@ -61,10 +61,10 @@ export function ShelfTab({ state, settings, reload }: { state: IslandState; sett
             </button>
           )
         ))}
-        <button className="shelf-chip add" title="New shelf" onClick={() => void api.island.createShelf().then(reload)}><Icon name="plus" size={11} /></button>
+        <button className="shelf-chip add" title="New shelf" aria-label="New shelf" onClick={() => void api.island.createShelf().then(reload)}><Icon name="plus" size={11} /></button>
         <span style={{ flex: 1 }} />
-        {state.closedShelves.length ? <button className="btn sm" onClick={() => setMenu(menu === 'closed' ? null : 'closed')} title="Recently closed shelves"><Icon name="history" size={11} /></button> : null}
-        {active ? <button className="btn sm" onClick={() => setMenu(menu === 'more' ? null : 'more')}><Icon name="settings" size={11} /></button> : null}
+        {state.closedShelves.length ? <button className="btn sm" onClick={() => setMenu(menu === 'closed' ? null : 'closed')} title="Recently closed shelves" aria-label="Recently closed shelves"><Icon name="history" size={11} /></button> : null}
+        {active ? <button aria-label="More options" title="More options" className="btn sm" onClick={() => setMenu(menu === 'more' ? null : 'more')}><Icon name="settings" size={11} /></button> : null}
       </div>
 
       {menu === 'closed' ? (
@@ -93,10 +93,10 @@ export function ShelfTab({ state, settings, reload }: { state: IslandState; sett
               if (name && name !== f.name) void api.island.renameShelfItem(f.path, name).then(reload, fail);
             }}>{f.name}</div>
             <div className="mv">
-              {i > 0 ? <button title="Move left" onClick={() => void api.island.moveShelfItem(i, i - 1).then(reload)}><Icon name="chevronLeft" size={10} /></button> : <span />}
-              {i < items.length - 1 ? <button title="Move right" onClick={() => void api.island.moveShelfItem(i, i + 1).then(reload)}><Icon name="chevronRight" size={10} /></button> : <span />}
+              {i > 0 ? <button title="Move left" aria-label="Move left" onClick={() => void api.island.moveShelfItem(i, i - 1).then(reload)}><Icon name="chevronLeft" size={10} /></button> : <span />}
+              {i < items.length - 1 ? <button title="Move right" aria-label="Move right" onClick={() => void api.island.moveShelfItem(i, i + 1).then(reload)}><Icon name="chevronRight" size={10} /></button> : <span />}
             </div>
-            <button className="btn sm icon x" onClick={() => void api.island.removeFromShelf(f.path).then(reload)}><Icon name="close" size={10} /></button>
+            <button aria-label="Remove from shelf" title="Remove from shelf" className="btn sm icon x" onClick={() => void api.island.removeFromShelf(f.path).then(reload)}><Icon name="close" size={10} /></button>
           </div>
         ))}
       </div>
@@ -141,9 +141,9 @@ export function ClipboardTab({ state, reload }: { state: IslandState; reload: ()
       <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
         <input className="input" style={{ flex: 1, height: 28 }} placeholder="Search text, notes, apps, words in images" value={q} onChange={(e) => setQ(e.target.value)} />
         {collections.length ? <select className="input" style={{ height: 28 }} value={coll} onChange={(e) => setColl(e.target.value)}><option value="">All lists</option>{collections.map((c) => <option key={c}>{c}</option>)}</select> : null}
-        <button className="btn sm" title="Open the clipboard picker" onClick={() => void api.island.openClips()}><Icon name="external" size={11} /></button>
-        <button className="btn sm" title="Back up history" onClick={() => void api.island.exportClips().then((p) => p && say('Saved a backup'))}><Icon name="down" size={11} /></button>
-        <button className="btn sm" title="Restore a backup" onClick={() => void api.island.importClips().then((n) => { say(`Added ${n} item${n === 1 ? '' : 's'}`); reload(); }, fail)}><Icon name="arrowUp" size={11} /></button>
+        <button className="btn sm" title="Open the clipboard picker" aria-label="Open the clipboard picker" onClick={() => void api.island.openClips()}><Icon name="external" size={11} /></button>
+        <button className="btn sm" title="Back up history" aria-label="Back up history" onClick={() => void api.island.exportClips().then((p) => p && say('Saved a backup'))}><Icon name="down" size={11} /></button>
+        <button className="btn sm" title="Restore a backup" aria-label="Restore a backup" onClick={() => void api.island.importClips().then((n) => { say(`Added ${n} item${n === 1 ? '' : 's'}`); reload(); }, fail)}><Icon name="arrowUp" size={11} /></button>
         <button className="btn sm" onClick={() => void api.island.clearClips().then(reload)} title="Clear (keeps pinned and listed items)">Clear</button>
       </div>
       <div className="clip-kinds">{KINDS.map((k) => <button key={k.id} className={kind === k.id ? 'on' : ''} onClick={() => setKind(k.id)}>{k.label}</button>)}</div>
@@ -158,10 +158,10 @@ export function ClipboardTab({ state, reload }: { state: IslandState; reload: ()
               <span className="muted small" style={{ display: 'block' }}>{[c.source, relativeTime(c.at), c.note, ...(c.collections ?? [])].filter(Boolean).join(' · ')}</span>
             </span>
             <span className="acts">
-              <button className="btn sm icon" title="Paste into the app in front" onClick={(e) => { e.stopPropagation(); void api.island.pasteClip(c.id); }}><Icon name="send" size={11} /></button>
-              <button className="btn sm icon" title="Note and lists" onClick={(e) => { e.stopPropagation(); setOpen(open === c.id ? null : c.id); }}><Icon name="tag" size={11} /></button>
-              <button className="btn sm icon" title={c.pinned ? 'Unpin' : 'Pin'} onClick={(e) => { e.stopPropagation(); void api.island.pinClip(c.id).then(reload); }}><Icon name="pin" size={11} /></button>
-              <button className="btn sm icon" title="Remove" onClick={(e) => { e.stopPropagation(); void api.island.removeClip(c.id).then(reload); }}><Icon name="close" size={11} /></button>
+              <button className="btn sm icon" title="Paste into the app in front" aria-label="Paste into the app in front" onClick={(e) => { e.stopPropagation(); void api.island.pasteClip(c.id); }}><Icon name="send" size={11} /></button>
+              <button className="btn sm icon" title="Note and lists" aria-label="Note and lists" onClick={(e) => { e.stopPropagation(); setOpen(open === c.id ? null : c.id); }}><Icon name="tag" size={11} /></button>
+              <button className="btn sm icon" title={c.pinned ? 'Unpin' : 'Pin'} aria-label={c.pinned ? 'Unpin' : 'Pin'} onClick={(e) => { e.stopPropagation(); void api.island.pinClip(c.id).then(reload); }}><Icon name="pin" size={11} /></button>
+              <button className="btn sm icon" title="Remove" aria-label="Remove" onClick={(e) => { e.stopPropagation(); void api.island.removeClip(c.id).then(reload); }}><Icon name="close" size={11} /></button>
             </span>
           </div>
           {open === c.id ? (

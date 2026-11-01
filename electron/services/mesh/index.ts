@@ -115,7 +115,7 @@ export async function startMesh(d: { node: () => LinkNode | null; broadcast: Bro
       },
       confirm: async (title, detail) => (await dialog.showMessageBox({ type: 'question', buttons: ['Allow', 'Cancel'], defaultId: 1, cancelId: 1, message: title, detail })).response === 0,
     },
-    { feature: () => featureOn('keeperMesh') && featureOn('link') },
+    { feature: () => featureOn('keeperMesh') && featureOn('link'), handoff: () => featureOn('meshDirectHandoff') },
   );
   engine.forceRelay = process.env.KEEPER_MESH_FORCE_RELAY === '1';
   await engine.start();

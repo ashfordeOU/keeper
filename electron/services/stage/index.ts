@@ -273,7 +273,7 @@ export class StageService {
     try {
       if (OS === 'win32') {
         const ps = path.join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
-        const q = (x: string) => `'${x.replace(/'/g, "''")}'`;
+        const q = (x: string) => `'${x.replace(/['‘’‚‛]/g, '$&$&')}'`;
         this.watchdog = spawn(ps, ['-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-ExecutionPolicy', 'Bypass', '-Command',
           `while (Get-Process -Id ${process.pid} -ErrorAction SilentlyContinue) { Start-Sleep -Seconds 2 }; if (Test-Path ${q(j)}) { & ${q(s)}; Remove-Item ${q(j)},${q(s)} -Force -ErrorAction SilentlyContinue }`],
         { detached: true, stdio: 'ignore', windowsHide: true });

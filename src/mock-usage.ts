@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
-// Demo data for Settings → Keeper's own usage.
+// Demo data for Settings → Performance.
 
 import type { UsageApi } from '../core/api-usage';
 
