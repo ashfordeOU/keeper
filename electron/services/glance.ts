@@ -20,7 +20,8 @@ export interface GlanceDeps {
   lockDown: (win: BrowserWindow) => void;
   settings: () => Partial<GlanceSettings> | undefined;
   /** the readings; asked only while the glance is open */
-  inputs: () => Promise<GlanceInputs>;
+  /** `light`: only what costs nothing (the tooltip, while the glance is closed) */
+  inputs: (light: boolean) => Promise<GlanceInputs>;
   recent: (n: number) => { list: GlanceRecent[]; total: number };
 }
 
@@ -41,9 +42,11 @@ export function initGlance(d: GlanceDeps) {
 export const glanceSettings = (): GlanceSettings => normalizeGlanceSettings(deps?.settings());
 
 /** Everything the pop-over draws, read now. */
-export async function glanceView(): Promise<GlanceView> {
+export async function glanceView(o: { light?: boolean } = {}): Promise<GlanceView> {
   const s = glanceSettings();
-  const inputs = deps ? await deps.inputs().catch(() => ({ now: Date.now() })) : { now: Date.now() };
+  // Live readings, Wi-Fi and AI usage only while the glance is on screen.
+  const light = !!o.light || !glanceOpen();
+  const inputs = deps ? await deps.inputs(light).catch(() => ({ now: Date.now() })) : { now: Date.now() };
   const r = deps?.recent(3) ?? { list: [], total: 0 };
   return { cards: glanceCards(inputs, s.cards), actions: s.actions, recent: r.list, moreRecent: Math.max(0, r.total - r.list.length), settings: s };
 }

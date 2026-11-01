@@ -373,7 +373,7 @@ async function updateTray() {
   // macOS opens the menu itself on right-click; Windows and Linux show a menu set ahead.
   if (!isMac) tray.setContextMenu(trayMenu());
   // Where hovering shows nothing (Windows, Linux), a fuller tooltip instead.
-  if (!isMac) void glanceView().then((v) => tray?.setToolTip(glanceTooltip(v.cards, BRAND))).catch(() => undefined);
+  if (!isMac) void glanceView({ light: true }).then((v) => tray?.setToolTip(glanceTooltip(v.cards, BRAND))).catch(() => undefined);
 }
 
 /**

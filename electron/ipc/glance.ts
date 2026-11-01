@@ -24,7 +24,7 @@ export interface GlanceIpcDeps {
 
 let wifi: { at: number; name?: string } | undefined;
 
-async function inputs(d: GlanceIpcDeps): Promise<GlanceInputs> {
+async function inputs(d: GlanceIpcDeps, light: boolean): Promise<GlanceInputs> {
   const now = Date.now();
   const out: GlanceInputs = { now };
   const isl = d.islandSvc();
@@ -39,18 +39,18 @@ async function inputs(d: GlanceIpcDeps): Promise<GlanceInputs> {
   const fs = await fsp.statfs(os.homedir()).catch(() => null);
   if (fs) out.disk = { total: Number(fs.blocks) * Number(fs.bsize), free: Number(fs.bavail) * Number(fs.bsize), name: process.platform === 'win32' ? `${os.homedir().slice(0, 2)} drive` : 'Main disk' };
   // This computer and the network from the live readings (running only while the glance is open).
-  watchLive('glance', 2000, ['cpu', 'mem', 'net', 'battery']);
-  const r = liveState().latest;
+  if (!light) watchLive('glance', 2000, ['cpu', 'mem', 'net', 'battery']);
+  const r = light ? undefined : liveState().latest;
   const mem = { used: os.totalmem() - os.freemem(), total: os.totalmem() };
   out.system = { cpu: r?.cpu ?? 0, memUsed: r?.memUsed ?? mem.used, memTotal: r?.memTotal ?? mem.total, battery: r?.battery !== undefined ? { percent: r.battery, charging: !!r.charging } : st?.battery ? { percent: st.battery.percent, charging: st.battery.charging } : undefined };
-  if (!wifi || now - wifi.at > 60_000) {
+  if (!light && (!wifi || now - wifi.at > 60_000)) {
     const { wifiName } = await import('../services/devices');
     wifi = { at: now, name: await wifiName().catch(() => undefined) };
   }
   const online = Object.values(os.networkInterfaces()).some((l) => l?.some((a) => !a.internal && a.family === 'IPv4'));
-  out.network = { downBps: r?.netIn, upBps: r?.netOut, wifi: wifi.name, online };
+  out.network = { downBps: r?.netIn, upBps: r?.netOut, wifi: wifi?.name, online };
   if (isl) out.awake = { on: isl.awake.on, until: isl.awake.until, reason: isl.awake.reason };
-  try {
+  if (!light) try {
     const { usage } = await import('../services/island-tools');
     out.usage = (await usage()).flatMap((u) => u.windows.filter((x) => typeof x.usedPercent === 'number').map((x) => ({ label: `${u.label} · ${x.label}`, percent: x.usedPercent!, resetsAt: x.resetsAt })));
   } catch {
@@ -62,7 +62,7 @@ async function inputs(d: GlanceIpcDeps): Promise<GlanceInputs> {
 }
 
 export function registerGlanceIpc(d: GlanceIpcDeps) {
-  initGlance({ preload: d.preload, load: d.load, lockDown: d.lockDown, settings: () => settings().glance, inputs: () => inputs(d), recent: d.recent });
+  initGlance({ preload: d.preload, load: d.load, lockDown: d.lockDown, settings: () => settings().glance, inputs: (light) => inputs(d, light), recent: d.recent });
   ipcMain.handle('glance.view', () => glanceView());
   // Opens it as a click on the owl would (the command palette, tests).
   ipcMain.handle('glance.show', () => showGlance(null, 'click'));
