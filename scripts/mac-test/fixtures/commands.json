@@ -1,0 +1,226 @@
+[
+ {
+  "match": "^/usr/bin/id -un$",
+  "stdout": "sam\n"
+ },
+ {
+  "match": "^/usr/bin/id -F$",
+  "stdout": "Sam Example\n"
+ },
+ {
+  "match": "^/usr/sbin/scutil --get ComputerName$",
+  "stdout": "Sam's MacBook Pro\n"
+ },
+ {
+  "match": "^/usr/sbin/scutil --get LocalHostName$",
+  "stdout": "Sams-MacBook-Pro\n"
+ },
+ {
+  "match": "^/usr/sbin/scutil --get HostName$",
+  "stderr": "HostName: not set\n",
+  "code": 1
+ },
+ {
+  "match": "^/bin/hostname$",
+  "stdout": "Sams-MacBook-Pro.local\n"
+ },
+ {
+  "match": "^/usr/sbin/ioreg -rd1 -c IOPlatformExpertDevice$",
+  "file": "ioreg-platform.txt"
+ },
+ {
+  "match": "^/usr/sbin/ioreg -rn AppleSmartBattery$",
+  "file": "ioreg-battery.txt"
+ },
+ {
+  "match": "^/usr/sbin/ioreg -r -d 1 -w 0 -c IOAccelerator$",
+  "stdout": "+-o AGXAcceleratorG15X  <class AGXAcceleratorG15X>\n  {\n    \"PerformanceStatistics\" = {\"Device Utilization %\"=4,\"Renderer Utilization %\"=3}\n  }\n"
+ },
+ {
+  "match": "^/usr/bin/sw_vers$",
+  "stdout": "ProductName:\t\tmacOS\nProductVersion:\t\t15.1\nBuildVersion:\t\t24B83\n"
+ },
+ {
+  "match": "^/usr/bin/uname -r$",
+  "stdout": "24.1.0\n"
+ },
+ {
+  "match": "^/usr/bin/uname -m$",
+  "stdout": "arm64\n"
+ },
+ {
+  "match": "^/usr/sbin/sysctl -n hw.model$",
+  "stdout": "Mac15,6\n"
+ },
+ {
+  "match": "^/usr/sbin/sysctl -n machdep.cpu.brand_string$",
+  "stdout": "Apple M3 Pro\n"
+ },
+ {
+  "match": "^/usr/sbin/sysctl -n hw.memsize$",
+  "stdout": "38654705664\n"
+ },
+ {
+  "match": "^/usr/sbin/sysctl -n hw.ncpu$",
+  "stdout": "12\n"
+ },
+ {
+  "match": "^/usr/sbin/sysctl -n kern.sleeptime$",
+  "stdout": "{ sec = 1761980000, usec = 0 } Sat Nov  1 08:13:20 2025\n"
+ },
+ {
+  "match": "^/usr/sbin/sysctl vm.swapusage",
+  "stdout": "vm.swapusage: total = 0.00M  used = 0.00M  free = 0.00M  (encrypted)\nvm.loadavg: { 1.52 1.61 1.70 }\nkern.boottime: { sec = 1761900000, usec = 0 }\n"
+ },
+ {
+  "match": "^/usr/bin/xcode-select -p$",
+  "stdout": "/Library/Developer/CommandLineTools\n"
+ },
+ {
+  "match": "^/usr/bin/xcrun swift --version$",
+  "stdout": "Apple Swift version 6.0.2 (swiftlang-6.0.2.1.2 clang-1600.0.26.4)\nTarget: arm64-apple-macosx15.0\n"
+ },
+ {
+  "match": "^/usr/sbin/system_profiler -json",
+  "file": "system_profiler.json"
+ },
+ {
+  "match": "^/usr/bin/pmset -g batt$",
+  "stdout": "Now drawing from 'AC Power'\n -InternalBattery-0 (id=24313955)\t87%; charging; 0:45 remaining present: true\n"
+ },
+ {
+  "match": "^/usr/bin/pmset -g assertions$",
+  "file": "pmset-assertions.txt"
+ },
+ {
+  "match": "^/usr/bin/pmset -g therm$",
+  "stdout": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\n"
+ },
+ {
+  "match": "^/usr/bin/pmset -g ps$",
+  "stdout": "Now drawing from 'AC Power'\n -InternalBattery-0 (id=24313955)\t87%; charging; 0:45 remaining present: true\n"
+ },
+ {
+  "match": "^/usr/bin/pmset -g custom$",
+  "stdout": "Battery Power:\n sleep 1\n displaysleep 2\nAC Power:\n sleep 1\n displaysleep 10\n"
+ },
+ {
+  "match": "^/usr/bin/pmset -g$",
+  "stdout": "System-wide power settings:\n SleepDisabled\t\t0\nCurrently in use:\n standby              1\n sleep                1\n displaysleep         10\n"
+ },
+ {
+  "match": "^/usr/bin/defaults read com.apple.dock orientation$",
+  "stdout": "bottom\n"
+ },
+ {
+  "match": "^/usr/bin/defaults read com.apple.finder CreateDesktop$",
+  "stderr": "The domain/default pair of (com.apple.finder, CreateDesktop) does not exist\n",
+  "code": 1
+ },
+ {
+  "match": "^/usr/bin/defaults read com.apple.universalaccess mouseDriverCursorSize$",
+  "stdout": "1\n"
+ },
+ {
+  "match": "^/usr/bin/defaults read -g NSAppSleepDisabled$",
+  "code": 1,
+  "stderr": "does not exist"
+ },
+ {
+  "match": "^/usr/bin/osascript -e tell application \\\"System Events\\\" to get autohide of dock preferences$",
+  "stdout": "false\n"
+ },
+ {
+  "match": "^/usr/bin/osascript -e tell application \\\"System Events\\\" to get autohide menu bar of dock preferences$",
+  "stdout": "false\n"
+ },
+ {
+  "match": "^/usr/bin/osascript -e alert volume of \\(get volume settings\\)$",
+  "stdout": "75\n"
+ },
+ {
+  "match": "^/usr/bin/osascript -e tell application \\\"System Events\\\" to get name of every application process whose visible is true$",
+  "stdout": "Finder, Terminal, Safari\n"
+ },
+ {
+  "match": "^/usr/bin/osascript -l JavaScript -e",
+  "stdout": "[{\"id\": \"x-coredata://1\", \"name\": \"Shopping\", \"body\": \"<div>milk</div>\", \"created\": 1, \"modified\": 2, \"folder\": \"Notes\", \"account\": \"iCloud\", \"locked\": false}, {\"id\": \"x-coredata://2\", \"name\": \"Ideas\", \"body\": \"<div>\\u2026</div>\", \"created\": 1, \"modified\": 2, \"folder\": \"Work\", \"account\": \"iCloud\", \"locked\": false}, {\"id\": \"x-coredata://3\", \"name\": \"Bank\", \"body\": null, \"created\": 1, \"modified\": 2, \"folder\": \"Notes\", \"account\": \"iCloud\", \"locked\": true}]\n"
+ },
+ {
+  "match": "^/usr/bin/osascript -e tell application \\\"Notes\\\" to quit$",
+  "stdout": ""
+ },
+ {
+  "match": "^/usr/bin/pgrep -fl caffeinate$",
+  "stdout": "4243 caffeinate -i -d -m -w 4242\n"
+ },
+ {
+  "match": "^/usr/bin/pgrep -fl stage-restore$",
+  "code": 1
+ },
+ {
+  "match": "^/usr/bin/pgrep -x Notes$",
+  "code": 1
+ },
+ {
+  "match": "^/usr/bin/top ",
+  "file": "top-power.txt"
+ },
+ {
+  "match": "^/usr/bin/vm_stat$",
+  "stdout": "Mach Virtual Memory Statistics: (page size of 16384 bytes)\nPages free:                               12345.\n"
+ },
+ {
+  "match": "^/usr/sbin/netstat -ib$",
+  "stdout": "Name       Mtu   Network       Address            Ipkts Ierrs     Ibytes    Opkts Oerrs     Obytes  Coll\nen0        1500  <Link#11>   a4:83:e7:12:34:56  1000     0     200000      900     0     100000     0\n"
+ },
+ {
+  "match": "^/bin/sh -c ps -E",
+  "stdout": "12345 node\n"
+ },
+ {
+  "match": "^/usr/bin/nettop ",
+  "stdout": "time,,bytes_in,bytes_out,\n12:00:00.000,launchd.1,0,0,\n"
+ },
+ {
+  "match": "^/usr/bin/codesign -dv",
+  "stdout": "Executable=/Users/sam/keeper/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron\nIdentifier=com.github.Electron\nFormat=app bundle with Mach-O universal (x86_64 arm64)\nAuthority=Developer ID Application: (redacted for fixture)\nTeamIdentifier=7T8XXXXXXX\n"
+ },
+ {
+  "match": "^/usr/sbin/lsof -nP -a -p \\d+ -iTCP -sTCP:LISTEN$",
+  "stdout": "COMMAND  PID USER   FD   TYPE DEVICE SIZE/OFF NODE NAME\nElectron 4242 sam   41u  IPv4 0x1      0t0  TCP 127.0.0.1:47820 (LISTEN)\n"
+ },
+ {
+  "match": "^/usr/sbin/lsof -a -p \\d+ -d cwd -Fn$",
+  "stdout": "p4242\nfcwd\nn/Users/sam/keeper\n"
+ },
+ {
+  "match": "^/usr/bin/dns-sd -B _keeper._tcp local\\.$",
+  "stdout": "Browsing for _keeper._tcp.local.\nDATE: ---Sat 01 Nov 2026---\n12:00:00.000  ...STARTING...\nTimestamp     A/R    Flags  if Domain               Service Type         Instance Name\n12:00:00.100  Add        2  14 local.               _keeper._tcp.        Sams-MacBook-Pro\n"
+ },
+ {
+  "match": "^/bin/sh -c command -v ",
+  "stdout": "/sbin/found\n"
+ },
+ {
+  "match": "^/sbin/pfctl -n -v -f ",
+  "stdout": "block drop out quick proto tcp from any to 192.0.2.0/24 port = 443\npass in quick from 198.51.100.7 to any\n",
+  "stderr": "No ALTQ support in kernel\nALTQ related functions disabled\n"
+ },
+ {
+  "match": "^/usr/bin/say ",
+  "stdout": ""
+ },
+ {
+  "match": "^/usr/bin/xattr -l ",
+  "stdout": "com.apple.FinderInfo: 00000000000000000400000000000000\n"
+ },
+ {
+  "match": "^/bin/ps -A -o pid=,ppid=,rss=,time=,comm=$",
+  "file": "ps.txt"
+ },
+ {
+  "match": "^/usr/bin/open ",
+  "stdout": ""
+ }
+]

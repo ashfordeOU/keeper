@@ -1,0 +1,82 @@
+{
+ "screens": {
+  "screens": [
+   {
+    "index": 0,
+    "id": 1,
+    "name": "Built-in Retina Display",
+    "main": true,
+    "builtIn": true,
+    "scale": 2,
+    "frame": {
+     "x": 0,
+     "y": 0,
+     "width": 1512,
+     "height": 982
+    },
+    "visibleFrame": {
+     "x": 0,
+     "y": 0,
+     "width": 1512,
+     "height": 950
+    },
+    "boundsTopLeft": {
+     "x": 0,
+     "y": 0,
+     "width": 1512,
+     "height": 982
+    },
+    "menuBarHeight": 32,
+    "safeAreaTop": 32,
+    "auxLeft": {
+     "x": 0,
+     "y": 950,
+     "width": 663.5,
+     "height": 32
+    },
+    "auxRight": {
+     "x": 848.5,
+     "y": 950,
+     "width": 663.5,
+     "height": 32
+    },
+    "notch": {
+     "localX": 663.5,
+     "width": 185,
+     "height": 32,
+     "centerX": 756,
+     "topY": 0
+    }
+   }
+  ]
+ },
+ "tcc": {
+  "screenRecording": true,
+  "accessibility": true,
+  "inputMonitoring": false,
+  "postEvents": true,
+  "microphone": "granted",
+  "fullDiskAccess": false,
+  "automationNotes": -1744,
+  "automationSystemEvents": 0
+ },
+ "request": {
+  "granted": true
+ },
+ "mic-level": {
+  "peakDb": -14.2,
+  "rmsDb": -38.0,
+  "samples": 240000,
+  "sampleRate": 48000,
+  "device": "MacBook Pro Microphone"
+ },
+ "desktop-get": {
+  "screens": [
+   {
+    "index": 0,
+    "id": 1,
+    "path": "/System/Library/Desktop Pictures/Sonoma.heic"
+   }
+  ]
+ }
+}

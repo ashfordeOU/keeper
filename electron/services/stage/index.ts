@@ -180,7 +180,7 @@ export class StageService {
   findPreset(id?: string): StagePreset | undefined {
     if (id === LEGACY_PRESENTATION.id) return LEGACY_PRESENTATION;
     const want = (id ?? this.cfg.preset).toLowerCase();
-    return this.cfg.presets.find((p) => p.id === want || p.name.toLowerCase() === want);
+    return this.cfg.presets.find((p) => p.id.toLowerCase() === want || p.name.toLowerCase() === want);
   }
 
   async start(presetId?: string, opts: { reason?: string; auto?: boolean; skipCountdown?: boolean } = {}): Promise<StageStatus> {

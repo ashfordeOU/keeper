@@ -1,0 +1,10 @@
++-o AppleSmartBattery  <class AppleSmartBattery>
+    {
+      "Serial" = "F5D1234567891ABCD"
+      "CycleCount" = 87
+      "CurrentCapacity" = 87
+      "Amperage" = 1200
+      "Voltage" = 12800
+      "IsCharging" = Yes
+      "ExternalConnected" = Yes
+    }

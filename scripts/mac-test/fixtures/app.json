@@ -1,0 +1,556 @@
+{
+ "windows": [
+  {
+   "id": 1,
+   "title": "Keeper",
+   "url": "file:///keeper/dist/index.html",
+   "bounds": {
+    "x": 100,
+    "y": 60,
+    "width": 1280,
+    "height": 800
+   },
+   "visible": true,
+   "onTop": false
+  },
+  {
+   "id": 2,
+   "title": "Keeper Island",
+   "url": "file:///keeper/dist/index.html?view=island&display=1",
+   "bounds": {
+    "x": 546,
+    "y": 0,
+    "width": 420,
+    "height": 80
+   },
+   "visible": true,
+   "onTop": true
+  }
+ ],
+ "island.placementPreview": {
+  "platform": "darwin",
+  "macModel": "Mac15,6",
+  "displays": [
+   {
+    "info": {
+     "id": 1,
+     "internal": true,
+     "bounds": {
+      "x": 0,
+      "y": 0,
+      "width": 1512,
+      "height": 982
+     }
+    },
+    "placement": {
+     "anchor": "notch",
+     "edge": "top",
+     "cutout": {
+      "kind": "notch",
+      "edge": "top",
+      "width": 185,
+      "height": 32,
+      "center": 756
+     },
+     "topBar": 32,
+     "topBarKind": "menubar",
+     "collapsed": {
+      "x": 546,
+      "y": 0,
+      "width": 420,
+      "height": 80
+     },
+     "expanded": {
+      "x": 446,
+      "y": 0,
+      "width": 620,
+      "height": 420
+     },
+     "pill": {
+      "width": 313,
+      "height": 32
+     },
+     "gap": 185,
+     "wing": 64,
+     "hang": 0,
+     "scale": 1,
+     "reason": "Grows out of the notch, in the same black, with room on both sides for what is happening."
+    },
+    "primary": true,
+    "label": "Built-in Retina Display"
+   }
+  ],
+  "wanted": [
+   1
+  ]
+ },
+ "island.setExpanded": null,
+ "awake.start": {
+  "on": true,
+  "session": {
+   "reason": "Mac test"
+  }
+ },
+ "awake.stop": {
+  "on": false
+ },
+ "awake.status": {
+  "on": false
+ },
+ "awake.stats": {
+  "sessions": 3,
+  "totalMs": 5400000
+ },
+ "awake.blockers": {
+  "list": [
+   {
+    "pid": 345,
+    "name": "powerd",
+    "type": "PreventUserIdleSystemSleep"
+   }
+  ],
+  "source": "pmset -g assertions"
+ },
+ "awake.setupClosedDisplay": {
+  "ok": true
+ },
+ "stage.support": [
+  {
+   "id": "hideDock",
+   "support": "yes"
+  },
+  {
+   "id": "keepKeeperOut",
+   "support": "yes"
+  },
+  {
+   "id": "dnd",
+   "support": "partly"
+  }
+ ],
+ "stage.settings": {
+  "preset": "recording",
+  "presets": [
+   {
+    "id": "recording",
+    "name": "Recording",
+    "builtIn": true,
+    "switches": {
+     "hideDesktopIcons": true,
+     "hideDock": true,
+     "hideOtherApps": false,
+     "hideMenuBar": false,
+     "apps": [],
+     "dnd": true,
+     "muteAlerts": true,
+     "pauseMusic": true,
+     "backdrop": {
+      "kind": "off",
+      "color": "#000000",
+      "color2": "#111111"
+     },
+     "neutralCursor": true,
+     "spotlight": {
+      "mode": "off",
+      "size": "m",
+      "dim": 0.5
+     },
+     "clicks": false,
+     "keystrokes": "off",
+     "keepAwake": true,
+     "resolution": {
+      "mode": "keep",
+      "width": 0,
+      "height": 0
+     },
+     "cleanClipboard": true,
+     "hidePrivate": true,
+     "keepKeeperOut": true
+    },
+    "countdown": 3,
+    "limitMin": 0,
+    "shortcut": ""
+   }
+  ]
+ },
+ "stage.savePreset": {},
+ "stage.start": {
+  "on": true
+ },
+ "stage.stop": {
+  "on": false
+ },
+ "stage.status": {
+  "on": true
+ },
+ "stage.journal": [],
+ "stage.overlays": [
+  {
+   "title": "Keeper Stage backdrop"
+  }
+ ],
+ "main:cursor": {
+  "x": 400,
+  "y": 300
+ },
+ "voice.status": {
+  "supports": {
+   "holdKey": true,
+   "keyHow": "keeper-helper event tap",
+   "systemAudio": true,
+   "systemHow": "ScreenCaptureKit",
+   "passwordGuard": true,
+   "typeInsert": true,
+   "systemEngine": true
+  },
+  "models": []
+ },
+ "voice.downloadModel": [
+  "tiny"
+ ],
+ "page:transcribe": "Keeper keeps my files tidy and easy to find.",
+ "page:mic-level": {
+  "peakDb": -12.5
+ },
+ "voice.settings": {
+  "dictation": {
+   "key": "rightAlt",
+   "insert": "paste",
+   "model": "small"
+  }
+ },
+ "voice.setSettings": {},
+ "voice.history": {
+  "$seq": [
+   [],
+   [
+    {
+     "text": "Keeper keeps my files tidy and easy to find"
+    }
+   ]
+  ]
+ },
+ "sysmon.watch": null,
+ "sysmon.live": {
+  "cpu": {
+   "total": 7.5
+  },
+  "memory": {
+   "used": 18.2,
+   "total": 36
+  },
+  "power": {
+   "watts": 6.1
+  }
+ },
+ "sysmon.energy": [
+  {
+   "name": "Safari",
+   "power": 2.1,
+   "appNap": true
+  },
+  {
+   "name": "Terminal",
+   "power": 0.4,
+   "appNap": false
+  }
+ ],
+ "sysmon.sensors": {
+  "gpuWatts": 0.6,
+  "batteryWatts": 6.1
+ },
+ "monitor.thermals": {
+  "state": "nominal"
+ },
+ "sysmon.procExtras": {
+  "signature": {
+   "signed": true,
+   "team": "7T8XXXXXXX"
+  },
+  "listeners": [
+   47820
+  ],
+  "cwd": "/"
+ },
+ "sysmon.trayPreview": {
+  "title": "7 %"
+ },
+ "sysmon.trayState": {
+  "on": false
+ },
+ "rdc.engines": {
+  "rdp": [
+   "Windows App"
+  ],
+  "vnc": [
+   "Screen Sharing",
+   "built-in"
+  ]
+ },
+ "rdc.importText": {
+  "added": [
+   {
+    "id": "c1",
+    "host": "192.0.2.10"
+   }
+  ],
+  "secrets": 0,
+  "skipped": 0
+ },
+ "rdc.state": {
+  "connections": [
+   {
+    "id": "c1",
+    "host": "192.0.2.10"
+   }
+  ]
+ },
+ "rdc.command": {
+  "file": "/usr/bin/open",
+  "args": [
+   "-a",
+   "Windows App",
+   "/tmp/keeper-rdc-XXXX/mactest.rdp"
+  ],
+  "engine": "Windows App",
+  "stdin": false,
+  "files": [
+   "/tmp/keeper-rdc-XXXX/mactest.rdp"
+  ]
+ },
+ "rdc.connect": {
+  "sid": "s1"
+ },
+ "rdc.probe": {
+  "rfb": "003.889",
+  "security": [
+   "VNC",
+   "Apple Remote Desktop"
+  ]
+ },
+ "rdc.hostStatus": {
+  "screenSharing": {
+   "on": true
+  },
+  "remoteLogin": {
+   "on": false
+  }
+ },
+ "tracks.overview": {
+  "findMy": {
+   "state": "off",
+   "detail": "Off"
+  },
+  "sources": {}
+ },
+ "link.setSettings": {},
+ "link.state": {
+  "$seq": [
+   {
+    "me": {
+     "listening": true,
+     "port": 47820,
+     "keyProtected": true,
+     "os": "macos",
+     "addresses": [
+      "192.168.1.20"
+     ]
+    },
+    "settings": {
+     "mode": "lan"
+    }
+   },
+   {
+    "me": {
+     "listening": false,
+     "port": 47820,
+     "keyProtected": true,
+     "os": "macos",
+     "addresses": []
+    },
+    "settings": {
+     "mode": "off"
+    }
+   }
+  ]
+ },
+ "link.discover": [],
+ "features.set": [],
+ "mesh.state": {
+  "on": false,
+  "feature": true,
+  "iface": {
+   "state": "off"
+  },
+  "port": 0,
+  "networks": []
+ },
+ "mesh.setOn": {
+  "$error": "Error invoking remote method 'mesh.setOn': Error: Move Keeper to Applications (installed by an administrator) before turning on the mesh network card"
+ },
+ "fw.status": {
+  "platform": "darwin",
+  "caps": {
+   "name": "Packet filter (pf)"
+  },
+  "enforcement": {
+   "active": false,
+   "backend": "Packet filter (pf)"
+  },
+  "state": {
+   "mode": "off"
+  }
+ },
+ "ambience.state": {
+  "caps": {
+   "live": true,
+   "still": true,
+   "folderIcons": true,
+   "folderIconsHow": "Finder icons, set with NSWorkspace (removing one restores the original).",
+   "lockScreen": "The lock screen shows the desktop picture on macOS 14 and later."
+  },
+  "settings": {
+   "wallpaper": {
+    "enabled": false
+   }
+  },
+  "features": {
+   "wallpaper": true
+  }
+ },
+ "ambience.set": {},
+ "ambience.setWallpaper": {},
+ "main:wallpaper-level": [],
+ "page:folder-icon-png": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+ "ambience.applyFolderIcon": {
+  "done": [
+   "x"
+  ],
+  "failed": []
+ },
+ "ambience.restoreFolderIcon": {
+  "done": [
+   "x"
+  ],
+  "failed": []
+ },
+ "ambience.setStill": {
+  "ok": true
+ },
+ "ambience.restoreDesktop": {
+  "ok": true
+ },
+ "catalog.list": {
+  "os": "darwin",
+  "entries": [
+   {
+    "id": "mac-dock-autohide"
+   },
+   {
+    "id": "mac-finder-extensions"
+   },
+   {
+    "id": "mac-old-setting"
+   }
+  ],
+  "counts": {
+   "darwin": 3
+  }
+ },
+ "catalog.read": [
+  {
+   "id": "mac-dock-autohide",
+   "value": "0",
+   "isDefault": true
+  },
+  {
+   "id": "mac-finder-extensions",
+   "raw": "1",
+   "value": "1",
+   "isDefault": false
+  },
+  {
+   "id": "mac-old-setting",
+   "value": "",
+   "isDefault": true,
+   "error": "The domain/default pair of (com.apple.old, Gone) does not exist"
+  }
+ ],
+ "security.overview": {
+  "score": 82,
+  "items": 9
+ },
+ "security.permissions": [
+  {
+   "app": "Terminal",
+   "service": "Accessibility"
+  }
+ ],
+ "security.persistence": [
+  {
+   "name": "com.apple.example",
+   "kind": "Launch agent"
+  }
+ ],
+ "security.browsers": [
+  {
+   "name": "Safari"
+  }
+ ],
+ "controls.list": [
+  {
+   "id": "wifi",
+   "value": true
+  }
+ ],
+ "appctl.controls": [
+  {
+   "id": "appNap",
+   "support": "yes"
+  },
+  {
+   "id": "network",
+   "support": "partly"
+  }
+ ],
+ "appctl.running": [
+  {
+   "name": "Safari"
+  }
+ ],
+ "protection.check": {
+  "ok": true
+ },
+ "startup.list": [
+  {
+   "name": "Example"
+  }
+ ],
+ "usageStats.status": {
+  "endpoint": "http://127.0.0.1:1",
+  "on": true,
+  "next": {
+   "pings": [
+    {
+     "v": 1,
+     "id": "00000000-0000-4000-8000-000000000000",
+     "day": "2026-11-01",
+     "system": {
+      "os": "macos",
+      "osVersion": "15.1",
+      "arch": "arm64",
+      "cpuVendor": "apple",
+      "cpu": "Apple M3 Pro",
+      "cores": 12,
+      "ramGB": 32,
+      "gpu": "apple",
+      "form": "laptop",
+      "displays": 1,
+      "notch": true,
+      "lang": "en"
+     }
+    }
+   ]
+  }
+ }
+}

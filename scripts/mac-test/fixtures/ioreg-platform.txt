@@ -1,0 +1,7 @@
++-o J516sAP  <class IOPlatformExpertDevice, id 0x100000213, registered, matched, active, busy 0 (157393 ms), retain 39>
+    {
+      "IOPlatformSerialNumber" = "C02ZK1ABMD6T"
+      "model" = <"Mac15,6">
+      "IOPlatformUUID" = "1A2B3C4D-5E6F-7A8B-9C0D-1E2F3A4B5C6D"
+      "manufacturer" = <"Apple Inc.">
+    }

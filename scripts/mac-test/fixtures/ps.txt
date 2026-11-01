@@ -1,0 +1,5 @@
+    1     0  12000   1:02.33 /sbin/launchd
+ 4242     1 210000   0:04.10 /Users/sam/keeper/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron
+ 4244  4242  90000   0:01.20 /Users/sam/keeper/node_modules/electron/dist/Electron.app/Contents/Frameworks/Electron Helper (GPU).app/Contents/MacOS/Electron Helper (GPU)
+ 4245  4242 120000   0:02.00 /Users/sam/keeper/node_modules/electron/dist/Electron.app/Contents/Frameworks/Electron Helper (Renderer).app/Contents/MacOS/Electron Helper (Renderer)
+ 4243  4242   1500   0:00.01 /usr/bin/caffeinate

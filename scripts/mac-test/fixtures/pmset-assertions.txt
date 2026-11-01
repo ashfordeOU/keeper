@@ -1,0 +1,12 @@
+2026-11-01 12:00:00 +0200
+Assertion status system-wide:
+   BackgroundTask                 0
+   PreventUserIdleDisplaySleep    1
+   PreventSystemSleep             0
+   PreventUserIdleSystemSleep     1
+Listed by owning process:
+   pid 4243(caffeinate): [0x0000a1b2c3d4e5f6] 00:00:05 PreventUserIdleSystemSleep named: "caffeinate command-line tool"
+	Details: caffeinate asserting on behalf of 'Electron' (pid 4242)
+   pid 4243(caffeinate): [0x0000a1b2c3d4e5f7] 00:00:05 PreventUserIdleDisplaySleep named: "caffeinate command-line tool"
+   pid 345(powerd): [0x0000000100000123] 00:10:00 PreventUserIdleSystemSleep named: "Powerd - Prevent sleep while display is on"
+Kernel Assertions: 0x4=USB

@@ -1,0 +1,122 @@
+{
+ "hello": {
+  "version": "1",
+  "macos": "15.1",
+  "arm": true,
+  "appleModel": {
+   "available": false,
+   "reason": "deviceNotEligible"
+  },
+  "ocr": true,
+  "spotlight": true
+ },
+ "input.status": {
+  "trusted": true
+ },
+ "notifications.status": {
+  "readable": false,
+  "reason": "Full Disk Access is needed"
+ },
+ "calls.micApps": {
+  "apps": []
+ },
+ "calls.muted": {
+  "muted": false
+ },
+ "hud.levels": {
+  "volume": 0.5,
+  "muted": false,
+  "brightness": 0.8
+ },
+ "desktop.getImage": {
+  "path": "/System/Library/Desktop Pictures/Sonoma.heic"
+ },
+ "voice.micState": {
+  "inUse": false,
+  "apps": [
+   "Finder"
+  ]
+ },
+ "voice.focus": {
+  "secure": false
+ },
+ "stage.modes": {
+  "display": 1,
+  "modes": [
+   {
+    "id": 10,
+    "width": 1512,
+    "height": 982,
+    "refresh": 120,
+    "hidpi": true,
+    "current": true
+   },
+   {
+    "id": 11,
+    "width": 1352,
+    "height": 878,
+    "refresh": 120,
+    "hidpi": true,
+    "current": false
+   }
+  ]
+ },
+ "stage.windows": {
+  "windows": [
+   {
+    "owner": "Finder",
+    "pid": 500,
+    "layer": 0
+   }
+  ]
+ },
+ "stage.cursorSize": {
+  "size": 1
+ },
+ "stage.setMode": {
+  "ok": true
+ },
+ "ddc.list": {
+  "displays": []
+ },
+ "language": {
+  "lang": "en"
+ },
+ "input.move": {
+  "ok": true
+ },
+ "voice.keys": {
+  "$deltas": [
+   "ready"
+  ],
+  "$result": {
+   "ended": true
+  }
+ },
+ "voice.systemAudio": {
+  "$deltas": [
+   "AAAAAM3MzD0AAIA+mpmZvs3MTD4AAAAAzczMvc3MTD0=",
+   "AAAAAM3MzD0AAIA+mpmZvs3MTD4AAAAAzczMvc3MTD0="
+  ],
+  "$result": {
+   "ended": true
+  }
+ },
+ "notifications.watch": {
+  "$deltas": [
+   "{\"app\":\"com.apple.clock\",\"title\":\"Timer\"}"
+  ],
+  "$result": {
+   "ended": true
+  }
+ },
+ "stage.events": {
+  "$deltas": [
+   "{\"kind\":\"key\",\"key\":\"Left\"}",
+   "{\"kind\":\"click\"}"
+  ],
+  "$result": {
+   "ended": true
+  }
+ }
+}

@@ -1,0 +1,6 @@
+Processes: 512 total, 3 running, 509 sleeping, 2541 threads
+Load Avg: 1.52, 1.61, 1.70  CPU usage: 4.5% user, 3.1% sys, 92.3% idle
+
+PID    COMMAND          %CPU MEM   POWER THREADS STATE
+4242   Electron         1.2  210M  1.4   32      sleeping
+345    powerd           0.0  2M    0.0   3       sleeping

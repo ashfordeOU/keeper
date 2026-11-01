@@ -1,0 +1,41 @@
+{
+ "SPDisplaysDataType": [
+  {
+   "_name": "Apple M3 Pro",
+   "sppci_model": "Apple M3 Pro",
+   "spdisplays_ndrvs": [
+    {
+     "_name": "Color LCD",
+     "_spdisplays_resolution": "1512 x 982 @ 120.00Hz",
+     "spdisplays_connection_type": "spdisplays_internal",
+     "spdisplays_main": "spdisplays_yes",
+     "_spdisplays_display-serial-number": "fd626d62"
+    }
+   ]
+  }
+ ],
+ "SPHardwareDataType": [
+  {
+   "_name": "hardware_overview",
+   "chip_type": "Apple M3 Pro",
+   "machine_model": "Mac15,6",
+   "machine_name": "MacBook Pro",
+   "physical_memory": "36 GB",
+   "platform_UUID": "1A2B3C4D-5E6F-7A8B-9C0D-1E2F3A4B5C6D",
+   "provisioning_UDID": "00008132-001A2B3C4D5E6F70",
+   "serial_number": "C02ZK1ABMD6T"
+  }
+ ],
+ "SPPowerDataType": [
+  {
+   "_name": "spbattery_information",
+   "sppower_battery_health_info": {
+    "sppower_battery_cycle_count": 87,
+    "sppower_battery_health": "Good"
+   },
+   "sppower_battery_model_info": {
+    "sppower_battery_serial_number": "F5D1234567891ABCD"
+   }
+  }
+ ]
+}
