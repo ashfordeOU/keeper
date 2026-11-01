@@ -402,7 +402,7 @@ function Appearance({ cfg, save }: { cfg: AwakeSettings; save: (p: Partial<Awake
     <>
       <h2 className="awake-h">Menu bar and shortcuts</h2>
       <div className="card settings-section">
-        <Row title="Separate menu-bar icon" desc="Click to turn Keep Awake on or off; right-click for durations, triggers and options."><Toggle on={cfg.menuItem} onChange={(v) => save({ menuItem: v })} /></Row>
+        <Row title="Show separately in the menu bar" desc="Off by default: Keep Awake shows in the Island and in the owl’s glance. On: an icon of its own (click to turn Keep Awake on or off; right-click for durations, triggers and options)."><Toggle on={cfg.menuItem} onChange={(v) => save({ menuItem: v })} /></Row>
         <Row title="Icon">
           <div className="seg">{ICON_STYLES.map((s) => <button key={s} className={cfg.iconStyle === s ? 'on' : ''} onClick={() => save({ iconStyle: s })} aria-label={ICON_NAME[s]} title={ICON_NAME[s]}>
             {/* The real menu-bar picture, drawn from the same code (static markup, no user text). */}

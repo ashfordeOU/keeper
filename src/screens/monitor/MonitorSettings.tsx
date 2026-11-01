@@ -66,7 +66,7 @@ export function MonitorSettingsPanel() {
 
   return (
     <div className="card settings-section mon-settings">
-      <Row title="Readings in the menu bar" desc="Live numbers and sparklines next to the clock (the tray on Windows and Linux); click one for details. Readings run only while they are shown.">
+      <Row title="Show separately in the menu bar" desc="Off by default: Keeper keeps one icon in the menu bar (the owl), whose glance shows these readings. On: live numbers and sparklines of their own next to the clock (the tray on Windows and Linux). Readings run only while they are shown.">
         <Toggle on={s.surfaces.tray && trayOn} onChange={(v) => { if (v && !trayOn) void api.features.set('monitorTray', true); void set({ surfaces: { ...s.surfaces, tray: v } }); }} />
       </Row>
       {s.surfaces.tray && trayOn ? (

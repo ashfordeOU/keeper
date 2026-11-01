@@ -76,8 +76,10 @@ describe('menu-bar readings', () => {
   });
 
   it('converts to BGRA for the system', () => {
-    const out = toBgra({ width: 1, height: 1, data: new Uint8Array([1, 2, 3, 4]) });
-    expect([...out]).toEqual([3, 2, 1, 4]);
+    expect([...toBgra({ width: 1, height: 1, data: new Uint8Array([10, 20, 30, 255]) })]).toEqual([30, 20, 10, 255]);
+    // Premultiplied: a half-transparent pixel never has a colour brighter than its alpha.
+    expect([...toBgra({ width: 1, height: 1, data: new Uint8Array([20, 20, 20, 90]) })]).toEqual([7, 7, 7, 90]);
+    expect([...toBgra({ width: 1, height: 1, data: new Uint8Array([240, 240, 240, 0]) })]).toEqual([0, 0, 0, 0]);
   });
 
   it('normalises settings leniently', () => {

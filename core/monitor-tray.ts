@@ -320,14 +320,20 @@ export function inkFor(strain: Strain, dark: boolean, colorUnderStrain: boolean)
   return dark ? [240, 240, 240, 255] : [20, 20, 20, 255];
 }
 
-/** Converts RGBA bytes to the BGRA order Electron's nativeImage.createFromBitmap expects. */
+/**
+ * Converts RGBA bytes to what Electron's nativeImage.createFromBitmap expects:
+ * BGRA with premultiplied alpha. Unpremultiplied half-transparent pixels (the
+ * sparkline's frame) are invalid there and drew as stray marks in the macOS
+ * menu bar.
+ */
 export function toBgra(b: Bitmap): Uint8Array {
   const out = new Uint8Array(b.data.length);
   for (let i = 0; i < b.data.length; i += 4) {
-    out[i] = b.data[i + 2];
-    out[i + 1] = b.data[i + 1];
-    out[i + 2] = b.data[i];
-    out[i + 3] = b.data[i + 3];
+    const a = b.data[i + 3];
+    out[i] = Math.round((b.data[i + 2] * a) / 255);
+    out[i + 1] = Math.round((b.data[i + 1] * a) / 255);
+    out[i + 2] = Math.round((b.data[i] * a) / 255);
+    out[i + 3] = a;
   }
   return out;
 }

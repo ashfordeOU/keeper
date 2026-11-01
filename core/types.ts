@@ -432,6 +432,8 @@ export interface Settings {
   sidebarHidden: string[];
   /** feature sets the person saved ("Work", "Travel"), and which set to use on battery / on power */
   featureSets: { id: string; name: string; features: Record<string, boolean> }[];
+  /** the one-icon menu bar was applied once (Keep Awake's and the readings' own icons turned off) */
+  menuBarOneIcon?: boolean;
   featureSetOnBattery: string;
   featureSetOnPower: string;
   /** Keep Awake: defaults for new sessions, triggers, menu-bar item and statistics (core/awake-engine.ts) */
