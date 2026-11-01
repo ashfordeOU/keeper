@@ -7,13 +7,16 @@
 #
 # Options:
 #   --version X    install a specific version (default: the latest release)
+#   --beta         the newest release, betas included (a beta then keeps updating to betas)
 #   --appimage     on Linux, use the AppImage even when a .deb/.rpm would fit
 #   --cli-only     install only the `keeper` command (needs Node.js 22+ and npm)
 #   --uninstall    remove Keeper (the app, the command and the menu entry; your files are untouched)
 #   --yes          do not ask before using sudo
 #
-# Every download is checked against the release's SHA256SUMS.txt; when the GitHub
-# CLI is installed and signed in, the build attestation is verified as well.
+# Every download is checked against the release's SHA256SUMS.txt (nothing is
+# installed without a match); when the GitHub CLI is installed and signed in, the
+# build attestation is verified as well. On macOS a running Keeper is quit, the
+# new one replaces it in /Applications and opens.
 # Environment: KEEPER_VERSION, KEEPER_RELEASES_API (another releases API, for mirrors and tests).
 
 set -eu
@@ -23,6 +26,7 @@ API="${KEEPER_RELEASES_API:-https://api.github.com/repos/$REPO}"
 VERSION="${KEEPER_VERSION:-latest}"
 MODE="app"
 FORCE_APPIMAGE=0
+BETA=0
 ASSUME_YES=0
 
 say() { printf '%s\n' "$*"; }
@@ -33,13 +37,14 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --version) [ $# -ge 2 ] || fail "--version needs a value, e.g. --version 0.2.0"; VERSION="${2#v}"; shift 2 ;;
     --version=*) VERSION="${1#--version=}"; VERSION="${VERSION#v}"; shift ;;
+    --beta) BETA=1; shift ;;
     --appimage) FORCE_APPIMAGE=1; shift ;;
     --cli-only) MODE="cli"; shift ;;
     --uninstall) MODE="uninstall"; shift ;;
     --yes|-y) ASSUME_YES=1; shift ;;
     -h|--help)
-      if [ -f "$0" ]; then sed -n '3,17p' "$0"
-      else say "Options: --version X, --appimage, --cli-only, --uninstall, --yes. See https://github.com/$REPO/blob/main/docs/INSTALL.md"; fi
+      if [ -f "$0" ]; then sed -n '3,20p' "$0"
+      else say "Options: --version X, --beta, --appimage, --cli-only, --uninstall, --yes. See https://github.com/$REPO/blob/main/docs/INSTALL.md"; fi
       exit 0 ;;
     *) fail "unknown option: $1 (try --help)" ;;
   esac
@@ -141,7 +146,13 @@ cli_only() {
 # ---------------------------------------------------------------- the release
 
 release_json() {
-  if [ "$VERSION" = latest ]; then fetch_text "$API/releases/latest"; else fetch_text "$API/releases/tags/v$VERSION"; fi
+  if [ "$VERSION" != latest ]; then fetch_text "$API/releases/tags/v$VERSION"
+  elif [ "$BETA" -eq 1 ]; then
+    # The releases list is newest first and includes pre-releases; take the first tag.
+    tag="$(fetch_text "$API/releases?per_page=10" | tr ',' '\n' | sed -n 's/^[[:space:]]*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)"
+    [ -n "$tag" ] || return 1
+    fetch_text "$API/releases/tags/$tag"
+  else fetch_text "$API/releases/latest"; fi
 }
 
 # Picks the download URL of an asset by exact name from the release JSON (no jq needed).
@@ -156,16 +167,13 @@ download_verified() { # json name -> path
   sums_url="$(asset_url "$1" SHA256SUMS.txt)"
   step "Downloading $name"
   fetch "$url" "$TMP/$name"
-  if [ -n "$sums_url" ]; then
-    fetch "$sums_url" "$TMP/SHA256SUMS.txt"
-    want="$(grep "[[:space:]]\**$name\$" "$TMP/SHA256SUMS.txt" | cut -d' ' -f1 | head -n 1)"
-    [ -n "$want" ] || fail "$name is not listed in SHA256SUMS.txt"
-    got="$(sha256 "$TMP/$name")"
-    [ "$want" = "$got" ] || fail "checksum mismatch for $name (expected $want, got $got). The download is corrupt or was tampered with; nothing was installed."
-    say "Checksum OK ($got)"
-  else
-    say "Warning: this release has no SHA256SUMS.txt, so the download could not be checked."
-  fi
+  [ -n "$sums_url" ] || fail "this release has no SHA256SUMS.txt, so $name cannot be checked; nothing was installed"
+  fetch "$sums_url" "$TMP/SHA256SUMS.txt"
+  want="$(grep "[[:space:]]\**$name\$" "$TMP/SHA256SUMS.txt" | cut -d' ' -f1 | head -n 1)"
+  [ -n "$want" ] || fail "$name is not listed in SHA256SUMS.txt"
+  got="$(sha256 "$TMP/$name")"
+  [ "$want" = "$got" ] || fail "checksum mismatch for $name (expected $want, got $got). The download is corrupt or was tampered with; nothing was installed."
+  say "Checksum OK ($got)"
   if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1 && [ "${KEEPER_VERIFY_ATTESTATION:-1}" != 0 ]; then
     if gh attestation verify "$TMP/$name" --repo "$REPO" >/dev/null 2>&1; then say "Build attestation verified: built by $REPO on GitHub Actions"
     else fail "the build attestation for $name could not be verified (set KEEPER_VERIFY_ATTESTATION=0 to skip)"; fi
@@ -186,23 +194,36 @@ EOF
   case ":$PATH:" in *":$BIN_DIR:"*) ;; *) say "Add $BIN_DIR to your PATH to use the keeper command." ;; esac
 }
 
+# A running Keeper is asked to quit (it saves where you are), then stopped if it does not within 10 seconds.
+quit_running_mac() {
+  pgrep -xq Keeper || return 0
+  step "Quitting the running Keeper"
+  osascript -e 'tell application id "io.github.ashfordeou.keeper" to quit' >/dev/null 2>&1 || true
+  tries=0
+  while pgrep -xq Keeper && [ "$tries" -lt 20 ]; do sleep 0.5; tries=$((tries + 1)); done
+  pkill -x Keeper 2>/dev/null || true
+}
+
 install_mac() {
   json="$(release_json)" || fail "could not read the release information from GitHub"
   download_verified "$json" "Keeper-mac-$ARCH.dmg"
   MNT="$TMP/mnt"; mkdir -p "$MNT"
   hdiutil attach "$DOWNLOADED" -nobrowse -readonly -noautoopen -mountpoint "$MNT" -quiet || fail "could not open the disk image"
+  [ -d "$MNT/Keeper.app" ] || fail "the disk image has no Keeper.app"
   dest="/Applications"
   if [ ! -w "$dest" ]; then dest="$HOME/Applications"; mkdir -p "$dest"; fi
+  quit_running_mac
   step "Installing Keeper into $dest"
-  if [ -d "$dest/Keeper.app" ]; then
-    osascript -e 'tell application id "io.github.ashfordeou.keeper" to quit' >/dev/null 2>&1 || true
-    rm -rf "$dest/Keeper.app"
-  fi
+  rm -rf "$dest/Keeper.app"
   ditto "$MNT/Keeper.app" "$dest/Keeper.app"
-  xattr -dr com.apple.quarantine "$dest/Keeper.app" 2>/dev/null || true
   hdiutil detach "$MNT" -quiet || true; MNT=""
+  xattr -dr com.apple.quarantine "$dest/Keeper.app" 2>/dev/null || true
   write_shim "$dest/Keeper.app/Contents/MacOS/Keeper" "$dest/Keeper.app/Contents/Resources/app.asar/dist-cli/keeper.cjs" "open -a '$dest/Keeper.app'"
-  say "Keeper is installed. Open it from $dest or Launchpad."
+  if [ "${KEEPER_NO_OPEN:-0}" != 1 ]; then
+    step "Opening Keeper"
+    open "$dest/Keeper.app" || true
+  fi
+  say "Keeper is installed in $dest. It updates itself from now on (Settings → Updates)."
 }
 
 install_linux_package() { # kind
@@ -274,7 +295,8 @@ case "$MODE" in
   cli) cli_only; exit 0 ;;
 esac
 
-say "Installing Keeper by Ashforde® ($VERSION) for $OS-$ARCH"
+label="$VERSION"; [ "$VERSION" = latest ] && [ "$BETA" -eq 1 ] && label="newest, betas included"
+say "Installing Keeper by Ashforde® ($label) for $OS-$ARCH"
 if [ "$OS" = mac ]; then
   install_mac
 elif [ "$FORCE_APPIMAGE" -eq 1 ]; then
