@@ -52,7 +52,7 @@ Everything is saved to one JSON file in the app's data folder.
 
 ## The Island
 
-`electron/services/island.ts` owns the live state: it polls the clipboard, now playing, coding-agent transcripts, battery and microphone; watches Downloads, Desktop and the screenshot folder; runs the focus timer and keep-awake conditions; and fetches the calendar and weather. Pure parts — `.ics` parsing with recurrence, `.lrc` lyrics, agent status from JSON Lines transcripts, clipboard history, the focus timer — live in `core/island.ts` with tests. The Island window (`src/island/Island.tsx`) is a frameless, transparent, always-on-top window that resizes when it expands.
+`electron/services/island.ts` owns the live state: it polls the clipboard, now playing, coding-agent transcripts, battery and microphone; watches Downloads, Desktop and the screenshot folder; runs the focus timer and keep-awake conditions; and fetches the weather; calendar events come from the Mail & Calendar service (`electron/services/pim`), which reads this computer's own calendars (`system-calendars.ts`), connected accounts and subscriptions. Pure parts — `.ics` parsing with recurrence, `.lrc` lyrics, agent status from JSON Lines transcripts, clipboard history, the focus timer — live in `core/island.ts` with tests. The Island window (`src/island/Island.tsx`) is a frameless, transparent, always-on-top window that resizes when it expands.
 
 ## Security boundaries
 
