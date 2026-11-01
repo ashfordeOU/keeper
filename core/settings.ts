@@ -111,6 +111,7 @@ export function defaultSettings(folders: string[], rules: Rule[]): AllSettings {
     updateCheck: true,
     updateMode: 'auto',
     updateBeta: false,
+    updateBetaChosen: false,
     resourceMode: 'balanced',
     features: {},
     sidebarHidden: [],

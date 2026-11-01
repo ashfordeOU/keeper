@@ -12,6 +12,7 @@ import { useStore } from '../state';
 import { Icon } from './Icon';
 import { ContextMenu, Modal, Toggle } from './ui';
 import { countdown, describePlan, type UpdateWhen } from '../../core/update-schedule';
+import { wantsBeta } from '../../core/updates';
 import '../styles/updates.css';
 
 // Every place that shows the update (Settings, the banner) sees the same status at once.
@@ -251,9 +252,9 @@ export function UpdatesPanel() {
       <div className="row" style={{ justifyContent: 'space-between', marginTop: 12 }}>
         <div>
           <div style={{ fontWeight: 600 }}>Include beta versions</div>
-          <div className="small muted">Try new features early. Betas may have rough edges.</div>
+          <div className="small muted">Try new features early. Betas may have rough edges. A beta copy of Keeper stays on betas unless you turn this off.</div>
         </div>
-        <Toggle on={!!settings.updateBeta} onChange={(v) => void updateSettings({ updateBeta: v })} />
+        <Toggle on={wantsBeta((s?.current ?? info?.appVersion ?? '').replace(/\s.*$/, ''), settings.updateBeta, settings.updateBetaChosen)} onChange={(v) => void updateSettings({ updateBeta: v, updateBetaChosen: true })} />
       </div>
       <div className="small muted" style={{ marginTop: 12 }}>
         {s?.method === 'manager'

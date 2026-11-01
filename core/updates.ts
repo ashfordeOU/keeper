@@ -53,6 +53,16 @@ export function compareVersions(a: string, b: string): number {
   return 0;
 }
 
+/**
+ * Whether to offer pre-releases. A beta (a version with a hyphen, 1.2.0-beta.1)
+ * follows the beta line unless the person turned betas off themselves;
+ * `chosen` says the setting came from them rather than the default.
+ */
+export function wantsBeta(current: string, beta: boolean | undefined, chosen = false): boolean {
+  if (chosen) return !!beta;
+  return !!beta || current.includes('-');
+}
+
 /** The newest published release that is newer than `current` (pre-releases only when asked for). */
 export function pickRelease(releases: GhRelease[], current: string, beta = false): GhRelease | undefined {
   return releases

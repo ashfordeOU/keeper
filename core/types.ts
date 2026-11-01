@@ -424,6 +424,8 @@ export interface Settings {
   updateMode: 'auto' | 'ask' | 'off';
   /** also offer pre-release (beta) versions */
   updateBeta: boolean;
+  /** the person set updateBeta themselves (a beta install otherwise follows betas) */
+  updateBetaChosen: boolean;
   /** how much of the computer Keeper's background work may use (see core/governor.ts) */
   resourceMode: import('./governor').ResourceMode;
   /** features switched away from their default (see core/features.ts) */

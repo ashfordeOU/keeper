@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 import { describe, expect, it } from 'vitest';
-import { compareVersions, notesToText, pickAsset, pickRelease, releaseFor, type GhRelease } from '../core/updates';
+import { compareVersions, notesToText, pickAsset, pickRelease, releaseFor, wantsBeta, type GhRelease } from '../core/updates';
 
 const asset = (name: string) => ({ name, size: 100, browser_download_url: `https://example.org/${name}` });
 const rel = (tag: string, over: Partial<GhRelease> = {}): GhRelease => ({
@@ -25,6 +25,18 @@ describe('versions', () => {
     expect(pickRelease(list, '0.1.0', true)?.tag_name).toBe('v0.3.0-beta.1');
     expect(pickRelease(list, '0.2.0')).toBeUndefined();
     expect(releaseFor(list, '0.2.0')?.body).toBe('Notes for v0.2.0');
+  });
+
+  it('a beta copy follows betas unless the person turned them off', () => {
+    expect(wantsBeta('0.3.0-beta.1', false)).toBe(true);
+    expect(wantsBeta('0.3.0-beta.1', false, true)).toBe(false);
+    expect(wantsBeta('0.3.0-beta.1', true, true)).toBe(true);
+    expect(wantsBeta('0.2.0', false)).toBe(false);
+    expect(wantsBeta('0.2.0', true)).toBe(true);
+    expect(wantsBeta('0.2.0', true, true)).toBe(true);
+    const list = [rel('v0.3.0-beta.1', { prerelease: true }), rel('v0.3.0-beta.2', { prerelease: true }), rel('v0.2.0')];
+    expect(pickRelease(list, '0.3.0-beta.1', wantsBeta('0.3.0-beta.1', false))?.tag_name).toBe('v0.3.0-beta.2');
+    expect(pickRelease(list, '0.3.0-beta.1', wantsBeta('0.3.0-beta.1', false, true))).toBeUndefined();
   });
 });
 

@@ -9,16 +9,24 @@
 //   portable / tar.gz / from source    tells you, and opens the right download
 //
 // The person chooses: install automatically, ask first, or only check on demand.
+//
+// Before a dmg is staged or a .deb/.rpm installed, the file must match the
+// release's SHA256SUMS.txt, and on macOS the new app's signature must be valid
+// and, when this copy is signed with a certificate (self-signed or Developer ID),
+// meet this copy's designated requirement, so only builds signed the same way can
+// replace it. electron-updater checks its own downloads (sha512 in latest*.yml).
 
 import { app, net, Notification, powerMonitor, shell } from 'electron';
 import { spawn } from 'node:child_process';
-import { constants, createWriteStream, existsSync, promises as fsp } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { constants, createReadStream, createWriteStream, existsSync, promises as fsp } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import type { UpdateStatus } from '../../core/api-x';
 import { run } from '../../core/platform';
 import { detectInstallSource, INSTALL_SOURCES } from '../../core/install-source';
-import { compareVersions, pickAsset, pickRelease, releaseFor, versionNotes, type GhAsset, type GhRelease, type InstallKind, type VersionNote } from '../../core/updates';
+import { compareVersions, pickAsset, pickRelease, releaseFor, versionNotes, wantsBeta, type GhAsset, type GhRelease, type InstallKind, type VersionNote } from '../../core/updates';
+import { CHECKSUMS_FILE, checksumProblem, designatedRequirement, isAdHocRequirement } from '../../core/update-verify';
 import { describePlan, nextStep, planFor, type UpdateWhen } from '../../core/update-schedule';
 import { settings, updateSettings } from '../store';
 import { busyWith } from './busy';
@@ -86,6 +94,12 @@ function methodFor(k: InstallKind): Pick<UpdateStatus, 'method' | 'canInstall' |
   return { method: 'manual', canInstall: false };
 }
 
+/** Pre-releases too? A beta copy follows betas unless the person turned them off. */
+function beta(): boolean {
+  const s = settings();
+  return wantsBeta(app.getVersion(), s.updateBeta, s.updateBetaChosen);
+}
+
 // ---------------------------------------------------------------- checking
 
 async function fetchReleases(): Promise<GhRelease[]> {
@@ -103,7 +117,7 @@ export async function checkForUpdates(user = true): Promise<UpdateStatus> {
   try {
     const s = settings();
     const list = await fetchReleases();
-    release = pickRelease(list, app.getVersion(), s.updateBeta);
+    release = pickRelease(list, app.getVersion(), beta());
     if (!release) {
       set({ state: 'none', version: undefined, notes: undefined, checkedAt: Date.now(), message: 'Keeper is up to date' });
       return status;
@@ -159,6 +173,46 @@ async function downloadTo(url: string, file: string, size?: number) {
   await fsp.rename(tmp, file);
 }
 
+// ---------------------------------------------------------------- verifying
+
+async function sha256File(file: string): Promise<string> {
+  const hash = createHash('sha256');
+  for await (const chunk of createReadStream(file)) hash.update(chunk as Buffer);
+  return hash.digest('hex');
+}
+
+/** The release's SHA256SUMS.txt, or undefined when it has none. */
+async function fetchChecksums(r: GhRelease): Promise<string | undefined> {
+  const sums = r.assets.find((a) => a.name === CHECKSUMS_FILE);
+  if (!sums) return undefined;
+  const res = await net.fetch(sums.browser_download_url, { headers: { 'user-agent': `Keeper/${app.getVersion()}` } });
+  if (!res.ok) throw new Error(`Could not download ${CHECKSUMS_FILE} to check the update (${res.status})`);
+  return res.text();
+}
+
+/** The downloaded file must match the release's checksum; otherwise it is deleted and nothing is installed. */
+async function verifyChecksum(r: GhRelease, file: string, name: string) {
+  const problem = checksumProblem(await fetchChecksums(r), name, await sha256File(file));
+  if (problem) {
+    await fsp.rm(file, { force: true });
+    throw new Error(problem);
+  }
+}
+
+/**
+ * The new app's signature must be valid, and must satisfy the running app's
+ * designated requirement when that names a certificate (not an ad-hoc cdhash).
+ */
+async function verifyMacSignature(next: string) {
+  const valid = await run('/usr/bin/codesign', ['--verify', '--deep', '--strict', next], 300_000);
+  if (!valid.ok) throw new Error(`The new version's code signature is not valid; it was not installed (${(valid.stderr || valid.stdout).trim().split('\n')[0]})`);
+  const mine = await run('/usr/bin/codesign', ['-d', '-r-', currentBundle()], 60_000);
+  const requirement = designatedRequirement(`${mine.stdout}\n${mine.stderr}`);
+  if (isAdHocRequirement(requirement)) return;
+  const same = await run('/usr/bin/codesign', ['--verify', `-R=${requirement}`, next], 300_000);
+  if (!same.ok) throw new Error('The new version is not signed by the same developer as this copy of Keeper; it was not installed');
+}
+
 export async function downloadUpdate(): Promise<UpdateStatus> {
   if (!release) await checkForUpdates();
   if (!release || status.state === 'downloading') return status;
@@ -174,7 +228,7 @@ export async function downloadUpdate(): Promise<UpdateStatus> {
       eu ??= (await import('electron-updater')).autoUpdater;
       eu.autoDownload = false;
       eu.autoInstallOnAppQuit = false;
-      eu.allowPrerelease = settings().updateBeta;
+      eu.allowPrerelease = beta();
       eu.logger = null;
       if (FEED) eu.setFeedURL({ provider: 'generic', url: FEED });
       eu.removeAllListeners('download-progress');
@@ -186,6 +240,7 @@ export async function downloadUpdate(): Promise<UpdateStatus> {
       const dir = path.join(app.getPath('userData'), 'updates');
       const file = path.join(dir, asset.name);
       if (!existsSync(file) || (await fsp.stat(file)).size !== asset.size) await downloadTo(asset.browser_download_url, file, asset.size);
+      await verifyChecksum(release, file, asset.name);
       downloaded = file;
       if (kind === 'mac') await stageMac(file);
     }
@@ -236,6 +291,12 @@ async function stageMac(dmg: string) {
     await fsp.rm(next, { recursive: true, force: true });
     const copy = await run('/usr/bin/ditto', [path.join(mount, appName), next], 300_000);
     if (!copy.ok) throw new Error('Could not copy the new version');
+    try {
+      await verifyMacSignature(next);
+    } catch (e) {
+      await fsp.rm(next, { recursive: true, force: true });
+      throw e;
+    }
     await run('/usr/bin/xattr', ['-dr', 'com.apple.quarantine', next], 30_000);
     staged = { current, next };
   } finally {
@@ -388,7 +449,7 @@ let notesCache: { at: number; list: VersionNote[] } | undefined;
 export async function listVersionNotes(): Promise<VersionNote[]> {
   if (notesCache && Date.now() - notesCache.at < 3600_000) return notesCache.list;
   try {
-    const list = versionNotes(await fetchReleases(), app.getVersion(), settings().updateBeta);
+    const list = versionNotes(await fetchReleases(), app.getVersion(), beta());
     notesCache = { at: Date.now(), list };
     return list;
   } catch {
