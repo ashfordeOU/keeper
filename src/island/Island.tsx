@@ -227,6 +227,9 @@ export function Island() {
     api.island.setSize?.(w, h);
   }, [layout, compact.w, compact.h, bubble, ears, side]);
 
+  // The task a focus session is for (picked on the Timers tab).
+  const [focusTask, setFocusTask] = useState('');
+
   if (!state || isl?.enabled === false) return null;
 
   // ---------------------------------------------------------------- what the pill shows
@@ -235,7 +238,6 @@ export function Island() {
   const stuck = state.agents.find((a) => a.state === 'stuck');
   // Time left in the block, or for a stopwatch the time counted so far.
   const focusLeft = focusShown(state.focus, now);
-  const [focusTask, setFocusTask] = useState('');
   const nextEv = state.events.find((e) => !e.allDay && e.end > now);
   const soon = nextEv && nextEv.start - now < 15 * 60_000 ? nextEv : undefined;
   const openWeather = () => { const p = state.weather?.place; if (p) void openNative('weather', { lat: p.lat, lon: p.lon, label: p.name }, islandSay); };

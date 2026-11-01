@@ -54,7 +54,13 @@
 .tk-detail.compact { padding: 4px; gap: 6px; }
 .tk-detail-head { display: flex; gap: 8px; align-items: center; }
 .tk-detail-title { flex: 1; font-weight: 600; }
-.tk-field { display: flex; gap: 8px; align-items: center; }
+.tk-field { display: flex; gap: 8px; align-items: flex-start; }
+.tk-field > .tk-label { padding-top: 6px; }
+.tk-field > .input, .tk-field > .tk-days { flex: 1; min-width: 0; }
+.tk-days > input[type="date"] { flex: 1; min-width: 120px; }
+.tk-detail .chip { border: 0; cursor: default; }
+.tk-detail .chip.on { background: var(--tk-accent); color: #fff; }
+.tk-detail .tk-steps > input.input { width: 100%; max-width: none; }
 .tk-label { width: 80px; flex: none; color: var(--tk-text3); font-size: 12px; }
 .tk-days { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
 .tk-steps { display: flex; flex-direction: column; gap: 3px; }

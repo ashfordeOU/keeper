@@ -80,7 +80,7 @@ export function Reminders() {
                 <div className="small muted">
                   {r.due !== undefined ? <span className={overdue(r) ? 'overdue' : ''}>{new Date(r.due).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}</span> : null}
                   {list === 'all' || list === 'today' || list === 'flagged' ? <span> · {listName(r.list)}</span> : null}
-                  {effectiveDay(r, today).carriedFrom ? <span className="overdue"> · carried from {effectiveDay(r, today).carriedFrom}</span> : null}
+                  {effectiveDay(r, today).carriedFrom ? <span className="overdue"> · carried from {new Date(`${effectiveDay(r, today).carriedFrom}T00:00`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}</span> : null}
                   {r.rrule ? <span> · {repeatLabel(r.rrule)}</span> : null}
                   {stepProgress(r) ? <span> · {stepProgress(r)!.done}/{stepProgress(r)!.total} steps</span> : null}
                   {r.project ? <span> · #{r.project}</span> : null}
