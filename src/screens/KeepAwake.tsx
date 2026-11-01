@@ -9,6 +9,7 @@ import {
   describeRule, describeWhile, fmtDuration, fmtRemaining, ICON_STYLES,
   type AwakeRule, type AwakeSettings, type AwakeStats, type Blocker, type SessionOptions, type SessionRecord, type SessionSpec, type TriggerCondition, type TriggerKind, type WhileCondition, type WhileKind,
 } from '../../core/awake-engine';
+import { svgFor } from '../../core/awake-icons';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
 import { PageHead, Toggle } from '../components/ui';
@@ -49,7 +50,7 @@ const TRIGGER_KINDS: { kind: TriggerKind; label: string; value?: string; thresho
 ];
 
 const DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-const ICON_FOR: Record<string, string> = { cup: 'coffee', eye: 'eye', bolt: 'bolt', moon: 'moon', owl: 'sparkle' };
+const ICON_NAME: Record<string, string> = { owl: 'Keeper’s owl', cup: 'Cup', eye: 'Eye', bolt: 'Bolt', moon: 'Moon' };
 
 export function KeepAwake() {
   const { toast } = useStore();
@@ -103,7 +104,7 @@ function Hero({ st, now, quick, onStart }: { st: AwakeStatus; now: number; quick
     <div className={`card awake-hero${st.on ? ' on' : ''}`} data-testid="awake-hero">
       <button className={`awake-switch${st.on ? ' on' : ''}`} aria-pressed={st.on} aria-label={st.on ? 'Turn Keep Awake off' : 'Turn Keep Awake on'} data-testid="awake-toggle"
         onClick={() => (st.on ? void api.awake.stop() : onStart({}))}>
-        <Icon name="coffee" size={30} />
+        <span style={{ display: 'inline-flex', width: 30, height: 30 }} dangerouslySetInnerHTML={{ __html: svgFor('owl', st.on, 'currentColor', { id: 'awake-hero' }).replace('width="22" height="22"', 'width="30" height="30"') }} />
       </button>
       <div className="awake-hero-txt">
         <div className="awake-state">{st.on ? 'Keeping this computer awake' : 'Your computer can sleep as usual'}</div>
@@ -403,7 +404,10 @@ function Appearance({ cfg, save }: { cfg: AwakeSettings; save: (p: Partial<Awake
       <div className="card settings-section">
         <Row title="Separate menu-bar icon" desc="Click to turn Keep Awake on or off; right-click for durations, triggers and options."><Toggle on={cfg.menuItem} onChange={(v) => save({ menuItem: v })} /></Row>
         <Row title="Icon">
-          <div className="seg">{ICON_STYLES.map((s) => <button key={s} className={cfg.iconStyle === s ? 'on' : ''} onClick={() => save({ iconStyle: s })} aria-label={s} title={s}><Icon name={ICON_FOR[s]} size={13} /></button>)}</div>
+          <div className="seg">{ICON_STYLES.map((s) => <button key={s} className={cfg.iconStyle === s ? 'on' : ''} onClick={() => save({ iconStyle: s })} aria-label={ICON_NAME[s]} title={ICON_NAME[s]}>
+            {/* The real menu-bar picture, drawn from the same code (static markup, no user text). */}
+            <span style={{ display: 'inline-flex', width: 16, height: 16 }} dangerouslySetInnerHTML={{ __html: svgFor(s, true, 'currentColor', { id: `awake-pick-${s}` }).replace('width="22" height="22"', 'width="16" height="16"') }} />
+          </button>)}</div>
         </Row>
         <Row title="Show the time left next to the icon" desc="macOS menu bar."><Toggle on={cfg.showRemaining} onChange={(v) => save({ showRemaining: v })} /></Row>
         <Row title="Quick durations" desc="Minutes, shown in the menu, the Island and here.">

@@ -6,6 +6,7 @@ import path from 'node:path';
 import { app, ipcMain, Menu, nativeImage, Tray } from 'electron';
 import { describeSpec, fmtDuration, fmtRemaining, parseDuration, specFromCli, specFromOptions, type AwakeSettings, type IconStyle, type SessionSpec } from '../../core/awake-engine';
 import type { AwakeStatus } from '../../core/api-awake';
+import { svgFor, trayColor } from '../../core/awake-icons';
 import type { KeepAwakeState } from '../../core/api';
 import { AwakeService } from '../services/awake';
 import { registerKeeperMethod } from '../services/brain';
@@ -117,20 +118,6 @@ export function handleAwakeLink(u: URL) {
 
 // ---------------------------------------------------------------- the separate menu-bar / tray item
 
-const GLYPHS: Record<IconStyle, string> = {
-  cup: '<path d="M4 8h11v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z" {F}/><path d="M15 9.5h1.5a2.5 2.5 0 0 1 0 5H15" fill="none" {S}/><path d="M7 3.5c0 1 1 1 1 2M10.5 3.5c0 1 1 1 1 2" fill="none" {S}/>',
-  eye: '<path d="M2 11s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6z" fill="none" {S}/><circle cx="11" cy="11" r="3" {F}/>',
-  bolt: '<path d="M12.5 2 5 12.5h5.5L9.5 20 17 9.5h-5.5z" {F}/>',
-  moon: '<path d="M17.5 14A7.5 7.5 0 0 1 8 4.5a7.5 7.5 0 1 0 9.5 9.5z" {F}/>',
-  owl: '<path d="M4 6l3 2h8l3-2v8a7 7 0 0 1-14 0z" fill="none" {S}/><circle cx="8.5" cy="11.5" r="2" {F}/><circle cx="13.5" cy="11.5" r="2" {F}/>',
-};
-
-export function svgFor(style: IconStyle, on: boolean, color: string): string {
-  const stroke = `stroke="${color}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"`;
-  const fill = on ? `fill="${color}" ${stroke}` : `fill="none" ${stroke}`;
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 22 22">${GLYPHS[style].replaceAll('{F}', fill).replaceAll('{S}', stroke)}</svg>`;
-}
-
 const iconCache = new Map<string, Electron.NativeImage>();
 
 async function icon(style: IconStyle, on: boolean): Promise<Electron.NativeImage> {
@@ -138,12 +125,13 @@ async function icon(style: IconStyle, on: boolean): Promise<Electron.NativeImage
   const hit = iconCache.get(key);
   if (hit) return hit;
   const mac = process.platform === 'darwin';
-  const color = mac ? '#000000' : on ? '#f5a524' : '#9aa0a6';
+  // macOS: black template images the system tints; elsewhere colour (the owl in Keeper's gradient while awake).
+  const svg = Buffer.from(svgFor(style, on, mac ? '#000000' : trayColor(on), { colour: !mac }));
   let img = nativeImage.createEmpty();
   try {
     const sharp = (await import('sharp')).default;
-    const one = await sharp(Buffer.from(svgFor(style, on, color)), { density: 72 }).resize(22, 22).png().toBuffer();
-    const two = await sharp(Buffer.from(svgFor(style, on, color)), { density: 144 }).resize(44, 44).png().toBuffer();
+    const one = await sharp(svg, { density: 72 }).resize(22, 22).png().toBuffer();
+    const two = await sharp(svg, { density: 144 }).resize(44, 44).png().toBuffer();
     img = nativeImage.createFromBuffer(one, { scaleFactor: 1 });
     img.addRepresentation({ scaleFactor: 2, buffer: two });
     if (mac) img.setTemplateImage(true);

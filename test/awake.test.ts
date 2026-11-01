@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 import { describe, expect, it } from 'vitest';
 import {
-  addRecord, caffeinateArgs, closedDisplaySafe, conditionHolds, DEFAULT_OPTIONS, describeRule, describeSpec, evaluate, extend, ipMatches, matchingRules,
+  addRecord, caffeinateArgs, closedDisplaySafe, conditionHolds, DEFAULT_OPTIONS, defaultAwakeSettings, ICON_STYLES, describeRule, describeSpec, evaluate, extend, ipMatches, matchingRules,
   migrateOldTriggers, newSession, normalizeAwakeSettings, parseDuration, parsePmsetAssertions, parsePmsetSleepDisabled, parsePowercfgLid, parsePowercfgRequests,
   parseSystemdInhibit, pmsetDisableSleep, powercfgLid, ruleMatches, specFromCli, specFromOptions, summarize, systemdInhibitArgs, trackFalse, triggerConditionHolds, windowsHoldScript, fmtDuration,
   type AwakeRule, type Facts,
 } from '../core/awake-engine';
+import { svgFor } from '../core/awake-icons';
 
 const NOW = new Date(2026, 9, 31, 14, 0).getTime(); // a Saturday afternoon
 const facts = (o: Partial<Facts> = {}): Facts => ({
@@ -231,10 +232,33 @@ describe('requests from the command line, links and the Island', () => {
   it('settings: bad values fall back, older Island rules carry over once', () => {
     const a = normalizeAwakeSettings({ quick: [-5, 0, 'x' as never], iconStyle: 'teapot' as never, defaults: { display: 'nope' } as never }, [{ id: 'o1', kind: 'display', enabled: true }]);
     expect(a.quick.length).toBeGreaterThan(0);
-    expect(a.iconStyle).toBe('cup');
+    expect(a.iconStyle).toBe('owl');
+    // The old default moves to the owl once; a cup picked in Settings stays.
+    expect(normalizeAwakeSettings({ iconStyle: 'cup' }).iconStyle).toBe('owl');
+    expect(normalizeAwakeSettings({ iconStyle: 'cup', iconChosen: true }).iconStyle).toBe('cup');
+    expect(defaultAwakeSettings().iconStyle).toBe('owl');
+    expect(ICON_STYLES[0]).toBe('owl');
     expect(a.defaults.display).toBe('keep-on');
     expect(a.triggers[0]).toMatchObject({ id: 'o1', enabled: true, match: 'all', priority: 0 });
     // Once triggers exist in the new place, the old list is ignored.
     expect(normalizeAwakeSettings({ triggers: [] }, [{ id: 'o1', kind: 'display', enabled: true }]).triggers).toEqual([]);
+  });
+});
+
+describe('Keep Awake menu-bar pictures', () => {
+  it('the owl has open eyes while awake and closed eyes while asleep, as a template or in colour', () => {
+    const awake = svgFor('owl', true, '#000000');
+    const asleep = svgFor('owl', false, '#000000');
+    expect(awake).toContain('<circle cx="404" cy="420" r="100"');
+    expect(asleep).not.toContain('r="100"');
+    expect(asleep).toContain('Q404 510');
+    // Template images are one colour only.
+    // Template images are one colour only (black and white appear only inside the eye mask).
+    expect(new Set(awake.match(/#[0-9a-f]{3,6}\b/gi))).toEqual(new Set(['#fff', '#000', '#000000']));
+    const colour = svgFor('owl', true, '#f5a524', { colour: true, id: 'x' });
+    expect(colour).toContain('#ff5f8f');
+    expect(colour).toContain('url(#x-g)');
+    expect(svgFor('owl', false, '#9aa0a6', { colour: true })).not.toContain('linearGradient');
+    for (const s of ICON_STYLES) expect(svgFor(s, true, '#000').startsWith('<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22"')).toBe(true);
   });
 });

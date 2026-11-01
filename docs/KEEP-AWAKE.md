@@ -73,7 +73,7 @@ What each status means:
 
 | Capability | Keeper | Status |
 |---|---|---|
-| Start and stop with one click | The cup on the page, the Island button, the tray, the menu-bar icon (left click), the shortcut, the palette | Built; verified with E2E on Linux |
+| Start and stop with one click | The owl on the page, the Island button, the tray, the menu-bar icon (left click), the shortcut, the palette | Built; verified with E2E on Linux |
 | Indefinitely | "Until you turn it off" | Built; verified |
 | For a set time | An editable list of quick durations, plus typed durations (`30m`, `1h30m`, `2 hours`, `90`) | Built; verified (unit tests; E2E covers a timed session) |
 | Until a time of day | `18:30`, `6:30 pm`, `until 9:00 am` (rolls over to tomorrow) | Built; verified (unit tests) |
@@ -137,7 +137,7 @@ What each status means:
 
 | Capability | Keeper | Status |
 |---|---|---|
-| Menu-bar icon with on and off states | Optional separate icon in five styles (cup, eye, bolt, moon, owl), drawn at run time. Left click toggles; right click opens the menu | Built. The E2E switches it on and off without errors; the tray is not visible under Xvfb. Icon drawing checked by rendering the five styles |
+| Menu-bar icon with on and off states | Optional separate icon in five styles, drawn at run time (`core/awake-icons.ts`). The default is Keeper's owl, the app icon's keyhole owl: eyes open while awake, closed while the computer may sleep; a template image on macOS (with @2x), Keeper's gradient on Linux and Windows. Cup, eye, bolt and moon remain to choose from; an older default cup moves to the owl once. Keeper's own menu-bar icon shows the time left (or "Awake") as plain text beside it. Left click toggles; right click opens the menu | Built. The E2E switches it on and off without errors; the tray is not visible under Xvfb. Icon drawing checked by rendering the five styles |
 | Time left in the menu bar | Next to the icon on macOS, updated every 30 seconds while a timed session runs | Built; not verified on hardware |
 | Menu: durations, "while…", triggers, display sleep, settings | The right-click menu of the separate icon; the Keep Awake submenu of Keeper's tray menu | Built |
 | Global shortcut | The Island's keep-awake shortcut (default ⌘⇧A / Ctrl+Shift+A) | Built |

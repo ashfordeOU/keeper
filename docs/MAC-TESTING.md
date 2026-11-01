@@ -76,7 +76,7 @@ Keeper Intents is an Xcode project, not a Swift package, so `swift build` cannot
 
 - **Permissions:** Screen & System Audio Recording, Accessibility, Input Monitoring, Microphone and Full Disk Access. The right System Settings page opens for each. Automation for Notes is asked when the Notes test runs.
 - **Visual checks:** does the Island sit around the notch without covering anything? With an app with long menus, does it hang below the notch instead? With an external display, if you have one, is there an Island on it too? Is the live wallpaper behind your windows?
-- **Keep Awake:** do you see the cup and the time left in the menu bar? With your yes, closed-lid mode: its one-time setup (password), closing the lid for 20 seconds, and the watchdog after Keeper is killed.
+- **Keep Awake:** do you see the owl and the time left in the menu bar? With your yes, closed-lid mode: its one-time setup (password), closing the lid for 20 seconds, and the watchdog after Keeper is killed.
 - **keeper-helper:** a notification from another app, a call or recording using the microphone, and a few key presses.
 - **Calendar:** allowing calendar access when macOS asks; changing any event in the Calendar app while the helper listens for the change notice; and, with your yes, one test event added tomorrow at 06:00 and removed again.
 - **Voice:** reading a sentence aloud for a level reading (through Keeper's window and through the probe), and holding the talk key to dictate it.

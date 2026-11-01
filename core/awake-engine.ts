@@ -718,7 +718,8 @@ export function specFromCli(p: Record<string, unknown>): SessionSpec {
   return spec;
 }
 
-export const ICON_STYLES = ['cup', 'eye', 'bolt', 'moon', 'owl'] as const;
+/** Menu-bar pictures for Keep Awake (core/awake-icons.ts); Keeper's owl first and by default. */
+export const ICON_STYLES = ['owl', 'cup', 'eye', 'bolt', 'moon'] as const;
 export type IconStyle = (typeof ICON_STYLES)[number];
 
 export const DEFAULT_QUICK = [15, 30, 60, 120, 240, 480];
@@ -734,6 +735,8 @@ export interface AwakeSettings {
   /** a separate Keep Awake item in the menu bar / tray */
   menuItem: boolean;
   iconStyle: IconStyle;
+  /** the icon was picked in Settings (an older default "cup" moves to the owl once otherwise) */
+  iconChosen?: boolean;
   /** show the time left next to the menu-bar icon (macOS) */
   showRemaining: boolean;
   /** keep statistics */
@@ -753,7 +756,7 @@ export function defaultAwakeSettings(): AwakeSettings {
     quick: [...DEFAULT_QUICK],
     triggers: [],
     menuItem: false,
-    iconStyle: 'cup',
+    iconStyle: 'owl',
     showRemaining: true,
     stats: true,
     focusOnShortcut: '',
@@ -772,7 +775,9 @@ export function normalizeAwakeSettings(a: Partial<AwakeSettings> | undefined, ol
   if (!Array.isArray(out.defaults.driveAlive)) out.defaults.driveAlive = [];
   out.quick = Array.isArray(out.quick) ? out.quick.filter((n) => Number.isFinite(n) && n > 0).slice(0, 12) : d.quick;
   if (!out.quick.length) out.quick = d.quick;
-  if (!ICON_STYLES.includes(out.iconStyle)) out.iconStyle = 'cup';
+  if (!ICON_STYLES.includes(out.iconStyle)) out.iconStyle = 'owl';
+  // "cup" was the default before the owl; nobody picked it, so the owl takes its place.
+  if (out.iconStyle === 'cup' && !out.iconChosen) out.iconStyle = 'owl';
   if (!Array.isArray(out.triggers)) out.triggers = [];
   if (!a?.triggers && Array.isArray(oldTriggers) && oldTriggers.length) out.triggers = migrateOldTriggers(oldTriggers as Parameters<typeof migrateOldTriggers>[0]);
   out.triggers = out.triggers.filter((t) => t && typeof t.id === 'string' && Array.isArray(t.conditions)).map((t, i) => ({ ...t, match: t.match === 'any' ? 'any' : 'all', priority: Number.isFinite(t.priority) ? t.priority : i, reactivateAfterMin: t.reactivateAfterMin ?? 0, enabled: t.enabled !== false, name: t.name || 'Trigger' }));

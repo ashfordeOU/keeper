@@ -84,7 +84,7 @@ export async function runAwake(ctx: Ctx) {
       if (shot) h.artifact(shot);
     }
     if (!ctx.args.guided) return skip('No questions in this run');
-    const a = await ctx.prompt.ask({ key: 'awake-icon', title: 'Keep Awake in the menu bar', lines: ['A 30-minute Keep Awake session is running.', 'Look at the right side of the menu bar: Keeper\'s cup icon should be there, with the time left (about 30 min) next to it.', 'Click it: the menu should show the session.'], question: 'Do you see the cup and the time left?', timeoutSec: 180, note: true });
+    const a = await ctx.prompt.ask({ key: 'awake-icon', title: 'Keep Awake in the menu bar', lines: ['A 30-minute Keep Awake session is running.', 'Look at the right side of the menu bar: Keeper\'s owl icon (eyes open while awake) should be there, with the time left (about 30 min) next to it.', 'Click it: the menu should show the session.'], question: 'Do you see the owl and the time left?', timeoutSec: 180, note: true });
     h.answered(a.answer, a.note);
     return a.answer === 'y' ? pass('The owner sees the icon and time') : a.answer === 'n' ? fail('The owner does not see it', a.note) : skip('No answer');
   });

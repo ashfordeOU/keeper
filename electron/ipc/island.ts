@@ -424,7 +424,8 @@ export function registerIslandIpc(c: IslandContext) {
     setInterval(() => {
       const a = svc.awake;
       const left = a.on && a.until ? Math.max(0, a.until - Date.now()) : 0;
-      const title = a.on ? (left ? `☕ ${left >= 3_600_000 ? `${Math.floor(left / 3_600_000)}h${String(Math.round((left % 3_600_000) / 60_000)).padStart(2, '0')}` : `${Math.ceil(left / 60_000)}m`}` : '☕') : '';
+      // Plain text beside Keeper's own owl icon (no emoji): the time left, or "Awake" when there is no end.
+      const title = a.on ? (left ? (left >= 3_600_000 ? `${Math.floor(left / 3_600_000)}h${String(Math.round((left % 3_600_000) / 60_000)).padStart(2, '0')}` : `${Math.ceil(left / 60_000)}m`) : 'Awake') : '';
       if (title !== last) c.setTrayTitle?.((last = title));
     }, 15_000);
   }

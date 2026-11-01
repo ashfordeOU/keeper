@@ -604,6 +604,8 @@ export class AwakeService {
   // ---------------------------------------------------------------- triggers
 
   async saveSettings(patch: Partial<AwakeSettings>): Promise<AwakeSettings> {
+    // Picking an icon (even the cup) is remembered as a choice.
+    if (patch.iconStyle) patch = { ...patch, iconChosen: true };
     await updateSettings({ awake: { ...this.cfg, ...patch } });
     this.schedule();
     this.publish();
