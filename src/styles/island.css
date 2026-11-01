@@ -2,6 +2,8 @@
 /* The Island: a black pill at the top of the screen that opens into a small panel. */
 
 html[data-view='island'], html[data-view='island'] body, html[data-view='island'] #root { background: transparent !important; overflow: hidden; }
+/* Screen-reader-only live region (alerts are read aloud); it must never show in the clear window around the pill. */
+.sr-only { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
 .isl-root { height: 100vh; display: flex; justify-content: center; align-items: flex-start; color: var(--island-text, #f4f4f5); font-size: 12.5px; }
 .isl-root.edge-left { justify-content: flex-start; align-items: center; }
 .isl-root.edge-right { justify-content: flex-end; align-items: center; }

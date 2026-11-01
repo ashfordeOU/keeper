@@ -45,8 +45,32 @@ function clickThrough(win: BrowserWindow, on: boolean) {
   win.setIgnoreMouseEvents(on, on ? { forward: true } : undefined);
 }
 
+type Rect = { x: number; y: number; width: number; height: number };
+const sameRect = (a: Rect, b: Rect) => Math.abs(a.x - b.x) <= 1 && Math.abs(a.y - b.y) <= 1 && Math.abs(a.width - b.width) <= 1 && Math.abs(a.height - b.height) <= 1;
+
+/** KEEPER_ISLAND_LOG=1 (the Mac test kit sets it): each requested and actual Island rectangle goes to Keeper's log. */
+const islandLogOn = /^(1|true|yes)$/i.test(process.env.KEEPER_ISLAND_LOG ?? '');
+const placeLog: { at: number; display: number; why: string; want: Rect; got: Rect }[] = [];
+function logPlace(display: number, why: string, want: Rect, got: Rect) {
+  if (!islandLogOn) return;
+  placeLog.push({ at: Date.now(), display, why, want, got });
+  if (placeLog.length > 400) placeLog.splice(0, placeLog.length - 400);
+  console.log(`[island] ${why} display ${display}: wanted ${want.x},${want.y} ${want.width}x${want.height}, got ${got.x},${got.y} ${got.width}x${got.height}${sameRect(want, got) ? '' : '  MISMATCH'}`);
+}
+/** For the Mac test kit and diagnostics: the latest requested and actual rectangles (empty unless KEEPER_ISLAND_LOG is on). */
+export const islandPlaceLog = () => placeLog.slice();
+
 export class IslandWindows {
   private wins = new Map<number, BrowserWindow>();
+  /** where each window was put; anything that moves it elsewhere is put back */
+  private want = new Map<number, Rect>();
+  private snaps = new Map<number, number[]>();
+  /**
+   * macOS: windows are allowed past the menu bar (to sit in the notch). If the
+   * system keeps moving one anyway, the Island goes back to the older, stable
+   * placement below the menu bar rather than drifting around the screen.
+   */
+  private belowBarFallback = false;
   private expanded = new Set<number>();
   private hidden = false;
   private follow: NodeJS.Timeout | null = null;
@@ -68,6 +92,59 @@ export class IslandWindows {
     return { x, y, width, height };
   }
 
+  /**
+   * Keeps a rectangle on its display; on a notch the top is the display's own top,
+   * whatever any arithmetic said.
+   */
+  private clampRect(display: Electron.Display, r: Rect): Rect {
+    const B = display.bounds;
+    const width = Math.min(Math.round(r.width), B.width);
+    const height = Math.min(Math.round(r.height), B.height);
+    const x = Math.min(Math.max(Math.round(r.x), B.x), B.x + B.width - width);
+    let y = Math.min(Math.max(Math.round(r.y), B.y), B.y + B.height - height);
+    const p = placementFor(display);
+    if (p.anchor === 'notch' || p.anchor === 'menubar') y = B.y;
+    // The fallback: never above the menu bar.
+    if (this.belowBarFallback && process.platform === 'darwin') y = Math.max(y, display.workArea.y);
+    return { x, y, width, height };
+  }
+
+  /** Puts an Island window exactly where it belongs and checks that it stayed there. */
+  private place(id: number, win: BrowserWindow, rect: Rect, why: string) {
+    if (win.isDestroyed()) return;
+    const r = this.clampRect(this.displayOf(id), rect);
+    this.want.set(id, r);
+    win.setBounds(r, false);
+    const got = win.getBounds();
+    if (!sameRect(got, r)) {
+      // macOS may keep the old height's bottom edge or push the frame down; once more puts it right.
+      win.setBounds(r, false);
+      logPlace(id, `${why} (again)`, r, win.getBounds());
+    } else logPlace(id, why, r, got);
+  }
+
+  /** Something other than Keeper moved or resized the window (it is not movable): put it back. */
+  private snapBack(id: number, win: BrowserWindow) {
+    const r = this.want.get(id);
+    if (!r || win.isDestroyed()) return;
+    const got = win.getBounds();
+    if (sameRect(got, r)) return;
+    const now = Date.now();
+    const recent = (this.snaps.get(id) ?? []).filter((t) => now - t < 10_000);
+    recent.push(now);
+    this.snaps.set(id, recent);
+    logPlace(id, 'moved by the system, putting back', r, got);
+    if (recent.length > 12 && process.platform === 'darwin' && !this.belowBarFallback) {
+      // A tug of war with the window server: the stable placement below the menu bar instead.
+      console.warn('[island] macOS keeps moving the Island; placing it below the menu bar from now on');
+      this.belowBarFallback = true;
+      this.destroyAll();
+      setImmediate(() => this.ensure(true));
+      return;
+    }
+    setImmediate(() => { if (!win.isDestroyed()) this.place(id, win, r, 'put back'); });
+  }
+
   /** The pill's own size; the closed window shrinks to it (and grows back when the pill does). */
   setCollapsedSize(sender: WebContents, width: number, height: number) {
     for (const [id, win] of this.wins) {
@@ -75,7 +152,7 @@ export class IslandWindows {
       const prev = this.sizes.get(id);
       if (prev && Math.abs(prev.width - width) < 1 && Math.abs(prev.height - height) < 1) return;
       this.sizes.set(id, { width, height });
-      if (!this.expanded.has(id)) win.setBounds(this.bounds(this.displayOf(id), false), false);
+      if (!this.expanded.has(id)) this.place(id, win, this.bounds(this.displayOf(id), false), 'pill size');
     }
   }
 
@@ -123,7 +200,8 @@ export class IslandWindows {
       if (size) this.sizes.set(wanted[0].id, size);
       if (!win.isDestroyed()) {
         this.wins.set(wanted[0].id, win);
-        win.setBounds(this.bounds(wanted[0], false), false);
+        this.want.delete(oldId);
+        this.place(wanted[0].id, win, this.bounds(wanted[0], false), 'follow pointer');
         win.webContents.send('event:island-layout', placementFor(wanted[0]));
       }
     }
@@ -137,16 +215,17 @@ export class IslandWindows {
       const existing = this.wins.get(d.id);
       if (existing) {
         if (reposition) {
-          existing.setBounds(this.bounds(d, this.expanded.has(d.id)), false);
+          this.place(d.id, existing, this.bounds(d, this.expanded.has(d.id)), 'reposition');
           existing.webContents.send('event:island-layout', placementFor(d));
         }
         continue;
       }
+      const first = this.clampRect(d, this.bounds(d, false));
       const win = new BrowserWindow({
-        ...this.bounds(d, false), frame: false, transparent: true, resizable: false, movable: false, skipTaskbar: true, alwaysOnTop: true,
+        ...first, frame: false, transparent: true, resizable: false, movable: false, skipTaskbar: true, alwaysOnTop: true,
         fullscreenable: false, hasShadow: false, focusable: true, show: false, backgroundColor: '#00000000',
         // macOS would otherwise push the window below the menu bar, away from the notch.
-        enableLargerThanScreen: process.platform === 'darwin',
+        enableLargerThanScreen: process.platform === 'darwin' && !this.belowBarFallback,
         webPreferences: { preload: ctx.preload, contextIsolation: true, sandbox: true },
       });
       win.setAlwaysOnTop(true, 'status');
@@ -156,8 +235,12 @@ export class IslandWindows {
       ctx.lockDown(win);
       loadView(win, { view: 'island', display: String(d.id) });
       win.once('ready-to-show', () => { if (!this.hidden) win.showInactive(); });
-      win.on('closed', () => { this.wins.delete(d.id); this.expanded.delete(d.id); this.sizes.delete(d.id); });
+      win.on('closed', () => { if (this.wins.get(d.id) === win) { this.wins.delete(d.id); this.expanded.delete(d.id); this.sizes.delete(d.id); this.want.delete(d.id); } });
+      // It is not movable: any move or resize Keeper did not ask for is undone.
+      for (const ev of ['moved', 'resized', 'move', 'resize'] as const) win.on(ev as 'moved', () => { if (this.wins.get(d.id) === win) this.snapBack(d.id, win); });
       this.wins.set(d.id, win);
+      this.want.set(d.id, first);
+      logPlace(d.id, 'created', first, win.getBounds());
     }
   }
 
@@ -166,6 +249,7 @@ export class IslandWindows {
     for (const w of this.wins.values()) if (!w.isDestroyed()) w.destroy();
     this.wins.clear();
     this.expanded.clear();
+    this.want.clear();
   }
 
   setExpanded(sender: WebContents, v: boolean) {
@@ -174,7 +258,7 @@ export class IslandWindows {
       const d = this.displayOf(id);
       if (v) this.expanded.add(id);
       else this.expanded.delete(id);
-      win.setBounds(this.bounds(d, v), false);
+      this.place(id, win, this.bounds(d, v), v ? 'expand' : 'collapse');
       clickThrough(win, !v);
       if (v) win.focus();
     }
@@ -361,6 +445,7 @@ export function registerIslandIpc(c: IslandContext) {
   ipcMain.handle('island.layout', (e) => islandWindows.layoutFor(e.sender));
   ipcMain.on('island.setSize', (e, w: number, hgt: number) => { if (Number.isFinite(w) && Number.isFinite(hgt)) islandWindows.setCollapsedSize(e.sender, w, hgt); });
   h('island.placementPreview', async () => { await refreshPlaceEnv(); return placementPreview(); });
+  h('island.placeLog', () => islandPlaceLog());
 }
 
 /** Called by main.ts after it registers its own shortcuts (it clears all of them first). */

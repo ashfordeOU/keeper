@@ -4,6 +4,8 @@
 // hangs below the notch when the menus reach it; pictures of the Island
 // collapsed and open; and the owner's own look at it.
 
+import fs from 'node:fs';
+import path from 'node:path';
 import { fail, pass, skip, verdict, type Ctx } from '../context';
 import { sleep } from '../sys';
 
@@ -83,6 +85,32 @@ export async function runIsland(ctx: Ctx) {
     if (p.anchor === 'menubar') return verdict((p.pill?.height ?? 99) <= (bar ?? 0) + 1, `In the menu bar's free middle; pill ${p.pill?.height} pt high, bar ${bar} pt`, p);
     if (p.anchor === 'below-bar') return verdict(p.collapsed.y >= (scr?.boundsTopLeft?.y ?? 0) + (bar ?? 0) - 1, `Below the menu bar at y = ${p.collapsed.y} (bar ${bar} pt). ${p.reason}`, p);
     return pass(`Placed "${p.anchor}": ${p.reason}`, p);
+  });
+
+  await rec.check('island.stays-put', 'The Island stays where Keeper puts it (30 s, through an alert, opening and closing)', 'auto', async (h) => {
+    const app = await ctx.app();
+    if (app.fake) return pass('dry run: no windows to watch');
+    const samples: { t: number; phase: string; bounds: any[] }[] = [];
+    const t0 = Date.now();
+    const look = async (phase: string) => samples.push({ t: Date.now() - t0, phase, bounds: (await islandWindows(ctx)).map((w) => w.bounds) });
+    const watch = async (phase: string, ms: number) => { const end = Date.now() + ms; while (Date.now() < end) { await look(phase); await sleep(1000); } };
+    await watch('collapsed', 8000);
+    // A screenshot appearing in the test home's Desktop makes the Island show its "Screenshot saved" alert.
+    try { fs.writeFileSync(path.join(ctx.paths.home, 'Desktop', `Screenshot ${new Date().toISOString().slice(0, 10)} at 12.00.00.png`), Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64')); } catch { /* no Desktop folder */ }
+    await watch('alert', 8000);
+    try { await app.islandCall('island.setExpanded', true); } catch { /* older builds */ }
+    await watch('expanded', 6000);
+    try { await app.islandCall('island.setExpanded', false); } catch { /* fine */ }
+    await watch('collapsed again', 8000);
+    const log = await app.call<any[]>('island.placeLog').catch(() => []);
+    h.artifact(ctx.saveData('island-stays-put.json', { samples, requestedVsActual: log }));
+    const mismatches = log.filter((e) => Math.abs(e.want.x - e.got.x) > 1 || Math.abs(e.want.y - e.got.y) > 1 || Math.abs(e.want.width - e.got.width) > 1 || Math.abs(e.want.height - e.got.height) > 1);
+    // Within each phase every sample should be the same rectangle; across phases only the size may change, and the top must not move.
+    const tops = new Set(samples.flatMap((x) => x.bounds.map((b: any) => b.y)));
+    // (the first sample of a phase may still show the change settling, so it is not compared)
+    const drift = samples.filter((x, i) => i > 1 && samples[i - 2].phase === x.phase && samples[i - 1].phase === x.phase && JSON.stringify(samples[i - 1].bounds) !== JSON.stringify(x.bounds)).length;
+    const moved = log.filter((e) => /moved by the system/.test(e.why)).length;
+    return verdict(tops.size <= 1 && drift === 0 && moved === 0, `top edge ${[...tops].join(' / ')} pt; ${drift} unexpected change(s) within a phase; ${moved} move(s) by the system put back; ${mismatches.length} requested≠actual of ${log.length} placement(s)`, { tops: [...tops], drift, moved, mismatches: mismatches.slice(0, 10) });
   });
 
   await rec.check('island.pictures', 'Pictures of the Island, collapsed and open', 'auto', async (h) => {

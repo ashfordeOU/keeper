@@ -687,6 +687,8 @@ export interface KeeperApi extends KeeperApiX {
     layout(): Promise<import('./island-place').Placement | null>;
     /** every screen, what was detected on it, and where the Island goes; for Settings */
     placementPreview(): Promise<IslandPlacementPreview>;
+    /** with KEEPER_ISLAND_LOG=1: each requested and actual Island window rectangle (diagnostics, the Mac test) */
+    placeLog(): Promise<{ at: number; display: number; why: string; want: { x: number; y: number; width: number; height: number }; got: { x: number; y: number; width: number; height: number } }[]>;
   };
   on(channel: 'progress', cb: (p: Progress) => void): () => void;
   on(channel: 'library-changed' | 'island-changed', cb: () => void): () => void;

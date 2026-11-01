@@ -129,6 +129,7 @@ export function createMockIsland(island: IslandState, files: FileEntry[], settin
       setBrightness: async (id, v) => { island.devices!.monitors = island.devices!.monitors.map((m) => (m.id === id ? { ...m, brightness: v } : m)); emit(); },
       refreshDevices: async () => island.devices!,
       layout: async () => { const s = demoScreen(); return place(s.d, s.env, { size: settings.island.size ?? 'normal', blendNotch: settings.island.blendNotch ?? true }); },
+      placeLog: async () => [],
       placementPreview: async () => {
         const list = Object.entries(SCREENS).filter(([k]) => k === (params.get('screen') ?? 'notch') || (k === 'external' && (params.get('screen') ?? 'notch') === 'notch'));
         const o = { edge: settings.island.edge, size: settings.island.size ?? 'normal', blendNotch: settings.island.blendNotch ?? true, cameraEdge: settings.island.cameraEdge ?? 'auto', followCamera: settings.island.followCamera ?? true, offsetX: settings.island.offsetX ?? 0, offsetY: settings.island.offsetY ?? 0 } as const;
