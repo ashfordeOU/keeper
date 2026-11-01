@@ -151,7 +151,7 @@ export async function lyricsFor(np: NowPlaying): Promise<LyricLine[] | undefined
   }
 }
 
-/** Apps that are using the microphone right now (Windows and Linux). */
+/** Apps that are using the microphone right now (Windows, Linux, and macOS through keeper-helper). */
 /**
  * Tells you when an app starts or stops using a microphone, without asking every few seconds.
  * Linux only for now (PulseAudio/PipeWire event stream); returns undefined where not available.
@@ -189,6 +189,18 @@ export async function micInUse(): Promise<string[]> {
     // reg.exe is a small program; PowerShell would cost far more every ten seconds.
     const r = await run(path.join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'reg.exe'), ['query', 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\microphone', '/s', '/v', 'LastUsedTimeStop'], 5000);
     return parseRegMicInUse(r.stdout);
+  }
+  if (process.platform === 'darwin') {
+    // keeper-helper asks Core Audio which apps have a microphone open (macOS 14.2+ per app; earlier,
+    // only that some app has). Without the helper nothing is reported, as before.
+    try {
+      const { helperPath, macHelperCall } = await import('./platform/mac');
+      if (!helperPath()) return [];
+      const r = await macHelperCall<{ apps: { name: string; bundle: string }[] }>('calls.micApps', {}, 3000);
+      return [...new Set((r.apps ?? []).map((a) => a.name || a.bundle).filter((n) => n && !/^Keeper( \(test\))?$/.test(n)))];
+    } catch {
+      return [];
+    }
   }
   return [];
 }

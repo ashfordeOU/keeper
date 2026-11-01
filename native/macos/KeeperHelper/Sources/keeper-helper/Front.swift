@@ -12,6 +12,7 @@
 //                  (window layer 25) and where the front app's menus end
 //                  (Accessibility; left out without it)
 //   apps.running   which of the given bundle ids are running
+//   camera.inUse   whether any camera is on (CoreMediaIO), for the Island's green dot
 //   pasteboard.changeCount  the clipboard's change counter (dispatched in main.swift), so
 //                  clipboard history reads the clipboard only after it changed
 //
@@ -23,6 +24,7 @@ import Foundation
 import AppKit
 import CoreGraphics
 import ApplicationServices
+import CoreMediaIO
 
 private func axAttr(_ el: AXUIElement, _ name: String) -> CFTypeRef? {
     var v: CFTypeRef?
@@ -145,4 +147,32 @@ func placeMeasure() -> [String: Any] {
 func appsRunning(_ params: [String: Any]) -> [String: Any] {
     let ids = (params["bundles"] as? [String]) ?? []
     return ["running": ids.filter { !NSRunningApplication.runningApplications(withBundleIdentifier: $0).isEmpty }]
+}
+
+// MARK: - camera in use
+
+/// Is any camera in use by some app (the system's green light)? CoreMediaIO's
+/// "running somewhere" flag on each video device; it does not say which app.
+func cameraInUse() -> [String: Any] {
+    var addr = CMIOObjectPropertyAddress(
+        mSelector: CMIOObjectPropertySelector(kCMIOHardwarePropertyDevices),
+        mScope: CMIOObjectPropertyScope(kCMIOObjectPropertyScopeGlobal),
+        mElement: CMIOObjectPropertyElement(kCMIOObjectPropertyElementMain))
+    var size: UInt32 = 0
+    let system = CMIOObjectID(kCMIOObjectSystemObject)
+    guard CMIOObjectGetPropertyDataSize(system, &addr, 0, nil, &size) == noErr, size > 0 else { return ["inUse": false, "devices": 0] }
+    var ids = [CMIOObjectID](repeating: 0, count: Int(size) / MemoryLayout<CMIOObjectID>.size)
+    var used: UInt32 = 0
+    guard CMIOObjectGetPropertyData(system, &addr, 0, nil, size, &used, &ids) == noErr else { return ["inUse": false, "devices": 0] }
+    var running = 0
+    for dev in ids {
+        var a = CMIOObjectPropertyAddress(
+            mSelector: CMIOObjectPropertySelector(kCMIODevicePropertyDeviceIsRunningSomewhere),
+            mScope: CMIOObjectPropertyScope(kCMIOObjectPropertyScopeWildcard),
+            mElement: CMIOObjectPropertyElement(kCMIOObjectPropertyElementWildcard))
+        var on: UInt32 = 0
+        var got: UInt32 = 0
+        if CMIOObjectGetPropertyData(dev, &a, 0, nil, UInt32(MemoryLayout<UInt32>.size), &got, &on) == noErr, on != 0 { running += 1 }
+    }
+    return ["inUse": running > 0, "devices": ids.count, "running": running]
 }

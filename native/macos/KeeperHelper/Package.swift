@@ -23,6 +23,7 @@ let package = Package(
                 .linkedFramework("EventKit"),
                 .linkedFramework("CoreLocation"),
                 .linkedFramework("UserNotifications"),
+                .linkedFramework("CoreMediaIO"),
             ]
         ),
     ]

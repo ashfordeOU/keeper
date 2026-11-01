@@ -190,8 +190,9 @@ export function placementPreview() {
 /**
  * Apps using a camera right now. Windows: the consent store (one `reg` call).
  * Linux: the webcam driver's reference count (one small file) and, only when
- * it says a camera is open, which process has /dev/video* open. macOS shows
- * its own green light and offers no way to ask, so nothing is reported there.
+ * it says a camera is open, which process has /dev/video* open. macOS:
+ * keeper-helper reads CoreMediaIO's "running somewhere" flag, which says that a
+ * camera is on but not which app has it.
  */
 export async function cameraInUse(): Promise<string[]> {
   if (process.platform === 'win32') {
@@ -204,6 +205,16 @@ export async function cameraInUse(): Promise<string[]> {
     const n = Number((await fsp.readFile(ref, 'utf8').catch(() => '0')).trim());
     if (!n) return [];
     return cameraUsers(await videoFds());
+  }
+  if (process.platform === 'darwin') {
+    try {
+      const { helperPath, macHelperCall } = await import('./platform/mac');
+      if (!helperPath()) return [];
+      const r = await macHelperCall<{ inUse: boolean }>('camera.inUse', {}, 3000);
+      return r.inUse ? ['Camera'] : [];
+    } catch {
+      return [];
+    }
   }
   return [];
 }

@@ -77,6 +77,9 @@ check(Array.isArray(place.result?.screens) && place.result.screens.length > 0 &&
 const running = await call('apps.running', { bundles: ['com.apple.finder', 'io.example.not-installed'] });
 check(Array.isArray(running.result?.running) && !running.result.running.includes('io.example.not-installed'), `apps.running ${show(running.result)}`);
 
+const cam = await call('camera.inUse');
+check(typeof cam.result?.inUse === 'boolean' && typeof cam.result?.devices === 'number', `camera.inUse ${show(cam.result)}`);
+
 // A CI runner may have no app in front; the answer is then an empty object, never a hang.
 const frontNow = await call('front.now');
 check(isObj(frontNow.result) && (frontNow.result.pid === undefined || (typeof frontNow.result.pid === 'number' && typeof frontNow.result.fullscreen === 'boolean')), `front.now ${show(frontNow.result)}`);
