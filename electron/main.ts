@@ -7,7 +7,7 @@ import './test-home';
 import { clipboardImage, readFile as readCaptureFile } from './services/capture';
 import { addBusyCheck } from './services/busy';
 import { onBeforeInstall } from './services/updater';
-import { BRAND, COPYRIGHT, TRADEMARK, WEBSITE } from '../core/brand';
+import { BRAND, COPYRIGHT, REPORT_URL, TRADEMARK, WEBSITE } from '../core/brand';
 // First, so local crash reports cover everything that follows.
 import { initResilience, lastRun, restoreExtraWindows } from './resilience';
 import { attachHover, glanceView, showGlance, toggleGlance } from './services/glance';
@@ -390,6 +390,7 @@ function trayMenu(): Menu {
     ...trayAccessItems(showMain),
     ...(() => { try { return rdcTrayItems(); } catch { return []; } })(),
     ...trayTracksItems(showMain),
+    { label: 'Report a Problem…', click: () => void shell.openExternal(REPORT_URL) },
   ].filter((i) => i.type !== 'separator');
   // Pinned shelves stay one click away.
   const pinned: Electron.MenuItemConstructorOptions[] = (islandSvc?.state().shelves ?? []).filter((sh) => sh.pinned).map((sh) => ({
@@ -1305,7 +1306,7 @@ app.whenReady().then(async () => {
       if (!r) throw new Error('No automation with that id');
       return runRule(r);
     },
-    focus: (action, minutes) => void islandSvc.focusAction(action, minutes),
+    focus: (action, minutes, task) => void islandSvc.focusAction(action, minutes, task),
     setTags: (p, tags) => { index.setTags(p, tags); syncFinderTags(p, index.files.get(p)?.tags ?? []); },
     openTerminal: (o) => {
       openTerminalWindow();

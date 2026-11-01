@@ -26,6 +26,8 @@ export interface SalesConfigView {
 export interface IslandToolsApi {
   store(): Promise<IslandToolsStore>;
   saveStore(patch: Partial<IslandToolsStore>): Promise<IslandToolsStore>;
+  /** saves every task and Island note as one JSON file where the person picks; the path, or null when cancelled */
+  exportJson(): Promise<string | null>;
 
   /** chat with any connected AI about some text; local-only is respected */
   ask(prompt: string, input?: string, connection?: string): Promise<{ text: string; provider: string; local: boolean }>;

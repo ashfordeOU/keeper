@@ -38,6 +38,7 @@ export function mockIslandTools(): { islandTools: IslandToolsApi } {
   const wait = <T,>(v: T, ms = 250) => new Promise<T>((r) => setTimeout(() => r(v), ms));
   return {
     islandTools: {
+      exportJson: async () => '/Users/demo/Downloads/Keeper tasks and notes.json',
       store: async () => store,
       saveStore: async (p) => (store = normalizeStore({ ...store, ...p })),
       ask: (prompt, input) => wait({ text: input ? `Here is a tighter version:\n\n${input.split(/\s+/).slice(0, 24).join(' ')}…` : `About “${prompt}”: in the demo, answers come from a sample. In Keeper they come from the AI you connected.`, provider: 'Apple Intelligence (on this Mac)', local: true }, 700),

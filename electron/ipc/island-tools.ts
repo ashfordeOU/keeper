@@ -13,6 +13,7 @@ export function registerIslandToolsIpc(deps: t.ShortcutDeps) {
   t.setShortcutDeps(deps);
   h('store', () => t.getStore());
   h('saveStore', (p: Parameters<typeof t.saveStore>[0]) => t.saveStore(p));
+  h('exportJson', () => t.exportJson());
   h('ask', (prompt: string, input?: string, connection?: string) => t.ask(prompt, input, connection));
   h('askConnections', () => t.askConnections());
   h('usage', () => t.usage());

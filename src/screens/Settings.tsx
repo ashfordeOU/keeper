@@ -2,6 +2,7 @@
 // Settings: appearance, library folders, thresholds, assistant and about.
 
 import { lazy, Suspense, useEffect, useState } from 'react';
+import { REPORT_URL } from '../../core/brand';
 import { ACTION_INFO, CARD_INFO, GLANCE_ACTIONS, GLANCE_CARDS, type GlanceSettings } from '../../core/glance';
 import '../styles/glance.css';
 import { api } from '../api';
@@ -224,6 +225,13 @@ export function Settings() {
         <ProcessesPanel />
       </div>
 
+      <h2 id="tasks-notes" style={{ margin: '18px 0 8px' }}>Tasks and notes</h2>
+      <div className="card settings-section">
+        <Row title="Export tasks and notes" desc="Every task (all lists, with steps, repeats and notes) and every Island note, as one JSON file you keep. Nothing is uploaded.">
+          <button className="btn" data-testid="export-tasks" onClick={() => void api.islandTools.exportJson().then((p) => p && toast(`Saved to ${p}`), (e: unknown) => toast(String(e)))}><Icon name="down" size={13} /> Export…</button>
+        </Row>
+      </div>
+
       <h2 id="updates" style={{ margin: '18px 0 8px' }}>{t('settings.updates')}</h2>
       <div className="card settings-section" style={{ padding: 16 }}>
         <UpdatesPanel />
@@ -247,6 +255,9 @@ export function Settings() {
       <div className="card settings-section">
         <Row title="Keeper by Ashforde®" desc={<WhatsNewHover only="current"><span style={{ textDecoration: 'underline dotted', textUnderlineOffset: 3 }}>Version {info?.appVersion ?? ''}</span></WhatsNewHover>}>
           <button className="btn" onClick={() => void api.system.openExternal('https://github.com/ashfordeOU/keeper')}><Icon name="external" size={13} /> Source code</button>
+        </Row>
+        <Row title="Report a problem" desc="Something wrong or missing? Tell us on GitHub; a page opens with a new issue ready to fill in.">
+          <button className="btn" data-testid="report-problem" onClick={() => void api.system.openExternal(REPORT_URL)}><Icon name="external" size={13} /> Report a problem</button>
         </Row>
         <Row title="License" desc="Free to use for everyone, at home and at work. The source code is public under the PolyForm Shield License 1.0.0: you may read and change it, but not sell it or offer a competing product.">
           <button className="btn ghost" onClick={() => void api.system.openExternal('https://github.com/ashfordeOU/keeper/blob/main/LICENSE.md')}>Read</button>

@@ -87,6 +87,20 @@ export async function takeTodos(): Promise<IslandToolsStore['todos']> {
   return todos;
 }
 
+/** Every task (all lists) and every Island note and script, as one JSON file the person keeps. */
+export async function exportJson(): Promise<string | null> {
+  const s = await load();
+  const { pim } = await import('./pim');
+  const tasks = await pim.reminders().catch(() => []);
+  const day = new Date().toISOString().slice(0, 10);
+  const r = await dialog.showSaveDialog({ title: 'Export tasks and notes', defaultPath: path.join(app.getPath('downloads'), `Keeper tasks and notes ${day}.json`), filters: [{ name: 'JSON', extensions: ['json'] }] });
+  if (r.canceled || !r.filePath) return null;
+  // Sign-in details of synced lists (server paths, version tags) are left out.
+  const clean = tasks.map(({ etag: _e, href: _h, ...t }) => t);
+  await fsp.writeFile(r.filePath, JSON.stringify({ app: 'Keeper', kind: 'tasks-and-notes', version: 1, exportedAt: new Date().toISOString(), tasks: clean, notes: s.notes, scripts: s.scripts }, null, 2));
+  return r.filePath;
+}
+
 export function flushIslandTools(): Promise<void> {
   return persist(true) ?? Promise.resolve();
 }
