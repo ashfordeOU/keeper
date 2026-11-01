@@ -47,9 +47,10 @@ const gs = (...a) => execFileSync('gsettings', a, { env: ENV, encoding: 'utf8' }
   const k = (group, fn, ...a) => w.evaluate(([g, f, args]) => window.keeper[g][f](...args), [group, fn, a]);
 
   // ---------------------------------------------------------------- catalogue
+  // (After each sidebar click the pointer moves away: the compact sidebar opens over the page while it rests there.)
   const list = await k('catalog', 'list');
   check(list.os === 'linux' && list.entries.length >= 100 && list.counts.darwin >= 100 && list.counts.win32 >= 100, `catalogue: ${list.entries.length} Linux settings (${list.counts.darwin} macOS, ${list.counts.win32} Windows)`);
-  await w.click('.sidebar [title="System Settings+"]');
+  await w.click('.sidebar [title="System Settings+"]'); await w.mouse.move(1000, 600); await w.waitForTimeout(400);
   check(!!(await until(() => w.$('[data-testid="catalog-page"]'), 15000)), 'System Settings+ opens from the sidebar');
   await w.fill('[data-testid="cat-search"]', 'light or dark');
   const row = '[data-testid="cat-row-linux.gnome.colorscheme"]';
@@ -129,7 +130,7 @@ const gs = (...a) => execFileSync('gsettings', a, { env: ENV, encoding: 'utf8' }
   const r4 = await k('appctl', 'set', { ...target, path: path.join(HOME, 'bin/fake-app') }, { startAtLogin: true });
   const auto = fs.readdirSync(path.join(HOME, '.config/autostart')).find((f) => f.startsWith('keeper-'));
   check(r4.ok && !!auto, `start at login wrote ~/.config/autostart/${auto}`);
-  await w.click('.sidebar [title="App controls"]');
+  await w.click('.sidebar [title="App controls"]'); await w.mouse.move(1000, 600); await w.waitForTimeout(400);
   check(!!(await until(() => w.$('[data-testid="appcontrols-page"]'), 8000)), 'App controls page opens');
   await w.evaluate((p) => window.keeper && null, null);
   await w.waitForTimeout(800);
@@ -166,7 +167,7 @@ const gs = (...a) => execFileSync('gsettings', a, { env: ENV, encoding: 'utf8' }
     check(!bad2.ok, 'an invalid site setting is refused before reaching the browser');
     const st = await k('browserTabs', 'siteSettings', sid, 'https://news.example.com/');
     check(st.camera === 'ask', 'site settings are read back from the extension');
-    await w.click('.sidebar [title="Browser tabs"]');
+    await w.click('.sidebar [title="Browser tabs"]'); await w.mouse.move(1000, 600); await w.waitForTimeout(400);
     check(!!(await until(() => w.$('[data-testid="tab-7"]'), 8000)), 'Browser tabs page lists the tab');
     await w.screenshot({ path: path.join(SHOTS, 'browsers-light.png') });
   }
@@ -177,13 +178,13 @@ const gs = (...a) => execFileSync('gsettings', a, { env: ENV, encoding: 'utf8' }
   // ---------------------------------------------------------------- dark
   await w.evaluate(() => window.keeper.settings.set({ appearance: 'dark' }));
   await w.waitForTimeout(600);
-  await w.click('.sidebar [title="System Settings+"]');
+  await w.click('.sidebar [title="System Settings+"]'); await w.mouse.move(1000, 600); await w.waitForTimeout(400);
   await w.waitForTimeout(800);
   await w.screenshot({ path: path.join(SHOTS, 'catalog-dark.png') });
-  await w.click('.sidebar [title="App controls"]');
+  await w.click('.sidebar [title="App controls"]'); await w.mouse.move(1000, 600); await w.waitForTimeout(400);
   await w.waitForTimeout(800);
   await w.screenshot({ path: path.join(SHOTS, 'appcontrols-dark.png') });
-  await w.click('.sidebar [title="Browser tabs"]');
+  await w.click('.sidebar [title="Browser tabs"]'); await w.mouse.move(1000, 600); await w.waitForTimeout(400);
   await w.waitForTimeout(600);
   await w.screenshot({ path: path.join(SHOTS, 'browsers-dark.png') });
 

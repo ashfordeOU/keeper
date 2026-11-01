@@ -162,7 +162,6 @@
     "fsevents": true,
     "node-pty": true,
     "onnxruntime-node": true,
-    "sharp": true,
     "usocket": true,
     "ssh2": false,
     "cpu-features": false,

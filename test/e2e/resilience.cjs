@@ -123,6 +123,9 @@ async function mainPid(page) {
 
   // ---------------------------------------------------------------- 4. a service process crashes
   // Less-used System pages sit behind "More" in the sidebar.
+  // A Keeper started again after a crash is not under test control: its sidebar sections start
+  // folded and long ones show their most used items first. Open System and show all of it.
+  if (!(await page.locator('.sidebar [title="Network Activity"]').isVisible())) await page.locator('.sidebar button.nav-title', { hasText: /system/i }).first().click().catch(() => undefined);
   if (!(await page.locator('.sidebar [title="Network Activity"]').isVisible())) await page.locator('[data-testid="nav-more-system"]').click().catch(() => undefined);
   await page.click('.sidebar [title="Network Activity"]');
   const svc = await until(() => page.evaluate(() => window.keeper.svc.list().then((l) => l.find((p) => p.id === 'svc:net' && p.pid))), 30000, 500);

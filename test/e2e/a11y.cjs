@@ -382,7 +382,12 @@ function audit(scope) {
       }
     }
   } else note(`only ${cards} file cards; grid keyboard checks skipped`);
-  // Sidebar sections: Enter and Space open and close them.
+  // Sidebar sections: Enter and Space open and close them. (Automated runs keep every section
+  // open unless they opt in to folding, as a person sees it.)
+  await w.evaluate(() => localStorage.setItem('sidebar.compactInTests', '1'));
+  await w.reload();
+  await w.waitForSelector('.sidebar', { timeout: 30000 });
+  await w.waitForTimeout(800);
   const sec = w.locator('.sidebar button.nav-title').first();
   await sec.focus();
   const e1 = await sec.getAttribute('aria-expanded');
@@ -393,6 +398,10 @@ function audit(scope) {
   await w.waitForTimeout(150);
   const e3 = await sec.getAttribute('aria-expanded');
   check(e1 !== e2 && e3 === e1, `sidebar sections toggle with Enter and Space (${e1} → ${e2} → ${e3})`);
+  await w.evaluate(() => { localStorage.removeItem('sidebar.compactInTests'); localStorage.removeItem('sidebar.opened'); });
+  await w.reload();
+  await w.waitForSelector('.sidebar', { timeout: 30000 });
+  await w.waitForTimeout(800);
   // Tabs: arrow keys (any role=tablist on a page).
   await nav('settings');
   await w.waitForTimeout(1200);
