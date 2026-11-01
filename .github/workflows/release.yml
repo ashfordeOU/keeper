@@ -1,7 +1,15 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
-# Push a tag like v0.2.0 to build Keeper for every platform and processor and
-# publish the installers, plus the update information installed copies read, as
-# a GitHub Release. Tags with a hyphen (v0.3.0-beta.1) become pre-releases.
+# Bump "version" in package.json on main (or push a tag like v0.2.0 that matches
+# it) to build Keeper for every platform and processor and publish the
+# installers, plus the update information installed copies read, as a GitHub
+# Release; the release creates the tag. Versions with a hyphen (0.3.0-beta.1)
+# become pre-releases. A push whose version already has a release builds nothing.
+# Run it by hand (workflow_dispatch) with "Build only" to test the build without
+# publishing.
+#
+# Mac builds are signed with the stable "Keeper Self-Signed" certificate once
+# KEEPER_SIGNING_CERT / KEEPER_SIGNING_PASSWORD exist (scripts/make-signing-cert.sh),
+# so macOS keeps Keeper's permissions across updates.
 #
 # Every release is certified for free: GitHub build attestations for each file,
 # a Sigstore (cosign) signature of SHA256SUMS.txt, and, once KEEPER_GPG_PRIVATE_KEY
@@ -13,15 +21,78 @@ name: Release
 
 on:
   push:
+    # Bumping the version in package.json on main publishes that version.
+    branches: [main]
+    paths: [package.json]
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Build only (do not publish a release)
+        type: boolean
+        default: false
 
 permissions:
   contents: write
 
+# A release that has started always finishes: runs are never cancelled. Runs for
+# the same commit (a version bump and its tag) wait for each other, so the second
+# finds the release and skips.
+concurrency:
+  group: release-${{ github.sha }}
+  cancel-in-progress: false
+
 jobs:
+  # Which tag this run releases: the pushed tag, or v + package.json's version.
+  tag:
+    name: Version
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      version: ${{ steps.tag.outputs.version }}
+      prerelease: ${{ steps.tag.outputs.prerelease }}
+      publish: ${{ steps.tag.outputs.publish }}
+      build: ${{ steps.tag.outputs.build }}
+    steps:
+      - uses: actions/checkout@v5
+      - id: tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            tag="$GITHUB_REF_NAME"
+            if [ "$tag" != "v$version" ]; then
+              echo "::error::package.json says $version but the tag is $tag; they must match"
+              exit 1
+            fi
+          else
+            tag="v$version"
+          fi
+          publish=true
+          if out="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$tag" 2>&1)"; then
+            echo "Release $tag already exists; nothing to publish."
+            publish=false
+          elif ! printf '%s' "$out" | grep -q 'HTTP 404'; then
+            echo "::error::Could not check for an existing release $tag: $out"
+            exit 1
+          fi
+          build="$publish"
+          if [ "$DRY_RUN" = true ]; then publish=false; build=true; fi
+          case "$version" in *-*) prerelease=true ;; *) prerelease=false ;; esac
+          {
+            echo "tag=$tag"
+            echo "version=$version"
+            echo "prerelease=$prerelease"
+            echo "publish=$publish"
+            echo "build=$build"
+          } | tee -a "$GITHUB_OUTPUT"
+
   build:
     name: ${{ matrix.name }}
+    needs: tag
+    if: needs.tag.outputs.build == 'true'
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -59,6 +130,23 @@ jobs:
       - name: Siri and Shortcuts helper
         if: matrix.platform == 'darwin'
         run: native/macos/KeeperIntents/build.sh
+      # The same certificate every release keeps macOS permissions across updates
+      # (build/after-sign.cjs signs with it). A Developer ID (CSC_LINK) takes precedence.
+      - name: Signing certificate
+        if: matrix.platform == 'darwin'
+        shell: bash
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          KEEPER_SIGNING_CERT: ${{ secrets.KEEPER_SIGNING_CERT }}
+          KEEPER_SIGNING_PASSWORD: ${{ secrets.KEEPER_SIGNING_PASSWORD }}
+        run: |
+          if [ -n "$CSC_LINK" ]; then
+            echo "Signing with the Developer ID certificate from CSC_LINK."
+          elif [ -n "$KEEPER_SIGNING_CERT" ]; then
+            bash scripts/ci-import-signing-cert.sh
+          else
+            echo "::warning::KEEPER_SIGNING_CERT is not set; this release is signed ad hoc, so macOS permissions (Accessibility, Screen Recording and the rest) must be re-granted after each update until KEEPER_SIGNING_CERT is set. Run scripts/make-signing-cert.sh once."
+          fi
       - name: Package
         shell: bash
         env:
@@ -113,16 +201,17 @@ jobs:
           if-no-files-found: error
 
   release:
-    needs: build
-    if: startsWith(github.ref, 'refs/tags/')
+    needs: [tag, build]
+    if: needs.tag.outputs.publish == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
       id-token: write # Sigstore signature and build attestations
       attestations: write
     outputs:
-      version: ${{ steps.meta.outputs.version }}
-      prerelease: ${{ steps.meta.outputs.prerelease }}
+      tag: ${{ needs.tag.outputs.tag }}
+      version: ${{ needs.tag.outputs.version }}
+      prerelease: ${{ needs.tag.outputs.prerelease }}
       repos: ${{ steps.repos.outputs.built }}
       homebrew: ${{ steps.channels.outputs.homebrew }}
       npm: ${{ steps.channels.outputs.npm }}
@@ -139,9 +228,16 @@ jobs:
         with:
           node-version: 22
       - id: meta
+        env:
+          TAG: ${{ needs.tag.outputs.tag }}
+          VERSION: ${{ needs.tag.outputs.version }}
+          PRERELEASE: ${{ needs.tag.outputs.prerelease }}
         run: |
-          echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
-          case "$GITHUB_REF_NAME" in *-*) echo "prerelease=true" ;; *) echo "prerelease=false" ;; esac >> "$GITHUB_OUTPUT"
+          {
+            echo "tag=$TAG"
+            echo "version=$VERSION"
+            echo "prerelease=$PRERELEASE"
+          } >> "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@v4
         with:
           pattern: keeper-*
@@ -177,7 +273,7 @@ jobs:
           KEEPER_GPG_KEY_ID: ${{ steps.gpg.outputs.fpr }}
         run: |
           sudo apt-get update && sudo apt-get install -y dpkg-dev createrepo-c
-          sh packaging/repo/build-repos.sh artifacts pages-out "${GITHUB_REF_NAME#v}"
+          sh packaging/repo/build-repos.sh artifacts pages-out "${{ steps.meta.outputs.version }}"
           echo "built=true" >> "$GITHUB_OUTPUT"
 
       - name: Checksums
@@ -207,16 +303,30 @@ jobs:
             artifacts/*.tgz
             artifacts/SHA256SUMS.txt
       - name: Release notes from the changelog
+        env:
+          RELEASE_VERSION: ${{ steps.meta.outputs.version }}
         run: |
-          version="${GITHUB_REF_NAME#v}"
-          awk -v v="$version" '$0 ~ "^## \\[" v "\\]" {f=1; next} /^## \[/ && f {exit} f' CHANGELOG.md > notes.md
-          [ -s notes.md ] || echo "Keeper $version" > notes.md
+          awk -v v="$RELEASE_VERSION" '$0 ~ "^## \\[" v "\\]" {f=1; next} /^## \[/ && f {exit} f' CHANGELOG.md > notes.md
+          [ -s notes.md ] || echo "Keeper $RELEASE_VERSION" > notes.md
+          cat >> notes.md <<'NOTES'
+
+          ### Install
+          On a Mac, from Terminal:
+          ```bash
+          curl -fsSL https://raw.githubusercontent.com/ashfordeOU/keeper/main/scripts/install.sh | sh
+          ```
+          Or download the file for your system below. Copies already installed update themselves.
+          If macOS says it cannot verify the developer, open **System Settings → Privacy & Security** and click **Open Anyway**.
+          NOTES
+      # Creates the tag on the commit that was built when it does not exist yet.
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          target_commitish: ${{ github.sha }}
           files: artifacts/*
           body_path: notes.md
           generate_release_notes: true
-          prerelease: ${{ contains(github.ref_name, '-') }}
+          prerelease: ${{ steps.meta.outputs.prerelease == 'true' }}
 
       # ---- Manifests for the package managers, and which channels have their secret
       - name: Package-manager manifests
@@ -277,6 +387,43 @@ jobs:
           git commit -am "Scoop: Keeper ${{ needs.release.outputs.version }}"
           git push
 
+  # Casks/keeper.rb in this repository (brew tap ashfordeOU/keeper https://github.com/ashfordeOU/keeper).
+  # Runs after the Scoop bucket so the two commits to the default branch never race. The
+  # commit cannot start another release: it does not touch package.json, and pushes made
+  # with the workflow's token start no workflows.
+  cask:
+    needs: [release, scoop]
+    if: always() && needs.release.result == 'success' && needs.release.outputs.prerelease == 'false'
+    runs-on: ubuntu-latest
+    env:
+      BRANCH: ${{ github.event.repository.default_branch }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: packaging
+          path: packaging-out
+      - name: Update Casks/keeper.rb
+        env:
+          VERSION: ${{ needs.release.outputs.version }}
+        run: |
+          mkdir -p Casks
+          cp packaging-out/homebrew/Casks/keeper.rb Casks/keeper.rb
+          git add Casks/keeper.rb
+          git diff --cached --quiet && exit 0
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com"
+          git commit -m "Homebrew: Keeper $VERSION [skip ci]"
+          for attempt in 1 2 3 4 5; do
+            if git pull --rebase origin "$BRANCH" && git push origin "HEAD:$BRANCH"; then exit 0; fi
+            sleep $((attempt * 5))
+          done
+          echo "::error::Could not push Casks/keeper.rb to $BRANCH"
+          exit 1
+
+  # The ashfordeOU/homebrew-keeper tap (brew install --cask ashfordeou/keeper/keeper), when its token exists.
   homebrew:
     needs: release
     if: needs.release.outputs.homebrew == 'true' && needs.release.outputs.prerelease == 'false'
@@ -336,7 +483,7 @@ jobs:
         with:
           identifier: Ashforde.Keeper
           installers-regex: 'Keeper-setup-x64\.exe$'
-          release-tag: ${{ github.ref_name }}
+          release-tag: ${{ needs.release.outputs.tag }}
           token: ${{ secrets.WINGET_TOKEN }}
 
   chocolatey:
