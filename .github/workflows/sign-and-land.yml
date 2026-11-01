@@ -35,10 +35,6 @@ jobs:
           SIGNING_KEY: ${{ secrets.COMMIT_SIGNING_KEY }}
         run: |
           set -euo pipefail
-          if [ -z "$SIGNING_KEY" ]; then
-            echo "::error::The COMMIT_SIGNING_KEY secret is not set: nothing was signed or landed."
-            exit 1
-          fi
           key="$RUNNER_TEMP/signing_key"
           install -m 600 /dev/null "$key"
           printf '%s\n' "$SIGNING_KEY" > "$key"
@@ -53,6 +49,10 @@ jobs:
             echo "incoming is main already; nothing to land."
             echo "landed=false" >> "$GITHUB_OUTPUT"
             exit 0
+          fi
+          if [ -z "$SIGNING_KEY" ]; then
+            echo "::error::The COMMIT_SIGNING_KEY secret is not set: nothing was signed or landed."
+            exit 1
           fi
           if ! git merge-base --is-ancestor "$old" HEAD; then
             echo "::error::incoming does not build on main ($old); rebase it onto main and push again."
