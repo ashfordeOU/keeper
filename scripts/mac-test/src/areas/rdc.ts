@@ -74,7 +74,13 @@ export async function runRdc(ctx: Ctx) {
 
   await rec.check('rdc.host-status', 'Sharing this Mac: Screen Sharing and Remote Login state as Keeper reads it', 'auto', async (h) => {
     const app = await ctx.app();
-    const host = await app.call<any>('rdc.hostStatus');
+    let host: any;
+    try { host = await app.call<any>('rdc.hostStatus'); } catch (e) {
+      const m = (e as Error).message.replace(/^.*Error: /s, '');
+      // switched off in Keeper's settings: the page says so, which is not a failure
+      if (/Turn on/i.test(m)) return skip(m);
+      throw e;
+    }
     h.artifact(ctx.saveData('rdc-host-status.json', host));
     return verdict(!!host && !host.error, JSON.stringify(host).slice(0, 200));
   });
