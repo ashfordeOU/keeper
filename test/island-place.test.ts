@@ -38,7 +38,7 @@ describe('Island on a Mac', () => {
   });
 
   it('grows out of the notch, centred on it, with the notch width left empty', () => {
-    const p = place(mbp14, mac('MacBookPro18,3'));
+    const p = place(mbp14, mac('MacBookPro18,3', { menuBarItems: [] }));
     expect(p.anchor).toBe('notch');
     expect(p.collapsed.y).toBe(0);
     expect(centreX(p.collapsed)).toBe(756);
@@ -50,6 +50,31 @@ describe('Island on a Mac', () => {
   // The notch on a 14-inch MacBook Pro at its default size spans x 663–849.
   const notch14 = { 1: { x: 663, y: 0, width: 186, height: 32 } };
   const icon = (x: number, width = 26): Rect => ({ x, y: 0, width, height: 32 });
+
+  it('when the menu-bar icons could not be measured, nothing grows beside the notch (the tab below instead)', () => {
+    const p = place(mbp14, mac('MacBookPro18,3', { notchRects: notch14 }));
+    expect(p.anchor).toBe('notch');
+    expect(p.wing).toBe(0);
+    expect(p.hang).toBeGreaterThan(0);
+    expect(p.pill.width).toBe(186);
+  });
+
+  it('the owner\'s full menu bar (Mac16,6, "more space", notch 220 pt): the right side stops before the first icon', () => {
+    // 1800 × 1169 points; the notch spans 790–1010; status icons from the clock leftwards up to 1036.
+    const d = disp({ bounds: { x: 0, y: 0, width: 1800, height: 1169 }, workArea: { x: 0, y: 39, width: 1800, height: 1130 } });
+    const items: Rect[] = [{ x: 1650, y: 0, width: 150, height: 39 }];
+    for (let x = 1036; x < 1650; x += 34) items.push({ x, y: 0, width: 30, height: 39 });
+    const p = place(d, mac('Mac16,6', { notchRects: { 1: { x: 790, y: 0, width: 220, height: 38 } }, appMenuRight: 560, menuBarItems: items }));
+    expect(p.anchor).toBe('notch');
+    const right = centreX(p.collapsed) + p.pill.width / 2;
+    expect(right).toBeLessThanOrEqual(1036 - 8);
+    expect(p.wing).toBe(1036 - 1010 - 8 >= 26 ? 1036 - 1010 - 8 : 0);
+    // Packed right up to the notch: no wings at all, the tab below.
+    const full = place(d, mac('Mac16,6', { notchRects: { 1: { x: 790, y: 0, width: 220, height: 38 } }, appMenuRight: 560, menuBarItems: [...items, { x: 1012, y: 0, width: 22, height: 39 }] }));
+    expect(full.wing).toBe(0);
+    expect(full.hang).toBeGreaterThan(0);
+    expect(full.pill.width).toBe(220);
+  });
 
   it('a menu bar like Safari\'s, icons from 918 pt: the sides grow only up to the first icon', () => {
     const p = place(mbp14, mac('MacBookPro18,3', { notchRects: notch14, appMenuRight: 484, menuBarItems: [icon(918), icon(948), icon(1400, 80)] }));

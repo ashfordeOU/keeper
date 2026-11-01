@@ -7,7 +7,7 @@
 //                  front changes: { app, appId, pid, title, bounds, fullscreen }.
 //                  Looks once a second in this process (a window-list read and,
 //                  with the Accessibility permission, three attribute reads).
-//   place.measure  what the Island fits around: each screen's notch (safe area
+//   place.measure  (also menubar.layout) what the Island fits around: each screen's notch (safe area
 //                  and the areas beside it), the menu-bar status items' frames
 //                  (window layer 25) and where the front app's menus end
 //                  (Accessibility; left out without it)

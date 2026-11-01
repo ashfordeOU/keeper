@@ -213,7 +213,7 @@ export function freeMenuBarMiddleWith(d: DisplayInfo, items: Rect[], appMenuRigh
  * icons (right) begin. macOS keeps icons out from behind the notch but lets
  * them sit right next to it, and an app with many menus can reach it too.
  */
-export function roomBesideNotch(d: DisplayInfo, env: PlaceEnv, notch: Cutout): { left: number; right: number; menusKnown: boolean } {
+export function roomBesideNotch(d: DisplayInfo, env: PlaceEnv, notch: Cutout): { left: number; right: number; menusKnown: boolean; itemsKnown: boolean } {
   const B = d.bounds;
   const nl = B.x + notch.center - notch.width / 2;
   const nr = nl + notch.width;
@@ -228,7 +228,7 @@ export function roomBesideNotch(d: DisplayInfo, env: PlaceEnv, notch: Cutout): {
   if (menusKnown && env.appMenuRight! <= nl + 1) left = Math.max(left, env.appMenuRight!);
   // Menus that do not fit before the notch carry on after it.
   if (menusKnown && env.appMenuRight! > nl + 1) left = nl;
-  return { left: Math.max(0, nl - left), right: Math.max(0, right - nr), menusKnown };
+  return { left: Math.max(0, nl - left), right: Math.max(0, right - nr), menusKnown, itemsKnown: env.menuBarItems !== undefined };
 }
 
 // ---------------------------------------------------------------- sizes
@@ -293,7 +293,8 @@ export function place(d: DisplayInfo, env: PlaceEnv, opt: Partial<PlaceOptions> 
     // Both sides grow by the same amount, as far as the tighter side allows, so nothing in the menu bar is covered.
     const room = roomBesideNotch(d, env, cutout);
     // Without the menus' position, the left side is assumed to have as much room as the right.
-    const free = Math.min(room.right, room.menusKnown ? room.left : room.right) - MARGIN;
+    // Without the menu-bar icons' frames (the measurement failed) nothing is known to be free: no wings, the tab below.
+    const free = room.itemsKnown ? Math.min(room.right, room.menusKnown ? room.left : room.right) - MARGIN : 0;
     wing = Math.max(0, Math.min(Math.round(WING * scale), Math.floor(free)));
     if (wing >= MIN_WING * scale) {
       pill = { width: Math.round(cutout.width + 2 * wing), height: Math.round(cutout.height) };

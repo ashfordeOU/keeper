@@ -542,7 +542,7 @@ func handle(id: Int, method: String, params: [String: Any]) async {
         case "hud.watch": try await hudWatch(id: id, params: params); Wire.shared.result(id, ["ended": true])
         case "front.watch": try await frontWatch(id: id, params: params); Wire.shared.result(id, ["ended": true])
         case "front.now": Wire.shared.result(id, frontNow() ?? [:])
-        case "place.measure": Wire.shared.result(id, placeMeasure())
+        case "place.measure", "menubar.layout": Wire.shared.result(id, placeMeasure())
         case "apps.running": Wire.shared.result(id, appsRunning(params))
         case "desktop.setImage": Wire.shared.result(id, try desktopSetImage(params))
         case "desktop.getImage": Wire.shared.result(id, desktopGetImage())

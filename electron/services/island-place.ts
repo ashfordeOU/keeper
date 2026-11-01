@@ -70,7 +70,7 @@ let macModel: string | undefined;
 async function measureMac(): Promise<MacScreens | null> {
   try {
     const { helperPath, macHelperCall } = await import('./platform/mac');
-    if (helperPath()) return await macHelperCall<MacScreens>('place.measure', {}, 4000);
+    if (helperPath()) return await macHelperCall<MacScreens>('menubar.layout', {}, 4000);
   } catch {
     /* an older helper without place.measure: ask the old way */
   }
