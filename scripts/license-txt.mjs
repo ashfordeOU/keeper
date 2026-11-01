@@ -14,7 +14,7 @@
 // Neither name starts with "license_": the packager would otherwise pick such
 // files up by itself (for the disk image too) instead of the ones named in
 // electron-builder.yml.
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 /** The characters Mac Roman has above ASCII, in byte order 0x80–0xFF. */
@@ -84,5 +84,8 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const text = markdownToText(readFileSync(new URL('LICENSE.md', root), 'utf8'));
   writeFileSync(new URL('build/installer-license.txt', root), '\ufeff' + text.replace(/\n/g, '\r\n') + '\r\n');
   writeFileSync(new URL('build/dmg-license.txt', root), toMacRomanText(text) + '\n');
+  // Older checkouts wrote build/license_en.txt (with a byte order mark), and the
+  // disk image tool picks any license_*.txt up by itself: a leftover breaks it.
+  rmSync(new URL('build/license_en.txt', root), { force: true });
   console.log('build/installer-license.txt and build/dmg-license.txt written from LICENSE.md');
 }
