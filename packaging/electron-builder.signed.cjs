@@ -14,6 +14,8 @@ const path = require('node:path');
 const yaml = require('js-yaml');
 
 const root = path.join(__dirname, '..');
+// Everything in electron-builder.yml carries over, the afterPack and afterSign hooks included
+// (build/after-sign.cjs does nothing for a Developer ID build).
 const config = yaml.load(fs.readFileSync(path.join(root, 'electron-builder.yml'), 'utf8'));
 const env = process.env;
 

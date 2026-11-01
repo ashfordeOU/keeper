@@ -9,6 +9,9 @@ directories:
 # tesseract.js ships as a module because it starts its own worker threads, and
 # libheif-js (LGPL-3.0) ships as a module so people can replace it with their own build.
 afterPack: build/after-pack.cjs
+# Mac releases: re-signs the app with the stable "Keeper Self-Signed" certificate when
+# KEEPER_SIGN_IDENTITY is set (scripts/ci-import-signing-cert.sh); otherwise nothing changes.
+afterSign: build/after-sign.cjs
 files:
   - dist/**
   # Privacy & Security's optional browser extension (loaded unpacked from here).
@@ -110,7 +113,8 @@ mac:
   category: public.app-category.productivity
   # One build per processor (--arm64 / --x64), each with its own native libraries.
   target: [dmg, zip]
-  # Until a Developer ID is set up the app is ad-hoc signed; see README → First launch.
+  # Until a Developer ID is set up the app is ad-hoc signed here, and release builds are
+  # re-signed with the self-signed certificate by build/after-sign.cjs; see README → First launch.
   identity: '-'
   hardenedRuntime: false
   gatekeeperAssess: false
