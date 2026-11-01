@@ -6,6 +6,7 @@ import type { Draft, MailRule } from './pim/mail';
 import type { QuickEvent } from './pim/quickadd';
 import type { Account, Address, Alarm, Attachment, CalEvent, CalendarInfo, Contact, CountdownTimer, MailFolder, MessageSummary, Occurrence, Reminder, Thread, WorldClock } from './pim/types';
 import type { PimPrefsView } from './pim/prefs';
+import type { Insights } from './pim/insights';
 import type { SystemAccess } from './pim/syscal';
 
 export interface NewAccount {
@@ -59,6 +60,12 @@ export interface Outbox {
 export type Ring =
   | { kind: 'alarm' | 'reminder' | 'timer'; id: string; title: string; at: number; late: boolean }
   | { kind: 'event'; id: string; title: string; at: number; late: boolean; start: number; location?: string; url?: string };
+
+export interface DueReminder {
+  id: string;
+  title: string;
+  at: number;
+}
 
 export interface PimApi {
   accounts(): Promise<(Account & { needsSignIn?: boolean; secretIn?: 'keychain' | 'memory' })[]>;
@@ -121,8 +128,21 @@ export interface PimApi {
   openEvent(id: string, instance?: number): Promise<void>;
 
   reminders(): Promise<Reminder[]>;
+  /** saves a task; checking off a repeating one rolls it on to its next date */
   saveReminder(r: Reminder): Promise<Reminder>;
   deleteReminder(id: string): Promise<void>;
+  /** checks a task off (or opens it again); a repeating one rolls on */
+  completeReminder(id: string, done?: boolean): Promise<Reminder | null>;
+  /** a due reminder comes back in this many minutes */
+  snoozeReminder(id: string, minutes: number): Promise<void>;
+  /** moves tasks to a day (yyyy-mm-dd), or to the Inbox with null */
+  moveTasks(ids: string[], day: string | null): Promise<void>;
+  /** the person's own order (drag to reorder) */
+  reorderTasks(order: { id: string; order: number }[]): Promise<void>;
+  /** tasks finished and focus minutes, today and this week, and the busiest hours */
+  insights(): Promise<Insights>;
+  /** reminders ringing right now (the Island shows them until Done or Snooze) */
+  dueReminders(): Promise<DueReminder[]>;
 
   alarms(): Promise<{ alarms: Alarm[]; timers: CountdownTimer[]; clocks: WorldClock[]; next?: number }>;
   saveAlarm(a: Alarm): Promise<Alarm>;

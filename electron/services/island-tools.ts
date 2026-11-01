@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
-// The Island's tools in the main process: notes, to-dos and scripts on disk,
+// The Island's tools in the main process: notes and scripts on disk (to-dos
+// moved to the shared task list, electron/services/pim),
 // Ask with any connected AI, AI usage from the tools' own files, sales and
 // stocks from the person's own accounts, shortcuts, and shelf copies.
 // Nothing here runs on a timer unless the person turned on new-sale pings.
@@ -70,6 +71,20 @@ export async function saveStore(patch: Partial<IslandToolsStore>): Promise<Islan
   store = normalizeStore({ ...s, ...patch });
   void persist();
   return store;
+}
+
+/**
+ * Hands the Island's old to-do list to the task list (once) and empties it
+ * here: the Island's To-Dos and the Reminders page are one list now.
+ */
+export async function takeTodos(): Promise<IslandToolsStore['todos']> {
+  const s = await load();
+  const todos = s.todos;
+  if (todos.length) {
+    store = { ...s, todos: [] };
+    await persist(true);
+  }
+  return todos;
 }
 
 export function flushIslandTools(): Promise<void> {

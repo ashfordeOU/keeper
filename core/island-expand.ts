@@ -35,7 +35,7 @@ export function mayExpand(trigger: ExpandTrigger, r: ExpandRules): boolean {
 }
 
 /** Time-sensitive alerts show in the Island; the rest go to To do and the tray. */
-const URGENT: IslandAlert['kind'][] = ['download', 'screenshot', 'focus', 'agent', 'battery', 'call', 'cue', 'notification'];
+const URGENT: IslandAlert['kind'][] = ['download', 'screenshot', 'focus', 'agent', 'battery', 'call', 'cue', 'notification', 'reminder', 'update'];
 
 export function alertWorthShowing(a: Pick<IslandAlert, 'kind' | 'ref'>, o: { showInfo?: boolean } = {}): boolean {
   if (URGENT.includes(a.kind)) return true;
@@ -60,5 +60,5 @@ export function shortTitle(title: string, max = 22): string {
 
 /** The icon an alert shows in the wing. */
 export function alertIcon(kind: IslandAlert['kind']): string {
-  return ({ download: 'down', screenshot: 'screenshot', focus: 'timer', agent: 'terminal', battery: 'battery', info: 'info', notification: 'inbox', cue: 'pin', call: 'phone', disk: 'disk' } as Record<string, string>)[kind] ?? 'info';
+  return ({ download: 'down', screenshot: 'screenshot', focus: 'timer', agent: 'terminal', battery: 'battery', info: 'info', notification: 'inbox', cue: 'pin', call: 'phone', disk: 'disk', reminder: 'listCheck', update: 'down' } as Record<string, string>)[kind] ?? 'info';
 }

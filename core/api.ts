@@ -86,7 +86,7 @@ export interface NowPlaying {
 
 export interface IslandAlert {
   id: string;
-  kind: 'download' | 'screenshot' | 'focus' | 'agent' | 'battery' | 'info' | 'notification' | 'cue' | 'call' | 'disk';
+  kind: 'download' | 'screenshot' | 'focus' | 'agent' | 'battery' | 'info' | 'notification' | 'cue' | 'call' | 'disk' | 'reminder' | 'update';
   /** a cue's id (Done/Snooze in the banner), or what a hint is about */
   ref?: string;
   title: string;
@@ -231,6 +231,8 @@ export interface IslandState {
   camInUse?: string[];
   /** countdown timers from Alarms (running: endsAt; paused: leftMs) */
   countdowns?: { id: string; label: string; endsAt?: number; leftMs?: number; durationMs: number }[];
+  /** tasks whose reminder rang and wait for Done or Snooze */
+  dueReminders?: { id: string; title: string; at: number }[];
   alerts: IslandAlert[];
   /** Monorail's workspace and slide, when it is installed and switched on (Settings → Ashforde apps) */
   monorail?: import('./ashforde/monorail').MonorailState;

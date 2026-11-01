@@ -198,6 +198,18 @@ export interface Occurrence {
   instance: number;
 }
 
+/** One step of a task (a sub-task, checked off on its own). */
+export interface TaskStep {
+  id: string;
+  title: string;
+  done: boolean;
+}
+
+/**
+ * A task: Keeper's one to-do model, shared by the Reminders page, the
+ * Planner and the Island. Local ones live on this computer; ones in a
+ * calendar account's task list sync as VTODO (core/pim/ical.ts).
+ */
 export interface Reminder {
   id: string;
   /** a calendar holding tasks, or 'local' */
@@ -210,6 +222,19 @@ export interface Reminder {
   done: boolean;
   doneAt?: number;
   priority?: 0 | 1 | 2 | 3;
+  /** the day it is planned for (yyyy-mm-dd, local); without it and a due date it sits in the Inbox */
+  plannedFor?: string;
+  /** repeats: an RRULE body such as FREQ=WEEKLY;BYDAY=MO (VTODO RRULE) */
+  rrule?: string;
+  steps?: TaskStep[];
+  /** a project or area ("#home"), shown as a tag */
+  project?: string;
+  /** the person's own order within a day or list (lower first) */
+  order?: number;
+  /** when it was added */
+  created?: number;
+  /** focus sessions spent on it */
+  focus?: { at: number; minutes: number }[];
   uid?: string;
   etag?: string;
   href?: string;

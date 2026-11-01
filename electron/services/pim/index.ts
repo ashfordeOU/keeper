@@ -12,7 +12,9 @@ import os from 'node:os';
 import path from 'node:path';
 import { marked } from 'marked';
 import { simpleParser } from 'mailparser';
-import type { MailView, NewAccount, OpenMessage, Outbox, PimApi, Ring } from '../../../core/api-pim';
+import type { DueReminder, MailView, NewAccount, OpenMessage, Outbox, PimApi, Ring } from '../../../core/api-pim';
+import { addLog, insights as insightsOf, type LogEntry } from '../../../core/pim/insights';
+import { completeTask, moveToDay, todosToTasks, type OldTodo } from '../../../core/pim/tasks';
 import { autoconfigUrls, fromSrv, guess, knownProvider, parseAutoconfig, type MailConfig } from '../../../core/pim/autoconfig';
 import { WELL_KNOWN_CALDAV, WELL_KNOWN_CARDDAV } from '../../../core/pim/caldav';
 import { occurrences as expandOccurrences, parseEvents, serializeEvents } from '../../../core/pim/ical';
@@ -39,8 +41,10 @@ import { dropSecret, emptyState, files, hash, loadAccounts, loadContacts, loadSt
 
 export interface PimDeps {
   broadcast: (channel: string, ...args: unknown[]) => void;
-  /** a short alert in the Island */
-  alert: (title: string, detail?: string) => void;
+  /** a short alert in the Island ('reminder': a task is due, shown even when other alerts are not) */
+  alert: (title: string, detail?: string, kind?: 'reminder') => void;
+  /** reminders ringing now, for the Island's live activity (Snooze, Done) */
+  islandReminders?: (list: DueReminder[]) => void;
   /** today's and tomorrow's events for the Island's "next meeting" */
   islandEvents: (events: { uid: string; title: string; start: number; end: number; allDay: boolean; location?: string; url?: string }[]) => void;
   /** running countdown timers for the Island */
@@ -100,8 +104,28 @@ async function load() {
       state.prefs.holidayCountry = HOLIDAY_COUNTRIES[cc] ? cc : '';
     }
     refreshDerived();
+    await adoptIslandTodos();
   })();
   return loaded;
+}
+
+/**
+ * Once: the Island's own to-do list becomes part of the task list, so the
+ * Island and the Reminders page show the same tasks. The Island's file keeps
+ * nothing afterwards.
+ */
+async function adoptIslandTodos() {
+  if (state.migrated?.islandTodos) return;
+  try {
+    const tools = await import('../island-tools');
+    const todos = (await tools.takeTodos()) as OldTodo[];
+    const added = todosToTasks(todos, state.reminders);
+    if (added.length) state.reminders.push(...added);
+    state.migrated = { ...state.migrated, islandTodos: true };
+    saveState();
+  } catch {
+    // Outside the app (tests) there is no Island file; try again next start.
+  }
 }
 
 let saveTimer: NodeJS.Timeout | undefined;
@@ -786,6 +810,66 @@ function pushIsland() {
 
 // ---------------------------------------------------------------- the clock (alarms, reminders, alerts, timers)
 
+/** Reminders that rang and wait for Done or Snooze (the Island's live activity). */
+const dueTasks = new Map<string, DueReminder>();
+
+function pushDue() {
+  deps?.islandReminders?.([...dueTasks.values()].sort((a, b) => a.at - b.at));
+}
+
+/** A task changed: it stops ringing once done, deleted, or moved to later. */
+function settleDue(id: string) {
+  if (!dueTasks.has(id)) return;
+  const t = state.reminders.find((x) => x.id === id);
+  const at = t && (t.remindAt ?? t.due);
+  if (!t || t.done || at === undefined || at > Date.now()) {
+    dueTasks.delete(id);
+    pushDue();
+  }
+}
+
+// ---------------------------------------------------------------- tasks: saving, completing, insights
+
+/** Insights are kept unless switched off in Settings → Features. */
+function logEntry(e: LogEntry) {
+  if (!featureOn('insights')) return;
+  state.log = addLog(state.log ?? [], e);
+  saveState();
+}
+
+/** A focus session ended (from the Island): logged for Insights, and on its task. */
+export async function logFocus(minutes: number, taskId?: string) {
+  await load();
+  const m = Math.round(minutes);
+  if (m < 1) return;
+  logEntry({ kind: 'focus', at: Date.now(), minutes: m, taskId });
+  const t = taskId && state.reminders.find((x) => x.id === taskId);
+  if (t) await writeTask({ ...t, focus: [...(t.focus ?? []), { at: Date.now(), minutes: m }].slice(-200) });
+  else changed('reminders');
+}
+
+/** Saves one task here and, for an account's task list, on the server. */
+async function writeTask(r: Reminder): Promise<Reminder> {
+  const list = r.list || 'local';
+  let next: Reminder = { ...r, list, id: r.id || `${list}:${randomUUID()}`, uid: r.uid ?? randomUUID(), created: r.created ?? Date.now() };
+  const prev = state.reminders.find((x) => x.id === next.id);
+  // Checked off: a repeating task rolls on to its next date; either way it counts in Insights.
+  if (next.done && !prev?.done) {
+    const c = completeTask({ ...next, done: false, doneAt: undefined });
+    next = c.task;
+    logEntry({ kind: 'task', at: Date.now(), taskId: next.id, title: next.title });
+  }
+  if (next.done && !next.doneAt) next.doneAt = Date.now();
+  const cal = calOf(list);
+  const a = cal && acct(cal.account);
+  if (cal && a && !a.oauth) next = { ...next, ...(await putTodo(cal.url, await davAuth(a), next)) };
+  state.reminders = [...state.reminders.filter((x) => x.id !== next.id), next];
+  saveState();
+  changed('reminders');
+  settleDue(next.id);
+  return next;
+}
+
 function armClock() {
   clearTimeout(clockTimer);
   if (!deps) return;
@@ -829,7 +913,11 @@ function ring(d: Due) {
     n.on('click', () => deps?.broadcast('navigate', d.kind === 'event' ? 'calendar' : d.kind === 'reminder' ? 'reminders' : 'alarms'));
     n.show();
   }
-  deps?.alert(d.title, detail);
+  if (d.kind === 'reminder') {
+    dueTasks.set(d.id, { id: d.id, title: d.title, at: d.at });
+    pushDue();
+  }
+  deps?.alert(d.title, detail, d.kind === 'reminder' ? 'reminder' : undefined);
   deps?.broadcast('pim-ring', r);
   changed(d.kind === 'reminder' ? 'reminders' : 'alarms');
 }
@@ -1249,16 +1337,7 @@ export const pim: PimApi = {
   },
   async saveReminder(r) {
     await load();
-    const list = r.list || 'local';
-    let next: Reminder = { ...r, list, id: r.id || `${list}:${randomUUID()}`, uid: r.uid ?? randomUUID() };
-    if (next.done && !next.doneAt) next.doneAt = Date.now();
-    const cal = calOf(list);
-    const a = cal && acct(cal.account);
-    if (cal && a && !a.oauth) next = { ...next, ...(await putTodo(cal.url, await davAuth(a), next)) };
-    state.reminders = [...state.reminders.filter((x) => x.id !== next.id), next];
-    saveState();
-    changed('reminders');
-    return next;
+    return writeTask(r);
   },
   async deleteReminder(id) {
     const r = state.reminders.find((x) => x.id === id);
@@ -1268,6 +1347,46 @@ export const pim: PimApi = {
     state.reminders = state.reminders.filter((x) => x.id !== id);
     saveState();
     changed('reminders');
+    settleDue(id);
+  },
+  async completeReminder(id, done = true) {
+    await load();
+    const t = state.reminders.find((x) => x.id === id);
+    if (!t) return null;
+    if (t.done === done) return t;
+    return writeTask(done ? { ...t, done: true } : { ...t, done: false, doneAt: undefined });
+  },
+  async snoozeReminder(id, minutes) {
+    await load();
+    const t = state.reminders.find((x) => x.id === id);
+    if (!t) return;
+    await writeTask({ ...t, remindAt: Date.now() + Math.max(1, Math.min(24 * 60, minutes)) * 60_000 });
+  },
+  async moveTasks(ids, day) {
+    await load();
+    for (const id of ids) {
+      const t = state.reminders.find((x) => x.id === id);
+      if (t) await writeTask(moveToDay(t, day));
+    }
+  },
+  async reorderTasks(order) {
+    await load();
+    for (const o of order) {
+      const t = state.reminders.find((x) => x.id === o.id);
+      if (!t || t.order === o.order) continue;
+      // Local tasks change in place; an account's tasks are written to the server too.
+      if (calOf(t.list)) await writeTask({ ...t, order: o.order });
+      else state.reminders = state.reminders.map((x) => (x.id === o.id ? { ...x, order: o.order } : x));
+    }
+    saveState();
+    changed('reminders');
+  },
+  async insights() {
+    await load();
+    return insightsOf(state.log ?? [], Date.now(), state.prefs.weekStart);
+  },
+  async dueReminders() {
+    return [...dueTasks.values()];
   },
 
   async alarms() {

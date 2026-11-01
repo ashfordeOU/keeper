@@ -25,7 +25,8 @@ export function redactIsland(s: IslandState, o: { hidePrivate: boolean; cleanCli
   out.shelves = s.shelves.map((sh) => ({ ...sh, items: [] }));
   out.closedShelves = [];
   out.events = s.events.map((e) => ({ ...e, title: 'Busy', location: undefined, url: undefined }));
-  out.alerts = s.alerts.filter((a) => a.kind !== 'notification' && a.kind !== 'download' && a.kind !== 'screenshot');
+  out.alerts = s.alerts.filter((a) => a.kind !== 'notification' && a.kind !== 'download' && a.kind !== 'screenshot' && a.kind !== 'reminder');
+  if (s.dueReminders) out.dueReminders = s.dueReminders.map((r) => ({ ...r, title: 'Reminder' }));
   out.agents = s.agents.map((a) => ({ ...a, summary: '', cwd: undefined }));
   return out;
 }

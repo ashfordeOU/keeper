@@ -12,11 +12,14 @@ export interface QuickEvent {
   location?: string;
   /** minutes before, when the text asked ("remind me 10 min before") */
   alarm?: number;
+  /** what the text named: a date (or a repeat that sets one) and a time of day */
+  found?: { date: boolean; time: boolean };
 }
 
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
-const DAY_RE = '(sun|mon|tue|tues|wed|thu|thur|thurs|fri|sat)[a-z]*';
+// Whole day names or their short forms only ("month" or "monster" is not Monday).
+const DAY_RE = '(sun|mon|tue|tues|wed|thu|thur|thurs|fri|sat)(?:day|sday|nesday|rsday|urday)?';
 const MONTH_RE = '(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*';
 const TIME_RE = '(\\d{1,2})(?:[:.](\\d{2}))?\\s*(am|pm|a\\.m\\.|p\\.m\\.)?';
 
@@ -38,7 +41,9 @@ function toHours(h: string, m?: string, ap?: string): { h: number; m: number } |
   return { h: hh, m: mm };
 }
 
-export function parseQuickAdd(input: string, now = Date.now()): QuickEvent | null {
+const BYDAY = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
+
+export function parseQuickAdd(input: string, now = Date.now(), opts: { location?: boolean } = {}): QuickEvent | null {
   let s = ` ${input.trim()} `;
   if (!s.trim()) return null;
   const today = new Date(now);
@@ -62,6 +67,22 @@ export function parseQuickAdd(input: string, now = Date.now()): QuickEvent | nul
   // Repeats.
   take(/\bevery\s+weekday\b/i, () => { rrule = 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR'; });
   take(/\bevery\s+day\b|\bdaily\b/i, () => { rrule = 'FREQ=DAILY'; });
+  // "every 2 weeks", "every 3 days"
+  take(/\bevery\s+(\d{1,2})\s+(day|week|month|year)s?\b/i, (m) => {
+    const n = Number(m[1]);
+    if (n < 1) return false;
+    rrule = `FREQ=${({ day: 'DAILY', week: 'WEEKLY', month: 'MONTHLY', year: 'YEARLY' } as Record<string, string>)[m[2].toLowerCase()]}${n > 1 ? `;INTERVAL=${n}` : ''}`;
+  });
+  // "every Mon and Thu", "every Monday, Wednesday & Friday"
+  take(new RegExp(`\\bevery\\s+(${DAY_RE}(?:\\s*(?:,|and|&)\\s*${DAY_RE})+)\\b`, 'i'), (m) => {
+    const days = [...new Set(m[1].split(/\s*(?:,|and|&)\s*/i).map(dayIndex).filter((d) => d >= 0))].sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7));
+    if (days.length < 2) return false;
+    rrule = `FREQ=WEEKLY;BYDAY=${days.map((d) => BYDAY[d]).join(',')}`;
+    // Starts on the first of those days from today.
+    const t = new Date(today);
+    t.setDate(t.getDate() + Math.min(...days.map((d) => (d - t.getDay() + 7) % 7)));
+    date = t;
+  });
   take(new RegExp(`\\bevery\\s+(other\\s+)?${DAY_RE}\\b`, 'i'), (m) => {
     const d = dayIndex(m[2]);
     rrule = `FREQ=WEEKLY;${m[1] ? 'INTERVAL=2;' : ''}BYDAY=${['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'][d]}`;
@@ -166,7 +187,8 @@ export function parseQuickAdd(input: string, now = Date.now()): QuickEvent | nul
     time = t;
   });
   // Location: "at the office", "@ Café Sol" (after times are taken).
-  take(/\s(?:@|at)\s+([^@]+?)\s*$/i, (m) => { location = m[1].trim(); });
+  if (opts.location !== false) take(/\s(?:@|at)\s+([^@]+?)\s*$/i, (m) => { location = m[1].trim(); });
+  const found = { date: date !== null, time: time !== null };
 
   const title = s.replace(/\s+/g, ' ').replace(/\b(on|at|from)\s*$/i, '').trim() || 'New event';
   const d0: Date = date ?? new Date(today);
@@ -184,7 +206,7 @@ export function parseQuickAdd(input: string, now = Date.now()): QuickEvent | nul
     const start = d0.getTime();
     const end = new Date(endDate ?? d0);
     end.setDate(end.getDate() + 1);
-    return { title, start, end: end.getTime(), allDay: true, rrule, location, alarm };
+    return { title, start, end: end.getTime(), allDay: true, rrule, location, alarm, found };
   }
   const tm = time as { h: number; m: number };
   const start = new Date(d0);
@@ -196,5 +218,55 @@ export function parseQuickAdd(input: string, now = Date.now()): QuickEvent | nul
     if (e <= start) e.setDate(e.getDate() + 1);
     end = e.getTime();
   } else end = start.getTime() + (durationMin ?? 60) * 60_000;
-  return { title, start: start.getTime(), end, allDay: false, rrule, location, alarm };
+  return { title, start: start.getTime(), end, allDay: false, rrule, location, alarm, found };
+}
+
+export interface QuickTask {
+  title: string;
+  /** 1 low (!), 2 medium (!!), 3 high (!!!) */
+  priority?: 1 | 2 | 3;
+  /** "#home" */
+  project?: string;
+  rrule?: string;
+  /** the day (yyyy-mm-dd) when the text named one */
+  plannedFor?: string;
+  /** a due time when the text named a time of day */
+  due?: number;
+}
+
+const ymd = (t: number) => {
+  const d = new Date(t);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+/**
+ * A task in plain words: "Pay rent !!! #home every month",
+ * "call Ana tomorrow 3pm !", "water plants every Mon and Thu", "#work
+ * review the deck friday". English only; runs on the computer.
+ */
+export function parseTask(input: string, now = Date.now()): QuickTask | null {
+  let s = ` ${input.trim()} `;
+  if (!s.trim()) return null;
+  let priority: QuickTask['priority'];
+  let project: string | undefined;
+  // "!", "!!" and "!!!" on their own (a "!" at the end of a word stays part of it).
+  s = s.replace(/\s(!{1,3})(?=\s)/g, (_m, b: string) => {
+    priority = Math.max(priority ?? 0, b.length) as QuickTask['priority'];
+    return ' ';
+  });
+  s = s.replace(/\s#([\p{L}\p{N}_][\p{L}\p{N}_/-]*)(?=\s)/gu, (_m, name: string) => {
+    project ??= name;
+    return ' ';
+  });
+  const q = parseQuickAdd(s, now, { location: false });
+  const out: QuickTask = { title: s.replace(/\s+/g, ' ').trim() || input.trim() };
+  if (q && (q.found?.date || q.found?.time || q.rrule)) {
+    out.title = q.title === 'New event' ? out.title : q.title;
+    out.plannedFor = ymd(q.start);
+    if (q.found?.time) out.due = q.start;
+    if (q.rrule) out.rrule = q.rrule;
+  }
+  if (priority) out.priority = priority;
+  if (project) out.project = project;
+  return out;
 }

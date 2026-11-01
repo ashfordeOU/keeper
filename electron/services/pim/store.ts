@@ -7,6 +7,7 @@ import { app } from 'electron';
 import { createHash } from 'node:crypto';
 import { promises as fsp } from 'node:fs';
 import path from 'node:path';
+import type { LogEntry } from '../../../core/pim/insights';
 import type { Draft, MailRule } from '../../../core/pim/mail';
 import type { Account, Alarm, CalEvent, CalendarInfo, Contact, CountdownTimer, MessageSummary, Reminder, WorldClock } from '../../../core/pim/types';
 import { getSecret, setSecret } from '../../store';
@@ -71,6 +72,10 @@ export interface PimState {
   prefs: PimPrefs;
   /** calendar links from the Island's old "calendar link" setting already added as subscriptions */
   islandUrls?: string[];
+  /** Insights: tasks finished and focus sessions (core/pim/insights.ts) */
+  log?: LogEntry[];
+  /** one-time moves already made (the Island's own to-dos onto the task list) */
+  migrated?: { islandTodos?: boolean };
 }
 
 const DEFAULT_PREFS: PimPrefs = { notifyPreviews: true, notifyMail: true, undoSendSec: 10, trustedSenders: [], defaultAlertMin: 10, weekStart: 1, showWeekNumbers: false };

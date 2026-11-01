@@ -7,6 +7,8 @@ import { dueKey, dueNow, nextAlarmTime } from '../core/pim/alarms';
 import { occurrences } from '../core/pim/ical';
 import { makeReply, matchesQuery, threadMessages, type Draft, type MailRule } from '../core/pim/mail';
 import { parseQuickAdd } from '../core/pim/quickadd';
+import { addLog, insights, type LogEntry } from '../core/pim/insights';
+import { completeTask, moveToDay } from '../core/pim/tasks';
 import type { PimPrefsView } from '../core/pim/prefs';
 import type { Account, Alarm, CalEvent, CalendarInfo, Contact, CountdownTimer, MailFolder, MessageSummary, Reminder, WorldClock } from '../core/pim/types';
 import { suggest } from '../core/pim/vcard';
@@ -92,6 +94,7 @@ export function mockPim(emit: Emit): { pim: PimApi } {
     ev('hol:cal', 'Public holiday', mon + 10 * day, mon + 11 * day, { allDay: true, alarms: undefined }),
     ev('local:calendar', 'Dentist', at(1, 16), at(1, 16, 45), { location: 'Dr. Mendes' }),
   ];
+  let log: LogEntry[] = [];
   let reminders: Reminder[] = [
     { id: 'local:r1', list: 'local', title: 'Pay hosting invoice', due: at(1, 9), done: false, priority: 3 },
     { id: 'local:r2', list: 'local', title: 'Send homepage feedback to Ana', due: at(2, 12), done: false, priority: 2 },
@@ -226,8 +229,19 @@ export function mockPim(emit: Emit): { pim: PimApi } {
     openEvent: async () => undefined,
 
     reminders: async () => reminders,
-    saveReminder: async (r) => { const n = { ...r, id: r.id || `local:${Date.now()}`, list: r.list || 'local' }; reminders = [...reminders.filter((x) => x.id !== n.id), n]; changed('reminders'); return n; },
+    saveReminder: async (r) => {
+      let n: Reminder = { ...r, id: r.id || `local:${Date.now()}`, list: r.list || 'local', created: r.created ?? Date.now() };
+      const prev = reminders.find((x) => x.id === n.id);
+      if (n.done && !prev?.done) { n = completeTask({ ...n, done: false }).task; log = addLog(log, { kind: 'task', at: Date.now(), taskId: n.id, title: n.title }); }
+      reminders = [...reminders.filter((x) => x.id !== n.id), n]; changed('reminders'); return n;
+    },
     deleteReminder: async (id) => { reminders = reminders.filter((x) => x.id !== id); changed('reminders'); },
+    completeReminder: async (id, done = true) => { const t = reminders.find((x) => x.id === id); return t ? pim.saveReminder(done ? { ...t, done: true } : { ...t, done: false, doneAt: undefined }) : null; },
+    snoozeReminder: async (id, minutes) => { reminders = reminders.map((x) => (x.id === id ? { ...x, remindAt: Date.now() + minutes * 60_000 } : x)); changed('reminders'); },
+    moveTasks: async (ids, day) => { reminders = reminders.map((x) => (ids.includes(x.id) ? moveToDay(x, day) : x)); changed('reminders'); },
+    reorderTasks: async (order) => { const m = new Map(order.map((o) => [o.id, o.order])); reminders = reminders.map((x) => (m.has(x.id) ? { ...x, order: m.get(x.id) } : x)); changed('reminders'); },
+    insights: async () => insights(log),
+    dueReminders: async () => [],
 
     alarms: async () => { const t = Date.now(); const ns = alarms.map((a) => nextAlarmTime(a, t)).filter((x): x is number => x !== undefined); return { alarms, timers, clocks, next: ns.length ? Math.min(...ns) : undefined }; },
     saveAlarm: async (a) => { const n = { ...a, id: a.id || `a${Date.now()}` }; alarms = [...alarms.filter((x) => x.id !== n.id), n]; changed('alarms'); return n; },

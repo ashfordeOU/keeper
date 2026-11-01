@@ -1204,7 +1204,8 @@ app.whenReady().then(async () => {
   registerNotesIpc({ broadcast, allowRoot: allowPreviewRoot });
   void startPim({
     broadcast,
-    alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }),
+    alert: (title, detail, kind) => islandSvc?.alert({ kind: kind ?? 'info', title, detail }),
+    islandReminders: (list) => islandSvc?.setDueReminders(featureOn('islandTodos') ? list : []),
     islandEvents: (evs) => islandSvc?.setPimEvents(evs),
     islandTimers: (t) => islandSvc?.setCountdowns(t),
     show: (route) => showMain(route),

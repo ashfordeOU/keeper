@@ -9,6 +9,7 @@ export interface QuickNote {
   pinned?: boolean;
 }
 
+/** The Island's own to-dos before they moved to the shared task list (kept to read old files once). */
 export interface Todo {
   id: string;
   text: string;

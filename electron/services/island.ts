@@ -170,6 +170,15 @@ export class IslandService {
     this.emit();
   }
 
+  /** reminders ringing now (Mail & Calendar's task list) */
+  dueReminders: NonNullable<IslandState['dueReminders']> = [];
+
+  setDueReminders(list: NonNullable<IslandState['dueReminders']>) {
+    if (JSON.stringify(list) === JSON.stringify(this.dueReminders)) return;
+    this.dueReminders = list;
+    this.emit();
+  }
+
   setCountdowns(t: NonNullable<IslandState['countdowns']>) {
     if (JSON.stringify(t) === JSON.stringify(this.countdowns)) return;
     this.countdowns = t;
@@ -195,7 +204,7 @@ export class IslandService {
       shelf: views.find((v) => v.id === this.store.active)?.items ?? [], shelves: views, activeShelf: this.store.active,
       closedShelves: this.store.closed.map((c) => ({ id: c.id, name: c.name, color: c.color, count: c.items.length })),
       devices: this.devices, awakeTriggers: this.awakeTriggers, awakeAvailable: featureOn('keepAwake'), hidden: this.userHidden || this.fsHidden,
-      clips: this.clips.items, focus: this.focus, keepAwake: this.awake, agents: this.agents, events: [...this.events, ...this.pimEvents].sort((a, b) => a.start - b.start), countdowns: this.countdowns,
+      clips: this.clips.items, focus: this.focus, keepAwake: this.awake, agents: this.agents, events: [...this.events, ...this.pimEvents].sort((a, b) => a.start - b.start), countdowns: this.countdowns, dueReminders: this.dueReminders,
       nowPlaying: this.playing, lyrics: this.lyrics, weather: this.weather, battery: this.battery, micInUse: this.mic, camInUse: this.cam, alerts: this.alerts, breakIn, recording: this.recording,
       monorail: this.monorail,
     };

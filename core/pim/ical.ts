@@ -180,6 +180,12 @@ export function parseEvents(text: string, calendar = ''): CalEvent[] {
   return out;
 }
 
+/** A local day as yyyy-mm-dd. */
+export function dayKey(t: number | Date): string {
+  const d = new Date(t);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 /** Tasks (VTODO) in an iCalendar text. */
 export function parseTodos(text: string, list = ''): Reminder[] {
   const out: Reminder[] = [];
@@ -197,7 +203,16 @@ export function parseTodos(text: string, list = ''): Reminder[] {
       let remindAt: number | undefined;
       if (trig?.params.VALUE === 'DATE-TIME') remindAt = parseDate(trig.value)?.t;
       else if (trig && dueT !== undefined) remindAt = dueT + parseDuration(trig.value);
-      out.push({
+      // The planned day is the task's start date (DTSTART); a date-time start counts by its local day.
+      const start = prop(c, 'DTSTART');
+      const startT = start ? parseDate(start.value, start.params)?.t : undefined;
+      const rrule = prop(c, 'RRULE')?.value;
+      const project = prop(c, 'CATEGORIES')?.value.split(/(?<!\\),/)[0];
+      const steps = props(c, 'X-KEEPER-STEP').map((p, i) => ({ id: p.params['X-ID'] || `s${i}`, title: unescapeText(p.value), done: p.params['X-DONE'] === '1' }));
+      const order = Number(prop(c, 'X-KEEPER-ORDER')?.value);
+      const created = prop(c, 'CREATED');
+      const focus = (prop(c, 'X-KEEPER-FOCUS')?.value ?? '').split(',').map((x) => x.split('/').map(Number)).filter(([at, m]) => at > 0 && m > 0).map(([at, minutes]) => ({ at, minutes }));
+      const t: Reminder = {
         id: `${list}:${uid}`,
         list,
         uid,
@@ -209,7 +224,15 @@ export function parseTodos(text: string, list = ''): Reminder[] {
         doneAt: completed ? parseDate(completed.value)?.t : undefined,
         // iCalendar: 1 highest … 9 lowest; Keeper: 3 high, 2 medium, 1 low.
         priority: pr === 0 ? 0 : pr <= 4 ? 3 : pr === 5 ? 2 : 1,
-      });
+      };
+      if (startT !== undefined) t.plannedFor = dayKey(startT);
+      if (rrule) t.rrule = rrule.replace(/^RRULE:/i, '');
+      if (project) t.project = unescapeText(project);
+      if (steps.length) t.steps = steps;
+      if (Number.isFinite(order)) t.order = order;
+      if (created) t.created = parseDate(created.value)?.t;
+      if (focus.length) t.focus = focus;
+      out.push(t);
     }
   }
   return out;
@@ -298,7 +321,15 @@ export function serializeEvents(events: CalEvent[], opts: { method?: 'REQUEST' |
 export function serializeTodo(r: Reminder, now = Date.now()): string {
   const L = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Ashforde//Keeper//EN', 'BEGIN:VTODO', `UID:${r.uid ?? r.id}`, `DTSTAMP:${utcStamp(now)}`, `SUMMARY:${escapeText(r.title)}`];
   if (r.notes) L.push(`DESCRIPTION:${escapeText(r.notes)}`);
+  if (r.created) L.push(`CREATED:${utcStamp(r.created)}`);
+  if (r.plannedFor && /^\d{4}-\d{2}-\d{2}$/.test(r.plannedFor)) L.push(`DTSTART;VALUE=DATE:${r.plannedFor.replace(/-/g, '')}`);
   if (r.due !== undefined) L.push(`DUE:${utcStamp(r.due)}`);
+  // RFC 5545 needs DTSTART or DUE for a repeating task; the planned day or the due date anchors it.
+  if (r.rrule && (r.plannedFor || r.due !== undefined)) L.push(`RRULE:${r.rrule.replace(/^RRULE:/i, '')}`);
+  if (r.project) L.push(`CATEGORIES:${escapeText(r.project)}`);
+  for (const st of r.steps ?? []) L.push(`X-KEEPER-STEP;X-ID=${st.id.replace(/[^\w-]/g, '')};X-DONE=${st.done ? 1 : 0}:${escapeText(st.title)}`);
+  if (r.order !== undefined) L.push(`X-KEEPER-ORDER:${r.order}`);
+  if (r.focus?.length) L.push(`X-KEEPER-FOCUS:${r.focus.map((f) => `${f.at}/${f.minutes}`).join(',')}`);
   if (r.priority) L.push(`PRIORITY:${r.priority === 3 ? 1 : r.priority === 2 ? 5 : 9}`);
   L.push(`STATUS:${r.done ? 'COMPLETED' : 'NEEDS-ACTION'}`);
   if (r.done) L.push(`COMPLETED:${utcStamp(r.doneAt ?? now)}`);
