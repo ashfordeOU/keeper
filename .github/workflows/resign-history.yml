@@ -12,6 +12,10 @@ on:
       confirm:
         description: 'Type "re-sign main" to rewrite every branch and tag'
         required: true
+      verify_only:
+        description: "Only check on GitHub that every commit is Verified (rewrite nothing)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -22,7 +26,7 @@ concurrency:
 
 jobs:
   resign:
-    if: inputs.confirm == 're-sign main'
+    if: inputs.confirm == 're-sign main' && !inputs.verify_only
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -51,7 +55,15 @@ jobs:
           for b in $branches; do git branch -f "$b" "origin/$b"; done
           for b in $branches; do echo "$b before: $(git rev-parse "$b") ($(git rev-list --count "$b") commits)"; done
           # commit-tree -S signs; filter-branch keeps each commit's author, committer, dates and tree.
-          git filter-branch -f --commit-filter 'git commit-tree -S "$@"' --tag-name-filter cat -- --branches --tags
+          # The only other change: a commit made under any other name or address becomes
+          # ashfordeOU's (same dates), since GitHub only verifies the account's own addresses.
+          git filter-branch -f \
+            --env-filter '
+              id="236818772+ashfordeOU@users.noreply.github.com"
+              if [ "$GIT_AUTHOR_EMAIL" != "$id" ]; then GIT_AUTHOR_NAME=ashfordeOU; GIT_AUTHOR_EMAIL="$id"; fi
+              if [ "$GIT_COMMITTER_EMAIL" != "$id" ]; then GIT_COMMITTER_NAME=ashfordeOU; GIT_COMMITTER_EMAIL="$id"; fi
+              export GIT_AUTHOR_NAME GIT_AUTHOR_EMAIL GIT_COMMITTER_NAME GIT_COMMITTER_EMAIL' \
+            --commit-filter 'git commit-tree -S "$@"' --tag-name-filter cat -- --branches --tags
           # Nothing but the signatures may differ: every branch keeps its exact tree.
           for b in $branches; do
             [ "$(git rev-parse "origin/$b^{tree}")" = "$(git rev-parse "$b^{tree}")" ] || { echo "::error::$b changed"; exit 1; }
@@ -65,3 +77,45 @@ jobs:
           git push --force origin --tags
           rm -f "$key"
           echo "main after: $(git rev-parse main)"
+
+  verify:
+    needs: resign
+    if: always() && inputs.confirm == 're-sign main' && (needs.resign.result == 'success' || inputs.verify_only)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every commit on every branch, and every tag, is Verified on GitHub
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          owner="${GITHUB_REPOSITORY%/*}"; name="${GITHUB_REPOSITORY#*/}"
+          sleep 20
+          total=0; bad=0
+          : > seen.txt
+          for branch in $(gh api "repos/$GITHUB_REPOSITORY/branches?per_page=100" --paginate --jq '.[].name'); do
+            cursor=""
+            while :; do
+              after=""; [ -n "$cursor" ] && after=", after: \"$cursor\""
+              page="$(gh api graphql -f query="{ repository(owner: \"$owner\", name: \"$name\") { ref(qualifiedName: \"refs/heads/$branch\") { target { ... on Commit { history(first: 100$after) { pageInfo { hasNextPage endCursor } nodes { oid messageHeadline author { email } signature { isValid state } } } } } } } }")"
+              echo "$page" | jq -r '.data.repository.ref.target.history.nodes[] | "\(.oid) \(.signature.isValid // false) \(.signature.state // "UNSIGNED") \(.author.email) \(.messageHeadline)"' > page.txt
+              while read -r oid ok state email rest; do
+                grep -qx "$oid" seen.txt && continue
+                echo "$oid" >> seen.txt
+                total=$((total + 1))
+                if [ "$ok" != "true" ] || [ "$state" != "VALID" ]; then echo "::error::$branch: not Verified ($state): $oid $rest"; bad=$((bad + 1)); fi
+                if [ "$email" != "236818772+ashfordeOU@users.noreply.github.com" ]; then echo "::error::$branch: author $email: $oid $rest"; bad=$((bad + 1)); fi
+              done < page.txt
+              [ "$(echo "$page" | jq -r '.data.repository.ref.target.history.pageInfo.hasNextPage')" = "true" ] || break
+              cursor="$(echo "$page" | jq -r '.data.repository.ref.target.history.pageInfo.endCursor')"
+            done
+            echo "branch $branch checked"
+          done
+          tags=0
+          for t in $(gh api "repos/$GITHUB_REPOSITORY/tags?per_page=100" --paginate --jq '.[].name'); do
+            sha="$(gh api "repos/$GITHUB_REPOSITORY/commits/$t" --jq '.sha')"
+            v="$(gh api "repos/$GITHUB_REPOSITORY/commits/$sha" --jq '"\(.commit.verification.verified) \(.commit.verification.reason)"')"
+            tags=$((tags + 1))
+            case "$v" in "true valid") ;; *) echo "::error::tag $t ($sha) not Verified: $v"; bad=$((bad + 1)) ;; esac
+          done
+          echo "Checked $total commits across every branch and $tags tags: $bad not Verified or not ashfordeOU."
+          [ "$bad" = 0 ]
