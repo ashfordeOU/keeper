@@ -261,8 +261,8 @@ export function parseLsofF(text: string): NetConn[] {
 }
 
 /**
- * `nettop -L 1 -x -n -J interface,state,bytes_in,bytes_out`: CSV with a process
- * row ("Name.pid") followed by its connection rows
+ * `nettop -L 1 -x -n -J interface,state,bytes_in,bytes_out`: CSV (with a time
+ * column first on older macOS) with a process row ("Name.pid") followed by its connection rows
  * ("tcp4 192.168.1.20:51234<->17.57.144.20:5223").
  */
 export function parseNettop(text: string): { conns: NetConn[]; procs: ProcBytes[] } {
@@ -273,10 +273,12 @@ export function parseNettop(text: string): { conns: NetConn[]; procs: ProcBytes[
   const head = lines[0].split(',');
   const col = (name: string) => head.indexOf(name);
   const ci = col('interface'), cs = col('state'), cin = col('bytes_in'), cout = col('bytes_out');
+  // The name is the unnamed column before "interface": second after a time column, first on macOS 26 (no time column).
+  const cw = Math.max(0, ci - 1);
   let proc: ProcBytes | undefined;
   for (const line of lines.slice(1)) {
     const f = line.split(',');
-    const what = f[1] ?? '';
+    const what = f[cw] ?? '';
     const bin = Number(f[cin]) || 0, bout = Number(f[cout]) || 0;
     const sock = what.match(/^(tcp|udp)([46])\s+(.+?)<->(.+)$/);
     if (sock) {

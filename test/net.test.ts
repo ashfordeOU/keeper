@@ -148,6 +148,24 @@ describe('macOS', () => {
     expect(conns[1]).toMatchObject({ family: 6, remote: '2606:4700::1111', remotePort: 443, iface: 'utun4' });
     expect(conns[2]).toMatchObject({ proto: 'UDP', pid: 212, localPort: 5353, remote: undefined, local: '0.0.0.0' });
   });
+  it('reads nettop without the time column (macOS 26)', () => {
+    const out = `,interface,state,bytes_in,bytes_out,
+launchd.1,,,0,0,
+tcp4 *:22<->*:*,,Listen,,,
+tcp6 *.22<->*.*,,Listen,,,
+syslogd.121,,,0,51923,
+udp4 *:55484<->*:*,lo0,,0,51923,
+mobileassetd.180,,,61391,33242,
+tcp4 192.168.64.3:52115<->17.23.18.34:443,en0,Established,9185,5226,
+`;
+    const { conns, procs } = parseNettop(out);
+    expect(procs.map((p) => `${p.name}.${p.pid}`)).toEqual(['launchd.1', 'syslogd.121', 'mobileassetd.180']);
+    expect(conns).toHaveLength(4);
+    expect(conns[0]).toMatchObject({ pid: 1, name: 'launchd', localPort: 22, state: 'Listen', family: 4 });
+    expect(conns[1]).toMatchObject({ pid: 1, localPort: 22, family: 6, local: '::' });
+    expect(conns[2]).toMatchObject({ proto: 'UDP', pid: 121, localPort: 55484, iface: 'lo0', bytesOut: 51923 });
+    expect(conns[3]).toMatchObject({ pid: 180, name: 'mobileassetd', local: '192.168.64.3', localPort: 52115, remote: '17.23.18.34', remotePort: 443, state: 'Established', iface: 'en0', bytesIn: 9185 });
+  });
   it('reads netstat -rn, skipping interface-scoped routes', () => {
     const out = `Routing tables
 

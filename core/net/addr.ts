@@ -159,7 +159,10 @@ export function splitHostPort(s: string): { host: string; port?: number } {
   const t = s.trim();
   const br = t.match(/^\[([^\]]+)\](?::(\d+))?$/);
   if (br) return { host: br[1], port: br[2] ? Number(br[2]) : undefined };
-  if (t === '*' || t === '*:*') return { host: '*' };
+  if (t === '*' || t === '*:*' || t === '*.*') return { host: '*' };
+  // BSD style for any IPv6 address: "*.22" (nettop, netstat)
+  const anyDot = t.match(/^\*\.(\d+)$/);
+  if (anyDot) return { host: '*', port: Number(anyDot[1]) };
   const colons = (t.match(/:/g) ?? []).length;
   if (colons === 1) {
     const [h, p] = t.split(':');

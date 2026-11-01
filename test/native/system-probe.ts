@@ -155,6 +155,7 @@ async function settingsCatalogue() {
   let read = 0;
   let set = 0;
   let skipped = 0;
+  let pmsetSet = 0;
   const missingTools = new Set<string>();
   for (const def of defs) {
     const cmd = readCmd(def.op);
@@ -170,12 +171,17 @@ async function settingsCatalogue() {
     }
     read++;
     if (v !== undefined) set++;
+    if (v !== undefined && def.op.t === 'pmset') pmsetSet++;
     const line = `${def.id} (${[cmd.file, ...cmd.args].join(' ')}) = ${v === undefined ? '(not set, system default)' : JSON.stringify(v)}`;
-    if (ALWAYS[def.op.t]) check(v !== undefined, line);
+    // Hibernation and some power keys do not exist on virtual machines (CI); powercfg's own settings always do.
+    const vmMaybe = def.op.t === 'pmset' || (def.op.t === 'powercfg' && def.op.what === 'hibernate');
+    if (ALWAYS[def.op.t] && !vmMaybe) check(v !== undefined, line);
+    else if (vmMaybe && v === undefined) info(`${line} (not on this virtual machine)`);
     else if (def.op.t === 'service') check(v !== undefined || /does not exist|1060/i.test(r.stdout + r.stderr), line);
     else console.log(`     ${line}`);
   }
   check(missingTools.size === 0, `every tool the catalogue reads with exists${missingTools.size ? `; missing: ${[...missingTools].join(', ')}` : ''}`);
+  if (OS === 'darwin') check(defs.some((d) => d.op.t === 'pmset') && pmsetSet > 0, `pmset -g custom is read: ${pmsetSet} power settings have values`);
   check(read > 0, `settings catalogue: ${defs.length} ${os} settings, ${read} read (${set} set explicitly), ${skipped} need an administrator to read`);
 }
 

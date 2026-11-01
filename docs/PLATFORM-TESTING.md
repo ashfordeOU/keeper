@@ -73,7 +73,7 @@ xvfb-run -a node test/e2e/native-smoke.cjs release/linux-unpacked/keeper /tmp/sh
 
 ## What needs a person (permissions or hardware)
 
-CI machines cannot grant macOS privacy permissions (TCC), have no sound
+CI machines cannot answer macOS privacy prompts (TCC; GitHub's Macs come with Accessibility, Screen Recording and Automation already allowed for the runner, which a person's Mac does not), have no sound
 devices, cameras, batteries, fans, Bluetooth or external displays, and nobody
 can answer a prompt. These are checked by hand before a release:
 
@@ -82,7 +82,7 @@ can answer a prompt. These are checked by hand before a release:
 - Accessibility: notification mirroring (`notifications.watch`), voice editing and the focused-field check (`voice.focus` answers `secure: null` without it), remote control input (`input.*`), computer use
 - Input Monitoring: the hold-to-talk key (`voice.keys`) and Stage's keystroke and click overlays (`stage.events`)
 - Screen Recording: remote screen sharing, Stage capture detection by window title, system audio for the meeting recorder (`voice.systemAudio`)
-- Automation (System Events): Stage's Dock and menu bar switches (the dry run reports them as unreadable on CI)
+- Automation (System Events): Stage's Dock and menu bar switches (GitHub's Macs happen to allow it, so the dry run reads them there; on a fresh Mac macOS asks first)
 - Calendars and Reminders (EventKit), Speech Recognition (`speech.transcribe`)
 - Apple Intelligence (`chat`) and on-device translation need a supported Mac with Apple Intelligence on; CI reports `deviceNotEligible`
 - External displays over DDC/CI (`ddc.get`, `ddc.set`, input switching), display mode changes (`stage.setMode`), the call mute (`calls.mute`) with a real microphone
