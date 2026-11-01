@@ -26,6 +26,10 @@ const Glance = lazy(() => import('./glance/Glance').then((m) => ({ default: m.Gl
 const Launcher = lazy(() => import('./screens/monitor/Launcher').then((m) => ({ default: m.Launcher })));
 const ToolWindow = lazy(() => import('./screens/monitor/ToolWindow').then((m) => ({ default: m.ToolWindow })));
 
+// The small Software Update and About Keeper windows.
+const UpdateWindow = lazy(() => import('./updates/UpdateWindow').then((m) => ({ default: m.UpdateWindow })));
+const AboutWindow = lazy(() => import('./updates/AboutWindow').then((m) => ({ default: m.AboutWindow })));
+
 // Remote Desktops' quick-connect window.
 const RdcQuickWindow = lazy(() => import('./screens/RemoteDesktopQuick').then((m) => ({ default: m.RdcQuickWindow })));
 
@@ -41,6 +45,6 @@ createRoot(document.getElementById('root')!).render(
   // A wallpaper window needs none of the app's state: it starts nothing but its own drawing.
   view === 'wallpaper' ? <Suspense fallback={null}><WallpaperView /></Suspense> :
   <StrictMode>
-    <StoreProvider>{view === 'sysmon-popover' ? <Suspense fallback={null}><TrayPopover /></Suspense> : view === 'glance' ? <Suspense fallback={null}><Glance /></Suspense> : view === 'launcher' ? <Suspense fallback={null}><Launcher /></Suspense> : view === 'tool' ? <Suspense fallback={null}><ToolWindow id={params.get('id') ?? ''} /></Suspense> : view === 'quick' ? <QuickSearch /> : view === 'rdc-quick' ? <Suspense fallback={null}><RdcQuickWindow /></Suspense> : view === 'island' ? <Island /> : view === 'clips' ? <ClipPicker /> : view === 'widget' ? <WidgetView /> : view === 'ambient' ? <Suspense fallback={null}><MixerPanel /></Suspense> : view === 'terminal' ? <TerminalApp mode={params.get('quick') ? 'quick' : 'window'} startCwd={params.get('cwd') ?? undefined} /> : view === 'voice' ? <Suspense fallback={null}><VoiceHud /></Suspense> : view === 'guide-mini' ? <GuideMini /> : view === 'screenhost' ? <HostView /> : view === 'screenviewer' ? <ViewerView /> : view === 'cue' ? <Suspense fallback={null}><CuePopup /></Suspense> : <App />}</StoreProvider>
+    <StoreProvider>{view === 'sysmon-popover' ? <Suspense fallback={null}><TrayPopover /></Suspense> : view === 'glance' ? <Suspense fallback={null}><Glance /></Suspense> : view === 'launcher' ? <Suspense fallback={null}><Launcher /></Suspense> : view === 'tool' ? <Suspense fallback={null}><ToolWindow id={params.get('id') ?? ''} /></Suspense> : view === 'quick' ? <QuickSearch /> : view === 'rdc-quick' ? <Suspense fallback={null}><RdcQuickWindow /></Suspense> : view === 'update' ? <Suspense fallback={null}><UpdateWindow /></Suspense> : view === 'about' ? <Suspense fallback={null}><AboutWindow /></Suspense> : view === 'island' ? <Island /> : view === 'clips' ? <ClipPicker /> : view === 'widget' ? <WidgetView /> : view === 'ambient' ? <Suspense fallback={null}><MixerPanel /></Suspense> : view === 'terminal' ? <TerminalApp mode={params.get('quick') ? 'quick' : 'window'} startCwd={params.get('cwd') ?? undefined} /> : view === 'voice' ? <Suspense fallback={null}><VoiceHud /></Suspense> : view === 'guide-mini' ? <GuideMini /> : view === 'screenhost' ? <HostView /> : view === 'screenviewer' ? <ViewerView /> : view === 'cue' ? <Suspense fallback={null}><CuePopup /></Suspense> : <App />}</StoreProvider>
   </StrictMode>,
 );

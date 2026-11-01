@@ -13,6 +13,7 @@ import { Icon } from './Icon';
 import { ContextMenu, Modal, Toggle } from './ui';
 import { countdown, describePlan, type UpdateWhen } from '../../core/update-schedule';
 import { wantsBeta } from '../../core/updates';
+import { isSkipped } from '../../core/update-window';
 import '../styles/updates.css';
 
 // Every place that shows the update (Settings, the banner) sees the same status at once.
@@ -282,6 +283,8 @@ export function UpdateBanner() {
     }
   });
   if (!s || !s.version || (s.state !== 'available' && s.state !== 'ready' && s.state !== 'downloading')) return null;
+  // "Skip this version" in the Software Update window.
+  if (isSkipped(s, settings?.updateSkip)) return null;
   // The countdown before a scheduled install always shows, and can always be postponed.
   if (s.state === 'ready' && s.countdown !== undefined) {
     return (

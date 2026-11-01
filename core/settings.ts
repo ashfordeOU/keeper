@@ -125,6 +125,7 @@ export function defaultSettings(folders: string[], rules: Rule[]): AllSettings {
     sidebarOrder: [],
     lastRunVersion: '',
     updatePlan: null,
+    updateSkip: '',
     restorePlace: true,
     language: 'system',
     inspectorMode: 'selection',

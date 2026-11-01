@@ -28,6 +28,7 @@ import { detectInstallSource, INSTALL_SOURCES } from '../../core/install-source'
 import { compareVersions, pickAsset, pickRelease, releaseFor, versionNotes, wantsBeta, type GhAsset, type GhRelease, type InstallKind, type VersionNote } from '../../core/updates';
 import { CHECKSUMS_FILE, checksumProblem, designatedRequirement, isAdHocRequirement } from '../../core/update-verify';
 import { describePlan, nextStep, planFor, type UpdateWhen } from '../../core/update-schedule';
+import { isSkipped } from '../../core/update-window';
 import { settings, updateSettings } from '../store';
 import { busyWith } from './busy';
 
@@ -54,6 +55,7 @@ let ticker: NodeJS.Timeout | undefined;
 let beforeInstall: () => void = () => undefined;
 let eu: typeof import('electron-updater').autoUpdater | null = null;
 let notify: (s: UpdateStatus) => void = () => undefined;
+let notificationClick: () => void = () => undefined;
 
 function set(s: Partial<UpdateStatus>) {
   status = { ...status, ...s, current: app.getVersion() };
@@ -131,12 +133,13 @@ export async function checkForUpdates(user = true): Promise<UpdateStatus> {
       message: kind === 'source' ? 'You are running Keeper from source; pull the latest code to update.' : managed ? `Installed with ${INSTALL_SOURCES[source].label}; update it there.` : !asset ? 'This release has no installer for this computer yet' : undefined,
     });
     if (!asset && kind !== 'source' && !managed) set({ canInstall: false, method: 'manual' });
+    // A check someone started shows its answer where they started it (the Software Update window, Settings).
     if (notifiedFor !== version) {
       notifiedFor = version;
-      notify(status);
+      if (!user) notify(status);
     }
     // Automatic mode downloads straight away (package installs still ask for the password later).
-    if (!user && s.updateMode === 'auto' && status.canInstall && !downloaded) void downloadUpdate();
+    if (!user && s.updateMode === 'auto' && status.canInstall && !downloaded && !isSkipped(status, s.updateSkip)) void downloadUpdate();
   } catch (e) {
     set({ state: 'error', checkedAt: Date.now(), message: e instanceof Error ? e.message.split('\n')[0] : String(e) });
   }
@@ -377,6 +380,11 @@ function schedule() {
   ticker.unref?.();
 }
 
+/** What a click on an update notification does (opens the Software Update window). */
+export function onUpdateNotificationClick(fn: () => void) {
+  notificationClick = fn;
+}
+
 /** Lets the app save where the person is before Keeper restarts. */
 export function onBeforeInstall(fn: () => void) {
   beforeInstall = fn;
@@ -480,12 +488,18 @@ export async function whatsNew(): Promise<{ version: string; notes: string; url:
 
 // ---------------------------------------------------------------- start
 
-export async function initUpdater(onNotify: (s: UpdateStatus) => void) {
+/** `onNotify` returns true when it put the update on screen itself (then no system notification). */
+export async function initUpdater(onNotify: (s: UpdateStatus) => boolean) {
   notify = (s) => {
-    onNotify(s);
-    if (!Notification.isSupported()) return;
-    if (s.state === 'available') new Notification({ title: `Keeper ${s.version} is available`, body: s.method === 'manager' && s.manager?.command ? `Update with: ${s.manager.command}` : settings().updateMode === 'auto' && s.canInstall ? 'Downloading it in the background.' : 'Open Keeper to see what’s new and update.' }).show();
-    else if (s.state === 'ready') new Notification({ title: `Keeper ${s.version} is ready`, body: s.message ?? 'Restart Keeper to finish updating.' }).show();
+    // "Skip this version": automatic checks say nothing about it (a check by hand still shows it).
+    if (isSkipped(s, settings().updateSkip)) return;
+    if (onNotify(s) || !Notification.isSupported()) return;
+    let n: Notification | undefined;
+    if (s.state === 'available') n = new Notification({ title: `Keeper ${s.version} is available`, body: s.method === 'manager' && s.manager?.command ? `Update with: ${s.manager.command}` : settings().updateMode === 'auto' && s.canInstall ? 'Downloading it in the background.' : 'Click to see what’s new and update.' });
+    else if (s.state === 'ready') n = new Notification({ title: `Keeper ${s.version} is ready`, body: s.message ?? 'Restart Keeper to finish updating.' });
+    // A click opens the small Software Update window.
+    n?.on('click', () => notificationClick());
+    n?.show();
   };
   kind = await detectKind();
   set({ ...methodFor(kind), state: kind === 'source' ? 'idle' : status.state });

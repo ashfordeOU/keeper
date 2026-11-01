@@ -151,6 +151,13 @@ export function mockX(): KeeperApiX {
       ],
       loginItem: async () => login,
       setLoginItem: async (on) => (login = on),
+      // The demo opens the small windows as browser windows of their own.
+      openUpdateWindow: async () => void window.open(`${location.pathname}?view=update`, 'keeper-update', 'width=420,height=300'),
+      installAndRelaunch: async () => delay({ ...update, state: 'ready', version: '0.2.0', message: 'Ready to install' }, 1200),
+      skipVersion: async () => undefined,
+      openUpdateSettings: async () => undefined,
+      openAbout: async () => void window.open(`${location.pathname}?view=about`, 'keeper-about', 'width=340,height=420'),
+      about: async () => ({ version: update.current ?? '0.1.0', channel: 'Stable', electron: '45.0.0', chrome: '146.0.0.0', node: '24.0.0', platform: 'darwin', arch: 'arm64' }),
     },
   };
 }

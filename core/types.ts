@@ -448,6 +448,8 @@ export interface Settings {
   lastRunVersion: string;
   /** when a downloaded update goes in (null = the default for the update mode) */
   updatePlan?: import('./update-schedule').UpdatePlan | null;
+  /** the version the person chose to skip ("Skip this version"); automatic checks stay quiet about it */
+  updateSkip?: string;
   /** reopen the page you were on after an update or restart */
   restorePlace?: boolean;
   /** open pages in tabs (⌘/Ctrl-click or middle-click, ⌘T); off keeps one page per window */

@@ -161,5 +161,17 @@ export interface KeeperApiX {
     scheduleUpdate(when: import('./update-schedule').UpdateWhen): Promise<UpdateStatus>;
     loginItem(): Promise<boolean>;
     setLoginItem(on: boolean): Promise<boolean>;
+    /** the small Software Update window; `check` (default true) looks for a new version straight away */
+    openUpdateWindow(check?: boolean): Promise<void>;
+    /** download the update and relaunch into it ("Install and Relaunch") */
+    installAndRelaunch(): Promise<UpdateStatus>;
+    /** "Skip this version": automatic checks stay quiet about it; closes the update window */
+    skipVersion(version: string): Promise<void>;
+    /** Settings → Updates in the main window; closes the update window */
+    openUpdateSettings(): Promise<void>;
+    /** the small About Keeper window */
+    openAbout(): Promise<void>;
+    /** what About Keeper shows */
+    about(): Promise<{ version: string; channel: 'Beta' | 'Stable'; electron: string; chrome: string; node: string; platform: string; arch: string }>;
   };
 }

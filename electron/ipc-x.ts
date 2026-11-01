@@ -34,7 +34,8 @@ export interface IpcXDeps {
   changed: () => void;
   broadcast?: (channel: string, ...args: unknown[]) => void;
   /** a new version was found or finished downloading */
-  onUpdate?: (s: import('../core/api-x').UpdateStatus) => void;
+  /** a new version was found or is ready; true = it was shown on screen, so no system notification */
+  onUpdate?: (s: import('../core/api-x').UpdateStatus) => boolean | void;
 }
 
 const TEXT_EXT = /\.(txt|md|markdown|csv|tsv|json|log|yaml|yml|xml|html?|rtf|srt|vtt|ini|toml|tex)$/i;
@@ -111,7 +112,7 @@ export function registerIpcX(d: IpcXDeps) {
   const forecast = new ForecastService(d.events, () => settings().island.place);
   // New versions: tell every window, the Island and the tray.
   onUpdateStatus((s) => d.broadcast?.('update-status', s));
-  void initUpdater((s) => d.onUpdate?.(s));
+  void initUpdater((s) => !!d.onUpdate?.(s));
 
   handle('monitor.history', () => monitor.history);
   handle('monitor.topToday', () => monitor.topToday());

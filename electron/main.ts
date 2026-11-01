@@ -6,7 +6,9 @@
 import './test-home';
 import { clipboardImage, readFile as readCaptureFile } from './services/capture';
 import { addBusyCheck } from './services/busy';
-import { onBeforeInstall } from './services/updater';
+import { onBeforeInstall, onUpdateNotificationClick, onUpdateStatus } from './services/updater';
+import { openAboutWindow, openUpdateWindow, registerUpdateWindowIpc } from './services/update-window';
+import { shouldOfferUpdate, trayUpdateLabel } from '../core/update-window';
 import { BRAND, COPYRIGHT, REPORT_URL, TRADEMARK, WEBSITE } from '../core/brand';
 // First, so local crash reports cover everything that follows.
 import { initResilience, lastRun, restoreExtraWindows } from './resilience';
@@ -54,7 +56,7 @@ import { checkProtection } from './services/protection';
 import { listStartup, toggleStartup } from './services/startup';
 import { disks, ejectAll, health, killProcess, wifiNetworks } from './services/system';
 import { writeText } from './services/clip';
-import { checkForUpdates as checkUpdatesNow, installOnQuitIfReady, installUpdate as installUpdateNow, updateStatus } from './services/updater';
+import { installOnQuitIfReady, updateStatus } from './services/updater';
 import { VisionQueue } from './services/vision';
 import { registerIpcX, syncFinderTags } from './ipc-x';
 import { registerFileProtocol, registerPreviewIpc } from './ipc/preview';
@@ -149,7 +151,8 @@ applyWaylandSwitch();
 app.setAsDefaultProtocolClient('keeper');
 // Text fields get spelling, cut/copy/paste and writing help from the person's AI (Electron has no menu of its own).
 initWritingMenu((message) => islandSvc?.alert({ kind: 'info', title: 'Writing help did not work', detail: message }));
-// About Keeper (macOS app menu, Linux): Keeper by Ashforde®.
+// The native About panel, should anything still open it; Keeper's own About window
+// (electron/services/update-window.ts) is what the menus show on every platform.
 app.setAboutPanelOptions({ applicationName: BRAND, applicationVersion: app.getVersion(), copyright: `${COPYRIGHT}. ${TRADEMARK}`, website: WEBSITE, credits: 'Free to use. Source-available under the PolyForm Shield License 1.0.0.' });
 
 let main: BrowserWindow | null = null;
@@ -299,13 +302,50 @@ function destroyIsland() {
 
 // ---------------------------------------------------------------- tray
 
-/** Tray entries for app updates: what is new, or a way to look. */
+/**
+ * Tray entry for app updates: what is waiting ("Keeper X Is Available…", "Restart to
+ * Update to X", the download) or "Check for Updates…". Each opens the small Software
+ * Update window, which checks straight away when there is nothing waiting yet.
+ */
 function trayUpdateItems(): Electron.MenuItemConstructorOptions[] {
-  const u = updateStatus();
-  if (u.state === 'ready') return [{ label: `Restart to Update to ${u.version}`, click: () => void installUpdateNow() }, { type: 'separator' }];
-  if (u.state === 'available') return [{ label: `Keeper ${u.version} Is Available…`, click: () => showMain('settings:updates') }, { type: 'separator' }];
-  if (u.state === 'downloading') return [{ label: `Downloading Keeper ${u.version}… ${u.percent ?? 0}%`, enabled: false }, { type: 'separator' }];
-  return [{ label: 'Check for Updates…', click: () => { showMain('settings:updates'); void checkUpdatesNow(true); } }];
+  const label = trayUpdateLabel(updateStatus());
+  if (label) return [{ label, click: () => openUpdateWindow({ check: false }) }];
+  return [{ label: 'Check for Updates…', click: () => openUpdateWindow() }];
+}
+
+/**
+ * The app menu: the system's usual menus, with About Keeper and Check for Updates…
+ * opening Keeper's own small windows (the Keeper menu on a Mac, Help elsewhere).
+ */
+function appMenu(): Menu {
+  const about: Electron.MenuItemConstructorOptions = { label: 'About Keeper', click: () => openAboutWindow() };
+  const check: Electron.MenuItemConstructorOptions = { label: 'Check for Updates…', click: () => openUpdateWindow() };
+  const help: Electron.MenuItemConstructorOptions = {
+    role: 'help',
+    submenu: [
+      ...(isMac ? [] : [check, about, { type: 'separator' as const }]),
+      { label: 'Keeper on GitHub', click: () => void shell.openExternal(WEBSITE) },
+      { label: 'Report a Problem…', click: () => void shell.openExternal(REPORT_URL) },
+    ],
+  };
+  return Menu.buildFromTemplate([
+    ...(isMac ? [{
+      label: app.name,
+      submenu: [
+        about, check,
+        { type: 'separator' as const },
+        { label: 'Settings…', accelerator: 'Cmd+,', click: () => showMain('settings') },
+        { type: 'separator' as const },
+        { role: 'services' as const },
+        { type: 'separator' as const },
+        { role: 'hide' as const }, { role: 'hideOthers' as const }, { role: 'unhide' as const },
+        { type: 'separator' as const },
+        { role: 'quit' as const },
+      ],
+    }] : []),
+    { role: 'fileMenu' }, { role: 'editMenu' }, { role: 'viewMenu' }, { role: 'windowMenu' },
+    help,
+  ]);
 }
 
 /** The tray's Quick Controls: a few switches from the last reading, presets, and the page. */
@@ -416,8 +456,9 @@ function trayMenu(): Menu {
     ...(pinned.length ? [{ label: 'Shelves', submenu: pinned }] : []),
     ...(more.length ? [{ label: 'More', submenu: more }] : []),
     { type: 'separator' },
+    { label: 'About Keeper', click: () => openAboutWindow() },
     { label: 'Settings…', accelerator: isMac ? 'Cmd+,' : undefined, click: () => showMain('settings') },
-    ...trayUpdateItems().filter((i) => i.type !== 'separator'),
+    ...trayUpdateItems(),
     { type: 'separator' },
     { label: 'Quit Keeper', click: () => { quitting = true; app.quit(); } },
   ]);
@@ -1118,12 +1159,29 @@ app.whenReady().then(async () => {
   // Updates wait for work a restart would interrupt, and the window saves where you are first.
   addBusyCheck(() => (recordingState().recording ? 'Recording the screen' : undefined));
   onBeforeInstall(() => broadcast('save-place'));
+  // The small Software Update and About Keeper windows; a click on an update notification opens the first.
+  registerUpdateWindowIpc({ preload: preload(), load, lockDown, showMain: (route) => showMain(route) });
+  onUpdateNotificationClick(() => openUpdateWindow({ check: false }));
+  // The tray's update entry follows the update as it changes (found, downloading, ready), wherever it was started.
+  let trayUpdate = '';
+  onUpdateStatus((u) => {
+    const key = `${u.state}:${u.version ?? ''}`;
+    if (key === trayUpdate) return;
+    trayUpdate = key;
+    // Before the tray exists the first updateTray (below) reads the status itself.
+    if (tray) void updateTray();
+  });
   registerIpcX({
     index, journal, events: () => islandSvc.events, window: () => main, changed: libraryChanged, broadcast,
     onUpdate: (u) => {
+      // "Ask before installing": show what is new and let the person decide, as a native app does.
+      if (shouldOfferUpdate(u, settings())) {
+        openUpdateWindow({ check: false, focus: false });
+        return true;
+      }
       if (u.countdown !== undefined) islandSvc.alert({ kind: 'info', title: `Keeper updates in ${Math.ceil(u.countdown / 60)} min`, detail: 'You’ll come back to the same page. Postpone it in Keeper.' });
-      else islandSvc.alert({ kind: 'info', title: u.state === 'ready' ? `Keeper ${u.version} is ready to install` : `Keeper ${u.version} is available`, detail: u.state === 'ready' ? (u.message ?? 'Restart Keeper to finish updating') : 'Open Settings → Updates to see what’s new' });
-      void updateTray();
+      else islandSvc.alert({ kind: 'info', title: u.state === 'ready' ? `Keeper ${u.version} is ready to install` : `Keeper ${u.version} is available`, detail: u.state === 'ready' ? (u.message ?? 'Restart Keeper to finish updating') : 'Choose it in the menu bar to see what’s new' });
+      return false;
     },
   });
   registerPlacesIpc({
@@ -1345,6 +1403,7 @@ app.whenReady().then(async () => {
   libraryChanged();
   createIsland();
   syncWidgets();
+  Menu.setApplicationMenu(appMenu());
   await updateTray();
   registerShortcuts();
   void islandSvc.start();

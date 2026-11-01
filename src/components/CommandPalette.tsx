@@ -123,6 +123,8 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     ...PAGES.map(([route, label, icon, kbd]) => ({ id: `go-${label}`, label, group: 'Go to' as const, icon, kbd, route: route.name, run: () => store.go(route) })),
     { id: 'browse', label: 'Browse Home Folder', group: 'Go to', icon: 'folder', run: () => store.go({ name: 'browse', arg: store.info?.home }) },
     { id: 'rescan', label: 'Rescan Library', group: 'Actions', icon: 'refresh', keywords: 'index refresh reload', run: async () => { await api.library.rescan(); store.toast('Reading your folders…'); } },
+    { id: 'check-updates', label: 'Check for Updates…', group: 'Actions', icon: 'refresh', keywords: 'update upgrade new version release software', run: () => void api.appInfo.openUpdateWindow() },
+    { id: 'about', label: 'About Keeper', group: 'Actions', icon: 'info', keywords: 'version licence license electron', run: () => void api.appInfo.openAbout() },
     { id: 'terminal', label: 'Terminal', group: 'Actions', icon: 'terminal', keywords: 'shell console command line ssh sftp tabs panes', run: () => store.go({ name: 'terminal' }) },
     { id: 'terminal-window', label: 'New Terminal Window', group: 'Actions', icon: 'terminal', keywords: 'shell console', run: () => void api.terminal.openWindow() },
     { id: 'terminal-quick', label: 'Drop-down Terminal', group: 'Actions', icon: 'terminal', keywords: 'quake shell console', run: () => void api.terminal.toggleQuick() },

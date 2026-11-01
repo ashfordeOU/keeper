@@ -196,7 +196,8 @@ export const FEATURES: FeatureDef[] = [
 export const CORE = {
   routes: ['settings'],
   // native-*: handing a place, forecast or day to the system's own apps (core/native-apps.ts).
-  commands: ['appearance', 'hidden-files', 'inspector', 'inspector-settings', 'sidebar-toggle', 'permissions', 'view', 'look', 'theme-*', 'native-*'],
+  // check-updates and about: the small Software Update and About Keeper windows (a check by hand works with automatic checks off).
+  commands: ['appearance', 'hidden-files', 'inspector', 'inspector-settings', 'sidebar-toggle', 'permissions', 'view', 'look', 'theme-*', 'native-*', 'check-updates', 'about'],
 };
 
 const byId = new Map(FEATURES.map((f) => [f.id, f]));
