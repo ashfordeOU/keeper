@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { FEATURES, presetPatch, featureStates, setPatch } from '../core/features';
 import { defaultSettings } from '../core/settings';
 import {
-  buildPayload, coarseCpu, coarseOsVersion, countBucket, enqueue, gpuVendor, localeParts, offReason, parsePolicy, policyPath, ramBucket,
+  buildPayload, coarseCpu, macHasBattery, coarseOsVersion, countBucket, enqueue, gpuVendor, localeParts, offReason, parsePolicy, policyPath, ramBucket,
   USAGE_SCHEMA, uuidFromBytes, validateBody, validatePayload, type TelemetryInputs, type UsagePayload,
 } from '../core/telemetry';
 
@@ -195,5 +195,29 @@ describe('the privacy page', () => {
     const { readFileSync } = await import('node:fs');
     const doc = readFileSync(new URL('../docs/PRIVACY-USAGE-STATS.md', import.meta.url), 'utf8');
     for (const path of Object.keys(USAGE_SCHEMA)) expect(doc, path).toContain(`| \`${path.split('.').pop()}\` |`);
+  });
+});
+
+describe('laptop or desktop on a Mac', () => {
+  // Real `pmset -g batt` output from a MacBook Pro (Mac16,6, M4 Max) and from a Mac mini.
+  const LAPTOP = "Now drawing from 'AC Power'\n -InternalBattery-0 (id=27525219)\t40%; charging; 1:12 remaining present: true\n";
+  const DESKTOP = "Now drawing from 'AC Power'\n";
+  it('a battery makes it a laptop, whatever the model is called', () => {
+    for (const model of ['Mac16,6', 'Mac16,1', 'Mac16,12', 'Mac16,99', '']) expect(macHasBattery({ pmset: LAPTOP, model })).toBe(true);
+    expect(buildPayload(inputs({ platform: 'darwin', osRelease: '25.5.0', arch: 'arm64', cpuModel: 'Apple M4 Max', hasBattery: macHasBattery({ pmset: LAPTOP, model: 'Mac16,6' }) })).system.form).toBe('laptop');
+  });
+  it('no battery in pmset makes it a desktop', () => {
+    for (const model of ['Mac16,10', 'Mac16,9', 'Mac16,3', 'Macmini9,1']) expect(macHasBattery({ pmset: DESKTOP, model })).toBe(false);
+    expect(buildPayload(inputs({ platform: 'darwin', osRelease: '25.5.0', arch: 'arm64', cpuModel: 'Apple M4', hasBattery: macHasBattery({ pmset: DESKTOP, model: 'Mac16,10' }) })).system.form).toBe('desktop');
+  });
+  it('falls back to ioreg, then to the model table, then says unknown', () => {
+    expect(macHasBattery({ ioreg: '+-o AppleSmartBattery  <class AppleSmartBattery>\n    "BatteryInstalled" = Yes\n', model: 'Mac99,1' })).toBe(true);
+    expect(macHasBattery({ model: 'Mac16,6' })).toBe(true);
+    expect(macHasBattery({ model: 'Mac16,8' })).toBe(true);
+    expect(macHasBattery({ model: 'MacBookPro18,3' })).toBe(true);
+    expect(macHasBattery({ model: 'Mac16,11' })).toBe(false);
+    expect(macHasBattery({ model: 'iMac21,1' })).toBe(false);
+    expect(macHasBattery({ model: 'Mac99,1' })).toBeNull();
+    expect(macHasBattery({})).toBeNull();
   });
 });

@@ -258,6 +258,38 @@ export function uuidFromBytes(b: Uint8Array): string {
 
 export const isInstallId = (s: unknown): s is string => typeof s === 'string' && UUID_V4.test(s);
 
+/**
+ * Apple's model identifiers for portables since the "MacN,M" scheme began.
+ * Only a fallback: the battery itself (pmset, ioreg) decides first, because
+ * these names no longer say "MacBook".
+ */
+export const MAC_LAPTOP_MODELS = new Set([
+  'Mac14,2', 'Mac14,5', 'Mac14,6', 'Mac14,7', 'Mac14,9', 'Mac14,10', 'Mac14,15', // M2 MacBook Air and Pro
+  'Mac15,3', 'Mac15,6', 'Mac15,7', 'Mac15,8', 'Mac15,9', 'Mac15,10', 'Mac15,11', 'Mac15,12', 'Mac15,13', // M3
+  'Mac16,1', 'Mac16,5', 'Mac16,6', 'Mac16,7', 'Mac16,8', 'Mac16,12', 'Mac16,13', // M4
+]);
+/** Desktops with the same scheme (iMac, Mac mini, Mac Studio, Mac Pro), so they are not "unknown". */
+export const MAC_DESKTOP_MODELS = new Set([
+  'Mac13,1', 'Mac13,2', 'Mac14,3', 'Mac14,8', 'Mac14,12', 'Mac14,13', 'Mac14,14', 'Mac15,4', 'Mac15,5', 'Mac15,14', 'Mac16,2', 'Mac16,3', 'Mac16,9', 'Mac16,10', 'Mac16,11',
+]);
+
+/**
+ * Does this Mac have a battery (a laptop)? From `pmset -g batt` (an
+ * "InternalBattery" line), then `ioreg -rn AppleSmartBattery`, then the model
+ * identifier (older "MacBook…" names and the table above). Null when nothing
+ * tells.
+ */
+export function macHasBattery(i: { pmset?: string; ioreg?: string; model?: string }): boolean | null {
+  if (i.pmset && /InternalBattery/i.test(i.pmset)) return true;
+  if (i.ioreg && /"BatteryInstalled"\s*=\s*Yes/i.test(i.ioreg)) return true;
+  const model = (i.model ?? '').trim();
+  if (/MacBook/i.test(model) || MAC_LAPTOP_MODELS.has(model)) return true;
+  // pmset answered and listed no battery: a desktop.
+  if (i.pmset && /Now drawing from/i.test(i.pmset)) return false;
+  if (MAC_DESKTOP_MODELS.has(model) || /^(iMac|Macmini|MacPro)\d/.test(model)) return false;
+  return null;
+}
+
 export function osFamily(platform: string): UsagePayload['system']['os'] {
   return platform === 'darwin' ? 'macos' : platform === 'win32' ? 'windows' : platform === 'linux' ? 'linux' : 'other';
 }

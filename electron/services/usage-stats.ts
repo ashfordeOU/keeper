@@ -17,7 +17,7 @@ import { FEATURES } from '../../core/features';
 import { detectInstallSource } from '../../core/install-source';
 import { run } from '../../core/platform';
 import {
-  buildPayload, enqueue, isInstallId, OFF_REASON_TEXT, offReason, parsePolicy, policyPath, TELEMETRY_ENDPOINT, utcDay, uuidFromBytes,
+  buildPayload, enqueue, isInstallId, macHasBattery, OFF_REASON_TEXT, offReason, parsePolicy, policyPath, TELEMETRY_ENDPOINT, utcDay, uuidFromBytes,
   validateBody, type ManagedPolicy, type PingBody, type TelemetryInputs, type UsagePayload, type UsageStatsStatus,
 } from '../../core/telemetry';
 import { featureOn, listFeatures, onFeature, setExternalOff, setFeature } from './features';
@@ -50,7 +50,8 @@ interface Stored {
   madeFor?: string;
   last?: { at: number; body: PingBody };
   lastAttempt?: { at: number; result: string };
-  hw?: { hasBattery: boolean | null; tablet?: boolean; gpu: number[] };
+  /** v: how it was detected (2: macOS asks for the battery, not the model name) */
+  hw?: { hasBattery: boolean | null; tablet?: boolean; gpu: number[]; v?: number };
 }
 
 const file = () => path.join(app.getPath('userData'), 'usage-stats.json');
@@ -143,9 +144,12 @@ function sample() {
   h.samples++;
 }
 
+const HW_VERSION = 2;
+
 async function hardware(): Promise<NonNullable<Stored['hw']>> {
   const d = load();
-  if (d.hw) return d.hw;
+  // Earlier versions took any Mac whose model name lacks "MacBook" (Mac16,6 and the like) for a desktop.
+  if (d.hw && (d.hw.v ?? 1) >= HW_VERSION) return d.hw;
   let gpu: number[] = [];
   try {
     const info = (await app.getGPUInfo('basic')) as { gpuDevice?: { vendorId?: number }[] };
@@ -157,7 +161,9 @@ async function hardware(): Promise<NonNullable<Stored['hw']>> {
     if (process.platform === 'linux') hasBattery = readdirSync('/sys/class/power_supply').some((n) => /^BAT/i.test(n));
     else if (process.platform === 'darwin') {
       const model = placeEnv().macModel ?? (await run('/usr/sbin/sysctl', ['-n', 'hw.model'], 5000)).stdout.trim();
-      hasBattery = model ? /MacBook/i.test(model) : null;
+      const pmset = await run('/usr/bin/pmset', ['-g', 'batt'], 5000);
+      hasBattery = macHasBattery({ pmset: pmset.ok ? pmset.stdout : undefined, model });
+      if (hasBattery === null) hasBattery = macHasBattery({ ioreg: (await run('/usr/sbin/ioreg', ['-rn', 'AppleSmartBattery'], 5000)).stdout, model });
     } else if (process.platform === 'win32') {
       // Chassis types from the firmware: 8–14 and 31 portable, 30 and 32 tablets, 3–7, 13, 15, 16, 35 and 36 desktops.
       const r = await run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', '(Get-CimInstance Win32_SystemEnclosure).ChassisTypes'], 15_000);
@@ -166,7 +172,7 @@ async function hardware(): Promise<NonNullable<Stored['hw']>> {
       else if (types.length) hasBattery = false;
     }
   } catch { /* unknown */ }
-  d.hw = { hasBattery, tablet, gpu };
+  d.hw = { hasBattery, tablet, gpu, v: HW_VERSION };
   return d.hw;
 }
 
