@@ -4,6 +4,14 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 
 ## [Unreleased]
 
+## [0.1.0-beta.3] - 2026-11-01
+
+Everything listed under 0.1.0-beta.2 (which was not published), plus:
+
+### Fixed
+- macOS: no second Keeper icon bouncing in the Dock (keeper-helper now runs as a background helper).
+- The sidebar is full width again, with every section folded until you open it.
+
 ## [0.1.0-beta.2] - 2026-11-01
 
 ### Fixed
