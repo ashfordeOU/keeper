@@ -30,7 +30,8 @@ The first one is **[Monorail](https://github.com/ashfordeOU/monorail)**, a free
    that has both `Monorail-x.y.z.zip` and `SHA256SUMS`.
 2. It downloads the zip and checks its **SHA-256** against `SHA256SUMS`.
 3. It unpacks it with `ditto` and checks the **code signature**:
-   `codesign --verify --deep --strict`, the identifier `org.ashforde.macslider`,
+   `codesign --verify --deep --strict`, the identifier (`org.ashforde.macslider` today,
+   or `org.ashforde.monorail`, the one Monorail is moving to),
    and the signing certificate's name (Monorail's releases are signed with
    Ashforde's own self-signed certificate).
 4. **Pinning**: the SHA-256 of the signing certificate is remembered on the
@@ -150,3 +151,12 @@ signature check of the installed copy once when the switch goes on.
   Island placement hook.
 - `src/components/AshfordeApps.tsx` — the Settings card; `src/mock-ashforde.ts`
   — the demo.
+
+### Monorail's identifiers
+
+Keeper finds, opens and quits Monorail under any of its identifiers: `org.ashforde.macslider`
+(today's), `org.ashforde.monorail` (the one it is moving to) and `org.ashforde.monorail.appstore`
+(the Mac App Store edition), using whichever the installed copy has. Downloads from GitHub must be
+signed as one of the first two. The App Store edition is never updated or replaced by Keeper; the
+App Store keeps it up to date. Monorail's files (`~/Library/Application Support/Monorail`) don't
+depend on the identifier.

@@ -17,7 +17,7 @@ import path from 'node:path';
 import { app, shell } from 'electron';
 import {
   MONORAIL, MONORAIL_TOOLS, TOOL_PREFIX, avoidSlider, checkSignature, checksumFor, compareVersions, connectPatch, describeState, describeToolCall,
-  findClashes, keeperAccelerators, missingFloatRules, monorailShortcuts, monorailThemeFor, monorailUrl, newestRelease, parseCodesign, parseState,
+  findClashes, isAppStoreEdition, isMonorailBundleId, keeperAccelerators, missingFloatRules, spotlightQuery, monorailShortcuts, monorailThemeFor, monorailUrl, newestRelease, parseCodesign, parseState,
   pickAssets, sliderBand, versionOf, withFloatRules, withOverlayRules, type MonorailLink, type MonorailSettings, type MonorailState, type Release,
 } from '../../../core/ashforde/monorail';
 import { TugGuard, selfUpdating, shouldPushTheme, updatesBy, withSuggestions } from '../../../core/ashforde/coexist';
@@ -60,7 +60,7 @@ let updateTimer: NodeJS.Timeout | null = null;
 let state: MonorailState | undefined;
 let busy: MonorailStatus['busy'];
 let lastError: string | undefined;
-let detected: { path?: string; version?: string; at: number } | null = null;
+let detected: { path?: string; version?: string; bundleId?: string; at: number } | null = null;
 let signature: MonorailStatus['signature'];
 let mSettings: MonorailSettings = {};
 const listeners = new Set<(s: MonorailState | undefined) => void>();
@@ -126,23 +126,34 @@ async function bundleId(appPath: string): Promise<string | undefined> {
   return r.code === 0 ? r.stdout.trim() : undefined;
 }
 
-async function detect(force = false): Promise<{ path?: string; version?: string }> {
+async function detect(force = false): Promise<{ path?: string; version?: string; bundleId?: string }> {
   if (!isMac()) return {};
   if (detected && !force && Date.now() - detected.at < 30_000) return detected;
   let found: string | undefined;
-  for (const c of candidates()) if (existsSync(c) && (await bundleId(c)) === MONORAIL.bundleId) { found = c; break; }
+  let foundId: string | undefined;
+  for (const c of candidates()) {
+    if (!existsSync(c)) continue;
+    const id = await bundleId(c);
+    if (isMonorailBundleId(id)) { found = c; foundId = id; break; }
+  }
   if (!found) {
     // Somewhere else (a Downloads folder, another disk): Spotlight knows.
-    const r = await run('/usr/bin/mdfind', [`kMDItemCFBundleIdentifier == '${MONORAIL.bundleId}'`], 5000);
+    const r = await run('/usr/bin/mdfind', [spotlightQuery()], 5000);
     found = r.stdout.split('\n').map((l) => l.trim()).find((l) => l.endsWith('.app') && !l.includes('/.Trash/'));
+    if (found) foundId = await bundleId(found);
   }
   let version: string | undefined;
   if (found) {
     const r = await run('/usr/bin/plutil', ['-extract', 'CFBundleShortVersionString', 'raw', '-o', '-', path.join(found, 'Contents', 'Info.plist')], 5000);
     version = r.code === 0 ? r.stdout.trim() : undefined;
   }
-  detected = { path: found, version, at: Date.now() };
+  detected = { path: found, version, bundleId: foundId, at: Date.now() };
   return detected;
+}
+
+/** The identifier of the installed Monorail (today's when none is found). */
+async function installedId(): Promise<string> {
+  return (await detect()).bundleId ?? MONORAIL.bundleId;
 }
 
 async function running(): Promise<boolean> {
@@ -385,7 +396,7 @@ async function verifyApp(appPath: string, dir: string): Promise<{ ok: boolean; r
 
 async function quitRunning() {
   if (!(await running())) return;
-  await run('/usr/bin/osascript', ['-e', `quit app id "${MONORAIL.bundleId}"`], 8000);
+  await run('/usr/bin/osascript', ['-e', `quit app id "${await installedId()}"`], 8000);
   for (let i = 0; i < 20 && (await running()); i++) await new Promise((r) => setTimeout(r, 250));
   if (await running()) await run('/usr/bin/pkill', ['-x', 'Monorail'], 3000);
 }
@@ -394,6 +405,9 @@ async function installRelease(kind: 'install' | 'update'): Promise<MonorailStatu
   const sup = supported();
   if (!sup.ok) throw new Error(sup.reason);
   if (busy) throw new Error('Monorail is already being installed.');
+  if (kind === 'update' && isAppStoreEdition((await detect(true)).bundleId)) {
+    throw new Error('This Monorail came from the Mac App Store, which keeps it up to date.');
+  }
   lastError = undefined;
   if (kind === 'update' && (await updatingItself())) throw new Error('Monorail is updating itself right now. Keeper leaves it to finish; check again in a minute.');
   const tmp = await fsp.mkdtemp(path.join(os.tmpdir(), 'keeper-monorail-'));
@@ -440,7 +454,7 @@ async function installRelease(kind: 'install' | 'update'): Promise<MonorailStatu
     await saveStored();
     signature = { ok: true, reason: v.reason };
     detected = null;
-    if (kind === 'install' || wasRunning) await run('/usr/bin/open', ['-g', '-b', MONORAIL.bundleId], 10_000);
+    if (kind === 'install' || wasRunning) await run('/usr/bin/open', ['-g', '-b', await installedId()], 10_000);
     deps?.alert(kind === 'update' ? `Monorail ${versionOf(rel.tag_name)} is installed` : 'Monorail is installed', kind === 'install' ? 'Allow it in Accessibility when macOS asks, so it can arrange your windows.' : undefined);
     if (enabled) startWatch();
     return status(true);
@@ -471,7 +485,9 @@ export async function checkUpdate(): Promise<MonorailStatus> {
     const rel = await latestRelease();
     const v = versionOf(rel.tag_name);
     stored.lastCheck = Date.now();
-    stored.update = d.version && compareVersions(v, d.version) > 0 ? { version: v, notes: rel.body?.slice(0, 2000), url: rel.html_url } : undefined;
+    // The App Store edition is updated by the App Store, never from GitHub.
+    stored.update = d.version && !isAppStoreEdition(d.bundleId) && compareVersions(v, d.version) > 0
+      ? { version: v, notes: rel.body?.slice(0, 2000), url: rel.html_url } : undefined;
     await saveStored();
     lastError = undefined;
   } catch (e) {
@@ -497,7 +513,7 @@ export async function uninstall(removeSettings = false): Promise<MonorailStatus>
 export async function launch(): Promise<MonorailStatus> {
   const d = await detect();
   if (!d.path) throw new Error('Monorail is not installed.');
-  await run('/usr/bin/open', ['-b', MONORAIL.bundleId], 10_000);
+  await run('/usr/bin/open', ['-b', d.bundleId ?? MONORAIL.bundleId], 10_000);
   await new Promise((r) => setTimeout(r, 800));
   if (enabled) startWatch();
   return status(true);

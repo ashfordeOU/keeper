@@ -13,7 +13,15 @@ export const MONORAIL = {
   name: 'Monorail',
   repo: 'ashfordeOU/monorail',
   homepage: 'https://github.com/ashfordeOU/monorail',
+  /** the identifier releases ship with today (kept from its MacSlider days) */
   bundleId: 'org.ashforde.macslider',
+  /**
+   * Every identifier a genuine Monorail can have: today's, the one it is moving to,
+   * and the Mac App Store edition's. Keeper finds, opens and quits whichever is installed.
+   */
+  bundleIds: ['org.ashforde.macslider', 'org.ashforde.monorail', 'org.ashforde.monorail.appstore'],
+  /** the identifiers its GitHub releases are signed with (the App Store edition never comes from there) */
+  releaseBundleIds: ['org.ashforde.macslider', 'org.ashforde.monorail'],
   /** its earlier name; an old copy is replaced on install */
   legacyName: 'MacSlider',
   /** the name of the certificate its releases are signed with (self-signed) */
@@ -26,6 +34,21 @@ export const MONORAIL = {
   notification: 'org.ashforde.monorail.changed',
   defaultPort: 4767,
 } as const;
+
+/** Whether `id` is one of Monorail's identifiers (any edition). */
+export const isMonorailBundleId = (id: string | undefined): boolean =>
+  !!id && (MONORAIL.bundleIds as readonly string[]).includes(id);
+
+/** Whether `id` is one a Monorail release from GitHub may be signed as. */
+export const isReleaseBundleId = (id: string | undefined): boolean =>
+  !!id && (MONORAIL.releaseBundleIds as readonly string[]).includes(id);
+
+/** The Mac App Store edition, which the App Store keeps up to date. */
+export const isAppStoreEdition = (id: string | undefined): boolean => id === 'org.ashforde.monorail.appstore';
+
+/** The Spotlight query that finds any copy of Monorail. */
+export const spotlightQuery = (): string =>
+  MONORAIL.bundleIds.map((id) => `kMDItemCFBundleIdentifier == '${id}'`).join(' || ');
 
 // ---------------------------------------------------------------- releases
 
@@ -121,7 +144,7 @@ export function parseCodesign(text: string): Signature {
  */
 export function checkSignature(sig: Signature, certSha256: string | undefined, pinned: string | undefined): { ok: boolean; reason: string } {
   if (sig.adhoc) return { ok: false, reason: 'It is not signed with Monorail’s certificate (ad-hoc signature).' };
-  if (sig.identifier !== MONORAIL.bundleId) return { ok: false, reason: `It is signed as “${sig.identifier ?? 'nothing'}”, not as Monorail.` };
+  if (!isReleaseBundleId(sig.identifier)) return { ok: false, reason: `It is signed as “${sig.identifier ?? 'nothing'}”, not as Monorail.` };
   if (sig.authorities[0] !== MONORAIL.signer) return { ok: false, reason: `It is signed by “${sig.authorities[0] ?? 'nobody'}”, not by Ashforde’s Monorail certificate.` };
   if (pinned && certSha256 && pinned.toLowerCase() !== certSha256.toLowerCase()) return { ok: false, reason: 'Its certificate is not the one your installed Monorail was signed with.' };
   return { ok: true, reason: pinned ? 'Signed with the same certificate as before.' : 'Signed with Monorail’s certificate.' };

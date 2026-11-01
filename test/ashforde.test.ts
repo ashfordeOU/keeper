@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   MONORAIL, MONORAIL_TOOLS, acceleratorCombo, avoidSlider, checkSignature, checksumFor, compareVersions, connectPatch, describeState, describeToolCall,
-  findClashes, keeperAccelerators, missingFloatRules, monorailShortcuts, monorailThemeFor, monorailUrl, newestRelease, parseCodesign, parseState,
+  findClashes, isAppStoreEdition, isMonorailBundleId, isReleaseBundleId, keeperAccelerators, spotlightQuery, missingFloatRules, monorailShortcuts, monorailThemeFor, monorailUrl, newestRelease, parseCodesign, parseState,
   pickAssets, sliderBand, withFloatRules, withOverlayRules, OVERLAY_RULES, OVERLAY_TITLES, MOD, type Release,
 } from '../core/ashforde/monorail';
 import { ASHFORDE_APPS, offeredOn } from '../core/ashforde/apps';
@@ -49,6 +49,37 @@ describe('Monorail releases', () => {
     expect(checksumFor(sums, 'Monorail-1.1.0.zip')).toBe(hex);
     expect(checksumFor(`${hex.toUpperCase()} *dist/Monorail-1.1.0.zip`, 'Monorail-1.1.0.zip')).toBe(hex);
     expect(checksumFor(sums, 'Other.zip')).toBeNull();
+  });
+});
+
+describe('Monorail identifiers', () => {
+  it('knows today’s identifier, the one it is moving to and the App Store edition', () => {
+    expect(isMonorailBundleId('org.ashforde.macslider')).toBe(true);
+    expect(isMonorailBundleId('org.ashforde.monorail')).toBe(true);
+    expect(isMonorailBundleId('org.ashforde.monorail.appstore')).toBe(true);
+    expect(isMonorailBundleId('org.ashforde.monorailx')).toBe(false);
+    expect(isMonorailBundleId(undefined)).toBe(false);
+  });
+
+  it('only accepts GitHub releases signed as Monorail', () => {
+    expect(isReleaseBundleId('org.ashforde.macslider')).toBe(true);
+    expect(isReleaseBundleId('org.ashforde.monorail')).toBe(true);
+    expect(isReleaseBundleId('org.ashforde.monorail.appstore')).toBe(false);
+    expect(isAppStoreEdition('org.ashforde.monorail.appstore')).toBe(true);
+    expect(isAppStoreEdition('org.ashforde.monorail')).toBe(false);
+  });
+
+  it('finds any copy with Spotlight', () => {
+    const q = spotlightQuery();
+    for (const id of MONORAIL.bundleIds) expect(q).toContain(`kMDItemCFBundleIdentifier == '${id}'`);
+    expect(q.split(' || ')).toHaveLength(MONORAIL.bundleIds.length);
+  });
+
+  it('accepts a release signed with the new identifier', () => {
+    const sig = parseCodesign('Identifier=org.ashforde.monorail\nAuthority=MacSlider Self-Signed');
+    expect(checkSignature(sig, undefined, undefined).ok).toBe(true);
+    const store = parseCodesign('Identifier=org.ashforde.monorail.appstore\nAuthority=MacSlider Self-Signed');
+    expect(checkSignature(store, undefined, undefined).ok).toBe(false);
   });
 });
 
