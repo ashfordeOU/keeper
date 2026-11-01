@@ -4,6 +4,9 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 
 ## [Unreleased]
 
+### Changed
+- Check for Updates opens a small Software Update window (from the menu-bar owl, the app menu and the command palette) instead of the whole Keeper window: it checks at once and shows "newest version", a new version with its release notes and Install and Relaunch / Later / Skip this version, the download's progress, Relaunch Now, or an error with Try Again. "Ask before installing" opens it when an automatic check finds something, and About Keeper is a small window of its own on every platform.
+
 ## [0.1.0-beta.3] - 2026-11-01
 
 Everything listed under 0.1.0-beta.2 (which was not published), plus:

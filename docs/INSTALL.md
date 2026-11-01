@@ -160,6 +160,10 @@ Both need Node.js 22 or newer. The npm package is published with [provenance](ht
 
 Copies installed from a GitHub download (the dmg, the Windows installer, the AppImage, a .deb or .rpm file, or the script) update themselves. So do Homebrew and winget installs: the cask is marked `auto_updates`, and winget reads the new version back from Windows. Choose how in **Settings → Updates**: automatically, ask first, or only when you check.
 
+**Check for Updates…** (in the menu-bar owl's menu, the Keeper menu on a Mac, the Help menu where a window shows one, and the command palette) opens a small **Software Update** window that checks at once. It says when Keeper is the newest version (with the channel, Beta or Stable, and when it last looked); when a newer one is out it shows the release notes with **Install and Relaunch**, **Later** and **Skip this version**; then the download's progress and **Relaunch Now**; and, if something fails, what went wrong with **Try Again** and a link to the releases page. Its **Install updates automatically** box is the same setting as in Settings → Updates, and **Settings…** opens that page. In "Ask before installing" mode an automatic check that finds a new version opens this window by itself; a version you skipped is not mentioned again until you check by hand. **About Keeper** (the owl's menu and the Keeper menu) opens a small window with the version, channel and licence.
+
+To try the window against a fake release, serve a folder with a `releases.json` (the GitHub releases list format) and start Keeper with `KEEPER_UPDATE_FEED=http://127.0.0.1:PORT`; `test/e2e/update-window.cjs` does this.
+
 Before an update goes in, Keeper checks it:
 
 - The downloaded dmg, .deb or .rpm must match the release's `SHA256SUMS.txt`; otherwise it is deleted and nothing is installed. (The Windows installer and the AppImage are checked by electron-updater against the sha512 in the release's `latest*.yml`.)
