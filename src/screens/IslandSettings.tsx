@@ -234,9 +234,10 @@ export function IslandSettings() {
         <Row title="Quick Search"><kbd className="badge">{pretty(settings?.quickSearchShortcut ?? '')}</kbd></Row>
         <Row title="Dictation"><kbd className="badge">{pretty(isl.dictationShortcut)}</kbd></Row>
         <Row title="Open the Island"><kbd className="badge">{pretty(isl.openShortcut ?? '')}</kbd></Row>
+        <Row title="New task" desc="Opens the Island’s Tasks with the new-task field ready. Plain words work: “call Ana tomorrow 3pm !! #work”."><kbd className="badge">{pretty(isl.taskShortcut ?? '')}</kbd></Row>
         <Row title="Media keys" desc="Let the Island’s player answer the keyboard’s play/pause, next and previous keys. Off leaves them to your music app."><Toggle on={!!isl.mediaKeys} onChange={(v) => set({ mediaKeys: v })} /></Row>
-        {(['captureShortcut', 'pasteShortcut', 'shelfShortcut', 'hideShortcut', 'awakeShortcut', 'dictationShortcut', 'openShortcut'] as const).map((k) => (
-          <Row key={k} title={`Change: ${({ captureShortcut: 'copy text from screen', pasteShortcut: 'clipboard picker', shelfShortcut: 'open shelf', hideShortcut: 'hide Island', awakeShortcut: 'keep awake', dictationShortcut: 'dictation', openShortcut: 'open the Island' })[k]}`} desc="Use names like CommandOrControl+Shift+V, Alt+Space or F9.">
+        {(['captureShortcut', 'pasteShortcut', 'shelfShortcut', 'taskShortcut', 'hideShortcut', 'awakeShortcut', 'dictationShortcut', 'openShortcut'] as const).map((k) => (
+          <Row key={k} title={`Change: ${({ captureShortcut: 'copy text from screen', pasteShortcut: 'clipboard picker', shelfShortcut: 'open shelf', taskShortcut: 'new task', hideShortcut: 'hide Island', awakeShortcut: 'keep awake', dictationShortcut: 'dictation', openShortcut: 'open the Island' })[k]}`} desc="Use names like CommandOrControl+Shift+V, Alt+Space or F9.">
             <input className="input" style={{ width: 230 }} defaultValue={isl[k] ?? ''} onBlur={(e) => e.target.value.trim() !== (isl[k] ?? '') && set({ [k]: e.target.value.trim() } as Partial<IS>)} />
           </Row>
         ))}

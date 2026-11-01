@@ -37,6 +37,7 @@ export function defaultIsland(): IslandSettings {
     downloadAlerts: true,
     pasteShortcut: 'CommandOrControl+Shift+V',
     shelfShortcut: 'CommandOrControl+Shift+X',
+    taskShortcut: 'CommandOrControl+Alt+N',
     hideShortcut: 'CommandOrControl+Shift+H',
     awakeShortcut: 'CommandOrControl+Shift+A',
     edgeDrop: true,

@@ -12,6 +12,7 @@ import type { FileService } from '../services/files';
 import type { IslandService } from '../services/island';
 import { placementFor, placementPreview, refreshPlaceEnv, wantedDisplays } from '../services/island-place';
 import { onFrontAppChange } from '../services/fg-watch';
+import { featureOn } from '../services/features';
 import { keepUnmanaged, overlayOptions } from '../services/unmanaged';
 import { TugGuard } from '../../core/ashforde/coexist';
 import { settings } from '../store';
@@ -473,6 +474,8 @@ export function registerIslandShortcuts() {
   };
   reg(s.pasteShortcut, () => (clipsWindowOpen() ? hideClips() : openClips()));
   reg(s.shelfShortcut, () => islandWindows.openOn('shelf'));
+  // New task: the Island's Tasks with the composer focused.
+  if (featureOn('islandTodos')) reg(s.taskShortcut ?? '', () => islandWindows.openOn('reminders:new'));
   // Opens the Island from anywhere, on the screen with the pointer.
   // While a Keeper window is in front its own ⌘⌥I / Ctrl+Alt+I (Show/Hide Inspector) wins: a system-wide
   // shortcut never reaches the page, so it is passed on.

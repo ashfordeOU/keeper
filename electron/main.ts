@@ -1370,7 +1370,7 @@ app.whenReady().then(async () => {
     if (next.trayEnabled !== prev.trayEnabled || next.trayCount !== prev.trayCount) void updateTray();
     if (next.island.enabled !== prev.island.enabled) (next.island.enabled ? createIsland() : destroyIsland());
     else if ((['edge', 'displays', 'size', 'blendNotch', 'cameraEdge', 'followCamera', 'offsetX', 'offsetY'] as const).some((k) => next.island[k] !== prev.island[k])) islandWindows.ensure(true);
-    if (['pasteShortcut', 'shelfShortcut', 'hideShortcut', 'awakeShortcut'].some((k) => next.island[k as 'pasteShortcut'] !== prev.island[k as 'pasteShortcut'])) registerShortcuts();
+    if (['pasteShortcut', 'shelfShortcut', 'taskShortcut', 'hideShortcut', 'awakeShortcut'].some((k) => next.island[k as 'pasteShortcut'] !== prev.island[k as 'pasteShortcut'])) registerShortcuts();
     if (next.island.calendarUrl !== prev.island.calendarUrl) { void islandSvc.pollCalendar(); void adoptIslandCalendarUrl(next.island.calendarUrl).catch(() => undefined); }
     if (JSON.stringify(next.island.place) !== JSON.stringify(prev.island.place) || next.island.units !== prev.island.units) void islandSvc.pollWeather(true);
     broadcast('island-changed');

@@ -292,6 +292,8 @@ export interface IslandSettings {
   pasteShortcut: string;
   /** open the shelf from anywhere */
   shelfShortcut: string;
+  /** open the Island's Tasks with the new-task field ready, from anywhere */
+  taskShortcut?: string;
   hideShortcut: string;
   awakeShortcut: string;
   /** open the shelf when a file is dragged to the top edge of the screen */
