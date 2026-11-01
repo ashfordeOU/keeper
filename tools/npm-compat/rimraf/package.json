@@ -1,0 +1,7 @@
+{
+  "name": "rimraf",
+  "version": "2.7.1-keeper.1",
+  "description": "rimraf 2's API on Node's own fs.rm, for packages that still ask for rimraf 2 (temp, used only while building Windows installers). No glob, no inflight.",
+  "license": "ISC",
+  "main": "index.js"
+}
