@@ -3,6 +3,7 @@
 // Runs only when Monorail is installed (it is skipped otherwise, with a note).
 //
 //   monorail.present      installed, running, its local API answers
+//   monorail.version      Monorail 1.7.9 or later: GET /hello, and presenting/awake/paused in state.json
 //   monorail.manages      Monorail tiles Keeper's main window (it lists it, not floating)
 //   monorail.ignores      Keeper's overlays (the Island, Stage's overlay, Quick Search…) are not in its list
 //   monorail.shortcuts    no Keeper shortcut is also one of Monorail's (its real keymap)
@@ -21,6 +22,16 @@ import { fail, pass, skip, verdict, type Ctx } from '../context';
 import { sleep, until } from '../sys';
 
 const BUNDLE = 'org.ashforde.macslider';
+/** The first Monorail with the handshake, quiet ?from=keeper links, Stay Awake forwarding and never-manage. */
+export const MONORAIL_MIN = '1.7.9';
+
+/** a >= b for dotted versions ("1.7.10" >= "1.7.9"). */
+export function versionAtLeast(a: string, b: string): boolean {
+  const x = a.split(/[.-]/).map((n) => parseInt(n, 10) || 0);
+  const y = b.split(/[.-]/).map((n) => parseInt(n, 10) || 0);
+  for (let i = 0; i < Math.max(x.length, y.length); i++) if ((x[i] ?? 0) !== (y[i] ?? 0)) return (x[i] ?? 0) > (y[i] ?? 0);
+  return true;
+}
 
 function monorailDir(ctx: Ctx) {
   return path.join(ctx.facts.realHome, 'Library', 'Application Support', 'Monorail');
@@ -66,6 +77,20 @@ export async function runMonorail(ctx: Ctx) {
     if (!running) return skip(`Installed at ${appPath} but not running; open it and run this area again (--only monorail)`);
     if (!apiOn) return skip('Running, but its local API is off (Monorail → Settings → Automation, or Connect in Keeper → Settings → Ashforde apps); the window checks need it');
     return pass(`Running at ${appPath}; the local API answers`);
+  });
+
+  await rec.check('monorail.version', `Monorail ${MONORAIL_MIN} or later: handshake and shared state`, 'auto', async (h) => {
+    if (!apiOn) return skip('Monorail’s local API is not available');
+    const hello = await api(ctx, 'GET', '/hello');
+    let state: any;
+    try { state = JSON.parse(fs.readFileSync(path.join(monorailDir(ctx), 'state.json'), 'utf8')); } catch { state = undefined; }
+    h.artifact(ctx.saveData('monorail-hello.json', { hello, state }));
+    if (!hello || typeof hello.version !== 'string') return fail(`Monorail does not answer GET /hello: update Monorail to ${MONORAIL_MIN} or later`);
+    if (!versionAtLeast(hello.version, MONORAIL_MIN)) return fail(`Monorail ${hello.version} is older than ${MONORAIL_MIN}: update it so it hands Stay Awake to Keeper and never manages Keeper’s panels`);
+    const missing = ['presenting', 'awake', 'paused'].filter((k) => typeof state?.[k] !== 'boolean');
+    if (missing.length) return fail(`Monorail ${hello.version} answers /hello, but state.json lacks ${missing.join(', ')}`);
+    const peer = hello.peer ? `; it sees ${hello.peer.app} ${hello.peer.version ?? ''} as its peer` : '; no peer yet (Keeper here runs in a throwaway home, so it may not have introduced itself)';
+    return pass(`Monorail ${hello.version}, API ${hello.api}${peer}`);
   });
 
   await rec.check('monorail.manages', 'Monorail tiles Keeper’s main window', 'auto', async (h) => {
