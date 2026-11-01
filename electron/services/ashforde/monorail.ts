@@ -252,6 +252,12 @@ function startWatch() {
   try {
     // state.json is replaced (written atomically), so watch the folder, not the file.
     watcher = watch(supportDir(), { persistent: false }, (_ev, name) => {
+      // Monorail writes a new api-port and api-token each time it starts (a relaunch, a
+      // crash, its own update): it has forgotten Keeper then, so Keeper says hello again.
+      if (name === 'api-port' || name === 'api-token') {
+        if (!apiTimer) apiTimer = setTimeout(() => { apiTimer = null; if (enabled) for (const l of apiListeners) l(); }, 1500);
+        return;
+      }
       if (name && name !== 'state.json' && name !== 'settings.json') return;
       if (timer) return;
       timer = setTimeout(() => {
@@ -270,6 +276,17 @@ function startWatch() {
 function stopWatch() {
   watcher?.close();
   watcher = null;
+  if (apiTimer) clearTimeout(apiTimer);
+  apiTimer = null;
+}
+
+const apiListeners = new Set<() => void>();
+let apiTimer: NodeJS.Timeout | null = null;
+
+/** Monorail's local API was (re)started: a new port or key file, while the switch is on. */
+export function onApiRestarted(fn: () => void): () => void {
+  apiListeners.add(fn);
+  return () => apiListeners.delete(fn);
 }
 
 /** The Island hears about Monorail's state only while the person wants it there. */

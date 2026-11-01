@@ -8,6 +8,7 @@ import type { AshfordeOverview } from '../../core/api-ashforde';
 import type { Finding } from '../../core/guide/types';
 import * as mono from '../services/ashforde/monorail';
 import * as coexist from '../services/ashforde/coexist';
+import { poll } from '../services/governor';
 import { patchAtPath } from '../../core/ashforde/coexist';
 import { setAwakePeer } from '../services/awake';
 import { registerKeeperMethod } from '../services/brain';
@@ -46,6 +47,10 @@ export function registerAshfordeIpc(c: AshfordeCtx) {
   }).then(() => {
     // Off by default; on a Mac only. Off means no watch, no timers, no tools.
     onFeature('monorail', (on) => void mono.setEnabled(on).then(() => { if (on) void coexist.hello(); }), { now: true });
+    // Monorail keeps Keeper's hello in memory only: say it again whenever Monorail's API
+    // restarts (relaunch, crash, its own update), and every ten minutes as a safety net.
+    mono.onApiRestarted(() => void coexist.hello());
+    poll('monorail.rehello', { baseMs: 10 * 60_000, idleFactor: 1, pauseWhenLocked: true }, () => (mono.enabledNow() ? coexist.hello() : undefined), { feature: 'monorail', now: false });
   });
 
   setToolProvider('monorail', { tools: () => mono.tools() as never, call: (name, args, client) => mono.callTool(name, args, client) });
