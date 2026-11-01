@@ -220,6 +220,10 @@
   "file": "ps.txt"
  },
  {
+  "match": "^/bin/ps -A -o pid=,ppid=,command=$",
+  "file": "ps-command.txt"
+ },
+ {
   "match": "^/usr/bin/open ",
   "stdout": ""
  }

@@ -14,9 +14,43 @@ async function assertions(ctx: Ctx) {
   return (await ctx.sys.run('/usr/bin/pmset', ['-g', 'assertions'], { timeoutMs: 10_000 })).stdout;
 }
 
-/** Lines of `pmset -g assertions` held by Keeper (caffeinate started with -w <Keeper's pid>, or Electron itself). */
-export function keeperHolds(text: string, pid?: number): string[] {
-  return text.split('\n').filter((l) => /pid \d+\((caffeinate|Electron|Keeper)\)/.test(l) && /Prevent(User)?Idle(System|Display)Sleep|PreventSystemSleep|NoIdleSleep|NoDisplaySleep/.test(l) && (!pid || l.includes('caffeinate') || l.includes(`pid ${pid}(`)));
+const HOLD = /Prevent(User)?Idle(System|Display)Sleep|PreventSystemSleep|NoIdleSleep|NoDisplaySleep/;
+
+/**
+ * Keeper's own processes: Keeper, everything under it (its caffeinate,
+ * keeper-helper, Electron's helpers), and any caffeinate started with
+ * `-w <Keeper's pid>` (the way Keeper starts it), from `ps -A -o pid=,ppid=,command=`.
+ */
+export function keeperPids(psText: string, keeperPid: number | undefined): Set<number> {
+  const out = new Set<number>();
+  if (!keeperPid) return out;
+  const rows = psText.split('\n').map((l) => /^\s*(\d+)\s+(\d+)\s+(.*)$/.exec(l)).filter((m): m is RegExpExecArray => !!m).map((m) => ({ pid: +m[1], ppid: +m[2], cmd: m[3] }));
+  out.add(keeperPid);
+  for (let grew = true; grew;) {
+    grew = false;
+    for (const r of rows) if (!out.has(r.pid) && out.has(r.ppid)) { out.add(r.pid); grew = true; }
+  }
+  for (const r of rows) if (/(^|\/)caffeinate\b/.test(r.cmd) && new RegExp(`\\s-w\\s+${keeperPid}(\\s|$)`).test(r.cmd)) out.add(r.pid);
+  return out;
+}
+
+/**
+ * Lines of `pmset -g assertions` held by Keeper's own processes. A caffeinate
+ * or another app's hold that has nothing to do with Keeper (one started 40
+ * hours ago in a terminal, say) is not counted.
+ */
+export function keeperHolds(text: string, pids: Set<number>): string[] {
+  return text.split('\n').filter((l) => {
+    const m = /pid (\d+)\(([^)]*)\)/.exec(l);
+    return !!m && pids.has(Number(m[1])) && HOLD.test(l);
+  });
+}
+
+/** Keeper's holds right now (reads ps and pmset). */
+export async function currentKeeperHolds(ctx: Ctx, keeperPid: number | undefined): Promise<{ text: string; holds: string[] }> {
+  const text = await assertions(ctx);
+  const ps = await ctx.sys.run('/bin/ps', ['-A', '-o', 'pid=,ppid=,command=']);
+  return { text, holds: keeperHolds(text, keeperPids(ps.stdout, keeperPid)) };
 }
 
 async function sleepDisabled(ctx: Ctx): Promise<boolean | null> {
@@ -33,13 +67,13 @@ export async function runAwake(ctx: Ctx) {
     const before = await assertions(ctx);
     const st = await app.call<any>('awake.start', { minutes: 30, reason: 'Mac test' });
     const pid = await app.pid();
-    const during = (await until(async () => { const t = await assertions(ctx); return keeperHolds(t, pid).length ? t : ''; }, 8000, 500)) || (await assertions(ctx));
+    const now = (await until(async () => { const c = await currentKeeperHolds(ctx, pid); return c.holds.length ? c : null; }, 8000, 500)) ?? (await currentKeeperHolds(ctx, pid));
     h.artifact(ctx.saveData('awake-assertions-before.txt', before));
-    h.artifact(ctx.saveData('awake-assertions-during.txt', during));
+    h.artifact(ctx.saveData('awake-assertions-during.txt', now.text));
     h.artifact(ctx.saveData('awake-status.json', st));
-    const holds = keeperHolds(during, pid);
+    const holds = now.holds;
     const caf = await ctx.sys.run('/usr/bin/pgrep', ['-fl', 'caffeinate']);
-    return verdict(holds.length > 0, holds.length ? `Held: ${holds.map((l) => l.trim().replace(/\s+/g, ' ')).join(' | ').slice(0, 300)}` : 'No hold by Keeper or caffeinate in pmset -g assertions', { holds, caffeinate: caf.stdout.trim() });
+    return verdict(holds.length > 0, holds.length ? `Held: ${holds.map((l) => l.trim().replace(/\s+/g, ' ')).join(' | ').slice(0, 300)}` : 'No hold by Keeper or its caffeinate in pmset -g assertions', { holds, caffeinate: caf.stdout.trim() });
   });
 
   await rec.check('awake.menubar-icon', 'Menu-bar icon and time left (owner looks)', 'guided', async (h) => {
@@ -59,10 +93,12 @@ export async function runAwake(ctx: Ctx) {
     const app = await ctx.app();
     await app.call('awake.stop');
     const pid = await app.pid();
-    const after = (await until(async () => { const t = await assertions(ctx); return keeperHolds(t, pid).length ? '' : t; }, 8000, 500)) || (await assertions(ctx));
-    h.artifact(ctx.saveData('awake-assertions-after.txt', after));
-    const left = keeperHolds(after, pid);
-    return verdict(!left.length, left.length ? `Still held: ${left.join(' | ')}` : 'No hold left');
+    const after = (await until(async () => { const c = await currentKeeperHolds(ctx, pid); return c.holds.length ? null : c; }, 8000, 500)) ?? (await currentKeeperHolds(ctx, pid));
+    h.artifact(ctx.saveData('awake-assertions-after.txt', after.text));
+    const left = after.holds;
+    // Other programs' holds (a caffeinate started by hand, a video call) are listed for the report but do not count.
+    const others = after.text.split('\n').filter((l) => /pid \d+\(/.test(l) && HOLD.test(l) && !left.includes(l)).length;
+    return verdict(!left.length, left.length ? `Still held by Keeper: ${left.join(' | ')}` : `No hold left by Keeper${others ? ` (${others} hold(s) by other programs, not Keeper's)` : ''}`);
   });
 
   await rec.check('awake.stats', 'Keep Awake statistics and blockers', 'auto', async (h) => {

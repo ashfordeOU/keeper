@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { checkPaths } from '../scripts/mac-test/src/app';
 import { parseArgs } from '../scripts/mac-test/src/args';
 import { chooseAreas } from '../scripts/mac-test/src/areas';
-import { keeperHolds } from '../scripts/mac-test/src/areas/awake';
+import { keeperHolds, keeperPids } from '../scripts/mac-test/src/areas/awake';
 import { allOff, diff, normalise, restoreScript, withoutKeeper } from '../scripts/mac-test/src/areas/stage';
 import { cpuTime, parsePs, treeOf } from '../scripts/mac-test/src/areas/usage';
 import { peakDb, wordMatch } from '../scripts/mac-test/src/areas/voice';
@@ -125,9 +125,19 @@ describe('small parsers', () => {
     expect(treeOf(rows, 42).map((r) => r.pid)).toEqual([42, 43]);
   });
   it('finds Keeper\'s holds in pmset -g assertions', () => {
-    const t = '   pid 4243(caffeinate): [0x1] 00:00:05 PreventUserIdleSystemSleep named: "caffeinate"\n   pid 345(powerd): [0x2] 00:10:00 PreventUserIdleSystemSleep named: "Powerd"\n';
-    expect(keeperHolds(t, 4242)).toHaveLength(1);
-    expect(keeperHolds('   pid 345(powerd): [0x2] PreventUserIdleSystemSleep\n')).toHaveLength(0);
+    // Keeper (4242) with its caffeinate (4243) and helper; a caffeinate someone started 40 hours ago (777); powerd.
+    const ps = '  1 0 /sbin/launchd\n 4242 1 /Users/o/keeper/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron /Users/o/keeper\n 4243 4242 /usr/bin/caffeinate -i -d -m -w 4242\n 4250 4242 /Users/o/keeper/native/macos/KeeperHelper/.build/release/keeper-helper\n 777 600 caffeinate -d\n 600 1 -zsh\n 345 1 /System/Library/CoreServices/powerd.bundle/powerd\n 900 1 /usr/bin/caffeinate -w 4242\n';
+    const pids = keeperPids(ps, 4242);
+    expect([...pids].sort((a, b) => a - b)).toEqual([900, 4242, 4243, 4250]);
+    const t = '   pid 4243(caffeinate): [0x1] 00:00:05 PreventUserIdleSystemSleep named: "caffeinate command-line tool"\n'
+      + '   pid 777(caffeinate): [0x3] 40:02:11 PreventUserIdleDisplaySleep named: "caffeinate command-line tool"\n'
+      + '   pid 345(powerd): [0x2] 00:10:00 PreventUserIdleSystemSleep named: "Powerd"\n'
+      + '   pid 4242(Electron): [0x4] 00:00:03 NoDisplaySleepAssertion named: "Electron"\n';
+    expect(keeperHolds(t, pids)).toHaveLength(2);
+    // After Stop: only the old, unrelated caffeinate is left, and it does not count.
+    const after = '   pid 777(caffeinate): [0x3] 40:02:11 PreventUserIdleDisplaySleep named: "caffeinate command-line tool"\n';
+    expect(keeperHolds(after, keeperPids(ps.replace(/ 4243 4242[^\n]*\n/, ''), 4242))).toHaveLength(0);
+    expect(keeperHolds(t, keeperPids(ps, undefined))).toHaveLength(0);
   });
   it('compares spoken words and audio levels', () => {
     expect(wordMatch('Keeper keeps my files tidy', 'keeper keeps my files, tidy!')).toBe(1);

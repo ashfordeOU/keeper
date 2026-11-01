@@ -8,5 +8,6 @@ Listed by owning process:
    pid 4243(caffeinate): [0x0000a1b2c3d4e5f6] 00:00:05 PreventUserIdleSystemSleep named: "caffeinate command-line tool"
 	Details: caffeinate asserting on behalf of 'Electron' (pid 4242)
    pid 4243(caffeinate): [0x0000a1b2c3d4e5f7] 00:00:05 PreventUserIdleDisplaySleep named: "caffeinate command-line tool"
+   pid 777(caffeinate): [0x0000a1b2c3d40001] 40:02:11 PreventUserIdleDisplaySleep named: "caffeinate command-line tool"
    pid 345(powerd): [0x0000000100000123] 00:10:00 PreventUserIdleSystemSleep named: "Powerd - Prevent sleep while display is on"
 Kernel Assertions: 0x4=USB

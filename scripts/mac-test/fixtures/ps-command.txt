@@ -1,0 +1,7 @@
+    1     0 /sbin/launchd
+  600     1 -zsh
+  777   600 caffeinate -d
+ 4242     1 /Users/sam/keeper/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron /Users/sam/keeper --user-data-dir=/Users/sam/keeper-mac-test/home/Library/Application Support/Keeper
+ 4243  4242 /usr/bin/caffeinate -i -d -m -w 4242
+ 4244  4242 /Users/sam/keeper/node_modules/electron/dist/Electron.app/Contents/Frameworks/Electron Helper (GPU).app/Contents/MacOS/Electron Helper (GPU) --type=gpu-process
+ 4250  4242 /Users/sam/keeper/native/macos/KeeperHelper/.build/release/keeper-helper

@@ -7,7 +7,7 @@
 
 import { fail, pass, skip, verdict, type Ctx } from '../context';
 import { sleep, until } from '../sys';
-import { keeperHolds } from './awake';
+import { currentKeeperHolds } from './awake';
 
 export type Snapshot = Record<string, string>;
 
@@ -145,7 +145,7 @@ export async function runStage(ctx: Ctx) {
     const status = await app.call<any>('stage.status');
     const journal = await app.call<any>('stage.journal');
     const overlays = await app.call<any[]>('stage.overlays').catch(() => []);
-    const holds = keeperHolds((await ctx.sys.run('/usr/bin/pmset', ['-g', 'assertions'])).stdout, await app.pid()).length;
+    const holds = (await currentKeeperHolds(ctx, await app.pid())).holds.length;
     await app.call('stage.stop');
     const after = (await until(async () => { const s = await readSnapshot(ctx); return diff(b, s, STAGE_KEYS).length ? null : s; }, 8000, 1000)) ?? (await readSnapshot(ctx));
     const rest = diff(b, after, STAGE_KEYS);
