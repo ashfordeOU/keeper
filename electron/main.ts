@@ -128,6 +128,7 @@ import { applyFeatureSet, applyPreset, featureOn, featureSets, listFeatures, liv
 import { getSecret, hasSecret, onSettings, setSecret, settings, updateSettings } from './store';
 import { registerUsageStatsIpc } from './ipc/usage-stats';
 import { registerPermissionsIpc } from './ipc/permissions';
+import { nativeApps, nativeOpen } from './services/native-apps';
 
 void squarify; // the interface lays out the Space Map; kept for the CLI's future text treemap
 
@@ -844,6 +845,8 @@ function registerIpc() {
   handle('capture.text', () => doCapture());
   handle('weather.get', (force?: boolean) => islandSvc.pollWeather(force).then((w) => w ?? null));
   handle('weather.search', (name: string) => searchPlaces(name));
+  handle('native.open', (kind: unknown, params: unknown) => nativeOpen(kind, params));
+  handle('native.apps', (refresh?: boolean) => nativeApps(!!refresh));
 
   handle('settings.get', () => settings());
   handle('settings.set', (patch: Partial<AllSettings> & { island?: Partial<IslandSettings> }) => updateSettings(patch as Partial<AllSettings>));

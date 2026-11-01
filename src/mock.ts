@@ -40,6 +40,7 @@ import { mockSync } from './mock-sync';
 import { mockNotesync } from './mock-notesync';
 import { mockAgentTerm } from './mock-agentterm';
 import { mockPlatform } from './mock-platform';
+import { KIND_LABEL, NATIVE_KINDS, autoChoice, nativeChoices, planNative } from '../core/native-apps';
 import { mockLock } from './mock-lock';
 import { mockLink } from './mock-link';
 import { mockMesh } from './mock-mesh';
@@ -354,6 +355,19 @@ export function createMockApi(): KeeperApi {
       openExternal: async (u) => { window.open(u, '_blank'); },
     },
     capture: createMockCapture(),
+    // The demo plays a Mac with Google Maps installed; links that would open an app open their web page instead.
+    native: (() => {
+      const inst: Record<string, string> = { googleMaps: '/Applications/Google Maps.app', appleMaps: '/System/Applications/Maps.app', appleWeather: '/System/Applications/Weather.app', findMy: '/System/Applications/FindMy.app', appleCalendar: '/System/Applications/Calendar.app', faceTime: '/System/Applications/FaceTime.app', appleMessages: '/System/Applications/Messages.app' };
+      return {
+        open: async (kind, params) => {
+          const tries = planNative(kind, 'darwin', inst, settings.nativeApps?.[kind], params).tries;
+          const web = tries.find((t) => t.launch.how === 'url' && t.launch.url.startsWith('https:'));
+          if (web && web.launch.how === 'url') window.open(web.launch.url, '_blank');
+          return { ok: !!tries[0], app: tries[0]?.name };
+        },
+        apps: async () => NATIVE_KINDS.map((kind) => ({ kind, label: KIND_LABEL[kind], choices: nativeChoices(kind, 'darwin', inst), auto: autoChoice(kind, 'darwin', inst), pick: settings.nativeApps?.[kind] || 'auto' })),
+      };
+    })(),
     weather: {
       get: async () => island.weather ?? null,
       search: async (n) => [{ name: n.charAt(0).toUpperCase() + n.slice(1), lat: 51.5, lon: -0.12, country: 'United Kingdom' }],

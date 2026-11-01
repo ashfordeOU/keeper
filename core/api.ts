@@ -410,6 +410,8 @@ export interface KeeperApi extends KeeperApiX {
   /** Cloud & servers: cloud services, servers, home servers, NAS boxes and other computers */
   remote: RemoteApi;
   platform: PlatformApi;
+  /** hands places, forecasts, events, addresses and numbers to the person's own apps (core/native-apps.ts) */
+  native: import('./native-apps').NativeAppsApi;
   lock: LockApi;
   /** Keeper Link: paired devices, files between them, ports, the phone companion and the tunnel */
   link: LinkApi;

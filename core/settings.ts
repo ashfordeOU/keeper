@@ -131,6 +131,7 @@ export function defaultSettings(folders: string[], rules: Rule[]): AllSettings {
     sidebarSectionLimit: 5,
     home: defaultHomeSettings(),
     permissionsSetup: '',
+    nativeApps: {},
     island: defaultIsland(),
   };
 }

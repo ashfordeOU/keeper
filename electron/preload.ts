@@ -41,6 +41,8 @@ const api = {
   monitor: group('monitor', ['history', 'topToday', 'alerts', 'setAlertRules', 'docker', 'dockerAction', 'killTree', 'stopAgent', 'thermals', 'disks', 'speedTest', 'speedHistory']),
   forecast: group('forecast', ['places', 'savePlaces', 'get', 'alerts', 'radar', 'climate', 'trips']),
   platform: group('platform', ['list', 'set', 'action', 'ask']),
+  // Opening places, forecasts, events and addresses in the person's own apps.
+  native: group('native', ['open', 'apps']),
   usage: group('usage', ['get']),
   ashforde: group('ashforde', ['overview', 'monorail', 'install', 'update', 'checkUpdate', 'uninstall', 'launch', 'quit', 'connect', 'openPermission', 'action', 'prefs', 'setPrefs', 'useShortcut', 'coexist']),
   usageStats: group('usageStats', ['status', 'setOn', 'resetId', 'setBlocked', 'page']),
