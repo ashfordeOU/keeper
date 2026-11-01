@@ -434,6 +434,8 @@ export interface Settings {
   featureSets: { id: string; name: string; features: Record<string, boolean> }[];
   /** the one-icon menu bar was applied once (Keep Awake's and the readings' own icons turned off) */
   menuBarOneIcon?: boolean;
+  /** the owl's glance: its cards, quick actions and hover (core/glance.ts) */
+  glance?: Partial<import('./glance').GlanceSettings>;
   featureSetOnBattery: string;
   featureSetOnPower: string;
   /** Keep Awake: defaults for new sessions, triggers, menu-bar item and statistics (core/awake-engine.ts) */

@@ -437,6 +437,8 @@ export interface KeeperApi extends KeeperApiX {
   procs: ProcsApi;
   /** the system monitor: live readings, long-term history, dev servers, agents, sensors, menu-bar readings, the tool launcher */
   sysmon: import('./api-sysmon').SysmonApi;
+  /** the owl's glance in the menu bar (tray): cards, quick actions, newest downloads */
+  glance: import('./glance').GlanceApi;
   /** Cues: notes, checklists, links and files tied to an app, a site, a page or a time */
   cues: import('./cues/api').CuesApi;
   /** Island+: calls, levels, other apps' notifications, more agents */
@@ -702,6 +704,7 @@ export interface KeeperApi extends KeeperApiX {
   /** the tool launcher was shown again (focus the search box); the menu-bar pop-over's live reading */
   on(channel: 'launcher-shown', cb: () => void): () => void;
   on(channel: 'sysmon-live', cb: (r: import('./monitor-tray').LiveReading) => void): () => void;
+  on(channel: 'glance', cb: (v: import('./glance').GlanceView) => void): () => void;
   on(channel: 'settings-changed', cb: (settings: Settings & { island: IslandSettings }) => void): () => void;
   on(channel: 'widgets-changed', cb: () => void): () => void;
   /** Cues changed (any window), and the cue popup should look again */

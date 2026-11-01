@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Settings: appearance, library folders, thresholds, assistant and about.
 
-import { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
+import { ACTION_INFO, CARD_INFO, GLANCE_ACTIONS, GLANCE_CARDS, type GlanceSettings } from '../../core/glance';
+import '../styles/glance.css';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
 import { PageHead, Toggle } from '../components/ui';
@@ -28,6 +30,30 @@ import { PermissionsPanel } from '../components/PermissionsPanel';
 import '../styles/screens-b.css';
 
 const MonitorSettingsPanel = lazy(() => import('./monitor/MonitorSettings').then((m) => ({ default: m.MonitorSettingsPanel })));
+
+function MenuBarSettings({ mac, trayOn }: { mac: boolean; trayOn: boolean }) {
+  const { updateSettings } = useStore();
+  const [g, setG] = useState<GlanceSettings | null>(null);
+  useEffect(() => { void api.glance.settings().then(setG).catch(() => undefined); }, []);
+  const save = (p: Partial<GlanceSettings>) => void api.glance.setSettings(p).then(setG);
+  const flip = <T extends string>(list: T[], id: T) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id]);
+  return (
+    <div className="card settings-section" data-testid="settings-menubar">
+      <Row title={mac ? 'The owl in the menu bar' : 'Keeper in the tray'} desc="Click it for the glance: weather, storage, this computer, the network, Keep Awake, quick actions and your newest downloads. Right-click for a short menu."><Toggle on={trayOn} onChange={(v) => void updateSettings({ trayEnabled: v })} /></Row>
+      {g ? (
+        <>
+          {mac ? <Row title="Show the glance on hover" desc="Rest the pointer on the owl for a moment; it closes again when you move away."><Toggle on={g.hover} onChange={(v) => save({ hover: v })} /></Row> : null}
+          <Row title="Cards" desc="What the glance shows, in this order.">
+            <div className="gl-chips">{GLANCE_CARDS.map((c) => <button key={c} className={`gl-chip${g.cards.includes(c) ? ' on' : ''}`} aria-pressed={g.cards.includes(c)} onClick={() => save({ cards: GLANCE_CARDS.filter((x) => flip(g.cards, c).includes(x)) })}>{CARD_INFO[c].label}</button>)}</div>
+          </Row>
+          <Row title="Quick actions" desc="Up to twelve buttons under the cards.">
+            <div className="gl-chips">{GLANCE_ACTIONS.map((a) => <button key={a} className={`gl-chip${g.actions.includes(a) ? ' on' : ''}`} aria-pressed={g.actions.includes(a)} onClick={() => save({ actions: flip(g.actions, a) })}>{ACTION_INFO[a].label}</button>)}</div>
+          </Row>
+        </>
+      ) : null}
+    </div>
+  );
+}
 
 export function Settings() {
   const { route: settingsRoute } = useStore();
@@ -139,11 +165,10 @@ export function Settings() {
         <Row title="Quick Search shortcut" desc="Search your files from any app. Use + between keys, e.g. CommandOrControl+Shift+Space.">
           <input className="input" defaultValue={s.quickSearchShortcut} onBlur={(e) => e.target.value !== s.quickSearchShortcut && void updateSettings({ quickSearchShortcut: e.target.value.trim() })} style={{ width: 240 }} />
         </Row>
-        <Row title={info?.platform === 'darwin' ? 'Menu bar icon' : 'Tray icon'} desc="Lists your newest downloads with thumbnails; drag them straight into other apps."><Toggle on={s.trayEnabled} onChange={(v) => void updateSettings({ trayEnabled: v })} /></Row>
-        <Row title="Downloads shown">
-          <select className="input" value={s.trayCount} onChange={(e) => void updateSettings({ trayCount: Number(e.target.value) })}>{[5, 10, 15, 20].map((n) => <option key={n}>{n}</option>)}</select>
-        </Row>
       </div>
+
+      <h2 id="menubar" style={{ margin: '18px 0 8px' }}>{info?.platform === 'darwin' ? 'Menu bar' : 'Tray'}</h2>
+      <MenuBarSettings mac={info?.platform === 'darwin'} trayOn={s.trayEnabled} />
 
       <h2 id="pim" style={{ margin: '18px 0 8px' }}>Mail &amp; Calendar</h2>
       <div className="card settings-section" style={{ padding: 16 }}>

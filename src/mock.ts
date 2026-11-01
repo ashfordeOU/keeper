@@ -25,6 +25,7 @@ import { mockTracks } from './mock-tracks';
 import { mockRemote } from './mock-remote';
 import { mockSession } from './mock-session';
 import { mockProcs } from './mock-procs';
+import { defaultGlanceSettings, glanceCards, normalizeGlanceSettings, type GlanceSettings } from '../core/glance';
 import { mockSysmon } from './mock-sysmon';
 import { mockPim } from './mock-pim';
 import { mockNotes } from './mock-notes';
@@ -284,6 +285,13 @@ export function createMockApi(): KeeperApi {
     ...mockSession(),
     ...mockProcs(),
     ...mockSysmon(),
+    glance: (() => {
+      let gs = defaultGlanceSettings('darwin');
+      const now = Date.now();
+      const inputs = { now, weather: { place: 'Tallinn', temp: 7, units: 'c' as const, summary: 'Partly cloudy', nowcast: 'Rain starting in about 20 minutes' }, disk: { total: 994e9, free: 312e9, name: 'Main disk' }, system: { cpu: 6, memUsed: 21e9, memTotal: 36e9, battery: { percent: 74, charging: false, minutesLeft: 312 } }, network: { downBps: 182_000, upBps: 24_000, wifi: 'Studio', online: true }, awake: { on: true, until: now + 42 * 60_000, reason: 'Rendering' }, usage: [{ label: 'Coding assistant · Weekly', percent: 81, resetsAt: now + 2 * 86_400_000 }], next: { title: 'Design review', start: now + 25 * 60_000 } };
+      const view = async () => ({ cards: glanceCards(inputs, gs.cards), actions: gs.actions, recent: [{ name: 'Quarterly report.pdf', path: '/Users/sam/Downloads/Quarterly report.pdf', size: 2_400_000, source: 'mail.example.com' }, { name: 'IMG_2041.HEIC', path: '/Users/sam/Downloads/IMG_2041.HEIC', size: 3_100_000 }, { name: 'setup.dmg', path: '/Users/sam/Downloads/setup.dmg', size: 88_000_000, source: 'example.org' }], moreRecent: 7, settings: gs });
+      return { show: async () => undefined, view, settings: async () => gs, setSettings: async (p: Partial<GlanceSettings>) => (gs = normalizeGlanceSettings({ ...gs, ...p }, 'darwin')), close: async () => undefined, run: async () => undefined, open: async () => undefined, openFile: async () => undefined };
+    })(),
     ...mockIslandTools(),
     ...mockPim((ch, ...args) => listeners.get(ch)?.forEach((cb) => (cb as (...a: unknown[]) => void)(...args))),
     ...mockFileKit(),

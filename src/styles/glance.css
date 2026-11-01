@@ -1,0 +1,37 @@
+/* SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 */
+/* The owl's glance (src/glance/Glance.tsx): theme tokens from app.css, light and dark. */
+.glance { height: 100vh; display: flex; flex-direction: column; background: var(--bg-elev); color: var(--text); border: 1px solid var(--line-strong); border-radius: 12px; overflow: hidden; font-size: 12.5px; }
+.glance button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; text-align: left; }
+.glance button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.gl-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 10px; overflow: auto; }
+.gl-card { width: 100%; display: flex; gap: 8px; align-items: flex-start; padding: 8px; border-radius: 9px; background: var(--bg-sunk); min-height: 62px; }
+.gl-card:hover { background: var(--bg-hover); }
+.gl-card .gl-ic { color: var(--accent); margin-top: 1px; }
+.gl-card.warn .gl-ic { color: var(--warn); }
+.gl-card.bad .gl-ic { color: var(--danger); }
+.gl-txt { display: flex; flex-direction: column; min-width: 0; gap: 1px; flex: 1; }
+.gl-title { color: var(--text-3); font-size: 11px; }
+.gl-value { font-weight: 600; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.gl-detail { color: var(--text-2); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gl-bar { height: 4px; border-radius: 2px; background: var(--line); margin-top: 4px; overflow: hidden; }
+.gl-bar i { display: block; height: 100%; background: var(--accent); border-radius: 2px; }
+.gl-card.warn .gl-bar i { background: var(--warn); }
+.gl-card.bad .gl-bar i { background: var(--danger); }
+[data-testid="glance-card-tip"] { grid-column: 1 / -1; }
+.gl-cards > div:has([data-testid="glance-card-tip"]) { grid-column: 1 / -1; }
+.gl-actions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; padding: 6px 8px; border-top: 1px solid var(--line); }
+.gl-act { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 2px; border-radius: 8px; font-size: 10.5px; color: var(--text-2); text-align: center !important; }
+.gl-act:hover { background: var(--bg-hover); color: var(--text); }
+.gl-act span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.gl-recent { border-top: 1px solid var(--line); padding: 6px 8px; }
+.gl-head { display: flex; justify-content: space-between; color: var(--text-3); font-size: 11px; padding: 0 4px 4px; }
+.gl-link { color: var(--accent-text) !important; font-size: 11px; }
+.gl-file { width: 100%; display: flex; justify-content: space-between; gap: 8px; padding: 4px; border-radius: 6px; }
+.gl-file:hover { background: var(--bg-hover); }
+.gl-muted { color: var(--text-3); white-space: nowrap; }
+.gl-foot { display: flex; border-top: 1px solid var(--line); margin-top: auto; }
+.gl-foot button { flex: 1; padding: 8px; text-align: center; color: var(--text-2); }
+.gl-foot button:hover { background: var(--bg-hover); color: var(--text); }
+.gl-chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; max-width: 420px; }
+.gl-chip { padding: 3px 10px; border-radius: 999px; background: var(--bg-sunk); border: 1px solid var(--line); color: var(--text-2); font: inherit; font-size: 12px; cursor: pointer; }
+.gl-chip.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-text); }

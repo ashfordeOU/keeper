@@ -115,6 +115,8 @@ export function defaultSettings(folders: string[], rules: Rule[]): AllSettings {
     features: {},
     sidebarHidden: [],
     featureSets: [],
+    menuBarOneIcon: false,
+    glance: {},
     featureSetOnBattery: '',
     featureSetOnPower: '',
     awake: defaultAwakeSettings(),

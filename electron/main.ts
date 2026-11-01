@@ -10,6 +10,9 @@ import { onBeforeInstall } from './services/updater';
 import { BRAND, COPYRIGHT, TRADEMARK, WEBSITE } from '../core/brand';
 // First, so local crash reports cover everything that follows.
 import { initResilience, lastRun, restoreExtraWindows } from './resilience';
+import { attachHover, glanceView, showGlance, toggleGlance } from './services/glance';
+import { registerGlanceIpc } from './ipc/glance';
+import { glanceTooltip, type GlanceActionId } from '../core/glance';
 import { startBreadcrumbs } from './breadcrumbs';
 import { anotherKeeperTookOver, holdInstanceLock, releaseInstanceLock } from './instance';
 import { onLimitAlert } from './svc/limits';
@@ -39,7 +42,7 @@ import { captureText } from './services/capture';
 import { colorPick, quietly, recordingState, registerCaptureIpc, registerCaptureShortcuts, screenshot, toggleRecording } from './ipc/capture';
 import { FileService } from './services/files';
 import { IslandService } from './services/island';
-import { islandWindows, registerIslandIpc, registerIslandShortcuts } from './ipc/island';
+import { islandWindows, openClips, registerIslandIpc, registerIslandShortcuts } from './ipc/island';
 import { registerWidgetsIpc, syncWidgets } from './ipc/widgets';
 import { ambienceTrayItems, registerAmbience, registerAmbienceShortcuts } from './services/wallpaper';
 import { registerIslandToolsIpc } from './ipc/island-tools';
@@ -356,24 +359,38 @@ async function updateTray() {
     tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon);
     if (icon.isEmpty()) tray.setTitle?.('K');
     tray.setToolTip(BRAND);
-    tray.on('click', () => !isMac && showMain());
+    // Left click: the glance (weather, storage, this computer, network, Keep Awake, quick actions,
+    // the newest downloads). Right click, or Option-click on a Mac: a short menu.
+    tray.on('click', (e) => (isMac && e.altKey ? tray?.popUpContextMenu(trayMenu()) : toggleGlance(tray)));
+    if (isMac) {
+      tray.on('right-click', () => tray?.popUpContextMenu(trayMenu()));
+      // Resting the pointer on the owl shows the glance too (Settings → Menu bar).
+      attachHover(tray);
+    }
     // Files dropped on the tray icon go to the shelf (macOS).
     tray.on('drop-files', (_e, paths) => void islandSvc.addToShelf(paths));
   }
-  const recent = index.recent(settings().trayCount, (f) => f.root === 'Downloads');
-  const items: Electron.MenuItemConstructorOptions[] = recent.map((f) => ({
-    label: f.name.length > 42 ? f.name.slice(0, 40) + '…' : f.name,
-    sublabel: `${formatBytes(f.size)}${f.source ? ` · ${f.source.name}` : ''}`,
-    click: () => void shell.openPath(f.path),
-    submenu: [
-      { label: 'Open', click: () => void shell.openPath(f.path) },
-      { label: 'Show in Keeper', click: () => showMain(`search:${f.name}`) },
-      { label: isMac ? 'Show in Finder' : 'Show in folder', click: () => shell.showItemInFolder(f.path) },
-      { label: 'Add to Shelf', click: () => void islandSvc.addToShelf([f.path]) },
-    ],
-  }));
+  // macOS opens the menu itself on right-click; Windows and Linux show a menu set ahead.
+  if (!isMac) tray.setContextMenu(trayMenu());
+  // Where hovering shows nothing (Windows, Linux), a fuller tooltip instead.
+  if (!isMac) void glanceView().then((v) => tray?.setToolTip(glanceTooltip(v.cards, BRAND))).catch(() => undefined);
+}
+
+/**
+ * The owl's short menu: Open Keeper, Quick Search, Keep Awake, Settings, updates, Quit.
+ * Everything else is in the glance and the command palette; the feature entries people chose
+ * to have in the menu bar (Stage, Dictation, Mesh, Vibes…) wait under More.
+ */
+function trayMenu(): Menu {
   const awake = islandSvc?.awake.on;
-  // Pinned shelves stay one click away in the tray.
+  const more: Electron.MenuItemConstructorOptions[] = [
+    ...meshTrayItems(), ...ambienceTrayItems(), ...cueTrayItems(), ...stageTrayItems(), ...voiceTrayItems(),
+    ...(featureOn('quickControls') ? [{ label: 'Quick Controls', submenu: trayControls() }] : []),
+    ...trayAccessItems(showMain),
+    ...(() => { try { return rdcTrayItems(); } catch { return []; } })(),
+    ...trayTracksItems(showMain),
+  ].filter((i) => i.type !== 'separator');
+  // Pinned shelves stay one click away.
   const pinned: Electron.MenuItemConstructorOptions[] = (islandSvc?.state().shelves ?? []).filter((sh) => sh.pinned).map((sh) => ({
     label: `${sh.name} (${sh.items.length})`,
     submenu: [
@@ -382,32 +399,11 @@ async function updateTray() {
       { label: 'Open in the Island', click: () => { islandSvc.selectShelf(sh.id); islandWindows.openOn('shelf'); } },
     ],
   }));
-  tray.setContextMenu(Menu.buildFromTemplate([
-    { label: BRAND, enabled: false },
-    { type: 'separator' },
-    { label: 'Recent downloads', enabled: false },
-    ...(items.length ? items : [{ label: 'Nothing yet', enabled: false }]),
-    ...(pinned.length ? [{ type: 'separator' as const }, { label: 'Shelves', enabled: false }, ...pinned] : []),
-    { type: 'separator' },
+  return Menu.buildFromTemplate([
     { label: 'Open Keeper', click: () => showMain() },
-    { label: 'Quick Search', accelerator: settings().quickSearchShortcut, click: toggleQuick },
-    ...(featureOn('toolLauncher') ? [{ label: 'Tool Launcher…', click: () => toggleLauncher() }] : []),
-    { label: 'Terminal', click: () => openTerminalWindow() },
-    { label: 'Copy Text from Screen', accelerator: settings().island.captureShortcut, click: () => void doCapture() },
-    { label: 'Take Screenshot', submenu: [
-      { label: 'Area…', click: () => quietly(() => screenshot('area')) },
-      { label: 'Window…', click: () => quietly(() => screenshot('window')) },
-      { label: 'Whole Screen', click: () => quietly(() => screenshot('full')) },
-    ] },
-    recordingState().recording
-      ? { label: 'Stop Recording', click: () => quietly(() => toggleRecording()) }
-      : { label: 'Record Screen', submenu: [
-        { label: 'Whole Screen', click: () => quietly(() => toggleRecording('full')) },
-        { label: 'Window…', click: () => quietly(() => toggleRecording('window')) },
-        { label: 'Area…', click: () => quietly(() => toggleRecording('area')) },
-      ] },
-    { label: 'Pick a Colour', click: () => quietly(() => colorPick()) },
-    // Keep Awake (Settings → Features can switch it off; its own menu-bar icon is optional, see ipc/awake.ts).
+    ...(featureOn('quickSearch') ? [{ label: 'Quick Search', accelerator: settings().quickSearchShortcut, click: toggleQuick }] : []),
+    // Linux trays often do not report clicks: the glance is here too.
+    ...(process.platform === 'linux' ? [{ label: 'Glance…', click: () => showGlance(tray, 'click') }] : []),
     ...(featureOn('keepAwake') ? [{ label: awake ? 'Stop Keeping Awake' : 'Keep Awake', submenu: awake ? undefined : [
       { label: 'Until I turn it off', click: () => islandSvc.keepAwake(true) },
       ...settings().awake.quick.map((m) => ({ label: m < 60 ? `For ${m} minutes` : `For ${m / 60} hour${m === 60 ? '' : 's'}`, click: () => islandSvc.keepAwake(true, { minutes: m }) })),
@@ -415,28 +411,14 @@ async function updateTray() {
       { type: 'separator' as const },
       { label: 'Keep Awake…', click: () => showMain('awake') },
     ], click: awake ? () => { islandSvc.keepAwake(false); void updateTray(); } : undefined }] : []),
-    // Keeper Mesh: on/off, exit node and addresses, where the person put them (Mesh → Where controls appear).
-    ...meshTrayItems(),
-    // Wallpaper, vibes and ambient sound (Settings on the Wallpaper & Vibes page can hide this).
-    ...ambienceTrayItems(),
-    // Cues: a new cue for what is in front, and the ones due today (Cues → Settings can hide this).
-    ...cueTrayItems(),
-    // Stage mode (Settings → Features; its page chooses whether it shows here).
-    ...stageTrayItems(),
-    // Dictation and meeting recording (Voice; its page chooses whether they show here).
-    ...voiceTrayItems(),
-    { label: 'Clean Up…', click: () => showMain('cleanup') },
-    ...(featureOn('quickControls') ? [{ label: 'Quick Controls', submenu: trayControls() }] : []),
-    // Keeper Link: sessions with Stop, your devices, Get Help / Help Someone (places chosen under Devices → Remote Access).
-    ...trayAccessItems(showMain),
-    // Remote Desktops: built at once from memory (never waits), so nothing started after the tray is held up.
-    ...(() => { try { return rdcTrayItems(); } catch { return []; } })(),
-    // Places & Tracks: where devices, items and people are (Settings in Places & Tracks can hide this).
-    ...trayTracksItems(showMain),
+    ...(pinned.length ? [{ label: 'Shelves', submenu: pinned }] : []),
+    ...(more.length ? [{ label: 'More', submenu: more }] : []),
     { type: 'separator' },
-    ...trayUpdateItems(),
+    { label: 'Settings…', accelerator: isMac ? 'Cmd+,' : undefined, click: () => showMain('settings') },
+    ...trayUpdateItems().filter((i) => i.type !== 'separator'),
+    { type: 'separator' },
     { label: 'Quit Keeper', click: () => { quitting = true; app.quit(); } },
-  ]));
+  ]);
 }
 
 // ---------------------------------------------------------------- shortcuts & deep links
@@ -1183,6 +1165,24 @@ app.whenReady().then(async () => {
   registerProcsIpc();
   // System monitor: live readings (menu bar, pop-over), long-term history, dev servers, agents, sensors, the tool launcher.
   registerSysmonIpc({ preload: preload(), load, lockDown, showMain: (route) => showMain(route), devUrl: DEV_URL });
+  // The owl's glance: cards, quick actions and the newest downloads (electron/services/glance.ts).
+  registerGlanceIpc({
+    preload: preload(), load, lockDown, showMain: (route) => showMain(route), islandSvc: () => islandSvc,
+    recent: (n) => {
+      const all = index.recent(Math.max(n, settings().trayCount), (f) => f.root === 'Downloads');
+      return { list: all.slice(0, n).map((f) => ({ name: f.name, path: f.path, size: f.size, source: f.source?.name })), total: all.length };
+    },
+    run: (id: GlanceActionId) => {
+      const links: Partial<Record<GlanceActionId, string>> = { screenshot: 'keeper://screenshot', captureText: 'keeper://capture', keepAwake: 'keeper://awake/toggle', dictation: 'keeper://dictation/toggle', stage: 'keeper://stage/toggle', recordScreen: 'keeper://record', colour: 'keeper://color' };
+      if (id === 'quickSearch') toggleQuick();
+      else if (id === 'cleanup') showMain('cleanup');
+      else if (id === 'terminal') openTerminalWindow();
+      else if (id === 'launcher') toggleLauncher();
+      else if (id === 'clipboard') openClips();
+      else if (links[id]) handleDeepLink(links[id]!);
+    },
+    quit: () => { quitting = true; app.quit(); },
+  });
   setMonitorIslandAlert((title, detail) => islandSvc?.alert({ kind: 'info', title, detail }));
   // Mail, calendars, reminders, alarms and contacts.
   registerPimIpc();
