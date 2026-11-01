@@ -147,9 +147,10 @@ mac:
       to: Library/Helpers/Keeper Intents.app
 dmg:
   title: Keeper by Ashforde®
-  # The licence window shown when the disk image opens: a Mac Roman-safe copy of LICENSE.md
-  # (no byte order mark, no characters Mac Roman lacks) made by scripts/license-txt.mjs.
-  license: build/dmg-license.txt
+  # No licence window on the disk image: it stops the installer script and in-app updates of
+  # older copies from opening it (hdiutil waits for "Agree"). The licence travels inside the
+  # app (LICENSE.md), in About Keeper, and in the README and installer. build/dmg-license.txt
+  # (Mac Roman-safe) is still generated, should a licence window come back.
   window: { width: 540, height: 380 }
   sign: false
   contents:

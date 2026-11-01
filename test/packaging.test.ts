@@ -53,17 +53,19 @@ describe('licence files for the installers', () => {
     expect(bad.stderr).toContain('UnicodeEncodeError');
   });
 
-  it('no file in build/ is picked up by name for the disk image; electron-builder.yml names both files', () => {
+  it('no file in build/ is picked up by name for the disk image; the installer names its licence and the disk image has none', () => {
     // electron-builder's own convention: license_LANG / eula_LANG with .txt, .rtf or .html.
     const auto = readdirSync(path.join(root, 'build')).filter((n) => /^(license|eula)_.*\.(txt|rtf|html)$/i.test(n));
     expect(auto).toEqual([]);
     const yml = read('electron-builder.yml');
     const nsis = /\nnsis:[\s\S]*?\n {2}license: (\S+)/.exec(yml)?.[1];
-    const dmg = /\ndmg:[\s\S]*?\n {2}license: (\S+)/.exec(yml)?.[1];
+    // The dmg section only, up to the next top-level key.
+    const dmgBlock = /\ndmg:\n((?: .*\n|\n)*)/.exec(yml)?.[1] ?? '';
     expect(nsis).toBe('build/installer-license.txt');
-    expect(dmg).toBe('build/dmg-license.txt');
+    expect(dmgBlock).toMatch(/title:/);
+    // A licence window stops the installer script and older copies' updates from opening the image.
+    expect(dmgBlock).not.toMatch(/\n {2}license:/);
     expect(existsSync(path.join(root, nsis!))).toBe(true);
-    expect(existsSync(path.join(root, dmg!))).toBe(true);
   });
 });
 
