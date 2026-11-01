@@ -68,6 +68,20 @@ publish:
 protocols:
   - name: Keeper
     schemes: [keeper]
+# Remote Desktops: .rdp and .vnc files open in Keeper (it never takes over as the default without asking).
+fileAssociations:
+  - ext: rdp
+    name: Remote Desktop connection
+    description: Remote Desktop connection
+    mimeType: application/x-rdp
+    role: Viewer
+    rank: Alternate
+  - ext: vnc
+    name: VNC connection
+    description: VNC connection
+    mimeType: application/x-vnc
+    role: Viewer
+    rank: Alternate
 
 win:
   icon: build/icon.png

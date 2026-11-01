@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Settings: appearance, library folders, thresholds, assistant and about.
 
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
 import { PageHead, Toggle } from '../components/ui';
@@ -18,9 +18,12 @@ import { BrainSettingsPanel } from '../components/BrainPanel';
 import { PlatformIntegrations } from '../components/PlatformIntegrations';
 import { AshfordeAppsPanel } from '../components/AshfordeApps';
 import { ThemeGallery, ThemeTweaks } from '../components/ThemeGallery';
+import { MeshPlaces } from './MeshParts';
 import { useT } from '../i18n';
 import { PimSettings } from '../pim/PimSettings';
 import '../styles/screens-b.css';
+
+const MonitorSettingsPanel = lazy(() => import('./monitor/MonitorSettings').then((m) => ({ default: m.MonitorSettingsPanel })));
 
 export function Settings() {
   const { route: settingsRoute } = useStore();
@@ -139,6 +142,11 @@ export function Settings() {
         <PlatformIntegrations />
       </div>
 
+      <h2 id="mesh" style={{ margin: '18px 0 8px' }}>Keeper Mesh: where its controls appear</h2>
+      <div className="card settings-section" style={{ padding: 16 }}>
+        <MeshPlaces />
+      </div>
+
       <h2 id="ashforde" style={{ margin: '18px 0 8px' }}>Ashforde apps</h2>
       <div className="settings-section">
         <AshfordeAppsPanel />
@@ -153,6 +161,9 @@ export function Settings() {
       <div className="card settings-section" style={{ padding: 16 }}>
         <UsagePanel />
       </div>
+
+      <h2 id="monitor" style={{ margin: '18px 0 8px' }}>System monitor</h2>
+      <Suspense fallback={null}><MonitorSettingsPanel /></Suspense>
 
       <h2 id="processes" style={{ margin: '18px 0 8px' }}>Keeper’s processes</h2>
       <div className="card settings-section" style={{ padding: 16 }}>

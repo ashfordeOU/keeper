@@ -16,6 +16,7 @@ import { Icon } from '../components/Icon';
 import { Empty, Loading, Modal, PageHead, Toggle } from '../components/ui';
 import { useStore } from '../state';
 import '../styles/net.css';
+import { MeshTag } from './MeshParts';
 
 type Tab = 'apps' | 'dests' | 'conns' | 'map' | 'health';
 type Scope = 'all' | 'internet' | 'lan' | 'listening';
@@ -59,6 +60,7 @@ function Where({ f }: { f: { remote?: string; host?: string; service?: string; c
         {f.service ? ' · ' : ''}
         <span className={f.host ? '' : 'mono'}>{f.host ?? f.remote}</span>
         {f.remotePort ? <span className="muted">:{f.remotePort}</span> : null}
+        <MeshTag ip={f.remote} />
       </span>
     </span>
   );
@@ -372,7 +374,7 @@ function Health({ sample, vpn }: { sample: NetSample; vpn: VpnStatus | null }) {
           <tbody>
             {ifaces.map((i) => (
               <tr key={i.name}>
-                <td><b>{i.label ?? i.name}</b> <span className="muted mono small">{i.name}</span> {i.kind === 'vpn' ? <span className="badge path-vpn"><Icon name="lock" size={10} />VPN</span> : null}{!i.up ? <span className="badge">down</span> : null}</td>
+                <td><b>{i.label ?? i.name}</b> <span className="muted mono small">{i.name}</span> <MeshTag iface={i.name} />{i.kind === 'vpn' ? <span className="badge path-vpn"><Icon name="lock" size={10} />VPN</span> : null}{!i.up ? <span className="badge">down</span> : null}</td>
                 <td className="mono small">{i.addresses.map((a) => `${a.address}${a.prefix !== undefined ? `/${a.prefix}` : ''}`).join(', ') || '—'}</td>
                 <td className="num small">↓ {rate(i.rxRate)} · ↑ {rate(i.txRate)}</td>
               </tr>

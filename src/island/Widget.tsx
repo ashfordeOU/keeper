@@ -8,7 +8,8 @@ import { moonPath, moonPhase, sunTimes } from '../../core/astro';
 import { formatBytes } from '../../core/format';
 import type { DiskInfo } from '../../core/types';
 import { describeCode } from '../../core/weather';
-import { countdownParts, type WidgetConfig } from '../../core/widgets';
+import { countdownParts, quoteOfDay, seasonInfo, shapeRadius, yearProgress, type WidgetConfig } from '../../core/widgets';
+import { hemisphereFor } from '../../core/themes';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
 import '../styles/widgets.css';
@@ -20,16 +21,21 @@ const FONTS: Record<WidgetConfig['style']['font'], string> = {
   mono: 'var(--mono)',
 };
 
-export function widgetSurface(w: WidgetConfig): React.CSSProperties {
+/** The widget's card: background, shape, font. `tint` is the wallpaper palette's colour for "tinted" widgets. */
+export function widgetSurface(w: WidgetConfig, tint?: string | null): React.CSSProperties {
   const st = w.style;
-  const bg = st.background === 'none' ? 'transparent'
+  const tintColor = tint || 'var(--accent)';
+  const bg = st.background === 'none' || st.shape === 'none' ? 'transparent'
     : st.background === 'solid' ? st.bgColor
     : st.background === 'gradient' ? `linear-gradient(135deg, ${st.bgColor}, ${st.bgColor2})`
+    : st.background === 'tinted' ? `color-mix(in srgb, ${tintColor} 42%, rgba(18, 18, 24, .62))`
     : 'rgba(24, 24, 30, .55)';
+  const glassy = st.background === 'glass' || st.background === 'tinted';
   return {
-    fontFamily: FONTS[st.font], color: st.color, background: bg, borderRadius: st.radius, opacity: st.opacity,
-    fontSize: `${13 * st.size}px`, backdropFilter: st.background === 'glass' ? 'blur(22px) saturate(1.4)' : undefined,
-    border: st.background === 'glass' ? '1px solid rgba(255,255,255,.14)' : undefined,
+    fontFamily: FONTS[st.font], color: st.color, background: bg, borderRadius: shapeRadius(st, w.bounds), opacity: st.opacity,
+    fontSize: `${13 * st.size}px`, backdropFilter: glassy && st.shape !== 'none' ? 'blur(22px) saturate(1.4)' : undefined,
+    border: glassy && st.shape !== 'none' ? '1px solid rgba(255,255,255,.14)' : undefined,
+    textShadow: st.shape === 'none' || st.background === 'none' ? '0 1px 6px rgba(0,0,0,.45)' : undefined,
   };
 }
 
@@ -94,7 +100,7 @@ function Spark({ values, height = 34 }: { values: number[]; height?: number }) {
 }
 
 export function WidgetBody({ w }: { w: WidgetConfig }) {
-  const now = useNow(w.kind === 'clock' && (w.options.seconds || w.options.analog) ? 1000 : 15_000);
+  const now = useNow(w.kind === 'clock' && (w.options.seconds || w.options.analog) ? 1000 : w.kind === 'quote' || w.kind === 'season' ? 600_000 : 15_000);
   const isl = useIsland();
   const [disks, setDisks] = useState<DiskInfo[]>([]);
   const [health, setHealth] = useState<HealthReport | null>(null);
@@ -248,6 +254,60 @@ export function WidgetBody({ w }: { w: WidgetConfig }) {
         </div>
       );
     }
+    case 'day':
+      return (
+        <div className="wg-center">
+          <div className="wg-huge">{d.toLocaleDateString([], { weekday: 'long' })}</div>
+          <div className="wg-dim">{d.toLocaleDateString([], { day: 'numeric', month: 'long' })}</div>
+        </div>
+      );
+    case 'year': {
+      const y = yearProgress(now);
+      const bar = (label: string, v: number) => (
+        <div className="wg-progress"><span>{label}</span><div className="wg-bar"><i style={{ width: `${v * 100}%` }} /></div><b>{Math.floor(v * 100)}%</b></div>
+      );
+      return (
+        <div>
+          <div className="wg-title"><Icon name="calendar" size={13} /> {d.getFullYear()} · day {y.dayOfYear} of {y.daysInYear}</div>
+          {bar('Year', y.year)}
+          {bar('Month', y.month)}
+          {bar('Day', y.day)}
+        </div>
+      );
+    }
+    case 'season': {
+      let tz: string | undefined;
+      try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch { tz = undefined; }
+      const si = seasonInfo(now, hemisphereFor(isl?.weather?.place.lat, tz));
+      const icon = { spring: '🌱', summer: '☀︎', autumn: '🍂', winter: '❄︎' }[si.season];
+      const cap = (x: string) => x[0].toUpperCase() + x.slice(1);
+      return (
+        <div className="wg-center">
+          <div className="wg-big">{icon} {cap(si.season)}</div>
+          <div className="wg-bar" style={{ width: '80%' }}><i style={{ width: `${si.progress * 100}%` }} /></div>
+          <div className="wg-dim">{si.daysLeft} day{si.daysLeft === 1 ? '' : 's'} until {si.next}</div>
+        </div>
+      );
+    }
+    case 'world': {
+      const places = w.options.places?.length ? w.options.places : [];
+      return (
+        <div className="wg-world">
+          {places.slice(0, 6).map((p) => {
+            let t = '—';
+            let h = 12;
+            try {
+              t = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: p.zone });
+              h = Number(new Intl.DateTimeFormat('en-GB', { hour: '2-digit', hour12: false, timeZone: p.zone }).format(d));
+            } catch { /* unknown zone */ }
+            const day = h >= 7 && h < 19;
+            return <div key={p.zone + p.label} className="wg-world-row"><span className="wg-world-dot" data-day={day ? '1' : '0'}>{day ? '☀︎' : '☾'}</span><span className="wg-ell">{p.label}</span><b>{t}</b></div>;
+          })}
+        </div>
+      );
+    }
+    case 'quote':
+      return <div className="wg-quote">“{quoteOfDay(now, w.options.quotes)}”</div>;
     case 'clipboard': {
       const c = isl?.clips[0];
       return (
@@ -260,18 +320,35 @@ export function WidgetBody({ w }: { w: WidgetConfig }) {
   }
 }
 
-/** The whole widget window. */
-export function WidgetView() {
-  const [w, setW] = useState<WidgetConfig | null>(null);
+/** The colour "tinted" widgets use: the wallpaper palette's, else the theme's accent. */
+export function useWidgetTint(): string | null {
+  const [tint, setTint] = useState<string | null>(null);
   useEffect(() => {
-    const load = () => void api.widgets.current().then(setW);
+    const load = () => void api.widgets.tint?.().then(setTint).catch(() => undefined);
     load();
     return api.on('widgets-changed', load);
   }, []);
+  return tint;
+}
+
+/** The whole widget window. */
+export function WidgetView() {
+  const [w, setW] = useState<WidgetConfig | null>(null);
+  const [arranging, setArranging] = useState(false);
+  const tint = useWidgetTint();
+  useEffect(() => {
+    const load = () => void api.widgets.current().then(setW);
+    load();
+    void api.widgets.arranging?.().then(setArranging).catch(() => undefined);
+    const off1 = api.on('widgets-changed', load);
+    const off2 = api.on('widgets-arrange', (on) => setArranging(!!on));
+    return () => { off1(); off2(); };
+  }, []);
   if (!w) return null;
   return (
-    <div className={`wg ${w.locked ? 'locked' : ''}`} style={widgetSurface(w)}>
+    <div className={`wg ${w.locked && !arranging ? 'locked' : ''} ${arranging ? 'arranging' : ''} shape-${w.style.shape ?? 'card'}`} style={widgetSurface(w, tint)}>
       <WidgetBody w={w} />
+      {arranging ? <button className="wg-arrange-done" onClick={() => void api.widgets.arrange?.(false)}>Done arranging</button> : null}
     </div>
   );
 }

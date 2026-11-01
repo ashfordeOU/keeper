@@ -229,6 +229,39 @@ const versions = {
   whisper: [...read(path.join(ROOT, 'core/whisper.ts')).matchAll(/repo:\s*'([^']+)'/g)].map((m) => m[1]),
 };
 
+// Keeper Mesh's WireGuard parts: the MESH_NOTICES table in core/mesh/binaries.ts.
+const meshNotices = (() => {
+  const src = read(path.join(ROOT, 'core/mesh/binaries.ts'));
+  const consts = Object.fromEntries([...src.matchAll(/export const (\w+)\s*=\s*'([^']*)'/g)].map((m) => [m[1], m[2]]));
+  const body = (src.match(/MESH_NOTICES[^=]*=\s*\[([\s\S]*?)\n\];/) || [])[1] || '';
+  const field = (block, key) => {
+    const m = block.match(new RegExp(`\\b${key}:\\s*(?:'([^']*)'|(\\w+))`));
+    return m ? (m[1] ?? consts[m[2]] ?? '') : '';
+  };
+  return body.split(/\n\s*\},?\s*\n/).filter((b) => /name:/.test(b)).map((b) => ({
+    name: field(b, 'name'), version: field(b, 'version'), licence: field(b, 'licence'), source: field(b, 'source'), shipped: field(b, 'shipped'), note: field(b, 'note'),
+  }));
+})();
+const wireguardGoMit = `Copyright (C) 2017-2025 WireGuard LLC. All Rights Reserved.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+of the Software, and to permit persons to whom the Software is furnished to do
+so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.`;
+
 // ---- 5. Write the file.
 
 const md = [];
@@ -247,6 +280,7 @@ p('## Contents');
 p();
 p('- [Parts with extra terms](#parts-with-extra-terms)');
 p('- [Downloaded only when you use a feature](#downloaded-only-when-you-use-a-feature)');
+p('- [Keeper Mesh and WireGuard](#keeper-mesh-and-wireguard)');
 p('- [Packages included in Keeper](#packages-included-in-keeper)');
 p('- [Licence texts](#licence-texts)');
 p();
@@ -298,6 +332,16 @@ p();
 p('When you turn on countries in Network Activity, Keeper downloads the free [IP Geolocation by DB-IP](https://db-ip.com) "IP to Country Lite" and "IP to ASN Lite" databases from <https://db-ip.com/db/lite.php>. They are licensed under [Creative Commons Attribution 4.0 International](https://creativecommons.org/licenses/by/4.0/). Keeper converts them into a compact lookup table on your computer; no other changes are made.');
 p();
 
+p('### OpenStreetMap map tiles and Nominatim (ODbL)');
+p();
+p('Places & Tracks can show an online map and look up place names; both are off until you turn them on. The map loads raster tiles from an OpenStreetMap tile server (by default <https://tile.openstreetmap.org>, or a server you choose) and names come from a Nominatim server (by default <https://nominatim.openstreetmap.org>). Map data is © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright), available under the [Open Database License](https://opendatacommons.org/licenses/odbl/); the credit is shown on the map. Keeper follows the [OSM tile usage policy](https://operations.osmfoundation.org/policies/tiles/) and the [Nominatim usage policy](https://operations.osmfoundation.org/policies/nominatim/): requests carry a User-Agent that names Keeper, tiles are cached on your computer for a week and only fetched for what you look at, and names are asked for at most once a second. Nothing from these servers ships with Keeper.');
+p();
+
+p('### Natural Earth (public domain)');
+p();
+p('The offline world outline used by Network Activity and Places & Tracks comes from [Natural Earth](https://www.naturalearthdata.com) (public domain), simplified and rounded to 0.1°.');
+p();
+
 p(`### KaTeX and its fonts (MIT, SIL OFL 1.1)`);
 p();
 p(`Maths in notes is drawn with [KaTeX](https://katex.org) ${ver('katex')} (MIT, © Khan Academy and other contributors). The KaTeX fonts (\`KaTeX_*.woff2\`, \`.woff\`, \`.ttf\`) come from <https://github.com/KaTeX/katex-fonts>, are © 2009-2010 Design Science, Inc. and © 2014-2018 Khan Academy, and are licensed under the SIL Open Font License, Version 1.1. They are used unchanged.`);
@@ -334,13 +378,30 @@ const dl = [
   ['scrcpy (with adb)', 'Mirroring an Android phone', versions.scrcpy, 'Apache-2.0', 'Genymobile and contributors; adb by The Android Open Source Project', 'https://github.com/Genymobile/scrcpy'],
   ['rclone', 'Cloud storage', versions.rclone, 'MIT', 'Nick Craig-Wood and contributors', 'https://rclone.org (also packaged with some builds)'],
   ['yt-dlp', 'Saving videos from web pages', versions.ytdlp, 'Unlicense (the standalone programs also contain Python and other parts under their own licences)', 'yt-dlp contributors', 'https://github.com/yt-dlp/yt-dlp'],
-  ['Whisper speech models (ONNX)', 'Speech to text on this computer', versions.whisper.join(', ') || 'see core/whisper.ts', 'MIT (Whisper by OpenAI); see each model card for the ONNX conversion', 'OpenAI; converted by the ONNX Community', 'https://huggingface.co/onnx-community'],
+  ['Whisper speech models (ONNX)', 'Speech to text on this computer', versions.whisper.join(', ') || 'see core/whisper.ts', 'MIT (Whisper, including large-v3-turbo, by OpenAI); see each model card for the ONNX conversion', 'OpenAI; converted by the ONNX Community', 'https://huggingface.co/onnx-community'],
   ['multilingual-e5-small', 'Search by meaning', versions.e5, 'MIT', 'Liang Wang et al., Microsoft; converted by Xenova', `https://huggingface.co/${versions.e5}`],
   ['u2netp', 'Removing image backgrounds', 'u2netp.onnx', 'Apache-2.0 (U²-Net)', 'Xuebin Qin et al.; packaged by rembg', 'https://github.com/xuebinqin/U-2-Net'],
   ['RFB-320 face detector', 'Finding faces to blur', 'version-RFB-320.onnx', 'MIT', 'Linzaer', 'https://github.com/Linzaer/Ultra-Light-Fast-Generic-Face-Detector-1MB'],
   ['Tesseract language data (tessdata)', 'Reading text in images', '4.0.0', 'Apache-2.0', 'Google and the Tesseract contributors; packaged by tesseract.js', 'https://github.com/tesseract-ocr/tessdata'],
 ];
 for (const r of dl) p(`| ${r.map(cell).join(' | ')} |`);
+p();
+
+p('## Keeper Mesh and WireGuard');
+p();
+p('Keeper Mesh uses WireGuard. None of these parts is inside the Keeper download; Keeper fetches the one your system needs the first time you turn Mesh on, checks it against a pinned SHA-256 fingerprint, or uses a copy your system already has.');
+p();
+p('| Part | Version | Licence | Source | How Keeper gets it | Notes |');
+p('|---|---|---|---|---|---|');
+for (const n of meshNotices) p(`| ${[n.name, n.version || '-', n.licence, n.source ? `<${n.source}>` : '-', n.shipped || '-', n.note].map(cell).join(' | ')} |`);
+p();
+p('<details><summary>wireguard-go licence (MIT)</summary>');
+p();
+p('````text');
+p(wireguardGoMit);
+p('````');
+p();
+p('</details>');
 p();
 
 p('## Packages included in Keeper');

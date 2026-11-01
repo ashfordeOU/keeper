@@ -17,6 +17,18 @@ import { schemeById, xtermTheme } from '../../core/terminal/schemes';
 import type { SessionInfo, ShellEvent, TerminalProfile, TerminalSettings } from '../../core/terminal/types';
 import { findGitHashes, findProblems, quickFixes, recentCommands, suggest, type QuickFix } from '../../core/terminal/assist';
 
+/** Saved Remote Desktop names for `keeper rdc connect <Tab>`, read once and refreshed when the list changes. */
+let rdcNameCache: string[] | null = null;
+function rdcNames(): string[] {
+  if (rdcNameCache === null && api.rdc) {
+    rdcNameCache = [];
+    const load = () => void api.rdc.state().then((s) => { rdcNameCache = s.connections.map((c) => c.name); }).catch(() => undefined);
+    load();
+    api.on('rdc-changed', load);
+  }
+  return rdcNameCache ?? [];
+}
+
 const HISTORY_KEY = 'keeper.term.history';
 function loadHistory(): string[] {
   try {
@@ -241,7 +253,7 @@ export const XTermPane = forwardRef<PaneHandle, Props>(function XTermPane(p, ref
         const b = t.buffer.active;
         const lineText = b.getLine(b.baseY + b.cursorY)?.translateToString(true).slice(0, b.cursorX) ?? '';
         const typed = lineText.replace(/^.*?(?:[$#%>❯]|PS [^>]*>)\s/, '');
-        setPicker({ kind: 'suggest', filter: typed, typed, items: suggest(typed, { history: loadHistory() }), index: 0 });
+        setPicker({ kind: 'suggest', filter: typed, typed, items: suggest(typed, { history: loadHistory(), rdcNames: rdcNames() }), index: 0 });
         return false;
       }
       const mod = e.metaKey || e.ctrlKey;
@@ -438,7 +450,7 @@ export const XTermPane = forwardRef<PaneHandle, Props>(function XTermPane(p, ref
             value={picker.filter}
             onChange={(e) => {
               const f = e.target.value;
-              setPicker({ ...picker, filter: f, index: 0, items: picker.kind === 'recent' ? recentCommands(loadHistory(), f) : suggest(f, { history: loadHistory() }), typed: picker.kind === 'suggest' ? f : picker.typed });
+              setPicker({ ...picker, filter: f, index: 0, items: picker.kind === 'recent' ? recentCommands(loadHistory(), f) : suggest(f, { history: loadHistory(), rdcNames: rdcNames() }), typed: picker.kind === 'suggest' ? f : picker.typed });
             }}
             onKeyDown={(e) => {
               if (e.key === 'Escape') { setPicker(null); term.current?.focus(); }

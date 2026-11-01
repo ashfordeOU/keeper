@@ -197,5 +197,10 @@ export const MACOS: SettingDef[] = [
     'Keeper\'s Quick Controls has a "Flush DNS" button.',
     'Or in Terminal: sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder',
   ], { sources: ['https://support.apple.com/en-us/101986'] }),
+  b.advice('sharing.screensharing', 'Security', 'Screen Sharing and Remote Management', 'Lets other computers see and control this Mac over VNC (port 5900). Keeper Remote Desktops → This computer can start it and reach it through Keeper Link.', { t: 'advice', read: { file: '/bin/launchctl', args: ['print', 'system/com.apple.screensharing'] } }, [
+    'Open System Settings → General → Sharing.',
+    'Turn on Screen Sharing (or Remote Management for more control), and choose who may connect.',
+    'macOS 12.1 and later need this switch to be turned on here by you; the kickstart command (sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -activate -configure -access -on -privs -all -restart -agent) can start the service but not grant control.',
+  ], { sources: ['https://support.apple.com/guide/mac-help/turn-screen-sharing-on-or-off-mh11848/mac', 'https://support.apple.com/en-us/HT201710'], risk: 'high', keywords: ['vnc', 'remote desktop', 'ard', 'kickstart', '5900'] }),
 ];
 

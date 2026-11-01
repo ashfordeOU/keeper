@@ -2,6 +2,8 @@
 // Shared building blocks: file thumbnails, grid and list views, chips, toggles,
 // context menu, modal, empty states.
 
+import { tracksFileMenu } from '../screens/TracksSurfaces';
+import { shownIn } from '../screen/surfaces';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { RenamePreview, RenameStep } from '../../core/rename';
@@ -366,6 +368,8 @@ export function useFileMenu() {
     { label: 'Open', icon: 'external', kbd: '↩', run: () => (state.file.kind === 'audio' ? store.play(state.file) : void api.files.open(state.file.path)) },
     { label: 'Open With…', icon: 'external', run: () => void api.files.openWith(state.file.path) },
     { label: 'Quick Look', icon: 'eye', kbd: 'Space', run: () => openQuickLook([{ path: state.file.path, name: state.file.name }]) },
+    // Places & Tracks: GPX, FIT, KML and photos with a place in them.
+    ...tracksFileMenu(state.file.path, store.go),
     { label: store.info?.platform === 'win32' ? 'Show in Explorer' : store.info?.platform === 'darwin' ? 'Show in Finder' : 'Show in Folder', icon: 'reveal', run: () => void api.files.reveal(state.file.path) },
     { sep: true, label: '' },
     { label: 'Copy', icon: 'copy', kbd: `${mod}C`, run: () => void api.files.copyPaths(sel) },
@@ -374,7 +378,7 @@ export function useFileMenu() {
     { label: 'Add to Shelf', icon: 'island', run: () => void api.island.addToShelf(sel) },
     { label: store.info?.platform === 'darwin' ? 'Share… (AirDrop, Mail, Messages)' : 'Share…', icon: 'share', run: () => void api.places.share(sel).then((r) => { if (r.message) store.toast(r.message); }) },
     // Your other computers (Keeper Link) and Android phones; handled by the Send sheet on every page.
-    { label: 'Send to Device…', icon: 'send', run: () => window.dispatchEvent(new CustomEvent('keeper-send-to', { detail: sel })) },
+    ...(shownIn('sendTo', 'contextMenu') ? [{ label: 'Send to Device…', icon: 'send', run: () => window.dispatchEvent(new CustomEvent('keeper-send-to', { detail: sel })) }] : []),
     { label: 'Pin to Sidebar', icon: 'pin', run: () => {
       const dir = state.file.path.slice(0, state.file.path.length - state.file.name.length - 1);
       if (store.settings && !store.settings.pinned.includes(dir)) void store.updateSettings({ pinned: [...store.settings.pinned, dir] });

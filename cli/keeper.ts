@@ -3,6 +3,11 @@
 // terminals, servers and scripts. Read-only unless you pass --yes.
 
 import { cmdLink } from './link';
+import { cmdRemote } from './remote';
+import { cmdMesh } from './mesh';
+import { cmdRdc } from './rdc';
+import { cmdAgentsRunning, cmdContainers, cmdDev, cmdHistory, cmdVolume, cmdKill, cmdPorts, cmdProcess, cmdPs, cmdSensors, cmdTop, MONITOR_HELP } from './monitor';
+import { cmdDisplay, cmdStage } from './stage';
 import { existsSync, statSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -13,7 +18,7 @@ import { cacheTargets } from '../core/cleanup/targets';
 import { extrasOf, findExactDuplicates, findFormatPairs } from '../core/duplicates';
 import { formatBytes, formatDate, relativeTime, tildify } from '../core/format';
 import { FileIndex, type IndexFolder } from '../core/indexer';
-import { scanAgentSessions } from '../core/island';
+import { scanAgentSessions } from '../core/island-scan';
 import { defaultFolders, readDownloadSource, readDownloadSources, targetEnv, trashWithoutElectron } from '../core/platform';
 import { defaultRules, describeAction, describeCondition, planRule } from '../core/rules';
 import type { FileEntry } from '../core/types';
@@ -41,6 +46,8 @@ interface Args {
 
 /** `keeper awake` flags that take a value (`--for 2h`, `--while-app Zoom`). */
 const AWAKE_VALUE_FLAGS = ['for', 'until', 'minutes', 'while-app', 'while-file', 'while-folder', 'while-cpu', 'while-usb', 'while-wifi', 'while-drive', 'end-below'];
+/** `keeper rdc` flags that take a value (`--name "Office PC"`, `--via-link Desk`). */
+const RDC_VALUE_FLAGS = ['name', 'folder', 'format', 'ports', 'password', 'via-link', 'port', 'timeout'];
 
 function parseArgs(argv: string[]): Args {
   const flags: Record<string, string | boolean> = {};
@@ -51,7 +58,7 @@ function parseArgs(argv: string[]): Args {
       const [k, v] = a.slice(2).split('=');
       if (v !== undefined) flags[k] = v;
       // `keeper tool …` takes --key value for every option (put options after the files).
-      else if (argv[i + 1] && !argv[i + 1].startsWith('--') && (['in', 'limit', 'min'].includes(k) || argv[0] === 'tool' || argv[0] === 'convert' || (argv[0] === 'awake' && AWAKE_VALUE_FLAGS.includes(k)))) flags[k] = argv[++i];
+      else if (argv[i + 1] && !argv[i + 1].startsWith('--') && (['in', 'limit', 'min'].includes(k) || (['ps', 'top', 'history'].includes(argv[0]) && ['sort', 'hours'].includes(k)) || argv[0] === 'tool' || argv[0] === 'convert' || (argv[0] === 'awake' && AWAKE_VALUE_FLAGS.includes(k)) || (argv[0] === 'tracks' && ['from', 'to', 'format', 'out'].includes(k)) || (argv[0] === 'rdc' && RDC_VALUE_FLAGS.includes(k)) || (argv[0] === 'stage' && ['preset', 'minutes', 'for'].includes(k)) || (['cues', 'cue'].includes(argv[0]) && ['app', 'site', 'page', 'title', 'filter', 'q'].includes(k)) || (['dictation', 'dictate', 'meeting', 'meetings'].includes(argv[0]) && ['title', 'id', 'format', 'query'].includes(k)))) flags[k] = argv[++i];
       else flags[k] = true;
     } else if (a === '-y') flags.yes = true;
     else if (a === '-h') flags.help = true;
@@ -494,7 +501,7 @@ ${bold('Usage')}
   keeper dupes               Exact duplicates and HEIC/JPEG pairs (--trash --yes to remove extras)
   keeper stats               Files per shelf and where downloads came from (--sources)
   keeper rules               Preview the automatic tidy-up rules
-  keeper agents              Status of Claude Code / Codex sessions on this computer
+  keeper agents              Status of Claude Code / Codex sessions on this computer (--running: every agent and model server running now)
   keeper convert <files> --to <format>
                              Any file to another format: keeper convert notes.epub --to pdf
                              (without --to: what the file can become)
@@ -510,18 +517,36 @@ ${bold('Usage')}
   keeper hub agents          The agent hub: agents, send <agent> <text>, post <room> <text>, inbox, tasks
   keeper ask --plain "…"     Just the answer, as text (for Shortcuts and Siri)
   keeper link [status|devices|invite|pair|send|check|forward]
+  keeper remote [list|connect|help|exec|ssh-proxy|wake|send|forward|screenshot|info|lock|sleep|restart|log]
                              Keeper Link: your paired devices, files and ports between them
+  keeper rdc list|connect <name|uri> [--external]|add <uri> [--name …]|import <file>|export|probe <host>
+  keeper rdc host status|enable rdp|enable vnc|disable …|forward <name> --via-link <device>
+                             Remote Desktops: RDP, VNC, SSH and more, from any terminal
+  keeper mesh [up|down|status|peers|ip [device]|ping <device>|exit-node <device|off>|routes advertise <cidr>|rules …]
+                             Keeper Mesh: a WireGuard network between your devices
   keeper sync [status|pause|resume]
                              Folders synced between your devices, backups and mirrors
+  keeper stage [on|off|toggle|status|extend|presets|journal|detect|support] [--preset Recording] [--now]
+  keeper display [list] | set ID brightness 60 | inputs ID | input ID 0x11 | up|down brightness|volume
+  keeper cues [list|add <text>|done ID|snooze ID 1h|search <words>|templates|run ID] [--app A] [--site S] [--filter overdue]
+                             Notes and checklists that come back in an app, on a site or at a time
   keeper awake [on|off|toggle|status|extend|blockers|stats] [--for 2h | --until 18:30] [--while-app Name]
+  keeper dictation [start|stop|toggle|cancel|status|history|stats] [--query words]
+  keeper meeting [start|stop|pause|resume|live|list|export|notes] [--title T] [--id ID] [--format md|srt|vtt|txt]
+  keeper ambience [status|vibes|vibe <name>|next|prev|surprise|scenes|scene <id>|pause|play|sound rain=0.6|stop|sleep <min>|still|restore]
+                             Wallpaper, vibes and ambient sound
               [--while-file path] [--while-cpu 50] [--while-audio] [--allow-display-sleep] [--closed-lid]
+  keeper tracks import <file>…           add GPX, FIT, TCX, KML, GeoJSON, Google Timeline or Apple Health files
+  keeper tracks list                      your activities and tracks
+  keeper tracks export --from D --to D --format gpx|kml|geojson|csv [--out file]
+  keeper tracks where <device>            where a device, item or person was last seen
   keeper fw [status|rules|alerts|log [n]|profile [id]|silent allow|deny|off]
   keeper fw allow|deny <host or address> [port] [--app /path]
                              The firewall: its state, rules, alerts and quick rules
   keeper backup list|run|restore [name] [--snapshot S] [--to DIR] [--include a,b]
   keeper backup list|restore|verify --from <folder>
                              Open a backup straight from a drive or folder, without the app
-
+${MONITOR_HELP}
 ${bold('Options')}
   --in <folders>   comma-separated folders instead of Desktop, Documents, Downloads, …
   --json           machine-readable output
@@ -562,6 +587,51 @@ async function cmdSync(a: Args) {
 }
 
 /** keeper awake [on|off|toggle|status|extend|blockers|stats] [--for 2h] [--until 18:30] [--while-app Zoom] [--allow-display-sleep] [--closed-lid] … */
+/** keeper cues list | add <text> [--app A] [--site S] | done <id> | snooze <id> [1h] | search <words> | templates | run <id> */
+async function cmdCues(a: Args) {
+  const app = await connectToApp();
+  if (!app) throw new Error('Keeper is not running. Open the Keeper app first.');
+  let r: unknown;
+  try {
+    r = await app.call('keeper/cues', { cmd: a.rest[0] ?? 'list', args: a.rest.slice(1), ...a.flags });
+  } finally {
+    app.close();
+  }
+  out(r, a.flags, () => {
+    type Row = { id: string; title: string; places?: string[]; due?: string; done?: boolean; name?: string; steps?: number };
+    const list: Row[] = Array.isArray(r) ? (r as Row[]) : [r as Row];
+    if (!list.length) return console.log('No cues.');
+    for (const x of list) {
+      if (x.name) { console.log(`  ${x.id}  ${bold(x.name)}${dim(` · ${x.steps ?? 0} steps`)}`); continue; }
+      const where = [...(x.places ?? []), x.due ? `due ${new Date(x.due).toLocaleString()}` : ''].filter(Boolean).join(' · ');
+      console.log(`  ${x.id}  ${x.done ? dim(x.title) : bold(x.title)}${where ? dim(` · ${where}`) : ''}`);
+    }
+  });
+}
+
+// ---------------------------------------------------------------- voice (dictation and meetings; VOICE)
+async function cmdVoice(a: Args, kind: 'dictation' | 'meeting') {
+  const app = await connectToApp();
+  if (!app) throw new Error('Keeper is not running. Open the Keeper app first.');
+  const sub = a.rest[0] ?? (kind === 'dictation' ? 'toggle' : 'live');
+  const cmd = kind === 'dictation' ? sub : sub === 'list' ? 'meetings' : `meeting-${sub}`;
+  let r: unknown;
+  try {
+    r = await app.call('keeper/voice', { cmd, ...a.flags });
+  } finally {
+    app.close();
+  }
+  out(r, a.flags, () => {
+    if (typeof r === 'string') return void process.stdout.write(r);
+    if (sub === 'history') for (const t of r as { at: number; app?: string; text: string }[]) console.log(`${dim(relativeTime(t.at))} ${bold(t.app ?? '')} ${t.text}`);
+    else if (sub === 'list') for (const m of r as { id: string; title: string; startedAt: number; durationMs: number }[]) console.log(`${m.id.padEnd(22)} ${relativeTime(m.startedAt).padEnd(14)} ${String(Math.round(m.durationMs / 60_000)).padStart(3)} min  ${m.title}`);
+    else if (sub === 'stats') { const s = r as { words: number; takes: number; minutesSaved: number }; console.log(`${s.words} words in ${s.takes} takes · about ${Math.round(s.minutesSaved)} min saved`); }
+    else if (sub === 'live' && r && typeof r === 'object') { const m = r as { title: string; utterances: { text: string; track: string }[] }; console.log(bold(m.title)); for (const u of m.utterances) console.log(`  ${u.track === 'mic' ? 'You' : 'Others'}: ${u.text}`); }
+    else if (r === null) console.log(kind === 'meeting' ? 'Nothing is being recorded.' : 'Done.');
+    else { const x = r as { phase?: string; title?: string; id?: string }; console.log(x.phase ? `Dictation: ${x.phase}` : x.title ? `${x.title}${x.id ? dim(` (${x.id})`) : ''}` : 'Done.'); }
+  });
+}
+
 async function cmdAwake(a: Args) {
   const app = await connectToApp();
   if (!app) throw new Error('Keeper is not running. Open the Keeper app first.');
@@ -592,6 +662,38 @@ async function cmdAwake(a: Args) {
       console.log(`${bold('Keeping awake')} · ${s.session?.reason}${left}`);
       console.log(dim(`  held by ${s.holds.join(', ')}${s.closedDisplay ? ' · lid may be closed' : ''}`));
     }
+  });
+}
+
+/** keeper tracks import <file>… | list | export --from --to --format gpx [--out f] | where <device> (asks the running app; locations stay encrypted there) */
+async function cmdTracks(a: Args) {
+  const app = await connectToApp();
+  if (!app) throw new Error('Keeper is not running. Open the Keeper app first (Places & Tracks keeps your locations encrypted inside it).');
+  const cmd = a.rest[0] ?? 'list';
+  let r: unknown;
+  try {
+    r = await app.call('keeper/tracks', { cmd, args: a.rest.slice(1), cwd: process.cwd(), from: a.flags.from, to: a.flags.to, format: a.flags.format ?? 'gpx', out: a.flags.out });
+  } finally {
+    app.close();
+  }
+  if (cmd === 'export' && !a.flags.out && !a.flags.json) {
+    process.stdout.write((r as { text: string }).text);
+    return;
+  }
+  out(r, a.flags, () => {
+    if (cmd === 'list') {
+      const list = r as { name: string; sport: string; start: number; stats: { distanceM: number; movingS: number; elapsedS: number } }[];
+      if (!list.length) console.log(dim('No tracks yet. keeper tracks import <file>'));
+      for (const t of list) console.log(`${formatDate(t.start)}  ${bold(t.name)}  ${dim(t.sport)}  ${(t.stats.distanceM / 1000).toFixed(1)} km  ${Math.round((t.stats.movingS || t.stats.elapsedS) / 60)} min`);
+    } else if (cmd === 'import') {
+      const x = r as { imported: { file: string; format: string; tracks: number; visits: number; points: number; photos: number; warnings: string[] }[]; skipped: number };
+      for (const i of x.imported) console.log(`${green('✓')} ${i.file} ${dim(`(${i.format})`)}: ${i.tracks} tracks, ${i.visits} visits, ${i.points} positions, ${i.photos} photos${i.warnings.length ? yellow(` · ${i.warnings[0]}`) : ''}`);
+      if (x.skipped) console.log(dim(`${x.skipped} already there`));
+    } else if (cmd === 'where') {
+      const list = r as { name: string; lat: number; lon: number; t: number; place?: string; battery?: number }[];
+      if (!list.length) console.log(dim('Nothing by that name. Live sharing may be off.'));
+      for (const p of list) console.log(`${bold(p.name)}  ${p.place ?? `${p.lat.toFixed(5)}, ${p.lon.toFixed(5)}`}  ${dim(relativeTime(p.t))}${p.battery !== undefined ? `  ${Math.round(p.battery)}%` : ''}`);
+    } else console.log(JSON.stringify(r, null, 2));
   });
 }
 
@@ -708,6 +810,34 @@ async function cmdBackup(a: Args) {
   throw new Error('Usage: keeper backup list | run [name] | restore [name] [--snapshot S] [--to DIR] [--include a,b]');
 }
 
+/** keeper ambience status|vibes|vibe <name>|next|prev|surprise|scenes|scene <id> [palette]|pause|play|sound rain=0.6 cafe=0.3|stop|sleep <min>|still|restore */
+async function cmdAmbience(a: Args) {
+  const app = await connectToApp();
+  if (!app) throw new Error('Keeper is not running. Open the Keeper app first.');
+  let r: unknown;
+  try {
+    r = await app.call('keeper/ambience', { cmd: a.rest[0] ?? 'status', args: a.rest.slice(1) });
+  } finally {
+    app.close();
+  }
+  out(r, a.flags, () => {
+    if (Array.isArray(r)) {
+      for (const x of r as { id: string; name: string; active?: boolean; category?: string }[]) console.log(`  ${x.active ? bold('●') : ' '} ${x.name.padEnd(22)} ${dim(x.category ?? x.id)}`);
+      return;
+    }
+    const s = r as { vibe?: string | null; wallpaper?: string; playing?: boolean; strategy?: string; sound?: string; ok?: boolean; error?: string; how?: string };
+    if (s.ok !== undefined && s.wallpaper === undefined) return console.log(s.ok ? `Desktop picture set${s.how ? dim(` (${s.how})`) : ''}` : `Could not: ${s.error}`);
+    console.log(`${bold('Wallpaper')} ${s.wallpaper} ${dim(`· ${s.playing ? 'playing' : 'off or paused'} · ${s.strategy}`)}`);
+    console.log(`${bold('Vibe')}      ${s.vibe ?? dim('none')}`);
+    console.log(`${bold('Sound')}     ${s.sound}`);
+  });
+}
+
+/** Ends the process once everything printed has been written (a pipe would otherwise be cut short); the Windows PowerShell helper would keep it open. */
+function exitWhenFlushed() {
+  process.stdout.write('', () => process.exit(process.exitCode ?? 0));
+}
+
 async function main() {
   const a = parseArgs(process.argv.slice(2));
   if (a.flags.version) return console.log(VERSION);
@@ -720,7 +850,18 @@ async function main() {
     case 'clean': return cmdClean(a);
     case 'stats': return cmdStats(a);
     case 'rules': return cmdRules(a);
-    case 'agents': return cmdAgents(a);
+    case 'agents': return a.flags.running ? cmdAgentsRunning(a.rest, a.flags, (d, human) => out(d, a.flags, human)) : cmdAgents(a);
+    // System monitor (cli/monitor.ts).
+    case 'ps': return cmdPs(a.rest, a.flags, (d, human) => out(d, a.flags, human)).then(exitWhenFlushed);
+    case 'top': return cmdTop(a.rest, a.flags, (d, human) => out(d, a.flags, human)).then(exitWhenFlushed);
+    case 'kill': return cmdKill(a.rest, a.flags, (d, human) => out(d, a.flags, human)).then(exitWhenFlushed);
+    case 'process': return cmdProcess(a.rest, a.flags, (d, human) => out(d, a.flags, human)).then(exitWhenFlushed);
+    case 'ports': return cmdPorts(a.rest, a.flags, (d, human) => out(d, a.flags, human)).then(exitWhenFlushed);
+    case 'dev': return cmdDev(a.rest, a.flags, (d, human) => out(d, a.flags, human)).then(exitWhenFlushed);
+    case 'containers': return cmdContainers(a.rest, a.flags, (d, human) => out(d, a.flags, human)).then(exitWhenFlushed);
+    case 'volume': return cmdVolume(a.rest, a.flags, (d, human) => out(d, a.flags, human)).then(exitWhenFlushed);
+    case 'sensors': return cmdSensors(a.rest, a.flags, (d, human) => out(d, a.flags, human));
+    case 'history': return cmdHistory(a.rest, a.flags, (d, human) => out(d, a.flags, human));
     case 'ask': return cmdAsk(a);
     case 'mcp': return cmdMcp();
     // Native messaging host for Keeper's browser extension (started by the browser, not by people).
@@ -731,9 +872,20 @@ async function main() {
     case 'brain': return cmdBrain(a);
     case 'sync': return cmdSync(a);
     case 'fw': case 'firewall': return cmdFw(a);
+    case 'tracks': case 'places': return cmdTracks(a);
     case 'awake': case 'caffeinate': return cmdAwake(a);
+    case 'dictation': case 'dictate': return cmdVoice(a, 'dictation');
+    case 'meeting': case 'meetings': return cmdVoice(a, 'meeting');
+    case 'cues': case 'cue': return cmdCues(a);
+    case 'stage': return cmdStage(a.rest, a.flags, (d, human) => out(d, a.flags, human));
+    case 'display': case 'displays': return cmdDisplay(a.rest, a.flags, (d, human) => out(d, a.flags, human));
+    case 'ambience': return cmdAmbience(a);
     case 'backup': case 'backups': return cmdBackup(a);
     case 'link': return cmdLink(a.rest, a.flags, (d, human) => out(d, a.flags, human));
+    // `keeper remote …` reads its own arguments so `exec <device> -- <command>` stays intact.
+    case 'remote': return cmdRemote(process.argv.slice(3).filter((x) => x !== '--json'), (d, human) => out(d, a.flags, human));
+    case 'mesh': return cmdMesh(a.rest, a.flags, (d, human) => out(d, a.flags, human));
+    case 'rdc': case 'remote-desktop': return cmdRdc(a.rest, a.flags, (d, human) => out(d, a.flags, human));
     default: return help();
   }
 }

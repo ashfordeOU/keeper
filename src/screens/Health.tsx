@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Health: how hard your computer is working right now, and what keeps it awake.
 
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import type { HealthReport } from '../../core/api';
 import { formatBytes } from '../../core/format';
 import { api } from '../api';
@@ -12,6 +12,18 @@ import { Ring } from './Protection';
 import { HealthMore } from './HealthMore';
 import { ForceQuitDialog, Processes, Services } from './Processes';
 import '../styles/screens-b.css';
+import '../styles/monitor.css';
+import { useFeature } from '../features';
+
+// The monitor's deeper tabs load only when opened.
+const HealthHistory = lazy(() => import('./monitor/HealthHistory').then((m) => ({ default: m.HealthHistory })));
+const HealthDev = lazy(() => import('./monitor/HealthDev').then((m) => ({ default: m.HealthDev })));
+const HealthSensors = lazy(() => import('./monitor/HealthSensors').then((m) => ({ default: m.HealthSensors })));
+const HealthContainers = lazy(() => import('./monitor/HealthContainers').then((m) => ({ default: m.HealthContainers })));
+const HealthApps = lazy(() => import('./monitor/HealthApps').then((m) => ({ default: m.HealthApps })));
+const ShareCardDialog = lazy(() => import('./monitor/ShareCard').then((m) => ({ default: m.ShareCardDialog })));
+const LiveStrip = lazy(() => import('./monitor/common').then((m) => ({ default: m.LiveStrip })));
+const MonitorSettingsPanel = lazy(() => import('./monitor/MonitorSettings').then((m) => ({ default: m.MonitorSettingsPanel })));
 
 function uptime(sec: number): string {
   const d = Math.floor(sec / 86400);
@@ -20,13 +32,25 @@ function uptime(sec: number): string {
   return d ? `${d}d ${h}h` : h ? `${h}h ${m}m` : `${m}m`;
 }
 
-type HealthTab = 'overview' | 'processes' | 'services';
+type HealthTab = 'overview' | 'history' | 'processes' | 'dev' | 'containers' | 'apps' | 'sensors' | 'services' | 'settings';
+
+const TAB_SUB: Record<HealthTab, string> = {
+  overview: '', history: 'Up to a year of how hard this computer worked', processes: 'Every program running on this computer, and what it uses',
+  dev: 'Coding agents, AI tools and dev servers, by project', containers: 'Docker or Podman containers and what they use', apps: 'Volume per app, browser tabs and energy', sensors: 'Graphics, temperatures, fans and power draw', services: 'Background services that start on their own',
+  settings: 'Menu-bar readings, alerts, history, the tool launcher and where results go',
+};
 
 function HealthTabs({ tab }: { tab: HealthTab }) {
   const { go } = useStore();
+  const history = useFeature('monitorHistory');
+  const dev = useFeature('devServers');
+  const sensors = useFeature('monitorSensors');
+  const containers = useFeature('containers');
+  const tabs = ([['overview', 'Overview'], ['history', 'History'], ['processes', 'Processes'], ['dev', 'Dev & agents'], ['containers', 'Containers'], ['apps', 'Sound & tabs'], ['sensors', 'Sensors'], ['services', 'Services'], ['settings', 'Settings']] as const)
+    .filter(([id]) => (id !== 'history' || history) && (id !== 'dev' || dev) && (id !== 'sensors' || sensors) && (id !== 'containers' || containers));
   return (
     <div className="seg health-tabs" role="tablist">
-      {([['overview', 'Overview'], ['processes', 'Processes'], ['services', 'Services']] as const).map(([id, label]) => (
+      {tabs.map(([id, label]) => (
         <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? 'on' : ''} onClick={() => go({ name: 'health', arg: id === 'overview' ? undefined : id })}>{label}</button>
       ))}
     </div>
@@ -36,12 +60,15 @@ function HealthTabs({ tab }: { tab: HealthTab }) {
 /** Health: an overview, every running process (a full task manager), and the system's services. */
 export function Health() {
   const { route } = useStore();
-  const tab: HealthTab = route.arg === 'processes' || route.arg === 'force-quit' ? 'processes' : route.arg === 'services' ? 'services' : 'overview';
+  const arg = route.arg === 'force-quit' ? 'processes' : route.arg;
+  const tab: HealthTab = arg && arg in TAB_SUB ? (arg as HealthTab) : 'overview';
   if (tab === 'overview') return <HealthOverview />;
   return (
     <div>
-      <PageHead title="Health" sub={tab === 'processes' ? 'Every program running on this computer, and what it uses' : 'Background services that start on their own'}><HealthTabs tab={tab} /></PageHead>
-      {tab === 'processes' ? <Processes /> : <Services />}
+      <PageHead title="Health" sub={TAB_SUB[tab]}><HealthTabs tab={tab} /></PageHead>
+      <Suspense fallback={<Loading />}>
+        {tab === 'processes' ? <Processes /> : tab === 'services' ? <Services /> : tab === 'history' ? <HealthHistory /> : tab === 'dev' ? <HealthDev /> : tab === 'sensors' ? <HealthSensors /> : tab === 'containers' ? <HealthContainers /> : tab === 'apps' ? <HealthApps /> : <div style={{ maxWidth: 820 }}><MonitorSettingsPanel /></div>}
+      </Suspense>
     </div>
   );
 }
@@ -49,6 +76,7 @@ export function Health() {
 function HealthOverview() {
   const { toast, go } = useStore();
   const [forceQuit, setForceQuit] = useState(false);
+  const [share, setShare] = useState(false);
   const [h, setH] = useState<HealthReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [quit, setQuit] = useState<{ pid: number; name: string } | null>(null);
@@ -76,7 +104,9 @@ function HealthOverview() {
 
   return (
     <div>
-      <PageHead title="Health" sub={`${h.cpuModel} · ${h.cores} cores · up ${uptime(h.uptimeSec)}`}><HealthTabs tab="overview" /></PageHead>
+      <PageHead title="Health" sub={`${h.cpuModel} · ${h.cores} cores · up ${uptime(h.uptimeSec)}`}><button className="btn ghost sm" onClick={() => setShare(true)} title="A picture of the current readings to save or copy">Share card…</button><HealthTabs tab="overview" /></PageHead>
+      {share ? <Suspense fallback={null}><ShareCardDialog onClose={() => setShare(false)} /></Suspense> : null}
+      <Suspense fallback={null}><LiveStrip /></Suspense>
       <div className="kv-grid" style={{ marginBottom: 16 }}>
         <div className="card pad col" style={{ alignItems: 'center' }}><Ring value={h.cpuPercent} size={120} color={tone(h.cpuPercent)} label={`${Math.round(h.cpuPercent)}%`} sub="processor" /><span className="small muted">Load {h.loadAvg.map((l) => l.toFixed(1)).join(' · ')}</span></div>
         <div className="card pad col" style={{ alignItems: 'center' }}><Ring value={memPct} size={120} color={tone(memPct)} label={`${Math.round(memPct)}%`} sub="memory" /><span className="small muted">{formatBytes(usedMem)} of {formatBytes(h.memory.total)}</span></div>

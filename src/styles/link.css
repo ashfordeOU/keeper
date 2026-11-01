@@ -46,3 +46,15 @@
   .link-invite, .link-phone { flex-direction: column; }
   .link-tunnel-modes { grid-template-columns: 1fr; }
 }
+
+/* Remote access between your own devices */
+.help-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; }
+.help-offer { display: flex; flex-direction: column; gap: 6px; padding: 12px; border-radius: 10px; background: var(--bg-sunk, rgba(127, 127, 127, .08)); }
+.help-pw { font-size: 18px; letter-spacing: .12em; }
+.remote-output { margin: 8px 0 0; padding: 10px; border-radius: 8px; background: #111214; color: #e5e5ea; font: 12px/1.45 ui-monospace, Menlo, Consolas, monospace; white-space: pre-wrap; max-height: 260px; overflow: auto; }
+.remote-term { height: 420px; background: #111214; border-radius: 8px; padding: 6px; }
+.surfaces-table { width: 100%; border-collapse: collapse; }
+.surfaces-table td, .surfaces-table th { padding: 6px 8px; border-top: 1px solid var(--line, rgba(127, 127, 127, .2)); vertical-align: middle; }
+.surfaces-table th { border-top: 0; font-weight: 500; }
+.audit-list { max-height: 360px; overflow: auto; }
+.chip.warn { color: var(--danger, #ff453a); }

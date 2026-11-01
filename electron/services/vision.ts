@@ -14,7 +14,7 @@ import type { FileEntry } from '../../core/types';
 import { pace, track } from './governor';
 import { guessLatinLanguage, languagesForScript, scriptOfLanguage } from '../../core/ocr-lang';
 
-type TesseractWorker = { recognize(img: Buffer): Promise<{ data: { text: string } }>; terminate(): Promise<unknown> };
+type TesseractWorker = { recognize(img: Buffer): Promise<{ data: { text: string } }>; terminate(): Promise<unknown>; setParameters?(p: Record<string, string>): Promise<unknown> };
 
 const TEXT_EXT = new Set(['txt', 'md', 'markdown', 'csv', 'tsv', 'json', 'log', 'yaml', 'yml', 'xml', 'html', 'htm', 'rtf', 'ini', 'toml', 'tex', 'srt', 'vtt']);
 const OCR_EXT = new Set(['png', 'jpg', 'jpeg', 'heic', 'heif', 'webp', 'bmp', 'tif', 'tiff', 'gif']);
@@ -66,11 +66,13 @@ function releaseWorkerSoon() {
   }, 60_000);
 }
 
-export async function ocrImage(img: Electron.NativeImage | Buffer, langs: string[]): Promise<string> {
+export async function ocrImage(img: Electron.NativeImage | Buffer, langs: string[], params?: Record<string, string>): Promise<string> {
   inFlight++;
   clearTimeout(releaseTimer);
   try {
     const w = await getWorker(langs);
+    // Layout hints for this read; the defaults go back for the next caller.
+    await w.setParameters?.(params ?? { tessedit_pageseg_mode: '3', preserve_interword_spaces: '0' }).catch(() => undefined);
     const png = Buffer.isBuffer(img) ? img : img.toPNG();
     const { data } = await w.recognize(png);
     return data.text.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
@@ -306,4 +308,39 @@ export async function ocrImageAuto(img: Electron.NativeImage, chosen: string[]):
     }
   }
   return { text, langs };
+}
+
+/**
+ * Text capture with the person's reader settings (Capture options): the
+ * system's recognizer (Windows.Media.Ocr from PowerShell, macOS Vision through
+ * keeper-helper) — it reads neat handwriting — or the built-in reader with a
+ * cleaned picture and a layout hint. Falls back to the built-in reader when
+ * the system's cannot answer.
+ */
+export async function ocrTuned(img: Electron.NativeImage, langs: string[], o: { engine?: import('../../core/ocr-tune').OcrEngine; layout?: import('../../core/ocr-tune').OcrLayout; enhance?: boolean; handwriting?: boolean; keepSpaces?: boolean; autoLanguage?: boolean }): Promise<string | undefined> {
+  const { enhanceForOcr, pickEngine, tesseractParams } = await import('../../core/ocr-tune');
+  const systemAvailable = process.platform === 'darwin' || process.platform === 'win32';
+  if (pickEngine({ engine: o.engine, handwriting: o.handwriting, systemAvailable }) === 'system') {
+    const tmp = path.join(app.getPath('temp'), `keeper-ocr-${process.pid}-${Date.now()}.png`);
+    try {
+      await fsp.writeFile(tmp, img.toPNG());
+      const text = process.platform === 'win32'
+        ? await (await import('./platform/windows')).windowsOcr(tmp).catch(() => undefined)
+        : await (await import('./platform/mac')).macOcr(tmp, []).catch(() => undefined);
+      if (text !== undefined && (text.trim() || o.engine === 'system')) return text.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+    } finally {
+      await fsp.rm(tmp, { force: true });
+    }
+    if (o.engine === 'system') return undefined;
+  }
+  // The built-in reader: only when asked for something beyond the plain read.
+  if (o.engine !== 'builtin' && !o.enhance && (!o.layout || o.layout === 'auto') && !o.handwriting) return undefined;
+  let pic: Electron.NativeImage = img;
+  if (o.enhance !== false) {
+    const { width, height } = img.getSize();
+    pic = nativeImage.createFromBitmap(Buffer.from(enhanceForOcr(img.toBitmap(), width, height, { keepGrey: o.handwriting })), { width, height });
+  }
+  // Without a layout hint, the language detection still picks the reader.
+  if (o.autoLanguage && (!o.layout || o.layout === 'auto') && !o.handwriting) return (await ocrImageAuto(pic, langs)).text;
+  return ocrImage(pic.toPNG(), langs, tesseractParams(o.handwriting && (!o.layout || o.layout === 'auto') ? 'block' : o.layout, { keepSpaces: o.keepSpaces }));
 }

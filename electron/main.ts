@@ -35,8 +35,13 @@ import { captureText } from './services/capture';
 import { colorPick, quietly, recordingState, registerCaptureIpc, registerCaptureShortcuts, screenshot, toggleRecording } from './ipc/capture';
 import { FileService } from './services/files';
 import { IslandService } from './services/island';
-import { islandWindows, registerIslandIpc, registerIslandShortcuts, syncWidgets } from './ipc/island';
+import { islandWindows, registerIslandIpc, registerIslandShortcuts } from './ipc/island';
+import { registerWidgetsIpc, syncWidgets } from './ipc/widgets';
+import { ambienceTrayItems, registerAmbience, registerAmbienceShortcuts } from './services/wallpaper';
 import { registerIslandToolsIpc } from './ipc/island-tools';
+// Island+ (calls, levels, notifications, agents) and Cues (ISLAND+CUES workstream).
+import { registerIslandXIpc, stopIslandX } from './ipc/islandx';
+import { cueTrayItems, handleCueLink, registerCueShortcut, registerCuesIpc, stopCues } from './ipc/cues';
 import { flushIslandTools } from './services/island-tools';
 import { checkProtection } from './services/protection';
 import { listStartup, toggleStartup } from './services/startup';
@@ -48,15 +53,23 @@ import { registerIpcX, syncFinderTags } from './ipc-x';
 import { registerFileProtocol, registerPreviewIpc } from './ipc/preview';
 import { registerConvertIpc } from './ipc/convert';
 import { registerPlacesIpc } from './ipc/places';
+import { registerTracksIpc } from './ipc/tracks';
+import { registerTracksCompanion, stopTracks, trayTracksItems } from './services/tracks';
 import { registerPlatformIpc } from './ipc/platform';
 import { handlePlatformArgv, handlePlatformUrl, initPlatform, platformLibraryChanged, startedForSearch, stopPlatform } from './services/platform';
 import { registerLockIpc } from './ipc/lock';
 import { handleAwakeLink, registerAwakeIpc } from './ipc/awake';
+import { handleStageLink, registerStageIpc, registerStageShortcuts, stagePresentation, stageTrayItems } from './ipc/stage';
+import { handleVoiceLink, registerVoiceIpc, registerVoiceShortcuts, shutdownVoice, voiceTrayItems } from './ipc/voice';
 import { registerGuideIpc } from './ipc/guide';
 import { registerBuiltinGuideSources } from './services/guide-sources';
 import { refresh as refreshGuide } from './services/guide';
 import { registerLinkIpc } from './ipc/link';
+import { onTrayChange, trayAccessItems } from './services/link/surfaces';
 import { registerScreenIpc, stopScreen } from './ipc/screen';
+import { meshTrayItems, registerMeshIpc, stopMesh } from './ipc/mesh';
+import { registerRdcIpc } from './ipc/rdc';
+import { handleRdcArgv, onRdcTrayChange, rdcShortcut, rdcTrayItems, setShortcutRefresher } from './services/rdc/places';
 import { linkNode, stopLink } from './services/link';
 import { connectionFs, list as remoteConnections } from './services/remote';
 import { attachConnections, attachTransport } from './services/sync';
@@ -78,6 +91,9 @@ import { agentSettingsChanged, record as recordUsage, startAgents, stopAgents } 
 import { normalizeAgentSettings } from '../core/agents-config';
 import { applyWaylandSwitch } from './services/island-place';
 import { registerProcsIpc } from './ipc/procs';
+import { registerSysmonIpc } from './ipc/sysmon';
+import { registerLauncherShortcut, toggleLauncher } from './services/monitor-launcher';
+import { setMonitorIslandAlert } from './services/monitor';
 import { registerPimIpc } from './ipc/pim';
 import { registerNotesIpc } from './ipc/notes';
 import { allowRoot as allowPreviewRoot } from './services/preview';
@@ -306,6 +322,12 @@ function trayControls(): Electron.MenuItemConstructorOptions[] {
   ];
 }
 
+// Devices, remote sessions and help codes change the tray's Keeper Link entries.
+onTrayChange(() => void updateTray());
+// Recent and favourite remote desktops, and what is open now (Remote Desktops → Places → Tray).
+onRdcTrayChange(() => void updateTray());
+setShortcutRefresher(() => registerShortcuts());
+
 async function updateTray() {
   if (!settings().trayEnabled) {
     tray?.destroy();
@@ -355,6 +377,7 @@ async function updateTray() {
     { type: 'separator' },
     { label: 'Open Keeper', click: () => showMain() },
     { label: 'Quick Search', accelerator: settings().quickSearchShortcut, click: toggleQuick },
+    ...(featureOn('toolLauncher') ? [{ label: 'Tool Launcher…', click: () => toggleLauncher() }] : []),
     { label: 'Terminal', click: () => openTerminalWindow() },
     { label: 'Copy Text from Screen', accelerator: settings().island.captureShortcut, click: () => void doCapture() },
     { label: 'Take Screenshot', submenu: [
@@ -378,8 +401,24 @@ async function updateTray() {
       { type: 'separator' as const },
       { label: 'Keep Awake…', click: () => showMain('awake') },
     ], click: awake ? () => { islandSvc.keepAwake(false); void updateTray(); } : undefined }] : []),
+    // Keeper Mesh: on/off, exit node and addresses, where the person put them (Mesh → Where controls appear).
+    ...meshTrayItems(),
+    // Wallpaper, vibes and ambient sound (Settings on the Wallpaper & Vibes page can hide this).
+    ...ambienceTrayItems(),
+    // Cues: a new cue for what is in front, and the ones due today (Cues → Settings can hide this).
+    ...cueTrayItems(),
+    // Stage mode (Settings → Features; its page chooses whether it shows here).
+    ...stageTrayItems(),
+    // Dictation and meeting recording (Voice; its page chooses whether they show here).
+    ...voiceTrayItems(),
     { label: 'Clean Up…', click: () => showMain('cleanup') },
     ...(featureOn('quickControls') ? [{ label: 'Quick Controls', submenu: trayControls() }] : []),
+    // Keeper Link: sessions with Stop, your devices, Get Help / Help Someone (places chosen under Devices → Remote Access).
+    ...trayAccessItems(showMain),
+    // Remote Desktops: built at once from memory (never waits), so nothing started after the tray is held up.
+    ...(() => { try { return rdcTrayItems(); } catch { return []; } })(),
+    // Places & Tracks: where devices, items and people are (Settings in Places & Tracks can hide this).
+    ...trayTracksItems(showMain),
     { type: 'separator' },
     ...trayUpdateItems(),
     { label: 'Quit Keeper', click: () => { quitting = true; app.quit(); } },
@@ -400,16 +439,20 @@ function registerShortcuts() {
   };
   // A feature that is off gives its shortcut back to the system.
   if (featureOn('quickSearch')) reg(s.quickSearchShortcut, toggleQuick);
+  // Quick connect to a remote desktop from anywhere (Remote Desktops → Places).
+  const rdcKey = rdcShortcut();
+  if (rdcKey) reg(rdcKey.accelerator, rdcKey.run);
   if (featureOn('assistant')) reg(s.platform?.askShortcut, () => askKeeper());
   if (featureOn('capture')) reg(s.island.captureShortcut, () => void doCapture());
-  let dictating = false;
-  if (featureOn('dictation')) reg(s.island.dictationShortcut, () => {
-    if (!islandWindows.count()) return;
-    dictating = !dictating;
-    islandWindows.send('event:dictation', dictating ? 'start' : 'stop');
-  });
+  // Dictation (Voice): its toggle and edit-by-voice shortcuts; holding the talk key needs no shortcut.
+  registerVoiceShortcuts(reg);
   if (featureOn('island')) registerIslandShortcuts();
+  // Stage mode's shortcut, its presets' shortcuts and the display keys.
+  registerStageShortcuts(reg);
+  registerAmbienceShortcuts();
   if (featureOn('capture')) void registerCaptureShortcuts();
+  registerLauncherShortcut();
+  registerCueShortcut();
 }
 
 /** Text from the clipboard's picture or a file, copied like a screen capture. */
@@ -479,6 +522,14 @@ function handleDeepLink(url: string) {
     else if (action === 'terminal') openTerminalWindow(u.searchParams.get('cwd') ? { cwd: u.searchParams.get('cwd')! } : {});
     // keeper://awake?for=30m, ?until=18:30, ?app=Name; keeper://awake/off, /toggle, /extend
     else if (action === 'awake') handleAwakeLink(u);
+    // keeper://stage/on?preset=recording, /off, /toggle
+    else if (action === 'stage') handleStageLink(u);
+    // keeper://dictation/toggle|start|stop|cancel|edit, keeper://meeting/start|stop|pause|resume
+    else if (action === 'dictation' || action === 'meeting') handleVoiceLink(u);
+    // keeper://help?code=123456789&pw=… ("Ask for help" links) opens Help Someone with the code filled in.
+    // keeper://cue?text=…&attach=page,app opens a new cue beside the app in front; keeper://cues opens the page.
+    else if (action === 'cue') handleCueLink(u);
+    else if (action === 'help') showMain(`devices:help=${u.searchParams.get('code') ?? ''}${u.searchParams.get('pw') ? `.${u.searchParams.get('pw')}` : ''}`);
     else showMain(action || undefined);
   } catch {
     showMain();
@@ -491,6 +542,8 @@ app.on('open-url', (e, url) => {
   else app.once('ready', () => handleDeepLink(url));
 });
 app.on('second-instance', (_e, argv) => {
+  // A .rdp or .vnc file double-clicked or "Connect with Keeper" in the file manager.
+  if (handleRdcArgv(argv)) return;
   if (handlePlatformArgv(argv)) return;
   const link = argv.find((a) => a.startsWith('keeper://'));
   if (link) handleDeepLink(link);
@@ -979,11 +1032,9 @@ function registerIpc() {
   handle('island.clearClips', () => islandSvc.clearClips());
   handle('island.focus', (action: 'start' | 'pause' | 'resume' | 'stop', minutes?: number) => islandSvc.focusAction(action, minutes));
   handle('island.keepAwake', (on: boolean, opts?: KeepAwakeOptions) => { const r = islandSvc.keepAwake(on, opts); void updateTray(); return r; });
-  handle('island.presentation', (on: boolean) => islandSvc.setPresentation(on));
+  handle('island.presentation', (on: boolean) => stagePresentation(on));
   handle('island.media', (a: 'toggle' | 'next' | 'previous' | 'seek', v?: number) => islandSvc.media(a, v));
   handle('island.openAgent', (id: string) => islandSvc.openAgent(id));
-  handle('island.transcribe', (audio: ArrayBuffer, mime: string) => islandSvc.transcribe(audio, mime));
-  handle('island.typeText', (t: string) => islandSvc.typeText(t));
   handle('island.dismiss', (id: string) => islandSvc.dismiss(id));
   ipcMain.on('island.setExpanded', (e, v: boolean) => islandWindows.setExpanded(e.sender, v));
 }
@@ -1010,6 +1061,9 @@ app.whenReady().then(async () => {
   onLimitAlert((title, detail) => islandSvc?.alert({ kind: 'info', title, detail }));
   // Keep Awake: sessions, triggers, closed-lid mode, statistics (before the Island starts, which hands it keep-awake requests).
   registerAwakeIpc({ islandSvc, broadcast, updateTray: () => void updateTray(), show: (route) => showMain(route) });
+  registerStageIpc({ islandSvc, broadcast, updateTray: () => void updateTray(), show: (route) => showMain(route), reregister: () => registerShortcuts(), recording: () => recordingState().recording });
+  // Voice: dictation anywhere (talk key, pill, Island) and meeting recording (Island, tray, call detection).
+  registerVoiceIpc({ islandSvc, broadcast, updateTray: () => void updateTray(), show: (route) => showMain(route), preload: preload(), lockDown, reregister: () => registerShortcuts() });
   registerIpc();
   registerIslandIpc({
     islandSvc, files, index, preload: preload(), lockDown, broadcast, updateTray: () => void updateTray(), setTrayTitle: (t) => tray?.setTitle(t),
@@ -1023,6 +1077,23 @@ app.whenReady().then(async () => {
       libraryChanged();
       return r.outputs;
     },
+  });
+  // Island+: calls, levels, notifications, more agents, the launcher button; Cues beside the app or page they belong to.
+  registerIslandXIpc({ islandSvc, emit: () => broadcast('island-changed'), openLauncher: () => toggleLauncher(), show: (route) => showMain(route || undefined) });
+  registerCuesIpc({
+    preload: preload(), lockDown, broadcast, show: (route) => showMain(route), updateTray: () => void updateTray(),
+    island: (kind, title, detail, ref) => islandSvc?.alert({ kind: 'cue', title, detail, ref: kind === 'hint' ? 'hint' : ref }),
+    setCueHere: (c) => islandSvc?.plus?.setCueHere(c),
+    openIsland: (tool) => islandWindows.openOn(tool),
+  });
+  // Desktop widgets (moved out of ipc/island.ts), then wallpaper, vibes, ambient sound and folder icons.
+  registerWidgetsIpc({ preload: preload(), lockDown, broadcast });
+  registerAmbience({
+    preload: preload(), lockDown, broadcast, show: (route) => showMain(route), updateTray: () => void updateTray(),
+    alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }),
+    startFocus: (minutes) => { if (featureOn('focus')) islandSvc?.focusAction('start', minutes); },
+    focusActive: () => islandSvc?.focus.mode === 'focus',
+    battery: () => islandSvc?.state().battery ?? null,
   });
   // The Island's tools: Ask, AI usage, sales, stocks, notes, to-dos, teleprompter, shortcuts.
   registerIslandToolsIpc({ rules: () => settings().rules.map((r) => ({ id: r.id, name: r.name, enabled: r.enabled })), runRule: async (id) => { const r = settings().rules.find((x) => x.id === id); if (r) await runRule(r); } });
@@ -1045,6 +1116,8 @@ app.whenReady().then(async () => {
     setRemoteExclusions: (paths) => { index.excluded = [...new Set([...settings().excluded, ...paths])]; },
   });
   registerLockIpc({ broadcast, changed: libraryChanged });
+  // Places & Tracks: nothing runs until a source is switched on.
+  registerTracksIpc({ broadcast, trayChanged: () => void updateTray() });
   // Guided fixes: what the person should do about space, security, privacy and more, and how.
   registerGuideIpc({ broadcast, preload: preload(), alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }) });
   registerBuiltinGuideSources({ index: () => index });
@@ -1053,6 +1126,14 @@ app.whenReady().then(async () => {
   setInterval(() => void refreshGuide(), 12 * 3600_000).unref?.();
   // Remote screens over Link: view and control other devices, phones, Wake-on-LAN (attaches once Link is up).
   void registerScreenIpc({ broadcast, show: (route) => showMain(route), preload: preload(), alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }) }).catch(() => undefined);
+  // Remote Desktops: saved connections by any protocol, and letting others reach this computer (nothing runs until used).
+  registerRdcIpc({
+    broadcast,
+    preload: preload(),
+    showMain: (route) => showMain(route),
+    // A session opens as a tab of the main window, or in a window of its own (Remote Desktops → Places).
+    openTab: (route, ownWindow) => { showMain(); setTimeout(() => main?.webContents.send('event:navigate-tab', { ...route, window: ownWindow }), main?.webContents.isLoading() ? 800 : 0); },
+  });
   // Keeper Link: paired devices, the phone companion and the tunnel.
   void registerLinkIpc({ broadcast, show: (route) => showMain(route) })
     .then(() => {
@@ -1061,6 +1142,10 @@ app.whenReady().then(async () => {
       if (n && !process.env.KEEPER_SYNC_LOOPBACK) void attachTransport(linkTransport(n), 'link');
       // Notes Everywhere: search, read and jot notes from the phone companion.
       if (n) registerNotesCompanion(n);
+      // Places & Tracks: the phone's position while its companion page is open.
+      if (n) registerTracksCompanion(n);
+      // Keeper Mesh: a WireGuard network between paired devices (off until switched on).
+      void registerMeshIpc({ node: linkNode, broadcast, show: (route) => showMain(route), onChange: () => void updateTray() }).catch(() => undefined);
     })
     .catch(() => undefined);
   // Backups and mirrors to cloud services and servers go through Keeper's connections.
@@ -1077,6 +1162,9 @@ app.whenReady().then(async () => {
   registerAbilitiesIpc();
   registerAgentsIpc();
   registerProcsIpc();
+  // System monitor: live readings (menu bar, pop-over), long-term history, dev servers, agents, sensors, the tool launcher.
+  registerSysmonIpc({ preload: preload(), load, lockDown, showMain: (route) => showMain(route), devUrl: DEV_URL });
+  setMonitorIslandAlert((title, detail) => islandSvc?.alert({ kind: 'info', title, detail }));
   // Mail, calendars, reminders, alarms and contacts.
   registerPimIpc();
   // Notes: vaults are read only while the Notes page is open.
@@ -1212,7 +1300,7 @@ app.whenReady().then(async () => {
 
   const link = process.argv.find((a) => a.startsWith('keeper://'));
   if (link) handleDeepLink(link);
-  else handlePlatformArgv(process.argv);
+  else if (!handleRdcArgv(process.argv)) handlePlatformArgv(process.argv);
 
   // File changes in watched folders arrive at once; this full re-read catches the rest.
   poll('library.rescan', { baseMs: 30 * 60_000, idleFactor: 2 }, async () => { await whenIdle('scan'); await rescan(); }, { now: false });
@@ -1258,6 +1346,7 @@ app.on('before-quit', (e) => {
   quitting = true;
   installOnQuitIfReady();
   stopPlatform();
+  shutdownVoice();
   stopSecurityIpc();
   void stopPim();
   void stopRemote();
@@ -1268,10 +1357,14 @@ app.on('before-quit', (e) => {
   void stopTerminal();
   stopSync();
   stopScreen();
+  void stopMesh();
   void stopLink();
+  void stopTracks();
   globalShortcut.unregisterAll();
   vision?.stop();
   islandSvc?.stop();
+  stopIslandX();
+  stopCues();
   try {
     index?.saveSync();
   } catch {

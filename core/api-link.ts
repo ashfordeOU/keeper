@@ -6,6 +6,7 @@ import type { CarrierKind } from './link/channel';
 import type { TunnelMode } from './link/cloudflared';
 import type { Permission, PermissionSet } from './link/perms';
 import type { Progress } from './link/transfer';
+import type { DeviceMeta } from './link/fleet';
 
 export type { CarrierKind, Permission, PermissionSet, Progress as LinkTransfer };
 
@@ -30,6 +31,8 @@ export interface LinkSettings {
   /** allow forwards and the SOCKS proxy to reach this device's local network, not only itself */
   forwardLan: boolean;
   shares: LinkShare[];
+  /** where remote access shows up (tray, Island, palette, right-click menu); missing = everywhere */
+  surfaces?: Record<string, string[]>;
 }
 
 export interface LinkShare {
@@ -56,6 +59,10 @@ export interface LinkDevice {
   rtt?: number;
   /** seen on this network */
   nearby?: boolean;
+  /** groups, tags, notes and saved commands (yours, kept on this device) */
+  meta?: DeviceMeta;
+  /** the carriers under the connection right now, with bytes moved on each */
+  paths?: { kind: string; where?: string; since: number; bytesIn: number; bytesOut: number; active: boolean }[];
 }
 
 export interface ThisDevice {
@@ -154,6 +161,8 @@ export interface Companion {
   created: number;
   lastSeen?: number;
   online: boolean;
+  /** may open a terminal here from the phone page */
+  terminal?: boolean;
 }
 
 export interface LinkState {
@@ -197,6 +206,8 @@ export interface LinkApi {
   /** allow or refuse a phone that scanned the QR code */
   answerCompanion(id: string, ok: boolean): Promise<void>;
   forgetCompanion(id: string): Promise<void>;
+  /** let a phone open a terminal here, or not */
+  setCompanionTerminal(id: string, on: boolean): Promise<void>;
   /** prompts already waiting when the window opened */
   pending(): Promise<{ pairs: PairPrompt[]; offers: FileOffer[] }>;
   tunnel: {

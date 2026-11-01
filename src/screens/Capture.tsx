@@ -211,6 +211,18 @@ export function Capture() {
             <Opt label="Keep line breaks" hint="Off joins wrapped lines into paragraphs."><Toggle on={opts.keepLineBreaks} onChange={(v) => void setOpt({ keepLineBreaks: v })} /></Opt>
             <Opt label="Careful recognition" hint="Slower but reads small text better. Off is faster."><Toggle on={opts.accurate} onChange={(v) => void setOpt({ accurate: v })} /></Opt>
             <Opt label="Detect the language" hint={navigator.platform.startsWith('Mac') ? "Works out the language by itself and reads neat handwriting, with macOS's own recognizer." : 'Works out the language and writing system by itself; the right reader is downloaded once.'}><Toggle on={opts.autoLanguage} onChange={(v) => void setOpt({ autoLanguage: v })} /></Opt>
+            <Opt label="Reader" hint={navigator.platform.startsWith('Win') ? 'Windows’ own recognizer reads neat handwriting; the built-in reader works offline everywhere.' : navigator.platform.startsWith('Mac') ? 'macOS’s own recognizer reads neat handwriting.' : 'Linux uses the built-in reader; the settings below tune it.'}>
+              <select className="input" value={opts.ocrEngine ?? 'auto'} onChange={(e) => void setOpt({ ocrEngine: e.target.value as never })}>
+                <option value="auto">Automatic</option><option value="system">The system’s recognizer</option><option value="builtin">The built-in reader</option>
+              </select>
+            </Opt>
+            <Opt label="Text layout" hint="Helps the built-in reader: one line, a block, or scattered text like a screenshot of an app.">
+              <select className="input" value={opts.ocrLayout ?? 'auto'} onChange={(e) => void setOpt({ ocrLayout: e.target.value as never })}>
+                <option value="auto">Automatic</option><option value="block">A block of text</option><option value="column">Columns</option><option value="line">One line</option><option value="word">One word</option><option value="sparse">Scattered text</option>
+              </select>
+            </Opt>
+            <Opt label="Clean up the picture first" hint="Higher contrast, light-on-dark turned around, then black and white. Helps the built-in reader with screenshots and dark mode."><Toggle on={opts.ocrEnhance !== false} onChange={(v) => void setOpt({ ocrEnhance: v })} /></Opt>
+            <Opt label="Handwriting" hint="Uses the system’s recognizer where there is one; elsewhere keeps soft strokes instead of black and white."><Toggle on={!!opts.handwriting} onChange={(v) => void setOpt({ handwriting: v })} /></Opt>
             <Opt label="Offer to open links in QR codes" hint="Asks first; only web links."><Toggle on={opts.openQrLinks} onChange={(v) => void setOpt({ openQrLinks: v })} /></Opt>
             <Opt label="Open screenshots in the editor" hint="Right after taking one."><Toggle on={opts.annotateAfterScreenshot} onChange={(v) => void setOpt({ annotateAfterScreenshot: v })} /></Opt>
             <div className="divider" />

@@ -1,0 +1,74 @@
+{
+ "timelineObjects": [
+  {
+   "placeVisit": {
+    "location": {
+     "latitudeE7": 594372000,
+     "longitudeE7": 247454000,
+     "placeId": "ChIJtel",
+     "address": "Vene 9, 10123 Tallinn, Estonia",
+     "name": "Hotel Telegraaf",
+     "semanticType": "TYPE_SEARCHED_ADDRESS"
+    },
+    "duration": {
+     "startTimestamp": "2019-05-12T11:00:00Z",
+     "endTimestamp": "2019-05-13T07:00:00Z"
+    }
+   }
+  },
+  {
+   "activitySegment": {
+    "startLocation": {
+     "latitudeE7": 594372000,
+     "longitudeE7": 247454000
+    },
+    "endLocation": {
+     "latitudeE7": 594385000,
+     "longitudeE7": 247910000
+    },
+    "duration": {
+     "startTimestampMs": "1557731000000",
+     "endTimestampMs": "1557733400000"
+    },
+    "distance": 2700,
+    "activityType": "WALKING",
+    "waypointPath": {
+     "waypoints": [
+      {
+       "latE7": 594380000,
+       "lngE7": 247700000
+      }
+     ]
+    }
+   }
+  },
+  {
+   "placeVisit": {
+    "location": {
+     "latitudeE7": 594385000,
+     "longitudeE7": 247910000,
+     "name": "Kadriorg Palace",
+     "address": "A. Weizenbergi 37, Tallinn"
+    },
+    "duration": {
+     "startTimestampMs": "1557733400000",
+     "endTimestampMs": "1557748800000"
+    }
+   }
+  },
+  {
+   "placeVisit": {
+    "location": {
+     "latitudeE7": 525208000,
+     "longitudeE7": 134094000,
+     "semanticType": "TYPE_HOME",
+     "name": "Home"
+    },
+    "duration": {
+     "startTimestamp": "2019-05-14T11:00:00Z",
+     "endTimestamp": "2019-05-14T20:00:00Z"
+    }
+   }
+  }
+ ]
+}

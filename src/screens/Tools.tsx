@@ -286,10 +286,12 @@ function Disks() {
 
 // ------------------------------------------------------------------ page
 
-export function Tools() {
-  const { info } = useStore();
+/** The Toolbox; `only` shows one tool by itself (the launcher's small tool windows). `tools:<id>` opens that tool. */
+export function Tools({ only }: { only?: string } = {}) {
+  const { info, route } = useStore();
   const [q, setQ] = useState('');
-  const [open, setOpen] = useState<string | null>(null);
+  const [open, setOpen] = useState<string | null>(only ?? (route.name === 'tools' && route.arg ? route.arg : null));
+  useEffect(() => { if (!only && route.name === 'tools' && route.arg) setOpen(route.arg); }, [only, route.name, route.arg]);
   const [full, setFull] = useState<'pixels' | 'clean' | null>(null);
   const [cleanSecs, setCleanSecs] = useState(60);
   const videoOn = useFeature('videoDownload');
@@ -322,6 +324,10 @@ export function Tools() {
 
   const shown = tools.filter((t) => !q || `${t.name} ${t.desc} ${t.group}`.toLowerCase().includes(q.toLowerCase()));
   const current = tools.find((t) => t.id === open);
+  if (only) {
+    const one = tools.find((t) => t.id === only);
+    return <div className="tool-panel">{one ? one.render() : <p className="muted">This tool is not available here.</p>}{full ? <Fullscreen kind={full} seconds={cleanSecs} dark={cleanDark} onDone={() => setFull(null)} /> : null}</div>;
+  }
 
   return (
     <div>

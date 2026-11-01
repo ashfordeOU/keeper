@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Keeper by Ashforde® — Privacy",
-  "version": "0.2.0",
-  "description": "Shows Keeper which third parties each site loads, and lets you control tabs and site permissions from Keeper. Talks only to the Keeper app on this computer.",
+  "version": "0.3.0",
+  "description": "Shows Keeper which third parties each page loads, lets you control tabs and site permissions from Keeper, and leaves Keeper cues on pages. Talks only to the Keeper app on this computer.",
   "permissions": [
     "webRequest",
     "nativeMessaging",
@@ -12,7 +12,8 @@
     "browsingData",
     "cookies",
     "proxy",
-    "privacy"
+    "privacy",
+    "contextMenus"
   ],
   "host_permissions": [
     "<all_urls>"
@@ -29,6 +30,20 @@
     "gecko": {
       "id": "privacy@keeper.ashforde.org",
       "strict_min_version": "115.0"
+    }
+  },
+  "action": {
+    "default_title": "Leave a Keeper cue for this page",
+    "default_icon": {
+      "128": "icon128.png"
+    }
+  },
+  "commands": {
+    "keeper-cue": {
+      "suggested_key": {
+        "default": "Alt+Shift+K"
+      },
+      "description": "Leave a Keeper cue for this page"
     }
   }
 }

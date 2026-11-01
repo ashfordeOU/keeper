@@ -61,7 +61,8 @@ describe('features', () => {
     expect(isOn(s, 'cleanup', 'linux')).toBe(true);
     s = apply(s, presetPatch(s, 'everything'));
     // Features made for other systems (Monorail is macOS only) stay off here.
-    expect(FEATURES.filter((f) => !f.platforms || f.platforms.includes('linux')).every((f) => isOn(s, f.id, 'linux'))).toBe(true);
+    // Features only the person's own switch changes (ownChoice) keep their setting.
+    expect(FEATURES.filter((f) => (!f.platforms || f.platforms.includes('linux')) && !f.ownChoice).every((f) => isOn(s, f.id, 'linux'))).toBe(true);
     expect(isOn(s, 'monorail', 'linux')).toBe(false);
     expect(s.updateMode).toBe('auto');
   });

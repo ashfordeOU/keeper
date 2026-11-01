@@ -254,3 +254,53 @@ async function run(reqId, c) {
 }
 
 linkToKeeper();
+
+// ---------------------------------------------------------------- cues
+// Keeper's cues (notes and checklists tied to a page or site) pop up when the
+// page they belong to is in front, so Keeper is told which page that is when
+// it changes. The toolbar button, its shortcut and the page's right-click menu
+// leave a cue for the page. Only the address and title are sent, to Keeper on
+// this computer.
+
+let lastActive = '';
+async function reportActive() {
+  if (!link) return;
+  try {
+    const [t] = await api.tabs.query({ active: true, lastFocusedWindow: true });
+    if (!t || !/^https?:/.test(t.url ?? '')) return;
+    const key = `${t.url}\u0000${t.title}`;
+    if (key === lastActive) return;
+    lastActive = key;
+    link.postMessage({ kind: 'active', url: t.url, title: t.title ?? '' });
+  } catch { /* the link closed */ }
+}
+api.tabs.onActivated?.addListener(() => void reportActive());
+api.tabs.onUpdated?.addListener((_id, info, tab) => { if (tab.active && (info.url || info.title || info.status === 'complete')) void reportActive(); });
+api.windows?.onFocusChanged?.addListener((w) => { if (w !== api.windows.WINDOW_ID_NONE) { lastActive = ''; void reportActive(); } });
+
+function leaveCue(tab, site, text) {
+  if (!tab || !/^https?:/.test(tab.url ?? '')) return;
+  const l = linkToKeeper();
+  if (!l) return;
+  try { l.postMessage({ kind: 'cue', url: tab.url, title: tab.title ?? '', site: !!site, text: text ?? '' }); } catch { /* Keeper is not running */ }
+  // A small tick on the button says it was saved.
+  try { api.action?.setBadgeText({ tabId: tab.id, text: '✓' }); setTimeout(() => api.action?.setBadgeText({ tabId: tab.id, text: '' }), 1500); } catch { /* no badge here */ }
+}
+api.action?.onClicked?.addListener((tab) => leaveCue(tab, false));
+api.commands?.onCommand?.addListener(async (cmd) => {
+  if (cmd !== 'keeper-cue') return;
+  const [t] = await api.tabs.query({ active: true, lastFocusedWindow: true });
+  leaveCue(t, false);
+});
+if (api.contextMenus) {
+  api.runtime.onInstalled?.addListener(() => {
+    try {
+      api.contextMenus.create({ id: 'keeper-cue-page', title: 'Leave a Keeper cue for this page', contexts: ['page', 'link', 'selection'] });
+      api.contextMenus.create({ id: 'keeper-cue-site', title: 'Leave a Keeper cue for this site', contexts: ['page'] });
+    } catch { /* already there */ }
+  });
+  api.contextMenus.onClicked.addListener((info, tab) => {
+    const target = info.linkUrl ? { ...tab, url: info.linkUrl, title: info.selectionText || info.linkUrl } : tab;
+    leaveCue(target, info.menuItemId === 'keeper-cue-site', info.selectionText);
+  });
+}

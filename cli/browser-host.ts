@@ -70,6 +70,10 @@ export function hostSession(io: HostIo) {
         } else if (m.kind === 'tabs') {
           if (!attached) await attach();
           await c.call('keeper/browser.tabs', { session, tabs: m.tabs });
+        } else if (m.kind === 'active') {
+          await c.call('keeper/cues.active', { url: m.url, title: m.title });
+        } else if (m.kind === 'cue') {
+          await c.call('keeper/cues.capture', { url: m.url, title: m.title, site: m.site, text: m.text });
         } else if (m.kind === 'reply') {
           await c.call('keeper/browser.reply', { session, reqId: m.reqId, ok: m.ok, result: m.result, error: m.error });
         }

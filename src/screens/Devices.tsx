@@ -12,6 +12,8 @@ import { api } from '../api';
 import { Icon } from '../components/Icon';
 import { DeviceDot, osIcon, osName, useLink, viaLabel } from '../components/LinkParts';
 import { DeviceScreenCard, PhoneMirrorCard, ScreenLog } from '../screen/ScreenParts';
+import { ViewerView } from '../screen/ViewerView';
+import { AuditCard, DeviceGrid, DeviceManage, HelpCard, SurfacesCard, UnattendedCard } from './DevicesRemote';
 import { Empty, Modal, PageHead, Toggle } from '../components/ui';
 import { useStore } from '../state';
 import '../styles/link.css';
@@ -24,7 +26,10 @@ export function Devices() {
   const [pairing, setPairing] = useState<'host' | 'join' | null>(null);
   if (!s) return <div className="spinner" />;
   const dev = s.devices.find((d) => d.id === route.arg);
-  const tab = dev ? 'device' : route.arg === 'phone' ? 'phone' : route.arg === 'remote' ? 'remote' : 'devices';
+  // A remote screen opened in a Keeper tab.
+  if (route.arg?.startsWith('screen:')) return <div className="link-page embedded-viewer"><ViewerView sid={route.arg.slice(7)} embedded /></div>;
+  const helpArg = route.arg === 'help' ? '' : route.arg?.startsWith('help=') ? route.arg.slice(5) : undefined;
+  const tab = dev ? 'device' : route.arg === 'phone' ? 'phone' : route.arg === 'remote' || route.arg === 'audit' || helpArg !== undefined ? 'remote' : 'devices';
   return (
     <div className="link-page">
       <PageHead title="Devices & Remote" sub="Your computers and phones, connected end to end. Pair once, then send files, open shared folders and reach ports — on this network or from anywhere.">
@@ -36,7 +41,7 @@ export function Devices() {
         <button className={tab === 'remote' ? 'on' : ''} onClick={() => go({ name: 'devices', arg: 'remote' })}>Remote Access</button>
         {dev ? <button className="on">{dev.name}</button> : null}
       </div>
-      {tab === 'devices' ? <Overview s={s} onPair={setPairing} /> : tab === 'phone' ? <><Phone s={s} /><div style={{ height: 14 }} /><div className="col" style={{ gap: 14 }}><PhoneMirrorCard /></div></> : tab === 'remote' ? <><Remote s={s} reload={reload} /><div style={{ height: 14 }} /><ScreenLog /></> : <DeviceDetail s={s} d={dev!} />}
+      {tab === 'devices' ? <Overview s={s} onPair={setPairing} /> : tab === 'phone' ? <><Phone s={s} /><div style={{ height: 14 }} /><div className="col" style={{ gap: 14 }}><PhoneMirrorCard /></div></> : tab === 'remote' ? <div className="col" style={{ gap: 14 }}>{helpArg !== undefined ? <HelpCard prefill={helpArg || undefined} /> : null}<Remote s={s} reload={reload} />{helpArg === undefined ? <HelpCard /> : null}<UnattendedCard s={s} /><SurfacesCard s={s} reload={reload} /><AuditCard /><ScreenLog /></div> : <DeviceDetail s={s} d={dev!} />}
       {pairing ? <PairDialog start={pairing} onClose={() => setPairing(null)} /> : null}
     </div>
   );
@@ -45,7 +50,7 @@ export function Devices() {
 // ---------------------------------------------------------------- overview
 
 function Overview({ s, onPair }: { s: LinkState; onPair: (m: 'host' | 'join') => void }) {
-  const { go, toast } = useStore();
+  const { go } = useStore();
   const [name, setName] = useState<string | null>(null);
   return (
     <div className="col" style={{ gap: 14 }}>
@@ -77,24 +82,7 @@ function Overview({ s, onPair }: { s: LinkState; onPair: (m: 'host' | 'join') =>
       </div>
 
       {s.devices.length ? (
-        <div className="link-grid">
-          {s.devices.map((d) => (
-            <button key={d.id} className="card link-device" onClick={() => go({ name: 'devices', arg: d.id })}>
-              <div className="row" style={{ gap: 10 }}>
-                <div className="link-dev-icon"><Icon name={osIcon(d.os)} size={20} /><DeviceDot d={d} /></div>
-                <div className="grow" style={{ minWidth: 0, textAlign: 'left' }}>
-                  <div className="ellipsis" style={{ fontWeight: 600 }}>{d.name}</div>
-                  <div className="small muted ellipsis">{d.online ? `${viaLabel(d.via) || 'Nearby'}${d.rtt !== undefined ? ` · ${d.rtt} ms` : ''}` : d.lastSeen ? `Last seen ${relativeTime(d.lastSeen)}` : 'Not seen yet'}</div>
-                </div>
-              </div>
-              <div className="link-perms">{PERMISSIONS.filter((p) => d.permissions[p.id]).map((p) => <span key={p.id} className="chip sm">{p.label.replace(/ to this device| on this computer| here/g, '')}</span>)}</div>
-              <div className="btn-row" onClick={(e) => e.stopPropagation()}>
-                <button className="btn sm" onClick={() => void api.link.sendFiles(d.id).catch((e) => toast(clean(e)))}><Icon name="send" size={13} /> Send Files</button>
-                <button className="btn sm ghost" onClick={() => void api.link.check(d.id).then((r) => toast(r.ok ? `${d.name}: ${viaLabel(r.via)}, ${r.rtt} ms` : r.error ?? 'Not reachable'))}><Icon name="refresh" size={13} /> Check</button>
-              </div>
-            </button>
-          ))}
-        </div>
+        <DeviceGrid s={s} />
       ) : (
         <Empty icon="link" title="No devices paired yet">
           <p>Open Keeper on your other computer, choose <b>Pair a Device</b> on one of them and enter the code on the other.</p>
@@ -301,6 +289,7 @@ function DeviceDetail({ s, d }: { s: LinkState; d: LinkDevice }) {
       </div>
 
       <DeviceScreenCard d={d} />
+      <DeviceManage d={d} />
 
       <div className="card pad">
         <h3 style={{ margin: '0 0 4px' }}>What {d.name} may do on this device</h3>
@@ -424,6 +413,7 @@ function Phone({ s }: { s: LinkState }) {
               <div key={c.id} className="link-row">
                 <Icon name="phone" size={15} />
                 <div className="grow">{c.name} <span className="small muted">{c.online ? 'connected now' : c.lastSeen ? `last used ${relativeTime(c.lastSeen)}` : ''}</span></div>
+                <label className="row small" style={{ gap: 6 }} title="Lets this phone open a terminal here from its Terminal tab"><Toggle on={!!c.terminal} onChange={(v) => void api.link.setCompanionTerminal(c.id, v)} /> Terminal</label>
                 <button className="btn ghost sm" onClick={() => void api.link.forgetCompanion(c.id)}>Remove</button>
               </div>
             ))}

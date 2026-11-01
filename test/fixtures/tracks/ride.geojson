@@ -1,0 +1,96 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Helsinki shore ride",
+    "sport": "Ride",
+    "coordTimes": [
+     "2026-05-14T15:00:00Z",
+     "2026-05-14T15:10:00Z",
+     "2026-05-14T15:20:00Z",
+     "2026-05-14T15:30:00Z"
+    ],
+    "heartRates": [
+     120,
+     130,
+     135,
+     128
+    ]
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      24.93,
+      60.16,
+      5
+     ],
+     [
+      24.95,
+      60.155,
+      7
+     ],
+     [
+      24.97,
+      60.16,
+      6
+     ],
+     [
+      24.99,
+      60.17,
+      4
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "time": "2026-05-14T12:00:00Z"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     24.9384,
+     60.1699
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Senate Square",
+    "start": "2026-05-14T12:00:00Z",
+    "end": "2026-05-14T13:00:00Z"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     24.9384,
+     60.1699
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Planned"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      24.9,
+      60.1
+     ],
+     [
+      24.91,
+      60.11
+     ]
+    ]
+   }
+  }
+ ]
+}

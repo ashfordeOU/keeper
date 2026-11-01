@@ -1,0 +1,98 @@
+/* SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 */
+/* Places & Tracks: page, timeline, map, activities and settings. */
+
+.tk-page { display: flex; flex-direction: column; gap: 12px; }
+.tk-tabs { align-self: flex-start; flex-wrap: wrap; }
+.tk-note { display: flex; gap: 8px; align-items: center; padding: 8px 12px; border-radius: 9px; background: var(--accent-soft); color: var(--text-2); font-size: 12.5px; }
+.tk-note.warn { background: var(--warn-soft); }
+.tk-warn { color: var(--warn); }
+.tk-split { display: grid; grid-template-columns: minmax(300px, 420px) 1fr; gap: 14px; align-items: start; }
+.tk-col { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.tk-col.map { position: sticky; top: 0; }
+@media (max-width: 980px) { .tk-split { grid-template-columns: 1fr; } .tk-col.map { position: static; } }
+.tk-nav { gap: 8px; flex-wrap: wrap; align-items: center; }
+.tk-h { margin: 6px 0 2px; font-size: 15px; font-weight: 650; }
+.tk-title { font-weight: 600; font-size: 13.5px; }
+.tk-search { gap: 8px; background: var(--bg-elev); border: 1px solid var(--line); border-radius: 10px; padding: 4px 10px; }
+.tk-search .input { border: 0; background: none; }
+.tk-found { display: flex; flex-direction: column; gap: 4px; }
+.tk-hit { text-align: left; border: 0; background: none; padding: 3px 0; color: var(--accent); font-size: 12.5px; cursor: default; }
+.tk-list { display: flex; flex-direction: column; gap: 2px; }
+.tk-day { font-size: 12px; font-weight: 650; color: var(--text-2); margin: 10px 0 3px; text-transform: none; }
+.tk-entry { display: flex; gap: 10px; align-items: flex-start; padding: 7px 9px; border-radius: 9px; cursor: default; }
+.tk-entry:hover { background: var(--bg-hover); }
+.tk-entry.sel { background: var(--accent-soft); }
+.tk-entry.move { padding-left: 22px; }
+.tk-entry.move .tk-ico { opacity: .85; }
+.tk-ico { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--bg-sunk); color: var(--accent); flex: none; }
+.tk-inline { gap: 6px; margin-top: 6px; }
+.tk-inline.col, .col { display: flex; flex-direction: column; gap: 6px; }
+.tk-dayrow { display: flex; gap: 10px; align-items: center; border: 0; background: none; padding: 7px 9px; border-radius: 8px; text-align: left; color: var(--text); cursor: default; }
+.tk-dayrow:hover { background: var(--bg-hover); }
+.tk-welcome { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; max-width: 620px; }
+.tk-welcome h3 { margin: 4px 0 0; }
+.tk-batt { display: inline-flex; gap: 4px; align-items: center; font-size: 12px; color: var(--ok); }
+.tk-batt.low { color: var(--danger); }
+
+/* the map */
+.tk-map { position: relative; overflow: hidden; border-radius: var(--radius); border: 1px solid var(--line); background: #dfe9f0; touch-action: none; user-select: none; cursor: grab; }
+.tk-map.dark { background: #16202a; }
+.tk-map:active { cursor: grabbing; }
+.tk-svg { display: block; }
+.tk-land { fill: #f3f1ea; stroke: #c9c4b5; stroke-width: .6; }
+.tk-map.dark .tk-land { fill: #26303a; stroke: #3c4855; }
+.tk-tiles.dim image { filter: invert(1) hue-rotate(180deg) brightness(.85) contrast(.9) saturate(.7); }
+.track-line { fill: none; stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; opacity: .92; cursor: pointer; }
+.track-line.sel { stroke-width: 6; opacity: 1; }
+.map-marker circle { fill: var(--accent); stroke: #fff; stroke-width: 2; }
+.map-marker.k-photo circle { fill: #ec4899; }
+.map-marker.k-item circle { fill: #f59e0b; }
+.map-marker.k-device circle, .map-marker.k-tracker circle { fill: #8b5cf6; }
+.map-marker.k-phone circle, .map-marker.k-person circle { fill: #10b981; }
+.map-marker.k-place circle { fill: #ef4444; }
+.map-marker.sel circle { stroke: #111; stroke-width: 3; }
+.map-cluster circle { fill: var(--accent); fill-opacity: .85; stroke: #fff; stroke-width: 2; }
+.map-cluster text { fill: #fff; font-size: 11px; font-weight: 700; text-anchor: middle; }
+.tk-heat { position: absolute; inset: 0; pointer-events: none; }
+.tk-tip { position: absolute; pointer-events: none; background: var(--bg-elev); color: var(--text); border: 1px solid var(--line); box-shadow: var(--shadow); border-radius: 8px; padding: 5px 8px; font-size: 12px; display: flex; flex-direction: column; white-space: nowrap; }
+.tk-zoom { position: absolute; top: 8px; right: 8px; display: flex; flex-direction: column; gap: 4px; }
+.tk-attr { position: absolute; right: 6px; bottom: 4px; font-size: 10.5px; color: #333; background: rgba(255, 255, 255, .75); padding: 1px 6px; border-radius: 5px; }
+.tk-map.dark .tk-attr { color: #ccc; background: rgba(0, 0, 0, .5); }
+.link-btn { border: 0; background: none; color: var(--accent); padding: 0; font-size: inherit; cursor: pointer; }
+
+/* trips */
+.tk-trips { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+.tk-trip-card { text-align: left; display: flex; flex-direction: column; gap: 4px; color: var(--text); cursor: default; }
+.tk-trip { display: flex; flex-direction: column; gap: 10px; }
+.tk-days { flex-wrap: wrap; align-self: flex-start; }
+.tk-stats { display: flex; flex-wrap: wrap; gap: 8px; }
+.tk-stat { background: var(--bg-elev); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; min-width: 96px; }
+.tk-stat-v { font-weight: 650; font-size: 15px; }
+.tk-print-frame { position: fixed; width: 0; height: 0; border: 0; visibility: hidden; }
+
+/* activities */
+.tk-acts { display: flex; flex-direction: column; gap: 6px; }
+.tk-act { display: flex; gap: 12px; align-items: center; padding: 8px 12px; cursor: default; }
+.tk-act:hover { border-color: var(--line-strong); }
+.tk-spark { width: 44px; height: 44px; flex: none; }
+.tk-spark path { fill: none; stroke-width: 2.5; stroke-linejoin: round; }
+.tk-nums { display: flex; gap: 16px; }
+.tk-nums span { display: flex; flex-direction: column; align-items: flex-end; min-width: 58px; }
+.tk-nums small { color: var(--text-3); font-size: 11px; }
+@media (max-width: 900px) { .tk-nums span:nth-child(n+4) { display: none; } }
+.tk-detail { display: flex; flex-direction: column; gap: 10px; }
+.tk-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 10px; }
+.tk-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.tk-table td, .tk-table th { padding: 5px 8px; border-bottom: 1px solid var(--line); text-align: left; }
+.tk-compare { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+
+/* sources and settings */
+.tk-sources, .tk-settings { display: flex; flex-direction: column; gap: 10px; max-width: 920px; }
+.tk-source.on { border-color: var(--accent-soft); }
+.tk-sub { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.tk-sub p { flex-basis: 100%; margin: 2px 0; }
+.tk-sub.grid2 { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+.tk-sub label { display: flex; flex-direction: column; gap: 3px; }
+.tk-code { font-family: ui-monospace, monospace; font-size: 12px; background: var(--bg-sunk); padding: 1px 5px; border-radius: 5px; user-select: all; }
+.tk-setrow { gap: 10px; padding: 6px 0; align-items: center; }
+.tk-settings section { display: flex; flex-direction: column; gap: 6px; }

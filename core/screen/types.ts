@@ -53,6 +53,10 @@ export interface ScreenSession {
   started: number;
   /** set when it ended, with why */
   ended?: { at: number; reason: string };
+  /** a one-time help session with someone who is not paired */
+  help?: boolean;
+  /** joined someone else's session, view-only */
+  joined?: boolean;
 }
 
 /** Viewer → host. Positions are 0..1 across the shared display so window size and DPI never matter. */
@@ -89,8 +93,8 @@ export const SPECIAL_COMBOS: { id: SpecialCombo; label: string; os?: string[] }[
 /** Messages on the session's control stream (both ways). */
 export type ControlMessage =
   /** viewer → host, first message: what it asks for */
-  | { t: 'start'; sid: string; control: boolean; quality: Quality; name: string; prefer?: 'auto' | 'frames' }
-  | { t: 'hello'; displays: HostDisplay[]; display: string; os: string; control: boolean; controlNote?: string }
+  | { t: 'start'; sid: string; control: boolean; quality: Quality; name: string; prefer?: 'auto' | 'frames'; join?: { sid: string; token: string }; help?: boolean }
+  | { t: 'hello'; displays: HostDisplay[]; display: string; os: string; control: boolean; controlNote?: string; extras?: HostExtras }
   | { t: 'input'; events: InputEvent[] }
   | { t: 'ack'; seq: number }
   | { t: 'clipget' }
@@ -103,4 +107,47 @@ export type ControlMessage =
   | { t: 'clip'; text: string }
   | { t: 'control'; on: boolean }
   | { t: 'stats'; fps: number; kbps: number; rtt?: number }
+  /** host → viewer: the person here gave or took back control (help sessions, and any session) */
+  | { t: 'grant'; control: boolean }
+  /** viewer → host: one display, all displays, or the one with the pointer */
+  | { t: 'mode'; mode: 'one' | 'all' | 'follow' }
+  /** viewer → host: send only this window ('' = the whole screen again) */
+  | { t: 'window'; id: string }
+  /** viewer → host: picture settings */
+  | { t: 'tune'; codec?: 'auto' | 'h264' | 'vp9' | 'av1'; lossless?: boolean; hardware?: boolean; audio?: boolean }
+  /** viewer → host: darken the host screen / block the host's own keyboard and mouse while in control */
+  | { t: 'privacy'; blank?: boolean; block?: boolean }
+  /** viewer → host: a stroke to draw on the host screen; clear removes them all */
+  | { t: 'draw'; stroke?: unknown; clear?: boolean }
+  /** host → viewer: where the host's pointer is (0..1), for the cursor overlay */
+  | { t: 'cursor'; x: number; y: number }
+  /** voice chat: either side offers it, both must turn it on */
+  | { t: 'voice'; on: boolean }
+  /** viewer → host: let this device (or whoever has the token) watch too, view-only */
+  | { t: 'invite'; device: string }
+  /** host → viewer: the invite to pass on */
+  | { t: 'invited'; device: string; token: string }
+  /** viewer → host: swap roles (the host then views the viewer) */
+  | { t: 'switch' }
+  /** viewer → host: restart the computer; the viewer reconnects when it is back */
+  | { t: 'reboot' }
+  /** host → viewer: a file from the viewer was printed, or not */
+  | { t: 'printed'; name: string; ok: boolean; error?: string }
   | { t: 'bye'; reason: string };
+
+/** What the host can do in this session, for the viewer's menus. */
+export interface HostExtras {
+  audio: boolean;
+  audioNote?: string;
+  blank: boolean;
+  blankNote?: string;
+  block: boolean;
+  blockNote?: string;
+  windows: { id: string; name: string }[];
+  /** unattended service installed: reboot-and-reconnect comes back before login */
+  unattended: boolean;
+  /** this is a help session (no files, no terminal) */
+  help?: boolean;
+  /** other viewers watching the same screen */
+  viewers?: number;
+}

@@ -37,9 +37,11 @@ export function mockLink(home: string, emit: (channel: string, ...args: unknown[
     shares: [{ id: 's1', name: 'Projects', path: `${home}/Projects` }, { id: 's2', name: 'Photos 2026', path: `${home}/Pictures/2026` }],
   };
   const devices: LinkDevice[] = [
-    { id: 'kq3m8hx2abcdtw7n', name: 'Studio iMac', os: 'darwin', fingerprint: 'kq3m-8hx2-abcd-tw7n', pairedAt: now - 40 * DAY, lastSeen: now - 2 * MIN, permissions: { sendFiles: true, browse: true, clipboard: true, forward: true }, autoAccept: true, online: true, via: 'lan', where: '192.168.1.20', rtt: 3, nearby: true },
-    { id: 'p4t9wz6ek2rsm8va', name: 'Home server', os: 'linux', fingerprint: 'p4t9-wz6e-k2rs-m8va', pairedAt: now - 12 * DAY, lastSeen: now - 1 * MIN, permissions: { sendFiles: true, browse: true, forward: true, sync: true }, autoAccept: false, online: true, via: 'tunnel', where: 'tunnel', rtt: 41 },
-    { id: 'g7cn3ve8yu5qhd2b', name: 'Work laptop', os: 'win32', fingerprint: 'g7cn-3ve8-yu5q-hd2b', pairedAt: now - 3 * DAY, lastSeen: now - 5 * 3600_000, permissions: { sendFiles: true }, autoAccept: false, online: false },
+    { id: 'kq3m8hx2abcdtw7n', name: 'Studio iMac', os: 'darwin', fingerprint: 'kq3m-8hx2-abcd-tw7n', pairedAt: now - 40 * DAY, lastSeen: now - 2 * MIN, permissions: { sendFiles: true, browse: true, clipboard: true, forward: true, screenView: true, screenControl: true }, autoAccept: true, online: true, via: 'lan', where: '192.168.1.20', rtt: 3, nearby: true, meta: { tags: ['design'], group: 'Office', commands: [] } },
+    { id: 'p4t9wz6ek2rsm8va', name: 'Home server', os: 'linux', fingerprint: 'p4t9-wz6e-k2rs-m8va', pairedAt: now - 12 * DAY, lastSeen: now - 1 * MIN, permissions: { sendFiles: true, browse: true, forward: true, sync: true, terminal: true, runCommands: true }, autoAccept: false, online: true, via: 'direct', where: '203.0.113.40:51820', rtt: 23,
+      meta: { tags: ['nas', 'backups'], group: 'Home', notes: 'In the hall cupboard. UPS lasts 20 minutes.', commands: [{ id: 'c1', name: 'Disk space', command: 'df -h /srv' }, { id: 'c2', name: 'Restart media server', command: 'systemctl --user restart jellyfin' }] },
+      paths: [{ kind: 'direct', where: '203.0.113.40:51820', since: now - 40 * MIN, bytesIn: 182_000_000, bytesOut: 2_400_000_000, active: true }, { kind: 'relay', where: 'relay.example.net', since: now - 42 * MIN, bytesIn: 120_000, bytesOut: 90_000, active: false }] },
+    { id: 'g7cn3ve8yu5qhd2b', name: 'Work laptop', os: 'win32', fingerprint: 'g7cn-3ve8-yu5q-hd2b', pairedAt: now - 3 * DAY, lastSeen: now - 5 * 3600_000, permissions: { sendFiles: true }, autoAccept: false, online: false, meta: { tags: ['work'], group: 'Office', commands: [] } },
   ];
   const transfers: LinkTransfer[] = [
     { id: 't1', name: 'Site photos.zip', size: 420 * 1024 * 1024, done: 286 * 1024 * 1024, direction: 'send', state: 'sending', peer: 'kq3m8hx2abcdtw7n' },
@@ -165,6 +167,11 @@ export function mockLink(home: string, emit: (channel: string, ...args: unknown[
     forgetCompanion: async (id) => {
       const i = companions.findIndex((c) => c.id === id);
       if (i >= 0) companions.splice(i, 1);
+      changed();
+    },
+    setCompanionTerminal: async (id, on) => {
+      const c = companions.find((x) => x.id === id);
+      if (c) (c as { terminal?: boolean }).terminal = on;
       changed();
     },
     pending: async () => ({ pairs: [], offers: [] }),

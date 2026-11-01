@@ -195,4 +195,9 @@ export const WINDOWS: SettingDef[] = [
   ], { sources: ['https://learn.microsoft.com/troubleshoot/windows-server/networking/reset-hosts-file'] }),
   b.advice('dev.winget', 'Developer', 'Install apps from the command line', 'winget installs and updates apps (Keeper\'s Applications page uses it where available).', { t: 'advice', read: { file: 'winget', args: ['--version'] } }, ['Keeper ▸ Applications ▸ Updates lists apps winget can update.', 'Or: winget upgrade --all'], { sources: ['https://learn.microsoft.com/windows/package-manager/winget/'] }),
   b.advice('storage.compact', 'Storage', 'Compact OS', 'Compresses Windows system files to save several GB on small disks.', { t: 'advice' }, ['Run as administrator: compact.exe /compactos:query', 'Turn on: compact.exe /compactos:always'], { sources: ['https://learn.microsoft.com/windows-server/administration/windows-commands/compact'] }),
+  b.advice('security.rdpfirewall', 'Security', 'Remote Desktop firewall rule', 'Remote Desktop also needs the "Remote Desktop" firewall rule. Keeper Remote Desktops → This computer turns both on together, with Network Level Authentication. Windows Home cannot host Remote Desktop.', { t: 'advice', read: { file: 'netsh', args: ['advfirewall', 'firewall', 'show', 'rule', 'name=Remote Desktop - User Mode (TCP-In)'] } }, [
+    'Settings → System → Remote Desktop → turn it on (Pro, Enterprise or Education).',
+    'Or as administrator: Enable-NetFirewallRule -Group "@FirewallAPI.dll,-28752"',
+    'Keep it off the internet: reach it through a VPN or Keeper Link instead of forwarding port 3389 on your router.',
+  ], { sources: ['https://learn.microsoft.com/windows-server/remote/remote-desktop-services/clients/remote-desktop-allow-access'], risk: 'high', keywords: ['rdp', '3389', 'firewall', 'remote desktop'] }),
 ];

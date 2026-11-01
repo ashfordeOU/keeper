@@ -487,3 +487,20 @@ export function seasonalThemeId(d: Date, hemisphere: Hemisphere): string {
   return THEMES.find((t) => t.season === season)?.id ?? DEFAULT_THEME;
 }
 
+
+// ---------------------------------------------------------------- palettes for wallpapers and widgets
+
+/**
+ * Four colours from a theme, darkest to brightest, so a live wallpaper or a
+ * "tinted" widget can follow the theme: background, raised surface, accent, text.
+ */
+export function themePalette(t: Theme, mode: ThemeMode, accent?: string): [string, string, string, string] {
+  const tok = (mode === 'dark' ? t.dark : t.light) ?? t.dark ?? t.light!;
+  const solid = (c: string, fallback: string) => {
+    const p = parseColor(c);
+    return p ? toHex(p.a < 1 ? over(p, parseColor(tok.bg) ?? { r: 0, g: 0, b: 0, a: 1 }) : p) : fallback;
+  };
+  const a = accent && parseColor(accent) ? accent : tok.accent;
+  const cols = [solid(tok.bg, '#000000'), solid(tok['bg-elev'], '#222222'), solid(a, '#6d6dff'), solid(tok.text, '#ffffff')];
+  return cols.sort((x, y) => luminance(parseColor(x)!) - luminance(parseColor(y)!)) as [string, string, string, string];
+}

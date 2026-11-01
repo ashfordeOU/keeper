@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2"><Document><name>Test</name>
+<Placemark><name>Evening ride</name><ExtendedData><Data name="Category"><value>Cycling</value></Data></ExtendedData>
+<gx:Track><when>2026-05-12T17:00:00Z</when><when>2026-05-12T17:05:00Z</when><when>2026-05-12T17:10:00Z</when>
+<gx:coord>24.7454 59.4372 10</gx:coord><gx:coord>24.7600 59.4400 12</gx:coord><gx:coord>24.7900 59.4450 9</gx:coord></gx:Track></Placemark>
+<Placemark><name>Driving</name><TimeSpan><begin>2026-05-12T10:30:00Z</begin><end>2026-05-12T11:00:00Z</end></TimeSpan>
+<LineString><coordinates>24.8328,59.4133,0 24.80,59.42,0 24.7454,59.4372,0</coordinates></LineString></Placemark>
+<Placemark><name>Hotel Telegraaf &amp; Spa</name><address>Vene 9, Tallinn</address><TimeSpan><begin>2026-05-12T11:00:00Z</begin><end>2026-05-13T07:00:00Z</end></TimeSpan>
+<Point><coordinates>24.7454,59.4372,0</coordinates></Point></Placemark>
+<Placemark><name>No time</name><Point><coordinates>10,10</coordinates></Point></Placemark>
+</Document></kml>

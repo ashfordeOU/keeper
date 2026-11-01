@@ -286,3 +286,18 @@ html[data-view='island'], html[data-view='island'] body, html[data-view='island'
 .tool-order { display: flex; flex-direction: column; gap: 2px; }
 .tool-row { display: flex; gap: 10px; align-items: center; padding: 5px 8px; border-radius: 8px; background: var(--bg-sunk); }
 .tool-row.off { opacity: .55; }
+
+/* ---- Island+ (calls, ruler, usage ring, glow, shadow) */
+.isl-call { display: flex; flex-direction: column; gap: 4px; }
+.isl-ruler-wrap { display: flex; align-items: center; gap: 8px; }
+.isl-ruler { position: relative; width: 170px; height: 26px; border-radius: 8px; background: rgba(255, 255, 255, .08); overflow: hidden; touch-action: none; cursor: ew-resize; }
+.isl-ruler:focus-visible { outline: 2px solid #fff; }
+.isl-ruler i { position: absolute; bottom: 0; width: 1px; height: 7px; background: rgba(255, 255, 255, .35); }
+.isl-ruler i.hour { height: 13px; background: rgba(255, 255, 255, .7); }
+.isl-ruler b { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(255, 159, 10, .45); border-right: 2px solid #ff9f0a; pointer-events: none; }
+.isl-usage-pin { position: absolute; top: 4px; right: 4px; display: inline-flex; align-items: center; gap: 3px; font-size: 10px; color: #c9c9d0; pointer-events: auto; }
+.isl .btn.icon.on { background: rgba(255, 255, 255, .26); }
+.isl-shadow.no-shadow { filter: none !important; box-shadow: none !important; }
+.isl-shadow.no-shadow .isl-shape { box-shadow: none !important; }
+.isl-shadow.glowing { filter: drop-shadow(0 0 10px var(--glow, transparent)) drop-shadow(0 6px 18px rgba(0, 0, 0, .3)); transition: filter .6s ease; }
+@media (prefers-reduced-motion: reduce) { .isl-shadow.glowing { transition: none; } }

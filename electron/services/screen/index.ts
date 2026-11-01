@@ -25,11 +25,13 @@ import { call } from '../../../core/link/mux';
 import { auditTitle, decide, DEFAULT_POLICY, idleExpired, type ScreenPolicy } from '../../../core/screen/consent';
 import { decodeFrame, Deframer, encodeFrame, FrameGate, lengthPrefixed } from '../../../core/screen/frames';
 import { sanitize } from '../../../core/screen/input';
-import type { ControlMessage, HostDisplay, InputEvent, Quality, ScreenPath, ScreenSession } from '../../../core/screen/types';
+import { audioPlan, displayAt, followDecision, inviteValid, privacyPlan, sanitizeStroke, type DisplayMode, type Stroke, type ViewerInvite } from '../../../core/screen/extras';
+import type { ControlMessage, HostDisplay, HostExtras, InputEvent, Quality, ScreenPath, ScreenSession } from '../../../core/screen/types';
 import { magicPacket, wakeableInterfaces } from '../../../core/screen/wol';
 import type { LinkNode } from '../link/node';
 import { featureOn, onFeature } from '../features';
 import { injector } from './injector';
+import { trayChanged } from '../link/surfaces';
 
 type Broadcast = (channel: string, ...args: unknown[]) => void;
 
@@ -43,6 +45,8 @@ export interface ScreenDeps {
   clipboard: { read(): string | Promise<string>; write(text: string): unknown };
   /** where viewer recordings go */
   videos: () => string;
+  /** the unattended service is installed here */
+  unattended?: () => boolean;
 }
 
 interface Sess extends ScreenSession {
@@ -60,6 +64,23 @@ interface Sess extends ScreenSession {
   /** messages for a window that has not said it is listening yet */
   backlog?: [string, unknown][];
   ready?: boolean;
+  /** shown in a Keeper tab instead of its own window */
+  tab?: boolean;
+  /** host: view-only invites handed out, and sessions that joined this one */
+  invites?: ViewerInvite[];
+  parent?: string;
+  /** host: one display, all, or the one with the pointer */
+  mode?: DisplayMode;
+  followTimer?: NodeJS.Timeout;
+  followSince?: number;
+  cursorTimer?: NodeJS.Timeout;
+  /** host: windows drawn over the screen (annotation, blanking) */
+  drawWin?: BrowserWindow;
+  blankWin?: BrowserWindow;
+  blocked?: boolean;
+  strokes?: Stroke[];
+  /** viewer: restart the host and connect again when it is back */
+  reconnect?: boolean;
 }
 
 interface Stored {
@@ -94,6 +115,18 @@ export class ScreenService {
     node.registerStream('screen.ctl', null, (st, device) => void this.incoming(st, device));
     // The picture coming back for a session this device started: checked against its own sessions.
     node.registerStream('screen.frames', null, (st, device) => this.incomingFrames(st, device));
+    node.registerRpc('screen.shot', 'screenView', (p) => this.shot(String(p.$device ?? '')));
+    node.registerRpc('screen.invite', null, (p) => this.invited(String(p.$device ?? ''), p));
+    node.registerControl('remote.connect', async (p) => ({ sid: await this.view(String(p.device), { control: !p.view }) }));
+    node.registerControl('remote.screenshot', async (p) => this.screenshotOf(String(p.device)));
+    node.registerControl('remote.wake', async (p) => this.wake(String(p.device)));
+    node.registerControl('remote.help', async (p) => {
+      if (p.code) {
+        const g = await node.help.join(String(p.code), String(p.password ?? ''), String(p.name ?? node.state().me.name));
+        return { sid: await this.view(g.id, { control: false }), name: g.name };
+      }
+      return node.help.start();
+    });
     node.registerRpc('wol.info', null, () => wakeableInterfaces(os.networkInterfaces() as never));
     node.registerRpc('wol.wake', null, async (p) => {
       await sendMagic(String(p.mac), String(p.broadcast));
@@ -143,6 +176,7 @@ export class ScreenService {
   }
 
   private changed() {
+    trayChanged();
     this.d.broadcast('screen-state', this.state());
   }
 
@@ -166,28 +200,40 @@ export class ScreenService {
     return { id: src.id, width: Math.round((disp?.width ?? 1920) * (disp?.scale ?? 1)), height: Math.round((disp?.height ?? 1080) * (disp?.scale ?? 1)) };
   }
 
+  /** Every display's capture source (for "All screens"), with where each display sits. */
+  async sources(sid: string): Promise<{ id: string; width: number; height: number; display: HostDisplay }[]> {
+    const s = this.sessions.get(sid);
+    if (!s || s.role !== 'host') return [];
+    const list = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 1, height: 1 } });
+    return s.displays.map((d, i) => {
+      const src = list.find((x) => x.display_id === d.id) ?? list[i];
+      return src ? { id: src.id, width: Math.round(d.width * d.scale), height: Math.round(d.height * d.scale), display: d } : null;
+    }).filter((x): x is { id: string; width: number; height: number; display: HostDisplay } => !!x);
+  }
+
   // ---------------------------------------------------------------- viewing another device
 
   /** Starts watching a paired device's screen; opens the viewer window. */
-  async view(device: string, opts: { control?: boolean; quality?: Quality; prefer?: 'auto' | 'frames' } = {}): Promise<string> {
+  async view(device: string, opts: { control?: boolean; quality?: Quality; prefer?: 'auto' | 'frames'; tab?: boolean; join?: { sid: string; token: string } } = {}): Promise<string> {
     const node = this.d.node();
     if (!node) throw new Error('Keeper Link is starting');
     if (!featureOn('remoteScreen')) throw new Error('Remote screens are switched off in Settings → Features');
-    const dev = node.state().devices.find((x) => x.id === device);
+    const dev = node.peer(device);
     if (!dev) throw new Error('That device is not paired');
+    const help = dev.help === 'helper';
     const mux = await node.connect(device);
-    void this.learnWake(device, mux);
+    if (!help) void this.learnWake(device, mux);
     const sid = crypto.randomUUID();
     const s: Sess = {
-      id: sid, peer: device, peerName: dev.name, role: 'viewer', control: !!opts.control, state: 'asking', started: Date.now(),
-      gate: new FrameGate(), displays: [], lastActivity: Date.now(), quality: opts.quality ?? 'auto',
+      id: sid, peer: device, peerName: dev.name, role: 'viewer', control: !!opts.control && !opts.join && !help, state: 'asking', started: Date.now(),
+      gate: new FrameGate(), displays: [], lastActivity: Date.now(), quality: opts.quality ?? 'auto', tab: !!opts.tab, help, joined: !!opts.join,
     };
     this.sessions.set(sid, s);
     const st = mux.open({ k: 'screen.ctl', sid });
     s.ctl = st;
     this.readCtl(s, st);
-    void send(st, { t: 'start', sid, control: s.control, quality: s.quality, name: node.state().me.name, prefer: opts.prefer });
-    this.openViewer(s);
+    void send(st, { t: 'start', sid, control: s.control, quality: s.quality, name: node.state().me.name, prefer: opts.prefer, join: opts.join, help });
+    if (!s.tab) this.openViewer(s);
     this.changed();
     return sid;
   }
@@ -209,7 +255,7 @@ export class ScreenService {
 
   private async incoming(st: Stream, device: string) {
     const node = this.d.node();
-    const dev = node?.state().devices.find((x) => x.id === device);
+    const dev = node?.peer(device);
     let s: Sess | undefined;
     const first = new Promise<ControlMessage | null>((resolve) => {
       const de = new Deframer((m) => {
@@ -228,9 +274,19 @@ export class ScreenService {
       st.reset('bad start');
       return;
     }
-    const decision = featureOn('remoteScreen')
-      ? decide({ from: 'device', id: device, wantsControl: start.control, perms: dev.permissions }, this.data.policy)
-      : { do: 'deny' as const, reason: 'Remote screens are switched off on that computer' };
+    const parent = start.join ? this.sessions.get(start.join.sid) : undefined;
+    const decision = !featureOn('remoteScreen')
+      ? { do: 'deny' as const, reason: 'Remote screens are switched off on that computer' }
+      : dev.help === 'host'
+        ? // Help: the code and password were the consent to be seen. Control only when the person here gives it.
+          ({ do: 'allow' as const, control: false })
+        : dev.help
+          ? { do: 'deny' as const, reason: 'Not in a help session' }
+          : start.join
+            ? parent && parent.role === 'host' && parent.state !== 'ended' && inviteValid(parent.invites?.find((i) => i.token === start.join!.token), device, start.join.token) && dev.permissions.screenView
+              ? ({ do: 'allow' as const, control: false })
+              : { do: 'deny' as const, reason: 'That invitation has expired' }
+            : decide({ from: 'device', id: device, wantsControl: start.control, perms: dev.permissions }, this.data.policy);
     if (decision.do === 'deny') {
       await send(st, { t: 'bye', reason: decision.reason });
       st.end();
@@ -246,29 +302,69 @@ export class ScreenService {
       }
       control = r.control;
     }
-    s = await this.hostSession(start.sid, device, dev.name, control, start.quality, start.prefer === 'frames' ? 'frames' : 'p2p');
+    s = await this.hostSession(start.sid, device, dev.name, control, start.quality, start.prefer === 'frames' ? 'frames' : 'p2p', { help: dev.help === 'host', parent: parent?.id });
     s.ctl = st;
     const inj = await injector().status();
     if (control && !inj.available) {
       s.control = false;
       s.controlNote = inj.reason;
     }
-    await send(st, { t: 'hello', displays: s.displays, display: s.display!, os: process.platform, control: s.control, controlNote: s.controlNote });
+    await send(st, { t: 'hello', displays: s.displays, display: s.display!, os: process.platform, control: s.control, controlNote: s.controlNote ?? (s.help ? 'View only. The person you are helping can let you control their computer.' : undefined), extras: await this.extras(s) });
     this.openHost(s);
+    this.startCursor(s);
   }
 
-  private async hostSession(sid: string, peer: string, peerName: string, control: boolean, quality: Quality, path: ScreenPath): Promise<Sess> {
+  /** What this host can offer in the session (sound, privacy, windows), for the viewer's menus. */
+  private async extras(s: Sess): Promise<HostExtras> {
+    const mac = process.platform === 'darwin' ? Number(os.release().split('.')[0]) - 9 : 0;
+    const a = audioPlan(process.platform, mac);
+    const pr = privacyPlan(process.platform);
+    const windows = s.help ? [] : await desktopCapturer.getSources({ types: ['window'], thumbnailSize: { width: 1, height: 1 } }).then((l) => l.filter((w) => w.name && !/^Keeper —/.test(w.name)).slice(0, 40).map((w) => ({ id: w.id, name: w.name.slice(0, 80) })), () => []);
+    return { audio: a.how !== 'none', audioNote: a.note, blank: pr.blank, blankNote: pr.blankNote, block: pr.block, blockNote: pr.blockNote, windows, unattended: !!this.d.unattended?.(), help: s.help, viewers: [...this.sessions.values()].filter((x) => x.role === 'host' && x.state !== 'ended').length };
+  }
+
+  /** The host's pointer, ten times a second while it moves, for the viewer's cursor overlay. */
+  private startCursor(s: Sess) {
+    let last = '';
+    s.cursorTimer = setInterval(() => {
+      if (s.state === 'ended') return clearInterval(s.cursorTimer);
+      const p = screen.getCursorScreenPoint();
+      const d = s.displays.find((x) => x.id === s.display) ?? s.displays[0];
+      if (!d) return;
+      const x = (p.x - d.x) / d.width;
+      const y = (p.y - d.y) / d.height;
+      const key = `${x.toFixed(3)},${y.toFixed(3)}`;
+      if (key === last) return;
+      last = key;
+      if (x >= 0 && x <= 1 && y >= 0 && y <= 1) void send(s.ctl, { t: 'cursor', x, y });
+      // Follow the pointer: switch screens when it stays on another one for a moment.
+      if (s.mode === 'follow') {
+        const under = displayAt(s.displays, p.x, p.y)?.id;
+        const dec = followDecision(s.display, under, s.followSince ?? Date.now(), Date.now());
+        s.followSince = dec.since;
+        if (dec.switchTo) {
+          s.display = dec.switchTo;
+          this.toWin(s, 'screen-signal', { t: 'display', id: dec.switchTo });
+          void send(s.ctl, { t: 'display', id: dec.switchTo });
+        }
+      }
+    }, 100);
+    s.cursorTimer.unref?.();
+  }
+
+  private async hostSession(sid: string, peer: string, peerName: string, control: boolean, quality: Quality, path: ScreenPath, more: { help?: boolean; parent?: string } = {}): Promise<Sess> {
     const displays = await this.displays();
     const s: Sess = {
-      id: /^[\w-]{8,64}$/.test(sid) ? sid : crypto.randomUUID(), peer, peerName, role: 'host', control, state: 'connecting', path,
+      id: /^[\w-]{8,64}$/.test(sid) && !this.sessions.has(sid) ? sid : crypto.randomUUID(), peer, peerName, role: 'host', control, state: 'connecting', path,
       display: (displays.find((d) => d.primary) ?? displays[0])?.id, started: Date.now(), gate: new FrameGate(), displays, lastActivity: Date.now(), quality,
+      help: more.help, parent: more.parent, joined: !!more.parent, mode: 'one',
     };
     this.sessions.set(s.id, s);
     s.idleTimer = setInterval(() => {
       if (idleExpired(Date.now(), s.lastActivity, this.data.policy)) this.end(s, 'Ended after a while with no activity');
     }, 30_000);
     s.idleTimer.unref?.();
-    this.d.alert(`${peerName} is ${control ? 'controlling' : 'viewing'} this screen`, 'Stop sharing from the banner at the top of the screen.');
+    this.d.alert(`${peerName} is ${control ? 'controlling' : 'viewing'} this screen`, more.help ? 'Help session: view only until you allow control. Stop from the banner.' : 'Stop sharing from the banner at the top of the screen.');
     this.changed();
     return s;
   }
@@ -276,9 +372,12 @@ export class ScreenService {
   /** The small always-on-top banner that also does the capturing. */
   private openHost(s: Sess) {
     const area = screen.getPrimaryDisplay().workArea;
+    // A second viewer joins an existing session: its capture runs in a hidden window; the first banner says how many watch.
+    const joined = !!s.parent;
+    const width = s.help ? 560 : 480;
     const w = new BrowserWindow({
-      width: 420, height: 46, x: Math.round(area.x + area.width / 2 - 210), y: area.y + 6, frame: false, resizable: false, movable: true,
-      alwaysOnTop: true, skipTaskbar: true, focusable: true, show: true, transparent: false, backgroundColor: '#1c1c1e', title: 'Keeper — sharing this screen',
+      width, height: 46, x: Math.round(area.x + area.width / 2 - width / 2), y: area.y + 6, frame: false, resizable: false, movable: true,
+      alwaysOnTop: true, skipTaskbar: true, focusable: true, show: !joined, transparent: false, backgroundColor: '#1c1c1e', title: 'Keeper — sharing this screen',
       webPreferences: { preload: this.d.preload, contextIsolation: true, sandbox: true, backgroundThrottling: false },
     });
     w.setAlwaysOnTop(true, 'screen-saver');
@@ -377,10 +476,239 @@ export class ScreenService {
       case 'clipget':
         if (s.role === 'host' && s.control) await send(s.ctl, { t: 'clip', text: String(await this.d.clipboard.read()) });
         return;
+      case 'grant':
+        // The host gave or took back control (viewer side).
+        if (s.role !== 'viewer') return;
+        s.control = m.control;
+        this.toWin(s, 'screen-signal', m);
+        this.changed();
+        return;
+      case 'mode':
+        if (s.role !== 'host' || !['one', 'all', 'follow'].includes(m.mode)) return;
+        s.mode = m.mode;
+        this.toWin(s, 'screen-signal', m);
+        return;
+      case 'window':
+      case 'tune':
+      case 'voice':
+        this.toWin(s, 'screen-signal', m);
+        return;
+      case 'cursor':
+        if (s.role === 'viewer') this.toWin(s, 'screen-signal', m);
+        return;
+      case 'privacy':
+        if (s.role === 'host' && s.control) await this.privacy(s, m);
+        return;
+      case 'draw':
+        if (s.role === 'host' && !s.joined) this.draw(s, m);
+        return;
+      case 'invite':
+        if (s.role === 'host' && !s.help && !s.joined) {
+          const inv: ViewerInvite = { token: crypto.randomBytes(18).toString('base64url'), device: String(m.device ?? ''), expires: Date.now() + 10 * 60_000 };
+          s.invites = [...(s.invites ?? []).filter((i) => i.expires > Date.now()), inv].slice(-10);
+          await send(s.ctl, { t: 'invited', device: inv.device, token: inv.token });
+        }
+        return;
+      case 'invited':
+        if (s.role === 'viewer') await this.passInvite(s, m.device, m.token);
+        return;
+      case 'switch':
+        if (s.role === 'host' && !s.help && !s.joined) {
+          const peer = s.peer;
+          this.end(s, 'Switched sides');
+          void this.view(peer, { control: false }).catch((e) => this.d.alert('Could not switch sides', e instanceof Error ? e.message : String(e)));
+        }
+        return;
+      case 'reboot':
+        if (s.role === 'host' && s.control && !s.help) {
+          const { powerCommand } = await import('../../../core/link/actions');
+          const c = powerCommand('restart', process.platform);
+          this.d.node()?.audit({ kind: 'power', direction: 'in', device: s.peer, deviceName: s.peerName, title: `${s.peerName} restarted this computer from a screen session`, ok: true });
+          this.end(s, 'Restarting');
+          const { run } = await import('../../../core/platform');
+          setTimeout(() => void run(c.file, c.args, 20_000), 500);
+        }
+        return;
+      case 'printed':
+        this.toWin(s, 'screen-signal', m);
+        return;
       case 'bye':
         this.end(s, m.reason, false);
         return;
     }
+  }
+
+  /** Host: darken this screen for people in the room, and/or block its own keyboard and mouse. */
+  private async privacy(s: Sess, m: { blank?: boolean; block?: boolean }) {
+    const pr = privacyPlan(process.platform);
+    if (m.blank !== undefined && pr.blank) {
+      if (m.blank && !s.blankWin) {
+        const d = screen.getAllDisplays().find((x) => String(x.id) === s.display) ?? screen.getPrimaryDisplay();
+        const w = new BrowserWindow({ ...d.bounds, frame: false, show: false, alwaysOnTop: true, skipTaskbar: true, focusable: false, backgroundColor: '#000000', webPreferences: { sandbox: true, contextIsolation: true } });
+        // Hidden from screen capture (Windows 10 2004+, macOS): the viewer still sees the real screen.
+        w.setContentProtection(true);
+        w.setAlwaysOnTop(true, 'screen-saver');
+        w.setIgnoreMouseEvents(true);
+        void w.loadURL('data:text/html,' + encodeURIComponent('<body style="margin:0;background:#000;color:#666;font:15px system-ui;display:grid;place-items:center;height:100vh">This screen is being used from another computer.</body>'));
+        w.showInactive();
+        s.blankWin = w;
+      } else if (!m.blank && s.blankWin) {
+        s.blankWin.destroy();
+        s.blankWin = undefined;
+      }
+    }
+    if (m.block !== undefined) {
+      const ok = (await injector().block?.(m.block)) ?? false;
+      s.blocked = m.block && ok;
+      if (m.block && !ok) await send(s.ctl, { t: 'chat', text: pr.block ? 'Blocking the keyboard and mouse here needs Keeper to run as administrator (or the unattended service).' : pr.blockNote ?? 'Not possible here.', at: Date.now() });
+    }
+  }
+
+  /** Host: draws the viewer's strokes over this screen (click-through), for teaching. */
+  private draw(s: Sess, m: { stroke?: unknown; clear?: boolean }) {
+    if (m.clear) {
+      s.strokes = [];
+      s.drawWin?.destroy();
+      s.drawWin = undefined;
+      return;
+    }
+    const stroke = sanitizeStroke(m.stroke);
+    if (!stroke) return;
+    s.strokes = [...(s.strokes ?? []), stroke].slice(-500);
+    if (!s.drawWin || s.drawWin.isDestroyed()) {
+      const d = screen.getAllDisplays().find((x) => String(x.id) === s.display) ?? screen.getPrimaryDisplay();
+      const w = new BrowserWindow({ ...d.bounds, frame: false, transparent: true, show: false, alwaysOnTop: true, skipTaskbar: true, focusable: false, hasShadow: false, webPreferences: { sandbox: true, contextIsolation: true } });
+      w.setIgnoreMouseEvents(true);
+      w.setAlwaysOnTop(true, 'screen-saver');
+      const html = '<body style="margin:0;background:transparent;overflow:hidden"><canvas id=c></canvas><script>const c=document.getElementById("c");c.width=innerWidth;c.height=innerHeight;window.drawStroke=(s)=>{const x=c.getContext("2d");x.strokeStyle=s.color;x.lineWidth=s.width;x.lineCap="round";x.lineJoin="round";x.beginPath();s.points.forEach((p,i)=>i?x.lineTo(p[0]*c.width,p[1]*c.height):x.moveTo(p[0]*c.width,p[1]*c.height));x.stroke();};</script></body>';
+      void w.loadURL('data:text/html,' + encodeURIComponent(html)).then(() => {
+        for (const st of s.strokes ?? []) void w.webContents.executeJavaScript(`drawStroke(${JSON.stringify(st)})`).catch(() => undefined);
+      });
+      w.showInactive();
+      s.drawWin = w;
+      return;
+    }
+    void s.drawWin.webContents.executeJavaScript(`window.drawStroke && drawStroke(${JSON.stringify(stroke)})`).catch(() => undefined);
+  }
+
+  /** Viewer: the host made an invite; hand it to the invited device over Link. */
+  private async passInvite(s: Sess, device: string, token: string) {
+    const node = this.d.node();
+    if (!node || !device) return;
+    try {
+      await call(await node.connect(device), 'screen.invite', { host: s.peer, hostName: s.peerName, sid: s.id, token }, 10_000);
+      this.toWin(s, 'screen-signal', { t: 'chat', text: `Invited ${node.peer(device)?.name ?? 'the other device'} to watch`, at: Date.now() });
+    } catch (e) {
+      this.toWin(s, 'screen-signal', { t: 'chat', text: `Could not invite: ${e instanceof Error ? e.message : String(e)}`, at: Date.now() });
+    }
+  }
+
+  private pendingInvites = new Map<string, { host: string; hostName: string; sid: string; token: string; from: string }>();
+
+  /** Another device invites this one to watch a session, view-only. */
+  private invited(from: string, p: Record<string, unknown>) {
+    const node = this.d.node();
+    const host = String(p.host ?? '');
+    if (!node?.peer(host) || node.peer(host)?.help) throw new Error('This device is not paired with that computer');
+    const id = crypto.randomUUID();
+    const inv = { host, hostName: String(p.hostName ?? 'a computer').slice(0, 80), sid: String(p.sid ?? ''), token: String(p.token ?? ''), from: node.peer(from)?.name ?? 'A device' };
+    this.pendingInvites.set(id, inv);
+    setTimeout(() => this.pendingInvites.delete(id), 10 * 60_000).unref?.();
+    this.d.broadcast('screen-invite', { id, from: inv.from, hostName: inv.hostName });
+    if (Notification.isSupported()) new Notification({ title: `${inv.from} invites you to watch ${inv.hostName}`, body: 'Open Keeper to watch (view only).' }).show();
+    return true;
+  }
+
+  /** Accept an invitation to watch (view-only). */
+  async joinInvite(id: string, tab = false): Promise<string> {
+    const inv = this.pendingInvites.get(id);
+    if (!inv) throw new Error('That invitation has expired');
+    this.pendingInvites.delete(id);
+    return this.view(inv.host, { control: false, join: { sid: inv.sid, token: inv.token }, tab });
+  }
+
+  invites() {
+    return [...this.pendingInvites.entries()].map(([id, v]) => ({ id, from: v.from, hostName: v.hostName }));
+  }
+
+  /** Host banner: give the viewer control, or take it back. */
+  async setControl(sid: string, on: boolean) {
+    const s = this.sessions.get(sid);
+    if (!s || s.role !== 'host' || s.state === 'ended' || s.joined) return false;
+    // A paired computer gets control only with "Control this computer"; help sessions and phones are the person's choice here.
+    const peer = this.d.node()?.peer(s.peer);
+    if (on && !s.help && !s.peer.startsWith('phone:') && !peer?.permissions.screenControl) {
+      this.d.alert(`${s.peerName} may not control this computer`, 'Turn on “Control this computer” for it under Devices first.');
+      return false;
+    }
+    if (on) {
+      const inj = await injector().status();
+      if (!inj.available) {
+        s.controlNote = inj.reason;
+        this.d.alert('Control is not possible here', inj.reason);
+        return false;
+      }
+    } else {
+      injector().stop();
+      if (s.blocked) await injector().block?.(false);
+      s.blocked = false;
+      s.blankWin?.destroy();
+      s.blankWin = undefined;
+    }
+    s.control = on;
+    this.d.node()?.audit({ kind: s.help ? 'help' : 'screen', direction: 'in', device: s.peer, deviceName: s.peerName, title: on ? `You let ${s.peerName} control this computer` : `You took control back from ${s.peerName}`, ok: true });
+    await send(s.ctl, { t: 'grant', control: on });
+    this.toWin(s, 'screen-signal', { t: 'grant', control: on });
+    this.changed();
+    return true;
+  }
+
+  /** A screenshot for another device (`keeper remote screenshot`): needs "See this screen", and asks unless "Let it in without asking". */
+  private async shot(device: string) {
+    const node = this.d.node();
+    const dev = node?.peer(device);
+    if (!dev || dev.help) throw new Error('Not allowed');
+    if (!featureOn('remoteScreen')) throw new Error('Remote screens are switched off on that computer');
+    if (!(this.data.policy.unattended[device] && dev.permissions.screenControl)) {
+      const r = await this.ask(`${dev.name} (one screenshot)`, false);
+      if (!r.ok) throw new Error(`${node!.state().me.name} said no`);
+    }
+    const d = screen.getPrimaryDisplay();
+    const src = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: Math.round(d.size.width * d.scaleFactor), height: Math.round(d.size.height * d.scaleFactor) } });
+    const pick = src.find((x) => x.display_id === String(d.id)) ?? src[0];
+    if (!pick) throw new Error('No screen to capture');
+    node!.audit({ kind: 'screen', direction: 'in', device, deviceName: dev.name, title: `${dev.name} took a screenshot of this screen`, ok: true });
+    return { jpeg: pick.thumbnail.toJPEG(85).toString('base64'), width: pick.thumbnail.getSize().width, height: pick.thumbnail.getSize().height };
+  }
+
+  async screenshotOf(device: string): Promise<{ jpeg: string; width: number; height: number }> {
+    const node = this.d.node();
+    if (!node) throw new Error('Keeper Link is starting');
+    const r = await call<{ jpeg: string; width: number; height: number }>(await node.connect(device), 'screen.shot', {}, 90_000);
+    node.audit({ kind: 'screen', direction: 'out', device, deviceName: node.peer(device)?.name ?? device, title: `Took a screenshot of ${node.peer(device)?.name ?? device}`, ok: true });
+    return r;
+  }
+
+  /** Viewer: restart the other computer and open the session again when it is back. */
+  async rebootAndReconnect(sid: string) {
+    const s = this.sessions.get(sid);
+    if (!s || s.role !== 'viewer' || !s.control || s.help) throw new Error('Only a session with control can restart the other computer');
+    const device = s.peer;
+    const tab = s.tab;
+    await send(s.ctl, { t: 'reboot' });
+    this.d.node()?.audit({ kind: 'power', direction: 'out', device, deviceName: s.peerName, title: `Restarted ${s.peerName} from a screen session`, ok: true });
+    void (async () => {
+      const node = this.d.node();
+      await new Promise((r) => setTimeout(r, 20_000));
+      for (let i = 0; i < 60; i++) {
+        const ok = await node?.check(device).then((r) => r.ok, () => false);
+        if (ok) {
+          await this.view(device, { control: true, tab }).catch(() => undefined);
+          return;
+        }
+        await new Promise((r) => setTimeout(r, 10_000));
+      }
+    })();
   }
 
   private toWin(s: Sess, channel: string, m: unknown) {
@@ -389,6 +717,7 @@ export class ScreenService {
       (s.backlog ??= []).push([channel, m]);
       return;
     }
+    if (s.tab && s.role === 'viewer') return this.d.broadcast(channel, s.id, m);
     if (s.win && !s.win.isDestroyed()) s.win.webContents.send(`event:${channel}`, s.id, m);
   }
 
@@ -396,6 +725,7 @@ export class ScreenService {
   windowReady(sid: string) {
     const s = this.sessions.get(sid);
     if (!s) return;
+    // A tab can be closed and opened again: send what the window needs to start over.
     s.ready = true;
     for (const [ch, m] of s.backlog?.splice(0) ?? []) this.toWin(s, ch, m);
   }
@@ -412,7 +742,17 @@ export class ScreenService {
     if (m.t === 'display' && s.role === 'viewer') s.display = m.id;
     if (m.t === 'quality') s.quality = m.q;
     if (m.t === 'control' && s.role === 'host') s.control = s.control && m.on;
+    if (m.t === 'mode' && s.role === 'viewer') s.mode = m.mode;
     void send(s.ctl, m);
+  }
+
+  /** Viewer: print a file on the other computer's default printer. */
+  async print(sid: string, file: string) {
+    const s = this.sessions.get(sid);
+    const node = this.d.node();
+    if (!s || !node || s.help) throw new Error('No such session');
+    const { remotePrint } = await import('../link/ops');
+    await remotePrint(node, s.peer, file);
   }
 
   private input(s: Sess, raw: unknown[]) {
@@ -421,6 +761,18 @@ export class ScreenService {
     const d = s.displays.find((x) => x.id === s.display) ?? s.displays[0];
     if (!events.length || !d) return;
     s.lastActivity = Date.now();
+    if (s.mode === 'all' && s.displays.length > 1) {
+      // Positions are across the box of all displays: send each event to the display it lands on.
+      void import('../../../core/screen/extras').then(({ mapFromAll }) => {
+        for (const e of events) {
+          if ('x' in e && 'y' in e) {
+            const hit = mapFromAll(s.displays, e.x, e.y);
+            if (hit) injector().send([{ ...e, x: hit.x, y: hit.y } as InputEvent], hit.display);
+          } else injector().send([e], d);
+        }
+      });
+      return;
+    }
     injector().send(events, d);
   }
 
@@ -482,12 +834,17 @@ export class ScreenService {
 
   private async phoneStart(cid: string, wantsControl: boolean) {
     const node = this.d.node();
-    const name = node?.companionName(cid) ?? 'A phone';
-    const decision = featureOn('remoteScreen') ? decide({ from: 'phone', id: cid, wantsControl }, this.data.policy) : { do: 'deny' as const, reason: 'Remote screens are switched off on this computer' };
-    if (decision.do === 'deny') throw new Error(decision.reason);
-    const r = await this.ask(name, wantsControl);
-    if (!r.ok) throw new Error('The computer did not allow it');
-    const s = await this.hostSession(crypto.randomUUID(), `phone:${cid}`, name, r.control, 'speed', 'frames');
+    const webHelper = cid.startsWith('helpweb:');
+    const name = webHelper ? `${cid.split(':').slice(2).join(':') || 'Helper'} (web browser)` : node?.companionName(cid) ?? 'A phone';
+    if (!featureOn('remoteScreen')) throw new Error('Remote screens are switched off on this computer');
+    let r = { ok: true, control: false };
+    if (!webHelper) {
+      const decision = decide({ from: 'phone', id: cid, wantsControl }, this.data.policy);
+      if (decision.do === 'deny') throw new Error(decision.reason);
+      r = await this.ask(name, wantsControl);
+      if (!r.ok) throw new Error('The computer did not allow it');
+    }
+    const s = await this.hostSession(crypto.randomUUID(), `phone:${cid}`, name, r.control, 'speed', 'frames', { help: webHelper });
     s.state = 'live';
     const inj = await injector().status();
     if (s.control && !inj.available) {
@@ -503,8 +860,8 @@ export class ScreenService {
     if (!s || !s.peer.startsWith('phone:')) throw new Error('No such session');
     s.lastActivity = Date.now();
     if (s.state === 'ended') return { r: { ended: true, reason: s.ended?.reason } };
-    if (!s.latest || s.latest.seq <= after) return { r: { none: true } };
-    return { r: { seq: s.latest.seq, ...s.latest.header }, body: s.latest.jpeg };
+    if (!s.latest || s.latest.seq <= after) return { r: { none: true, control: s.control } };
+    return { r: { seq: s.latest.seq, ...s.latest.header, control: s.control }, body: s.latest.jpeg };
   }
 
   // ---------------------------------------------------------------- ending
@@ -535,7 +892,18 @@ export class ScreenService {
     const w = s.win;
     if (w && !w.isDestroyed() && s.role === 'host') w.close();
     if (s.role === 'host') injector().stop();
-    this.data.log.unshift({ at: Date.now(), title: auditTitle(s) });
+    clearInterval(s.cursorTimer);
+    if (s.blocked) void injector().block?.(false);
+    s.blankWin?.destroy();
+    s.drawWin?.destroy();
+    s.blankWin = s.drawWin = undefined;
+    // Viewers who joined this session go with it.
+    for (const j of this.sessions.values()) if (j.parent === s.id && j.state !== 'ended') this.end(j, reason);
+    const node = this.d.node();
+    node?.audit({ kind: s.help ? 'help' : 'screen', direction: s.role === 'host' ? 'in' : 'out', device: s.peer, deviceName: s.peerName, title: s.help ? (s.role === 'host' ? `${s.peerName} helped you` : `You helped ${s.peerName}`) : auditTitle(s), detail: reason, ok: true, at: s.started, until: Date.now() } as never);
+    // Help leaves nothing behind: the connection goes too.
+    if (s.help && s.peer.startsWith('help:')) node?.help.end(s.peer, reason);
+    this.data.log.unshift({ at: Date.now(), title: s.help ? (s.role === 'host' ? `${s.peerName} helped you (help session)` : `You helped ${s.peerName} (help session)`) : auditTitle(s) });
     this.save();
     setTimeout(() => this.sessions.delete(s.id), 30_000).unref?.();
     this.changed();
@@ -603,7 +971,7 @@ function parse(m: Uint8Array): ControlMessage | null {
 }
 
 function publicSession(s: Sess): ScreenSession {
-  return { id: s.id, peer: s.peer, peerName: s.peerName, role: s.role, control: s.control, state: s.state, path: s.path, display: s.display, started: s.started, ended: s.ended };
+  return { id: s.id, peer: s.peer, peerName: s.peerName, role: s.role, control: s.control, state: s.state, path: s.path, display: s.display, started: s.started, ended: s.ended, help: s.help, joined: s.joined };
 }
 
 function sendMagic(mac: string, broadcast: string): Promise<void> {

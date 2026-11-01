@@ -12,7 +12,7 @@ import { decodeCode } from '../../core/codes';
 import { CaptureHistory, describeColor, mergeCaptureOptions, screenshotName, tidyText, type CaptureEntry, type CaptureOptions, type PickedColor } from '../../core/capture';
 import { uniqueName } from '../../core/rules';
 import { readImage as readClipboardImage, writeText } from './clip';
-import { loadImage, ocrImage, ocrImageAuto } from './vision';
+import { loadImage, ocrImage, ocrImageAuto, ocrTuned } from './vision';
 
 export type Rect = { x: number; y: number; w: number; h: number };
 
@@ -223,7 +223,9 @@ export async function readImage(img: Electron.NativeImage, langs: string[], o?: 
   const longest = Math.max(width, height);
   const factor = opts.accurate ? (longest < 1200 ? Math.min(3, 1800 / Math.max(1, longest)) : 1) : longest > 1400 ? 1400 / longest : 1;
   const scaled = factor !== 1 ? img.resize({ width: Math.round(width * factor), height: Math.round(height * factor), quality: 'best' }) : img;
-  const raw = opts.autoLanguage ? (await ocrImageAuto(scaled, langs)).text : await ocrImage(scaled, langs);
+  // The reader chosen in Capture options (system recognizer, cleaned picture, layout), else the usual read.
+  const tuned = await ocrTuned(scaled, langs, { engine: opts.ocrEngine, layout: opts.ocrLayout, enhance: opts.ocrEnhance, handwriting: opts.handwriting, keepSpaces: opts.keepLineBreaks, autoLanguage: opts.autoLanguage }).catch(() => undefined);
+  const raw = tuned ?? (opts.autoLanguage ? (await ocrImageAuto(scaled, langs)).text : await ocrImage(scaled, langs));
   const text = tidyText(raw, opts.keepLineBreaks);
   return { text, code: code?.value, codeFormat: code?.format, image: (longest > 480 ? img.resize(width >= height ? { width: 480 } : { height: 480 }) : img).toDataURL() };
 }

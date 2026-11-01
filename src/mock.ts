@@ -3,9 +3,12 @@
 
 import { mockUsage } from './mock-usage';
 import { mockIslandTools } from './mock-island-tools';
+import { mockCues } from './mock-cues';
 import { mockFeatures } from './mock-features';
 import { mockUsageStats } from './mock-usage-stats';
 import { mockAwake } from './mock-awake';
+import { mockStage } from './mock-stage';
+import { mockVoice } from './mock-voice';
 import { mockAshforde } from './mock-ashforde';
 import { featureStates } from '../core/features';
 import type { BrowseEntry, IslandState, KeeperApi } from '../core/api';
@@ -17,9 +20,11 @@ import { defaultSettings } from '../core/settings';
 import { createMockCapture, DEMO_SHOT } from './mock-capture';
 import { mockX } from './mock-x';
 import { mockPlaces } from './mock-places';
+import { mockTracks } from './mock-tracks';
 import { mockRemote } from './mock-remote';
 import { mockSession } from './mock-session';
 import { mockProcs } from './mock-procs';
+import { mockSysmon } from './mock-sysmon';
 import { mockPim } from './mock-pim';
 import { mockNotes } from './mock-notes';
 import { mockFileKit } from './mock-filekit';
@@ -35,13 +40,17 @@ import { mockAgentTerm } from './mock-agentterm';
 import { mockPlatform } from './mock-platform';
 import { mockLock } from './mock-lock';
 import { mockLink } from './mock-link';
+import { mockMesh } from './mock-mesh';
 import { mockScreen } from './mock-screen';
+import { mockAccess } from './mock-access';
+import { mockRdc } from './mock-rdc';
 import { mockTerminal } from './mock-terminal';
 import { mockBrain } from './mock-brain';
 import { mockAgents } from './mock-agents';
 import { mockCu } from './mock-cu';
 import { mockAbilities } from './mock-abilities';
 import { createMockIsland } from './mock-island';
+import { mockAmbience } from './mock-ambience';
 import type { CleanupGroup, DuplicateGroup, FileEntry, FileKind, Rule, SpaceNode } from '../core/types';
 import { mockPreview } from './preview/mock';
 
@@ -264,10 +273,14 @@ export function createMockApi(): KeeperApi {
 
   return {
     ...mockX(),
+    // Cues and Island+ (calls, levels, notifications, agents).
+    ...mockCues((ch) => listeners.get(ch)?.forEach((cb) => (cb as () => void)())),
     ...mockPlaces(),
+    ...mockTracks((ch) => listeners.get(ch)?.forEach((cb) => (cb as () => void)())),
     ...mockRemote(),
     ...mockSession(),
     ...mockProcs(),
+    ...mockSysmon(),
     ...mockIslandTools(),
     ...mockPim((ch, ...args) => listeners.get(ch)?.forEach((cb) => (cb as (...a: unknown[]) => void)(...args))),
     ...mockFileKit(),
@@ -285,7 +298,12 @@ export function createMockApi(): KeeperApi {
     ...mockPlatform(),
     lock: lockX.lock,
     ...mockScreen(),
+    ...mockAccess((ch, ...args) => listeners.get(ch)?.forEach((cb) => (cb as (...a: unknown[]) => void)(...args))),
+    ...mockRdc((ch, ...args) => listeners.get(ch)?.forEach((cb) => (cb as (...a: unknown[]) => void)(...args))),
     ...mockLink(HOME, (ch, ...args) => listeners.get(ch)?.forEach((cb) => (cb as (...a: unknown[]) => void)(...args))),
+    ...mockMesh((ch, ...args) => listeners.get(ch)?.forEach((cb) => (cb as (...a: unknown[]) => void)(...args))),
+    ...mockStage((ch, ...args) => listeners.get(ch)?.forEach((cb) => (cb as (...a: unknown[]) => void)(...args))),
+    ...mockVoice((ch, ...args) => listeners.get(ch)?.forEach((cb) => (cb as (...a: unknown[]) => void)(...args))),
     usage: mockUsage(),
     ...mockAwake(() => settings, (patch) => {
       Object.assign(settings, patch);
@@ -537,7 +555,9 @@ export function createMockApi(): KeeperApi {
       setExpanded: () => undefined,
       ...islandX.island,
     } as KeeperApi['island'],
-    widgets: islandX.widgets,
+    // Arrange mode and the wallpaper tint for widgets, then wallpaper & vibes.
+    widgets: { ...islandX.widgets, arrange: async (on: boolean) => on, arranging: async () => false, tint: async () => null },
+    ...mockAmbience((ch, ...args) => listeners.get(ch)?.forEach((cb) => (cb as (...a: unknown[]) => void)(...args)), HOME),
     on: ((channel: string, cb: (v: unknown) => void) => {
       const set = listeners.get(channel) ?? new Set();
       set.add(cb);

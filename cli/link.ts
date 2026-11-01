@@ -7,7 +7,7 @@ import path from 'node:path';
 import type { LinkState } from '../core/api-link';
 import { keeperDataDir } from '../core/brain/paths';
 
-async function control<T>(op: string, body: Record<string, unknown> = {}): Promise<T> {
+export async function control<T>(op: string, body: Record<string, unknown> = {}): Promise<T> {
   let c: { port: number; token: string };
   try {
     c = JSON.parse(await fsp.readFile(path.join(keeperDataDir(), 'link', 'control.json'), 'utf8'));

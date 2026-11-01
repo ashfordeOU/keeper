@@ -62,7 +62,10 @@ export type ExtensionMessage =
   | { kind: 'hello'; browser: string; version: string; caps: BrowserCap[] }
   | { kind: 'tabs'; tabs: BrowserTab[] }
   | { kind: 'reply'; reqId: string; ok: boolean; result?: unknown; error?: string }
-  | { kind: 'report'; site: string; thirdParties: { host: string; requests: number }[]; at: number; browser?: string };
+  | { kind: 'report'; site: string; thirdParties: { host: string; requests: number }[]; at: number; browser?: string }
+  // Cues (core/cues): the page in front, and a cue left for a page or site.
+  | { kind: 'active'; url: string; title: string }
+  | { kind: 'cue'; url: string; title: string; site: boolean; text: string };
 
 /** Message to the extension. */
 export interface HostCommand {
@@ -195,6 +198,9 @@ export function parseExtensionMessage(m: unknown): ExtensionMessage | null {
   if (o.kind === 'hello' && typeof o.browser === 'string') return { kind: 'hello', browser: o.browser.slice(0, 60), version: String(o.version ?? ''), caps: (Array.isArray(o.caps) ? o.caps : []).filter((c): c is BrowserCap => typeof c === 'string') };
   if (o.kind === 'tabs' && Array.isArray(o.tabs)) return { kind: 'tabs', tabs: (o.tabs as BrowserTab[]).slice(0, 2000).filter((t) => isTab(t?.id) && typeof t.url === 'string') };
   if (o.kind === 'reply' && typeof o.reqId === 'string') return { kind: 'reply', reqId: o.reqId, ok: !!o.ok, result: o.result, error: typeof o.error === 'string' ? o.error : undefined };
+  // Cues: the page in front, and "leave a cue for this page" from the toolbar button or right-click menu.
+  if (o.kind === 'active' && typeof o.url === 'string') return { kind: 'active', url: o.url.slice(0, 4000), title: String(o.title ?? '').slice(0, 400) };
+  if (o.kind === 'cue' && typeof o.url === 'string') return { kind: 'cue', url: o.url.slice(0, 4000), title: String(o.title ?? '').slice(0, 400), site: !!o.site, text: String(o.text ?? '').slice(0, 4000) };
   if ((o.kind === undefined || o.kind === 'report') && typeof o.site === 'string' && Array.isArray(o.thirdParties)) return { kind: 'report', site: o.site, thirdParties: o.thirdParties as { host: string; requests: number }[], at: Number(o.at) || Date.now(), browser: typeof o.browser === 'string' ? o.browser : undefined };
   return null;
 }

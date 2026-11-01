@@ -1,0 +1,58 @@
+[
+ {
+  "resource_state": 2,
+  "athlete": {
+   "id": 134815,
+   "resource_state": 1
+  },
+  "name": "Morning Run",
+  "distance": 5012.3,
+  "moving_time": 1560,
+  "elapsed_time": 1622,
+  "total_elevation_gain": 38.2,
+  "type": "Run",
+  "sport_type": "Run",
+  "id": 11880223344,
+  "start_date": "2026-05-13T05:00:00Z",
+  "start_date_local": "2026-05-13T08:00:00Z",
+  "timezone": "(GMT+02:00) Europe/Tallinn",
+  "start_latlng": [
+   59.4385,
+   24.786
+  ],
+  "end_latlng": [
+   59.4385,
+   24.79
+  ],
+  "map": {
+   "id": "a11880223344",
+   "summary_polyline": "_p~iF~ps|U_ulLnnqC_mqNvxq`@",
+   "resource_state": 2
+  },
+  "average_speed": 3.213,
+  "max_speed": 4.9,
+  "has_heartrate": true,
+  "average_heartrate": 151.2,
+  "max_heartrate": 172.0
+ },
+ {
+  "resource_state": 2,
+  "name": "Lunch Ride",
+  "distance": 18200.0,
+  "moving_time": 2900,
+  "elapsed_time": 3300,
+  "total_elevation_gain": 95.0,
+  "type": "Ride",
+  "sport_type": "GravelRide",
+  "id": 11880223399,
+  "start_date": "2026-05-14T15:00:00Z",
+  "map": {
+   "id": "b",
+   "summary_polyline": "",
+   "resource_state": 2
+  },
+  "average_speed": 6.27,
+  "max_speed": 11.2,
+  "has_heartrate": false
+ }
+]

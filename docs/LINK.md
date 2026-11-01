@@ -50,11 +50,56 @@ Every request is checked against the permissions you set for that device (`core/
 | Local network | always tried first | WebSocket to the other device's Link port (47821 by default). Found through mDNS or its last known addresses. |
 | Cloudflare tunnel | "From anywhere", the other device runs a tunnel | `wss://<hostname>/link`. Works through any router or firewall. Cloudflare sees only ciphertext. |
 | Keeper Relay | "From anywhere", a relay URL is set | A blind relay: it joins two WebSocket calls and passes frames along. It sees which device ids talk, when, and how much. |
-| Direct peer-to-peer (WebRTC) | remote screens | Screen sessions set up a direct WebRTC connection, signalled and certificate-checked over the Link channel, using the STUN setting; see [REMOTE.md](REMOTE.md). Other Link traffic uses the carriers above. |
+| Direct (UDP) | "From anywhere", the connection runs through a relay or tunnel | Every kind of Link traffic: files, ports, the SOCKS proxy, sync, requests, terminals. See *Direct connections* below. |
+| Direct peer-to-peer (WebRTC) | remote screens | Screen pictures use their own WebRTC connection, signalled and certificate-checked over the Link channel; see [REMOTE.md](REMOTE.md). |
 
-The device page shows which carrier a connection uses ("Local network", "Tunnel", "Relay") and its round-trip time.
+The device page shows which carrier a connection uses ("Local network", "Direct", "Tunnel", "Relay"), its round-trip time, and under *Connection* every carrier under it with the bytes moved on each.
 
 **Never leaves my network** turns off everything except the local network, even in "From anywhere" mode.
+
+## Direct connections
+
+When a paired device is reached through a relay or a tunnel, the device that dialled looks for a direct path (`core/link/udp.ts`, `core/link/direct.ts`, `electron/services/link/direct.ts`). It is pure Node (`dgram`): no hidden browser window is needed.
+
+1. **Offer.** Inside the existing encrypted connection it sends a fresh 32-byte path key, a connection id and its candidate addresses: its network cards, and (for "From anywhere") the address a STUN server from the STUN setting reports.
+2. **Punch.** Both sides send small probes to all of the other's candidates at once, which opens each router's mapping; the first address that answers is nominated.
+3. **Bind to the device.** Every UDP packet carries an HMAC with the path key, so nobody else can inject anything. The normal Link handshake then runs on the path with the pinned device keys — the same idea as checking DTLS fingerprints for screens, but with the identity keys themselves.
+4. **Move.** The connection runs on a *resumable* carrier (`core/link/resume.ts`): each side numbers what it sends and keeps it until the other confirms it. When the direct path is ready, traffic moves onto it and anything in flight is sent again there; open streams (a file half sent, a forwarded port, a terminal) carry on. The relay or tunnel stays as a quiet standby.
+5. **Fall back.** If the direct path stops answering (30 seconds), traffic moves back to the standby path, again without dropping streams. If every path is gone, the calling side dials again and continues the same connection (within 20 seconds). A failed search is tried again after 1, 2, 4 … 30 minutes while the device stays connected.
+
+The UDP path is reliable and ordered: sequence numbers, selective acknowledgements, retransmission on a timeout or after three later packets, and a congestion window that halves on loss.
+
+**Scope.** "This network only" and "Never leaves my network" never look for a direct path over the internet (no STUN; private addresses only). The feature can be switched off (*Direct connections between your devices* in Settings → Features). Nothing runs while no device is connected through a relay or tunnel; one UDP socket per direct path, closed with it.
+
+## Your devices as a fleet
+
+- **Groups, tags and notes** per device (kept on this device only), a **search box** (`tag:office`, `group:home`, `online`, `offline`), online state with *last seen*.
+- **Remote actions:** lock, sleep, restart (need *Control this computer* there), print a file on its default printer, a **system snapshot** (system, processor, memory, disks, battery, uptime).
+- **Run commands** — a new permission, off by default. The first time a device asks to run a given command, its owner sees the exact command and allows or refuses it; the same command later runs without asking. Saved commands sit on the device page.
+- **Terminal on this device** — the existing terminal permission now opens a real terminal over Link (`term` streams; node-pty in the app, `script` otherwise). Phones can get a Terminal tab too, per phone, under *Phones and tablets*.
+- **Share my location** — off by default. With it, the other device may read this one's last position (`loc.get`; latitude, longitude, accuracy, time, battery). Places & Tracks supplies the position and reads others' with `devicePosition()` / `pairedPositions()` from `electron/services/link/location.ts` (it sets this device's own position with `setOwnPositionSource()`). Each read is logged.
+- **Audit log** of screen and help sessions, transfers (with the carrier used), commands (also refused ones), terminals, ports opened from the command line, restarts and location reads, in and out, on every device; filter and export as CSV or JSON (Devices → Remote Access, and per device).
+
+## Help mode
+
+One-time support with someone who is **not paired**: see [REMOTE.md](REMOTE.md#help-mode). The protocol is in `core/link/help.ts`.
+
+## Unattended access
+
+An opt-in system service keeps Link listening while Keeper is not running; see [REMOTE.md](REMOTE.md#unattended-access).
+
+## Where it shows up
+
+Remote access is not only on the Devices page. Devices → Remote Access → *Where it shows up* chooses, per part, between:
+
+| | Menu bar / tray | Island | Command palette | Right-click menu |
+| --- | --- | --- | --- | --- |
+| Get help, Help someone | ✓ | ✓ (Controls tab) | ✓ | |
+| Your devices (Send Files, View, Control) | ✓ | | ✓ | |
+| Sessions in progress, with Stop | ✓ | ✓ (as an activity) | | |
+| Send to a device | | | ✓ | ✓ |
+
+`keeper://help?code=…&pw=…` links ("Ask for help") open Help someone with the code filled in.
 
 ## Finding each other over the internet (Mailbox)
 
@@ -140,15 +185,29 @@ Settings for the Node relay: `PORT`, `HOST`, `BYTES_PER_SECOND` (a limit per cal
 
 `keeper link status | devices | invite | pair <address> <code> | pair <keeper://…> | send <file> <device> | check <device> | forward <device> <port>[:<remote port>] | forward <device> socks:<port>`
 
+`keeper remote list | connect <device> [--view] | help | help --code C --password P | exec <device> -- <command> | ssh-proxy <device> [--port 22] | wake <device> | send <device> <file…> | forward <device> <port> | screenshot <device> [--out F] | info <device> | lock|sleep|restart <device> | log [device]`
+
+SSH over Link, with no port open on the other device's router:
+
+```
+ssh -o ProxyCommand="keeper remote ssh-proxy %h" you@studio-mac
+```
+
+The other device must allow *Reach ports on this computer*. `ssh-proxy` is a byte pipe through the app's loopback control port (`/local/pipe`, same token rule as the other commands).
+
 The command talks to the running app over `127.0.0.1`, using a token in `<Keeper data>/link/control.json` that only your account can read.
 
 ## IP-level mesh
 
-Keeper Link is an app-level network: devices reach each other's files, ports and services through Keeper. It does not create a virtual network card for the whole computer.
+Keeper Link itself is an app-level network: devices reach each other's files, ports and services through Keeper.
 
-That would need a TUN device, which means administrator rights and a signed driver or system extension on each platform. It is a possible later step.
+**Keeper Mesh** builds an IP-level network on top of it, with WireGuard. See [MESH.md](MESH.md).
+- It is off by default (Settings → Features → *Keeper Mesh*).
+- Every app can then reach your devices by address or by name (`laptop.keeper`).
+- Link carries its control plane: a `mesh.ctl` stream through Link's `registerStream` hook, carrying signed WireGuard keys, candidates and invitations.
+- The Keeper Relay gained a blind packet path (`/v1/pkt`) for devices that cannot reach each other directly.
 
-If a WireGuard interface is already up on the computer, the Devices page shows it, and Keeper Link works over it like over any other network.
+If some other WireGuard interface is already up on the computer, the Devices page shows it, and Keeper Link works over it like over any other network.
 
 ## What was tested, and how
 
@@ -169,10 +228,14 @@ If a WireGuard interface is already up on the computer, the Devices page shows i
   - **Relay:** both apps hold a relay connection.
   - **The phone:** asked to allow, connected, a 1.1 MB upload intact, shared folders listed, the clipboard read, and a reconnect without the QR code.
 
+- **Keeper-to-Keeper remote access** (`test/k2k.test.ts`, `test/k2k-node.test.ts`, `test/e2e/remote-advanced.cjs`; details in [REMOTE.md](REMOTE.md#what-was-tested-and-how)):
+  - **Verified:** the UDP path's packet authentication, punching, ordering, recovery from 15% loss; moving a live 3 MB stream from relay to direct and back without losing a byte; two nodes moving from the relay to a direct path by themselves and sending a 2 MB file over it, then falling back to the relay; "Never leaves my network" not trying; three real apps under Xvfb with a local relay: a 4 MB file went over the direct path and the device page said "Direct".
+  - **Not verified:** a direct path across real routers (NAT); STUN against a public server (this machine blocks outbound UDP to the internet); symmetric NATs (where punching cannot work, the relay or tunnel simply stays).
+
 **Not verified here:**
 - **Cloudflare tunnel:** a real quick tunnel got its trycloudflare address (and Keeper reads that line correctly). The connection to Cloudflare's edge was blocked by this test machine's DNS, so a working tunnel end to end is untested.
 - **The tunnel as a system service:** not tried (it needs an administrator prompt).
 - **The Cloudflare Worker relay:** syntax-checked, and its device ids match the app's. It was not run on Workers.
 - **macOS and Windows:** the keychain, mDNS on those systems, and the service install commands.
 - **Real phones:** the companion page was tested in Chromium's iPhone emulation, not Safari or Chrome on a real device.
-- **WebRTC peer-to-peer:** used for remote screens only (see [REMOTE.md](REMOTE.md)); tested on one machine, not across real NATs.
+- **WebRTC peer-to-peer and the direct UDP carrier:** tested on one machine, not across real NATs.

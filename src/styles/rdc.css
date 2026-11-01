@@ -1,0 +1,81 @@
+/* SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 */
+/* Remote Desktops: the connection list, the editor, this computer, programs, and the viewers. */
+
+.rdc-page { max-width: 1180px; }
+.rdc-tabs { margin: 4px 0 16px; }
+.rdc-quick { display: flex; align-items: center; gap: 10px; padding: 10px 12px; }
+.rdc-quick .input { font-family: var(--mono); }
+.rdc-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rdc-search { flex: 0 1 300px; min-width: 180px; }
+.rdc-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.rdc-tags .chip { cursor: default; }
+.rdc-tags .chip.on { background: var(--accent-soft); color: var(--accent); }
+.rdc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 12px; }
+.rdc-card { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px 12px 16px; position: relative; overflow: hidden; }
+.rdc-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--rdc-color, var(--line)); }
+.rdc-card.picked { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.rdc-card input[type=checkbox] { margin: 0; }
+.rdc-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--text-3); opacity: .45; }
+.rdc-dot.online { background: var(--ok, #22c55e); opacity: 1; }
+.rdc-dot.offline { background: var(--danger, #ef4444); opacity: .75; }
+.rdc-proto { font-variant-caps: all-small-caps; letter-spacing: .03em; }
+.rdc-proto.rdp { background: color-mix(in srgb, #3b82f6 16%, transparent); color: color-mix(in srgb, #3b82f6 80%, var(--text)); }
+.rdc-proto.vnc { background: color-mix(in srgb, #a855f7 16%, transparent); color: color-mix(in srgb, #a855f7 80%, var(--text)); }
+.rdc-proto.ssh, .rdc-proto.mosh, .rdc-proto.telnet { background: color-mix(in srgb, #22c55e 16%, transparent); color: color-mix(in srgb, #16a34a 85%, var(--text)); }
+.rdc-proto.web { background: color-mix(in srgb, #f59e0b 18%, transparent); color: color-mix(in srgb, #d97706 85%, var(--text)); }
+.rdc-proto.keeper { background: var(--accent-soft); color: var(--accent); }
+.rdc-live { display: flex; flex-direction: column; gap: 4px; }
+.rdc-session { padding: 4px 0; border-top: 1px solid var(--line); }
+.rdc-session:first-of-type { border-top: 0; }
+
+.rdc-form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; max-height: 64vh; overflow: auto; padding-right: 4px; }
+.rdc-form > label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-2); }
+.rdc-form .wide { grid-column: 1 / -1; }
+.rdc-sub { display: flex; flex-direction: column; gap: 6px; padding-top: 8px; border-top: 1px solid var(--line); }
+.rdc-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; }
+.rdc-opts > .small.muted:first-child { grid-column: 1 / -1; }
+.rdc-opts > label.small:not(.row) { display: flex; flex-direction: column; gap: 4px; }
+.rdc-colors { display: flex; gap: 4px; }
+.rdc-colors button { width: 18px; height: 18px; border-radius: 50%; border: 2px solid transparent; padding: 0; cursor: default; }
+.rdc-colors button.on { border-color: var(--text); }
+.rdc-cmd { white-space: pre-wrap; word-break: break-all; font-size: 11.5px; background: var(--bg-sunk); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin: 0; }
+.rdc-fp { font-size: 12px; background: var(--bg-sunk); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; word-break: break-all; }
+.rdc-warn { display: flex; gap: 8px; align-items: flex-start; padding: 8px 10px; border-radius: 8px; background: var(--warn-soft); color: var(--warn); }
+
+.rdc-host-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+.rdc-host-row:first-of-type { border-top: 0; }
+.rdc-steps { margin: 4px 0 0; padding-left: 18px; }
+.rdc-check { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); }
+.rdc-check:first-of-type { border-top: 0; }
+.rdc-check-icon { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; flex: none; }
+.rdc-check-icon.ok { background: var(--ok-soft); color: var(--ok); }
+.rdc-check-icon.bad { background: var(--danger-soft); color: var(--danger); }
+.rdc-check-icon.info { background: var(--bg-active); color: var(--text-2); }
+.rdc-engine { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); }
+.rdc-hint { color: var(--text-2); background: var(--bg-sunk); border-radius: 6px; padding: 2px 6px; align-self: flex-start; }
+
+/* the viewers fill the page area */
+.rdc-viewer { display: flex; flex-direction: column; height: calc(100vh - 140px); min-height: 320px; gap: 8px; }
+.rdc-viewer-bar { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.rdc-stage { flex: 1; min-height: 0; overflow: auto; background: #0b0c10; border-radius: var(--radius); display: flex; align-items: flex-start; justify-content: flex-start; }
+.rdc-stage.fit { align-items: center; justify-content: center; overflow: hidden; }
+.rdc-stage.fit .rdc-canvas { max-width: 100%; max-height: 100%; object-fit: contain; }
+.rdc-canvas { display: block; outline: none; image-rendering: auto; }
+.rdc-canvas:focus { box-shadow: 0 0 0 2px var(--accent-soft); }
+.rdc-web-area { flex: 1; min-height: 0; border-radius: var(--radius); background: var(--bg-sunk); border: 1px solid var(--line); }
+.rdc-cert { display: flex; flex-direction: column; gap: 8px; }
+
+/* the quick-connect window (global shortcut, tray, palette) */
+.rdc-quickwin { display: flex; flex-direction: column; height: 100vh; background: var(--bg-elev); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; box-sizing: border-box; }
+.rdc-quickwin-input { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.rdc-quickwin-input input { flex: 1; border: 0; outline: none; background: none; color: var(--text); font-size: 16px; font-family: var(--mono); }
+.rdc-quickwin-list { flex: 1; overflow: auto; padding: 6px; display: flex; flex-direction: column; gap: 2px; }
+.rdc-quickwin-row { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; text-align: left; border: 0; background: none; color: inherit; padding: 7px 10px; border-radius: 8px; font: inherit; cursor: default; min-width: 0; }
+.rdc-quickwin-row.on { background: var(--accent-soft); }
+.rdc-quickwin-foot { padding: 6px 14px; border-top: 1px solid var(--line); }
+.rdc-places-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+.rdc-places-row:first-of-type { border-top: 0; }
+.rdc-tray-preview { font-size: 12.5px; background: var(--bg-sunk); border: 1px solid var(--line); border-radius: 8px; padding: 6px 0; min-width: 240px; align-self: flex-start; }
+.rdc-tray-preview div { padding: 3px 14px; }
+.rdc-tray-preview .head { color: var(--text-3); font-size: 11px; padding-top: 6px; }
+.rdc-tray-preview hr { border: 0; border-top: 1px solid var(--line); margin: 4px 0; }

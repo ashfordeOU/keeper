@@ -1,0 +1,40 @@
+[
+ {
+  "id": "Ab12Cd",
+  "upload_time": "2026-05-13T07:12:00.000Z",
+  "polar_user": "https://www.polaraccesslink.com/v3/users/2278512",
+  "device": "Polar Vantage V3",
+  "device_id": "1111AAAA",
+  "start_time": "2026-05-13T08:00:00",
+  "start_time_utc_offset": 180,
+  "duration": "PT26M12S",
+  "calories": 312,
+  "distance": 5012.0,
+  "heart_rate": {
+   "average": 151,
+   "maximum": 172
+  },
+  "training_load": 42.3,
+  "sport": "RUNNING",
+  "has_route": true,
+  "club_id": null,
+  "club_name": null,
+  "detailed_sport_info": "RUNNING",
+  "fat_percentage": 22,
+  "carbohydrate_percentage": 60,
+  "protein_percentage": 18
+ },
+ {
+  "id": "Ef34Gh",
+  "start_time": "2026-05-12T18:00:00Z",
+  "duration": "PT1H",
+  "calories": 400,
+  "heart_rate": {
+   "average": 120,
+   "maximum": 150
+  },
+  "sport": "OTHER",
+  "has_route": false,
+  "detailed_sport_info": "STRENGTH_TRAINING"
+ }
+]

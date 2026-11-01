@@ -3,6 +3,7 @@
 // camera), a second one as a bubble beside it, and a Live Activity card with
 // controls. Everything here reacts to events; nothing polls.
 
+import { RemoteActivityActions, useRemoteActivities } from '../screen/island-remote';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { IslandState } from '../../core/api';
 import { activitiesFrom, present, transientsFrom, type Activity, type ExtraInputs, type Presentation } from '../../core/island-activities';
@@ -11,6 +12,7 @@ import type { Progress } from '../../core/types';
 import { formatDuration } from '../../core/format';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
+import { CallCard, MediaModes } from './IslandPlus';
 
 // ---------------------------------------------------------------- data
 
@@ -66,6 +68,31 @@ function useSharing(): NonNullable<ExtraInputs['sharing']> {
   return list;
 }
 
+/** Voice: the meeting being recorded (its clock runs here between updates). */
+function useVoiceMeeting(now: number): ExtraInputs['meetingRec'] {
+  const [m, setM] = useState<{ title: string; elapsedMs: number; paused: boolean; last?: string; at: number } | null>(null);
+  useEffect(() => {
+    const apply = (x?: { title: string; elapsedMs: number; paused: boolean; utterances: { text: string }[] } | null) => setM(x ? { title: x.title, elapsedMs: x.elapsedMs, paused: x.paused, last: x.utterances[x.utterances.length - 1]?.text, at: Date.now() } : null);
+    void api.voice?.status?.().then((s) => apply(s.meeting)).catch(() => undefined);
+    const offs = [api.on('voice-meeting', apply as never), api.on('voice-state', ((_s: unknown, mt?: Parameters<typeof apply>[0]) => apply(mt)) as never)];
+    return () => offs.forEach((f) => f());
+  }, []);
+  return m ? { title: m.title, paused: m.paused, last: m.last, elapsedMs: m.paused ? m.elapsedMs : m.elapsedMs + Math.max(0, now - m.at) } : undefined;
+}
+
+/** Keeper Mesh: the exit node in use, if the person shows it in the Island. */
+function useMeshExit(): ExtraInputs['meshExit'] {
+  const [v, setV] = useState<ExtraInputs['meshExit']>(null);
+  useEffect(() => {
+    void api.mesh?.state?.().then((s) => {
+      const p = s.networks.flatMap((n) => n.peers).find((x) => x.device === s.exit.using);
+      setV(s.on && s.exit.using && s.places.exit.includes('island') ? { name: p?.name ?? 'another device', since: Date.now() } : null);
+    }).catch(() => undefined);
+    return api.on('mesh-changed', (x) => setV(x));
+  }, []);
+  return v;
+}
+
 /** AIs using this computer right now (Agents → Use this computer). */
 function useAiControl(): NonNullable<ExtraInputs['aiControl']> {
   const [list, setList] = useState<NonNullable<ExtraInputs['aiControl']>>([]);
@@ -102,7 +129,10 @@ export function useActivities(state: IslandState | null, now: number, dictation:
   const jobs = useJobs();
   const unlocked = useUnlocked();
   const sharing = useSharing();
+  const meshExit = useMeshExit();
   const aiControl = useAiControl();
+  const remote = useRemoteActivities();
+  const meetingRec = useVoiceMeeting(now);
   const prev = useRef<IslandState | null>(null);
   const [transient, setTransient] = useState<Activity[]>([]);
 
@@ -121,11 +151,11 @@ export function useActivities(state: IslandState | null, now: number, dictation:
   return useMemo(() => {
     if (!state) return { pres: { more: 0 }, all: [], dots: { camera: [], mic: [] }, unlocked: [] };
     const all = [
-      ...activitiesFrom(state, now, { dictation: dictation === 'off' ? undefined : dictation, jobs, unlocked: unlocked.count, sharing, aiControl, off }),
+      ...activitiesFrom(state, now, { dictation: dictation === 'off' ? undefined : dictation, jobs, unlocked: unlocked.count, sharing, meshExit, aiControl, remote, off, meetingRec }),
       ...transient.filter((a) => !off.includes(a.kind)),
     ];
     return { pres: present(all, now), all, dots: { camera: state.camInUse ?? [], mic: state.micInUse ?? [] }, unlocked: unlocked.folders };
-  }, [state, now, dictation, jobs, unlocked, sharing, aiControl, transient, off]);
+  }, [state, now, dictation, jobs, unlocked, sharing, meshExit, aiControl, remote, transient, off, meetingRec]);
 }
 
 // ---------------------------------------------------------------- glyphs
@@ -208,6 +238,7 @@ export function LiveCard({ a, state, now, unlocked, onMore, reload }: { a: Activ
         <button className="btn sm icon" title="Previous" onClick={() => void api.island.media('previous').then(reload)}><Icon name="prev" size={13} /></button>
         <button className="btn sm icon primary" title={np.playing ? 'Pause' : 'Play'} onClick={() => void api.island.media('toggle').then(reload)}><Icon name={np.playing ? 'pause' : 'play'} size={13} /></button>
         <button className="btn sm icon" title="Next" onClick={() => void api.island.media('next').then(reload)}><Icon name="next" size={13} /></button>
+        <MediaModes np={np} reload={reload} />
       </>
     );
   } else if (a.kind === 'timer') {
@@ -226,6 +257,15 @@ export function LiveCard({ a, state, now, unlocked, onMore, reload }: { a: Activ
         <button className="btn sm" onClick={() => void api.island.focus('stop').then(reload)}>Stop</button>
       </>
     );
+  } else if (a.id === 'meeting-rec') {
+    // Voice's meeting recorder: pause and stop from the Island.
+    body = <div><div className="live-big num" style={{ color: a.color }}><span className="rec-dot" /> {a.trailing}</div>{a.detail ? <div className="muted small ellipsis">{a.detail}</div> : <div className="muted small">Microphone and the computer’s sound</div>}</div>;
+    actions = (
+      <>
+        <button className="btn sm" onClick={() => void api.voice.pauseMeeting(!a.title.startsWith('Paused')).then(reload)}><Icon name={a.title.startsWith('Paused') ? 'play' : 'pause'} size={12} /> {a.title.startsWith('Paused') ? 'Resume' : 'Pause'}</button>
+        <button className="btn sm danger" onClick={() => void api.voice.stopMeeting().then(reload)}>Stop and save</button>
+      </>
+    );
   } else if (a.kind === 'recording' && state.recording) {
     body = <div className="live-big num" style={{ color: a.color }}><span className="rec-dot" /> {mmss(now - state.recording.since)}<span className="muted small"> Recording the screen</span></div>;
     actions = <button className="btn sm danger" onClick={() => void api.capture.stopRecording().then(reload)}>Stop recording</button>;
@@ -233,7 +273,12 @@ export function LiveCard({ a, state, now, unlocked, onMore, reload }: { a: Activ
     actions = <button className="btn sm primary" onClick={() => void api.island.openAgent(a.ref!)}>Open</button>;
   } else if (a.kind === 'meeting') {
     body = <div><div className="live-big num" style={{ color: a.color }}>{a.trailing === 'now' ? 'Now' : `in ${a.trailing}`}</div>{a.detail ? <div className="muted small">{a.detail}</div> : null}</div>;
-    actions = a.ref ? <button className="btn sm primary" onClick={() => void api.system.openExternal(a.ref!)}>Join</button> : null;
+    actions = (
+      <>
+        {a.ref ? <button className="btn sm primary" onClick={() => void api.system.openExternal(a.ref!)}>Join</button> : null}
+        {api.voice ? <button className="btn sm" title="Tell everyone it is recorded" onClick={() => void api.voice.startMeeting({ title: a.title }).then(reload).catch(() => undefined)}><span className="rec-dot" /> Record</button> : null}
+      </>
+    );
   } else if (a.kind === 'progress' || a.kind === 'charging' || a.kind === 'battery-low' || a.kind === 'headphones') {
     body = (
       <>
@@ -256,9 +301,32 @@ export function LiveCard({ a, state, now, unlocked, onMore, reload }: { a: Activ
   } else if (a.kind === 'sharing') {
     body = <div><div className="live-big num" style={{ color: a.color }}>{a.trailing}</div><div className="muted small">The other side sees everything on this screen.</div></div>;
     actions = <button className="btn sm danger" onClick={() => void api.screen.stop(a.ref!)}>Stop sharing</button>;
+  } else if (a.kind === 'remote') {
+    body = <div><div className="live-big num" style={{ color: a.color }}>{a.trailing}</div>{a.detail ? <div className="muted small">{a.detail}</div> : null}</div>;
+    actions = <RemoteActivityActions refId={a.ref!} />;
   } else if (a.kind === 'unlocked') {
     body = <div className="muted small">{unlocked.map((f) => f.split(/[\\/]/).pop()).join(', ')}</div>;
     actions = <button className="btn sm primary" onClick={() => void Promise.all(unlocked.map((f) => api.lock.relock(f))).catch(() => undefined)}><Icon name="lock" size={12} /> Lock now</button>;
+  } else if (a.kind === 'call' && state.call) {
+    body = <CallCard call={state.call} now={now} />;
+  } else if (a.kind === 'level') {
+    body = (
+      <>
+        <div className="live-big num" style={{ color: a.color }}>{a.trailing}</div>
+        <div className="live-bar"><i style={{ width: `${(a.progress ?? 0) * 100}%`, background: a.color }} /></div>
+        <div className="muted small">Shown beside the system’s own pop-up.</div>
+      </>
+    );
+  } else if (a.kind === 'cue' && a.ref) {
+    const id = a.ref;
+    body = <div className="muted small">{a.detail}</div>;
+    actions = (
+      <>
+        <button className="btn sm primary" onClick={() => void api.cues.complete(id).then(reload)}>Done</button>
+        <button className="btn sm" onClick={() => void api.cues.snooze(id, 'nextvisit').then(reload)}>Next time</button>
+        <button className="btn sm" onClick={() => void api.cues.openPage(id)}>Open</button>
+      </>
+    );
   } else if (a.kind === 'copied') {
     body = <div className="live-copied ellipsis">{a.detail}</div>;
   }

@@ -627,12 +627,43 @@ export function groupByApp(procs: ProcRow[], platform: string): AppGroup[] {
   });
 }
 
-/** Case-insensitive match on name, pid, user, path or command. */
+/** Case-insensitive match on name, pid, user, path or command; `/regex/flags` matches name and command by a regular expression. */
 export function matchProc(p: ProcRow, q: string): boolean {
+  const re = procRegex(q);
+  if (re) return re.test(p.name) || (!!p.command && re.test(p.command));
   const s = q.trim().toLowerCase();
   if (!s) return true;
   if (/^\d+$/.test(s) && String(p.pid) === s) return true;
   return [p.name, p.user, p.path, p.command].some((v) => v?.toLowerCase().includes(s));
+}
+
+/** A `/pattern/flags` filter as a RegExp (case-insensitive unless flags say otherwise); null for plain words or a broken pattern. */
+export function procRegex(q: string): RegExp | null {
+  const m = q.trim().match(/^\/(.+)\/([gimsuy]*)$/);
+  if (!m) return null;
+  try {
+    return new RegExp(m[1], m[2].replace('g', '') || 'i');
+  } catch {
+    return null;
+  }
+}
+
+/** Processes started in the last `ms` (the "New" mark) and those gone since the last reading (the "Ended" list). */
+export function procChanges(prev: Pick<ProcRow, 'pid' | 'name' | 'started'>[], now: Pick<ProcRow, 'pid' | 'name' | 'started'>[], at = Date.now(), ms = 60_000): { fresh: Set<number>; ended: { pid: number; name: string }[] } {
+  const fresh = new Set(now.filter((p) => p.started && at - p.started < ms).map((p) => p.pid));
+  const live = new Set(now.map((p) => `${p.pid}:${p.started ?? ''}`));
+  const ended = prev.length ? prev.filter((p) => !live.has(`${p.pid}:${p.started ?? ''}`)).map((p) => ({ pid: p.pid, name: p.name })) : [];
+  return { fresh, ended };
+}
+
+/** CSV of process rows for spreadsheets. */
+export function procsCsv(rows: ProcRow[]): string {
+  const esc = (v: unknown) => {
+    const s = v === undefined || v === null ? '' : String(v);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const head = ['pid', 'ppid', 'name', 'user', 'cpu', 'memory', 'threads', 'energy', 'readRate', 'writeRate', 'connections', 'started', 'path', 'command'];
+  return [head.join(','), ...rows.map((r) => [r.pid, r.ppid, r.name, r.user, r.cpu, r.memory, r.threads, r.energy, r.readRate, r.writeRate, r.connections, r.started ? new Date(r.started).toISOString() : '', r.path, r.command].map(esc).join(','))].join('\n') + '\n';
 }
 
 /** Signals the interface may ask for; anything else is refused. */

@@ -43,12 +43,17 @@ if (!cliOnly) {
     // The watchdog that starts Keeper again after an unexpected stop, and the service hosts.
     { ...common, entryPoints: ['electron/watchdog.ts'], outfile: 'dist-electron/watchdog.cjs', sourcemap: false },
     { ...common, entryPoints: ['electron/svc/net-host.ts'], outfile: 'dist-electron/svc-net.cjs' },
+    // Keeper Link without the app (unattended access for your own devices; installed as a system service).
+    { ...common, entryPoints: ['electron/linkd.ts'], outfile: 'dist-electron/linkd.cjs' },
+    // Keeper Mesh's privileged helper (runs as the administrator; small and separate on purpose).
+    { ...common, entryPoints: ['electron/services/mesh/helper.ts'], outfile: 'dist-electron/mesh-helper.cjs', sourcemap: false },
     // The page a phone opens to use Keeper Link without an app (served by the app itself).
     { bundle: true, platform: 'browser', target: 'es2020', format: 'iife', minify: !watch, logLevel: 'info', entryPoints: ['companion/app.ts'], outfile: 'dist-electron/companion/app.js' },
   );
   mkdirSync('dist-electron/companion', { recursive: true });
   for (const f of ['index.html', 'manifest.webmanifest']) copyFileSync(`companion/${f}`, `dist-electron/companion/${f}`);
   copyFileSync('build/icon.png', 'dist-electron/companion/icon.png');
+  copyFileSync('native/macos/mesh-helper.plist', 'dist-electron/mesh-helper.plist');
 }
 
 if (watch) {

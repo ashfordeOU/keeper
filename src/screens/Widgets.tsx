@@ -2,28 +2,30 @@
 // Desktop widgets: add, style and arrange small windows that live on the desktop.
 
 import { useEffect, useRef, useState } from 'react';
-import { WIDGET_KINDS, newWidget, type WidgetConfig, type WidgetKind } from '../../core/widgets';
+import { DEFAULT_WORLD, presetBounds, WIDGET_KINDS, newWidget, type WidgetConfig, type WidgetKind, type WidgetShape, type WidgetSizePreset } from '../../core/widgets';
 import { api, isDemo } from '../api';
 import { Icon } from '../components/Icon';
 import { Empty, PageHead, Toggle } from '../components/ui';
-import { WidgetBody, widgetSurface } from '../island/Widget';
+import { useWidgetTint, WidgetBody, widgetSurface } from '../island/Widget';
 import { useStore } from '../state';
 import '../styles/widgets.css';
 
 const KIND_ICON: Record<WidgetKind, string> = {
   clock: 'clock', date: 'calendar', events: 'calendar', weather: 'sun', countdown: 'timer', 'sun-moon': 'moon', photo: 'image',
   text: 'text', battery: 'battery', disk: 'weight', system: 'bolt', focus: 'timer', clipboard: 'clipboard',
+  day: 'calendar', year: 'chart', season: 'sun', world: 'globe', quote: 'note',
 };
 
 const ZONES = ['America/Los_Angeles', 'America/New_York', 'America/Sao_Paulo', 'Europe/London', 'Europe/Berlin', 'Africa/Lagos', 'Asia/Dubai', 'Asia/Kolkata', 'Asia/Singapore', 'Asia/Tokyo', 'Australia/Sydney', 'Pacific/Auckland'];
 
 function Preview({ w }: { w: WidgetConfig }) {
+  const tint = useWidgetTint();
   // Scaled to fit the card while keeping the widget's real proportions.
   const scale = Math.min(1, 300 / w.bounds.width, 220 / w.bounds.height);
   return (
     <div className="wgp-stage">
       <div style={{ width: w.bounds.width * scale, height: w.bounds.height * scale }}>
-        <div className="wg locked" style={{ ...widgetSurface(w), width: w.bounds.width, height: w.bounds.height, transform: `scale(${scale})`, transformOrigin: '0 0' }}>
+        <div className={`wg locked shape-${w.style.shape ?? 'card'}`} style={{ ...widgetSurface(w, tint), width: w.bounds.width, height: w.bounds.height, transform: `scale(${scale})`, transformOrigin: '0 0' }}>
           <WidgetBody w={w} />
         </div>
       </div>
@@ -56,6 +58,20 @@ function Editor({ w, onChange, onRemove }: { w: WidgetConfig; onChange: (w: Widg
         </>
       ) : null}
       {w.kind === 'text' ? row('Text', <textarea className="input" rows={3} value={w.options.text ?? ''} onChange={(e) => opt({ text: e.target.value })} />) : null}
+      {w.kind === 'quote' ? row('Your own lines (one per line; empty uses Keeper’s)', <textarea className="input" rows={3} value={(w.options.quotes ?? []).join('\n')} onChange={(e) => opt({ quotes: e.target.value.split('\n') })} />) : null}
+      {w.kind === 'world' ? (
+        <div className="wge-row" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+          <span>Places</span>
+          {(w.options.places ?? DEFAULT_WORLD).map((p, i, all) => (
+            <span key={i} className="row">
+              <input className="input grow" value={p.label} onChange={(e) => opt({ places: all.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)) })} />
+              <select className="input" value={p.zone} onChange={(e) => opt({ places: all.map((x, j) => (j === i ? { ...x, zone: e.target.value } : x)) })}>{[...new Set([p.zone, ...ZONES])].map((z) => <option key={z} value={z}>{z.replace(/_/g, ' ')}</option>)}</select>
+              <button className="btn ghost icon sm" onClick={() => opt({ places: all.filter((_, j) => j !== i) })} aria-label="Remove"><Icon name="close" size={11} /></button>
+            </span>
+          ))}
+          {(w.options.places ?? DEFAULT_WORLD).length < 6 ? <button className="btn sm" style={{ alignSelf: 'flex-start' }} onClick={() => opt({ places: [...(w.options.places ?? DEFAULT_WORLD), { label: 'Singapore', zone: 'Asia/Singapore' }] })}><Icon name="plus" size={11} /> Add a place</button> : null}
+        </div>
+      ) : null}
       {w.kind === 'photo' ? (
         <>
           {row('Folder', <button className="btn sm" onClick={() => void api.settings.pickFolder().then((f) => f && opt({ folder: f }))}>{w.options.folder ? w.options.folder.split(/[\\/]/).pop() : 'Choose…'}</button>)}
@@ -66,12 +82,14 @@ function Editor({ w, onChange, onRemove }: { w: WidgetConfig; onChange: (w: Widg
       {row('Font', <div className="seg">{(['system', 'rounded', 'serif', 'mono'] as const).map((f) => <button key={f} className={st.font === f ? 'on' : ''} onClick={() => set({ font: f })}>{f[0].toUpperCase() + f.slice(1)}</button>)}</div>)}
       {row('Text size', <input type="range" min={0.7} max={1.8} step={0.05} value={st.size} onChange={(e) => set({ size: Number(e.target.value) })} />)}
       {row('Text colour', <input type="color" value={st.color} onChange={(e) => set({ color: e.target.value })} />)}
-      {row('Background', <div className="seg">{(['glass', 'solid', 'gradient', 'none'] as const).map((b) => <button key={b} className={st.background === b ? 'on' : ''} onClick={() => set({ background: b })}>{b[0].toUpperCase() + b.slice(1)}</button>)}</div>)}
+      {row('Background', <div className="seg">{(['glass', 'tinted', 'solid', 'gradient', 'none'] as const).map((b) => <button key={b} title={b === 'tinted' ? 'Glass coloured by the wallpaper’s palette (or the theme’s accent)' : undefined} className={st.background === b ? 'on' : ''} onClick={() => set({ background: b })}>{b[0].toUpperCase() + b.slice(1)}</button>)}</div>)}
+      {row('Shape', <div className="seg">{(['card', 'circle', 'pill', 'none'] as WidgetShape[]).map((sh) => <button key={sh} className={(st.shape ?? 'card') === sh ? 'on' : ''} onClick={() => onChange({ ...w, style: { ...st, shape: sh }, bounds: sh === 'circle' || sh === 'pill' ? presetBounds(w.kind, 'M', w.bounds, sh) : w.bounds })}>{sh[0].toUpperCase() + sh.slice(1)}</button>)}</div>)}
+      {row('Size', <div className="seg">{(['S', 'M', 'L'] as WidgetSizePreset[]).map((z) => <button key={z} onClick={() => onChange({ ...w, bounds: presetBounds(w.kind, z, w.bounds, st.shape) })}>{z}</button>)}</div>)}
       {st.background === 'solid' || st.background === 'gradient' ? row('Colours', <span className="row"><input type="color" value={st.bgColor} onChange={(e) => set({ bgColor: e.target.value })} />{st.background === 'gradient' ? <input type="color" value={st.bgColor2} onChange={(e) => set({ bgColor2: e.target.value })} /> : null}</span>) : null}
       {row('Corners', <input type="range" min={0} max={48} value={st.radius} onChange={(e) => set({ radius: Number(e.target.value) })} />)}
       {row('Opacity', <input type="range" min={0.3} max={1} step={0.02} value={st.opacity} onChange={(e) => set({ opacity: Number(e.target.value) })} />)}
       <div className="divider" />
-      {row('Size', <span className="row small"><input className="input" style={{ width: 70 }} type="number" min={120} max={900} value={w.bounds.width} onChange={(e) => onChange({ ...w, bounds: { ...w.bounds, width: Number(e.target.value) || w.bounds.width } })} />×<input className="input" style={{ width: 70 }} type="number" min={90} max={900} value={w.bounds.height} onChange={(e) => onChange({ ...w, bounds: { ...w.bounds, height: Number(e.target.value) || w.bounds.height } })} /></span>)}
+      {row('Exact size', <span className="row small"><input className="input" style={{ width: 70 }} type="number" min={120} max={900} value={w.bounds.width} onChange={(e) => onChange({ ...w, bounds: { ...w.bounds, width: Number(e.target.value) || w.bounds.width } })} />×<input className="input" style={{ width: 70 }} type="number" min={90} max={900} value={w.bounds.height} onChange={(e) => onChange({ ...w, bounds: { ...w.bounds, height: Number(e.target.value) || w.bounds.height } })} /></span>)}
       {row('Lock position', <Toggle on={w.locked} onChange={(v) => onChange({ ...w, locked: v })} />)}
       {row('Show on every desktop', <Toggle on={w.allWorkspaces} onChange={(v) => onChange({ ...w, allWorkspaces: v })} />)}
       <button className="btn danger sm" style={{ alignSelf: 'flex-start', marginTop: 6 }} onClick={onRemove}><Icon name="trash" size={12} /> Remove widget</button>
@@ -84,6 +102,11 @@ export function Widgets() {
   const [list, setList] = useState<WidgetConfig[] | null>(null);
   const [open, setOpen] = useState<string | null>(null);
   const timers = useRef(new Map<string, number>());
+  const [arranging, setArranging] = useState(false);
+  useEffect(() => {
+    void api.widgets.arranging?.().then(setArranging).catch(() => undefined);
+    return api.on('widgets-arrange', (on) => setArranging(!!on));
+  }, []);
 
   useEffect(() => {
     const load = () => void api.widgets.list().then(setList);
@@ -108,7 +131,9 @@ export function Widgets() {
 
   return (
     <div>
-      <PageHead title="Widgets" sub="Small live windows for your desktop. Drag them anywhere; style each one your way." />
+      <PageHead title="Widgets" sub="Small live windows for your desktop. Drag them anywhere; style each one your way.">
+        <button className={`btn ${arranging ? 'primary' : ''}`} data-testid="wg-arrange" onClick={() => void api.widgets.arrange?.(!arranging).then((v) => { setArranging(v); toast(v ? 'Arrange mode: drag widgets on the desktop; they snap to edges and each other' : 'Widgets stay where they are'); })}><Icon name="grid" size={13} /> {arranging ? 'Done arranging' : 'Arrange on desktop'}</button>
+      </PageHead>
       <div className="section-head"><h2>Add a widget</h2></div>
       <div className="grid cols-auto">
         {WIDGET_KINDS.map((k) => (

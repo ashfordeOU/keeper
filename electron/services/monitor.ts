@@ -11,6 +11,16 @@ import type { Consumer, DiskHealth, DockerContainer, Thermal } from '../../core/
 import { defaultAlertRules, evaluateAlerts, mbps, processTree, pushSample, topConsumers, type AlertRule, type HealthSample, type ProcessAlert, type SpeedResult } from '../../core/monitor';
 import { powershell, run } from '../../core/platform';
 import { readBattery } from './system';
+import { matchAgent } from '../../core/agents-detect';
+import { poll } from './governor';
+import { recordMinute, saveHistory, seedFromLegacy } from './monitor-history';
+import { monitorSettings } from './monitor-settings';
+
+/** Where heavy-use alerts also show (the Island), set by the main process. */
+let islandAlert: ((title: string, detail: string) => void) | null = null;
+export function setMonitorIslandAlert(fn: (title: string, detail: string) => void) {
+  islandAlert = fn;
+}
 
 interface Proc {
   pid: number;
@@ -64,8 +74,9 @@ export class MonitorService {
   active: ProcessAlert[] = [];
   speeds: SpeedResult[] = [];
   private notified = new Set<string>();
-  private timer?: NodeJS.Timeout;
+  private stopPoll?: () => void;
   private first?: NodeJS.Timeout;
+  private unsaved = 0;
   private file = path.join(app.getPath('userData'), 'monitor.json');
 
   async start(intervalMs = 60_000) {
@@ -77,16 +88,22 @@ export class MonitorService {
     } catch {
       /* first run */
     }
-    // The first CPU reading needs a baseline, so take it a few seconds in.
-    clearInterval(this.timer);
+    seedFromLegacy(this.history);
+    // The first CPU reading needs a baseline, so take it a few seconds in; then once a minute through
+    // the governor (history keeps its one-minute resolution while away, so the idle factor is 1).
+    this.stopPoll?.();
     clearTimeout(this.first);
-    this.first = setTimeout(() => void this.sample(), 5000);
-    this.timer = setInterval(() => void this.sample(), intervalMs);
+    this.first = setTimeout(() => {
+      this.stopPoll = poll('health-history', { baseMs: intervalMs, idleFactor: 1, maxMs: intervalMs * 2 }, () => this.sample(), { feature: 'health' });
+    }, 5000);
   }
 
   stop() {
     clearTimeout(this.first);
-    clearInterval(this.timer);
+    this.stopPoll?.();
+    this.stopPoll = undefined;
+    void this.save();
+    void saveHistory();
   }
 
   private async save() {
@@ -106,19 +123,27 @@ export class MonitorService {
     };
     this.history = pushSample(this.history, s);
     this.checkAlerts();
-    await this.save();
+    await recordMinute({ t: s.t, cpu: s.cpu, mem: (s.memUsed / s.memTotal) * 100, battery: s.battery, apps: s.top }).catch(() => undefined);
+    // The day of samples is written every five minutes, not every minute.
+    if (++this.unsaved >= 5) {
+      this.unsaved = 0;
+      await this.save();
+    }
     return s;
   }
 
   private checkAlerts() {
-    this.active = evaluateAlerts(this.history, this.rules);
+    const quiet = new Set(monitorSettings().quietApps.map((q) => q.toLowerCase()));
+    this.active = evaluateAlerts(this.history, this.rules).filter((a) => !quiet.has(a.name.toLowerCase()));
     for (const a of this.active) {
       const key = `${a.rule}:${a.name}`;
       if (this.notified.has(key)) continue;
       this.notified.add(key);
       setTimeout(() => this.notified.delete(key), 60 * 60_000);
       const what = a.rule.startsWith('cpu') || this.rules.find((r) => r.id === a.rule)?.kind === 'cpu' ? `using ${Math.round(a.value)}% CPU` : `using ${(a.value / 1024 ** 3).toFixed(1)} GB of memory`;
-      if (Notification.isSupported()) new Notification({ title: `${a.name} is working hard`, body: `${a.name} has been ${what} for a while. Open Keeper → Health to quit it.` }).show();
+      // In the Island when it is on (less intrusive); a system notification otherwise.
+      if (islandAlert && monitorSettings().surfaces.island) islandAlert(`${a.name} is working hard`, `${what[0].toUpperCase()}${what.slice(1)} for a while. Health can quit it.`);
+      else if (Notification.isSupported()) new Notification({ title: `${a.name} is working hard`, body: `${a.name} has been ${what} for a while. Open Keeper → Health to quit it.` }).show();
     }
   }
 
@@ -196,10 +221,10 @@ function cwdOf(pid: number): Promise<string | undefined> {
   return Promise.resolve(undefined);
 }
 
-/** Stops Claude Code or Codex processes working in `cwd` (and their children). */
+/** Stops coding-agent processes (any agent in core/agents-detect.ts) working in `cwd`, and their children. */
 export async function stopAgent(cwd: string): Promise<number> {
   const procs = await listProcesses();
-  const agents = procs.filter((p) => /(^|[\\/ ])(claude|codex)(\.exe|\.js)?(\s|$)/i.test(p.command) || /^(claude|codex)$/i.test(p.name));
+  const agents = procs.filter((p) => matchAgent(p)?.kind === 'cli');
   let n = 0;
   for (const p of agents) {
     const dir = await cwdOf(p.pid);

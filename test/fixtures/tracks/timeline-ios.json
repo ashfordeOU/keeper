@@ -1,0 +1,54 @@
+[
+ {
+  "endTime": "2026-05-12T06:00:00.000+02:00",
+  "startTime": "2026-05-12T00:00:00.000+02:00",
+  "visit": {
+   "hierarchyLevel": "0",
+   "topCandidate": {
+    "probability": "0.9",
+    "semanticType": "Home",
+    "placeID": "ChIJhome",
+    "placeLocation": "geo:52.520800,13.409400"
+   },
+   "probability": "0.9"
+  }
+ },
+ {
+  "endTime": "2026-05-12T06:45:00.000+02:00",
+  "startTime": "2026-05-12T06:00:00.000+02:00",
+  "activity": {
+   "probability": "0.9",
+   "end": "geo:52.506500,13.390600",
+   "topCandidate": {
+    "type": "walking",
+    "probability": "0.8"
+   },
+   "distanceMeters": "2100",
+   "start": "geo:52.520800,13.409400"
+  }
+ },
+ {
+  "endTime": "2026-05-12T06:45:00.000+02:00",
+  "startTime": "2026-05-12T06:00:00.000+02:00",
+  "timelinePath": [
+   {
+    "point": "geo:52.515,13.40",
+    "durationMinutesOffsetFromStartTime": "20"
+   }
+  ]
+ },
+ {
+  "endTime": "2026-05-12T17:00:00.000+02:00",
+  "startTime": "2026-05-12T06:45:00.000+02:00",
+  "visit": {
+   "hierarchyLevel": "0",
+   "topCandidate": {
+    "probability": "0.7",
+    "semanticType": "Work",
+    "placeID": "ChIJwork",
+    "placeLocation": "geo:52.506500,13.390600"
+   },
+   "probability": "0.7"
+  }
+ }
+]

@@ -18,6 +18,7 @@ import { homePoint, WorldMap, type MapPoint } from '../components/WorldMap';
 import { Empty, Loading, Modal, PageHead, Toggle } from '../components/ui';
 import { useStore } from '../state';
 import '../styles/fw.css';
+import { MeshTag } from './MeshParts';
 
 type Tab = 'overview' | 'connections' | 'rules' | 'profiles' | 'dns' | 'history';
 
@@ -204,7 +205,7 @@ function Connections({ act }: { s: FwStatus; act: Act }) {
               {list.map((r) => (
                 <div key={r.key} className={`fw-conn ${r.decision}`}>
                   <span className={`fw-dot ${r.decision}`} title={r.reason} />
-                  <span className="ellipsis grow">{view !== 'app' ? <b>{r.app} </b> : null}{r.host ?? r.ip}<span className="muted">:{r.port}</span> {r.country ? <span title={countryName(r.country)}>{flag(r.country)}</span> : null} <span className="muted small">{r.asn ?? ''}</span></span>
+                  <span className="ellipsis grow">{view !== 'app' ? <b>{r.app} </b> : null}{r.host ?? r.ip}<span className="muted">:{r.port}</span><MeshTag ip={r.ip} /> {r.country ? <span title={countryName(r.country)}>{flag(r.country)}</span> : null} <span className="muted small">{r.asn ?? ''}</span></span>
                   <span className="muted small" title={r.reason}>{r.decision === 'deny' ? 'Blocked' : r.ruleId ? 'Rule' : 'No rule'}</span>
                   <span className="num small">↓ {formatBytes(r.rateIn)}/s</span>
                   <button className="btn xs" onClick={() => void quick(r, 'allow')} title="Always allow this app to this host">Allow</button>

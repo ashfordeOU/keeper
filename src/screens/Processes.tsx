@@ -5,17 +5,19 @@
 //
 // It reads the system only while this page is open and the window is visible.
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ForceQuitApp, ProcAction, ProcActionResult, ProcDetails } from '../../core/api-procs';
 import { formatBytes, relativeTime } from '../../core/format';
 import {
-  buildTree, canEnd, flattenTree, groupByApp, matchProc, PRIORITIES, priorityOf, type PriorityLevel, type ProcRow, type ProcSample, type ServiceRow,
+  buildTree, canEnd, flattenTree, groupByApp, matchProc, procChanges, procRegex, procsCsv, PRIORITIES, priorityOf, type PriorityLevel, type ProcRow, type ProcSample, type ServiceRow,
 } from '../../core/procs';
 import { api } from '../api';
 import { Sparkline } from '../components/Chart';
 import { Icon } from '../components/Icon';
 import { ContextMenu, Empty, Loading, Modal, Toggle, type MenuItem } from '../components/ui';
 import { mod, useStore } from '../state';
+
+const InspectExtras = lazy(() => import('./monitor/InspectExtras').then((m) => ({ default: m.InspectExtras })));
 import '../styles/procs.css';
 
 // ---------------------------------------------------------------- remembered choices
@@ -167,6 +169,11 @@ export function Processes() {
   const [interval, setIntervalMs] = remembered<number>('procs.interval', 2000);
   const [tabCols, setTabCols] = remembered<Record<Tab, ColId[]>>('procs.columns', TAB_COLS);
   const [mineOnly, setMineOnly] = remembered<boolean>('procs.mine', false);
+  // Pinned programs (by name) stay at the top; new ones are marked; ended ones are listed for two minutes.
+  const [pins, setPins] = remembered<string[]>('procs.pins', []);
+  const [fresh, setFresh] = useState<Set<number>>(new Set());
+  const [ended, setEnded] = useState<{ pid: number; name: string; at: number }[]>([]);
+  const prevProcs = useRef<ProcRow[]>([]);
   const [paused, setPaused] = useState(false);
   const [q, setQ] = useState('');
   const [sort, setSort] = useState<{ key: ColId; desc: boolean }>({ key: TAB_SORT[tab], desc: true });
@@ -200,14 +207,26 @@ export function Processes() {
     return () => window.removeEventListener('keeper:force-quit', open);
   }, []);
 
+  useEffect(() => {
+    if (!s) return;
+    const c = procChanges(prevProcs.current, s.procs);
+    prevProcs.current = s.procs;
+    setFresh(c.fresh);
+    const now = Date.now();
+    if (c.ended.length || ended.length) setEnded((old) => [...c.ended.map((e) => ({ ...e, at: now })), ...old].filter((e) => now - e.at < 120_000).slice(0, 12));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [s]);
+  const pinned = useMemo(() => new Set(pins), [pins]);
+  const togglePin = (name: string) => setPins(pinned.has(name) ? pins.filter((x) => x !== name) : [...pins, name]);
+  const badRegex = /^\/.+\/[a-z]*$/.test(q.trim()) && !procRegex(q);
   const procs = useMemo(() => (s?.procs ?? []).filter((p) => (!mineOnly || p.mine) && matchProc(p, q)), [s, q, mineOnly]);
   const cmp = useCallback((a: ProcRow, b: ProcRow) => {
     const c = COLS[sort.key];
     const x = c.value(a) ?? '';
     const y = c.value(b) ?? '';
     const r = typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y));
-    return (sort.desc ? -r : r) || a.pid - b.pid;
-  }, [sort]);
+    return Number(pinned.has(b.name)) - Number(pinned.has(a.name)) || (sort.desc ? -r : r) || a.pid - b.pid;
+  }, [sort, pinned]);
 
   const rows: Row[] = useMemo(() => {
     if (mode === 'list') return [...procs].sort(cmp).map((p) => ({ kind: 'proc', p, depth: 0 }));
@@ -327,6 +346,7 @@ export function Processes() {
           { label: 'Change Priority…', icon: 'bolt', run: () => setPrio(one) },
           { label: 'App Settings…', icon: 'settings', run: () => go({ name: 'appcontrols', arg: one.path ?? one.name }) },
           { label: 'Inspect…', icon: 'info', kbd: `${mod}I`, run: () => setInspect(one.pid) },
+          { label: pinned.has(one.name) ? 'Unpin' : 'Pin to Top', icon: 'pin', run: () => togglePin(one.name) },
           ...(one.path ? [{ label: platform === 'darwin' ? 'Show in Finder' : platform === 'win32' ? 'Show in Explorer' : 'Show in Folder', icon: 'reveal', run: () => void api.procs.reveal(one.path!) }] : []),
           { label: 'Copy Process ID', icon: 'copy', run: () => void navigator.clipboard.writeText(String(one.pid)) },
           ...(one.command ? [{ label: 'Copy Command', icon: 'copy', run: () => void navigator.clipboard.writeText(one.command!) }] : []),
@@ -397,6 +417,8 @@ export function Processes() {
         {row.kind === 'group' ? <span className="badge">{row.count}</span> : null}
         {p.state === 'T' || p.state === 't' ? <span className="badge warn">Suspended</span> : null}
         {p.pid === self ? <span className="badge accent">Keeper</span> : null}
+        {pinned.has(p.name) ? <Icon name="pin" size={11} className="muted" /> : null}
+        {fresh.has(p.pid) ? <span className="badge ok" title="Started in the last minute">New</span> : null}
         {!p.mine && p.pid !== self ? <Icon name="lock" size={11} className="muted" /> : null}
       </span>
     );
@@ -421,7 +443,7 @@ export function Processes() {
         </div>
         <div className="search-box">
           <Icon name="search" size={13} />
-          <input placeholder="Filter by name, PID, user or command" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Filter processes" />
+          <input placeholder="Filter by name, PID, user or command — or /regex/" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Filter processes" style={badRegex ? { color: 'var(--danger)' } : undefined} title={badRegex ? 'This regular expression is not valid' : undefined} />
         </div>
         <div className="seg" title="How the list is arranged">
           <button className={mode === 'apps' ? 'on' : ''} onClick={() => setMode('apps')} title="Helpers grouped under their app">By app</button>
@@ -450,9 +472,13 @@ export function Processes() {
           <Icon name={paused ? 'play' : 'pause'} size={13} /> {paused ? 'Paused' : 'Pause'}
         </button>
         <button className="btn sm ghost icon" title="Columns" onClick={(e) => setColMenu({ x: e.clientX, y: e.clientY })}><Icon name="list" size={14} /></button>
+        <button className="btn sm ghost" title="Save the list as a spreadsheet" onClick={async () => { const p = await api.tools.saveAs(`Processes ${new Date().toISOString().slice(0, 16).replace(':', '.')}.csv`, procsCsv([...procs].sort(cmp))); if (p) toast(`Saved ${p.split(/[\\/]/).pop()}`); }}>CSV</button>
         <button className="btn sm" onClick={() => setForceQuit(true)} title="Force Quit Applications">Force Quit…</button>
       </div>
 
+      {ended.length ? (
+        <div className="procs-ended small muted" aria-label="Ended recently">Ended recently: {ended.map((e) => <span key={`${e.pid}-${e.at}`} className="badge" title={`PID ${e.pid} · ${new Date(e.at).toLocaleTimeString()}`}>{e.name}</span>)}</div>
+      ) : null}
       <div className="procs-table" role="grid" aria-rowcount={rows.length}>
         <div className="procs-head" style={{ gridTemplateColumns: grid }}>
           {cols.map((c) => (
@@ -643,10 +669,10 @@ function Inspect({ pid, live, platform, onClose, onPick }: { pid: number; live?:
             {d.path ? <><span>Program</span><b className="mono wrap">{d.path}</b></> : null}
             {d.command ? <><span>Command</span><b className="mono wrap">{d.command}</b></> : null}
             {d.cwd ? <><span>Working in</span><b className="mono wrap">{d.cwd}</b></> : null}
-            {d.envCount !== undefined ? <><span>Environment</span><b>{d.envCount} variables (values are not shown)</b></> : null}
           </div>
           <h4>Memory</h4>
           <div className="kv">{d.memory.map((m) => <Fragment key={m.label}><span>{m.label}</span><b>{formatBytes(m.bytes)}</b></Fragment>)}</div>
+          <Suspense fallback={null}><InspectExtras pid={d.pid} onPick={onPick} /></Suspense>
           {d.children.length ? (
             <>
               <h4>Started by it ({d.children.length})</h4>

@@ -244,7 +244,9 @@ export async function usage(): Promise<UsageReport[]> {
     return fn().then((r) => (usageCache.set(tool, { at: Date.now(), r }), r), (e) => ({ tool, label: tool, state: 'error' as const, windows: [], source: '', message: String(e), updatedAt: Date.now() }));
   };
   const info = (tool: UsageTool): UsageReport => ({ tool, label: USAGE_TOOLS.find((t) => t.id === tool)!.label, state: 'none', windows: [], source: '', message: USAGE_TOOLS.find((t) => t.id === tool)!.how, updatedAt: Date.now() });
-  return Promise.all([fresh('claude', claudeReport), fresh('codex', codexReport), fresh('copilot', copilotReport), fresh('cursor', cursorReport), Promise.resolve(info('gemini')), Promise.resolve(info('grok'))]);
+  const base = await Promise.all([fresh('claude', claudeReport), fresh('codex', codexReport), fresh('copilot', copilotReport), fresh('cursor', cursorReport), Promise.resolve(info('gemini')), Promise.resolve(info('grok'))]);
+  // Local model servers (Ollama, LM Studio) and services with no local record (monitor workstream).
+  return [...base, ...(await (await import('./monitor-usage')).localModelReports().catch(() => []))];
 }
 
 export async function setUsageOnline(tool: UsageTool, on: boolean) {

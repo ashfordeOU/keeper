@@ -45,6 +45,7 @@ const api = {
   ashforde: group('ashforde', ['overview', 'monorail', 'install', 'update', 'checkUpdate', 'uninstall', 'launch', 'quit', 'connect', 'openPermission', 'action', 'prefs', 'setPrefs']),
   usageStats: group('usageStats', ['status', 'setOn', 'resetId', 'setBlocked', 'page']),
   features: group('features', ['list', 'set', 'preset', 'sets', 'saveSet', 'removeSet', 'applySet', 'setPowerSets', 'live']),
+  stage: group('stage', ['status', 'start', 'stop', 'toggle', 'extend', 'settings', 'setSettings', 'savePreset', 'removePreset', 'support', 'journal', 'detect', 'modes', 'apps', 'preview', 'displayInputs', 'setDisplayInput', 'overlays', 'tray']),
   awake: group('awake', ['status', 'start', 'stop', 'toggle', 'extend', 'parse', 'settings', 'setSettings', 'saveTrigger', 'removeTrigger', 'reorderTriggers', 'testTrigger', 'blockers', 'stats', 'resetStats', 'apps', 'setupClosedDisplay']),
   places: {
     ...group('places', ['list', 'eject', 'connect', 'discover', 'recentServers', 'forgetServer', 'folderSize', 'openAirDrop', 'shareTargets', 'share']),
@@ -65,6 +66,8 @@ const api = {
   pim: group('pim', ['accounts', 'discover', 'testAccount', 'addAccount', 'signIn', 'cancelSignIn', 'updateAccount', 'removeAccount', 'oauthReady', 'folders', 'messages', 'refresh', 'older', 'open', 'setRead', 'setFlagged', 'move', 'archive', 'trash', 'junk', 'snooze', 'saveAttachment', 'openAttachment', 'unsubscribe', 'trustSender', 'draftFor', 'send', 'undoSend', 'outbox', 'saveDraft', 'suggest', 'ai', 'respond', 'rules', 'saveRules', 'pickFiles', 'calendars', 'setCalendar', 'occurrences', 'saveEvent', 'deleteEvent', 'quickAdd', 'parseQuick', 'subscribe', 'importIcs', 'exportIcs', 'syncCalendars', 'reminders', 'saveReminder', 'deleteReminder', 'alarms', 'saveAlarm', 'deleteAlarm', 'snoozeAlarm', 'stopRinging', 'startTimer', 'timerAction', 'saveClocks', 'scheduleWake', 'contacts', 'saveContact', 'deleteContact', 'prefs', 'setPrefs']),
   notes: group('notes', ['vaults', 'addVault', 'createVault', 'removeVault', 'open', 'close', 'vaultPath', 'read', 'write', 'create', 'createFolder', 'newNote', 'remove', 'rename', 'saveAttachment', 'fileUrl', 'reveal', 'backlinks', 'outgoing', 'unlinked', 'linkMention', 'tags', 'search', 'suggest', 'resolve', 'unresolved', 'graph', 'random', 'periodic', 'templates', 'fillTemplate', 'base', 'merge', 'extract', 'publish', 'render', 'preview', 'snapshots', 'snapshot', 'bookmarks', 'setBookmarks', 'capture', 'settings', 'setSettings', 'ask', 'assist', 'plugins', 'pluginCode', 'setPlugin']),
   islandTools: group('islandTools', ['store', 'saveStore', 'ask', 'askConnections', 'usage', 'setUsageOnline', 'usageOnline', 'salesConfig', 'setSalesProvider', 'removeSalesProvider', 'setSalesPrefs', 'sales', 'rates', 'quotes', 'chart', 'stocksKey', 'setStocksKey', 'shortcuts', 'runShortcut', 'importScript', 'macEvents', 'macReminders', 'setMacReminder']),
+  // System monitor: live readings, history, dev servers, agents, sensors, menu-bar readings, the tool launcher.
+  sysmon: group('sysmon', ['watch', 'live', 'history', 'exportCsv', 'clearHistory', 'devServers', 'stopServer', 'stopProject', 'restartServer', 'agents', 'stopAgentSession', 'sensors', 'procExtras', 'settings', 'setSettings', 'trayPreview', 'trayState', 'showPopover', 'containers', 'containerAction', 'mixer', 'setStream', 'setOutput', 'energy', 'setAppNap', 'tabs', 'openLauncher', 'openTool', 'recentTools', 'closeWindow', 'outputPreview']),
   procs: group('procs', ['sample', 'act', 'setPriority', 'details', 'icons', 'reveal', 'apps', 'restartKeeper', 'services', 'serviceAction']),
   fw: group('fw', ['status', 'setSettings', 'setMode', 'setProfile', 'saveProfile', 'removeProfile', 'setAutoSwitch', 'saveRule', 'removeRule', 'saveGroup', 'removeGroup', 'subscribe', 'refreshSubscriptions', 'tidy', 'exportRules', 'importRules', 'answer', 'connections', 'history', 'queryLog', 'setDomain', 'refreshLists', 'addList', 'apply', 'uninstall', 'testInject']),
   net: group('net', ['sample', 'health', 'vpnStatus', 'vpnAction', 'importPick', 'importText', 'importInstall', 'publicIp', 'settings', 'setSettings', 'geoStatus', 'geoDownload', 'geoRemove', 'exportCsv', 'icons']),
@@ -80,14 +83,23 @@ const api = {
   notesync: group('notesync', ['overview', 'setOptions', 'addConnector', 'updateConnector', 'removeConnector', 'test', 'plan', 'sync', 'search', 'tags', 'note', 'saveNote', 'copyTo', 'migrate', 'conflicts', 'resolveConflict', 'duplicates', 'resolveDuplicate', 'trash', 'restore', 'snapshots', 'snapshotNow', 'restoreSnapshot', 'exportAs', 'history', 'shareWithDevices', 'shortcutGuide']),
   lock: group('lock', ['status', 'canLock', 'newRecoveryKey', 'saveRecoveryKey', 'lock', 'inspect', 'unlock', 'relock', 'list', 'forget', 'setRelock', 'cancel']),
   link: {
-    ...group('link', ['state', 'setSettings', 'rename', 'discover', 'invite', 'cancelInvite', 'pair', 'confirmPair', 'forget', 'setPermissions', 'renameDevice', 'check', 'sendFiles', 'answerOffer', 'sendClipboard', 'shares', 'list', 'download', 'addShare', 'removeShare', 'addForward', 'removeForward', 'companionInvite', 'answerCompanion', 'forgetCompanion', 'pending']),
+    ...group('link', ['state', 'setSettings', 'rename', 'discover', 'invite', 'cancelInvite', 'pair', 'confirmPair', 'forget', 'setPermissions', 'renameDevice', 'check', 'sendFiles', 'answerOffer', 'sendClipboard', 'shares', 'list', 'download', 'addShare', 'removeShare', 'addForward', 'removeForward', 'companionInvite', 'answerCompanion', 'forgetCompanion', 'pending', 'setCompanionTerminal']),
     tunnel: group('link.tunnel', ['status', 'start', 'stop', 'installService']),
   },
+  // Remote access between your own devices: help mode, fleet, actions, terminals, audit, unattended.
+  access: group('access', ['helpStart', 'helpStop', 'helpStatus', 'helpJoin', 'setMeta', 'audit', 'exportAudit', 'exec', 'power', 'info', 'print', 'termOpen', 'termWrite', 'termResize', 'termClose', 'pendingCommands', 'answerCommand', 'unattended', 'setUnattended', 'directStats']),
+  mesh: group('mesh', ['state', 'setOn', 'createNetwork', 'renameNetwork', 'removeNetwork', 'addMember', 'removeMember', 'answerInvite', 'setExit', 'offerExit', 'advertise', 'acceptRoutes', 'saveRule', 'removeRule', 'setDns', 'ping', 'pathTest', 'mtuProbe', 'setPlaces', 'trayPreview', 'config']),
   screen: {
-    ...group('screen', ['state', 'session', 'view', 'stop', 'answer', 'setPolicy', 'displays', 'source', 'signal', 'frame', 'saveRecording', 'wake', 'learn', 'control', 'requestPermissions', 'android', 'androidInstall', 'androidDevices', 'androidPair', 'androidConnect', 'androidMirror', 'androidStop', 'androidDrop', 'airplay', 'airplayStart', 'airplayStop']),
+    ...group('screen', ['state', 'session', 'view', 'stop', 'answer', 'setPolicy', 'displays', 'source', 'signal', 'frame', 'saveRecording', 'wake', 'learn', 'control', 'requestPermissions', 'android', 'androidInstall', 'androidDevices', 'androidPair', 'androidConnect', 'androidMirror', 'androidStop', 'androidDrop', 'airplay', 'airplayStart', 'airplayStop', 'setControl', 'print', 'reboot', 'invites', 'joinInvite', 'sources']),
     input: (sid: string, events: unknown[]) => ipcRenderer.send('screen.input', sid, events),
     ack: (sid: string, seq: number) => ipcRenderer.send('screen.ack', sid, seq),
     ready: (sid: string) => ipcRenderer.send('screen.ready', sid),
+  },
+  rdc: {
+    ...group('rdc', ['state', 'save', 'remove', 'duplicate', 'setPassword', 'quick', 'probe', 'connect', 'disconnect', 'command', 'vncAttach', 'vncClipboard', 'vncKeys', 'vncSetViewOnly', 'webShow', 'webAction', 'watch', 'wake', 'importFile', 'importText', 'exportTo', 'exportText', 'engines', 'hostStatus', 'hostSet', 'hostFix', 'hostViaLink', 'places', 'setPlaces', 'trayPreview', 'showQuick', 'closeQuick', 'openRoute', 'openFile']),
+    vncDetach: (sid: string) => ipcRenderer.send('rdc.vncDetach', sid),
+    vncInput: (sid: string, events: unknown[]) => ipcRenderer.send('rdc.vncInput', sid, events),
+    vncAck: (sid: string, seq: number) => ipcRenderer.send('rdc.vncAck', sid, seq),
   },
   tools: group('tools', ['networkInfo', 'publicIp', 'tweaks', 'setTweak', 'clearQuarantine', 'resetPermissions', 'pickApp', 'pickFiles', 'saveAs']),
   folders: group('folders', ['tidy']),
@@ -108,7 +120,28 @@ const api = {
     setSize: (w: number, h: number) => ipcRenderer.send('island.setSize', w, h),
     closeClips: () => ipcRenderer.send('island.closeClips'),
   },
-  widgets: group('widgets', ['list', 'save', 'remove', 'photos', 'current']),
+  // Places & Tracks: timeline, trips, maps, live positions and activities.
+  tracks: group('tracks', ['overview', 'brief', 'setConfig', 'setSecret', 'importFiles', 'preview', 'timeline', 'trips', 'tripHtml', 'tracks', 'track', 'renameTrack', 'removeTrack', 'records', 'heatmap', 'live', 'liveView', 'places', 'savePlace', 'removePlace', 'mergePlaces', 'zones', 'saveZone', 'removeZone', 'reservations', 'search', 'export', 'tile', 'connect', 'disconnect', 'syncNow', 'backup', 'wipe']),
+  // Cues and Island+ (calls, levels, notifications, agents).
+  cues: group('cues', ['state', 'list', 'create', 'update', 'toggleItem', 'skipItem', 'complete', 'reopen', 'snooze', 'remove', 'restore', 'purge', 'dismiss', 'templates', 'saveTemplate', 'removeTemplate', 'startTemplate', 'parse', 'suggest', 'settings', 'setSettings', 'compose', 'openFolder', 'exportMarkdown', 'syncWithDevices', 'popup', 'closePopup', 'reportPage', 'openPage']),
+  islandx: group('islandx', ['status', 'callMute', 'callDismiss', 'hideFor', 'installAgentHooks', 'removeAgentHooks', 'openNotifyPermission', 'testNotification', 'startBreak', 'focusFor', 'mediaMode', 'openLauncher', 'showPage']),
+  widgets: group('widgets', ['list', 'save', 'remove', 'photos', 'current', 'arrange', 'arranging', 'tint']),
+  // Dictation anywhere and meeting recording; the listening pill streams its microphone samples here.
+  voice: {
+    ...group('voice', ['status', 'settings', 'setSettings', 'start', 'stop', 'toggle', 'cancel', 'confirm', 'history', 'removeTake', 'clearHistory', 'stats', 'reuseTake', 'correct', 'preview', 'downloadModel', 'removeModel', 'testKey', 'meetings', 'meeting', 'startMeeting', 'pauseMeeting', 'stopMeeting', 'dismissOffer', 'renameSpeaker', 'renameMeeting', 'writeNotes', 'exportMeeting', 'removeMeeting', 'linkEvent', 'eventsNear', 'tray', 'voices', 'forgetVoices', 'saveStatsPng']),
+    hud: {
+      ready: invoke('voice.hud.ready'),
+      audio: (track: 'mic' | 'system', samples: Float32Array) => ipcRenderer.send('voice.audio', track, samples),
+      level: () => undefined,
+      key: (k: 'enter' | 'escape' | 'always') => ipcRenderer.send('voice.key', k),
+    },
+  },
+  // Live wallpaper, vibes, ambient sound and folder icons (electron/services/wallpaper/).
+  ambience: {
+    ...group('ambience', ['state', 'set', 'setWallpaper', 'setPlaying', 'surprise', 'applyVibe', 'stepVibe', 'saveVibe', 'removeVibe', 'captureVibe', 'resetStarters', 'saveRules', 'savePalette', 'removePalette', 'pickMedia', 'setStill', 'restoreDesktop', 'cost', 'setMix', 'setSoundPlaying', 'sleep', 'openMixer', 'closeMixer', 'pickFolders', 'applyFolderIcon', 'restoreFolderIcon', 'folderIcons', 'frame', 'trayPreview']),
+    report: (s: unknown) => ipcRenderer.send('ambience.report', s),
+    ready: () => ipcRenderer.send('ambience.ready'),
+  },
   on(channel: string, cb: (...args: unknown[]) => void) {
     const fn = (_e: unknown, ...args: unknown[]) => cb(...args);
     ipcRenderer.on(`event:${channel}`, fn);

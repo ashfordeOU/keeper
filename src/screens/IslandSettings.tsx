@@ -11,6 +11,7 @@ import { PageHead, Toggle } from '../components/ui';
 import { useAsync, useStore } from '../state';
 import { PlacementSettings } from '../island/PlacementSettings';
 import { IslandToolsSettings } from '../island/tools/ToolsSettings';
+import { PlusSettings } from '../island/PlusSettings';
 import '../styles/screens-b.css';
 
 export function Row({ title, desc, children }: { title: string; desc?: ReactNode; children: ReactNode }) {
@@ -206,15 +207,17 @@ export function IslandSettings() {
 
       <h2 style={{ margin: '18px 0 8px' }}>Notifications and visibility</h2>
       <div className="card settings-section">
-        <Row title="Show other apps’ notifications" desc="Linux: notifications appear in the Island as well. Other systems do not let apps read notifications."><Toggle on={isl.notifyMirror} onChange={(v) => set({ notifyMirror: v })} /></Row>
+        <Row title="Show other apps’ notifications" desc="Messages, mail and chat notifications appear in the Island too. How it works on this system is explained below."><Toggle on={isl.notifyMirror} onChange={(v) => set({ notifyMirror: v })} /></Row>
         {isl.notifyMirror ? <Row title="Only from" desc="Comma-separated app names; empty means all."><input className="input" style={{ width: 280 }} defaultValue={isl.notifyApps.join(', ')} onBlur={(e) => set({ notifyApps: e.target.value.split(',').map((x) => x.trim()).filter(Boolean) })} /></Row> : null}
         <Row title="Hide while an app is full screen" desc="Videos, games and presentations get the whole screen."><Toggle on={isl.hideInFullscreen} onChange={(v) => set({ hideInFullscreen: v })} /></Row>
-        <Row title="Hide or show the Island"><kbd className="badge">{pretty(isl.hideShortcut)}</kbd></Row>
+        <Row title="Hide or show the Island" desc="Alt/Option-click the Island to hide it for a moment."><kbd className="badge">{pretty(isl.hideShortcut)}</kbd></Row>
       </div>
+
+      <PlusSettings isl={isl} set={set} />
 
       <h2 style={{ margin: '18px 0 8px' }}>Dictation</h2>
       <div className="card settings-section">
-        <Row title="Shortcut" desc="Press once to start talking, again to stop. The words are typed where your cursor is."><kbd className="badge">{pretty(isl.dictationShortcut)}</kbd></Row>
+        <Row title="Shortcut" desc="Press once to start talking, again to stop. Hold-to-talk, history, your words and per-app rules are on the Dictation page; the service below is used only when Dictation is set to “A service”."><kbd className="badge">{pretty(isl.dictationShortcut)}</kbd> <button className="btn sm" onClick={() => go({ name: 'dictation', arg: 'settings' })}>Dictation…</button></Row>
         <Row title="Speech-to-text service" desc="Any service that understands the common transcription format — a hosted one with your own key, or one running on this computer.">
           <input className="input" style={{ width: 320 }} defaultValue={isl.dictationUrl} onBlur={(e) => e.target.value !== isl.dictationUrl && set({ dictationUrl: e.target.value.trim() })} />
         </Row>

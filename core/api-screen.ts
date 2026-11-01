@@ -36,7 +36,18 @@ export interface ScreenApi {
   state(): Promise<ScreenState>;
   session(sid: string): Promise<(ScreenSession & { displays: HostDisplay[]; controlNote?: string }) | null>;
   /** start watching (and, if allowed, controlling) a paired device; opens a viewer window; returns the session id */
-  view(device: string, opts?: { control?: boolean; quality?: Quality; prefer?: 'auto' | 'frames' }): Promise<string>;
+  view(device: string, opts?: { control?: boolean; quality?: Quality; prefer?: 'auto' | 'frames'; tab?: boolean }): Promise<string>;
+  /** host: let the viewer use the mouse and keyboard, or take it back */
+  setControl(sid: string, on: boolean): Promise<boolean>;
+  /** viewer: print a file on the other computer's default printer */
+  print(sid: string, file: string): Promise<void>;
+  /** viewer: restart the other computer, then connect again when it is back */
+  reboot(sid: string): Promise<void>;
+  /** invitations to watch someone else's session (view only) */
+  invites(): Promise<{ id: string; from: string; hostName: string }[]>;
+  joinInvite(id: string, tab?: boolean): Promise<string>;
+  /** host window: every display's capture source, for "All screens" */
+  sources(sid: string): Promise<{ id: string; width: number; height: number; display: HostDisplay }[]>;
   stop(sid: string): Promise<void>;
   /** answer "X wants to see this screen" */
   answer(id: string, ok: boolean, control: boolean): Promise<void>;

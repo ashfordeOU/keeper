@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The Island's live state: shelf, clipboard history, focus timer, keep-awake,
 // download and screenshot alerts, coding agents, calendar, now playing,
-// weather, battery and dictation.
+// weather and battery. (Dictation lives in electron/services/voice.)
 
 import { app, nativeImage, Notification, powerMonitor, powerSaveBlocker, shell } from 'electron';
 import { exec } from 'node:child_process';
@@ -13,7 +13,7 @@ import { activeTriggers, describeTrigger, type TriggerKind } from '../../core/aw
 import { kindOf, looksLikeScreenshot } from '../../core/classify';
 import type { FileIndex } from '../../core/indexer';
 import {
-  ClipHistory, detectClipKind, focusLeft, looksSecret, newFocus, parseIcs, pauseFocus, resumeFocus, scanAgentSessions, startFocus, tickFocus,
+  ClipHistory, detectClipKind, focusLeft, looksSecret, newFocus, parseIcs, pauseFocus, resumeFocus, startFocus, tickFocus,
   type AgentSession, type CalendarEvent, type ClipItem, type FocusState, type LyricLine,
 } from '../../core/island';
 import { powershell, run } from '../../core/platform';
@@ -28,6 +28,9 @@ import { readBattery } from './system';
 import { hasImage, readFileList, readImage, readText, writeImage, writePaths, writeText } from './clip';
 import { devicesState, frontmostApp, frontmostFullscreen, setBrightness, setMuted, setVolume, snapshot, touchDrive } from './devices';
 import { NotificationMirror } from './notify-mirror';
+import { wantNotification } from '../../core/island-notify';
+import { scanAgentSessions, scanMoreAgents } from '../../core/island-scan';
+import { lyricsFor as lyricsOn, plusSetting } from '../../core/island-plus';
 import { uploadFile } from './upload';
 import { poll, pollNow } from './governor';
 import { featureOn, onFeature } from './features';
@@ -58,7 +61,10 @@ export class IslandService {
   private autoAwake = false;
   private userHidden = false;
   private fsHidden = false;
-  private mirror = new NotificationMirror();
+  /** other apps' notifications (read by Island+ for its status) */
+  mirror = new NotificationMirror();
+  /** calls, levels, cues and the usage ring (electron/services/island-plus.ts) */
+  plus?: import('./island-plus').IslandPlus;
   private entryCache = new Map<string, FileEntry>();
   private lastDriveTouch = 0;
   focus: FocusState = newFocus();
@@ -83,7 +89,8 @@ export class IslandService {
   private lastClip = '';
   private lastImageSig = '';
   private activeSince = Date.now();
-  private presentation = false;
+  /** Stage mode's view of the Island while it is on: private things hidden, its live activity (electron/ipc/stage.ts) */
+  stageView?: (s: IslandState) => IslandState;
   /** Monorail's workspace and slide (Settings → Ashforde apps), set by ipc/ashforde */
   monorail?: import('../../core/ashforde/monorail').MonorailState;
   /** told when a Focus session or presentation mode starts or ends (Monorail follows them) */
@@ -170,6 +177,17 @@ export class IslandService {
   }
 
   state(): IslandState {
+    const raw = this.rawState();
+    const st = this.plus ? this.plus.decorate(raw) : raw;
+    return this.stageView ? this.stageView(st) : st;
+  }
+
+  /** Tells the Island windows to look again (Stage mode started or ended). */
+  refresh() {
+    this.emit();
+  }
+
+  private rawState(): IslandState {
     const s = settings();
     const breakIn = s.island.breakEvery > 0 ? Math.max(0, s.island.breakEvery * 60_000 - (Date.now() - this.activeSince)) : undefined;
     const views = this.store.shelves.map((sh) => ({ id: sh.id, name: sh.name, color: sh.color, pinned: sh.pinned, items: sh.items.map((p) => this.entryOf(p)).filter((e): e is FileEntry => !!e) }));
@@ -506,7 +524,8 @@ export class IslandService {
 
   focusAction(action: 'start' | 'pause' | 'resume' | 'stop', minutes?: number): FocusState {
     if (action === 'start') {
-      this.focus = startFocus(this.focus, minutes ?? this.focus.focusMin);
+      const is = settings().island;
+      this.focus = startFocus({ ...this.focus, longEvery: plusSetting(is, 'longBreakEvery'), longBreakMin: plusSetting(is, 'longBreakMin') }, minutes ?? this.focus.focusMin);
       // Focus sessions keep the computer awake.
       if (!this.awake.on) this.keepAwake(true, { until: this.focus.endsAt }, 'Focus session');
     } else if (action === 'pause') this.focus = pauseFocus(this.focus);
@@ -647,6 +666,7 @@ export class IslandService {
   }
 
   async setVolume(v: number) {
+    this.plus?.quietLevel('volume', v);
     await setVolume(v);
     if (this.devices) this.devices = { ...this.devices, volume: Math.round(v), muted: false };
     this.emit();
@@ -694,10 +714,10 @@ export class IslandService {
     const s = settings().island;
     if (s.notifyMirror) {
       this.mirror.start((n) => {
-        const allow = settings().island.notifyApps;
-        if (allow.length && !allow.some((a) => n.app.toLowerCase().includes(a.toLowerCase()))) return;
+        const is = settings().island;
+        if (!wantNotification(n.app, is.notifyApps, is.notifyBlock ?? [])) return;
         this.alert({ kind: 'notification', app: n.app, title: n.title, detail: n.body });
-      });
+      }, { dismiss: !!s.notifyDismiss });
     } else this.mirror.stop();
     const drive = s.driveKeepAwake;
     if (drive?.path && Date.now() - this.lastDriveTouch >= Math.max(10, drive.seconds) * 1000) {
@@ -706,17 +726,7 @@ export class IslandService {
     }
   }
 
-  /** Presentation mode: stay awake and hide desktop icons (macOS). */
-  async setPresentation(on: boolean): Promise<boolean> {
-    this.presentation = on;
-    this.modeHook?.('presentation', on);
-    this.keepAwake(on, {}, on ? 'Presentation mode' : undefined);
-    if (process.platform === 'darwin') {
-      await run('/usr/bin/defaults', ['write', 'com.apple.finder', 'CreateDesktop', on ? 'false' : 'true']);
-      await run('/usr/bin/killall', ['Finder']);
-    }
-    return this.presentation;
-  }
+  // Presentation mode moved to Stage mode (electron/services/stage), which keeps its behaviour.
 
   // ---------------------------------------------------------------- downloads & screenshots
 
@@ -785,7 +795,9 @@ export class IslandService {
   private async pollAgents() {
     if (!settings().island.agents) return;
     const prev = new Map(this.agents.map((a) => [a.id, a.state]));
-    const next = await scanAgentSessions();
+    // Claude Code and Codex from their transcripts; Cursor-like editors, Gemini-style CLIs and any hooked agent from core/island-agents.ts.
+    const order: Record<string, number> = { waiting: 0, stuck: 1, working: 2, done: 3, idle: 4 };
+    const next = [...(await scanAgentSessions()), ...(await scanMoreAgents().catch(() => []))].sort((a, b) => order[a.state] - order[b.state] || b.updatedAt - a.updatedAt);
     let changed = next.length !== this.agents.length;
     for (const a of next) {
       const was = prev.get(a.id);
@@ -821,12 +833,12 @@ export class IslandService {
     if (key !== this.lastTrack) {
       this.lastTrack = key;
       this.lyrics = undefined;
-      if (np && settings().island.lyrics) this.lyrics = await lyricsFor(np);
+      if (np && settings().island.lyrics && lyricsOn(np.app, settings().island.lyricsOffApps)) this.lyrics = await lyricsFor(np);
     }
     if (changed) this.emit();
   }
 
-  async media(action: 'toggle' | 'next' | 'previous' | 'seek', value?: number) {
+  async media(action: 'toggle' | 'next' | 'previous' | 'seek' | 'shuffle' | 'repeat', value?: number) {
     await mediaAction(this.playing?.app, action, value);
     setTimeout(() => void this.pollMedia(), 300);
   }
@@ -883,34 +895,10 @@ export class IslandService {
     return this.weather;
   }
 
-  // ---------------------------------------------------------------- dictation
-
-  /** Sends recorded audio to an OpenAI-compatible transcription endpoint chosen by the user. */
-  async transcribe(audio: ArrayBuffer, mime: string): Promise<string> {
-    const s = settings().island;
-    const key = await getSecret('dictation');
-    if (!key && !/localhost|127\.0\.0\.1/.test(s.dictationUrl)) throw new Error('Add a speech-to-text key in Island settings');
-    const form = new FormData();
-    form.append('file', new Blob([audio], { type: mime }), `speech.${mime.includes('ogg') ? 'ogg' : mime.includes('mp4') ? 'm4a' : 'webm'}`);
-    form.append('model', s.dictationModel);
-    form.append('response_format', 'json');
-    const res = await fetch(s.dictationUrl, { method: 'POST', headers: key ? { authorization: `Bearer ${key}` } : {}, body: form });
-    if (!res.ok) throw new Error(`Speech service returned ${res.status}`);
-    const data = (await res.json()) as { text?: string };
-    return (data.text ?? '').trim();
-  }
-
-  /** Types text at the cursor in whatever app is in front, by pasting it. */
-  async typeText(text: string) {
-    if (!text) return;
-    const before = await readText();
-    await writeText(text);
+  // Dictation moved to electron/services/voice (VOICE). It pastes through the
+  // clipboard too; this keeps those writes out of the clipboard history.
+  ignoreClip(text: string) {
     this.lastClip = text;
-    await pasteKeystroke();
-    setTimeout(() => {
-      void writeText(before);
-      this.lastClip = before;
-    }, 800);
   }
 }
 

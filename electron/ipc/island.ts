@@ -1,20 +1,18 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The Island's windows (one per display when asked), the clipboard picker,
-// desktop widgets, their shortcuts and IPC.
+// their shortcuts and IPC. Desktop widgets live in ./widgets.ts.
 
-import { featureOn } from '../services/features';
 import { app, BrowserWindow, dialog, globalShortcut, ipcMain, powerMonitor, screen, type WebContents } from 'electron';
 import { promises as fsp } from 'node:fs';
 import path from 'node:path';
 import type { ShelfAction } from '../../core/api';
 import { kindOf } from '../../core/classify';
 import type { FileIndex } from '../../core/indexer';
-import { normalizeWidgets, type WidgetConfig } from '../../core/widgets';
 import type { FileService } from '../services/files';
 import type { IslandService } from '../services/island';
 import { placementFor, placementPreview, refreshPlaceEnv, wantedDisplays } from '../services/island-place';
 import { onFrontAppChange } from '../services/fg-watch';
-import { settings, updateSettings } from '../store';
+import { settings } from '../store';
 
 export interface IslandContext {
   islandSvc: IslandService;
@@ -238,75 +236,6 @@ function hideClips() {
 
 export const clipsWindowOpen = () => !!clips && !clips.isDestroyed() && clips.isVisible();
 
-// ---------------------------------------------------------------- widgets
-
-const widgetWins = new Map<string, BrowserWindow>();
-const saveTimers = new Map<string, NodeJS.Timeout>();
-
-function widgetFor(sender: WebContents): string | undefined {
-  for (const [id, w] of widgetWins) if (!w.isDestroyed() && w.webContents === sender) return id;
-  return undefined;
-}
-
-function openWidget(cfg: WidgetConfig) {
-  const existing = widgetWins.get(cfg.id);
-  if (existing && !existing.isDestroyed()) {
-    existing.setMovable(!cfg.locked);
-    existing.setResizable(!cfg.locked);
-    existing.setVisibleOnAllWorkspaces(cfg.allWorkspaces);
-    existing.webContents.send('event:widgets-changed');
-    return;
-  }
-  const win = new BrowserWindow({
-    ...cfg.bounds, frame: false, transparent: true, resizable: !cfg.locked, movable: !cfg.locked, skipTaskbar: true, alwaysOnTop: false,
-    minimizable: false, maximizable: false, fullscreenable: false, hasShadow: false, show: false, backgroundColor: '#00000000',
-    // On Linux a desktop-type window sits under ordinary windows, like a real desktop widget.
-    type: process.platform === 'linux' ? 'desktop' : undefined,
-    webPreferences: { preload: ctx.preload, contextIsolation: true, sandbox: true },
-  });
-  win.setVisibleOnAllWorkspaces(cfg.allWorkspaces);
-  ctx.lockDown(win);
-  loadView(win, { view: 'widget', id: cfg.id });
-  win.once('ready-to-show', () => win.showInactive());
-  const remember = () => {
-    clearTimeout(saveTimers.get(cfg.id));
-    saveTimers.set(cfg.id, setTimeout(() => {
-      if (win.isDestroyed()) return;
-      const b = win.getBounds();
-      const list = normalizeWidgets(settings().widgets).map((w) => (w.id === cfg.id ? { ...w, bounds: b } : w));
-      void updateSettings({ widgets: list });
-    }, 500));
-  };
-  win.on('moved', remember);
-  win.on('resized', remember);
-  win.on('closed', () => widgetWins.delete(cfg.id));
-  widgetWins.set(cfg.id, win);
-}
-
-/** Opens, updates and closes widget windows to match settings. */
-export function syncWidgets() {
-  // Desktop widgets switched off in Settings → Features: every widget window closes.
-  const list = featureOn('widgets') ? normalizeWidgets(settings().widgets) : [];
-  for (const [id, w] of widgetWins) {
-    if (!list.some((x) => x.id === id)) {
-      if (!w.isDestroyed()) w.destroy();
-      widgetWins.delete(id);
-    }
-  }
-  for (const cfg of list) openWidget(cfg);
-}
-
-export const widgetWindowCount = () => widgetWins.size;
-
-async function photosIn(folder: string): Promise<string[]> {
-  try {
-    const names = await fsp.readdir(folder);
-    return names.filter((n) => !n.startsWith('.') && kindOf(n) === 'image' && !/\.(svg|ico|icns|psd|xcf)$/i.test(n)).slice(0, 500).map((n) => path.join(folder, n));
-  } catch {
-    return [];
-  }
-}
-
 // ---------------------------------------------------------------- IPC & shortcuts
 
 export function registerIslandIpc(c: IslandContext) {
@@ -377,27 +306,6 @@ export function registerIslandIpc(c: IslandContext) {
   h('island.setBrightness', (id: string, v: number) => svc.setBrightness(id, v));
   h('island.refreshDevices', () => svc.refreshDevices());
   h('island.awakeStatus', () => svc.awakeStatus());
-
-  h('widgets.list', () => normalizeWidgets(settings().widgets));
-  h('widgets.save', async (w: WidgetConfig) => {
-    const list = normalizeWidgets(settings().widgets);
-    const next = list.some((x) => x.id === w.id) ? list.map((x) => (x.id === w.id ? w : x)) : [...list, w];
-    const saved = normalizeWidgets((await updateSettings({ widgets: next })).widgets);
-    syncWidgets();
-    c.broadcast('widgets-changed');
-    return saved;
-  });
-  h('widgets.remove', async (id: string) => {
-    const saved = normalizeWidgets((await updateSettings({ widgets: normalizeWidgets(settings().widgets).filter((w) => w.id !== id) })).widgets);
-    syncWidgets();
-    c.broadcast('widgets-changed');
-    return saved;
-  });
-  h('widgets.photos', (folder: string) => photosIn(folder));
-  ipcMain.handle('widgets.current', (e) => {
-    const id = widgetFor(e.sender);
-    return normalizeWidgets(settings().widgets).find((w) => w.id === id) ?? null;
-  });
 
   // Time left on a keep-awake session, next to the menu-bar icon (macOS).
   if (process.platform === 'darwin') {

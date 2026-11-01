@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
-// Brightness, contrast and volume of external displays over DDC/CI, on every OS:
+// Brightness, contrast, volume and input source of external displays over DDC/CI, on every OS:
 // Windows through the Monitor Configuration API (dxva2), macOS through
 // keeper-helper (IOAVService on Apple silicon) or m1ddc/ddcctl when installed,
 // Linux through ddcutil. Nothing runs until the tool is opened.
 
 import { existsSync } from 'node:fs';
 import { powershell, run } from '../../core/platform';
-import { ddcctlFlag, fromPercent, m1ddcName, parseDdcutilBrief, parseDdcutilDetect, toPercent, VCP, type DisplayControl, type DisplayInfo } from '../../core/display-control';
+import { COMMON_INPUTS, ddcctlFlag, fromPercent, inputLabel, inputsFromCapabilities, inputsFromDdcutilCapabilities, m1ddcName, parseDdcutilBrief, parseDdcutilDetect, parseDdcutilInput, toPercent, VCP, VCP_INPUT, type DisplayControl, type DisplayInfo } from '../../core/display-control';
 import { macHelperCall } from './platform/mac';
 
 const isMac = process.platform === 'darwin';
@@ -24,6 +24,8 @@ public class KeeperVcp {
   [DllImport("dxva2.dll")] static extern bool GetPhysicalMonitorsFromHMONITOR(IntPtr m, uint n, [Out] PM[] a);
   [DllImport("dxva2.dll")] static extern bool GetVCPFeatureAndVCPFeatureReply(IntPtr h, byte code, IntPtr t, out uint cur, out uint max);
   [DllImport("dxva2.dll")] static extern bool SetVCPFeature(IntPtr h, byte code, uint v);
+  [DllImport("dxva2.dll")] static extern bool GetCapabilitiesStringLength(IntPtr h, out uint n);
+  [DllImport("dxva2.dll", CharSet=CharSet.Ansi)] static extern bool CapabilitiesRequestAndCapabilitiesReply(IntPtr h, System.Text.StringBuilder s, uint n);
   static List<PM> All() {
     var list = new List<PM>();
     EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, (m, dc, r, p) => { uint n; if (GetNumberOfPhysicalMonitorsFromHMONITOR(m, out n) && n > 0) { var a = new PM[n]; if (GetPhysicalMonitorsFromHMONITOR(m, n, a)) list.AddRange(a); } return true; }, IntPtr.Zero);
@@ -31,6 +33,9 @@ public class KeeperVcp {
   }
   static string One(IntPtr h, byte c) { uint cur, max; return GetVCPFeatureAndVCPFeatureReply(h, c, IntPtr.Zero, out cur, out max) ? cur + "/" + max : ""; }
   public static string List() { var s = ""; int i = 0; foreach (var m in All()) { s += i + "\\t" + m.d + "\\t" + One(m.h, 0x10) + "\\t" + One(m.h, 0x12) + "\\t" + One(m.h, 0x62) + "\\n"; i++; } return s; }
+  public static string Caps(int i) { var a = All(); if (i >= a.Count) return ""; uint n; if (!GetCapabilitiesStringLength(a[i].h, out n)) return ""; var sb = new System.Text.StringBuilder((int)n + 1); return CapabilitiesRequestAndCapabilitiesReply(a[i].h, sb, n) ? sb.ToString() : ""; }
+  public static string Raw(int i, byte code) { var a = All(); if (i >= a.Count) return ""; uint cur, max; return GetVCPFeatureAndVCPFeatureReply(a[i].h, code, IntPtr.Zero, out cur, out max) ? cur.ToString() : ""; }
+  public static string SetRaw(int i, byte code, uint v) { var a = All(); if (i >= a.Count) return "no display"; return SetVCPFeature(a[i].h, code, v) ? "ok" : "refused"; }
   public static string Set(int i, byte code, uint pct) { var a = All(); if (i >= a.Count) return "no display"; uint cur, max; if (!GetVCPFeatureAndVCPFeatureReply(a[i].h, code, IntPtr.Zero, out cur, out max)) max = 100; return SetVCPFeature(a[i].h, code, (uint)Math.Round(pct * max / 100.0)) ? "ok" : "refused"; }
 }
 '@
@@ -121,6 +126,56 @@ export async function setDisplay(id: string, control: DisplayControl, pct: numbe
   } else if (kind === 'ddcutil') {
     const cur = parseDdcutilBrief((await run('ddcutil', ['--display', n, 'getvcp', VCP[control].toString(16), '--brief'], 8000)).stdout);
     const r = await run('ddcutil', ['--display', n, 'setvcp', VCP[control].toString(16), String(fromPercent(v, cur?.max ?? 100))], 15_000);
+    if (!r.ok) throw new Error('The display did not accept the change');
+  } else throw new Error('Unknown display');
+}
+
+// ---------------------------------------------------------------- input sources (Stage owns this part)
+
+export interface DisplayInputs { current?: number; inputs: { code: number; label: string }[]; note?: string }
+
+const asList = (codes: number[]) => codes.map((code) => ({ code, label: inputLabel(code) }));
+
+/** The input sources a display offers (from its capabilities where it lists them) and the one in use. */
+export async function listInputs(id: string): Promise<DisplayInputs> {
+  const [kind, n] = id.split(':');
+  if (kind === 'win') {
+    const r = await powershell(`${WIN}; [KeeperVcp]::Caps(${+n}); '---'; [KeeperVcp]::Raw(${+n}, ${VCP_INPUT})`, 30_000);
+    const [caps, cur] = r.stdout.split('---');
+    const codes = inputsFromCapabilities(caps ?? '');
+    const c = Number((cur ?? '').trim());
+    return { current: Number.isFinite(c) && (cur ?? '').trim() ? c & 0xff : undefined, inputs: asList(codes.length ? codes : COMMON_INPUTS), note: codes.length ? undefined : 'This display does not list its inputs; these are the usual ones.' };
+  }
+  if (kind === 'ddcutil') {
+    const caps = await run('ddcutil', ['--display', n, 'capabilities'], 20_000);
+    const codes = inputsFromDdcutilCapabilities(caps.stdout);
+    const cur = parseDdcutilInput((await run('ddcutil', ['--display', n, 'getvcp', '60', '--brief'], 8000)).stdout);
+    return { current: cur, inputs: asList(codes.length ? codes : COMMON_INPUTS), note: codes.length ? undefined : 'This display does not list its inputs; these are the usual ones.' };
+  }
+  if (kind === 'kh') {
+    const v = await macHelperCall<{ value: number }>('ddc.get', { display: +n, control: 'input' }, 5000).catch(() => null);
+    return { current: v ? v.value & 0xff : undefined, inputs: asList(COMMON_INPUTS), note: 'macOS cannot read the list of inputs; these are the usual ones.' };
+  }
+  if (kind === 'm1ddc' || kind === 'ddcctl') return { inputs: asList(COMMON_INPUTS), note: 'These are the usual inputs.' };
+  throw new Error('Unknown display');
+}
+
+/** Switches a display to another input source. The display may go dark if nothing is plugged into it. */
+export async function setInput(id: string, code: number): Promise<void> {
+  const v = Math.max(1, Math.min(255, Math.round(code)));
+  const [kind, n] = id.split(':');
+  if (kind === 'win') {
+    const r = await powershell(`${WIN}; [KeeperVcp]::SetRaw(${+n}, ${VCP_INPUT}, ${v})`, 25_000);
+    if (!/ok/.test(r.stdout)) throw new Error('The display did not accept the change');
+  } else if (kind === 'kh') {
+    await macHelperCall('ddc.set', { display: +n, control: 'input', value: v }, 8000);
+  } else if (kind === 'm1ddc') {
+    const r = await run(macTool()!, ['display', n, 'set', 'input', String(v)], 8000);
+    if (!r.ok) throw new Error('The display did not accept the change');
+  } else if (kind === 'ddcctl') {
+    await run(macTool()!, ['-d', n, '-i', String(v)], 8000);
+  } else if (kind === 'ddcutil') {
+    const r = await run('ddcutil', ['--display', n, 'setvcp', '60', `0x${v.toString(16)}`], 15_000);
     if (!r.ok) throw new Error('The display did not accept the change');
   } else throw new Error('Unknown display');
 }

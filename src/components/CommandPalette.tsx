@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The command palette: jump anywhere or run any action by typing a few letters.
 
+import { accessCommands } from '../screen/palette';
 import { FLOWS } from '../../core/guide/builtin';
 import { openGuide } from '../guide';
 import { useCommandFilter } from '../features';
@@ -12,7 +13,11 @@ import { themePatch, toggleThemePatch } from '../theme';
 import { mod, shift, useStore, type Route } from '../state';
 import { Icon } from './Icon';
 import { CATALOG } from '../../core/settings-catalog';
+import { useTracksCommands } from '../screens/TracksSurfaces';
 import '../styles/screens-a.css';
+import { useMeshCommands } from '../screens/MeshParts';
+import { useAmbienceCommands } from '../wallpaper/palette';
+import { useVoiceCommands } from '../voice/palette';
 
 interface Command {
   id: string;
@@ -56,6 +61,7 @@ export function fuzzyScore(text: string, query: string): number {
 
 const PAGES: [Route, string, string, string?][] = [
   [{ name: 'home' }, 'Home', 'home'],
+  [{ name: 'cues' }, 'Cues', 'pin'],
   [{ name: 'recents' }, 'Recents', 'clock'],
   [{ name: 'downloads' }, 'Downloaded From', 'down', `${shift}${mod}J`],
   [{ name: 'library', arg: 'image' }, 'Images', 'image'],
@@ -93,7 +99,25 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
   const [index, setIndex] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
 
+  const meshCmds = useMeshCommands(store.toast, store.go);
+  const ambienceCmds = useAmbienceCommands(store.toast, store.go);
+  const voiceCmds = useVoiceCommands(store.toast, store.go);
+  // Remote Desktops: Quick Connect and each saved connection (when Remote Desktops → Where it appears allows it).
+  const [rdc, setRdc] = useState<{ id: string; name: string; protocol: string }[] | null>(null);
+  useEffect(() => {
+    void Promise.all([api.rdc?.places(), api.rdc?.state()]).then(([p, s]) => setRdc(p?.palette && s ? s.connections.map((c) => ({ id: c.id, name: c.name, protocol: c.protocol })) : null)).catch(() => undefined);
+  }, []);
+  // Places & Tracks: "Where is my laptop?" for each device, item and person (its settings can leave these out).
+  const tracksCommands = useTracksCommands(store.go);
   const commands = useMemo<Command[]>(() => [
+    ...(rdc ? [
+      { id: 'rdc-quick', label: 'Quick Connect to a Remote Desktop…', group: 'Actions' as const, icon: 'laptop', keywords: 'rdp vnc ssh remote desktop connect', run: () => void api.rdc.showQuick() },
+      ...rdc.map((c) => ({ id: `rdc-${c.id}`, label: `Connect to ${c.name}`, group: 'Actions' as const, icon: 'laptop', typed: true, keywords: `remote desktop ${c.protocol}`, run: () => store.tabs.open({ name: 'rdc', q: `connect:${c.id}` }) })),
+    ] : []),
+    // Keeper Mesh: copy a device's address, on/off, exit node (as placed under Settings → Keeper Mesh).
+    ...meshCmds,
+    ...ambienceCmds,
+    ...voiceCmds,
     ...PAGES.map(([route, label, icon, kbd]) => ({ id: `go-${label}`, label, group: 'Go to' as const, icon, kbd, route: route.name, run: () => store.go(route) })),
     { id: 'browse', label: 'Browse Home Folder', group: 'Go to', icon: 'folder', run: () => store.go({ name: 'browse', arg: store.info?.home }) },
     { id: 'rescan', label: 'Rescan Library', group: 'Actions', icon: 'refresh', keywords: 'index refresh reload', run: async () => { await api.library.rescan(); store.toast('Reading your folders…'); } },
@@ -112,10 +136,14 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     { id: 'appearance', label: 'Toggle Dark Mode', group: 'Actions', icon: 'moon', keywords: 'theme light appearance', run: () => store.settings && store.updateSettings({ appearance: store.settings.appearance === 'dark' ? 'light' : 'dark' }) },
     { id: 'view', label: store.view === 'grid' ? 'Show as List' : 'Show as Grid', group: 'Actions', icon: store.view === 'grid' ? 'list' : 'grid', kbd: store.view === 'grid' ? `${mod}2` : `${mod}1`, run: () => store.setView(store.view === 'grid' ? 'list' : 'grid') },
     { id: 'inspector', label: store.inspector ? 'Hide Inspector' : 'Show Inspector', group: 'Actions', icon: 'info', kbd: `${mod}I`, run: () => store.setInspector(!store.inspector) },
+    // Cues: a new cue for the app or page in front (the composer pops up beside it).
+    { id: 'cue-new', label: 'New Cue for What’s in Front…', group: 'Actions', icon: 'pin', keywords: 'cue remind reminder note checklist app page site when back later', run: () => void api.cues?.compose({ attach: ['page', 'app'] }) },
     { id: 'awake', label: 'Keep Awake for 1 Hour', group: 'Actions', icon: 'coffee', keywords: 'caffeine sleep stay awake', run: async () => { await api.island.keepAwake(true, { minutes: 60 }); store.toast('Staying awake for the next hour'); } },
     { id: 'awake-off', label: 'Allow Sleep Again', group: 'Actions', icon: 'moon', keywords: 'keep awake stop', run: async () => { await api.island.keepAwake(false); store.toast('Your computer can sleep again'); } },
     { id: 'awake-toggle', label: 'Turn Keep Awake On or Off', group: 'Actions', icon: 'coffee', keywords: 'caffeine sleep stay awake toggle insomnia', run: async () => { const s = await api.awake.toggle(); store.toast(s.on ? 'Keeping awake until you turn it off' : 'Your computer can sleep again'); } },
     ...(store.settings?.awake?.quick ?? []).filter((m) => m !== 60).map((m) => ({ id: `awake-${m}`, label: `Keep Awake for ${m >= 60 ? `${m / 60} Hour${m === 60 ? '' : 's'}` : `${m} Minutes`}`, group: 'Actions' as const, icon: 'coffee', typed: true, keywords: 'caffeine sleep stay awake', run: async () => { await api.awake.start({ minutes: m }); store.toast(`Staying awake for ${m >= 60 ? `${m / 60} h` : `${m} min`}`); } })),
+    // Keeper Link: Get help, Help someone, your devices (places chosen under Devices → Remote Access).
+    ...accessCommands(store),
     // Monorail (Settings → Ashforde apps); hidden unless that feature is on.
     ...(() => {
       const mono = (kind: string, arg?: string | number | boolean, done?: string) => async () => { const r = await api.ashforde.action(kind, arg); store.toast(r.ok ? (done ?? 'Done') : (r.message ?? 'Monorail did not answer')); };
@@ -143,6 +171,12 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     } },
     { id: 'focus', label: 'Start a 25-Minute Focus', group: 'Actions', icon: 'timer', keywords: 'pomodoro timer', run: async () => { await api.island.focus('start', 25); store.toast('Focus started — see you in 25 minutes'); } },
     { id: 'focus-stop', label: 'Stop Focus Timer', group: 'Actions', icon: 'timer', run: async () => { await api.island.focus('stop'); } },
+    // Stage mode: a clean screen (presets from the Stage page).
+    { id: 'stage-recording', label: 'Stage: Recording', group: 'Actions', icon: 'video', keywords: 'clean screen record hide desktop dock do not disturb spotlight keystrokes', run: async () => { const r = await api.stage.start('recording'); store.toast(r.on || r.countdownEndsAt ? 'Stage: Recording' : 'Stage could not start'); } },
+    { id: 'stage-presenting', label: 'Stage: Presenting', group: 'Actions', icon: 'eye', keywords: 'clean screen present slides talk do not disturb', run: async () => { await api.stage.start('presenting'); store.toast('Stage: Presenting'); } },
+    { id: 'stage-screenshot', label: 'Stage: Screenshot', group: 'Actions', icon: 'screenshot', keywords: 'clean screen screenshot hide desktop dock menu bar backdrop', run: async () => { await api.stage.start('screenshot'); store.toast('Stage: Screenshot'); } },
+    { id: 'stage-stop', label: 'Stop Stage and Put Everything Back', group: 'Actions', icon: 'eyeOff', keywords: 'stage end clean screen restore', run: async () => { await api.stage.stop(); store.toast('Stage is off; everything is back'); } },
+    { id: 'stage-page', label: 'Stage', group: 'Go to', icon: 'eye', keywords: 'clean screen recording presenting screenshot presets spotlight keystrokes monitor input display keys', run: () => store.go({ name: 'stage' }) },
     { id: 'present', label: 'Presentation Mode', group: 'Actions', icon: 'eye', keywords: 'hide desktop do not disturb', run: async () => { const on = await api.island.presentation(true); store.toast(on ? 'Presentation mode on' : 'Presentation mode is not available here'); } },
     { id: 'present-off', label: 'End Presentation Mode', group: 'Actions', icon: 'eye', run: async () => { await api.island.presentation(false); } },
     { id: 'firewall', label: 'Firewall', group: 'Go to', icon: 'shield', keywords: 'network block allow rules connections outgoing incoming', run: () => store.go({ name: 'firewall' }) },
@@ -159,6 +193,15 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     { id: 'controls-wifi', label: 'Turn Wi-Fi On or Off', group: 'Actions', icon: 'globe', keywords: 'wireless radio network', run: () => store.go({ name: 'controls', q: 'wi-fi' }) },
     { id: 'firewall-map', label: 'Network Map', group: 'Go to', icon: 'globe', keywords: 'world map connections countries servers', run: () => store.go({ name: 'firewall', arg: 'connections' }) },
     { id: 'force-quit', label: 'Force Quit Applications…', group: 'Actions', icon: 'warning', kbd: mod === '⌘' ? '⌥⌘⎋' : 'Ctrl+Alt+Esc', keywords: 'kill end task frozen not responding hung', run: () => window.dispatchEvent(new Event('keeper:force-quit-anywhere')) },
+    // System monitor.
+    { id: 'health-history', label: 'Health History', group: 'Go to', icon: 'clock', keywords: 'cpu memory network disk graph chart year over time peaks', run: () => store.go({ name: 'health', arg: 'history' }) },
+    { id: 'dev-servers', label: 'Dev Servers and Ports', group: 'Go to', icon: 'server', keywords: 'localhost port listening vite next project stop restart', run: () => store.go({ name: 'health', arg: 'dev' }) },
+    { id: 'agents-running', label: 'Running AI Agents', group: 'Go to', icon: 'agent', keywords: 'coding agent cli model server ollama quit session', run: () => store.go({ name: 'health', arg: 'dev' }) },
+    { id: 'sensors', label: 'Graphics, Fans and Power', group: 'Go to', icon: 'sun', keywords: 'gpu temperature fan watts battery drain sensors', run: () => store.go({ name: 'health', arg: 'sensors' }) },
+    { id: 'monitor-tray', label: 'Menu-bar Readings…', group: 'Actions', icon: 'chart', keywords: 'tray menu bar cpu memory network live stats', run: () => store.go({ name: 'health', arg: 'settings' }) },
+    { id: 'containers', label: 'Containers', group: 'Go to', icon: 'server', keywords: 'docker podman stats images volumes stop restart', run: () => store.go({ name: 'health', arg: 'containers' }) },
+    { id: 'health-sound', label: 'Volume per App', group: 'Go to', icon: 'audio', keywords: 'mixer sound mute output device browser tabs memory energy app nap', run: () => store.go({ name: 'health', arg: 'apps' }) },
+    { id: 'launcher', label: 'Tool Launcher', group: 'Actions', icon: 'grid', keywords: 'tools find open window', run: () => void api.sysmon.openLauncher() },
     { id: 'eject', label: 'Eject All Disks', group: 'Actions', icon: 'arrowUp', keywords: 'unmount drives usb', run: async () => { const r = await api.system.ejectAll(); store.toast(r.ejected.length ? `Ejected ${r.ejected.join(', ')}` : 'No disks to eject'); } },
     { id: 'mail-compose', label: 'New Mail Message', group: 'Actions', icon: 'mail', keywords: 'email write compose send', run: () => store.go({ name: 'mail', arg: 'compose' }) },
     { id: 'mail-open', label: 'Mail', group: 'Go to', icon: 'mail', keywords: 'inbox email', run: () => store.go({ name: 'mail' }) },
@@ -168,7 +211,8 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     { id: 'alarm-new', label: 'Alarms', group: 'Go to', icon: 'alarm', keywords: 'wake clock alarm', run: () => store.go({ name: 'alarms', arg: 'alarms' }) },
     ...[5, 10, 25].map((m) => ({ id: `timer-${m}`, label: `Start a ${m}-Minute Timer`, group: 'Actions' as const, icon: 'timer', keywords: 'countdown kitchen', run: async () => { await api.pim.startTimer(`${m} min`, m * 60_000); store.toast(`Timer set for ${m} minutes`); } })),
     { id: 'shelf-clear', label: 'Clear the Shelf', group: 'Actions', icon: 'island', run: async () => { await api.island.clearShelf(); } },
-  ], [store]);
+    ...tracksCommands,
+  ], [store, meshCmds, ambienceCmds, voiceCmds, rdc, tracksCommands]);
 
   const allowed = useCommandFilter();
   const looksLikeSearch = text.trim().length > 1;

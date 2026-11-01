@@ -2,9 +2,9 @@
 // Moves this computer's pointer and presses its keys for a remote viewer that
 // is allowed to control it. Events arrive sanitised; this only runs them.
 //
-//   Linux    xdotool (XTest) on X11. Wayland does not let apps inject input
-//            without the RemoteDesktop portal, which needs a per-session
-//            permission dialog Keeper cannot show yet: view only there.
+//   Linux    xdotool (XTest) on X11. On Wayland, the RemoteDesktop portal
+//            (portal.ts): the system asks once, Keeper keeps the restore
+//            token; view only when the portal is missing or declined.
 //   Windows  a long-lived PowerShell host calling SendInput / SetCursorPos.
 //   macOS    keeper-helper's CGEvent methods (needs Accessibility permission).
 
@@ -14,6 +14,7 @@ import { coalesce } from '../../../core/screen/input';
 import { macCalls, winLines, WIN_INPUT_HOST, xdotoolBatches } from '../../../core/screen/inject';
 import type { HostDisplay, InputEvent } from '../../../core/screen/types';
 import { run } from '../../../core/platform';
+import { PortalInjector, usePortal } from './portal';
 
 export interface InjectorStatus {
   available: boolean;
@@ -27,6 +28,8 @@ export interface Injector {
   status(): Promise<InjectorStatus>;
   send(events: InputEvent[], display: HostDisplay): void;
   stop(): void;
+  /** Windows: block this computer's own keyboard and mouse during control (BlockInput); false when not possible */
+  block?(on: boolean): Promise<boolean>;
 }
 
 class XdotoolInjector implements Injector {
@@ -98,9 +101,17 @@ class WindowsInjector implements Injector {
   }
 
   stop() {
+    void this.block(false);
     this.ps?.stdin.end();
     this.ps?.kill();
     this.ps = null;
+  }
+
+  /** BlockInput works only from an elevated process (or the unattended service); it says so when it fails. */
+  async block(on: boolean): Promise<boolean> {
+    const script = `Add-Type -Namespace K -Name B -MemberDefinition '[DllImport("user32.dll")] public static extern bool BlockInput(bool b);'; if ([K.B]::BlockInput($${on ? 'true' : 'false'})) { 'ok' } else { 'no' }`;
+    const r = await run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], 8000);
+    return r.ok && r.stdout.trim() === 'ok';
   }
 }
 
@@ -159,6 +170,7 @@ class NoInjector implements Injector {
 let inj: Injector | null = null;
 
 export function injector(): Injector {
+  if (!inj && usePortal()) inj = new PortalInjector();
   inj ??= process.platform === 'linux' ? new XdotoolInjector() : process.platform === 'win32' ? new WindowsInjector() : process.platform === 'darwin' ? new MacInjector() : new NoInjector();
   return inj;
 }

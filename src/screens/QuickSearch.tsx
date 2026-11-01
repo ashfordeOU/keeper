@@ -4,6 +4,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { formatBytes, relativeTime } from '../../core/format';
 import type { FileEntry, ParsedQuery } from '../../core/types';
+import type { Cue } from '../../core/cues/model';
+import { describeAnchor } from '../../core/cues/model';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
 import { Thumb } from '../components/ui';
@@ -14,6 +16,8 @@ export function QuickSearch() {
   const [text, setText] = useState('');
   const [files, setFiles] = useState<FileEntry[]>([]);
   const [parsed, setParsed] = useState<ParsedQuery | null>(null);
+  // Cues matching the words (they are found by search too).
+  const [cues, setCues] = useState<Cue[]>([]);
   const [index, setIndex] = useState(0);
   // "ask" turns Enter into a question for Keeper's assistant; Tab switches.
   const [mode, setMode] = useState<'find' | 'ask'>('find');
@@ -36,8 +40,10 @@ export function QuickSearch() {
     const t = setTimeout(() => {
       if (!text.trim()) {
         void api.library.recent(8).then((r) => { if (alive) { setFiles(r); setParsed(null); } });
+        setCues([]);
       } else {
         void api.library.search(text, 30).then((r) => { if (alive) { setFiles(r.hits.map((h) => h.file)); setParsed(r.parsed); } });
+        void api.cues?.list({ q: text }).then((r) => { if (alive) setCues(r.slice(0, 3)); }).catch(() => undefined);
       }
     }, text ? 80 : 0);
     return () => { alive = false; clearTimeout(t); };
@@ -88,6 +94,21 @@ export function QuickSearch() {
             <Icon name="sparkle" size={18} />
             <div className="grow ellipsis" style={{ fontWeight: 550 }}>{text.trim() ? `Ask Keeper: “${text.trim()}”` : 'Type a question, for example “when does my passport expire?”'}</div>
           </div>
+        ) : null}
+        {mode === 'find' && cues.length ? (
+          <>
+            <div className="small muted" style={{ padding: '4px 10px' }}>Cues</div>
+            {cues.map((c) => (
+              <div key={c.id} className="q-row" data-testid="quick-cue" onClick={() => { void api.cues.openPage(c.id); window.close(); }}>
+                <div style={{ width: 30, height: 30, borderRadius: 7, background: 'var(--bg-sunk)', display: 'grid', placeItems: 'center', flex: 'none', color: '#ff9f0a' }}><Icon name="pin" size={16} /></div>
+                <div className="grow">
+                  <div className="ellipsis" style={{ fontWeight: 550 }}>{c.title}</div>
+                  <div className="small muted ellipsis">{c.anchors.map(describeAnchor).join(' · ') || c.body.split('\n')[0] || 'Cue'}</div>
+                </div>
+              </div>
+            ))}
+            <div className="small muted" style={{ padding: '4px 10px' }}>Files</div>
+          </>
         ) : null}
         {!text ? <div className="small muted" style={{ padding: '4px 10px' }}>Recent</div> : null}
         {files.map((f, i) => (

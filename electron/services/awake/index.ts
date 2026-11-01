@@ -343,6 +343,18 @@ export class AwakeService {
     return 'none';
   }
 
+  /**
+   * Do Not Disturb on its own, without a session (Stage mode uses this). Returns
+   * how it was done here, or a notice when it cannot be.
+   */
+  async focusOnly(on: boolean): Promise<{ how: AwakeStatus['supports']['focus']; notice?: string }> {
+    const how = this.focusSupport();
+    if (how === 'shortcuts' && !(on ? this.cfg.focusOnShortcut : this.cfg.focusOffShortcut)) return { how, notice: 'Pick the Shortcuts that turn Focus on and off on the Keep Awake page.' };
+    if (how === 'none') return { how, notice: 'This desktop has no Do Not Disturb switch Keeper can use.' };
+    await this.setFocus(on);
+    return { how };
+  }
+
   private async setFocus(on: boolean) {
     const kind = this.focusSupport();
     if (kind === 'shortcuts') {

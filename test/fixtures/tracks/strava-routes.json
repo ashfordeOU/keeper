@@ -1,0 +1,21 @@
+[
+ {
+  "athlete": {
+   "id": 134815
+  },
+  "description": "",
+  "distance": 12000.5,
+  "elevation_gain": 80.2,
+  "id": 3344556677,
+  "id_str": "3344556677",
+  "map": {
+   "id": "r3344",
+   "summary_polyline": "_p~iF~ps|U_ulLnnqC"
+  },
+  "name": "Old town loop",
+  "private": true,
+  "type": 2,
+  "sub_type": 4,
+  "created_at": "2026-04-01T10:00:00Z"
+ }
+]

@@ -23,7 +23,7 @@ import {
 } from '../../core/media-ops';
 import { collectFiles, untar, unzip, writeEntries, zip } from '../../core/zipwrite';
 import { lowerPriority } from './governor';
-import { LocalWhisper } from './whisper';
+import { sharedWhisper, type LocalWhisper } from './whisper';
 import { docKind, docxXmlPieces, htmlPieces, markdownPieces, subtitlePieces, textPieces, translatedName, type DocKind } from '../../core/translate-doc';
 import { adaptiveThreshold, findPage, quadSize, scaleQuad, warpPerspective, type Quad } from '../../core/scan';
 import type { SpeechOptions } from '../../core/convert-types';
@@ -453,7 +453,7 @@ export class Extra {
   private whisperEngine: LocalWhisper | null = null;
   /** The on-device speech model (created on first use; it unloads itself when idle). */
   get whisper(): LocalWhisper {
-    return (this.whisperEngine ??= new LocalWhisper(this.ctx.modelsDir, () => this.ff()));
+    return (this.whisperEngine ??= sharedWhisper(this.ctx.modelsDir, () => this.ff()));
   }
 
   /**

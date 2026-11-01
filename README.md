@@ -38,7 +38,7 @@ optional AI assistant — in one small app that never uploads your files.
 - [Everything Keeper does](#everything-keeper-does)
   - [Library and browsing](#library-and-browsing) · [Previews for every file](#previews-for-every-file) · [Plain-English search](#plain-english-search) · [Text in images](#text-in-images-and-on-screen) · [Downloaded From](#downloaded-from)
   - [Duplicates](#duplicates) · [Clean Up](#clean-up) · [Space Map](#space-map) · [Automations](#automations) · [History and undo](#history-and-undo)
-  - [Mail, calendar and clock](#mail-calendar-and-clock) · [Cloud & servers](#cloud--servers) · [Devices & remote access](#devices--remote-access) · [Remote screens and phones](#remote-screens-and-phones) · [The Island](#the-island) · [Locked folders](#locked-folders) · [Themes](#themes) · [Quick Search, tray and deep links](#quick-search-tray-and-deep-links) · [Works with your computer](#works-with-your-computer) · [Ashforde apps: Monorail](#ashforde-apps-monorail) · [Toolbox](#toolbox) · [Terminal](#terminal) · [System](#system) · [Keep Awake](#keep-awake) · [Network Activity and VPN](#network-activity-and-vpn) · [Notes](#notes) · [Keeper's brain](#keepers-brain) · [Agents and the knowledge graph](#agents-and-the-knowledge-graph) · [Abilities for every AI](#abilities-for-every-ai) · [Assistant](#assistant)
+  - [Mail, calendar and clock](#mail-calendar-and-clock) · [Cloud & servers](#cloud--servers) · [Devices & remote access](#devices--remote-access) · [Remote screens and phones](#remote-screens-and-phones) · [The Island](#the-island) · [Locked folders](#locked-folders) · [Themes](#themes) · [Quick Search, tray and deep links](#quick-search-tray-and-deep-links) · [Works with your computer](#works-with-your-computer) · [Ashforde apps: Monorail](#ashforde-apps-monorail) · [Toolbox](#toolbox) · [Terminal](#terminal) · [System](#system) · [Keep Awake](#keep-awake) · [Stage](#stage) · [Network Activity and VPN](#network-activity-and-vpn) · [Notes](#notes) · [Keeper's brain](#keepers-brain) · [Agents and the knowledge graph](#agents-and-the-knowledge-graph) · [Abilities for every AI](#abilities-for-every-ai) · [Assistant](#assistant)
   - [Command line](#command-line)
 - [Keyboard shortcuts](#keyboard-shortcuts)
 - [Keeper compared with your system file manager](#keeper-compared-with-your-system-file-manager)
@@ -218,6 +218,9 @@ Your mail, calendars, to-dos, alarms and timers, in Keeper. Each part can be swi
 - **Clock**: alarms, several timers (shown in the Island), a stopwatch and world clocks. A computer that was asleep rings a missed alarm late, once, when it wakes; a Mac can be asked to wake for an alarm.
 - Passwords and sign-in tokens are kept in the system keychain. Google and Microsoft sign-in need app IDs registered by whoever builds Keeper; without them, an app password works. Details, and exactly what was tested: [docs/PIM.md](docs/PIM.md).
 
+### Places & Tracks
+A private timeline of where your things, people and activities have been, on this computer and encrypted. Import GPX, KML/KMZ, GeoJSON, TCX and FIT files, your Google Timeline export (on-device or Takeout), an Apple Health export and photos with GPS; watch a folder for new watch files; connect Strava, Polar or Fitbit with your own app keys; receive live positions from OwnTracks (HTTP or MQTT), GPS trackers and your own Traccar server. Day, week, month and year views with stays and moves, trips built by themselves (day by day, map, distances, countries, bookings from mail and calendar), activities with charts, records, a heatmap and compare, and a map with online tiles or an offline outline. Privacy zones keep home and work out of exports; one switch deletes everything. Also in the palette ("Where is my laptop?"), the tray, the Island ("Arriving…") and "Show on Map" in the file browser. See [docs/TRACKS.md](docs/TRACKS.md).
+
 ### Cloud & servers
 
 Your cloud storage, servers, home servers, NAS boxes and the other computers in the house, browsed like the folders on your own disk. Everything lives in the **Cloud & Servers** sidebar section.
@@ -251,6 +254,18 @@ More detail, including what was tested and what needs a real account to try: [do
 
 How it works, the security design, how to run a relay, and what was and was not tested: [docs/LINK.md](docs/LINK.md).
 
+### Keeper Mesh
+
+A private IP network between your paired devices, built on WireGuard®. It is off by default (Settings → Features).
+
+- **Every app** can reach your devices by address or by name (`laptop.keeper`), not just Keeper.
+- **No Keeper server:** keys are exchanged and signed over Keeper Link.
+- **Paths:** paths are found by hole punching, with the Keeper Relay as a blind fallback. Each device shows *Direct (LAN)*, *Direct (internet)* or *Relayed*.
+- **Exit node, shared subnets and access rules:** an exit node has a kill switch. You can share a subnet (a NAS network). Guests get only the ports you allow. There can be more than one network (Home, Work).
+- **Where the controls appear:** on the tray, the Island, the command palette and the Mesh page; you choose which, in Settings. There is also `keeper mesh …` on the command line.
+
+See [docs/MESH.md](docs/MESH.md) for the design, what each system asks for, and what was tested. “WireGuard” is a registered trademark of Jason A. Donenfeld.
+
 ### Remote screens and phones
 
 On top of Keeper Link, your devices can see and use each other's screens — no separate remote-desktop service, account or server.
@@ -262,11 +277,29 @@ On top of Keeper Link, your devices can see and use each other's screens — no 
 - **Control on each system**: Linux uses XTest (`xdotool`) on X11 — on Wayland the screen can be watched but not controlled; Windows uses SendInput; macOS uses the Keeper helper (CGEvent) and needs Accessibility and Screen Recording permission.
 - **Wake-on-LAN**: Keeper learns each paired computer's network card while it is awake; *Wake* sends the magic packet from here and through every other awake device.
 - **Your phone as a viewer and remote**: the phone page (*Devices → Phone*) has a **Screen** tab: watch the computer, tap where you want to click or use it as a touchpad (two fingers scroll, a long press right-clicks), arrow keys for presentations, media and volume keys, and typing. The computer asks first, and shows the same banner.
+- **Direct between your devices**: when two devices meet through a relay or tunnel, Keeper punches a direct path and moves files, ports, terminals and screens onto it without dropping anything, and back again if it stops. The device page says *Direct*.
+- **Help mode** (off until you switch it on): someone who is not paired reads you a 9-digit code and a password; you see their screen, they choose whether you may use it, and nothing is kept afterwards. A helper can also use a web browser.
+- **Your devices at a glance**: groups, tags, notes, search, last seen, lock / sleep / restart, a system snapshot, a terminal on another device, saved commands (with the *Run commands* permission, off by default; the owner sees each new command once), printing there, and an exportable log of everything remote.
+- **More in a session**: all screens or one window, follow the pointer, sound, voice chat, drawing on their screen, darkening it, a file panel, a second viewer, switching sides, restart and reconnect, codec choice and sharp text, and several screens in Keeper tabs.
+- **Unattended access** (opt-in): a small system service keeps your own computers reachable after a restart and before login.
+- **Everywhere, not just this page**: Get help, Help someone, your devices and live sessions (with Stop) in the tray, on the Island and in the palette; *Send to Device* in the right-click menu. Choose the places under *Devices → Remote Access*.
+- **From the command line**: `keeper remote list | connect | help | exec <device> -- <cmd> | ssh-proxy | wake | send | forward | screenshot`, including `ssh -o ProxyCommand="keeper remote ssh-proxy %h" you@device`.
 - **Android on this screen**: show and use an Android phone or tablet in its own window over USB or Wi-Fi (wireless debugging pairing built in), with view-only, screen-off and recording options; drop files on it (apps are installed, the rest goes to Download). Uses [scrcpy](https://github.com/Genymobile/scrcpy) (Apache-2.0), downloaded once and checked against its published SHA-256.
 - **iPhone and iPad on this screen**: iOS allows showing its screen through AirPlay but never being controlled. On a Mac, Keeper opens the built-in AirPlay Receiver setting; on Linux it starts [UxPlay](https://github.com/FDH2/UxPlay) (GPL-3.0, a separate program from your package manager); on Windows UxPlay has to be installed by hand first.
 - **Send to Device…** in every file's right-click menu sends to a paired computer or a connected Android phone; transfers show their progress in the Island.
 
 Details, the security design and what was tested on which system: [docs/REMOTE.md](docs/REMOTE.md).
+
+### Remote Desktops
+
+Your other computers by any protocol, from one list (**Remote Desktops** in the sidebar), a quick-connect box (`Ctrl/⌘+Alt+R` from anywhere), the command palette, the tray menu, `.rdp`/`.vnc` files in the file manager, or `keeper rdc` in any terminal.
+
+- **VNC drawn by Keeper** in a tab (or a window of its own): fit or 100 %, view only, clipboard, Ctrl+Alt+Del and other special keys. **Web consoles** (iDRAC, IPMI, Proxmox) open in a tab too, with a per-console certificate pin.
+- **SSH, Mosh, Telnet, serial and PowerShell remoting** open in terminal tabs: jump hosts, X11 and agent forwarding, saved port forwards, and a fingerprint check on first connect. **Remote Desktop (RDP), SPICE and X2Go** open in the system's own client or FreeRDP, with the options mapped for you.
+- **Reach them any way**: directly, through an SSH tunnel, an HTTP or SOCKS proxy, the mesh, or **through Keeper Link** without opening ports to the internet. Folders, tags, colours, favourites, status dots, Wake-on-LAN, and import/export of .rdp, .vnc, `~/.ssh/config` and JSON. Passwords stay in the system keychain, or are asked every time.
+- **This computer**: switch on its own Remote Desktop or VNC server, let a paired device reach it through Keeper Link, and follow a short safety checklist.
+
+Details and what was tested: [docs/REMOTE-DESKTOPS.md](docs/REMOTE-DESKTOPS.md).
 
 ### The Island
 
@@ -299,7 +332,7 @@ Limits: Linux on Wayland does not let apps keep a small window on top in a set p
 - **Weather** — current conditions, “rain starting in about 20 minutes”, air quality and UV.
 - **Today** — your next events from any calendar link (`.ics` / `webcal://`).
 - **Battery** and charging state, and which app is using the microphone (Windows, Linux).
-- **Dictation** — press the shortcut, speak, and the text is typed at the cursor in any app, using a speech-to-text service you choose (bring your own key, or a local server).
+- **Dictation** — hold a key (or press the shortcut) in any app, speak, and finished text is typed at the cursor: recognised on this computer by default, live as you speak, with spoken commands, formatting, a personal dictionary, snippets and per-app tone. **Meetings** records your microphone and the computer’s sound, transcribes and tells speakers apart on this computer, and writes notes. See [docs/VOICE.md](docs/VOICE.md).
 - A small **buddy** face that reflects what is going on.
 
 **Island tools.** Twenty tools in tabs; choose which appear and in what order (drag them in Settings → Island → Tools, or right-click a tab). The Island opens on hover after a delay you set, on click, or with <kbd>Ctrl/⌘ Alt I</kbd>:
@@ -469,6 +502,7 @@ One **To do** list (sidebar → System, with a count) for everything worth doing
 ### System
 
 - **Health**: CPU, memory, uptime and load; battery level, health and cycle count; the busiest processes (with Quit); **what is keeping the computer awake**; and **local servers listening on a port** (open in the browser or stop).
+- **System monitor**: live readings in the menu bar / tray with a pop-over (off by default; runs only while shown), a year of history with zoomable charts and CSV, Dev & agents (dev servers by project with open/stop/restart; running coding agents and model servers with Quit session), Sensors (GPU, temperatures, fans, power draw — public interfaces only), process signatures and a hidden-by-default environment, `keeper ps/top/kill/ports/dev/sensors`, and a global **tool launcher** that opens any tool in its own small window. See [docs/MONITOR.md](docs/MONITOR.md).
 - **Processes and Services** (Health → Processes): a full task manager. Every running process with CPU, memory, threads, energy, disk and network, sorted by any column, as a flat list, a parent–child tree or grouped by app, with live graphs per core and for memory, swap, disk and network. Quit, Force Quit, End Process Tree, Suspend and Resume, Restart, change priority, and Inspect (open files, connections, memory breakdown, children). Other users' and system processes ask for an administrator first, and processes the system needs to stay up are refused with a reason. **Force Quit Applications** opens with ⌥⌘Esc (Ctrl+Alt+Esc elsewhere). The Services tab starts, stops, restarts and enables system and user services (systemd, launchd, Windows services). It reads the system only while the page is open: about 1% of one core at one update a second on Linux.
 - **Startup Items**: apps that start with the computer, with a rough impact rating; switch them off with the same setting the OS uses (reversible; system-wide items ask for permission).
 - **Applications**: every installed app with size, version and last use; filter unused or large ones; uninstall via the app's own uninstaller (Windows), the Trash plus leftover support files (macOS) or Flatpak/Snap (Linux).
@@ -484,6 +518,16 @@ Stop the computer sleeping when you need it, and let it sleep again on its own (
 - **From anywhere**: the page, the Island (with the time left), the tray menu, an optional separate menu-bar icon (five icon styles, time left next to it on macOS), the global shortcut, the command palette, `keeper awake on --for 2h`, `keeper://awake?for=30m` links, and Siri / Shortcuts on macOS.
 - **What keeps this computer awake**: every app's holds, from `pmset -g assertions`, `powercfg /requests` or `systemd-inhibit --list`. **Statistics**: sessions, time awake per day, longest, why each ended, battery used.
 - **Costs nothing when idle**: with no session and no trigger on there is no timer, no helper process and no polling at all; a session checks every 15 seconds, triggers every 30 seconds (slower while you are away).
+
+### Stage
+
+A clean screen for recording, presenting and screenshots (System → **Stage**). Details, the per-system table and what is a best guess: [docs/STAGE.md](docs/STAGE.md).
+
+- **Every switch on its own**: hide desktop icons, the Dock or taskbar, other apps, the menu bar, or apps you choose (hide or quit, and reopen); Do Not Disturb (through Keep Awake), mute alert sounds, pause music; a clean backdrop (colour, gradient or blurred wallpaper), normal pointer size, a pointer spotlight or ring, click ripples, keystrokes (shortcuts only, or every key); keep awake, a recording resolution, a clean clipboard history, private things hidden in the Island, and Keeper's own windows kept out of recordings.
+- **Presets**: Recording (with a 3-2-1 countdown), Presenting and Screenshot, plus your own. Each can have a time limit and its own shortcut.
+- **From anywhere**: a global shortcut, the Island (a button, a Controls tile, and a red dot with the time while on), the tray, the command palette, `keeper stage on --preset Recording`, `keeper://stage/toggle` and AI abilities. It can also **start by itself when the screen is captured**: reliably on Linux (PipeWire) and for Keeper's recorder, by known recorder apps elsewhere.
+- **Crash-safe**: every change is written to a journal before it is made and put back newest first when Stage ends, on the next start after a crash, or by a watchdog if Keeper's process disappears. Settings you changed yourself while it was on are left alone.
+- **External monitors**: switch a monitor's input source (HDMI, DisplayPort, USB-C) over DDC/CI, and brightness and volume shortcuts with a level display.
 
 ### Privacy & Security
 

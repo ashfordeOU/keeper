@@ -49,6 +49,11 @@
   .ai-thumb { display: block; width: 100%; height: auto; border-radius: 10px; margin-top: 8px; border: 1px solid var(--line); }
   pre.plan { white-space: pre-wrap; font-size: 12px; margin: 6px 0 0; }
   #scr-text { flex: 1; min-width: 0; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font: inherit; padding: 9px; }
+#help-join input { display:block; width:100%; margin:0 0 8px; padding:12px; font-size:17px; border-radius:10px; border:1px solid rgba(127,127,127,.35); background:transparent; color:inherit; box-sizing:border-box; }
+.term-out { background:#111214; color:#e5e5ea; font:12px/1.4 ui-monospace,Menlo,monospace; min-height:240px; max-height:55vh; overflow:auto; padding:8px; border-radius:8px; white-space:pre-wrap; word-break:break-all; margin:0 0 8px; }
+#term-in { flex:1; }
+.loc-share { display:flex; gap:10px; align-items:flex-start; }
+.loc-share input { width:22px; height:22px; margin-top:2px; }
 </style>
 </head>
 <body>
@@ -57,6 +62,14 @@
   <div><div class="t" id="title">Keeper</div><div class="s" id="status"><span class="dot"></span>Connecting…</div></div>
 </header>
 <div id="msg" class="card hidden"></div>
+<form id="help-join" class="card hidden">
+  <div style="font-weight:600;margin-bottom:6px">Help someone</div>
+  <div class="muted" style="margin-bottom:10px">Type the 9-digit code and the password they read out. You will see their screen; they choose whether you may use it.</div>
+  <input id="help-code" inputmode="numeric" placeholder="Session code (123 456 789)" autocomplete="off">
+  <input id="help-pw" placeholder="Password" autocomplete="off" autocapitalize="characters">
+  <input id="help-name" placeholder="Your name" autocomplete="name">
+  <button class="big" id="help-go">Connect</button>
+</form>
 <main id="app" class="hidden">
   <nav>
     <button data-tab="send" class="on">Send</button>
@@ -64,8 +77,11 @@
     <button data-tab="clip">Clipboard</button>
     <button data-tab="screen">Screen</button>
     <button data-tab="ai">AI<span id="ai-badge" class="badge hidden"></span></button>
+    <button data-tab="term" id="tab-term-btn">Terminal</button>
   </nav>
   <section id="tab-send">
+    <label class="card loc-share" id="loc-card"><input type="checkbox" id="loc-share"> <span><b>Share my location while this page is open</b><br><span class="muted" id="loc-note">Off. Your computer sees where this phone is, only while this page stays open.</span></span></label>
+
     <label class="big" for="pick">Choose photos or files</label>
     <input id="pick" type="file" multiple class="hidden">
     <p class="muted">They are saved in Downloads/Keeper on the computer. Everything is encrypted between this phone and the computer.</p>
@@ -105,6 +121,14 @@
       </div>
       <div class="scr-bar" id="scr-typing"><input id="scr-text" placeholder="Type on the computer…" autocomplete="off" autocapitalize="off"><button class="btn" id="scr-send">Send</button></div>
       <button class="btn" id="screen-stop" style="width:100%">Stop watching</button>
+    </div>
+  </section>
+  <section id="tab-term" class="hidden">
+    <div class="card">
+      <pre id="term-out" class="term-out"></pre>
+      <div class="scr-bar"><input id="term-in" placeholder="Type a command…" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="btn" id="term-send">Run</button></div>
+      <div style="display:flex;gap:8px;margin-top:8px"><button class="btn" id="term-open">Open terminal</button><button class="btn" id="term-ctrlc">Ctrl+C</button><button class="btn" id="term-close">Close</button></div>
+      <div class="muted" id="term-note">Runs on the computer as you. The computer must allow it under Devices → Phone.</div>
     </div>
   </section>
   <section id="tab-ai" class="hidden">

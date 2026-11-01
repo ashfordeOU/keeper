@@ -10,6 +10,7 @@ Questions, or want the source code for any part listed here? Write to **contact@
 
 - [Parts with extra terms](#parts-with-extra-terms)
 - [Downloaded only when you use a feature](#downloaded-only-when-you-use-a-feature)
+- [Keeper Mesh and WireGuard](#keeper-mesh-and-wireguard)
 - [Packages included in Keeper](#packages-included-in-keeper)
 - [Licence texts](#licence-texts)
 
@@ -55,6 +56,14 @@ Some diagram layouts are drawn with [elkjs](https://github.com/kieler/elkjs) 0.9
 ### DB-IP Lite (CC BY 4.0)
 
 When you turn on countries in Network Activity, Keeper downloads the free [IP Geolocation by DB-IP](https://db-ip.com) "IP to Country Lite" and "IP to ASN Lite" databases from <https://db-ip.com/db/lite.php>. They are licensed under [Creative Commons Attribution 4.0 International](https://creativecommons.org/licenses/by/4.0/). Keeper converts them into a compact lookup table on your computer; no other changes are made.
+
+### OpenStreetMap map tiles and Nominatim (ODbL)
+
+Places & Tracks can show an online map and look up place names; both are off until you turn them on. The map loads raster tiles from an OpenStreetMap tile server (by default <https://tile.openstreetmap.org>, or a server you choose) and names come from a Nominatim server (by default <https://nominatim.openstreetmap.org>). Map data is © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright), available under the [Open Database License](https://opendatacommons.org/licenses/odbl/); the credit is shown on the map. Keeper follows the [OSM tile usage policy](https://operations.osmfoundation.org/policies/tiles/) and the [Nominatim usage policy](https://operations.osmfoundation.org/policies/nominatim/): requests carry a User-Agent that names Keeper, tiles are cached on your computer for a week and only fetched for what you look at, and names are asked for at most once a second. Nothing from these servers ships with Keeper.
+
+### Natural Earth (public domain)
+
+The offline world outline used by Network Activity and Places & Tracks comes from [Natural Earth](https://www.naturalearthdata.com) (public domain), simplified and rounded to 0.1°.
 
 ### KaTeX and its fonts (MIT, SIL OFL 1.1)
 
@@ -174,11 +183,49 @@ These are not part of the Keeper download. Keeper fetches them from their makers
 | scrcpy (with adb) | Mirroring an Android phone | 5.0.1 | Apache-2.0 | Genymobile and contributors; adb by The Android Open Source Project | https://github.com/Genymobile/scrcpy |
 | rclone | Cloud storage | v1.75.2 | MIT | Nick Craig-Wood and contributors | https://rclone.org (also packaged with some builds) |
 | yt-dlp | Saving videos from web pages | 2026.10.26 | Unlicense (the standalone programs also contain Python and other parts under their own licences) | yt-dlp contributors | https://github.com/yt-dlp/yt-dlp |
-| Whisper speech models (ONNX) | Speech to text on this computer | onnx-community/whisper-tiny, onnx-community/whisper-base, onnx-community/whisper-small | MIT (Whisper by OpenAI); see each model card for the ONNX conversion | OpenAI; converted by the ONNX Community | https://huggingface.co/onnx-community |
+| Whisper speech models (ONNX) | Speech to text on this computer | onnx-community/whisper-tiny, onnx-community/whisper-base, onnx-community/whisper-small, onnx-community/whisper-large-v3-turbo | MIT (Whisper, including large-v3-turbo, by OpenAI); see each model card for the ONNX conversion | OpenAI; converted by the ONNX Community | https://huggingface.co/onnx-community |
 | multilingual-e5-small | Search by meaning | Xenova/multilingual-e5-small | MIT | Liang Wang et al., Microsoft; converted by Xenova | https://huggingface.co/Xenova/multilingual-e5-small |
 | u2netp | Removing image backgrounds | u2netp.onnx | Apache-2.0 (U²-Net) | Xuebin Qin et al.; packaged by rembg | https://github.com/xuebinqin/U-2-Net |
 | RFB-320 face detector | Finding faces to blur | version-RFB-320.onnx | MIT | Linzaer | https://github.com/Linzaer/Ultra-Light-Fast-Generic-Face-Detector-1MB |
 | Tesseract language data (tessdata) | Reading text in images | 4.0.0 | Apache-2.0 | Google and the Tesseract contributors; packaged by tesseract.js | https://github.com/tesseract-ocr/tessdata |
+
+## Keeper Mesh and WireGuard
+
+Keeper Mesh uses WireGuard. None of these parts is inside the Keeper download; Keeper fetches the one your system needs the first time you turn Mesh on, checks it against a pinned SHA-256 fingerprint, or uses a copy your system already has.
+
+| Part | Version | Licence | Source | How Keeper gets it | Notes |
+|---|---|---|---|---|---|
+| wireguard-go | 0.0.20250522 | MIT (Copyright (C) 2017-2025 WireGuard LLC. All Rights Reserved.) | <https://git.zx2c4.com/wireguard-go> | Downloaded on first use (macOS, and Linux without the kernel module) from Keeper’s release, built from the pinned source snapshot; or a system package. | MIT: the copyright notice and permission notice must accompany copies. Include the full MIT text. |
+| WireGuard for Windows | 1.1.1 | MIT (the application); it installs WireGuardNT under its own prebuilt-binaries licence | <https://git.zx2c4.com/wireguard-windows> | Not shipped. Downloaded on first use from download.wireguard.com (official signed MSI), hash-checked, installed by Windows Installer. | Nothing redistributed by Keeper; the MSI is fetched from the official server on the user’s computer. |
+| WireGuardNT (wireguard.dll) | 1.1 | WireGuard LLC Prebuilt Binaries License | <https://git.zx2c4.com/wireguard-nt> | Not shipped (comes with WireGuard for Windows). Pinned for a later embedded variant. | May be redistributed only alongside software that uses it solely through wireguard.h; no reverse engineering or modification; keep notices; do not use the WireGuard name to endorse. |
+| Wintun (wintun.dll) | 0.14.1 | WireGuard LLC Prebuilt Binaries License | <https://www.wintun.net> | Not shipped. Pinned for a later embedded variant. | Same terms as WireGuardNT: redistribution only alongside software using it through wintun.h. |
+| WireGuard (trademark) | - | “WireGuard” and the “WireGuard” logo are registered trademarks of Jason A. Donenfeld. | <https://www.wireguard.com/trademark-policy/> | - | Keeper says it “uses WireGuard”; it does not use the logo or suggest endorsement. |
+
+<details><summary>wireguard-go licence (MIT)</summary>
+
+````text
+Copyright (C) 2017-2025 WireGuard LLC. All Rights Reserved.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+of the Software, and to permit persons to whom the Software is furnished to do
+so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+````
+
+</details>
 
 ## Packages included in Keeper
 

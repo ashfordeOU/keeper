@@ -4,7 +4,7 @@
 // computer (and, only when the person allows it, from the provider's own
 // usage endpoint with the sign-in that tool already has). Pure parsers.
 
-export type UsageTool = 'claude' | 'codex' | 'copilot' | 'cursor' | 'gemini' | 'grok';
+export type UsageTool = 'claude' | 'codex' | 'copilot' | 'cursor' | 'gemini' | 'grok' | 'qwen' | 'opencode' | 'ollama' | 'lmstudio' | 'antigravity';
 
 export interface UsageWindow {
   /** "5-hour session", "Weekly", "Monthly premium requests"… */
@@ -39,7 +39,31 @@ export const USAGE_TOOLS: { id: UsageTool; label: string; how: string }[] = [
   { id: 'cursor', label: 'Cursor', how: 'Requests used this month, from Cursor with its own sign-in when you allow it (needs the sqlite3 command to read it).' },
   { id: 'gemini', label: 'Gemini', how: 'Gemini CLI does not keep its limits on this computer; open its usage page instead.' },
   { id: 'grok', label: 'Grok', how: 'Grok does not keep its limits on this computer; open its usage page instead.' },
+  { id: 'ollama', label: 'Ollama', how: 'Models loaded right now, the memory they hold and when they unload, from Ollama on this computer (127.0.0.1:11434). Local models have no limits.' },
+  { id: 'lmstudio', label: 'LM Studio', how: 'Models loaded in LM Studio\'s local server (127.0.0.1:1234). Local models have no limits.' },
+  { id: 'antigravity', label: 'Antigravity', how: 'Antigravity does not keep its limits on this computer; its usage shows in its own settings.' },
 ];
+
+// ---------------------------------------------------------------- local model servers
+
+/** Ollama `GET /api/ps`: the loaded models, their size in memory and when they unload. */
+export function ollamaPs(body: unknown): UsageWindow[] {
+  const models = (body as { models?: { name?: string; model?: string; size?: number; size_vram?: number; expires_at?: string }[] })?.models;
+  if (!Array.isArray(models)) return [];
+  return models.map((m) => {
+    const gb = (n?: number) => (n ? `${(n / 1024 ** 3).toFixed(1)} GB` : '');
+    const where = m.size_vram && m.size && m.size_vram >= m.size * 0.95 ? 'graphics memory' : m.size_vram ? `${Math.round(((m.size_vram ?? 0) / (m.size || 1)) * 100)}% on graphics` : 'memory';
+    const t = Date.parse(m.expires_at ?? '');
+    return { label: `${m.name ?? m.model ?? 'Model'} · ${gb(m.size)} in ${where}`, resetsAt: Number.isFinite(t) && t < Date.now() + 365 * 86_400_000 ? t : undefined };
+  });
+}
+
+/** LM Studio `GET /api/v0/models`: models with state "loaded". */
+export function lmStudioModels(body: unknown): UsageWindow[] {
+  const data = (body as { data?: { id?: string; state?: string; type?: string; max_context_length?: number }[] })?.data;
+  if (!Array.isArray(data)) return [];
+  return data.filter((m) => m.state === 'loaded').map((m) => ({ label: `${m.id ?? 'Model'} loaded${m.max_context_length ? ` · ${Math.round(m.max_context_length / 1024)}k context` : ''}` }));
+}
 
 const H5 = 5 * 3600_000;
 const D7 = 7 * 86_400_000;

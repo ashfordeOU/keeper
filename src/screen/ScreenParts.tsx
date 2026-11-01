@@ -37,6 +37,15 @@ export function sendToDevice(paths: string[]) {
 export function ScreenPrompts() {
   const [asks, setAsks] = useState<{ id: string; name: string; control: boolean }[]>([]);
   const [sending, setSending] = useState<string[] | null>(null);
+  const [invite, setInvite] = useState<{ id: string; from: string; hostName: string } | null>(null);
+  const [cmd, setCmd] = useState<{ id: string; deviceName: string; command: string } | null>(null);
+  const { tabs } = useStore();
+  useEffect(() => {
+    const offInv = api.on('screen-invite' as never, ((i: { id: string; from: string; hostName: string }) => setInvite(i)) as never);
+    const offCmd = api.on('access-command' as never, ((c: { id: string; deviceName: string; command: string }) => setCmd(c)) as never);
+    void api.access?.pendingCommands?.().then((l) => l[0] && setCmd(l[0])).catch(() => undefined);
+    return () => { offInv(); offCmd(); };
+  }, []);
   useEffect(() => {
     const off = api.on('screen-ask', (a) => setAsks((x) => [...x.filter((y) => y.id !== a.id), a]));
     const open = (e: Event) => setSending((e as CustomEvent<string[]>).detail);
@@ -75,6 +84,26 @@ export function ScreenPrompts() {
         </Modal>
       ) : null}
       {sending ? <SendSheet paths={sending} onClose={() => setSending(null)} /> : null}
+      {invite ? (
+        <Modal title={`${invite.from} invites you to watch ${invite.hostName}`} onClose={() => setInvite(null)} width={440}>
+          <p style={{ marginTop: 0 }} className="small">You will see {invite.hostName}’s screen, view only, for as long as their session lasts.</p>
+          <div className="btn-row" style={{ justifyContent: 'flex-end' }}>
+            <button className="btn" onClick={() => setInvite(null)}>No Thanks</button>
+            <button className="btn" onClick={() => { void api.screen.joinInvite(invite.id, true).then((sid) => tabs.open({ name: 'devices', arg: `screen:${sid}` })); setInvite(null); }}>Watch in a Tab</button>
+            <button className="btn primary" data-testid="invite-watch" onClick={() => { void api.screen.joinInvite(invite.id); setInvite(null); }}>Watch</button>
+          </div>
+        </Modal>
+      ) : null}
+      {cmd ? (
+        <Modal title={`${cmd.deviceName} wants to run a command here`} onClose={() => { void api.access.answerCommand(cmd.id, false); setCmd(null); }} width={520}>
+          <p style={{ marginTop: 0 }} className="small">It runs as you. You see each new command once; the same command later runs without asking.</p>
+          <pre className="remote-output" data-testid="command-ask">{cmd.command}</pre>
+          <div className="btn-row" style={{ justifyContent: 'flex-end', marginTop: 10 }}>
+            <button className="btn" onClick={() => { void api.access.answerCommand(cmd.id, false); setCmd(null); }}>Don’t Allow</button>
+            <button className="btn primary" data-testid="command-allow" onClick={() => { void api.access.answerCommand(cmd.id, true); setCmd(null); }}>Allow</button>
+          </div>
+        </Modal>
+      ) : null}
     </>
   );
 }
@@ -121,7 +150,7 @@ function SendSheet({ paths, onClose }: { paths: string[]; onClose: () => void })
 // ---------------------------------------------------------------- a paired device's page
 
 export function DeviceScreenCard({ d }: { d: LinkDevice }) {
-  const { toast } = useStore();
+  const { toast, tabs } = useStore();
   const [s] = useScreen();
   const [ctl, setCtl] = useState<ControlStatus | null>(null);
   useEffect(() => void api.screen.control().then(setCtl).catch(() => undefined), []);
@@ -136,6 +165,7 @@ export function DeviceScreenCard({ d }: { d: LinkDevice }) {
         <div className="btn-row">
           <button className="btn" onClick={() => view(false)}><Icon name="eye" size={14} /> View Screen</button>
           <button className="btn primary" onClick={() => view(true)}><Icon name="laptop" size={14} /> Control</button>
+          <button className="btn ghost" title="Open in a Keeper tab (several screens side by side in tabs)" onClick={() => void api.screen.view(d.id, { control: true, tab: true }).then((sid) => tabs.open({ name: 'devices', arg: `screen:${sid}` }), (e) => toast(clean(e)))}><Icon name="plus" size={14} /> In a Tab</button>
           {!d.online && s?.wake[d.id] ? <button className="btn" onClick={() => void api.screen.wake(d.id).then((r) => toast(`Wake signal sent${r.via.length ? ` (also through ${r.via.join(', ')})` : ''}`), (e) => toast(clean(e)))}><Icon name="power" size={14} /> Wake</button> : null}
         </div>
       </div>

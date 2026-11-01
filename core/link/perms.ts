@@ -3,7 +3,7 @@
 // link is checked here first; nothing is allowed by default except offering
 // files, which still asks before anything is saved.
 
-export type Permission = 'sendFiles' | 'browse' | 'write' | 'clipboard' | 'screenView' | 'screenControl' | 'terminal' | 'sync' | 'forward';
+export type Permission = 'sendFiles' | 'browse' | 'write' | 'clipboard' | 'screenView' | 'screenControl' | 'terminal' | 'runCommands' | 'sync' | 'forward' | 'location';
 
 export const PERMISSIONS: { id: Permission; label: string; detail: string }[] = [
   { id: 'sendFiles', label: 'Send files to this device', detail: 'You are asked before anything is saved, unless you turn on automatic accept.' },
@@ -12,8 +12,10 @@ export const PERMISSIONS: { id: Permission; label: string; detail: string }[] = 
   { id: 'clipboard', label: 'Shared clipboard', detail: 'Text you copy appears on the other device and the other way round.' },
   { id: 'screenView', label: 'See this screen', detail: 'Watch this screen from the other device.' },
   { id: 'screenControl', label: 'Control this computer', detail: 'Use the mouse and keyboard from the other device.' },
-  { id: 'terminal', label: 'Open a terminal here', detail: 'Run commands on this computer as you.' },
+  { id: 'terminal', label: 'Terminal on this device', detail: 'Open a terminal here from the other device, as you.' },
+  { id: 'runCommands', label: 'Run commands', detail: 'Run saved commands here. You see each new command once before it runs.' },
   { id: 'sync', label: 'Sync and back up folders', detail: 'Keep folders the same on both devices.' },
+  { id: 'location', label: 'Share my location', detail: 'The other device may see where this one last was (position, accuracy, time and battery).' },
   { id: 'forward', label: 'Reach ports on this computer', detail: 'Connect to services running here (for example a web server on port 3000).' },
 ];
 
@@ -37,6 +39,13 @@ export const METHOD_PERMISSION: Record<string, Permission | null> = {
   'clip.set': 'clipboard',
   'clip.get': 'clipboard',
   'tcp.open': 'forward',
+  'sys.info': null,
+  'exec.run': 'runCommands',
+  'power.lock': 'screenControl',
+  'power.sleep': 'screenControl',
+  'power.restart': 'screenControl',
+  'print.file': 'screenControl',
+  'loc.get': 'location',
 };
 
 export function allowed(perms: PermissionSet | undefined, method: string): boolean {

@@ -8,7 +8,10 @@ import type { ControlMessage, InputEvent, Quality } from '../../core/screen/type
 import { readText, writeText } from '../services/clip';
 import { featureOn, onFeature } from '../services/features';
 import { linkNode } from '../services/link';
+import { setScreenService } from '../services/link/access';
 import { ScreenService } from '../services/screen';
+import { hardwareEncodeSwitches } from '../../core/screen/extras';
+import { unattendedInstalledSync } from '../services/screen/unattended';
 import { injector, requestMacPermissions } from '../services/screen/injector';
 import { airplay, airplayStart, airplayStop, androidConnect, androidDevices, androidDrop, androidMirror, androidPair, androidStatus, androidStop, installAndroidTools, stopPhones } from '../services/screen/phones';
 
@@ -20,6 +23,12 @@ const DEV_URL = process.env.VITE_DEV_SERVER_URL;
 {
   const cur = app.commandLine.getSwitchValue('disable-features');
   app.commandLine.appendSwitch('disable-features', [cur, 'WebRtcHideLocalIpsWithMdns'].filter(Boolean).join(','));
+  // Let Chromium use the graphics card's video encoder for remote screens where it can.
+  const hw = hardwareEncodeSwitches(process.platform);
+  if (hw.length) {
+    const en = app.commandLine.getSwitchValue('enable-features');
+    app.commandLine.appendSwitch('enable-features', [en, ...hw].filter(Boolean).join(','));
+  }
 }
 
 function loadView(win: BrowserWindow, query: Record<string, string>) {
@@ -43,11 +52,19 @@ export async function registerScreenIpc(d: { broadcast: (channel: string, ...arg
     alert: d.alert,
     clipboard: { read: readText, write: writeText },
     videos: () => app.getPath('videos'),
+    unattended: unattendedInstalledSync,
   });
+  setScreenService(svc);
   const need = () => svc!;
   handle('screen.state', () => need().state());
   handle('screen.session', (sid: string) => need().session(sid));
-  handle('screen.view', (device: string, o?: { control?: boolean; quality?: Quality; prefer?: 'auto' | 'frames' }) => need().view(device, o));
+  handle('screen.view', (device: string, o?: { control?: boolean; quality?: Quality; prefer?: 'auto' | 'frames'; tab?: boolean }) => need().view(device, o));
+  handle('screen.sources', (sid: string) => need().sources(sid));
+  handle('screen.setControl', (sid: string, on: boolean) => need().setControl(sid, on));
+  handle('screen.print', (sid: string, file: string) => need().print(sid, file));
+  handle('screen.reboot', (sid: string) => need().rebootAndReconnect(sid));
+  handle('screen.invites', () => need().invites());
+  handle('screen.joinInvite', (id: string, tab?: boolean) => need().joinInvite(id, tab));
   handle('screen.stop', (sid: string) => need().stop(sid));
   handle('screen.answer', (id: string, ok: boolean, control: boolean) => need().answer(id, ok, control));
   handle('screen.setPolicy', (p: never) => need().setPolicy(p));

@@ -49,6 +49,13 @@ export function macHelperCall<T = unknown>(method: string, params?: unknown, tim
   return h.call<T>(method, params, { timeoutMs });
 }
 
+/** A helper method that streams lines (Stage's key and click events) until the signal stops it. */
+export function macHelperStream(method: string, params: unknown, onDelta: (text: string) => void, signal: AbortSignal): Promise<unknown> {
+  const h = helper();
+  if (!h) return Promise.reject(new Error('The macOS helper is not available'));
+  return h.call(method, params, { onDelta, signal });
+}
+
 /** What the helper says about this Mac; null without a helper. Asked once. */
 export function macHello(): Promise<HelloInfo | null> {
   hello ??= (async () => {

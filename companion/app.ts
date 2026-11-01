@@ -4,6 +4,7 @@
 // clipboard without installing anything. Talks to the computer over an
 // end-to-end encrypted channel (see core/link/companion-proto.ts).
 
+import { helpSecretWeb, helpTagWeb, normalizeCode, normalizePassword } from '../core/link/help-web';
 import { COMPANION_CHUNK, companionKeys, fromB64u, inviteId, Opener, Sealer, toB64u, type CHeader } from '../core/link/companion-proto';
 
 interface Creds {
@@ -76,7 +77,7 @@ class Channel {
   private waiting = new Map<number, (r: Reply) => void>();
   onclose?: () => void;
 
-  async open(hello: { inv?: string; cid?: string }, secret: Uint8Array): Promise<{ id: string; name: string }> {
+  async open(hello: { inv?: string; cid?: string; help?: string; name?: string }, secret: Uint8Array): Promise<{ id: string; name: string }> {
     const nP = crypto.getRandomValues(new Uint8Array(16));
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
     this.ws = new WebSocket(`${proto}//${location.host}${location.pathname.replace(/\/[^/]*$/, '')}/ws`);
@@ -140,6 +141,13 @@ async function connect() {
     status('Disconnected — reload to reconnect');
     ch = null;
   };
+  // Opened from a helper's link (…/c/#help): join a help session, no pairing.
+  if (location.hash === '#help' || (!k && !saved && location.hash.startsWith('#help'))) {
+    history.replaceState(null, '', location.pathname);
+    status('Help someone');
+    $('help-join').classList.remove('hidden');
+    return;
+  }
   try {
     if (k) {
       const secret = fromB64u(k);
@@ -155,7 +163,8 @@ async function connect() {
       ready(hi.name);
     } else {
       status('Not paired');
-      message('Open Keeper on your computer → Devices → Phone, and scan the QR code with this phone’s camera.');
+      message('Open Keeper on your computer → Devices → Phone, and scan the QR code with this phone’s camera. To help someone instead, tap Help someone below.');
+      $('help-join').classList.remove('hidden');
     }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -178,7 +187,7 @@ function ready(name: string) {
 for (const b of document.querySelectorAll<HTMLButtonElement>('nav button')) {
   b.onclick = () => {
     for (const x of document.querySelectorAll('nav button')) x.classList.toggle('on', x === b);
-    for (const t of ['send', 'files', 'clip', 'screen', 'ai']) $(`tab-${t}`).classList.toggle('hidden', t !== b.dataset.tab);
+    for (const t of ['send', 'files', 'clip', 'screen', 'ai', 'term']) $(`tab-${t}`).classList.toggle('hidden', t !== b.dataset.tab);
   };
 }
 
@@ -402,7 +411,14 @@ async function pullFrames() {
   while (scr?.on && ch) {
     try {
       const r = await ch.req('screen.frame', { sid: scr.sid, after: scr.seq });
-      const h = r.header.r as { seq?: number; ended?: boolean; reason?: string; none?: boolean };
+      const h = r.header.r as { seq?: number; ended?: boolean; reason?: string; none?: boolean; control?: boolean };
+      // The person being helped (or the computer's owner) gave or took back control.
+      if (typeof h.control === 'boolean' && scr && h.control !== scr.control) {
+        scr.control = h.control;
+        $('scr-controls').classList.toggle('hidden', !h.control);
+        $('scr-typing').classList.toggle('hidden', !h.control);
+        message(h.control ? 'You may now use their mouse and keyboard.' : 'Control was taken back: view only.');
+      }
       if (h.ended) {
         screenEnded(h.reason ?? 'Ended');
         return;
@@ -642,3 +658,132 @@ function showAi(st: AiState) {
 }
 
 void connect().then(() => void aiPoll());
+
+// ---------------------------------------------------------------- help mode (a browser helping someone)
+
+$<HTMLFormElement>('help-join').onsubmit = async (e) => {
+  e.preventDefault();
+  const code = normalizeCode($<HTMLInputElement>('help-code').value);
+  const pw = normalizePassword($<HTMLInputElement>('help-pw').value);
+  const name = $<HTMLInputElement>('help-name').value.trim().slice(0, 40) || 'Helper';
+  if (!code) return message('The session code has 9 digits', true);
+  message('Connecting…');
+  ch = new Channel();
+  ch.onclose = () => {
+    status('Help session ended');
+    ch = null;
+  };
+  try {
+    const hi = await ch.open({ help: helpTagWeb(code), name }, helpSecretWeb(code, pw));
+    $('help-join').classList.add('hidden');
+    $('loc-card').classList.add('hidden');
+    $('title').textContent = `Helping ${hi.name}`;
+    status('Connected · encrypted · view only until they allow control', true);
+    $('app').classList.remove('hidden');
+    // Help: only the screen.
+    for (const t of ['send', 'files', 'clip', 'ai', 'term']) document.querySelector<HTMLButtonElement>(`nav button[data-tab="${t}"]`)?.classList.add('hidden');
+    document.querySelector<HTMLButtonElement>('nav button[data-tab="screen"]')?.click();
+    $('screen-control').classList.add('hidden');
+    $('screen-view').textContent = 'View their screen';
+    await screenStart(false);
+  } catch (err) {
+    message(err instanceof Error && /closed|integrity/.test(err.message) ? 'The code or password is not right, or the code has expired.' : err instanceof Error ? err.message : String(err), true);
+  }
+};
+
+// ---------------------------------------------------------------- terminal (when the computer allows this phone)
+
+let term: { id: string; next: number; on: boolean } | null = null;
+
+async function termPoll() {
+  while (term?.on && ch) {
+    try {
+      const r = await ch.req('term.read', { id: term.id, after: term.next });
+      const h = r.header.r as { text: string; next: number; exit?: string };
+      if (h.text) {
+        const out = $('term-out');
+        // Colours and cursor moves are dropped: this is a simple line terminal.
+        out.textContent = (out.textContent + h.text.replace(/\x1b\[[0-9;?]*[ -\/]*[@-~]/g, '').replace(/\x1b\][^\x07]*\x07/g, '').replace(/\r/g, '')).slice(-60_000);
+        out.scrollTop = out.scrollHeight;
+      }
+      term.next = h.next;
+      if (h.exit) {
+        $('term-note').textContent = h.exit;
+        term = null;
+        return;
+      }
+      await new Promise((res) => setTimeout(res, h.text ? 60 : 400));
+    } catch (e) {
+      $('term-note').textContent = e instanceof Error ? e.message : String(e);
+      term = null;
+      return;
+    }
+  }
+}
+
+$('term-open').onclick = async () => {
+  if (!ch || term) return;
+  try {
+    const r = await ch.req('term.open', { cols: 48, rows: 30 });
+    term = { id: (r.header.r as { id: string }).id, next: 0, on: true };
+    $('term-note').textContent = 'Connected';
+    void termPoll();
+  } catch (e) {
+    $('term-note').textContent = e instanceof Error ? e.message : String(e);
+  }
+};
+const termSend = (data: string) => term && ch && void ch.req('term.write', { id: term.id, data }).catch(() => undefined);
+$('term-send').onclick = () => {
+  const i = $<HTMLInputElement>('term-in');
+  termSend(i.value + '\n');
+  i.value = '';
+};
+$<HTMLInputElement>('term-in').onkeydown = (e) => {
+  if (e.key === 'Enter') $('term-send').click();
+};
+$('term-ctrlc').onclick = () => termSend('\x03');
+$('term-close').onclick = () => {
+  if (term && ch) void ch.req('term.close', { id: term.id }).catch(() => undefined);
+  term = null;
+  $('term-note').textContent = 'Closed';
+};
+
+// ---------------------------------------------------------------- location (off until switched on; only while this page is open)
+
+let locWatch: number | null = null;
+let locLast = 0;
+const locNote = (t: string) => ($('loc-note').textContent = t);
+
+async function sendPosition(p: GeolocationPosition) {
+  if (!ch || Date.now() - locLast < 15_000) return;
+  locLast = Date.now();
+  let battery: number | undefined;
+  try {
+    const b = await (navigator as Navigator & { getBattery?: () => Promise<{ level: number }> }).getBattery?.();
+    if (b) battery = Math.round(b.level * 100);
+  } catch {
+    /* not offered by this browser */
+  }
+  try {
+    await ch.req('tracks.position', { lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy, t: p.timestamp || Date.now(), battery });
+    locNote(`Shared at ${new Date().toLocaleTimeString()} (±${Math.round(p.coords.accuracy)} m)`);
+  } catch (e) {
+    locNote(e instanceof Error ? e.message : String(e));
+  }
+}
+
+$<HTMLInputElement>('loc-share').onchange = (e) => {
+  const on = (e.target as HTMLInputElement).checked;
+  if (locWatch !== null) navigator.geolocation.clearWatch(locWatch);
+  locWatch = null;
+  if (!on) return locNote('Off. Your computer sees where this phone is, only while this page stays open.');
+  if (!('geolocation' in navigator) || !window.isSecureContext) {
+    (e.target as HTMLInputElement).checked = false;
+    return locNote('This browser gives the location only to https pages: open the page through the tunnel address.');
+  }
+  locNote('Asking this phone for its location…');
+  locLast = 0;
+  locWatch = navigator.geolocation.watchPosition((p) => void sendPosition(p), (err) => {
+    locNote(err.code === err.PERMISSION_DENIED ? 'Location was not allowed in this browser.' : 'The location is not available right now.');
+  }, { enableHighAccuracy: true, maximumAge: 10_000, timeout: 30_000 });
+};

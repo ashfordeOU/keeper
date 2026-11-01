@@ -4,10 +4,17 @@
 // become timed text. No network and no native code here; the model files are
 // downloaded once, checked against the SHA-256 below, and run with ONNX Runtime.
 
-export type WhisperSize = 'tiny' | 'base' | 'small';
+export type WhisperSize = 'tiny' | 'base' | 'small' | 'turbo';
 
 export interface WhisperFile { path: string; sha256: string; size: number }
-export interface WhisperModel { size: WhisperSize; repo: string; revision: string; label: string; files: { encoder: WhisperFile; decoder: WhisperFile; tokenizer: WhisperFile } }
+export interface WhisperModel {
+  size: WhisperSize; repo: string; revision: string; label: string;
+  /** mel bands the model reads (80, or 128 for the large-v3 family) */
+  mels?: number;
+  /** the large-v3 family has one more language, so its special tokens sit one later */
+  v3?: boolean;
+  files: { encoder: WhisperFile; decoder: WhisperFile; tokenizer: WhisperFile };
+}
 
 const TOKENIZER = { path: 'tokenizer.json', sha256: '27fc476bfe7f17299480be2273fc0608e4d5a99aba2ab5dec5374b4482d1a566', size: 2480466 };
 
@@ -37,28 +44,49 @@ export const WHISPER_MODELS: Record<WhisperSize, WhisperModel> = {
       tokenizer: TOKENIZER,
     },
   },
+  // large-v3-turbo: near large-v3 accuracy at a fraction of the decoding cost (4 decoder layers).
+  turbo: {
+    size: 'turbo', label: 'Best (1.1 GB)', repo: 'onnx-community/whisper-large-v3-turbo', revision: '360ebcde2559d60bb474678be3c1de9ef347d01a', mels: 128, v3: true,
+    files: {
+      encoder: { path: 'onnx/encoder_model_quantized.onnx', sha256: 'd2f853dc3254fdc0079f55dd4433ea716ac98ec5574d3b475f288f2a77cebba9', size: 644822195 },
+      decoder: { path: 'onnx/decoder_model_quantized.onnx', sha256: 'b54c67a80cf31304d75b8d525393e8758c23f848027d4fa916f26077e9f4bde2', size: 439684851 },
+      tokenizer: { path: 'tokenizer.json', sha256: '6d8cbd7cd0d8d5815e478dac67b85a26bbe77c1f5e0c6d76d1ce2abc0e5f21ca', size: 2480617 },
+    },
+  },
 };
 
 export const whisperUrl = (m: WhisperModel, f: WhisperFile) => `https://huggingface.co/${m.repo}/resolve/${m.revision}/${f.path}`;
 
 // ---------------------------------------------------------------- special tokens (multilingual models)
 
+export interface TokenIds { eot: number; sot: number; translate: number; transcribe: number; prev: number; noSpeech: number; noTimestamps: number; tsBegin: number; firstLang: number; langs: number }
+
 export const TOK = {
   eot: 50257,
   sot: 50258,
   translate: 50358,
   transcribe: 50359,
+  prev: 50361,
+  noSpeech: 50362,
   noTimestamps: 50363,
   tsBegin: 50364,
   firstLang: 50259,
+  langs: 99,
 } as const;
 
-/** Language codes in token order: the first is token 50259. */
-export const WHISPER_LANGS = 'en zh de es ru ko fr ja pt tr pl ca nl ar sv it id hi fi vi he uk el ms cs ro da hu ta no th ur hr bg lt la mi ml cy sk te fa lv bn sr az sl kn et mk br eu is hy ne mn bs kk sq sw gl mr pa si km sn yo so af oc ka be tg sd gu am yi lo uz fo ht ps tk nn mt sa lb my bo tl mg as tt haw ln ha ba jw su'.split(' ');
+/** The large-v3 family (with Cantonese added): every special token after the languages is one later. */
+export const TOK_V3: TokenIds = { eot: 50257, sot: 50258, translate: 50359, transcribe: 50360, prev: 50362, noSpeech: 50363, noTimestamps: 50364, tsBegin: 50365, firstLang: 50259, langs: 100 };
 
-export const langToken = (code: string): number | undefined => {
+const TOK_V2: TokenIds = TOK;
+
+export const tokensFor = (m: Pick<WhisperModel, 'v3'>): TokenIds => (m.v3 ? TOK_V3 : TOK);
+
+/** Language codes in token order: the first is token 50259. */
+export const WHISPER_LANGS = 'en zh de es ru ko fr ja pt tr pl ca nl ar sv it id hi fi vi he uk el ms cs ro da hu ta no th ur hr bg lt la mi ml cy sk te fa lv bn sr az sl kn et mk br eu is hy ne mn bs kk sq sw gl mr pa si km sn yo so af oc ka be tg sd gu am yi lo uz fo ht ps tk nn mt sa lb my bo tl mg as tt haw ln ha ba jw su yue'.split(' ');
+
+export const langToken = (code: string, tok: TokenIds = TOK): number | undefined => {
   const i = WHISPER_LANGS.indexOf(code.toLowerCase().split(/[-_]/)[0]);
-  return i < 0 ? undefined : TOK.firstLang + i;
+  return i < 0 || i >= tok.langs ? undefined : tok.firstLang + i;
 };
 
 /** Tokens the model must never write (from the model's generation settings). */
@@ -116,6 +144,17 @@ function dftTables() {
  * model's input: [nMels × 3000] log-mel values, scaled the way Whisper expects.
  */
 export function logMel(samples: Float32Array, nMels = 80, filters = melFilters(nMels)): Float32Array {
+  return normalizeMel(logMelRaw(samples, nMels, filters).raw);
+}
+
+/**
+ * The log10 mel values before Whisper's scaling, frame by frame. Frames that
+ * only see sound already handled last time (`prev`) are copied, not recomputed:
+ * live dictation reads the same growing recording every second.
+ * `frames` is how many leading frames are final (they see only real sound).
+ */
+export function logMelRaw(samples: Float32Array, nMels = 80, filters = melFilters(nMels), prev?: { raw: Float32Array; frames: number }): { raw: Float32Array; frames: number } {
+  const len = Math.min(samples.length, WINDOW_SAMPLES);
   const audio = new Float32Array(WINDOW_SAMPLES);
   audio.set(samples.subarray(0, WINDOW_SAMPLES));
   const pad = N_FFT / 2;
@@ -130,8 +169,9 @@ export function logMel(samples: Float32Array, nMels = 80, filters = melFilters(n
   const frame = new Float32Array(N_FFT);
   const power = new Float32Array(bins);
   const out = new Float32Array(nMels * FRAMES);
-  let max = -Infinity;
-  for (let t = 0; t < FRAMES; t++) {
+  const reuse = prev && prev.raw.length === out.length ? prev.frames : 0;
+  if (reuse) for (let m = 0; m < nMels; m++) out.set(prev!.raw.subarray(m * FRAMES, m * FRAMES + reuse), m * FRAMES);
+  for (let t = reuse; t < FRAMES; t++) {
     const off = t * HOP;
     let silent = true;
     for (let n = 0; n < N_FFT; n++) {
@@ -153,13 +193,20 @@ export function logMel(samples: Float32Array, nMels = 80, filters = melFilters(n
       let s = 0;
       const row = m * bins;
       for (let k = 0; k < bins; k++) s += filters[row + k] * power[k];
-      const v = Math.log10(Math.max(s, 1e-10));
-      out[m * FRAMES + t] = v;
-      if (v > max) max = v;
+      out[m * FRAMES + t] = Math.log10(Math.max(s, 1e-10));
     }
   }
+  const frames = len < WINDOW_SAMPLES ? Math.max(0, Math.min(FRAMES, Math.floor((len - pad) / HOP) + 1)) : FRAMES;
+  return { raw: out, frames };
+}
+
+/** Whisper's scaling: at most 8 (log10) below the loudest value, then shifted and divided by 4. */
+export function normalizeMel(raw: Float32Array): Float32Array {
+  let max = -Infinity;
+  for (let i = 0; i < raw.length; i++) if (raw[i] > max) max = raw[i];
   const floor = max - 8;
-  for (let i = 0; i < out.length; i++) out[i] = (Math.max(out[i], floor) + 4) / 4;
+  const out = new Float32Array(raw.length);
+  for (let i = 0; i < raw.length; i++) out[i] = (Math.max(raw[i], floor) + 4) / 4;
   return out;
 }
 
@@ -169,10 +216,11 @@ export function logMel(samples: Float32Array, nMels = 80, filters = melFilters(n
  * Whisper's timestamp rules: times come in pairs, never go backwards, and
  * the first one is near the start. Changes the logits in place.
  */
-export function applyTimestampRules(logits: Float32Array, sampled: number[], maxInitialTs = 50) {
+export function applyTimestampRules(logits: Float32Array, sampled: number[], maxInitialTs = 50, TOK: TokenIds = TOK_V2) {
   const NEG = -Infinity;
   logits[TOK.noTimestamps] = NEG;
-  for (const t of SUPPRESS) if (t < logits.length) logits[t] = NEG;
+  for (const t of SUPPRESS) if (t < logits.length && t < TOK.tsBegin) logits[t] = NEG;
+  for (let t = TOK.translate; t < TOK.tsBegin; t++) logits[t] = NEG;
   const n = sampled.length;
   if (n === 0) {
     logits[220] = NEG;
@@ -234,7 +282,7 @@ export interface TokenSegment { start: number; end: number; tokens: number[] }
  * seconds from the window start) and how far into the window the next one
  * should start, as Whisper does.
  */
-export function segmentsFromTokens(tokens: number[], windowSec: number): { segments: TokenSegment[]; consumed: number } {
+export function segmentsFromTokens(tokens: number[], windowSec: number, TOK: TokenIds = TOK_V2): { segments: TokenSegment[]; consumed: number } {
   const isTs = (t: number) => t >= TOK.tsBegin;
   const sec = (t: number) => (t - TOK.tsBegin) * SECONDS_PER_TOKEN;
   const segments: TokenSegment[] = [];
@@ -286,7 +334,7 @@ export function vocabFromTokenizer(json: { model: { vocab: Record<string, number
 }
 
 /** Text tokens back to a string (special tokens are left out). */
-export function decodeTokens(ids: number[], vocab: string[]): string {
+export function decodeTokens(ids: number[], vocab: string[], TOK: Pick<TokenIds, 'eot'> = TOK_V2): string {
   const dec = bytesFromUnicode();
   const bytes: number[] = [];
   for (const id of ids) {
@@ -309,4 +357,61 @@ export function tidySegments<T extends { text: string }>(segs: T[]): T[] {
     out.push(s);
   }
   return out;
+}
+
+// ---------------------------------------------------------------- text → token ids (for a prompt)
+
+export interface BpeTokenizer { encode(text: string): number[] }
+
+/**
+ * A byte-level BPE encoder from a tokenizer.json, so words the person cares
+ * about (their dictionary) can be handed to the model as a prompt before it
+ * listens. Whisper then spells them that way much more often.
+ */
+export function bpeFromTokenizer(json: { model: { vocab: Record<string, number>; merges?: (string | [string, string])[] } }): BpeTokenizer {
+  const ranks = new Map<string, number>();
+  (json.model.merges ?? []).forEach((m, i) => ranks.set(Array.isArray(m) ? `${m[0]} ${m[1]}` : m, i));
+  const enc = new Map<number, string>();
+  for (const [ch, b] of bytesFromUnicode()) enc.set(b, ch);
+  const cache = new Map<string, string[]>();
+  const bpe = (word: string): string[] => {
+    const hit = cache.get(word);
+    if (hit) return hit;
+    let parts = [...word];
+    while (parts.length > 1) {
+      let best = -1;
+      let rank = Infinity;
+      for (let i = 0; i < parts.length - 1; i++) {
+        const r = ranks.get(`${parts[i]} ${parts[i + 1]}`);
+        if (r !== undefined && r < rank) { rank = r; best = i; }
+      }
+      if (best < 0) break;
+      parts = [...parts.slice(0, best), parts[best] + parts[best + 1], ...parts.slice(best + 2)];
+    }
+    cache.set(word, parts);
+    return parts;
+  };
+  const pat = /'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+/gu;
+  return {
+    encode(text: string) {
+      const out: number[] = [];
+      for (const m of text.matchAll(pat)) {
+        const word = [...new TextEncoder().encode(m[0])].map((b) => enc.get(b)!).join('');
+        for (const p of bpe(word)) {
+          const id = json.model.vocab[p];
+          if (id !== undefined) out.push(id);
+        }
+      }
+      return out;
+    },
+  };
+}
+
+/**
+ * The tokens that go before the start token: a "previous text" marker and the
+ * prompt, cut from the front so it never takes more than half the context.
+ */
+export function promptTokens(prompt: number[], tok: TokenIds = TOK, max = 223): number[] {
+  if (!prompt.length) return [];
+  return [tok.prev, ...prompt.slice(-max)];
 }

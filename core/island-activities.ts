@@ -10,7 +10,8 @@ import type { IslandState } from './api';
 
 export type ActivityKind =
   | 'dictation' | 'recording' | 'agent-waiting' | 'agent-stuck' | 'meeting' | 'charging' | 'battery-low' | 'timer'
-  | 'progress' | 'music' | 'agent-working' | 'rain' | 'copied' | 'headphones' | 'awake' | 'unlocked' | 'paused-music' | 'sharing' | 'ai-control' | 'workspace';
+  | 'progress' | 'music' | 'agent-working' | 'rain' | 'copied' | 'headphones' | 'awake' | 'unlocked' | 'paused-music' | 'sharing' | 'ai-control' | 'workspace' | 'remote' | 'mesh-exit'
+  | 'call' | 'level' | 'cue';
 
 export interface Activity {
   id: string;
@@ -56,13 +57,21 @@ export const PRIORITY: Record<ActivityKind, number> = {
   dictation: 100,
   // Someone else sees this screen: always visible, with Stop one tap away.
   sharing: 98,
+  // Volume or brightness just changed: a moment's level beside the system's own pop-up.
+  level: 97,
   recording: 95,
+  // A call: its timer and mute stay one tap away.
+  call: 92,
+  // Watching another device, or a help code waiting: Stop one tap away.
+  remote: 90,
   'agent-waiting': 88,
   'agent-stuck': 86,
   charging: 82,
   meeting: 80,
   'battery-low': 78,
   timer: 72,
+  // A cue for the app or page in front.
+  cue: 70,
   progress: 66,
   music: 60,
   copied: 58,
@@ -71,6 +80,8 @@ export const PRIORITY: Record<ActivityKind, number> = {
   rain: 40,
   unlocked: 34,
   awake: 30,
+  // Keeper Mesh: all traffic goes through another device
+  'mesh-exit': 32,
   // Monorail moved to another workspace: a quick note, never in the way.
   workspace: 26,
   'paused-music': 20,
@@ -83,6 +94,13 @@ const mmss = (ms: number) => {
   return h ? `${h}:${String(m).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}` : `${m}:${String(s % 60).padStart(2, '0')}`;
 };
 
+const callClock = (ms: number) => {
+  const t = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(t / 3600);
+  const m = Math.floor((t % 3600) / 60);
+  return h ? `${h}:${String(m).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}` : `${m}:${String(t % 60).padStart(2, '0')}`;
+};
+
 export interface ExtraInputs {
   dictation?: 'on' | 'working';
   /** long jobs reported by Keeper (convert, clean up, duplicates, space map, first scan) */
@@ -91,10 +109,16 @@ export interface ExtraInputs {
   unlocked?: number;
   /** another device or phone watching (or controlling) this screen */
   sharing?: { sid: string; name: string; control: boolean; since: number }[];
+  /** this device watching another one, or a help code waiting for a helper */
+  remote?: { id: string; title: string; detail?: string; since: number; ref: string }[];
   /** AIs using this computer (screen, pointer, keyboard) right now */
   aiControl?: { id: string; client: string; since: number; actions: number }[];
+  /** Keeper Mesh: the exit node in use (shown only where the person placed it) */
+  meshExit?: { name: string; since: number } | null;
   /** kinds turned off in Settings */
   off?: string[];
+  /** a meeting Voice is recording (core/voice) */
+  meetingRec?: { title: string; elapsedMs: number; paused: boolean; last?: string };
 }
 
 /** Ongoing activities from the Island's state. */
@@ -104,6 +128,17 @@ export function activitiesFrom(s: IslandState, now: number, x: ExtraInputs = {})
 
   if (x.dictation) add({ id: 'dictation', kind: 'dictation', icon: 'mic', title: x.dictation === 'on' ? 'Listening…' : 'Writing it down…', color: '#ff9f0a', wave: x.dictation === 'on' });
   if (s.recording) add({ id: 'recording', kind: 'recording', icon: 'camera', title: 'Recording the screen', trailing: mmss(now - s.recording.since), color: '#ff453a', since: s.recording.since });
+  if (x.meetingRec) add({ id: 'meeting-rec', kind: 'recording', icon: 'mic', title: x.meetingRec.paused ? `Paused: ${x.meetingRec.title}` : `Recording “${x.meetingRec.title}”`, detail: x.meetingRec.last, trailing: mmss(x.meetingRec.elapsedMs), color: '#ff453a', priority: PRIORITY.recording - 1 });
+
+  if (s.call) {
+    const c = s.call;
+    add({ id: `call-${c.id}`, kind: 'call', icon: c.video ? 'camera' : 'phone', title: c.app, detail: c.muted ? 'Microphone muted' : 'Microphone on', trailing: callClock(now - c.since), color: c.muted ? '#ff453a' : '#30d158', since: c.since, ref: c.id });
+  }
+  if (s.hud && now - s.hud.at < 1800) {
+    const h = s.hud;
+    add({ id: `level-${h.kind}`, kind: 'level', icon: h.kind === 'brightness' ? 'sun' : h.kind === 'mic' ? 'mic' : 'audio', title: `${h.kind === 'brightness' ? 'Brightness' : 'Volume'}${h.muted ? ' muted' : ''}`, trailing: h.muted ? 'off' : `${h.value}%`, progress: h.muted ? 0 : h.value / 100, color: h.kind === 'brightness' ? '#ffd60a' : '#0a84ff', until: h.at + 1800, since: h.at });
+  }
+  if (s.cueHere) add({ id: `cue-${s.cueHere.id}`, kind: 'cue', icon: 'pin', title: s.cueHere.title, detail: s.cueHere.count > 1 ? `${s.cueHere.count} cues here` : 'A cue for this place', trailing: s.cueHere.count > 1 ? String(s.cueHere.count) : undefined, color: '#ff9f0a', ref: s.cueHere.id });
 
   for (const a of s.agents) {
     if (a.state === 'waiting') add({ id: `agent-${a.id}`, kind: 'agent-waiting', icon: 'terminal', title: `${a.project} needs you`, detail: a.summary, trailing: '!', color: '#fbbf24', ref: a.id, since: a.updatedAt });
@@ -150,6 +185,8 @@ export function activitiesFrom(s: IslandState, now: number, x: ExtraInputs = {})
   }
   for (const c of x.aiControl ?? []) add({ id: `ai-${c.id}`, kind: 'ai-control', icon: 'sparkle', title: `${c.client} is using this computer`, detail: `${c.actions} action${c.actions === 1 ? '' : 's'}`, trailing: mmss(now - c.since), color: '#ff9f0a', since: c.since, ref: c.id });
   for (const sh of x.sharing ?? []) add({ id: `share-${sh.sid}`, kind: 'sharing', icon: 'eye', title: `${sh.name} is ${sh.control ? 'controlling' : 'viewing'} this screen`, trailing: mmss(now - sh.since), color: '#ff453a', since: sh.since, ref: sh.sid });
+  if (x.meshExit) add({ id: 'mesh-exit', kind: 'mesh-exit', icon: 'graph', title: `Internet through ${x.meshExit.name}`, detail: 'Keeper Mesh exit node', trailing: 'exit', color: '#8b5cf6', since: x.meshExit.since });
+  for (const r of x.remote ?? []) add({ id: `remote-${r.id}`, kind: 'remote', icon: 'laptop', title: r.title, detail: r.detail, trailing: mmss(now - r.since), color: '#0a84ff', since: r.since, ref: r.ref });
   if (x.unlocked) add({ id: 'unlocked', kind: 'unlocked', icon: 'lock', title: `${x.unlocked} folder${x.unlocked === 1 ? '' : 's'} unlocked`, trailing: String(x.unlocked), color: '#fbbf24' });
   if (s.keepAwake.on) {
     const left = s.keepAwake.until ? Math.max(0, s.keepAwake.until - now) : 0;
@@ -158,8 +195,8 @@ export function activitiesFrom(s: IslandState, now: number, x: ExtraInputs = {})
   return out.filter((a) => !x.off?.includes(a.kind));
 }
 
-const JOB_TITLE: Record<string, string> = { convert: 'Converting', cleanup: 'Looking for things to clean', junk: 'Looking for things to clean', duplicates: 'Finding duplicates', dupes: 'Finding duplicates', space: 'Measuring folders', index: 'Reading your files', upload: 'Uploading', download: 'Downloading', lock: 'Locking a folder', unlock: 'Unlocking a folder', sync: 'Syncing', backup: 'Backing up', restore: 'Restoring', mirror: 'Mirroring' };
-const JOB_ICON: Record<string, string> = { convert: 'refresh', cleanup: 'broom', junk: 'broom', duplicates: 'dupes', dupes: 'dupes', space: 'map', index: 'search', upload: 'arrowUp', download: 'down', lock: 'lock', unlock: 'lock', sync: 'refresh', backup: 'shield', restore: 'undo', mirror: 'cloud' };
+const JOB_TITLE: Record<string, string> = { convert: 'Converting', cleanup: 'Looking for things to clean', junk: 'Looking for things to clean', duplicates: 'Finding duplicates', dupes: 'Finding duplicates', space: 'Measuring folders', index: 'Reading your files', upload: 'Uploading', download: 'Downloading', lock: 'Locking a folder', unlock: 'Unlocking a folder', sync: 'Syncing', backup: 'Backing up', restore: 'Restoring', mirror: 'Mirroring', arriving: 'Arriving', workout: 'Workout running' };
+const JOB_ICON: Record<string, string> = { convert: 'refresh', cleanup: 'broom', junk: 'broom', duplicates: 'dupes', dupes: 'dupes', space: 'map', index: 'search', upload: 'arrowUp', download: 'down', lock: 'lock', unlock: 'lock', sync: 'refresh', backup: 'shield', restore: 'undo', mirror: 'cloud', arriving: 'map', workout: 'bolt' };
 
 /** Short-lived activities from what changed between two states. */
 export function transientsFrom(prev: IslandState | null, next: IslandState, now: number): Activity[] {

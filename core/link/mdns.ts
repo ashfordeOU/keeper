@@ -174,6 +174,8 @@ export interface Announce {
   /** 1 while this device is waiting to be paired with a code */
   pairing?: boolean;
   os?: string;
+  /** while someone here waits for help: a short tag of the session code */
+  help?: string;
 }
 
 export function announcement(a: Announce, ttl = 120): Packet {
@@ -186,7 +188,7 @@ export function announcement(a: Announce, ttl = 120): Packet {
     answers: [
       { name: SERVICE, type: TYPE.PTR, ttl, data: inst },
       { name: inst, type: TYPE.SRV, ttl, data: { port: a.port, target: host }, flush: true },
-      { name: inst, type: TYPE.TXT, ttl, data: { v: '1', id: a.id, n: a.name.slice(0, 60), p: a.pairing ? '1' : '0', os: a.os ?? '' }, flush: true },
+      { name: inst, type: TYPE.TXT, ttl, data: { v: '1', id: a.id, n: a.name.slice(0, 60), p: a.pairing ? '1' : '0', os: a.os ?? '', ...(a.help ? { h: a.help } : {}) }, flush: true },
       ...a.addresses.map((ip) => ({ name: host, type: ip.includes(':') ? TYPE.AAAA : TYPE.A, ttl, data: ip, flush: true })),
     ],
   };
@@ -204,6 +206,8 @@ export interface Found {
   pairing: boolean;
   os: string;
   ttl: number;
+  /** help-session tag, when it waits for a helper */
+  help?: string;
 }
 
 /** Keeper devices described in a response packet (a goodbye has ttl 0). */
@@ -225,6 +229,7 @@ export function keeperDevices(p: Packet): Found[] {
       pairing: txt.p === '1',
       os: txt.os ?? '',
       ttl: r.ttl,
+      help: /^[0-9a-f]{12}$/.test(txt.h ?? '') ? txt.h : undefined,
     });
   }
   return out;

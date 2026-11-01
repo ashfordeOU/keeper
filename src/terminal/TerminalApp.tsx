@@ -37,7 +37,7 @@ function loadLayout(mode: Mode): { tabs: TerminalTab[]; active: string } | null 
 const URL_RE = /https?:\/\/(?:127\.0\.0\.1|localhost|\[::1\]):\d+[^\s\x1b'"<>]*/;
 const randomToken = () => Array.from(crypto.getRandomValues(new Uint8Array(18)), (b) => b.toString(16).padStart(2, '0')).join('');
 
-export function TerminalApp({ mode = 'page', startCwd }: { mode?: Mode; startCwd?: string }) {
+export function TerminalApp({ mode = 'page', startCwd, openSession }: { mode?: Mode; startCwd?: string; /** a terminal that already runs (e.g. an SSH connection from Remote Desktops), shown in a tab */ openSession?: string }) {
   const tt = useTT();
   const { toast, info } = useStore();
   const [settings, setSettings] = useState<TerminalSettings | null>(null);
@@ -93,6 +93,22 @@ export function TerminalApp({ mode = 'page', startCwd }: { mode?: Mode; startCwd
           if (root) restoredTabs.push({ ...t, root, focus: findLeaf(root, t.focus) ? t.focus : leaves(root)[0].id });
         }
       }
+      if (openSession && ids.has(openSession)) {
+        // A connection opened from Remote Desktops: its terminal in a tab of its own, in front.
+        const has = (n: PaneNode): boolean => (n.type === 'leaf' ? n.session === openSession : n.children.some(has));
+        let t1 = restoredTabs.find((t) => has(t.root));
+        if (!t1) {
+          const l1 = leaf(openSession);
+          t1 = { id: paneId(), root: l1, focus: l1.id };
+          restoredTabs.push(t1);
+        }
+        setTabs(restoredTabs);
+        setActiveTab(t1.id);
+        setReady(true);
+        void api.terminal.sshHosts().then((h) => alive && setHosts(h));
+        void api.terminal.webTools().then((w) => alive && setTools(w));
+        return;
+      }
       if (restoredTabs.length && startCwd) {
         // "Open in Terminal" on a folder: a new tab there, beside the tabs from last time.
         const s1 = await api.terminal.create({ cwd: startCwd });
@@ -136,6 +152,15 @@ export function TerminalApp({ mode = 'page', startCwd }: { mode?: Mode; startCwd
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Another connection opened while this page is showing.
+  const shownSession = useRef(openSession);
+  useEffect(() => {
+    if (!ready || !openSession || shownSession.current === openSession) return;
+    shownSession.current = openSession;
+    showSession(openSession);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openSession, ready]);
 
   // The layout is remembered per window kind, so reopening shows the same tabs and panes.
   useEffect(() => {

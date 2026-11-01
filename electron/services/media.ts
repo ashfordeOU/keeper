@@ -17,7 +17,12 @@ if player state is stopped then return ""
 set t to current track
 set d to duration of t
 if d > 10000 then set d to d / 1000
-return (name of t) & "\\t" & (artist of t) & "\\t" & (album of t) & "\\t" & (player state as string) & "\\t" & (player position as string) & "\\t" & (d as string)
+set sh to ""
+set rp to ""
+try
+${app === 'Spotify' ? 'set sh to shuffling as string\nset rp to repeating as string' : 'set sh to shuffle enabled as string\nset rp to song repeat as string'}
+end try
+return (name of t) & "\\t" & (artist of t) & "\\t" & (album of t) & "\\t" & (player state as string) & "\\t" & (player position as string) & "\\t" & (d as string) & "\\t" & sh & "\\t" & rp
 end tell
 end if
 return ""`;
@@ -33,7 +38,7 @@ if ($s -eq $null) { return }
 ACTION
 $p = Await ($s.TryGetMediaPropertiesAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionMediaProperties])
 $i = $s.GetPlaybackInfo(); $tl = $s.GetTimelineProperties()
-@{ app=$s.SourceAppUserModelId; title=$p.Title; artist=$p.Artist; album=$p.AlbumTitle; status=$i.PlaybackStatus.ToString(); pos=$tl.Position.TotalSeconds; dur=$tl.EndTime.TotalSeconds } | ConvertTo-Json -Compress`;
+@{ app=$s.SourceAppUserModelId; title=$p.Title; artist=$p.Artist; album=$p.AlbumTitle; status=$i.PlaybackStatus.ToString(); pos=$tl.Position.TotalSeconds; dur=$tl.EndTime.TotalSeconds; sh=$i.IsShuffleActive; rp=[string]$i.AutoRepeatMode; canSh=$i.Controls.IsShuffleEnabled } | ConvertTo-Json -Compress`;
 
 export async function nowPlaying(): Promise<NowPlaying | undefined> {
   if (process.platform === 'darwin') {
@@ -41,7 +46,9 @@ export async function nowPlaying(): Promise<NowPlaying | undefined> {
       const r = await run('/usr/bin/osascript', ['-e', MAC_SCRIPT(app)], 4000);
       const parts = r.stdout.trim().split('\t');
       if (parts.length >= 6 && parts[0]) {
-        return { app, title: parts[0], artist: parts[1], album: parts[2], playing: parts[3] === 'playing', position: parseFloat(parts[4].replace(',', '.')) || 0, duration: parseFloat(parts[5].replace(',', '.')) || 0 };
+        const sh = parts[6]?.trim();
+        const rp = parts[7]?.trim();
+        return { app, title: parts[0], artist: parts[1], album: parts[2], playing: parts[3] === 'playing', position: parseFloat(parts[4].replace(',', '.')) || 0, duration: parseFloat(parts[5].replace(',', '.')) || 0, canShuffle: !!sh, shuffle: sh === 'true', repeat: !!rp && rp !== 'false' && rp !== 'off' };
       }
     }
     return undefined;
@@ -59,15 +66,16 @@ export async function nowPlaying(): Promise<NowPlaying | undefined> {
   // Asked every few seconds: a PowerShell that stays open answers far more cheaply.
   const r = await psRun(WIN_SCRIPT.replace('ACTION', ''), 8000);
   try {
-    const d = JSON.parse(r.stdout) as { app: string; title: string; artist: string; album: string; status: string; pos: number; dur: number };
+    const d = JSON.parse(r.stdout) as { app: string; title: string; artist: string; album: string; status: string; pos: number; dur: number; sh?: boolean | null; rp?: string; canSh?: boolean };
     if (!d.title) return undefined;
-    return { app: d.app.split('!')[0].split('.').pop() ?? 'Media', title: d.title, artist: d.artist, album: d.album || undefined, playing: d.status === 'Playing', position: d.pos, duration: d.dur };
+    return { app: d.app.split('!')[0].split('.').pop() ?? 'Media', title: d.title, artist: d.artist, album: d.album || undefined, playing: d.status === 'Playing', position: d.pos, duration: d.dur, canShuffle: !!d.canSh, shuffle: !!d.sh, repeat: !!d.rp && d.rp !== 'None' };
   } catch {
     return undefined;
   }
 }
 
-export async function mediaAction(app: string | undefined, action: 'toggle' | 'next' | 'previous' | 'seek', value?: number): Promise<void> {
+export async function mediaAction(app: string | undefined, action: 'toggle' | 'next' | 'previous' | 'seek' | 'shuffle' | 'repeat', value?: number): Promise<void> {
+  if (action === 'shuffle' || action === 'repeat') return shuffleRepeat(app, action);
   if (process.platform === 'darwin') {
     const target = app === 'Spotify' ? 'Spotify' : 'Music';
     const cmd = action === 'toggle' ? 'playpause' : action === 'next' ? 'next track' : action === 'previous' ? 'previous track' : `set player position to ${Math.max(0, value ?? 0)}`;
@@ -78,6 +86,29 @@ export async function mediaAction(app: string | undefined, action: 'toggle' | 'n
   } else {
     const call = action === 'toggle' ? 'TryTogglePlayPauseAsync()' : action === 'next' ? 'TrySkipNextAsync()' : action === 'previous' ? 'TrySkipPreviousAsync()' : `TryChangePlaybackPositionAsync(${Math.round((value ?? 0) * 1e7)})`;
     await psRun(WIN_SCRIPT.replace('ACTION', `Await ($s.${call}) ([bool]) | Out-Null; return`), 8000);
+  }
+}
+
+/** Shuffle on/off and repeat (off → all → one → off where the player has three modes). */
+async function shuffleRepeat(app: string | undefined, what: 'shuffle' | 'repeat'): Promise<void> {
+  if (process.platform === 'darwin') {
+    const spotify = app === 'Spotify';
+    const cmd = spotify
+      ? (what === 'shuffle' ? 'tell application "Spotify" to set shuffling to not shuffling' : 'tell application "Spotify" to set repeating to not repeating')
+      : (what === 'shuffle' ? 'tell application "Music" to set shuffle enabled to not shuffle enabled'
+        : 'tell application "Music"\nif song repeat is off then\nset song repeat to all\nelse if song repeat is all then\nset song repeat to one\nelse\nset song repeat to off\nend if\nend tell');
+    await run('/usr/bin/osascript', ['-e', cmd], 4000);
+  } else if (process.platform === 'linux') {
+    if (what === 'shuffle') await run('playerctl', ['shuffle', 'Toggle'], 3000);
+    else {
+      const cur = (await run('playerctl', ['loop'], 3000)).stdout.trim();
+      await run('playerctl', ['loop', cur === 'None' ? 'Playlist' : cur === 'Playlist' ? 'Track' : 'None'], 3000);
+    }
+  } else {
+    const call = what === 'shuffle'
+      ? '$i = $s.GetPlaybackInfo(); Await ($s.TryChangeShuffleActiveAsync(-not $i.IsShuffleActive)) ([bool]) | Out-Null; return'
+      : '$i = $s.GetPlaybackInfo(); $m = [int]$i.AutoRepeatMode; $n = if ($m -eq 0) { 2 } elseif ($m -eq 2) { 1 } else { 0 }; Await ($s.TryChangeAutoRepeatModeAsync($n)) ([bool]) | Out-Null; return';
+    await psRun(WIN_SCRIPT.replace('ACTION', call), 8000);
   }
 }
 

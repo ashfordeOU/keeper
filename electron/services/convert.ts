@@ -24,6 +24,12 @@ import { Extra, findTool, officeCandidates, type ExtraHooks } from './convert-ex
 import { FileKit } from './filekit';
 import { isKitTool, type KitOp } from '../../core/filekit/tools';
 
+/** The person's standard output folder (set by the app; the command line keeps results next to the originals). */
+let standardOutput: (tool: string) => string | undefined = () => undefined;
+export function setStandardOutput(fn: (tool: string) => string | undefined) {
+  standardOutput = fn;
+}
+
 type Sharp = typeof import('sharp');
 
 const req = createRequire(__filename);
@@ -152,7 +158,8 @@ export class Converter {
     if (!job.inputs.length) throw new Error('Choose at least one file');
     for (const p of job.inputs) if (!existsSync(p)) throw new Error(`${path.basename(p)} no longer exists`);
     const op = job.op;
-    const outDir = outputFolder(job.inputs, job.outDir);
+    // The person's standard output setting (Health → Settings → Results go to) when the tool was not given a folder.
+    const outDir = outputFolder(job.inputs, job.outDir ?? standardOutput(op.tool));
     const needsDir = !['file.checksum', 'file.verify'].includes(op.tool);
     if (needsDir) await fsp.mkdir(outDir, { recursive: true });
     if (isKitTool(op.tool)) {

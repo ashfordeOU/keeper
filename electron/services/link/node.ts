@@ -12,9 +12,13 @@ import type net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import type { CompanionInvite, Forward, LinkDevice, LinkSettings, LinkShare, LinkState, NearbyDevice, PairInvite, PairPrompt, RemoteEntry, ThisDevice, TunnelStatus } from '../../../core/api-link';
-import { initiate, respond, type CarrierKind, type Wire, reader, dec } from '../../../core/link/channel';
+import { initiate, respond, type CarrierKind, type Session, type Wire, reader, dec } from '../../../core/link/channel';
+import { addEntry, filterAudit, type AuditEntry, type AuditFilter } from '../../../core/link/audit';
+import { cleanMeta, type DeviceMeta } from '../../../core/link/fleet';
+import { HELP_ALLOWED_RPC, HELP_ALLOWED_STREAMS } from '../../../core/link/help';
+import { asCarrier, decodeHello, encodeHello, firstMessage, prepend, Resumable } from '../../../core/link/resume';
 import { COMPANION_CHUNK, companionKeys, fromB64u, inviteId, Opener, Sealer, toB64u, type CHeader } from '../../../core/link/companion-proto';
-import { answerTcp, forwardPort, socksProxy } from '../../../core/link/forward';
+import { answerTcp, bridge, forwardPort, socksProxy } from '../../../core/link/forward';
 import { deviceId, fingerprint, identityFromJson, identityToJson, newIdentity, type Identity } from '../../../core/link/identity';
 import { DEFAULT_MAILBOX, postNote, readNotes, type Reach } from '../../../core/link/mailbox';
 import { call, Mux, serve, type Handler, type Stream } from '../../../core/link/mux';
@@ -23,6 +27,8 @@ import { allowed, DEFAULT_PERMISSIONS, forwardTargetAllowed, METHOD_PERMISSION, 
 import { relayDial, relayListen, relayOnline } from '../../../core/link/relay';
 import { Receiver, safeName, sendFile, uniquePath, type Offer, type Progress } from '../../../core/link/transfer';
 import { acceptWebSocket, connectWs, type WsServerConn } from '../../../core/link/ws';
+import { DirectPaths } from './direct';
+import { HelpSessions } from './help';
 import { lanIPv4, MdnsPeer, wireguardInterfaces } from './mdns-socket';
 
 export const DEFAULT_PORT = 47821;
@@ -59,6 +65,8 @@ interface StoredCompanion {
   key: string;
   created: number;
   lastSeen?: number;
+  /** this phone may open a terminal here (off unless turned on under Phones) */
+  terminal?: boolean;
 }
 
 interface StoredForward {
@@ -79,6 +87,12 @@ export interface LinkData {
   devices: StoredDevice[];
   companions: StoredCompanion[];
   forwards: StoredForward[];
+  /** groups, tags, notes and saved commands per paired device */
+  meta?: Record<string, DeviceMeta>;
+  /** commands the owner has seen and allowed once, per device (hashes) */
+  approved?: Record<string, string[]>;
+  /** newest first: sessions, transfers, commands, terminals, help */
+  audit?: AuditEntry[];
 }
 
 export interface LinkHooks {
@@ -102,6 +116,10 @@ export interface LinkHooks {
   companionDir(): string;
   qr(text: string): Promise<string>;
   tunnel(): TunnelStatus | undefined;
+  /** may the device look for a direct path now (feature on, work not held) */
+  directAllowed?(): boolean;
+  /** a help session started or ended (for the window and the banner) */
+  helpChanged?(): void;
 }
 
 interface Conn {
@@ -110,6 +128,23 @@ interface Conn {
   where?: string;
   since: number;
   rtt?: number;
+  /** the connection survives carrier changes (relay → direct → back) */
+  res?: Resumable;
+  /** this device dialled: it is the one that looks for a better path */
+  initiator: boolean;
+  directTries: number;
+  directTimer?: NodeJS.Timeout;
+}
+
+/** A one-time help connection (no pairing, no trust kept). */
+export interface Guest {
+  id: string;
+  mux: Mux;
+  name: string;
+  /** host: they help me; helper: I help them */
+  role: 'host' | 'helper';
+  kind: CarrierKind;
+  since: number;
 }
 
 type ExtraHandler = { perm: Permission | null; fn: Handler };
@@ -144,11 +179,27 @@ export class LinkNode {
   private extraRpc = new Map<string, ExtraHandler>();
   private extraStreams = new Map<string, StreamHandler>();
   private extraCompanion = new Map<string, CompanionOp>();
+  private extraControl = new Map<string, (p: Record<string, unknown>) => Promise<unknown> | unknown>();
+  readonly guests = new Map<string, Guest>();
+  readonly direct: DirectPaths;
+  readonly help: HelpSessions;
   private stopped = false;
   tunnelUrl?: string;
 
-  constructor(private hooks: LinkHooks, private opts: { hostname?: string; os?: string; mdns?: boolean; controlToken?: string } = {}) {
+  constructor(private hooks: LinkHooks, readonly opts: { hostname?: string; os?: string; mdns?: boolean; controlToken?: string; noLanDial?: boolean; directLoopback?: boolean } = {}) {
     this.receiver = new Receiver(() => this.downloadDir(), () => path.join(this.downloadDir(), '.keeper-partial'));
+    this.direct = new DirectPaths(this);
+    this.help = new HelpSessions(this);
+  }
+
+  /** @internal for DirectPaths and HelpSessions */
+  get mdnsPeer() {
+    return this.mdns;
+  }
+
+  /** @internal */
+  get linkHooks() {
+    return this.hooks;
   }
 
   // ---------------------------------------------------------------- start / stop
@@ -209,6 +260,10 @@ export class LinkNode {
 
   async stop() {
     this.stopped = true;
+    this.help.stop('Keeper is closing');
+    for (const g of this.guests.values()) g.mux.close('stopping');
+    for (const list of this.conns.values()) for (const c of list) clearTimeout(c.directTimer);
+    this.direct.stop();
     clearTimeout(this.relayTimer);
     clearTimeout(this.noteTimer);
     this.relayCtl?.close('stopping');
@@ -270,7 +325,7 @@ export class LinkNode {
     this.server = server;
     if (this.opts.mdns !== false) {
       this.mdns.onfound = () => this.hooks.changed();
-      await this.mdns.start(() => ({ id: this.id, name: this.data.name, port: this.port, host: `keeper-${this.id.slice(0, 8)}`, addresses: lanIPv4(), pairing: !!this.invite && this.invite.expires > Date.now(), os: this.opts.os ?? process.platform }));
+      await this.mdns.start(() => ({ id: this.id, name: this.data.name, port: this.port, host: `keeper-${this.id.slice(0, 8)}`, addresses: lanIPv4(), pairing: !!this.invite && this.invite.expires > Date.now(), os: this.opts.os ?? process.platform, help: this.help.tag() }));
     }
   }
 
@@ -343,8 +398,11 @@ export class LinkNode {
           return ok(await this.check(dev(p.device)));
         case 'forward':
           return ok(await this.addForward({ device: dev(p.device), kind: p.kind === 'socks' ? 'socks' : 'port', localPort: Number(p.localPort), host: p.host ? String(p.host) : undefined, port: p.port ? Number(p.port) : undefined }));
-        default:
-          return send(404, 'text/plain', 'unknown');
+        default: {
+          const extra = this.extraControl.get(op);
+          if (!extra) return send(404, 'text/plain', 'unknown');
+          return ok(await extra({ ...p, device: p.device !== undefined && !String(p.device).startsWith('help:') ? dev(p.device) : p.device }));
+        }
       }
     } catch (e) {
       return send(200, 'application/json', JSON.stringify({ ok: false, e: e instanceof Error ? e.message : String(e) }));
@@ -358,6 +416,7 @@ export class LinkNode {
     const kind: CarrierKind = viaTunnel ? 'tunnel' : remote === '127.0.0.1' || remote === '::1' ? 'local' : 'lan';
     // Over the tunnel only when internet mode is on.
     if (viaTunnel && (this.data.settings.mode !== 'internet' || this.data.settings.localOnly)) return void socket.end('HTTP/1.1 403 Forbidden\r\n\r\n');
+    if (u.pathname === '/local/pipe') return void this.localPipe(req, socket, head, u);
     if (u.pathname === '/link') {
       const ws = acceptWebSocket(req, socket, head, kind, viaTunnel ? 'tunnel' : remote);
       if (ws) void this.incoming(ws);
@@ -382,15 +441,61 @@ export class LinkNode {
     }
     const m = dec(first);
     if (m.t === 'p1') return void this.hostPairing(wire, first);
+    if (m.t === 'hp1') return void this.help.answer(wire, first);
     if (m.t !== 'h1') return wire.close('not keeper');
     try {
       const session = await respond(wire, this.me, (pub) => this.data.devices.some((d) => d.pub === pub.toString('base64')), 15_000, first);
       const dev = this.byPub(session.peer);
       if (!dev) return session.close('unknown');
-      this.attach(dev.id, new Mux(session, false), wire.kind, wire.where);
+      await this.answered(dev.id, session);
     } catch {
       wire.close('refused');
     }
+  }
+
+  /**
+   * The answering side of a new session: a hello either starts a resumable
+   * connection or moves an existing one onto this path (a direct path that
+   * was just found, or the way back after one failed).
+   */
+  private async answered(device: string, session: Session) {
+    const first = await firstMessage(session, 8000);
+    const h = first ? decodeHello(first) : null;
+    if (!h) {
+      // An older Keeper: a plain connection.
+      this.attach(device, new Mux(first ? prepend(session, first) : session, false), session.wire.kind, session.wire.where, undefined, false);
+      return;
+    }
+    const existing = (this.conns.get(device) ?? []).find((c) => c.res?.id === h.id && !c.mux.closed);
+    if (existing?.res) {
+      session.send(encodeHello({ v: 1, id: h.id, recv: existing.res.received }));
+      existing.res.adopt(session, h.recv);
+      this.hooks.changed();
+      return;
+    }
+    const res = new Resumable(h.id);
+    session.send(encodeHello({ v: 1, id: h.id, recv: 0 }));
+    res.adopt(session, h.recv);
+    this.attach(device, new Mux(asCarrier(res), false), session.wire.kind, session.wire.where, res, false);
+  }
+
+  /** The calling side: starts (or, with `res`, moves) a resumable connection on a new session. */
+  async hello(session: Session, res?: Resumable, timeoutMs = 4000): Promise<{ res?: Resumable; carrier: import('../../../core/link/mux').Carrier }> {
+    const r = res ?? new Resumable();
+    session.send(encodeHello({ v: 1, id: r.id, recv: r.received }));
+    const first = await firstMessage(session, timeoutMs);
+    const h = first ? decodeHello(first) : null;
+    if (h && h.id === r.id) {
+      r.adopt(session, h.recv);
+      return { res: r, carrier: asCarrier(r) };
+    }
+    if (res) throw new Error('The other device did not take the new path');
+    return { carrier: first ? prepend(session, first) : session };
+  }
+
+  /** @internal a wire that reached us some other way (a direct path, a help relay) */
+  acceptWire(wire: Wire) {
+    return this.incoming(wire);
   }
 
   private byPub(pub: Buffer) {
@@ -398,8 +503,15 @@ export class LinkNode {
     return this.data.devices.find((d) => d.pub === b);
   }
 
-  private attach(device: string, mux: Mux, kind: CarrierKind, where?: string): Conn {
-    const c: Conn = { mux, kind, where, since: Date.now() };
+  private attach(device: string, mux: Mux, kind: CarrierKind, where: string | undefined, res: Resumable | undefined, initiator: boolean): Conn {
+    const c: Conn = { mux, kind, where, since: Date.now(), res, initiator, directTries: 0 };
+    if (res) {
+      res.onpath = () => this.hooks.changed();
+      // Every path gone: the calling side dials again and resumes; the other side waits for that.
+      res.ondetached = () => {
+        if (initiator && !this.stopped) void this.resumeConn(device, c).catch(() => undefined);
+      };
+    }
     const list = this.conns.get(device) ?? [];
     list.push(c);
     this.conns.set(device, list);
@@ -409,7 +521,9 @@ export class LinkNode {
       void this.save();
     }
     mux.onstream = (st) => this.stream(device, st);
+    this.direct.consider(device, c);
     mux.onclose = () => {
+      clearTimeout(c.directTimer);
       const l = (this.conns.get(device) ?? []).filter((x) => x !== c);
       if (l.length) this.conns.set(device, l);
       else this.conns.delete(device);
@@ -449,15 +563,56 @@ export class LinkNode {
     return this.data.devices.find((d) => d.id === device)?.perms ?? {};
   }
 
+  /** For features built on Link: extra operations the keeper command may ask for. */
+  registerControl(op: string, fn: (p: Record<string, unknown>) => Promise<unknown> | unknown) {
+    this.extraControl.set(op, fn);
+  }
+
+  /** Name and permissions of whoever is on the other end: a paired device or a help guest. */
+  peer(device: string): { id: string; name: string; os: string; permissions: PermissionSet; help?: 'host' | 'helper' } | null {
+    const g = this.guests.get(device);
+    if (g) return { id: g.id, name: g.name, os: '', permissions: g.role === 'host' ? { screenView: true, screenControl: true } : {}, help: g.role };
+    const d = this.data.devices.find((x) => x.id === device);
+    return d ? { id: d.id, name: d.name, os: d.os, permissions: d.perms } : null;
+  }
+
+  /** @internal a help connection is up */
+  addGuest(g: Guest) {
+    this.guests.set(g.id, g);
+    g.mux.onstream = (st) => this.stream(g.id, st);
+    g.mux.onclose = () => {
+      this.guests.delete(g.id);
+      this.hooks.helpChanged?.();
+      this.hooks.changed();
+    };
+    this.hooks.helpChanged?.();
+    this.hooks.changed();
+  }
+
   private stream(device: string, st: Stream) {
-    const perms = this.permsOf(device);
     const k = String(st.meta.k ?? '');
+    if (this.guests.has(device)) {
+      // Help: the screen and nothing else. No files, terminal, commands or ports.
+      const g = this.guests.get(device)!;
+      if (k === 'rpc') {
+        const m = String(st.meta.m ?? '');
+        const extra = this.extraRpc.get(m);
+        if (!HELP_ALLOWED_RPC.has(m)) return void serve(st, { [m]: () => { throw new Error('Not in a help session'); } });
+        return void serve(st, { hello: () => ({ name: this.data.name, os: this.opts.os ?? process.platform }), ping: () => ({ t: Date.now() }), ...(extra ? { [m]: extra.fn } : {}) });
+      }
+      const extra = this.extraStreams.get(k);
+      if (g.role === 'host' && extra && HELP_ALLOWED_STREAMS.has(k)) return extra.fn(st, device);
+      if (g.role === 'helper' && extra && k === 'screen.frames') return extra.fn(st, device);
+      return st.reset('not allowed');
+    }
+    const perms = this.permsOf(device);
     if (k === 'rpc') {
       const m = String(st.meta.m ?? '');
       const extra = this.extraRpc.get(m);
       const ok = extra ? extra.perm === null || !!perms[extra.perm] : allowed(perms, m);
       if (!ok) return void serve(st, { [m]: () => { throw new Error(m in METHOD_PERMISSION || extra ? 'This device does not allow that' : `Unknown request ${m}`); } });
-      if (extra) return void serve(st, { [m]: extra.fn });
+      // The handler learns which device asked as $device (set here, never taken from the request).
+      if (extra) return void serve(st, { [m]: (p, s2) => extra.fn({ ...p, $device: device }, s2) });
       return void serve(st, this.handlers(device));
     }
     if (k === 'file') {
@@ -597,6 +752,10 @@ export class LinkNode {
     this.transfers.set(`${p.direction}:${p.id}`, p);
     if (this.transfers.size > 40) this.transfers.delete(this.transfers.keys().next().value!);
     this.hooks.transfer(p);
+    if ((p.state === 'done' || p.state === 'failed' || p.state === 'declined') && p.peer) {
+      const name = this.peer(p.peer)?.name ?? p.peer;
+      this.audit({ kind: 'transfer', direction: p.direction === 'send' ? 'out' : 'in', device: p.peer, deviceName: name, title: `${p.direction === 'send' ? 'Sent' : 'Received'} ${p.name}`, detail: `${p.size} bytes${p.state !== 'done' ? ` · ${p.error ?? p.state}` : ''}${this.carrierOf(p.peer) ? ` · ${this.carrierOf(p.peer)}` : ''}`, ok: p.state === 'done' });
+    }
     if (p.state === 'done' && p.direction === 'receive') this.hooks.notify(`Received ${p.name}`, `Saved in ${path.dirname(p.savedAs ?? this.downloadDir())}`);
   }
 
@@ -616,6 +775,9 @@ export class LinkNode {
 
   /** An open link to a device, connecting if needed (local network first, then tunnel, then relay). */
   async connect(device: string): Promise<Mux> {
+    const guest = this.guests.get(device);
+    if (guest) return guest.mux;
+    if (device.startsWith('help:')) throw new Error('The help session has ended');
     const open = (this.conns.get(device) ?? []).filter((c) => !c.mux.closed);
     if (open.length) return open[open.length - 1].mux;
     let p = this.dialing.get(device);
@@ -636,7 +798,7 @@ export class LinkNode {
     const attempt = async (reach: Partial<Reach>): Promise<Conn | null> => {
       // 1. the local network: what mDNS heard, then the last known addresses, all at once
       const near = this.mdns.fresh().find((f) => f.id === device);
-      const lan = [...new Set([...(near ? near.addresses.map((a) => `${a}:${near.port}`) : []), ...(reach.lan ?? [])])];
+      const lan = this.opts.noLanDial ? [] : [...new Set([...(near ? near.addresses.map((a) => `${a}:${near.port}`) : []), ...(reach.lan ?? [])])];
       if (lan.length) {
         const c = await Promise.any(lan.map((a) => this.tryWire(() => connectWs(`ws://${a}/link`, 'lan', 2500, a.split(':')[0]), pub, device))).catch((e: AggregateError) => {
           errors.push(...e.errors.map(String));
@@ -673,11 +835,18 @@ export class LinkNode {
     throw new Error(s.mode === 'lan' || s.localOnly ? `${dev.name} is not on this network` : `Could not reach ${dev.name}`);
   }
 
-  private async tryWire(open: () => Promise<Wire>, pub: Buffer, device: string): Promise<Conn> {
+  private async tryWire(open: () => Promise<Wire>, pub: Buffer, device: string, resume?: Resumable): Promise<Conn> {
     const wire = await open();
     try {
       const session = await initiate(wire, this.me, pub, 10_000);
-      const c = this.attach(device, new Mux(session, true), wire.kind, wire.where);
+      if (resume) {
+        // Back on a carrier after every path was lost: the same connection continues.
+        await this.hello(session, resume);
+        const c = (this.conns.get(device) ?? []).find((x) => x.res === resume)!;
+        return c;
+      }
+      const h = await this.hello(session);
+      const c = this.attach(device, new Mux(h.carrier, true), wire.kind, wire.where, h.res, true);
       // Tell it where we are, and learn its name and addresses.
       const t0 = Date.now();
       const hi = await call<{ name?: string; os?: string; reach?: Reach }>(c.mux, 'hello', { reach: this.reach() }, 10_000);
@@ -691,6 +860,26 @@ export class LinkNode {
     } catch (e) {
       wire.close('failed');
       throw e;
+    }
+  }
+
+  /** All paths of a connection are gone: dial again (any carrier) and continue it. */
+  private async resumeConn(device: string, c: Conn) {
+    const dev = this.data.devices.find((d) => d.id === device);
+    if (!dev || !c.res || c.res.closed) return;
+    const pub = Buffer.from(dev.pub, 'base64');
+    const s = this.data.settings;
+    const reach = dev.reach ?? {};
+    const tries: (() => Promise<Wire>)[] = [];
+    if (!this.opts.noLanDial) for (const a of reach.lan ?? []) tries.push(() => connectWs(`ws://${a}/link`, 'lan', 2500, a.split(':')[0]));
+    if (s.mode === 'internet' && !s.localOnly) {
+      if (reach.tunnel) tries.push(() => connectWs(`${reach.tunnel!.replace(/^http/, 'ws')}/link`, 'tunnel', 10_000));
+      for (const r of new Set([reach.relay, s.relayUrl].filter(Boolean) as string[])) tries.push(() => relayDial(r, device));
+    }
+    for (const t of tries) {
+      if (c.res.closed) return;
+      const ok = await this.tryWire(t, pub, device, c.res).then(() => true, () => false);
+      if (ok) return;
     }
   }
 
@@ -942,7 +1131,7 @@ export class LinkNode {
       const c = (this.conns.get(device) ?? []).find((x) => x.mux === mux);
       if (c) c.rtt = rtt;
       this.hooks.changed();
-      return { ok: true, via: c?.kind, rtt };
+      return { ok: true, via: (c?.res?.kind ?? c?.kind) as CarrierKind | undefined, rtt };
     } catch (e) {
       return { ok: false, error: e instanceof Error ? e.message : String(e) };
     }
@@ -1044,6 +1233,79 @@ export class LinkNode {
     return { ...f, active: !!st?.srv, error: st?.error };
   }
 
+  // ---------------------------------------------------------------- audit, fleet notes, approvals
+
+  /** Adds an entry to this device's audit log. */
+  audit(e: Omit<AuditEntry, 'id' | 'at'> & { at?: number }) {
+    this.data.audit = addEntry(this.data.audit ?? [], { ...e, at: e.at ?? Date.now() }, 2000);
+    void this.save();
+  }
+
+  auditLog(f: AuditFilter = {}): AuditEntry[] {
+    return filterAudit(this.data.audit ?? [], f);
+  }
+
+  /** How a device is connected right now ('direct', 'relay', …). */
+  carrierOf(device: string): string | undefined {
+    const open = (this.conns.get(device) ?? []).filter((c) => !c.mux.closed);
+    const c = open[open.length - 1];
+    return c ? (c.res?.kind ?? c.kind) : this.guests.get(device)?.kind;
+  }
+
+  /** Paths under a device's connection, with bytes moved on each (for the device page and tests). */
+  pathsOf(device: string) {
+    return (this.conns.get(device) ?? []).filter((c) => !c.mux.closed).flatMap((c) => c.res?.pathStats() ?? [{ kind: c.kind, where: c.where, since: c.since, bytesIn: 0, bytesOut: 0, active: true }]);
+  }
+
+  setMeta(device: string, m: Partial<DeviceMeta>) {
+    if (!this.data.devices.some((d) => d.id === device)) throw new Error('That device is not paired');
+    this.data.meta = { ...(this.data.meta ?? {}), [device]: cleanMeta({ ...(this.data.meta?.[device] ?? { tags: [], commands: [] }), ...m }) };
+    void this.save();
+    this.hooks.changed();
+    return this.data.meta[device];
+  }
+
+  meta(device: string): DeviceMeta {
+    return this.data.meta?.[device] ?? { tags: [], commands: [] };
+  }
+
+  isApproved(device: string, hash: string) {
+    return !!this.data.approved?.[device]?.includes(hash);
+  }
+
+  approve(device: string, hash: string) {
+    const list = [...new Set([...(this.data.approved?.[device] ?? []), hash])].slice(-200);
+    this.data.approved = { ...(this.data.approved ?? {}), [device]: list };
+    void this.save();
+  }
+
+  /**
+   * The keeper command's byte pipe: an HTTP upgrade on the loopback control
+   * port (with the token) becomes a stream to a port on a paired device — what
+   * `ssh -o ProxyCommand="keeper remote ssh-proxy %h"` uses.
+   */
+  private localPipe(req: http.IncomingMessage, socket: import('node:stream').Duplex, head: Buffer, u: URL) {
+    const remote = (req.socket.remoteAddress ?? '').replace(/^::ffff:/, '');
+    const token = this.opts.controlToken;
+    const given = String(req.headers['x-keeper-token'] ?? '');
+    const local = (remote === '127.0.0.1' || remote === '::1') && !req.headers['cf-ray'] && !req.headers['cf-connecting-ip'] && !req.headers.origin;
+    if (!token || !local || given.length !== token.length || !crypto.timingSafeEqual(Buffer.from(given), Buffer.from(token))) return void socket.end('HTTP/1.1 403 Forbidden\r\n\r\n');
+    const q = (u.searchParams.get('device') ?? '').toLowerCase();
+    const d = this.data.devices.find((y) => y.id === q || y.name.toLowerCase() === q || y.name.toLowerCase().replace(/\s+/g, '-') === q.replace(/\.keeper$/, '') || y.name.toLowerCase().replace(/\s+/g, '-') + '.keeper' === q);
+    const port = Number(u.searchParams.get('port') ?? 22);
+    if (!d || !(port > 0 && port < 65536)) return void socket.end('HTTP/1.1 404 Not Found\r\n\r\nNo paired device by that name');
+    void this.connect(d.id).then(
+      (mux) => {
+        const st = mux.open({ k: 'tcp', host: '127.0.0.1', port });
+        socket.write('HTTP/1.1 101 Switching Protocols\r\nUpgrade: keeper-pipe\r\nConnection: Upgrade\r\n\r\n');
+        if (head.length) void st.write(head);
+        this.audit({ kind: 'forward', direction: 'out', device: d.id, deviceName: d.name, title: `Opened port ${port} on ${d.name} from the command line`, ok: true });
+        bridge(socket as net.Socket, st);
+      },
+      (e) => socket.end(`HTTP/1.1 502 Bad Gateway\r\n\r\n${e instanceof Error ? e.message : String(e)}`),
+    );
+  }
+
   // ---------------------------------------------------------------- settings and state
 
   async setSettings(patch: Partial<LinkSettings>) {
@@ -1092,6 +1354,7 @@ export class LinkNode {
     const devices: LinkDevice[] = this.data.devices.map((d) => {
       const open = (this.conns.get(d.id) ?? []).filter((c) => !c.mux.closed);
       const c = open[open.length - 1];
+      const meta = this.data.meta?.[d.id];
       return {
         id: d.id,
         name: d.name,
@@ -1102,10 +1365,12 @@ export class LinkNode {
         permissions: d.perms,
         autoAccept: d.autoAccept,
         online: !!c || near.has(d.id),
-        via: c?.kind,
-        where: c?.where,
+        via: (c?.res?.kind ?? c?.kind) as CarrierKind | undefined,
+        where: c?.res?.where ?? c?.where,
         rtt: c?.rtt,
         nearby: near.has(d.id),
+        meta: meta ? { ...meta } : undefined,
+        paths: c ? this.pathsOf(d.id) : undefined,
       };
     });
     return {
@@ -1114,7 +1379,7 @@ export class LinkNode {
       devices,
       transfers: [...this.transfers.values()].reverse(),
       forwards: this.data.forwards.map((f) => this.forwardView(f)),
-      companions: this.data.companions.map((c) => ({ id: c.id, name: c.name, created: c.created, lastSeen: c.lastSeen, online: this.companionsOnline.has(c.id) })),
+      companions: this.data.companions.map((c) => ({ id: c.id, name: c.name, created: c.created, lastSeen: c.lastSeen, online: this.companionsOnline.has(c.id), terminal: !!c.terminal })),
     };
   }
 
@@ -1128,6 +1393,19 @@ export class LinkNode {
     return { url, qr: await this.hooks.qr(url), expires, https: url.startsWith('https:') };
   }
 
+  /** May this phone open a terminal here? */
+  companionTerminal(cid: string): boolean {
+    return !!this.data.companions.find((c) => c.id === cid)?.terminal;
+  }
+
+  setCompanionTerminal(id: string, on: boolean) {
+    const c = this.data.companions.find((x) => x.id === id);
+    if (!c) return;
+    c.terminal = on;
+    void this.save();
+    this.hooks.changed();
+  }
+
   forgetCompanion(id: string) {
     this.data.companions = this.data.companions.filter((c) => c.id !== id);
     void this.save();
@@ -1139,11 +1417,14 @@ export class LinkNode {
     let sealer: Sealer | null = null;
     let viaInvite: string | null = null;
     let cid: string | null = null;
+    // A browser helping someone (Help mode web viewer): no pairing, the screen only.
+    let helpWeb: { miss: () => void; used: () => void } | null = null;
+    let helpOpened = false;
     const uploads = new Map<string, { file: string; done: number; total: number; name: string }>();
     const t = setTimeout(() => !opener && ws.close('no hello'), 15_000);
     ws.ontext = (s) => {
       if (opener) return;
-      let m: { t?: string; v?: number; inv?: string; cid?: string; n?: string };
+      let m: { t?: string; v?: number; inv?: string; cid?: string; n?: string; help?: string; name?: string };
       try {
         m = JSON.parse(s);
       } catch {
@@ -1157,6 +1438,13 @@ export class LinkNode {
           secret = inv.secret;
           viaInvite = m.inv;
         }
+      } else if (typeof m.help === 'string') {
+        const w = this.help.webSecret(m.help);
+        if (w) {
+          secret = w.secret;
+          helpWeb = w;
+          cid = `helpweb:${crypto.randomBytes(6).toString('base64url')}:${String(m.name ?? 'Helper').replace(/[^\p{L}\p{N} .'-]/gu, '').slice(0, 40) || 'Helper'}`;
+        }
       } else if (m.cid) {
         const c = this.data.companions.find((x) => x.id === m.cid);
         if (c) {
@@ -1165,7 +1453,7 @@ export class LinkNode {
         }
       }
       if (!secret) {
-        ws.sendText(JSON.stringify({ t: 'err', e: m.inv ? 'This QR code has expired. Show a new one on the computer.' : 'This phone is no longer paired. Scan a new QR code.' }));
+        ws.sendText(JSON.stringify({ t: 'err', e: m.help !== undefined ? 'No one is waiting for help with that code here.' : m.inv ? 'This QR code has expired. Show a new one on the computer.' : 'This phone is no longer paired. Scan a new QR code.' }));
         return ws.close('unknown');
       }
       clearTimeout(t);
@@ -1174,7 +1462,7 @@ export class LinkNode {
       opener = new Opener(keys.phoneToApp);
       sealer = new Sealer(keys.appToPhone);
       ws.sendText(JSON.stringify({ t: 'hi', n: toB64u(nApp), id: this.id, name: this.data.name }));
-      if (cid) {
+      if (cid && !helpWeb) {
         this.companionsOnline.add(cid);
         const c = this.data.companions.find((x) => x.id === cid);
         if (c) c.lastSeen = Date.now();
@@ -1183,7 +1471,7 @@ export class LinkNode {
     };
     ws.onclose = () => {
       clearTimeout(t);
-      if (cid) {
+      if (cid && !helpWeb) {
         this.companionsOnline.delete(cid);
         this.hooks.changed();
       }
@@ -1195,7 +1483,16 @@ export class LinkNode {
     ws.onmessage = (d) => {
       if (!opener) return ws.close('bad');
       const msg = opener.open(d);
-      if (!msg) return ws.close('A message failed its integrity check');
+      if (!msg) {
+        // For a browser helper the first message proves the code and password; a failure counts as a wrong try.
+        if (helpWeb && !helpOpened) helpWeb.miss();
+        return ws.close('A message failed its integrity check');
+      }
+      if (helpWeb && !helpOpened) {
+        helpOpened = true;
+        helpWeb.used();
+        this.audit({ kind: 'help', direction: 'in', device: cid!, deviceName: cid!.split(':').slice(2).join(':'), title: `${cid!.split(':').slice(2).join(':')} connected from a web browser with your help code`, ok: true });
+      }
       queue = queue.then(() => this.companionRequest(msg.header, msg.body, { viaInvite, cid: () => cid, setCid: (x) => (cid = x), uploads, reply, fail }));
     };
   }
@@ -1219,6 +1516,7 @@ export class LinkNode {
         return ctx.reply(id, { cid: c.id, key: c.key, device: this.id, name: this.data.name });
       }
       if (!ctx.cid()) throw new Error('Pair this phone first');
+      if (ctx.cid()!.startsWith('helpweb:') && !/^screen\./.test(String(h.op))) throw new Error('Not in a help session');
       switch (h.op) {
         case 'info':
           return ctx.reply(id, { name: this.data.name, id: this.id, os: this.opts.os ?? process.platform });

@@ -11,6 +11,7 @@ export function mockScreen(): { screen: ScreenApi } {
     sessions: [],
     policy: { ...DEFAULT_POLICY },
     log: [
+      { at: now - 50 * 60_000, title: 'Sam helped you (help session)' },
       { at: now - 2 * 3600_000, title: 'You controlled Studio Mac mini for 12 min' },
       { at: now - 26 * 3600_000, title: 'Ana’s iPhone viewed this screen for 3 min' },
     ],
@@ -51,6 +52,12 @@ export function mockScreen(): { screen: ScreenApi } {
       airplay: async () => ({ how: 'system', detail: 'Turn on AirPlay Receiver in System Settings → General → AirDrop & Handoff, then on the iPhone open Control Center → Screen Mirroring and pick this Mac.', running: false }),
       airplayStart: async () => ({ how: 'system', detail: '' }),
       airplayStop: async () => undefined,
+      setControl: async () => true,
+      print: async () => undefined,
+      reboot: async () => undefined,
+      invites: async () => [],
+      joinInvite: no,
+      sources: async () => [],
     },
   };
 }

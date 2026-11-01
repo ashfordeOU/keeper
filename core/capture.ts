@@ -40,6 +40,14 @@ export interface CaptureOptions {
   annotateAfterScreenshot: boolean;
   /** work out the language of the text first (and read handwriting with the system's recognizer where there is one) */
   autoLanguage: boolean;
+  /** which reader: the system's (Windows.Media.Ocr, macOS Vision) or the built-in one (Tesseract); auto prefers the system's */
+  ocrEngine?: import('./ocr-tune').OcrEngine;
+  /** how the text is laid out, for the built-in reader */
+  ocrLayout?: import('./ocr-tune').OcrLayout;
+  /** clean the picture first (contrast, dark backgrounds, black and white) for the built-in reader */
+  ocrEnhance?: boolean;
+  /** handwriting: use the system's recognizer where there is one, and keep greys for the built-in one */
+  handwriting?: boolean;
 }
 
 export function defaultCaptureOptions(): CaptureOptions {
@@ -57,6 +65,10 @@ export function defaultCaptureOptions(): CaptureOptions {
     colorShortcut: 'CommandOrControl+Alt+C',
     annotateAfterScreenshot: false,
     autoLanguage: true,
+    ocrEngine: 'auto',
+    ocrLayout: 'auto',
+    ocrEnhance: true,
+    handwriting: false,
   };
 }
 

@@ -3,7 +3,7 @@
 // settings and toasts. Small enough that plain React context does the job.
 
 import { rememberRoute, scrollMap, seedScroll, setPlaceMemory, startPlace, onScrollChanged } from './place';
-import { activeTab, closeOthers, closeTab, closeToRight, detachTab, duplicateTab, emptyWindow, goBack, goForward, moveTab, navigate, openTab, pinTab, reopenClosed, selectTab, type Tab, type WindowState } from '../core/session';
+import { activeTab, closeOthers, closeTab, closeToRight, detachTab, duplicateTab, emptyWindow, goBack, goForward, moveTab, navigate, newTab, openTab, pinTab, reopenClosed, selectTab, type Tab, type WindowState } from '../core/session';
 import type { SessionInitial } from '../core/api-session';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { SystemInfo } from '../core/api';
@@ -16,7 +16,8 @@ import { formatBytes } from '../core/format';
 export type RouteName =
   | 'home' | 'recents' | 'library' | 'screenshots' | 'search' | 'browse' | 'downloads' | 'source' | 'tag' | 'saved'
   | 'duplicates' | 'cleanup' | 'space' | 'large' | 'startup' | 'apps' | 'protection' | 'rules' | 'history'
-  | 'assistant' | 'island' | 'settings' | 'tools' | 'health' | 'capture' | 'annotate' | 'convert' | 'widgets' | 'weather' | 'network' | 'trash' | 'remote' | 'terminal' | 'sync' | 'devices' | 'netactivity' | 'vpn' | 'firewall' | 'agents' | 'graph' | 'mail' | 'calendar' | 'reminders' | 'alarms' | 'todo' | 'awake' | 'controls' | 'catalog' | 'appcontrols' | 'browsers' | 'noteshub' | 'notes';
+  | 'assistant' | 'island' | 'settings' | 'tools' | 'health' | 'capture' | 'annotate' | 'convert' | 'widgets' | 'ambience' | 'weather' | 'network' | 'trash' | 'remote' | 'terminal' | 'sync' | 'devices' | 'netactivity' | 'vpn' | 'firewall' | 'agents' | 'graph' | 'mail' | 'calendar' | 'reminders' | 'alarms' | 'todo' | 'awake' | 'stage' | 'controls' | 'catalog' | 'appcontrols' | 'browsers' | 'noteshub' | 'notes' | 'rdc' | 'mesh' | 'tracks'
+  | 'cues' | 'dictation' | 'meetings';
 
 export interface Route {
   name: RouteName;
@@ -184,6 +185,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const name = i < 0 ? r : r.slice(0, i);
         const arg = i < 0 ? undefined : r.slice(i + 1);
         setWin((w) => navigate(w, { name: name as RouteName, arg }));
+      }),
+      // A connection opened from the keeper command (keeper rdc connect …) opens in a new tab here.
+      api.on('navigate-tab', (r) => {
+        const { window: own, ...route } = r as Route & { window?: boolean };
+        // A remote desktop the person likes in windows of its own (Remote Desktops → Places).
+        if (own && api.session?.openWindow) { const t = newTab(route); void api.session.openWindow({ key: 'new', tabs: [t], active: t.id, scroll: {}, drafts: {}, closed: [] }); }
+        else setWin((w) => openTab(w, route));
       }),
     ];
     return () => offs.forEach((o) => o());

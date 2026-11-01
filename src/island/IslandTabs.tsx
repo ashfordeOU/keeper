@@ -13,6 +13,8 @@ import { Thumb } from '../components/ui';
 import { filterClips, KIND_ICON } from './ClipPicker';
 import { usePeek } from '../preview/Peek';
 import { QuickTiles } from './QuickTiles';
+import { StageTile } from '../stage/StageTile';
+import { RemoteTile } from '../screen/island-remote';
 
 const say = (msg: string) => window.dispatchEvent(new CustomEvent('island-toast', { detail: msg }));
 const fail = (e: unknown) => say(e instanceof Error ? e.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '') : String(e));
@@ -219,7 +221,9 @@ export function ControlsTab({ state, reload }: { state: IslandState; reload: () 
             <button className={`btn sm ${state.keepAwake.on ? 'primary' : ''}`} style={{ marginLeft: 'auto' }} onClick={() => void api.island.keepAwake(!state.keepAwake.on).then(reload)}>{state.keepAwake.on ? 'On' : 'Off'}</button></div>
           <div className="muted small">{state.keepAwake.on ? state.keepAwake.reason ?? 'Until you turn it off' : state.awakeTriggers?.length ? state.awakeTriggers.join(' · ') : 'Triggers can be set on the Keep Awake page.'}</div>
         </div>}
+        <StageTile />
         <QuickTiles />
+        <RemoteTile />
         <button className="btn sm" onClick={() => void api.island.hide(true)}><Icon name="eye" size={12} /> Hide the Island (shortcut brings it back)</button>
       </div>
     </div>

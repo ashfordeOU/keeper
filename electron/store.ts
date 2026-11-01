@@ -30,7 +30,14 @@ export async function updateSettings(patch: Partial<AllSettings>): Promise<AllSe
   const prev = settings();
   const next: AllSettings = mergeSettings(prev, { ...prev, ...patch, island: { ...prev.island, ...(patch.island ?? {}) }, ai: { ...prev.ai, ...(patch.ai ?? {}) }, platform: { ...prev.platform, ...(patch.platform ?? {}) } });
   current = next;
-  for (const l of listeners) l(next, prev);
+  // One part failing to react must not stop the others (or the windows hearing about the change).
+  for (const l of listeners) {
+    try {
+      l(next, prev);
+    } catch (e) {
+      console.error('settings listener failed', e);
+    }
+  }
   await persist();
   return current;
 }

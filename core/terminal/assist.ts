@@ -157,11 +157,11 @@ const SPECS: Record<string, string[]> = {
   brew: ['install', 'uninstall', 'upgrade', 'update', 'list', 'search', 'info', 'services', 'doctor', 'cleanup'],
   claude: ['mcp', 'config', 'update', '--continue', '--resume', '-p'],
   codex: ['exec', 'login', 'mcp', 'resume', '--model'],
-  keeper: ['search', 'ask', 'term', 'hub', 'mcp', 'clean', 'dupes', 'link', 'sync', 'backup'],
+  keeper: ['search', 'ask', 'term', 'hub', 'mcp', 'clean', 'dupes', 'link', 'sync', 'backup', 'rdc'],
 };
 
 /** Completions for what is typed so far, best first. */
-export function suggest(line: string, ctx: { history?: string[]; commands?: string[]; branches?: string[] }, limit = 8): string[] {
+export function suggest(line: string, ctx: { history?: string[]; commands?: string[]; branches?: string[]; /** saved Remote Desktops, for `keeper rdc connect <name>` */ rdcNames?: string[] }, limit = 8): string[] {
   const typed = line.replace(/^\s+/, '');
   if (!typed) return [...new Set((ctx.history ?? []).slice().reverse())].slice(0, limit);
   const out: string[] = [];
@@ -174,6 +174,15 @@ export function suggest(line: string, ctx: { history?: string[]; commands?: stri
   const join = (w: string) => (head ? `${head} ${w}` : w);
   if (words.length === 1) for (const c of [...Object.keys(SPECS), ...(ctx.commands ?? [])]) if (c.startsWith(last)) push(join(c));
   if (words.length === 2) for (const sub of SPECS[words[0]] ?? []) if (sub.startsWith(last)) push(join(sub));
+  if (words[0] === 'keeper' && words[1] === 'rdc') {
+    if (words.length === 3) for (const sub of ['list', 'connect', 'add', 'import', 'export', 'probe', 'host', 'forward']) if (sub.startsWith(last)) push(join(sub));
+    if (words.length >= 4 && ['connect', 'open', 'forward', 'export', 'command'].includes(words[2])) {
+      // Names can have spaces: match against everything typed after the subcommand, and quote the result.
+      const after = typed.replace(/^\s*keeper\s+rdc\s+\S+\s+/, '').replace(/^"/, '').toLowerCase();
+      const base = typed.slice(0, typed.length - typed.replace(/^\s*keeper\s+rdc\s+\S+\s+/, '').length);
+      for (const n of ctx.rdcNames ?? []) if (n.toLowerCase().startsWith(after)) push(base + (/\s/.test(n) ? `"${n}"` : n));
+    }
+  }
   if (words[0] === 'git' && ['checkout', 'switch', 'merge', 'rebase', 'branch', 'push', 'pull'].includes(words[1] ?? '') && words.length >= 3) for (const b of ctx.branches ?? []) if (b.startsWith(last)) push(join(b));
   return out.slice(0, limit);
 }

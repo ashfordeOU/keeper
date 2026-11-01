@@ -6,6 +6,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Progress } from '../../core/types';
 import type { DisplayControl, DisplayInfo } from '../../core/display-control';
+import { InputPicker } from '../stage/DisplayExtras';
 import { allFormats, bearing, compass, distanceKm, parseCoordinates, type LatLon } from '../../core/geotools';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
@@ -240,7 +241,7 @@ function DisplayControls() {
       {state?.note ? <div className="small muted">{state.note}</div> : null}
       {state?.displays.map((d) => (
         <div key={d.id} className="card col" style={{ gap: 8, padding: 12 }}>
-          <b>{d.name}</b>
+          <div className="row"><b className="grow">{d.name}</b><InputPicker display={d} /></div>
           {(['brightness', 'contrast', 'volume'] as DisplayControl[]).map((c) => (
             <label key={c} className="row" style={{ gap: 10 }}>
               <span className="small" style={{ width: 80 }}>{CONTROL_LABEL[c]}</span>
@@ -259,7 +260,7 @@ export function plusTools(): MoreTool[] {
     { id: 'download-video', name: 'Download video', desc: 'Save a video or its sound from a web page — best, 1080p, 720p or MP3.', icon: 'down', group: 'Media', render: () => <DownloadVideo /> },
     { id: 'record-voice', name: 'Record your voice', desc: 'Record from the microphone, then transcribe it.', icon: 'mic', group: 'Media', render: () => <VoiceRecorder /> },
     { id: 'web-pdf', name: 'Web page to PDF', desc: 'Save any page as a PDF, paged or as one long page.', icon: 'globe', group: 'Media', render: () => <WebToPdf /> },
-    { id: 'displays', name: 'Display control', desc: 'Brightness, contrast and volume of external monitors.', icon: 'sun', group: 'System', render: () => <DisplayControls /> },
+    { id: 'displays', name: 'Display control', desc: 'Brightness, contrast, volume and input source of external monitors.', icon: 'sun', group: 'System', render: () => <DisplayControls /> },
     { id: 'coords', name: 'Coordinates', desc: 'Every coordinate format, map search, distances and your location.', icon: 'globe', group: 'Developer', render: () => <Coordinates /> },
   ];
 }

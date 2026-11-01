@@ -9,6 +9,7 @@ export const ISLAND_TOOLS = [
   { id: 'clipboard', label: 'Clipboard', icon: 'clipboard', feature: 'clipboard' },
   { id: 'focus', label: 'Timers', icon: 'timer', feature: 'island' },
   { id: 'calendar', label: 'Calendar', icon: 'calendar', feature: 'island' },
+  { id: 'cues', label: 'Cues', icon: 'pin', feature: 'cues' },
   { id: 'reminders', label: 'To-Dos', icon: 'listCheck', feature: 'islandTodos' },
   { id: 'notes', label: 'Notes', icon: 'note', feature: 'islandNotes' },
   { id: 'weather', label: 'Weather', icon: 'sun', feature: 'island' },
@@ -23,12 +24,14 @@ export const ISLAND_TOOLS = [
   { id: 'agents', label: 'Agents', icon: 'terminal', feature: 'island' },
   { id: 'controls', label: 'Controls', icon: 'settings', feature: 'island' },
   { id: 'camera', label: 'Mirror', icon: 'camera', feature: 'island' },
+  // Wallpaper, vibes and ambient sound (src/wallpaper/IslandVibes.tsx).
+  { id: 'vibes', label: 'Vibes', icon: 'palette', feature: 'vibes' },
 ] as const;
 
 export type IslandToolId = (typeof ISLAND_TOOLS)[number]['id'];
 
 /** Shown by default; the rest can be added in Settings → Island → Tools. */
-export const DEFAULT_ON: IslandToolId[] = ['home', 'ask', 'shelf', 'clipboard', 'focus', 'calendar', 'reminders', 'notes', 'weather', 'system', 'usage', 'convert', 'emoji', 'agents', 'controls', 'camera'];
+export const DEFAULT_ON: IslandToolId[] = ['home', 'ask', 'shelf', 'clipboard', 'focus', 'calendar', 'cues', 'reminders', 'notes', 'weather', 'system', 'usage', 'convert', 'emoji', 'agents', 'controls', 'camera', 'vibes'];
 
 /**
  * The tools to show, in the person's order: tools they ordered first, then any

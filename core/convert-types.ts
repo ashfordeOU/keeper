@@ -119,7 +119,7 @@ export interface ConvertCapabilities {
   /** a dictation service is set up (the on-device model needs nothing) */
   transcribeService?: boolean;
   /** speech model sizes already downloaded */
-  speechModels?: ('tiny' | 'base' | 'small')[];
+  speechModels?: import('./whisper').WhisperSize[];
 }
 
 export type ConvertCategory = 'video' | 'audio' | 'image' | 'pdf' | 'doc' | 'file' | 'convert';
@@ -196,4 +196,4 @@ export const TOOL_INFO: Record<ConvertTool, { category: ConvertCategory; label: 
  * (every OS, downloaded once), "system" is macOS's own on-device recognizer,
  * "service" is the speech-to-text service chosen for dictation.
  */
-export interface SpeechOptions { engine?: 'device' | 'system' | 'service'; model?: 'tiny' | 'base' | 'small'; language?: string }
+export interface SpeechOptions { engine?: 'device' | 'system' | 'service'; model?: import('./whisper').WhisperSize; language?: string }

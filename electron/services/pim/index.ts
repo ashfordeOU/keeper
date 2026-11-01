@@ -1228,3 +1228,21 @@ export async function stopPim() {
 
 /** For tests and the agents layer. */
 export const pimInternals = { load, state: () => state, accounts: () => accounts };
+
+/**
+ * Read-only: the raw schema.org JSON-LD blocks (<script type="application/ld+json">) of a
+ * message, which the sanitised view drops. For Places & Tracks' bookings; marks nothing read.
+ */
+export async function structuredData(id: string): Promise<string[]> {
+  await load();
+  const { account, folder, uid } = splitId(id);
+  const a = acct(account);
+  if (!a) return [];
+  let html = bodyCache.get(id)?.body.html;
+  if (html === undefined) {
+    const disk = await readJson<{ body: ReturnType<typeof toBody> } | null>(files.body(id), null);
+    html = disk ? disk.body.html : (await mailbox(a).body(folder, uid)).body.html;
+  }
+  if (!html) return [];
+  return [...html.matchAll(/<script[^>]*type\s*=\s*["']?application\/ld\+json["']?[^>]*>([\s\S]*?)<\/script>/gi)].map((m) => m[1].trim()).filter(Boolean).slice(0, 20);
+}

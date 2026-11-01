@@ -14,6 +14,10 @@ import type { TunnelConfig, TunnelMode } from '../../../core/link/cloudflared';
 import type { PermissionSet } from '../../../core/link/perms';
 import { getSecret, setSecret } from '../../store';
 import { readText, writeText } from '../clip';
+import { featureOn } from '../features';
+import { workHeldUntil } from '../governor';
+import { startAccess } from './access';
+import { trayChanged } from './surfaces';
 import { TunnelSupervisor } from './cloudflared';
 import { LinkNode, type LinkData } from './node';
 
@@ -47,6 +51,7 @@ let writing: Promise<void> = Promise.resolve();
 const save = (d: LinkData) => (writing = writing.then(() => writeJson(dataFile(), d)).catch(() => undefined));
 
 function changed() {
+  trayChanged();
   clearTimeout(changedTimer);
   changedTimer = setTimeout(() => broadcast('link-changed'), 80);
 }
@@ -109,10 +114,19 @@ export async function startLink(deps: { broadcast: Broadcast; show: (route?: str
       companionDir: () => path.join(__dirname, 'companion'),
       qr: (t) => QRCode.toDataURL(t, { margin: 1, width: 360 }),
       tunnel: () => tunnel?.status,
+      // Direct paths: only with the feature on and background work not held.
+      directAllowed: () => featureOn('linkDirect') && !workHeldUntil(),
+      helpChanged: () => {
+        broadcast('access-help');
+        trayChanged();
+      },
     },
-    { hostname: os.hostname(), os: process.platform, controlToken },
+    // KEEPER_LINK_TEST_NO_LAN: the end-to-end tests force the relay so the direct path has something to replace.
+    { hostname: os.hostname(), os: process.platform, controlToken, noLanDial: process.env.KEEPER_LINK_TEST_NO_LAN === '1' },
   );
+  await yieldDaemon();
   await node.start();
+  startAccess(node, { broadcast, show: showWindow, version: app.getVersion() });
   if (node.port) await writeJson(controlFile(), { port: node.port, token: controlToken, pid: process.pid }).catch(() => undefined);
   tunnel = new TunnelSupervisor({
     binDir: path.join(dir(), 'bin'),
@@ -128,6 +142,24 @@ export async function startLink(deps: { broadcast: Broadcast; show: (route?: str
     tunnel?.kick();
     node?.scheduleNote(3000);
   });
+}
+
+/**
+ * The unattended service keeps Link listening while nobody is logged in. When
+ * the app starts it asks the service to step aside (the service waits until
+ * the app has quit, then listens again).
+ */
+async function yieldDaemon() {
+  const f = path.join(dir(), 'daemon.json');
+  const d = await fsp.readFile(f, 'utf8').then((t) => JSON.parse(t) as { port: number; token: string; pid: number }).catch(() => null);
+  if (!d) return;
+  try {
+    process.kill(d.pid, 0);
+  } catch {
+    return;
+  }
+  await fetch(`http://127.0.0.1:${d.port}/local/yield`, { method: 'POST', headers: { 'x-keeper-token': d.token, 'content-type': 'application/json' }, body: JSON.stringify({ pid: process.pid }), signal: AbortSignal.timeout(3000) }).catch(() => undefined);
+  await new Promise((r) => setTimeout(r, 800));
 }
 
 export async function stopLink() {
@@ -211,6 +243,7 @@ export const link = {
     companionAsks.get(id)?.(ok);
   },
   forgetCompanion: (id: string) => need().forgetCompanion(id),
+  setCompanionTerminal: (id: string, on: boolean) => need().setCompanionTerminal(id, on),
   /** prompts that are waiting, for a window that opens late */
   pending: () => ({ pairs: [...pendingPairs.values()], offers: [...pendingOffers.values()] }),
   tunnel: {

@@ -6,6 +6,7 @@
 
 import http from 'node:http';
 import { RelayServer } from '../core/link/relay';
+import { attachRelays, PacketRelayServer } from '../core/mesh/packet-relay';
 
 const port = Number(process.env.PORT ?? 8080);
 const host = process.env.HOST ?? '0.0.0.0';
@@ -19,10 +20,13 @@ const server = http.createServer((req, res) => {
     res.end('not found');
   }
 });
-relay.attach(server);
+// Keeper Mesh: WireGuard packets between devices that cannot reach each other directly (still end-to-end encrypted).
+const packets = new PacketRelayServer({ bytesPerSecond: Number(process.env.BYTES_PER_SECOND ?? 0) || undefined, maxDevices: Number(process.env.MAX_DEVICES ?? 10_000) });
+attachRelays(server, relay, packets);
 server.listen(port, host, () => console.log(`Keeper Relay listening on ${host}:${port}`));
 const stop = () => {
   relay.close();
+  packets.close();
   server.close(() => process.exit(0));
   setTimeout(() => process.exit(0), 3000).unref();
 };

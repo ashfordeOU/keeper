@@ -492,6 +492,8 @@ func handle(id: Int, method: String, params: [String: Any]) async {
             Wire.shared.result(id, try ddcGet(params))
         case "ddc.set":
             Wire.shared.result(id, try ddcSet(params))
+        case let m where m.hasPrefix("stage."): Wire.shared.result(id, try await stageCall(id: id, method: m, params: params))
+        case let m where m.hasPrefix("voice."): Wire.shared.result(id, try await voiceCall(id: id, method: m, params: params))
         case "translate":
             Wire.shared.result(id, try await translateTexts(params))
         case "eventkit.events":
@@ -524,6 +526,16 @@ func handle(id: Int, method: String, params: [String: Any]) async {
             try inputKey(params); Wire.shared.result(id, ["ok": true])
         case "input.text":
             try inputText(params); Wire.shared.result(id, ["ok": true])
+        case "notifications.status": Wire.shared.result(id, notificationsStatus())
+        case "notifications.watch": try await notificationsWatch(id: id, params: params); Wire.shared.result(id, ["ended": true])
+        case "calls.micApps": Wire.shared.result(id, callsMicApps())
+        case "calls.muted": Wire.shared.result(id, callsMuted())
+        case "calls.mute": Wire.shared.result(id, try callsMute(params))
+        case "hud.levels": Wire.shared.result(id, hudLevels())
+        case "hud.watch": try await hudWatch(id: id, params: params); Wire.shared.result(id, ["ended": true])
+        case "desktop.setImage": Wire.shared.result(id, try desktopSetImage(params))
+        case "desktop.getImage": Wire.shared.result(id, desktopGetImage())
+        case "desktop.setFolderIcon": Wire.shared.result(id, try desktopSetFolderIcon(params))
         case "chat":
             #if canImport(FoundationModels)
             if #available(macOS 26.0, *) {

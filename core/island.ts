@@ -3,9 +3,6 @@
 // screen): calendar files, synced lyrics, AI-agent session status, clipboard
 // history and the focus timer. The Electron layer feeds these with data.
 
-import { promises as fsp } from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
 
 // ---------------------------------------------------------------- calendar (.ics)
 
@@ -153,7 +150,8 @@ export type AgentState = 'working' | 'waiting' | 'done' | 'stuck' | 'idle';
 
 export interface AgentSession {
   id: string;
-  tool: 'claude-code' | 'codex';
+  /** claude-code, codex, or any other agent (cursor, gemini, opencode… see core/island-agents.ts) */
+  tool: 'claude-code' | 'codex' | (string & {});
   project: string;
   cwd?: string;
   state: AgentState;
@@ -212,66 +210,8 @@ function summarize(rec: Record<string, unknown>): string {
   return s.replace(/\s+/g, ' ').trim().slice(0, 140);
 }
 
-async function tail(file: string, bytes = 64 * 1024): Promise<string[]> {
-  const fh = await fsp.open(file, 'r');
-  try {
-    const { size } = await fh.stat();
-    const len = Math.min(size, bytes);
-    const buf = Buffer.alloc(len);
-    await fh.read(buf, 0, len, size - len);
-    const lines = buf.toString('utf8').split('\n').filter(Boolean);
-    return size > len ? lines.slice(1) : lines;
-  } finally {
-    await fh.close();
-  }
-}
-
-async function recentJsonl(dir: string, maxAgeMs: number, depth = 4): Promise<string[]> {
-  const out: string[] = [];
-  const now = Date.now();
-  async function go(d: string, level: number) {
-    let list;
-    try {
-      list = await fsp.readdir(d, { withFileTypes: true });
-    } catch {
-      return;
-    }
-    for (const e of list) {
-      const p = path.join(d, e.name);
-      if (e.isDirectory() && level < depth) await go(p, level + 1);
-      else if (e.isFile() && e.name.endsWith('.jsonl')) {
-        const st = await fsp.stat(p).catch(() => null);
-        if (st && now - st.mtimeMs < maxAgeMs) out.push(p);
-      }
-    }
-  }
-  await go(dir, 0);
-  return out;
-}
-
-/** Sessions of Claude Code (~/.claude/projects) and Codex (~/.codex/sessions) active in the last few hours. */
-export async function scanAgentSessions(home = os.homedir(), now = Date.now()): Promise<AgentSession[]> {
-  const sources: { tool: AgentSession['tool']; dir: string }[] = [
-    { tool: 'claude-code', dir: path.join(process.env.CLAUDE_CONFIG_DIR ?? path.join(home, '.claude'), 'projects') },
-    { tool: 'codex', dir: path.join(process.env.CODEX_HOME ?? path.join(home, '.codex'), 'sessions') },
-  ];
-  const sessions: AgentSession[] = [];
-  for (const s of sources) {
-    for (const file of await recentJsonl(s.dir, 6 * 3600_000)) {
-      try {
-        const st = await fsp.stat(file);
-        const { state, summary, cwd } = agentStateFromTail(await tail(file), st.mtimeMs, now);
-        if (state === 'idle') continue;
-        const project = cwd ? path.basename(cwd) : path.basename(path.dirname(file)).replace(/^-/, '').split('-').pop() ?? 'session';
-        sessions.push({ id: file, tool: s.tool, project, cwd, state, summary, updatedAt: st.mtimeMs, file });
-      } catch {
-        /* unreadable */
-      }
-    }
-  }
-  const order: Record<AgentState, number> = { waiting: 0, stuck: 1, working: 2, done: 3, idle: 4 };
-  return sessions.sort((a, b) => order[a.state] - order[b.state] || b.updatedAt - a.updatedAt);
-}
+// Reading the session files themselves (Node only) lives in core/island-scan.ts, so the
+// Island window can import this module.
 
 // ---------------------------------------------------------------- clipboard history
 
@@ -441,6 +381,11 @@ export interface FocusState {
   focusMin: number;
   breakMin: number;
   rounds: number;
+  /** a longer break after every N focus rounds (0 = never) */
+  longEvery?: number;
+  longBreakMin?: number;
+  /** the current break is the long one */
+  long?: boolean;
 }
 
 export function newFocus(focusMin = 25, breakMin = 5): FocusState {
@@ -448,7 +393,20 @@ export function newFocus(focusMin = 25, breakMin = 5): FocusState {
 }
 
 export function startFocus(s: FocusState, minutes = s.focusMin, now = Date.now()): FocusState {
-  return { ...s, mode: 'focus', focusMin: minutes, endsAt: now + minutes * 60_000, pausedLeft: undefined };
+  return { ...s, mode: 'focus', focusMin: minutes, endsAt: now + minutes * 60_000, pausedLeft: undefined, long: undefined };
+}
+
+/** Start a break straight away (a short or the long one). */
+export function startBreak(s: FocusState, long = false, now = Date.now()): FocusState {
+  const mins = long ? s.longBreakMin ?? 15 : s.breakMin;
+  return { ...s, mode: 'break', endsAt: now + mins * 60_000, pausedLeft: undefined, long };
+}
+
+/** The ruler: minutes from a drag position (0..1) on a scale up to `max` minutes, snapped to 5 (1 under 10). */
+export function rulerMinutes(fraction: number, max = 180): number {
+  const raw = Math.max(0, Math.min(1, fraction)) * max;
+  const snapped = raw < 10 ? Math.round(raw) : Math.round(raw / 5) * 5;
+  return Math.max(1, Math.min(max, snapped));
 }
 
 export function pauseFocus(s: FocusState, now = Date.now()): FocusState {
@@ -464,8 +422,13 @@ export function resumeFocus(s: FocusState, now = Date.now()): FocusState {
 /** Advances focus -> break -> idle when time runs out. Returns the event that happened, if any. */
 export function tickFocus(s: FocusState, now = Date.now()): { state: FocusState; event?: 'focus-done' | 'break-done' } {
   if (s.mode === 'idle' || s.pausedLeft !== undefined || now < s.endsAt) return { state: s };
-  if (s.mode === 'focus') return { state: { ...s, mode: 'break', endsAt: now + s.breakMin * 60_000, rounds: s.rounds + 1 }, event: 'focus-done' };
-  return { state: { ...s, mode: 'idle', endsAt: 0 }, event: 'break-done' };
+  if (s.mode === 'focus') {
+    const rounds = s.rounds + 1;
+    const long = !!s.longEvery && s.longEvery > 0 && rounds % s.longEvery === 0;
+    const mins = long ? s.longBreakMin ?? 15 : s.breakMin;
+    return { state: { ...s, mode: 'break', endsAt: now + mins * 60_000, rounds, long }, event: 'focus-done' };
+  }
+  return { state: { ...s, mode: 'idle', endsAt: 0, long: undefined }, event: 'break-done' };
 }
 
 export function focusLeft(s: FocusState, now = Date.now()): number {

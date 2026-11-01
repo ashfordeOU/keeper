@@ -1,0 +1,28 @@
+From: bookings@example.com
+To: alex@example.com
+Subject: Your trip to Tallinn
+MIME-Version: 1.0
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+<html><head><script type=3D"application/ld+json">{"@context": "http://schem=
+a.org", "@type": "FlightReservation", "reservationNumber": "K3PL9Q", "reser=
+vationStatus": "http://schema.org/Confirmed", "underName": {"@type": "Perso=
+n", "name": "Alex Example"}, "reservationFor": {"@type": "Flight", "flightN=
+umber": "212", "airline": {"@type": "Airline", "name": "Example Air", "iata=
+Code": "XA"}, "departureAirport": {"@type": "Airport", "name": "Berlin Bran=
+denburg", "iataCode": "BER"}, "departureTime": "2026-05-12T10:00:00+02:00",=
+ "arrivalAirport": {"@type": "Airport", "name": "Tallinn", "iataCode": "TLL=
+", "geo": {"latitude": 59.4133, "longitude": 24.8328}}, "arrivalTime": "202=
+6-05-12T13:00:00+03:00"}}</script></head><body><p>Your flight is booked.</p=
+><script type=3D"application/ld+json">{"@context": "https://schema.org", "@=
+graph": [{"@type": "LodgingReservation", "reservationNumber": "H-77881", "r=
+eservationFor": {"@type": "LodgingBusiness", "name": "Hotel Telegraaf", "ad=
+dress": {"@type": "PostalAddress", "streetAddress": "Vene 9", "addressLocal=
+ity": "Tallinn", "postalCode": "10123", "addressCountry": "EE"}, "geo": {"l=
+atitude": 59.4372, "longitude": 24.7454}}, "checkinTime": "2026-05-12T15:00=
+:00+03:00", "checkoutTime": "2026-05-14T11:00:00+03:00"}, {"@type": "EventR=
+eservation", "reservationNumber": "T-99", "reservationFor": {"@type": "Even=
+t", "name": "Organ concert", "startDate": "2026-05-13T19:00:00+03:00", "loc=
+ation": {"@type": "Place", "name": "St Olaf's Church", "address": "Lai 50, =
+Tallinn"}}}, {"@type": "Person", "name": "ignored"}]}</script></body></html>

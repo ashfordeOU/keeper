@@ -98,8 +98,10 @@ function tree(root) {
   await main.fill('.procs-bar input', String(electronPid));
   await main.locator('.procs-row').first().dblclick();
   await main.locator('.inspect').waitFor({ timeout: 5000 });
+  // Environment, ports and the parent chain arrive a moment later (their own section, loaded on first use).
+  await main.locator('.inspect h4', { hasText: 'Environment' }).waitFor({ timeout: 10_000 }).catch(() => undefined);
   const insp = await main.locator('.inspect').innerText();
-  check(/Open files/i.test(insp) && /Memory/i.test(insp) && /Environment/.test(insp), 'Inspect shows memory, environment and open files');
+  check(/Open files/i.test(insp) && /Memory/i.test(insp) && /Environment/i.test(insp), 'Inspect shows memory, environment and open files');
   await main.screenshot({ path: `${SHOTS}/linux-inspect.png` });
   await main.keyboard.press('Escape');
 

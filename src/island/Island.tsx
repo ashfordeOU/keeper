@@ -14,6 +14,11 @@ import { Icon } from '../components/Icon';
 import { ClipboardTab, ControlsTab, ShelfTab } from './IslandTabs';
 import { AskTool, CalendarTool, ConvertTool, EmojiTool, FocusExtras, MirrorTool, NotesTool, SalesTool, ShortcutsTool, StocksTool, SystemTool, TodosTool, UsageTool, WeatherTool, useFocusSound, useToolsStore } from './tools/IslandTools';
 import { TeleprompterTool } from './tools/Teleprompter';
+import { CuesTool } from './tools/CuesTool';
+import { FocusRuler, MediaModes, PlusAlertActions, UsagePin, useGlow } from './IslandPlus';
+import { agentName } from '../../core/island-agents';
+import { plusSetting } from '../../core/island-plus';
+import { VibesTool } from '../wallpaper/IslandVibes';
 import { ISLAND_TOOLS, moveTool, orderedTools, toggleTool, type IslandToolId } from '../../core/island-tools/tools';
 import { Leading, LiveCard, PrivacyDots, Trailing, useActivities, useGestures, useLayout } from './Activities';
 import { useFeatureStates } from '../features';
@@ -63,7 +68,6 @@ export function Island() {
   const [custom, setCustom] = useState(15);
   const closeTimer = useRef<number | undefined>(undefined);
   const seenAlerts = useRef(new Set<string>());
-  const rec = useRef<{ mr: MediaRecorder; chunks: Blob[]; stream: MediaStream; ctx: AudioContext; raf: number } | null>(null);
 
   const load = useCallback(() => void api.island.state().then(setState), []);
   useEffect(() => {
@@ -101,54 +105,24 @@ export function Island() {
   };
 
   // ---------------------------------------------------------------- dictation
-  const stopRecording = useCallback(async () => {
-    const r = rec.current;
-    if (!r) return;
-    rec.current = null;
-    setListening('working');
-    await new Promise<void>((res) => { r.mr.onstop = () => res(); r.mr.stop(); });
-    cancelAnimationFrame(r.raf);
-    r.stream.getTracks().forEach((t) => t.stop());
-    void r.ctx.close();
-    try {
-      const blob = new Blob(r.chunks, { type: r.mr.mimeType });
-      const text = await api.island.transcribe(await blob.arrayBuffer(), r.mr.mimeType);
-      if (text.trim()) await api.island.typeText(text.trim());
-    } catch (e) {
-      setAlert({ id: `err-${Date.now()}`, kind: 'info', title: 'Dictation failed', detail: e instanceof Error ? e.message : String(e), at: Date.now() });
-    } finally {
-      setListening('off');
-      api.island.setExpanded(false);
-    }
+  // Voice (electron/services/voice) listens and types; the Island shows it while it happens.
+  const [voiceText, setVoiceText] = useState('');
+  useEffect(() => {
+    const offs = [
+      api.on('voice-state', (s) => {
+        const show = s.island !== false;
+        const next = !show || s.phase === 'idle' ? 'off' : s.phase === 'working' || s.phase === 'review' ? 'working' : 'on';
+        setListening((prev) => {
+          if (prev === 'off' && next !== 'off') api.island.setExpanded(true);
+          if (prev !== 'off' && next === 'off') api.island.setExpanded(false);
+          return next;
+        });
+        setVoiceText(show ? `${s.stable} ${s.pending}`.trim() : '');
+      }),
+      api.on('voice-level', (n) => setLevel(Array.from({ length: 12 }, (_, i) => 2 + Math.max(0, n - Math.abs(i - 5.5) * 0.05) * 16))),
+    ];
+    return () => offs.forEach((f) => f());
   }, []);
-
-  const startRecording = useCallback(async () => {
-    if (rec.current) return;
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mr = new MediaRecorder(stream);
-      const chunks: Blob[] = [];
-      mr.ondataavailable = (e) => e.data.size && chunks.push(e.data);
-      mr.start(250);
-      const ctx = new AudioContext();
-      const an = ctx.createAnalyser();
-      an.fftSize = 64;
-      ctx.createMediaStreamSource(stream).connect(an);
-      const buf = new Uint8Array(an.frequencyBinCount);
-      const tick = () => {
-        an.getByteFrequencyData(buf);
-        setLevel(Array.from({ length: 12 }, (_, i) => 2 + (buf[i * 2] / 255) * 16));
-        if (rec.current) rec.current.raf = requestAnimationFrame(tick);
-      };
-      rec.current = { mr, chunks, stream, ctx, raf: requestAnimationFrame(tick) };
-      setListening('on');
-      api.island.setExpanded(true);
-    } catch {
-      setListening('off');
-    }
-  }, []);
-
-  useEffect(() => api.on('dictation', (s: 'start' | 'stop') => void (s === 'start' ? (rec.current ? stopRecording() : startRecording()) : stopRecording())), [startRecording, stopRecording]);
 
   // The shelf shortcut (and the tray) open a tab directly.
   useEffect(() => api.on('island-open', (t: string) => {
@@ -167,6 +141,8 @@ export function Island() {
   }, []);
 
   const acts = useActivities(state, now, listening, isl?.activitiesOff ?? []);
+  // A soft glow in the colour of the artwork while music plays (Settings → Island).
+  const glow = useGlow(plusSetting(isl, 'glow') && state?.nowPlaying?.playing ? state.nowPlaying.artwork : undefined, !!(plusSetting(isl, 'glow') && state?.nowPlaying?.playing));
   // Focus sounds play only while a focus session is running (not during breaks or pauses).
   useFocusSound(isl?.focusSound, !!state && state.focus.mode === 'focus' && state.focus.pausedLeft === undefined, isl?.focusVolume ?? 0.4);
   const gestures = useGestures({
@@ -217,9 +193,12 @@ export function Island() {
   const mood: Mood = listening !== 'off' ? 'listening' : state.recording ? 'recording' : stuck ? 'broken' : waiting ? 'needs' : alert ? 'happy' : working ? 'thinking' : state.agents.some((a) => a.state === 'done') ? 'done' : np?.playing || focusLeft ? 'calm' : night ? 'sleeping' : 'napping';
 
   let liveText: React.ReactNode = <span className="muted">{new Date(now).toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' })}</span>;
-  if (listening === 'on') liveText = <span className="level">{level.map((h, i) => <i key={i} style={{ height: h }} />)} <span style={{ marginLeft: 6 }}>Listening…</span></span>;
+  if (listening === 'on') liveText = <span className="level">{level.map((h, i) => <i key={i} style={{ height: h }} />)} <span style={{ marginLeft: 6 }} className="ellipsis">{voiceText ? voiceText.slice(-60) : 'Listening…'}</span></span>;
   else if (listening === 'working') liveText = 'Writing it down…';
   else if (state.recording) liveText = <button className="rec-live" title="Stop recording" onClick={(e) => { e.stopPropagation(); void api.capture.stopRecording(); }}><span className="rec-dot" /> Recording · <b className="num">{mmss(now - state.recording.since)}</b> · Stop</button>;
+  // Stage mode (core/stage): a countdown, then a red dot with the time and Stop.
+  else if (state.stage?.countdownEndsAt && !state.stage.on) liveText = <span data-testid="island-stage-live">Stage in <b className="num">{Math.max(1, Math.ceil((state.stage.countdownEndsAt - now) / 1000))}</b>…</span>;
+  else if (state.stage?.on) liveText = <button className="rec-live" data-testid="island-stage-live" title="Stop Stage and put everything back" onClick={(e) => { e.stopPropagation(); void api.stage.stop(); }}><span className="rec-dot" /> {state.stage.name} · <b className="num">{mmss(now - (state.stage.since ?? now))}</b> · Stop</button>;
   else if (waiting) liveText = <><b>{waiting.project}</b> needs you</>;
   else if (soon) liveText = <>{soon.title} · {soon.start > now ? `in ${Math.ceil((soon.start - now) / 60_000)} min` : 'now'}</>;
   else if (focusLeft) liveText = <>{state.focus.mode === 'break' ? 'Break' : 'Focus'} · <b className="num">{mmss(focusLeft)}</b></>;
@@ -242,7 +221,7 @@ export function Island() {
   }[view];
   const full = { w: Math.max(box.w, Math.round(640 * sc)), h: Math.max(box.h, notchH + Math.round(300 * sc)) };
   const floating = layout?.anchor === 'below-bar' || side;
-  const r = view === 'compact' ? (floating ? box.h / 2 : Math.min(box.h / 2, 20 * sc)) : 26 * sc;
+  const r = view === 'compact' ? (floating ? box.h / 2 : Math.min(box.h / 2, 20 * sc)) : plusSetting(isl, 'cornerRadius') * sc;
   const edge = layout?.edge ?? isl?.edge ?? 'top';
   const dx = (full.w - box.w) / 2;
   const dy = (full.h - box.h) / 2;
@@ -274,6 +253,7 @@ export function Island() {
           <b className="ellipsis" style={{ display: 'block' }}>{alert.title}</b>
           <span className="muted small ellipsis" style={{ display: 'block' }}>{alert.detail}</span>
         </div>
+        <PlusAlertActions alert={alert} onDone={() => { setAlert(null); if (!expanded) api.island.setExpanded(false); }} />
         {alert.path ? (
           <div className="btn-row">
             <button className="btn sm" onClick={() => void api.files.open(alert.path!)}>Open</button>
@@ -351,7 +331,9 @@ export function Island() {
             </button>
           ))}
           <span style={{ flex: 1 }} />
+          {featureStates?.get('toolLauncher')?.on === false ? null : <button title="Tool launcher" data-testid="island-launcher-btn" onClick={() => void api.islandx?.openLauncher()}><Icon name="grid" size={13} /></button>}
           {state.awakeAvailable === false ? null : <button title={state.keepAwake.on ? 'Stop keeping awake' : 'Keep awake'} className={state.keepAwake.on ? 'on' : ''} onClick={() => void api.island.keepAwake(!state.keepAwake.on).then(load)}><Icon name="coffee" size={13} /></button>}
+          {featureStates?.get('stage')?.on === false ? null : <button title={state.stage?.on ? 'Stop Stage' : 'Stage: a clean screen'} data-testid="island-stage-btn" className={state.stage?.on ? 'on' : ''} onClick={() => void (state.stage?.on ? api.stage.stop() : api.stage.toggle()).then(load)}><Icon name="eye" size={13} /></button>}
         </div>
 
         {tabMenu ? (
@@ -389,6 +371,7 @@ export function Island() {
                           <button className="btn sm icon" onClick={() => void api.island.media('previous').then(load)}><Icon name="prev" size={12} /></button>
                           <button className="btn sm icon primary" onClick={() => void api.island.media('toggle').then(load)}><Icon name={np.playing ? 'pause' : 'play'} size={12} /></button>
                           <button className="btn sm icon" onClick={() => void api.island.media('next').then(load)}><Icon name="next" size={12} /></button>
+                          <MediaModes np={np} reload={load} />
                         </div>
                         <span className="muted small num">{formatDuration(np.duration)}</span>
                       </div>
@@ -430,6 +413,7 @@ export function Island() {
           {tab === 'controls' ? <ControlsTab state={state} reload={load} /> : null}
 
           {tab === 'camera' ? <MirrorTool /> : null}
+          {tab === 'vibes' ? <VibesTool /> : null}
           {tab === 'ask' ? <AskTool /> : null}
           {tab === 'usage' ? <UsageTool /> : null}
           {tab === 'sales' ? <SalesTool /> : null}
@@ -450,7 +434,7 @@ export function Island() {
                 <div key={a.id} className="agent" onClick={() => void api.island.openAgent(a.id)} title="Open its folder">
                   <span className={`state ${a.state}`} />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <b>{a.project}</b> <span className="muted small">{a.tool === 'claude-code' ? 'Claude Code' : 'Codex'} · {a.state === 'waiting' ? 'waiting for you' : a.state}</span>
+                    <b>{a.project}</b> <span className="muted small">{agentName(a.tool)} · {a.state === 'waiting' ? 'waiting for you' : a.state}</span>
                     <div className="muted small ellipsis">{a.summary}</div>
                   </div>
                 </div>
@@ -472,9 +456,10 @@ export function Island() {
                       <button className="btn primary" onClick={() => void api.island.focus('start', 25).then(load)}>25 min</button>
                       <button className="btn" onClick={() => void api.island.focus('start', 50).then(load)}>50 min</button>
                     </div>
+                    <FocusRuler value={custom} onChange={setCustom} onStart={(m) => void api.islandx.focusFor(m).then(load)} />
                     <div className="btn-row">
-                      <input type="range" min={5} max={120} step={5} value={custom} onChange={(e) => setCustom(Number(e.target.value))} />
-                      <button className="btn sm" onClick={() => void api.island.focus('start', custom).then(load)}>{custom} min</button>
+                      <button className="btn sm" onClick={() => void api.islandx.startBreak(false).then(load)}>Short break</button>
+                      <button className="btn sm" onClick={() => void api.islandx.startBreak(true).then(load)}>Long break</button>
                     </div>
                   </>
                 ) : (
@@ -493,6 +478,7 @@ export function Island() {
           ) : null}
 
           {tab === 'calendar' ? <CalendarTool state={state} now={now} /> : null}
+          {tab === 'cues' ? <CuesTool state={state} now={now} /> : null}
         </div>
       </div>
   );
@@ -502,20 +488,26 @@ export function Island() {
   } as React.CSSProperties;
   return (
     <div className={`isl-root edge-${edge} anchor-${layout?.anchor ?? 'edge'} view-${view} ${floating ? 'floating' : ''}`} style={vars}>
-      <div className="isl-shadow">
+      <div className={`isl-shadow ${plusSetting(isl, 'shadow') ? '' : 'no-shadow'} ${glow ? 'glowing' : ''}`} style={glow ? ({ '--glow': glow } as React.CSSProperties) : undefined}>
         <div className="isl-shape" style={{ clipPath: clip }} />
       </div>
       <div
         className={`isl isl-content view-${view}`}
         onMouseEnter={enter}
         onMouseLeave={() => (view === 'compact' ? undefined : collapse())}
-        onClick={() => { if (view === 'compact') (primary ? show('live', primary.id) : show('panel')); }}
+        onClick={(e) => {
+          if (view !== 'compact') return;
+          // Alt/Option-click hides the Island for a minute (alerts still come back after).
+          if (e.altKey) { void api.islandx?.hideFor(plusSetting(isl, 'altHideMinutes')); return; }
+          if (primary) show('live', primary.id); else show('panel');
+        }}
         onDragEnter={() => { show('panel'); setTab('shelf'); }}
         {...gestures}
       >
         {notch ? <><i className="ear l" /><i className="ear r" /></> : null}
         <div key={view} className="isl-in">{content}</div>
       </div>
+      {view === 'compact' && state.usagePin && !idleNotch ? <UsagePin pin={state.usagePin} /> : null}
       {bubble && view === 'compact' && secondary ? (
         <button className="isl-bubble" title={secondary.title} onClick={() => show('live', secondary.id)} onMouseEnter={() => hover && show('live', secondary.id)}>
           <Leading a={secondary} />

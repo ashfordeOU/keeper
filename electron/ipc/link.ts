@@ -3,6 +3,7 @@
 
 import { ipcMain } from 'electron';
 import { link, startLink } from '../services/link';
+import { access } from '../services/link/access';
 
 function handle(name: string, fn: (...args: never[]) => unknown) {
   ipcMain.handle(name, async (_e, ...args) => fn(...(args as never[])));
@@ -34,10 +35,13 @@ export async function registerLinkIpc(d: { broadcast: (channel: string, ...args:
   handle('link.companionInvite', (viaTunnel?: boolean) => link.companionInvite(viaTunnel));
   handle('link.answerCompanion', (id: string, ok: boolean) => link.answerCompanion(id, ok));
   handle('link.forgetCompanion', (id: string) => link.forgetCompanion(id));
+  handle('link.setCompanionTerminal', (id: string, on: boolean) => link.setCompanionTerminal(id, on));
   handle('link.pending', () => link.pending());
   handle('link.tunnel.status', () => link.tunnel.status());
   handle('link.tunnel.start', (mode: never, token?: string, hostname?: string) => link.tunnel.start(mode, token, hostname));
   handle('link.tunnel.stop', () => link.tunnel.stop());
   handle('link.tunnel.installService', (on: boolean) => link.tunnel.installService(on));
+  // Remote access between your own devices (help mode, fleet, actions, terminals, audit, unattended).
+  for (const [k, fn] of Object.entries(access)) handle(`access.${k}`, fn as never);
   await startLink(d);
 }

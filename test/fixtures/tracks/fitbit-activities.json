@@ -1,0 +1,50 @@
+{
+ "activities": [
+  {
+   "activeDuration": 1560000,
+   "activityLevel": [],
+   "activityName": "Run",
+   "activityTypeId": 90009,
+   "averageHeartRate": 149,
+   "calories": 330,
+   "distance": 5.012,
+   "distanceUnit": "Kilometer",
+   "duration": 1622000,
+   "elevationGain": 36.6,
+   "hasActiveZoneMinutes": true,
+   "lastModified": "2026-05-13T06:00:00.000Z",
+   "logId": 59911223344,
+   "logType": "mobile_run",
+   "manualValuesSpecified": {
+    "calories": false,
+    "distance": false,
+    "steps": false
+   },
+   "originalDuration": 1622000,
+   "originalStartTime": "2026-05-13T08:00:00.000+03:00",
+   "startTime": "2026-05-13T08:00:00.000+03:00",
+   "steps": 5420,
+   "tcxLink": "https://api.fitbit.com/1/user/-/activities/59911223344.tcx"
+  },
+  {
+   "activeDuration": 1800000,
+   "activityName": "Bike",
+   "averageHeartRate": 125,
+   "calories": 250,
+   "distance": 6.0,
+   "distanceUnit": "Mile",
+   "duration": 1900000,
+   "logId": 59911220000,
+   "logType": "auto_detected",
+   "startTime": "2026-05-11T17:00:00.000+02:00"
+  }
+ ],
+ "pagination": {
+  "afterDate": "2026-05-01",
+  "limit": 50,
+  "next": "",
+  "offset": 0,
+  "previous": "",
+  "sort": "asc"
+ }
+}

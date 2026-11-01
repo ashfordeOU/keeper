@@ -18,6 +18,8 @@ import type { RemoteApi } from './api-remote';
 import type { PlatformApi } from './api-platform';
 import type { LockApi } from './api-lock';
 import type { LinkApi } from './api-link';
+import type { AccessApi } from './api-access';
+import type { MeshApi } from './mesh/types';
 import type { ScreenApi } from './api-screen';
 import type { BrainApi, BrainDelta, BrainStep } from './api-brain';
 import type { AbilitiesApi } from './api-abilities';
@@ -84,7 +86,9 @@ export interface NowPlaying {
 
 export interface IslandAlert {
   id: string;
-  kind: 'download' | 'screenshot' | 'focus' | 'agent' | 'battery' | 'info' | 'notification';
+  kind: 'download' | 'screenshot' | 'focus' | 'agent' | 'battery' | 'info' | 'notification' | 'cue' | 'call' | 'disk';
+  /** a cue's id (Done/Snooze in the banner), or what a hint is about */
+  ref?: string;
   title: string;
   /** the app a mirrored notification came from */
   app?: string;
@@ -230,6 +234,19 @@ export interface IslandState {
   alerts: IslandAlert[];
   /** Monorail's workspace and slide, when it is installed and switched on (Settings → Ashforde apps) */
   monorail?: import('./ashforde/monorail').MonorailState;
+  /** Stage mode while it is on or counting down (core/stage) */
+  stage?: import('./stage/private').IslandStage;
+  // ---- Island+ (calls, levels, cues, usage beside the pill; see electron/services/island-plus.ts)
+  /** a call in progress: which app, since when, muted or not */
+  call?: import('./island-calls').CallState;
+  /** the last volume or brightness change, shown for a moment */
+  hud?: import('./island-hud').HudEvent;
+  /** cues for the app or page in front */
+  cueHere?: { id: string; title: string; count: number };
+  /** the AI allowance closest to its limit, pinned beside the pill when asked */
+  usagePin?: { tool: string; label: string; percent: number };
+  /** where other apps' notifications come from here, and why not when they cannot */
+  notifyMode?: { mode: string; problem?: string };
 }
 
 export interface IslandPlacementPreview {
@@ -333,6 +350,32 @@ export interface IslandSettings {
   shelfRetentionDays?: number;
   /** let the Island's player answer the keyboard's media keys */
   mediaKeys?: boolean;
+  // ---- Island+ settings (all optional; defaults in core/island-plus.ts)
+  /** never mirror notifications from these apps */
+  notifyBlock?: string[];
+  /** macOS: close the system banner after Keeper shows it */
+  notifyDismiss?: boolean;
+  /** macOS: hear the brightness keys (needs Input Monitoring) */
+  hudBrightnessKeys?: boolean;
+  /** how the call's mute button mutes: the system microphone, or the call app's own shortcut */
+  callMute?: 'system' | 'app';
+  /** the AI usage closest to its limit as a small ring beside the pill */
+  usagePin?: boolean;
+  /** apps whose music shows no lyrics */
+  lyricsOffApps?: string[];
+  /** a soft glow in the colour of what is playing */
+  glow?: boolean;
+  /** corner roundness of the open Island, 0–40 points */
+  cornerRadius?: number;
+  /** the Island's shadow */
+  shadow?: boolean;
+  /** warn when the start-up disk has less than this many GB free (0 = never) */
+  lowDiskGb?: number;
+  /** Alt/Option-click hides the Island for this many minutes */
+  altHideMinutes?: number;
+  /** focus: a long break after every N rounds, for this many minutes */
+  longBreakEvery?: number;
+  longBreakMin?: number;
 }
 
 export interface KeeperApi extends KeeperApiX {
@@ -343,6 +386,8 @@ export interface KeeperApi extends KeeperApiX {
   /** the Island's tools: Ask, AI usage, sales, stocks, notes, to-dos, teleprompter, shortcuts */
   islandTools: IslandToolsApi;
   places: PlacesApi;
+  /** Places & Tracks: where your things, people and activities have been */
+  tracks: import('./tracks/api').TracksApi;
   /** Keeper's own use of the computer */
   usage: UsageApi;
   /** switch parts of Keeper on and off */
@@ -353,14 +398,24 @@ export interface KeeperApi extends KeeperApiX {
   ashforde: AshfordeApi;
   /** Keep Awake: sessions, triggers, closed-lid mode, statistics */
   awake: import('./api-awake').AwakeApi;
+  /** dictation anywhere and meeting recording (core/voice) */
+  voice: import('./voice/types').VoiceApi;
+  /** Stage mode: a clean screen for recording, presenting and screenshots; external monitor inputs */
+  stage: import('./stage/types').StageApi;
   /** Cloud & servers: cloud services, servers, home servers, NAS boxes and other computers */
   remote: RemoteApi;
   platform: PlatformApi;
   lock: LockApi;
   /** Keeper Link: paired devices, files between them, ports, the phone companion and the tunnel */
   link: LinkApi;
+  /** Keeper Mesh: a WireGuard network between your paired devices */
+  mesh: MeshApi;
   /** remote screens: watch and control other Keeper devices, phones on this screen, Wake-on-LAN */
   screen: ScreenApi;
+  /** remote access between your own devices: help mode, fleet, remote actions, terminals, audit log, unattended access */
+  access: AccessApi;
+  /** Remote Desktops: saved connections by RDP, VNC, SSH and more, and letting others reach this computer */
+  rdc: import('./rdc/api').RdcApi;
   /** sync between your devices, backups to drives and cloud services, mirrors */
   sync: SyncApi;
   /** Notes Everywhere: notes from every notes app in one hub */
@@ -375,6 +430,12 @@ export interface KeeperApi extends KeeperApiX {
   cu: import('./api-cu').CuApi;
   /** the process manager and services in Health */
   procs: ProcsApi;
+  /** the system monitor: live readings, long-term history, dev servers, agents, sensors, menu-bar readings, the tool launcher */
+  sysmon: import('./api-sysmon').SysmonApi;
+  /** Cues: notes, checklists, links and files tied to an app, a site, a page or a time */
+  cues: import('./cues/api').CuesApi;
+  /** Island+: calls, levels, other apps' notifications, more agents */
+  islandx: import('./island-plus').IslandPlusApi;
   /** Mail, calendars, reminders, alarms and contacts */
   pim: PimApi;
   /** Notes: vaults of Markdown files, links, search, canvas, bases, publishing */
@@ -473,7 +534,14 @@ export interface KeeperApi extends KeeperApiX {
     photos(folder: string): Promise<string[]>;
     /** the widget this window shows (inside a widget window) */
     current(): Promise<WidgetConfig | null>;
+    /** arrange mode: every widget can be dragged and snaps to edges and neighbours */
+    arrange?(on: boolean): Promise<boolean>;
+    arranging?(): Promise<boolean>;
+    /** the colour "tinted" widgets use (from the wallpaper's palette), or null for the theme's accent */
+    tint?(): Promise<string | null>;
   };
+  /** live wallpaper, vibes, ambient sound and folder icons */
+  ambience: import('./scenes/api').AmbienceApi;
   settings: {
     get(): Promise<Settings & { island: IslandSettings }>;
     set(patch: Partial<Settings & { island: Partial<IslandSettings> }>): Promise<Settings & { island: IslandSettings }>;
@@ -619,12 +687,31 @@ export interface KeeperApi extends KeeperApiX {
   on(channel: 'navigate', cb: (route: string) => void): () => void;
   on(channel: 'dictation', cb: (state: 'start' | 'stop') => void): () => void;
   on(channel: 'palette', cb: () => void): () => void;
+  /** the tool launcher was shown again (focus the search box); the menu-bar pop-over's live reading */
+  on(channel: 'launcher-shown', cb: () => void): () => void;
+  on(channel: 'sysmon-live', cb: (r: import('./monitor-tray').LiveReading) => void): () => void;
   on(channel: 'settings-changed', cb: (settings: Settings & { island: IslandSettings }) => void): () => void;
   on(channel: 'widgets-changed', cb: () => void): () => void;
+  /** Cues changed (any window), and the cue popup should look again */
+  on(channel: 'cues-changed' | 'cue-popup', cb: () => void): () => void;
+  on(channel: 'widgets-arrange', cb: (on: boolean) => void): () => void;
+  on(channel: 'ambience-changed', cb: () => void): () => void;
+  on(channel: 'wallpaper-policy', cb: (p: import('./scenes/policy').RenderPolicy) => void): () => void;
+  on(channel: 'wallpaper-frame', cb: () => void): () => void;
   on(channel: 'places-changed', cb: () => void): () => void;
+  on(channel: 'tracks-changed', cb: () => void): () => void;
   on(channel: 'features-changed', cb: () => void): () => void;
   on(channel: 'ashforde-changed', cb: () => void): () => void;
   on(channel: 'awake-changed', cb: (s: import('./api-awake').AwakeStatus) => void): () => void;
+  on(channel: 'voice-state', cb: (s: import('./voice/types').DictationState, meeting?: import('./voice/types').MeetingLive, offer?: import('./voice/types').MeetingOffer) => void): () => void;
+  on(channel: 'voice-meeting', cb: (m: import('./voice/types').MeetingLive | null) => void): () => void;
+  on(channel: 'voice-level', cb: (level: number) => void): () => void;
+  on(channel: 'voice-download', cb: (d: { size: string; fraction: number } | null) => void): () => void;
+  on(channel: 'voice-settings', cb: (s: import('./voice/types').VoiceSettings) => void): () => void;
+  on(channel: 'voice-meetings-changed', cb: () => void): () => void;
+  on(channel: 'voice-capture', cb: (c: { mic: boolean; deviceId?: string; system: boolean }) => void): () => void;
+  on(channel: 'voice-sound', cb: (kind: 'start' | 'stop' | 'cancel') => void): () => void;
+  on(channel: 'stage-changed', cb: (s: import('./stage/types').StageStatus) => void): () => void;
   on(channel: 'resilience', cb: (e: { kind: 'reloaded' | 'service-restarted'; reason?: string; name?: string }) => void): () => void;
   on(channel: 'svc-changed', cb: () => void): () => void;
   on(channel: 'remote-changed', cb: () => void): () => void;
@@ -668,6 +755,8 @@ export interface KeeperApi extends KeeperApiX {
   on(channel: 'agentterm-changed', cb: () => void): () => void;
   on(channel: 'island-layout', cb: (p: import('./island-place').Placement) => void): () => void;
   on(channel: 'link-changed', cb: () => void): () => void;
+  on(channel: 'mesh-changed', cb: (exit: { name: string; since: number } | null) => void): () => void;
+  on(channel: 'mesh-invite', cb: (i: import('./mesh/types').MeshInvite) => void): () => void;
   on(channel: 'notesync-changed', cb: () => void): () => void;
   on(channel: 'screen-state', cb: (s: import('./api-screen').ScreenState) => void): () => void;
   on(channel: 'screen-ask', cb: (a: { id: string; name: string; control: boolean }) => void): () => void;
@@ -679,4 +768,6 @@ export interface KeeperApi extends KeeperApiX {
   on(channel: 'link-pair', cb: (p: import('./api-link').PairPrompt) => void): () => void;
   on(channel: 'link-offer', cb: (o: import('./api-link').FileOffer) => void): () => void;
   on(channel: 'link-companion', cb: (c: { id: string; name: string }) => void): () => void;
+  on<K extends keyof import('./rdc/api').RdcEvents>(channel: K, cb: import('./rdc/api').RdcEvents[K]): () => void;
+  on(channel: 'navigate-tab', cb: (r: { name: string; arg?: string; q?: string }) => void): () => void;
 }

@@ -10,3 +10,7 @@ It needs access to all sites, because that is the only way to see requests, and 
 2. Chromium browsers (Chrome, Edge, Brave, Vivaldi, Opera, Arc): open the extensions page, turn on Developer mode, choose **Load unpacked** and pick this folder. Its id is always `lkgnaaiefeiflokcnjnpmocahliakgac`.
 3. Firefox: copy `manifest.firefox.json` over `manifest.json` in a copy of this folder, then open `about:debugging` → This Firefox → **Load Temporary Add-on**. A signed add-on is needed for permanent installation.
 4. Safari is not supported: it does not allow native messaging to apps outside the App Store.
+
+## Cues
+
+Version 0.3.0 adds Keeper's cues: notes and checklists tied to a page or a site that pop up when you come back to it. The toolbar button (or Alt+Shift+K, or the page's right-click menu) leaves a cue for the page or the whole site, and the extension tells Keeper which page is in front when it changes so cues can show beside it. Only the page's address and title go to Keeper on this computer. It needs the `contextMenus` permission for the right-click entries.

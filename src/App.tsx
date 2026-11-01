@@ -40,11 +40,16 @@ import { Catalog } from './screens/Catalog';
 import { AppControls } from './screens/AppControls';
 import { Browsers } from './screens/Browsers';
 import { Weather } from './screens/Weather';
+// Places & Tracks (with its map) loads the first time the page opens.
+const Tracks = lazy(() => import('./screens/Tracks').then((m) => ({ default: m.Tracks })));
+import { useSurface } from './screens/TracksSurfaces';
 import { useT } from './i18n';
 import { History } from './screens/History';
 import { Home } from './screens/Home';
 import { IslandSettings } from './screens/IslandSettings';
 import { Widgets } from './screens/Widgets';
+// Wallpaper & Vibes loads the first time the page opens.
+const Ambience = lazy(() => import('./screens/Ambience').then((m) => ({ default: m.Ambience })));
 import { Large } from './screens/Large';
 import { Library } from './screens/Library';
 import { Security } from './screens/Security';
@@ -69,10 +74,19 @@ import { Sync } from './screens/Sync';
 import { NotesHub } from './screens/NotesHub';
 // Notes (with its editor) loads the first time the page opens.
 const NotesApp = lazy(() => import('./notes/NotesApp').then((m) => ({ default: m.NotesApp })));
+// Cues (notes and checklists tied to an app, a site or a time) load the first time the page opens.
+const CuesPage = lazy(() => import('./screens/Cues').then((m) => ({ default: m.Cues })));
+const Dictation = lazy(() => import('./screens/Dictation').then((m) => ({ default: m.Dictation })));
+const Meetings = lazy(() => import('./screens/Meetings').then((m) => ({ default: m.Meetings })));
+// Stage mode's page (presets and settings) loads the first time it opens.
+const StagePage = lazy(() => import('./screens/Stage').then((m) => ({ default: m.Stage })));
 import { CloudSidebar } from './components/CloudSidebar';
 import { DevicesSidebar, LinkPrompts } from './components/LinkParts';
 import { ScreenPrompts } from './screen/ScreenParts';
 import { Devices } from './screens/Devices';
+// Keeper Mesh and Remote Desktops (with its session views) load the first time their pages open.
+const Mesh = lazy(() => import('./screens/Mesh').then((m) => ({ default: m.Mesh })));
+const RemoteDesktops = lazy(() => import('./screens/RemoteDesktop').then((m) => ({ default: m.RemoteDesktops })));
 import { ForceQuitHost } from './screens/Processes';
 import { mod, shift, useAsync, useStore, type Route, type RouteName } from './state';
 import { QuickLookHost } from './preview/QuickLook';
@@ -81,6 +95,12 @@ import { toggleThemePatch } from './theme';
 const contentEl = () => document.querySelector<HTMLElement>('.main > .content');
 
 const SHELVES: FileKind[] = ['image', 'video', 'audio', 'document', 'archive', 'installer', 'app'];
+
+/** Places & Tracks, unless its settings leave it out of the sidebar. */
+function TracksNav() {
+  const on = useSurface('sidebar');
+  return on ? <NavItem route={{ name: 'tracks' }} icon="map" label="Places & Tracks" /> : null;
+}
 
 /** To do, with how many things are worth doing. */
 function TodoNav() {
@@ -129,6 +149,7 @@ function Sidebar() {
       <NavItem route={{ name: 'browse', arg: info?.home }} icon="folder" label={t('nav.browse')} />
       <NavItem route={{ name: 'downloads' }} icon="down" label={t('nav.downloads')} />
       <NavItem route={{ name: 'weather' }} icon="sun" label={t('nav.weather')} />
+      <TracksNav />
 
       <NavSection id="library" title={t('section.library')}>
         {SHELVES.map((k) => <NavItem key={k} route={{ name: 'library', arg: k }} color={KIND_COLOR[k]} label={t(`kind.${k}`)} count={short(totals.data?.[k].count)} />)}
@@ -178,11 +199,13 @@ function Sidebar() {
         <TodoNav />
         <NavItem route={{ name: 'health' }} icon="bolt" label={t('nav.health')} />
         <NavItem route={{ name: 'awake' }} icon="coffee" label="Keep Awake" />
+        <NavItem route={{ name: 'stage' }} icon="eye" label="Stage" />
         <NavItem route={{ name: 'startup' }} icon="power" label={t('nav.startup')} />
         <NavItem route={{ name: 'apps' }} icon="app" label={t('nav.apps')} />
         <NavItem route={{ name: 'protection' }} icon="shield" label={t('nav.protection')} />
         <NavItem route={{ name: 'netactivity' }} icon="globe" label={t('nav.netactivity')} />
         <NavItem route={{ name: 'vpn' }} icon="lock" label={t('nav.vpn')} />
+        <NavItem route={{ name: 'mesh' }} icon="graph" label="Mesh" />
         <NavItem route={{ name: 'firewall' }} icon="shield" label="Firewall" />
         <NavItem route={{ name: 'controls' }} icon="settings" label="Quick Controls" />
         <NavItem route={{ name: 'catalog' }} icon="settings" label="System Settings+" />
@@ -193,13 +216,18 @@ function Sidebar() {
 
       <NavSection id="more" title={t('section.more')}>
         <NavItem route={{ name: 'notes' }} icon="document" label="Notes" />
+        <NavItem route={{ name: 'cues' }} icon="pin" label="Cues" />
         <NavItem route={{ name: 'assistant' }} icon="assistant" label={t('nav.assistant')} />
         <NavItem route={{ name: 'agents' }} icon="agent" label="Agents" />
         <NavItem route={{ name: 'graph' }} icon="graph" label="Knowledge Graph" />
         <NavItem route={{ name: 'capture' }} icon="screenshot" label={t('nav.capture')} />
+        <NavItem route={{ name: 'dictation' }} icon="mic" label="Dictation" />
+        <NavItem route={{ name: 'meetings' }} icon="calendar" label="Meetings" />
         <NavItem route={{ name: 'terminal' }} icon="terminal" label={tt('title')} />
+        <NavItem route={{ name: 'rdc' }} icon="laptop" label="Remote Desktops" />
         <NavItem route={{ name: 'tools' }} icon="terminal" label={t('nav.toolbox')} />
         <NavItem route={{ name: 'island' }} icon="island" label={t('nav.island')} />
+        <NavItem route={{ name: 'ambience' }} icon="palette" label="Wallpaper & Vibes" />
         <NavItem route={{ name: 'widgets' }} icon="grid" label={t('nav.widgets')} />
         <NavItem route={{ name: 'history' }} icon="history" label={t('nav.history')} />
         <NavItem route={{ name: 'settings' }} icon="settings" label={t('nav.settings')} />
@@ -309,12 +337,17 @@ function Page() {
     assistant: () => <Assistant />,
     island: () => <IslandSettings />,
     widgets: () => <Widgets />,
+    ambience: () => <Suspense fallback={null}><Ambience /></Suspense>,
     settings: () => <Settings />,
     tools: () => <Tools />,
     convert: () => <Convert />,
     health: () => <Health />,
     awake: () => <KeepAwake />,
+    dictation: () => <Suspense fallback={null}><Dictation key={route.arg ?? ''} initialTab={route.arg} /></Suspense>,
+    meetings: () => <Suspense fallback={null}><Meetings key={route.arg ?? ''} initial={route.arg} /></Suspense>,
+    stage: () => <Suspense fallback={null}><StagePage /></Suspense>,
     weather: () => <Weather />,
+    tracks: () => <Suspense fallback={null}><Tracks key={route.arg?.startsWith('file:') ? route.arg : ''} /></Suspense>,
     capture: () => <Capture />,
     annotate: () => <Annotate />,
     network: () => <Network />,
@@ -332,8 +365,11 @@ function Page() {
     sync: () => <Sync key={route.arg ?? ''} />,
     noteshub: () => <NotesHub key={route.arg ?? ''} />,
     notes: () => <Suspense fallback={null}><NotesApp /></Suspense>,
-    terminal: () => <TerminalApp mode="page" startCwd={route.arg} />,
+    cues: () => <Suspense fallback={null}><CuesPage /></Suspense>,
+    terminal: () => <TerminalApp mode="page" startCwd={route.arg} openSession={route.q?.startsWith('session:') ? route.q.slice(8) : undefined} />,
+    rdc: () => <Suspense fallback={null}><RemoteDesktops /></Suspense>,
     devices: () => <Devices />,
+    mesh: () => <Suspense fallback={null}><Mesh /></Suspense>,
     mail: () => <Mail />,
     calendar: () => <Calendar />,
     reminders: () => <Reminders />,

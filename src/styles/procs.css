@@ -57,3 +57,4 @@ button.proc-caret:hover { background: var(--bg-active); color: var(--text); }
 
 .health-tabs { margin-bottom: 14px; }
 .services-table td { padding: 7px 10px; }
+.procs-ended { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; padding: 4px 2px 8px; }
