@@ -15,6 +15,28 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 ### Added — Open with
 - Places, forecasts, Find My devices, calendar events, email addresses, phone numbers and contact addresses open in your own apps: Apple Maps, Weather, Find My, Calendar, Mail, Messages and FaceTime on a Mac; Windows Maps, MSN Weather, Outlook and Phone Link on Windows; GNOME Maps (geo: links), GNOME Weather and GNOME Calendar on Linux. Google Maps is used when it is installed as an app, and Settings → Open with chooses per kind (Automatic, each app found, or the web). Anything that does not answer falls back to its web page. See docs/NATIVE-APPS.md.
 
+### Added — Planner
+- One task list for the Reminders page, the new Planner page and the Island. Tasks gain a planned day, repeats, steps, a project, your own order and the focus time spent on them. All of these sync as VTODO with CalDAV task lists. The Island's old to-dos move onto the list once, by themselves.
+- Planner page (Mail & Calendar): Today, with unfinished tasks from earlier days carried forward; the Week with the Inbox, with drag and drop between days; Inbox; Upcoming; Overdue with *Reschedule all to today/tomorrow*; projects; Insights; and a detail pane for notes, steps, project, repeat, planned day, due time and importance.
+- Repeating tasks roll on to their next date when checked off, never stacking up missed days.
+- Tasks in plain words: `!`, `!!`, `!!!` for priority, `#project`, `every day/weekday/Mon and Thu/2 weeks/month`, dates and times, with a preview as you type and a dictation button. Works in the Island, the Planner and Reminders.
+- Island: a Tasks tab (Today, Inbox, Overdue, All), a Week tab and an Insights tab. A due reminder becomes a live activity with Snooze 5 min and Done, and chimes once. A *New task* shortcut (Ctrl+Alt+N / ⌘⌥N, changeable in Settings → Island) opens Tasks ready to type.
+- Focus: a stopwatch mode, +5 min, sessions for a task (logged on the task), and pausing while the computer sleeps or is locked.
+- Insights: tasks done and focus minutes today and this week, the last seven days and your busiest hours, from a small log kept on this computer.
+- Island Notes: a daily Today pad, and ⌘/Ctrl+Enter turns the line under the cursor into a task.
+- Drag tasks to reorder them. Delete with the ×, the Delete key or a swipe, with Undo.
+- AI agents and MCP clients: `tasks_list`, `task_add`, `task_update`, `task_complete`, `task_delete`, `island_notes_read`, `island_notes_append` and `insights_get`, and `focus_timer` with stopwatch, extend and a task, under the usual permissions.
+- Settings → Tasks and notes → Export saves every task and Island note as JSON.
+- An *Update ready* live activity in the Island, with Restart and update, or When I quit.
+- *Report a problem* in Settings → About and in the tray's More menu.
+- The welcome tour has a step about the Island.
+- A *Black and white* option for the Island.
+- New feature switches: Planner, Insights, Week in the Island, Insights in the Island. See docs/PLANNER.md.
+
+### Fixed
+- Quick-add no longer reads "month" or words such as "monster" as Monday.
+- The Island's task list and the Mac's Reminders section no longer ask again every minute while open; they update when something changes.
+
 ## [0.1.0-beta.1] - 2026-11-01
 
 The first beta of Keeper by Ashforde®. Install it with the one-line installer in the README; it then updates itself from GitHub Releases (betas follow betas).
