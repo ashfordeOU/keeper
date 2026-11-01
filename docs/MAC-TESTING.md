@@ -35,6 +35,7 @@ Each question waits a few minutes and then moves on, so the run finishes even if
 |---|---|
 | `--quick` | The smoke subset: Island, Keep Awake, Stage (Dock and alert volume, plus the crash test), keeper-helper, Voice (no model download), monitor, usage payload and a short idle measurement |
 | `--only island,stage` | Only these areas. `--list` shows them all |
+| `--only permscreen` | Keeper's own Permissions screen: Keeper opens Settings → Permissions, you press **Allow all** and answer macOS's questions, and the run records which permissions became allowed, which need a restart and which were left (see [PERMISSIONS.md](PERMISSIONS.md)) |
 | `--skip notes,firewall` | Every area except these |
 | `--record` | Also records the screen to a video, with ffmpeg if installed or `screencapture -v` otherwise. Off by default; it stops at the end |
 | `--no-guided` | Automatic checks only, with no questions |

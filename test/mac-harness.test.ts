@@ -10,6 +10,7 @@ import { keeperHolds } from '../scripts/mac-test/src/areas/awake';
 import { allOff, diff, normalise, restoreScript } from '../scripts/mac-test/src/areas/stage';
 import { cpuTime, parsePs, treeOf } from '../scripts/mac-test/src/areas/usage';
 import { peakDb, wordMatch } from '../scripts/mac-test/src/areas/voice';
+import { permissionChanges } from '../scripts/mac-test/src/areas/permscreen';
 import { cell, renderReport } from '../scripts/mac-test/src/report';
 import { SCHEMA_VERSION, summarize, validateResults, type CheckResult, type Results } from '../scripts/mac-test/src/schema';
 import { makeScrubber } from '../scripts/mac-test/src/scrub';
@@ -159,4 +160,14 @@ describe('small parsers', () => {
     expect(parseArgs(['--quick', '--only=island,Awake', '--out', '/x', '--no-guided'])).toMatchObject({ quick: true, only: ['island', 'awake'], out: '/x', guided: false });
     expect(() => parseArgs(['--bogus'])).toThrow(/Unknown option/);
   });
+
+describe('the Permissions screen check', () => {
+  it('records which became allowed, which need a restart and which are left', () => {
+    const c = permissionChanges(
+      [{ id: 'screen', name: 'Screen', state: 'missing' }, { id: 'mic', name: 'Mic', state: 'allowed' }, { id: 'fda', name: 'FDA', state: 'missing' }, { id: 'net', name: 'Net', state: 'unknown' }],
+      [{ id: 'screen', name: 'Screen', state: 'allowed', restartNeeded: true }, { id: 'mic', name: 'Mic', state: 'allowed' }, { id: 'fda', name: 'FDA', state: 'denied' }, { id: 'net', name: 'Net', state: 'unknown' }],
+    );
+    expect(c).toEqual({ allowed: ['screen'], restart: ['screen'], left: ['fda'], unknown: ['net'] });
+  });
+});
 });

@@ -16,6 +16,7 @@ import { runRdc } from './rdc';
 import { runCatalog, runSecurity } from './settings';
 import { runStage } from './stage';
 import { runPerf, runUsage } from './usage';
+import { runPermScreen } from './permscreen';
 import { runVoice } from './voice';
 
 export interface Area {
@@ -51,6 +52,7 @@ export const AREAS: Area[] = [
   { id: 'catalog', title: 'Settings catalogue (read only)', quick: false, minutes: [2, 0], app: true, run: (c) => runCatalog(c) },
   { id: 'security', title: 'Security center, quick controls, app controls (read only)', quick: false, minutes: [2, 0], app: true, run: (c) => runSecurity(c) },
   { id: 'monorail', title: 'Monorail present (only when Monorail is installed)', quick: false, minutes: [3, 0], app: true, changes: 'Monorail’s focus mode, hidden apps and the Dock for a few seconds; Monorail’s settings.json is copied first and put back (only with your yes)', run: (c) => runMonorail(c) },
+  { id: 'permscreen', title: 'Keeper’s Permissions screen (Allow all)', quick: false, minutes: [5, 0], app: true, guided: 'press Allow all in Keeper and answer macOS’s questions', run: (c) => runPermScreen(c) },
   { id: 'usage', title: 'Usage stats payload (never sent)', quick: true, minutes: [1, 1], app: true, run: (c, x) => runUsage(c, x.stub) },
   { id: 'perf', title: 'Performance (start-up, idle)', quick: true, minutes: [4, 1], app: true, run: (c) => runPerf(c) },
 ];

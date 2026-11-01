@@ -572,5 +572,199 @@
    "source": "system",
    "group": "Exchange"
   }
- ]
+ ],
+ "permissions.list": {
+  "$seq": [
+   {
+    "platform": "darwin",
+    "helper": true,
+    "checkedAt": 0,
+    "items": [
+     {
+      "id": "accessibility",
+      "name": "accessibility",
+      "state": "allowed"
+     },
+     {
+      "id": "screen",
+      "name": "screen",
+      "state": "missing"
+     },
+     {
+      "id": "input",
+      "name": "input",
+      "state": "missing"
+     },
+     {
+      "id": "microphone",
+      "name": "microphone",
+      "state": "allowed"
+     },
+     {
+      "id": "camera",
+      "name": "camera",
+      "state": "denied"
+     },
+     {
+      "id": "fullDisk",
+      "name": "fullDisk",
+      "state": "missing"
+     },
+     {
+      "id": "automation.systemevents",
+      "name": "automation.systemevents",
+      "state": "allowed"
+     },
+     {
+      "id": "automation.finder",
+      "name": "automation.finder",
+      "state": "missing"
+     },
+     {
+      "id": "automation.music",
+      "name": "automation.music",
+      "state": "missing"
+     },
+     {
+      "id": "automation.notes",
+      "name": "automation.notes",
+      "state": "notNeeded"
+     },
+     {
+      "id": "notifications",
+      "name": "notifications",
+      "state": "allowed"
+     },
+     {
+      "id": "calendars",
+      "name": "calendars",
+      "state": "missing"
+     },
+     {
+      "id": "reminders",
+      "name": "reminders",
+      "state": "missing"
+     },
+     {
+      "id": "location",
+      "name": "location",
+      "state": "notNeeded"
+     },
+     {
+      "id": "localNetwork",
+      "name": "localNetwork",
+      "state": "unknown"
+     },
+     {
+      "id": "loginItem",
+      "name": "loginItem",
+      "state": "notNeeded"
+     }
+    ]
+   },
+   {
+    "platform": "darwin",
+    "helper": true,
+    "checkedAt": 1,
+    "items": [
+     {
+      "id": "accessibility",
+      "name": "accessibility",
+      "state": "allowed",
+      "restartNeeded": false
+     },
+     {
+      "id": "screen",
+      "name": "screen",
+      "state": "allowed",
+      "restartNeeded": true
+     },
+     {
+      "id": "input",
+      "name": "input",
+      "state": "allowed",
+      "restartNeeded": true
+     },
+     {
+      "id": "microphone",
+      "name": "microphone",
+      "state": "allowed",
+      "restartNeeded": false
+     },
+     {
+      "id": "camera",
+      "name": "camera",
+      "state": "denied",
+      "restartNeeded": false
+     },
+     {
+      "id": "fullDisk",
+      "name": "fullDisk",
+      "state": "allowed",
+      "restartNeeded": false
+     },
+     {
+      "id": "automation.systemevents",
+      "name": "automation.systemevents",
+      "state": "allowed",
+      "restartNeeded": false
+     },
+     {
+      "id": "automation.finder",
+      "name": "automation.finder",
+      "state": "allowed",
+      "restartNeeded": false
+     },
+     {
+      "id": "automation.music",
+      "name": "automation.music",
+      "state": "missing",
+      "restartNeeded": false
+     },
+     {
+      "id": "automation.notes",
+      "name": "automation.notes",
+      "state": "notNeeded",
+      "restartNeeded": false
+     },
+     {
+      "id": "notifications",
+      "name": "notifications",
+      "state": "allowed",
+      "restartNeeded": false
+     },
+     {
+      "id": "calendars",
+      "name": "calendars",
+      "state": "allowed",
+      "restartNeeded": false
+     },
+     {
+      "id": "reminders",
+      "name": "reminders",
+      "state": "allowed",
+      "restartNeeded": false
+     },
+     {
+      "id": "location",
+      "name": "location",
+      "state": "notNeeded",
+      "restartNeeded": false
+     },
+     {
+      "id": "localNetwork",
+      "name": "localNetwork",
+      "state": "unknown",
+      "restartNeeded": false
+     },
+     {
+      "id": "loginItem",
+      "name": "loginItem",
+      "state": "notNeeded",
+      "restartNeeded": false
+     }
+    ]
+   }
+  ]
+ }
 }

@@ -383,7 +383,7 @@ Or download the latest build from **[Releases](https://github.com/ashfordeOU/kee
 
 Every release lists `SHA256SUMS.txt`, a Sigstore signature of it and GitHub build attestations; see [Verifying a download](docs/INSTALL.md#verifying-a-download). Keeper keeps itself up to date (automatically, after asking, or only when you check, in **Settings → Updates**).
 
-**First launch.** Builds are not yet signed with paid Apple and Microsoft certificates. On **Windows**, if SmartScreen appears, choose **More info → Run anyway**. On **macOS**, the install script removes the quarantine flag; after a dmg or Homebrew install choose **Open Anyway** in System Settings → Privacy & Security, or run `xattr -cr /Applications/Keeper.app`. On **Linux**, now playing, dictation and download sources use `playerctl`, `xdotool` (or `wtype` on Wayland) and `attr`.
+**First launch.** Builds are not yet signed with paid Apple and Microsoft certificates. On **Windows**, if SmartScreen appears, choose **More info → Run anyway**. On **macOS**, the install script removes the quarantine flag; after a dmg or Homebrew install choose **Open Anyway** in System Settings → Privacy & Security, or run `xattr -cr /Applications/Keeper.app`. On **Linux**, now playing, dictation and download sources use `playerctl`, `xdotool` (or `wtype` on Wayland) and `attr`. The welcome tour then offers to set up every permission Keeper's features use in one go (Settings → Permissions any time); see [docs/PERMISSIONS.md](docs/PERMISSIONS.md) for what each one is for and how to take it back.
 
 ---
 
@@ -525,7 +525,7 @@ Fresh screenshots for this page: build, then `xvfb-run -a -s "-screen 0 1920x120
 
 | Area | Documents |
 |---|---|
-| Getting started | [Install](docs/INSTALL.md) · [Guided fixes and the To do list](docs/GUIDE.md) · [Themes](docs/THEMES.md) · [Tools, checked one by one](docs/TOOLS.md) |
+| Getting started | [Install](docs/INSTALL.md) · [Permissions](docs/PERMISSIONS.md) · [Guided fixes and the To do list](docs/GUIDE.md) · [Themes](docs/THEMES.md) · [Tools, checked one by one](docs/TOOLS.md) |
 | Files | [File kit: PDF tools and Convert](docs/FILEKIT.md) · [Cloud and servers](docs/CONNECT.md) · [Sync and backup](docs/SYNC.md) · [Keeper's brain](docs/BRAIN.md) |
 | Notes and mail | [Notes](docs/NOTES.md) · [Notes Everywhere](docs/NOTES-EVERYWHERE.md) · [Mail, calendars, reminders and the clock](docs/PIM.md) |
 | Island and desktop | [Island tools](docs/ISLAND-TOOLS.md) · [Island+ and Cues](docs/ISLAND-CUES.md) · [Wallpaper and Vibes](docs/AMBIENCE.md) · [Stage](docs/STAGE.md) · [Keep Awake](docs/KEEP-AWAKE.md) · [Voice](docs/VOICE.md) |
