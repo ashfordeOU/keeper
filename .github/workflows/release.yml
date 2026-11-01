@@ -271,9 +271,10 @@ jobs:
         if: env.KEEPER_GPG_PRIVATE_KEY != '' && steps.meta.outputs.prerelease == 'false'
         env:
           KEEPER_GPG_KEY_ID: ${{ steps.gpg.outputs.fpr }}
+          RELEASE_VERSION: ${{ steps.meta.outputs.version }}
         run: |
           sudo apt-get update && sudo apt-get install -y dpkg-dev createrepo-c
-          sh packaging/repo/build-repos.sh artifacts pages-out "${{ steps.meta.outputs.version }}"
+          sh packaging/repo/build-repos.sh artifacts pages-out "$RELEASE_VERSION"
           echo "built=true" >> "$GITHUB_OUTPUT"
 
       - name: Checksums
