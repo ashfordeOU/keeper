@@ -281,6 +281,7 @@ export function TaskDetail({ task, today, projects = [], onClose, compact }: { t
   const steps = t.steps ?? [];
   const repeatKnown = REPEATS.some((r) => r.rrule === (t.rrule ?? ''));
   const focusMin = (t.focus ?? []).reduce((n, f) => n + f.minutes, 0);
+  const focusOn = useFeature('focus');
   return (
     <div className={`tk-detail ${compact ? 'compact' : ''}`} data-testid="task-detail">
       <div className="tk-detail-head">
@@ -341,6 +342,7 @@ export function TaskDetail({ task, today, projects = [], onClose, compact }: { t
         {focusMin ? <span><Icon name="timer" size={10} /> {focusMin} min of focus</span> : null}
         {t.created ? <span>Added {new Date(t.created).toLocaleDateString()}</span> : null}
         <span className="grow" />
+        {focusOn && !t.done ? <button className="btn sm" title="A 25-minute focus session for this task; the time is logged on it" onClick={() => void api.island.focus('start', 25, { taskId: t.id, taskTitle: t.title }).then(() => sayTask('Focusing for 25 minutes'))}><Icon name="timer" size={11} /> Focus</button> : null}
         <button className="btn sm" onClick={() => { void deleteTask(t); onClose?.(); }}><Icon name="trash" size={11} /> Delete</button>
       </div>
     </div>

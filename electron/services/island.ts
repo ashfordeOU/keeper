@@ -13,7 +13,7 @@ import { activeTriggers, describeTrigger, type TriggerKind } from '../../core/aw
 import { kindOf, looksLikeScreenshot } from '../../core/classify';
 import type { FileIndex } from '../../core/indexer';
 import {
-  ClipHistory, detectClipKind, focusLeft, looksSecret, newFocus, parseIcs, pauseFocus, resumeFocus, startFocus, tickFocus,
+  ClipHistory, detectClipKind, extendFocus, focusLeft, looksSecret, newFocus, parseIcs, pauseFocus, resumeFocus, startFocus, stopFocus, systemPause, systemResume, tickFocus,
   type AgentSession, type CalendarEvent, type ClipItem, type FocusState, type LyricLine,
 } from '../../core/island';
 import { powershell, run } from '../../core/platform';
@@ -95,6 +95,8 @@ export class IslandService {
   monorail?: import('../../core/ashforde/monorail').MonorailState;
   /** told when a Focus session or presentation mode starts or ends (Monorail follows them) */
   modeHook?: (kind: 'focus' | 'presentation', on: boolean) => void;
+  /** a focus session ended: its focused minutes and its task, for Insights and the task (electron/services/pim) */
+  focusLog?: (minutes: number, taskId?: string) => void;
   private lastFocusOn = false;
   private file = path.join(app.getPath('userData'), 'island.json');
 
@@ -109,7 +111,7 @@ export class IslandService {
       // While nobody is at the computer, copies are rare: look far less often.
       poll('island.clipboard', { baseMs: 700, idleFactor: 10, pauseWhenLocked: true }, () => this.pollClipboard(), { feature: 'clipboard' }),
       // Once a second only while a focus timer runs or music plays; otherwise break reminders need far less.
-      poll('island.tick', () => ({ baseMs: this.focus.mode !== 'idle' || this.playing?.playing ? 1000 : 15_000, idleFactor: this.focus.mode !== 'idle' ? 1 : 2 }), () => this.tick(), { feature: 'focus' }),
+      poll('island.tick', () => ({ baseMs: (this.focus.mode !== 'idle' && this.focus.pausedLeft === undefined) || this.playing?.playing ? 1000 : 15_000, idleFactor: this.focus.mode !== 'idle' ? 1 : 2 }), () => this.tick(), { feature: 'focus' }),
       poll('island.agents', { baseMs: 5000, idleFactor: 3, pauseWhenLocked: true }, () => this.pollAgents(), { feature: 'agents' }),
       poll('island.media', () => ({ baseMs: this.playing?.playing ? (win ? 5000 : 2500) : this.playing ? 10_000 : 15_000, idleFactor: this.playing?.playing ? 1.5 : 3, pauseWhenLocked: true }), () => this.pollMedia(), { feature: 'media' }),
       // Keep-awake has to notice its end even while nobody touches the computer.
@@ -148,6 +150,17 @@ export class IslandService {
     // Plugging in or unplugging shows straight away.
     powerMonitor.on('on-ac', () => pollNow('island.battery'));
     powerMonitor.on('on-battery', () => pollNow('island.battery'));
+    // A focus session waits while the computer sleeps or is locked, and carries on when the person is back.
+    const away = () => this.focusAway(true);
+    const back = () => this.focusAway(false);
+    for (const e of ['suspend', 'lock-screen'] as const) powerMonitor.on(e as 'suspend', away);
+    for (const e of ['resume', 'unlock-screen'] as const) powerMonitor.on(e as 'resume', back);
+    const stopPolls = this.stopPolls;
+    this.stopPolls = () => {
+      stopPolls?.();
+      for (const e of ['suspend', 'lock-screen'] as const) powerMonitor.off(e as 'suspend', away);
+      for (const e of ['resume', 'unlock-screen'] as const) powerMonitor.off(e as 'resume', back);
+    };
     if (featureOn('island')) await this.watchFolders();
   }
 
@@ -533,27 +546,50 @@ export class IslandService {
 
   // ---------------------------------------------------------------- focus & breaks
 
-  focusAction(action: 'start' | 'pause' | 'resume' | 'stop', minutes?: number): FocusState {
-    if (action === 'start') {
+  /**
+   * start (a countdown of `minutes`), stopwatch (counting up), pause, resume,
+   * extend (+`minutes`, 5 by default) or stop. A session can be for a task:
+   * its focused minutes are logged on it when it ends.
+   */
+  focusAction(action: 'start' | 'stopwatch' | 'pause' | 'resume' | 'stop' | 'extend', minutes?: number, o: { taskId?: string; taskTitle?: string } = {}): FocusState {
+    if (action === 'start' || action === 'stopwatch') {
+      // Starting over a running session ends that one first (and logs it).
+      if (this.focus.mode === 'focus') this.endFocus();
       const is = settings().island;
-      this.focus = startFocus({ ...this.focus, longEvery: plusSetting(is, 'longBreakEvery'), longBreakMin: plusSetting(is, 'longBreakMin') }, minutes ?? this.focus.focusMin);
-      // Focus sessions keep the computer awake.
-      if (!this.awake.on) this.keepAwake(true, { until: this.focus.endsAt }, 'Focus session');
+      this.focus = startFocus({ ...this.focus, longEvery: plusSetting(is, 'longBreakEvery'), longBreakMin: plusSetting(is, 'longBreakMin') }, minutes ?? this.focus.focusMin, Date.now(), { stopwatch: action === 'stopwatch', taskId: o.taskId, taskTitle: o.taskTitle });
+      // Focus sessions keep the computer awake (a stopwatch until it is stopped).
+      if (!this.awake.on) this.keepAwake(true, this.focus.stopwatch ? {} : { until: this.focus.endsAt }, 'Focus session');
     } else if (action === 'pause') this.focus = pauseFocus(this.focus);
     else if (action === 'resume') this.focus = resumeFocus(this.focus);
-    else {
-      this.focus = { ...this.focus, mode: 'idle', endsAt: 0, pausedLeft: undefined };
-      if (this.awake.reason === 'Focus session') this.keepAwake(false);
-    }
+    else if (action === 'extend') {
+      this.focus = extendFocus(this.focus, minutes ?? 5);
+      if (this.awake.reason === 'Focus session' && this.focus.pausedLeft === undefined && this.focus.endsAt) this.keepAwake(true, { until: this.focus.endsAt }, 'Focus session');
+    } else this.endFocus();
     this.changed();
     return this.focus;
   }
 
+  private endFocus() {
+    const r = stopFocus(this.focus);
+    this.focus = r.state;
+    if (r.minutes >= 1) this.focusLog?.(r.minutes, r.taskId);
+    if (this.awake.reason === 'Focus session') this.keepAwake(false);
+  }
+
+  /** Sleep or lock pauses a running session; waking or unlocking carries it on (only one the system paused). */
+  private focusAway(away: boolean) {
+    const next = away ? systemPause(this.focus) : systemResume(this.focus);
+    if (next === this.focus) return;
+    this.focus = next;
+    this.changed();
+  }
+
   private tick() {
-    const { state, event } = tickFocus(this.focus);
+    const { state, event, minutes } = tickFocus(this.focus);
     if (event) {
       this.focus = state;
       if (event === 'focus-done') {
+        if ((minutes ?? 0) >= 1) this.focusLog?.(minutes!, state.taskId);
         this.alert({ kind: 'focus', title: 'Focus session done', detail: `Take a ${state.breakMin}-minute break` });
         this.notify('Focus session done', `Take a ${state.breakMin}-minute break.`);
       } else {

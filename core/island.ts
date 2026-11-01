@@ -376,9 +376,9 @@ export function looksSecret(text: string): boolean {
 
 export interface FocusState {
   mode: 'focus' | 'break' | 'idle';
-  /** epoch ms when the current block ends */
+  /** epoch ms when the current block ends (0 for a stopwatch) */
   endsAt: number;
-  /** remaining ms while paused */
+  /** remaining ms while paused (a stopwatch: the time counted so far) */
   pausedLeft?: number;
   focusMin: number;
   breakMin: number;
@@ -388,20 +388,43 @@ export interface FocusState {
   longBreakMin?: number;
   /** the current break is the long one */
   long?: boolean;
+  /** counting up with no end (a stopwatch) instead of down */
+  stopwatch?: boolean;
+  /** a stopwatch: when it started counting (moved on by pauses) */
+  startedAt?: number;
+  /** the task this session is for (its time is logged on it) */
+  taskId?: string;
+  taskTitle?: string;
+  /** focused time in this session before the running stretch, and when that stretch began */
+  doneMs?: number;
+  segStart?: number;
+  /** paused because the computer slept or locked: it carries on by itself when the person is back */
+  pausedBy?: 'system';
 }
 
 export function newFocus(focusMin = 25, breakMin = 5): FocusState {
   return { mode: 'idle', endsAt: 0, focusMin, breakMin, rounds: 0 };
 }
 
-export function startFocus(s: FocusState, minutes = s.focusMin, now = Date.now()): FocusState {
-  return { ...s, mode: 'focus', focusMin: minutes, endsAt: now + minutes * 60_000, pausedLeft: undefined, long: undefined };
+export interface FocusOptions {
+  /** count up with no end */
+  stopwatch?: boolean;
+  taskId?: string;
+  taskTitle?: string;
+}
+
+const clearSession = { pausedLeft: undefined, long: undefined, stopwatch: undefined, startedAt: undefined, taskId: undefined, taskTitle: undefined, doneMs: undefined, segStart: undefined, pausedBy: undefined };
+
+export function startFocus(s: FocusState, minutes = s.focusMin, now = Date.now(), o: FocusOptions = {}): FocusState {
+  const base = { ...s, ...clearSession, mode: 'focus' as const, doneMs: 0, segStart: now, taskId: o.taskId, taskTitle: o.taskTitle };
+  if (o.stopwatch) return { ...base, stopwatch: true, startedAt: now, endsAt: 0 };
+  return { ...base, focusMin: minutes, endsAt: now + minutes * 60_000 };
 }
 
 /** Start a break straight away (a short or the long one). */
 export function startBreak(s: FocusState, long = false, now = Date.now()): FocusState {
   const mins = long ? s.longBreakMin ?? 15 : s.breakMin;
-  return { ...s, mode: 'break', endsAt: now + mins * 60_000, pausedLeft: undefined, long };
+  return { ...s, ...clearSession, mode: 'break', endsAt: now + mins * 60_000, long, taskId: s.taskId, taskTitle: s.taskTitle };
 }
 
 /** The ruler: minutes from a drag position (0..1) on a scale up to `max` minutes, snapped to 5 (1 under 10). */
@@ -411,29 +434,66 @@ export function rulerMinutes(fraction: number, max = 180): number {
   return Math.max(1, Math.min(max, snapped));
 }
 
-export function pauseFocus(s: FocusState, now = Date.now()): FocusState {
+export function pauseFocus(s: FocusState, now = Date.now(), by?: 'system'): FocusState {
   if (s.mode === 'idle' || s.pausedLeft !== undefined) return s;
-  return { ...s, pausedLeft: Math.max(0, s.endsAt - now) };
+  const done = s.mode === 'focus' ? (s.doneMs ?? 0) + Math.max(0, now - (s.segStart ?? now)) : s.doneMs;
+  const held = s.stopwatch ? Math.max(0, now - (s.startedAt ?? now)) : Math.max(0, s.endsAt - now);
+  return { ...s, pausedLeft: held, doneMs: done, segStart: undefined, pausedBy: by };
 }
 
 export function resumeFocus(s: FocusState, now = Date.now()): FocusState {
   if (s.pausedLeft === undefined) return s;
-  return { ...s, endsAt: now + s.pausedLeft, pausedLeft: undefined };
+  if (s.stopwatch) return { ...s, startedAt: now - s.pausedLeft, pausedLeft: undefined, segStart: now, pausedBy: undefined };
+  return { ...s, endsAt: now + s.pausedLeft, pausedLeft: undefined, segStart: now, pausedBy: undefined };
 }
 
-/** Advances focus -> break -> idle when time runs out. Returns the event that happened, if any. */
-export function tickFocus(s: FocusState, now = Date.now()): { state: FocusState; event?: 'focus-done' | 'break-done' } {
-  if (s.mode === 'idle' || s.pausedLeft !== undefined || now < s.endsAt) return { state: s };
+/** The computer is going to sleep or locking: a running session waits. */
+export function systemPause(s: FocusState, now = Date.now()): FocusState {
+  return s.mode === 'idle' || s.pausedLeft !== undefined ? s : pauseFocus(s, now, 'system');
+}
+
+/** Back from sleep or unlocked: only a session the system paused carries on. */
+export function systemResume(s: FocusState, now = Date.now()): FocusState {
+  return s.pausedBy === 'system' ? resumeFocus(s, now) : s;
+}
+
+/** "+5 min": the block runs longer (a paused one too). Nothing to add to a stopwatch. */
+export function extendFocus(s: FocusState, minutes = 5): FocusState {
+  if (s.mode === 'idle' || s.stopwatch) return s;
+  const ms = minutes * 60_000;
+  const total = s.mode === 'break' ? { breakMin: s.breakMin + minutes } : { focusMin: s.focusMin + minutes };
+  return s.pausedLeft !== undefined ? { ...s, ...total, pausedLeft: s.pausedLeft + ms } : { ...s, ...total, endsAt: s.endsAt + ms };
+}
+
+/** Minutes actually focused in the current session (pauses left out). */
+export function focusedMinutes(s: FocusState, now = Date.now()): number {
+  if (s.mode !== 'focus') return Math.round((s.doneMs ?? 0) / 60_000);
+  const running = s.pausedLeft === undefined && s.segStart !== undefined ? Math.max(0, now - s.segStart) : 0;
+  return Math.round(((s.doneMs ?? 0) + running) / 60_000);
+}
+
+/** Ends the session; `minutes` is the focused time to log (0 for a break). */
+export function stopFocus(s: FocusState, now = Date.now()): { state: FocusState; minutes: number; taskId?: string } {
+  const minutes = s.mode === 'focus' ? focusedMinutes(s, now) : 0;
+  return { state: { ...s, ...clearSession, mode: 'idle', endsAt: 0 }, minutes, taskId: s.taskId };
+}
+
+/** Advances focus -> break -> idle when time runs out. Returns the event that happened, if any (and the minutes focused). */
+export function tickFocus(s: FocusState, now = Date.now()): { state: FocusState; event?: 'focus-done' | 'break-done'; minutes?: number } {
+  if (s.mode === 'idle' || s.stopwatch || s.pausedLeft !== undefined || now < s.endsAt) return { state: s };
   if (s.mode === 'focus') {
     const rounds = s.rounds + 1;
     const long = !!s.longEvery && s.longEvery > 0 && rounds % s.longEvery === 0;
     const mins = long ? s.longBreakMin ?? 15 : s.breakMin;
-    return { state: { ...s, mode: 'break', endsAt: now + mins * 60_000, rounds, long }, event: 'focus-done' };
+    const minutes = focusedMinutes(s, s.endsAt);
+    return { state: { ...s, mode: 'break', endsAt: now + mins * 60_000, rounds, long, doneMs: undefined, segStart: undefined }, event: 'focus-done', minutes };
   }
-  return { state: { ...s, mode: 'idle', endsAt: 0, long: undefined }, event: 'break-done' };
+  return { state: { ...s, ...clearSession, mode: 'idle', endsAt: 0 }, event: 'break-done' };
 }
 
+/** Time left in the block; for a stopwatch, the time counted so far. */
 export function focusLeft(s: FocusState, now = Date.now()): number {
   if (s.mode === 'idle') return 0;
+  if (s.stopwatch) return s.pausedLeft ?? Math.max(0, now - (s.startedAt ?? now));
   return s.pausedLeft ?? Math.max(0, s.endsAt - now);
 }

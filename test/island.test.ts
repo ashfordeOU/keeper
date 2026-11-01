@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 import { describe, expect, it } from 'vitest';
-import { ClipHistory, agentStateFromTail, currentLine, focusLeft, looksSecret, newFocus, nextEvent, parseIcs, parseLrc, pauseFocus, resumeFocus, startFocus, tickFocus } from '../core/island';
+import { ClipHistory, agentStateFromTail, currentLine, extendFocus, focusedMinutes, focusLeft, looksSecret, newFocus, nextEvent, parseIcs, parseLrc, pauseFocus, resumeFocus, startFocus, stopFocus, systemPause, systemResume, tickFocus } from '../core/island';
 
 const ICS = `BEGIN:VCALENDAR
 BEGIN:VEVENT
@@ -103,5 +103,55 @@ describe('focus timer', () => {
     r = tickFocus(r.state, 100_000 + 30 * 60_000);
     expect(r.event).toBe('break-done');
     expect(r.state.mode).toBe('idle');
+  });
+});
+
+describe('focus upgrades', () => {
+  const MIN = 60_000;
+  it('a stopwatch counts up, never ends by itself, and pauses', () => {
+    let s = startFocus(newFocus(), 25, 0, { stopwatch: true });
+    expect(focusLeft(s, 10 * MIN)).toBe(10 * MIN);
+    expect(tickFocus(s, 999 * MIN).event).toBeUndefined();
+    s = pauseFocus(s, 10 * MIN);
+    expect(focusLeft(s, 50 * MIN)).toBe(10 * MIN);
+    s = resumeFocus(s, 50 * MIN);
+    expect(focusLeft(s, 55 * MIN)).toBe(15 * MIN);
+    expect(stopFocus(s, 55 * MIN).minutes).toBe(15);
+    expect(extendFocus(s)).toBe(s);
+  });
+  it('+5 min adds to a running or a paused block', () => {
+    let s = startFocus(newFocus(25, 5), 25, 0);
+    s = extendFocus(s, 5);
+    expect(focusLeft(s, 0)).toBe(30 * MIN);
+    expect(s.focusMin).toBe(30);
+    s = pauseFocus(s, 10 * MIN);
+    expect(focusLeft(extendFocus(s, 5), 99 * MIN)).toBe(25 * MIN);
+  });
+  it('logs only the focused minutes, on the task, when a block finishes or is stopped', () => {
+    let s = startFocus(newFocus(25, 5), 25, 0, { taskId: 'local:1', taskTitle: 'Write' });
+    s = pauseFocus(s, 10 * MIN);
+    s = resumeFocus(s, 20 * MIN);
+    expect(focusedMinutes(s, 25 * MIN)).toBe(15);
+    const r = tickFocus(s, 40 * MIN);
+    expect(r.event).toBe('focus-done');
+    expect(r.minutes).toBe(25);
+    expect(r.state.taskId).toBe('local:1');
+    const stop = stopFocus(startFocus(newFocus(), 25, 0, { taskId: 't' }), 7 * MIN);
+    expect(stop).toMatchObject({ minutes: 7, taskId: 't' });
+    expect(stop.state).toMatchObject({ mode: 'idle', taskId: undefined });
+  });
+  it('sleep or lock pauses a running session; waking carries on only one the system paused', () => {
+    const s = startFocus(newFocus(25, 5), 25, 0);
+    const asleep = systemPause(s, 5 * MIN);
+    expect(asleep).toMatchObject({ pausedLeft: 20 * MIN, pausedBy: 'system' });
+    // Time asleep does not count.
+    const back = systemResume(asleep, 65 * MIN);
+    expect(focusLeft(back, 65 * MIN)).toBe(20 * MIN);
+    expect(back.pausedBy).toBeUndefined();
+    expect(focusedMinutes(back, 70 * MIN)).toBe(10);
+    // Paused by the person: unlocking does not start it again.
+    const mine = pauseFocus(s, 5 * MIN);
+    expect(systemResume(mine, 9 * MIN)).toBe(mine);
+    expect(systemPause(newFocus(), 1)).toEqual(newFocus());
   });
 });

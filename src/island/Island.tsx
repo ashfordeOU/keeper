@@ -7,7 +7,7 @@ import { resolveLanguage, translate } from '../i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { IslandAlert, IslandState } from '../../core/api';
 import { formatDuration } from '../../core/format';
-import type { LyricLine } from '../../core/island';
+import { focusLeft as focusShown, type LyricLine } from '../../core/island';
 import { describeCode } from '../../core/weather';
 import { api } from '../api';
 import { openNative } from '../lib/native';
@@ -15,7 +15,7 @@ import { Icon } from '../components/Icon';
 import { ClipboardTab, ControlsTab, ShelfTab } from './IslandTabs';
 import { AskTool, CalendarTool, ConvertTool, EmojiTool, FocusExtras, MirrorTool, NotesTool, SalesTool, ShortcutsTool, StocksTool, SystemTool, UsageTool, WeatherTool, useFocusSound, useToolsStore } from './tools/IslandTools';
 import { TeleprompterTool } from './tools/Teleprompter';
-import { InsightsTool, TasksTool, WeekTool } from './tools/IslandPlanner';
+import { FocusTaskPicker, InsightsTool, TasksTool, WeekTool } from './tools/IslandPlanner';
 import { CuesTool } from './tools/CuesTool';
 import { FocusRuler, MediaModes, PlusAlertActions, UsagePin, useGlow } from './IslandPlus';
 import { agentName } from '../../core/island-agents';
@@ -45,6 +45,9 @@ function lineAt(lines: LyricLine[], t: number): number {
 function Buddy({ mood }: { mood: Mood }) {
   return <OwlMark className="buddy" size={22} mood={mood as OwlMood} />;
 }
+
+/** The picked task as the focus call wants it ("id\ttitle" in the picker). */
+const focusTaskArg = (v: string) => { const i = v.indexOf('\t'); return i > 0 ? { taskId: v.slice(0, i), taskTitle: v.slice(i + 1) } : undefined; };
 
 function mmss(ms: number): string {
   const s = Math.max(0, Math.round(ms / 1000));
@@ -230,7 +233,9 @@ export function Island() {
   const waiting = state.agents.find((a) => a.state === 'waiting');
   const working = state.agents.find((a) => a.state === 'working');
   const stuck = state.agents.find((a) => a.state === 'stuck');
-  const focusLeft = state.focus.mode === 'idle' ? 0 : state.focus.pausedLeft ?? Math.max(0, state.focus.endsAt - now);
+  // Time left in the block, or for a stopwatch the time counted so far.
+  const focusLeft = focusShown(state.focus, now);
+  const [focusTask, setFocusTask] = useState('');
   const nextEv = state.events.find((e) => !e.allDay && e.end > now);
   const soon = nextEv && nextEv.start - now < 15 * 60_000 ? nextEv : undefined;
   const openWeather = () => { const p = state.weather?.place; if (p) void openNative('weather', { lat: p.lat, lon: p.lon, label: p.name }, islandSay); };
@@ -248,7 +253,7 @@ export function Island() {
   else if (state.stage?.on) liveText = <button className="rec-live" data-testid="island-stage-live" title="Stop Stage and put everything back" onClick={(e) => { e.stopPropagation(); void api.stage.stop(); }}><span className="rec-dot" /> {state.stage.name} · <b className="num">{mmss(now - (state.stage.since ?? now))}</b> · Stop</button>;
   else if (waiting) liveText = <><b>{waiting.project}</b> needs you</>;
   else if (soon) liveText = <>{soon.title} · {soon.start > now ? `in ${Math.ceil((soon.start - now) / 60_000)} min` : 'now'}</>;
-  else if (focusLeft) liveText = <>{state.focus.mode === 'break' ? 'Break' : 'Focus'} · <b className="num">{mmss(focusLeft)}</b></>;
+  else if (state.focus.mode !== 'idle') liveText = <>{state.focus.mode === 'break' ? 'Break' : state.focus.taskTitle ?? 'Focus'} · <b className="num">{mmss(focusLeft)}</b></>;
   else if (np) liveText = <>{np.playing ? '♪' : '❚❚'} {np.title} — <span className="muted">{np.artist}</span></>;
   else if (working) liveText = <><b>{working.project}</b> is working</>;
   else if (state.keepAwake.on) liveText = <>☕ Staying awake{state.keepAwake.until ? <> · <b className="num">{mmss(state.keepAwake.until - now)}</b> left</> : null}</>;
@@ -502,17 +507,20 @@ export function Island() {
             <div className="focus-tab">
             <div style={{ display: 'flex', gap: 18, alignItems: 'center', flex: 1 }}>
               <div style={{ textAlign: 'center', flex: 1 }}>
-                <div className="big-time">{focusLeft ? mmss(focusLeft) : `${state.focus.focusMin}:00`}</div>
-                <div className="muted">{state.focus.mode === 'idle' ? `${state.focus.rounds} round${state.focus.rounds === 1 ? '' : 's'} today` : state.focus.mode === 'break' ? 'Break — stretch and look away' : state.focus.pausedLeft !== undefined ? 'Paused' : 'Focusing'}</div>
+                <div className="big-time">{state.focus.mode !== 'idle' ? mmss(focusLeft) : `${state.focus.focusMin}:00`}</div>
+                <div className="muted">{state.focus.mode === 'idle' ? `${state.focus.rounds} round${state.focus.rounds === 1 ? '' : 's'} today` : state.focus.mode === 'break' ? 'Break — stretch and look away' : state.focus.pausedLeft !== undefined ? (state.focus.pausedBy === 'system' ? 'Paused while the computer was away' : 'Paused') : state.focus.stopwatch ? 'Stopwatch' : 'Focusing'}</div>
+                {state.focus.taskTitle && state.focus.mode !== 'idle' ? <div className="small ellipsis" title="The time is logged on this task"><Icon name="listCheck" size={11} /> {state.focus.taskTitle}</div> : null}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {state.focus.mode === 'idle' ? (
                   <>
+                    <FocusTaskPicker value={focusTask} onChange={setFocusTask} />
                     <div className="btn-row">
-                      <button className="btn primary" onClick={() => void api.island.focus('start', 25).then(load)}>25 min</button>
-                      <button className="btn" onClick={() => void api.island.focus('start', 50).then(load)}>50 min</button>
+                      <button className="btn primary" onClick={() => void api.island.focus('start', 25, focusTaskArg(focusTask)).then(load)}>25 min</button>
+                      <button className="btn" onClick={() => void api.island.focus('start', 50, focusTaskArg(focusTask)).then(load)}>50 min</button>
+                      <button className="btn" title="Count up with no end" onClick={() => void api.island.focus('stopwatch', undefined, focusTaskArg(focusTask)).then(load)}><Icon name="stopwatch" size={12} /> Stopwatch</button>
                     </div>
-                    <FocusRuler value={custom} onChange={setCustom} onStart={(m) => void api.islandx.focusFor(m).then(load)} />
+                    <FocusRuler value={custom} onChange={setCustom} onStart={(m) => void (focusTask ? api.island.focus('start', m, focusTaskArg(focusTask)) : api.islandx.focusFor(m)).then(load)} />
                     <div className="btn-row">
                       <button className="btn sm" onClick={() => void api.islandx.startBreak(false).then(load)}>Short break</button>
                       <button className="btn sm" onClick={() => void api.islandx.startBreak(true).then(load)}>Long break</button>
@@ -523,6 +531,7 @@ export function Island() {
                     {state.focus.pausedLeft !== undefined
                       ? <button className="btn primary" onClick={() => void api.island.focus('resume').then(load)}><Icon name="play" size={12} /> Resume</button>
                       : <button className="btn" onClick={() => void api.island.focus('pause').then(load)}><Icon name="pause" size={12} /> Pause</button>}
+                    {!state.focus.stopwatch ? <button className="btn" title="Five more minutes" onClick={() => void api.island.focus('extend', 5).then(load)}>+5 min</button> : null}
                     <button className="btn" onClick={() => void api.island.focus('stop').then(load)}>Stop</button>
                   </div>
                 )}

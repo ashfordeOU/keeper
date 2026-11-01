@@ -291,6 +291,7 @@ export function LiveCard({ a, state, now, unlocked, onMore, reload }: { a: Activ
         {paused
           ? <button className="btn sm primary" onClick={() => void api.island.focus('resume').then(reload)}><Icon name="play" size={12} /> Resume</button>
           : <button className="btn sm" onClick={() => void api.island.focus('pause').then(reload)}><Icon name="pause" size={12} /> Pause</button>}
+        {a.id === 'timer' && !state.focus.stopwatch ? <button className="btn sm" title="Five more minutes" onClick={() => void api.island.focus('extend', 5).then(reload)}>+5 min</button> : null}
         <button className="btn sm" onClick={() => void api.island.focus('stop').then(reload)}>Stop</button>
       </>
     );

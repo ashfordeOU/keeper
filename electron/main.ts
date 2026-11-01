@@ -105,7 +105,7 @@ import { setMonitorIslandAlert } from './services/monitor';
 import { registerPimIpc } from './ipc/pim';
 import { registerNotesIpc } from './ipc/notes';
 import { allowRoot as allowPreviewRoot } from './services/preview';
-import { adoptIslandCalendarUrl, startPim, stopPim } from './services/pim';
+import { adoptIslandCalendarUrl, logFocus, startPim, stopPim } from './services/pim';
 import { registerNetIpc } from './ipc/net';
 import { registerSecurityIpc, stopSecurityIpc } from './ipc/security';
 import { registerControlsIpc } from './ipc/controls';
@@ -1032,7 +1032,7 @@ function registerIpc() {
   handle('island.pinClip', (id: string) => islandSvc.pinClip(id));
   handle('island.removeClip', (id: string) => islandSvc.removeClip(id));
   handle('island.clearClips', () => islandSvc.clearClips());
-  handle('island.focus', (action: 'start' | 'pause' | 'resume' | 'stop', minutes?: number) => islandSvc.focusAction(action, minutes));
+  handle('island.focus', (action: 'start' | 'stopwatch' | 'pause' | 'resume' | 'stop' | 'extend', minutes?: number, task?: { taskId?: string; taskTitle?: string }) => islandSvc.focusAction(action, minutes, task ?? {}));
   handle('island.keepAwake', (on: boolean, opts?: KeepAwakeOptions) => { const r = islandSvc.keepAwake(on, opts); void updateTray(); return r; });
   handle('island.presentation', (on: boolean) => stagePresentation(on));
   handle('island.media', (a: 'toggle' | 'next' | 'previous' | 'seek', v?: number) => islandSvc.media(a, v));
@@ -1073,6 +1073,8 @@ app.whenReady().then(async () => {
   for (const f of ['ocr', 'docText'] as const) onFeature(f, (on) => { if (on && index) vision.schedule(index.all()); });
   onFeature('sources', (on) => { if (on && index) void index.enrichSources().then(() => index.saveSoon()); });
   islandSvc = new IslandService(index, () => broadcast('island-changed'));
+  // Focus sessions go into Insights and onto the task they were for.
+  islandSvc.focusLog = (minutes, taskId) => void logFocus(minutes, taskId).catch(() => undefined);
   onLimitAlert((title, detail) => islandSvc?.alert({ kind: 'info', title, detail }));
   // Keep Awake: sessions, triggers, closed-lid mode, statistics (before the Island starts, which hands it keep-awake requests).
   registerAwakeIpc({ islandSvc, broadcast, updateTray: () => void updateTray(), show: (route) => showMain(route) });

@@ -170,9 +170,18 @@ export function activitiesFrom(s: IslandState, now: number, x: ExtraInputs = {})
   }
 
   if (s.focus.mode !== 'idle') {
-    const left = s.focus.pausedLeft ?? Math.max(0, s.focus.endsAt - now);
-    const total = (s.focus.mode === 'break' ? s.focus.breakMin : s.focus.focusMin) * 60_000;
-    add({ id: 'timer', kind: 'timer', icon: 'timer', title: s.focus.mode === 'break' ? 'Break' : s.focus.pausedLeft !== undefined ? 'Focus (paused)' : 'Focus', trailing: mmss(left), progress: total ? 1 - left / total : undefined, color: s.focus.mode === 'break' ? '#34d399' : '#ff9f0a' });
+    const f = s.focus;
+    const paused = f.pausedLeft !== undefined;
+    const name = f.mode === 'break' ? 'Break' : f.taskTitle ?? (f.stopwatch ? 'Stopwatch' : 'Focus');
+    if (f.stopwatch) {
+      // Counting up: the time so far, no ring.
+      const so = f.pausedLeft ?? Math.max(0, now - (f.startedAt ?? now));
+      add({ id: 'timer', kind: 'timer', icon: 'stopwatch', title: paused ? `${name} (paused)` : name, trailing: mmss(so), color: '#ff9f0a', ref: f.taskId });
+    } else {
+      const left = f.pausedLeft ?? Math.max(0, f.endsAt - now);
+      const total = (f.mode === 'break' ? f.breakMin : f.focusMin) * 60_000;
+      add({ id: 'timer', kind: 'timer', icon: 'timer', title: paused ? `${name} (paused)` : name, trailing: mmss(left), progress: total ? Math.max(0, 1 - left / total) : undefined, color: f.mode === 'break' ? '#34d399' : '#ff9f0a', ref: f.taskId });
+    }
   }
 
   // Countdown timers from Alarms (several can run; each is its own activity).

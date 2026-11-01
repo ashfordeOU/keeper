@@ -104,3 +104,19 @@ export function InsightsTool() {
   const on = useFeature('insights');
   return <div className="itool">{on ? <InsightsView compact /> : <div className="muted">Insights are switched off (Settings → Features).</div>}</div>;
 }
+
+/** Which task a focus session is for (today's open tasks); its minutes are logged on it. */
+export function FocusTaskPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const on = useFeature('islandTodos');
+  const { tasks } = useTasks();
+  const today = useToday();
+  if (!on) return null;
+  const list = todayTasks(tasks, today).slice(0, 30);
+  if (!list.length) return null;
+  return (
+    <select className="input sm" aria-label="Focus on a task" value={value} onChange={(e) => onChange(e.target.value)} style={{ maxWidth: 220 }}>
+      <option value="">No task</option>
+      {list.map((t) => <option key={t.id} value={`${t.id}\t${t.title}`}>{t.title}</option>)}
+    </select>
+  );
+}
