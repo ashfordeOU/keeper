@@ -134,7 +134,7 @@ describe('reading and writing settings', () => {
     expect(writeCmds(t, '0')).toEqual([{ cmd: '/usr/bin/osascript', args: ['-e', 'set volume alert volume 0'] }]);
   });
   it('Windows screen size script asks for the main display when none is given', () => {
-    expect(winSetModeScript('', 1920, 1080, 60)).toContain('[KeeperMode]::Set($null, 1920, 1080, 60)');
+    expect(winSetModeScript('', 1920, 1080, 60)).toContain('[KeeperMode]::Set([NullString]::Value, 1920, 1080, 60)');
   });
 });
 

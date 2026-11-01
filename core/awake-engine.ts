@@ -466,13 +466,14 @@ export function systemdInhibitArgs(o: Pick<SessionOptions, 'display' | 'closedDi
 
 /** Windows: a tiny PowerShell that holds SetThreadExecutionState and exits when Keeper does. */
 export function windowsHoldScript(o: Pick<SessionOptions, 'display'>, keeperPid: number): string {
-  // ES_CONTINUOUS 0x80000000 | ES_SYSTEM_REQUIRED 0x1 | ES_DISPLAY_REQUIRED 0x2 | ES_AWAYMODE_REQUIRED 0x40 (not used: it changes sleep into away mode)
-  const flags = o.display === 'keep-on' ? '0x80000003' : '0x80000001';
+  // ES_CONTINUOUS 0x80000000 | ES_SYSTEM_REQUIRED 0x1 | ES_DISPLAY_REQUIRED 0x2 | ES_AWAYMODE_REQUIRED 0x40 (not used: it changes sleep into away mode).
+  // Written in decimal: PowerShell reads 0x80000003 as a negative Int32, which [uint32] refuses.
+  const flags = o.display === 'keep-on' ? '2147483651' : '2147483649';
   return [
     "Add-Type -Name P -Namespace K -MemberDefinition '[DllImport(\"kernel32.dll\")] public static extern uint SetThreadExecutionState(uint f);'",
     `[void][K.P]::SetThreadExecutionState([uint32]${flags})`,
     `while (Get-Process -Id ${Math.floor(keeperPid)} -ErrorAction SilentlyContinue) { Start-Sleep -Seconds 5 }`,
-    '[void][K.P]::SetThreadExecutionState([uint32]0x80000000)',
+    '[void][K.P]::SetThreadExecutionState([uint32]2147483648)',
   ].join('; ');
 }
 

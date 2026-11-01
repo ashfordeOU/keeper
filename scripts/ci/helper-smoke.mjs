@@ -31,7 +31,7 @@ const call = (method, params = {}, ms = 15_000) => new Promise((resolve) => {
   waiting.set(id, (m) => { clearTimeout(t); resolve(m); });
   child.stdin.write(JSON.stringify({ id, method, params }) + '\n');
 });
-const show = (v) => JSON.stringify(v).slice(0, 300);
+const show = (v) => String(JSON.stringify(v)).slice(0, 300);
 const isObj = (v) => v && typeof v === 'object' && !Array.isArray(v);
 
 const hello = await call('hello');
@@ -92,11 +92,21 @@ if (ocrImage) {
 const ocrMissing = await call('ocr', { path: '/nonexistent/picture.png' });
 check(typeof ocrMissing.error === 'string', `ocr of a missing file is an error, not a crash: ${show(ocrMissing.error)}`);
 
-// Asked without a permission: an answer (or a plain error), never a hang.
-const ek = await call('eventkit.reminders', {}, 20_000);
-check(!ek.timeout && (Array.isArray(ek.result) || typeof ek.error === 'string' || isObj(ek.result)), `eventkit.reminders without Reminders access answers ${show(ek.result ?? ek.error)}`);
+// Asked without a permission: an answer, a plain error, or (EventKit) waiting for the person to answer
+// the system's prompt, which nobody can on CI; the helper must keep answering everything else meanwhile.
+const ekPending = call('eventkit.reminders', {}, 8000);
+const meanwhile = await call('hello', {}, 5000);
+check(!!meanwhile.result, 'the helper keeps answering while a permission prompt is open');
+const ek = await ekPending;
+if (ek.timeout) console.log('INFO eventkit.reminders waits for the Reminders permission prompt (nobody can answer it on CI)');
+else check(Array.isArray(ek.result) || typeof ek.error === 'string', `eventkit.reminders answers ${show(ek.result ?? ek.error)}`);
 const notifWatch = await call('notifications.watch', {}, 10_000);
-check(!notifWatch.timeout, `notifications.watch without Accessibility answers ${show(notifWatch.result ?? notifWatch.error)}`);
+const watchId = next - 1;
+if (notifWatch.timeout) {
+  console.log('INFO notifications.watch is watching (Accessibility is allowed on this machine); cancelling it');
+  child.stdin.write(JSON.stringify({ id: watchId, method: 'cancel' }) + '\n');
+}
+else check(typeof notifWatch.error === 'string' || notifWatch.result, `notifications.watch answers ${show(notifWatch.result ?? notifWatch.error)}`);
 
 const unknown = await call('no.such.method');
 check(/Unknown method/.test(unknown.error ?? ''), `an unknown method is a clear error: ${show(unknown.error)}`);
@@ -105,7 +115,7 @@ check(/Unknown method/.test(unknown.error ?? ''), `an unknown method is a clear 
 const again = await call('hello');
 check(!!again.result, 'the helper is still answering');
 child.stdin.end();
-const code = await new Promise((r) => { const t = setTimeout(() => { child.kill(); r('killed'); }, 35_000); child.on('exit', (c) => { clearTimeout(t); r(c); }); });
+const code = await new Promise((r) => { const t = setTimeout(() => { child.kill(); r('killed'); }, 45_000); child.on('exit', (c) => { clearTimeout(t); r(c); }); });
 check(code === 0, `the helper exits when Keeper closes its input (${code})`);
 
 console.log(failures ? `${failures} helper checks failed` : 'All helper checks passed');

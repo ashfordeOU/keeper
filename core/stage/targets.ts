@@ -223,7 +223,8 @@ public class KeeperMode {
 }
 '@`;
 
-const winDisplay = (display: string) => (display ? psq(display) : '$null');
+// [NullString]::Value, not $null: PowerShell passes $null to a string parameter as "", and EnumDisplaySettings("") finds no display.
+const winDisplay = (display: string) => (display ? psq(display) : '[NullString]::Value');
 
 /** Windows: the modes of a display ('' = the main one), for parseWinModes. */
 export function winModesScript(display = ''): string {

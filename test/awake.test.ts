@@ -160,8 +160,11 @@ describe('each system', () => {
   });
 
   it('Windows holds the right flags and lets go when Keeper ends', () => {
-    expect(windowsHoldScript({ display: 'keep-on' }, 123)).toContain('0x80000003');
-    expect(windowsHoldScript({ display: 'allow-sleep' }, 123)).toContain('0x80000001');
+    // ES_CONTINUOUS | SYSTEM | DISPLAY, and ES_CONTINUOUS | SYSTEM, in decimal: PowerShell reads 0x8… as a negative Int32 that [uint32] refuses.
+    expect(windowsHoldScript({ display: 'keep-on' }, 123)).toContain(`[uint32]${0x80000003}`);
+    expect(windowsHoldScript({ display: 'allow-sleep' }, 123)).toContain(`[uint32]${0x80000001}`);
+    expect(windowsHoldScript({ display: 'keep-on' }, 123)).toContain(`[uint32]${0x80000000})`);
+    expect(windowsHoldScript({ display: 'keep-on' }, 123)).not.toMatch(/\[uint32\]0x[89a-f]/i);
     expect(windowsHoldScript({ display: 'keep-on' }, 123)).toContain('Get-Process -Id 123');
     expect(windowsHoldScript({ display: 'keep-on' }, 1.5 as unknown as number)).toContain('-Id 1 ');
     expect(powercfgLid(0, 0)[0]).toEqual(['/setacvalueindex', 'SCHEME_CURRENT', 'SUB_BUTTONS', 'LIDACTION', '0']);

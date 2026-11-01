@@ -52,6 +52,11 @@ async function ports() {
     const conn = c.conns.find((x) => x.proto === 'TCP' && (x.localPort === port || x.remotePort === port) && x.state !== 'Listen');
     check(conn, `connections: ${c.conns.length} read (amounts per ${c.amounts}), including the test's own connection${conn ? ` ${conn.local}:${conn.localPort} → ${conn.remote}:${conn.remotePort} ${conn.state ?? ''} pid ${conn.pid ?? '?'}` : ''}`);
     for (const n of c.notes) info(n);
+    if (!conn && OS === 'darwin') {
+      // What the parser was given, to fix it from the real thing.
+      const raw = await run('/usr/bin/nettop', ['-L', '1', '-x', '-n', '-J', 'interface,state,bytes_in,bytes_out'], 8000);
+      info(`nettop (ok ${raw.ok}):\n${raw.stdout.split('\n').filter((l) => /<->|^time|node\./.test(l)).slice(0, 12).join('\n')}\n${JSON.stringify(raw.stdout.slice(0, 600))}`);
+    }
   } finally {
     client.destroy();
     server.close();
@@ -91,7 +96,7 @@ async function awakeHold() {
       let err = '';
       hold.stderr?.on('data', (d) => { err += d; });
       await wait(6000);
-      check(!compileError(err) && hold.exitCode === null, `the Windows hold script runs and keeps running${err ? ` (stderr: ${err.trim().slice(0, 300)})` : ''}`);
+      check(!err.trim() && hold.exitCode === null, `the Windows hold script runs and keeps running${err ? ` (stderr: ${err.trim().slice(0, 300)})` : ''}`);
       const r = await run('powercfg', ['/requests'], 15_000);
       const list = parsePowercfgRequests(r.stdout);
       if (!r.ok || /administrator/i.test(r.stdout + r.stderr)) info(`powercfg /requests needs an administrator here: ${(r.stdout + r.stderr).trim().slice(0, 200)}`);
@@ -145,8 +150,8 @@ async function stagePlan() {
 const ALWAYS: Partial<Record<SettingDef['op']['t'], true>> = { pmset: true, powercfg: true, spctl: true, mdutil: true };
 
 async function settingsCatalogue() {
-  const os = OS === 'darwin' ? 'macos' : OS === 'win32' ? 'windows' : 'linux';
-  const defs = catalogFor(os as SettingDef['os']);
+  const os = OS as SettingDef['os'];
+  const defs = catalogFor(os);
   let read = 0;
   let set = 0;
   let skipped = 0;
