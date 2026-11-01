@@ -7,12 +7,16 @@ import { ASHFORDE_APPS, offeredOn } from '../../core/ashforde/apps';
 import type { AshfordeOverview } from '../../core/api-ashforde';
 import type { Finding } from '../../core/guide/types';
 import * as mono from '../services/ashforde/monorail';
+import * as coexist from '../services/ashforde/coexist';
+import { patchAtPath } from '../../core/ashforde/coexist';
+import { setAwakePeer } from '../services/awake';
+import { registerKeeperMethod } from '../services/brain';
 import { requestApproval, setToolProvider } from '../services/agents';
 import { featureOn, onFeature } from '../services/features';
 import { open as openGuide, registerFindings } from '../services/guide';
 import { setPlacementAdjust } from '../services/island-place';
 import { STOP_SHORTCUT } from '../services/computer';
-import { settings } from '../store';
+import { settings, updateSettings } from '../store';
 
 function handle(name: string, fn: (...args: never[]) => unknown) {
   ipcMain.handle(name, async (_e, ...args) => fn(...(args as never[])));
@@ -20,7 +24,19 @@ function handle(name: string, fn: (...args: never[]) => unknown) {
 
 const LINKS = new Set(['settings', 'palette', 'welcome', 'pomodoro', 'focus-mode', 'presentation-mode', 'workspace', 'layout', 'snapshot', 'pair', 'template', 'profile', 'launch', 'focus-app', 'notify']);
 
-export function registerAshfordeIpc(c: { broadcast: (channel: string, ...args: unknown[]) => void; alert: (title: string, detail?: string) => void }) {
+/** What Keeper's other parts lend to Monorail's side (Focus, presentation, Keep Awake, Stage). */
+export interface AshfordeCtx {
+  broadcast: (channel: string, ...args: unknown[]) => void;
+  alert: (title: string, detail?: string) => void;
+  coexist?: coexist.CoexistDeps;
+}
+
+export function registerAshfordeIpc(c: AshfordeCtx) {
+  if (c.coexist) coexist.initCoexist(c.coexist);
+  // One hold on staying awake, not two (Monorail's Stay Awake): only on a Mac, where Monorail runs.
+  if (mono.isMac()) setAwakePeer({ before: () => coexist.awakeBefore(), after: () => coexist.awakeAfter() });
+  // The handshake: what Keeper says about itself on its own channel (`keeper hello`, and Monorail when it asks).
+  registerKeeperMethod('keeper/hello', () => coexist.helloPayload());
   void mono.init({
     settings: () => settings() as never,
     broadcast: c.broadcast,
@@ -29,7 +45,7 @@ export function registerAshfordeIpc(c: { broadcast: (channel: string, ...args: u
     fixedShortcuts: { 'Stop using the computer': STOP_SHORTCUT },
   }).then(() => {
     // Off by default; on a Mac only. Off means no watch, no timers, no tools.
-    onFeature('monorail', (on) => void mono.setEnabled(on), { now: true });
+    onFeature('monorail', (on) => void mono.setEnabled(on).then(() => { if (on) void coexist.hello(); }), { now: true });
   });
 
   setToolProvider('monorail', { tools: () => mono.tools() as never, call: (name, args, client) => mono.callTool(name, args, client) });
@@ -39,11 +55,12 @@ export function registerAshfordeIpc(c: { broadcast: (channel: string, ...args: u
     if (!featureOn('monorail') || !mono.isMac()) return [];
     const s = await mono.status();
     const out: Finding[] = [];
-    if (s.installed && s.update) {
+    // Monorail's own updater offers its updates unless it is switched off there: never both.
+    if (s.installed && s.update && s.updatesBy === 'keeper') {
       out.push({ id: 'monorail:update', source: 'monorail', area: 'updates', severity: 'low', title: `Monorail ${s.update.version} is available`, why: 'Updates bring fixes and new features. Keeper checks the download and its signature before installing it.', fix: { kind: 'page', route: { name: 'settings', arg: 'ashforde' }, label: 'Update Monorail' } });
     }
     for (const k of s.clashes) {
-      out.push({ id: `monorail:clash:${k.keeper}`, source: 'monorail', area: 'performance', severity: 'medium', title: `Keeper and Monorail both use ${k.label}`, why: `Keeper uses it for ${k.keeper} and Monorail for ${k.monorail}. Only one of them gets it, so the other one silently stops working.`, fix: { kind: 'page', route: { name: 'settings', arg: 'ashforde' }, label: 'Change a shortcut' } });
+      out.push({ id: `monorail:clash:${k.keeper}`, source: 'monorail', area: 'performance', severity: 'medium', title: `Keeper and Monorail both use ${k.label}`, why: `Keeper uses it for ${k.keeper} and Monorail for ${k.monorail}. Only one of them gets it, so the other one silently stops working.${k.suggestionLabel ? ` ${k.suggestionLabel} is free in both; Settings → Ashforde apps switches Keeper to it in one click.` : ''}`, fix: { kind: 'page', route: { name: 'settings', arg: 'ashforde' }, label: 'Change a shortcut' } });
     }
     if (s.installed && s.signature && !s.signature.ok) {
       out.push({ id: 'monorail:signature', source: 'monorail', area: 'security', severity: 'high', title: 'Monorail’s signature does not check out', why: `${s.signature.reason} Reinstall it from Settings → Ashforde apps so you have the real one.`, fix: { kind: 'page', route: { name: 'settings', arg: 'ashforde' }, label: 'Reinstall Monorail' } });
@@ -83,6 +100,14 @@ export function registerAshfordeIpc(c: { broadcast: (channel: string, ...args: u
   });
   handle('ashforde.prefs', () => mono.prefs());
   handle('ashforde.setPrefs', (patch: Parameters<typeof mono.setPrefs>[0]) => mono.setPrefs(patch));
+  handle('ashforde.useShortcut', async (setting: string, accelerator: string) => {
+    if (!/shortcut/i.test(String(setting)) || typeof accelerator !== 'string' || !accelerator.includes('+')) throw new Error('That is not one of Keeper’s shortcuts.');
+    const patch = patchAtPath(settings() as never, String(setting), accelerator);
+    if (!patch) throw new Error('That shortcut setting was not found.');
+    await updateSettings(patch as never);
+    return mono.status(true);
+  });
+  handle('ashforde.coexist', () => coexist.coexistStatus());
 }
 
 /** Keeper's theme changed (settings save). */
@@ -90,4 +115,5 @@ export function ashfordeThemeChanged() {
   void mono.syncTheme(settings() as never).catch(() => undefined);
 }
 
-export { focusChanged as monorailFocusChanged, presentationChanged as monorailPresentationChanged, monorailLine, onMonorailState, monorailState } from '../services/ashforde/monorail';
+export { keeperFocus as monorailFocusChanged, keeperPresentation as monorailPresentationChanged } from '../services/ashforde/coexist';
+export { monorailLine, onMonorailState, monorailState } from '../services/ashforde/monorail';

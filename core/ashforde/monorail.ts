@@ -139,6 +139,10 @@ export interface MonorailState {
   app?: string;
   title?: string;
   focusMode: boolean;
+  /** newer Monorail versions (see docs/KEEPER-MONORAIL.md): presentation mode, Stay Awake, tiling paused */
+  presenting?: boolean;
+  awake?: boolean;
+  paused?: boolean;
 }
 
 /** state.json, leniently; null when it is not Monorail's. */
@@ -157,6 +161,9 @@ export function parseState(text: string): MonorailState | null {
       app: str(j.app),
       title: str(j.title),
       focusMode: j.focusMode === true,
+      ...(typeof j.presenting === 'boolean' ? { presenting: j.presenting } : {}),
+      ...(typeof j.awake === 'boolean' ? { awake: j.awake } : {}),
+      ...(typeof j.paused === 'boolean' ? { paused: j.paused } : {}),
     };
   } catch {
     return null;
@@ -181,6 +188,15 @@ export interface MonorailSettings {
   sliderBarEdge?: 'top' | 'bottom';
   keymap?: Record<string, { keyCode: number; modifiers: number }[]>;
   appRules?: { bundleID: string; name: string; float: boolean; titleContains?: string; ruleID?: string }[];
+  /** its own updater (on by default) */
+  checkForUpdates?: boolean;
+  installUpdatesAutomatically?: boolean;
+  /** desktop pictures it sets */
+  workspaceWallpapers?: Record<string, string>;
+  driftWallpaper?: string;
+  /** its Stay Awake and focus timer */
+  awakeDefaultMinutes?: number;
+  focusMinutes?: number;
 }
 
 /**
@@ -323,18 +339,23 @@ export function acceleratorCombo(acc: string): KeyCombo | null {
   return { mods, key };
 }
 
-/** Every shortcut in Keeper's settings: any setting whose name ends in "Shortcut", at any depth. */
+/**
+ * Every shortcut in Keeper's settings: any setting whose name ends in
+ * "Shortcut", and every key combination in a group named "shortcuts" (the
+ * vibes' next and previous keys, for example), at any depth.
+ */
 export function keeperAccelerators(settings: unknown, extra: Record<string, string> = {}): Record<string, string> {
   const out: Record<string, string> = { ...extra };
-  const walk = (o: unknown, at: string, depth: number) => {
+  const combo = (v: string) => v.includes('+') && /(command|cmd|control|ctrl|alt|option|shift|super|meta)\+/i.test(v);
+  const walk = (o: unknown, at: string, depth: number, group: boolean) => {
     if (!o || typeof o !== 'object' || depth > 4) return;
     for (const [k, v] of Object.entries(o as Record<string, unknown>)) {
       const name = at ? `${at}.${k}` : k;
-      if (typeof v === 'string' && /shortcut$/i.test(k) && v.includes('+')) out[name] = v;
-      else if (v && typeof v === 'object' && !Array.isArray(v)) walk(v, name, depth + 1);
+      if (typeof v === 'string' && (/shortcut$/i.test(k) || group) && combo(v)) out[name] = v;
+      else if (v && typeof v === 'object' && !Array.isArray(v)) walk(v, name, depth + 1, /shortcuts$/i.test(k));
     }
   };
-  walk(settings, '', 0);
+  walk(settings, '', 0, false);
   return out;
 }
 

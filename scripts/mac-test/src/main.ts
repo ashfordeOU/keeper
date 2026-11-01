@@ -132,8 +132,9 @@ async function main() {
   let helper: Helper | null = null;
   let sudoAnswer: boolean | null = null;
 
+  const appEnv: Record<string, string> = {};
   const ctx: Ctx = {
-    args, sys, prompt, rec, undo, paths, facts, dry: args.dryRun,
+    args, sys, prompt, rec, undo, paths, facts, dry: args.dryRun, appEnv,
     async app() {
       if (current) return current;
       if (launching) return launching;
@@ -148,7 +149,7 @@ async function main() {
         return launchKeeper({
           root, home, userData: paths.userData, sandboxPaths: path.join(root, 'scripts/mac-test/sandbox-paths.cjs'), logDir: paths.logs, n: launches,
           // KEEPER_ISLAND_LOG: requested vs actual Island rectangles, for island.stays-put.
-          env: { KEEPER_TELEMETRY_URL: stub.url, KEEPER_TELEMETRY_INTERVAL_MS: '86400000', KEEPER_ISLAND_LOG: '1' },
+          env: { KEEPER_TELEMETRY_URL: stub.url, KEEPER_TELEMETRY_INTERVAL_MS: '86400000', KEEPER_ISLAND_LOG: '1', ...appEnv },
         });
       })();
       try {

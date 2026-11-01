@@ -20,6 +20,7 @@ import {
   findClashes, keeperAccelerators, missingFloatRules, monorailShortcuts, monorailThemeFor, monorailUrl, newestRelease, parseCodesign, parseState,
   pickAssets, sliderBand, versionOf, withFloatRules, withOverlayRules, type MonorailLink, type MonorailSettings, type MonorailState, type Release,
 } from '../../../core/ashforde/monorail';
+import { TugGuard, selfUpdating, shouldPushTheme, updatesBy, withSuggestions } from '../../../core/ashforde/coexist';
 import { DEFAULT_ASHFORDE_PREFS, type AshfordePrefs, type MonorailStatus } from '../../../core/api-ashforde';
 import type { Placement } from '../../../core/island-place';
 
@@ -35,7 +36,8 @@ export interface MonorailDeps {
 }
 
 const HOME = os.homedir();
-const supportDir = () => path.join(HOME, 'Library', 'Application Support', MONORAIL.supportDir);
+// KEEPER_MONORAIL_DIR: the Mac test kit points a Keeper in a throwaway home at the real Monorail's folder.
+const supportDir = () => process.env.KEEPER_MONORAIL_DIR || path.join(HOME, 'Library', 'Application Support', MONORAIL.supportDir);
 const settingsFile = () => path.join(supportDir(), 'settings.json');
 const stateFile = () => path.join(supportDir(), 'state.json');
 const prefsFile = () => path.join(app.getPath('userData'), 'ashforde.json');
@@ -62,6 +64,12 @@ let detected: { path?: string; version?: string; at: number } | null = null;
 let signature: MonorailStatus['signature'];
 let mSettings: MonorailSettings = {};
 const listeners = new Set<(s: MonorailState | undefined) => void>();
+/** told about every state.json change while the switch is on (Focus and presentation follow it), whatever the Island shows */
+const rawListeners = new Set<(s: MonorailState | undefined) => void>();
+/** state.json read at most this often: a Monorail writing it in a loop cannot keep Keeper busy */
+const readGuard = new TugGuard(40, 10_000, 30_000);
+let guardTimer: NodeJS.Timeout | null = null;
+export const readLoopsStopped = () => readGuard.trips;
 
 // ---------------------------------------------------------------- small helpers
 
@@ -171,7 +179,7 @@ async function patchMonorailSettings(fn: (s: MonorailSettings & Record<string, u
 
 // ---------------------------------------------------------------- its local API
 
-async function apiCall(method: 'GET' | 'POST', route: string, body?: Record<string, unknown>, timeout = 4000): Promise<unknown> {
+export async function apiCall(method: 'GET' | 'POST', route: string, body?: Record<string, unknown>, timeout = 4000): Promise<unknown> {
   const [token, port] = await Promise.all([
     fsp.readFile(path.join(supportDir(), 'api-token'), 'utf8').then((s) => s.trim()).catch(() => ''),
     fsp.readFile(path.join(supportDir(), 'api-port'), 'utf8').then((s) => Number(s.trim())).catch(() => 0),
@@ -210,11 +218,18 @@ export function openLink(l: MonorailLink): Promise<boolean> {
 // ---------------------------------------------------------------- following its state
 
 function readState() {
+  if (!readGuard.allow('state')) {
+    // Too many changes too fast: one read once things calm down, nothing before.
+    if (!guardTimer) guardTimer = setTimeout(() => { guardTimer = null; readState(); }, 30_000);
+    guardTimer.unref?.();
+    return;
+  }
   void fsp.readFile(stateFile(), 'utf8').then((t) => {
     const s = parseState(t);
     if (JSON.stringify(s ?? undefined) === JSON.stringify(state)) return;
     state = s ?? undefined;
     tell();
+    if (enabled) for (const l of rawListeners) l(state);
     deps?.broadcast('ashforde-changed');
   }, () => undefined);
 }
@@ -257,6 +272,11 @@ export function onMonorailState(fn: (s: MonorailState | undefined) => void): () 
   return () => listeners.delete(fn);
 }
 
+export function onRawState(fn: (s: MonorailState | undefined) => void): () => void {
+  rawListeners.add(fn);
+  return () => rawListeners.delete(fn);
+}
+
 export function monorailState(): MonorailState | undefined {
   return enabled ? state : undefined;
 }
@@ -286,13 +306,24 @@ export async function status(force = false): Promise<MonorailStatus> {
     update,
     signature,
     clashes: clashes(),
+    updatesBy: updatesBy(ms),
     sliderAtTop: !!sliderBand(ms, { x: 0, y: 0, width: 1440, height: 900 }),
   };
 }
 
 function clashes() {
   if (!deps) return [];
-  return findClashes(keeperAccelerators(deps.settings(), deps.fixedShortcuts), monorailShortcuts(mSettings));
+  const keeper = keeperAccelerators(deps.settings(), deps.fixedShortcuts);
+  const theirs = monorailShortcuts(mSettings);
+  return withSuggestions(findClashes(keeper, theirs), keeper, theirs);
+}
+
+/** Monorail's own updater is in the middle of swapping the app (its relaunch script, or the copy it keeps meanwhile). */
+async function updatingItself(): Promise<boolean> {
+  const p = detected?.path;
+  const previousExists = !!p && existsSync(`${p}.previous`);
+  const scriptRunning = (await run('/usr/bin/pgrep', ['-f', 'monorail-update'], 3000)).code === 0;
+  return selfUpdating({ previousExists, scriptRunning });
 }
 
 function setBusy(step?: string, progress?: number) {
@@ -364,6 +395,7 @@ async function installRelease(kind: 'install' | 'update'): Promise<MonorailStatu
   if (!sup.ok) throw new Error(sup.reason);
   if (busy) throw new Error('Monorail is already being installed.');
   lastError = undefined;
+  if (kind === 'update' && (await updatingItself())) throw new Error('Monorail is updating itself right now. Keeper leaves it to finish; check again in a minute.');
   const tmp = await fsp.mkdtemp(path.join(os.tmpdir(), 'keeper-monorail-'));
   try {
     setBusy('Finding the latest release');
@@ -391,6 +423,7 @@ async function installRelease(kind: 'install' | 'update'): Promise<MonorailStatu
     setBusy(kind === 'update' ? 'Updating Monorail' : 'Installing Monorail');
     const old = (await detect(true)).path;
     const wasRunning = await running();
+    if (await updatingItself()) throw new Error('Monorail started updating itself meanwhile, so Keeper stopped. Its own update finishes the job.');
     await quitRunning();
     const dest = old && path.basename(old) === 'Monorail.app' ? old : (await canWrite('/Applications')) ? '/Applications/Monorail.app' : path.join(HOME, 'Applications', 'Monorail.app');
     if (old) await shell.trashItem(old).catch(() => fsp.rm(old, { recursive: true, force: true }));
@@ -495,15 +528,19 @@ async function applyPrefsToMonorail() {
   if (wantRules ? missingFloatRules(ms).length > 0 : (ms.appRules ?? []).some((r) => r.ruleID?.startsWith('keeper-') && !r.ruleID.startsWith('keeper-overlay-'))) {
     await patchMonorailSettings((s) => ({ ...s, ...withFloatRules(s, wantRules) }));
   }
-  if (p.matchTheme && deps) await syncTheme(deps.settings());
+  if (p.matchTheme && deps) await syncTheme(deps.settings(), true);
 }
 
-export async function syncTheme(s: { theme?: string; themeSeasons?: boolean }) {
+/**
+ * Keeper's theme → Monorail's closest theme. Only when Keeper's theme changed
+ * (or the person just switched matching on): a theme picked in Monorail itself
+ * is never overwritten by an unrelated change.
+ */
+export async function syncTheme(s: { theme?: string; themeSeasons?: boolean }, force = false) {
   if (!enabled || !stored.prefs.matchTheme || !s.theme) return;
   const want = monorailThemeFor(s.theme, !!s.themeSeasons);
-  if (stored.lastTheme === want && mSettings.theme === want) return;
   const ms = await readMonorailSettings();
-  if (!ms.localAPI || ms.theme === want) { stored.lastTheme = want; return; }
+  if (!ms.localAPI || !shouldPushTheme(want, stored.lastTheme, ms.theme, force)) { if (ms.theme === want) stored.lastTheme = want; return; }
   await patchMonorailSettings((x) => ({ ...x, theme: want }));
   stored.lastTheme = want;
   await saveStored();
@@ -526,6 +563,16 @@ export function adjustPlacement(p: Placement, workArea: { x: number; y: number; 
   if (!enabled || !detected?.path) return p;
   return avoidSlider(p, sliderBand(mSettings, workArea));
 }
+
+/** The top of a bar Keeper puts at the top of a screen (the sharing bar): below Monorail's slider bar when that is at the top. */
+export function topClearOfSlider(workArea: { x: number; y: number; width: number; height: number }, wanted: number): number {
+  if (!enabled || !detected?.path) return wanted;
+  const band = sliderBand(mSettings, workArea);
+  return band && wanted < band.y + band.height ? band.y + band.height + 4 : wanted;
+}
+
+/** Monorail's settings as last read (no file access). */
+export const monorailSettingsNow = (): MonorailSettings => mSettings;
 
 // ---------------------------------------------------------------- AI tools through Keeper's MCP server
 
@@ -565,7 +612,7 @@ export async function setPrefs(patch: Partial<AshfordePrefs>): Promise<AshfordeP
   await saveStored();
   if ('showInIsland' in patch) tell();
   if (enabled) {
-    if ('floatKeeperWindows' in patch || 'matchTheme' in patch) await applyPrefsToMonorail().catch((e) => (lastError = e instanceof Error ? e.message : String(e)));
+    if ('floatKeeperWindows' in patch || ('matchTheme' in patch && patch.matchTheme)) await applyPrefsToMonorail().catch((e) => (lastError = e instanceof Error ? e.message : String(e)));
     scheduleUpdates();
   }
   deps?.broadcast('ashforde-changed');
@@ -577,6 +624,8 @@ function scheduleUpdates() {
   updateTimer = null;
   if (!enabled || !stored.prefs.checkUpdates) return;
   const due = () => {
+    // Monorail checks for its own updates unless that is off there: then Keeper does, never both.
+    if (updatesBy(mSettings) === 'monorail') return;
     if (detected?.path && Date.now() - (stored.lastCheck ?? 0) > 86_400_000) void checkUpdate().then(() => deps?.broadcast('ashforde-changed'));
   };
   // Once a day; the first check waits ten minutes so starting Keeper stays quick.

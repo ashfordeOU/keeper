@@ -63,7 +63,7 @@ needs the private key in `api-token`; nothing is reachable from the network.
 |---|---|---|
 | Workspace and slide in the Island | `state.json` (watched; one folder watch, no polling) → a short "Writing · slide 1 of 3" note when you slide | Workspace in the Island |
 | Monorail's actions in Keeper's palette | `monorail://` links, opened in the background | always (when on) |
-| Focus sessions | Keeper's Focus session start/end → `monorail://focus-mode/on|off` | Focus sessions switch Monorail's focus mode |
+| Focus sessions | Keeper's Focus session start/end → `monorail://focus-mode/on|off`, and Monorail's focus mode (`state.json`) → Keeper's session | Focus sessions switch Monorail's focus mode |
 | Presentation mode | Keeper's presentation mode → `monorail://presentation-mode/on|off` | Presentation mode together |
 | Keeper's small windows float | title rules for Quick Search, Quick Terminal and Capture added to Monorail's `appRules` (removed again when switched off) | Keeper's small windows float |
 | Keeper's overlays are never tiled | the Island, pop-overs, the voice pill, cues, the launcher, Stage's overlays, widgets, the wallpaper, Quick Connect, the guide and the sharing bar are panels (not standard windows, which is all Monorail tiles) with fixed titles; `keeper-overlay-*` float rules for those titles are added to Monorail's `appRules` whenever Monorail is installed, even with this integration off, and are never removed | always |
@@ -73,6 +73,10 @@ needs the private key in `api-token`; nothing is reachable from the network.
 
 The Island never takes over Monorail's slider or its menu-bar item; both apps
 keep their own places.
+
+Everything else the two share on one Mac (which windows Monorail tiles, Stage,
+Keep Awake, Focus both ways, updates, loops) is in
+[KEEPER-MONORAIL.md](KEEPER-MONORAIL.md).
 
 ### AI tools
 

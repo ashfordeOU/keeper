@@ -34,6 +34,7 @@ export function mockAshforde(featureOn: (id: string) => boolean, emit: (ch: stri
     lastCheck: Date.now() - 3_600_000,
     signature: installed ? { ok: true, reason: 'Signed with Monorail’s certificate.' } : undefined,
     clashes: [],
+    updatesBy: 'monorail',
     sliderAtTop: false,
     busy,
   });
@@ -82,6 +83,14 @@ export function mockAshforde(featureOn: (id: string) => boolean, emit: (ch: stri
     },
     prefs: async () => prefs,
     setPrefs: async (patch) => { prefs = { ...prefs, ...patch }; changed(); return prefs; },
+    useShortcut: async () => status(),
+    coexist: async () => ({
+      active: installed && running,
+      focus: { owner: null, keeper: false, monorail: state.focusMode },
+      presentation: { owner: null, keeper: false, monorail: false },
+      loopsStopped: 0,
+      updatesBy: 'monorail',
+    }),
   };
   return { ashforde };
 }

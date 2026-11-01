@@ -61,7 +61,8 @@ import { registerPlatformIpc } from './ipc/platform';
 import { handlePlatformArgv, handlePlatformUrl, initPlatform, platformLibraryChanged, startedForSearch, stopPlatform } from './services/platform';
 import { registerLockIpc } from './ipc/lock';
 import { handleAwakeLink, registerAwakeIpc } from './ipc/awake';
-import { handleStageLink, registerStageIpc, registerStageShortcuts, stagePresentation, stageTrayItems } from './ipc/stage';
+import { handleStageLink, registerStageIpc, registerStageShortcuts, stage as stageSvc, stagePresentation, stageTrayItems } from './ipc/stage';
+import { TILE_MIN } from '../core/ashforde/coexist';
 import { handleVoiceLink, registerVoiceIpc, registerVoiceShortcuts, shutdownVoice, voiceTrayItems } from './ipc/voice';
 import { registerGuideIpc } from './ipc/guide';
 import { registerBuiltinGuideSources } from './services/guide-sources';
@@ -194,7 +195,8 @@ function createMain() {
   main = new BrowserWindow({
     // Linux shows this in the taskbar; macOS and Windows use the packaged app icon.
     icon: path.join(__dirname, '..', 'build', 'icon.png'),
-    width: 1280, height: 820, minWidth: 760, minHeight: 520, show: false, title: BRAND,
+    // A small minimum so a window arranger (Monorail) can make it a half-width column or half of a slide; narrow widths fold the sidebar.
+    width: 1280, height: 820, minWidth: TILE_MIN.width, minHeight: TILE_MIN.height, show: false, title: BRAND,
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#111114' : '#f6f5f2',
     titleBarStyle: isMac ? 'hiddenInset' : 'hidden',
     titleBarOverlay: isMac ? undefined : { color: '#00000000', symbolColor: nativeTheme.shouldUseDarkColors ? '#ddd' : '#333', height: 52 },
@@ -1186,7 +1188,17 @@ app.whenReady().then(async () => {
   // System Settings+, per-app controls and browser tab controls: nothing runs until used.
   registerSettingsPlusIpc({ broadcast });
   // Ashforde apps (Monorail on macOS): off until switched on in Settings → Ashforde apps.
-  registerAshfordeIpc({ broadcast, alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }) });
+  registerAshfordeIpc({
+    broadcast, alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }),
+    // Monorail's focus and presentation modes follow Keeper's and back (docs/KEEPER-MONORAIL.md).
+    coexist: {
+      focus: (on) => { if (islandSvc && (islandSvc.focus.mode === 'focus') !== on) islandSvc.focusAction(on ? 'start' : 'stop'); },
+      presentation: (on) => stagePresentation(on),
+      focusOn: () => islandSvc?.focus.mode === 'focus',
+      awakeOn: () => !!islandSvc?.awake.on,
+      stageOn: () => !!stageSvc()?.on,
+    },
+  });
   onMonorailState((m) => islandSvc?.setMonorail(m));
   if (islandSvc) islandSvc.modeHook = (kind, on) => (kind === 'focus' ? monorailFocusChanged(on) : monorailPresentationChanged(on));
   onControlsChanged(() => void updateTray());

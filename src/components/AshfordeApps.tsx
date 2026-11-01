@@ -141,7 +141,14 @@ function MonorailCard({ app }: { app: AshfordeOverview['apps'][number] }) {
               {st.clashes.length ? (
                 <div className="ashforde-clashes" data-testid="monorail-clashes">
                   <div style={{ fontWeight: 600 }}><Icon name="warning" size={13} /> Shortcuts both apps want</div>
-                  {st.clashes.map((c) => <div key={c.keeper + c.monorail} className="small">{c.label}: Keeper’s {c.keeper} and Monorail’s {c.monorail}. Change one of them so both work.</div>)}
+                  {st.clashes.map((c) => (
+                    <div key={c.keeper + c.monorail} className="small">
+                      {c.label}: Keeper’s {c.keeper} and Monorail’s {c.monorail}.{' '}
+                      {c.suggestion && /shortcut/i.test(c.keeper)
+                        ? <button className="btn sm" disabled={!!working} data-testid="monorail-clash-fix" onClick={() => void act('shortcut', () => api.ashforde.useShortcut(c.keeper, c.suggestion!), `Keeper now uses ${c.suggestionLabel}`)}>Use {c.suggestionLabel} in Keeper</button>
+                        : 'Change one of them so both work.'}
+                    </div>
+                  ))}
                 </div>
               ) : null}
 
@@ -149,14 +156,14 @@ function MonorailCard({ app }: { app: AshfordeOverview['apps'][number] }) {
                 <div className="ashforde-prefs">
                   <div className="small muted" style={{ margin: '10px 0 2px', fontWeight: 600 }}>Working together</div>
                   <Row title="Workspace in the Island" desc="When you slide to another workspace or slide, the Island says where you are for a moment."><Toggle on={prefs.showInIsland} onChange={(v) => setPref({ showInIsland: v })} /></Row>
-                  <Row title="Focus sessions switch Monorail’s focus mode" desc="Starting a Focus session in Keeper dims everything but the window you work in."><Toggle on={prefs.followFocus} onChange={(v) => setPref({ followFocus: v })} /></Row>
-                  <Row title="Presentation mode together" desc="Keeper’s presentation mode also switches on Monorail’s."><Toggle on={prefs.followPresentation} onChange={(v) => setPref({ followPresentation: v })} /></Row>
+                  <Row title="Focus sessions switch Monorail’s focus mode" desc="Starting a Focus session in Keeper dims everything but the window you work in, and Monorail’s focus mode starts and ends Keeper’s session."><Toggle on={prefs.followFocus} onChange={(v) => setPref({ followFocus: v })} /></Row>
+                  <Row title="Presentation mode together" desc="Keeper’s presentation mode, and any Stage, switch on Monorail’s, which hides its overlays and notices."><Toggle on={prefs.followPresentation} onChange={(v) => setPref({ followPresentation: v })} /></Row>
                   <Row title="Keeper’s small windows float" desc="Quick Search, Quick Terminal and Capture float above the strip instead of becoming a column. The Island always stays clear of Monorail’s slider bar."><Toggle on={prefs.floatKeeperWindows} onChange={(v) => setPref({ floatKeeperWindows: v })} /></Row>
                   <Row title="Match Keeper’s theme" desc="Monorail takes the theme closest to Keeper’s, and follows the seasons when Keeper does."><Toggle on={prefs.matchTheme} onChange={(v) => setPref({ matchTheme: v })} /></Row>
                   <Row title="AI apps may use Monorail" desc="AI apps connected to Keeper (Settings → AI & Brain) can see and arrange your windows. Looking is always allowed while this is on; with Ask, Keeper asks you before anything moves.">
                     <div className="seg">{(['off', 'ask', 'allow'] as const).map((v) => <button key={v} className={prefs.aiTools === v ? 'on' : ''} onClick={() => setPref({ aiTools: v })}>{v === 'off' ? 'Off' : v === 'ask' ? 'Ask' : 'Allow'}</button>)}</div>
                   </Row>
-                  <Row title="Check for Monorail updates" desc="Once a day. Updates install only when you click Update."><Toggle on={prefs.checkUpdates} onChange={(v) => setPref({ checkUpdates: v })} /></Row>
+                  <Row title="Check for Monorail updates" desc={st.updatesBy === 'monorail' ? 'Monorail checks for its own updates, so Keeper does not ask as well. Keeper checks once a day only when Monorail’s own check is off.' : 'Once a day. Updates install only when you click Update.'}><Toggle on={prefs.checkUpdates} onChange={(v) => setPref({ checkUpdates: v })} /></Row>
                 </div>
               ) : null}
 

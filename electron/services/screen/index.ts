@@ -33,6 +33,7 @@ import { featureOn, onFeature } from '../features';
 import { injector } from './injector';
 import { trayChanged } from '../link/surfaces';
 import { keepUnmanaged, overlayOptions } from '../unmanaged';
+import { topClearOfSlider } from '../ashforde/monorail';
 
 type Broadcast = (channel: string, ...args: unknown[]) => void;
 
@@ -378,7 +379,7 @@ export class ScreenService {
     const width = s.help ? 560 : 480;
     const w = new BrowserWindow({
       ...overlayOptions('sharing'),
-      width, height: 46, x: Math.round(area.x + area.width / 2 - width / 2), y: area.y + 6, frame: false, resizable: false, movable: true,
+      width, height: 46, x: Math.round(area.x + area.width / 2 - width / 2), y: topClearOfSlider(area, area.y + 6), frame: false, resizable: false, movable: true,
       alwaysOnTop: true, skipTaskbar: true, focusable: true, show: !joined, transparent: false, backgroundColor: '#1c1c1e', title: 'Keeper — sharing this screen',
       webPreferences: { preload: this.d.preload, contextIsolation: true, sandbox: true, backgroundThrottling: false },
     });

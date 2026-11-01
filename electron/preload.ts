@@ -42,7 +42,7 @@ const api = {
   forecast: group('forecast', ['places', 'savePlaces', 'get', 'alerts', 'radar', 'climate', 'trips']),
   platform: group('platform', ['list', 'set', 'action', 'ask']),
   usage: group('usage', ['get']),
-  ashforde: group('ashforde', ['overview', 'monorail', 'install', 'update', 'checkUpdate', 'uninstall', 'launch', 'quit', 'connect', 'openPermission', 'action', 'prefs', 'setPrefs']),
+  ashforde: group('ashforde', ['overview', 'monorail', 'install', 'update', 'checkUpdate', 'uninstall', 'launch', 'quit', 'connect', 'openPermission', 'action', 'prefs', 'setPrefs', 'useShortcut', 'coexist']),
   usageStats: group('usageStats', ['status', 'setOn', 'resetId', 'setBlocked', 'page']),
   features: group('features', ['list', 'set', 'preset', 'sets', 'saveSet', 'removeSet', 'applySet', 'setPowerSets', 'live']),
   stage: group('stage', ['status', 'start', 'stop', 'toggle', 'extend', 'settings', 'setSettings', 'savePreset', 'removePreset', 'support', 'journal', 'detect', 'modes', 'apps', 'preview', 'displayInputs', 'setDisplayInput', 'overlays', 'tray']),

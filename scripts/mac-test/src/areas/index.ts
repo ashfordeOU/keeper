@@ -8,6 +8,7 @@ import { runAwake } from './awake';
 import { runHelper } from './helper';
 import { runIsland } from './island';
 import { runMonitor } from './monitor';
+import { runMonorail } from './monorail';
 import { runFirewall, runLink } from './network';
 import { runNotes, runTracks } from './places';
 import { runRdc } from './rdc';
@@ -47,6 +48,7 @@ export const AREAS: Area[] = [
   { id: 'ambience', title: 'Ambience (live wallpaper, folder icons)', quick: false, minutes: [3, 0], app: true, guided: 'look at the desktop', changes: 'the desktop picture for a moment (optional, only with your yes)', run: (c) => runAmbience(c) },
   { id: 'catalog', title: 'Settings catalogue (read only)', quick: false, minutes: [2, 0], app: true, run: (c) => runCatalog(c) },
   { id: 'security', title: 'Security center, quick controls, app controls (read only)', quick: false, minutes: [2, 0], app: true, run: (c) => runSecurity(c) },
+  { id: 'monorail', title: 'Monorail present (only when Monorail is installed)', quick: false, minutes: [3, 0], app: true, changes: 'Monorail’s focus mode, hidden apps and the Dock for a few seconds; Monorail’s settings.json is copied first and put back (only with your yes)', run: (c) => runMonorail(c) },
   { id: 'usage', title: 'Usage stats payload (never sent)', quick: true, minutes: [1, 1], app: true, run: (c, x) => runUsage(c, x.stub) },
   { id: 'perf', title: 'Performance (start-up, idle)', quick: true, minutes: [4, 1], app: true, run: (c) => runPerf(c) },
 ];

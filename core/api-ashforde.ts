@@ -52,7 +52,10 @@ export interface MonorailStatus {
   lastCheck?: number;
   /** the signature of the installed copy, as checked */
   signature?: { ok: boolean; reason: string };
-  clashes: ShortcutClash[];
+  /** each with a free key Keeper can switch to (suggestion) */
+  clashes: (ShortcutClash & { suggestion?: string; suggestionLabel?: string })[];
+  /** who offers Monorail's updates: Monorail's own updater (unless it is off), or Keeper */
+  updatesBy?: 'monorail' | 'keeper';
   /** the slider bar is at the top, so the Island makes room */
   sliderAtTop: boolean;
   /** what is going on right now (installing, updating…) */
@@ -84,4 +87,25 @@ export interface AshfordeApi {
   action(kind: string, arg?: string | number | boolean): Promise<{ ok: boolean; message?: string }>;
   prefs(): Promise<AshfordePrefs>;
   setPrefs(patch: Partial<AshfordePrefs>): Promise<AshfordePrefs>;
+  /** switches Keeper's shortcut (a dotted setting, e.g. "island.captureShortcut") to a free key */
+  useShortcut(setting: string, accelerator: string): Promise<MonorailStatus>;
+  /** how Keeper and Monorail are sharing things right now (docs/KEEPER-MONORAIL.md) */
+  coexist(): Promise<CoexistStatus>;
+}
+
+/** Keeper and Monorail on one Mac, as Keeper sees it now. */
+export interface CoexistStatus {
+  /** Monorail is running and its local API answers */
+  active: boolean;
+  /** Monorail answered Keeper's hello (newer versions), with its version */
+  peer?: { app: string; version?: string };
+  focus: { owner: 'keeper' | 'monorail' | null; keeper: boolean; monorail: boolean };
+  presentation: { owner: 'keeper' | 'monorail' | null; keeper: boolean; monorail: boolean };
+  /** what the last Stage did to Monorail's layout, and what Keeper put back */
+  lastStage?: { at: number; intact: boolean; moved: number; missing: number; reordered: number; note: string };
+  /** a put-it-back loop Keeper stopped (count since start) */
+  loopsStopped: number;
+  /** a note about the desktop picture both apps want */
+  desktop?: string;
+  updatesBy?: 'monorail' | 'keeper';
 }

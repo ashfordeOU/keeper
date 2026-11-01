@@ -196,6 +196,8 @@ export interface Ctx {
   dry: boolean;
   /** Keeper, started on first use (and again after a test closes it) */
   app(): Promise<KeeperApp>;
+  /** extra environment for Keeper's next start (an area sets it, closes Keeper, and removes it again) */
+  appEnv: Record<string, string>;
   /** Keeper if it is running now */
   running(): KeeperApp | null;
   /** closes Keeper (gracefully, or as a crash would) */

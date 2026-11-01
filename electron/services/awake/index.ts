@@ -55,6 +55,15 @@ export interface AwakeHost {
 let svc: AwakeService | null = null;
 export const awakeService = () => svc;
 
+/**
+ * Another app that can also hold the computer awake (Monorail's Stay Awake).
+ * before() runs as Keeper takes its hold, so there is one hold and not two;
+ * after() runs when Keeper lets go. Each may return a note for the person.
+ */
+export interface AwakePeer { before(): Promise<string | undefined>; after(): Promise<string | undefined> }
+let peer: AwakePeer | null = null;
+export const setAwakePeer = (p: AwakePeer | null) => { peer = p; };
+
 export class AwakeService {
   session?: Session;
   private matching: string[] = [];
@@ -137,6 +146,8 @@ export class AwakeService {
     this.session = newSession({ ...spec, options: { ...spec.options } }, this.cfg.defaults, Date.now(), `s${Date.now().toString(36)}`, b ? { percent: b.percent, onPower } : undefined);
     this.notice = undefined;
     await this.hold();
+    const handed = await peer?.before().catch(() => undefined);
+    if (handed && this.session) { this.notice = handed; this.host.notify('Keeping awake', handed); }
     const o = this.session.options;
     if (o.focus) await this.setFocus(true);
     if (o.notifyStart) this.host.notify('Keeping awake', this.session.reason);
@@ -162,6 +173,8 @@ export class AwakeService {
       this.records = addRecord(this.records, { start: s.startedAt, end: Date.now(), source: s.source, reason: s.reason, why, batteryUsed: b && s.batteryAtStart !== undefined ? Math.max(0, s.batteryAtStart - b.percent) : undefined });
       void fsp.writeFile(path.join(this.dir, 'awake-stats.json'), JSON.stringify(this.records)).catch(() => undefined);
     }
+    const still = await peer?.after().catch(() => undefined);
+    if (still) this.host.notify('Keep awake ended', still);
     if (!quiet) {
       if (s.options.notifyEnd && why !== 'Turned off') this.host.notify('Keep awake ended', why);
       this.sound('end');

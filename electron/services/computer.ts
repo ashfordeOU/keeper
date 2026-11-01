@@ -376,14 +376,20 @@ export async function runComputer(client: string, input: Record<string, unknown>
       }
       case 'list_windows': {
         const ws = (await listWindows()).filter((w) => !blockedBy(policy, { app: w.app, title: w.title }));
-        text = ws.length ? ws.map((w) => `${w.id}  ${w.app} — ${w.title}`).join('\n') : 'No windows Keeper may show.';
+        // With Monorail arranging windows, say where each one is on its strip (a tiled window may be off to the side).
+        const places = process.platform === 'darwin' ? await (await import('./ashforde/coexist')).placesByWindow().catch(() => new Map<string, string>()) : new Map<string, string>();
+        const where = (w: { app: string; title: string }) => places.get(`${w.app.trim().toLowerCase()}|${w.title.trim().toLowerCase()}`);
+        text = ws.length ? ws.map((w) => `${w.id}  ${w.app} — ${w.title}${where(w) ? `  (${where(w)})` : ''}`).join('\n') : 'No windows Keeper may show.';
+        if (places.size) text += '\nMonorail arranges these windows: bring one forward with focus_window rather than dragging it; a drag swaps tiles.';
         break;
       }
       case 'focus_window': {
         const w = (await listWindows()).find((x) => x.id === action.id);
         if (w) { const why = blockedBy(policy, { app: w.app, title: w.title }); if (why) throw new Error(`Not allowed: ${why}`); }
-        await focusWindow(action.id);
-        text = 'Brought it to the front.';
+        // Monorail scrolls its strip to the window, so it is fully on screen; raising it alone may leave it parked at the edge.
+        const viaMonorail = !!w && process.platform === 'darwin' && (await (await import('./ashforde/coexist')).focusThroughMonorail(w.app, w.title).catch(() => false));
+        if (!viaMonorail) await focusWindow(action.id);
+        text = viaMonorail ? 'Brought it to the front (Monorail scrolled to it).' : 'Brought it to the front.';
         break;
       }
       case 'ui_tree': {

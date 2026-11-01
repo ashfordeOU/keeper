@@ -73,6 +73,12 @@ export function registerStageIpc(c: StageCtx) {
     },
     recording: c.recording,
     presenting: (on) => c.islandSvc.modeHook?.('presentation', on),
+    // Monorail (macOS): its layout survives "hide other apps", and its overlays stay out of the picture.
+    arranger: process.platform === 'darwin' ? {
+      beforeHide: async () => (await import('../services/ashforde/coexist')).stageWillHide(),
+      afterShow: async () => (await import('../services/ashforde/coexist')).stageShown(),
+      changed: (on) => void import('../services/ashforde/coexist').then((m) => m.stageChanged(on)),
+    } : undefined,
   });
   c.islandSvc.stageView = (s) => svc!.islandView(s);
   void svc.init().then(() => c.reregister());

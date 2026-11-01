@@ -63,6 +63,8 @@ export const LEGACY_PRESENTATION: StagePreset = {
 export const ALWAYS_KEEP = [
   'OBS', 'obs', 'obs64', 'Loom', 'Screen Studio', 'CleanShot X', 'Kap', 'ScreenFlow', 'Camtasia', 'QuickTime Player', 'zoom.us', 'Zoom', 'Microsoft Teams', 'Teams', 'ms-teams',
   'Webex', 'Slack', 'Discord', 'FaceTime', 'Google Chrome', 'Keynote', 'PowerPoint', 'Microsoft PowerPoint', 'simplescreenrecorder', 'kazam', 'peek', 'vokoscreenNG', 'ShareX', 'ScreenToGif',
+  // Monorail arranges the windows: hiding it would only hide its own overlays (its presentation mode does that during Stage).
+  'Monorail', 'MacSlider',
 ];
 
 export const DEFAULT_DISPLAY_KEYS: DisplayKeySettings = {

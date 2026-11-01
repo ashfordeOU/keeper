@@ -47,6 +47,12 @@ export interface StageHost {
   recording(): boolean;
   /** Monorail and anything else that follows presentation mode */
   presenting?(on: boolean): void;
+  /**
+   * A window arranger (Monorail) that forgets the windows of hidden apps:
+   * its layout is read before apps are hidden and put back after they show
+   * again; changed() tells it about any Stage starting or ending.
+   */
+  arranger?: { beforeHide(): Promise<void>; afterShow(): Promise<string | undefined>; changed(on: boolean): void };
 }
 
 export class StageService {
@@ -373,6 +379,10 @@ export class StageService {
       } else this.note('pauseMusic', 'Pause music', true, 'Nothing was playing');
     }
 
+    if (OS === 'darwin' && (plan.actions.includes('hideOtherApps') || (plan.actions.includes('apps') && s.apps.some((a) => a.action === 'hide')))) {
+      await this.host.arranger?.beforeHide().catch(() => undefined);
+    }
+
     if (plan.actions.includes('apps')) {
       const hide = s.apps.filter((a) => a.action === 'hide').map((a) => a.name);
       const quit = s.apps.filter((a) => a.action === 'quit');
@@ -428,6 +438,7 @@ export class StageService {
     }
 
     if (opts.reason === 'Presentation mode' || preset.id === 'presenting') this.host.presenting?.(true);
+    this.host.arranger?.changed(true);
     this.ready = true;
     this.armLimit();
     this.publish();
@@ -497,6 +508,11 @@ export class StageService {
       this.protectWindows(false);
       const res = this.journal ? await this.revert(this.journal) : [];
       await this.clearJournal();
+      this.host.arranger?.changed(false);
+      if (res.some((r) => r.label.startsWith('Hid ') || r.label === 'Other apps hidden')) {
+        const note = await this.host.arranger?.afterShow().catch(() => undefined);
+        if (note) res.push({ label: 'Window layout', outcome: note.includes('not back') ? 'failed' : 'restored', note });
+      }
       this.stopWatchdog();
       this.preset = undefined;
       this.ready = false;
