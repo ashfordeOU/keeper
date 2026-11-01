@@ -192,6 +192,7 @@ export async function fetchContacts(bookUrl: string, auth: DavAuth, account: str
 
 /** A subscribed .ics address (webcal:// works too). */
 export async function fetchIcs(url: string, calendar: string): Promise<CalEvent[]> {
+  if (/^file:\/\//i.test(url)) return parseEvents(await (await import('node:fs')).promises.readFile(decodeURIComponent(url.replace(/^file:\/\//i, '')), 'utf8'), calendar);
   const res = await fetch(url.replace(/^webcal:/i, 'https:'), { headers: { accept: 'text/calendar' } });
   if (!res.ok) throw new Error(`The calendar address answered ${res.status}`);
   return parseEvents(await res.text(), calendar);
