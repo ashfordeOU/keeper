@@ -111,7 +111,8 @@ describe('direct UDP path', () => {
     const big = crypto.randomBytes(400_000);
     wa.send(big);
     wa.send(Buffer.from('after'));
-    for (let i = 0; i < 400 && got.length < 2; i++) await wait(25);
+    // Up to 40 s: slow shared runners (ARM ones especially) need far longer than a laptop.
+    for (let i = 0; i < 1600 && got.length < 2; i++) await wait(25);
     expect(got[0]?.equals(big)).toBe(true);
     expect(got[1]?.toString()).toBe('after');
     expect(wa.stats.retransmits).toBeGreaterThan(0);

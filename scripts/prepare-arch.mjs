@@ -51,9 +51,14 @@ execFileSync(process.execPath, [path.join(ffDir, 'install.js')], {
 const bin = path.join(ffDir, platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg');
 if (!existsSync(bin)) throw new Error('ffmpeg for the target was not downloaded');
 
-// 3. Background removal ships every platform's binary already; just check it is there.
+// 3. Background removal and on-device speech (onnxruntime) ship every supported platform's
+// binary already; just check it is there. onnxruntime stopped building for Intel Macs, so
+// there Keeper offers those two through the system instead (it checks the binary at run time).
 const ort = path.join(path.dirname(require.resolve('onnxruntime-node/package.json')), 'bin', 'napi-v6', platform, arch);
-if (!existsSync(ort)) throw new Error(`Background removal has no build for ${platform}-${arch}`);
+if (!existsSync(ort)) {
+  if (platform === 'darwin' && arch === 'x64') console.warn('onnxruntime has no Intel Mac build: background removal and the built-in speech model are not in this package.');
+  else throw new Error(`Background removal has no build for ${platform}-${arch}`);
+}
 
 // 4. rclone for cloud storage, checked against its pinned checksum.
 const { fetchRclone } = await import('./fetch-rclone.mjs');

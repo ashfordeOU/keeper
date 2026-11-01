@@ -134,8 +134,9 @@ export class Converter {
   async capabilities(): Promise<ConvertCapabilities> {
     let bg = false;
     try {
-      req.resolve('onnxruntime-node');
-      bg = true;
+      // The JavaScript is always there; the native library may not be (onnxruntime has no Intel Mac build).
+      const dir = path.dirname(req.resolve('onnxruntime-node/package.json'));
+      bg = existsSync(path.join(dir, 'bin', 'napi-v6', process.platform, process.arch, 'onnxruntime_binding.node'));
     } catch {
       bg = false;
     }

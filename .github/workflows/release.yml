@@ -167,11 +167,14 @@ jobs:
           AZURE_TRUSTED_SIGNING_ACCOUNT: ${{ matrix.platform == 'win32' && vars.AZURE_TRUSTED_SIGNING_ACCOUNT || '' }}
           AZURE_TRUSTED_SIGNING_PROFILE: ${{ vars.AZURE_TRUSTED_SIGNING_PROFILE }}
         run: |
+          # An empty CSC_LINK is read as a file path ("… not a file"): only pass it when it is set.
+          [ -n "$CSC_LINK" ] || unset CSC_LINK CSC_KEY_PASSWORD
+          [ -n "$WIN_CSC_LINK" ] || unset WIN_CSC_LINK WIN_CSC_KEY_PASSWORD
           config=electron-builder.yml
-          if [ -n "$CSC_LINK" ] || [ -n "$AZURE_TRUSTED_SIGNING_ACCOUNT" ]; then
+          if [ -n "${CSC_LINK:-}" ] || [ -n "$AZURE_TRUSTED_SIGNING_ACCOUNT" ]; then
             config=packaging/electron-builder.signed.cjs
           fi
-          if [ -z "$CSC_LINK" ] && [ -z "$WIN_CSC_LINK" ]; then export CSC_IDENTITY_AUTO_DISCOVERY=false; fi
+          if [ -z "${CSC_LINK:-}" ] && [ -z "${WIN_CSC_LINK:-}" ]; then export CSC_IDENTITY_AUTO_DISCOVERY=false; fi
           echo "Packaging with $config"
           npx electron-builder --config "$config" ${{ matrix.target }} --${{ matrix.arch }} --publish never
       # Both Mac builds write latest-mac.yml; Keeper updates Mac copies from the dmg itself,

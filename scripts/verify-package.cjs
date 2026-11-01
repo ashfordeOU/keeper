@@ -27,7 +27,7 @@ function checkPackage(o) {
     { name: 'Keeper itself (app.asar)', have: fs.existsSync(path.join(resources, 'app.asar')), fix: 'npm run build failed or was skipped', required: true },
     { name: 'ffmpeg (audio and video)', have: fs.existsSync(path.join(mods, 'ffmpeg-static', `ffmpeg${exe}`)), fix: `node scripts/prepare-arch.mjs ${platform} ${arch}`, required: true },
     { name: `image library (sharp for ${platform}-${arch})`, have: anyFile(path.join(mods, '@img', `sharp-${platform}-${arch}`, 'lib'), /\.node$/), fix: `node scripts/prepare-arch.mjs ${platform} ${arch}`, required: true },
-    { name: 'background removal (onnxruntime)', have: fs.existsSync(path.join(mods, 'onnxruntime-node', 'bin', 'napi-v6', platform, arch, 'onnxruntime_binding.node')), fix: 'npm ci', required: true },
+    { name: 'background removal (onnxruntime)', have: fs.existsSync(path.join(mods, 'onnxruntime-node', 'bin', 'napi-v6', platform, arch, 'onnxruntime_binding.node')), fix: 'npm ci', required: !(platform === 'darwin' && arch === 'x64') /* onnxruntime has no Intel Mac build */ },
     { name: 'terminal (node-pty)', have: fs.existsSync(path.join(mods, 'node-pty', 'prebuilds', `${platform}-${arch}`, 'pty.node')) || fs.existsSync(path.join(mods, 'node-pty', 'build', 'Release', 'pty.node')), fix: 'npm ci', required: true },
     { name: 'rclone (cloud storage)', have: fs.existsSync(path.join(resources, 'rclone', `rclone${exe}`)), fix: `node scripts/fetch-rclone.mjs ${platform} ${arch}`, required: strict },
   ];
