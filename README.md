@@ -517,6 +517,8 @@ npm run build        # interface + main process + CLI into dist/, dist-electron/
 npm run dist:linux   # installers (also :win and :mac on those systems)
 ```
 
+On a Mac, `npm run dist:mac` first builds the native helper (`keeper-helper`, a universal Swift build) and, when full Xcode and XcodeGen are installed, the Siri and Shortcuts helper; see [scripts/build-mac-native.mjs](scripts/build-mac-native.mjs). It stops if the helper cannot be built; `KEEPER_ALLOW_NO_HELPER=1` packages without it.
+
 Fresh screenshots for this page: build, then `xvfb-run -a -s "-screen 0 1920x1200x24" node scripts/screenshots.cjs` (see the top of the script for options). The project layout is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ---

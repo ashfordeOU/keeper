@@ -49,6 +49,7 @@ jobs:
           # Marks the app as an official Ashforde build (anonymous usage stats report official: true).
           KEEPER_OFFICIAL_BUILD: '1'
       # Apple Intelligence, Live Text and Spotlight on macOS (universal, so either processor's build can carry it).
+      # The same build as scripts/build-mac-native.mjs, which npm run dist:mac runs locally.
       - name: macOS helper
         if: matrix.platform == 'darwin'
         working-directory: native/macos/KeeperHelper

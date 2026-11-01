@@ -133,7 +133,8 @@ mac:
     LSUIElement: false
   # keeper-helper (native/macos) gives Keeper Apple Intelligence, Live Text and
   # Spotlight. It sits next to the app's executable so it shares the app's
-  # identity; builds without it still work, those features just stay off.
+  # identity. scripts/build-mac-native.mjs builds both pieces (npm run dist:mac
+  # runs it, and stops if the helper cannot be built).
   extraFiles:
     - from: native/macos/KeeperHelper/.build/apple/Products/Release/keeper-helper
       to: MacOS/keeper-helper

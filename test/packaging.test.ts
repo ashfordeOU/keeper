@@ -66,3 +66,20 @@ describe('licence files for the installers', () => {
     expect(existsSync(path.join(root, dmg!))).toBe(true);
   });
 });
+
+describe('native macOS pieces before packaging', () => {
+  it('dist and dist:mac build keeper-helper first; a missing helper stops packaging unless overridden', async () => {
+    const pkg = JSON.parse(read('package.json')) as { scripts: Record<string, string> };
+    for (const s of ['dist', 'dist:mac']) expect(pkg.scripts[s]).toMatch(/node scripts\/build-mac-native\.mjs && electron-builder/);
+    // @ts-expect-error: a plain JavaScript build script
+    const m = await import('../scripts/build-mac-native.mjs');
+    expect(m.HELPER_BIN.endsWith('native/macos/KeeperHelper/.build/apple/Products/Release/keeper-helper')).toBe(true);
+    const yml = read('electron-builder.yml');
+    expect(yml).toContain(`from: ${path.relative(root, m.HELPER_BIN)}`);
+    expect(yml).toContain(`from: ${path.relative(root, m.INTENTS_APP)}`);
+    expect(m.helperProblem('Swift is not installed', {}).stop).toBe(true);
+    const ok = m.helperProblem('Swift is not installed', { KEEPER_ALLOW_NO_HELPER: '1' });
+    expect(ok.stop).toBe(false);
+    expect(ok.message).toContain('WITHOUT keeper-helper');
+  });
+});
