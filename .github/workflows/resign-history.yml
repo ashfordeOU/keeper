@@ -1,16 +1,16 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
-# One-off, started by hand: signs every commit on main (and every tag) with
+# One-off, started by hand: signs every commit on every branch (and every tag) with
 # Ashforde's commit-signing key, so the whole history shows as Verified. Contents,
 # authors, committers, dates and messages stay exactly as they were; only the
-# signature is added, so every commit gets a new id. main and the tags are then
-# force-pushed and incoming is reset to the new main.
+# signature is added, so every commit gets a new id. every branch and
+# tag is then force-pushed.
 name: Re-sign history
 
 on:
   workflow_dispatch:
     inputs:
       confirm:
-        description: 'Type "re-sign main" to rewrite main and every tag'
+        description: 'Type "re-sign main" to rewrite every branch and tag'
         required: true
 
 permissions:
@@ -44,20 +44,24 @@ jobs:
           # Trust the key for checking the result below (any committer address).
           printf '* namespaces="git" %s\n' "$(ssh-keygen -y -f "$key")" > "$RUNNER_TEMP/allowed_signers"
           git config gpg.ssh.allowedSignersFile "$RUNNER_TEMP/allowed_signers"
-          git fetch --tags --force origin
-          before="$(git rev-parse HEAD)"
-          echo "main before: $before ($(git rev-list --count HEAD) commits)"
-          git tag -l > "$RUNNER_TEMP/tags.txt"
-          # commit-tree -S signs; filter-branch keeps each commit's author, committer and dates.
-          git filter-branch --commit-filter 'git commit-tree -S "$@"' --tag-name-filter cat -- HEAD --tags
-          # Nothing but the signatures may differ: the final tree is the same.
-          [ "$(git rev-parse "$before^{tree}")" = "$(git rev-parse 'HEAD^{tree}')" ] || { echo "::error::tree changed"; exit 1; }
-          unsigned="$(git log --format='%G?' HEAD | grep -cv '^[GU]' || true)"
-          echo "commits without a good signature: $unsigned"
-          [ "$unsigned" = 0 ] || { echo "::error::some commits are not signed"; exit 1; }
-          git log --format='%h %G? %an | %cn | %s' -5
-          git push --force origin HEAD:main
-          git push --force origin HEAD:incoming
-          if [ -s "$RUNNER_TEMP/tags.txt" ]; then git push --force origin --tags; fi
+          # Every branch and every tag, each as a local ref.
+          git fetch --force --tags origin '+refs/heads/*:refs/remotes/origin/*'
+          git checkout -q --detach
+          branches="$(git for-each-ref --format='%(refname:strip=3)' refs/remotes/origin | grep -v '^HEAD$')"
+          for b in $branches; do git branch -f "$b" "origin/$b"; done
+          for b in $branches; do echo "$b before: $(git rev-parse "$b") ($(git rev-list --count "$b") commits)"; done
+          # commit-tree -S signs; filter-branch keeps each commit's author, committer, dates and tree.
+          git filter-branch -f --commit-filter 'git commit-tree -S "$@"' --tag-name-filter cat -- --branches --tags
+          # Nothing but the signatures may differ: every branch keeps its exact tree.
+          for b in $branches; do
+            [ "$(git rev-parse "origin/$b^{tree}")" = "$(git rev-parse "$b^{tree}")" ] || { echo "::error::$b changed"; exit 1; }
+          done
+          total="$(git rev-list --branches --tags | wc -l)"
+          unsigned="$(git log --branches --tags --format='%H %G?' | grep -v ' [GU]$' || true)"
+          echo "commits checked: $total"
+          if [ -n "$unsigned" ]; then echo "::error::not signed:"; echo "$unsigned"; exit 1; fi
+          git log --format='%h %G? %an | %cn | %s' -5 main
+          for b in $branches; do git push --force origin "refs/heads/$b:refs/heads/$b"; done
+          git push --force origin --tags
           rm -f "$key"
-          echo "main after: $(git rev-parse HEAD)"
+          echo "main after: $(git rev-parse main)"
