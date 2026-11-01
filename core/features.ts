@@ -191,7 +191,7 @@ export const FEATURES: FeatureDef[] = [
 /** Pages and palette commands that belong to Keeper itself and cannot be switched off (settings and appearance). */
 export const CORE = {
   routes: ['settings'],
-  commands: ['appearance', 'hidden-files', 'inspector', 'view', 'look', 'theme-*'],
+  commands: ['appearance', 'hidden-files', 'inspector', 'inspector-settings', 'sidebar-toggle', 'permissions', 'view', 'look', 'theme-*'],
 };
 
 const byId = new Map(FEATURES.map((f) => [f.id, f]));
