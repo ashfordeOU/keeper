@@ -3,9 +3,11 @@ import { describe, expect, it } from 'vitest';
 import { parseTodos, serializeTodo } from '../core/pim/ical';
 import { addLog, insights, LOG_MAX, type LogEntry } from '../core/pim/insights';
 import { parseTask } from '../core/pim/quickadd';
+import { ACTIONS, describeAction, permissionFor } from '../core/brain/actions';
+import { appendToNote, isTodayPad, takeLine, todayPad } from '../core/island-tools/notes';
 import {
   addDays, cleanTask, completeTask, dayKey, effectiveDay, inboxTasks, isOverdue, moveToDay, nextOccurrence, overdueTasks, repeatLabel,
-  reorder, rescheduleAll, sortTasks, taskDay, tasksByDay, todayTasks, todosToTasks, toggleDone, upcomingTasks, weekDays, type Task,
+  reorder, rescheduleAll, sortTasks, taskDay, taskForAi, tasksByDay, todayTasks, todosToTasks, toggleDone, upcomingTasks, weekDays, type Task,
 } from '../core/pim/tasks';
 
 const at = (y: number, m: number, d: number, h = 0, mi = 0) => new Date(y, m - 1, d, h, mi).getTime();
@@ -255,5 +257,52 @@ describe('tasks in plain words', () => {
     // A place stays in the title of a task.
     expect(parseTask('meet at the office tomorrow', now)).toEqual({ title: 'meet at the office', plannedFor: '2026-11-05' });
     expect(parseTask('   ', now)).toBeNull();
+  });
+});
+
+describe('AI and MCP actions for tasks, notes, focus and Insights', () => {
+  it('are declared with the usual approval rules', () => {
+    const by = (n: string) => ACTIONS.find((a) => a.name === n)!;
+    for (const n of ['tasks_list', 'insights_get']) expect(by(n)).toMatchObject({ readOnly: true, default: 'allow', group: 'tasks' });
+    // Notes are private: reading them asks first, like the clipboard.
+    expect(by('island_notes_read')).toMatchObject({ readOnly: true, default: 'ask' });
+    for (const n of ['task_add', 'task_update', 'task_complete', 'task_delete', 'island_notes_append', 'focus_timer']) expect(by(n)).toMatchObject({ readOnly: false, default: 'ask' });
+    expect(by('task_delete').destructive).toBe(true);
+    expect((by('focus_timer').parameters as { properties: { action: { enum: string[] } } }).properties.action.enum).toEqual(['start', 'stopwatch', 'extend', 'stop']);
+    expect(permissionFor('task_add', undefined, true)).toBe('ask');
+    expect(permissionFor('tasks_list', { tasks_list: 'off' }, true)).toBe('off');
+  });
+  it('say what they will do in the approval prompt', () => {
+    expect(describeAction('task_add', { text: 'call Ana tomorrow' })).toBe('add the task “call Ana tomorrow”');
+    expect(describeAction('task_complete', { id: 'local:1' })).toBe('check off the task local:1');
+    expect(describeAction('task_complete', { id: 'local:1', done: false })).toBe('open the task local:1 again');
+    expect(describeAction('task_delete', { id: 'x' })).toBe('delete the task x');
+    expect(describeAction('island_notes_append', { text: 'hello' })).toBe('add 5 characters to today’s note in the Island');
+    expect(describeAction('focus_timer', { action: 'stopwatch' })).toBe('start a focus stopwatch');
+    expect(describeAction('focus_timer', { action: 'extend' })).toBe('add 5 minutes to the focus timer');
+  });
+  it('show tasks to an AI as plain fields', () => {
+    expect(taskForAi(task({ id: 'a', title: 'x', due: Date.UTC(2026, 10, 4, 9), rrule: 'FREQ=DAILY', priority: 2 }))).toMatchObject({ id: 'a', due: '2026-11-04T09:00:00.000Z', repeat: 'FREQ=DAILY', priority: 2 });
+  });
+});
+
+describe('Island notes: the Today pad and lines to tasks', () => {
+  it('keeps one pad per day, headed with the date', () => {
+    const a = todayPad([], '2026-11-04', 5);
+    expect(a.created).toBe(true);
+    expect(a.note.id).toBe('today-2026-11-04');
+    expect(a.note.text.startsWith('# Today, ')).toBe(true);
+    expect(isTodayPad(a.note)).toBe(true);
+    expect(todayPad([a.note], '2026-11-04').created).toBe(false);
+    expect(appendToNote({ ...a.note, text: '# T\n\n' }, 'milk', 9)).toMatchObject({ text: '# T\nmilk\n', updated: 9 });
+  });
+  it('turns the line under the cursor into a task and takes it out of the note', () => {
+    const text = '# Today\n- [ ] call Ana tomorrow\nbuy milk';
+    const at = text.indexOf('Ana');
+    expect(takeLine(text, at)).toEqual({ task: 'call Ana tomorrow', text: '# Today\nbuy milk', caret: 8 });
+    expect(takeLine(text, text.length)).toEqual({ task: 'buy milk', text: '# Today\n- [ ] call Ana tomorrow\n', caret: 32 });
+    // Headings and empty lines are left alone.
+    expect(takeLine(text, 2)).toBeNull();
+    expect(takeLine('a\n\nb', 2)).toBeNull();
   });
 });

@@ -299,3 +299,20 @@ export function cleanTask(x: Record<string, unknown>, base?: Task): Task {
   if (Array.isArray(x.steps)) t.steps = x.steps.map((s) => (typeof s === 'string' ? newStep(s) : { ...newStep(String((s as TaskStep)?.title ?? '')), done: !!(s as TaskStep)?.done })).filter((s) => s.title);
   return t;
 }
+
+/** A task as an AI sees it: plain fields, times as ISO text. */
+export function taskForAi(t: Task) {
+  return {
+    id: t.id,
+    title: t.title,
+    done: t.done,
+    plannedFor: t.plannedFor,
+    due: t.due !== undefined ? new Date(t.due).toISOString() : undefined,
+    priority: t.priority ?? 0,
+    project: t.project,
+    repeat: t.rrule,
+    steps: t.steps?.map((s) => ({ title: s.title, done: s.done })),
+    notes: t.notes,
+    list: t.list,
+  };
+}

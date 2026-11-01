@@ -79,3 +79,44 @@ export function upsert<T extends { id: string }>(list: T[], item: T): T[] {
   next[i] = item;
   return next;
 }
+
+// ---------------------------------------------------------------- the daily Today pad
+
+/** Today's pad: one note per day, found by its id. */
+export const todayPadId = (day: string) => `today-${day}`;
+
+export function isTodayPad(n: QuickNote): boolean {
+  return /^today-\d{4}-\d{2}-\d{2}$/.test(n.id);
+}
+
+/** Today's pad, or a new one headed with the date (not yet saved). */
+export function todayPad(notes: QuickNote[], day: string, now = Date.now()): { note: QuickNote; created: boolean } {
+  const id = todayPadId(day);
+  const found = notes.find((n) => n.id === id);
+  if (found) return { note: found, created: false };
+  const [y, m, d] = day.split('-').map(Number);
+  const title = new Date(y, m - 1, d).toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' });
+  return { note: { id, text: `# Today, ${title}\n\n`, created: now, updated: now }, created: true };
+}
+
+/** Adds text at the end of a note, on a new line. */
+export function appendToNote(n: QuickNote, text: string, now = Date.now()): QuickNote {
+  const body = n.text.replace(/\s+$/, '');
+  return { ...n, text: `${body}${body ? '\n' : ''}${text.replace(/\s+$/, '')}\n`, updated: now };
+}
+
+/**
+ * ⌘/Ctrl+Enter in a note: the line the cursor is on becomes a task. The line
+ * leaves the note, list marks and check boxes ("- [ ] ") are dropped, and the
+ * cursor stays where the line was.
+ */
+export function takeLine(text: string, caret: number): { task: string; text: string; caret: number } | null {
+  const start = text.lastIndexOf('\n', Math.max(0, caret - 1)) + 1;
+  const endAt = text.indexOf('\n', caret);
+  const end = endAt < 0 ? text.length : endAt;
+  const line = text.slice(start, end);
+  const task = line.replace(/^\s*(?:[-*+]\s+)?(?:\[[ xX]?\]\s*)?/, '').trim();
+  if (!task || /^#+\s/.test(line)) return null;
+  const rest = text.slice(0, start) + text.slice(endAt < 0 ? end : end + 1);
+  return { task, text: rest, caret: Math.min(start, rest.length) };
+}

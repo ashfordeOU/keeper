@@ -18,7 +18,7 @@ export interface ActionSpec extends ToolSpec {
   default: Permission;
   /** plain words for the permissions list */
   label: string;
-  group: 'files' | 'system' | 'keeper' | 'clipboard';
+  group: 'files' | 'system' | 'keeper' | 'clipboard' | 'tasks';
 }
 
 const obj = (properties: Record<string, unknown>, required: string[] = []) => ({ type: 'object', properties, required });
@@ -34,7 +34,15 @@ export const ACTIONS: ActionSpec[] = [
   { name: 'undo_last', label: 'Undo its own changes', group: 'keeper', readOnly: false, default: 'allow', description: 'Undo the most recent change this agent made through Keeper.', parameters: obj({}) },
   { name: 'run_automation', label: 'Run automations', group: 'keeper', readOnly: false, default: 'ask', description: 'Run one of the person\'s saved Keeper automations (rules) now. list_automations shows them.', parameters: obj({ id: str('automation id') }, ['id']) },
   { name: 'list_automations', label: 'See automations', group: 'keeper', readOnly: true, default: 'allow', description: 'The person\'s saved automations (rules) with what each does.', parameters: obj({}) },
-  { name: 'focus_timer', label: 'Focus timer', group: 'keeper', readOnly: false, default: 'ask', description: 'Start or stop the focus timer in Keeper\'s Island.', parameters: obj({ action: { type: 'string', enum: ['start', 'stop'] }, minutes: { type: 'integer', minimum: 1, maximum: 240 } }, ['action']) },
+  { name: 'focus_timer', label: 'Focus timer', group: 'keeper', readOnly: false, default: 'ask', description: 'Start, extend or stop the focus timer in Keeper\'s Island. start counts down `minutes` (25 by default); stopwatch counts up; extend adds `minutes` (5 by default). A session can be for a task (its id from tasks_list): the focused minutes are logged on it.', parameters: obj({ action: { type: 'string', enum: ['start', 'stopwatch', 'extend', 'stop'] }, minutes: { type: 'integer', minimum: 1, maximum: 240 }, task: str('task id (optional)') }, ['action']) },
+  { name: 'tasks_list', label: 'See tasks', group: 'tasks', readOnly: true, default: 'allow', description: 'The person\'s tasks (Keeper\'s Reminders and Planner). view: today (planned or due today, plus unfinished ones from earlier days), inbox (no day), overdue, upcoming (next 14 days), week, all (open tasks). Each task has id, title, plannedFor (yyyy-mm-dd), due (ISO time), priority 0–3, project, repeat (RRULE), steps and notes.', parameters: obj({ view: { type: 'string', enum: ['today', 'inbox', 'overdue', 'upcoming', 'week', 'all'] }, project: str('only this project'), includeDone: { type: 'boolean' } }) },
+  { name: 'task_add', label: 'Add tasks', group: 'tasks', readOnly: false, default: 'ask', description: 'Add a task. Either `text` in plain words ("call Ana tomorrow 3pm !! #work every Monday": ! to !!! set priority, #word a project, dates, times and repeats are understood) or `title` with fields. Fields given explicitly win over the words.', parameters: obj({ text: str('the task in plain words'), title: str('title'), notes: str('notes'), plannedFor: str('day yyyy-mm-dd'), due: str('due time, ISO 8601'), priority: { type: 'integer', minimum: 0, maximum: 3 }, project: str('project'), rrule: str('repeat rule, e.g. FREQ=WEEKLY;BYDAY=MO'), steps: { type: 'array', items: { type: 'string' } } }) },
+  { name: 'task_update', label: 'Change tasks', group: 'tasks', readOnly: false, default: 'ask', description: 'Change a task (id from tasks_list). Only the fields given change; null clears plannedFor, due or rrule. steps replaces the whole list.', parameters: obj({ id: str('task id'), title: str('title'), notes: str('notes'), plannedFor: { type: ['string', 'null'], description: 'day yyyy-mm-dd, or null for the Inbox' }, due: { type: ['string', 'null'], description: 'ISO 8601 time, or null' }, priority: { type: 'integer', minimum: 0, maximum: 3 }, project: str('project ("" clears it)'), rrule: { type: ['string', 'null'] }, steps: { type: 'array', items: { type: 'object', properties: { title: { type: 'string' }, done: { type: 'boolean' } } } } }, ['id']) },
+  { name: 'task_complete', label: 'Check off tasks', group: 'tasks', readOnly: false, default: 'ask', description: 'Check a task off (a repeating one rolls on to its next date), or open it again with done: false.', parameters: obj({ id: str('task id'), done: { type: 'boolean' } }, ['id']) },
+  { name: 'task_delete', label: 'Delete tasks', group: 'tasks', readOnly: false, destructive: true, default: 'ask', description: 'Delete a task (from its account too, for synced lists).', parameters: obj({ id: str('task id') }, ['id']) },
+  { name: 'island_notes_read', label: 'Read Island notes', group: 'tasks', readOnly: true, default: 'ask', description: 'The quick notes kept in Keeper\'s Island (newest first), optionally only those containing the query words.', parameters: obj({ query: str('words to look for'), limit: { type: 'integer', maximum: 50 } }) },
+  { name: 'island_notes_append', label: 'Write Island notes', group: 'tasks', readOnly: false, default: 'ask', description: 'Add text to the end of an Island note: today\'s Today pad unless a note id is given.', parameters: obj({ text: str('text to add'), note: str('note id (optional)') }, ['text']) },
+  { name: 'insights_get', label: 'See Insights', group: 'tasks', readOnly: true, default: 'allow', description: 'Tasks done and focus minutes today and this week, the last seven days, and the hours of the day the person gets most done.', parameters: obj({}) },
   { name: 'set_setting', label: 'Change Keeper settings', group: 'keeper', readOnly: false, default: 'ask', description: 'Turn a Keeper feature on or off. Allowed keys: appearance (light|dark|system), showHidden (true|false), island.enabled, brain.semantic, theme.', parameters: obj({ key: str('setting key'), value: { description: 'new value' } }, ['key', 'value']) },
   { name: 'clipboard_read', label: 'Read the clipboard', group: 'clipboard', readOnly: true, default: 'ask', description: 'Read the text on the clipboard.', parameters: obj({}) },
   { name: 'clipboard_write', label: 'Write the clipboard', group: 'clipboard', readOnly: false, default: 'ask', description: 'Put text on the clipboard.', parameters: obj({ text: str('text to copy') }, ['text']) },
@@ -81,7 +89,13 @@ export function describeAction(name: string, args: Record<string, unknown>): str
     case 'create_folder': return `create the folder “${String(args.name ?? '')}” in ${String(args.in ?? '')}`;
     case 'open_path': return `open ${String(args.path ?? '')}`;
     case 'run_automation': return `run the automation “${String(args.id ?? '')}”`;
-    case 'focus_timer': return args.action === 'stop' ? 'stop the focus timer' : `start a ${Number(args.minutes) || 25}-minute focus timer`;
+    case 'focus_timer': return args.action === 'stop' ? 'stop the focus timer' : args.action === 'stopwatch' ? 'start a focus stopwatch' : args.action === 'extend' ? `add ${Number(args.minutes) || 5} minutes to the focus timer` : `start a ${Number(args.minutes) || 25}-minute focus timer`;
+    case 'task_add': return `add the task “${String(args.title ?? args.text ?? '').slice(0, 80)}”`;
+    case 'task_update': return `change the task ${String(args.id ?? '')}${args.title ? ` (“${String(args.title).slice(0, 60)}”)` : ''}: ${Object.keys(args).filter((k) => k !== 'id').join(', ') || 'nothing'}`;
+    case 'task_complete': return args.done === false ? `open the task ${String(args.id ?? '')} again` : `check off the task ${String(args.id ?? '')}`;
+    case 'task_delete': return `delete the task ${String(args.id ?? '')}`;
+    case 'island_notes_read': return 'read your Island notes';
+    case 'island_notes_append': return `add ${String(args.text ?? '').length} characters to ${args.note ? 'an Island note' : 'today’s note in the Island'}`;
     case 'set_setting': return `change the setting ${String(args.key ?? '')} to ${JSON.stringify(args.value)}`;
     case 'clipboard_read': return 'read your clipboard';
     case 'clipboard_write': return `copy ${String(args.text ?? '').length} characters to your clipboard`;

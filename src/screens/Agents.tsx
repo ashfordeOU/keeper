@@ -242,7 +242,7 @@ function Permissions() {
   const audit = useAsync(() => api.agents.audit(), []);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => api.on('agent-audit', () => audit.reload()), []);
-  const groups: [string, string][] = [['files', 'Files'], ['keeper', 'Keeper'], ['system', 'Programs and the computer'], ['clipboard', 'Clipboard']];
+  const groups: [string, string][] = [['files', 'Files'], ['keeper', 'Keeper'], ['tasks', 'Tasks, notes and Insights'], ['system', 'Programs and the computer'], ['clipboard', 'Clipboard']];
   return (
     <>
       <div className="row" style={{ justifyContent: 'space-between' }}>

@@ -46,7 +46,12 @@ function useWhileVisible(fn: () => void, ms: number) {
 /** The Island tools' own store (notes, to-dos, scripts, watchlist, recent emoji). */
 export function useToolsStore(): [IslandToolsStore | null, (p: Partial<IslandToolsStore>) => void] {
   const [s, setS] = useState<IslandToolsStore | null>(null);
-  useEffect(() => { void api.islandTools.store().then(setS); }, []);
+  useEffect(() => {
+    const load = () => void api.islandTools.store().then(setS);
+    load();
+    // An AI added to a note (island_notes_append): show it, so typing here does not write over it.
+    return api.on('island-tools-changed' as 'navigate', load as never);
+  }, []);
   const save = useCallback((p: Partial<IslandToolsStore>) => {
     setS((cur) => (cur ? { ...cur, ...p } : cur));
     void api.islandTools.saveStore(p);

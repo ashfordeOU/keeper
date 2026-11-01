@@ -43,6 +43,7 @@ import { chatWithAbilities, type InjectRunner } from '../../core/abilities/injec
 import { readText, writeText } from './clip';
 import type { FileService } from './files';
 import { act as procAct, sample as procSample } from './procs';
+import { featureOn } from './features';
 
 export interface AgentDeps {
   index: () => FileIndex;
@@ -52,7 +53,7 @@ export interface AgentDeps {
   changed: () => void;
   alert?: (title: string, detail?: string) => void;
   runRule?: (id: string) => Promise<{ removed: number; failed: number; journalId?: string }>;
-  focus?: (action: 'start' | 'stop', minutes?: number) => void;
+  focus?: (action: 'start' | 'stop' | 'stopwatch' | 'extend', minutes?: number, task?: { taskId?: string; taskTitle?: string }) => void;
   setTags?: (path: string, tags: string[]) => void;
   /** opens Keeper's Terminal with a command (when the Terminal exists) */
   openTerminal?: (o: { cwd?: string; run: string; title?: string }) => Promise<void> | void;
@@ -411,10 +412,29 @@ async function perform(name: string, args: Record<string, unknown>, client: stri
       return { text: `Done: ${r.removed} item${r.removed === 1 ? '' : 's'}${r.failed ? `, ${r.failed} failed` : ''}.`, journalId: r.journalId };
     }
     case 'focus_timer': {
-      if (!d.focus) throw new Error('The focus timer is not available');
-      d.focus(args.action === 'stop' ? 'stop' : 'start', Number(args.minutes) || 25);
-      return { text: args.action === 'stop' ? 'Stopped the focus timer.' : `Started a ${Number(args.minutes) || 25}-minute focus timer.` };
+      if (!d.focus || !featureOn('focus')) throw new Error('The focus timer is not available (Settings → Features)');
+      const act = (['start', 'stop', 'stopwatch', 'extend'] as const).find((x) => x === args.action) ?? 'start';
+      let task: { taskId: string; taskTitle: string } | undefined;
+      if (args.task && act !== 'stop' && act !== 'extend') {
+        const t = (await (await import('./pim')).pim.reminders()).find((x) => x.id === String(args.task));
+        if (!t) throw new Error('No task with that id (tasks_list shows them)');
+        task = { taskId: t.id, taskTitle: t.title };
+      }
+      const mins = Number(args.minutes) || (act === 'extend' ? 5 : 25);
+      d.focus(act, act === 'stopwatch' ? undefined : mins, task);
+      const what = act === 'stop' ? 'Stopped the focus timer.' : act === 'extend' ? `Added ${mins} minutes.` : act === 'stopwatch' ? 'Started a focus stopwatch.' : `Started a ${mins}-minute focus timer.`;
+      return { text: task ? `${what} For “${task.taskTitle}”.` : what };
     }
+    case 'tasks_list':
+    case 'task_add':
+    case 'task_update':
+    case 'task_complete':
+    case 'task_delete':
+    case 'insights_get':
+      return taskAction(name, args);
+    case 'island_notes_read':
+    case 'island_notes_append':
+      return notesAction(name, args);
     case 'set_setting': {
       const key = String(args.key ?? '');
       const check = SETTABLE[key];
@@ -463,6 +483,84 @@ async function perform(name: string, args: Record<string, unknown>, client: stri
     default:
       throw new Error(`Unknown action ${name}`);
   }
+}
+
+// ---------------------------------------------------------------- tasks, Island notes, Insights
+
+async function taskAction(name: string, args: Record<string, unknown>): Promise<{ text: string; structured?: unknown }> {
+  if (name === 'insights_get') {
+    if (!featureOn('insights')) throw new Error('Insights are switched off (Settings → Features)');
+    const i = await (await import('./pim')).pim.insights();
+    const peak = i.peak.map((h) => `${h}:00–${h + 1}:00`).join(', ');
+    return { text: `Today: ${i.today.tasks} done, ${Math.round(i.today.focusMin)} min focus. This week: ${i.week.tasks} done, ${i.week.focusMin} min focus.${i.streak > 1 ? ` ${i.streak}-day streak.` : ''}${peak ? ` Busiest hours: ${peak}.` : ''}`, structured: i };
+  }
+  if (!featureOn('calendars')) throw new Error('Calendar and reminders are switched off (Settings → Features)');
+  const { pim } = await import('./pim');
+  const T = await import('../../core/pim/tasks');
+  const all = await pim.reminders();
+  const find = () => {
+    const t = all.find((x) => x.id === String(args.id ?? ''));
+    if (!t) throw new Error('No task with that id (tasks_list shows them)');
+    return t;
+  };
+  const today = T.dayKey(Date.now());
+  switch (name) {
+    case 'tasks_list': {
+      const v = String(args.view ?? 'today');
+      let list = v === 'inbox' ? T.inboxTasks(all) : v === 'overdue' ? T.overdueTasks(all) : v === 'upcoming' ? T.upcomingTasks(all, today)
+        : v === 'week' ? [...T.tasksByDay(all, T.weekDays(today, (await pim.prefs()).weekStart), today, { withDone: !!args.includeDone }).values()].flat()
+          : v === 'all' ? T.sortTasks(all.filter((t) => args.includeDone || !t.done)) : T.todayTasks(all, today, { withDone: !!args.includeDone });
+      if (typeof args.project === 'string' && args.project) list = list.filter((t) => t.project === String(args.project).replace(/^#/, ''));
+      const rows = list.slice(0, 200).map(T.taskForAi);
+      return { text: rows.length ? rows.map((t) => `${t.id}: ${t.done ? '[x] ' : ''}${t.title}${t.plannedFor ? ` · ${t.plannedFor}` : ''}${t.due ? ` · due ${t.due}` : ''}${t.priority ? ` · ${'!'.repeat(t.priority)}` : ''}${t.project ? ` · #${t.project}` : ''}${t.repeat ? ` · repeats ${t.repeat}` : ''}`).join('\n') : 'No tasks here.', structured: rows };
+    }
+    case 'task_add': {
+      const { parseTask } = await import('../../core/pim/quickadd');
+      const q = typeof args.text === 'string' && args.text.trim() ? parseTask(args.text) : null;
+      const base: Record<string, unknown> = q ? { title: q.title, priority: q.priority, project: q.project, rrule: q.rrule, plannedFor: q.plannedFor, due: q.due } : {};
+      for (const [k, v] of Object.entries(args)) if (k !== 'text' && v !== undefined) base[k] = v;
+      const t = T.cleanTask(base);
+      if (!t.title) throw new Error('A task needs a title or text');
+      const saved = await pim.saveReminder({ ...t, created: Date.now() });
+      return { text: `Added “${saved.title}” (${saved.id}).`, structured: T.taskForAi(saved) };
+    }
+    case 'task_update': {
+      const { id: _id, ...patch } = args;
+      const saved = await pim.saveReminder(T.cleanTask(patch, find()));
+      return { text: `Changed “${saved.title}”.`, structured: T.taskForAi(saved) };
+    }
+    case 'task_complete': {
+      const t = find();
+      const r = await pim.completeReminder(t.id, args.done !== false);
+      return { text: args.done === false ? `Opened “${t.title}” again.` : r && !r.done ? `Checked off “${t.title}”; it repeats, next on ${T.taskDay(r) ?? 'its next date'}.` : `Checked off “${t.title}”.`, structured: r ? T.taskForAi(r) : undefined };
+    }
+    case 'task_delete': {
+      const t = find();
+      await pim.deleteReminder(t.id);
+      return { text: `Deleted “${t.title}”.` };
+    }
+  }
+  throw new Error(`Unknown action ${name}`);
+}
+
+async function notesAction(name: string, args: Record<string, unknown>): Promise<{ text: string; structured?: unknown }> {
+  if (!featureOn('islandNotes')) throw new Error('Notes in the Island are switched off (Settings → Features)');
+  const tools = await import('./island-tools');
+  const N = await import('../../core/island-tools/notes');
+  const store = await tools.getStore();
+  if (name === 'island_notes_read') {
+    const list = N.searchNotes(store.notes, String(args.query ?? '')).slice(0, Math.min(50, Number(args.limit) || 20));
+    return { text: list.length ? list.map((n) => `--- ${n.id} (${N.noteTitle(n)}, ${new Date(n.updated).toLocaleString()})\n${n.text}`).join('\n\n') : 'No notes.', structured: list };
+  }
+  const text = String(args.text ?? '').slice(0, 20_000);
+  if (!text.trim()) throw new Error('Nothing to add');
+  const { dayKey } = await import('../../core/pim/tasks');
+  const target = args.note ? store.notes.find((n) => n.id === String(args.note)) : N.todayPad(store.notes, dayKey(Date.now())).note;
+  if (!target) throw new Error('No note with that id (island_notes_read shows them)');
+  const next = N.appendToNote(target, text);
+  await tools.saveStore({ notes: N.upsert(store.notes, next) });
+  deps?.broadcast('island-tools-changed');
+  return { text: `Added to “${N.noteTitle(next)}”.` };
 }
 
 // ---------------------------------------------------------------- skills
