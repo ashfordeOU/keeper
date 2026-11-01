@@ -29,6 +29,10 @@ A theme without a `light` or `dark` mode shows its only mode whatever the appear
 
 It also checks that every token is set and every colour parses. A custom accent chosen in Settings gets a warning when it is hard to see on the theme's panels.
 
+## Terminal colours
+
+A terminal set to **Follow Keeper’s theme** takes its colours from the theme. The twenty newer themes (the ten newer main themes, the five seasonal and the five unique ones) each have a terminal palette of their own in `core/terminal/themePalettes.ts`: background, foreground, cursor, selection and the 16 ANSI colours, in light and dark where the theme has both. The other themes use the theme's background, text and accent over the Night or Day colours. `test/terminal.test.ts` checks every palette: the foreground at least 4.5 : 1 on the background, and the ANSI colours at least 3 : 1 (except black on dark and white on light, which are meant as fills). Open terminals change colour as soon as the theme or the appearance changes.
+
 ## Following the seasons
 
 With **Settings → Appearance → Follow the seasons** on, the theme on screen is the seasonal one:

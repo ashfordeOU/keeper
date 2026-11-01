@@ -100,7 +100,7 @@ html[data-theme-id='contrast'] a { text-decoration: underline; }
 .tg-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .tg-card.on { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .tg-name { font-weight: 650; font-size: 13px; display: flex; align-items: center; gap: 6px; }
-.tg-card .tg-line { position: static; border: 0; opacity: 1; font-size: 11.5px; color: var(--text-2); line-height: 1.35; } /* scoped: the calendar has its own .tg-line */
+.tg-card .tg-line { font-size: 11.5px; color: var(--text-2); line-height: 1.35; }
 .tg-mode { font-size: 10.5px; font-weight: 600; color: var(--text-3); margin-left: auto; text-transform: uppercase; letter-spacing: .04em; }
 /* The mini window: everything inside uses the previewed theme's variables. */
 .tg-prev { height: 96px; border-radius: calc(var(--radius) - 4px); overflow: hidden; display: grid; grid-template-columns: 34% 1fr; background: var(--app-bg, var(--bg)); border: 1px solid var(--line); font-family: var(--font); color: var(--text); }

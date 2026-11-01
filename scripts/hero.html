@@ -1,0 +1,84 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 -->
+<!-- The README banner: the app window, the Island and the Keeper by Ashforde® wordmark.
+     Rendered to PNG by scripts/screenshots.cjs (1600×760), which passes the pictures as
+     ?app=<home screenshot>&island=<expanded Island>&icon=<build/icon.svg>. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Keeper hero</title>
+<style>
+  :root {
+    --ink: #f6f2ff;
+    --ink-2: rgba(246, 242, 255, .74);
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { width: 1600px; height: 760px; overflow: hidden; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable', 'Segoe UI', Inter, Roboto, 'Helvetica Neue', 'DejaVu Sans', sans-serif;
+    color: var(--ink);
+    background:
+      radial-gradient(900px 520px at 8% 0%, rgba(255, 180, 94, .55), transparent 60%),
+      radial-gradient(800px 600px at 40% 110%, rgba(255, 95, 143, .45), transparent 60%),
+      radial-gradient(900px 700px at 100% 30%, rgba(107, 61, 255, .70), transparent 60%),
+      linear-gradient(135deg, #2a1240 0%, #1a0f2e 45%, #120b24 100%);
+    position: relative;
+  }
+  /* A faint grid, like a desk under the window. */
+  body::before {
+    content: ''; position: absolute; inset: 0;
+    background-image: linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+    background-size: 40px 40px;
+    mask-image: radial-gradient(1100px 600px at 70% 50%, #000 30%, transparent 85%);
+  }
+  .brand { position: absolute; left: 84px; top: 0; bottom: 0; width: 560px; display: flex; flex-direction: column; justify-content: center; gap: 26px; }
+  .mark { display: flex; align-items: center; gap: 22px; }
+  .mark img { width: 112px; height: 112px; filter: drop-shadow(0 18px 30px rgba(20, 0, 60, .45)); }
+  .word { line-height: 1; }
+  .word b { display: block; font-size: 84px; font-weight: 750; letter-spacing: -2.5px; }
+  .word span { display: block; margin-top: 8px; font-size: 26px; font-weight: 500; color: var(--ink-2); letter-spacing: .2px; }
+  .pitch { font-size: 30px; line-height: 1.28; font-weight: 600; letter-spacing: -.3px; max-width: 520px; }
+  .pitch em { font-style: normal; background: linear-gradient(90deg, #ffc58a, #ff8fb4 50%, #b9a0ff); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .chips { display: flex; flex-wrap: wrap; gap: 10px; max-width: 520px; }
+  .chips i { font-style: normal; font-size: 16px; font-weight: 550; padding: 8px 14px; border-radius: 999px; background: rgba(255, 255, 255, .10); border: 1px solid rgba(255, 255, 255, .16); color: var(--ink); }
+  .stage { position: absolute; left: 650px; top: 118px; width: 1040px; }
+  .window { position: relative; width: 1040px; border-radius: 14px; overflow: hidden; background: #111; box-shadow: 0 40px 90px rgba(8, 0, 30, .6), 0 0 0 1px rgba(255, 255, 255, .12); }
+  .window .bar { height: 34px; background: #1d1b22; display: flex; align-items: center; gap: 8px; padding: 0 14px; border-bottom: 1px solid rgba(255,255,255,.06); }
+  .window .bar i { width: 12px; height: 12px; border-radius: 50%; background: #ff5f57; }
+  .window .bar i:nth-child(2) { background: #febc2e; }
+  .window .bar i:nth-child(3) { background: #28c840; }
+  .window img { display: block; width: 1040px; height: auto; }
+  .island { position: absolute; left: 50%; top: -118px; transform: translateX(-62%); width: 560px; filter: drop-shadow(0 26px 40px rgba(0, 0, 0, .55)); }
+  .island img { display: block; width: 100%; height: auto; }
+  .tm { font-size: 16px; color: var(--ink-2); letter-spacing: .3px; }
+</style>
+</head>
+<body>
+  <div class="brand">
+    <div class="mark">
+      <img id="icon" alt="">
+      <div class="word"><b>Keeper</b><span>by Ashforde®</span></div>
+    </div>
+    <div class="pitch">A home for your files, <em>and a calmer computer</em>, that keeps your files on your computer.</div>
+    <div class="chips"><i>Files &amp; Quick Look</i><i>The Island</i><i>Notes</i><i>Terminal &amp; agents</i><i>Privacy &amp; firewall</i><i>38 themes</i></div>
+    <div class="tm">Free to use · Windows, macOS and Linux · source-available</div>
+  </div>
+  <div class="stage">
+    <div class="window"><div class="bar"><i></i><i></i><i></i></div><img id="app" alt=""></div>
+    <div class="island"><img id="island" alt=""></div>
+  </div>
+<script>
+  const q = new URLSearchParams(location.search);
+  let left = 0;
+  for (const id of ['icon', 'app', 'island']) {
+    const src = q.get(id);
+    if (!src) continue;
+    left++;
+    const img = document.getElementById(id);
+    img.onload = img.onerror = () => { if (--left === 0) document.body.dataset.ready = '1'; };
+    img.src = src;
+  }
+  if (!left) document.body.dataset.ready = '1';
+</script>
+</body>
+</html>

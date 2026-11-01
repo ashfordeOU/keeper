@@ -7,6 +7,8 @@ import { DEFAULT_KEYBINDINGS, defaultKeybindings, defaultTerminalSettings, norma
 import { encode, LineDecoder, socketPath } from '../core/terminal/protocol';
 import { RingBuffer, stripAnsi } from '../core/terminal/ring';
 import { SCHEMES, xtermTheme } from '../core/terminal/schemes';
+import { THEME_TERMINALS, themeTerminalScheme } from '../core/terminal/themePalettes';
+import { THEMES, contrast, over, parseColor, toHex } from '../core/themes';
 import { parseEtcShells, parseWhere, parseWslList, shellKindOf, unixShells, windowsShells } from '../core/terminal/shells';
 import { hostMatches, parseSshConfig, resolveHost } from '../core/terminal/sshconfig';
 import { patternError, TriggerWatcher } from '../core/terminal/triggers';
@@ -314,6 +316,57 @@ describe('triggers and schemes', () => {
       expect((l1 + 0.05) / (l2 + 0.05)).toBeGreaterThanOrEqual(7);
       expect(Object.keys(xtermTheme(s))).toContain('brightMagenta');
     }
+  });
+});
+
+describe('terminal palettes for themes', () => {
+  // The twenty newer themes: ten main, five seasonal, five unique.
+  const NEWER = ['fjord', 'terracotta', 'sage', 'deepsea', 'dusk', 'dune', 'editorial', 'solarpunk', 'circuit', 'champagne',
+    'frost', 'meadow', 'summer', 'autumn', 'festive', 'blueprint', 'aurora', 'glass', 'inkwash', 'amber'];
+
+  it('covers every mode of every newer theme, and only real themes', () => {
+    for (const id of NEWER) {
+      const t = THEMES.find((x) => x.id === id);
+      expect(t, id).toBeTruthy();
+      expect(!!THEME_TERMINALS[id]?.light, `${id} light`).toBe(!!t!.light);
+      expect(!!THEME_TERMINALS[id]?.dark, `${id} dark`).toBe(!!t!.dark);
+    }
+    for (const id of Object.keys(THEME_TERMINALS)) expect(THEMES.some((x) => x.id === id), id).toBe(true);
+  });
+
+  it('keeps text and colours readable on the background', () => {
+    for (const [id, modes] of Object.entries(THEME_TERMINALS)) {
+      for (const mode of ['light', 'dark'] as const) {
+        const p = modes[mode];
+        if (!p) continue;
+        const where = `${id} ${mode}`;
+        expect(p.ansi.length, where).toBe(16);
+        for (const c of [p.background, p.foreground, p.cursor, p.selection, ...p.ansi]) expect(parseColor(c), `${where} ${c}`).not.toBeNull();
+        expect(contrast(p.foreground, p.background), `${where} foreground`).toBeGreaterThanOrEqual(4.5);
+        expect(contrast(p.cursor, p.background), `${where} cursor`).toBeGreaterThanOrEqual(3);
+        // The eight normal colours, minus the one meant to sit on the background:
+        // black on a dark background, white on a light one (programs use them as fills).
+        // The bright colours (bright black is used for dim text and hints) must read too.
+        const skip = mode === 'dark' ? [0] : [7, 15];
+        p.ansi.forEach((c, i) => {
+          if (skip.includes(i)) return;
+          expect(contrast(c, p.background), `${where} ansi ${i} ${c}`).toBeGreaterThanOrEqual(3);
+        });
+        // The foreground still reads through a selection.
+        const sel = toHex(over(parseColor(p.selection)!, parseColor(p.background)!));
+        expect(contrast(p.foreground, sel), `${where} selection`).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+  });
+
+  it('follows the theme and its mode', () => {
+    expect(themeTerminalScheme('fjord', 'dark')?.background).toBe(THEME_TERMINALS.fjord.dark!.background);
+    expect(themeTerminalScheme('fjord', 'light')?.dark).toBe(false);
+    // A dark-only theme stays dark when light is asked for.
+    expect(themeTerminalScheme('aurora', 'light')?.dark).toBe(true);
+    expect(themeTerminalScheme('playful', 'dark')).toBeUndefined();
+    expect(themeTerminalScheme(undefined, 'dark')).toBeUndefined();
+    expect(Object.keys(xtermTheme(themeTerminalScheme('amber', 'dark')!))).toContain('brightCyan');
   });
 });
 

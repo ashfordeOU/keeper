@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // End-to-end check of Keeper's Terminal in the real app (Linux, under xvfb):
 //   xvfb-run -a node test/e2e/terminal.cjs <empty home dir> [screenshot dir]
-// Opens the Terminal, runs commands, splits, uses a separate-sign-in profile,
+// Opens the Terminal, runs commands, checks that a theme switch recolours it with
+// the theme's own palette, splits, uses a separate-sign-in profile,
 // broadcasts, leaves and comes back, stops the session host and reads the
 // saved scrollback, measures the host's idle CPU, and (when installed) opens
 // the notebook server and an SFTP folder.
@@ -69,6 +70,29 @@ async function until(fn, ms = 10000, step = 150) {
   });
   ok(!!out1, 'typing runs a command and the output shows (echo + pwd)', (await text(first)).slice(-300));
   if (SHOTS) await w.screenshot({ path: path.join(SHOTS, 'app-terminal.png') });
+
+  // 1b. Switching Keeper's theme recolours the open terminal with that theme's own palette
+  // (core/terminal/themePalettes.ts), in light and in dark: the text colour and ANSI red
+  // the terminal draws with are read back from the page.
+  const termColours = () => w.evaluate(() => {
+    const rows = document.querySelector('.term-pane .xterm-rows');
+    if (!rows) return null;
+    const red = document.createElement('span');
+    red.className = 'xterm-fg-1';
+    rows.appendChild(red);
+    const out = `${getComputedStyle(rows).color} ${getComputedStyle(red).color}`;
+    red.remove();
+    return out;
+  });
+  const before = await termColours();
+  await w.evaluate(() => window.keeper.settings.set({ theme: 'fjord', appearance: 'dark' }));
+  const fjordDark = await until(async () => ((await termColours()) === 'rgb(230, 237, 243) rgb(239, 138, 150)' ? 'ok' : null), 5000);
+  ok(!!fjordDark, 'switching to Fjord (dark) recolours the open terminal with its palette', `${before} → ${await termColours()}`);
+  await w.evaluate(() => window.keeper.settings.set({ theme: 'circuit', appearance: 'light' }));
+  const circuitLight = await until(async () => ((await termColours()) === 'rgb(21, 24, 29) rgb(196, 47, 63)' ? 'ok' : null), 5000);
+  ok(!!circuitLight, 'switching to Circuit (light) recolours it again', await termColours());
+  await w.evaluate(() => window.keeper.settings.set({ theme: 'playful', appearance: 'system' }));
+  await sleep(400);
 
   // 2. Split right: a sister terminal in the same folder.
   await w.keyboard.press('Control+Shift+D');

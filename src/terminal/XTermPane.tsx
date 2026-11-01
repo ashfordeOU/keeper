@@ -14,6 +14,7 @@ import '@xterm/xterm/css/xterm.css';
 import { api } from '../api';
 import { quotePath } from '../../core/terminal/profiles';
 import { schemeById, xtermTheme } from '../../core/terminal/schemes';
+import { themeTerminalScheme } from '../../core/terminal/themePalettes';
 import type { SessionInfo, ShellEvent, TerminalProfile, TerminalSettings } from '../../core/terminal/types';
 import { findGitHashes, findProblems, quickFixes, recentCommands, suggest, type QuickFix } from '../../core/terminal/assist';
 
@@ -88,6 +89,9 @@ function keeperTheme(): Record<string, string> {
   const v = (n: string, d: string) => cs.getPropertyValue(n).trim() || d;
   const bg = v('--bg-sunk', v('--bg', '#14151b'));
   const dark = document.documentElement.dataset.theme === 'dark' || matchMedia('(prefers-color-scheme: dark)').matches && document.documentElement.dataset.theme !== 'light';
+  // Themes with a palette of their own use it whole (its colours are contrast-checked together).
+  const own = themeTerminalScheme(document.documentElement.dataset.themeId, dark ? 'dark' : 'light');
+  if (own) return xtermTheme(own);
   const base = schemeById(dark ? 'night' : 'day')!;
   return { ...xtermTheme(base), background: bg, foreground: v('--text', base.foreground), cursor: v('--accent', base.cursor), cursorAccent: bg, selectionBackground: `${v('--accent', '#6d6dff')}44` };
 }
@@ -410,7 +414,7 @@ export const XTermPane = forwardRef<PaneHandle, Props>(function XTermPane(p, ref
     apply();
     if (p.profile?.scheme && p.profile.scheme !== 'keeper') return;
     const mo = new MutationObserver(apply);
-    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-look', 'style', 'class'] });
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-theme-id', 'data-look', 'style', 'class'] });
     return () => mo.disconnect();
   }, [p.profile?.scheme]);
 

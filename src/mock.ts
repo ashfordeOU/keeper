@@ -207,13 +207,15 @@ const rules: Rule[] = [
 
 export function createMockApi(): KeeperApi {
   const settings = defaultSettings(['Desktop', 'Documents', 'Downloads', 'Pictures', 'Movies', 'Music'].map((n) => `${HOME}/${n}`), rules);
-  // Demo only: ?theme=<id>&appearance=light|dark opens the demo in that theme (used for screenshots).
+  // Demo only: ?theme=<id>&appearance=light|dark opens the demo in that theme, and
+  // ?features=a,b switches on features that are off by default (used for screenshots).
   {
     const q = typeof location !== 'undefined' ? new URLSearchParams(location.search) : new URLSearchParams();
     const th = q.get('theme');
     const ap = q.get('appearance');
     if (th) settings.theme = th;
     if (ap === 'light' || ap === 'dark') settings.appearance = ap;
+    for (const id of (q.get('features') ?? '').split(',').filter(Boolean)) settings.features = { ...settings.features, [id]: true };
   }
   settings.savedSearches = [
     { id: 's1', name: 'Big videos', text: 'videos over 500 MB', createdAt: now },
