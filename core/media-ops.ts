@@ -129,7 +129,9 @@ export interface MediaInfo {
 }
 
 /** Reads `ffmpeg -i file` output (works with the ffmpeg Keeper ships; no ffprobe needed). */
-export function parseMediaInfo(stderr: string): MediaInfo {
+export function parseMediaInfo(raw: string): MediaInfo {
+  // Windows ends lines with \r\n, and '.' does not match \r, so normalise first.
+  const stderr = raw.replace(/\r\n?/g, '\n');
   const info: MediaInfo = { subtitles: 0, metadata: {} };
   const input = stderr.match(/Input #0, ([^,\n]+(?:,[^,\n]+)*?), from/);
   if (input) info.container = input[1];

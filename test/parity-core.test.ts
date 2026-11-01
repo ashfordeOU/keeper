@@ -28,6 +28,11 @@ const FFMPEG_I = `Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'clip.mp4':
 At least one output file must be specified`;
 
 describe('media: what is inside', () => {
+  it('reads the same report with Windows line endings', () => {
+    const i = parseMediaInfo(FFMPEG_I.replace(/\n/g, '\r\n'));
+    expect(i.video).toMatchObject({ codec: 'h264', width: 1920, height: 1080 });
+    expect(i.audio).toMatchObject({ codec: 'aac', sampleRate: 48000 });
+  });
   it('reads container, length, streams and tags from ffmpeg’s report', () => {
     const i = parseMediaInfo(FFMPEG_I);
     expect(i.duration).toBeCloseTo(412.04, 2);
@@ -130,7 +135,7 @@ describe('ZIP and TAR', () => {
     expect(() => unzip(locked, 'wrong')).toThrow(/Wrong password|damaged/);
     expect(unzip(locked, 'pässword').find((e) => e.name === 'b.bin')!.data).toEqual(Buffer.from([1, 2, 3]));
   });
-  it('makes ZIPs the system’s unzip opens, including with a password', () => {
+  it.skipIf(process.platform === 'win32')('makes ZIPs the system’s unzip opens, including with a password', () => {
     let unzipBin = '';
     try { unzipBin = execFileSync('which', ['unzip']).toString().trim(); } catch { /* not installed */ }
     if (!unzipBin) return;

@@ -355,7 +355,7 @@ describe.skipIf(win)('agent terminals with real shells', () => {
     const r = await deliverQueued(hub, terms, plain, { idleMs: 300, answerMs: 5000, enterDelayMs: 100, sleep: (ms) => new Promise((res) => setTimeout(res, ms)), now: () => Date.now() });
     expect(r).toMatchObject({ delivered: 1, answered: 1 });
     const reply = hub.inbox(asker.id).find((m) => (m.data as { viaBridge?: boolean })?.viaBridge);
-    expect(reply?.text).toMatch(/ANSWER: got \d+ words/);
+    expect(reply?.text).toMatch(/ANSWER: got\s+\d+ words/);
   }, 30_000);
 });
 
