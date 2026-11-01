@@ -3,7 +3,6 @@
 // variables around it, including a separate config folder per profile so
 // tools signed in under one profile never see another's sign-in.
 
-import path from 'node:path';
 import type { ShellInfo, TerminalProfile, TerminalSettings } from './types';
 
 export const DEFAULT_SCROLLBACK = 10_000;
@@ -186,7 +185,8 @@ export function resolveLaunch(p: TerminalProfile, ctx: ResolveContext, cwdOverri
   } else if (ctx.platform !== 'win32' && !env.LANG) env.LANG = 'en_US.UTF-8';
   let configDir: string | undefined;
   if (p.isolate) {
-    const sep = ctx.platform === 'win32' ? path.win32 : path.posix;
+    // No node:path here: the terminal's settings window imports this file too.
+    const sep = { join: (...parts: string[]) => { const d = ctx.platform === 'win32' ? '\\' : '/'; return parts.map((x, i) => (i === 0 ? x.replace(/[\\/]+$/, '') : x.replace(/^[\\/]+|[\\/]+$/g, ''))).filter(Boolean).join(d); } };
     configDir = sep.join(ctx.dataDir, 'terminal', 'profiles', profileSlug(p.id));
     // Command-line tools that keep sign-ins in a config folder read these.
     env.KEEPER_PROFILE_HOME = configDir;

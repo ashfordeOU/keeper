@@ -13,7 +13,7 @@
 //
 // Dispatch: one `case` in main.swift sends every "stage.*" method here.
 
-import Foundation
+@preconcurrency import Foundation
 import CoreGraphics
 import ApplicationServices
 

@@ -14,7 +14,7 @@
 //
 // Dispatch: one `case` in main.swift sends every "voice.*" method here.
 
-import Foundation
+@preconcurrency import Foundation
 import CoreGraphics
 import ApplicationServices
 import CoreAudio

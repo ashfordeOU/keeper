@@ -36,9 +36,9 @@
     "build:cli": "node scripts/build-main.mjs --cli-only",
     "cli": "node scripts/build-main.mjs --cli-only && node dist-cli/keeper.cjs",
     "start": "electron .",
-    "dist": "npm run build && node scripts/build-mac-native.mjs && electron-builder",
+    "dist": "npm run build && node scripts/fetch-rclone.mjs && node scripts/build-mac-native.mjs && electron-builder",
     "dist:win": "npm run build && electron-builder --win",
-    "dist:mac": "npm run build && node scripts/build-mac-native.mjs && electron-builder --mac",
+    "dist:mac": "npm run build && node scripts/fetch-rclone.mjs && node scripts/build-mac-native.mjs && electron-builder --mac",
     "dist:linux": "npm run build && electron-builder --linux",
     "notices": "node scripts/third-party-notices.mjs"
   },
