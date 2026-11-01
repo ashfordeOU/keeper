@@ -49,8 +49,14 @@ async function until(fn, ms = 15000) { const end = Date.now() + ms; while (Date.
   const md = files ? fs.readFileSync(path.join(folder, files[0]), 'utf8') : '';
   check(/keeper: "cue"/.test(md) && /site: github\.com/.test(md) && /- \[ \] oldest first/.test(md), `the cue is a plain Markdown file in Documents/Keeper Cues (${files?.[0]})`);
   // Ticking a step is written to the file.
-  await main.locator('[data-testid="cue-card"] .cue-tick').first().click();
-  check(!!(await until(() => /- \[x\] oldest first/.test(fs.readFileSync(path.join(folder, files[0]), 'utf8')))), 'ticking a step updates the file');
+  // (the card may re-render while the save lands; click again until the file shows it)
+  const ticked = await until(async () => {
+    if (/- \[x\] oldest first/.test(fs.readFileSync(path.join(folder, files[0]), 'utf8'))) return true;
+    await main.locator('[data-testid="cue-card"]:has-text("oldest first") .cue-item:not(.done) .cue-tick').first().click({ timeout: 2000 }).catch(() => undefined);
+    await wait(700);
+    return /- \[x\] oldest first/.test(fs.readFileSync(path.join(folder, files[0]), 'utf8'));
+  });
+  check(!!ticked, 'ticking a step updates the file');
   // An edit made in another editor (or arriving through Sync) is read back.
   fs.writeFileSync(path.join(folder, files[0]), fs.readFileSync(path.join(folder, files[0]), 'utf8').replace('# Review the pull requests', '# Review the open pull requests'));
   check(!!(await until(async () => (await main.locator('[data-testid="cue-card"]:has-text("Review the open pull requests")').count()) > 0)), 'changes to the file from elsewhere show in Keeper');
@@ -103,6 +109,26 @@ async function until(fn, ms = 15000) { const end = Date.now() + ms; while (Date.
   const status = await main.evaluate(() => window.keeper.islandx.status());
   console.log('island+ status:', JSON.stringify(status.notify));
   check(status.notify.mode === 'bus' && status.hud.replaces === false, 'Island+ reports how it works here (notifications: bus; levels shown beside the system pop-up)');
+
+  // ---------------------------------------------------------------- alerts stay inside the bar unless asked for
+  const islBounds = () => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((w) => w.webContents.getURL().includes('view=island')).getBounds());
+  // Close the Island the way the pointer leaving it does.
+  await isl.evaluate(() => document.querySelector('.isl-content')?.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, relatedTarget: document.body })));
+  await until(async () => (await isl.locator('.isl-content.view-compact').count()) > 0, 5000);
+  await wait(1500);
+  const before = await islBounds();
+  fs.writeFileSync(path.join(HOME, 'Downloads', 'report.pdf'), 'x'.repeat(2048));
+  const inline = await until(async () => (await isl.locator('.isl-content .live:has-text("Download finished")').count()) > 0, 20000);
+  const during = await islBounds();
+  if (!inline) console.log('alerts:', JSON.stringify((await main.evaluate(() => window.keeper.island.state())).alerts.map((a) => [a.kind, a.title])), await isl.evaluate(() => document.querySelector('.isl-content')?.className));
+  check(!!inline && !(await isl.locator('.isl-content.view-alert').count()) && during.height <= before.height + 2, `a download alert shows inside the pill, without dropping over windows (${before.height} → ${during.height} px)`);
+  await isl.screenshot({ path: path.join(SHOTS, 'island-alert-inline.png') });
+  await main.evaluate(() => window.keeper.settings.get().then((s) => window.keeper.settings.set({ island: { ...s.island, alertStyle: 'banner' } })));
+  await wait(600);
+  fs.writeFileSync(path.join(HOME, 'Downloads', 'notes.txt'), 'y'.repeat(2048));
+  const banner = await until(async () => (await isl.locator('.isl-content.view-alert').count()) > 0, 20000);
+  check(!!banner, 'with “Alerts: as a banner below it”, alerts drop down as before');
+  await main.evaluate(() => window.keeper.settings.get().then((s) => window.keeper.settings.set({ island: { ...s.island, alertStyle: 'notch' } })));
 
   // ---------------------------------------------------------------- settings pages, light and dark
   await app.evaluate(({ BrowserWindow }) => { for (const w of BrowserWindow.getAllWindows()) if (/view=app|^[^?]*$/.test(w.webContents.getURL()) || !w.webContents.getURL().includes('view=')) w.webContents.send('event:navigate', 'island'); });

@@ -285,7 +285,8 @@ html[data-view='island'], html[data-view='island'] body, html[data-view='island'
 /* Settings → Island → Tools */
 .tool-order { display: flex; flex-direction: column; gap: 2px; }
 .tool-row { display: flex; gap: 10px; align-items: center; padding: 5px 8px; border-radius: 8px; background: var(--bg-sunk); }
-.tool-row.off { opacity: .55; }
+.tool-row.off { color: var(--text-2); }
+.tool-row.off svg { opacity: .55; }
 
 /* ---- Island+ (calls, ruler, usage ring, glow, shadow) */
 .isl-call { display: flex; flex-direction: column; gap: 4px; }
@@ -301,3 +302,5 @@ html[data-view='island'], html[data-view='island'] body, html[data-view='island'
 .isl-shadow.no-shadow .isl-shape { box-shadow: none !important; }
 .isl-shadow.glowing { filter: drop-shadow(0 0 10px var(--glow, transparent)) drop-shadow(0 6px 18px rgba(0, 0, 0, .3)); transition: filter .6s ease; }
 @media (prefers-reduced-motion: reduce) { .isl-shadow.glowing { transition: none; } }
+/* An alert inside the notch's right wing: a few words, never taller than the bar. */
+.isl .wing-title { max-width: calc(var(--wing, 120px) - 18px); font-size: 11.5px; font-weight: 600; margin-right: 4px; white-space: nowrap; }

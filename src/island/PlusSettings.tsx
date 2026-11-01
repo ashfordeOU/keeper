@@ -37,6 +37,17 @@ export function PlusSettings({ isl, set }: { isl: IslandSettings; set: (p: Parti
         </div>
       ) : null}
 
+      <h2 style={{ margin: '18px 0 8px' }}>Alerts</h2>
+      <div className="card settings-section">
+        <Row title="Alerts" desc="In the notch (or the pill), an alert shows as an icon and a few words for a moment; hover or click for the details. As a banner, it drops down below for a few seconds.">
+          <select className="input" data-testid="island-alert-style" value={isl.alertStyle ?? 'notch'} onChange={(e) => set({ alertStyle: e.target.value as 'notch' | 'banner' })}>
+            <option value="notch">In the notch (default)</option>
+            <option value="banner">As a banner below it</option>
+          </select>
+        </Row>
+        <Row title="Also show tips and findings" desc="Things like “Nothing is backed up” wait on the To do page and in the tray. Downloads, calls, timers, agents that need you and recordings always show."><Toggle on={!!isl.alertsInfo} onChange={(v) => set({ alertsInfo: v })} /></Row>
+      </div>
+
       <h2 style={{ margin: '18px 0 8px' }}>Calls, volume and brightness</h2>
       <div className="card settings-section">
         <Row title="Calls in the Island" desc={st ? `${st.calls.how} A timer and a mute button appear while a call app or a browser call uses the microphone.` : 'A timer and a mute button during calls.'}><Toggle on={feat('islandCalls')} onChange={(v) => setFeature('islandCalls', v)} /></Row>

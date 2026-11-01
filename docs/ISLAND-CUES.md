@@ -18,6 +18,16 @@ Every part is a switch in Settings → Features: `notifyMirror` (off by default)
 
 Deep links: `keeper://cue?text=…&attach=page,app` and `keeper://cues`.
 
+### The Island stays in the bar unless you open it
+
+On a notched Mac the Island lives in the notch. Cue banners, due cues, call and level changes, other apps' notifications, voice and agent states all show inside the menu bar's height: an icon and a short title in the notch's wings, or in the small hanging tab when the wings have no room. On Windows and Linux they show in the pill.
+
+The Island drops down over windows only when you hover over it, click it, use a shortcut, use the tray or drag a file onto it. *Settings → Island → Alerts* offers "in the notch" (the default) or "as a banner below it".
+
+Low-priority alerts never pop up by default; they wait on To do and in the tray. These include guide findings, general information and the low-disk warning.
+
+`core/island-expand.ts` holds the rule. `test/island-expand.test.ts` tests it, together with the open panel being centred on a simulated 220 × 38 pt notch. `test/e2e/cues.cjs` checks that a download alert leaves the Island window's height unchanged.
+
 ## Feature table
 
 Legend: **built** = works like the original; **better** = does more than the original; **partial** = works with limits (stated); **not possible** = blocked by the OS, explained.
@@ -39,7 +49,7 @@ Legend: **built** = works like the original; **better** = does more than the ori
 | Artwork glow, corners, shadow | built | built | built | The glow reads the artwork's colour when the image allows; otherwise it uses a soft default. |
 | Lyrics per player | built | built | built | "No lyrics for" list. |
 | Alt/Option-click hides for a minute | built | built | built | The time can be changed. |
-| Low-disk warning | built | built | built | Warns once below the threshold (default 10 GB) and again only after space recovers. Clean Up is one click. |
+| Low-disk warning | built | built | built | Warns once below the threshold (default 10 GB) and again only after space recovers. Clean Up is one click. It is a low-priority alert, so it shows in the Island only with *Also show tips and findings* on. |
 | Island entry to the tool launcher | built | built | built | The grid button calls MONITOR's launcher. It's hidden while the `toolLauncher` feature is off. |
 | Cues: types, places, times | better | better | partial | Note, checklist, link and file cues. Places: an app (name, bundle id, exe or WM_CLASS), a site, a page, a window title (project awareness from editor and design-tool titles, or `/regex/`) and a file. Times are typed in plain words ("tomorrow 9am", "every weekday"). The front window comes from fg-watch: the macOS JXA loop, the Windows PowerShell loop, or X11 `xprop -spy`. Pages come from the browser extension. On **Wayland** no app can see which window is in front, so app and title cues show only in the Island. Page and site cues still work through the extension. |
 | Cues: popup beside the app | built | built | built (X11) | It sits next to the front window's bounds (reported on macOS/Windows; `xwininfo` on X11), otherwise top-right of that screen. Shown without focus. Cool-down and "show once" options. |

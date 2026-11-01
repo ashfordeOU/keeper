@@ -376,6 +376,10 @@ export interface IslandSettings {
   /** focus: a long break after every N rounds, for this many minutes */
   longBreakEvery?: number;
   longBreakMin?: number;
+  /** alerts: inside the notch or pill (default), or as a banner dropping below it */
+  alertStyle?: 'notch' | 'banner';
+  /** also show low-priority alerts (guide findings, general information); otherwise they wait on To do and in the tray */
+  alertsInfo?: boolean;
 }
 
 export interface KeeperApi extends KeeperApiX {

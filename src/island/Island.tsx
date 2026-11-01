@@ -18,6 +18,8 @@ import { CuesTool } from './tools/CuesTool';
 import { FocusRuler, MediaModes, PlusAlertActions, UsagePin, useGlow } from './IslandPlus';
 import { agentName } from '../../core/island-agents';
 import { plusSetting } from '../../core/island-plus';
+import { alertIcon, alertPresentation, mayExpand, shortTitle } from '../../core/island-expand';
+import type { Activity } from '../../core/island-activities';
 import { VibesTool } from '../wallpaper/IslandVibes';
 import { ISLAND_TOOLS, moveTool, orderedTools, toggleTool, type IslandToolId } from '../../core/island-tools/tools';
 import { Leading, LiveCard, PrivacyDots, Trailing, useActivities, useGestures, useLayout } from './Activities';
@@ -63,6 +65,9 @@ export function Island() {
   const [tab, setTab] = useState<Tab>('home');
   const [now, setNow] = useState(Date.now());
   const [alert, setAlert] = useState<IslandAlert | null>(null);
+  // An alert shown inside the bar (the notch wings or the pill) that the person opened by hovering or clicking.
+  const [alertOpen, setAlertOpen] = useState(false);
+  const alertRules = useRef({ notch: false, alertStyle: 'notch' as 'notch' | 'banner', showInfo: false });
   const [listening, setListening] = useState<'off' | 'on' | 'working'>('off');
   const [level, setLevel] = useState<number[]>(Array(12).fill(2));
   const [custom, setCustom] = useState(15);
@@ -73,19 +78,27 @@ export function Island() {
   useEffect(() => {
     load();
     const off = api.on('island-changed', load);
-    const t = setInterval(() => setNow(Date.now()), 1000);
     const poll = setInterval(load, 15_000);
-    return () => { off(); clearInterval(t); clearInterval(poll); };
+    return () => { off(); clearInterval(poll); };
   }, [load]);
 
-  // New download / screenshot alerts open a banner for a few seconds.
+  // New alerts show for a few seconds. Time-sensitive ones only (core/island-expand.ts);
+  // they stay inside the bar (notch wings or pill) unless the person chose banners or opens them.
   useEffect(() => {
     const fresh = state?.alerts.find((a) => !seenAlerts.current.has(a.id));
     if (!fresh) return;
     seenAlerts.current.add(fresh.id);
+    const how = alertPresentation(fresh, alertRules.current);
+    if (how === 'hidden') return;
     setAlert(fresh);
-    api.island.setExpanded(true);
-    const t = setTimeout(() => { setAlert(null); if (!expanded) api.island.setExpanded(false); void api.island.dismiss(fresh.id); }, 6000);
+    setAlertOpen(false);
+    if (how === 'banner') api.island.setExpanded(true);
+    const t = setTimeout(() => {
+      setAlert(null);
+      setAlertOpen(false);
+      if (!expanded && how === 'banner') api.island.setExpanded(false);
+      void api.island.dismiss(fresh.id);
+    }, how === 'banner' ? 6000 : 5000);
     return () => clearTimeout(t);
   }, [state?.alerts, expanded]);
 
@@ -100,7 +113,8 @@ export function Island() {
     window.clearTimeout(closeTimer.current);
     closeTimer.current = window.setTimeout(() => {
       setMode('compact');
-      closeTimer.current = window.setTimeout(() => { if (!alert) api.island.setExpanded(false); }, 420);
+      setAlertOpen(false);
+      closeTimer.current = window.setTimeout(() => { if (!alert || alertRules.current.alertStyle !== 'banner') api.island.setExpanded(false); }, 420);
     }, delay);
   };
 
@@ -113,8 +127,8 @@ export function Island() {
         const show = s.island !== false;
         const next = !show || s.phase === 'idle' ? 'off' : s.phase === 'working' || s.phase === 'review' ? 'working' : 'on';
         setListening((prev) => {
-          if (prev === 'off' && next !== 'off') api.island.setExpanded(true);
-          if (prev !== 'off' && next === 'off') api.island.setExpanded(false);
+          // Listening shows in the bar (wings or pill); it never drops down over windows by itself.
+          if (prev === 'off' && next !== 'off' && mayExpand('voice', alertRules.current)) api.island.setExpanded(true);
           return next;
         });
         setVoiceText(show ? `${s.stable} ${s.pending}`.trim() : '');
@@ -141,6 +155,18 @@ export function Island() {
   }, []);
 
   const acts = useActivities(state, now, listening, isl?.activitiesOff ?? []);
+  // The clock ticks once a second only while something on show counts seconds (an open card or
+  // panel, an activity, a timer, a recording, Stage, keep-awake with an end); otherwise once a
+  // minute, on the minute, which is all the date and "in 5 min" need. Saves redrawing every second.
+  const everySecond = mode !== 'compact' || acts.all.length > 0 || !!state && (state.focus.mode !== 'idle' || !!state.recording || !!state.stage?.on || !!state.stage?.countdownEndsAt || (state.keepAwake.on && !!state.keepAwake.until));
+  useEffect(() => {
+    let t: number | undefined;
+    const next = () => (everySecond ? 1000 - (Date.now() % 1000) : 60_000 - (Date.now() % 60_000)) + 20;
+    const tick = () => { setNow(Date.now()); t = window.setTimeout(tick, next()); };
+    setNow(Date.now());
+    t = window.setTimeout(tick, next());
+    return () => window.clearTimeout(t);
+  }, [everySecond]);
   // A soft glow in the colour of the artwork while music plays (Settings → Island).
   const glow = useGlow(plusSetting(isl, 'glow') && state?.nowPlaying?.playing ? state.nowPlaying.artwork : undefined, !!(plusSetting(isl, 'glow') && state?.nowPlaying?.playing));
   // Focus sounds play only while a focus session is running (not during breaks or pauses).
@@ -162,7 +188,11 @@ export function Island() {
   const pillH = notch ? notchH : layout?.pill.height ?? 34;
   // No room beside the notch (menus or icons reach it): a small tab hangs below the notch instead.
   const hang = notch ? layout!.hang ?? 0 : 0;
-  const primary = acts.pres.primary;
+  alertRules.current = { notch, alertStyle: isl?.alertStyle ?? 'notch', showInfo: !!isl?.alertsInfo };
+  const inlineAlert = alert && !alertOpen && alertPresentation(alert, alertRules.current) === 'inline' ? alert : null;
+  // An inline alert takes the pill (or the notch's wings) for a moment: its icon and a short title.
+  const alertAct: Activity | undefined = inlineAlert ? { id: `alert-${inlineAlert.id}`, kind: 'alert', priority: 999, icon: alertIcon(inlineAlert.kind), title: shortTitle(inlineAlert.app ? `${inlineAlert.app}: ${inlineAlert.title}` : inlineAlert.title), color: '#ffd60a' } : undefined;
+  const primary = alertAct ?? acts.pres.primary;
   const secondary = acts.pres.secondary;
   const dotsOn = isl?.privacyDots !== false && (acts.dots.camera.length > 0 || acts.dots.mic.length > 0);
   // A Mac's notch with nothing going on: the Island is exactly the notch, invisible.
@@ -207,7 +237,7 @@ export function Island() {
   else if (state.keepAwake.on) liveText = <>☕ Staying awake{state.keepAwake.until ? <> · <b className="num">{mmss(state.keepAwake.until - now)}</b> left</> : null}</>;
   else if (state.weather && isl?.weather) liveText = <>{Math.round(state.weather.current.temp)}° {describeCode(state.weather.current.code).label}</>;
 
-  const view: 'compact' | 'alert' | 'live' | 'panel' = mode === 'panel' ? 'panel' : alert && mode === 'compact' ? 'alert' : mode === 'live' ? 'live' : 'compact';
+  const view: 'compact' | 'alert' | 'live' | 'panel' = mode === 'panel' ? 'panel' : alert && mode === 'compact' && (alertOpen || alertPresentation(alert, alertRules.current) === 'banner') ? 'alert' : mode === 'live' ? 'live' : 'compact';
   const live = mode === 'live' ? acts.all.find((a) => a.id === liveId) ?? primary : undefined;
   if (view === 'live' && !live) {
     // The activity ended while its card was open.
@@ -236,11 +266,18 @@ export function Island() {
       // Rests a moment before opening, so passing the pointer over the top of the screen does not open it.
       window.clearTimeout(hoverTimer.current);
       hoverTimer.current = window.setTimeout(() => {
-        if (primary) show('live', primary.id);
+        if (inlineAlert) openAlert();
+        else if (primary) show('live', primary.id);
         else show('panel');
       }, Math.max(0, isl?.hoverDelayMs ?? 250));
     } else window.clearTimeout(closeTimer.current);
   };
+  /** The person asked to see an inline alert in full: it drops down from the notch or pill now. */
+  function openAlert() {
+    window.clearTimeout(closeTimer.current);
+    api.island.setExpanded(true);
+    setAlertOpen(true);
+  }
   const cameraDot = isl?.cameraDot && layout?.cutout.kind === 'camera' && layout.anchor === 'edge';
 
   let content: React.ReactNode;
@@ -258,7 +295,7 @@ export function Island() {
           <div className="btn-row">
             <button className="btn sm" onClick={() => void api.files.open(alert.path!)}>Open</button>
             <button className="btn sm" onClick={() => void api.files.reveal(alert.path!)}>Show</button>
-            <button className="btn sm icon" title="Add to shelf" onClick={() => void api.island.addToShelf([alert.path!])}><Icon name="plus" size={12} /></button>
+            <button className="btn sm icon" title="Add to shelf" aria-label="Add to shelf" onClick={() => void api.island.addToShelf([alert.path!])}><Icon name="plus" size={12} /></button>
           </div>
         ) : null}
       </div>
@@ -285,7 +322,7 @@ export function Island() {
         <div className="cmp notch">
           <span className="wing l">{a ? <Leading a={a} /> : null}</span>
           <span className="cut" style={{ width: gap }} />
-          <span className="wing r">{trailing}{more}{isl?.privacyDots !== false ? <PrivacyDots dots={acts.dots} /> : null}</span>
+          <span className="wing r">{a?.kind === 'alert' ? <span className="wing-title ellipsis" data-testid="island-wing-alert">{a.title}</span> : null}{trailing}{more}{isl?.privacyDots !== false ? <PrivacyDots dots={acts.dots} /> : null}</span>
         </div>
       );
     } else {
@@ -326,14 +363,14 @@ export function Island() {
         <div className="tabs">
           {isl?.buddy !== false ? <span style={{ marginRight: 6, display: 'grid', placeItems: 'center' }}><Buddy mood={mood} /></span> : null}
           {tabs.map((t) => (
-            <button key={t.id} className={tab === t.id ? 'on' : ''} title={t.label} onClick={() => setTab(t.id)} onContextMenu={(e) => { e.preventDefault(); setTabMenu({ id: t.id, x: (e.currentTarget as HTMLElement).offsetLeft }); }}>
+            <button key={t.id} className={tab === t.id ? 'on' : ''} title={t.label} aria-label={t.badge ? `${t.label} (${t.badge})` : t.label} aria-pressed={tab === t.id} onClick={() => setTab(t.id)} onContextMenu={(e) => { e.preventDefault(); setTabMenu({ id: t.id, x: (e.currentTarget as HTMLElement).offsetLeft }); }}>
               <Icon name={t.icon} size={13} />{tabs.length <= 8 || tab === t.id ? <> {t.label}</> : null}{t.badge ? <span style={{ background: '#fbbf24', color: '#000', borderRadius: 8, padding: '0 5px', fontSize: 10 }}>{t.badge}</span> : null}
             </button>
           ))}
           <span style={{ flex: 1 }} />
-          {featureStates?.get('toolLauncher')?.on === false ? null : <button title="Tool launcher" data-testid="island-launcher-btn" onClick={() => void api.islandx?.openLauncher()}><Icon name="grid" size={13} /></button>}
-          {state.awakeAvailable === false ? null : <button title={state.keepAwake.on ? 'Stop keeping awake' : 'Keep awake'} className={state.keepAwake.on ? 'on' : ''} onClick={() => void api.island.keepAwake(!state.keepAwake.on).then(load)}><Icon name="coffee" size={13} /></button>}
-          {featureStates?.get('stage')?.on === false ? null : <button title={state.stage?.on ? 'Stop Stage' : 'Stage: a clean screen'} data-testid="island-stage-btn" className={state.stage?.on ? 'on' : ''} onClick={() => void (state.stage?.on ? api.stage.stop() : api.stage.toggle()).then(load)}><Icon name="eye" size={13} /></button>}
+          {featureStates?.get('toolLauncher')?.on === false ? null : <button title="Tool launcher" aria-label="Tool launcher" data-testid="island-launcher-btn" onClick={() => void api.islandx?.openLauncher()}><Icon name="grid" size={13} /></button>}
+          {state.awakeAvailable === false ? null : <button title={state.keepAwake.on ? 'Stop keeping awake' : 'Keep awake'} aria-label={state.keepAwake.on ? 'Stop keeping awake' : 'Keep awake'} className={state.keepAwake.on ? 'on' : ''} onClick={() => void api.island.keepAwake(!state.keepAwake.on).then(load)}><Icon name="coffee" size={13} /></button>}
+          {featureStates?.get('stage')?.on === false ? null : <button title={state.stage?.on ? 'Stop Stage' : 'Stage: a clean screen'} aria-label={state.stage?.on ? 'Stop Stage' : 'Stage: a clean screen'} data-testid="island-stage-btn" className={state.stage?.on ? 'on' : ''} onClick={() => void (state.stage?.on ? api.stage.stop() : api.stage.toggle()).then(load)}><Icon name="eye" size={13} /></button>}
         </div>
 
         {tabMenu ? (
@@ -368,9 +405,9 @@ export function Island() {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
                         <span className="muted small num">{formatDuration(np.position)}</span>
                         <div className="btn-row">
-                          <button className="btn sm icon" onClick={() => void api.island.media('previous').then(load)}><Icon name="prev" size={12} /></button>
-                          <button className="btn sm icon primary" onClick={() => void api.island.media('toggle').then(load)}><Icon name={np.playing ? 'pause' : 'play'} size={12} /></button>
-                          <button className="btn sm icon" onClick={() => void api.island.media('next').then(load)}><Icon name="next" size={12} /></button>
+                          <button aria-label="Previous track" title="Previous track" className="btn sm icon" onClick={() => void api.island.media('previous').then(load)}><Icon name="prev" size={12} /></button>
+                          <button aria-label="Play or pause" title="Play or pause" className="btn sm icon primary" onClick={() => void api.island.media('toggle').then(load)}><Icon name={np.playing ? 'pause' : 'play'} size={12} /></button>
+                          <button aria-label="Next track" title="Next track" className="btn sm icon" onClick={() => void api.island.media('next').then(load)}><Icon name="next" size={12} /></button>
                           <MediaModes np={np} reload={load} />
                         </div>
                         <span className="muted small num">{formatDuration(np.duration)}</span>
@@ -484,32 +521,43 @@ export function Island() {
   );
 
   const vars = {
-    '--notch-h': `${notchH}px`, '--gap': `${gap}px`, '--box-w': `${box.w}px`, '--box-h': `${box.h}px`, '--full-w': `${full.w}px`, '--full-h': `${full.h}px`, '--bubble': `${bubble}px`,
+    '--notch-h': `${notchH}px`, '--gap': `${gap}px`, '--box-w': `${box.w}px`, '--box-h': `${box.h}px`, '--full-w': `${full.w}px`, '--full-h': `${full.h}px`, '--bubble': `${bubble}px`, '--wing': `${layout?.wing || 120}px`,
   } as React.CSSProperties;
   return (
-    <div className={`isl-root edge-${edge} anchor-${layout?.anchor ?? 'edge'} view-${view} ${floating ? 'floating' : ''}`} style={vars}>
-      <div className={`isl-shadow ${plusSetting(isl, 'shadow') ? '' : 'no-shadow'} ${glow ? 'glowing' : ''}`} style={glow ? ({ '--glow': glow } as React.CSSProperties) : undefined}>
+    <div className={`isl-root edge-${edge} anchor-${layout?.anchor ?? 'edge'} view-${view} ${floating ? 'floating' : ''}`} style={vars} role="region" aria-label="Island">
+      {/* Alerts are read out by screen readers as they arrive, without taking focus. */}
+      <div className="sr-only" role="status" aria-live="assertive" aria-atomic="true">{view === 'alert' && alert ? [alert.app, alert.title, alert.detail].filter(Boolean).join('. ') : ''}</div>
+      <div aria-hidden className={`isl-shadow ${plusSetting(isl, 'shadow') ? '' : 'no-shadow'} ${glow ? 'glowing' : ''}`} style={glow ? ({ '--glow': glow } as React.CSSProperties) : undefined}>
         <div className="isl-shape" style={{ clipPath: clip }} />
       </div>
       <div
         className={`isl isl-content view-${view}`}
+        // Compact, the Island is one button: Enter or Space opens it, Escape closes it.
+        role={view === 'compact' ? 'button' : undefined}
+        tabIndex={view === 'compact' ? 0 : undefined}
+        aria-label={view === 'compact' ? (primary ? `${primary.title}: open` : 'Open the Island') : undefined}
+        onKeyDown={(e) => {
+          if (view === 'compact' && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); if (primary) show('live', primary.id); else show('panel'); }
+          else if (view !== 'compact' && e.key === 'Escape') collapse();
+        }}
         onMouseEnter={() => { api.island.setInteractive?.(true); enter(); }}
-        onMouseLeave={() => { if (view === 'compact') api.island.setInteractive?.(false); else collapse(); }}
+        onMouseLeave={() => { if (view === 'compact') api.island.setInteractive?.(false); else if (view === 'alert' && alertOpen) { setAlertOpen(false); api.island.setExpanded(false); } else collapse(); }}
         onClick={(e) => {
           if (view !== 'compact') return;
           // Alt/Option-click hides the Island for a minute (alerts still come back after).
           if (e.altKey) { void api.islandx?.hideFor(plusSetting(isl, 'altHideMinutes')); return; }
-          if (primary) show('live', primary.id); else show('panel');
+          if (inlineAlert) openAlert();
+          else if (primary) show('live', primary.id); else show('panel');
         }}
         onDragEnter={() => { show('panel'); setTab('shelf'); }}
         {...gestures}
       >
-        {notch ? <><i className="ear l" /><i className="ear r" /></> : null}
+        {notch ? <><i className="ear l" aria-hidden /><i className="ear r" aria-hidden /></> : null}
         <div key={view} className="isl-in">{content}</div>
       </div>
       {view === 'compact' && state.usagePin && !idleNotch ? <UsagePin pin={state.usagePin} /> : null}
       {bubble && view === 'compact' && secondary ? (
-        <button className="isl-bubble" title={secondary.title} onClick={() => show('live', secondary.id)} onMouseEnter={() => hover && show('live', secondary.id)}>
+        <button className="isl-bubble" title={secondary.title} aria-label={secondary.title} onClick={() => show('live', secondary.id)} onMouseEnter={() => hover && show('live', secondary.id)}>
           <Leading a={secondary} />
         </button>
       ) : null}

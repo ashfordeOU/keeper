@@ -11,7 +11,7 @@ import type { IslandState } from './api';
 export type ActivityKind =
   | 'dictation' | 'recording' | 'agent-waiting' | 'agent-stuck' | 'meeting' | 'charging' | 'battery-low' | 'timer'
   | 'progress' | 'music' | 'agent-working' | 'rain' | 'copied' | 'headphones' | 'awake' | 'unlocked' | 'paused-music' | 'sharing' | 'ai-control' | 'workspace' | 'remote' | 'mesh-exit'
-  | 'call' | 'level' | 'cue';
+  | 'call' | 'level' | 'cue' | 'alert';
 
 export interface Activity {
   id: string;
@@ -59,6 +59,8 @@ export const PRIORITY: Record<ActivityKind, number> = {
   sharing: 98,
   // Volume or brightness just changed: a moment's level beside the system's own pop-up.
   level: 97,
+  // A fresh alert shown inside the bar for a few seconds (core/island-expand.ts).
+  alert: 99,
   recording: 95,
   // A call: its timer and mute stay one tap away.
   call: 92,
