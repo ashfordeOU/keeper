@@ -1,0 +1,79 @@
+# SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
+# Commits pushed to the `incoming` branch are signed with Ashforde's commit-signing
+# key and then land on main, so every commit on main shows as Verified on GitHub.
+#
+#   COMMIT_SIGNING_KEY   repository secret: the private SSH key whose public half is
+#                        a Signing Key on the ashfordeOU account
+#
+# A push made with the workflow's own token does not start other workflows, so this
+# one starts CI itself, and the release when the version in package.json changed.
+name: Sign and land
+
+on:
+  push:
+    branches: [incoming]
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: sign-and-land
+  cancel-in-progress: false
+
+jobs:
+  land:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: incoming
+          fetch-depth: 0
+      - name: Sign the new commits and move main
+        id: land
+        env:
+          SIGNING_KEY: ${{ secrets.COMMIT_SIGNING_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "$SIGNING_KEY" ]; then
+            echo "::error::The COMMIT_SIGNING_KEY secret is not set: nothing was signed or landed."
+            exit 1
+          fi
+          key="$RUNNER_TEMP/signing_key"
+          install -m 600 /dev/null "$key"
+          printf '%s\n' "$SIGNING_KEY" > "$key"
+          git config user.name ashfordeOU
+          git config user.email 236818772+ashfordeOU@users.noreply.github.com
+          git config gpg.format ssh
+          git config user.signingkey "$key"
+          git config commit.gpgsign true
+          git fetch origin main
+          old="$(git rev-parse origin/main)"
+          if [ "$(git rev-parse HEAD)" = "$old" ]; then
+            echo "incoming is main already; nothing to land."
+            echo "landed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! git merge-base --is-ancestor "$old" HEAD; then
+            echo "::error::incoming does not build on main ($old); rebase it onto main and push again."
+            exit 1
+          fi
+          # Re-create each new commit with a signature; authors, dates and messages stay as they were.
+          git rebase --force-rebase --exec 'git commit --amend --no-edit --no-verify -S' "$old"
+          git log --format='%h %G? %an %s' "$old..HEAD"
+          git push origin HEAD:main
+          # Keep incoming equal to main, so the next push builds on the signed commits.
+          git push --force origin HEAD:incoming
+          rm -f "$key"
+          echo "landed=true" >> "$GITHUB_OUTPUT"
+          if git diff "$old" HEAD -- package.json | grep -q '^+  "version"'; then echo "release=true" >> "$GITHUB_OUTPUT"; else echo "release=false" >> "$GITHUB_OUTPUT"; fi
+      - name: Start CI on main
+        if: steps.land.outputs.landed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run ci.yml --ref main --repo "$GITHUB_REPOSITORY"
+      - name: Start the release (the version changed)
+        if: steps.land.outputs.release == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run release.yml --ref main --repo "$GITHUB_REPOSITORY"
