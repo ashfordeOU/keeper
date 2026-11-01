@@ -13,8 +13,9 @@ import { api } from '../api';
 import { openNative } from '../lib/native';
 import { Icon } from '../components/Icon';
 import { ClipboardTab, ControlsTab, ShelfTab } from './IslandTabs';
-import { AskTool, CalendarTool, ConvertTool, EmojiTool, FocusExtras, MirrorTool, NotesTool, SalesTool, ShortcutsTool, StocksTool, SystemTool, TodosTool, UsageTool, WeatherTool, useFocusSound, useToolsStore } from './tools/IslandTools';
+import { AskTool, CalendarTool, ConvertTool, EmojiTool, FocusExtras, MirrorTool, NotesTool, SalesTool, ShortcutsTool, StocksTool, SystemTool, UsageTool, WeatherTool, useFocusSound, useToolsStore } from './tools/IslandTools';
 import { TeleprompterTool } from './tools/Teleprompter';
+import { InsightsTool, TasksTool, WeekTool } from './tools/IslandPlanner';
 import { CuesTool } from './tools/CuesTool';
 import { FocusRuler, MediaModes, PlusAlertActions, UsagePin, useGlow } from './IslandPlus';
 import { agentName } from '../../core/island-agents';
@@ -23,7 +24,7 @@ import { alertIcon, alertPresentation, mayExpand, shortTitle } from '../../core/
 import type { Activity } from '../../core/island-activities';
 import { VibesTool } from '../wallpaper/IslandVibes';
 import { ISLAND_TOOLS, moveTool, orderedTools, toggleTool, type IslandToolId } from '../../core/island-tools/tools';
-import { Leading, LiveCard, PrivacyDots, Trailing, useActivities, useGestures, useLayout } from './Activities';
+import { chime, Leading, LiveCard, PrivacyDots, Trailing, useActivities, useGestures, useLayout } from './Activities';
 import { useFeatureStates } from '../features';
 import { useStore } from '../state';
 import '../styles/island.css';
@@ -142,9 +143,12 @@ export function Island() {
     return () => offs.forEach((f) => f());
   }, []);
 
-  // The shelf shortcut (and the tray) open a tab directly.
+  // The shelf shortcut (and the tray) open a tab directly; "reminders:new" (the New task shortcut) focuses the composer.
+  const [composeKey, setComposeKey] = useState(0);
   useEffect(() => api.on('island-open', (t: string) => {
-    setTab((ISLAND_TOOLS.some((x) => x.id === t) ? t : 'home') as Tab);
+    const [id, then] = t.split(':');
+    setTab((ISLAND_TOOLS.some((x) => x.id === id) ? id : 'home') as Tab);
+    if (then === 'new') setComposeKey(Date.now());
     show('panel');
   }), []);
 
@@ -159,6 +163,14 @@ export function Island() {
   }, []);
 
   const acts = useActivities(state, now, listening, isl?.activitiesOff ?? []);
+  // A reminder coming due chimes once (it then waits in the Island until Done or Snooze).
+  const rung = useRef(new Set<string>());
+  useEffect(() => {
+    const due = state?.dueReminders ?? [];
+    const fresh = due.filter((r) => !rung.current.has(`${r.id}:${r.at}`));
+    for (const r of due) rung.current.add(`${r.id}:${r.at}`);
+    if (fresh.length && !(isl?.activitiesOff ?? []).includes('reminder')) chime();
+  }, [state?.dueReminders, isl?.activitiesOff]);
   // The clock ticks once a second only while something on show counts seconds (an open card or
   // panel, an activity, a timer, a recording, Stage, keep-awake with an end); otherwise once a
   // minute, on the minute, which is all the date and "in 5 min" need. Saves redrawing every second.
@@ -364,7 +376,7 @@ export function Island() {
   const lyricIdx = np && state.lyrics ? lineAt(state.lyrics, np.position) : -1;
 
   if (view === 'panel') content = (
-      <div className="isl-panel" onDragOver={(e) => { e.preventDefault(); if (tab !== 'shelf') setTab('shelf'); }}>
+      <div className="isl-panel" onDragOver={(e) => { if (!e.dataTransfer.types.includes('Files')) return; e.preventDefault(); if (tab !== 'shelf') setTab('shelf'); }}>
         <div className="tabs">
           {isl?.buddy !== false ? <span style={{ marginRight: 6, display: 'grid', placeItems: 'center' }}><Buddy mood={mood} /></span> : null}
           {tabs.map((t) => (
@@ -464,7 +476,9 @@ export function Island() {
           {tab === 'convert' ? <ConvertTool /> : null}
           {tab === 'shortcuts' ? <ShortcutsTool /> : null}
           {tools && tab === 'stocks' ? <StocksTool store={tools} save={saveTools} /> : null}
-          {tools && tab === 'reminders' ? <TodosTool store={tools} save={saveTools} /> : null}
+          {tab === 'reminders' ? <TasksTool composeKey={composeKey} /> : null}
+          {tab === 'week' ? <WeekTool /> : null}
+          {tab === 'insights' ? <InsightsTool /> : null}
           {tools && tab === 'notes' ? <NotesTool store={tools} save={saveTools} /> : null}
           {tools && tab === 'emoji' ? <EmojiTool store={tools} save={saveTools} /> : null}
           {tools && tab === 'prompter' ? <TeleprompterTool store={tools} save={saveTools} /> : null}
@@ -554,7 +568,7 @@ export function Island() {
           if (inlineAlert) openAlert();
           else if (primary) show('live', primary.id); else show('panel');
         }}
-        onDragEnter={() => { show('panel'); setTab('shelf'); }}
+        onDragEnter={(e) => { if (!e.dataTransfer.types.includes('Files')) return; show('panel'); setTab('shelf'); }}
         {...gestures}
       >
         {notch ? <><i className="ear l" aria-hidden /><i className="ear r" aria-hidden /></> : null}

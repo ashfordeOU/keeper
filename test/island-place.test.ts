@@ -319,6 +319,19 @@ describe('Island activities', () => {
     expect(present(activitiesFrom(base(), NOW), NOW)).toEqual({ primary: undefined, secondary: undefined, more: 0 });
   });
 
+  it('a due reminder takes the pill over music and waits there; an update is quiet', () => {
+    const s = base({
+      nowPlaying: { app: 'Music', title: 'Song', artist: 'Band', playing: true, position: 0, duration: 100 },
+      dueReminders: [{ id: 'local:1', title: 'Call the bank', at: NOW - 5 * 60_000 }],
+    });
+    const p = present(activitiesFrom(s, NOW, { updateReady: '1.2.0' }), NOW);
+    expect(p.primary).toMatchObject({ kind: 'reminder', title: 'Call the bank', ref: 'local:1', trailing: '!' });
+    expect(p.secondary?.kind).toBe('music');
+    expect(p.more).toBe(1);
+    expect(activitiesFrom(s, NOW, { off: ['reminder'] }).some((a) => a.kind === 'reminder')).toBe(false);
+    expect(activitiesFrom(base(), NOW, { updateReady: '1.2.0' })[0]).toMatchObject({ kind: 'update', title: 'Keeper 1.2.0 is ready' });
+  });
+
   it('music alone takes the pill with a waveform', () => {
     const p = present(activitiesFrom(base({ nowPlaying: { app: 'Music', title: 'Song', artist: 'Band', playing: true, position: 30_000, duration: 120_000 } }), NOW), NOW);
     expect(p.primary?.kind).toBe('music');

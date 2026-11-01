@@ -16,7 +16,7 @@ describe('when the Island may drop down over windows', () => {
     expect(mayExpand('voice', { notch: true, alertStyle: 'banner' })).toBe(false);
   });
   it('time-sensitive alerts show; guide findings and general information wait on To do', () => {
-    for (const k of ['download', 'screenshot', 'focus', 'agent', 'battery', 'call', 'cue', 'notification'] as const) expect(alertWorthShowing({ kind: k }), k).toBe(true);
+    for (const k of ['download', 'screenshot', 'focus', 'agent', 'battery', 'call', 'cue', 'notification', 'reminder', 'update'] as const) expect(alertWorthShowing({ kind: k }), k).toBe(true);
     expect(alertWorthShowing({ kind: 'info' })).toBe(false);
     expect(alertWorthShowing({ kind: 'disk' })).toBe(false);
     expect(alertWorthShowing({ kind: 'info' }, { showInfo: true })).toBe(true);

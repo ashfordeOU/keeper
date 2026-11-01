@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
-// The Island's tools: Ask, AI usage, sales, stocks, to-dos, notes, weather,
+// The Island's tools: Ask, AI usage, sales, stocks, notes, weather,
 // system, converter, emoji, shortcuts, calendar and the extras for timers,
 // the shelf and the mirror. Each samples only while it is on screen.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { IslandState } from '../../../core/api';
-import type { IslandShortcut, MacReminder, SalesConfigView } from '../../../core/api-island-tools';
+import type { IslandShortcut, SalesConfigView } from '../../../core/api-island-tools';
 import { addRecent, buildIndex, GROUPS, searchEmoji, TONES, withTone, type EmojiEntry } from '../../../core/island-tools/emoji';
-import { noteTitle, searchNotes, sortTodos, upsert, type IslandToolsStore, type QuickNote, type Todo } from '../../../core/island-tools/notes';
+import { noteTitle, searchNotes, upsert, type IslandToolsStore, type QuickNote } from '../../../core/island-tools/notes';
 import type { SalesSummary } from '../../../core/island-tools/sales';
 import { parseWatchlist, sparkPath, type Point, type Quote } from '../../../core/island-tools/stocks';
 import { answer, type Rates } from '../../../core/island-tools/units';
@@ -15,7 +15,7 @@ import { formatTokens, warnLevel, type UsageReport, type UsageTool } from '../..
 import { agendaFor, countdown, inIsland, islandAgenda, type AgendaItem } from '../../../core/pim/agenda';
 import { parseQuickAdd } from '../../../core/pim/quickadd';
 import type { SystemAccess } from '../../../core/pim/syscal';
-import type { CalendarInfo, Occurrence, Reminder } from '../../../core/pim/types';
+import type { CalendarInfo, Occurrence } from '../../../core/pim/types';
 import { describeCode } from '../../../core/weather';
 import { formatBytes } from '../../../core/format';
 import { api } from '../../api';
@@ -268,56 +268,6 @@ export function StocksTool({ store, save }: { store: IslandToolsStore; save: (p:
       {open && chart.length > 1 ? <svg className="spark big" viewBox="0 0 400 70" preserveAspectRatio="none"><path d={sparkPath(chart.map((p) => p.v), 400, 68)} /></svg> : open ? <div className="muted small">{hasKey || /BTC|ETH|SOL/.test(open) ? 'Loading the chart…' : 'Intraday charts need a free Twelve Data key (Edit).'}</div> : null}
       {errors.map((e) => <div key={e} className="small muted">{e}</div>)}
       <button className="btn sm" onClick={() => setEdit(!edit)}><Icon name="settings" size={11} /> Edit list</button>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------- To-dos and reminders
-
-export function TodosTool({ store, save }: { store: IslandToolsStore; save: (p: Partial<IslandToolsStore>) => void }) {
-  const [text, setText] = useState('');
-  const [reminders, setReminders] = useState<Reminder[]>([]);
-  const loadReminders = useCallback(() => { void api.pim?.reminders?.().then((r) => setReminders(r.filter((x) => !x.done || (x.doneAt ?? 0) > Date.now() - 3600_000))).catch(() => setReminders([])); }, []);
-  useWhileVisible(loadReminders, 60_000);
-  // The Mac's Reminders app, through EventKit (empty elsewhere).
-  const [macRem, setMacRem] = useState<MacReminder[]>([]);
-  const loadMac = useCallback(() => { void api.islandTools?.macReminders?.().then(setMacRem).catch(() => setMacRem([])); }, []);
-  useWhileVisible(loadMac, 60_000);
-  const todos = sortTodos(store.todos);
-  const setTodo = (t: Todo) => save({ todos: upsert(store.todos, t) });
-  const add = () => {
-    if (!text.trim()) return;
-    save({ todos: [{ id: uid(), text: text.trim(), done: false, starred: false, created: Date.now() }, ...store.todos] });
-    setText('');
-  };
-  return (
-    <div className="itool todos">
-      <div className="row-x"><input className="input" placeholder="Add a to-do and press Return" value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') add(); }} /></div>
-      {todos.map((t) => (
-        <div key={t.id} className={`todo ${t.done ? 'done' : ''}`}>
-          <input type="checkbox" checked={t.done} onChange={(e) => setTodo({ ...t, done: e.target.checked, doneAt: e.target.checked ? Date.now() : undefined })} />
-          <span className="grow">{t.text}</span>
-          <button className={`btn sm icon ${t.starred ? 'star-on' : ''}`} title={t.starred ? 'Unstar' : 'Star'} onClick={() => setTodo({ ...t, starred: !t.starred })}><Icon name="star" size={11} /></button>
-          <button className="btn sm icon" title="Delete" onClick={() => save({ todos: store.todos.filter((x) => x.id !== t.id) })}><Icon name="close" size={10} /></button>
-        </div>
-      ))}
-      {reminders.length ? <div className="muted small" style={{ marginTop: 6 }}>Reminders</div> : null}
-      {reminders.map((r) => (
-        <div key={r.id} className={`todo ${r.done ? 'done' : ''}`}>
-          <input type="checkbox" checked={r.done} onChange={(e) => void api.pim.saveReminder({ ...r, done: e.target.checked, doneAt: e.target.checked ? Date.now() : undefined }).then(loadReminders)} />
-          <span className="grow">{r.title}</span>
-          {r.due ? <span className="muted small">{new Date(r.due).toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' })}</span> : null}
-        </div>
-      ))}
-      {macRem.length ? <div className="muted small" style={{ marginTop: 6 }}>Reminders on this Mac</div> : null}
-      {macRem.map((r) => (
-        <div key={`mac:${r.id}`} className={`todo ${r.done ? 'done' : ''}`}>
-          <input type="checkbox" checked={r.done} onChange={(e) => { const done = e.target.checked; setMacRem((l) => l.map((x) => (x.id === r.id ? { ...x, done } : x))); void api.islandTools.setMacReminder(r.id, done).then((ok) => { if (!ok) loadMac(); }); }} />
-          <span className="grow">{r.title}</span>
-          {r.list ? <span className="muted small">{r.list}</span> : null}
-          {r.due ? <span className="muted small">{new Date(r.due).toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' })}</span> : null}
-        </div>
-      ))}
     </div>
   );
 }

@@ -12,7 +12,7 @@ import { countdownShort } from './pim/agenda';
 export type ActivityKind =
   | 'dictation' | 'recording' | 'agent-waiting' | 'agent-stuck' | 'meeting' | 'charging' | 'battery-low' | 'timer'
   | 'progress' | 'music' | 'agent-working' | 'rain' | 'copied' | 'headphones' | 'awake' | 'unlocked' | 'paused-music' | 'sharing' | 'ai-control' | 'workspace' | 'remote' | 'mesh-exit'
-  | 'call' | 'level' | 'cue' | 'alert';
+  | 'call' | 'level' | 'cue' | 'alert' | 'reminder' | 'update';
 
 export interface Activity {
   id: string;
@@ -63,6 +63,8 @@ export const PRIORITY: Record<ActivityKind, number> = {
   // A fresh alert shown inside the bar for a few seconds (core/island-expand.ts).
   alert: 99,
   recording: 95,
+  // A task is due: it stays until Done or Snooze (core/pim/tasks.ts).
+  reminder: 93,
   // A call: its timer and mute stay one tap away.
   call: 92,
   // Watching another device, or a help code waiting: Stop one tap away.
@@ -88,6 +90,8 @@ export const PRIORITY: Record<ActivityKind, number> = {
   // Monorail moved to another workspace: a quick note, never in the way.
   workspace: 26,
   'paused-music': 20,
+  // A Keeper update is downloaded and installs on restart: quiet, never in the way.
+  update: 22,
 };
 
 const mmss = (ms: number) => {
@@ -122,6 +126,8 @@ export interface ExtraInputs {
   off?: string[];
   /** a meeting Voice is recording (core/voice) */
   meetingRec?: { title: string; elapsedMs: number; paused: boolean; last?: string };
+  /** a Keeper update downloaded and ready to install (its version) */
+  updateReady?: string;
 }
 
 /** Ongoing activities from the Island's state. */
@@ -141,6 +147,11 @@ export function activitiesFrom(s: IslandState, now: number, x: ExtraInputs = {})
     const h = s.hud;
     add({ id: `level-${h.kind}`, kind: 'level', icon: h.kind === 'brightness' ? 'sun' : h.kind === 'mic' ? 'mic' : 'audio', title: `${h.kind === 'brightness' ? 'Brightness' : 'Volume'}${h.muted ? ' muted' : ''}`, trailing: h.muted ? 'off' : `${h.value}%`, progress: h.muted ? 0 : h.value / 100, color: h.kind === 'brightness' ? '#ffd60a' : '#0a84ff', until: h.at + 1800, since: h.at });
   }
+  for (const r of s.dueReminders ?? []) {
+    const late = now - r.at > 60_000;
+    add({ id: `reminder-${r.id}`, kind: 'reminder', icon: 'listCheck', title: r.title, detail: late ? `Due ${new Date(r.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : 'Due now', trailing: late ? '!' : 'now', color: '#bf5af2', since: r.at, ref: r.id });
+  }
+  if (x.updateReady) add({ id: 'update', kind: 'update', icon: 'down', title: `Keeper ${x.updateReady} is ready`, detail: 'Installs when Keeper restarts', trailing: 'new', color: '#30d158', ref: x.updateReady });
   if (s.cueHere) add({ id: `cue-${s.cueHere.id}`, kind: 'cue', icon: 'pin', title: s.cueHere.title, detail: s.cueHere.count > 1 ? `${s.cueHere.count} cues here` : 'A cue for this place', trailing: s.cueHere.count > 1 ? String(s.cueHere.count) : undefined, color: '#ff9f0a', ref: s.cueHere.id });
 
   for (const a of s.agents) {

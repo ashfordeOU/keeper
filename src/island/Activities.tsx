@@ -70,6 +70,40 @@ function useSharing(): NonNullable<ExtraInputs['sharing']> {
   return list;
 }
 
+/** A Keeper update downloaded and ready (the updater says so when it changes; nothing is asked on a timer). */
+function useUpdateReady(): string | undefined {
+  const [v, setV] = useState<string | undefined>();
+  useEffect(() => {
+    const apply = (s?: { state?: string; version?: string } | null) => setV(s?.state === 'ready' ? s.version ?? 'A new version' : undefined);
+    void api.appInfo?.updateStatus?.().then(apply).catch(() => undefined);
+    return api.on('update-status' as 'navigate', apply as never);
+  }, []);
+  return v;
+}
+
+/** A soft three-note chime when a reminder comes due (made on the spot, no sound files). */
+export function chime() {
+  try {
+    const ctx = new AudioContext();
+    let t = ctx.currentTime;
+    for (const f of [784, 988, 1175]) {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.2, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+      o.connect(g).connect(ctx.destination);
+      o.start(t);
+      o.stop(t + 0.4);
+      t += 0.22;
+    }
+    window.setTimeout(() => void ctx.close(), 1500);
+  } catch {
+    /* no audio here */
+  }
+}
+
 /** Voice: the meeting being recorded (its clock runs here between updates). */
 function useVoiceMeeting(now: number): ExtraInputs['meetingRec'] {
   const [m, setM] = useState<{ title: string; elapsedMs: number; paused: boolean; last?: string; at: number } | null>(null);
@@ -135,6 +169,7 @@ export function useActivities(state: IslandState | null, now: number, dictation:
   const aiControl = useAiControl();
   const remote = useRemoteActivities();
   const meetingRec = useVoiceMeeting(now);
+  const updateReady = useUpdateReady();
   const prev = useRef<IslandState | null>(null);
   const [transient, setTransient] = useState<Activity[]>([]);
 
@@ -153,11 +188,11 @@ export function useActivities(state: IslandState | null, now: number, dictation:
   return useMemo(() => {
     if (!state) return { pres: { more: 0 }, all: [], dots: { camera: [], mic: [] }, unlocked: [] };
     const all = [
-      ...activitiesFrom(state, now, { dictation: dictation === 'off' ? undefined : dictation, jobs, unlocked: unlocked.count, sharing, meshExit, aiControl, remote, off, meetingRec }),
+      ...activitiesFrom(state, now, { dictation: dictation === 'off' ? undefined : dictation, jobs, unlocked: unlocked.count, sharing, meshExit, aiControl, remote, off, meetingRec, updateReady }),
       ...transient.filter((a) => !off.includes(a.kind)),
     ];
     return { pres: present(all, now), all, dots: { camera: state.camInUse ?? [], mic: state.micInUse ?? [] }, unlocked: unlocked.folders };
-  }, [state, now, dictation, jobs, unlocked, sharing, meshExit, aiControl, remote, transient, off, meetingRec]);
+  }, [state, now, dictation, jobs, unlocked, sharing, meshExit, aiControl, remote, transient, off, meetingRec, updateReady]);
 }
 
 // ---------------------------------------------------------------- glyphs
@@ -295,6 +330,22 @@ export function LiveCard({ a, state, now, unlocked, onMore, reload }: { a: Activ
         <button className="btn sm" onClick={() => void api.awake.extend(15).then(reload)}>+15 min</button>
         <button className="btn sm" onClick={() => void api.awake.extend(60).then(reload)}>+1 h</button>
         <button className="btn sm" onClick={() => void api.island.keepAwake(false).then(reload)}>Stop keeping awake</button>
+      </>
+    );
+  } else if (a.kind === 'reminder' && a.ref) {
+    body = <div><b className="ellipsis block">{a.title}</b><div className="muted small">{a.detail}</div></div>;
+    actions = (
+      <>
+        <button className="btn sm" data-testid="reminder-snooze" onClick={() => void api.pim.snoozeReminder(a.ref!, 5).then(reload)}><Icon name="alarm" size={12} /> Snooze 5 min</button>
+        <button className="btn sm primary" data-testid="reminder-done" onClick={() => void api.pim.completeReminder(a.ref!, true).then(reload)}><Icon name="check" size={12} /> Done</button>
+      </>
+    );
+  } else if (a.kind === 'update') {
+    body = <div className="muted small">{a.detail}</div>;
+    actions = (
+      <>
+        <button className="btn sm primary" onClick={() => void api.appInfo.installUpdate()}>Restart and update</button>
+        <button className="btn sm" onClick={() => void api.appInfo.scheduleUpdate('quit').then(reload).catch(() => undefined)}>When I quit</button>
       </>
     );
   } else if (a.kind === 'ai-control') {
