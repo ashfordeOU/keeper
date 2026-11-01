@@ -659,8 +659,9 @@ export class IslandService {
 
   // ---------------------------------------------------------------- devices, visibility, mirrored notifications
 
-  async refreshDevices(): Promise<DevicesState> {
-    this.devices = await devicesState();
+  /** `fresh`: asked by the person (the Island's refresh), so nothing cached is reused. */
+  async refreshDevices(fresh = false): Promise<DevicesState> {
+    this.devices = await devicesState({ fresh });
     this.emit();
     return this.devices;
   }

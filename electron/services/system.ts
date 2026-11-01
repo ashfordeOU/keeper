@@ -77,16 +77,22 @@ async function processes(): Promise<HealthReport['processes']> {
     .slice(0, 25);
 }
 
+let macBatteryDetail: { at: number; cycles?: number; health?: number } | undefined;
+
 async function battery(): Promise<HealthReport['battery']> {
   if (process.platform === 'darwin') {
     const r = await run('/usr/bin/pmset', ['-g', 'batt'], 5000);
     const m = r.stdout.match(/(\d+)%;\s*(\w[\w ]*);/);
     if (!m) return undefined;
-    const prof = await run('/usr/sbin/ioreg', ['-rn', 'AppleSmartBattery'], 5000);
-    const num = (k: string) => Number(prof.stdout.match(new RegExp(`"${k}" = (\\d+)`))?.[1]);
-    const design = num('DesignCapacity');
-    const max = num('AppleRawMaxCapacity') || num('NominalChargeCapacity');
-    return { percent: +m[1], charging: /charging|charged|finishing/i.test(m[2]) && !/discharging/i.test(m[2]), cycles: num('CycleCount') || undefined, health: design && max ? Math.round((max / design) * 100) : undefined };
+    // Cycles and health change over weeks; the history samples every minute, so ioreg runs at most every half hour.
+    if (!macBatteryDetail || Date.now() - macBatteryDetail.at > 30 * 60_000) {
+      const prof = await run('/usr/sbin/ioreg', ['-rn', 'AppleSmartBattery'], 5000);
+      const num = (k: string) => Number(prof.stdout.match(new RegExp(`"${k}" = (\\d+)`))?.[1]);
+      const design = num('DesignCapacity');
+      const max = num('AppleRawMaxCapacity') || num('NominalChargeCapacity');
+      macBatteryDetail = { at: Date.now(), cycles: num('CycleCount') || undefined, health: design && max ? Math.round((max / design) * 100) : undefined };
+    }
+    return { percent: +m[1], charging: /charging|charged|finishing/i.test(m[2]) && !/discharging/i.test(m[2]), cycles: macBatteryDetail.cycles, health: macBatteryDetail.health };
   }
   if (process.platform === 'win32') {
     const r = await powershell('Get-CimInstance Win32_Battery | Select-Object EstimatedChargeRemaining,BatteryStatus | ConvertTo-Json -Compress', 10_000);

@@ -60,14 +60,40 @@ interface MacScreens {
   menuRight?: number;
 }
 
+let macModel: string | undefined;
+
+/**
+ * The measurement, from keeper-helper (already running; no new program) or,
+ * without it, one osascript run. Asked at start, when screens change and when
+ * another app comes to the front, so the cheap way matters.
+ */
+async function measureMac(): Promise<MacScreens | null> {
+  try {
+    const { helperPath, macHelperCall } = await import('./platform/mac');
+    if (helperPath()) return await macHelperCall<MacScreens>('place.measure', {}, 4000);
+  } catch {
+    /* an older helper without place.measure: ask the old way */
+  }
+  const r = await run('/usr/bin/osascript', ['-l', 'JavaScript', '-e', MAC_SCRIPT], 6000);
+  if (!r.ok) return null;
+  try {
+    return JSON.parse(r.stdout.trim()) as MacScreens;
+  } catch {
+    return null;
+  }
+}
+
 async function readMac(): Promise<Partial<PlaceEnv>> {
   const out: Partial<PlaceEnv> = {};
-  const model = await run('/usr/sbin/sysctl', ['-n', 'hw.model'], 3000);
-  if (model.ok) out.macModel = model.stdout.trim();
-  const r = await run('/usr/bin/osascript', ['-l', 'JavaScript', '-e', MAC_SCRIPT], 6000);
-  if (r.ok) {
+  // The model never changes while Keeper runs: one sysctl, once.
+  if (macModel === undefined) {
+    const model = await run('/usr/sbin/sysctl', ['-n', 'hw.model'], 3000);
+    if (model.ok) macModel = model.stdout.trim();
+  }
+  if (macModel) out.macModel = macModel;
+  const m = await measureMac();
+  if (m) {
     try {
-      const m = JSON.parse(r.stdout.trim()) as MacScreens;
       out.notchRects = {};
       for (const s of m.screens) if (s.notch && s.notch.width > 0) out.notchRects[s.id] = { x: s.notch.x, y: 0, width: s.notch.width, height: s.notch.height };
       // Keeper's own Island windows sit on layer 25 too; leave them out.

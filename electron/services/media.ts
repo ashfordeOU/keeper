@@ -40,9 +40,29 @@ $p = Await ($s.TryGetMediaPropertiesAsync()) ([Windows.Media.Control.GlobalSyste
 $i = $s.GetPlaybackInfo(); $tl = $s.GetTimelineProperties()
 @{ app=$s.SourceAppUserModelId; title=$p.Title; artist=$p.Artist; album=$p.AlbumTitle; status=$i.PlaybackStatus.ToString(); pos=$tl.Position.TotalSeconds; dur=$tl.EndTime.TotalSeconds; sh=$i.IsShuffleActive; rp=[string]$i.AutoRepeatMode; canSh=$i.Controls.IsShuffleEnabled } | ConvertTo-Json -Compress`;
 
+const MAC_PLAYERS: Record<string, string> = { 'com.spotify.client': 'Spotify', 'com.apple.Music': 'Music' };
+
+/**
+ * macOS: which players are open, asked of keeper-helper (no new program).
+ * Asked every 15 s while nothing plays; with neither player open no osascript
+ * starts at all. Without the helper, both are asked as before.
+ */
+async function macPlayersRunning(): Promise<string[]> {
+  try {
+    const { helperPath, macHelperCall } = await import('./platform/mac');
+    if (helperPath()) {
+      const r = await macHelperCall<{ running: string[] }>('apps.running', { bundles: Object.keys(MAC_PLAYERS) }, 3000);
+      if (Array.isArray(r?.running)) return ['Spotify', 'Music'].filter((a) => r.running.some((b) => MAC_PLAYERS[b] === a));
+    }
+  } catch {
+    /* an older helper: ask both players */
+  }
+  return ['Spotify', 'Music'];
+}
+
 export async function nowPlaying(): Promise<NowPlaying | undefined> {
   if (process.platform === 'darwin') {
-    for (const app of ['Spotify', 'Music']) {
+    for (const app of await macPlayersRunning()) {
       const r = await run('/usr/bin/osascript', ['-e', MAC_SCRIPT(app)], 4000);
       const parts = r.stdout.trim().split('\t');
       if (parts.length >= 6 && parts[0]) {

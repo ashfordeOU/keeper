@@ -3,7 +3,7 @@
 // and external monitors over DDC/CI), wireless-device batteries, and the
 // snapshot the automatic keep-awake rules look at.
 
-import { fullscreenNow } from './fg-watch';
+import { frontWatchRunning, frontWindow, fullscreenNow } from './fg-watch';
 import { powerMonitor, screen } from 'electron';
 import { existsSync, promises as fsp } from 'node:fs';
 import os from 'node:os';
@@ -53,6 +53,16 @@ public class KeeperAudio {
 
 export async function getVolume(): Promise<{ volume?: number; muted?: boolean }> {
   if (isMac) {
+    // keeper-helper reads Core Audio in its own process; osascript only without it.
+    try {
+      const { helperPath, macHelperCall } = await import('./platform/mac');
+      if (helperPath()) {
+        const h = await macHelperCall<{ volume?: number; muted?: boolean }>('hud.levels', {}, 3000);
+        if (typeof h?.volume === 'number') return { volume: Math.round(h.volume), muted: h.muted };
+      }
+    } catch {
+      /* ask the old way */
+    }
     const r = await run('/usr/bin/osascript', ['-e', 'get volume settings'], 4000);
     const v = r.stdout.match(/output volume:(\d+)/)?.[1];
     const m = r.stdout.match(/output muted:(true|false)/)?.[1];
@@ -217,8 +227,20 @@ export async function bluetoothBatteries(): Promise<DevicesState['bluetooth']> {
   return out.filter((d) => (seen.has(d.name) ? false : (seen.add(d.name), true)));
 }
 
-export async function devicesState(): Promise<DevicesState> {
-  const [vol, mon, bt] = await Promise.all([getVolume().catch(() => ({})), monitors().catch(() => ({ list: [], ddc: undefined })), bluetoothBatteries().catch(() => [])]);
+// Wireless batteries change slowly, and on macOS asking costs a system_profiler run (most of a
+// second of processor time) plus ioreg: the Island's regular look reuses the answer for 10 minutes.
+let btCache: { at: number; list: DevicesState['bluetooth'] } | undefined;
+const BT_MAX_AGE = 10 * 60_000;
+
+/** Volume, monitors and wireless batteries. `fresh` asks for the batteries again (the person pressed refresh). */
+export async function devicesState(o: { fresh?: boolean } = {}): Promise<DevicesState> {
+  const bluetooth = async () => {
+    if (!o.fresh && btCache && Date.now() - btCache.at < BT_MAX_AGE) return btCache.list;
+    const list = await bluetoothBatteries().catch(() => []);
+    btCache = { at: Date.now(), list };
+    return list;
+  };
+  const [vol, mon, bt] = await Promise.all([getVolume().catch(() => ({})), monitors().catch(() => ({ list: [], ddc: undefined })), bluetooth()]);
   return { ...vol, monitors: mon.list, ddc: mon.ddc, bluetooth: bt };
 }
 
@@ -335,6 +357,9 @@ if ($r.l -le $s.Left -and $r.t -le $s.Top -and $r.r -ge $s.Right -and $r.b -ge $
 /** The app in front right now (for clipboard "copied from"). */
 export async function frontmostApp(): Promise<string | undefined> {
   if (isMac) {
+    // The front-window watch (running for the Island's full-screen check) already knows; no osascript then.
+    const w = frontWatchRunning() ? frontWindow() : undefined;
+    if (w?.app) return w.app;
     const r = await run('/usr/bin/osascript', ['-e', 'tell application "System Events" to get name of first process whose frontmost is true'], 2000);
     return r.stdout.trim() || undefined;
   }

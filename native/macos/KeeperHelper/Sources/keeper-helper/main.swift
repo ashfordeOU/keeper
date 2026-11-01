@@ -12,7 +12,8 @@
 // input.status, input.request, input.move, input.button, input.wheel,
 // input.key, input.text. Permissions.swift adds permissions.status and
 // permissions.request (the Permissions screen). Extras.swift adds speech.transcribe, ddc.list,
-// ddc.get, ddc.set and translate; Calendar.swift the calendar.* methods.
+// ddc.get, ddc.set and translate; Calendar.swift the calendar.* methods; Front.swift
+// front.watch, front.now, place.measure and apps.running.
 
 import Foundation
 import Vision
@@ -539,6 +540,10 @@ func handle(id: Int, method: String, params: [String: Any]) async {
         case "calls.mute": Wire.shared.result(id, try callsMute(params))
         case "hud.levels": Wire.shared.result(id, hudLevels())
         case "hud.watch": try await hudWatch(id: id, params: params); Wire.shared.result(id, ["ended": true])
+        case "front.watch": try await frontWatch(id: id, params: params); Wire.shared.result(id, ["ended": true])
+        case "front.now": Wire.shared.result(id, frontNow() ?? [:])
+        case "place.measure": Wire.shared.result(id, placeMeasure())
+        case "apps.running": Wire.shared.result(id, appsRunning(params))
         case "desktop.setImage": Wire.shared.result(id, try desktopSetImage(params))
         case "desktop.getImage": Wire.shared.result(id, desktopGetImage())
         case "desktop.setFolderIcon": Wire.shared.result(id, try desktopSetFolderIcon(params))

@@ -63,6 +63,8 @@ function plistValue(xml: string, key: string): string | boolean | undefined {
   return m[2];
 }
 
+const diskInfo = new Map<string, Awaited<ReturnType<typeof run>>>();
+
 async function macDisks(): Promise<{ volumes: Place[]; network: Place[] }> {
   const mounts = parseMacMount((await run('/sbin/mount', [], 5000)).stdout);
   const images = new Set<string>();
@@ -70,8 +72,15 @@ async function macDisks(): Promise<{ volumes: Place[]; network: Place[] }> {
   const optical = new Set<string>();
   const labels = new Map<string, string>();
   const vols = mounts.filter((m) => m.mount === '/' || m.mount.startsWith('/Volumes/')).filter((m) => m.device.startsWith('/dev/'));
+  for (const k of [...diskInfo.keys()]) if (!vols.some((m) => `${m.device}\u0000${m.mount}` === k)) diskInfo.delete(k);
   await Promise.all(vols.map(async (m) => {
-    const r = await run('/usr/sbin/diskutil', ['info', '-plist', m.mount], 5000);
+    // A mounted volume's kind and name do not change: diskutil runs once per mount, not on every look.
+    const key = `${m.device}\u0000${m.mount}`;
+    let r = diskInfo.get(key);
+    if (!r) {
+      r = await run('/usr/sbin/diskutil', ['info', '-plist', m.mount], 5000);
+      if (r.ok) diskInfo.set(key, r);
+    }
     if (!r.ok) return;
     const proto = plistValue(r.stdout, 'BusProtocol') ?? plistValue(r.stdout, 'Protocol');
     if (proto === 'Disk Image' || plistValue(r.stdout, 'VirtualOrPhysical') === 'Virtual' && m.mount !== '/') images.add(m.mount);

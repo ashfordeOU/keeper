@@ -415,7 +415,7 @@ export function registerIslandIpc(c: IslandContext) {
   h('island.setVolume', (v: number) => svc.setVolume(v));
   h('island.setMuted', (m: boolean) => svc.setMuted(m));
   h('island.setBrightness', (id: string, v: number) => svc.setBrightness(id, v));
-  h('island.refreshDevices', () => svc.refreshDevices());
+  h('island.refreshDevices', () => svc.refreshDevices(true));
   h('island.awakeStatus', () => svc.awakeStatus());
 
   // Time left on a keep-awake session, next to the menu-bar icon (macOS).

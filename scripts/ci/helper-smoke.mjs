@@ -71,6 +71,16 @@ check(isObj(hud.result) && (hud.result.volume === undefined || typeof hud.result
 const notif = await call('notifications.status');
 check(typeof notif.result?.trusted === 'boolean' && typeof notif.result?.running === 'boolean', `notifications.status ${show(notif.result)}`);
 
+const place = await call('place.measure');
+check(Array.isArray(place.result?.screens) && place.result.screens.length > 0 && place.result.screens.every((x) => typeof x.id === 'number' && typeof x.width === 'number') && Array.isArray(place.result?.items), `place.measure ${show(place.result)}`);
+
+const running = await call('apps.running', { bundles: ['com.apple.finder', 'io.example.not-installed'] });
+check(Array.isArray(running.result?.running) && !running.result.running.includes('io.example.not-installed'), `apps.running ${show(running.result)}`);
+
+// A CI runner may have no app in front; the answer is then an empty object, never a hang.
+const frontNow = await call('front.now');
+check(isObj(frontNow.result) && (frontNow.result.pid === undefined || (typeof frontNow.result.pid === 'number' && typeof frontNow.result.fullscreen === 'boolean')), `front.now ${show(frontNow.result)}`);
+
 const wall = await call('desktop.getImage');
 check(isObj(wall.result) && 'path' in wall.result, `desktop.getImage ${show(wall.result)}`);
 

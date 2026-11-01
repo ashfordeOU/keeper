@@ -14,7 +14,7 @@ needs a real person at a real computer.
 |---|---|---|
 | Type checks, unit tests, full build, unpacked app | yes | yes |
 | `keeper-helper` (Swift) builds, universal | yes | |
-| `keeper-helper` answers every method that needs no permission ([scripts/ci/helper-smoke.mjs](../scripts/ci/helper-smoke.mjs)): `hello`, `language`, `ddc.list`, `stage.modes`, `stage.windows`, `stage.cursorSize`, `voice.focus`, `voice.micState`, `calls.micApps`, `calls.muted`, `hud.levels`, `notifications.status`, `desktop.getImage`, `input.status`, Live Text (`ocr`) on a drawn picture; methods that need a permission answer with a plain error instead of hanging; the helper exits when its input closes | yes | |
+| `keeper-helper` answers every method that needs no permission ([scripts/ci/helper-smoke.mjs](../scripts/ci/helper-smoke.mjs)): `hello`, `language`, `ddc.list`, `stage.modes`, `stage.windows`, `stage.cursorSize`, `voice.focus`, `voice.micState`, `calls.micApps`, `calls.muted`, `hud.levels`, `place.measure`, `apps.running`, `front.now`, `notifications.status`, `desktop.getImage`, `input.status`, Live Text (`ocr`) on a drawn picture; methods that need a permission answer with a plain error instead of hanging; the helper exits when its input closes | yes | |
 | `Keeper Intents.app` (Siri, Spotlight and Shortcuts actions) builds and has its App Intents metadata | yes | |
 | Every piece of C# Keeper compiles at run time compiles ([scripts/ci/csharp-sources.mjs](../scripts/ci/csharp-sources.mjs), [scripts/ci/compile-csharp.ps1](../scripts/ci/compile-csharp.ps1)) | | yes |
 

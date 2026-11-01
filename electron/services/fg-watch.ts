@@ -5,7 +5,10 @@
 // running and reports only when the answer changes:
 //
 //   Linux (X11)  xprop -spy on the active window and on its state
-//   macOS        one osascript (JavaScript) loop asking System Events every 2 s
+//   macOS        keeper-helper's front.watch (it is running anyway): reads the window list
+//                and Accessibility in its own process once a second and reports changes.
+//                Without the helper (or an older one), one osascript (JavaScript) loop
+//                asking System Events every 2 s, which costs far more
 //   Windows      one PowerShell loop; the window check is compiled once, not each time
 //
 // The helper stops when nobody has asked for half a minute (screen locked,
@@ -65,7 +68,7 @@ function setFront(w: Omit<FrontWindow, 'at'>) {
 export function holdFrontWatch(): () => void {
   holders++;
   lastAsked = Date.now();
-  if (!helpers.length) start();
+  if (!running()) start();
   let released = false;
   return () => {
     if (released) return;
@@ -156,6 +159,9 @@ while ($true) {
 function stop() {
   for (const h of helpers) h.kill();
   helpers = [];
+  const ac = macStream;
+  macStream = undefined;
+  ac?.abort();
   state = undefined;
   linuxWin = { title: '' };
 }
@@ -211,7 +217,7 @@ function own(child: ChildProcess): ChildProcess {
     helpers = helpers.filter((h) => h !== child);
     // A helper that dies straight away cannot run here (missing tool, no permission).
     if (Date.now() - startedAt < 10_000) failures++;
-    if (!helpers.length) state = undefined;
+    if (!running()) state = undefined;
   });
   return child;
 }
@@ -239,17 +245,71 @@ function watchWindow(id: string) {
   });
 }
 
+// ---------------------------------------------------------------- macOS
+
+let macStream: AbortController | undefined;
+let macHelperBroken = false;
+let macHelperFailures = 0;
+let lastMacApp = '';
+
+const running = () => helpers.length > 0 || !!macStream;
+
+/** Is a front-window helper running right now (so frontWindow() is current)? */
+export function frontWatchRunning(): boolean {
+  return running();
+}
+
+/** One line from keeper-helper's front.watch: { app, appId, pid, title, bounds, fullscreen }. */
+function onMacFront(json: string) {
+  try {
+    const o = JSON.parse(json) as { app?: string; fullscreen?: boolean };
+    state = !!o.fullscreen;
+    if (o.app && o.app !== lastMacApp) {
+      lastMacApp = o.app;
+      for (const fn of appListeners) fn(o.app);
+    }
+  } catch {
+    return;
+  }
+  onWinLine(json);
+}
+
+function startMacHelper() {
+  const ac = new AbortController();
+  macStream = ac;
+  void import('./platform/mac')
+    .then(({ helperPath, macHelperStream }) => {
+      if (macStream !== ac) return undefined;
+      if (!helperPath()) throw new Error('The macOS helper is not available');
+      return macHelperStream('front.watch', { interval: 1 }, onMacFront, ac.signal);
+    })
+    .then(() => { if (macStream === ac) { macStream = undefined; state = undefined; } }, (e: unknown) => {
+      if (macStream !== ac) return; // stopped on purpose
+      macStream = undefined;
+      // No helper, an older one without front.watch, or one that keeps failing: the osascript loop instead.
+      const msg = e instanceof Error ? e.message : String(e);
+      if (/Unknown method|not available/i.test(msg) || ++macHelperFailures >= 2) macHelperBroken = true;
+      startJxa();
+    });
+}
+
+function startJxa() {
+  startedAt = Date.now();
+  // osascript prints console.log to stderr.
+  lines(own(spawn('/usr/bin/osascript', ['-l', 'JavaScript', '-e', MAC_SCRIPT], { stdio: ['ignore', 'ignore', 'pipe'] })), 'stderr', (l) => {
+    if (l === 'yes' || l === 'no') state = l === 'yes';
+    else if (l.startsWith('app:')) for (const fn of appListeners) fn(l.slice(4));
+    else if (l.startsWith('win:')) onWinLine(l.slice(4));
+  });
+}
+
 function start(): boolean {
   if (failures >= 2) return false;
   startedAt = Date.now();
   try {
     if (isMac) {
-      // osascript prints console.log to stderr.
-      lines(own(spawn('/usr/bin/osascript', ['-l', 'JavaScript', '-e', MAC_SCRIPT], { stdio: ['ignore', 'ignore', 'pipe'] })), 'stderr', (l) => {
-        if (l === 'yes' || l === 'no') state = l === 'yes';
-        else if (l.startsWith('app:')) for (const fn of appListeners) fn(l.slice(4));
-        else if (l.startsWith('win:')) onWinLine(l.slice(4));
-      });
+      if (macHelperBroken) startJxa();
+      else startMacHelper();
     } else if (isWin) {
       const ps = path.join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
       lines(own(spawn(ps, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', WIN_SCRIPT], { stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true })), 'stdout', (l) => { if (l === 'yes' || l === 'no') state = l === 'yes'; else if (l.startsWith('win:')) onWinLine(l.slice(4)); });
@@ -274,7 +334,7 @@ function start(): boolean {
  */
 export function fullscreenNow(): boolean | undefined {
   lastAsked = Date.now();
-  if (!helpers.length && !start()) return undefined;
+  if (!running() && !start()) return undefined;
   armIdle();
   // Still starting: say "not full screen" rather than start a second program to ask.
   return state ?? false;
