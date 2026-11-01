@@ -227,7 +227,7 @@ export class IslandWindows {
       }
       const first = this.clampRect(d, this.bounds(d, false));
       const win = new BrowserWindow({
-        // Not an ordinary window: window arrangers (Monorail, tilers, FancyZones) leave it alone.
+        // Not an ordinary window: window arrangers (Monorail, tilers, snapping tools) leave it alone.
         ...overlayOptions('island'),
         ...first, frame: false, transparent: true, resizable: false, movable: false, skipTaskbar: true, alwaysOnTop: true,
         fullscreenable: false, hasShadow: false, focusable: false, show: false, backgroundColor: '#00000000',

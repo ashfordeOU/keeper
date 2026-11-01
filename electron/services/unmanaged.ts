@@ -3,8 +3,8 @@
 // pill, cues, the launcher, Stage's overlays, widgets, Quick Connect) are not
 // ordinary windows, and window arrangers must leave them alone: tilers that
 // work through Accessibility (Monorail and others) manage only windows whose
-// subrole is AXStandardWindow, FancyZones skips tool windows, and i3 and
-// similar float toolbar windows.
+// subrole is AXStandardWindow, Windows snapping tools skip tool windows, and tiling
+// window managers float toolbar windows.
 //
 //   macOS    an NSPanel (type 'panel': a floating, non-activating subrole), hidden
 //            from Mission Control, never minimisable or full-screen
