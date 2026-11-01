@@ -14,6 +14,8 @@ export interface CalendarEvent {
   allDay: boolean;
   location?: string;
   url?: string;
+  /** the calendar's colour */
+  color?: string;
 }
 
 /** Undoes RFC 5545 line folding and escaping. */

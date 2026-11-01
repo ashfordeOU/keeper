@@ -51,6 +51,8 @@ export function parseQuickAdd(input: string, now = Date.now()): QuickEvent | nul
   let rrule: string | undefined;
   let location: string | undefined;
   let alarm: number | undefined;
+  // a day and month without a year: one already gone this year means next year
+  let yearless = false;
   const take = (re: RegExp, fn: (m: RegExpMatchArray) => boolean | void) => {
     const m = s.match(re);
     if (m && fn(m) !== false) s = s.replace(m[0], ' ');
@@ -115,12 +117,33 @@ export function parseQuickAdd(input: string, now = Date.now()): QuickEvent | nul
   take(new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?${MONTH_RE}(?:\\s+(\\d{4}))?\\b`, 'i'), (m) => {
     if (date) return false;
     date = new Date(m[3] ? Number(m[3]) : today.getFullYear(), monthIndex(m[2]), Number(m[1]));
+    yearless = !m[3];
   });
   take(new RegExp(`\\b${MONTH_RE}\\s+(\\d{1,2})(?:st|nd|rd|th)?(?:,?\\s+(\\d{4}))?\\b`, 'i'), (m) => {
     if (date) return false;
     date = new Date(m[3] ? Number(m[3]) : today.getFullYear(), monthIndex(m[1]), Number(m[2]));
+    yearless = !m[3];
   });
   take(/\b(\d{4})-(\d{2})-(\d{2})\b/, (m) => { date = new Date(+m[1], +m[2] - 1, +m[3]); });
+  // "12/20" (month first, unless the first number cannot be a month) and "20.12." (day first).
+  const year = (y: string | undefined) => (y ? (y.length === 2 ? 2000 + Number(y) : Number(y)) : undefined);
+  take(/(?:^|\s)(?:on\s+)?(\d{1,2})\/(\d{1,2})(?:\/(\d{2}|\d{4}))?(?=\s|$)/i, (m) => {
+    if (date) return false;
+    let mo = Number(m[1]);
+    let d = Number(m[2]);
+    if (mo > 12) [mo, d] = [d, mo];
+    if (mo < 1 || mo > 12 || d < 1 || d > 31) return false;
+    date = new Date(year(m[3]) ?? today.getFullYear(), mo - 1, d);
+    yearless = !m[3];
+  });
+  take(/(?:^|\s)(?:on\s+)?(\d{1,2})\.(\d{1,2})\.(\d{2}|\d{4})?(?=\s|$)/i, (m) => {
+    if (date) return false;
+    const d = Number(m[1]);
+    const mo = Number(m[2]);
+    if (mo < 1 || mo > 12 || d < 1 || d > 31) return false;
+    date = new Date(year(m[3]) ?? today.getFullYear(), mo - 1, d);
+    yearless = !m[3];
+  });
   // Times: "10-11am", "1pm", "15:30", "at 9", "noon".
   take(/\bnoon\b|\bmidday\b/i, () => { time = { h: 12, m: 0 }; });
   take(/\bmidnight\b/i, () => { time = { h: 0, m: 0 }; });
@@ -147,6 +170,10 @@ export function parseQuickAdd(input: string, now = Date.now()): QuickEvent | nul
 
   const title = s.replace(/\s+/g, ' ').replace(/\b(on|at|from)\s*$/i, '').trim() || 'New event';
   const d0: Date = date ?? new Date(today);
+  if (yearless && !rrule && d0.getTime() < today.getTime() - 7 * 86_400_000) {
+    d0.setFullYear(d0.getFullYear() + 1);
+    (endDate as Date | null)?.setFullYear((endDate as unknown as Date).getFullYear() + 1);
+  }
   if (!date && time) {
     // A time that already passed today means tomorrow.
     const t = new Date(d0);

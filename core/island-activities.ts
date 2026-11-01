@@ -7,6 +7,7 @@
 // Pure: the Island window feeds it the state and draws the result.
 
 import type { IslandState } from './api';
+import { countdownShort } from './pim/agenda';
 
 export type ActivityKind =
   | 'dictation' | 'recording' | 'agent-waiting' | 'agent-stuck' | 'meeting' | 'charging' | 'battery-low' | 'timer'
@@ -150,8 +151,7 @@ export function activitiesFrom(s: IslandState, now: number, x: ExtraInputs = {})
 
   const ev = s.events.find((e) => !e.allDay && e.end > now && e.start - now < 15 * 60_000);
   if (ev) {
-    const started = ev.start <= now;
-    add({ id: `ev-${ev.uid}`, kind: 'meeting', icon: 'calendar', title: ev.title, detail: ev.location, trailing: started ? 'now' : `${Math.ceil((ev.start - now) / 60_000)}m`, color: '#a78bfa', since: ev.start, ref: ev.url });
+    add({ id: `ev-${ev.uid}`, kind: 'meeting', icon: 'calendar', title: ev.title, detail: ev.location, trailing: countdownShort(ev.start, now), color: ev.color ?? '#a78bfa', since: ev.start, ref: ev.url });
   }
 
   if (s.battery && !s.battery.charging && s.battery.percent <= 20) {

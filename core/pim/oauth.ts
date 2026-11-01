@@ -29,6 +29,12 @@ export const ENDPOINTS: Record<OAuthProvider, { auth: string; token: string; sco
   },
 };
 
+/** Connecting only a calendar: no mail access is asked for. */
+export const CALENDAR_ONLY_SCOPES: Record<OAuthProvider, string[]> = {
+  google: ['https://www.googleapis.com/auth/calendar', 'openid', 'email'],
+  microsoft: ['https://graph.microsoft.com/Calendars.ReadWrite', 'offline_access', 'openid', 'email'],
+};
+
 /** Microsoft issues one token per resource; calendars use Microsoft Graph. */
 export const GRAPH_SCOPES = ['https://graph.microsoft.com/Calendars.ReadWrite', 'https://graph.microsoft.com/Contacts.Read', 'offline_access'];
 

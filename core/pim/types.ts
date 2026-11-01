@@ -131,7 +131,20 @@ export interface CalendarInfo {
   syncToken?: string;
   /** holds tasks (VTODO) rather than events */
   tasks?: boolean;
+  /** where it comes from when not from an account: the computer's own calendars, holidays, birthdays */
+  source?: CalendarSource;
+  /** shown in the Island (next-event countdown and the Calendar tab); on unless false */
+  island?: boolean;
+  /** the colour was chosen here, so syncing keeps it */
+  colorSet?: boolean;
+  /** the group it is listed under (the account in the system's Calendar app, "Holidays") */
+  group?: string;
+  /** the system calendar's own id (EventKit, Evolution, Windows), or the holiday country */
+  ref?: string;
 }
+
+/** Calendars that come from somewhere other than an account added in Keeper. */
+export type CalendarSource = 'system' | 'holidays' | 'birthdays';
 
 export interface Attendee {
   email: string;
@@ -172,6 +185,8 @@ export interface CalEvent {
   etag?: string;
   /** path of the resource on the server */
   href?: string;
+  /** where "Open" takes you: the event on the provider's web page, or the system's Calendar app */
+  openUrl?: string;
 }
 
 /** One occurrence to draw: a single event, or one instance of a repeating one. */
