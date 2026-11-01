@@ -264,7 +264,20 @@ html[data-view='island'], html[data-view='island'] body, html[data-view='island'
 .isl .cal .mday.on { background: rgba(255, 255, 255, .16); }
 .isl .cal .mday i { position: absolute; left: 50%; bottom: 2px; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: var(--island-accent, #a78bfa); }
 .isl .cal .mlist { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-.isl .cal .ev { display: flex; gap: 10px; align-items: center; }
+.isl .cal .ev { display: flex; gap: 8px; align-items: center; min-height: 30px; }
+.isl .cal .ev.past { opacity: .45; }
+.isl .cal .ev.now .time { color: var(--island-accent, #a78bfa); font-weight: 700; }
+.isl .cal .ev .time { flex: none; width: 52px; font-size: 11.5px; font-variant-numeric: tabular-nums; color: #d4d4d8; }
+.isl .cal .cal-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; }
+.isl .cal .ev-open { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; border: 0; background: none; color: #fff; text-align: left; padding: 2px 4px; border-radius: 7px; cursor: default; }
+.isl .cal .ev-open b { display: block; max-width: 100%; }
+.isl .cal .ev-open:hover, .isl .cal .ev-open:focus-visible { background: rgba(255, 255, 255, .1); outline: none; }
+.isl .cal .mlist { overflow-y: auto; }
+.isl .cal .cal-quick { display: flex; gap: 6px; }
+.isl .cal .cal-quick input { flex: 1; min-width: 0; }
+.isl .cal .cal-quick select { max-width: 120px; }
+.isl .cal .cal-access { display: flex; gap: 8px; align-items: center; padding: 8px 10px; border-radius: 10px; background: rgba(167, 139, 250, .14); }
+.isl .cal.dropping { outline: 2px dashed var(--island-accent, #a78bfa); outline-offset: -4px; border-radius: 12px; }
 .isl .focus-tab { display: flex; flex-direction: column; gap: 10px; height: 100%; }
 .isl .focus-extras { display: flex; flex-direction: column; gap: 6px; border-top: 1px solid rgba(255, 255, 255, .08); padding-top: 8px; }
 .isl .mirror .mwrap { position: relative; }

@@ -39,7 +39,11 @@ export function ShelfTab({ state, settings, reload }: { state: IslandState; sett
     e.preventDefault();
     setOver(false);
     const dropped = [...e.dataTransfer.files].map((f) => api.files.pathOf?.(f) ?? (f as File & { path?: string }).path).filter((p): p is string => !!p);
-    if (dropped.length) void api.island.addToShelf(dropped).then(reload);
+    // Calendar files go into the calendar; everything else onto the shelf.
+    const ics = api.pim ? dropped.filter((p) => /\.(ics|ical|icalendar)$/i.test(p)) : [];
+    const rest = dropped.filter((p) => !ics.includes(p));
+    if (ics.length) void Promise.all(ics.map((p) => api.pim.importIcs(p).catch(() => 0))).then((n) => { const t = n.reduce((a, b) => a + b, 0); say(t ? `Added ${t} event${t === 1 ? '' : 's'} to your calendar` : 'No events in that calendar file'); });
+    if (rest.length) void api.island.addToShelf(rest).then(reload);
   };
 
   return (

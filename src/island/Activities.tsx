@@ -10,6 +10,8 @@ import { activitiesFrom, present, transientsFrom, type Activity, type ExtraInput
 import type { Placement } from '../../core/island-place';
 import type { Progress } from '../../core/types';
 import { formatDuration } from '../../core/format';
+import { meetingProvider } from '../../core/pim/agenda';
+import { meetingLink } from '../../core/pim/alarms';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
 import { CallCard, MediaModes } from './IslandPlus';
@@ -275,7 +277,7 @@ export function LiveCard({ a, state, now, unlocked, onMore, reload }: { a: Activ
     body = <div><div className="live-big num" style={{ color: a.color }}>{a.trailing === 'now' ? 'Now' : `in ${a.trailing}`}</div>{a.detail ? <div className="muted small">{a.detail}</div> : null}</div>;
     actions = (
       <>
-        {a.ref ? <button className="btn sm primary" onClick={() => void api.system.openExternal(a.ref!)}>Join</button> : null}
+        {a.ref ? <button className="btn sm primary" title={meetingProvider(a.ref) ? `Join on ${meetingProvider(a.ref)}` : a.ref} onClick={() => void api.system.openExternal(a.ref!)}>{meetingProvider(a.ref) || meetingLink({ url: a.ref }) ? 'Join' : 'Open link'}</button> : null}
         {api.voice ? <button className="btn sm" title="Tell everyone it is recorded" onClick={() => void api.voice.startMeeting({ title: a.title }).then(reload).catch(() => undefined)}><span className="rec-dot" /> Record</button> : null}
       </>
     );

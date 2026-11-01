@@ -13,7 +13,7 @@ import { api } from '../api';
 import { Icon } from '../components/Icon';
 import { Modal } from '../components/ui';
 import { useStore } from '../state';
-import { AccountDialog } from './AccountDialog';
+import { CalendarAccessCard, CalendarSources, useSystemAccess } from './CalendarSources';
 import { usePimChanges } from './Mail';
 import '../styles/pim.css';
 
@@ -75,6 +75,8 @@ export function Calendar() {
   const [editing, setEditing] = useState<{ event: CalEvent; instance?: number } | null>(null);
   const [quick, setQuick] = useState('');
   const [adding, setAdding] = useState(false);
+  const [dropping, setDropping] = useState(false);
+  const [access, setAccess] = useSystemAccess();
   const [now, setNow] = useState(Date.now());
   const [from, to] = range(view, cursor, ws);
 
@@ -86,8 +88,36 @@ export function Calendar() {
   usePimChanges(['calendar', 'accounts'], load);
   useEffect(() => { void api.pim.prefs().then((p) => { setWs(p.weekStart); setWeekNums(p.showWeekNumbers); }); }, []);
   useEffect(() => { localStorage.setItem('cal.view', view); }, [view]);
-  // "New Event…" from the command palette.
-  useEffect(() => { if (route.arg === 'new') newEvent(Date.now() + 3_600_000); }, [route.arg]);
+  // "New Event…" from the command palette; "calendar:event:<start>:<id>" from the Island.
+  useEffect(() => {
+    if (route.arg === 'new') newEvent(Date.now() + 3_600_000);
+    const m = route.arg?.match(/^event:(\d+):(.+)$/);
+    if (m) {
+      const at = Number(m[1]);
+      setCursor(at);
+      setView((v) => (v === 'year' ? 'week' : v));
+      void api.pim.occurrences(at - DAY, at + DAY).then((list) => {
+        const o = list.find((x) => x.event.id === m[2] && x.instance === at) ?? list.find((x) => x.event.id === m[2]);
+        if (o) setEditing({ event: o.event, instance: o.instance });
+      });
+    }
+  }, [route.arg]);
+  // While the page is open, calendars are checked every minute.
+  useEffect(() => {
+    void api.pim.watchCalendar?.(true);
+    const h = setInterval(() => void api.pim.watchCalendar?.(true), 60_000);
+    return () => { clearInterval(h); void api.pim.watchCalendar?.(false); };
+  }, []);
+  const onDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setDropping(false);
+    let n = 0;
+    for (const f of Array.from(e.dataTransfer.files)) {
+      const p = api.files.pathOf?.(f);
+      if (p && /\.(ics|ical|ifb|icalendar)$/i.test(p)) n += await api.pim.importIcs(p).catch((err) => { toast(clean(err)); return 0; });
+    }
+    toast(n ? `Imported ${n} event${n === 1 ? '' : 's'}` : 'Drop a calendar file (.ics) to import it');
+  };
   useEffect(() => { const h = setInterval(() => setNow(Date.now()), 60_000); return () => clearInterval(h); }, []);
 
   const colorOf = (o: Occurrence) => cals.find((c) => c.id === o.event.calendar)?.color ?? 'var(--accent)';
@@ -159,20 +189,24 @@ export function Calendar() {
     : new Date(cursor).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
 
   return (
-    <div className="calendar">
+    <div className={`calendar${dropping ? ' dropping' : ''}`} onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); setDropping(true); } }} onDragLeave={(e) => { if (e.currentTarget === e.target) setDropping(false); }} onDrop={(e) => void onDrop(e)}>
       <aside className="cal-side">
         <MiniMonth cursor={cursor} ws={ws} onPick={(t) => { setCursor(t); if (view === 'year' || view === 'month') setView('day'); }} marks={occ} />
         <div className="cal-list">
           <div className="small muted" style={{ fontWeight: 600, margin: '10px 4px 4px' }}>Calendars</div>
-          {cals.map((c) => (
+          <CalendarAccessCard access={access} compact onChange={(a) => { setAccess(a); load(); }} />
+          {cals.map((c, i, list) => (
+            <div key={c.id}>
+            {c.group && c.group !== list[i - 1]?.group ? <div className="cal-group">{c.group}</div> : null}
             <label key={c.id} className="cal-item" title={c.readOnly ? 'Read only' : ''}>
               <input type="checkbox" checked={c.visible} onChange={(e) => void api.pim.setCalendar(c.id, { visible: e.target.checked })} style={{ accentColor: c.color }} />
               <i style={{ background: c.color }} />
               <span className="grow ellipsis">{c.name}</span>
               {c.readOnly ? <Icon name="lock" size={11} className="muted" /> : null}
             </label>
+            </div>
           ))}
-          <button className="btn ghost sm" style={{ marginTop: 6 }} onClick={() => setAdding(true)}><Icon name="plus" size={13} /> Add calendar</button>
+          <button className="btn ghost sm" style={{ marginTop: 6 }} onClick={() => setAdding(true)}><Icon name="plus" size={13} /> Add or connect calendars</button>
           <button className="btn ghost sm" onClick={async () => { const n = await api.pim.importIcs(); if (n) toast(`Imported ${n} event${n === 1 ? '' : 's'}`); }}><Icon name="down" size={13} /> Import .ics</button>
         </div>
       </aside>
@@ -212,7 +246,7 @@ export function Calendar() {
       </section>
 
       {editing ? <EventEditor event={editing.event} instance={editing.instance} calendars={cals} onClose={() => setEditing(null)} /> : null}
-      {adding ? <AccountDialog initialTab="caldav" onClose={() => setAdding(false)} onAdded={() => { setAdding(false); void api.pim.syncCalendars().then(load); }} /> : null}
+      {adding ? <Modal title="Calendars" onClose={() => setAdding(false)} width={620}><CalendarSources /></Modal> : null}
     </div>
   );
 }

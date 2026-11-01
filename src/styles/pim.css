@@ -242,3 +242,12 @@
   .calendar, .reminders { grid-template-columns: 1fr; }
   .cal-side, .rem-lists { display: none; }
 }
+
+/* Where calendars come from (Settings → Mail & Calendar, the Calendar page) */
+.cal-access-card { display: flex; align-items: center; gap: 12px; padding: 12px 14px; margin: 8px 0; border-radius: 12px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); color: var(--text); }
+.cal-access-card > svg { color: var(--accent); flex: none; }
+.cal-color { width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; background: none; cursor: pointer; flex: none; }
+.cal-color::-webkit-color-swatch-wrapper { padding: 0; }
+.cal-color::-webkit-color-swatch { border: 1px solid var(--line); border-radius: 50%; }
+.cal-group { font-size: 11px; font-weight: 600; opacity: .7; margin: 8px 4px 2px; text-transform: none; }
+.calendar.dropping .cal-main { outline: 2px dashed var(--accent); outline-offset: -6px; border-radius: 12px; }

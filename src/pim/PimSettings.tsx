@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Settings → Mail & Calendar: accounts, notifications, undo send, the week,
-// mail filters, trusted senders and the sign-in IDs for Google and Microsoft.
+// mail filters, trusted senders, where calendars come from (CalendarSources)
+// and the sign-in IDs for Google and Microsoft.
 
 import { useCallback, useEffect, useState } from 'react';
 import type { MailRule } from '../../core/pim/mail';
@@ -11,6 +12,7 @@ import { Icon } from '../components/Icon';
 import { Toggle } from '../components/ui';
 import { useStore } from '../state';
 import { AccountDialog } from './AccountDialog';
+import { CalendarSources } from './CalendarSources';
 import { usePimChanges } from './Mail';
 
 const KIND: Record<string, string> = { imap: 'Mail (IMAP)', google: 'Google', microsoft: 'Microsoft 365', caldav: 'CalDAV', ics: 'Calendar link' };
@@ -94,7 +96,8 @@ export function PimSettings() {
       ))}
       <button className="btn sm ghost" onClick={() => saveRules([...rules, { id: String(Date.now()), name: '', enabled: true, when: [{ field: 'from', contains: '' }], then: { action: 'read' } }])}><Icon name="plus" size={13} /> Add filter</button>
 
-      <div style={{ fontWeight: 600, margin: '18px 0 2px' }}>Calendar</div>
+      <div style={{ fontWeight: 600, margin: '18px 0 2px' }} id="settings-calendar">Calendar</div>
+      <CalendarSources />
       <Row title="Weeks start on">
         <select className="input" value={prefs.weekStart} onChange={(e) => void set({ weekStart: Number(e.target.value) })}><option value={1}>Monday</option><option value={0}>Sunday</option><option value={6}>Saturday</option></select>
       </Row>

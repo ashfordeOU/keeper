@@ -97,7 +97,7 @@ export function IslandSettings() {
             <option value={0}>Off</option><option value={20}>Every 20 minutes</option><option value={30}>Every 30 minutes</option><option value={45}>Every 45 minutes</option><option value={60}>Every hour</option><option value={90}>Every 90 minutes</option>
           </select>
         </Row>
-        <Row title="Calendar" desc="Paste a private calendar address (.ics) from your calendar app to see today and what is next.">
+        <Row title="Calendar link" desc="The Island shows your calendars from Settings → Mail & Calendar (this computer’s calendars are there by default). A link pasted here is added to them as a subscription.">
           <input className="input" style={{ width: 300 }} placeholder="https://…/calendar.ics" defaultValue={isl.calendarUrl} onBlur={(e) => e.target.value !== isl.calendarUrl && set({ calendarUrl: e.target.value.trim() })} />
         </Row>
       </div>

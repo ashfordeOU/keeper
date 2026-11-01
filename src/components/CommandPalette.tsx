@@ -206,6 +206,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     { id: 'mail-compose', label: 'New Mail Message', group: 'Actions', icon: 'mail', keywords: 'email write compose send', run: () => store.go({ name: 'mail', arg: 'compose' }) },
     { id: 'mail-open', label: 'Mail', group: 'Go to', icon: 'mail', keywords: 'inbox email', run: () => store.go({ name: 'mail' }) },
     { id: 'calendar-new', label: 'New Event…', group: 'Actions', icon: 'calendar', keywords: 'meeting appointment add schedule', run: () => store.go({ name: 'calendar', arg: 'new' }) },
+    { id: 'calendar-import', label: 'Import Calendar File…', group: 'Actions', icon: 'calendar', keywords: 'ics ical import events file', run: () => void api.pim.importIcs().then((n) => { if (n) store.toast(`Imported ${n} event${n === 1 ? '' : 's'}`); }) },
     { id: 'calendar-open', label: 'Calendar', group: 'Go to', icon: 'calendar', keywords: 'events schedule agenda', run: () => store.go({ name: 'calendar' }) },
     { id: 'reminder-new', label: 'Reminders', group: 'Go to', icon: 'listCheck', keywords: 'todo tasks to-do', run: () => store.go({ name: 'reminders' }) },
     { id: 'alarm-new', label: 'Alarms', group: 'Go to', icon: 'alarm', keywords: 'wake clock alarm', run: () => store.go({ name: 'alarms', arg: 'alarms' }) },

@@ -5,15 +5,17 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { IslandState } from '../../../core/api';
-import type { IslandShortcut, MacEvent, MacReminder, SalesConfigView } from '../../../core/api-island-tools';
+import type { IslandShortcut, MacReminder, SalesConfigView } from '../../../core/api-island-tools';
 import { addRecent, buildIndex, GROUPS, searchEmoji, TONES, withTone, type EmojiEntry } from '../../../core/island-tools/emoji';
 import { noteTitle, searchNotes, sortTodos, upsert, type IslandToolsStore, type QuickNote, type Todo } from '../../../core/island-tools/notes';
 import type { SalesSummary } from '../../../core/island-tools/sales';
 import { parseWatchlist, sparkPath, type Point, type Quote } from '../../../core/island-tools/stocks';
 import { answer, type Rates } from '../../../core/island-tools/units';
 import { formatTokens, warnLevel, type UsageReport, type UsageTool } from '../../../core/island-tools/usage';
-import { meetingLink } from '../../../core/pim/alarms';
-import type { Occurrence, Reminder } from '../../../core/pim/types';
+import { agendaFor, countdown, inIsland, islandAgenda, type AgendaItem } from '../../../core/pim/agenda';
+import { parseQuickAdd } from '../../../core/pim/quickadd';
+import type { SystemAccess } from '../../../core/pim/syscal';
+import type { CalendarInfo, Occurrence, Reminder } from '../../../core/pim/types';
 import { describeCode } from '../../../core/weather';
 import { formatBytes } from '../../../core/format';
 import { api } from '../../api';
@@ -493,52 +495,133 @@ export function ShortcutsTool() {
   );
 }
 
-// ---------------------------------------------------------------- Calendar (month + today)
+// ---------------------------------------------------------------- Calendar (agenda + month + quick add)
 
-export function CalendarTool({ state, now }: { state: IslandState; now: number }) {
+const DAY_MS = 86_400_000;
+const dayStart = (t: number) => { const d = new Date(t); d.setHours(0, 0, 0, 0); return d.getTime(); };
+const addDay = (t: number, n: number) => { const d = new Date(dayStart(t)); d.setDate(d.getDate() + n); return d.getTime(); };
+
+function AgendaRow({ e, now }: { e: AgendaItem; now: number }) {
+  return (
+    <div className={`ev${e.past ? ' past' : ''}${e.now ? ' now' : ''}`} data-testid="island-agenda-item">
+      <i className="cal-dot" style={{ background: e.color }} aria-hidden />
+      <span className="time">{e.allDay ? 'All day' : timeOf(e.start)}</span>
+      <button className="ev-open" title={`${e.calendarName}${e.openUrl ? ' · opens where it lives' : ' · opens in Keeper'}`} onClick={() => void api.pim.openEvent(e.eventId, e.instance)}>
+        <b className="ellipsis">{e.title}</b>
+        <span className="muted small ellipsis">{!e.allDay && !e.past ? `${countdown(e.start, now, e.end)}${e.location ? ` · ${e.location}` : ''}` : e.location ?? ''}</span>
+      </button>
+      {e.join && !e.past ? <button className="btn sm primary" title={e.provider ? `Join on ${e.provider}` : 'Join the meeting'} onClick={() => void api.system.openExternal(e.join!)}>Join</button> : null}
+    </div>
+  );
+}
+
+export function CalendarTool({ now }: { state: IslandState; now: number }) {
   const [month, setMonth] = useState(() => { const d = new Date(now); return new Date(d.getFullYear(), d.getMonth(), 1).getTime(); });
   const [occ, setOcc] = useState<Occurrence[]>([]);
-  const [day, setDay] = useState(() => new Date(now).toDateString());
+  const [cals, setCals] = useState<CalendarInfo[]>([]);
+  const [day, setDay] = useState<number | null>(null);
+  const [access, setAccess] = useState<SystemAccess | null>(null);
+  const [quick, setQuick] = useState('');
+  const [target, setTarget] = useState('');
+  const [drop, setDrop] = useState(false);
   const m0 = new Date(month);
   const start = new Date(m0.getFullYear(), m0.getMonth(), 1 - ((m0.getDay() + 6) % 7)).getTime();
-  const end = start + 42 * 86_400_000;
-  const [mac, setMac] = useState<MacEvent[]>([]);
-  useEffect(() => { void api.pim?.occurrences?.(start, end).then(setOcc).catch(() => setOcc([])); }, [start, end]);
-  // The Mac's own calendars (iCloud, Exchange, Google added in System Settings), through EventKit.
-  useEffect(() => { void api.islandTools?.macEvents?.(start, end).then(setMac).catch(() => setMac([])); }, [start, end]);
-  const events = useMemo(() => {
-    const fromPim = occ.map((o) => ({ key: `${o.event.id}:${o.instance}`, title: o.event.title, start: o.start, end: o.end, allDay: !!o.event.allDay, location: o.event.location, link: meetingLink(o.event) }));
-    const fromLink = state.events.map((e) => ({ key: e.uid, title: e.title, start: e.start, end: e.end, allDay: e.allDay, location: e.location, link: e.url }));
-    const fromMac = mac.map((e) => ({ key: `mac:${e.id}:${e.start}`, title: e.title, start: e.start, end: e.end, allDay: e.allDay, location: e.location, link: meetingLink({ location: e.location, url: e.url, description: e.notes }) ?? e.url }));
-    // The same meeting can arrive from a linked feed and from the Mac: keep one.
-    const seen = new Set<string>();
-    return [...fromPim, ...fromLink, ...fromMac].sort((a, b) => a.start - b.start).filter((e) => { const k = `${e.title}|${e.start}`; if (seen.has(k)) return false; seen.add(k); return true; });
-  }, [occ, state.events, mac]);
-  const days = Array.from({ length: 42 }, (_, i) => new Date(start + i * 86_400_000 + 3600_000));
-  const dayEvents = events.filter((e) => new Date(e.start).toDateString() === day);
+  const end = Math.max(start + 42 * DAY_MS, addDay(now, 2));
+  const from = Math.min(start, dayStart(now));
+  const load = useCallback(() => {
+    if (!api.pim) return;
+    void api.pim.occurrences(from, end).then(setOcc).catch(() => setOcc([]));
+    void api.pim.calendars().then(setCals).catch(() => setCals([]));
+  }, [from, end]);
+  useEffect(load, [load]);
+  useEffect(() => api.on('pim-changed', ((k: string) => { if (k === 'calendar' || k === 'accounts') load(); }) as never), [load]);
+  // While this tab is open, calendars are checked every minute.
+  useEffect(() => {
+    if (!api.pim?.watchCalendar) return;
+    void api.pim.watchCalendar(true);
+    const h = setInterval(() => void api.pim.watchCalendar(true), 60_000);
+    return () => { clearInterval(h); void api.pim.watchCalendar(false); };
+  }, []);
+  useEffect(() => { void api.pim?.systemAccess?.().then(setAccess).catch(() => undefined); }, []);
+  useEffect(() => { void api.pim?.prefs?.().then((p) => setTarget((t) => t || p.defaultCalendar || '')).catch(() => undefined); }, []);
+  const writable = cals.filter((c) => !c.readOnly && !c.tasks);
+  const agenda = useMemo(() => islandAgenda(occ, cals, now), [occ, cals, now]);
+  const picked = useMemo(() => (day === null ? null : agendaFor(occ, cals, day, now)), [occ, cals, day, now]);
+  const marks = useMemo(() => {
+    const s = new Set<string>();
+    for (const o of occ) if (inIsland(cals.find((c) => c.id === o.event.calendar))) s.add(new Date(o.start).toDateString());
+    return s;
+  }, [occ, cals]);
+  const preview = quick.trim() ? parseQuickAdd(quick) : null;
+  const add = async () => {
+    if (!preview) return;
+    try {
+      const e = await api.pim.quickAdd(quick, target || writable[0]?.id);
+      if (e) say(`Added “${e.title}” · ${new Date(e.start).toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: e.allDay ? undefined : 'numeric', minute: e.allDay ? undefined : '2-digit' })}`);
+      setQuick('');
+      load();
+    } catch (err) {
+      say(err instanceof Error ? err.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '') : String(err));
+    }
+  };
+  const onDrop = async (ev: React.DragEvent) => {
+    ev.preventDefault();
+    setDrop(false);
+    let n = 0;
+    for (const f of Array.from(ev.dataTransfer.files)) {
+      const p = api.files.pathOf?.(f);
+      if (p && /\.(ics|ical|ifb|icalendar)$/i.test(p)) n += await api.pim.importIcs(p, target || undefined).catch(() => 0);
+    }
+    say(n ? `Imported ${n} event${n === 1 ? '' : 's'}` : 'Drop a calendar file (.ics) here to import it');
+    load();
+  };
+  const days = Array.from({ length: 42 }, (_, i) => new Date(start + i * DAY_MS + 3600_000));
+  const ask = access && (access.state === 'notDetermined' || (access.state === 'denied' && access.via === 'eventkit'));
   return (
-    <div className="itool cal">
+    <div className={`itool cal${drop ? ' dropping' : ''}`} onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); setDrop(true); } }} onDragLeave={() => setDrop(false)} onDrop={(e) => void onDrop(e)}>
       <div className="mgrid">
-        <div className="row-x"><button className="btn sm icon" onClick={() => setMonth(new Date(m0.getFullYear(), m0.getMonth() - 1, 1).getTime())}><Icon name="chevronLeft" size={11} /></button><b className="grow" style={{ textAlign: 'center' }}>{m0.toLocaleDateString([], { month: 'long', year: 'numeric' })}</b><button className="btn sm icon" onClick={() => setMonth(new Date(m0.getFullYear(), m0.getMonth() + 1, 1).getTime())}><Icon name="chevronRight" size={11} /></button></div>
-        <div className="mdays">
-          {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => <span key={i} className="muted small">{d}</span>)}
+        <div className="row-x"><button className="btn sm icon" aria-label="Previous month" onClick={() => setMonth(new Date(m0.getFullYear(), m0.getMonth() - 1, 1).getTime())}><Icon name="chevronLeft" size={11} /></button><b className="grow" style={{ textAlign: 'center' }}>{m0.toLocaleDateString([], { month: 'long', year: 'numeric' })}</b><button className="btn sm icon" aria-label="Next month" onClick={() => setMonth(new Date(m0.getFullYear(), m0.getMonth() + 1, 1).getTime())}><Icon name="chevronRight" size={11} /></button></div>
+        <div className="mdays" role="grid" aria-label="Month">
+          {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => <span key={i} className="muted small" aria-hidden>{d}</span>)}
           {days.map((d) => {
-            const has = events.some((e) => new Date(e.start).toDateString() === d.toDateString());
             const ds = d.toDateString();
-            return <button key={ds} className={`mday ${d.getMonth() !== m0.getMonth() ? 'out' : ''} ${ds === new Date(now).toDateString() ? 'today' : ''} ${ds === day ? 'on' : ''}`} onClick={() => setDay(ds)}>{d.getDate()}{has ? <i /> : null}</button>;
+            const t = dayStart(d.getTime());
+            const isToday = ds === new Date(now).toDateString();
+            return <button key={ds} aria-label={d.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' })} aria-pressed={day === t} className={`mday ${d.getMonth() !== m0.getMonth() ? 'out' : ''} ${isToday ? 'today' : ''} ${day === t ? 'on' : ''}`} onClick={() => setDay(day === t || isToday ? null : t)}>{d.getDate()}{marks.has(ds) ? <i /> : null}</button>;
           })}
         </div>
       </div>
-      <div className="mlist">
-        <b className="small">{new Date(day).toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' })}</b>
-        {!dayEvents.length ? <div className="muted small">Nothing on this day.</div> : null}
-        {dayEvents.map((e) => (
-          <div key={e.key} className="ev" style={{ opacity: e.end < now ? 0.45 : 1 }}>
-            <span className="time">{e.allDay ? 'All day' : timeOf(e.start)}</span>
-            <div style={{ minWidth: 0, flex: 1 }}><b className="ellipsis" style={{ display: 'block' }}>{e.title}</b>{e.location ? <span className="muted small">{e.location}</span> : null}</div>
-            {e.link && e.end > now ? <button className="btn sm primary" onClick={() => void api.system.openExternal(e.link!)}>Join</button> : null}
+      <div className="mlist" data-testid="island-agenda">
+        <div className="cal-quick">
+          <input className="input sm" value={quick} onChange={(e) => setQuick(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void add()} placeholder="Add: lunch with Sam tomorrow 1pm" aria-label="Quick add an event" />
+          {writable.length > 1 ? (
+            <select className="input sm" value={target || writable[0]?.id} onChange={(e) => setTarget(e.target.value)} aria-label="Calendar for new events">
+              {writable.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          ) : null}
+        </div>
+        {preview ? <div className="muted small ellipsis" aria-live="polite">{preview.title} · {new Date(preview.start).toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: preview.allDay ? undefined : 'numeric', minute: preview.allDay ? undefined : '2-digit' })}{preview.rrule ? ' · repeats' : ''} — press Return</div> : null}
+        {ask ? (
+          <div className="cal-access" role="note">
+            <span className="small">{access!.message}</span>
+            {access!.canRequest
+              ? <button className="btn sm primary" onClick={() => void api.pim.systemAccess(true).then((a) => { setAccess(a); load(); })}>Allow calendar access</button>
+              : <button className="btn sm" onClick={() => void api.system.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars')}>Open System Settings</button>}
           </div>
-        ))}
+        ) : null}
+        {picked ? (
+          <>
+            <b className="small">{new Date(day!).toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' })}</b>
+            {!picked.length ? <div className="muted small">Nothing on this day.</div> : picked.map((e) => <AgendaRow key={e.key} e={e} now={now} />)}
+          </>
+        ) : (
+          <>
+            <b className="small">Today</b>
+            {!agenda.today.length ? <div className="muted small">Nothing else today.</div> : agenda.today.map((e) => <AgendaRow key={e.key} e={e} now={now} />)}
+            <b className="small" style={{ marginTop: 4 }}>Tomorrow</b>
+            {!agenda.tomorrow.length ? <div className="muted small">Nothing tomorrow.</div> : agenda.tomorrow.map((e) => <AgendaRow key={e.key} e={e} now={now} />)}
+          </>
+        )}
       </div>
     </div>
   );
