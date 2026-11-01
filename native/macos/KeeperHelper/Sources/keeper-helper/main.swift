@@ -29,6 +29,12 @@ import EventKit
 import FoundationModels
 #endif
 
+// keeper-helper sits inside Keeper.app (Contents/MacOS), so macOS takes it for a second Keeper
+// app: a second Keeper icon in the Dock that bounces for ever, because a helper never finishes
+// launching like an app. It is a background helper: no Dock icon, no menu bar, never active.
+// Set before anything else touches AppKit.
+NSApplication.shared.setActivationPolicy(.prohibited)
+
 // MARK: - output
 
 final class Wire: @unchecked Sendable {
