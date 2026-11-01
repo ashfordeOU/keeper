@@ -15,6 +15,27 @@ export interface KeeperUsage {
   tasks: { id: string; label: string; kind: WorkKind; state: 'working' | 'waiting' | 'idle'; detail?: string; pending?: number }[];
   /** regular checks and how often they look right now (null = paused) */
   checks: { name: string; everyMs: number | null; runs: number; /** the features that own it */ features?: string[] }[];
+  /** only with KEEPER_POLL_LOG=1: what each check has cost since start */
+  pollLog?: PollLog;
+}
+
+export interface PollStat {
+  name: string;
+  runs: number;
+  /** total wall time and main-process processor time of its runs, ms */
+  wallMs: number;
+  cpuMs: number;
+  /** programs it started, and how many of each */
+  spawns: number;
+  programs: Record<string, number>;
+}
+
+export interface PollLog {
+  since: number;
+  /** costliest first */
+  polls: PollStat[];
+  /** programs started outside any regular check (timers of their own, clicks) */
+  outside: { program: string; count: number }[];
 }
 
 export interface UsageApi {

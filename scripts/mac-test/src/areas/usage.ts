@@ -57,6 +57,29 @@ export function treeOf(rows: ProcRow[], root: number): ProcRow[] {
   return out;
 }
 
+interface PollStat { name: string; runs: number; wallMs: number; cpuMs: number; spawns: number; programs: Record<string, number> }
+interface PollLog { polls: PollStat[]; outside: { program: string; count: number }[] }
+
+/**
+ * What each regular check cost during the measured window (the difference of
+ * two KEEPER_POLL_LOG readings), costliest first: main-process time plus about
+ * 15 ms for each program it started.
+ */
+export function topPollers(before: PollLog | undefined, after: PollLog | undefined, n = 10) {
+  if (!after) return { polls: [] as (PollStat & { costMs: number })[], outside: [] as { program: string; count: number }[] };
+  const b = new Map((before?.polls ?? []).map((p) => [p.name, p]));
+  const polls = after.polls.map((p) => {
+    const o = b.get(p.name);
+    const programs: Record<string, number> = {};
+    for (const [k, v] of Object.entries(p.programs)) { const d = v - (o?.programs[k] ?? 0); if (d > 0) programs[k] = d; }
+    const d = { name: p.name, runs: p.runs - (o?.runs ?? 0), wallMs: p.wallMs - (o?.wallMs ?? 0), cpuMs: Math.round((p.cpuMs - (o?.cpuMs ?? 0)) * 10) / 10, spawns: p.spawns - (o?.spawns ?? 0), programs };
+    return { ...d, costMs: Math.round(d.cpuMs + d.spawns * 15) };
+  }).filter((p) => p.runs > 0).sort((x, y) => y.costMs - x.costMs).slice(0, n);
+  const ob = new Map((before?.outside ?? []).map((o) => [o.program, o.count]));
+  const outside = after.outside.map((o) => ({ program: o.program, count: o.count - (ob.get(o.program) ?? 0) })).filter((o) => o.count > 0).sort((x, y) => y.count - x.count);
+  return { polls, outside };
+}
+
 export async function runPerf(ctx: Ctx) {
   const BUDGET = { cpuPct: 0.6, rssMB: 520 };
   await ctx.rec.check('perf.startup', 'Start-up: from launch to the window being ready', 'auto', async () => {
@@ -73,6 +96,8 @@ export async function runPerf(ctx: Ctx) {
     ctx.say(`  Letting Keeper settle for ${settle} s, then measuring ${measure} s of doing nothing. Please don't use the computer for ${Math.round((settle + measure) / 60 * 10) / 10} min.`);
     await app.call('sysmon.watch', false).catch(() => undefined);
     await sleep(settle * 1000);
+    // Keeper runs with KEEPER_POLL_LOG=1 in this test: each regular check's cost is counted.
+    const logBefore = (await app.call<any>('usage.get').catch(() => undefined))?.pollLog as PollLog | undefined;
     const a = await ctx.sys.run('/bin/ps', ['-A', '-o', 'pid=,ppid=,rss=,time=,comm=']);
     const t0 = Date.now();
     await sleep(measure * 1000);
@@ -84,9 +109,17 @@ export async function runPerf(ctx: Ctx) {
     const cpuPct = (cpu / secs) * 100;
     const rssMB = tb.reduce((s, r) => s + r.rssKB, 0) / 1024;
     const per = tb.map((r) => ({ comm: r.comm.split('/').pop(), rssMB: Math.round(r.rssKB / 102.4) / 10 }));
-    h.artifact(ctx.saveData('perf-idle.json', { settle, measure, cpuPct, rssMB, processes: per, budget: BUDGET }));
+    const logAfter = (await app.call<any>('usage.get').catch(() => undefined))?.pollLog as PollLog | undefined;
+    const pollers = topPollers(logBefore, logAfter);
+    h.artifact(ctx.saveData('perf-idle.json', { settle, measure, cpuPct, rssMB, processes: per, budget: BUDGET, pollers }));
+    h.artifact(ctx.saveData('perf-pollers.txt', pollers.polls.length || pollers.outside.length
+      ? [`Regular checks during the ${measure} s of idle, costliest first (main-process ms; programs started):`,
+        ...pollers.polls.map((p) => `  ${p.name}: ${p.runs} run(s), ${p.cpuMs} ms cpu, ${p.wallMs} ms wall${p.spawns ? `, started ${Object.entries(p.programs).map(([k, v]) => `${k}×${v}`).join(' ')}` : ''}`),
+        ...(pollers.outside.length ? ['Programs started outside regular checks:', ...pollers.outside.map((o) => `  ${o.program}×${o.count}`)] : [])].join('\n') + '\n'
+      : 'No poll log (Keeper was not started with KEEPER_POLL_LOG=1, or nothing ran)\n'));
     if (!tb.length) return fail('Could not find Keeper\'s processes with ps');
     const note = 'RSS counts shared memory once per process, so it reads higher than the Linux budget\'s PSS';
-    return verdict(cpuPct <= BUDGET.cpuPct, `${cpuPct.toFixed(2)} % of one core (budget ${BUDGET.cpuPct} %), ${Math.round(rssMB)} MB resident in ${tb.length} processes (Linux budget ${BUDGET.rssMB} MB PSS; ${note})`, { cpuPct, rssMB, processes: tb.length });
+    const top = pollers.polls.slice(0, 3).map((p) => `${p.name} ${p.costMs} ms${p.spawns ? ` (${p.spawns} program(s))` : ''}`).join(', ');
+    return verdict(cpuPct <= BUDGET.cpuPct, `${cpuPct.toFixed(2)} % of one core (budget ${BUDGET.cpuPct} %), ${Math.round(rssMB)} MB resident in ${tb.length} processes (Linux budget ${BUDGET.rssMB} MB PSS; ${note})${top ? `; top checks: ${top}` : ''}`, { cpuPct, rssMB, processes: tb.length, topPollers: pollers.polls.slice(0, 10) });
   });
 }

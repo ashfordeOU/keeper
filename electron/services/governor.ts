@@ -17,6 +17,7 @@ import os from 'node:os';
 import { decide, DEFAULT_CONDITIONS, paceMs, pollDelay, type Conditions, type PollRule, type WorkKind } from '../../core/governor';
 import { settings } from '../store';
 import { featureOn, onFeaturesChanged } from './features';
+import { measuredRun, pollLog } from './poll-log';
 
 export type { WorkKind } from '../../core/governor';
 
@@ -186,7 +187,7 @@ function schedule(p: Poller) {
     p.running = true;
     try {
       p.runs++;
-      await p.fn();
+      await measuredRun(p.name, p.fn);
     } catch {
       /* the next look will try again */
     } finally {
@@ -207,7 +208,7 @@ export function poll(name: string, rule: PollRule | (() => PollRule), fn: () => 
   const p: Poller = { name, rule, fn, running: false, stopped: false, runs: 0, features };
   p.stop = () => { p.stopped = true; clearTimeout(p.timer); pollers.delete(name); };
   pollers.set(name, p);
-  if (opts.now !== false && !features?.some((f) => !featureOn(f))) void Promise.resolve().then(() => fn()).catch(() => undefined);
+  if (opts.now !== false && !features?.some((f) => !featureOn(f))) void Promise.resolve().then(() => measuredRun(name, fn)).catch(() => undefined);
   schedule(p);
   return p.stop;
 }
@@ -220,7 +221,7 @@ export function pollNow(name: string) {
   p.timer = setTimeout(async () => {
     if (p.running) return;
     p.running = true;
-    try { await p.fn(); } catch { /* ignore */ } finally { p.running = false; schedule(p); }
+    try { await measuredRun(p.name, p.fn); } catch { /* ignore */ } finally { p.running = false; schedule(p); }
   }, 0);
 }
 
@@ -290,6 +291,7 @@ export function usage(): import('../../core/api-usage').KeeperUsage {
       return { ...t, state: t.state === 'working' && !d.ok ? 'waiting' as const : t.state, detail: !d.ok && t.state !== 'idle' ? d.reason : t.detail };
     }),
     checks: [...pollers.values()].map((p) => ({ name: p.name, everyMs: p.features?.some((f) => !featureOn(f)) || p.paused ? null : pollDelay(typeof p.rule === 'function' ? p.rule() : p.rule, c), runs: p.runs, features: p.features })),
+    pollLog: pollLog(),
   };
 }
 

@@ -766,5 +766,66 @@
     ]
    }
   ]
+ },
+ "usage.get": {
+  "$seq": [
+   {
+    "cpu": 0.5,
+    "memory": 400000000,
+    "processes": 8,
+    "checks": [],
+    "pollLog": {
+     "since": 0,
+     "polls": [
+      {
+       "name": "island.devices",
+       "runs": 2,
+       "wallMs": 900,
+       "cpuMs": 12,
+       "spawns": 2,
+       "programs": {
+        "osascript": 2
+       }
+      }
+     ],
+     "outside": []
+    }
+   },
+   {
+    "cpu": 0.5,
+    "memory": 400000000,
+    "processes": 8,
+    "checks": [],
+    "pollLog": {
+     "since": 0,
+     "polls": [
+      {
+       "name": "island.devices",
+       "runs": 3,
+       "wallMs": 1300,
+       "cpuMs": 18,
+       "spawns": 3,
+       "programs": {
+        "osascript": 3
+       }
+      },
+      {
+       "name": "island.media",
+       "runs": 2,
+       "wallMs": 40,
+       "cpuMs": 2,
+       "spawns": 0,
+       "programs": {}
+      }
+     ],
+     "outside": [
+      {
+       "program": "ps",
+       "count": 1
+      }
+     ]
+    }
+   }
+  ]
  }
 }

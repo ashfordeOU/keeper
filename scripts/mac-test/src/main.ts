@@ -148,8 +148,8 @@ async function main() {
         say(color.dim(`  (starting Keeper${launches > 1 ? ' again' : ''}…)`));
         return launchKeeper({
           root, home, userData: paths.userData, sandboxPaths: path.join(root, 'scripts/mac-test/sandbox-paths.cjs'), logDir: paths.logs, n: launches,
-          // KEEPER_ISLAND_LOG: requested vs actual Island rectangles, for island.stays-put.
-          env: { KEEPER_TELEMETRY_URL: stub.url, KEEPER_TELEMETRY_INTERVAL_MS: '86400000', KEEPER_ISLAND_LOG: '1', ...appEnv },
+          // KEEPER_POLL_LOG: the performance check lists what each regular check cost; KEEPER_ISLAND_LOG: requested vs actual Island rectangles.
+          env: { KEEPER_TELEMETRY_URL: stub.url, KEEPER_TELEMETRY_INTERVAL_MS: '86400000', KEEPER_POLL_LOG: '1', KEEPER_ISLAND_LOG: '1', ...appEnv },
         });
       })();
       try {
