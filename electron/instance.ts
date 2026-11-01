@@ -29,16 +29,18 @@ export interface InstancePaths { dir: string; file: string; socket: string }
 
 /** Where the lock lives for this person (and, for test runs, for this test home). */
 export function instancePaths(env: NodeJS.ProcessEnv = process.env, platform = process.platform, home = os.homedir(), uid = process.getuid?.() ?? 0): InstancePaths {
-  const test = env.KEEPER_MACTEST_HOME && path.isAbsolute(env.KEEPER_MACTEST_HOME) ? env.KEEPER_MACTEST_HOME : '';
+  // The platform asked about decides the path style (tests ask about macOS from Windows too).
+  const P = platform === 'win32' ? path.win32 : path.posix;
+  const test = env.KEEPER_MACTEST_HOME && P.isAbsolute(env.KEEPER_MACTEST_HOME) ? env.KEEPER_MACTEST_HOME : '';
   const key = crypto.createHash('sha256').update(`${APP_ID}\u0000${test ? `test:${test}` : `home:${home}`}`).digest('hex').slice(0, 16);
   let dir: string;
-  if (platform === 'win32') dir = path.join(env.LOCALAPPDATA || path.join(home, 'AppData', 'Local'), 'Keeper', 'instance');
-  else if (platform === 'darwin') dir = test ? path.join(test, 'Library', 'Caches', APP_ID) : path.join(home, 'Library', 'Caches', APP_ID);
-  else dir = path.join(env.XDG_RUNTIME_DIR || path.join(os.tmpdir(), `keeper-${uid}`), 'keeper-instance');
+  if (platform === 'win32') dir = P.join(env.LOCALAPPDATA || P.join(home, 'AppData', 'Local'), 'Keeper', 'instance');
+  else if (platform === 'darwin') dir = test ? P.join(test, 'Library', 'Caches', APP_ID) : P.join(home, 'Library', 'Caches', APP_ID);
+  else dir = P.join(env.XDG_RUNTIME_DIR || P.join(os.tmpdir(), `keeper-${uid}`), 'keeper-instance');
   // Unix socket paths are limited to about 100 bytes: keep the socket short, in the temporary folder when needed.
-  const sockDir = platform === 'win32' ? '' : (path.join(dir, `keeper-${key}.sock`).length < 100 ? dir : os.tmpdir());
-  const socket = platform === 'win32' ? `\\\\.\\pipe\\keeper-${key}` : path.join(sockDir, `keeper-${key}.sock`);
-  return { dir, file: path.join(dir, `instance-${key}.json`), socket };
+  const sockDir = platform === 'win32' ? '' : (P.join(dir, `keeper-${key}.sock`).length < 100 ? dir : os.tmpdir());
+  const socket = platform === 'win32' ? `\\\\.\\pipe\\keeper-${key}` : P.join(sockDir, `keeper-${key}.sock`);
+  return { dir, file: P.join(dir, `instance-${key}.json`), socket };
 }
 
 const alive = (pid: number) => {
