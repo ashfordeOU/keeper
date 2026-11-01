@@ -390,8 +390,9 @@ const SHOTS = [
     id: 'home', engine: 'app', route: 'home', prep: async ({ page, sleep }) => {
       await page.waitForSelector('.content', { timeout: 15000 });
       await sleep(1000);
-      // A file selected, so the inspector shows what Keeper knows about it.
-      await page.locator('.shelf-card', { hasText: 'budget.xlsx' }).first().click({ timeout: 4000 }).catch(() => undefined);
+      // A file selected, so the Inspector slides in with what Keeper knows about it.
+      const item = page.locator('.home-recent-item', { hasText: 'budget.xlsx' });
+      await (await item.count() ? item.first() : page.locator('.home-recent-item').first()).click({ timeout: 4000 }).catch(() => undefined);
       await sleep(1200);
     },
   },

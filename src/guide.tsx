@@ -268,7 +268,8 @@ export function GuideMini() {
 const ROUTE_AREAS: Record<string, Area[]> = {
   cleanup: ['space', 'storage'], space: ['space', 'storage'], large: ['space', 'storage'], duplicates: ['space'],
   protection: ['security', 'privacy'], health: ['performance'], startup: ['performance'],
-  sync: ['backup'], vpn: ['network', 'privacy'], netactivity: ['network', 'privacy'], home: ['space', 'security', 'backup', 'updates'],
+  sync: ['backup'], vpn: ['network', 'privacy'], netactivity: ['network', 'privacy'],
+  // Home has its own Attention card (src/screens/Home.tsx).
 };
 
 export function FindingCard({ f, compact }: { f: FindingView; compact?: boolean }) {

@@ -8,6 +8,7 @@ import { defaultBrainSettings, normalizeBrainSettings } from './brain/config';
 import { defaultAgentSettings, normalizeAgentSettings } from './agents-config';
 import { defaultSyncSettings, normalizeSyncSettings } from './sync/config';
 import { DEFAULT_PLATFORM } from './platform-integrations';
+import { defaultHomeSettings, normalizeHome } from './home-layout';
 import { DEFAULT_THEME, THEMES } from './themes';
 import type { Rule, Settings } from './types';
 
@@ -125,6 +126,7 @@ export function defaultSettings(folders: string[], rules: Rule[]): AllSettings {
     inspectorMode: 'selection',
     sidebarMode: 'auto',
     sidebarSectionLimit: 5,
+    home: defaultHomeSettings(),
     permissionsSetup: '',
     island: defaultIsland(),
   };
@@ -166,6 +168,7 @@ export function mergeSettings(base: AllSettings, raw: unknown): AllSettings {
   if (!Array.isArray(out.featureSets)) out.featureSets = [];
   if (!['selection', 'always', 'never'].includes(out.inspectorMode)) out.inspectorMode = 'selection';
   if (!['auto', 'full', 'compact'].includes(out.sidebarMode)) out.sidebarMode = 'auto';
+  out.home = normalizeHome(r.home);
   out.sidebarSectionLimit = Number.isFinite(out.sidebarSectionLimit) ? Math.max(0, Math.min(50, Math.round(out.sidebarSectionLimit))) : 5;
   if (!['', 'all', 'onDemand'].includes(out.permissionsSetup)) out.permissionsSetup = '';
   return out;

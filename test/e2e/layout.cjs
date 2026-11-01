@@ -70,6 +70,52 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await both('home-small');
     await size(1440, 900);
     if (process.env.LAYOUT_TAG === 'before') { await app.close(); return; }
+    // The calmer Home.
+    check(/files? · .* free/.test(await main.locator('[data-testid="home-line"]').textContent()), `one quiet line under the greeting ("${(await main.locator('[data-testid="home-line"]').textContent()).trim()}")`);
+    check(await main.locator('[data-testid="home-rescan"]').count() === 1 && await main.getByRole('button', { name: /^Rescan$/ }).count() === 0, 'Rescan is a small icon button');
+    check(await main.locator('.home .card, .home .kind-tile').count() === 0, 'no big storage, clean-up or library cards');
+    check(await main.locator('[data-testid="home-library-chips"] .home-chip').count() >= 3, 'the Library is one row of chips');
+    const recent = main.locator('[data-testid="home-recent"] .home-recent-item');
+    const nRecent = await recent.count();
+    check(nRecent >= 1 && nRecent <= 6, `one Recent section with at most 6 items (${nRecent})`);
+    const tw = (await main.locator('.home-recent-grid .thumb').first().boundingBox())?.width ?? 0;
+    check(tw >= 100 && tw <= 200, `small pictures (${Math.round(tw)} px)`);
+    const attention = await main.locator('[data-testid="home-attention"]').count();
+    console.log(`  (Attention card ${attention ? 'shown' : 'hidden'} on this computer)`);
+    // A filter, kept after a reload.
+    await main.click('[data-testid="recent-document"]');
+    await sleep(800);
+    const docs = await main.locator('[data-testid="home-recent"] .home-recent-item').allTextContents();
+    check(docs.length > 0 && !docs.some((t) => /\.(png|jpe?g|webp|avif|tiff|dng|svg|mp4|mov|webm|mp3|wav|flac|zip)\b/i.test(t)), `the Documents filter shows documents (${docs.length})`);
+    await reload();
+    check(await main.locator('[data-testid="recent-document"]').getAttribute('aria-pressed') === 'true', 'the chosen filter is kept after a reload');
+    await main.click('[data-testid="recent-all"]');
+    // No layout shift while the pictures load: the grid's boxes keep their size.
+    const box1 = await main.locator('.home-recent-grid .thumb').first().boundingBox();
+    await sleep(1500);
+    const box2 = await main.locator('.home-recent-grid .thumb').first().boundingBox();
+    check(box1 && box2 && Math.abs(box1.y - box2.y) < 1 && Math.abs(box1.height - box2.height) < 1, 'pictures load without moving anything');
+    // Edit Home: hide Library, show Storage, compact spacing; kept after a reload.
+    await main.click('[data-testid="home-edit"]');
+    await sleep(300);
+    await both('home-edit');
+    await main.locator('[data-testid="home-edit-library"] button[role="switch"]').click();
+    await main.locator('[data-testid="home-edit-usage"] button[role="switch"]').click();
+    await main.locator('[data-testid="home-edit-panel"]').getByRole('radio', { name: 'Compact' }).click();
+    await main.click('[data-testid="home-edit"]');
+    await reload();
+    check(await main.locator('[data-section="library"]').count() === 0 && await main.locator('[data-section="usage"]').count() === 1, 'Edit Home hides and shows sections, kept after a reload');
+    check(await main.locator('.home.home-compact').count() === 1, 'the spacing choice is kept');
+    await both('home-edited');
+    await main.evaluate(async () => { const s = await window.keeper.settings.get(); await window.keeper.settings.set({ home: { ...s.home, hidden: ['weather', 'usage', 'calendar'], density: 'comfortable', recent: 'all' } }); });
+    await sleep(500);
+    // A few themes.
+    for (const t of ['glass', 'retro', 'minimal']) {
+      await main.evaluate((id) => window.keeper.settings.set({ theme: id }), t).catch(() => undefined);
+      await sleep(400);
+      await main.screenshot({ path: path.join(SHOTS, `${TAG}home-theme-${t}.png`) });
+    }
+    await main.evaluate(() => window.keeper.settings.set({ theme: 'playful' }));
   }
 
   // ---------------------------------------------------------------- the Inspector
