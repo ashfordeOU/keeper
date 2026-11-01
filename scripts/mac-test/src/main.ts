@@ -435,7 +435,7 @@ async function finish(ctx: Ctx, identity: Identity, started: Date, stub: { hits(
     walk(from, 0);
     return n;
   };
-  const nLogs = copyMatching(paths.userData, path.join(paths.logs, 'keeper-data'), /\.(log|txt)$|journal\.json$/i);
+  const nLogs = copyMatching(paths.userData, path.join(paths.logs, 'keeper-data'), /\.(log|txt|jsonl)$|journal\.json$|breadcrumbs.*\.json$/i);
   const nDumps = copyMatching(path.join(paths.userData, 'Crashpad'), path.join(paths.logs, 'crash-dumps'), /\.dmp$/i);
   let nReports = 0;
   if (!ctx.dry) {

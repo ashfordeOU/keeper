@@ -4,6 +4,28 @@
 import { clipboard, ClipboardItem, nativeImage } from 'electron';
 
 export const readText = () => clipboard.readText().catch(() => '');
+
+let lastCount: number | undefined;
+/**
+ * macOS: has anything been copied since the last look? Asked of keeper-helper
+ * (NSPasteboard's change counter), so an unchanged clipboard is not read at
+ * all; reading a large copied picture every look costs a decode of the whole
+ * image. Elsewhere, and without the helper, always true.
+ */
+export async function clipboardChanged(): Promise<boolean> {
+  if (process.platform !== 'darwin') return true;
+  try {
+    const { helperPath, macHelperCall } = await import('./platform/mac');
+    if (!helperPath()) return true;
+    const { count } = await macHelperCall<{ count: number }>('pasteboard.changeCount', {}, 2000);
+    if (typeof count !== 'number') return true;
+    const changed = count !== lastCount;
+    lastCount = count;
+    return changed;
+  } catch {
+    return true;
+  }
+}
 export const writeText = (t: string) => clipboard.writeText(t).catch(() => undefined);
 
 export async function hasImage(): Promise<boolean> {

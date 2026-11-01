@@ -143,6 +143,12 @@ export class IslandWindows {
       setImmediate(() => this.ensure(true));
       return;
     }
+    // Never a tight loop: past the fallback (or off macOS), a window that keeps being moved is left
+    // where it is for a while instead of being fought over on every event.
+    if (recent.length > 12) {
+      if (recent.length === 13) console.warn(`[island] display ${id}: still being moved; leaving it where it is for a while`);
+      return;
+    }
     setImmediate(() => { if (!win.isDestroyed()) this.place(id, win, r, 'put back'); });
   }
 

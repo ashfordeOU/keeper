@@ -47,6 +47,9 @@ function keeperMains() {
   check(!!awake && awake.on === true, 'the second start\'s keeper:// link was handled by the running Keeper (Keep Awake is on)');
   await main.evaluate(() => window.keeper.awake.stop()).catch(() => undefined);
 
+  // Crash breadcrumbs are kept from the start (session/breadcrumbs.json), with the regular checks and recent log lines.
+  const crumbs = (() => { try { return JSON.parse(fs.readFileSync(path.join(HOME, '.config/Keeper/session/breadcrumbs.json'), 'utf8')); } catch { return null; } })();
+  check(!!crumbs && Array.isArray(crumbs.polls) && Array.isArray(crumbs.lines) && crumbs.pid > 0, `crash breadcrumbs are written (${crumbs?.polls?.length ?? 0} checks, ${crumbs?.lines?.length ?? 0} lines, ${crumbs?.memoryMB?.rss ?? '?'} MB)`);
   await app.close();
   process.exit(process.exitCode ?? 0);
 })().catch((e) => { console.error(e); process.exit(1); });

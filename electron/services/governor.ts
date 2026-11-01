@@ -297,6 +297,11 @@ export function usage(): import('../../core/api-usage').KeeperUsage {
 
 export type { KeeperUsage } from '../../core/api-usage';
 
+/** For crash breadcrumbs: each regular check, whether it is running right now, and how often it ran. */
+export function pollerSnapshot() {
+  return [...pollers.values()].map((p) => ({ name: p.name, running: p.running, runs: p.runs, paused: !!p.paused }));
+}
+
 /** Helpers such as video conversion and text recognition run below normal priority. */
 export function lowerPriority(child: ChildProcess | number | undefined) {
   const pid = typeof child === 'number' ? child : child?.pid;

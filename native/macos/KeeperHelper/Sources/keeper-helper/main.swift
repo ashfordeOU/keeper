@@ -16,6 +16,7 @@
 // front.watch, front.now, place.measure and apps.running.
 
 import Foundation
+import AppKit
 import Vision
 import CoreSpotlight
 import NaturalLanguage
@@ -544,6 +545,7 @@ func handle(id: Int, method: String, params: [String: Any]) async {
         case "front.now": Wire.shared.result(id, frontNow() ?? [:])
         case "place.measure", "menubar.layout": Wire.shared.result(id, placeMeasure())
         case "apps.running": Wire.shared.result(id, appsRunning(params))
+        case "pasteboard.changeCount": Wire.shared.result(id, ["count": NSPasteboard.general.changeCount])
         case "desktop.setImage": Wire.shared.result(id, try desktopSetImage(params))
         case "desktop.getImage": Wire.shared.result(id, desktopGetImage())
         case "desktop.setFolderIcon": Wire.shared.result(id, try desktopSetFolderIcon(params))

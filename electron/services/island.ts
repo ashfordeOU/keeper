@@ -25,7 +25,7 @@ import { getSecret, settings } from '../store';
 import { lyricsFor, mediaAction, micInUse, nowPlaying, watchMic } from './media';
 import { cameraInUse } from './island-place';
 import { readBattery } from './system';
-import { hasImage, readFileList, readImage, readText, writeImage, writePaths, writeText } from './clip';
+import { clipboardChanged, hasImage, readFileList, readImage, readText, writeImage, writePaths, writeText } from './clip';
 import { devicesState, frontmostApp, frontmostFullscreen, setBrightness, setMuted, setVolume, snapshot, touchDrive } from './devices';
 import { NotificationMirror } from './notify-mirror';
 import { wantNotification } from '../../core/island-notify';
@@ -395,6 +395,8 @@ export class IslandService {
     if (!s.clipboard || this.polling) return;
     this.polling = true;
     try {
+      // Nothing copied since the last look (macOS asks the system's counter): nothing to read.
+      if (!(await clipboardChanged())) return;
       await this.readClipboard(s.cleanLinks);
     } finally {
       this.polling = false;

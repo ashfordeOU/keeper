@@ -9,7 +9,8 @@ import { addBusyCheck } from './services/busy';
 import { onBeforeInstall } from './services/updater';
 import { BRAND, COPYRIGHT, TRADEMARK, WEBSITE } from '../core/brand';
 // First, so local crash reports cover everything that follows.
-import { initResilience, restoreExtraWindows } from './resilience';
+import { initResilience, lastRun, restoreExtraWindows } from './resilience';
+import { startBreadcrumbs } from './breadcrumbs';
 import { anotherKeeperTookOver, holdInstanceLock, releaseInstanceLock } from './instance';
 import { onLimitAlert } from './svc/limits';
 import { app, BrowserWindow, dialog, globalShortcut, ipcMain, Menu, nativeImage, nativeTheme, protocol, screen, shell, Tray } from 'electron';
@@ -119,7 +120,7 @@ import { pendingOnQuit, relockOnQuit } from './services/lock';
 import { remoteFolders } from './services/places';
 import { emptyAndBroken, removeBrokenLink } from './services/tools';
 import { readDownloadSources, readFinderTags } from '../core/platform';
-import { conditions, pace, poll, startGovernor, usage, whenIdle } from './services/governor';
+import { conditions, pace, poll, pollerSnapshot, startGovernor, usage, whenIdle } from './services/governor';
 import { applyFeatureSet, applyPreset, featureOn, featureSets, listFeatures, liveCosts, onFeature, onFeaturesChanged, removeFeatureSet, saveFeatureSet, setFeature, setPowerSets, startPowerSets } from './services/features';
 import { getSecret, hasSecret, onSettings, setSecret, settings, updateSettings } from './store';
 import { registerUsageStatsIpc } from './ipc/usage-stats';
@@ -1268,6 +1269,8 @@ app.whenReady().then(async () => {
   // Started at login to sit in the tray: the window's page loads only when it is first opened.
   // Tabs, drafts and windows survive crashes; a watchdog brings Keeper back if it stops unexpectedly.
   initResilience({ preload, lockDown, restore: () => settings().restorePlace !== false, main: () => main });
+  // What Keeper was doing, kept where a crash cannot erase it (session/breadcrumbs.json).
+  startBreadcrumbs({ polls: pollerSnapshot, crashedLastTime: lastRun.unclean });
   if (!process.argv.includes('--hidden') || settings().resourceMode === 'performance') createMain();
   restoreExtraWindows();
   await index.load();

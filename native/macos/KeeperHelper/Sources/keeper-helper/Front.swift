@@ -12,6 +12,8 @@
 //                  (window layer 25) and where the front app's menus end
 //                  (Accessibility; left out without it)
 //   apps.running   which of the given bundle ids are running
+//   pasteboard.changeCount  the clipboard's change counter (dispatched in main.swift), so
+//                  clipboard history reads the clipboard only after it changed
 //
 // The main thread is busy reading requests, so nothing here relies on a run
 // loop: NSWorkspace's front-app notifications would never arrive. The window
