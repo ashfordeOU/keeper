@@ -228,6 +228,8 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     { id: 'calendar-import', label: 'Import Calendar File…', group: 'Actions', icon: 'calendar', keywords: 'ics ical import events file', run: () => void api.pim.importIcs().then((n) => { if (n) store.toast(`Imported ${n} event${n === 1 ? '' : 's'}`); }) },
     { id: 'calendar-open', label: 'Calendar', group: 'Go to', icon: 'calendar', keywords: 'events schedule agenda', run: () => store.go({ name: 'calendar' }) },
     { id: 'reminder-new', label: 'Reminders', group: 'Go to', icon: 'listCheck', keywords: 'todo tasks to-do', run: () => store.go({ name: 'reminders' }) },
+    { id: 'planner-open', label: 'Planner', group: 'Go to', icon: 'columns', keywords: 'today week inbox plan tasks overdue upcoming insights', run: () => store.go({ name: 'planner' }) },
+    { id: 'planner-new', label: 'New Task…', group: 'Actions', icon: 'plus', keywords: 'todo task add reminder', run: () => store.go({ name: 'planner', arg: 'new' }) },
     { id: 'alarm-new', label: 'Alarms', group: 'Go to', icon: 'alarm', keywords: 'wake clock alarm', run: () => store.go({ name: 'alarms', arg: 'alarms' }) },
     ...[5, 10, 25].map((m) => ({ id: `timer-${m}`, label: `Start a ${m}-Minute Timer`, group: 'Actions' as const, icon: 'timer', keywords: 'countdown kitchen', run: async () => { await api.pim.startTimer(`${m} min`, m * 60_000); store.toast(`Timer set for ${m} minutes`); } })),
     { id: 'shelf-clear', label: 'Clear the Shelf', group: 'Actions', icon: 'island', run: async () => { await api.island.clearShelf(); } },

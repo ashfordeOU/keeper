@@ -23,7 +23,7 @@ const TITLES: Record<string, [string, string]> = {
   island: ['Island', 'island'], settings: ['Settings', 'settings'], tools: ['Toolbox', 'terminal'], health: ['Health', 'bolt'], capture: ['Capture', 'screenshot'],
   annotate: ['Annotate', 'screenshot'], convert: ['Convert', 'refresh'], widgets: ['Widgets', 'grid'], weather: ['Weather', 'sun'], network: ['Network', 'globe'], trash: ['Trash', 'trash'],
   remote: ['Cloud & Servers', 'cloud'], terminal: ['Terminal', 'terminal'], sync: ['Sync & Backup', 'refresh'], devices: ['Devices', 'laptop'], netactivity: ['Network Activity', 'globe'],
-  rdc: ['Remote Desktops', 'laptop'], vpn: ['VPN', 'lock'], mesh: ['Mesh', 'graph'], agents: ['Agents', 'agent'], graph: ['Knowledge Graph', 'graph'], mail: ['Mail', 'mail'], calendar: ['Calendar', 'calendar'], reminders: ['Reminders', 'check'], alarms: ['Alarms', 'timer'],
+  rdc: ['Remote Desktops', 'laptop'], vpn: ['VPN', 'lock'], mesh: ['Mesh', 'graph'], agents: ['Agents', 'agent'], graph: ['Knowledge Graph', 'graph'], mail: ['Mail', 'mail'], calendar: ['Calendar', 'calendar'], reminders: ['Reminders', 'check'], planner: ['Planner', 'columns'], alarms: ['Alarms', 'timer'],
 };
 
 const SHELVES: Record<string, string> = { image: 'Images', video: 'Videos', audio: 'Music', document: 'Documents', archive: 'Archives', installer: 'Installers', app: 'Apps', code: 'Code', other: 'Other' };

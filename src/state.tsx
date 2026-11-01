@@ -17,7 +17,7 @@ import { asInspectorMode, clampInspectorWidth, inspectorVisible, nextForced, INS
 export type RouteName =
   | 'home' | 'recents' | 'library' | 'screenshots' | 'search' | 'browse' | 'downloads' | 'source' | 'tag' | 'saved'
   | 'duplicates' | 'cleanup' | 'space' | 'large' | 'startup' | 'apps' | 'protection' | 'rules' | 'history'
-  | 'assistant' | 'island' | 'settings' | 'tools' | 'health' | 'capture' | 'annotate' | 'convert' | 'widgets' | 'ambience' | 'weather' | 'network' | 'trash' | 'remote' | 'terminal' | 'sync' | 'devices' | 'netactivity' | 'vpn' | 'firewall' | 'agents' | 'graph' | 'mail' | 'calendar' | 'reminders' | 'alarms' | 'todo' | 'awake' | 'stage' | 'controls' | 'catalog' | 'appcontrols' | 'browsers' | 'noteshub' | 'notes' | 'rdc' | 'mesh' | 'tracks'
+  | 'assistant' | 'island' | 'settings' | 'tools' | 'health' | 'capture' | 'annotate' | 'convert' | 'widgets' | 'ambience' | 'weather' | 'network' | 'trash' | 'remote' | 'terminal' | 'sync' | 'devices' | 'netactivity' | 'vpn' | 'firewall' | 'agents' | 'graph' | 'mail' | 'calendar' | 'reminders' | 'planner' | 'alarms' | 'todo' | 'awake' | 'stage' | 'controls' | 'catalog' | 'appcontrols' | 'browsers' | 'noteshub' | 'notes' | 'rdc' | 'mesh' | 'tracks'
   | 'cues' | 'dictation' | 'meetings';
 
 /** Pages that list files, where the Inspector can show. */

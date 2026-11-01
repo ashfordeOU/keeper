@@ -8,6 +8,7 @@ import { Calendar } from './pim/Calendar';
 import { Mail } from './pim/Mail';
 import { PimSidebar } from './pim/PimSidebar';
 import { Reminders } from './pim/Reminders';
+import { Planner } from './pim/Planner';
 import { Component, lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { FileKind } from '../core/types';
 import { api } from './api';
@@ -433,6 +434,7 @@ function Page() {
     mail: () => <Mail />,
     calendar: () => <Calendar />,
     reminders: () => <Reminders />,
+    planner: () => <Planner initial={route.arg} />,
     alarms: () => <Alarms />,
   };
   return pages[route.name]();
