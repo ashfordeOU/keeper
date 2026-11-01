@@ -686,6 +686,8 @@ export interface KeeperApi extends KeeperApiX {
     openClips(): Promise<void>;
     closeClips(): void;
     openShelf(): Promise<void>;
+    /** opens the Island on one of its tabs ("reminders", "reminders:new" focuses the new-task field) */
+    openTab?(tab: string): Promise<void>;
     hide(hidden: boolean): Promise<void>;
     setVolume(value: number): Promise<void>;
     setMuted(muted: boolean): Promise<void>;

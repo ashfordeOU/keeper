@@ -341,12 +341,13 @@ export function CoachHost({ route }: { route: Route }) {
   );
 }
 
-const TOUR: { title: string; text: string; route?: Route; practice?: boolean; stats?: boolean; permissions?: boolean }[] = [
+const TOUR: { title: string; text: string; route?: Route; practice?: boolean; stats?: boolean; permissions?: boolean; island?: boolean }[] = [
   { title: 'Welcome to Keeper', text: 'Your files, your computer’s health and your privacy in one place. Here is a 30-second look around.' },
   { title: 'Anonymous usage stats', text: 'Keeper sends a small anonymous report once a day to help us improve it: its version, the kind of computer, which features and pages you use, and crash counts. Never your files, searches or names. Switch it off here or any time in Settings → Privacy.', stats: true },
   { title: 'Permissions', text: 'Some features need your OK in the system’s settings: seeing the screen, the microphone, typing for you and so on. Set them up now, in one go, and nothing interrupts you later. You can change this any time in Settings → Permissions.', permissions: true },
   { title: 'Find anything', text: 'Type what you remember in the search bar — “pdfs from gmail last month”, “screenshots with wifi password”.' },
   { title: 'Your To do list', text: 'Keeper checks space, security, privacy, backups and updates, and lists what is worth doing — each with “Fix” that does it or walks you through it.', route: { name: 'todo' as Route['name'] } },
+  { title: 'The Island', text: 'The bar at the top of the screen (under the notch on a Mac) holds what is going on: music, timers, calls and reminders that are due, with Snooze and Done. Point at it to open it: drop files on the shelf, check off today’s tasks, plan the week, take notes or start a focus session. Ctrl+Alt+N (⌘⌥N) adds a task from anywhere.', island: true },
   { title: 'Ask how', text: 'Press ⌘K / Ctrl+K and type “How do I…” — free up space, stop apps watching my camera, encrypt my disk, back up my photos.' },
   { title: 'Try it: copy text from the screen', text: 'Text in pictures, videos and shared screens can be copied too. Press “Try it”, then drag a box over the card below; its text lands on your clipboard.', practice: true },
 ];
@@ -418,6 +419,7 @@ export function TourHost() {
         {step.practice ? <PracticeCapture /> : null}
         {step.stats ? <TourUsageStats /> : null}
         {step.permissions ? <TourPermissions step={i} /> : null}
+        {step.island && settings?.island?.enabled !== false ? <div className="btn-row"><button className="btn sm" data-testid="tour-island" onClick={() => void api.island.openTab?.('reminders:new')}><Icon name="island" size={12} /> Show me</button></div> : null}
         <div className="btn-row" style={{ justifyContent: 'flex-end' }}>
           {step.permissions ? <button className="btn sm ghost" data-testid="tour-perm-skip" onClick={() => setI(i + 1)}>Skip this step</button> : null}
           <button className="btn sm ghost" onClick={end}>Skip tour</button>

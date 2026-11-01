@@ -123,6 +123,7 @@ export function createMockIsland(island: IslandState, files: FileEntry[], settin
       openClips: async () => { window.open('?view=clips', '_blank', 'width=460,height=520'); },
       closeClips: () => undefined,
       openShelf: async () => undefined,
+      openTab: async () => undefined,
       hide: async (h) => { island.hidden = h; emit(); },
       setVolume: async (v) => { island.devices!.volume = v; emit(); },
       setMuted: async (m) => { island.devices!.muted = m; emit(); },

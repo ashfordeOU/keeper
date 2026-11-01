@@ -416,6 +416,7 @@ export function registerIslandIpc(c: IslandContext) {
   h('island.openClips', () => openClips());
   ipcMain.on('island.closeClips', () => hideClips());
   h('island.openShelf', () => islandWindows.openOn('shelf'));
+  h('island.openTab', (tab: string) => islandWindows.openOn(String(tab ?? 'home')));
   h('island.hide', (hidden: boolean) => svc.hide(hidden));
   h('island.setVolume', (v: number) => svc.setVolume(v));
   h('island.setMuted', (m: boolean) => svc.setMuted(m));
