@@ -365,6 +365,19 @@ curl -fsSL https://raw.githubusercontent.com/ashfordeOU/keeper/main/scripts/inst
 irm https://raw.githubusercontent.com/ashfordeOU/keeper/main/scripts/install.ps1 | iex
 ```
 
+**macOS**, three ways; each one installs once, and Keeper then updates itself from GitHub Releases:
+
+- **One line in Terminal** (above). It picks `Keeper-mac-arm64.dmg` or `Keeper-mac-x64.dmg` for your processor, checks it against the release's `SHA256SUMS.txt`, quits a running Keeper, puts `Keeper.app` in `/Applications` and opens it. For the newest beta: `curl -fsSL https://raw.githubusercontent.com/ashfordeOU/keeper/main/scripts/install.sh | sh -s -- --beta`.
+- **The disk image**: [Keeper-mac-arm64.dmg](https://github.com/ashfordeOU/keeper/releases/latest/download/Keeper-mac-arm64.dmg) (Apple silicon) or [Keeper-mac-x64.dmg](https://github.com/ashfordeOU/keeper/releases/latest/download/Keeper-mac-x64.dmg) (Intel); drag Keeper into Applications. Builds are not notarized yet, so on macOS 15 and later the first open is blocked: open **System Settings → Privacy & Security** and click **Open Anyway** (on older versions, Control-click Keeper and choose **Open**).
+- **Homebrew**:
+
+  ```bash
+  brew tap ashfordeOU/keeper https://github.com/ashfordeOU/keeper
+  brew install --cask keeper
+  ```
+
+Mac releases are signed with the same certificate every time (once it is set up; see [How releases work](docs/INSTALL.md#how-releases-work)), so macOS keeps the permissions you grant (Accessibility, Screen Recording and the rest) across updates, and Keeper only installs an update that matches the release's checksum and is signed the same way.
+
 The scripts check every download against the release checksums and add the `keeper` command. Homebrew, winget, Scoop, Chocolatey, the AUR, Flatpak, Snap, apt and dnf, npm (`keeper-cli`), updates, uninstalling and verifying downloads are all in **[docs/INSTALL.md](docs/INSTALL.md)**.
 
 Or download the latest build from **[Releases](https://github.com/ashfordeOU/keeper/releases/latest)**. The file names never change, so these links always give you the newest version:

@@ -7,6 +7,7 @@ Keeper runs on macOS 12+, Windows 10/11 and 64-bit Linux (x64 and ARM64). Every 
 - [Updates](#updates)
 - [Verifying a download](#verifying-a-download)
 - [Uninstalling](#uninstalling)
+- [How releases work](#how-releases-work)
 - [Maintainers: channels, secrets and signing](#maintainers-channels-secrets-and-signing)
 
 ## Quick install
@@ -25,10 +26,10 @@ irm https://raw.githubusercontent.com/ashfordeOU/keeper/main/scripts/install.ps1
 
 What the scripts do:
 
-- On macOS, the script downloads the right `.dmg` for your processor and copies Keeper into `/Applications`, or `~/Applications` if that folder isn't writable.
+- On macOS, the script downloads the right `.dmg` for your processor (`Keeper-mac-arm64.dmg` or `Keeper-mac-x64.dmg`), quits a running Keeper, replaces Keeper in `/Applications` (or `~/Applications` if that folder isn't writable), removes the quarantine flag and opens it.
 - On Linux, it installs the `.deb` (Debian, Ubuntu and similar), the `.rpm` (Fedora, openSUSE and similar), or the AppImage on any other distribution.
 - On Windows, it runs the per-user installer silently, so no administrator prompt appears.
-- Every download is checked against the release's `SHA256SUMS.txt`. Nothing is installed if the checksum doesn't match.
+- Every download is checked against the release's `SHA256SUMS.txt`. Nothing is installed if the checksum doesn't match, or if the release has no checksums.
 - If the [GitHub CLI](https://cli.github.com) is installed and signed in, the script also checks the file's build attestation.
 - Each script puts a `keeper` command on your PATH: in `~/.local/bin` on macOS and Linux, and in `%LOCALAPPDATA%\Keeper\bin` on Windows. Run `keeper` with no arguments to open the app, or `keeper --help` for the command line.
 
@@ -37,6 +38,7 @@ Options:
 | macOS / Linux (`sh -s -- …`) | Windows | |
 |---|---|---|
 | `--version 0.2.0` | `-Version 0.2.0` | A specific version instead of the latest |
+| `--beta` | | The newest release, betas included (a beta copy then keeps updating to betas) |
 | `--appimage` | | Linux: use the AppImage even where a .deb or .rpm would fit |
 | | `-Portable` | The portable `Keeper.exe` instead of the installer |
 | `--cli-only` | | Only the `keeper` command, from npm (needs Node.js 22+) |
@@ -60,13 +62,15 @@ You can also read the scripts before running them: [install.sh](../scripts/insta
 
 | Method | Command or file | Updates |
 |---|---|---|
-| Homebrew | `brew install --cask ashfordeou/keeper/keeper` | Keeper itself, or `brew upgrade --cask keeper` |
+| Script | `curl -fsSL https://raw.githubusercontent.com/ashfordeOU/keeper/main/scripts/install.sh \| sh` | Keeper itself |
 | Disk image | [Keeper-mac-arm64.dmg](https://github.com/ashfordeOU/keeper/releases/latest/download/Keeper-mac-arm64.dmg) (Apple silicon), [Keeper-mac-x64.dmg](https://github.com/ashfordeOU/keeper/releases/latest/download/Keeper-mac-x64.dmg) (Intel) | Keeper itself |
-| Script | `curl -fsSL …/install.sh \| sh` | Keeper itself |
+| Homebrew | `brew tap ashfordeOU/keeper https://github.com/ashfordeOU/keeper` then `brew install --cask keeper` | Keeper itself, or `brew upgrade --cask keeper` |
 
-The Homebrew cask also links the `keeper` command.
+The Homebrew cask is [`Casks/keeper.rb`](../Casks/keeper.rb) in this repository; every stable release updates it. Once the separate `ashfordeOU/homebrew-keeper` tap is live, `brew install --cask ashfordeou/keeper/keeper` installs the same cask. The cask also links the `keeper` command.
 
-> **First launch.** Until releases are signed with an Apple Developer ID, macOS doesn't recognise the developer. Gatekeeper accepts only Apple-issued certificates, and no self-signed certificate can satisfy it. The install script removes the quarantine flag for you. If you used Homebrew or the dmg, either open **System Settings → Privacy & Security** and choose **Open Anyway**, or run:
+Releases are signed with the same certificate every time (once the maintainers have set it up, see [How releases work](#how-releases-work)), so macOS keeps Accessibility, Screen Recording and the other permissions across updates.
+
+> **First launch.** Until releases are signed with an Apple Developer ID and notarized, macOS doesn't recognise the developer. Gatekeeper accepts only Apple-issued certificates, and no self-signed certificate can satisfy it. The install script removes the quarantine flag for you. If you used Homebrew or the dmg on macOS 15 or later, open Keeper once, then open **System Settings → Privacy & Security** and click **Open Anyway** (on older versions, Control-click Keeper and choose **Open**). Or run:
 >
 > ```bash
 > xattr -dr com.apple.quarantine /Applications/Keeper.app
@@ -156,6 +160,13 @@ Both need Node.js 22 or newer. The npm package is published with [provenance](ht
 
 Copies installed from a GitHub download (the dmg, the Windows installer, the AppImage, a .deb or .rpm file, or the script) update themselves. So do Homebrew and winget installs: the cask is marked `auto_updates`, and winget reads the new version back from Windows. Choose how in **Settings → Updates**: automatically, ask first, or only when you check.
 
+Before an update goes in, Keeper checks it:
+
+- The downloaded dmg, .deb or .rpm must match the release's `SHA256SUMS.txt`; otherwise it is deleted and nothing is installed. (The Windows installer and the AppImage are checked by electron-updater against the sha512 in the release's `latest*.yml`.)
+- On macOS the new app's code signature must be valid (`codesign --verify --deep --strict`). When the running Keeper is signed with a certificate (the project's self-signed one, or a Developer ID), the new app must also meet the running app's designated requirement, so only a build signed the same way can replace it. An ad-hoc signed copy (one built locally) only checks that the signature is valid.
+
+A beta (a version with a hyphen, like `0.3.0-beta.1`) updates to the next beta, and to the next stable release, unless you turn off **Include beta versions** in Settings → Updates.
+
 When any other package manager installed Keeper, let that package manager update it so its records stay right. Keeper detects these installs (`core/install-source.ts`):
 
 | Installed with | Detected by | Update with |
@@ -193,7 +204,7 @@ Every release carries several independent proofs that a file is the one GitHub A
    ```bash
    cosign verify-blob SHA256SUMS.txt --bundle SHA256SUMS.txt.sigstore.json \
      --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-     --certificate-identity-regexp '^https://github.com/ashfordeOU/keeper/\.github/workflows/release\.yml@refs/tags/v'
+     --certificate-identity-regexp '^https://github.com/ashfordeOU/keeper/\.github/workflows/release\.yml@refs/(heads/main|tags/v)'
    ```
 
 4. **GPG signatures**, once the release key is published in [KEYS/keeper-release.asc](../KEYS/keeper-release.asc). From then on, `SHA256SUMS.txt.asc` and an `.asc` for each AppImage come with every release. To check them:
@@ -230,15 +241,35 @@ Your files are never touched. Settings stay in `~/Library/Application Support/Ke
 | AppImage | Delete the file (the script's copy is `~/.local/bin/keeper.AppImage`) |
 | npm | `npm uninstall -g keeper-cli` |
 
+## How releases work
+
+Nobody builds Keeper by hand. To release:
+
+1. Bump `"version"` in `package.json` on `main` (and add a `## [x.y.z]` section to `CHANGELOG.md`; it becomes the release notes).
+2. GitHub Actions ([`.github/workflows/release.yml`](../.github/workflows/release.yml)) sees the change, builds every platform and processor, creates the tag `vx.y.z` on that commit and publishes the GitHub Release with `SHA256SUMS.txt`. A push whose version already has a release builds nothing; a running release is never cancelled by a later push.
+3. Installed copies find the new release and update themselves. After a stable release the workflow also commits the new version and checksums to [`Casks/keeper.rb`](../Casks/keeper.rb) and the Scoop bucket.
+
+Versions with a hyphen (`0.3.0-beta.1`) are published as pre-releases: only betas, and copies with **Include beta versions** on, pick them up, and package-manager channels skip them (npm publishes them under `next`). Pushing a tag `vx.y.z` that matches `package.json` still works, and **Run workflow** with *Build only* builds everything without publishing.
+
+**One-time step: the Mac signing certificate.** macOS ties Accessibility, Screen Recording and other permissions to an app's signature. Ad-hoc signatures change with every build, so without a stable certificate people must grant them again after each update (the workflow warns about this). On your own Mac, run once:
+
+```bash
+scripts/make-signing-cert.sh
+```
+
+It creates a self-signed code-signing certificate named "Keeper Self-Signed" and stores it as the repository secrets `KEEPER_SIGNING_CERT` and `KEEPER_SIGNING_PASSWORD` (with the GitHub CLI if it is signed in; otherwise it copies each value to the clipboard and opens the secrets page; `--out DIR` only writes the two files). Every release after that is signed with it: [`scripts/ci-import-signing-cert.sh`](../scripts/ci-import-signing-cert.sh) imports it on the runner and [`build/after-sign.cjs`](../build/after-sign.cjs) re-signs the app before the dmg and zip are made. Don't run it again: a new certificate means everyone grants the permissions once more, and copies signed with the old one won't accept updates signed with the new one, so they need the install script once. A self-signed certificate doesn't satisfy Gatekeeper; a Developer ID (`CSC_LINK`, below) replaces it when there is one.
+
 ## Maintainers: channels, secrets and signing
 
-A release is a pushed tag such as `v0.2.0` (see [`.github/workflows/release.yml`](../.github/workflows/release.yml)). With no secrets at all, it still builds every installer, publishes the GitHub Release, writes `SHA256SUMS.txt`, signs that file with Sigstore, attests every file, and updates the Scoop bucket in this repository. Every other channel switches on when its secret exists. Package-manager channels publish stable releases only. npm publishes pre-releases under the `next` tag.
+A release is a version bump in `package.json` on `main`, or a pushed tag such as `v0.2.0` (see [How releases work](#how-releases-work)). With no secrets at all, it still builds every installer, publishes the GitHub Release, writes `SHA256SUMS.txt`, signs that file with Sigstore, attests every file, and updates the Scoop bucket and the Homebrew cask in this repository. Every other channel switches on when its secret exists. Package-manager channels publish stable releases only. npm publishes pre-releases under the `next` tag.
 
 | Channel | Status | Needs |
 |---|---|---|
 | GitHub Releases, install scripts | Works now | — |
 | Build attestations, Sigstore signature | Works now | — |
 | Scoop (this repository is the bucket) | Works now: the workflow commits `bucket/keeper.json` | An unprotected default branch, or update it by hand |
+| Homebrew cask in this repository | Works now: the workflow commits `Casks/keeper.rb` | An unprotected default branch, or update it by hand |
+| Stable Mac signature (keeps permissions across updates) | Needs a one-time step | `KEEPER_SIGNING_CERT` and `KEEPER_SIGNING_PASSWORD`, made by `scripts/make-signing-cert.sh` (see [How releases work](#how-releases-work)) |
 | npm `keeper-cli` | Needs a secret | `NPM_TOKEN`: an npm automation token for an account that owns `keeper-cli` |
 | Homebrew tap | Needs a secret and a one-time step | Create `ashfordeOU/homebrew-keeper`. `HOMEBREW_TAP_TOKEN` is a fine-grained token with *Contents: write* on that repository. |
 | winget | Needs a one-time manual submission, then a secret | Submit the first version yourself (below). After that, `WINGET_TOKEN` is a classic token with `public_repo`, whose owner has a fork of `microsoft/winget-pkgs`. |
@@ -253,7 +284,7 @@ A release is a pushed tag such as `v0.2.0` (see [`.github/workflows/release.yml`
 **Signing, honestly.**
 
 - **Free.** Attestations, Sigstore and GPG are free and prove a file came from this repository's workflow.
-- **macOS.** Gatekeeper accepts only an Apple Developer ID certificate ($99 a year) plus notarization. Without one, builds are ad-hoc signed, which is enough for Apple silicon to run them once the user allows it.
+- **macOS.** Gatekeeper accepts only an Apple Developer ID certificate ($99 a year) plus notarization. Without one, builds are signed with the free self-signed certificate (`KEEPER_SIGNING_CERT`), or ad-hoc when that is missing; either is enough for Apple silicon to run them once the user allows it, and only the self-signed certificate keeps permissions across updates.
   - When `CSC_LINK` is set, the workflow builds with [`packaging/electron-builder.signed.cjs`](../packaging/electron-builder.signed.cjs). That turns on the hardened runtime with [`build/entitlements.mac.plist`](../build/entitlements.mac.plist), and notarizes when the Apple ID secrets are present too.
 - **Windows.** SmartScreen trusts only certificates from recognised authorities. Three options:
   - [SignPath](https://signpath.io) on a paid plan. Its free foundation programme is only for projects under an OSI-approved licence, which Keeper no longer has.
