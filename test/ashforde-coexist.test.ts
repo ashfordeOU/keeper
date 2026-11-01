@@ -5,7 +5,7 @@ import {
   keeperWindowKind, layoutIntact, layoutRepairs, monorailModeChanged, parseHello, parseWindows, patchAtPath, selfUpdating, shouldPushTheme, suggestShortcut,
   updatesBy, withSuggestions, type ModeSync,
 } from '../core/ashforde/coexist';
-import { KEEPER_BUNDLE_ID, MOD, OVERLAY_TITLES, acceleratorCombo, findClashes, keeperAccelerators, monorailShortcuts, parseState } from '../core/ashforde/monorail';
+import { KEEPER_BUNDLE_ID, MOD, OVERLAY_TITLES, acceleratorCombo, findClashes, keeperAccelerators, monorailShortcuts, monorailUrl, parseState } from '../core/ashforde/monorail';
 import { ALWAYS_KEEP } from '../core/stage/presets';
 import { staysOnScreen } from '../core/stage/plan';
 import { defaultSettings } from '../core/settings';
@@ -190,6 +190,11 @@ describe('updates, themes, the desktop, the handshake', () => {
     expect(h.links.some((l) => l.startsWith('keeper://awake'))).toBe(true);
     expect(parseHello({ app: 'Monorail', version: '2.0', presenting: true })).toEqual({ app: 'Monorail', version: '2.0', presenting: true, awake: undefined, focusMode: undefined, paused: undefined });
     expect(parseHello('x')).toBeNull();
+  });
+
+  it('marks the mode links Keeper sends (older Monorail versions ignore the query)', () => {
+    expect(monorailUrl({ kind: 'focus-mode', on: true, from: 'keeper' })).toBe('monorail://focus-mode/on?from=keeper');
+    expect(monorailUrl({ kind: 'presentation-mode', on: false })).toBe('monorail://presentation-mode/off');
   });
 
   it('reads the newer state fields when Monorail publishes them, and works without', () => {

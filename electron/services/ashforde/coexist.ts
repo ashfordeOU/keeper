@@ -70,14 +70,14 @@ export function initCoexist(d: CoexistDeps) {
 export function keeperFocus(on: boolean) {
   const r = keeperModeChanged(focus, on);
   focus = r.next;
-  if (r.tellMonorail !== undefined && mono.enabledNow() && mono.prefs().followFocus) void mono.openLink({ kind: 'focus-mode', on: r.tellMonorail });
+  if (r.tellMonorail !== undefined && mono.enabledNow() && mono.prefs().followFocus) void mono.openLink({ kind: 'focus-mode', on: r.tellMonorail, from: 'keeper' });
 }
 
 /** Keeper's presentation mode, or any Stage, started or ended: Monorail hides its overlays and notices while it lasts. */
 export function keeperPresentation(on: boolean) {
   const r = keeperModeChanged(pres, on);
   pres = r.next;
-  if (r.tellMonorail !== undefined && mono.enabledNow() && mono.prefs().followPresentation) void mono.openLink({ kind: 'presentation-mode', on: r.tellMonorail });
+  if (r.tellMonorail !== undefined && mono.enabledNow() && mono.prefs().followPresentation) void mono.openLink({ kind: 'presentation-mode', on: r.tellMonorail, from: 'keeper' });
 }
 
 function onMonorailState(s: MonorailState | undefined) {

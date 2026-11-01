@@ -500,7 +500,8 @@ export function describeToolCall(name: string, args: Record<string, unknown>): s
 
 export type MonorailLink =
   | { kind: 'settings' | 'palette' | 'welcome' | 'pomodoro' }
-  | { kind: 'focus-mode' | 'presentation-mode'; on: boolean }
+  /** from: 'keeper' marks a change Keeper made by following its own mode (newer Monorail versions then leave the timer and the notice to Keeper; older ones ignore it) */
+  | { kind: 'focus-mode' | 'presentation-mode'; on: boolean; from?: 'keeper' }
   | { kind: 'workspace'; n: number }
   | { kind: 'layout' | 'snapshot' | 'pair' | 'template' | 'profile' | 'launch' | 'focus-app' | 'notify'; arg: string };
 
@@ -508,7 +509,7 @@ export function monorailUrl(l: MonorailLink): string {
   switch (l.kind) {
     case 'focus-mode':
     case 'presentation-mode':
-      return `monorail://${l.kind}/${l.on ? 'on' : 'off'}`;
+      return `monorail://${l.kind}/${l.on ? 'on' : 'off'}${l.from ? `?from=${l.from}` : ''}`;
     case 'workspace':
       return `monorail://workspace/${Math.max(1, Math.floor(l.n))}`;
     case 'settings':
