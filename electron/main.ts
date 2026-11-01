@@ -100,7 +100,7 @@ import { setMonitorIslandAlert } from './services/monitor';
 import { registerPimIpc } from './ipc/pim';
 import { registerNotesIpc } from './ipc/notes';
 import { allowRoot as allowPreviewRoot } from './services/preview';
-import { startPim, stopPim } from './services/pim';
+import { adoptIslandCalendarUrl, startPim, stopPim } from './services/pim';
 import { registerNetIpc } from './ipc/net';
 import { registerSecurityIpc, stopSecurityIpc } from './ipc/security';
 import { registerControlsIpc } from './ipc/controls';
@@ -1179,6 +1179,8 @@ app.whenReady().then(async () => {
     alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }),
     islandEvents: (evs) => islandSvc?.setPimEvents(evs),
     islandTimers: (t) => islandSvc?.setCountdowns(t),
+    show: (route) => showMain(route),
+    islandCalendarUrl: () => settings().island.calendarUrl,
   });
   registerNetIpc({ alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }) });
   // Privacy & Security: permissions, browsers, posture, real-time malware protection and quarantine.
@@ -1337,7 +1339,7 @@ app.whenReady().then(async () => {
     if (next.island.enabled !== prev.island.enabled) (next.island.enabled ? createIsland() : destroyIsland());
     else if ((['edge', 'displays', 'size', 'blendNotch', 'cameraEdge', 'followCamera', 'offsetX', 'offsetY'] as const).some((k) => next.island[k] !== prev.island[k])) islandWindows.ensure(true);
     if (['pasteShortcut', 'shelfShortcut', 'hideShortcut', 'awakeShortcut'].some((k) => next.island[k as 'pasteShortcut'] !== prev.island[k as 'pasteShortcut'])) registerShortcuts();
-    if (next.island.calendarUrl !== prev.island.calendarUrl) void islandSvc.pollCalendar();
+    if (next.island.calendarUrl !== prev.island.calendarUrl) { void islandSvc.pollCalendar(); void adoptIslandCalendarUrl(next.island.calendarUrl).catch(() => undefined); }
     if (JSON.stringify(next.island.place) !== JSON.stringify(prev.island.place) || next.island.units !== prev.island.units) void islandSvc.pollWeather(true);
     broadcast('island-changed');
     // Every window (Island, Quick Search, widgets) follows look, theme and language changes.

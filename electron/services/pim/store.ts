@@ -33,6 +33,12 @@ export interface PimPrefs {
   showWeekNumbers: boolean;
   /** the calendar new events go into */
   defaultCalendar?: string;
+  /** read this computer's own calendars (on unless false) */
+  systemCalendars?: boolean;
+  /** public holidays of this country as a calendar ('' = none; unset = chosen from the system's region once) */
+  holidayCountry?: string;
+  /** a birthdays calendar made from contacts (on unless false) */
+  birthdays?: boolean;
   /** Google and Microsoft OAuth client IDs (overrides the ones built in) */
   clients?: { google?: string; googleSecret?: string; microsoft?: string };
 }
@@ -63,6 +69,8 @@ export interface PimState {
   /** recent addresses written to, for suggestions */
   recent: { name?: string; address: string; at: number }[];
   prefs: PimPrefs;
+  /** calendar links from the Island's old "calendar link" setting already added as subscriptions */
+  islandUrls?: string[];
 }
 
 const DEFAULT_PREFS: PimPrefs = { notifyPreviews: true, notifyMail: true, undoSendSec: 10, trustedSenders: [], defaultAlertMin: 10, weekStart: 1, showWeekNumbers: false };

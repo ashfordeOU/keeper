@@ -6,6 +6,7 @@ import type { Draft, MailRule } from './pim/mail';
 import type { QuickEvent } from './pim/quickadd';
 import type { Account, Address, Alarm, Attachment, CalEvent, CalendarInfo, Contact, CountdownTimer, MailFolder, MessageSummary, Occurrence, Reminder, Thread, WorldClock } from './pim/types';
 import type { PimPrefsView } from './pim/prefs';
+import type { SystemAccess } from './pim/syscal';
 
 export interface NewAccount {
   kind: 'imap' | 'caldav' | 'ics' | 'google' | 'microsoft';
@@ -65,7 +66,7 @@ export interface PimApi {
   testAccount(a: NewAccount): Promise<{ ok: boolean; message: string }>;
   addAccount(a: NewAccount): Promise<Account>;
   /** Google / Microsoft: opens the browser to sign in, then adds the account */
-  signIn(provider: 'google' | 'microsoft', email?: string): Promise<Account>;
+  signIn(provider: 'google' | 'microsoft', email?: string, opts?: { calendarOnly?: boolean }): Promise<Account>;
   cancelSignIn(): Promise<void>;
   updateAccount(id: string, patch: Partial<Account>): Promise<Account>;
   removeAccount(id: string): Promise<void>;
@@ -102,7 +103,7 @@ export interface PimApi {
   pickFiles(): Promise<string[]>;
 
   calendars(): Promise<CalendarInfo[]>;
-  setCalendar(id: string, patch: Partial<Pick<CalendarInfo, 'visible' | 'color' | 'name'>>): Promise<void>;
+  setCalendar(id: string, patch: Partial<Pick<CalendarInfo, 'visible' | 'color' | 'name' | 'island'>>): Promise<void>;
   occurrences(from: number, to: number): Promise<Occurrence[]>;
   saveEvent(e: CalEvent, opts?: { scope?: 'this' | 'all'; instance?: number }): Promise<CalEvent>;
   deleteEvent(id: string, opts?: { scope?: 'this' | 'all'; instance?: number }): Promise<void>;
@@ -112,6 +113,12 @@ export interface PimApi {
   importIcs(path?: string, calendar?: string): Promise<number>;
   exportIcs(calendar: string): Promise<string | null>;
   syncCalendars(): Promise<void>;
+  /** this computer's own calendars: may Keeper read them (request: ask the system now) */
+  systemAccess(request?: boolean): Promise<SystemAccess>;
+  /** a calendar is on screen (the Island's Calendar tab, the Calendar page): look for changes every minute */
+  watchCalendar(visible: boolean): Promise<void>;
+  /** opens an event where it lives (the Calendar app, the provider's page) or in Keeper's calendar */
+  openEvent(id: string, instance?: number): Promise<void>;
 
   reminders(): Promise<Reminder[]>;
   saveReminder(r: Reminder): Promise<Reminder>;

@@ -20,7 +20,12 @@ import { readInvitation, replyTo } from '../../../core/pim/imip';
 import { makeReply, matchesQuery, ruleMatches, snippetOf, threadMessages, type Draft, type MailRule } from '../../../core/pim/mail';
 import type { PimPrefsView } from '../../../core/pim/prefs';
 import { parseQuickAdd } from '../../../core/pim/quickadd';
-import { dueKey, dueNow, nextAlarmTime, type Due } from '../../../core/pim/alarms';
+import { dueKey, dueNow, meetingLink, nextAlarmTime, type Due } from '../../../core/pim/alarms';
+import { inIsland } from '../../../core/pim/agenda';
+import { BIRTHDAYS_CALENDAR, birthdayEvents, HOLIDAY_COUNTRIES, holidayCalendarId, holidayEvents } from '../../../core/pim/holidays';
+import { CALENDAR_ONLY_SCOPES } from '../../../core/pim/oauth';
+import { adoptSnapshot, calendarPollMs, ICS_MIN_MS, type SystemAccess } from '../../../core/pim/syscal';
+import { systemDriver, type SystemDriver } from './system-calendars';
 import { sanitizeMail, textToHtml } from '../../../core/pim/sanitize';
 import type { Account, Address, Alarm, CalEvent, CalendarInfo, Contact, CountdownTimer, MailFolder, MessageSummary, Reminder, WorldClock } from '../../../core/pim/types';
 import { suggest as suggestAddresses, serializeVCard } from '../../../core/pim/vcard';
@@ -40,6 +45,10 @@ export interface PimDeps {
   islandEvents: (events: { uid: string; title: string; start: number; end: number; allDay: boolean; location?: string; url?: string }[]) => void;
   /** running countdown timers for the Island */
   islandTimers: (timers: { id: string; label: string; endsAt?: number; leftMs?: number; durationMs: number }[]) => void;
+  /** opens Keeper's main window on a route ("calendar:event:…") */
+  show?: (route: string) => void;
+  /** the Island's old single "calendar link" setting, added to the calendars as a subscription */
+  islandCalendarUrl?: () => string;
 }
 
 const LOCAL = 'local';
@@ -62,6 +71,15 @@ let outboxTimer: NodeJS.Timeout | undefined;
 let lastCheck = Date.now();
 const ringing = new Map<string, Ring>();
 const stops: (() => void)[] = [];
+// The computer's own calendars.
+let driver: SystemDriver | null = null;
+let sysAccess: SystemAccess | undefined;
+let stopSysWatch: (() => void) | undefined;
+/** a calendar is on screen until then (renewed every minute by the view) */
+let visibleUntil = 0;
+const calendarVisible = () => Date.now() < visibleUntil;
+/** when each subscribed .ics link was last fetched */
+const icsFetched = new Map<string, number>();
 
 // ---------------------------------------------------------------- loading and saving
 
@@ -75,7 +93,13 @@ async function load() {
     ensureLocal();
     const now = Date.now();
     state.fired = state.fired.filter((f) => now - f.at < 2 * 86_400_000);
-    for (const c of state.calendars) events.set(c.id, (await readJson<EventCache>(files.events(c.id), { events: [] })).events);
+    for (const c of state.calendars) if (!c.source || c.source === 'system') events.set(c.id, (await readJson<EventCache>(files.events(c.id), { events: [] })).events);
+    if (state.prefs.holidayCountry === undefined) {
+      // Once: the holidays of the system's region, when Keeper knows them.
+      const cc = (() => { try { return app.getLocaleCountryCode(); } catch { return ''; } })().toUpperCase();
+      state.prefs.holidayCountry = HOLIDAY_COUNTRIES[cc] ? cc : '';
+    }
+    refreshDerived();
   })();
   return loaded;
 }
@@ -91,6 +115,10 @@ function saveEvents(calendar: string) {
 }
 
 function changed(kind: 'accounts' | 'mail' | 'calendar' | 'reminders' | 'alarms' | 'outbox' | 'contacts', extra?: unknown) {
+  if (kind === 'contacts') {
+    refreshDerived();
+    deps?.broadcast('pim-changed', 'calendar');
+  }
   deps?.broadcast('pim-changed', kind, extra);
   if (kind === 'calendar' || kind === 'alarms' || kind === 'reminders') armClock();
   if (kind === 'calendar') pushIsland();
@@ -530,10 +558,111 @@ async function syncAccountCalendars(a: Account) {
   changed('reminders');
 }
 
-async function syncAllCalendars() {
+/** Accounts' calendars; subscribed .ics links at most every 15 minutes unless `force`. */
+async function syncAllCalendars(force = true) {
   await load();
-  for (const a of accounts) if (a.calendar || a.contacts) await syncAccountCalendars(a).catch(() => undefined);
+  for (const a of accounts) {
+    if (!(a.calendar || a.contacts)) continue;
+    if (a.kind === 'ics') {
+      if (!force && Date.now() - (icsFetched.get(a.id) ?? 0) < ICS_MIN_MS) continue;
+      icsFetched.set(a.id, Date.now());
+    }
+    await syncAccountCalendars(a).catch(() => undefined);
+  }
 }
+
+// ---------------------------------------------------------------- the computer's own calendars, holidays, birthdays
+
+function sysDriver(): SystemDriver {
+  driver ??= systemDriver();
+  return driver;
+}
+
+function dropCalendars(ids: string[]) {
+  if (!ids.length) return;
+  for (const id of ids) {
+    events.delete(id);
+    void fsp.rm(files.events(id), { force: true });
+  }
+  state.calendars = state.calendars.filter((c) => !ids.includes(c.id));
+}
+
+/** Reads the computer's calendars again (a window from a month ago to half a year ahead). */
+async function syncSystem() {
+  await load();
+  if (state.prefs.systemCalendars === false || !featureOn('calendars')) {
+    const gone = state.calendars.filter((c) => c.source === 'system').map((c) => c.id);
+    if (gone.length) { dropCalendars(gone); saveState(); changed('calendar'); }
+    return;
+  }
+  const d = sysDriver();
+  sysAccess = await d.access().catch((e) => ({ state: 'unavailable', canRequest: false, message: e instanceof Error ? e.message : String(e) }) as SystemAccess);
+  if (sysAccess.state !== 'granted') return;
+  const now = Date.now();
+  let snap;
+  try {
+    snap = await d.snapshot(now - 31 * 86_400_000, now + 183 * 86_400_000);
+  } catch {
+    return; // unreachable right now: the copy on disk stays
+  }
+  const r = adoptSnapshot(state.calendars, snap);
+  const before = JSON.stringify(state.calendars.filter((c) => c.source === 'system'));
+  state.calendars = r.calendars;
+  dropCalendars(r.removed);
+  let any = before !== JSON.stringify(state.calendars.filter((c) => c.source === 'system'));
+  for (const [id, list] of r.events) {
+    if (JSON.stringify(events.get(id) ?? []) === JSON.stringify(list)) continue;
+    events.set(id, list);
+    saveEvents(id);
+    any = true;
+  }
+  if (any) {
+    saveState();
+    changed('calendar');
+  }
+  if (sysAccess.live && !stopSysWatch && d.watch) {
+    let t: NodeJS.Timeout | undefined;
+    stopSysWatch = d.watch(() => { clearTimeout(t); t = setTimeout(() => void syncSystem(), 300); });
+  }
+}
+
+/** Holidays and birthdays: worked out here, never downloaded. */
+function refreshDerived() {
+  const want: CalendarInfo[] = [];
+  const cc = state.prefs.holidayCountry;
+  const was = (id: string) => state.calendars.find((c) => c.id === id);
+  if (cc && HOLIDAY_COUNTRIES[cc]) {
+    const id = holidayCalendarId(cc);
+    const w = was(id);
+    want.push({ id, account: 'holidays', name: `Holidays · ${HOLIDAY_COUNTRIES[cc].name}`, color: w?.color ?? '#30d158', colorSet: w?.colorSet, url: '', readOnly: true, visible: w?.visible ?? true, island: w?.island, source: 'holidays', group: 'Holidays and birthdays', ref: cc });
+    const y = new Date().getFullYear();
+    events.set(id, holidayEvents(cc, new Date(y - 1, 0, 1).getTime(), new Date(y + 3, 0, 1).getTime(), id));
+  }
+  const withBirthday = contacts.filter((c) => c.birthday);
+  if (state.prefs.birthdays !== false && withBirthday.length) {
+    const w = was(BIRTHDAYS_CALENDAR);
+    want.push({ id: BIRTHDAYS_CALENDAR, account: 'birthdays', name: 'Birthdays', color: w?.color ?? '#ff9f0a', colorSet: w?.colorSet, url: '', readOnly: true, visible: w?.visible ?? true, island: w?.island, source: 'birthdays', group: 'Holidays and birthdays' });
+    events.set(BIRTHDAYS_CALENDAR, birthdayEvents(withBirthday, BIRTHDAYS_CALENDAR));
+  }
+  for (const c of state.calendars) if ((c.source === 'holidays' || c.source === 'birthdays') && !want.some((x) => x.id === c.id)) events.delete(c.id);
+  state.calendars = [...state.calendars.filter((c) => c.source !== 'holidays' && c.source !== 'birthdays'), ...want];
+}
+
+/** The Island's old "calendar link" becomes a subscription in the calendar list (once per link). */
+async function adoptIslandUrl(url: string | undefined) {
+  const u = (url ?? '').trim();
+  if (!u) return;
+  await load();
+  const norm = (x: string) => x.trim().replace(/^webcal:/i, 'https:').replace(/\/+$/, '');
+  if ((state.islandUrls ?? []).includes(u)) return;
+  state.islandUrls = [...(state.islandUrls ?? []), u];
+  saveState();
+  if (accounts.some((a) => a.kind === 'ics' && norm(a.caldav ?? '') === norm(u))) return;
+  // A file path works as well as a web address (the Island accepted both).
+  const a = await addAccount({ kind: 'ics', caldav: /^(https?|webcal):/i.test(u) ? u : `file://${u.replace(/^file:\/\//, '')}`, label: 'Calendar link' });
+  await syncAccountCalendars(a).catch(() => undefined);
+}
+export { adoptIslandUrl as adoptIslandCalendarUrl };
 
 function allEvents(): CalEvent[] {
   const visible = new Set(state.calendars.filter((c) => c.visible).map((c) => c.id));
@@ -550,7 +679,19 @@ async function writeFamily(cal: CalendarInfo, uid: string, list: CalEvent[], rem
   const current = family(cal.id, uid);
   const href = current[0]?.href;
   const etag = current[0]?.etag;
-  if (cal.account === LOCAL || !a) {
+  if (cal.source === 'system') {
+    const d = sysDriver();
+    if (removed) {
+      if (current[0] && d.remove) await d.remove(cal, current[0], { scope: 'all' });
+    } else {
+      if (!d.save) throw new Error('This calendar cannot be changed from Keeper');
+      const id = await d.save(cal, list, { isNew: !href, scope: 'this' });
+      if (id && !href) list = list.map((e) => ({ ...e, href: id }));
+    }
+    setTimeout(() => void syncSystem(), 1500).unref?.();
+  } else if (cal.source) {
+    throw new Error('This calendar cannot be changed');
+  } else if (cal.account === LOCAL || !a) {
     // Kept on this computer only.
   } else if (a.oauth === 'microsoft') {
     const token = await accessToken(a.id, 'microsoft', clientFor('microsoft', state.prefs.clients)!, 'graph');
@@ -609,21 +750,38 @@ async function deleteEvent(id: string, opts: { scope?: 'this' | 'all'; instance?
   if (!cal || cal.readOnly) throw new Error('This calendar cannot be changed');
   const list = family(cal.id, ev.uid);
   const master = list.find((x) => x.recurrenceId === undefined);
+  if (cal.source === 'system' && !master?.rrule) {
+    // The system hands out each occurrence on its own: remove that one, or the whole series.
+    const d = sysDriver();
+    if (!d.remove) throw new Error('This calendar cannot be changed from Keeper');
+    await d.remove(cal, ev, opts);
+    events.set(cal.id, (events.get(cal.id) ?? []).filter((x) => (opts.scope === 'all' ? x.href !== ev.href : x.id !== ev.id)));
+    saveEvents(cal.id);
+    changed('calendar');
+    setTimeout(() => void syncSystem(), 1500).unref?.();
+    return;
+  }
   if (opts.scope === 'this' && master?.rrule && opts.instance !== undefined) {
     const kept = list.filter((x) => x.recurrenceId !== opts.instance).map((x) => (x === master ? { ...x, exdates: [...(x.exdates ?? []), opts.instance!] } : x));
     await writeFamily(cal, ev.uid, kept);
   } else await writeFamily(cal, ev.uid, list, true);
 }
 
+let lastIsland = '';
 function pushIsland() {
   if (!deps) return;
   const now = Date.now();
-  const occ = expandOccurrences(allEvents(), now - 3_600_000, now + 2 * 86_400_000);
-  deps.islandEvents(occ.filter((o) => !o.event.allDay).map((o) => ({ uid: `${o.event.id}:${o.start}`, title: o.event.title, start: o.start, end: o.end, allDay: o.event.allDay, location: o.event.location, url: o.event.url ?? meetingUrl(o.event) })));
-}
-
-function meetingUrl(e: CalEvent): string | undefined {
-  return [e.url, e.location, e.description].join(' ').match(/https:\/\/[^\s<>"]*(zoom\.us|meet\.google\.com|teams\.microsoft\.com|teams\.live\.com|webex\.com|meet\.jit\.si|whereby\.com)[^\s<>"]*/i)?.[0];
+  const on = featureOn('calendars') && featureOn('calendar');
+  const cals = new Map(state.calendars.map((c) => [c.id, c]));
+  const occ = on ? expandOccurrences(allEvents(), now - 3_600_000, now + 2 * 86_400_000) : [];
+  // The same meeting from two calendars (a subscribed copy and the system's) once.
+  const seen = new Set<string>();
+  const list = occ.filter((o) => !o.event.allDay && inIsland(cals.get(o.event.calendar))).filter((o) => { const k = `${o.event.title}|${o.start}`; if (seen.has(k)) return false; seen.add(k); return true; })
+    .map((o) => ({ uid: `${o.event.id}:${o.start}`, title: o.event.title, start: o.start, end: o.end, allDay: o.event.allDay, location: o.event.location, url: meetingLink(o.event) ?? (o.event.url && /^https:/i.test(o.event.url) ? o.event.url : undefined), color: cals.get(o.event.calendar)?.color }));
+  const key = JSON.stringify(list);
+  if (key === lastIsland) return;
+  lastIsland = key;
+  deps.islandEvents(list);
 }
 
 // ---------------------------------------------------------------- the clock (alarms, reminders, alerts, timers)
@@ -732,10 +890,20 @@ export const pim: PimApi = {
   discover: (email) => discoverConfig(email.trim()),
   testAccount: testNew,
   addAccount: (n) => addAccount(n),
-  async signIn(provider, email) {
+  async signIn(provider, email, opts) {
     await load();
     const client = clientFor(provider, state.prefs.clients);
     if (!client) throw new Error(`This copy of Keeper has no ${provider === 'google' ? 'Google' : 'Microsoft'} sign-in set up. Add a client ID in Settings → Mail & Calendar, or use an app password.`);
+    if (opts?.calendarOnly) {
+      // Only the calendar: no mail access is asked for; Microsoft's token is for Graph.
+      const tokens = await signIn(provider, client, email, undefined, CALENDAR_ONLY_SCOPES[provider]);
+      const address = tokens.email ?? email ?? '';
+      const cfg = knownProvider('x@gmail.com')!;
+      const a = await addAccount({ kind: provider, email: address, label: `${provider === 'google' ? 'Google' : 'Microsoft'} calendar${address ? ` · ${address}` : ''}`, caldav: provider === 'google' ? cfg.caldav : undefined, mail: false, calendar: true, contacts: false }, tokens);
+      if (provider === 'microsoft') await saveTokens(a.id, tokens, 'graph');
+      void syncAccountCalendars(a).catch(() => undefined);
+      return a;
+    }
     const tokens = await signIn(provider, client, email);
     const address = tokens.email ?? email ?? '';
     const cfg = knownProvider(address) ?? (provider === 'google' ? knownProvider('x@gmail.com')! : knownProvider('x@outlook.com')!);
@@ -991,9 +1159,11 @@ export const pim: PimApi = {
     return state.calendars;
   },
   async setCalendar(id, patch) {
+    await load();
     const c = calOf(id);
     if (!c) return;
     Object.assign(c, patch);
+    if (patch.color) c.colorSet = true;
     saveState();
     changed('calendar');
   },
@@ -1041,7 +1211,37 @@ export const pim: PimApi = {
     await fsp.writeFile(r.filePath, serializeEvents(events.get(cal.id) ?? []));
     return r.filePath;
   },
-  syncCalendars: syncAllCalendars,
+  async syncCalendars() {
+    await Promise.all([syncAllCalendars(true), syncSystem()]);
+  },
+  async systemAccess(request) {
+    await load();
+    if (!request && sysAccess) return sysAccess;
+    if (state.prefs.systemCalendars === false) return { state: 'unavailable', canRequest: false, message: 'Reading this computer’s calendars is switched off.' };
+    sysAccess = await sysDriver().access(request);
+    if (sysAccess.state === 'granted') void syncSystem();
+    deps?.broadcast('pim-changed', 'calendar');
+    return sysAccess;
+  },
+  async watchCalendar(visible) {
+    const was = calendarVisible();
+    visibleUntil = visible ? Date.now() + 3 * 60_000 : 0;
+    if (visible && !was) {
+      // Just opened: look now, then every minute while it stays open.
+      pollNow('pim.system');
+      pollNow('pim.calendars');
+    }
+  },
+  async openEvent(id, instance) {
+    await load();
+    const ev = [...events.values()].flat().find((x) => x.id === id);
+    if (!ev) return;
+    if (ev.openUrl) {
+      await shell.openExternal(ev.openUrl).catch(() => deps?.show?.(`calendar:event:${instance ?? ev.start}:${id}`));
+      return;
+    }
+    deps?.show?.(`calendar:event:${instance ?? ev.start}:${id}`);
+  },
 
   async reminders() {
     await load();
@@ -1176,6 +1376,8 @@ export const pim: PimApi = {
   async setPrefs(p) {
     await load();
     state.prefs = { ...state.prefs, ...p };
+    if (p.holidayCountry !== undefined || p.birthdays !== undefined) { refreshDerived(); changed('calendar'); }
+    if (p.systemCalendars !== undefined) void syncSystem();
     saveState();
     if (p.undoSendSec !== undefined) armOutbox();
     return state.prefs as PimPrefsView;
@@ -1206,8 +1408,20 @@ export async function startPim(d: PimDeps) {
   const watch = (id: string, fn: (on: boolean) => void) => { try { stops.push(onFeature(id, fn)); } catch (e) { console.error(e); } };
   watch('mail', (on) => (on ? startMail() : void stopMail()));
   if (featureOn('mail')) startMail();
-  stops.push(poll('pim.calendars', { baseMs: 15 * 60_000, idleFactor: 2, pauseWhenLocked: true }, () => syncAllCalendars(), { now: true, feature: 'calendars' }));
-  watch('calendars', (on) => { if (on) pollNow('pim.calendars'); armClock(); pushIsland(); });
+  // Every 5 minutes, every minute while a calendar is on screen (servers answer "nothing new" cheaply;
+  // .ics links are fetched at most every 15 minutes); paused while the screen is locked.
+  stops.push(poll('pim.calendars', () => ({ baseMs: calendarPollMs({ visible: calendarVisible() }), idleFactor: 1, pauseWhenLocked: true }), () => syncAllCalendars(false), { now: true, feature: 'calendars' }));
+  // The computer's own calendars: the system says when they change where it can (macOS).
+  stops.push(poll('pim.system', () => ({ baseMs: calendarPollMs({ visible: calendarVisible(), live: !!stopSysWatch }), idleFactor: 1, pauseWhenLocked: true }), () => syncSystem(), { now: true, feature: 'calendars' }));
+  stops.push(() => { stopSysWatch?.(); stopSysWatch = undefined; driver?.close?.(); driver = null; });
+  watch('calendars', (on) => {
+    if (on) { pollNow('pim.calendars'); pollNow('pim.system'); }
+    else { stopSysWatch?.(); stopSysWatch = undefined; }
+    armClock();
+    pushIsland();
+  });
+  watch('calendar', () => pushIsland());
+  if (featureOn('calendars')) void adoptIslandUrl(d.islandCalendarUrl?.()).catch(() => undefined);
   watch('alarms', () => armClock());
   // After sleep or a clock change, look again at once (and ring what was missed by a little).
   const again = () => armClock();

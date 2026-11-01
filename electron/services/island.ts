@@ -866,7 +866,8 @@ export class IslandService {
 
   async pollCalendar() {
     const url = settings().island.calendarUrl.trim();
-    if (!url) {
+    // With Calendar on, the link is one of its subscriptions and reaches the Island from there.
+    if (!url || featureOn('calendars')) {
       this.events = [];
       return;
     }

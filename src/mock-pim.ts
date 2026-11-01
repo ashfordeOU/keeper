@@ -221,6 +221,9 @@ export function mockPim(emit: Emit): { pim: PimApi } {
     importIcs: async () => 0,
     exportIcs: async () => '/Users/demo/Downloads/Work.ics',
     syncCalendars: async () => { await new Promise((r) => setTimeout(r, 500)); },
+    systemAccess: async () => ({ state: 'granted', via: 'files', canRequest: false, message: 'In the browser preview the computer’s calendars are pretend ones.' }),
+    watchCalendar: async () => undefined,
+    openEvent: async () => undefined,
 
     reminders: async () => reminders,
     saveReminder: async (r) => { const n = { ...r, id: r.id || `local:${Date.now()}`, list: r.list || 'local' }; reminders = [...reminders.filter((x) => x.id !== n.id), n]; changed('reminders'); return n; },

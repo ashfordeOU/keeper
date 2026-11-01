@@ -31,7 +31,7 @@ export function cancelSignIn() {
 }
 
 /** Opens the provider's sign-in page and waits (up to 5 minutes) for the answer. */
-export async function signIn(p: OAuthProvider, client: OAuthClient, email?: string, open: (url: string) => unknown = (u) => shell.openExternal(u)): Promise<Tokens> {
+export async function signIn(p: OAuthProvider, client: OAuthClient, email?: string, open: (url: string) => unknown = (u) => shell.openExternal(u), scopes?: string[]): Promise<Tokens> {
   cancelSignIn();
   const { verifier, challenge, state } = pkce();
   return new Promise<Tokens>((resolve, reject) => {
@@ -62,7 +62,7 @@ export async function signIn(p: OAuthProvider, client: OAuthClient, email?: stri
     pending = { abort: () => finish(async () => { throw new Error('Sign-in cancelled'); }) };
     server.listen(0, '127.0.0.1', () => {
       redirect = `http://127.0.0.1:${(server.address() as { port: number }).port}/`;
-      void open(authUrl(p, client, redirect, challenge, state, email));
+      void open(authUrl(p, client, redirect, challenge, state, email, scopes));
     });
   });
 }
