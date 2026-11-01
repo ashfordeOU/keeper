@@ -57,7 +57,7 @@ describe('licence files for the installers', () => {
     // electron-builder's own convention: license_LANG / eula_LANG with .txt, .rtf or .html.
     const auto = readdirSync(path.join(root, 'build')).filter((n) => /^(license|eula)_.*\.(txt|rtf|html)$/i.test(n));
     expect(auto).toEqual([]);
-    const yml = read('electron-builder.yml');
+    const yml = read('electron-builder.yml').replace(/\r\n/g, '\n');
     const nsis = /\nnsis:[\s\S]*?\n {2}license: (\S+)/.exec(yml)?.[1];
     // The dmg section only, up to the next top-level key.
     const dmgBlock = /\ndmg:\n((?: .*\n|\n)*)/.exec(yml)?.[1] ?? '';
@@ -76,7 +76,7 @@ describe('native macOS pieces before packaging', () => {
     // @ts-expect-error: a plain JavaScript build script
     const m = await import('../scripts/build-mac-native.mjs');
     expect(m.HELPER_BIN.replace(/\\/g, '/').endsWith('native/macos/KeeperHelper/.build/apple/Products/Release/keeper-helper')).toBe(true);
-    const yml = read('electron-builder.yml');
+    const yml = read('electron-builder.yml').replace(/\r\n/g, '\n');
     expect(yml).toContain(`from: ${path.relative(root, m.HELPER_BIN).replace(/\\/g, '/')}`);
     expect(yml).toContain(`from: ${path.relative(root, m.INTENTS_APP).replace(/\\/g, '/')}`);
     expect(m.helperProblem('Swift is not installed', {}).stop).toBe(true);

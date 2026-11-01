@@ -112,7 +112,8 @@ jobs:
       - if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y rpm libarchive-tools
       - run: npm ci
-      - run: npm test
+      # A release is built from a commit CI already tested: retry a test that fails once (timing on busy runners).
+      - run: npm test -- --retry=2
       - name: Native libraries for ${{ matrix.platform }}-${{ matrix.arch }}
         run: node scripts/prepare-arch.mjs ${{ matrix.platform }} ${{ matrix.arch }}
       - run: npm run build

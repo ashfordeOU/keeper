@@ -134,13 +134,24 @@ export async function runSandboxed(lang: Lang, code: string, o: SandboxOptions, 
   const before = new Set(await fsp.readdir(ws));
   const c = buildCommand(platform, lang, ws, o, rt);
   const t0 = Date.now();
+  // Linux refuses to start a program file another process still has open for writing (ETXTBSY),
+  // e.g. one written a moment ago: wait briefly and try again.
+  let child: ReturnType<typeof spawn>;
+  for (let attempt = 0; ; attempt++) {
+    try {
+      child = spawn(c.cmd, c.args, { cwd: ws, env: c.env, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, detached: platform !== 'win32' });
+      break;
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== 'ETXTBSY' || attempt >= 5) throw e;
+      await new Promise((r) => setTimeout(r, 40 * (attempt + 1)));
+    }
+  }
   return new Promise<RunOutput>((resolve) => {
-    const child = spawn(c.cmd, c.args, { cwd: ws, env: c.env, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, detached: platform !== 'win32' });
     let stdout = '';
     let stderr = '';
     let timedOut = false;
-    child.stdout.on('data', (d) => { if (stdout.length < CAP) stdout += d; });
-    child.stderr.on('data', (d) => { if (stderr.length < CAP) stderr += d; });
+    child.stdout!.on('data', (d) => { if (stdout.length < CAP) stdout += d; });
+    child.stderr!.on('data', (d) => { if (stderr.length < CAP) stderr += d; });
     const kill = () => {
       try {
         if (platform !== 'win32' && child.pid) process.kill(-child.pid, 'SIGKILL');
