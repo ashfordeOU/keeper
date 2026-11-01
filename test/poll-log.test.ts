@@ -38,7 +38,7 @@ describe('poll log', () => {
 
   it('the Mac test lists the costliest checks of the measured window', () => {
     const before = { polls: [{ name: 'a', runs: 1, wallMs: 10, cpuMs: 1, spawns: 1, programs: { osascript: 1 } }], outside: [{ program: 'ps', count: 2 }] };
-    const after = { polls: [{ name: 'a', runs: 3, wallMs: 30, cpuMs: 3, spawns: 3, programs: { osascript: 3 } }, { name: 'b', runs: 4, wallMs: 4, cpuMs: 8, spawns: 0, programs: {} }, { name: 'c', runs: 0, wallMs: 0, cpuMs: 0, spawns: 0, programs: {} }], outside: [{ program: 'ps', count: 5 }] };
+    const after = { polls: [{ name: 'a', runs: 3, wallMs: 30, cpuMs: 3, spawns: 3, programs: { osascript: 3 } }, { name: 'b', runs: 4, wallMs: 4, cpuMs: 8, spawns: 0, programs: {} as Record<string, number> }, { name: 'c', runs: 0, wallMs: 0, cpuMs: 0, spawns: 0, programs: {} as Record<string, number> }], outside: [{ program: 'ps', count: 5 }] };
     const t = topPollers(before, after);
     expect(t.polls.map((p) => [p.name, p.runs, p.costMs, p.programs])).toEqual([['a', 2, 32, { osascript: 2 }], ['b', 4, 8, {}]]);
     expect(t.outside).toEqual([{ program: 'ps', count: 3 }]);
