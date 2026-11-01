@@ -118,5 +118,56 @@
   "$result": {
    "ended": true
   }
+ },
+ "calendar.access": {
+  "status": "granted"
+ },
+ "calendar.events": {
+  "calendars": [
+   {
+    "id": "C1",
+    "title": "Home",
+    "color": "#1badf8",
+    "source": "iCloud",
+    "writable": true,
+    "type": "caldav"
+   },
+   {
+    "id": "C2",
+    "title": "Work",
+    "color": "#ff2968",
+    "source": "Exchange",
+    "writable": true,
+    "type": "exchange"
+   }
+  ],
+  "events": [
+   {
+    "id": "E1",
+    "calendar": "C1",
+    "title": "x",
+    "start": 0,
+    "end": 1,
+    "allDay": false,
+    "recurring": true,
+    "location": "https://zoom.us/j/1"
+   }
+  ],
+  "truncated": false
+ },
+ "calendar.watch": {
+  "$deltas": [
+   "ready",
+   "changed"
+  ],
+  "$result": {
+   "ended": true
+  }
+ },
+ "calendar.save": {
+  "id": "E9"
+ },
+ "calendar.delete": {
+  "ok": true
  }
 }

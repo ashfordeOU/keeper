@@ -552,5 +552,25 @@
     }
    ]
   }
- }
+ },
+ "pim.systemAccess": {
+  "state": "granted",
+  "via": "eventkit",
+  "live": true,
+  "canRequest": false,
+  "message": "ok"
+ },
+ "pim.syncCalendars": null,
+ "pim.calendars": [
+  {
+   "id": "system:1",
+   "source": "system",
+   "group": "iCloud"
+  },
+  {
+   "id": "system:2",
+   "source": "system",
+   "group": "Exchange"
+  }
+ ]
 }

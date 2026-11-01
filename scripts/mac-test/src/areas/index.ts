@@ -5,6 +5,7 @@
 import type { Ctx } from '../context';
 import { runAmbience } from './ambience';
 import { runAwake } from './awake';
+import { runCalendar } from './calendar';
 import { runHelper } from './helper';
 import { runIsland } from './island';
 import { runMonitor } from './monitor';
@@ -39,6 +40,7 @@ export const AREAS: Area[] = [
   { id: 'stage', title: 'Stage', quick: true, minutes: [6, 2], app: true, changes: 'Dock, menu bar, desktop icons, alert volume, hidden apps, screen resolution: each for seconds, then put back (only with your yes)', run: (c) => runStage(c) },
   { id: 'helper', title: 'keeper-helper (native macOS methods)', quick: true, minutes: [4, 1], app: false, guided: 'a notification from another app; a call; a few key presses', run: (c) => runHelper(c) },
   { id: 'voice', title: 'Voice', quick: true, minutes: [7, 2], app: true, guided: 'say a sentence; hold the talk key and speak', run: (c) => runVoice(c) },
+  { id: 'calendar', title: 'Calendar (the Mac’s calendars through EventKit)', quick: false, minutes: [4, 0], app: true, guided: 'allow calendar access; change an event in Calendar', changes: 'one test event added and removed again (only with your yes)', run: (c) => runCalendar(c) },
   { id: 'monitor', title: 'System monitor', quick: true, minutes: [2, 1], app: true, run: (c) => runMonitor(c) },
   { id: 'rdc', title: 'Remote desktops', quick: false, minutes: [2, 0], app: true, guided: 'open a test .rdp file (optional)', run: (c) => runRdc(c) },
   { id: 'tracks', title: 'Places & Tracks (Find My cache)', quick: false, minutes: [1, 0], app: true, run: (c) => runTracks(c) },
