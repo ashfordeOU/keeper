@@ -112,6 +112,9 @@ jobs:
       - if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y rpm libarchive-tools
       - run: npm ci
+      # Electron 45 fetches its binary the first time it is loaded; fetch it once here, so parallel
+      # test workers never race to download it.
+      - run: node node_modules/electron/install.js
       # A release is built from a commit CI already tested: retry a test that fails once (timing on busy runners).
       - run: npm test -- --retry=2
       - name: Native libraries for ${{ matrix.platform }}-${{ matrix.arch }}
@@ -541,6 +544,9 @@ jobs:
           cache: npm
       - run: sudo apt-get update && sudo apt-get install -y squashfs-tools
       - run: npm ci
+      # Electron 45 fetches its binary the first time it is loaded; fetch it once here, so parallel
+      # test workers never race to download it.
+      - run: node node_modules/electron/install.js
       - run: node scripts/prepare-arch.mjs linux x64
       - run: npm run build
         env:

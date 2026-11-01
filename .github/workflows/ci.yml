@@ -38,6 +38,9 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # Electron 45 fetches its binary the first time it is loaded; fetch it once here, so parallel
+      # test workers never race to download it.
+      - run: node node_modules/electron/install.js
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
@@ -104,6 +107,9 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # Electron 45 fetches its binary the first time it is loaded; fetch it once here, so parallel
+      # test workers never race to download it.
+      - run: node node_modules/electron/install.js
       - run: npm run build
       - name: Build the macOS helper (packaged inside the app)
         if: runner.os == 'macOS'
