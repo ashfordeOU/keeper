@@ -13,7 +13,7 @@ import { buildDocx, type Block } from '../../core/docx';
 import { checkOrganize, describeOrganize, type OrganizePage } from '../../core/pdf-organize';
 
 const req = createRequire(__filename);
-type Sharp = typeof import('sharp');
+type Sharp = typeof import('sharp').default;
 let sharpMod: Sharp | null = null;
 const sharp = (): Sharp => (sharpMod ??= req('sharp') as Sharp);
 

@@ -30,7 +30,7 @@ import type { SpeechOptions } from '../../core/convert-types';
 import { fillPdf, makeSearchable, organizePdf, pdfToDocx, redactPdf, signPdf, type OcrWords, type RenderPages } from './pdf-tools';
 
 const req = createRequire(__filename);
-type Sharp = typeof import('sharp');
+type Sharp = typeof import('sharp').default;
 
 export interface ExtraHooks {
   renderPdf?: RenderPages;

@@ -20,7 +20,7 @@ import { makeSearchable, textItems, type RenderPages } from './pdf-tools';
 import { convertTo, subShift, mboxSplit, vcardFromTable, qrMake, qrRead } from './filekit-convert';
 import { signPdfWithCertificate, verifyPdfSignatures } from './filekit-sign';
 
-type Sharp = typeof import('sharp');
+type Sharp = typeof import('sharp').default;
 export type Progress = (f: number, phase: string) => void;
 
 export interface KitContext {

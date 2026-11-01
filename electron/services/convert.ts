@@ -30,7 +30,7 @@ export function setStandardOutput(fn: (tool: string) => string | undefined) {
   standardOutput = fn;
 }
 
-type Sharp = typeof import('sharp');
+type Sharp = typeof import('sharp').default;
 
 const req = createRequire(__filename);
 
