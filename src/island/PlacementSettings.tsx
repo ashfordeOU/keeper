@@ -108,6 +108,7 @@ export function PlacementSettings({ isl, set }: { isl: IS; set: (patch: Partial<
         {prev?.platform === 'linux' ? (
           <Row title="Use XWayland" desc="Wayland sessions only. Takes effect the next time Keeper starts."><Toggle on={isl.x11OnWayland !== false} onChange={(v) => set({ x11OnWayland: v })} /></Row>
         ) : null}
+        <Row title="Black and white" desc="Shows the Island without colour: artwork, accents and live activities in greys."><Toggle on={!!isl.monochrome} onChange={(v) => set({ monochrome: v })} /></Row>
         <Row title="Buddy" desc="A little face that reacts: naps when you are away, perks up when something needs you."><Toggle on={isl.buddy} onChange={(v) => set({ buddy: v })} /></Row>
       </div>
 

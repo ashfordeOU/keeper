@@ -319,3 +319,6 @@ html[data-view='island'], html[data-view='island'] body, html[data-view='island'
 @media (prefers-reduced-motion: reduce) { .isl-shadow.glowing { transition: none; } }
 /* An alert inside the notch's right wing: a few words, never taller than the bar. */
 .isl .wing-title { max-width: calc(var(--wing, 120px) - 18px); font-size: 11.5px; font-weight: 600; margin-right: 4px; white-space: nowrap; }
+
+/* Black and white (Settings → Island): everything in greys; the glow and shadow stay neutral too. */
+.isl-root.mono .isl-content, .isl-root.mono .isl-bubble, .isl-root.mono .isl-shadow { filter: grayscale(1); }

@@ -552,7 +552,7 @@ export function Island() {
     '--notch-h': `${notchH}px`, '--gap': `${gap}px`, '--box-w': `${box.w}px`, '--box-h': `${box.h}px`, '--full-w': `${full.w}px`, '--full-h': `${full.h}px`, '--bubble': `${bubble}px`, '--wing': `${layout?.wing || 120}px`,
   } as React.CSSProperties;
   return (
-    <div className={`isl-root edge-${edge} anchor-${layout?.anchor ?? 'edge'} view-${view} ${floating ? 'floating' : ''}`} style={vars} role="region" aria-label="Island">
+    <div className={`isl-root edge-${edge} anchor-${layout?.anchor ?? 'edge'} view-${view} ${floating ? 'floating' : ''} ${isl?.monochrome ? 'mono' : ''}`} style={vars} role="region" aria-label="Island">
       {/* Alerts are read out by screen readers as they arrive, without taking focus. */}
       <div className="sr-only" role="status" aria-live="assertive" aria-atomic="true">{view === 'alert' && alert ? [alert.app, alert.title, alert.detail].filter(Boolean).join('. ') : ''}</div>
       <div aria-hidden className={`isl-shadow ${plusSetting(isl, 'shadow') ? '' : 'no-shadow'} ${glow ? 'glowing' : ''}`} style={glow ? ({ '--glow': glow } as React.CSSProperties) : undefined}>

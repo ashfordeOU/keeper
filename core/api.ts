@@ -294,6 +294,8 @@ export interface IslandSettings {
   shelfShortcut: string;
   /** open the Island's Tasks with the new-task field ready, from anywhere */
   taskShortcut?: string;
+  /** black and white: no colours in the Island (artwork, accents and activities in greys) */
+  monochrome?: boolean;
   hideShortcut: string;
   awakeShortcut: string;
   /** open the shelf when a file is dragged to the top edge of the screen */
