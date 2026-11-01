@@ -208,7 +208,10 @@ install_mac() {
   json="$(release_json)" || fail "could not read the release information from GitHub"
   download_verified "$json" "Keeper-mac-$ARCH.dmg"
   MNT="$TMP/mnt"; mkdir -p "$MNT"
-  hdiutil attach "$DOWNLOADED" -nobrowse -readonly -noautoopen -mountpoint "$MNT" -quiet || fail "could not open the disk image"
+  # The disk image shows Keeper's licence before it opens; a piped install has no keyboard to
+  # agree with, so say where the terms are and answer it here.
+  echo "Keeper is licensed under the PolyForm Shield License 1.0.0: https://github.com/ashfordeOU/keeper/blob/main/LICENSE.md"
+  yes 2>/dev/null | PAGER=true hdiutil attach "$DOWNLOADED" -nobrowse -readonly -noautoopen -mountpoint "$MNT" -quiet >/dev/null || fail "could not open the disk image"
   [ -d "$MNT/Keeper.app" ] || fail "the disk image has no Keeper.app"
   dest="/Applications"
   if [ ! -w "$dest" ]; then dest="$HOME/Applications"; mkdir -p "$dest"; fi

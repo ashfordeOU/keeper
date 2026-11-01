@@ -282,7 +282,9 @@ async function stageMac(dmg: string) {
     return;
   }
   const mount = await fsp.mkdtemp(path.join(os.tmpdir(), 'keeper-update-'));
-  const attach = await run('/usr/bin/hdiutil', ['attach', dmg, '-nobrowse', '-readonly', '-noautoopen', '-mountpoint', mount], 120_000);
+  // The disk image asks to agree to Keeper's licence (already agreed to when Keeper was installed):
+  // answer it, with the pager switched off, or hdiutil waits for a keyboard that is not there.
+  const attach = await run('/bin/sh', ['-c', 'yes 2>/dev/null | PAGER=true /usr/bin/hdiutil attach "$1" -nobrowse -readonly -noautoopen -mountpoint "$2" >/dev/null', 'sh', dmg, mount], 120_000);
   if (!attach.ok) throw new Error('Could not open the downloaded disk image');
   try {
     const appName = (await fsp.readdir(mount)).find((n) => n.endsWith('.app'));
