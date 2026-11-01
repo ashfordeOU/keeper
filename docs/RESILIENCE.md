@@ -113,6 +113,28 @@ while away. Each is small; together they are the floor. They belong to those
 features and are listed in Settings → Keeper's own usage; switching a feature
 off removes its check.
 
+### macOS at idle: what was changed, and what it should save
+
+A test on a MacBook Pro (M4 Max) measured 3.6 % of one core at idle, against
+about 0.4 % on Linux. Nobody could profile it on the Mac, so the changes below
+are estimates from what each removed program costs (an `osascript` start with
+System Events is roughly 50–150 ms of processor time across the two processes;
+`system_profiler` most of a second). The next Mac test measures them:
+`KEEPER_POLL_LOG=1` (electron/services/poll-log.ts) logs every regular check's
+wall and processor time and the programs it started, and the Mac test kit's
+idle check lists the costliest ones (`perf-pollers.txt`).
+
+| Change | Before (at idle) | Expected saving |
+|---|---|---|
+| Front window and full screen (`fg-watch.ts`) from keeper-helper's `front.watch` (window list and Accessibility in its own process, once a second) | an `osascript` JavaScript loop driving System Events every 2 s, always on while the Island is | the largest part: about 1–2 % of a core, plus System Events' own share outside Keeper |
+| Island devices (`devices.ts`): volume from the helper; wireless batteries reused for 10 min | `osascript` + `ioreg` + `system_profiler SPBluetoothDataType` every 60 s (180 s while away) | about 0.3–1 % |
+| Now playing (`media.ts`): the helper says whether Spotify or Music is open | two `osascript` runs every 15 s (45 s away) | about 0.2–0.5 % when neither is open |
+| Menu-bar measurement for the Island (`island-place.ts`): helper `menubar.layout`; `hw.model` read once | `sysctl` + JavaScript `osascript` on every front-app change | per app switch, not idle |
+| Battery health and cycles (`system.ts`): `ioreg` at most every 30 min | `ioreg -rn AppleSmartBattery` every minute (Health history) | about 0.05 % |
+| Places (`places.ts`): `diskutil info` once per mounted volume | `diskutil` per volume every 5 min | small |
+| Clipboard history (`island.ts`, `clip.ts`): reads only when NSPasteboard's change counter moved | a full read every 0.7 s (7 s away), decoding a copied picture every time | large while a picture is on the clipboard; small otherwise |
+| "Copied from" and Stage's capture check take the front app from the running watch | an `osascript` per copy and per capture look | per event |
+
 ### Self-limits (`core/limits.ts`, `electron/svc/limits.ts`)
 
 Checked every 15 s from Electron's own process list (no extra programs, no disk):
