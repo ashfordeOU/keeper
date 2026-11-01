@@ -99,7 +99,8 @@ nsis:
   uninstallDisplayName: Keeper by Ashforde®
   include: build/installer.nsh
   # Plain-text copy of LICENSE.md made by scripts/license-txt.mjs (NSIS shows Markdown as raw text).
-  license: build/license_en.txt
+  # Not named license_*.txt: the packager would also pick such a file up for the Mac disk image.
+  license: build/installer-license.txt
   artifactName: ${productName}-setup-${arch}.${ext}
 portable:
   artifactName: ${productName}-portable.${ext}
@@ -141,6 +142,9 @@ mac:
       to: Library/Helpers/Keeper Intents.app
 dmg:
   title: Keeper by Ashforde®
+  # The licence window shown when the disk image opens: a Mac Roman-safe copy of LICENSE.md
+  # (no byte order mark, no characters Mac Roman lacks) made by scripts/license-txt.mjs.
+  license: build/dmg-license.txt
   window: { width: 540, height: 380 }
   sign: false
   contents:
