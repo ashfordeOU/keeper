@@ -13,6 +13,9 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - Edit Home lists the new sections; settings from the earlier Home move on by themselves (Attention → Suggestions, Recent → Jump back in, Calendar today → Today, shown), keeping the person's order, spacing and hidden sections.
 - Planner opens a given task when asked (planner `task:<id>`), as Home's Today does.
 
+### Fixed — Connections and reliability
+- Browser tabs: the set-up page opens again in the installed app (it showed "This page ran into a problem"). A new check makes sure every method the interface calls is exposed to it and handled by the main process.
+
 ### Changed — Computer use
 - Reading and pressing the controls in other apps now goes through agent-desktop (Apache-2.0, by Vercel Labs), a small program that comes with Keeper: one call reads the whole front window, hidden fields' contents stay hidden, and each control is found again by what it is (role, label, place) before it is pressed, so a press never lands on a different control after the app changed. A stale control is looked up once in a fresh reading; a press that may already have happened is reported, never repeated. Presses stay accessibility calls: the pointer only moves when Keeper clicks a control's centre itself, as before. When agent-desktop is missing, fails or is too slow, Keeper uses its own system scripts (System Events, UI Automation, AT-SPI) as before.
 - Use this computer → Accessibility engine: Automatic (agent-desktop first) or Built-in (only the system scripts).
