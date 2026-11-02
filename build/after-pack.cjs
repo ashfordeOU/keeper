@@ -84,6 +84,9 @@ exports.default = async function afterPack(context) {
   if (platform === 'darwin' && process.platform === 'darwin') {
     const helper = path.join(context.appOutDir, `${context.packager.appInfo.productFilename}.app`, 'Contents', 'MacOS', 'keeper-helper');
     if (fs.existsSync(helper)) require('child_process').execFileSync('/usr/bin/codesign', ['--force', '--sign', '-', helper], { stdio: 'inherit' });
+    // agent-desktop and its helper (Contents/Resources/agent-desktop): signed like Keeper, not with
+    // their upstream signature, so the Accessibility permission they use is Keeper's.
+    for (const f of require('./after-sign.cjs').agentDesktopBinaries(resources)) require('child_process').execFileSync('/usr/bin/codesign', ['--force', '--sign', '-', f], { stdio: 'inherit' });
   }
 
   console.log(`  • after-pack: removed ${(freed / 1024 / 1024).toFixed(0)} MB of files for other systems`);

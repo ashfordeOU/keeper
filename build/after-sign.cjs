@@ -18,6 +18,13 @@ const path = require('node:path');
 
 const codesign = (args) => execFileSync('/usr/bin/codesign', args, { stdio: 'inherit' });
 
+/** agent-desktop's programs inside Contents/Resources (they sit outside what --deep reaches). */
+function agentDesktopBinaries(resources) {
+  const dir = path.join(resources, 'agent-desktop');
+  return ['agent-desktop', 'agent-desktop-macos-helper'].map((f) => path.join(dir, f)).filter((f) => fs.existsSync(f));
+}
+exports.agentDesktopBinaries = agentDesktopBinaries;
+
 exports.default = async function afterSign(context) {
   const identity = process.env.KEEPER_SIGN_IDENTITY;
   if (!identity || context.electronPlatformName !== 'darwin' || process.platform !== 'darwin') return;
@@ -31,6 +38,9 @@ exports.default = async function afterSign(context) {
   // Inner code first, outer bundle last.
   const helper = path.join(app, 'Contents', 'MacOS', 'keeper-helper');
   if (fs.existsSync(helper)) codesign(['--force', '--sign', identity, helper]);
+  // agent-desktop reads other apps through Accessibility: the same certificate as Keeper, so the
+  // permission granted to Keeper covers it and survives updates.
+  for (const f of agentDesktopBinaries(path.join(app, 'Contents', 'Resources'))) codesign(['--force', '--sign', identity, f]);
   const intents = path.join(app, 'Contents', 'Library', 'Helpers', 'Keeper Intents.app');
   if (fs.existsSync(intents)) codesign(['--force', '--sign', identity, '--preserve-metadata=entitlements,flags', intents]);
   // --deep reaches Electron's frameworks and helper apps; entitlements and flags each

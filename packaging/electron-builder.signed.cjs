@@ -29,7 +29,11 @@ if (env.CSC_LINK) {
     entitlementsInherit: 'build/entitlements.mac.plist',
     notarize: Boolean(env.APPLE_ID && env.APPLE_APP_SPECIFIC_PASSWORD && env.APPLE_TEAM_ID),
     // Programs placed next to Keeper's own executable are signed with the same Developer ID first.
-    binaries: ['Contents/MacOS/keeper-helper'],
+    // agent-desktop (Contents/Resources/agent-desktop) too, when it was fetched: it reads other apps
+    // through Keeper's Accessibility permission.
+    binaries: ['Contents/MacOS/keeper-helper', ...['agent-desktop', 'agent-desktop-macos-helper']
+      .filter((f) => fs.existsSync(path.join(root, 'vendor', 'agent-desktop', 'current', f)))
+      .map((f) => `Contents/Resources/agent-desktop/${f}`)],
   });
   config.mac = mac;
 }

@@ -47,6 +47,13 @@ Video features run [FFmpeg](https://ffmpeg.org) as a separate program; Keeper st
 - You can replace the `ffmpeg` (or `ffmpeg.exe`) file in that folder with any FFmpeg build you like.
 - If you would rather get the complete corresponding source from us, write to contact@ashforde.org. We will send it for as long as we offer this version of Keeper, and for at least three years after.
 
+### agent-desktop (Apache-2.0), a separate program
+
+The computer-use tools read and press the controls in other apps with [agent-desktop](https://github.com/vercel-labs/agent-desktop) v1.0.2 (Apache License 2.0, by Vercel Labs and the agent-desktop contributors). Keeper runs it as a separate program and ships the release's binaries unchanged, checked against pinned SHA-256 fingerprints (`scripts/fetch-agent-desktop.mjs`); on macOS it is re-signed with Keeper's own signature. Its licence and a NOTICE ship next to it as `LICENSE.txt` and `NOTICE.txt` in the `agent-desktop` folder of Keeper's resources.
+
+- **Source:** <https://github.com/vercel-labs/agent-desktop/tree/v1.0.2>; binaries from <https://github.com/vercel-labs/agent-desktop/releases/tag/v1.0.2>.
+- The programs are built from Rust crates under Apache-2.0, MIT, MPL-2.0, Unicode-3.0 and Unlicense terms, listed in <https://github.com/vercel-labs/agent-desktop/blob/v1.0.2/Cargo.lock>.
+
 ### elkjs (EPL-2.0)
 
 Some diagram layouts are drawn with [elkjs](https://github.com/kieler/elkjs) 0.9.3 (Eclipse Public License 2.0, © Kiel University and others), which comes with Mermaid. It is used unchanged, and its source is available from the links below.

@@ -54,6 +54,12 @@ extraResources:
   - from: vendor/rclone/current
     to: rclone
     filter: ['rclone', 'rclone.exe', '*.txt']
+  # agent-desktop (Apache-2.0, LICENSE.txt and NOTICE.txt beside it) for reading and pressing other
+  # apps' controls: put in vendor/agent-desktop/current by scripts/fetch-agent-desktop.mjs (prepare-arch
+  # runs it for the target). Without it the computer-use tools use the system scripts they always had.
+  - from: vendor/agent-desktop/current
+    to: agent-desktop
+    filter: ['agent-desktop', 'agent-desktop.exe', 'agent-desktop-macos-helper', 'agent-desktop-linux-clipboard-owner', '*.txt']
   # Plain copies next to the archive, so package managers (AUR) and people can read them without unpacking.
   - from: LICENSE.md
     to: LICENSE.md

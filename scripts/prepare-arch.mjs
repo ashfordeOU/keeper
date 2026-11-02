@@ -64,4 +64,8 @@ if (!existsSync(ort)) {
 const { fetchRclone } = await import('./fetch-rclone.mjs');
 await fetchRclone(platform, arch);
 
+// 5. agent-desktop, which the computer-use tools read and press other apps' controls with.
+const { fetchAgentDesktop } = await import('./fetch-agent-desktop.mjs');
+await fetchAgentDesktop(platform, arch);
+
 console.log(`Ready to package for ${platform}-${arch}.`);

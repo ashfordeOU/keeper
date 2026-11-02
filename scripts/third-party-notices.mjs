@@ -224,6 +224,7 @@ const versions = {
   cloudflared: grab('core/link/cloudflared.ts', /CLOUDFLARED_VERSION\s*=\s*'([^']+)'/),
   scrcpy: grab('core/screen/mirror.ts', /SCRCPY_VERSION\s*=\s*'([^']+)'/),
   rclone: grab('scripts/fetch-rclone.mjs', /RCLONE_VERSION\s*=\s*'([^']+)'/),
+  agentDesktop: grab('scripts/fetch-agent-desktop.mjs', /AGENT_DESKTOP_VERSION\s*=\s*'([^']+)'/),
   ytdlp: grab('electron/services/video-download.ts', /YTDLP\s*=\s*\{\s*version:\s*'([^']+)'/),
   e5: grab('core/brain/e5.ts', /huggingface\.co\/([^/]+\/[^/]+)\/resolve/, 'Xenova/multilingual-e5-small'),
   whisper: [...read(path.join(ROOT, 'core/whisper.ts')).matchAll(/repo:\s*'([^']+)'/g)].map((m) => m[1]),
@@ -318,6 +319,14 @@ if (ffSources) {
 }
 p('- You can replace the `ffmpeg` (or `ffmpeg.exe`) file in that folder with any FFmpeg build you like.');
 p('- If you would rather get the complete corresponding source from us, write to contact@ashforde.org. We will send it for as long as we offer this version of Keeper, and for at least three years after.');
+p();
+
+p(`### agent-desktop (Apache-2.0), a separate program`);
+p();
+p(`The computer-use tools read and press the controls in other apps with [agent-desktop](https://github.com/vercel-labs/agent-desktop) ${versions.agentDesktop} (Apache License 2.0, by Vercel Labs and the agent-desktop contributors). Keeper runs it as a separate program and ships the release's binaries unchanged, checked against pinned SHA-256 fingerprints (\`scripts/fetch-agent-desktop.mjs\`); on macOS it is re-signed with Keeper's own signature. Its licence and a NOTICE ship next to it as \`LICENSE.txt\` and \`NOTICE.txt\` in the \`agent-desktop\` folder of Keeper's resources.`);
+p();
+p(`- **Source:** <https://github.com/vercel-labs/agent-desktop/tree/${versions.agentDesktop}>; binaries from <https://github.com/vercel-labs/agent-desktop/releases/tag/${versions.agentDesktop}>.`);
+p(`- The programs are built from Rust crates under Apache-2.0, MIT, MPL-2.0, Unicode-3.0 and Unlicense terms, listed in <https://github.com/vercel-labs/agent-desktop/blob/${versions.agentDesktop}/Cargo.lock>.`);
 p();
 
 p(`### elkjs (EPL-2.0)`);

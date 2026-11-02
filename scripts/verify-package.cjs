@@ -5,7 +5,8 @@
 //
 //   required always      the app, ffmpeg, the image library, background removal,
 //                        the terminal, and on a Mac keeper-helper
-//   required for releases rclone (cloud storage) and, on a Mac, Keeper Intents
+//   required for releases rclone (cloud storage), agent-desktop (reading other apps'
+//                        controls, with its Apache-2.0 LICENSE and NOTICE) and, on a Mac, Keeper Intents
 //   (KEEPER_REQUIRE_ALL=1, set by the release workflow; elsewhere they are listed
 //   as missing with how to add them, and the package is still made)
 
@@ -30,6 +31,17 @@ function checkPackage(o) {
     { name: 'background removal (onnxruntime)', have: fs.existsSync(path.join(mods, 'onnxruntime-node', 'bin', 'napi-v6', platform, arch, 'onnxruntime_binding.node')), fix: 'npm ci', required: !(platform === 'darwin' && arch === 'x64') /* onnxruntime has no Intel Mac build */ },
     { name: 'terminal (node-pty)', have: fs.existsSync(path.join(mods, 'node-pty', 'prebuilds', `${platform}-${arch}`, 'pty.node')) || fs.existsSync(path.join(mods, 'node-pty', 'build', 'Release', 'pty.node')), fix: 'npm ci', required: true },
     { name: 'rclone (cloud storage)', have: fs.existsSync(path.join(resources, 'rclone', `rclone${exe}`)), fix: `node scripts/fetch-rclone.mjs ${platform} ${arch}`, required: strict },
+    // The program and its licence travel together: without LICENSE.txt and NOTICE.txt it may not ship at all.
+    ...(() => {
+      const dir = path.join(resources, 'agent-desktop');
+      const bin = fs.existsSync(path.join(dir, `agent-desktop${exe}`));
+      const terms = fs.existsSync(path.join(dir, 'LICENSE.txt')) && fs.existsSync(path.join(dir, 'NOTICE.txt'));
+      const fix = `node scripts/fetch-agent-desktop.mjs ${platform} ${arch}`;
+      return [
+        { name: 'agent-desktop (reading and pressing other apps’ controls)', have: bin, fix, required: strict },
+        ...(bin ? [{ name: 'agent-desktop’s LICENSE.txt and NOTICE.txt', have: terms, fix, required: true }] : []),
+      ];
+    })(),
   ];
   if (platform === 'darwin') {
     pieces.push(

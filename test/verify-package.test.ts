@@ -24,6 +24,9 @@ function fakeMac(skip: string[] = []) {
     ort: path.join(mods, 'onnxruntime-node', 'bin', 'napi-v6', 'darwin', 'arm64', 'onnxruntime_binding.node'),
     pty: path.join(mods, 'node-pty', 'prebuilds', 'darwin-arm64', 'pty.node'),
     rclone: path.join(res, 'rclone', 'rclone'),
+    agentDesktop: path.join(res, 'agent-desktop', 'agent-desktop'),
+    agentDesktopLicence: path.join(res, 'agent-desktop', 'LICENSE.txt'),
+    agentDesktopNotice: path.join(res, 'agent-desktop', 'NOTICE.txt'),
     helper: path.join(app, 'Contents', 'MacOS', 'keeper-helper'),
     intents: path.join(app, 'Contents', 'Library', 'Helpers', 'Keeper Intents.app', 'Contents', 'Info.plist'),
   };
@@ -44,5 +47,11 @@ describe('the package check', () => {
     const r = verifyPackage(o);
     expect(r.missing.map((m: { name: string }) => m.name).join(' ')).toMatch(/rclone.*Intents/);
     expect(() => verifyPackage({ ...o, strict: true })).toThrow(/rclone.*Intents/);
+  });
+  it('agent-desktop is optional locally, required for releases, and never ships without its licence', () => {
+    const none = fakeMac(['agentDesktop', 'agentDesktopLicence', 'agentDesktopNotice']);
+    expect(verifyPackage(none).missing.map((m: { name: string }) => m.name).join(' ')).toMatch(/agent-desktop/);
+    expect(() => verifyPackage({ ...none, strict: true })).toThrow(/agent-desktop/);
+    expect(() => verifyPackage(fakeMac(['agentDesktopLicence']))).toThrow(/LICENSE\.txt and NOTICE\.txt/);
   });
 });

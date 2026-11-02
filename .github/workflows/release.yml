@@ -161,7 +161,7 @@ jobs:
       - name: Package
         shell: bash
         env:
-          # Every piece (rclone, Keeper Intents too) must be inside the package, or packaging stops.
+          # Every piece (rclone, agent-desktop, Keeper Intents too) must be inside the package, or packaging stops.
           KEEPER_REQUIRE_ALL: '1'
           # All optional. Without them macOS builds are ad-hoc signed and Windows builds unsigned.
           CSC_LINK: ${{ matrix.platform == 'darwin' && secrets.CSC_LINK || '' }}
