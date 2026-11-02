@@ -9,6 +9,8 @@
 #   --version X    install a specific version (default: the newest release with a build for this computer)
 #   --beta         the newest release, betas included (a beta copy follows betas until a newer stable is out)
 #   --appimage     on Linux, use the AppImage even when a .deb/.rpm would fit
+#   --full         the offline installer: every optional part (video, on-device AI, cloud) already
+#                  inside, nothing downloaded later (macOS dmg; on Linux the AppImage)
 #   --cli-only     install only the `keeper` command (needs Node.js 22+ and npm)
 #   --uninstall    remove Keeper (the app, the command and the menu entry; your files are untouched)
 #   --yes          do not ask before using sudo
@@ -26,6 +28,8 @@ API="${KEEPER_RELEASES_API:-https://api.github.com/repos/$REPO}"
 VERSION="${KEEPER_VERSION:-latest}"
 MODE="app"
 FORCE_APPIMAGE=0
+# "-full" for the offline installer (docs/COMPONENTS.md); the standard one downloads optional parts on first use.
+SUFFIX=""
 BETA=0
 ASSUME_YES=0
 
@@ -39,12 +43,13 @@ while [ $# -gt 0 ]; do
     --version=*) VERSION="${1#--version=}"; VERSION="${VERSION#v}"; shift ;;
     --beta) BETA=1; shift ;;
     --appimage) FORCE_APPIMAGE=1; shift ;;
+    --full) SUFFIX="-full"; FORCE_APPIMAGE=1; shift ;;
     --cli-only) MODE="cli"; shift ;;
     --uninstall) MODE="uninstall"; shift ;;
     --yes|-y) ASSUME_YES=1; shift ;;
     -h|--help)
       if [ -f "$0" ]; then sed -n '3,20p' "$0"
-      else say "Options: --version X, --beta, --appimage, --cli-only, --uninstall, --yes. See https://github.com/$REPO/blob/main/docs/INSTALL.md"; fi
+      else say "Options: --version X, --beta, --appimage, --full, --cli-only, --uninstall, --yes. See https://github.com/$REPO/blob/main/docs/INSTALL.md"; fi
       exit 0 ;;
     *) fail "unknown option: $1 (try --help)" ;;
   esac
@@ -224,8 +229,8 @@ quit_running_mac() {
 }
 
 install_mac() {
-  json="$(release_json "Keeper-mac-$ARCH.dmg")" || exit 1
-  download_verified "$json" "Keeper-mac-$ARCH.dmg"
+  json="$(release_json "Keeper-mac-$ARCH$SUFFIX.dmg")" || exit 1
+  download_verified "$json" "Keeper-mac-$ARCH$SUFFIX.dmg"
   MNT="$TMP/mnt"; mkdir -p "$MNT"
   # The disk image shows Keeper's licence before it opens; a piped install has no keyboard to
   # agree with, so say where the terms are and answer it here.
@@ -274,8 +279,8 @@ install_linux_package() { # kind
 
 install_linux_appimage() {
   aiarch=x86_64; [ "$ARCH" = arm64 ] && aiarch=arm64
-  json="$(release_json "Keeper-linux-$aiarch.AppImage")" || exit 1
-  download_verified "$json" "Keeper-linux-$aiarch.AppImage"
+  json="$(release_json "Keeper-linux-$aiarch$SUFFIX.AppImage")" || exit 1
+  download_verified "$json" "Keeper-linux-$aiarch$SUFFIX.AppImage"
   mkdir -p "$BIN_DIR" "$DATA_DIR/applications" "$DATA_DIR/keeper-cli"
   step "Installing the AppImage into $BIN_DIR"
   install -m 755 "$DOWNLOADED" "$BIN_DIR/keeper.AppImage"
