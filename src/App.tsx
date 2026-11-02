@@ -97,6 +97,7 @@ import { inspectorRange } from '../core/inspector';
 import { asSidebarMode, isRail, SIDEBAR_RAIL, SIDEBAR_RANGE } from '../core/sidebar-layout';
 import { setSidebarPinned, setSidebarWidth, useSidebarLocal } from './sidebar-state';
 import { QuickLookHost } from './preview/QuickLook';
+import { ThemeQuickPicker } from './components/ThemeQuickPicker';
 import { toggleThemePatch } from './theme';
 import { useProgressAnnouncer } from './a11y';
 
@@ -298,7 +299,7 @@ function SidebarNav({ rail, expanded, onToggle, canPin }: { rail: boolean; expan
 }
 
 function TopBar({ onPalette }: { onPalette: () => void }) {
-  const { route, go, back, canBack, forward, canForward, settings, updateSettings, inspector, setInspector } = useStore();
+  const { route, go, back, canBack, forward, canForward, inspector, setInspector } = useStore();
   const t = useT();
   const [text, setText] = useState(route.name === 'search' ? route.q ?? '' : '');
   useEffect(() => {
@@ -341,13 +342,7 @@ function TopBar({ onPalette }: { onPalette: () => void }) {
         <button className={`btn ghost icon ${inspector ? 'on' : ''}`} aria-pressed={inspector} aria-controls={inspector ? 'inspector' : undefined} data-testid="inspector-toggle" title={`${inspector ? 'Hide' : 'Show'} Inspector (${mod === '⌘' ? '⌘⌥I' : 'Ctrl+Alt+I'})`} onClick={() => setInspector(!inspector)}><Icon name="info" size={16} /></button>
       ) : null}
       <button className="btn ghost icon" title={`Command palette (${mod}K)`} aria-label={`Command palette (${mod}K)`} onClick={onPalette}><Icon name="sparkle" size={16} /></button>
-      <button
-        className="btn ghost icon"
-        title={`Switch theme (${mod}${shift}L)`} aria-label={`Switch theme (${mod}${shift}L)`}
-        onClick={() => settings && void updateSettings(toggleThemePatch(settings))}
-      >
-        <Icon name="palette" size={16} />
-      </button>
+      <ThemeQuickPicker title={`Theme and light or dark (${mod}${shift}L swaps the last two)`} />
     </header>
   );
 }

@@ -85,7 +85,7 @@ export function Settings() {
     <div style={{ maxWidth: 820 }}>
       <PageHead title={t('nav.settings')} />
 
-      <h2 style={{ margin: '8px 0' }}>{t('settings.appearance')}</h2>
+      <h2 id="appearance" style={{ margin: '8px 0' }}>{t('settings.appearance')}</h2>
       <div className="card settings-section">
         <div className="setting" style={{ display: 'block' }}>
           <div style={{ fontWeight: 550, marginBottom: 10 }}>{t('settings.theme')}</div>
