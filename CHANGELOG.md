@@ -47,6 +47,12 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - Sync → Backups: each backup has Pause / Resume (its schedule stops; Back up now still works) and Edit (name, folders and schedule). Where it is stored and its password stay, so editing never starts a new backup or asks for the password again.
 - Sync → Mirrors: Pause / Resume and Edit (name, direction and schedule). The two folders stay; a different pair is a new mirror.
 
+### Fixed — Feature switches that did nothing
+- Hide faces, Remote screen extras and Control on Wayland now do what their switches say. With Hide faces off, the tool is refused; with Remote screen extras off, sound, several screens at once, following the pointer, drawing, voice chat, printing on the other computer and second viewers are refused; with Control on Wayland off, Keeper never asks the desktop's remote-control portal and the screen can only be watched.
+- Convert, Convert to any format, Speech to text on this computer and Video downloads are now checked by the main process, so workflows, agents and the command line follow them as the page does.
+- Meetings read calendars only while Calendar and reminders is on, and turn action items into tasks only while Planner is on (they checked a switch that does not exist, which always read as on).
+- A test now fails when a switch is read by nothing, and reading a switch that does not exist is an error during development.
+
 ### Fixed — Setup and permissions
 - macOS: Allow for Accessibility, Screen Recording and Input Monitoring works every time. macOS shows those questions only once per app, so Keeper now remembers that it asked, opens the exact System Settings page when the answer is still not yes a moment later, and labels the button (and "Ask again" in Allow all) "Open System Settings" from then on. A row that stays off after that suggests removing Keeper with − and adding it again (macOS can hold an older copy's approval).
 - The macOS keychain question after an update ("Keeper Safe Storage") is explained in the Software Update window before it restarts, and in docs/PERMISSIONS.md. Until a Developer ID build, that line asks you to type your login password and choose Always Allow.

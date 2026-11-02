@@ -24,7 +24,10 @@ function current(): Map<string, FeatureState> {
 }
 
 export function featureOn(id: string): boolean {
-  return current().get(id)?.on ?? true;
+  const st = current().get(id);
+  // A misspelt id would read as always on: in tests and unpackaged runs it is an error, as with onFeature.
+  if (!st && !featureDef(id) && (process.env.VITEST || !app.isPackaged)) throw new Error(`Unknown feature "${id}": add it to core/features.ts`);
+  return st?.on ?? true;
 }
 
 /** Runs `fn` whenever the feature turns on or off (and once straight away with `now`). */

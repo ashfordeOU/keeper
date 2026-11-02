@@ -23,6 +23,9 @@ import { decryptPdf, encryptPdf } from '../../core/pdfcrypt';
 import { Extra, findTool, officeCandidates, type ExtraHooks } from './convert-extra';
 import { FileKit } from './filekit';
 import { isKitTool, type KitOp } from '../../core/filekit/tools';
+import { featuresForOp } from '../../core/convert-types';
+import { featureOn } from './features';
+import { featureDef } from '../../core/features';
 
 // The standard output folder (set by the app) and ffmpeg's place live in convert-shared.ts.
 export { setStandardOutput } from './convert-shared';
@@ -147,6 +150,9 @@ export class Converter {
   }
 
   async run(job: ConvertJob): Promise<ConvertResult> {
+    // A switch off in Settings → Features stops its tools everywhere (the page, workflows, agents).
+    const off = featuresForOp(job.op as { tool: string }, isKitTool).find((f) => !featureOn(f));
+    if (off) throw new Error(`${featureDef(off)?.name ?? off} is switched off (Settings → Features)`);
     if (!job.inputs.length) throw new Error('Choose at least one file');
     for (const p of job.inputs) if (!existsSync(p)) throw new Error(`${path.basename(p)} no longer exists`);
     const op = job.op;

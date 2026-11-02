@@ -16,6 +16,7 @@ import type { HostDisplay, InputEvent } from '../../../core/screen/types';
 import { run } from '../../../core/platform';
 import { PortalInjector, usePortal } from './portal';
 import { permissionNeeded } from '../permission-nudge';
+import { featureOn } from '../features';
 
 export interface InjectorStatus {
   available: boolean;
@@ -163,8 +164,9 @@ class MacInjector implements Injector {
 }
 
 class NoInjector implements Injector {
+  constructor(private reason = 'Remote control is not available on this system.') {}
   async status(): Promise<InjectorStatus> {
-    return { available: false, reason: 'Remote control is not available on this system.' };
+    return { available: false, reason: this.reason };
   }
   send() {}
   stop() {}
@@ -172,7 +174,14 @@ class NoInjector implements Injector {
 
 let inj: Injector | null = null;
 
+let waylandOff: Injector | null = null;
+
 export function injector(): Injector {
+  // Wayland control goes through the system's RemoteDesktop portal only while Settings → Features → Control on Wayland is on.
+  if (usePortal() && !featureOn('waylandControl')) {
+    if (inj instanceof PortalInjector) { inj.stop(); inj = null; }
+    return (waylandOff ??= new NoInjector('Control on Wayland is switched off in Settings → Features. The screen can be watched, not controlled.'));
+  }
   if (!inj && usePortal()) inj = new PortalInjector();
   inj ??= process.platform === 'linux' ? new XdotoolInjector() : process.platform === 'win32' ? new WindowsInjector() : process.platform === 'darwin' ? new MacInjector() : new NoInjector();
   return inj;

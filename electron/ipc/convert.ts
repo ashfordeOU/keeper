@@ -24,6 +24,7 @@ import { batches, piecesPrompt, readPieces, type DocKind } from '../../core/tran
 import { complete } from '../../core/ai-actions';
 import { startJob } from '../services/governor';
 import { markOrigin } from '../services/origin-mark';
+import { featureOn } from '../services/features';
 
 const req = createRequire(__filename);
 
@@ -290,6 +291,7 @@ export function registerConvertIpc(deps: Deps) {
   ipcMain.handle('convert.duration', async (_e, p: string) => (await (await converter()).probeDuration(p).catch(() => undefined)) ?? null);
   const downloader = new VideoDownloader(path.join(app.getPath('userData'), 'bin'), ffmpegPath);
   ipcMain.handle('convert.downloadVideo', async (_e, o: Omit<DownloadOptions, 'folder'> & { folder?: string }) => {
+    if (!featureOn('videoDownload')) throw new Error('Video downloads are switched off (Settings → Features)');
     const folder = o.folder || path.join(downloadsDir(), 'Keeper Videos');
     const job = startJob('Downloading a video', { id: 'download-video' });
     try {

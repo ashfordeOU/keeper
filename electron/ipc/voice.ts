@@ -55,7 +55,7 @@ export function registerVoiceIpc(c: {
     micApps: () => (process.platform !== 'darwin' && featureOn('micIndicator') && featureOn('island') ? c.islandSvc.mic : undefined),
     events: async (from, to) => {
       const out: { id: string; title: string; start: number; end: number; allDay?: boolean; url?: string; location?: string; attendees?: string[] }[] = [];
-      if (featureOn('pim')) {
+      if (featureOn('calendars')) {
         try {
           const { pim } = await import('../services/pim');
           for (const o of await pim.occurrences(from, to)) out.push({ id: `${o.event.id}@${o.start}`, title: o.event.title, start: o.start, end: o.end, allDay: o.event.allDay, url: o.event.url, location: o.event.location, attendees: (o.event.attendees ?? []).map((a) => a.name || a.email).filter(Boolean) });

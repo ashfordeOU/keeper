@@ -322,7 +322,7 @@ export class ScreenService {
     const a = audioPlan(process.platform, mac);
     const pr = privacyPlan(process.platform);
     const windows = s.help ? [] : await desktopCapturer.getSources({ types: ['window'], thumbnailSize: { width: 1, height: 1 } }).then((l) => l.filter((w) => w.name && !/^Keeper —/.test(w.name)).slice(0, 40).map((w) => ({ id: w.id, name: w.name.slice(0, 80) })), () => []);
-    return { audio: a.how !== 'none', audioNote: a.note, blank: pr.blank, blankNote: pr.blankNote, block: pr.block, blockNote: pr.blockNote, windows, unattended: !!this.d.unattended?.(), help: s.help, viewers: [...this.sessions.values()].filter((x) => x.role === 'host' && x.state !== 'ended').length };
+    return { audio: a.how !== 'none' && featureOn('screenExtras'), audioNote: a.note, blank: pr.blank, blankNote: pr.blankNote, block: pr.block, blockNote: pr.blockNote, windows, unattended: !!this.d.unattended?.(), help: s.help, viewers: [...this.sessions.values()].filter((x) => x.role === 'host' && x.state !== 'ended').length };
   }
 
   /** The host's pointer, ten times a second while it moves, for the viewer's cursor overlay. */
@@ -489,12 +489,18 @@ export class ScreenService {
         return;
       case 'mode':
         if (s.role !== 'host' || !['one', 'all', 'follow'].includes(m.mode)) return;
+        // Several screens at once and following the pointer are Remote screen extras.
+        if (m.mode !== 'one' && !featureOn('screenExtras')) return;
         s.mode = m.mode;
+        this.toWin(s, 'screen-signal', m);
+        return;
+      case 'voice':
+        // Voice chat is one of the Remote screen extras.
+        if (!featureOn('screenExtras')) return;
         this.toWin(s, 'screen-signal', m);
         return;
       case 'window':
       case 'tune':
-      case 'voice':
         this.toWin(s, 'screen-signal', m);
         return;
       case 'cursor':
@@ -504,10 +510,10 @@ export class ScreenService {
         if (s.role === 'host' && s.control) await this.privacy(s, m);
         return;
       case 'draw':
-        if (s.role === 'host' && !s.joined) this.draw(s, m);
+        if (s.role === 'host' && !s.joined && featureOn('screenExtras')) this.draw(s, m);
         return;
       case 'invite':
-        if (s.role === 'host' && !s.help && !s.joined) {
+        if (s.role === 'host' && !s.help && !s.joined && featureOn('screenExtras')) {
           const inv: ViewerInvite = { token: crypto.randomBytes(18).toString('base64url'), device: String(m.device ?? ''), expires: Date.now() + 10 * 60_000 };
           s.invites = [...(s.invites ?? []).filter((i) => i.expires > Date.now()), inv].slice(-10);
           await send(s.ctl, { t: 'invited', device: inv.device, token: inv.token });
@@ -625,6 +631,7 @@ export class ScreenService {
 
   /** Accept an invitation to watch (view-only). */
   async joinInvite(id: string, tab = false): Promise<string> {
+    if (!featureOn('screenExtras')) throw new Error('Watching as a second viewer is one of the Remote screen extras, switched off in Settings → Features');
     const inv = this.pendingInvites.get(id);
     if (!inv) throw new Error('That invitation has expired');
     this.pendingInvites.delete(id);
@@ -752,6 +759,7 @@ export class ScreenService {
 
   /** Viewer: print a file on the other computer's default printer. */
   async print(sid: string, file: string) {
+    if (!featureOn('screenExtras')) throw new Error('Printing on the other computer is one of the Remote screen extras, switched off in Settings → Features');
     const s = this.sessions.get(sid);
     const node = this.d.node();
     if (!s || !node || s.help) throw new Error('No such session');

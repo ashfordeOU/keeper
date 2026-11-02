@@ -777,7 +777,7 @@ export class VoiceService {
       }
     }
     m.notes = notes ?? ruleNotes(m);
-    if (s.actionsToTasks && featureOn('pim')) {
+    if (s.actionsToTasks && featureOn('planner')) {
       const { pim } = await import('../pim');
       for (const a of m.notes.actions) {
         if (a.taskId) continue;

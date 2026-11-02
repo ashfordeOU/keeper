@@ -197,3 +197,17 @@ export const TOOL_INFO: Record<ConvertTool, { category: ConvertCategory; label: 
  * "service" is the speech-to-text service chosen for dictation.
  */
 export interface SpeechOptions { engine?: 'device' | 'system' | 'service'; model?: import('./whisper').WhisperSize; language?: string }
+
+/**
+ * The feature switches (core/features.ts) a conversion needs: Convert always,
+ * Convert to any format for its tools, Hide faces, and the speech model when
+ * transcribing on this computer. The main process refuses a job while one is off.
+ */
+export function featuresForOp(op: { tool: string; engine?: string; auto?: boolean }, isKitTool: (t: string) => boolean): string[] {
+  const out = ['convert'];
+  if (isKitTool(op.tool)) out.push('fileKit');
+  if (op.tool === 'image.faces') out.push('faces');
+  const speech = op.tool === 'audio.transcribe' || (op.tool === 'video.subtitles' && op.auto);
+  if (speech && (op.engine ?? 'device') === 'device') out.push('speechModel');
+  return out;
+}
