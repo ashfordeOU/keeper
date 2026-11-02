@@ -51,6 +51,14 @@ export function knownProvider(email: string): MailConfig | undefined {
   if (/^(yahoo|ymail)\.[a-z.]+$/.test(domain)) {
     return { provider: 'Yahoo', caldav: 'https://caldav.calendar.yahoo.com/', imap: { host: 'imap.mail.yahoo.com', port: 993, security: 'tls', user: u }, smtp: { host: 'smtp.mail.yahoo.com', port: 465, security: 'tls', user: u }, note: 'Use an app password from your Yahoo account security page.' };
   }
+  if (/^(aol|aim)\.[a-z.]+$/.test(domain)) {
+    return { provider: 'AOL', imap: { host: 'imap.aol.com', port: 993, security: 'tls', user: u }, smtp: { host: 'smtp.aol.com', port: 465, security: 'tls', user: u }, note: 'Use an app password from your AOL account security page.' };
+  }
+  if (/^(zoho(mail)?)\.(com|eu|in|com\.au|jp)$/.test(domain)) {
+    const region = domain.split('.').slice(1).join('.');
+    const host = region === 'com' ? 'zoho.com' : `zoho.${region}`;
+    return { provider: 'Zoho', imap: { host: `imap.${host}`, port: 993, security: 'tls', user: u }, smtp: { host: `smtp.${host}`, port: 465, security: 'tls', user: u }, note: 'Turn on IMAP in Zoho Mail’s settings and use an app-specific password if two-factor sign-in is on.' };
+  }
   if (/^(proton\.me|protonmail\.(com|ch)|pm\.me)$/.test(domain)) {
     return { provider: 'Proton', imap: { host: '127.0.0.1', port: 1143, security: 'starttls', user: u }, smtp: { host: '127.0.0.1', port: 1025, security: 'starttls', user: u }, note: 'Proton Mail works through Proton Mail Bridge running on this computer; use the password the Bridge shows.' };
   }

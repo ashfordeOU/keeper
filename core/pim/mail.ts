@@ -208,7 +208,7 @@ export function ruleMatches(rule: MailRule, m: MessageSummary & { text?: string 
   });
 }
 
-/** Simple local search over cached messages: words in any order, from:, to:, subject:, is:unread, has:attachment. */
+/** Simple local search over cached messages: words in any order, from:, to:, subject:, label:, in:, is:unread, has:attachment. */
 export function matchesQuery(m: MessageSummary & { text?: string }, q: string): boolean {
   const terms = q.toLowerCase().match(/(\w+:"[^"]*"|\w+:\S+|"[^"]+"|\S+)/g) ?? [];
   const addr = (a?: Address) => (a ? `${a.name ?? ''} ${a.address}`.toLowerCase() : '');
@@ -221,6 +221,8 @@ export function matchesQuery(m: MessageSummary & { text?: string }, q: string): 
       if (k === 'subject') return m.subject.toLowerCase().includes(v);
       if (k === 'is') return v === 'unread' ? !m.seen : v === 'flagged' || v === 'starred' ? m.flagged : v === 'read' ? m.seen : true;
       if (k === 'has') return v.startsWith('attach') ? m.hasAttachments : true;
+      if (k === 'label') return (m.labels ?? []).some((l) => l.toLowerCase().includes(v));
+      if (k === 'in') return m.folder.toLowerCase().includes(v) || (v === 'important' ? m.category === 'important' : v === 'other' ? m.category === 'other' : false);
     }
     const word = t.replace(/^"|"$/g, '');
     return [m.subject, addr(m.from), ...m.to.map(addr), m.snippet, m.text ?? ''].join(' ').toLowerCase().includes(word);

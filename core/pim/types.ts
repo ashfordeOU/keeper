@@ -41,6 +41,8 @@ export interface Account {
   indexMail?: boolean;
   /** accept self-signed certificates (home servers) */
   insecureTls?: boolean;
+  /** coding assistants and other MCP apps may search, read and draft in this account's mail (off unless chosen) */
+  mcp?: boolean;
   color?: string;
 }
 
@@ -85,6 +87,17 @@ export interface MessageSummary {
   labels?: string[];
   /** snoozed until (local, Keeper only) */
   snoozedUntil?: number;
+  /** came back from a snooze at this time (sorts as new) */
+  returnedAt?: number;
+  /** sent to a list or in bulk (List-Id, Precedence: bulk/list, Auto-Submitted) */
+  bulk?: boolean;
+  listId?: string;
+  /** the List-Unsubscribe links */
+  unsub?: { mailto?: string; url?: string; oneClick?: boolean };
+  /** worked out when listed (core/pim/triage.ts), not stored */
+  category?: 'important' | 'other';
+  /** a sign-in alert, code or password reset (always Important; never shown to agents) */
+  security?: boolean;
 }
 
 export interface Attachment {
