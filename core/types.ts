@@ -366,6 +366,9 @@ export interface Progress {
   done: number;
   total: number;
   current?: string;
+  /** reading the folders: files found so far, and about how many there were last time (0: unknown) */
+  found?: number;
+  expected?: number;
 }
 
 export type Look = 'playful' | 'minimal';

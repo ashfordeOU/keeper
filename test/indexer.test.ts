@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -32,6 +32,123 @@ describe('FileIndex', () => {
     expect(again.query('#work').hits).toHaveLength(1);
     expect(again.bySource()[0]).toMatchObject({ id: 'gmail', count: 1 });
     expect(again.totals().document.count).toBe(1);
+  });
+});
+
+describe('FileIndex saving: a snapshot and a journal', () => {
+  function library() {
+    const home = mkdtempSync(path.join(tmpdir(), 'keeper-idxj-'));
+    const docs = path.join(home, 'Documents');
+    mkdirSync(docs, { recursive: true });
+    for (let i = 0; i < 20; i++) writeFileSync(path.join(docs, `note ${i}.txt`), `note ${i}`);
+    const store = path.join(home, 'data', 'index.json');
+    return { home, docs, store, folders: [{ path: docs, label: 'Documents' }] };
+  }
+
+  it('keeps small changes in the journal and replays them on loading, without rewriting the snapshot', async () => {
+    const { docs, store, folders } = library();
+    const idx = new FileIndex(store, folders);
+    await idx.scan();
+    const snap = statSync(store);
+    const a = path.join(docs, 'note 1.txt');
+    const b = path.join(docs, 'note 2.txt');
+    idx.setText(a, 'hello journal');
+    idx.setTags(b, ['Work']);
+    idx.setMeta(a, { pages: 3 });
+    idx.remove(path.join(docs, 'note 3.txt'));
+    idx.rename(path.join(docs, 'note 4.txt'), path.join(docs, 'renamed.txt'));
+    await idx.flushLog();
+    // The snapshot is untouched; the journal holds a few short lines.
+    expect(statSync(store).mtimeMs).toBe(snap.mtimeMs);
+    expect(statSync(store).size).toBe(snap.size);
+    expect(statSync(`${store}.log`).size).toBeLessThan(2000);
+
+    const back = new FileIndex(store, folders);
+    expect(await back.load()).toBe(true);
+    expect(back.extras.get(a)?.text).toBe('hello journal');
+    expect(back.extras.get(a)?.meta).toEqual({ pages: 3 });
+    expect(back.tags.get(b)).toEqual(['work']);
+    expect(back.files.has(path.join(docs, 'note 3.txt'))).toBe(false);
+    expect(back.files.has(path.join(docs, 'note 4.txt'))).toBe(false);
+    expect(back.files.get(path.join(docs, 'renamed.txt'))?.name).toBe('renamed.txt');
+    expect(back.files.size).toBe(19);
+  });
+
+  it('an unchanged library writes nothing on a rescan; a changed file goes to the journal', async () => {
+    const { docs, store, folders } = library();
+    const idx = new FileIndex(store, folders);
+    await idx.scan();
+    // A first read: the brain looks at everything.
+    expect(idx.drainChanged()).toBeNull();
+    const written = idx.bytesWritten;
+    const snap = statSync(store).mtimeMs;
+    expect((await idx.scan()).changed).toBe(0);
+    expect(idx.bytesWritten).toBe(written);
+    expect(statSync(store).mtimeMs).toBe(snap);
+    // One file changed, one added.
+    writeFileSync(path.join(docs, 'note 5.txt'), 'changed and longer');
+    utimesSync(path.join(docs, 'note 5.txt'), new Date(), new Date(Date.now() + 5000));
+    writeFileSync(path.join(docs, 'new.txt'), 'new');
+    expect((await idx.scan()).changed).toBe(2);
+    expect(statSync(store).mtimeMs).toBe(snap);
+    expect(idx.bytesWritten - written).toBeLessThan(2000);
+    // Only those two are news for the brain.
+    expect(idx.drainChanged()?.sort()).toEqual([path.join(docs, 'new.txt'), path.join(docs, 'note 5.txt')]);
+    const back = new FileIndex(store, folders);
+    await back.load();
+    expect(back.files.get(path.join(docs, 'note 5.txt'))?.size).toBe('changed and longer'.length);
+    expect(back.files.has(path.join(docs, 'new.txt'))).toBe(true);
+  });
+
+  it('skips a half-written last line, and lines left from before the last snapshot', async () => {
+    const { docs, store, folders } = library();
+    const idx = new FileIndex(store, folders);
+    await idx.scan();
+    idx.setText(path.join(docs, 'note 1.txt'), 'kept');
+    await idx.flushLog();
+    appendFileSync(`${store}.log`, '{"g":');
+    let back = new FileIndex(store, folders);
+    expect(await back.load()).toBe(true);
+    expect(back.extras.get(path.join(docs, 'note 1.txt'))?.text).toBe('kept');
+    // Quitting folds the journal into the snapshot; a journal line still being written then belongs to the old one.
+    back.saveSync();
+    appendFileSync(`${store}.log`, `${JSON.stringify({ g: 1, t: [path.join(docs, 'note 2.txt'), ['stale']] })}\n`);
+    back = new FileIndex(store, folders);
+    await back.load();
+    expect(back.extras.get(path.join(docs, 'note 1.txt'))?.text).toBe('kept');
+    expect(back.tags.has(path.join(docs, 'note 2.txt'))).toBe(false);
+  });
+
+  it('a new snapshot empties the journal', async () => {
+    const { docs, store, folders } = library();
+    const idx = new FileIndex(store, folders);
+    await idx.scan();
+    for (let i = 0; i < 10; i++) idx.setText(path.join(docs, `note ${i}.txt`), `text ${i}`.repeat(50));
+    await idx.flushLog();
+    expect(statSync(`${store}.log`).size).toBeGreaterThan(1000);
+    await idx.save();
+    expect(statSync(`${store}.log`).size).toBeLessThan(40);
+    expect(JSON.parse(readFileSync(store, 'utf8')).extras[path.join(docs, 'note 9.txt')].text).toContain('text 9');
+    expect(existsSync(`${store}.tmp`)).toBe(false);
+  });
+});
+
+describe('walking folders', () => {
+  it('finds the same files with direct and asynchronous looks at their details', async () => {
+    const { walk } = await import('../core/walk');
+    const root = mkdtempSync(path.join(tmpdir(), 'keeper-walk-'));
+    for (let d = 0; d < 5; d++) {
+      mkdirSync(path.join(root, `d${d}`, 'sub'), { recursive: true });
+      for (let i = 0; i < 120; i++) writeFileSync(path.join(root, `d${d}`, i % 2 ? 'sub' : '', `f${i}.txt`), 'x'.repeat(i));
+    }
+    const list = async (statSync: boolean) => {
+      const out: string[] = [];
+      await walk(root, { statSync, onEntry: (e) => { out.push(`${e.path}:${e.stats.size}`); } });
+      return out.sort();
+    };
+    const direct = await list(true);
+    expect(direct).toHaveLength(600);
+    expect(direct).toEqual(await list(false));
   });
 });
 
