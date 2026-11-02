@@ -9,7 +9,7 @@ import { promises as fsp } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import type { DeepPartial, ImportRecord, MapTrack, ServiceSource, SourceRow, TracksApi, TracksConfig, TracksOverview } from '../../../core/tracks/api';
-import { activeSources, SOURCE_CATALOG } from '../../../core/tracks/config';
+import { activeSources, findMyAvailable, SOURCE_CATALOG, sourceRow } from '../../../core/tracks/config';
 import { addImport, addLive, fromLinkPosition, ownPositionOf, type OwnPosition, allStays, countryOf, dataRange, frequentPlaces, heatmapOf, recordsOf, searchDb, summaries, timelineView, tripsOf, type TracksDb } from '../../../core/tracks/db';
 import { exportAs, EXPORT_EXT, toGeoJson, tripSummaryHtml, type ExportFormat } from '../../../core/tracks/export';
 import { findMyPlainOn, readFindMyCache } from '../../../core/tracks/findmy';
@@ -38,7 +38,7 @@ interface Deps {
 
 let deps: Deps = { broadcast: () => undefined };
 const stops = new Map<string, () => void>();
-let findMyState: TracksOverview['findMy'] = { state: process.platform === 'darwin' ? 'off' : 'not-mac', detail: process.platform === 'darwin' ? 'Off' : 'Find My is only on a Mac.' };
+let findMyState: TracksOverview['findMy'] = { state: process.platform === 'darwin' ? 'off' : 'not-mac', detail: process.platform === 'darwin' ? 'Not read yet' : 'Find My is only on a Mac.' };
 
 const changed = () => deps.broadcast('tracks-changed');
 const self = () => getConfig().self;
@@ -106,8 +106,9 @@ export async function reconfigure(): Promise<void> {
   } else stopMqtt();
   if (on && live() && s.traccar.on && s.traccar.url) startPoll('traccar', 60_000, ['tracks', 'tracksLive'], pollTraccar);
   else stopPoll('traccar');
-  if (on && live() && s.findMy.on && process.platform === 'darwin') startPoll('findmy', 10 * 60_000, ['tracks', 'tracksLive'], readFindMy);
-  else { stopPoll('findmy'); if (process.platform === 'darwin') findMyState = { state: 'off', detail: 'Off' }; }
+  // Since macOS 14.4 the cache is encrypted: nothing to read, so nothing is polled.
+  if (on && live() && s.findMy.on && findMyAvailable(process.platform, os.release()).ok) startPoll('findmy', 10 * 60_000, ['tracks', 'tracksLive'], readFindMy);
+  else { stopPoll('findmy'); if (process.platform === 'darwin') findMyState = { state: 'off', detail: 'Not read yet' }; }
   if (on && s.folders.on && s.folders.paths.length) startPoll('folders', 15 * 60_000, 'tracks', scanFolders);
   else stopPoll('folders');
   if (on && s.photos.on && s.photos.folders.length) startPoll('photos', 6 * 3600_000, 'tracks', scanPhotos);
@@ -412,19 +413,8 @@ async function nameStays(db: TracksDb, stays: Stay[]) {
 // ---------------------------------------------------------------- the overview
 
 function sourceRows(c: TracksConfig): SourceRow[] {
-  return SOURCE_CATALOG.map((e) => {
-    if (e.id === 'import') return { ...e, on: true, available: true, status: 'Always available' };
-    const src = c.sources[e.id] as { on: boolean; connected?: boolean; error?: string };
-    let available = true;
-    let status = src.on ? 'On' : 'Off';
-    if (e.id === 'findMy' && process.platform !== 'darwin') { available = false; status = 'Only on a Mac'; }
-    if (e.id === 'link' && src.on) status = liveViews > 0 || c.surfaces.tray || c.surfaces.island ? 'On: devices that share their location with this one' : 'On: asked only while the Live view is open';
-    if (e.needs === 'tracksLive' && !featureOn('tracksLive')) status = src.on ? 'Waiting: turn on Places & Tracks: live sharing in Features' : status;
-    if (e.needs === 'tracksServices' && !featureOn('tracksServices')) status = src.on ? 'Waiting: turn on Places & Tracks: services in Features' : status;
-    if (src.connected === false && src.on) status = 'Not connected yet';
-    if (src.error) status = src.error;
-    return { ...e, on: src.on, available, status };
-  });
+  const ctx = { platform: process.platform, release: os.release(), features: { live: featureOn('tracksLive'), services: featureOn('tracksServices') }, findMy: findMyState, linkWatching: liveViews > 0 || c.surfaces.tray || c.surfaces.island };
+  return SOURCE_CATALOG.map((e) => sourceRow(e, e.id === 'import' ? undefined : (c.sources[e.id] as { on: boolean; connected?: boolean; error?: string }), ctx));
 }
 
 async function overview(): Promise<TracksOverview> {
@@ -698,7 +688,7 @@ export const tracks: TracksApi = {
     await stopReceiver();
     stopMqtt();
     await wipeAll();
-    findMyState = { state: process.platform === 'darwin' ? 'off' : 'not-mac', detail: 'Off' };
+    findMyState = { state: process.platform === 'darwin' ? 'off' : 'not-mac', detail: 'Not read yet' };
     changed();
     deps.trayChanged?.();
   },
@@ -734,7 +724,8 @@ export function startTracks(d: Deps) {
   deps = d;
   // Link asks Places & Tracks where this device is (null unless you allowed it here and there).
   void import('../link/location').then((m) => m.setOwnPositionSource(() => ownPosition())).catch(() => undefined);
-  for (const f of ['tracks', 'tracksLive', 'tracksServices']) onFeature(f, () => void reconfigure().catch(() => undefined));
+  // A feature switched from the Sources tab's [Turn on] shows there at once.
+  for (const f of ['tracks', 'tracksLive', 'tracksServices']) onFeature(f, () => void reconfigure().catch(() => undefined).finally(() => changed()));
   // Only something is switched on needs a look now.
   if (activeSources(getConfig()).length) void reconfigure().catch(() => undefined);
   // To do: location history from several sources that exists nowhere else.

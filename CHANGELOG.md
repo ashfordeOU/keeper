@@ -20,6 +20,17 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - Apple Notes in the Island: the Notes tab lists the notes of Notes Everywhere's connected apps (Apple Notes first on a Mac) under Keeper's own, searchable with the same box and readable in place, with Open in Notes. On a Mac it offers to show Apple Notes (macOS asks once whether Keeper may control Notes, and Keeper shows what it would copy first), and says how to allow it in Privacy & Security → Automation when it was refused.
 - For other pages: the calendar service answers `pim.upcomingEvents(from, to)` (events from every source, with place and join link) and `pim.calendarStatus()` (each source, connected and allowed, and the Mac's EventKit state).
 
+### Changed — Browser tabs and Places
+- Browser tabs: Keeper registers itself with every browser it finds by itself (Chrome, Chromium, Edge, Brave, Vivaldi, Opera, Arc, Firefox), with no button to press. Until a browser connects, the page is a one-screen setup with a big “Add to Chrome” (Edge, Brave, Firefox…) for each browser found: it opens the store page once the extension is published there, or opens the browser’s extensions page, shows the extension’s folder, copies its path and walks through the three steps with pictures. The page switches to your tabs by itself once the extension connects. “Re-link browsers” moved to the ⋯ menu.
+- Browser tabs: the extension now sits in Keeper’s own data folder (on a Mac ~/Library/Application Support/Keeper/browser-extension), refreshed on every update, so it is easy to choose in the browser’s file dialog.
+- Browser tabs: “What each browser allows” is short and plain, under Details; Safari says “Safari support is coming”.
+- Places & Tracks → Sources: on macOS 14.4 and later (where Apple encrypts the Find My cache) Find My shows as “Not available on this version of macOS” with no switch and one line on why, and offers Open Find My and “Share your phone’s location with Keeper” instead.
+- Places & Tracks → Sources: a source that needs live sharing or sports services has a one-click Turn on in its row instead of “Waiting: turn on … in Features”.
+
+### Fixed — toasts and Places
+- The same message shown several times in a row (such as pressing a button again) no longer stacks identical toasts; it shows once, with ×2, ×3.
+- Places & Tracks → Sources: Find My no longer says “Off” next to a switch that is on.
+
 ## [0.1.0-beta.6] - 2026-11-02
 
 0.1.0-beta.5 was not published; everything listed under it is in this release.

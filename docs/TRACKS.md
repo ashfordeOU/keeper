@@ -27,7 +27,7 @@ Every source has its own switch and starts **off**. Live receivers also need the
 | Files you import | Tracks, visits, raw positions, photos, bookings | macOS, Windows, Linux | GPX 1.0/1.1 (tracks, routes, timed waypoints, Garmin TrackPointExtension), KML/KMZ (gx:Track, LineString with TimeSpan, timed Point), GeoJSON (LineString/MultiLineString with `coordTimes`, timed Points), TCX (activities, courses), FIT (own reader: file_id, session, record incl. compressed timestamps), Google Timeline (on-device export from Android and iPhone, Takeout Semantic Location History, Records.json), Apple Health `export.zip` (HKWorkout + `workout-routes/*.gpx`), photos (EXIF GPS), booking mails (`.eml`/`.html` with JSON-LD) | – |
 | Watched folders | New FIT, GPX and TCX files | macOS, Windows, Linux | Looks every 15 min (through the governor, paused when locked) | – |
 | Photos | Where and when photos were taken | macOS, Windows, Linux | Reads the first 256 KB of each new photo in the folders you choose, every 6 h | – |
-| Find My (Mac cache) | Your Apple devices and items as Find My last cached them | macOS 10.15–14.3 only | Reads `~/Library/Caches/com.apple.findmy.fmipcore/{Items,Devices}.data` every 10 min | live sharing |
+| Find My (Mac cache) | Your Apple devices and items as Find My last cached them | macOS 10.15–14.3 only (not available on 14.4 and later) | Reads `~/Library/Caches/com.apple.findmy.fmipcore/{Items,Devices}.data` every 10 min | live sharing |
 | OwnTracks (HTTP) | Live positions from the OwnTracks app | macOS, Windows, Linux | Built-in receiver, `POST /owntracks`, HTTP Basic with the receiver token as password | live sharing |
 | OwnTracks (MQTT) | Live positions through your own broker | macOS, Windows, Linux | MQTT 3.1.1 subscriber (own small client), TLS optional, reconnects with back-off | live sharing |
 | GPS trackers (OsmAnd protocol) | Live positions from trackers, Traccar Client, OsmAnd | macOS, Windows, Linux | Same receiver, `/osmand?id=…&lat=…&lon=…&token=…` (query, form or Traccar Client JSON) | live sharing |
@@ -59,9 +59,11 @@ Every source has its own switch and starts **off**. Live receivers also need the
 | macOS | `Items.data` / `Devices.data` | What Keeper does |
 |---|---|---|
 | 10.15 – 14.3 | Plain JSON, readable by your own account (macOS may ask for Full Disk Access, because it is another app’s cache) | Reads items (AirTags and other Find My items) and devices with place, accuracy, time, address and battery, every 10 minutes while live sharing and the source are on. Only as fresh as the last time the Find My app was open. |
-| 14.4 and later | Encrypted by macOS with a key in the system keychain that only Apple’s own apps may use | Keeper sees the files are encrypted (binary plist), says so, and stops. It does **not** look for or use that key, and does not decrypt the files. |
+| 14.4 and later | Encrypted by macOS with a key in the system keychain that only Apple’s own apps may use | The source shows as “Not available on this version of macOS”, with no switch, and Keeper does not read the files at all. It does **not** look for or use that key, and does not decrypt the files. Apple offers no other way in (there is no public Find My API). The row offers what works instead: **Open Find My**, and **Share your phone’s location with Keeper** (OwnTracks, the phone companion or a GPS tracker). |
 
-Keeper decides by the content of the file (JSON or not), and reports the Darwin version (23.4 = macOS 14.4) only in the message.
+Keeper decides by the macOS version (Darwin 23.4 = macOS 14.4) and, on older systems, by the content of the file (JSON or not).
+
+A source that needs a feature switch (live sharing, sports services) shows a one-click **Turn on …** in its row, with what that starts, instead of pointing to Settings → Features.
 
 ## The timeline, places and trips
 

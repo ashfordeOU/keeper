@@ -5,7 +5,7 @@
 // Built with the same code the app uses; nothing touches a disk.
 
 import type { TracksApi, TracksConfig, TracksOverview } from '../core/tracks/api';
-import { defaultConfig, mergeConfig, SOURCE_CATALOG } from '../core/tracks/config';
+import { defaultConfig, mergeConfig, SOURCE_CATALOG, sourceRow } from '../core/tracks/config';
 import { addImport, allStays, dataRange, emptyDb, frequentPlaces, heatmapOf, recordsOf, searchDb, summaries, timelineView, tripsOf } from '../core/tracks/db';
 import { exportAs, tripSummaryHtml } from '../core/tracks/export';
 import { countryLabel } from '../core/tracks/places';
@@ -100,16 +100,20 @@ function sample() {
 export function mockTracks(emit: (ch: string) => void): { tracks: TracksApi } {
   const db = sample();
   let config: TracksConfig = mergeConfig(defaultConfig('demo-token'), { sources: { ownTracks: { on: true }, findMy: { on: true }, folders: { on: true, paths: ['/Users/demo/Garmin'] } }, map: { online: false } } as Partial<TracksConfig>);
-  const features = { tracks: true, live: true, services: false };
+  // Demo: ?darwin=25.0.0 shows a Mac on macOS 26 (Find My not available); ?live=off shows live sharing switched off.
+  const q = typeof location !== 'undefined' ? new URLSearchParams(location.search) : new URLSearchParams();
+  const release = q.get('darwin') ?? '23.3.0';
+  const features = { tracks: true, live: q.get('live') !== 'off', services: false };
+  const findMy: TracksOverview['findMy'] = { state: 'ok', detail: 'Demo: items and devices from the Find My cache.' };
   const self: string[] = [];
   const changed = () => emit('tracks-changed');
   const overview = async (): Promise<TracksOverview> => ({
     config,
     counts: { tracks: db.tracks.length, visits: db.visits.length, points: db.history.length, photos: db.photos.length, reservations: db.reservations.length, live: db.live.length, places: db.places.length },
     encrypted: true,
-    sources: SOURCE_CATALOG.map((e) => ({ ...e, on: e.id === 'import' || !!(config.sources as Record<string, { on?: boolean }>)[e.id]?.on, available: e.id !== 'link', status: e.id === 'findMy' ? 'Read from the Find My cache (demo)' : 'On' })),
+    sources: SOURCE_CATALOG.map((e) => sourceRow(e, e.id === 'import' ? undefined : (config.sources as Record<string, { on?: boolean }>)[e.id], { platform: 'darwin', release, features, findMy, linkWatching: false })),
     receiver: { running: true, url: 'http://127.0.0.1:5144' },
-    findMy: { state: 'ok', detail: 'Demo: items and devices from the Find My cache.' },
+    findMy,
     features,
     imports: db.imports,
     range: dataRange(db),

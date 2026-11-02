@@ -15,6 +15,7 @@ import { useAsync, useStore } from '../state';
 import { ago, dayLabel, Stat } from './Tracks';
 import { TracksMap, sportColour } from './TracksMap';
 import { MapButtons } from '../components/NativeOpen';
+import { openNative } from '../lib/native';
 
 const paceOrSpeed = (sport: Sport, s: ReturnType<typeof effectiveStats>) => (sport === 'run' || sport === 'walk' || sport === 'hike' ? fmtPace(paceSecPerKm(s)) : speedKmh(s) ? `${speedKmh(s)!.toFixed(1)} km/h` : '–');
 
@@ -273,20 +274,51 @@ export function Sources({ o, importNow }: { o: TracksOverview; importNow?: boole
   );
 }
 
+/** Shows a source card and makes it stand out for a moment (from "Share your phone's location"). */
+function showSource(id: string) {
+  const el = document.querySelector<HTMLElement>(`.tk-source[data-source="${id}"]`);
+  if (!el) return;
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  el.classList.add('tk-flash');
+  setTimeout(() => el.classList.remove('tk-flash'), 1600);
+}
+
 function SourceCard({ s, c, o, set }: { s: SourceRow; c: TracksConfig; o: TracksOverview; set: (p: Parameters<typeof api.tracks.setConfig>[0]) => void }) {
+  const { toast } = useStore();
+  const [turning, setTurning] = useState(false);
   const toggle = (on: boolean) => set({ sources: { [s.id]: { on } } } as Parameters<typeof api.tracks.setConfig>[0]);
   const src = s.id !== 'import' ? c.sources[s.id] : null;
+  const tone = s.tone ?? (s.on ? 'on' : 'off');
+  const turnOn = (fix: NonNullable<SourceRow['fix']>) => {
+    setTurning(true);
+    void api.features.set(fix.feature, true).then(() => toast(`${fix.label.replace(/^Turn on /, '').replace(/^./, (x) => x.toUpperCase())} is on`)).catch((e) => toast(e instanceof Error ? e.message : String(e))).finally(() => setTurning(false));
+  };
   return (
-    <div className={`card pad tk-source ${s.on ? 'on' : ''}`} data-source={s.id}>
+    <div className={`card pad tk-source ${s.on ? 'on' : ''} ${tone === 'unavailable' ? 'na' : ''}`} data-source={s.id} data-tone={tone}>
       <div className="row">
         <div className="grow">
           <div className="tk-title">{s.label}</div>
           <div className="muted small">{s.gives}</div>
-          <div className="small"><span className="muted">{s.platforms}</span>{s.id !== 'import' ? <> · <span className={/Waiting|Not|Needs|refused|Wrong|answered|error|cannot/i.test(s.status) ? 'tk-warn' : ''}>{s.status}</span></> : null}</div>
+          <div className="small"><span className="muted">{s.platforms}</span>{s.id !== 'import' ? <> · <span className={tone === 'warn' || tone === 'unavailable' ? 'tk-warn' : tone === 'on' ? 'tk-on' : 'muted'} data-testid={`source-status-${s.id}`}>{s.status}</span></> : null}</div>
+          {s.why ? <div className="muted small">{s.why}</div> : null}
         </div>
-        {s.id !== 'import' ? <Toggle on={s.on} onChange={toggle} /> : null}
+        {/* A source that cannot run here has no switch, so it never looks on. */}
+        {s.id !== 'import' && s.available ? <Toggle on={s.on} onChange={toggle} label={`${s.label}`} /> : null}
       </div>
-      {s.on && src ? <SourceSettings id={s.id} c={c} o={o} set={set} /> : null}
+      {s.fix ? (
+        <div className="tk-fix">
+          <span className="small grow">{s.fix.requires}</span>
+          <button className="btn sm primary" disabled={turning} onClick={() => turnOn(s.fix!)}>{turning ? 'Turning on…' : s.fix.label}</button>
+        </div>
+      ) : null}
+      {s.instead?.length ? (
+        <div className="tk-fix">
+          <span className="small grow">What works instead: see your devices in Find My, or let your phone tell Keeper where it is.</span>
+          {s.instead.includes('openFindMy') ? <button className="btn sm" onClick={() => void openNative('findMy', {}, toast)}>Open Find My</button> : null}
+          {s.instead.includes('sharePhone') ? <button className="btn sm primary" onClick={() => showSource('ownTracks')}>Share your phone’s location with Keeper</button> : null}
+        </div>
+      ) : null}
+      {s.on && s.available && src && !s.fix ? <SourceSettings id={s.id} c={c} o={o} set={set} /> : null}
     </div>
   );
 }
@@ -365,7 +397,8 @@ function SourceSettings({ id, c, o, set }: { id: SourceRow['id']; c: TracksConfi
       </div>
     );
   }
-  if (id === 'findMy') return <div className="tk-sub small">{o.findMy.detail}</div>;
+  // Find My's state shows in its row (status and the line under it).
+  if (id === 'findMy') return null;
   if (id === 'phone') return <div className="tk-sub muted small">Open Keeper’s companion page on your phone and allow location there. The position is sent only while the page is open.</div>;
   if (id === 'link') return <div className="tk-sub muted small">Shows your other Keeper devices that share their location with this one (Devices → that device → Share my location). This computer answers the same question with your phone’s position, or your Home place.</div>;
   if (id === 'mail') return <div className="tk-sub muted small">Reads booking confirmations (flights, hotels, tickets) in the mail accounts you set up in Keeper. Read-only; nothing is marked read.</div>;

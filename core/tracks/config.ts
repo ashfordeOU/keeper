@@ -2,7 +2,8 @@
 // Places & Tracks settings: every source has its own switch and starts off;
 // the live receivers stay off until you turn them on.
 
-import type { DeepPartial, SourceId, SourceRow, TracksConfig } from './api';
+import type { DeepPartial, SourceId, SourceRow, TracksConfig, TracksOverview } from './api';
+import { findMyPlainOn } from './findmy';
 
 export const OSM_TILES = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 export const OSM_ATTRIBUTION = '© OpenStreetMap contributors';
@@ -58,14 +59,14 @@ export function activeSources(c: TracksConfig): SourceId[] {
   return (Object.keys(s) as SourceId[]).filter((k) => k !== 'receiver' && (s[k] as { on?: boolean }).on);
 }
 
-interface CatalogEntry { id: SourceRow['id']; label: string; gives: string; platforms: string; needs?: SourceRow['needs'] }
+export interface CatalogEntry { id: SourceRow['id']; label: string; gives: string; platforms: string; needs?: SourceRow['needs'] }
 
 /** Every source, what it gives and where it works. Shown in the app and in docs/TRACKS.md. */
 export const SOURCE_CATALOG: CatalogEntry[] = [
   { id: 'import', label: 'Files you import', gives: 'GPX, KML/KMZ, GeoJSON, TCX, FIT, Google Timeline (on-device export, Semantic Location History, Records.json), Apple Health export.zip, booking mails (.eml)', platforms: 'macOS, Windows, Linux' },
   { id: 'folders', label: 'Watched folders', gives: 'New FIT, GPX and TCX files from any watch or bike computer (Garmin, Wahoo, Suunto, Coros, Polar exports…)', platforms: 'macOS, Windows, Linux' },
   { id: 'photos', label: 'Photos', gives: 'Where and when your photos were taken (EXIF GPS)', platforms: 'macOS, Windows, Linux' },
-  { id: 'findMy', label: 'Find My (Mac cache)', gives: 'Your Apple devices and items, as last cached by the Find My app', platforms: 'macOS up to 14.3 only (encrypted since 14.4)', needs: 'tracksLive' },
+  { id: 'findMy', label: 'Find My (Mac cache)', gives: 'Your Apple devices and items, as last cached by the Find My app', platforms: 'macOS 14.3 and earlier', needs: 'tracksLive' },
   { id: 'ownTracks', label: 'OwnTracks (HTTP)', gives: 'Live positions from the OwnTracks app on phones you or your family use', platforms: 'macOS, Windows, Linux', needs: 'tracksLive' },
   { id: 'mqtt', label: 'OwnTracks (MQTT)', gives: 'Live positions through your own MQTT broker', platforms: 'macOS, Windows, Linux', needs: 'tracksLive' },
   { id: 'osmand', label: 'GPS trackers (OsmAnd protocol)', gives: 'Live positions from GPS trackers, the Traccar Client app and OsmAnd', platforms: 'macOS, Windows, Linux', needs: 'tracksLive' },
@@ -78,3 +79,53 @@ export const SOURCE_CATALOG: CatalogEntry[] = [
   { id: 'calendar', label: 'Calendar', gives: 'Events with a location, on your trips', platforms: 'macOS, Windows, Linux' },
   { id: 'mail', label: 'Booking mails', gives: 'Flights, hotels and tickets from confirmation mails (read-only)', platforms: 'macOS, Windows, Linux' },
 ];
+
+/** What turning on a feature a source needs does, in a few words. */
+export const FEATURE_FIX: Record<'tracksLive' | 'tracksServices', { label: string; requires: string }> = {
+  tracksLive: { label: 'Turn on live sharing', requires: 'Starts a small receiver on this computer for the live sources you switch on.' },
+  tracksServices: { label: 'Turn on sports services', requires: 'Lets Keeper ask the services you connect for new activities every six hours.' },
+};
+
+export interface SourceContext {
+  platform: string;
+  /** the kernel release (os.release()); on a Mac, Darwin 23.4 is macOS 14.4 */
+  release: string;
+  features: { live: boolean; services: boolean };
+  findMy: TracksOverview['findMy'];
+  /** the Live view is open, or the tray or Island shows positions */
+  linkWatching: boolean;
+}
+
+/** Can Keeper read Find My here? Only on a Mac before macOS 14.4, which encrypts the cache. */
+export function findMyAvailable(platform: string, release: string): { ok: boolean; why?: string; status?: string } {
+  if (platform !== 'darwin') return { ok: false, status: 'Only on a Mac', why: 'Find My keeps its cache only on a Mac.' };
+  if (!findMyPlainOn(release, true)) return { ok: false, status: 'Not available on this version of macOS', why: 'Since macOS 14.4 Apple encrypts the Find My cache and offers apps no other way in, so Keeper cannot see Find My’s devices, items or people.' };
+  return { ok: true };
+}
+
+/** One source's row: its status, tone and what can be done about it. */
+export function sourceRow(e: CatalogEntry, src: { on?: boolean; connected?: boolean; error?: string } | undefined, ctx: SourceContext): SourceRow {
+  if (e.id === 'import') return { ...e, on: true, available: true, status: 'Always available', tone: 'on' };
+  const on = !!src?.on;
+  if (e.id === 'findMy') {
+    const a = findMyAvailable(ctx.platform, ctx.release);
+    // Shown off and without a switch, whatever was saved: it cannot run here.
+    if (!a.ok) return { ...e, on: false, available: false, status: a.status!, why: a.why, tone: 'unavailable', instead: ['openFindMy', 'sharePhone'] };
+  }
+  const featureOn = e.needs === 'tracksLive' ? ctx.features.live : e.needs === 'tracksServices' ? ctx.features.services : true;
+  if (on && e.needs && !featureOn) {
+    return { ...e, on, available: true, status: 'Needs one more switch', tone: 'warn', fix: { feature: e.needs, ...FEATURE_FIX[e.needs] } };
+  }
+  if (!on) return { ...e, on, available: true, status: 'Off', tone: 'off' };
+  if (src?.error) return { ...e, on, available: true, status: src.error, tone: 'warn' };
+  if (src?.connected === false) return { ...e, on, available: true, status: 'Not connected yet', tone: 'warn' };
+  if (e.id === 'link') return { ...e, on, available: true, status: ctx.linkWatching ? 'On: devices that share their location with this one' : 'On: asked only while the Live view is open', tone: 'on' };
+  if (e.id === 'findMy') {
+    const f = ctx.findMy;
+    if (f.state === 'encrypted') return { ...e, on: false, available: false, status: 'Not available on this version of macOS', why: f.detail, tone: 'unavailable', instead: ['openFindMy', 'sharePhone'] };
+    if (f.state === 'unreadable') return { ...e, on, available: true, status: f.detail, tone: 'warn' };
+    if (f.state === 'ok') return { ...e, on, available: true, status: 'On', why: f.detail, tone: 'on' };
+    return { ...e, on, available: true, status: 'On: reading Find My shortly', tone: 'on' };
+  }
+  return { ...e, on, available: true, status: 'On', tone: 'on' };
+}

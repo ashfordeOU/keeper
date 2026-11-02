@@ -61,10 +61,18 @@ export interface SourceRow {
   on: boolean;
   /** can run on this computer right now */
   available: boolean;
-  /** "Needs Places & Tracks: live sharing in Features" and the like */
+  /** "On", "Off", "Not connected yet", an error… */
   status: string;
+  /** how the status reads: working, off, needs something, or cannot work here */
+  tone?: 'on' | 'off' | 'warn' | 'unavailable';
+  /** one line on why it cannot work here */
+  why?: string;
   /** the feature switch it also needs */
   needs?: 'tracksLive' | 'tracksServices';
+  /** a one-click [Turn on] for the feature it needs, with what that starts */
+  fix?: { feature: 'tracksLive' | 'tracksServices'; label: string; requires: string };
+  /** what to use instead when it cannot work here */
+  instead?: ('openFindMy' | 'sharePhone')[];
 }
 
 export interface ImportRecord {
