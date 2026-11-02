@@ -1110,6 +1110,8 @@ export class LinkNode {
   async pair(target: { deviceId?: string; address?: string; code?: string; link?: string }): Promise<{ ok: boolean; error?: string; device?: string }> {
     try {
       this.needKey();
+      // Joining: open to the network first, so the address this device hands over can be reached back.
+      await this.openLan();
       let addrs: string[] = [];
       let tunnel: string | undefined;
       let secret = target.code?.replace(/\D/g, '') ?? '';
