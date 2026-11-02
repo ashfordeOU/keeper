@@ -2,6 +2,7 @@
 // The Island's windows (one per display when asked), the clipboard picker,
 // their shortcuts and IPC. Desktop widgets live in ./widgets.ts.
 
+import { awakeItemShown } from './awake';
 import { app, BrowserWindow, dialog, globalShortcut, ipcMain, powerMonitor, screen, type WebContents } from 'electron';
 import { promises as fsp } from 'node:fs';
 import path from 'node:path';
@@ -456,6 +457,8 @@ export function registerIslandIpc(c: IslandContext) {
     let last = '';
     setInterval(() => {
       const a = svc.awake;
+      // Keep Awake's own menu-bar item shows the time left itself: one clock, not two.
+      if (awakeItemShown()) { if (last) c.setTrayTitle?.((last = '')); return; }
       const left = a.on && a.until ? Math.max(0, a.until - Date.now()) : 0;
       // Plain text beside Keeper's own owl icon (no emoji): the time left, or "Awake" when there is no end.
       const title = a.on ? (left ? (left >= 3_600_000 ? `${Math.floor(left / 3_600_000)}h${String(Math.round((left % 3_600_000) / 60_000)).padStart(2, '0')}` : `${Math.ceil(left / 60_000)}m`) : 'Awake') : '';

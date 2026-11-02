@@ -149,6 +149,11 @@ async function icon(style: IconStyle, on: boolean): Promise<Electron.NativeImage
   return img;
 }
 
+/** Keep Awake's own menu-bar item is showing (it shows the time left itself). */
+export function awakeItemShown(): boolean {
+  return !!menuBar.tray && !menuBar.tray.isDestroyed();
+}
+
 const menuBar = {
   tray: null as Tray | null,
   svc: null as AwakeService | null,

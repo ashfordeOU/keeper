@@ -24,7 +24,7 @@ import { useTT } from './terminal/strings';
 import { usePlaceMemory } from './place';
 import { PlacesSidebar } from './components/PlacesSidebar';
 import { Player } from './components/Player';
-import { ContextMenu, KIND_COLOR } from './components/ui';
+import { ContextMenu, Empty, KIND_COLOR } from './components/ui';
 import { Apps } from './screens/Apps';
 import { Assistant } from './screens/Assistant';
 import { Agents } from './screens/Agents';
@@ -445,7 +445,21 @@ function Page() {
     planner: () => <Planner initial={route.arg} />,
     alarms: () => <Alarms />,
   };
-  return pages[route.name]();
+  // A stale keeper:// link or a mistyped page name: say so, instead of "This page ran into a problem".
+  const page = Object.prototype.hasOwnProperty.call(pages, route.name) ? pages[route.name] : undefined;
+  return page ? page() : <NotFound name={String(route.name)} />;
+}
+
+function NotFound({ name }: { name: string }) {
+  const { go } = useStore();
+  return (
+    <div data-testid="page-not-found">
+      <Empty icon="search" title="There is no such page">
+        Keeper has no page called “{name.slice(0, 60)}”. The link may be from an older version.
+        <div style={{ marginTop: 12 }}><button className="btn primary" onClick={() => go({ name: 'home' })}>Go to Home</button></div>
+      </Empty>
+    </div>
+  );
 }
 
 /** How long the Inspector takes to slide in or out (none with reduced motion, see app.css). */

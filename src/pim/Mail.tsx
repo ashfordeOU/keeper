@@ -623,9 +623,10 @@ function MessageCard({ summary, accounts, onCollapse, act }: { summary: MessageS
 }
 
 function InviteCard({ msg, act }: { msg: OpenMessage; act: (fn: () => Promise<unknown>, done?: string) => Promise<void> }) {
+  const { toast } = useStore();
   const e = msg.invite!.event;
   const [mine, setMine] = useState(msg.invite!.mine);
-  const answer = (s: 'accepted' | 'declined' | 'tentative') => void act(async () => { await api.pim.respond(msg.summary.id, s); setMine(s); });
+  const answer = (s: 'accepted' | 'declined' | 'tentative') => void act(async () => { const r = await api.pim.respond(msg.summary.id, s); setMine(s); if (r && !r.sent) toast('Saved in your calendar. No reply was sent: this account has no outgoing mail server, so the organiser does not know.'); });
   if (msg.invite!.method === 'CANCEL') return <div className="banner warn"><Icon name="calendar" size={14} /> This event was cancelled: {e.title}</div>;
   if (msg.invite!.method === 'REPLY') return <div className="banner subtle"><Icon name="calendar" size={14} /> {e.attendees?.[0]?.name ?? e.attendees?.[0]?.email} answered {e.attendees?.[0]?.status ?? ''} for {e.title}</div>;
   return (

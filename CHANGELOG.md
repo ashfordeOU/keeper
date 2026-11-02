@@ -63,6 +63,12 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - A failure nobody handled, in any window or in the background, is now written to the session log (Settings → Keeper's processes) and shown once as a quiet toast with Details (in the Island, as its one-line message). The same message shows at most once every few seconds; cancelled work is not reported.
 - Mail and calendar accounts record when they were last checked and the last thing that went wrong. Settings → Mail & Calendar shows "Checked 4 min ago", or "Couldn't check it: <reason>" with Retry, and the Mail sidebar marks an account with a problem instead of it just looking quiet.
 
+### Fixed — Smaller things
+- Accepting an invitation from an account without an outgoing mail server now says the reply was not sent (the organiser does not know), instead of just "Accepted". Accepting no longer adds a second copy when the event is already in one of your calendars: that copy shows your answer.
+- A page that does not exist (a stale keeper:// link or a typo) says so and offers Home, instead of "This page ran into a problem".
+- Subscribed calendar links in the Island give up after 15 seconds, so a server that never answers no longer holds up the calendar check.
+- macOS: Keep Awake's time left shows once in the menu bar. When Keep Awake has its own menu-bar item, Keeper's icon no longer shows the same countdown beside it.
+
 ### Fixed — Setup and permissions
 - macOS: Allow for Accessibility, Screen Recording and Input Monitoring works every time. macOS shows those questions only once per app, so Keeper now remembers that it asked, opens the exact System Settings page when the answer is still not yes a moment later, and labels the button (and "Ask again" in Allow all) "Open System Settings" from then on. A row that stays off after that suggests removing Keeper with − and adding it again (macOS can hold an older copy's approval).
 - The macOS keychain question after an update ("Keeper Safe Storage") is explained in the Software Update window before it restarts, and in docs/PERMISSIONS.md. Until a Developer ID build, that line asks you to type your login password and choose Always Allow.

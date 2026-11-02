@@ -158,7 +158,8 @@ export interface PimApi {
   suggest(q: string): Promise<Address[]>;
   /** AI on a conversation, with the AI chosen in Settings → AI & Brain */
   ai(id: string, task: MailAiTask, opts?: { lang?: string }): Promise<{ text: string; events?: QuickEvent[]; options?: string[] }>;
-  respond(id: string, status: 'accepted' | 'declined' | 'tentative'): Promise<void>;
+  /** sent: a reply went to the organiser (false when the account has no outgoing mail server) */
+  respond(id: string, status: 'accepted' | 'declined' | 'tentative'): Promise<{ sent: boolean } | void>;
   rules(): Promise<MailRule[]>;
   saveRules(r: MailRule[]): Promise<void>;
   pickFiles(): Promise<string[]>;

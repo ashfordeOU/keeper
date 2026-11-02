@@ -1631,18 +1631,26 @@ export const pim: PimApi = {
     const me = identityOf(a);
     const inv = readInvitation((bodyCache.get(id) ?? (await readJson<{ body: { invite?: string } } | null>(files.body(id), null)))!.body.invite!)!;
     const r = replyTo(inv, { email: me.address, name: me.name }, status);
+    let sent = false;
     if (r.to && a.smtp) {
       const { raw, envelope } = await compose({ from: me, to: [{ address: r.to }], cc: [], bcc: [], subject: r.subject, text: r.subject, icalEvent: { method: 'REPLY', content: r.ics } });
       await smtpSend(a, await mailAuth(a), raw, envelope);
+      sent = true;
     }
-    // Your copy in your calendar shows your answer.
+    // Your copy in your calendar shows your answer: the one already there (a synced calendar often has it), else a new one.
+    const mine = (list?: CalEvent['attendees']) => list?.map((x) => (x.email.toLowerCase() === me.address.toLowerCase() ? { ...x, status } : x));
+    const existing = [...events.values()].flat().find((e) => e.uid === inv.event.uid);
     if (status === 'declined') {
-      const ev = [...events.values()].flat().find((e) => e.uid === inv.event.uid);
-      if (ev) await deleteEvent(ev.id, { scope: 'all' }).catch(() => undefined);
+      if (existing) await deleteEvent(existing.id, { scope: 'all' }).catch(() => undefined);
+    } else if (existing) {
+      if (!calOf(existing.calendar)?.readOnly) await saveEvent({ ...existing, attendees: mine(existing.attendees) }).catch(() => undefined);
     } else {
-      await saveEvent({ ...inv.event, calendar: state.prefs.defaultCalendar ?? LOCAL_CAL, id: '', attendees: inv.event.attendees?.map((x) => (x.email.toLowerCase() === me.address.toLowerCase() ? { ...x, status } : x)) });
+      await saveEvent({ ...inv.event, calendar: state.prefs.defaultCalendar ?? LOCAL_CAL, id: '', attendees: mine(inv.event.attendees) });
     }
-    deps?.alert(status === 'declined' ? 'Declined' : status === 'accepted' ? 'Accepted' : 'Maybe', inv.event.title);
+    const word = status === 'declined' ? 'Declined' : status === 'accepted' ? 'Accepted' : 'Maybe';
+    // Without an outgoing mail server the organiser is not told: say so rather than claim it was answered.
+    deps?.alert(sent || !r.to ? word : `${word} in your calendar only`, sent || !r.to ? inv.event.title : `${inv.event.title} · no reply was sent (this account has no outgoing mail server), so the organiser does not know`);
+    return { sent: sent || !r.to };
   },
   async rules() {
     await load();

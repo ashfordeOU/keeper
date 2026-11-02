@@ -920,7 +920,7 @@ export class IslandService {
       return;
     }
     try {
-      const text = /^(https?|webcal):/i.test(url) ? await (await fetch(url.replace(/^webcal:/i, 'https:'))).text() : await fsp.readFile(url.replace(/^file:\/\//, ''), 'utf8');
+      const text = /^(https?|webcal):/i.test(url) ? await (await fetch(url.replace(/^webcal:/i, 'https:'), { signal: AbortSignal.timeout(15_000) })).text() : await fsp.readFile(url.replace(/^file:\/\//, ''), 'utf8');
       const from = new Date().setHours(0, 0, 0, 0);
       this.events = parseIcs(text, from, from + 14 * 86_400_000);
       this.emit();

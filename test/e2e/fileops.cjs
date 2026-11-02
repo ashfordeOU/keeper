@@ -165,6 +165,10 @@ const read = (p) => (exists(p) ? fs.readFileSync(p, 'utf8') : '');
   check(exists(path.join(FAV, 'c.txt')), 'columns view: copy and paste work too');
   await main.locator('[data-testid="view-grid"]').click();
 
+  // ---------------------------------------------------------------- a page that does not exist (a stale keeper:// link)
+  await nav('nosuchpage:x');
+  check(await main.locator('[data-testid="page-not-found"]').count() === 1 && await main.getByText('This page ran into a problem').count() === 0, 'an unknown page says so and offers Home');
+
   // ---------------------------------------------------------------- a failure nobody caught is not lost
   await main.evaluate(() => { for (let i = 0; i < 3; i++) void Promise.reject(new Error("Error invoking remote method 'files.copy': Error: Nobody caught this")); });
   await sleep(800);
