@@ -19,7 +19,7 @@ export interface ImageInput {
 export async function complete(system: string, prompt: string, opts: AskOptions, image?: ImageInput): Promise<string> {
   const model = opts.model || (image && opts.provider === 'ollama' ? 'llava' : DEFAULT_MODELS[opts.provider]);
   if (opts.provider === 'anthropic') {
-    if (!opts.apiKey) throw new Error('Add your Anthropic API key in Settings → Assistant.');
+    if (!opts.apiKey) throw new Error('Add your Anthropic API key in Settings → AI & Brain.');
     const client = new (await import('@anthropic-ai/sdk')).default({ apiKey: opts.apiKey });
     const content: Anthropic.Beta.BetaContentBlockParam[] = [];
     if (image) content.push({ type: 'image', source: { type: 'base64', media_type: image.mime, data: image.data } });
@@ -32,7 +32,7 @@ export async function complete(system: string, prompt: string, opts: AskOptions,
     return response.content.flatMap((b) => (b.type === 'text' ? [b.text] : [])).join('\n').trim();
   }
   if (opts.provider === 'openai') {
-    if (!opts.apiKey) throw new Error('Add your OpenAI API key in Settings → Assistant.');
+    if (!opts.apiKey) throw new Error('Add your OpenAI API key in Settings → AI & Brain.');
     const user = image ? [{ type: 'text', text: prompt }, { type: 'image_url', image_url: { url: `data:${image.mime};base64,${image.data}` } }] : prompt;
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',

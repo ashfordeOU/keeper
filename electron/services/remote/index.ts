@@ -278,7 +278,23 @@ export async function test(input: ConnectionInput): Promise<{ ok: boolean; messa
     if (conn.kind === 'sftp') fs = await SftpFs.open(conn, { password: input.password, privateKey: conn.keyFile ? await readKey(conn.keyFile) : undefined, passphrase: input.passphrase }, hostKeys);
     else if (conn.kind === 'ftp') fs = await FtpFs.open(conn, input.password);
     else if (conn.kind === 'webdav') fs = await WebDavFs.open(conn, input.password);
-    else return { ok: true };
+    else if (conn.kind === 'rclone') {
+      // Cloud: a throwaway rclone entry with these settings, one look at the top folder, then gone.
+      if (!conn.provider) return { ok: false, message: 'Choose a service' };
+      const d = await rclone();
+      const rc = await d.rc();
+      const name = `keepertest${randomUUID().slice(0, 6)}`;
+      const token = input.id ? await secret(`remote.${input.id}.token`) : undefined;
+      await rc.call('config/create', { name, type: conn.provider, parameters: { ...(conn.options ?? {}), ...(input.secrets ?? {}), ...(token ? { token } : {}) }, opt: { obscure: true, nonInteractive: true } });
+      try {
+        const rfs = new RcloneFs(d, conn, name);
+        const n = (await rfs.list('/')).length;
+        await rfs.close().catch(() => undefined);
+        return { ok: true, entries: n };
+      } finally {
+        await rc.call('config/delete', { name }).catch(() => undefined);
+      }
+    } else return { ok: true };
     const n = (await fs.list('/')).length;
     return { ok: true, entries: n };
   } catch (e) {

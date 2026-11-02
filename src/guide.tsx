@@ -343,12 +343,15 @@ export function CoachHost({ route }: { route: Route }) {
 
 /** The first-run setup (src/setup/FirstRun.tsx); after "Restart Keeper now" in Permissions, Permissions again. */
 export function TourHost() {
-  const [firstRun] = useState(() => {
+  const { settings } = useStore();
+  useState(() => {
     const back = takeReopen();
     if (back && back.tourStep === null) setTimeout(() => openPermissions(), 300);
-    return !seen('tour');
+    return null;
   });
-  return <FirstRunHost firstRun={firstRun} />;
+  // Shown once: not to someone upgrading (their settings say setup is done) or who saw it here.
+  if (!settings) return null;
+  return <FirstRunHost firstRun={!seen('tour') && settings.setupDone !== true} />;
 }
 
 // ---------------------------------------------------------------- the badge

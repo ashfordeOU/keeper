@@ -6,6 +6,7 @@
 // that need a permission mid-task point here (openPermissions) instead of
 // asking out of the blue.
 
+import { Learn } from './Learn';
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { allowAllQueue, allowLabel, catalogueFor, nextInQueue, STATE_LABEL, summarize, type PermissionItem, type PermissionsReport, type PermState } from '../../core/permissions';
 import { api } from '../api';
@@ -164,7 +165,7 @@ export function PermissionsPanel({ inTour, tourStep, active = true }: { inTour?:
       <div className="perm-head">
         <div className="grow small" role="status" aria-live="polite">
           {report ? <><b>{sum.allowed}</b> allowed · <b>{sum.todo}</b> to do · {sum.notNeeded} not needed now</> : 'Checking…'}
-          {report && !report.helper ? <div className="small muted">Keeper’s macOS helper is not in this build, so a few rows cannot be checked.</div> : null}
+          {report && !report.helper ? <div className="small muted">Some approvals can’t be checked in this version.</div> : null}
         </div>
         {sum.restart ? <button className="btn sm" data-testid="perm-restart" onClick={restart}><Icon name="refresh" size={12} /> Restart Keeper now</button> : null}
         {queue.length && !run ? <button className="btn sm primary" data-testid="perm-allow-all" onClick={() => { void updateSettings({ permissionsSetup: 'all' }); setRun({ queue, skipped: new Set(), asked: null }); }}><Icon name="check" size={12} /> Allow all ({queue.length})</button> : null}
@@ -195,7 +196,7 @@ export function PermissionsPanel({ inTour, tourStep, active = true }: { inTour?:
         </details>
       ) : null}
       {!report ? null : !items.length ? <p className="small muted">This system needs no extra permissions for Keeper.</p> : null}
-      <p className="small muted perm-foot">Nothing here is ever required: Keeper works without any of them, and each feature tells you when it needs one. See docs/PERMISSIONS.md for the full list.</p>
+      <p className="small muted perm-foot">Nothing here is ever required: Keeper works without any of them, and each feature tells you when it needs one. <Learn doc="PERMISSIONS" /></p>
     </div>
   );
 }
@@ -215,4 +216,20 @@ export function PermissionNudgeHost() {
     });
   }, [toast, info]);
   return null;
+}
+
+/** The menu-bar pop-over's line when a feature needs a permission: one line and Open. */
+export function PermissionNudgeLine() {
+  const { info } = useStore();
+  const [need, setNeed] = useState<string | null>(null);
+  useEffect(() => api.on('permission-needed', (p) => setNeed(p.id)), []);
+  if (!need) return null;
+  const name = catalogueFor(info?.platform ?? 'darwin').find((d) => d.id === need)?.name ?? 'a permission';
+  return (
+    <div className="banner warn small" role="status" data-testid="permission-nudge-line">
+      <Icon name="lock" size={13} /> <span className="grow">Keeper needs {name} for this.</span>
+      <button className="btn sm" onClick={() => { void api.islandx?.showPage(`settings:permissions`); setNeed(null); }}>Open</button>
+      <button className="btn sm ghost icon" aria-label="Dismiss" onClick={() => setNeed(null)}><Icon name="close" size={11} /></button>
+    </div>
+  );
 }

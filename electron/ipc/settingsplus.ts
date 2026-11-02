@@ -54,7 +54,7 @@ export function registerSettingsPlusIpc(deps: { broadcast: (ch: string, ...a: un
   registerKeeperMethod('keeper/browser.ping', (p) => ping(p));
   registerKeeperMethod('keeper/browser.detach', (p) => detach(p));
 
-  // ---------------------------------------------------------------- abilities for any AI (permissions in Settings → Abilities)
+  // ---------------------------------------------------------------- abilities for any AI (permissions in Agents → Abilities)
   const os = process.platform;
   registerAbility({
     name: 'system_settings_search', label: 'Find system settings', group: 'System', defaultPermission: 'allow', network: 'never', readOnly: true,

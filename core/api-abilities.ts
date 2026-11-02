@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
-// The window's view of Keeper's abilities (Settings → Abilities, the Agents
+// The window's view of Keeper's abilities (Agents → Abilities, the Agents
 // page's Teams and Schedules, the Assistant's voice mode).
 
 import type { AbilitiesSettings, Persona, Project, ScheduledTask } from './abilities/config';

@@ -4,6 +4,7 @@
 // far Keeper Link reaches (this network only, or the internet through a
 // Cloudflare tunnel or a relay).
 
+import { Learn } from '../components/Learn';
 import { useEffect, useState } from 'react';
 import type { CompanionInvite, LinkDevice, LinkMode, LinkState, NearbyDevice, PairInvite, RemoteEntry } from '../../core/api-link';
 import { formatBytes, relativeTime } from '../../core/format';
@@ -508,7 +509,7 @@ function Remote({ s, reload }: { s: LinkState; reload: () => void }) {
 
       <div className={`card pad ${s.settings.mode !== 'internet' || s.settings.localOnly ? 'link-dim' : ''}`}>
         <h3 style={{ marginTop: 0 }}>Keeper Relay <span className="small muted">(optional)</span></h3>
-        <div className="small muted">When two devices cannot reach each other directly or through a tunnel, a relay passes their encrypted traffic along without being able to read it. Run your own (a small Node program, Docker image or Cloudflare Worker — see docs/LINK.md).</div>
+        <div className="small muted">When two devices cannot reach each other directly or through a tunnel, a relay passes their encrypted traffic along without being able to read it. Run your own (a small Node program, Docker image or Cloudflare Worker: <Learn doc="LINK">how to run one</Learn>).</div>
         <form className="row" style={{ gap: 6, marginTop: 8 }} onSubmit={(e) => { e.preventDefault(); set({ relayUrl: relay.trim() }); }}>
           <input className="input grow mono small" placeholder="https://relay.example.com" value={relay} onChange={(e) => setRelay(e.target.value)} />
           <button className="btn sm">Save</button>

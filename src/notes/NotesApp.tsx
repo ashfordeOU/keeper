@@ -5,6 +5,7 @@
 // (when switched on) AI. Files stay plain files, so the same vault keeps
 // working in other notes apps.
 
+import { Learn } from '../components/Learn';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
@@ -659,7 +660,7 @@ function NotesSettingsModal({ settings, onChange, onClose }: { settings: NotesSe
         <input type="number" min={1} max={365} value={settings.snapshotDays} onChange={(e) => onChange({ snapshotDays: Math.max(1, Number(e.target.value)) })} /> days
       </label>
       <p className="nt-dim">Encrypted notes: put a vault (or a folder of it) in a locked folder (Tools → Lock Folders); it opens here while unlocked. Syncing: a vault is an ordinary folder, so Keeper Sync can keep it in step between your devices.</p>
-      <p className="nt-dim">Plugins: community plugins written for other notes apps are listed but never run — they get full access to your computer. Keeper plugins run in a sandbox and only do what you allow. See docs/NOTES.md.</p>
+      <p className="nt-dim">Plugins: community plugins written for other notes apps are listed but never run — they get full access to your computer. Keeper plugins run in a sandbox and only do what you allow. <Learn doc="NOTES" /></p>
       <div className="nt-modal-actions"><button className="btn primary" onClick={onClose}>Done</button></div>
     </Modal>
   );

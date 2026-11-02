@@ -5,7 +5,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { Persona, Project } from '../../core/abilities/config';
+import { permissionForError } from '../../core/permission-errors';
 import { api } from '../api';
+import { openPermissions } from './PermissionsPanel';
 import { Icon } from './Icon';
 import '../styles/abilities.css';
 
@@ -33,9 +35,11 @@ export function VoiceButton({ onText, busy, lastAnswer, handsFree }: { onText: (
   const rec = useRef<MediaRecorder | null>(null);
   const talkMode = useRef(false);
   const spoken = useRef<string | undefined>(lastAnswer);
+  const [perm, setPerm] = useState<string | undefined>();
 
   const start = async () => {
     setErr('');
+    setPerm(undefined);
     speechSynthesis?.cancel();
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -60,8 +64,9 @@ export function VoiceButton({ onText, busy, lastAnswer, handsFree }: { onText: (
       mr.start();
       talkMode.current = true;
       setState('listening');
-    } catch {
-      setErr('Keeper could not use the microphone. Allow it in the system\'s privacy settings.');
+    } catch (e) {
+      setErr('Keeper could not use the microphone.');
+      setPerm(permissionForError(e, 'microphone') ?? 'microphone');
     }
   };
   const stop = () => rec.current?.state === 'recording' && rec.current.stop();
@@ -90,7 +95,7 @@ export function VoiceButton({ onText, busy, lastAnswer, handsFree }: { onText: (
       <button className={`btn voice-btn ${state !== 'idle' ? 'on' : ''}`} title={title} aria-label={title} onClick={click} disabled={state === 'thinking'} style={{ height: 42 }}>
         {state === 'thinking' ? <span className="spinner" /> : <Icon name={state === 'speaking' ? 'pause' : 'mic'} size={15} />}
       </button>
-      {err ? <div className="small err" style={{ position: 'absolute', bottom: -18, right: 0 }}>{err}</div> : null}
+      {err ? <div className="small err" style={{ position: 'absolute', bottom: -18, right: 0 }}>{err}{perm ? <> <button className="link-like" onClick={() => openPermissions(perm)}>Open Permissions</button></> : null}</div> : null}
     </>
   );
 }

@@ -103,9 +103,9 @@ export function registerAbilitiesIpc() {
 
   handle('abilities.transcribe', async (audio: ArrayBuffer, mime: string) => {
     const v = abilitySettings().voice;
-    if (v.stt === 'off') throw new Error('Speech to text is off in Settings → Abilities');
+    if (v.stt === 'off') throw new Error('Speech to text is off in Agents → Abilities');
     const key = (await getSecret('ability:voice')) ?? (/api\.openai\.com/.test(v.sttUrl) ? await getSecret('openai') : undefined);
-    if (!key && !/localhost|127\.0\.0\.1/.test(v.sttUrl)) throw new Error('Add a speech-to-text key in Settings → Abilities → Voice');
+    if (!key && !/localhost|127\.0\.0\.1/.test(v.sttUrl)) throw new Error('Add a speech-to-text key in Agents → Abilities → Voice');
     const form = new FormData();
     form.append('file', new Blob([audio], { type: mime }), `speech.${mime.includes('ogg') ? 'ogg' : mime.includes('mp4') ? 'm4a' : 'webm'}`);
     form.append('model', v.sttModel);

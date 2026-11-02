@@ -63,7 +63,7 @@ export async function runAbility(name: string, args: Record<string, unknown>, ct
   const spec = abilitySpec(name);
   if (!spec) return fail(`Unknown ability ${name}`);
   const perm = abilityPermission(name, ctx.settings);
-  if (perm === 'off') return fail(ctx.settings.localOnly && spec.network === 'always' ? `${spec.label} is off: Keeper is set to stay on this computer.` : `${spec.label} is switched off in Settings → Abilities.`);
+  if (perm === 'off') return fail(ctx.settings.localOnly && spec.network === 'always' ? `${spec.label} is off: Keeper is set to stay on this computer.` : `${spec.label} is switched off in Agents → Abilities.`);
   if (perm === 'ask' && !(await ctx.approve(name, spec.describe(args), args))) return fail(`The person did not allow: ${spec.describe(args)}`);
   try {
     return await dispatch(name, args, ctx);
@@ -129,7 +129,7 @@ async function dispatch(name: string, a: Record<string, unknown>, ctx: AbilityCo
       const prov = IMAGE_PROVIDERS.find((p) => p.id === im.provider)!;
       if (ctx.settings.localOnly && !prov.local) return fail('Keeper is set to stay on this computer; choose a picture service that runs here (Stable Diffusion web UI or ComfyUI).');
       const deps = { fetch: ctx.fetch, key: prov.local ? undefined : await ctx.key(`images:${im.provider}`), model: im.model || undefined, localUrl: im.localUrl };
-      if (!prov.local && !deps.key) return fail(`Add a ${prov.label} key in Settings → Abilities to make pictures.`);
+      if (!prov.local && !deps.key) return fail(`Add a ${prov.label} key in Agents → Abilities to make pictures.`);
       const prompt = String(a.prompt ?? '').trim();
       if (!prompt) return fail('Describe the picture');
       let made;
@@ -173,7 +173,7 @@ async function dispatch(name: string, a: Record<string, unknown>, ctx: AbilityCo
     }
     case 'run_code': {
       const lang = a.language === 'python' ? 'python' : 'javascript';
-      if (lang === 'python' && !ctx.settings.code.python) return fail('Running Python is switched off in Settings → Abilities.');
+      if (lang === 'python' && !ctx.settings.code.python) return fail('Running Python is switched off in Agents → Abilities.');
       const inputs: { name: string; data: Buffer }[] = [];
       for (const f of Array.isArray(a.files) ? a.files.map(String).slice(0, 10) : []) {
         if (!ctx.allowed(f)) return fail(`${f} is outside the library`);
@@ -189,14 +189,14 @@ async function dispatch(name: string, a: Record<string, unknown>, ctx: AbilityCo
       };
     }
     case 'remember': {
-      if (!ctx.settings.memory.on) return fail('Memory is switched off in Settings → Abilities.');
+      if (!ctx.settings.memory.on) return fail('Memory is switched off in Agents → Abilities.');
       const scope = a.scope === 'persona' && ctx.persona ? 'persona' : a.scope === 'project' && ctx.project ? 'project' : 'shared';
       const r = addMemory(ctx.memories.get(), { text: String(a.text ?? ''), scope, owner: scope === 'persona' ? ctx.persona : scope === 'project' ? ctx.project : undefined, by: ctx.client, cloud: ctx.settings.memory.cloud }, now);
       await ctx.memories.set(r.list);
       return { content: `Remembered [${r.memory.id}]: ${r.memory.text}`, summary: 'remembered something' };
     }
     case 'recall': {
-      if (!ctx.settings.memory.on) return fail('Memory is switched off in Settings → Abilities.');
+      if (!ctx.settings.memory.on) return fail('Memory is switched off in Agents → Abilities.');
       const { visibleMemories } = await import('./memory');
       const vis = visibleMemories(ctx.memories.get(), { persona: ctx.persona, project: ctx.project, localModel: ctx.localModel, cloudAllowed: ctx.settings.memory.cloud });
       const hits = searchMemories(vis, String(a.query ?? ''));
@@ -214,7 +214,7 @@ async function dispatch(name: string, a: Record<string, unknown>, ctx: AbilityCo
       const task: ScheduledTask = { id: `t${now.toString(36)}`, name: String(a.name ?? prompt).slice(0, 60), prompt, when, deliver: ['island', 'notification'], enabled: true, once: sched.once !== undefined, persona: ctx.persona, project: ctx.project };
       (task as ScheduledTask & { createdAt: number }).createdAt = now;
       await ctx.addTask(task);
-      return { content: `Scheduled “${task.name}” — ${sched.label}. The person can change or stop it in Settings → Abilities → Schedules.`, summary: `scheduled “${task.name}”` };
+      return { content: `Scheduled “${task.name}” — ${sched.label}. The person can change or stop it in Agents → Schedules.`, summary: `scheduled “${task.name}”` };
     }
     case 'speak': {
       await ctx.speak(String(a.text ?? '').slice(0, 4000));

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Places & Tracks outside its own page: command palette entries ("Where is my
 // laptop?"), "Show on Map" in the file browser's right-click menu, and the
-// sidebar entry. Settings → Places & Tracks → Where it appears chooses which.
+// sidebar entry. Places & Tracks → Settings → Where it appears chooses which.
 
 import { useEffect, useMemo, useState } from 'react';
 import type { LivePosition, TracksConfig } from '../../core/tracks/api';

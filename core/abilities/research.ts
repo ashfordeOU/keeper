@@ -118,7 +118,7 @@ export async function deepResearch(question: string, d: ResearchDeps, limits: Re
       `Question: ${question}\n\nNotes:\n${notes.map((x) => `[${x.n}] ${x.note}`).join('\n\n')}`,
       3000,
     )
-    : 'No useful sources were found for this question. Try other words, or choose a different search service in Settings → Abilities.';
+    : 'No useful sources were found for this question. Try other words, or choose a different search service in Agents → Abilities.';
   return { question, report, sources, queries, stoppedBecause };
 }
 

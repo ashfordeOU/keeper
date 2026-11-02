@@ -53,6 +53,23 @@ function StatusCard({ st }: { st: BrainStatus | null }) {
   );
 }
 
+/** Where each online AI hands out keys. */
+const KEY_URLS: Record<string, string> = {
+  anthropic: 'https://console.anthropic.com/settings/keys',
+  openai: 'https://platform.openai.com/api-keys',
+  'openai-responses': 'https://platform.openai.com/api-keys',
+  gemini: 'https://aistudio.google.com/apikey',
+  openrouter: 'https://openrouter.ai/keys',
+  mistral: 'https://console.mistral.ai/api-keys',
+  xai: 'https://console.x.ai',
+  groq: 'https://console.groq.com/keys',
+  deepseek: 'https://platform.deepseek.com/api_keys',
+};
+const keyUrl = (c: { id: string; kind: string }) => KEY_URLS[c.id] ?? KEY_URLS[c.kind];
+
+/** One message for "this computer has nowhere safe to keep a key" (Linux without a keyring, mostly). */
+export const NO_KEYCHAIN = 'There is no keychain on this computer to keep the key safe. On Linux, install gnome-keyring or KWallet and log in again (Settings → Permissions → Keyring).';
+
 function ConnectionRow({ c, active, onUse, onChange, onRemove }: { c: ConnectionInfo; active: boolean; onUse: () => void; onChange: (c: AiConnection) => void; onRemove?: () => void }) {
   const { toast } = useStore();
   const [key, setKey] = useState('');
@@ -81,8 +98,17 @@ function ConnectionRow({ c, active, onUse, onChange, onRemove }: { c: Connection
             <label className="field"><span>API key</span>
               <span className="row" style={{ gap: 6 }}>
                 <input className="input" type="password" placeholder={c.hasKey ? 'Saved — paste to replace' : 'Paste your key'} value={key} onChange={(e) => setKey(e.target.value)} />
-                <button className="btn sm" disabled={!key} onClick={async () => { const ok = await api.settings.setSecret(c.id, key); setKey(''); toast(ok ? 'Key saved, encrypted by your system keychain' : 'Could not save the key securely on this system'); onChange(c); }}>Save</button>
+                <button className="btn sm" disabled={!key} onClick={async () => {
+                  const ok = await api.settings.setSecret(c.id, key);
+                  setKey('');
+                  if (!ok) { toast(NO_KEYCHAIN); return; }
+                  onChange(c);
+                  // Saved: try it straight away, so a wrong key shows now and not at the first question.
+                  setTest('busy');
+                  setTest(await api.brain.testConnection(c.id).catch((e: unknown) => ({ ok: false, message: e instanceof Error ? e.message : String(e) })));
+                }}>Save</button>
               </span>
+              {keyUrl(c) ? <small className="muted">You pay the provider for what you use. <button className="link-like" onClick={() => void api.system.openExternal(keyUrl(c)!)}>Get a key <Icon name="external" size={10} /></button></small> : null}
             </label>
           ) : null}
           {c.kind === 'openai-compatible' || c.kind === 'ollama' ? (

@@ -67,7 +67,7 @@ export function buildCommand(platform: NodeJS.Platform, lang: Lang, ws: string, 
     args = ['--permission', `--allow-fs-read=${ws}`, `--allow-fs-write=${ws}`, `--max-old-space-size=${Math.max(32, o.memoryMb)}`, path.join(ws, '.runner.cjs')];
   } else {
     if (!rt.python) throw new Error('Python is not installed on this computer');
-    if (isWin && !o.allowNetwork) throw new Error('Python cannot be sealed off on Windows without administrator rights, so it is off. Use JavaScript, or allow unsealed Python in Settings → Abilities.');
+    if (isWin && !o.allowNetwork) throw new Error('Python cannot be sealed off on Windows without administrator rights, so it is off. Use JavaScript, or allow unsealed Python in Agents → Abilities.');
     cmd = rt.python;
     args = ['-I', '-B', path.join(ws, '.main.py')];
   }

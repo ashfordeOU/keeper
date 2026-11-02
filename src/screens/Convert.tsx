@@ -395,7 +395,7 @@ function Options({ op, set, duration, pages, files }: { op: ConvertOp; set: (o: 
       return (
         <>
           <Field label="Into"><select value={op.language} onChange={(e) => set({ ...op, language: e.target.value })}>{TRANSLATE_LANGS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></Field>
-          <Field label="Translate with" hint={(op.engine ?? 'ai') === 'ai' ? 'Uses the AI chosen in Settings → Assistant. A local model (Ollama) keeps the document on this computer.' : "macOS's own translator works on this Mac, offline once its languages are downloaded (macOS 26 or later)."}>
+          <Field label="Translate with" hint={(op.engine ?? 'ai') === 'ai' ? 'Uses the AI chosen in Settings → AI & Brain. A local model (Ollama) keeps the document on this computer.' : "macOS's own translator works on this Mac, offline once its languages are downloaded (macOS 26 or later)."}>
             <Seg value={op.engine ?? 'ai'} options={[['ai', "Keeper's AI"], ...(navigator.platform.startsWith('Mac') ? [['system', 'macOS translator'] as ['system', string]] : [])]} onChange={(engine) => set({ ...op, engine })} />
           </Field>
           <div className="small muted">Word files keep their styles, tables and pictures; Markdown its marks and code; web pages their tags; subtitles their timings. A copy is saved, like “Report.de.docx”.</div>

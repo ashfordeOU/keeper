@@ -2,6 +2,7 @@
 // App-wide state: the current page, selection, inspector, music player,
 // settings and toasts. Small enough that plain React context does the job.
 
+import { linkInMessage } from '../core/settings-links';
 import { expireToast, pushToast, toastLife } from './lib/toasts';
 import { rememberRoute, scrollMap, seedScroll, setPlaceMemory, startPlace, onScrollChanged } from './place';
 import { activeTab, closeOthers, closeTab, closeToRight, detachTab, duplicateTab, emptyWindow, goBack, goForward, moveTab, navigate, newTab, openTab, pinTab, reopenClosed, selectTab, type Tab, type WindowState } from '../core/session';
@@ -311,6 +312,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const toast = useCallback((text: string, action?: Toast['action']) => {
+    // A message that names a place in Keeper ("…in Settings → AI & Brain") opens it.
+    if (!action) {
+      const link = linkInMessage(text);
+      if (link) {
+        const i = link.route.indexOf(':');
+        const route = { name: (i < 0 ? link.route : link.route.slice(0, i)) as RouteName, arg: i < 0 ? undefined : link.route.slice(i + 1) };
+        action = { label: 'Open', run: () => setWin((w) => navigate(w, route)) };
+      }
+    }
     // The same text again while it shows collapses into one toast with a count.
     let id = Date.now() + Math.random();
     setToasts((t) => {

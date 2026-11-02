@@ -132,7 +132,7 @@ function ProviderForm({ provider, edit, onBack, onDone }: { provider: ProviderIn
   const [fields, setFields] = useState<FormField[] | null>(null);
   const [values, setValues] = useState<Record<string, string | boolean>>({ ...(edit?.options ?? {}) });
   const [advanced, setAdvanced] = useState(false);
-  const [busy, setBusy] = useState<'signin' | 'save' | null>(null);
+  const [busy, setBusy] = useState<'signin' | 'save' | 'test' | null>(null);
   const [signedIn, setSignedIn] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [library, setLibrary] = useState(!!edit?.includeInLibrary);
@@ -170,6 +170,22 @@ function ProviderForm({ provider, edit, onBack, onDone }: { provider: ProviderIn
       onDone(r.connection);
     } catch (e) {
       setMessage(errText(e));
+      setBusy(null);
+    }
+  };
+
+  // Test: the same settings, tried once without saving (one look at the top folder).
+  const [tested, setTested] = useState<{ ok: boolean; message?: string; entries?: number } | null>(null);
+  const testIt = async () => {
+    if (!fields) return;
+    setBusy('test');
+    setTested(null);
+    try {
+      const { plain, secret } = formValues(fields, values as Record<string, string | boolean | undefined>);
+      setTested(await api.remote.test({ id: edit?.id ?? signedIn ?? undefined, name, kind: 'rclone', provider: provider.id, device: 'cloud', options: plain, secrets: secret, includeInLibrary: library }));
+    } catch (e) {
+      setTested({ ok: false, message: errText(e) });
+    } finally {
       setBusy(null);
     }
   };
@@ -220,8 +236,12 @@ function ProviderForm({ provider, edit, onBack, onDone }: { provider: ProviderIn
       ))}
       {(fields ?? []).some((f) => f.advanced) ? <button className="link-like small" onClick={() => setAdvanced(!advanced)}>{advanced ? 'Fewer options' : 'Advanced options'}</button> : null}
       <label className="field inline" style={{ marginTop: 10 }}><span>Include in library search <small className="muted">(names, sizes and dates only)</small></span><Toggle on={library} onChange={setLibrary} /></label>
-      {message ? <div className="conn-note"><Icon name="info" size={14} /> {message}</div> : null}
+      {message ? <div className="conn-note warn" role="alert"><Icon name="warning" size={14} /> {message}</div> : null}
+      {tested ? <div className={`conn-note ${tested.ok ? 'ok' : 'warn'}`} role="status" data-testid="cloud-test-result"><Icon name={tested.ok ? 'check' : 'warning'} size={14} /> {tested.ok ? `It works${tested.entries !== undefined ? `: ${tested.entries} item${tested.entries === 1 ? '' : 's'} at the top` : ''}.` : tested.message ?? 'It did not work.'}</div> : null}
       <div className="btn-row" style={{ justifyContent: 'flex-end', marginTop: 14 }}>
+        <button className="btn" data-testid="cloud-test" disabled={!!busy || !fields || missing.length > 0 || (provider.oauth && !signedIn && !edit)} onClick={() => void testIt()}>
+          {busy === 'test' ? <div className="spinner" /> : null} Test
+        </button>
         <button className="btn primary" disabled={!!busy || !fields || missing.length > 0 || (provider.oauth && !signedIn && !edit)} onClick={() => void save()}>
           {busy === 'save' ? <div className="spinner" /> : <Icon name="check" size={14} />} {edit ? 'Save' : 'Connect'}
         </button>

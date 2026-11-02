@@ -21,7 +21,7 @@ import { startBreadcrumbs } from './breadcrumbs';
 import { anotherKeeperTookOver, holdInstanceLock, releaseInstanceLock } from './instance';
 import { installNavGuard } from './nav-guard';
 import { onLimitAlert } from './svc/limits';
-import { app, BrowserWindow, dialog, globalShortcut, ipcMain, Menu, nativeImage, nativeTheme, protocol, screen, shell, Tray } from 'electron';
+import { app, BrowserWindow, dialog, globalShortcut, ipcMain, Menu, nativeImage, nativeTheme, Notification, protocol, screen, shell, Tray } from 'electron';
 import { existsSync, promises as fsp, statSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -143,6 +143,8 @@ import { getSecret, hasSecret, onSettings, setSecret, settings, updateSettings }
 import { registerUsageStatsIpc } from './ipc/usage-stats';
 import { registerPermissionsIpc } from './ipc/permissions';
 import { registerSetupIpc } from './services/setup';
+import { setNudgeElsewhere } from './services/permission-nudge';
+import { catalogueFor } from '../core/permissions';
 import { nativeApps, nativeOpen } from './services/native-apps';
 
 void squarify; // the interface lays out the Space Map; kept for the CLI's future text treemap
@@ -1449,6 +1451,16 @@ app.whenReady().then(async () => {
   // Anonymous usage stats: asked in setup (unticked), off with one switch; at most one small report a day (Settings → Privacy).
   registerUsageStatsIpc();
   registerPermissionsIpc();
+  // A feature needs a permission while no Keeper window is open: the Island says so, else a notification that opens Permissions.
+  setNudgeElsewhere((id) => {
+    const name = catalogueFor(process.platform).find((d) => d.id === id)?.name ?? 'a permission';
+    if (islandSvc && settings().island?.enabled !== false) islandSvc.alert({ kind: 'info', title: `Keeper needs ${name}`, detail: 'Open Keeper → Settings → Permissions to allow it.' });
+    else if (Notification.isSupported()) {
+      const n = new Notification({ title: `Keeper needs ${name}`, body: 'Click to open Permissions.' });
+      n.on('click', () => showMain('settings:permissions'));
+      n.show();
+    }
+  });
   // Downloadable parts: paths now, any download a while after start (docs/COMPONENTS.md).
   registerComponentsIpc({ broadcast, alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }) });
   registerSetupIpc();

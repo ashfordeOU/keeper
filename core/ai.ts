@@ -90,7 +90,7 @@ export async function askAssistant(history: AiMessage[], ctx: AiContext, opts: A
 async function callProvider(system: string, history: AiMessage[], opts: AskOptions): Promise<string> {
   const model = opts.model || DEFAULT_MODELS[opts.provider];
   if (opts.provider === 'anthropic') {
-    if (!opts.apiKey) throw new Error('Add your Anthropic API key in Settings → Assistant.');
+    if (!opts.apiKey) throw new Error('Add your Anthropic API key in Settings → AI & Brain.');
     // The SDK is large: it loads the first time this provider is used.
     const client = new (await import('@anthropic-ai/sdk')).default({ apiKey: opts.apiKey });
     const response = await client.beta.messages.create(
@@ -109,7 +109,7 @@ async function callProvider(system: string, history: AiMessage[], opts: AskOptio
     return response.content.flatMap((b) => (b.type === 'text' ? [b.text] : [])).join('\n');
   }
   if (opts.provider === 'openai') {
-    if (!opts.apiKey) throw new Error('Add your OpenAI API key in Settings → Assistant.');
+    if (!opts.apiKey) throw new Error('Add your OpenAI API key in Settings → AI & Brain.');
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       signal: opts.signal,

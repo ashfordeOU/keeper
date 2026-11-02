@@ -155,7 +155,9 @@ mac:
     NSDesktopFolderUsageDescription: Keeper shows and searches the files on your Desktop.
     NSDocumentsFolderUsageDescription: Keeper shows and searches the files in Documents.
     NSDownloadsFolderUsageDescription: Keeper shows your downloads and where they came from.
-    NSAppleEventsUsageDescription: Keeper reads what is playing in Music or Spotify and can paste dictated text.
+    NSAppleEventsUsageDescription: "Keeper works with the apps you connect, only for parts you turn on: Music or Spotify for what's playing, Notes for your Apple Notes, Finder for folder icons and Stage, and System Events to paste dictated text and tidy windows."
+    NSRemovableVolumesUsageDescription: Keeper shows and searches the files on disks you plug in, and can eject them.
+    NSNetworkVolumesUsageDescription: Keeper shows the files on servers and shared folders you connect to.
     NSMicrophoneUsageDescription: Keeper listens only while you dictate, check your microphone in the Island's mirror, or let the teleprompter follow your voice.
     NSCameraUsageDescription: The Island's mirror shows your camera so you can check how you look before a call.
     NSCalendarsFullAccessUsageDescription: The Island shows your calendar's events and meeting links.

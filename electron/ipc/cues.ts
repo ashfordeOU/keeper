@@ -256,7 +256,7 @@ export function registerCuesIpc(c: CuesContext) {
     throw new Error('Commands: list [--filter waiting|later|overdue|done] | add <text> [--app A] [--site S] [--page URL] [--title WORDS] | done <id> | snooze <id> [10m|1h|tomorrow|nextvisit] | rm <id> | search <words> | templates | run <checklist id>');
   });
 
-  // ---------------------------------------------------------------- abilities for any AI (permissions in Settings → Abilities)
+  // ---------------------------------------------------------------- abilities for any AI (permissions in Agents → Abilities)
   registerAbility({
     name: 'cues_search', label: 'Find cues', group: 'Time', defaultPermission: 'allow', network: 'never', readOnly: true,
     description: 'Searches the person\'s cues (notes, checklists, links and files tied to an app, a website, a page, a window title or a time) and lists them with where they come back and when they are due. Empty query lists open cues.',

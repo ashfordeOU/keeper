@@ -9,6 +9,7 @@ import { metricText, metricValue, scaleFor, TRAY_METRICS, type TrayMetric } from
 import { api } from '../../api';
 import { Icon } from '../../components/Icon';
 import { KeychainBanner } from '../../components/KeychainBanner';
+import { PermissionNudgeLine } from '../../components/PermissionsPanel';
 import { Sparkline, tone, useLive, useVisibleInterval } from './common';
 
 const SETTINGS = { netUnit: 'bytes', memShows: 'used', tempUnit: 'c' } as const;
@@ -30,6 +31,7 @@ export function TrayPopover() {
     <div className="mon-pop">
       <header><Icon name="bolt" size={14} /><b>This computer</b><span className="small muted">{latest ? `${latest.perCore?.length ?? ''} cores` : ''}</span></header>
       <KeychainBanner compact />
+      <PermissionNudgeLine />
       <div className="rows">
         {!latest ? <span className="muted">Reading…</span> : shown.map((m) => {
           const vals = recent.map((r: LiveReading) => metricValue(m.id, r, SETTINGS));
