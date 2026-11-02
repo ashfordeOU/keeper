@@ -382,9 +382,11 @@ export class LinkNode {
     // Opening to the network keeps the port the keeper command already knows (the old one may take a moment to let go).
     const want = this.port || this.data.settings.port || DEFAULT_PORT;
     let got = 0;
-    for (let i = 0; i < 4 && !got; i++) {
+    // The loopback listener closes asynchronously (slower on a busy machine, and on Windows), so
+    // keep trying the same port for up to about three seconds before taking a new one.
+    for (let i = 0; i < 30 && !got; i++) {
       got = await tryPort(want).catch(() => 0);
-      if (!got && i < 3) await new Promise((r) => setTimeout(r, 40));
+      if (!got && i < 29) await new Promise((r) => setTimeout(r, 100));
     }
     this.port = got || (await tryPort(0));
     this.server = server;
