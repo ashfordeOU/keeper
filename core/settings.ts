@@ -6,6 +6,7 @@ import { defaultAwakeSettings, normalizeAwakeSettings } from './awake-engine';
 import { defaultAbilities } from './abilities/config';
 import type { IslandSettings } from './api';
 import { cleanPanelSizes, isPanelSize, islandWindowType } from './island-size';
+import { DEFAULT_DECK, cleanDeck, migrateDeck } from './island-tools/tools';
 import { defaultBrainSettings, normalizeBrainSettings } from './brain/config';
 import { defaultAgentSettings, normalizeAgentSettings } from './agents-config';
 import { defaultSyncSettings, normalizeSyncSettings } from './sync/config';
@@ -76,6 +77,7 @@ export function defaultIsland(): IslandSettings {
     mediaKeys: false,
     panelSize: 'regular',
     panelSizes: {},
+    deck: [...DEFAULT_DECK],
     windowType: 'standard',
   };
 }
@@ -195,6 +197,9 @@ export function mergeSettings(base: AllSettings, raw: unknown): AllSettings {
   if (!['auto', 'full', 'compact'].includes(out.sidebarMode)) out.sidebarMode = 'auto';
   out.home = normalizeHome(r.home);
   // The open Island's sizes and window type (settings from before them get the defaults).
+  // The deck (pinned tools) came after the tabs: settings from before it keep the person's first choices.
+  const rawIsland = r.island && typeof r.island === 'object' ? (r.island as Record<string, unknown>) : {};
+  out.island.deck = Array.isArray(rawIsland.deck) ? cleanDeck(rawIsland.deck) : migrateDeck(out.island.toolOrder, out.island.toolsOff);
   out.island = { ...out.island, panelSize: isPanelSize(out.island.panelSize) ? out.island.panelSize : 'regular', panelSizes: cleanPanelSizes(out.island.panelSizes) as IslandSettings['panelSizes'], windowType: islandWindowType(out.island.windowType) };
   out.sidebarSectionLimit = Number.isFinite(out.sidebarSectionLimit) ? Math.max(0, Math.min(50, Math.round(out.sidebarSectionLimit))) : 5;
   if (!['', 'all', 'onDemand'].includes(out.permissionsSetup)) out.permissionsSetup = '';

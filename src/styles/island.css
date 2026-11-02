@@ -195,9 +195,45 @@ html[data-view='island'], html[data-view='island'] body, html[data-view='island'
 .isl-panel { height: 100%; display: flex; flex-direction: column; }
 @media (prefers-reduced-motion: reduce) { .isl-shape { transition: none; } .isl-in, .isl-bubble { animation: none; } .act-wave i, .live-bar.charge::after { animation: none; } }
 .act-pair { display: inline-flex; align-items: center; gap: 6px; }
-.isl-panel .tabs { overflow-x: auto; scrollbar-width: none; flex: none; mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); }
-.isl-panel .tabs::-webkit-scrollbar { display: none; }
-.isl-panel .tabs button { flex: none; }
+/* The deck (src/island/Deck.tsx): never scrolls, never clips. It gives up the live slot, then names, when short of room. */
+.isl-panel .tabs.deck { flex: none; display: flex; align-items: center; gap: 2px; overflow: hidden; min-width: 0; }
+.isl-panel .tabs.deck > * { flex: none; }
+.isl-panel .tabs.deck .deck-gap { flex: 1 1 0; min-width: 0; }
+.isl .tabs.deck button.deck-tab, .isl .tabs.deck button.deck-back { position: relative; height: 28px; min-width: 28px; padding: 0 5px; justify-content: center; gap: 6px; border-radius: 14px; }
+.isl .tabs.deck button.deck-tab.on { padding: 0 10px 0 7px; }
+.isl .tabs.deck .deck-label { font-size: 12px; font-weight: 600; white-space: nowrap; animation: deck-label .12s ease-out both; }
+@keyframes deck-label { from { opacity: 0; } }
+.isl .tabs.deck .deck-badge, .isl .more .deck-badge { position: absolute; top: 1px; right: 0; min-width: 14px; height: 14px; padding: 0 4px; border-radius: 7px; background: #ffd60a; color: #000; font-size: 9.5px; font-weight: 700; line-height: 14px; text-align: center; }
+.isl .tabs.deck .deck-live::after { content: ''; position: absolute; left: 50%; bottom: 1px; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: currentColor; }
+.isl .tabs.deck .deck-back { color: var(--isl-fg-2, #a1a1aa); padding: 0 10px 0 4px; }
+.isl .tabs.deck .deck-buddy { display: grid; place-items: center; margin-right: 6px; }
+
+/* More (src/island/MoreGrid.tsx): the deck's four places, a filter, then the tools in a grid of 64 × 56 cells. */
+.isl .more { display: flex; flex-direction: column; gap: 6px; }
+.isl .more-head { display: flex; gap: 8px; align-items: center; }
+.isl .more-deck { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; flex: 1; min-width: 0; }
+.isl .more-slot { position: relative; height: 30px; display: flex; align-items: center; gap: 6px; padding: 0 22px 0 9px; border-radius: 15px; background: rgba(255, 255, 255, .07); font-size: 12px; font-weight: 600; min-width: 0; cursor: grab; }
+.isl .more-slot > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.isl .more-slot.free { background: none; outline: 1px dashed rgba(255, 255, 255, .16); outline-offset: -1px; font-weight: 400; cursor: default; justify-content: center; padding: 0 9px; }
+.isl .more-slot.over { outline: 1.5px solid #fff; outline-offset: -1.5px; }
+.isl .more-unpin { all: unset; position: absolute; right: 6px; top: 8px; width: 14px; height: 14px; border-radius: 7px; display: grid; place-items: center; color: #a1a1aa; }
+.isl .more-unpin:hover, .isl .more-unpin:focus-visible { background: rgba(255, 255, 255, .14); color: #fff; }
+.isl .more-filter { width: 120px; flex: none; }
+.isl .more-caption { font-size: 11px; font-weight: 500; color: rgba(245, 245, 247, .38); margin-top: 4px; }
+.isl .more-row { display: grid; grid-template-columns: repeat(6, 64px); gap: 4px 8px; }
+.isl .more-cell { position: relative; width: 64px; height: 56px; }
+.isl .more-open { all: unset; box-sizing: border-box; width: 64px; height: 56px; border-radius: 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; color: #f5f5f7; cursor: default; }
+.isl .more-open:hover, .isl .more-open:focus-visible { background: rgba(255, 255, 255, .07); }
+.isl .more-label { font-size: 11px; max-width: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: rgba(245, 245, 247, .62); }
+.isl .more-pin { all: unset; position: absolute; top: 2px; right: 2px; width: 18px; height: 18px; border-radius: 9px; display: grid; place-items: center; color: rgba(245, 245, 247, .62); opacity: 0; }
+.isl .more-cell:hover .more-pin, .isl .more-pin:focus-visible, .isl .more-cell.pinned .more-pin { opacity: 1; }
+.isl .more-pin:hover { background: rgba(255, 255, 255, .12); color: #fff; }
+.isl .more-cell.pinned .more-pin { color: #ff9f0a; }
+.isl .more-choose { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12px; padding: 6px 0; }
+.isl .more-foot { display: flex; gap: 6px; margin-top: 4px; }
+.isl .status-chip { all: unset; display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 6px; border-radius: 11px; color: inherit; cursor: default; }
+.isl .status-chip:hover, .isl .status-chip:focus-visible { background: rgba(255, 255, 255, .12); }
+.isl .status-chip.on { color: #ffd60a; }
 
 /* ---------------------------------------------------------------- tools */
 .isl .itool { display: flex; flex-direction: column; gap: 8px; min-height: 100%; }
@@ -314,6 +350,11 @@ html[data-view='island'], html[data-view='island'] body, html[data-view='island'
 .tool-row { display: flex; gap: 10px; align-items: center; padding: 5px 8px; border-radius: 8px; background: var(--bg-sunk); }
 .tool-row.off { color: var(--text-2); }
 .tool-row.off svg { opacity: .55; }
+.deck-slots { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.deck-slot { display: flex; gap: 8px; align-items: center; height: 36px; padding: 0 6px 0 10px; border-radius: 10px; background: var(--bg-sunk); cursor: grab; min-width: 0; }
+.deck-slot .grow { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.deck-slot.free { background: none; outline: 1px dashed var(--border, rgba(127, 127, 127, .35)); outline-offset: -1px; justify-content: center; cursor: default; }
+.deck-slot.over { outline: 2px solid var(--accent, #6d6dff); outline-offset: -2px; }
 
 /* ---- Island+ (calls, ruler, usage ring, glow, shadow) */
 .isl-call { display: flex; flex-direction: column; gap: 4px; }

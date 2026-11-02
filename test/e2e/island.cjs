@@ -3,7 +3,8 @@
 // Drives the real Keeper app: where the Island sits, that a closed Island covers
 // only itself, and that activities, the Live Activity card and the panel open and close;
 // the open Island's sizes (the window is exactly the panel at each one, the grip snaps)
-// and the calendars picker (a calendar switched off leaves the Calendar tab and the pill's countdown).
+// the calendars picker (a calendar switched off leaves the Calendar tab and the pill's countdown);
+// the deck (never wider than the panel, only the open view named), More, pinning and unpinning.
 const { _electron } = require('playwright');
 const http = require('http');
 const { execFileSync } = require('child_process');
@@ -102,6 +103,49 @@ const SHARED = ics([['BEGIN:VEVENT', 'UID:holiday@island', `DTSTART:${local(tomo
   check(fit.ok, `the window is the panel and no further (${fit.text})`);
   screenshot('5-panel');
 
+  // ---------------------------------------------------------------- the deck and More
+  // The bar is never wider than the panel, and only the open view shows its name.
+  const deckFits = () => isl.evaluate(() => {
+    const bar = document.querySelector('.tabs.deck');
+    const panel = document.querySelector('.isl-content').getBoundingClientRect();
+    const r = bar.getBoundingClientRect();
+    return { ok: bar.scrollWidth <= bar.clientWidth + 1 && r.right <= panel.right + 1 && r.left >= panel.left - 1, text: `bar ${Math.round(r.width)} (content ${bar.scrollWidth}) in a panel ${Math.round(panel.width)} wide`, labels: [...bar.querySelectorAll('.deck-label')].map((x) => x.textContent), tabs: [...bar.querySelectorAll('.deck-tab')].map((x) => x.getAttribute('title')) };
+  });
+  let df = await deckFits();
+  check(df.ok, `the deck fits the panel (${df.text})`);
+  check(df.tabs.slice(0, 4).join() === 'Home,Shelf,Week,Timer' && df.tabs[df.tabs.length - 1] === 'More tools', `the default deck is Home, Shelf, Week, Timer, then More (${df.tabs.join(', ')})`);
+  check(df.labels.length === 1 && df.labels[0] === 'Home', `only the open view shows its name (${df.labels.join(', ')})`);
+  // The live slot: the timer runs and Timer is pinned, so no slot; a running timer with Timer unpinned borrows one.
+  check(await isl.locator('[data-testid="island-live-slot"]').count() === 0, 'no live slot while the live view is pinned');
+  await isl.locator('[data-testid="island-more"]').click();
+  await wait(700);
+  check(await isl.locator('[data-testid="island-more-grid"]').count() === 1, 'More opens a grid of the other tools');
+  const cells = await isl.$$eval('.more-open[title]', (els) => els.map((e) => e.getAttribute('title')));
+  check(cells.length >= 12 && !cells.includes('Home') && cells.includes('Clipboard'), `More offers the unpinned tools (${cells.length}: ${cells.slice(0, 8).join(', ')}…)`);
+  check((await deckFits()).labels.join() === 'More', 'More shows its name while open');
+  screenshot('5b-more');
+  await isl.screenshot({ path: path.join(SHOTS, '5b-more-island.png') }).catch(() => undefined);
+  // Pinning with the deck full asks which to replace; the choice persists.
+  await isl.locator('[data-testid="island-pin-notes"]').click();
+  await wait(300);
+  check(await isl.locator('[data-testid="island-replace"]').count() === 1, 'pinning a fifth tool asks which one to replace');
+  await isl.locator('[data-testid="island-replace"] button', { hasText: 'Timer' }).click();
+  await wait(900);
+  const deckNow = () => isl.evaluate(async () => (await window.keeper.settings.get()).island.deck);
+  check(JSON.stringify(await deckNow()) === '["home","shelf","calendar","notes"]', `Notes takes Timer's place on the deck (${JSON.stringify(await deckNow())})`);
+  check(await isl.locator('[data-testid="island-live-slot"]').count() === 1, 'the running timer borrows the live slot once Timer is unpinned');
+  await isl.locator('.more-slot button[aria-label="Unpin Notes"]').click();
+  await wait(900);
+  check(JSON.stringify(await deckNow()) === '["home","shelf","calendar"]', `unpinning Notes saves the deck (${JSON.stringify(await deckNow())})`);
+  await isl.locator('[data-testid="island-pin-focus"]').click();
+  await wait(900);
+  check(JSON.stringify(await deckNow()) === '["home","shelf","calendar","focus"]', `pinning Timer again puts it at the end (${JSON.stringify(await deckNow())})`);
+  await isl.locator('[data-testid="island-more-clipboard"]').click();
+  await wait(600);
+  check(await isl.locator('[data-testid="island-back-more"]').count() === 1, 'a tool opened from More offers the way back to More');
+  df = await deckFits();
+  check(df.ok, `the deck still fits with the way back (${df.text})`);
+
   // Pointer leaves: back to the pill, and the window shrinks again.
   await isl.mouse.move(5, 300);
   await isl.locator('.isl-content').dispatchEvent('mouseleave');
@@ -143,6 +187,8 @@ const SHARED = ics([['BEGIN:VEVENT', 'UID:holiday@island', `DTSTART:${local(tomo
     const e = await exact();
     const fits = e.box.w === Math.min(want[z][0], display.workArea.width - 56) && e.box.h <= want[z][1] + 1 && e.box.h >= Math.min(want[z][1], 200);
     check(e.ok && fits, `${z}: the window is exactly the panel (${e.text})`);
+    const fitsHere = await deckFits();
+    check(fitsHere.ok, `${z}: the deck fits (${fitsHere.text})`);
     const sizeBtn = (await isl.locator('[data-testid="island-size-btn"]').innerText()).trim();
     check(sizeBtn === { compact: 'S', regular: 'M', large: 'L', xl: 'XL' }[z], `${z}: the size button says ${sizeBtn}`);
     await closeIsland();

@@ -23,7 +23,9 @@ import { plusSetting } from '../../core/island-plus';
 import { alertIcon, alertPresentation, mayExpand, shortTitle } from '../../core/island-expand';
 import type { Activity } from '../../core/island-activities';
 import { VibesTool } from '../wallpaper/IslandVibes';
-import { ISLAND_TOOLS, moveTool, orderedTools, toggleTool, type IslandToolId } from '../../core/island-tools/tools';
+import { DECK_MAX, ISLAND_TOOLS, addRecentTool, deckTools, liveSlot, migrateDeck, moreTools, moveInDeck, pinTool, unpinTool, type IslandToolId, type LiveSlot } from '../../core/island-tools/tools';
+import { Deck, type DeckItem, type DeckView } from './Deck';
+import { MoreGrid, readRecentTools, writeRecentTools } from './MoreGrid';
 import { chime, Leading, LiveCard, PrivacyDots, Trailing, useActivities, useGestures, useLayout } from './Activities';
 import { useFeatureStates } from '../features';
 import { PANEL_SIZES, PANEL_SIZE_LABEL, largestBox, panelBox, roomIn, snapSize, stepSize, tabPanel, withTabSize, type PanelSize } from '../../core/island-size';
@@ -33,7 +35,7 @@ import '../styles/island.css';
 // Shown in the Island's own toast.
 const islandSay = (msg: string) => window.dispatchEvent(new CustomEvent('island-toast', { detail: msg }));
 
-type Tab = IslandToolId;
+type Tab = DeckView;
 type Mood = 'calm' | 'happy' | 'listening' | 'thinking' | 'needs' | 'done' | 'napping' | 'broken' | 'recording' | 'sleeping';
 
 function lineAt(lines: LyricLine[], t: number): number {
@@ -70,7 +72,6 @@ export function Island() {
   const isl = settings?.island;
   const [tools, saveTools] = useToolsStore();
   const featureStates = useFeatureStates();
-  const [tabMenu, setTabMenu] = useState<{ id: Tab; x: number } | null>(null);
   const hoverTimer = useRef<number | undefined>(undefined);
   const tr = (key: string) => translate(resolveLanguage(settings?.language), key);
   const [state, setState] = useState<IslandState | null>(null);
@@ -80,6 +81,7 @@ export function Island() {
   const expanded = mode === 'panel';
   const layout = useLayout();
   const [tab, setTab] = useState<Tab>('home');
+  const [recentTools, setRecentTools] = useState<string[]>(readRecentTools);
   const [now, setNow] = useState(Date.now());
   const [alert, setAlert] = useState<IslandAlert | null>(null);
   // An alert shown inside the bar (the notch wings or the pill) that the person opened by hovering or clicking.
@@ -159,7 +161,7 @@ export function Island() {
   const [composeKey, setComposeKey] = useState(0);
   useEffect(() => api.on('island-open', (t: string) => {
     const [id, then] = t.split(':');
-    setTab((ISLAND_TOOLS.some((x) => x.id === id) ? id : 'home') as Tab);
+    setTab((id === 'more' || ISLAND_TOOLS.some((x) => x.id === id) ? id : 'home') as Tab);
     show('panel');
     // The New task shortcut is for typing straight away: only then does opening take the keyboard.
     if (then === 'new') { setComposeKey(Date.now()); api.island.takeFocus?.(); }
@@ -410,19 +412,24 @@ export function Island() {
   }
 
   // ---------------------------------------------------------------- expanded panel
-  // The person's tools, in their order (Settings → Island → Tools, or right-click a tab).
-  const toolIds = orderedTools(isl?.toolOrder, isl?.toolsOff, (id) => {
+  // The deck: up to four pinned tools, a live slot, and More with the rest (core/island-tools/tools.ts).
+  const available = (id: IslandToolId) => {
     if (id === 'clipboard') return isl?.clipboard !== false;
     if (id === 'agents') return isl?.agents !== false;
     const f = ISLAND_TOOLS.find((x) => x.id === id)?.feature;
     return !f || f === 'island' || featureStates?.get(f)?.on !== false;
-  });
-  const LABELS: Partial<Record<Tab, string>> = { home: tr('island.home'), shelf: tr('island.shelf'), clipboard: tr('island.clipboard'), agents: tr('island.agents'), focus: tr('island.focus') };
-  const BADGES: Partial<Record<Tab, number | undefined>> = { shelf: state.shelf.length || undefined, agents: state.agents.filter((a) => a.state === 'waiting').length || undefined };
-  const tabs: { id: Tab; icon: string; label: string; badge?: number }[] = toolIds.map((id) => {
+  };
+  const deckIds = deckTools(isl?.deck ?? migrateDeck(isl?.toolOrder, isl?.toolsOff), available);
+  const LABELS: Partial<Record<IslandToolId, string>> = { home: tr('island.home'), shelf: tr('island.shelf'), clipboard: tr('island.clipboard'), agents: tr('island.agents') };
+  const BADGES: Partial<Record<IslandToolId, number | undefined>> = { shelf: state.shelf.length || undefined, agents: state.agents.filter((a) => a.state === 'waiting').length || undefined };
+  const itemOf = (id: IslandToolId): DeckItem => {
     const t = ISLAND_TOOLS.find((x) => x.id === id)!;
     return { id, icon: t.icon, label: LABELS[id] ?? t.label, badge: BADGES[id] };
-  });
+  };
+  const deckItems = deckIds.map(itemOf);
+  const slot = liveSlot(acts.all, deckIds, available);
+  const more = moreTools(isl?.toolsOff, recentTools, available, (id) => itemOf(id).label);
+  const viewLabel = tab === 'more' ? 'More' : itemOf(tab).label;
   const setIsl = (p: Partial<NonNullable<typeof isl>>) => isl && void updateSettings({ island: { ...isl, ...p } });
   /** This tab's own size (null: back to the default for it). */
   const setTabSize = (size: PanelSize | null) => {
@@ -430,6 +437,13 @@ export function Island() {
     if (size) setDragSize(size);
     setIsl({ panelSizes: withTabSize(isl, tab, size) as NonNullable<typeof isl>['panelSizes'] });
   };
+  const setDeck = (deck: IslandToolId[]) => setIsl({ deck, toolsOff: (isl?.toolsOff ?? []).filter((x) => !deck.includes(x as IslandToolId)) });
+  /** Opens a tool (from the deck, More or the live slot); tools opened from More become recent. */
+  const openTool = (id: IslandToolId) => {
+    setTab(id);
+    if (!deckIds.includes(id)) setRecentTools((r) => { const next = addRecentTool(r, id); writeRecentTools(next); return next; });
+  };
+  const openLive = (x: LiveSlot) => (x.kind === 'tool' ? openTool(x.tool) : show('live', x.activity));
   // The grip on the bottom edge: drag to resize, snapping to the nearest size; arrow keys step.
   const grip = (
     <div
@@ -458,32 +472,18 @@ export function Island() {
 
   if (view === 'panel') content = (
       <div className="isl-panel" onDragOver={(e) => { if (!e.dataTransfer.types.includes('Files')) return; e.preventDefault(); if (tab !== 'shelf') setTab('shelf'); }}>
-        <div className="tabs">
-          {isl?.buddy !== false ? <span style={{ marginRight: 6, display: 'grid', placeItems: 'center' }}><Buddy mood={mood} /></span> : null}
-          {tabs.map((t) => (
-            <button key={t.id} className={tab === t.id ? 'on' : ''} title={t.label} aria-label={t.badge ? `${t.label} (${t.badge})` : t.label} aria-pressed={tab === t.id} onClick={() => setTab(t.id)} onContextMenu={(e) => { e.preventDefault(); setTabMenu({ id: t.id, x: (e.currentTarget as HTMLElement).offsetLeft }); }}>
-              <Icon name={t.icon} size={13} />{tabs.length <= 8 || tab === t.id ? <> {t.label}</> : null}{t.badge ? <span style={{ background: '#fbbf24', color: '#000', borderRadius: 8, padding: '0 5px', fontSize: 10 }}>{t.badge}</span> : null}
-            </button>
-          ))}
-          <span style={{ flex: 1 }} />
-          <button className="size-btn" title={`Size: ${PANEL_SIZE_LABEL[panelSize]} (for this tab)`} aria-label={`Size of the open Island: ${PANEL_SIZE_LABEL[panelSize]}`} aria-haspopup="menu" aria-expanded={sizeMenu} data-testid="island-size-btn" onClick={() => setSizeMenu(!sizeMenu)}>{SIZE_SHORT[panelSize]}</button>
-          {featureStates?.get('toolLauncher')?.on === false ? null : <button title="Tool launcher" aria-label="Tool launcher" data-testid="island-launcher-btn" onClick={() => void api.islandx?.openLauncher()}><Icon name="grid" size={13} /></button>}
-          {state.awakeAvailable === false ? null : <button title={state.keepAwake.on ? 'Stop keeping awake' : 'Keep awake'} aria-label={state.keepAwake.on ? 'Stop keeping awake' : 'Keep awake'} className={state.keepAwake.on ? 'on' : ''} onClick={() => void api.island.keepAwake(!state.keepAwake.on).then(load)}><Icon name="coffee" size={13} /></button>}
-          {featureStates?.get('stage')?.on === false ? null : <button title={state.stage?.on ? 'Stop Stage' : 'Stage: a clean screen'} aria-label={state.stage?.on ? 'Stop Stage' : 'Stage: a clean screen'} data-testid="island-stage-btn" className={state.stage?.on ? 'on' : ''} onClick={() => void (state.stage?.on ? api.stage.stop() : api.stage.toggle()).then(load)}><Icon name="eye" size={13} /></button>}
-        </div>
-
-        {tabMenu ? (
-          <div className="shelf-pop tab-menu" style={{ left: tabMenu.x + 8, top: 40 }} onMouseLeave={() => setTabMenu(null)}>
-            <button onClick={() => { setIsl({ toolOrder: moveTool(isl?.toolOrder, tabMenu.id, Math.max(0, orderedTools(isl?.toolOrder, []).indexOf(tabMenu.id) - 1)) }); setTabMenu(null); }}><Icon name="chevronLeft" size={11} /> Move left</button>
-            <button onClick={() => { setIsl({ toolOrder: moveTool(isl?.toolOrder, tabMenu.id, orderedTools(isl?.toolOrder, []).indexOf(tabMenu.id) + 1) }); setTabMenu(null); }}><Icon name="chevronRight" size={11} /> Move right</button>
-            {tabMenu.id !== 'home' ? <button onClick={() => { setIsl({ toolsOff: toggleTool(isl?.toolsOff, tabMenu.id, false) }); if (tab === tabMenu.id) setTab('home'); setTabMenu(null); }}><Icon name="close" size={11} /> Hide this tool</button> : null}
-            <div className="muted small" style={{ padding: '4px 8px' }}>Show</div>
-            {ISLAND_TOOLS.filter((x) => !toolIds.includes(x.id)).map((x) => <button key={x.id} onClick={() => { setIsl({ toolsOff: toggleTool(isl?.toolsOff, x.id, true) }); setTab(x.id); setTabMenu(null); }}><Icon name={x.icon} size={11} /> {x.label}</button>)}
-          </div>
-        ) : null}
+        <Deck
+          items={deckItems} view={tab} fromMore={tab !== 'more' && !deckIds.includes(tab) && !(slot?.kind === 'tool' && slot.tool === tab) ? itemOf(tab) : undefined}
+          live={slot ? { ...slot, label: slot.kind === 'tool' ? itemOf(slot.tool).label : 'Live' } : null}
+          onSelect={openTool} onMore={() => setTab('more')} onLive={openLive}
+          onMove={(id, by) => setDeck(moveInDeck(deckIds, id, deckIds.indexOf(id) + by))}
+          onUnpin={(id) => { setDeck(unpinTool(deckIds, id)); }}
+          lead={isl?.buddy !== false && deckIds.length < DECK_MAX ? <span className="deck-buddy"><Buddy mood={mood} /></span> : null}
+          trail={<button className="size-btn" title={`Size: ${PANEL_SIZE_LABEL[panelSize]} (for this view)`} aria-label={`Size of the open Island: ${PANEL_SIZE_LABEL[panelSize]}`} aria-haspopup="menu" aria-expanded={sizeMenu} data-testid="island-size-btn" onClick={() => setSizeMenu(!sizeMenu)}>{SIZE_SHORT[panelSize]}</button>}
+        />
         {sizeMenu ? (
           <div className="shelf-pop tab-menu size-menu" role="menu" style={{ right: 12, left: 'auto', top: 40 }} onMouseLeave={() => setSizeMenu(false)}>
-            <div className="muted small" style={{ padding: '4px 8px' }}>Size for {tabs.find((t) => t.id === tab)?.label ?? 'this tab'}</div>
+            <div className="muted small" style={{ padding: '4px 8px' }}>Size for {viewLabel}</div>
             {PANEL_SIZES.map((z) => <button key={z} role="menuitemradio" aria-checked={z === panelSize} className={z === panelSize ? 'on' : ''} onClick={() => { setTabSize(z); setSizeMenu(false); }}><b style={{ width: 22, display: 'inline-block' }}>{SIZE_SHORT[z]}</b> {PANEL_SIZE_LABEL[z]}</button>)}
             {isl?.panelSizes?.[tab] ? <button onClick={() => { setTabSize(null); setSizeMenu(false); }}><Icon name="undo" size={11} /> Use the default</button> : null}
           </div>
@@ -542,11 +542,25 @@ export function Island() {
                   {state.battery ? <span><Icon name={state.battery.charging ? 'bolt' : 'battery'} size={13} /> {Math.round(state.battery.percent)}%</span> : null}
                   {state.micInUse?.length ? <span style={{ color: '#fbbf24' }}><Icon name="mic" size={13} /> {state.micInUse[0]}</span> : null}
                   {state.recording ? <span style={{ color: '#ff453a' }}><span className="rec-dot" /> {mmss(now - state.recording.since)}</span> : null}
-                  {state.keepAwake.on ? <span title={state.keepAwake.reason}><Icon name="coffee" size={13} /> Awake{state.keepAwake.until ? ` · ${mmss(state.keepAwake.until - now)}` : ''}</span> : null}
                   {focusLeft ? <span><Icon name="timer" size={13} /> {mmss(focusLeft)}</span> : null}
+                  {/* Keep awake and Stage: one tap from Home (they were buttons on the tab bar). */}
+                  {state.awakeAvailable === false ? null : <button className={`status-chip ${state.keepAwake.on ? 'on' : ''}`} title={state.keepAwake.on ? 'Stop keeping awake' : 'Keep awake'} aria-pressed={state.keepAwake.on} data-testid="island-awake-chip" onClick={() => void api.island.keepAwake(!state.keepAwake.on).then(load)}><Icon name="coffee" size={13} />{state.keepAwake.on ? <> Awake{state.keepAwake.until ? ` · ${mmss(state.keepAwake.until - now)}` : ''}</> : null}</button>}
+                  {featureStates?.get('stage')?.on === false ? null : <button className={`status-chip ${state.stage?.on ? 'on' : ''}`} title={state.stage?.on ? 'Stop Stage' : 'Stage: a clean screen'} aria-label={state.stage?.on ? 'Stop Stage' : 'Stage: a clean screen'} data-testid="island-stage-btn" onClick={() => void (state.stage?.on ? api.stage.stop() : api.stage.toggle()).then(load)}><Icon name="eye" size={13} /></button>}
                 </div>
               </div>
             </div>
+          ) : null}
+
+          {tab === 'more' ? (
+            <MoreGrid
+              deck={deckItems} recent={more.recent.filter((id) => !deckIds.includes(id)).map(itemOf)} rest={more.rest.filter((id) => !deckIds.includes(id)).map(itemOf)}
+              onOpen={openTool}
+              onPin={(id, o) => setDeck(pinTool(deckIds, id, o))}
+              onUnpin={(id) => setDeck(unpinTool(deckIds, id))}
+              onMove={(id, to) => setDeck(moveInDeck(deckIds, id, to))}
+              onLauncher={featureStates?.get('toolLauncher')?.on === false ? undefined : () => void api.islandx?.openLauncher()}
+              onSettings={() => void api.islandx?.showPage('island')}
+            />
           ) : null}
 
           {tab === 'shelf' ? <ShelfTab state={state} settings={isl} reload={load} /> : null}
@@ -657,7 +671,12 @@ export function Island() {
         // The open Island takes the keyboard only when a field in it is clicked, so opening it never
         // brings Keeper (or its main window) to the front.
         onMouseDownCapture={(e) => { if (view !== 'compact' && (e.target as HTMLElement).closest?.(FIELD)) api.island.takeFocus?.(); }}
-        onMouseLeave={() => { if (drag.current) return; if (view === 'compact') api.island.setInteractive?.(false); else if (view === 'alert' && alertOpen) { setAlertOpen(false); api.island.setExpanded(false); } else collapse(Date.now() - dragEnded.current < 500 ? 1500 : 350); }}
+        onMouseLeave={(e) => {
+          if (drag.current) return;
+          // A window that just grew or moved can report a leave with the pointer still on the Island (Linux): not a leave.
+          const r = e.currentTarget.getBoundingClientRect();
+          if (e.clientX > r.left + 1 && e.clientX < r.right - 1 && e.clientY > r.top + 1 && e.clientY < r.bottom - 1) return;
+          if (view === 'compact') api.island.setInteractive?.(false); else if (view === 'alert' && alertOpen) { setAlertOpen(false); api.island.setExpanded(false); } else collapse(Date.now() - dragEnded.current < 500 ? 1500 : 350); }}
         onClick={(e) => {
           if (view !== 'compact') return;
           // Alt/Option-click hides the Island for a minute (alerts still come back after).

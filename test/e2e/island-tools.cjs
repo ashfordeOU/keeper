@@ -3,7 +3,7 @@
 // Drives the real Keeper app's Island tools: every tool opens, the converter
 // answers, emoji copy, a note survives a restart, the teleprompter scrolls,
 // sales from a stand-in payment service, AI usage from fixture files, and the
-// tool order the person chose is kept.
+// deck the person chose (pinned tools, in their order) is kept. Tools open through More.
 const { _electron } = require('playwright');
 const http = require('http');
 const fs = require('fs');
@@ -62,6 +62,15 @@ async function openPanel(app, isl, tab = 'home') {
   await wait(500);
 }
 
+/** Opens a tool through the deck's More (or its own deck tab when it is pinned). */
+async function openTool(isl, title) {
+  const pinned = isl.locator(`.isl-panel .tabs.deck button.deck-tab[title="${title}"]`);
+  if (await pinned.count()) { await pinned.click(); return; }
+  await isl.locator('[data-testid="island-more"]').click();
+  await wait(200);
+  await isl.locator(`.more-open[title="${title}"]`).click();
+}
+
 (async () => {
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   const port = server.address().port;
@@ -71,16 +80,16 @@ async function openPanel(app, isl, tab = 'home') {
   isl.on('pageerror', (e) => errors.push(e.message));
   await wait(2500);
 
-  // Every tool on.
-  await main.evaluate(() => window.keeper.settings.get().then((s) => window.keeper.settings.set({ island: { ...s.island, toolsOff: [], hoverOpen: false } })));
+  // Every tool on, nothing pinned: every tool is in More.
+  await main.evaluate(() => window.keeper.settings.get().then((s) => window.keeper.settings.set({ island: { ...s.island, toolsOff: [], deck: [], hoverOpen: false } })));
   await wait(800);
-  await openPanel(app, isl, 'home');
-  check(await isl.locator('.isl-panel').count() === 1, 'the Island opens into its panel');
-  const titles = await isl.$$eval('.isl-panel .tabs button[title]', (els) => els.map((e) => e.getAttribute('title')).filter((t) => t && !/awake/i.test(t)));
-  check(titles.length >= 20, `all ${titles.length} tools are offered (${titles.join(', ')})`);
+  await openPanel(app, isl, 'more');
+  check(await isl.locator('.isl-panel [data-testid="island-more-grid"]').count() === 1, 'the Island opens into More');
+  const titles = await isl.$$eval('.isl-panel .more-open[title]', (els) => els.map((e) => e.getAttribute('title')));
+  check(titles.length >= 20, `all ${titles.length} tools are offered in More (${titles.join(', ')})`);
   let empty = [];
   for (const t of titles) {
-    await isl.locator(`.isl-panel .tabs button[title="${t}"]`).click();
+    await openTool(isl, t);
     await wait(t === 'Emoji' ? 1200 : 500);
     const html = await isl.locator('.isl-panel .body').innerHTML();
     if (html.length < 40) empty.push(t);
@@ -89,7 +98,7 @@ async function openPanel(app, isl, tab = 'home') {
   check(empty.length === 0, `every tool shows something${empty.length ? ` (empty: ${empty.join(', ')})` : ''}`);
 
   // Converter
-  await isl.locator('.isl-panel .tabs button[title="Convert"]').click(); await wait(300);
+  await openTool(isl, 'Convert'); await wait(300);
   await isl.fill('.convert input', '5 ft in cm'); await wait(300);
   const conv = await isl.locator('.conv-ans').first().innerText().catch(() => '');
   check(conv === '152.4 cm', `the converter answers 5 ft in cm = ${conv}`);
@@ -97,33 +106,33 @@ async function openPanel(app, isl, tab = 'home') {
   check((await isl.locator('.conv-ans').first().innerText().catch(() => '')) === '212 °F', '100 °C is 212 °F');
 
   // Emoji search and copy
-  await isl.locator('.isl-panel .tabs button[title="Emoji"]').click(); await wait(1200);
+  await openTool(isl, 'Emoji'); await wait(1200);
   await isl.fill('.emoji input', 'pizza'); await wait(400);
   await isl.locator('.emoji .egrid button').first().click(); await wait(500);
   const clip = await app.evaluate(async ({ clipboard }) => clipboard.readText());
   check(clip === '🍕', `emoji search finds pizza and copies it (${clip})`);
 
   // AI usage from fixture files
-  await isl.locator('.isl-panel .tabs button[title="AI Usage"]').click(); await wait(1500);
-  const usage = await isl.locator('.usage').innerText();
-  check(/Codex[\s\S]*42%[\s\S]*17%/.test(usage), 'Codex limits are read from its session file (42% session, 17% weekly)');
-  check(/Claude Code[\s\S]*2\.5k tokens/.test(usage), 'Claude Code tokens are counted from its session file (2.5k)');
+  await openTool(isl, 'AI Usage'); await wait(1500);
+  // The tab shows the usage tracker's accounts (its own checks are in test/e2e/usage-tracker.cjs): here, that it opens.
+  const usage = await isl.locator('.itool.iu').first().innerText().catch(() => '');
+  check(usage.length > 10, `AI Usage opens and shows the tracker (${usage.slice(0, 40).replace(/\s+/g, ' ')}…)`);
 
   // Sales from the stand-in service
   await isl.evaluate(() => window.keeper.islandTools.setSalesProvider('stripe', 'rk_test_123'));
-  await isl.locator('.isl-panel .tabs button[title="Sales"]').click(); await wait(1800);
+  await openTool(isl, 'Sales'); await wait(1800);
   const sales = await isl.locator('.sales').innerText();
   check(/\$30\.50/.test(sales) && /2 sales/.test(sales), `sales today are totalled, failed charges left out (${(sales.match(/\$[\d.,]+/) ?? [''])[0]})`);
   await isl.screenshot({ path: path.join(SHOTS, 'app-sales-connected.png') });
 
   // A quick note
-  await isl.locator('.isl-panel .tabs button[title="Notes"]').click(); await wait(400);
+  await openTool(isl, 'Notes'); await wait(400);
   await isl.locator('.notes button[title="New note"]').click(); await wait(300);
   await isl.locator('.notes textarea').fill('# Keeper test note\nremember the milk');
   await wait(1200);
 
   // Teleprompter scrolls
-  await isl.locator('.isl-panel .tabs button[title="Prompter"]').click(); await wait(400);
+  await openTool(isl, 'Prompter'); await wait(400);
   await isl.locator('.prompter-edit button', { hasText: 'New' }).click(); await wait(300);
   await isl.locator('.prompter-edit textarea').fill(Array.from({ length: 30 }, (_, i) => `Line ${i + 1} of the script, read slowly and clearly.`).join('\n'));
   await isl.locator('.prompter-edit button', { hasText: 'Done' }).click(); await wait(300);
@@ -133,14 +142,22 @@ async function openPanel(app, isl, tab = 'home') {
   check(y < -10, `the teleprompter scrolls after its countdown (${tr})`);
   await isl.screenshot({ path: path.join(SHOTS, 'app-prompter-running.png') });
 
-  // Reorder: move Notes left twice through the tab's menu.
-  const before = await isl.$$eval('.isl-panel .tabs button[title]', (els) => els.map((e) => e.getAttribute('title')));
+  // The deck: pin three tools from More, then move Notes left twice through its tab's menu.
+  const deckTitles = () => isl.$$eval('.isl-panel .tabs.deck button.deck-tab[title]', (els) => els.filter((e) => !e.classList.contains('deck-more') && !e.classList.contains('deck-live')).map((e) => e.getAttribute('title')));
+  for (const id of ['home', 'convert', 'notes']) {
+    await isl.locator('[data-testid="island-more"]').click(); await wait(250);
+    await isl.locator(`[data-testid="island-pin-${id}"]`).click(); await wait(500);
+  }
+  const before = await deckTitles();
+  check(before.join() === 'Home,Convert,Notes', `pins from More land on the deck in order (${before.join(', ')})`);
   for (let i = 0; i < 2; i++) {
-    await isl.locator('.isl-panel .tabs button[title="Notes"]').click({ button: 'right' }); await wait(250);
+    await isl.locator('.isl-panel .tabs.deck button.deck-tab[title="Notes"]').click({ button: 'right' }); await wait(250);
     await isl.locator('.tab-menu button', { hasText: 'Move left' }).click(); await wait(500);
   }
-  const after = await isl.$$eval('.isl-panel .tabs button[title]', (els) => els.map((e) => e.getAttribute('title')));
-  check(after.indexOf('Notes') === before.indexOf('Notes') - 2, `a tool moves left from its tab's menu (${before.indexOf('Notes')} → ${after.indexOf('Notes')})`);
+  const after = await deckTitles();
+  check(after.join() === 'Notes,Home,Convert', `a pinned tool moves left from its tab's menu (${after.join(', ')})`);
+  const saved = await main.evaluate(async () => (await window.keeper.settings.get()).island.deck);
+  check(JSON.stringify(saved) === '["notes","home","convert"]', `the deck is saved (${JSON.stringify(saved)})`);
 
   check(errors.length === 0, `no page errors${errors.length ? `: ${errors.slice(0, 3).join(' | ')}` : ''}`);
   await app.close();
@@ -152,8 +169,8 @@ async function openPanel(app, isl, tab = 'home') {
   const store = await isl.evaluate(() => window.keeper.islandTools.store());
   check(store.notes.some((n) => n.text.includes('remember the milk')), 'the quick note is still there after a restart');
   await openPanel(app, isl, 'home');
-  const again = await isl.$$eval('.isl-panel .tabs button[title]', (els) => els.map((e) => e.getAttribute('title')));
-  check(again.indexOf('Notes') === after.indexOf('Notes'), 'the tool order is kept after a restart');
+  const again = await isl.$$eval('.isl-panel .tabs.deck button.deck-tab[title]', (els) => els.filter((e) => !e.classList.contains('deck-more') && !e.classList.contains('deck-live')).map((e) => e.getAttribute('title')));
+  check(again.join() === after.join(), `the deck is kept after a restart (${again.join(', ')})`);
   await app.close();
   server.close();
 })().catch((e) => { console.error(e); process.exitCode = 1; server.close(); });

@@ -106,6 +106,12 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - Choose which calendars the Island shows: a Calendars button in the Calendar tab and Settings → Island → Calendars in the Island list every calendar under its account, with its colour, a tick, and Show all / Hide all. It is the calendar's own Island switch (also in Mail & Calendar), so the Calendar and Week tabs and the countdown to the next event follow it.
 - Settings → Island → Advanced (macOS): Window type, Standard (default) or Panel, the floating panel Keeper used before. The Island is made again when it changes.
 
+### Changed — Island deck
+- The open Island has a deck instead of a row of every tool: up to four pinned views (Home, Shelf, Week and Timer to start with) and More, a grid of every other tool with recent ones first, a filter (just start typing), and the tool launcher at the bottom. The bar never scrolls or runs off the edge; only the open view shows its name, and when room is short a live view gives up its place first, then the names.
+- Pin, unpin and reorder in More (a pin on each tool, drag onto the deck's four places; pinning a fifth asks which one to replace), from a deck icon's right-click menu (Move left, Move right, Unpin), or in Settings → Island → Deck and tools. Settings from before keep the person's first four tools in their order; anyone who never changed them gets the new deck.
+- While music plays, an agent works, a timer runs or something records and its view is not pinned, it borrows a place before More until it ends.
+- Calendar is called Week on the deck and the planner's week of tasks is called Planner. Keep awake and Stage moved from the tab bar to Home's status line.
+
 ### Fixed — Island
 - macOS: the Island is a plain borderless window instead of a panel, so macOS 26 no longer draws a grey rounded backdrop behind the open Island. Its scroll bars are dark and thin, with no light square in the corner.
 - Opening the Island no longer takes the keyboard, so it never brings Keeper or its main window to the front; it takes the keyboard when you click a field in it (or the New task shortcut opens it). The closed pill never takes focus.

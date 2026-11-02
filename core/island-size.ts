@@ -25,7 +25,10 @@ export const PANEL_PX: Record<PanelSize, { w: number; h: number }> = {
  * adds its entry here (e.g. home: { w: 600, h: 176 }); without one a tab opens at defaultSizeFor().
  * Compact / Regular / Large / Extra large stay the person's overrides.
  */
-export const TAB_PANEL_PX: Partial<Record<string, { w: number; h: number }>> = {};
+export const TAB_PANEL_PX: Partial<Record<string, { w: number; h: number }>> = {
+  // More: the deck's four places, a filter and a grid of 64 × 56 tools, six to a row (scrolls past four rows).
+  more: { w: 600, h: 300 },
+};
 
 /** Tabs that show a lot at once (a month, a week, notes, mail) and open Large by default. */
 export const BIG_TABS: readonly string[] = ['calendar', 'week', 'notes', 'mail'];

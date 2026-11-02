@@ -213,7 +213,9 @@ describe('tool order', () => {
     expect(t).not.toContain('sales');
     expect(t).not.toContain('emoji');
     expect(t).toContain('ask');
-    expect(orderedTools(undefined, undefined)).not.toContain('sales');
+    // Every tool is offered in More unless turned off (or its feature is off, which `available` checks).
+    expect(orderedTools(undefined, undefined)).toContain('sales');
+    expect(orderedTools(undefined, undefined, (id) => id !== 'sales')).not.toContain('sales');
     expect(moveTool(undefined, 'emoji', 0)[0]).toBe('emoji');
     expect(toggleTool(undefined, 'sales', true)).not.toContain('sales');
     expect(toggleTool([], 'ask', false)).toEqual(['ask']);

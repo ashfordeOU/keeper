@@ -85,7 +85,7 @@ export function IslandSettings() {
       <h2 style={{ margin: '8px 0' }}>Placement</h2>
       <PlacementSettings isl={isl} set={set} />
 
-      <h2 style={{ margin: '18px 0 8px' }}>Tools</h2>
+      <h2 style={{ margin: '18px 0 8px' }}>Deck and tools</h2>
       <IslandToolsSettings isl={isl} set={set} />
 
       <h2 style={{ margin: '18px 0 8px' }}>Open Island size</h2>

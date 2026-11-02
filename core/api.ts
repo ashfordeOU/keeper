@@ -368,6 +368,8 @@ export interface IslandSettings {
   /** the Island's tools in the person's order, and the ones turned off (see core/island-tools/tools.ts) */
   toolOrder?: string[];
   toolsOff?: string[];
+  /** the tools pinned to the open Island's deck, in order (at most four; the rest are in More). Settings from before it get one (core/island-tools/tools.ts migrateDeck) */
+  deck?: string[];
   /** a shortcut that opens the Island from anywhere */
   openShortcut?: string;
   /** a sound while focusing: off, white, pink or brown noise, or rain */
