@@ -10,6 +10,7 @@ import { api } from '../api';
 import { useStore } from '../state';
 import { Icon } from './Icon';
 import { NavSection } from './NavSection';
+import { useHiddenRoutes } from '../features';
 import { ContextMenu, Modal, type MenuItem } from './ui';
 import '../styles/link.css';
 
@@ -34,17 +35,23 @@ export function DeviceDot({ d }: { d: Pick<LinkDevice, 'online' | 'via'> }) {
 }
 
 /** Sidebar: your devices, with drop-to-send. */
-export function DevicesSidebar() {
+/** The Devices section: paired devices and phones, then the section's other pages (Remote Desktops, Terminal). */
+export function DevicesSidebar({ children }: { children?: React.ReactNode }) {
   const { route, go, toast } = useStore();
   const [s] = useLink();
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
   const [over, setOver] = useState<string | null>(null);
+  const hidden = useHiddenRoutes();
+  const devicesRow = (label: string, icon: string) => hidden.has('devices') ? null : (
+    <button className={`nav-item ${(route.name === 'devices' && !route.arg) || route.name === 'mesh' ? 'active' : ''}`} data-nav-key="nav:devices" onClick={() => go({ name: 'devices' })} title="Pair a device, phones, access from anywhere">
+      <Icon name={icon} size={15} /><span className="label ellipsis">{label}</span>
+    </button>
+  );
   if (!s || s.settings.mode === 'off') {
     return (
       <NavSection id="devices" title="Devices">
-        <button className={`nav-item ${route.name === 'devices' ? 'active' : ''}`} onClick={() => go({ name: 'devices' })} title="Devices">
-          <Icon name="link" size={15} /><span className="label ellipsis">Devices</span>
-        </button>
+        {devicesRow('Devices', 'link')}
+        {children}
       </NavSection>
     );
   }
@@ -94,9 +101,8 @@ export function DevicesSidebar() {
           <DeviceDot d={{ online: c.online, via: 'lan' }} />
         </button>
       ))}
-      <button className={`nav-item ${route.name === 'devices' && !route.arg ? 'active' : ''}`} onClick={() => go({ name: 'devices' })} title="Pair a device, phones, remote access">
-        <Icon name="plus" size={15} /><span className="label ellipsis">{s.devices.length ? 'Devices & Remote' : 'Pair a Device'}</span>
-      </button>
+      {devicesRow(s.devices.length ? 'Devices' : 'Pair a Device', s.devices.length ? 'link' : 'plus')}
+      {children}
       {menu ? <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} /> : null}
     </NavSection>
   );

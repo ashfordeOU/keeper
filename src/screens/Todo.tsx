@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
-// To do: everything Keeper found worth doing about space, storage, security,
+// Fix-it List (was To do): everything Keeper found worth doing about space, storage, security,
 // privacy, speed, the network, backups and updates — most important first —
 // each with a fix that is done for you or walked through step by step.
 

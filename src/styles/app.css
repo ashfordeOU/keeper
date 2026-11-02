@@ -164,6 +164,9 @@ html[data-platform='win32'] .sidebar .brand, html[data-platform='linux'] .sideba
 .sidebar .brand .brand-name small { font-size: 10.5px; font-weight: 500; color: var(--text-3); letter-spacing: .01em; }
 .sidebar .brand .logo { width: 26px; height: 26px; border-radius: 8px; background: linear-gradient(135deg, #6d6dff, #ff6fa3); display: grid; place-items: center; color: #fff; }
 html[data-look='minimal'] .sidebar .brand .logo { background: var(--text); color: var(--bg); }
+/* Settings at the foot of the sidebar: always in view, under whatever is open above it. */
+.sidebar-foot { order: 9999; margin-top: auto; position: sticky; bottom: -12px; padding: 8px 0 12px; margin-bottom: -12px; background: inherit; border-top: 1px solid var(--line); }
+.sidebar-col.rail-open .sidebar-foot, .sidebar-col:not(.rail) .sidebar-foot { background: var(--bg-sunk); }
 .nav-section { margin-top: 12px; }
 .nav-title { font-size: 11px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: .06em; padding: 6px 10px 4px; display: flex; justify-content: space-between; align-items: center; }
 /* Sections open and close from their title, each in its own colour. */
@@ -276,6 +279,27 @@ html[data-look='minimal'] .toggle.on::after { background: var(--bg); }
 .seg { display: inline-flex; background: var(--bg-sunk); border: 1px solid var(--line); border-radius: 9px; padding: 2px; }
 .seg button { border: 0; background: none; height: 26px; padding: 0 10px; border-radius: 7px; color: var(--text-2); font-size: 12.5px; cursor: default; display: inline-flex; align-items: center; gap: 5px; }
 .seg button.on { background: var(--bg-elev); color: var(--text); box-shadow: var(--shadow); font-weight: 600; }
+
+/* The one tab bar (src/components/Tabs.tsx): tabs that do not fit go into "More". */
+.tabs { position: relative; display: flex; align-items: flex-end; gap: 4px; border-bottom: 1px solid var(--line); margin: -6px 0 16px; min-width: 0; }
+.tabs-row { display: flex; gap: 2px; min-width: 0; overflow: hidden; flex: 1 1 auto; }
+.tabs-row > [role='tab'], .tabs-measure-item, .tabs-more { appearance: none; border: 0; background: none; font: inherit; font-size: var(--fs-md); padding: 7px 10px 8px; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
+.tabs-row > [role='tab'] { color: var(--text-2); border-bottom: 2px solid transparent; margin-bottom: -1px; border-radius: var(--r-sm) var(--r-sm) 0 0; cursor: default; }
+.tabs-row > [role='tab']:hover { color: var(--text); background: var(--bg-hover, var(--bg-sunk)); }
+.tabs-row > [role='tab'][aria-selected='true'] { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
+.tabs-more { color: var(--text-2); border-radius: var(--r-sm); margin-bottom: 3px; padding: 4px 8px; flex: none; }
+.tabs-more:hover { color: var(--text); background: var(--bg-sunk); }
+.tabs-measure { position: absolute; left: 0; top: 0; height: 0; overflow: hidden; visibility: hidden; display: flex; gap: 2px; pointer-events: none; }
+.tabs-measure-item { font-weight: 600; }
+.tab-badge { font-size: var(--fs-xs); font-weight: 600; color: var(--text-3); }
+
+/* Native controls look like Keeper's own without needing .input (Stage, Countdown and others). */
+/* (Only unclassed controls in a page: anything with a class of its own keeps its look.) */
+.content :where(select, input:not([type]), input[type='text'], input[type='search'], input[type='number'], input[type='email'], input[type='url']):not([class]) {
+  height: 30px; padding: 0 8px; border-radius: var(--r-md); border: 1px solid var(--line-strong); background: var(--bg-elev); color: var(--text); font: inherit; min-width: 0;
+}
+.content :where(select, input:not([type]), input[type='text'], input[type='search'], input[type='number']):not([class]):focus-visible { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); outline: none; }
+.content :where(input[type='range'], input[type='checkbox'], input[type='radio']) { accent-color: var(--accent); }
 
 .check { width: 17px; height: 17px; border-radius: 5px; border: 1.5px solid var(--line-strong); display: grid; place-items: center; flex: none; background: var(--bg-elev); }
 .check.on { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }

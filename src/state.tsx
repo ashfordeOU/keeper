@@ -17,12 +17,13 @@ import { applyA11y } from './a11y';
 import { formatBytes } from '../core/format';
 import { asInspectorMode, clampInspectorWidth, inspectorVisible, nextForced, INSPECTOR_DEFAULT_WIDTH } from '../core/inspector';
 import { resolveView, viewScope, type FileView } from '../core/folder-view';
+import { resolveRoute } from '../core/nav';
 
 export type RouteName =
   | 'home' | 'recents' | 'library' | 'screenshots' | 'search' | 'browse' | 'downloads' | 'source' | 'tag' | 'saved'
   | 'duplicates' | 'cleanup' | 'space' | 'large' | 'startup' | 'apps' | 'protection' | 'rules' | 'history'
   | 'assistant' | 'island' | 'settings' | 'tools' | 'health' | 'capture' | 'annotate' | 'convert' | 'widgets' | 'ambience' | 'weather' | 'network' | 'trash' | 'remote' | 'terminal' | 'sync' | 'devices' | 'netactivity' | 'vpn' | 'firewall' | 'agents' | 'graph' | 'mail' | 'calendar' | 'reminders' | 'planner' | 'alarms' | 'todo' | 'awake' | 'stage' | 'controls' | 'catalog' | 'appcontrols' | 'browsers' | 'noteshub' | 'notes' | 'rdc' | 'mesh' | 'tracks'
-  | 'cues' | 'dictation' | 'meetings' | 'aiusage' | 'studio';
+  | 'cues' | 'dictation' | 'meetings' | 'aiusage' | 'studio' | 'security';
 
 /** Pages that list files, where the Inspector can show. */
 export const FILE_ROUTES: RouteName[] = ['home', 'recents', 'library', 'screenshots', 'source', 'tag', 'search', 'saved', 'browse', 'downloads', 'large'];
@@ -174,7 +175,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return w;
   });
   const tab = activeTab(win);
-  const route = tab.route as Route;
+  // Old routes that moved (Keeper's processes → Health, …) land on the new place, from links, history and restored tabs alike.
+  const route = useMemo(() => resolveRoute(tab.route as Route), [tab.route]);
   const history = useRef<Route[]>([]);
   history.current = tab.back as Route[];
   const [info, setInfo] = useState<SystemInfo | null>(null);

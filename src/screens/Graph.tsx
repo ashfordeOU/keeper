@@ -198,7 +198,7 @@ export function Graph() {
   const KINDS = ['note', 'document', 'image', 'video', 'audio', 'code', 'archive'];
   return (
     <div className="graph-page">
-      <PageHead title={focus ? `Connections of ${focus.split(/[\\/]/).pop()}` : 'Knowledge graph'} sub={data ? `${g?.nodes.length ?? 0} nodes · ${g?.edges.length ?? 0} links${data.truncated ? ` · ${data.truncated} files left out to stay fast` : ''}` : 'Reading your library…'}>
+      <PageHead title={focus ? `Connections of ${focus.split(/[\\/]/).pop()}` : 'Knowledge Graph'} sub={data ? `${g?.nodes.length ?? 0} nodes · ${g?.edges.length ?? 0} links${data.truncated ? ` · ${data.truncated} files left out to stay fast` : ''}` : 'Reading your library…'}>
         {focus ? <button className="btn" onClick={() => go({ name: 'graph' })}>Whole library</button> : null}
         <input className="input" placeholder="Find in the graph" value={q} onChange={(e) => setQ(e.target.value)} style={{ width: 180 }}
           onKeyDown={(e) => {

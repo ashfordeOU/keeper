@@ -59,12 +59,12 @@ export function Mesh() {
   };
   const copy = (t: string) => void navigator.clipboard.writeText(t).then(() => toast(`Copied ${t}`));
 
-  if (!s) return <div><PageHead title="Mesh" /><Loading label="Reading the mesh…" /></div>;
+  if (!s) return <div><PageHead title="Private Network" /><Loading label="Reading the mesh…" /></div>;
 
   if (!s.feature)
     return (
       <div className="mesh-page">
-        <PageHead title="Mesh" sub="A private network between your paired devices" />
+        <PageHead title="Private Network" sub="A private network between your paired devices" />
         <Empty icon="graph" title="Keeper Mesh is off">Turn it on in Settings → Features → Connections. It needs Keeper Link.</Empty>
       </div>
     );
@@ -73,7 +73,7 @@ export function Mesh() {
 
   return (
     <div className="mesh-page">
-      <PageHead title="Mesh" sub="A private network between your paired devices. Any app reaches them by address or by name.">
+      <PageHead title="Private Network" sub="A private network between your paired devices. Any app reaches them by address or by name.">
         <label className="row mesh-switch" data-testid="mesh-switch">{s.on ? 'On' : 'Off'} <Toggle on={s.on} onChange={(on) => void act(api.mesh.setOn(on), on ? 'Mesh is on' : 'Mesh is off')} /></label>
         <button className="btn primary" disabled={busy} onClick={() => { const name = window.prompt('Name for the new network', s.networks.length ? 'Work' : 'Home'); if (name) void act(api.mesh.createNetwork(name), `Made “${name}”`); }}><Icon name="plus" size={13} /> New network</button>
       </PageHead>

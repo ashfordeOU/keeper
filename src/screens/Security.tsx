@@ -13,6 +13,7 @@ import { api } from '../api';
 import { KeeperOwnConnections } from '../components/UsageStatsPanel';
 import { Icon } from '../components/Icon';
 import { Empty, Loading, PageHead, Toggle } from '../components/ui';
+import { Tabs } from '../components/Tabs';
 import { openGuide } from '../guide';
 import { useStore } from '../state';
 import { Ring } from './Protection';
@@ -67,12 +68,12 @@ export function Security() {
   }, [load]);
 
   useEffect(() => {
-    if (route.name === 'protection' && route.arg) setTab(route.arg as Tab);
+    if (route.name === 'security' && route.arg) setTab(route.arg as Tab);
   }, [route]);
 
   const switchTo = (t: Tab) => {
     setTab(t);
-    go({ name: 'protection', arg: t === 'overview' ? undefined : t });
+    go({ name: 'security', arg: t === 'overview' ? undefined : t });
   };
 
   return (
@@ -81,14 +82,7 @@ export function Security() {
         <button className="btn" onClick={() => void api.security.exportReport()}><Icon name="down" size={14} /> Save report</button>
         <button className="btn" onClick={() => void load(true)} disabled={busy}>{busy ? <div className="spinner" /> : <Icon name="refresh" size={14} />} Check again</button>
       </PageHead>
-      <div className="sec-tabs" role="tablist">
-        {TABS.map((t) => (
-          <button key={t.id} role="tab" aria-selected={tab === t.id} className={`sec-tab ${tab === t.id ? 'on' : ''}`} onClick={() => switchTo(t.id)}>
-            <Icon name={t.icon} size={14} /> {t.label}
-            {t.area && ov?.counts[t.area] ? <span className="sec-count">{ov.counts[t.area]}</span> : null}
-          </button>
-        ))}
-      </div>
+      <Tabs label="Privacy and security checks" value={tab} onChange={switchTo} items={TABS.map((t) => ({ id: t.id, text: t.label, label: <><Icon name={t.icon} size={14} /> {t.label}</>, badge: t.area && ov?.counts[t.area] ? ov.counts[t.area] : undefined }))} />
       {error ? <Empty icon="warning" title="Could not check">{error}</Empty> : null}
       {!ov && !error ? <Loading label="Looking at your computer…" /> : null}
       {ov ? (

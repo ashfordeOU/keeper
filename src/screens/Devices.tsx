@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
-// Devices & Remote: this device, the devices paired with it and what each may
+// Devices: this device, the devices paired with it and what each may
 // do, pairing a new one, files and ports between them, your phone, and how
 // far Keeper Link reaches (this network only, or the internet through a
 // Cloudflare tunnel or a relay).
 
 import { Learn } from '../components/Learn';
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import type { CompanionInvite, LinkDevice, LinkMode, LinkState, NearbyDevice, PairInvite, RemoteEntry } from '../../core/api-link';
 import { formatBytes, relativeTime } from '../../core/format';
 import { PERMISSIONS, type Permission } from '../../core/link/perms';
@@ -16,35 +16,42 @@ import { DeviceScreenCard, PhoneMirrorCard, ScreenLog } from '../screen/ScreenPa
 import { ViewerView } from '../screen/ViewerView';
 import { AuditCard, DeviceGrid, DeviceManage, HelpCard, SurfacesCard, UnattendedCard } from './DevicesRemote';
 import { Empty, Modal, PageHead, Toggle } from '../components/ui';
-import { useStore } from '../state';
+import { useStore, type Route } from '../state';
+import { HUB_TABS } from '../../core/nav';
+import { Tabs } from '../components/Tabs';
+import { Embedded, HubContext } from '../components/page-context';
+import { useFeature } from '../features';
 import '../styles/link.css';
 
 const clean = (e: unknown) => (e instanceof Error ? e.message : String(e)).replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
 
+// Keeper Mesh (the Private network tab) loads the first time it opens.
+const Mesh = lazy(() => import('./Mesh').then((m) => ({ default: m.Mesh })));
+
 export function Devices() {
   const { route, go } = useStore();
   const [s, reload] = useLink();
+  const meshOn = useFeature('keeperMesh');
   const [pairing, setPairing] = useState<'host' | 'join' | null>(null);
   if (!s) return <div className="spinner" />;
   const dev = s.devices.find((d) => d.id === route.arg);
   // A remote screen opened in a Keeper tab.
   if (route.arg?.startsWith('screen:')) return <div className="link-page embedded-viewer"><ViewerView sid={route.arg.slice(7)} embedded /></div>;
   const helpArg = route.arg === 'help' ? '' : route.arg?.startsWith('help=') ? route.arg.slice(5) : undefined;
-  const tab = dev ? 'device' : route.arg === 'phone' ? 'phone' : route.arg === 'remote' || route.arg === 'audit' || helpArg !== undefined ? 'remote' : 'devices';
+  const tab = route.name === 'mesh' ? 'mesh' : dev ? 'device' : route.arg === 'phone' ? 'phone' : route.arg === 'remote' || route.arg === 'audit' || helpArg !== undefined ? 'remote' : 'devices';
+  // Paired · Phone · Access from anywhere · Private network (Keeper Mesh, while it is on), and the device you opened.
+  const tabs = HUB_TABS.devices.filter((t) => t.route.name !== 'mesh' || meshOn).map((t) => ({ id: t.route.name === 'mesh' ? 'mesh' : t.route.arg ?? 'devices', label: t.label, route: t.route }));
+  const bar = <Tabs label="Devices" value={tab} onChange={(id) => { const t = tabs.find((x) => x.id === id); if (t) go(t.route as Route); }} items={[...tabs, ...(dev ? [{ id: 'device', label: dev.name }] : [])]} />;
   return (
+    <HubContext.Provider value={{ title: 'Devices', tabs: bar }}>
     <div className="link-page">
-      <PageHead title="Devices & Remote" sub="Your computers and phones, connected end to end. Pair once, then send files, open shared folders and reach ports — on this network or from anywhere.">
+      <PageHead title="Devices" sub="Your computers and phones, connected end to end. Pair once, then send files, open shared folders and reach ports — on this network or from anywhere.">
         <button className="btn primary" onClick={() => setPairing('host')}><Icon name="plus" size={14} /> Pair a Device</button>
       </PageHead>
-      <div className="seg link-tabs">
-        <button className={tab === 'devices' ? 'on' : ''} onClick={() => go({ name: 'devices' })}>Devices</button>
-        <button className={tab === 'phone' ? 'on' : ''} onClick={() => go({ name: 'devices', arg: 'phone' })}>Phone</button>
-        <button className={tab === 'remote' ? 'on' : ''} onClick={() => go({ name: 'devices', arg: 'remote' })}>Remote Access</button>
-        {dev ? <button className="on">{dev.name}</button> : null}
-      </div>
-      {tab === 'devices' ? <Overview s={s} onPair={setPairing} /> : tab === 'phone' ? <><Phone s={s} /><div style={{ height: 14 }} /><div className="col" style={{ gap: 14 }}><PhoneMirrorCard /></div></> : tab === 'remote' ? <div className="col" style={{ gap: 14 }}>{helpArg !== undefined ? <HelpCard prefill={helpArg || undefined} /> : null}<Remote s={s} reload={reload} />{helpArg === undefined ? <HelpCard /> : null}<UnattendedCard s={s} /><SurfacesCard s={s} reload={reload} /><AuditCard /><ScreenLog /></div> : <DeviceDetail s={s} d={dev!} />}
+      {tab === 'mesh' ? <Embedded><Suspense fallback={null}><Mesh /></Suspense></Embedded> : tab === 'devices' ? <Overview s={s} onPair={setPairing} /> : tab === 'phone' ? <><Phone s={s} /><div style={{ height: 14 }} /><div className="col" style={{ gap: 14 }}><PhoneMirrorCard /></div></> : tab === 'remote' ? <div className="col" style={{ gap: 14 }}>{helpArg !== undefined ? <HelpCard prefill={helpArg || undefined} /> : null}<Remote s={s} reload={reload} />{helpArg === undefined ? <HelpCard /> : null}<UnattendedCard s={s} /><SurfacesCard s={s} reload={reload} /><AuditCard /><ScreenLog /></div> : <DeviceDetail s={s} d={dev!} />}
       {pairing ? <PairDialog start={pairing} onClose={() => setPairing(null)} /> : null}
     </div>
+    </HubContext.Provider>
   );
 }
 
@@ -81,7 +88,7 @@ function Overview({ s, onPair }: { s: LinkState; onPair: (m: 'host' | 'join') =>
             {!s.me.keyProtected ? <span className="badge warn" title="There is no system keychain here, so this device's key is kept in a file only your account can read.">Key in a private file</span> : null}
           </div>
         </div>
-        <button className="btn" onClick={() => go({ name: 'devices', arg: 'remote' })}><Icon name="globe" size={14} /> Remote Access</button>
+        <button className="btn" onClick={() => go({ name: 'devices', arg: 'remote' })}><Icon name="globe" size={14} /> Access from Anywhere</button>
       </div>
 
       {s.devices.length ? (
@@ -400,9 +407,9 @@ function Phone({ s }: { s: LinkState }) {
           <p className="small muted">Scan the code with the camera on an iPhone, iPad or Android phone. It opens a small Keeper page in the browser where you can send photos and files here, open your shared folders and use the clipboard. Everything between the phone and this computer is encrypted with a key that is only in the QR code.</p>
           <div className="btn-row">
             <button className="btn primary" disabled={s.settings.mode === 'off'} onClick={() => show(false)}><Icon name="phone" size={14} /> Show QR Code (this network)</button>
-            <button className="btn" disabled={!tunnelUp} title={tunnelUp ? '' : 'Start a tunnel under Remote Access first'} onClick={() => show(true)}><Icon name="globe" size={14} /> From Anywhere (tunnel)</button>
+            <button className="btn" disabled={!tunnelUp} title={tunnelUp ? '' : 'Start a tunnel under Access from anywhere first'} onClick={() => show(true)}><Icon name="globe" size={14} /> From Anywhere (tunnel)</button>
           </div>
-          {s.settings.mode === 'off' ? <div className="small muted" style={{ marginTop: 6 }}>Turn Keeper Link on under Remote Access first.</div> : null}
+          {s.settings.mode === 'off' ? <div className="small muted" style={{ marginTop: 6 }}>Turn Keeper Link on under Access from anywhere first.</div> : null}
           {error ? <div className="small danger-text">{error}</div> : null}
         </div>
         {inv ? (

@@ -15,6 +15,30 @@ export type FeatureGroup = 'Library' | 'Tidy' | 'Island' | 'Desktop' | 'AI' | 'C
 
 export const FEATURE_GROUPS: FeatureGroup[] = ['Library', 'Tidy', 'Island', 'Desktop', 'AI', 'Connections', 'System'];
 
+/**
+ * The one taxonomy for the sidebar's sections, Settings → Features and the palette:
+ * each feature belongs to one of these (`navGroup`), and so does each page (core/nav.ts).
+ */
+export type NavGroup = 'files' | 'pim' | 'notes' | 'tidy' | 'sync' | 'computer' | 'security' | 'devices' | 'ai' | 'screen' | 'desktop' | 'island' | 'general';
+
+/** `within`: a group shown inside another one's sidebar section (the Island's page sits under Desktop). */
+export const NAV_GROUPS: { id: NavGroup; title: string; within?: NavGroup }[] = [
+  { id: 'files', title: 'Files' },
+  { id: 'pim', title: 'Mail & Calendar' },
+  { id: 'notes', title: 'Notes' },
+  { id: 'tidy', title: 'Tidy' },
+  { id: 'sync', title: 'Sync & Backup' },
+  { id: 'computer', title: 'Computer' },
+  { id: 'security', title: 'Privacy & Security' },
+  { id: 'devices', title: 'Devices' },
+  { id: 'ai', title: 'AI' },
+  { id: 'screen', title: 'Screen' },
+  { id: 'desktop', title: 'Desktop' },
+  { id: 'island', title: 'Island', within: 'desktop' },
+  // Keeper itself (Quick Search, the menu bar icon, opening at login, updates): parts with no page of their own.
+  { id: 'general', title: 'Keeper itself' },
+];
+
 export type CostLevel = 'none' | 'low' | 'medium' | 'high';
 
 export interface FeatureCost {
@@ -31,6 +55,8 @@ export interface FeatureDef {
   name: string;
   description: string;
   group: FeatureGroup;
+  /** its sidebar section and Settings → Features group (NAV_GROUP below fills it in) */
+  navGroup?: NavGroup;
   defaultOn: boolean;
   cost: FeatureCost;
   /** other features this one needs; it is off while any of them is off */
@@ -242,6 +268,26 @@ for (const f of FEATURES) {
 function staticNormal(n: Normal): boolean {
   return n === 'on' || n === 'parent' || n === 'enoughMemory' || n === 'notWindows' || n === 'notMac';
 }
+
+/** Each feature's section in the sidebar and in Settings → Features (the same groups). */
+const NAV_GROUP: Record<NavGroup, string[]> = {
+  files: ['library', 'sources', 'docText', 'ocr', 'places', 'network', 'lock', 'remote'],
+  pim: ['mail', 'calendars', 'planner', 'insights', 'alarms'],
+  notes: ['notes', 'cues', 'notesHub', 'notesSync'],
+  tidy: ['cleanup', 'duplicates', 'space', 'convert', 'rules', 'history', 'fileKit', 'workflows', 'faces', 'speechModel'],
+  sync: ['sync'],
+  computer: ['health', 'processes', 'monitorHistory', 'monitorTray', 'devServers', 'containers', 'monitorSensors', 'startupItems', 'guide', 'keepAwake', 'quickControls', 'quickControlsNetwork', 'quickControlsFirewall', 'quickControlsPrivacy', 'quickControlsSecurity', 'settingsCatalog', 'appControls', 'browserTabs', 'displayControl', 'displayKeys'],
+  security: ['protection', 'security', 'netwatch', 'firewall'],
+  devices: ['link', 'remoteScreen', 'keeperMesh', 'meshDirectHandoff', 'remoteDesktops', 'rdcHosting', 'linkDirect', 'remoteFleet', 'remoteTerminal', 'remoteCommands', 'remoteHelp', 'screenExtras', 'unattendedAccess', 'waylandControl', 'mirroring', 'terminal'],
+  ai: ['writingHelp', 'brain', 'semantic', 'assistant', 'abilities', 'aiAgents', 'usageTracker', 'agentHub', 'dictation', 'dictationHold', 'meetings', 'meetingDetect'],
+  screen: ['capture', 'studio', 'stage', 'stageAuto', 'tools', 'videoDownload'],
+  desktop: ['widgets', 'wallpaper', 'vibes', 'ambientSound', 'folderIcons', 'weather', 'tracks', 'tracksLive', 'tracksServices', 'monorail'],
+  island: ['island', 'clipboard', 'media', 'agents', 'focus', 'islandWeather', 'islandAsk', 'islandUsage', 'islandSales', 'islandStocks', 'islandNotes', 'islandTodos', 'islandPlanner', 'islandInsights', 'islandPrompter', 'calendar', 'micIndicator', 'notifyMirror', 'hideInFullscreen', 'islandCalls', 'islandHud'],
+  general: ['toolLauncher', 'quickSearch', 'tray', 'login', 'platform', 'updates', 'usageStats'],
+};
+const FALLBACK_NAV: Record<FeatureGroup, NavGroup> = { Library: 'files', Tidy: 'tidy', Island: 'island', Desktop: 'desktop', AI: 'ai', Connections: 'devices', System: 'computer' };
+for (const [g, ids] of Object.entries(NAV_GROUP) as [NavGroup, string[]][]) for (const f of FEATURES) if (!f.navGroup && ids.includes(f.id)) f.navGroup = g;
+for (const f of FEATURES) f.navGroup ??= FALLBACK_NAV[f.group];
 
 /** Pages and palette commands that belong to Keeper itself and cannot be switched off (settings and appearance). */
 export const CORE = {

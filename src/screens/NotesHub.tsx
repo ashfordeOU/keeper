@@ -41,7 +41,7 @@ export function NotesHub() {
   const review = ov.conflicts + ov.duplicates;
   return (
     <div className="nh-page">
-      <PageHead title="Notes Everywhere" sub={<>{ov.notes.toLocaleString()} notes from {ov.apps} app{ov.apps === 1 ? '' : 's'} · kept in <span className="mono">{ov.hubFolder}</span></>} />
+      <PageHead title="Notes from Other Apps" sub={<>{ov.notes.toLocaleString()} notes from {ov.apps} app{ov.apps === 1 ? '' : 's'} · kept in <span className="mono">{ov.hubFolder}</span></>} />
       <div className="seg nh-tabs" role="tablist">
         {(Object.keys(TAB_LABEL) as Tab[]).map((t) => (
           <button key={t} role="tab" data-testid={`nh-tab-${t}`} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>

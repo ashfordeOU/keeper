@@ -22,7 +22,7 @@ export function Downloads() {
 
   return (
     <div>
-      <PageHead title="Downloaded From" sub="Where your downloads came from, as recorded by your browser and system." />
+      <PageHead title="Download Sources" sub="Where your downloads came from, as recorded by your browser and system." />
       {sources.loading && !sources.data ? <Loading /> : sources.data?.length ? (
         <div className="source-grid">
           {sources.data.map((s) => (

@@ -19,7 +19,7 @@ export const GUIDE_UI: Table = {
   done: { en: 'Done', es: 'Hecho', de: 'Erledigt', fr: 'Terminé', 'pt-BR': 'Concluído', it: 'Fatto', ru: 'Готово', hi: 'पूरा हुआ', ja: '完了', 'zh-CN': '已完成' },
   stillNeeded: { en: 'Still needed', es: 'Aún pendiente', de: 'Noch nötig', fr: 'Encore nécessaire', 'pt-BR': 'Ainda necessário', it: 'Ancora da fare', ru: 'Ещё нужно', hi: 'अभी भी ज़रूरी', ja: 'まだ必要です', 'zh-CN': '仍需处理' },
   stepOf: { en: 'Step {n} of {total}', es: 'Paso {n} de {total}', de: 'Schritt {n} von {total}', fr: 'Étape {n} sur {total}', 'pt-BR': 'Passo {n} de {total}', it: 'Passo {n} di {total}', ru: 'Шаг {n} из {total}', hi: 'चरण {n} / {total}', ja: 'ステップ {n} / {total}', 'zh-CN': '第 {n} 步，共 {total} 步' },
-  todo: { en: 'To do', es: 'Pendiente', de: 'Zu erledigen', fr: 'À faire', 'pt-BR': 'A fazer', it: 'Da fare', ru: 'Нужно сделать', hi: 'करने के लिए', ja: 'やること', 'zh-CN': '待办' },
+  todo: { en: 'Fix-it List', es: 'Pendiente', de: 'Zu erledigen', fr: 'À faire', 'pt-BR': 'A fazer', it: 'Da fare', ru: 'Нужно сделать', hi: 'करने के लिए', ja: 'やること', 'zh-CN': '待办' },
   fix: { en: 'Fix', es: 'Arreglar', de: 'Beheben', fr: 'Corriger', 'pt-BR': 'Corrigir', it: 'Correggi', ru: 'Исправить', hi: 'ठीक करें', ja: '修正', 'zh-CN': '修复' },
   snooze: { en: 'Remind me in a week', es: 'Recordar en una semana', de: 'In einer Woche erinnern', fr: 'Me le rappeler dans une semaine', 'pt-BR': 'Lembrar em uma semana', it: 'Ricordamelo tra una settimana', ru: 'Напомнить через неделю', hi: 'एक हफ़्ते बाद याद दिलाएँ', ja: '1 週間後に通知', 'zh-CN': '一周后提醒我' },
   ignore: { en: 'Ignore', es: 'Ignorar', de: 'Ignorieren', fr: 'Ignorer', 'pt-BR': 'Ignorar', it: 'Ignora', ru: 'Игнорировать', hi: 'अनदेखा करें', ja: '無視', 'zh-CN': '忽略' },

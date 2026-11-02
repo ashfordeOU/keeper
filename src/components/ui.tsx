@@ -4,7 +4,8 @@
 
 import { tracksFileMenu } from '../screens/TracksSurfaces';
 import { shownIn } from '../screen/surfaces';
-import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { EmbeddedContext, HubContext, usePageHints } from './page-context';
 import { createPortal } from 'react-dom';
 import type { RenamePreview, RenameStep } from '../../core/rename';
 import type { FileEntry, FileKind } from '../../core/types';
@@ -833,15 +834,35 @@ export function SafetyBadge({ safety }: { safety: 'safe' | 'review' | 'permanent
   return <span className={`badge ${safety}`}>{label}</span>;
 }
 
-export function PageHead({ title, sub, children }: { title: ReactNode; sub?: ReactNode; children?: ReactNode }) {
-  return (
-    <div className="page-head">
-      <div>
-        <h1>{title}</h1>
-        {sub ? <div className="sub">{sub}</div> : null}
+/**
+ * A page's title, a line under it and its actions on the right. On a merged page
+ * (System Controls, Privacy & Security, Startup & Apps) the merged page's title
+ * shows, with its tabs right under the head; the page's hint cards follow.
+ */
+export function PageHead({ title, sub, children }: { title: ReactNode; sub?: ReactNode; /** actions, on the right of the title */ children?: ReactNode }) {
+  const hub = useContext(HubContext);
+  const embedded = useContext(EmbeddedContext);
+  const hints = usePageHints(!embedded);
+  if (embedded) {
+    return (
+      <div className="page-head embedded">
+        <div><h2>{title}</h2>{sub ? <div className="sub">{sub}</div> : null}</div>
+        {children ? <div className="btn-row">{children}</div> : null}
       </div>
-      {children ? <div className="btn-row">{children}</div> : null}
-    </div>
+    );
+  }
+  return (
+    <>
+      <div className="page-head">
+        <div className="page-head-text">
+          <h1>{hub?.title ?? title}</h1>
+          {sub ? <div className="sub">{sub}</div> : null}
+        </div>
+        {children ? <div className="btn-row page-actions">{children}</div> : null}
+      </div>
+      {hub?.tabs ?? null}
+      {hints}
+    </>
   );
 }
 

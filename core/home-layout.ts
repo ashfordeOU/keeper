@@ -26,7 +26,7 @@ export interface HomeSettings {
 }
 
 export const HOME_SECTIONS: { id: HomeSectionId; name: string; description: string }[] = [
-  { id: 'suggestions', name: 'Suggestions', description: 'One line, only when something is worth doing: low space or a finding on To do.' },
+  { id: 'suggestions', name: 'Suggestions', description: 'One line, only when something is worth doing: low space or a finding on the Fix-it List.' },
   { id: 'jump', name: 'Jump back in', description: 'Recent files, grouped by the project or folder they belong to.' },
   { id: 'today', name: 'Today', description: 'Today’s events, tasks due, and timers, Keep Awake or a recording while they run.' },
   { id: 'library', name: 'Library', description: 'All Images, All Videos, All Documents and so on, with counts.' },

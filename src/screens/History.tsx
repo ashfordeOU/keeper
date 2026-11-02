@@ -37,7 +37,7 @@ export function History() {
   const total = (list.data ?? []).reduce((n, e) => n + e.freed, 0);
   return (
     <div>
-      <PageHead title="History" sub={list.data?.length ? `${formatBytes(total)} freed across ${list.data.length} actions` : 'Everything Keeper changes on disk is recorded here.'} />
+      <PageHead title="Undo History" sub={list.data?.length ? `${formatBytes(total)} freed across ${list.data.length} actions` : 'Everything Keeper changes on disk is recorded here.'} />
       {list.loading ? <Loading /> : null}
       {list.data && !list.data.length ? <Empty icon="history" title="Nothing yet">Cleanups, moves, renames and rule runs will show up here.</Empty> : null}
       <div className="timeline">

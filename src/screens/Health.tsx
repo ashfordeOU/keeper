@@ -15,6 +15,10 @@ import { ForceQuitDialog, Processes, Services } from './Processes';
 import '../styles/screens-b.css';
 import '../styles/monitor.css';
 import { useFeature } from '../features';
+import { Tabs } from '../components/Tabs';
+import { Embedded, HubContext } from '../components/page-context';
+import { ProcessesPanel } from '../components/ProcessesPanel';
+import { Browsers } from './Browsers';
 
 // The monitor's deeper tabs load only when opened.
 const HealthHistory = lazy(() => import('./monitor/HealthHistory').then((m) => ({ default: m.HealthHistory })));
@@ -33,11 +37,12 @@ function uptime(sec: number): string {
   return d ? `${d}d ${h}h` : h ? `${h}h ${m}m` : `${m}m`;
 }
 
-type HealthTab = 'overview' | 'history' | 'processes' | 'dev' | 'containers' | 'apps' | 'sensors' | 'services' | 'settings';
+type HealthTab = 'overview' | 'history' | 'processes' | 'keeper' | 'dev' | 'containers' | 'apps' | 'sensors' | 'services' | 'settings';
 
 const TAB_SUB: Record<HealthTab, string> = {
   overview: '', history: 'Up to a year of how hard this computer worked', processes: 'Every program running on this computer, and what it uses',
-  dev: 'Coding agents, AI tools and dev servers, by project', containers: 'Docker or Podman containers and what they use', apps: 'Volume per app, browser tabs and energy', sensors: 'Graphics, temperatures, fans and power draw', services: 'Background services that start on their own',
+  keeper: 'What Keeper itself is running, what each part uses, and restarting one',
+  dev: 'Coding agents, AI tools and dev servers, by project', containers: 'Docker or Podman containers and what they use', apps: 'Volume, energy and memory per app, and your browser tabs', sensors: 'Graphics, temperatures, fans and power draw', services: 'Background services that start on their own',
   settings: 'Menu-bar readings, alerts, history, the tool launcher and where results go',
 };
 
@@ -47,15 +52,14 @@ function HealthTabs({ tab }: { tab: HealthTab }) {
   const dev = useFeature('devServers');
   const sensors = useFeature('monitorSensors');
   const containers = useFeature('containers');
-  const tabs = ([['overview', 'Overview'], ['history', 'History'], ['processes', 'Processes'], ['dev', 'Dev & agents'], ['containers', 'Containers'], ['apps', 'Sound & tabs'], ['sensors', 'Sensors'], ['services', 'Services'], ['settings', 'Settings']] as const)
+  const tabs = ([['overview', 'Overview'], ['processes', 'Processes'], ['keeper', 'Keeper itself'], ['history', 'History'], ['dev', 'Dev & agents'], ['containers', 'Containers'], ['apps', 'Apps & tabs'], ['sensors', 'Sensors'], ['services', 'Services'], ['settings', 'Settings']] as const)
     .filter(([id]) => (id !== 'history' || history) && (id !== 'dev' || dev) && (id !== 'sensors' || sensors) && (id !== 'containers' || containers));
-  return (
-    <div className="seg health-tabs" role="tablist">
-      {tabs.map(([id, label]) => (
-        <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? 'on' : ''} onClick={() => go({ name: 'health', arg: id === 'overview' ? undefined : id })}>{label}</button>
-      ))}
-    </div>
-  );
+  return <Tabs label="Health" value={tab} onChange={(id) => go({ name: 'health', arg: id === 'overview' ? undefined : id })} items={tabs.map(([id, label]) => ({ id, label }))} />;
+}
+
+/** Health's tabs sit right under its head (and its hint cards under them). */
+function HealthFrame({ tab, children }: { tab: HealthTab; children: React.ReactNode }) {
+  return <HubContext.Provider value={{ title: 'Health', tabs: <HealthTabs tab={tab} /> }}>{children}</HubContext.Provider>;
 }
 
 /** Health: an overview, every running process (a full task manager), and the system's services. */
@@ -63,14 +67,27 @@ export function Health() {
   const { route } = useStore();
   const arg = route.arg === 'force-quit' ? 'processes' : route.arg;
   const tab: HealthTab = arg && arg in TAB_SUB ? (arg as HealthTab) : 'overview';
-  if (tab === 'overview') return <HealthOverview />;
+  if (tab === 'overview') return <HealthFrame tab={tab}><HealthOverview /></HealthFrame>;
   return (
-    <div>
-      <PageHead title="Health" sub={TAB_SUB[tab]}><HealthTabs tab={tab} /></PageHead>
-      <Suspense fallback={<Loading />}>
-        {tab === 'processes' ? <Processes /> : tab === 'services' ? <Services /> : tab === 'history' ? <HealthHistory /> : tab === 'dev' ? <HealthDev /> : tab === 'sensors' ? <HealthSensors /> : tab === 'containers' ? <HealthContainers /> : tab === 'apps' ? <HealthApps /> : <div style={{ maxWidth: 820 }}><MonitorSettingsPanel /></div>}
-      </Suspense>
-    </div>
+    <HealthFrame tab={tab}>
+      <div>
+        <PageHead title="Health" sub={TAB_SUB[tab]} />
+        <Suspense fallback={<Loading />}>
+          {tab === 'processes' ? <Processes /> : tab === 'keeper' ? <div className="health-keeper card pad"><ProcessesPanel /></div> : tab === 'services' ? <Services /> : tab === 'history' ? <HealthHistory /> : tab === 'dev' ? <HealthDev /> : tab === 'sensors' ? <HealthSensors /> : tab === 'containers' ? <HealthContainers /> : tab === 'apps' ? <HealthAppsAndTabs /> : <div className="health-settings"><MonitorSettingsPanel /></div>}
+        </Suspense>
+      </div>
+    </HealthFrame>
+  );
+}
+
+/** Apps & tabs: volume, energy and memory per app, then every browser tab (was its own page, Browser tabs). */
+function HealthAppsAndTabs() {
+  const tabsOn = useFeature('browserTabs');
+  return (
+    <>
+      <HealthApps />
+      {tabsOn ? <div className="health-browsers"><Embedded><Browsers /></Embedded></div> : null}
+    </>
   );
 }
 
@@ -107,7 +124,7 @@ function HealthOverview() {
 
   return (
     <div>
-      <PageHead title="Health" sub={`${h.cpuModel} · ${h.cores} cores · up ${uptime(h.uptimeSec)}`}><button className="btn ghost sm" onClick={() => setShare(true)} title="A picture of the current readings to save or copy">Share card…</button><HealthTabs tab="overview" /></PageHead>
+      <PageHead title="Health" sub={`${h.cpuModel} · ${h.cores} cores · up ${uptime(h.uptimeSec)}`}><button className="btn ghost sm" onClick={() => setShare(true)} title="A picture of the current readings to save or copy">Share card…</button></PageHead>
       {share ? <Suspense fallback={null}><ShareCardDialog onClose={() => setShare(false)} /></Suspense> : null}
       <Suspense fallback={null}><LiveStrip /></Suspense>
       <div className="kv-grid" style={{ marginBottom: 16 }}>

@@ -2,6 +2,13 @@
 /* What themes need beyond the tokens in core/themes.ts (written to <html> by src/theme.ts):
    corner styles, density, a few theme signatures and code colours from the palette. */
 
+/* ------------------------------------------------------------------ type scale and corners
+   One set of sizes for text and corners; use these rather than raw pixels. */
+:root {
+  --fs-xs: 11px; --fs-sm: 12px; --fs-md: 13px; --fs-lg: 15px; --fs-xl: 18px; --fs-2xl: 24px;
+  --r-sm: 6px; --r-md: 8px; --r-lg: 12px; --r-pill: 999px;
+}
+
 /* The window background can be a gradient or pattern; panels keep the plain colour. */
 html:not([data-view='island']):not([data-view='quick']):not([data-view='widget']):not([data-view='clips']) body { background: var(--app-bg, var(--bg)); }
 

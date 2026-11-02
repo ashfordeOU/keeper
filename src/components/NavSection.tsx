@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // A sidebar section that opens and closes on a click of its title and stays
-// the way the person left it. Sections start folded (only their titles show,
-// plus the page you are on); the person opens the ones they want. Each section has its own colour. A long section
+// the way the person left it. Places and the everyday suite sections start open,
+// the rest folded (only their titles show, plus the page you are on); the person
+// opens the ones they want. Each section has its own colour. A long section
 // shows its most used items and "Show all" (Settings → Sidebar); the page you
 // are on always stays in view.
 
@@ -18,16 +19,20 @@ const KEY = 'sidebar.closed';
 const OPEN_KEY = 'sidebar.opened';
 const listeners = new Set<() => void>();
 
-function load(key: string): Set<string> {
+/** Open for someone who has not opened or closed any section yet (Balanced): the rest show their titles only. */
+export const DEFAULT_OPEN = ['library', 'favorites', 'locations', 'pim', 'tidy', 'computer', 'security'];
+
+function load(key: string, fallback: string[] = []): Set<string> {
   try {
-    return new Set(JSON.parse(localStorage.getItem(key) ?? '[]') as string[]);
+    const raw = localStorage.getItem(key);
+    return new Set(raw === null ? fallback : (JSON.parse(raw) as string[]));
   } catch {
-    return new Set();
+    return new Set(fallback);
   }
 }
 
 let closed = load(KEY);
-let opened = load(OPEN_KEY);
+let opened = load(OPEN_KEY, DEFAULT_OPEN);
 
 function save() {
   try {
@@ -89,9 +94,19 @@ export const SECTION_COLOR: Record<string, string> = {
   sync: '#10b981',
   pim: '#e8590c',
   tags: '#8b5cf6',
+  notes: '#eab308',
   tidy: '#22c55e',
-  system: '#f97316',
-  more: '#6366f1',
+  computer: '#f97316',
+  security: '#ef4444',
+  ai: '#6366f1',
+  screen: '#06b6d4',
+  desktop: '#d946ef',
+};
+
+/** Section names for Customize sidebar (the suite sections take theirs from core/features.ts NAV_GROUPS). */
+export const SECTION_NAMES: Record<string, string> = {
+  library: 'Library', saved: 'Saved searches', favorites: 'Favorites', locations: 'Locations', cloud: 'Cloud & Servers', devices: 'Devices', sync: 'Sync & Backup',
+  pim: 'Mail & Calendar', tags: 'Tags', notes: 'Notes', tidy: 'Tidy', computer: 'Computer', security: 'Privacy & Security', ai: 'AI', screen: 'Screen', desktop: 'Desktop',
 };
 
 export const SECTION_IDS = Object.keys(SECTION_COLOR);
@@ -113,7 +128,7 @@ export function NavSection({ id, title, children, className, menuItems = [], ...
   const { usage } = useSidebarLocal();
   const limit = compactionAllowed() ? settings?.sidebarSectionLimit ?? SECTION_LIMIT_DEFAULT : 0;
   const itemsRef = useRef<HTMLDivElement>(null);
-  const [counts, setCounts] = useState({ total: 0, more: 0 });
+  const [counts, setCounts] = useState({ total: 0, more: 0, measured: false });
   // Marks the items beyond the most used ones (they hide until "Show all"); runs again when the items change.
   useLayoutEffect(() => {
     const el = itemsRef.current;
@@ -125,7 +140,7 @@ export function NavSection({ id, title, children, className, menuItems = [], ...
       const keep = pickVisible(keys, usage, limit, activeRow ? navKeyOf(activeRow) : null, Date.now());
       let more = 0;
       rows.forEach((r, i) => { const m = !keep.has(keys[i]); if (m) more++; if (r.hasAttribute('data-more') !== m) r.toggleAttribute('data-more', m); });
-      setCounts((c) => (c.total === rows.length && c.more === more ? c : { total: rows.length, more }));
+      setCounts((c) => (c.total === rows.length && c.more === more && c.measured ? c : { total: rows.length, more, measured: true }));
     };
     apply();
     const mo = new MutationObserver(apply);
@@ -140,6 +155,9 @@ export function NavSection({ id, title, children, className, menuItems = [], ...
     <div
       {...rest}
       className={`nav-section ${isClosed ? 'closed' : ''} ${showAll ? 'show-all' : ''} ${className ?? ''}`}
+      data-section={id}
+      // Every page in it is off: the title goes too.
+      hidden={counts.total === 0 && counts.measured ? true : undefined}
       style={{ ['--sec' as string]: `var(--sec-${id}, ${SECTION_COLOR[id] ?? 'var(--accent)'})`, order }}
     >
       <button

@@ -20,14 +20,14 @@ type Dict = Record<string, string>;
 
 const en: Dict = {
   'nav.convert': 'Convert', 'nav.capture': 'Capture', 'nav.widgets': 'Widgets',
-  'nav.home': 'Home', 'nav.recents': 'Recents', 'nav.browse': 'Browse', 'nav.downloads': 'Downloaded From', 'nav.weather': 'Weather',
+  'nav.home': 'Home', 'nav.recents': 'Recents', 'nav.browse': 'Browse', 'nav.downloads': 'Download Sources', 'nav.weather': 'Weather',
   'section.library': 'Library', 'section.saved': 'Saved searches', 'section.pinned': 'Pinned', 'section.tags': 'Tags', 'section.tidy': 'Tidy', 'section.system': 'System', 'section.more': 'More',
   'kind.image': 'Images', 'kind.video': 'Videos', 'kind.audio': 'Music', 'kind.document': 'Documents', 'kind.archive': 'Archives', 'kind.installer': 'Installers', 'kind.app': 'Apps', 'kind.code': 'Code', 'kind.other': 'Other', 'kind.screenshot': 'Screenshots',
   'kindAll.image': 'All Images', 'kindAll.video': 'All Videos', 'kindAll.audio': 'All Music', 'kindAll.document': 'All Documents', 'kindAll.archive': 'All Archives', 'kindAll.installer': 'All Installers', 'kindAll.app': 'All Apps', 'kindAll.code': 'All Code', 'kindAll.other': 'All Other Files', 'kindAll.screenshot': 'All Screenshots',
   'nav.cleanup': 'Clean Up', 'nav.duplicates': 'Duplicates', 'nav.space': 'Space Map', 'nav.large': 'Large Files', 'nav.rules': 'Automations',
-  'nav.health': 'Health', 'nav.startup': 'Startup Items', 'nav.apps': 'Applications', 'nav.protection': 'Privacy & Security',
+  'nav.health': 'Health', 'nav.startup': 'Startup & Apps', 'nav.apps': 'Installed Apps', 'nav.protection': 'Privacy & Security',
   'nav.netactivity': 'Network Activity', 'nav.vpn': 'VPN',
-  'nav.assistant': 'Assistant', 'nav.toolbox': 'Toolbox', 'nav.island': 'Island', 'nav.history': 'History', 'nav.settings': 'Settings',
+  'nav.assistant': 'Assistant', 'nav.toolbox': 'Toolbox', 'nav.island': 'Island', 'nav.history': 'Undo History', 'nav.settings': 'Settings',
   'search.placeholder': 'Search in plain English — “pdfs from gmail last month”, “screenshots with wifi password”',
   'common.open': 'Open', 'common.show': 'Show', 'common.copy': 'Copy', 'common.copied': 'Copied', 'common.cancel': 'Cancel', 'common.save': 'Save', 'common.delete': 'Delete', 'common.rename': 'Rename', 'common.trash': 'Move to Trash', 'common.undo': 'Undo', 'common.done': 'Done', 'common.back': 'Back', 'common.refresh': 'Refresh', 'common.loading': 'Loading…', 'common.add': 'Add', 'common.remove': 'Remove', 'common.close': 'Close', 'common.preview': 'Preview', 'common.apply': 'Apply',
   'settings.appearance': 'Appearance', 'settings.look': 'Look', 'settings.playful': 'Playful', 'settings.minimal': 'Minimal', 'settings.theme': 'Theme', 'settings.system': 'System', 'settings.light': 'Light', 'settings.dark': 'Dark', 'settings.language': 'Language', 'settings.library': 'Library', 'settings.startup': 'Start Keeper when you sign in', 'settings.updates': 'Updates', 'settings.about': 'About', 'settings.checkUpdates': 'Check for updates',

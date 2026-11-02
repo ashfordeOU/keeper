@@ -30,6 +30,6 @@ export function accessCommands(store: { go(r: { name: 'devices'; arg?: string })
       if (shownIn('sendTo', 'palette')) out.push({ id: `remote-send-${d.id}`, label: `Send Files to ${d.name}…`, group: 'Actions', icon: 'send', typed: true, keywords: `send files ${d.name}`, run: () => void api.link.sendFiles(d.id).catch((e) => store.toast(clean(e))) });
     }
   }
-  out.push({ id: 'remote-audit', label: 'Remote Access Log', group: 'Go to', icon: 'history', keywords: 'audit sessions transfers commands log', run: () => store.go({ name: 'devices', arg: 'audit' }) });
+  out.push({ id: 'remote-audit', label: 'Access from Anywhere Log', group: 'Go to', icon: 'history', keywords: 'audit sessions transfers commands log', run: () => store.go({ name: 'devices', arg: 'audit' }) });
   return out;
 }

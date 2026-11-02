@@ -32,10 +32,10 @@ export function UsagePage({ initial }: { initial?: string }) {
   const [tab, setTab] = useState<Tab>(addFrom(initial) ? 'accounts' : (TABS.find((t) => t[0] === initial)?.[0]) ?? 'overview');
   const [edit, setEdit] = useState<Partial<AccountInput> | null>(() => addFrom(initial));
   const store = useStore();
-  if (!o) return <div className="page usage-page"><PageHead title="Usage" /></div>;
+  if (!o) return <div className="page usage-page"><PageHead title="AI Usage" /></div>;
   return (
     <div className="page usage-page" data-testid="usage-page">
-      <PageHead title="Usage" sub="What is left of your AI accounts’ limits, credits and budgets, and what your subscriptions cost.">
+      <PageHead title="AI Usage" sub="What is left of your AI accounts’ limits, credits and budgets, and what your subscriptions cost.">
         <button className="btn sm" disabled={busy} onClick={() => void refresh()}><Icon name="refresh" size={14} />{busy ? 'Looking…' : 'Refresh'}</button>
         <button className="btn sm" onClick={() => void api.aiUsage.exportCsv().then((r) => r.path && store.toast(`Saved ${r.rows} rows to ${r.path}`))}><Icon name="down" size={14} />Export CSV</button>
         <button className="btn sm primary" onClick={() => setEdit({ provider: 'claude-web', name: '' })}><Icon name="plus" size={14} />Add account</button>

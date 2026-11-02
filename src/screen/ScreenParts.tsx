@@ -188,7 +188,7 @@ export function DeviceScreenCard({ d }: { d: LinkDevice }) {
   );
 }
 
-/** Session history on the Remote Access tab. */
+/** Session history on the Access from anywhere tab. */
 export function ScreenLog() {
   const [s] = useScreen();
   if (!s?.log.length) return null;

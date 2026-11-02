@@ -3,13 +3,13 @@
 // costs, presets, and Customize sidebar.
 
 import { useEffect, useMemo, useState } from 'react';
-import { currentPreset, currentSet, FEATURE_GROUPS, FEATURES, featureDef, PRESETS, type ComputerContext, type CostLevel, type FeatureSet } from '../../core/features';
+import { currentPreset, currentSet, FEATURES, featureDef, NAV_GROUPS, PRESETS, type ComputerContext, type CostLevel, type FeatureSet } from '../../core/features';
 import { api } from '../api';
 import { useFeatureStates } from '../features';
 import { useStore } from '../state';
 import { Icon } from './Icon';
 import { SuitePanel } from './SuitePanel';
-import { SECTION_COLOR, SECTION_IDS } from './NavSection';
+import { SECTION_COLOR, SECTION_IDS, SECTION_NAMES } from './NavSection';
 import { Toggle } from './ui';
 import { ComponentNeeds, ComponentsSection } from './ComponentsPanel';
 import '../styles/features.css';
@@ -40,7 +40,7 @@ export function FeaturesPanel() {
   const list = useMemo(() => {
     const t = q.trim().toLowerCase();
     return FEATURES.filter((f) => !f.platforms || f.platforms.includes((info?.platform ?? '') as NodeJS.Platform))
-      .filter((f) => !t || `${f.name} ${f.description} ${f.group} ${f.cost.background ?? ''}`.toLowerCase().includes(t));
+      .filter((f) => !t || `${f.name} ${f.description} ${NAV_GROUPS.find((g) => g.id === f.navGroup)?.title ?? f.group} ${f.cost.background ?? ''}`.toLowerCase().includes(t));
   }, [q, info?.platform]);
   if (!settings || !states) return null;
 
@@ -105,12 +105,13 @@ export function FeaturesPanel() {
         <Icon name="search" size={14} />
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a feature" aria-label="Find a feature" />
       </div>
-      {FEATURE_GROUPS.map((g) => {
-        const rows = list.filter((f) => f.group === g);
+      {/* The same groups, in the same order, as the sidebar's sections. */}
+      {NAV_GROUPS.map(({ id: g, title }) => {
+        const rows = list.filter((f) => f.navGroup === g);
         if (!rows.length) return null;
         return (
-          <div key={g} className="feature-group">
-            <div className="feature-group-title">{g}</div>
+          <div key={g} className="feature-group" data-group={g}>
+            <div className="feature-group-title">{title}</div>
             {rows.map((f) => {
               const st = states.get(f.id);
               const wanted = f.id === 'login' ? !!st?.wanted : st?.wanted ?? true;
@@ -147,8 +148,6 @@ export function FeaturesPanel() {
     </div>
   );
 }
-
-const SECTION_NAMES: Record<string, string> = { library: 'Library', saved: 'Saved searches', favorites: 'Favorites', locations: 'Locations', tags: 'Tags', tidy: 'Tidy', system: 'System', more: 'More' };
 
 /** Settings → Sidebar: show, hide and reorder the sidebar's sections; bring back hidden entries. */
 export function SidebarPanel() {

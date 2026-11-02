@@ -9,7 +9,7 @@ import { Mail } from './pim/Mail';
 import { PimSidebar } from './pim/PimSidebar';
 import { Reminders } from './pim/Reminders';
 import { Planner } from './pim/Planner';
-import { Component, lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
+import { Component, lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { FileKind } from '../core/types';
 import { api } from './api';
 import { CommandPalette } from './components/CommandPalette';
@@ -20,7 +20,6 @@ import { Inspector } from './components/Inspector';
 import { FeatureOff, navKey, useHiddenRoutes } from './features';
 import { NavSection } from './components/NavSection';
 import { TerminalApp } from './terminal/TerminalApp';
-import { useTT } from './terminal/strings';
 import { usePlaceMemory } from './place';
 import { PlacesSidebar } from './components/PlacesSidebar';
 import { Player } from './components/Player';
@@ -39,7 +38,6 @@ import { KeepAwake } from './screens/KeepAwake';
 import { Controls } from './screens/Controls';
 import { Catalog } from './screens/Catalog';
 import { AppControls } from './screens/AppControls';
-import { Browsers } from './screens/Browsers';
 import { Weather } from './screens/Weather';
 // Places & Tracks (with its map) loads the first time the page opens.
 const Tracks = lazy(() => import('./screens/Tracks').then((m) => ({ default: m.Tracks })));
@@ -55,6 +53,10 @@ const UsagePage = lazy(() => import('./screens/usage/UsagePage').then((m) => ({ 
 import { Large } from './screens/Large';
 import { Library } from './screens/Library';
 import { Security } from './screens/Security';
+import { Protection } from './screens/Protection';
+import { Hub } from './components/Hub';
+import { HintsContext } from './components/page-context';
+import { hubOf, navSections, navPage, type NavPage } from '../core/nav';
 import { Todo } from './screens/Todo';
 import { CoachHost, GuideHost, RouteHints, TourHost, useTodoCount } from './guide';
 import { Rules } from './screens/Rules';
@@ -88,8 +90,7 @@ import { CloudSidebar } from './components/CloudSidebar';
 import { DevicesSidebar, LinkPrompts } from './components/LinkParts';
 import { ScreenPrompts } from './screen/ScreenParts';
 import { Devices } from './screens/Devices';
-// Keeper Mesh and Remote Desktops (with its session views) load the first time their pages open.
-const Mesh = lazy(() => import('./screens/Mesh').then((m) => ({ default: m.Mesh })));
+// Remote Desktops (with its session views) loads the first time its page opens.
 const RemoteDesktops = lazy(() => import('./screens/RemoteDesktop').then((m) => ({ default: m.RemoteDesktops })));
 import { ForceQuitHost } from './screens/Processes';
 import { FILE_ROUTES, mod, shift, useAsync, useStore, type Route, type RouteName } from './state';
@@ -111,35 +112,50 @@ const contentEl = () => document.querySelector<HTMLElement>('.main > .content');
 const SHELVES: FileKind[] = ['image', 'video', 'audio', 'document', 'archive', 'installer', 'app'];
 
 /** Places & Tracks, unless its settings leave it out of the sidebar. */
-function TracksNav() {
+function TracksNav({ page }: { page: NavPage }) {
   const on = useSurface('sidebar');
-  return on ? <NavItem route={{ name: 'tracks' }} icon="map" label="Places & Tracks" /> : null;
+  return on ? <PageNav page={page} /> : null;
 }
 
-/** To do, with how many things are worth doing. */
-function TodoNav() {
+/** Fix-it list, with how many things are worth fixing. */
+function TodoNav({ page }: { page: NavPage }) {
   const n = useTodoCount();
-  return <NavItem route={{ name: 'todo' }} icon="check" label="To do" count={n || undefined} />;
+  return <PageNav page={page} count={n || undefined} />;
 }
 
-function NavItem({ route, icon, label, count, color, tip }: { route: Route; icon?: string; label: string; count?: number | string; /** a filled tile in this colour: a collection, never a folder */ color?: string; tip?: string }) {
+/** A page's row, named as everywhere else (core/nav.ts). */
+function PageNav({ page, count }: { page: NavPage; count?: number }) {
+  const t = useT();
+  const label = page.i18n ? t(page.i18n) : page.label;
+  return <NavItem route={page.route as Route} also={page.also} icon={page.icon} label={label} count={count} />;
+}
+
+/** A suite section's rows (the Fix-it list's count and Places & Tracks' own switch included). */
+function SuiteRows({ pages }: { pages: NavPage[] }) {
+  return <>{pages.map((p) => (p.id === 'todo' ? <TodoNav key={p.id} page={p} /> : p.id === 'tracks' ? <TracksNav key={p.id} page={p} /> : <PageNav key={p.id} page={p} />))}</>;
+}
+
+function NavItem({ route, also, icon, label, count, color, tip }: { route: Route; /** other routes of the same page (its tabs) */ also?: string[]; icon?: string; label: string; count?: number | string; /** a filled tile in this colour: a collection, never a folder */ color?: string; tip?: string }) {
   const { route: cur, go, settings, updateSettings, tabs } = useStore();
   const hiddenRoutes = useHiddenRoutes();
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
-  const active = cur.name === route.name && (cur.arg ?? '') === (route.arg ?? '');
+  const active = (cur.name === route.name && (cur.arg ?? '') === (route.arg ?? '')) || !!also?.includes(cur.name) || (!!also && cur.name === route.name);
   const key = navKey(route.name, route.arg);
+  // A merged page whose first tab is off opens on the first tab that is on.
+  const target = hiddenRoutes.has(route.name) ? also?.find((r) => !hiddenRoutes.has(r)) : route.name;
   // Off in Settings → Features, or hidden with "Customize sidebar…" (the page you are on stays).
-  if (!active && (hiddenRoutes.has(route.name) || settings?.sidebarHidden?.includes(key))) return null;
+  if (!active && (!target || settings?.sidebarHidden?.includes(key))) return null;
+  const to: Route = target && target !== route.name ? { name: target as RouteName } : route;
   return (
     <>
     {menu ? (
       <ContextMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)} items={[
-        ...(settings?.tabs !== false ? [{ label: 'Open in New Tab', icon: 'plus', run: () => tabs.open(route) }, { sep: true, label: '' }] : []),
+        ...(settings?.tabs !== false ? [{ label: 'Open in New Tab', icon: 'plus', run: () => tabs.open(to) }, { sep: true, label: '' }] : []),
         { label: 'Remove from Sidebar', icon: 'close', run: () => settings && void updateSettings({ sidebarHidden: [...(settings.sidebarHidden ?? []), key] }) },
-        { label: 'Customize Sidebar…', icon: 'settings', run: () => go({ name: 'settings', arg: 'sidebar' }) },
+        { label: 'Customize Sidebar…', icon: 'settings', run: () => go({ name: 'settings', arg: 'appearance#sidebar' }) },
       ]} />
     ) : null}
-    <button className={`nav-item ${active ? 'active' : ''} ${color ? 'is-collection' : ''}`} aria-current={active ? 'page' : undefined} data-nav-key={key} onClick={() => go(route)} title={tip ? `${label}\n${tip}` : label} onContextMenu={(e) => { e.preventDefault(); setMenu({ x: e.clientX, y: e.clientY }); }}>
+    <button className={`nav-item ${active ? 'active' : ''} ${color ? 'is-collection' : ''}`} aria-current={active ? 'page' : undefined} data-nav-key={key} onClick={() => go(to)} title={tip ? `${label}\n${tip}` : label} onContextMenu={(e) => { e.preventDefault(); setMenu({ x: e.clientX, y: e.clientY }); }}>
       {color ? <span className="nav-kind" style={{ background: color }} aria-hidden><Icon name={icon ?? 'collection'} size={11} stroke={2.2} /></span> : <Icon name={icon ?? 'folder'} size={15} />}
       <span className="label ellipsis">{label}</span>
       {count !== undefined ? <span className="count">{count}</span> : null}
@@ -199,12 +215,12 @@ function Sidebar({ rail, width, mode }: { rail: boolean; width: number; mode: st
 }
 
 function SidebarNav({ rail, expanded, onToggle, canPin }: { rail: boolean; expanded: boolean; onToggle: () => void; canPin: boolean }) {
-  const { settings, version, info } = useStore();
+  const { settings, version, info, route } = useStore();
   const t = useT();
-  const tt = useTT();
   const totals = useAsync(() => api.library.totals(), [version]);
   const tags = useAsync(() => api.library.tags(), [version]);
   const short = (n?: number) => (n === undefined ? undefined : n >= 1000 ? `${(n / 1000).toFixed(n >= 10_000 ? 0 : 1)}k` : String(n));
+  const downloads = navPage('downloads');
   return (
     <nav className="sidebar" id="app-sidebar" aria-label="Sidebar" data-expanded={expanded ? '1' : undefined}>
       <div className="brand" title="Keeper by Ashforde®"><OwlMark tile size={26} title="Keeper by Ashforde®" /><span className="brand-name">Keeper<small>by Ashforde®</small></span>
@@ -213,14 +229,12 @@ function SidebarNav({ rail, expanded, onToggle, canPin }: { rail: boolean; expan
       <NavItem route={{ name: 'home' }} icon="home" label={t('nav.home')} />
       <NavItem route={{ name: 'recents' }} icon="clock" label={t('nav.recents')} />
       <NavItem route={{ name: 'browse', arg: info?.home }} icon="folder" label={t('nav.browse')} />
-      <NavItem route={{ name: 'downloads' }} icon="down" label={t('nav.downloads')} />
-      <NavItem route={{ name: 'weather' }} icon="sun" label={t('nav.weather')} />
-      <TracksNav />
 
-      {/* Every file of a kind, wherever it is: collections (filled tiles), not folders (Favorites, below). */}
+      {/* Every file of a kind, wherever it is: collections (filled tiles), not folders (Favorites, below). Kinds with nothing in them stay out. */}
       <NavSection id="library" title={t('section.library')}>
-        {SHELVES.map((k) => <NavItem key={k} route={{ name: 'library', arg: k }} color={KIND_COLOR[k]} icon={k} label={t(`kindAll.${k}`)} tip="Every file of this kind on this computer, whichever folder it is in" count={short(totals.data?.[k].count)} />)}
+        {SHELVES.filter((k) => !totals.data || totals.data[k].count > 0 || (route.name === 'library' && route.arg === k)).map((k) => <NavItem key={k} route={{ name: 'library', arg: k }} color={KIND_COLOR[k]} icon={k} label={t(`kindAll.${k}`)} tip="Every file of this kind on this computer, whichever folder it is in" count={short(totals.data?.[k].count)} />)}
         <NavItem route={{ name: 'screenshots' }} color="var(--c-image)" icon="screenshot" label={t('kindAll.screenshot')} tip="Every screenshot on this computer, whichever folder it is in" />
+        {downloads ? <PageNav page={downloads} /> : null}
       </NavSection>
 
       {settings?.savedSearches.length ? (
@@ -233,19 +247,6 @@ function SidebarNav({ rail, expanded, onToggle, canPin }: { rail: boolean; expan
       <PlacesSidebar />
       {/* Cloud services, servers, home servers and other computers. */}
       <CloudSidebar />
-      {/* Paired devices and phones (Keeper Link); drop files on one to send them. */}
-      <DevicesSidebar />
-
-      {/* Mail, calendars, reminders and alarms. */}
-      <PimSidebar Item={NavItem} />
-
-      <NavSection id="sync" title="Sync & Backup">
-        <NavItem route={{ name: 'sync', arg: 'folders' }} icon="refresh" label="Synced folders" />
-        <NavItem route={{ name: 'sync', arg: 'backups' }} icon="shield" label="Backups" />
-        <NavItem route={{ name: 'sync', arg: 'mirrors' }} icon="cloud" label="Cloud mirrors" />
-        <NavItem route={{ name: 'sync', arg: 'versions' }} icon="history" label="Older versions" />
-        <NavItem route={{ name: 'noteshub' }} icon="note" label="Notes Everywhere" />
-      </NavSection>
 
       {tags.data?.length ? (
         <NavSection id="tags" title={t('section.tags')}>
@@ -253,54 +254,19 @@ function SidebarNav({ rail, expanded, onToggle, canPin }: { rail: boolean; expan
         </NavSection>
       ) : null}
 
-      <NavSection id="tidy" title={t('section.tidy')}>
-        <NavItem route={{ name: 'cleanup' }} icon="broom" label={t('nav.cleanup')} />
-        <NavItem route={{ name: 'duplicates' }} icon="dupes" label={t('nav.duplicates')} />
-        <NavItem route={{ name: 'space' }} icon="map" label={t('nav.space')} />
-        <NavItem route={{ name: 'large' }} icon="weight" label={t('nav.large')} />
-        <NavItem route={{ name: 'convert' }} icon="refresh" label={t('nav.convert')} />
-        <NavItem route={{ name: 'rules' }} icon="rules" label={t('nav.rules')} />
-      </NavSection>
+      {/* The suite, in the same groups as Settings → Features. Mail, calendars, reminders and alarms first. */}
+      <PimSidebar Item={NavItem} />
+      {navSections().filter((g) => g.id !== 'files').map((g) => (g.id === 'devices' ? (
+        // Paired devices and phones (Keeper Link; drop files on one to send them), then Remote Desktops and Terminal.
+        <DevicesSidebar key={g.id}><SuiteRows pages={g.pages.filter((p) => p.id !== 'devices')} /></DevicesSidebar>
+      ) : (
+        <NavSection key={g.id} id={g.id} title={g.title}><SuiteRows pages={g.pages} /></NavSection>
+      )))}
 
-      <NavSection id="system" title={t('section.system')}>
-        <TodoNav />
-        <NavItem route={{ name: 'health' }} icon="bolt" label={t('nav.health')} />
-        <NavItem route={{ name: 'awake' }} icon="coffee" label="Keep Awake" />
-        <NavItem route={{ name: 'stage' }} icon="eye" label="Stage" />
-        <NavItem route={{ name: 'startup' }} icon="power" label={t('nav.startup')} />
-        <NavItem route={{ name: 'apps' }} icon="app" label={t('nav.apps')} />
-        <NavItem route={{ name: 'protection' }} icon="shield" label={t('nav.protection')} />
-        <NavItem route={{ name: 'netactivity' }} icon="globe" label={t('nav.netactivity')} />
-        <NavItem route={{ name: 'vpn' }} icon="lock" label={t('nav.vpn')} />
-        <NavItem route={{ name: 'mesh' }} icon="graph" label="Mesh" />
-        <NavItem route={{ name: 'firewall' }} icon="shield" label="Firewall" />
-        <NavItem route={{ name: 'controls' }} icon="settings" label="Quick Controls" />
-        <NavItem route={{ name: 'catalog' }} icon="settings" label="System Settings+" />
-        <NavItem route={{ name: 'appcontrols' }} icon="cpu" label="App controls" />
-        <NavItem route={{ name: 'browsers' }} icon="globe" label="Browser tabs" />
-        <NavItem route={{ name: 'settings', arg: 'processes' }} icon="power" label="Keeper’s processes" />
-      </NavSection>
-
-      <NavSection id="more" title={t('section.more')}>
-        <NavItem route={{ name: 'notes' }} icon="document" label="Notes" />
-        <NavItem route={{ name: 'cues' }} icon="pin" label="Cues" />
-        <NavItem route={{ name: 'assistant' }} icon="assistant" label={t('nav.assistant')} />
-        <NavItem route={{ name: 'agents' }} icon="agent" label="Agents" />
-        <NavItem route={{ name: 'aiusage' }} icon="chart" label="Usage" />
-        <NavItem route={{ name: 'graph' }} icon="graph" label="Knowledge Graph" />
-        <NavItem route={{ name: 'capture' }} icon="screenshot" label={t('nav.capture')} />
-        <NavItem route={{ name: 'studio' }} icon="video" label="Studio" />
-        <NavItem route={{ name: 'dictation' }} icon="mic" label="Dictation" />
-        <NavItem route={{ name: 'meetings' }} icon="calendar" label="Meetings" />
-        <NavItem route={{ name: 'terminal' }} icon="terminal" label={tt('title')} />
-        <NavItem route={{ name: 'rdc' }} icon="laptop" label="Remote Desktops" />
-        <NavItem route={{ name: 'tools' }} icon="terminal" label={t('nav.toolbox')} />
-        <NavItem route={{ name: 'island' }} icon="island" label={t('nav.island')} />
-        <NavItem route={{ name: 'ambience' }} icon="palette" label="Wallpaper & Vibes" />
-        <NavItem route={{ name: 'widgets' }} icon="grid" label={t('nav.widgets')} />
-        <NavItem route={{ name: 'history' }} icon="history" label={t('nav.history')} />
+      {/* Settings stays at the foot of the sidebar, whatever is open above it. */}
+      <div className="sidebar-foot">
         <NavItem route={{ name: 'settings' }} icon="settings" label={t('nav.settings')} />
-      </NavSection>
+      </div>
     </nav>
   );
 }
@@ -379,7 +345,10 @@ class PageBoundary extends Component<{ children: ReactNode; route: string }, { e
 function Page() {
   const { route } = useStore();
   const hiddenRoutes = useHiddenRoutes();
-  if (hiddenRoutes.has(route.name)) return <FeatureOff route={route.name} />;
+  // A tab of a merged page (System Controls, Privacy & Security, Startup & Apps) shows under that page's title and tabs.
+  const hub = hubOf(route)?.hub;
+  const inHub = (el: React.ReactElement) => (hub && hub !== 'devices' ? <Hub id={hub}>{el}</Hub> : el);
+  if (hiddenRoutes.has(route.name)) return inHub(<FeatureOff route={route.name} />);
   const pages: Record<RouteName, () => React.ReactElement> = {
     home: () => <Home />,
     recents: () => <Library />,
@@ -397,7 +366,8 @@ function Page() {
     large: () => <Large />,
     startup: () => <Startup />,
     apps: () => <Apps />,
-    protection: () => <Security />,
+    security: () => <Security />,
+    protection: () => <Protection />,
     todo: () => <Todo />,
     rules: () => <Rules />,
     history: () => <History />,
@@ -430,7 +400,8 @@ function Page() {
     controls: () => <Controls />,
     catalog: () => <Catalog />,
     appcontrols: () => <AppControls />,
-    browsers: () => <Browsers />,
+    // Browser tabs is part of Health → Apps & tabs (core/nav.ts resolveRoute); kept for old tabs.
+    browsers: () => <Health />,
     sync: () => <Sync key={route.arg ?? ''} />,
     noteshub: () => <NotesHub key={route.arg ?? ''} />,
     notes: () => <Suspense fallback={null}><NotesApp /></Suspense>,
@@ -438,7 +409,8 @@ function Page() {
     terminal: () => <TerminalApp mode="page" startCwd={route.arg} openSession={route.q?.startsWith('session:') ? route.q.slice(8) : undefined} />,
     rdc: () => <Suspense fallback={null}><RemoteDesktops /></Suspense>,
     devices: () => <Devices />,
-    mesh: () => <Suspense fallback={null}><Mesh /></Suspense>,
+    // Keeper Mesh is the Devices page's Private network tab.
+    mesh: () => <Devices />,
     mail: () => <Mail />,
     calendar: () => <Calendar />,
     reminders: () => <Reminders />,
@@ -447,18 +419,37 @@ function Page() {
   };
   // A stale keeper:// link or a mistyped page name: say so, instead of "This page ran into a problem".
   const page = Object.prototype.hasOwnProperty.call(pages, route.name) ? pages[route.name] : undefined;
-  return page ? page() : <NotFound name={String(route.name)} />;
+  return page ? inHub(page()) : <NotFound name={String(route.name)} />;
 }
 
 function NotFound({ name }: { name: string }) {
   const { go } = useStore();
   return (
     <div data-testid="page-not-found">
-      <Empty icon="search" title="There is no such page">
+      <Empty icon="search" title="There is no such page" action={<button className="btn primary" onClick={() => go({ name: 'home' })}>Go to Home</button>}>
         Keeper has no page called “{name.slice(0, 60)}”. The link may be from an older version.
-        <div style={{ marginTop: 12 }}><button className="btn primary" onClick={() => go({ name: 'home' })}>Go to Home</button></div>
       </Empty>
     </div>
+  );
+}
+
+/**
+ * Hint cards ("3 heavy apps start when you sign in") show under the page's title:
+ * its PageHead shows them. A page without one (Mail, Notes, Terminal) gets them on top.
+ */
+function PageHints({ route, children }: { route: Route; children: ReactNode }) {
+  const [heads, setHeads] = useState(0);
+  // Privacy & Security's overview has the hints its old route had.
+  const hintRoute: Route = route.name === 'security' ? { ...route, name: 'protection' } : route;
+  const frame = useMemo(() => ({
+    render: () => <RouteHints route={hintRoute} />,
+    claim: () => { setHeads((n) => n + 1); return () => setHeads((n) => n - 1); },
+  }), [hintRoute.name, route]); // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <HintsContext.Provider value={frame}>
+      {heads === 0 ? <RouteHints route={hintRoute} /> : null}
+      {children}
+    </HintsContext.Provider>
   );
 }
 
@@ -571,7 +562,7 @@ export function App() {
         {/* Tabs: middle-click or ⌘/Ctrl-click anything to open it in a new one; they survive restarts and crashes. */}
         <TabStrip />
         <RecoveryNotice />
-        <div className="content" id="content" tabIndex={-1}><UpdateBanner /><KeychainBanner /><CoachHost route={store.route} /><RouteHints route={store.route} /><PageBoundary route={`${store.route.name}:${store.route.arg ?? ''}:${store.route.q ?? ''}`}><Page /></PageBoundary></div>
+        <div className="content" id="content" tabIndex={-1}><UpdateBanner /><KeychainBanner /><CoachHost route={store.route} /><PageHints route={store.route}><PageBoundary route={`${store.route.name}:${store.route.arg ?? ''}:${store.route.q ?? ''}`}><Page /></PageBoundary></PageHints></div>
       </main>
       <InspectorPane shown={showInspector} />
       {palette ? <CommandPalette onClose={() => setPalette(false)} /> : null}
