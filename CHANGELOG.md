@@ -4,7 +4,17 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 
 ## [Unreleased]
 
+### Fixed — memory
+- Keeper no longer runs out of memory while it first reads a big library's text (the crash after about ten minutes on a Mac). The library index and the search brain are saved piece by piece instead of as one huge string, extracted text no longer keeps its whole file in memory, and the brain's word index takes about half the room.
+- Linux: the tray menu no longer piles up a copy of itself every few seconds while the library is read.
+- Crash breadcrumbs record the main process's memory once a minute (the last six hours), and a big-library memory check runs in CI.
+
 ## [0.1.0-beta.5] - 2026-11-02
+
+### Added and changed
+- Security review fixes, accessibility fixes across the app (screen readers, keyboard, contrast), and known gaps closed.
+- AI usage tracker for Claude Code, Codex, APIs and subscriptions, with several accounts and your own names; it shows as a card in the owl's glance (one Keeper icon in the menu bar).
+- Lighter: the main process starts as an ES module and idles at about 400 MB; npm audit reports nothing.
 
 ## [0.1.0-beta.4] - 2026-11-01
 
