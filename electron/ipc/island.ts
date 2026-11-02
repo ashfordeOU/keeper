@@ -232,7 +232,10 @@ export class IslandWindows {
       const first = this.clampRect(d, this.bounds(d, false));
       const win = new BrowserWindow({
         // Not an ordinary window: window arrangers (Monorail, tilers, snapping tools) leave it alone.
-        ...overlayOptions('island'),
+        // On macOS it is a plain borderless window, not a panel: macOS 26 draws a grey rounded
+        // backdrop behind a transparent panel's clear area, which showed as a frame around the
+        // open Island. Monorail still floats it by its fixed title, and any move is undone.
+        ...overlayOptions('island', { panel: process.platform !== 'darwin' }),
         ...first, frame: false, transparent: true, resizable: false, movable: false, skipTaskbar: true, alwaysOnTop: true,
         fullscreenable: false, hasShadow: false, focusable: false, show: false, backgroundColor: '#00000000',
         // No corners or edge drawn by the system (macOS, Windows 11): the page draws the Island's whole shape.
