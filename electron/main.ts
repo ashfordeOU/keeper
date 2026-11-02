@@ -15,6 +15,7 @@ import { initResilience, lastRun, restoreExtraWindows } from './resilience';
 import { attachHover, glanceView, showGlance, toggleGlance } from './services/glance';
 import { registerGlanceIpc } from './ipc/glance';
 import { glanceTooltip, type GlanceActionId } from '../core/glance';
+import { menuKey } from '../core/menu-key';
 import { startBreadcrumbs } from './breadcrumbs';
 import { anotherKeeperTookOver, holdInstanceLock, releaseInstanceLock } from './instance';
 import { installNavGuard } from './nav-guard';
@@ -435,7 +436,16 @@ async function updateTray() {
     tray.on('drop-files', (_e, paths) => void islandSvc.addToShelf(paths));
   }
   // macOS opens the menu itself on right-click; Windows and Linux show a menu set ahead.
-  if (!isMac) tray.setContextMenu(trayMenu());
+  // Set again only when it reads differently: this runs on every library change (every few
+  // seconds while text is read), and on Linux each menu handed to the tray was kept for good.
+  if (!isMac) {
+    const template = trayTemplate();
+    const key = menuKey(template);
+    if (key !== trayMenuKey) {
+      trayMenuKey = key;
+      tray.setContextMenu(Menu.buildFromTemplate(template));
+    }
+  }
   // Where hovering shows nothing (Windows, Linux), a fuller tooltip instead.
   if (!isMac) void glanceView({ light: true }).then((v) => tray?.setToolTip(glanceTooltip(v.cards, BRAND))).catch(() => undefined);
 }
@@ -446,6 +456,12 @@ async function updateTray() {
  * to have in the menu bar (Stage, Dictation, Mesh, Vibes…) wait under More.
  */
 function trayMenu(): Menu {
+  return Menu.buildFromTemplate(trayTemplate());
+}
+
+let trayMenuKey = '';
+
+function trayTemplate(): Electron.MenuItemConstructorOptions[] {
   const awake = islandSvc?.awake.on;
   const more: Electron.MenuItemConstructorOptions[] = [
     ...meshTrayItems(), ...ambienceTrayItems(), ...cueTrayItems(), ...stageTrayItems(), ...voiceTrayItems(),
@@ -459,12 +475,12 @@ function trayMenu(): Menu {
   const pinned: Electron.MenuItemConstructorOptions[] = (islandSvc?.state().shelves ?? []).filter((sh) => sh.pinned).map((sh) => ({
     label: `${sh.name} (${sh.items.length})`,
     submenu: [
-      ...sh.items.slice(0, 15).map((f) => ({ label: f.name.length > 42 ? f.name.slice(0, 40) + '…' : f.name, click: () => void shell.openPath(f.path) })),
+      ...sh.items.slice(0, 15).map((f) => ({ id: f.path, label: f.name.length > 42 ? f.name.slice(0, 40) + '…' : f.name, click: () => void shell.openPath(f.path) })),
       { type: 'separator' as const },
       { label: 'Open in the Island', click: () => { islandSvc.selectShelf(sh.id); islandWindows.openOn('shelf'); } },
     ],
   }));
-  return Menu.buildFromTemplate([
+  return [
     { label: 'Open Keeper', click: () => showMain() },
     ...(featureOn('quickSearch') ? [{ label: 'Quick Search', accelerator: settings().quickSearchShortcut, click: toggleQuick }] : []),
     // Linux trays often do not report clicks: the glance is here too.
@@ -484,7 +500,7 @@ function trayMenu(): Menu {
     ...trayUpdateItems(),
     { type: 'separator' },
     { label: 'Quit Keeper', click: () => { quitting = true; app.quit(); } },
-  ]);
+  ];
 }
 
 // ---------------------------------------------------------------- shortcuts & deep links
