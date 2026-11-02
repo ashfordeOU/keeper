@@ -4,6 +4,12 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 
 ## [Unreleased]
 
+### Added — Studio
+- Studio (More → Studio, the command palette, ⌘⇧2 / Ctrl+Shift+2, the tray): record the screen, one window or an area, then edit it into a finished video. The recording keeps its parts apart: the picture without the pointer (ScreenCaptureKit at up to 60 fps and full Retina resolution on a Mac; the bundled ffmpeg on Windows and Linux X11), a log of where the pointer was (about 60 times a second), clicks, keys and the app in front, and the microphone, the camera and the computer's sound (Mac, Windows) as tracks of their own, all written to disk as they come. Countdown, pause and resume (⌘⇧3 / Ctrl+Shift+3; paused parts are left out of the video), stop from the page, the Island, the tray or the shortcut, and an option to clean the screen with Stage first. On Wayland, and wherever the pointer cannot be left out, Studio says so and works with the pointer in the picture.
+- The editor: automatic zooms made from where you clicked and typed (eased in and out, following the pointer while zoomed), each one movable, resizable and adjustable on the timeline, or added by hand; a smooth pointer drawn from the log (larger sizes, a dot look, click ripples, hidden while still, motion blur on fast moves and pans); backgrounds drawn from numbers (colour fields, waves, gradients, plain colours), padding, rounded corners, shadow and a window edge; 16:9, 9:16, 1:1 and 4:5 frames that follow the pointer in tall and square shapes; split, cut, trim and speed up, with idle stretches and silences cut or sped through in one click; a camera bubble (circle, rounded, square) that moves out of the pointer's way; even loudness and gentle noise reduction. Undo and redo, keyboard shortcuts, saving as you go, and a list of recent recordings.
+- Extras: captions made on this computer from the microphone (shown in the video or written as .srt), chapters from the apps used (inside MP4 and WebM files), keyboard-shortcut badges from the key log, and privacy blur: email addresses, keys and tokens found by reading the picture on this computer, plus blur boxes you draw.
+- Export to MP4 (H.264), HEVC, WebM and GIF at 480p to 4K and 15 to 60 fps, with presets (Standard, Crisp 4K, Quick share, Vertical, Square, Small HEVC, Web, GIF), progress and Cancel, then Show in Folder or Copy. Every frame is drawn by the same code as the preview, so the export matches what you saw.
+
 ## [0.1.0-beta.7] - 2026-11-02
 
 ### Fixed
