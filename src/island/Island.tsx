@@ -452,7 +452,8 @@ export function Island() {
     window.setTimeout(() => collapse(0), 0);
   }
   // The open panel: the tab's size (core/island-size.ts), never bigger than the room the placement has.
-  const halo = glow || (plusSetting(isl, 'shadow') && !notch) ? HALO : 0;
+  // On a notch the open Island is the notch growing: pure black, no shadow and no glow, so no room for them either.
+  const halo = !notch && (glow || plusSetting(isl, 'shadow')) ? HALO : 0;
   const sizeRoom = { scale: sc, notchH, max: layout ? roomIn(layout.expanded, { side, ears, halo }) : undefined };
   const tabP = tabPanel(tab, isl ?? {});
   const tabSize = tabP.size;
@@ -669,16 +670,16 @@ export function Island() {
         {toast ? <div className="isl-toast">{toast}</div> : null}
         <div className="body">
           {tab === 'home' ? (
-            <div className="grid2">
+            <div className="grid2 home">
               <div className="tile" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                 {np ? (
                   <>
                     <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                       <div className="art">{np.artwork ? <img src={np.artwork} alt="" /> : <Icon name="audio" size={22} />}</div>
                       <div style={{ minWidth: 0, flex: 1 }}>
-                        <b className="ellipsis" style={{ display: 'block' }}>{np.title}</b>
-                        <span className="muted ellipsis" style={{ display: 'block' }}>{np.artist}{np.album ? ` · ${np.album}` : ''}</span>
-                        <span className="muted small">{np.app}</span>
+                        <b className="ellipsis isl-primary" style={{ display: 'block' }}>{np.title}</b>
+                        <span className="ellipsis isl-secondary" style={{ display: 'block' }}>{np.artist}{np.album ? ` · ${np.album}` : ''}</span>
+                        <span className="isl-caption">{np.app}</span>
                       </div>
                     </div>
                     {isl?.lyrics !== false && state.lyrics?.length ? <div className="lyric">{lyricIdx >= 0 ? state.lyrics[lyricIdx].text : '♪'}</div> : null}
@@ -700,7 +701,7 @@ export function Island() {
                   </>
                 ) : (
                   <div style={{ margin: 'auto', textAlign: 'center' }} className="muted">
-                    <div className="big-time" style={{ color: '#fff' }}>{new Date(now).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                    <div className="big-time" style={{ color: 'var(--isl-fg)' }}>{new Date(now).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
                     {new Date(now).toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' })}
                   </div>
                 )}
@@ -708,7 +709,7 @@ export function Island() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {state.weather && isl?.weather !== false ? (
                   <div className="tile" role="button" tabIndex={0} title="Open in Weather" style={{ cursor: 'pointer' }} onClick={openWeather} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') openWeather(); }}>
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}><span style={{ fontSize: 26, fontWeight: 800 }}>{Math.round(state.weather.current.temp)}°</span><span>{describeCode(state.weather.current.code).label}</span></div>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}><span className="isl-temp">{Math.round(state.weather.current.temp)}°</span><span>{describeCode(state.weather.current.code).label}</span></div>
                     <div className="muted small">{state.weather.place.name} · H {Math.round(state.weather.daily[0]?.max ?? 0)}° L {Math.round(state.weather.daily[0]?.min ?? 0)}°{state.weather.current.aqi !== undefined ? ` · AQI ${Math.round(state.weather.current.aqi)}` : ''}</div>
                     {state.weather.nowcast ? <div className="small" style={{ color: '#93c5fd', marginTop: 4 }}>{state.weather.nowcast}</div> : null}
                   </div>
@@ -832,7 +833,7 @@ export function Island() {
     <div className={`isl-root edge-${edge} anchor-${layout?.anchor ?? 'edge'} view-${view} size-${panelSize} ${floating ? 'floating' : ''} ${isl?.monochrome ? 'mono' : ''} ${breathing ? 'breath' : ''}`} style={vars} role="region" aria-label="Island">
       {/* Alerts are read out by screen readers as they arrive, without taking focus. */}
       <div className="sr-only" role="status" aria-live="assertive" aria-atomic="true">{view === 'alert' && alert ? [alert.app, alert.title, alert.detail].filter(Boolean).join('. ') : ''}</div>
-      <div aria-hidden className={`isl-shadow ${plusSetting(isl, 'shadow') ? '' : 'no-shadow'} ${glow ? 'glowing' : ''}`} style={glow ? ({ '--glow': glow } as React.CSSProperties) : undefined}>
+      <div aria-hidden className={`isl-shadow ${plusSetting(isl, 'shadow') ? '' : 'no-shadow'} ${glow && !notch ? 'glowing' : ''}`} style={glow && !notch ? ({ '--glow': glow } as React.CSSProperties) : undefined}>
         <div className="isl-shape" ref={shapeEl} />
       </div>
       <div

@@ -412,3 +412,53 @@ html[data-view='island'], html[data-view='island'] body, html[data-view='island'
 
 /* The calendars picker (a menu in the Calendar tab; also in Settings → Island). */
 .isl .cal-pick-pop { position: absolute; z-index: 8; top: 0; right: 0; width: min(340px, 100%); max-height: 100%; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: 12px; background: color-mix(in srgb, var(--island-bg, #0a0a0c) 88%, #fff); border: 1px solid rgba(255, 255, 255, .12); box-shadow: 0 10px 30px rgba(0, 0, 0, .5); }
+
+/* ---------------------------------------------------------------- visual language
+   One black, content straight on it. Tokens for colour and type; cards only for what you act on as a unit.
+   On a notch the Island is the notch growing: #000, no stroke, no shadow, no glow. Floating (no notch, or below
+   the menu bar): a near-black with a hairline and a soft shadow when open. */
+.isl-root {
+  --isl-bg: #000; --isl-fg: #f5f5f7; --isl-fg-2: rgba(245, 245, 247, .62); --isl-fg-3: rgba(245, 245, 247, .38);
+  --isl-fill: rgba(255, 255, 255, .07); --isl-fill-hover: rgba(255, 255, 255, .12); --isl-sep: rgba(255, 255, 255, .08);
+  --isl-orange: #ff9f0a; --isl-green: #30d158; --isl-red: #ff453a; --isl-amber: #ffd60a; --isl-blue: #0a84ff;
+  --isl-r-inner: 18px;
+  color: var(--island-text, var(--isl-fg));
+}
+.isl-root.anchor-notch .isl-shape, .isl-root.anchor-notch .isl-bubble { background: var(--isl-bg); }
+.isl-root.anchor-notch .isl-shadow, .isl-root.anchor-notch .isl-shadow.glowing { filter: none; }
+.isl-root.floating .isl-shape, .isl-root.floating .isl-bubble { background: var(--island-bg, #0b0b0d); }
+.isl-root.floating .isl-shadow { filter: drop-shadow(0 0 .5px rgba(255, 255, 255, .16)); }
+.isl-root.floating:not(.view-compact) .isl-shadow { filter: drop-shadow(0 0 .5px rgba(255, 255, 255, .16)) drop-shadow(0 12px 32px rgba(0, 0, 0, .35)); }
+.isl-root:not(.anchor-notch):not(.floating):not(.view-compact) .isl-shadow { filter: drop-shadow(0 12px 32px rgba(0, 0, 0, .35)); }
+@media (prefers-contrast: more) {
+  .isl-root.floating .isl-shadow { filter: drop-shadow(0 0 1px rgba(255, 255, 255, .2)); }
+  .isl-root.floating:not(.view-compact) .isl-shadow { filter: drop-shadow(0 0 1px rgba(255, 255, 255, .2)) drop-shadow(0 12px 32px rgba(0, 0, 0, .35)); }
+}
+
+/* type: wings 12.5/600, view titles 13/600, primary 14/600, secondary 12, captions 11/500, big numerals 44/600 */
+.cmp.notch .wing, .act-trail { font-size: 12.5px; font-weight: 600; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+.isl .isl-title { font-size: 13px; font-weight: 600; color: var(--isl-fg-2); }
+.isl .isl-primary { font-size: 14px; font-weight: 600; color: var(--isl-fg); }
+.isl .isl-secondary { font-size: 12px; font-weight: 400; color: var(--isl-fg-2); }
+.isl .isl-caption { font-size: 11px; font-weight: 500; color: var(--isl-fg-2); }
+.isl .big-time { font-size: 44px; font-weight: 600; letter-spacing: -.02em; line-height: 1.05; }
+.isl .isl-temp { font-size: 28px; font-weight: 600; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.isl .num, .isl .ev .time, .live-big { font-variant-numeric: tabular-nums; }
+.isl .muted { color: var(--isl-fg-2); }
+
+/* spacing: 16 at the sides, 12 under the notch, 14 at the bottom; the deck is 28 high */
+.isl-panel .tabs.deck { padding: 12px 16px 0; }
+.isl .body { padding: 12px 16px 14px; }
+.isl .tabs.deck button.deck-tab, .isl .tabs.deck button.deck-more { color: var(--isl-fg-2); background: none; }
+.isl .tabs.deck button.deck-tab:hover, .isl .tabs.deck button.deck-more:hover { color: var(--isl-fg); background: var(--isl-fill); }
+.isl .tabs.deck button.deck-tab.on, .isl .tabs.deck button.deck-more.on { color: var(--isl-fg); background: var(--isl-fill-hover); }
+
+/* Home: no grey tiles; two columns on black with a hairline between, the right one's rows highlight on hover */
+.isl .grid2.home { gap: 16px; }
+.isl .grid2.home > .tile { background: none; border-radius: 0; padding: 0 16px 0 0; border-right: 1px solid var(--isl-sep); }
+.isl .grid2.home > div:last-child { gap: 6px !important; }
+.isl .grid2.home > div:last-child > .tile { background: none; padding: 6px 8px; margin: 0 -8px; border-radius: 12px; }
+.isl .grid2.home > div:last-child > .tile[role='button']:hover { background: var(--isl-fill); }
+.isl .grid2.home .art { width: 64px; height: 64px; border-radius: 12px; }
+.isl .tile { border-radius: var(--isl-r-inner); }
+.isl .more-open, .isl .agent { border-radius: 14px; }

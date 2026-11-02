@@ -118,6 +118,10 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - Closing: 220 ms after the pointer leaves (not while a menu is open, a field has the keyboard, something is dragged or a button is held), the content fades out first and then the shape closes; the window shrinks once it has come to rest. With Reduce motion the sizes change at once.
 - macOS: a light trackpad tap as the Island opens, never when the pointer only passes over it (Settings → Island → Haptic feedback; needs keeper-helper, nothing happens without it).
 
+### Changed — Island look
+- On a notch the Island is pure black with no shadow, glow or stroke, so the open Island reads as the notch growing. Floating (no notch, or below the menu bar) it is near-black with a hairline edge and a soft shadow when open.
+- Bottom corners of the open Island are 28 (was 26); colour and type tokens (primary 14, secondary 12, captions 11, big numerals 44, tabular figures for times). Home drops its grey tiles: content sits on the black, two columns with a hairline between.
+
 ### Fixed — Island
 - macOS: the Island is a plain borderless window instead of a panel, so macOS 26 no longer draws a grey rounded backdrop behind the open Island. Its scroll bars are dark and thin, with no light square in the corner.
 - Opening the Island no longer takes the keyboard, so it never brings Keeper or its main window to the front; it takes the keyboard when you click a field in it (or the New task shortcut opens it). The closed pill never takes focus.

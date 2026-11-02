@@ -49,7 +49,7 @@ export const PLUS_DEFAULTS = {
   usagePin: false,
   lyricsOffApps: [] as string[],
   glow: true,
-  cornerRadius: 26,
+  cornerRadius: 28,
   shadow: true,
   lowDiskGb: 10,
   altHideMinutes: 1,
