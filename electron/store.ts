@@ -9,6 +9,7 @@ import { DEVELOPER_ID } from './build-flags';
 import { overallState, readSealed, type KeychainStatus, type SecretState } from '../core/keychain';
 import { defaultFolders } from '../core/platform';
 import { defaultRules } from '../core/rules';
+import { keepChoices } from '../core/features';
 import { defaultSettings, mergeSettings, type AllSettings } from '../core/settings';
 
 const file = () => path.join(app.getPath('userData'), 'settings.json');
@@ -20,10 +21,23 @@ const listeners = new Set<(s: AllSettings, prev: AllSettings) => void>();
 export function settings(): AllSettings {
   if (current) return current;
   const base = defaultSettings(defaultFolders().map((f) => f.path), defaultRules(os.homedir()));
+  let raw: Record<string, unknown> | null = null;
   try {
-    current = mergeSettings(base, JSON.parse(readFileSync(file(), 'utf8')));
+    raw = JSON.parse(readFileSync(file(), 'utf8'));
   } catch {
-    current = base;
+    raw = null;
+  }
+  if (!raw || typeof raw !== 'object') {
+    // A new install: the defaults (and the first-run setup) apply; nothing to keep.
+    current = { ...base, featuresPinned: true };
+    return current;
+  }
+  current = mergeSettings(base, raw);
+  if (raw.featuresPinned !== true) {
+    // Someone upgrading: write down what is on and off for them now, before any newer
+    // default can change it, and do not show them the first-run setup again.
+    current = { ...current, ...keepChoices(current), featuresPinned: true, setupDone: raw.setupDone === false ? false : true };
+    void persist();
   }
   return current;
 }

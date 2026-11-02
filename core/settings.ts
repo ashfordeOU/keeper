@@ -146,6 +146,8 @@ export function defaultSettings(folders: string[], rules: Rule[]): AllSettings {
     home: defaultHomeSettings(),
     permissionsSetup: '',
     permissionsAsked: {},
+    featuresPinned: false,
+    setupDone: false,
     nativeApps: {},
     island: defaultIsland(),
   };

@@ -478,6 +478,13 @@ export interface Settings {
   permissionsSetup: '' | 'all' | 'onDemand';
   /** permission id → when Keeper first showed the system's question for it (macOS asks some only once) */
   permissionsAsked: Record<string, number>;
+  /**
+   * Every part's on/off choice is written into `features` (not left to the defaults), so new
+   * defaults in a later version never switch anything off for someone upgrading. Done once.
+   */
+  featuresPinned: boolean;
+  /** the first-run setup was finished or skipped (until then the library reads only Downloads) */
+  setupDone: boolean;
   /** which app opens maps, weather, events, addresses… per kind ('auto', 'web' or an app id; see core/native-apps.ts) */
   nativeApps?: import('./native-apps').NativeAppPrefs;
 }

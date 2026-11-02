@@ -219,6 +219,31 @@ export const featureDef = (id: string) => byId.get(id);
 
 export type FeatureMap = Record<string, boolean>;
 
+/**
+ * Upgrade safety: the settings change that writes every part's current choice into
+ * `features` (parts kept in older settings already are), so that `wanted()`
+ * never falls back to a default that a newer version changed. Parts this system cannot
+ * run and the library itself are left out. `before` gives the default each part had
+ * before the defaults changed (see `defaultBefore`).
+ */
+export function keepChoices(s: AllSettings, platform: string = HOST, before: (f: FeatureDef) => boolean = defaultBefore): Partial<AllSettings> {
+  let next: AllSettings = { ...s, features: { ...(s.features ?? {}) } };
+  for (const f of FEATURES) {
+    if (f.always) continue;
+    if (f.platforms && !f.platforms.includes(platform as NodeJS.Platform)) continue;
+    // Parts kept in an older setting (ocrEnabled, island.clipboard…) are already written:
+    // the whole merged settings object is saved, so their value cannot follow a new default.
+    if (f.bridge) continue;
+    if (typeof next.features[f.id] !== 'boolean') next.features = { ...next.features, [f.id]: before(f) };
+  }
+  return Object.keys(next.features).length === Object.keys(s.features ?? {}).length ? {} : diff(s, next);
+}
+
+/** The default a part had for everyone before 1.0 (what an upgrading install was running with). */
+export function defaultBefore(f: FeatureDef): boolean {
+  return f.defaultOn;
+}
+
 /** What the person asked for (before dependencies). */
 export function wanted(s: AllSettings, id: string, platform: string = HOST): boolean {
   const f = byId.get(id);
