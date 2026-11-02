@@ -57,6 +57,8 @@ html :is(a, button, summary, select, [tabindex], [role='button'], [role='tab'], 
 }
 /* Inside menus, lists and cards the ring sits inside the item. */
 html :is(.menu button, .q-row, .nav-item, .file-card, .tab, [role='tab'], [role='option'], [role='menuitem']):focus-visible { outline-offset: -2px; }
+/* The sidebar's section titles and "Show all" rows: inside, clear of the column's edges (never clipped). */
+html :is(.nav-title, .nav-more):focus-visible, html[data-focus-always='true'] :is(.nav-item, .nav-title, .nav-more):focus { outline-offset: -3px; }
 /* Text fields keep their soft glow and gain the ring too. */
 html :is(input, textarea, [contenteditable='true']):focus-visible { outline: 2px solid var(--focus-ring, var(--accent)); outline-offset: 1px; }
 /* The Island and pills sit on their own dark surface: use its accent. */

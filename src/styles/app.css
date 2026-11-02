@@ -134,7 +134,7 @@ a { color: var(--accent); }
 .sidebar-col.rail:not(.rail-open) .nav-item, .sidebar-col.rail:not(.rail-open) .nav-more { justify-content: center; padding-left: 0; padding-right: 0; }
 .sidebar-col.rail:not(.rail-open) .nav-title { justify-content: center; padding: 8px 0 4px; }
 .sidebar-col.rail:not(.rail-open) .brand { justify-content: center; padding-left: 0; padding-right: 0; }
-.sidebar-col.rail:not(.rail-open) .place-row > :not(.nav-item) { display: none; }
+.sidebar-col.rail:not(.rail-open) .place-row > :not(.nav-item), .sidebar-col.rail:not(.rail-open) .place-bar { display: none; }
 .sidebar-splitter { right: -4px; }
 .sidebar-col.rail-open .sidebar-splitter { display: none; }
 .sidebar .brand .sidebar-pin { margin-left: auto; color: var(--text-3); }
@@ -151,8 +151,12 @@ a { color: var(--accent); }
   display: flex; flex-direction: column;
   padding: 10px 10px 12px;
   overflow-y: auto;
+  /* Nothing is ever wider than the column: long names end in an ellipsis instead. */
+  overflow-x: hidden;
   -webkit-app-region: drag;
 }
+.sidebar::-webkit-scrollbar { width: 8px; }
+.sidebar::-webkit-scrollbar-thumb { border-width: 2px; }
 .sidebar > * { -webkit-app-region: no-drag; }
 .sidebar .brand { display: flex; align-items: center; gap: 9px; padding: 34px 8px 14px; font-weight: 700; font-size: 15px; letter-spacing: -.01em; -webkit-app-region: drag; }
 html[data-platform='win32'] .sidebar .brand, html[data-platform='linux'] .sidebar .brand { padding-top: 8px; }
@@ -165,15 +169,17 @@ html[data-look='minimal'] .sidebar .brand .logo { background: var(--text); color
 /* Sections open and close from their title, each in its own colour. */
 button.nav-title { width: 100%; border: 0; background: none; border-radius: 6px; cursor: default; font-family: inherit; color: color-mix(in srgb, var(--sec, var(--text-3)) 70%, var(--text-2)); }
 button.nav-title:hover { background: color-mix(in srgb, var(--sec, var(--accent)) 10%, transparent); }
-button.nav-title:focus-visible { outline: 2px solid var(--sec, var(--accent)); outline-offset: -2px; }
+/* The focus ring is drawn inside the title, clear of the sidebar's edges. */
+button.nav-title:focus-visible { outline: 2px solid var(--sec, var(--accent)); outline-offset: -3px; }
 .nav-title-text { display: inline-flex; align-items: center; gap: 7px; min-width: 0; }
 .nav-title-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sec-dot { width: 7px; height: 7px; border-radius: 3px; background: var(--sec, var(--text-3)); flex: none; }
 .nav-chevron { opacity: 0; transition: transform .18s ease, opacity .15s; }
 button.nav-title:hover .nav-chevron, button.nav-title:focus-visible .nav-chevron, .nav-section.closed .nav-chevron { opacity: .8; }
 .nav-section.closed .nav-chevron { transform: rotate(-90deg); }
-.nav-section .nav-items { display: grid; grid-template-rows: 1fr; transition: grid-template-rows .2s ease; }
-.nav-section .nav-items > * { min-height: 0; }
+.nav-section .nav-items { display: grid; grid-template-rows: 1fr; grid-template-columns: minmax(0, 1fr); transition: grid-template-rows .2s ease; }
+/* A row never grows past the column to fit a long name (that is what pushed highlights and bars out). */
+.nav-section .nav-items > * { min-height: 0; min-width: 0; }
 /* Icons in a section take its colour; the page you are on stays visible when its section is closed. */
 .nav-section[style] .nav-item > svg { color: color-mix(in srgb, var(--sec) 80%, var(--text-2)); }
 .nav-section:not(:has(.nav-item)) { display: none; }
@@ -181,12 +187,19 @@ button.nav-title:hover .nav-chevron, button.nav-title:focus-visible .nav-chevron
 @media (prefers-reduced-motion: reduce) { .nav-chevron, .nav-section .nav-items { transition: none; } }
 .nav-item {
   display: flex; align-items: center; gap: 9px;
-  width: 100%; padding: 6px 10px; border: 0; background: none; border-radius: 8px;
+  width: 100%; min-width: 0; padding: 6px 10px; border: 0; background: none; border-radius: 8px;
   color: var(--text-2); cursor: default; text-align: left; font-size: 13px;
+  white-space: nowrap; overflow: hidden; position: relative;
+  /* A long sidebar scrolls; its rows never squash to fit. */
+  flex-shrink: 0;
 }
+.nav-item .label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nav-item:hover { background: var(--bg-hover); color: var(--text); }
 .nav-item.active { background: var(--bg-active); color: var(--text); font-weight: 600; }
-.nav-item .count { margin-left: auto; font-size: 11px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.nav-item .count { margin-left: auto; flex: none; min-width: 2.5ch; padding-left: 4px; text-align: right; font-size: 11px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+/* A Library collection ("All Documents"): a filled tile in its kind's colour, never a folder's outline. */
+.nav-item .nav-kind { width: 16px; height: 16px; min-width: 16px; border-radius: 5px; flex: none; display: grid; place-items: center; color: #fff; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .06); }
+.nav-item .nav-kind svg { color: #fff; }
 .nav-item .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
 .nav-item svg { flex: none; }
 
@@ -337,6 +350,8 @@ html[data-look='minimal'] .toggle.on::after { background: var(--bg); }
 .file-list .icon-cell { width: 34px; padding-right: 0; }
 .file-list .mini-thumb { width: 26px; height: 26px; border-radius: 6px; object-fit: cover; background: var(--bg-sunk); display: grid; place-items: center; overflow: hidden; }
 .file-list .mini-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.file-list .mini-thumb .ext-tile { width: 72%; border-radius: 3px; font-size: 6.5px; letter-spacing: 0; padding-bottom: 10%; box-shadow: none; }
+.file-list .mini-thumb .folder-thumb svg { width: 20px; height: 20px; }
 
 .shelf { display: grid; grid-auto-flow: column; grid-auto-columns: 150px; gap: 12px; overflow-x: auto; padding-bottom: 6px; }
 

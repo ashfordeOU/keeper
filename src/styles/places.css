@@ -2,8 +2,10 @@
 /* Places: sidebar locations, Network and Trash pages. */
 
 .place-row { position: relative; }
-.place-row .nav-item { padding-right: 30px; }
-.place-bar { position: absolute; left: 34px; right: 34px; bottom: 2px; height: 2px; border-radius: 2px; background: var(--line); overflow: hidden; pointer-events: none; }
+.place-row.has-eject .nav-item { padding-right: 34px; }
+/* How full a disk is: a thin bar under the name, inset inside its row (more in the tooltip). */
+.nav-item > .place-bar { position: absolute; left: 34px; right: 10px; bottom: 3px; height: 2px; border-radius: 2px; background: var(--line); overflow: hidden; pointer-events: none; }
+.place-row.has-eject .nav-item > .place-bar { right: 34px; }
 .place-bar > i { display: block; height: 100%; background: var(--text-3); }
 .place-eject { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 22px; height: 22px; border-radius: 6px; border: 0; background: none; color: var(--text-3); display: grid; place-items: center; cursor: default; }
 .place-eject:hover { background: var(--bg-active); color: var(--text); }

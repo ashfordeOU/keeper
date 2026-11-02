@@ -73,14 +73,17 @@ export function PlacesSidebar() {
   const item = (p: Place, opts: { icon?: string; route?: Route; onClick?: () => void; badge?: React.ReactNode } = {}) => {
     const r = opts.route ?? browse(p.path);
     const used = p.total && p.free !== undefined ? 1 - p.free / p.total : undefined;
+    // The full name (and where it is, and how full a disk is) in the tooltip; the row itself shortens a long name with an ellipsis.
+    const tip = [p.name, p.path && p.path !== p.name ? p.path : '', p.total ? `${formatBytes(p.free ?? 0)} free of ${formatBytes(p.total)}` : ''].filter(Boolean).join('\n');
     return (
-      <div key={p.id} className="place-row" onContextMenu={(e) => menuFor(e, p)}>
-        <button className={`nav-item ${!opts.onClick && active(r) ? 'active' : ''}`} title={p.total ? `${p.name} — ${formatBytes(p.free ?? 0)} free of ${formatBytes(p.total)}` : p.path} onClick={() => (opts.onClick ? opts.onClick() : go(r))}>
+      <div key={p.id} className={`place-row ${p.ejectable ? 'has-eject' : ''}`} onContextMenu={(e) => menuFor(e, p)}>
+        <button className={`nav-item ${!opts.onClick && active(r) ? 'active' : ''} ${used !== undefined ? 'has-bar' : ''}`} data-nav-key={p.path || p.id} title={tip} onClick={() => (opts.onClick ? opts.onClick() : go(r))}>
           <Icon name={opts.icon ?? p.icon} size={15} />
           <span className="label ellipsis grow">{p.name}</span>
           {opts.badge}
+          {/* How full a disk is: a thin bar under the name, inside the row. */}
+          {used !== undefined ? <span className="place-bar" aria-hidden><i style={{ width: `${Math.round(used * 100)}%`, background: used > 0.9 ? 'var(--danger)' : undefined }} /></span> : null}
         </button>
-        {used !== undefined ? <div className="place-bar" aria-hidden><i style={{ width: `${Math.round(used * 100)}%`, background: used > 0.9 ? 'var(--danger)' : undefined }} /></div> : null}
         {p.ejectable ? (
           <button className="place-eject" title={`Eject ${p.name}`} aria-label={`Eject ${p.name}`} disabled={ejecting === p.path} onClick={(e) => { e.stopPropagation(); void doEject(p); }}>
             {ejecting === p.path ? <div className="spinner" style={{ width: 11, height: 11 }} /> : <Icon name="eject" size={12} />}

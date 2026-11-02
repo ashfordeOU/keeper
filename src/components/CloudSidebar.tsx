@@ -73,12 +73,12 @@ export function CloudSidebar() {
           const used = q?.total ? Math.min(1, (q.used ?? q.total - (q.free ?? 0)) / q.total) : undefined;
           return (
             <div key={c.id} className="place-row conn-row" onContextMenu={(e) => menuFor(e, c)}>
-              <button className={`nav-item ${here === c.id ? 'active' : ''}`} onClick={() => void openConn(c)} title={`${c.name} — ${STATE_LABEL[s?.state ?? 'idle']}${q?.total ? ` · ${formatBytes(q.free ?? 0)} free of ${formatBytes(q.total)}` : ''}${s?.message ? `\n${s.message}` : ''}`}>
+              <button className={`nav-item ${here === c.id ? 'active' : ''} ${used !== undefined ? 'has-bar' : ''}`} data-nav-key={`conn:${c.id}`} onClick={() => void openConn(c)} title={`${c.name} — ${STATE_LABEL[s?.state ?? 'idle']}${q?.total ? ` · ${formatBytes(q.free ?? 0)} free of ${formatBytes(q.total)}` : ''}${s?.message ? `\n${s.message}` : ''}`}>
                 <Icon name={deviceIcon(c.device)} size={15} />
                 <span className="label ellipsis grow">{c.name}</span>
                 {mounting === c.id ? <div className="spinner" style={{ width: 11, height: 11 }} /> : <span className={`conn-dot ${s?.state ?? 'idle'}`} aria-label={STATE_LABEL[s?.state ?? 'idle']} />}
+                {used !== undefined ? <span className="place-bar" aria-hidden><i style={{ width: `${Math.round(used * 100)}%`, background: used > 0.9 ? 'var(--danger)' : undefined }} /></span> : null}
               </button>
-              {used !== undefined ? <div className="place-bar" aria-hidden><i style={{ width: `${Math.round(used * 100)}%`, background: used > 0.9 ? 'var(--danger)' : undefined }} /></div> : null}
             </div>
           );
         })}
