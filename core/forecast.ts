@@ -249,3 +249,47 @@ export function moonPhase(t = Date.now()): { phase: number; name: string; illumi
   const name = names[Math.round(phase * 8) % 8];
   return { phase, name, illumination: Math.round(((1 - Math.cos(phase * 2 * Math.PI)) / 2) * 100) };
 }
+
+/** A booking found in mail (Places & Tracks): only what the trip finder needs. */
+export interface BookingLike {
+  id: string;
+  kind: string;
+  name: string;
+  start?: number;
+  end?: number;
+  to?: string;
+  address?: string;
+  lat?: number;
+  lon?: number;
+}
+
+const BOOKING_WORD: Record<string, string> = { flight: 'Flight', lodging: 'Stay', event: 'Event', rental: 'Car', train: 'Train', bus: 'Bus', restaurant: 'Table' };
+
+/**
+ * Bookings in the next `days` as trip stops: a stay or event where it is, a
+ * flight, train or bus where it arrives. Each carries its coordinates when the
+ * booking had them, so it needs no place search.
+ */
+export function bookingStops(list: BookingLike[], now = Date.now(), days = 14): (TripStop & { lat?: number; lon?: number; booking: true })[] {
+  const out: (TripStop & { lat?: number; lon?: number; booking: true })[] = [];
+  for (const b of list) {
+    if (!b.start || b.start > now + days * 86_400_000 || (b.end ?? b.start) < now) continue;
+    const travel = b.kind === 'flight' || b.kind === 'train' || b.kind === 'bus';
+    let loc = (travel ? b.to : b.address) || b.address || b.to || '';
+    // An airport code alone finds the wrong town: ask for the airport.
+    if (b.kind === 'flight' && /^[A-Z]{3}$/.test(loc)) loc = `${loc} airport`;
+    loc = loc.replace(/\s+/g, ' ').trim();
+    if (loc.length < 3 && b.lat === undefined) continue;
+    const title = `${BOOKING_WORD[b.kind] ?? 'Booking'}${travel && b.to ? ` to ${b.to}` : ''} · ${b.name}`;
+    const day = new Date(b.start).setHours(0, 0, 0, 0);
+    out.push({ event: { uid: `booking:${b.id}`, title, start: b.start, end: b.end ?? b.start, allDay: !travel }, location: loc || b.name, day, lat: b.lat, lon: b.lon, booking: true });
+  }
+  return out.sort((a, b) => a.event.start - b.event.start);
+}
+
+/** Calendar stops and bookings together, one per place and day (the calendar's entry wins). */
+export function mergeStops<T extends TripStop>(calendar: T[], bookings: T[]): T[] {
+  const key = (s: TripStop) => `${s.location.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()}@${s.day}`;
+  const seen = new Set(calendar.map(key));
+  return [...calendar, ...bookings.filter((b) => !seen.has(key(b)))].sort((a, b) => a.event.start - b.event.start);
+}

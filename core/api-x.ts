@@ -2,7 +2,7 @@
 // Contract for health history, the Weather page, Toolbox system helpers,
 // folder tidying, AI file actions and app updates. Merged into KeeperApi.
 
-import type { MonthlyClimate, RadarFrame, TripStop, WeatherAlert } from './forecast';
+import type { MonthlyClimate, RadarFrame, WeatherAlert } from './forecast';
 import type { AlertRule, HealthSample, ProcessAlert, SpeedResult } from './monitor';
 import type { TidyMode, TidyMove } from './tidy';
 import type { CleanResult } from './types';
@@ -90,13 +90,6 @@ export interface AiProviderInfo {
   label: string;
 }
 
-export interface TripForecast {
-  stop: TripStop;
-  place?: Place;
-  day?: Weather['daily'][number];
-  units: 'metric' | 'imperial';
-}
-
 export interface KeeperApiX {
   monitor: {
     history(): Promise<HealthSample[]>;
@@ -121,7 +114,6 @@ export interface KeeperApiX {
     alerts(place: Place): Promise<{ supported: boolean; alerts: WeatherAlert[] }>;
     radar(): Promise<{ host: string; frames: RadarFrame[] } | null>;
     climate(place: Place): Promise<MonthlyClimate[]>;
-    trips(units: 'metric' | 'imperial'): Promise<TripForecast[]>;
   };
   tools: {
     networkInfo(): Promise<NetworkInfo>;

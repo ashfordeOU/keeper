@@ -10,7 +10,6 @@ import { ALT_TEXT_PROMPT, applyTranslation, buildSubtitles, cleanSuggestedName, 
 import type { AiProviderInfo } from '../core/api-x';
 import { toCsv } from '../core/devtools';
 import type { FileIndex } from '../core/indexer';
-import type { CalendarEvent } from '../core/island';
 import type { Journal } from '../core/journal';
 import type { AlertRule } from '../core/monitor';
 import { run } from '../core/platform';
@@ -29,7 +28,6 @@ import { onFeature } from './services/features';
 export interface IpcXDeps {
   index: FileIndex;
   journal: Journal;
-  events: () => CalendarEvent[];
   window: () => BrowserWindow | null;
   changed: () => void;
   broadcast?: (channel: string, ...args: unknown[]) => void;
@@ -109,7 +107,7 @@ export function registerIpcX(d: IpcXDeps) {
   monitor = new MonitorService();
   // Health history samples running apps once a minute; only while Health is switched on.
   onFeature('health', (on) => (on ? void monitor.start() : monitor.stop()), { now: true });
-  const forecast = new ForecastService(d.events, () => settings().island.place);
+  const forecast = new ForecastService(() => settings().island.place);
   // New versions: tell every window, the Island and the tray.
   onUpdateStatus((s) => d.broadcast?.('update-status', s));
   void initUpdater((s) => !!d.onUpdate?.(s));
@@ -133,7 +131,6 @@ export function registerIpcX(d: IpcXDeps) {
   handle('forecast.alerts', (p: Place) => forecast.alerts(p));
   handle('forecast.radar', () => forecast.radar());
   handle('forecast.climate', (p: Place) => forecast.climate(p));
-  handle('forecast.trips', (units: 'metric' | 'imperial') => forecast.trips(units));
 
   handle('tools.networkInfo', networkInfo);
   handle('tools.publicIp', publicIp);

@@ -97,10 +97,6 @@ export function mockX(): KeeperApiX {
         return { host: 'https://tilecache.rainviewer.com', frames: Array.from({ length: 15 }, (_, i) => ({ time: last + (i - 11) * 600_000, path: `/v2/radar/demo-${i}` })) };
       },
       climate: async (p) => Array.from({ length: 12 }, (_, m) => ({ month: m, avgMax: Math.round((15 + 10 * Math.sin(((m - 3) / 12) * 2 * Math.PI) + (p.lat > 39 ? -3 : 0)) * 10) / 10, avgMin: Math.round((7 + 8 * Math.sin(((m - 3) / 12) * 2 * Math.PI) + (p.lat > 39 ? -6 : 0)) * 10) / 10, rainMm: Math.round(90 - 70 * Math.sin(((m - 3) / 12) * 2 * Math.PI)), rainyDays: Math.round(11 - 8 * Math.sin(((m - 3) / 12) * 2 * Math.PI)), sunHours: Math.round(180 + 120 * Math.sin(((m - 3) / 12) * 2 * Math.PI)) })),
-      trips: async (units) => [{
-        stop: { event: { uid: 't', title: 'Web Summit', start: now + 3 * 86_400_000, end: now + 3 * 86_400_000 + 8 * 3600_000, allDay: false, location: 'Altice Arena, Lisbon, Portugal' }, location: 'Altice Arena, Lisbon, Portugal', day: new Date(now + 3 * 86_400_000).setHours(0, 0, 0, 0) },
-        place: places[0], day: weatherFor(places[0], units).daily[3], units,
-      }],
     },
     tools: {
       networkInfo: async () => ({ hostname: 'demo-mac.local', interfaces: [{ name: 'en0', address: '192.168.1.42', family: 'IPv4', mac: 'a4:83:e7:12:34:56', internal: false }, { name: 'en0', address: 'fe80::1c2b:3d4e', family: 'IPv6', mac: 'a4:83:e7:12:34:56', internal: false }, { name: 'lo0', address: '127.0.0.1', family: 'IPv4', mac: '00:00:00:00:00:00', internal: true }] }),

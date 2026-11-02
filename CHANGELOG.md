@@ -33,6 +33,10 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - Dates from mail added to the calendar ("Find dates" → Add to calendar) keep a link back to the email too, and the event shows Open the email. keeper://mail/<id> links open the message.
 - The Island's new-mail alert says so when Archive or Mark read fails, instead of failing silently.
 
+### Changed — Weather trips from your bookings
+- Weather → Trips now also shows flights, stays, events and other bookings that Places & Tracks found in your mail, next to calendar events with a place: a stay where it is, a flight, train or bus where it arrives, each with that day's forecast and what to pack, marked Booking. A booking and an event at the same place on the same day show once. With no calendar connected, bookings still show.
+- Removed an unused second trip finder in the main process (`forecast.trips`).
+
 ### Fixed — Setup and permissions
 - macOS: Allow for Accessibility, Screen Recording and Input Monitoring works every time. macOS shows those questions only once per app, so Keeper now remembers that it asked, opens the exact System Settings page when the answer is still not yes a moment later, and labels the button (and "Ask again" in Allow all) "Open System Settings" from then on. A row that stays off after that suggests removing Keeper with − and adding it again (macOS can hold an older copy's approval).
 - The macOS keychain question after an update ("Keeper Safe Storage") is explained in the Software Update window before it restarts, and in docs/PERMISSIONS.md. Until a Developer ID build, that line asks you to type your login password and choose Always Allow.

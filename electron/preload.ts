@@ -41,7 +41,7 @@ const api = {
   search: group('search', ['everything', 'open']),
   ai: group('ai', ['ask']),
   monitor: group('monitor', ['history', 'topToday', 'alerts', 'setAlertRules', 'docker', 'dockerAction', 'killTree', 'stopAgent', 'thermals', 'disks', 'speedTest', 'speedHistory']),
-  forecast: group('forecast', ['places', 'savePlaces', 'get', 'alerts', 'radar', 'climate', 'trips']),
+  forecast: group('forecast', ['places', 'savePlaces', 'get', 'alerts', 'radar', 'climate']),
   platform: group('platform', ['list', 'set', 'action', 'ask']),
   // Opening places, forecasts, events and addresses in the person's own apps.
   native: group('native', ['open', 'apps']),

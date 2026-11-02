@@ -1,15 +1,13 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The Weather page's data: saved places, forecasts, official alerts, radar
-// frames, climate averages and forecasts for places in upcoming events.
+// frames and climate averages.
 // Only coordinates of places the user chose are ever sent.
 
 import { app } from 'electron';
 import { promises as fsp } from 'node:fs';
 import path from 'node:path';
-import type { TripForecast } from '../../core/api-x';
-import { climateUrl, dayForecast, geocodeQuery, inUnitedStates, monthlyAverages, parseNwsAlerts, parseRadarIndex, tripStops, type MonthlyClimate, type WeatherAlert } from '../../core/forecast';
-import type { CalendarEvent } from '../../core/island';
-import { fetchWeather, searchPlaces, type Place, type Weather } from '../../core/weather';
+import { climateUrl, inUnitedStates, monthlyAverages, parseNwsAlerts, parseRadarIndex, type MonthlyClimate, type WeatherAlert } from '../../core/forecast';
+import { fetchWeather, type Place, type Weather } from '../../core/weather';
 
 const UA = { 'user-agent': 'Keeper (https://github.com/ashfordeOU/keeper)' };
 
@@ -17,9 +15,8 @@ export class ForecastService {
   private file = path.join(app.getPath('userData'), 'places.json');
   private cache = new Map<string, { at: number; w: Weather }>();
   private climateCache = new Map<string, MonthlyClimate[]>();
-  private geoCache = new Map<string, Place | null>();
 
-  constructor(private events: () => CalendarEvent[], private fallbackPlace: () => Place | null) {}
+  constructor(private fallbackPlace: () => Place | null) {}
 
   async places(): Promise<Place[]> {
     try {
@@ -71,31 +68,5 @@ export class ForecastService {
     return m;
   }
 
-  private async geocode(location: string): Promise<Place | undefined> {
-    for (const q of geocodeQuery(location)) {
-      if (this.geoCache.has(q)) {
-        const v = this.geoCache.get(q);
-        if (v) return v;
-        continue;
-      }
-      const found = (await searchPlaces(q).catch(() => []))[0] ?? null;
-      this.geoCache.set(q, found);
-      if (found) return found;
-    }
-    return undefined;
-  }
 
-  async trips(units: 'metric' | 'imperial'): Promise<TripForecast[]> {
-    const out: TripForecast[] = [];
-    for (const stop of tripStops(this.events()).slice(0, 8)) {
-      const place = await this.geocode(stop.location);
-      let day;
-      if (place) {
-        const w = await this.get(place, units).catch(() => undefined);
-        day = w ? dayForecast(w, stop.day) : undefined;
-      }
-      out.push({ stop, place, day, units });
-    }
-    return out;
-  }
 }

@@ -1296,7 +1296,7 @@ app.whenReady().then(async () => {
     if (tray) void updateTray();
   });
   registerIpcX({
-    index, journal, events: () => islandSvc.events, window: () => main, changed: libraryChanged, broadcast,
+    index, journal, window: () => main, changed: libraryChanged, broadcast,
     onUpdate: (u) => {
       // "Ask before installing": show what is new and let the person decide, as a native app does.
       if (shouldOfferUpdate(u, settings())) {
