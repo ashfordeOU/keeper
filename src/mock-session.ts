@@ -31,6 +31,7 @@ export function mockSession(): { session: SessionApi; svc: SvcApi } {
     lastSession: async () => Date.now() - 3600e3,
     log: async () => ({ log: [{ at: Date.now() - 50 * 60e3, kind: 'service-restarted', detail: 'Network Activity: stopped unexpectedly (exit code 1)' }, { at: Date.now() - 26 * 3600e3, kind: 'page-crashed', detail: 'main: crashed (exit code 133)' }], dumps: [], crashedLastTime: false, safeMode: false }),
     openDumps: async () => undefined,
+    rendererError: async () => undefined,
     report: async () => 'Keeper 0.1.0 (demo)\nNo problems recorded.',
     relaunch: async () => undefined,
   };

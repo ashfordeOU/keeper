@@ -85,6 +85,8 @@ const MSG = (subject, extra = '') => [
   await main.locator('.modal button.primary', { hasText: 'Add' }).click();
   await main.waitForSelector('.mail-row', { timeout: 30_000 }).catch(() => {});
   check(await main.locator('.mail-row', { hasText: 'The garden project' }).count() === 1, 'the message from the server is in the list');
+  const acc0 = (await main.evaluate(() => window.keeper.pim.accounts()))[0];
+  check(!!acc0?.lastChecked && !acc0.lastError, 'the account records when it was last checked');
   await main.locator('.mail-row', { hasText: 'The garden project' }).click();
   await main.waitForSelector('.message-frame', { timeout: 20_000 });
   await main.waitForTimeout(500);

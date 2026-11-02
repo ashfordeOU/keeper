@@ -360,7 +360,7 @@ export function Mail() {
         <button className={`mail-folder ${side === 'cleanup' ? 'on' : ''}`} onClick={() => openSide('cleanup')} data-testid="mail-nav-cleanup"><Icon name="broom" size={15} /><span className="grow ellipsis">Subscriptions</span></button>
         {mailAccounts.map((a) => (
           <div key={a.id} className="mail-account">
-            <div className="mail-account-name" title={a.email}><i style={{ background: a.color ?? 'var(--accent)' }} />{a.label}{(a as Account & { needsSignIn?: boolean }).needsSignIn ? <span className="badge warn" title="Sign in again">!</span> : null}</div>
+            <div className="mail-account-name" title={a.email}><i style={{ background: a.color ?? 'var(--accent)' }} />{a.label}{(a as Account & { needsSignIn?: boolean }).needsSignIn ? <span className="badge warn" title="Sign in again">!</span> : (a as Account & { lastError?: string }).lastError ? <span className="badge warn" title={`Couldn’t check it: ${(a as Account & { lastError?: string }).lastError}. Settings → Mail & Calendar has Retry.`}>!</span> : null}</div>
             {folders.filter((f) => f.account === a.id).map((f) => (
               <button key={f.path} className={`mail-folder ${isOn(f.path, a.id) ? 'on' : ''}`} style={{ paddingLeft: 8 + depth(f) * 14 }} title={f.path} onClick={() => openView({ account: a.id, folder: f.path, split: f.special === 'inbox' && splitOn ? 'important' : undefined })}
                 onDragOver={(e) => e.preventDefault()} onDrop={(e) => { const raw = e.dataTransfer.getData('text/keeper-mail'); if (raw) void act(() => api.pim.move(JSON.parse(raw), f.path), `Moved to ${f.name}`); }}>

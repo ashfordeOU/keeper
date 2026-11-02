@@ -323,6 +323,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const refresh = useCallback(() => setVersion((v) => v + 1), []);
 
+  // A toast asked for from outside React (a failure nobody caught: src/lib/quiet-errors.ts).
+  useEffect(() => {
+    const on = (e: Event) => {
+      const d = (e as CustomEvent<{ text: string; action?: { label: string; route: string } }>).detail;
+      if (!d?.text) return;
+      const a = d.action;
+      toast(d.text, a ? { label: a.label, run: () => { const i = a.route.indexOf(':'); go(i < 0 ? { name: a.route as RouteName } : { name: a.route.slice(0, i) as RouteName, arg: a.route.slice(i + 1) }); } } : undefined);
+    };
+    window.addEventListener('keeper-toast', on);
+    return () => window.removeEventListener('keeper-toast', on);
+  }, [toast, go]);
+
   const trash = useCallback(async (paths: string[], title?: string) => {
     const r = await api.files.trash(paths, title);
     refresh();

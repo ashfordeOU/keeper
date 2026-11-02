@@ -759,6 +759,8 @@ export interface KeeperApi extends KeeperApiX {
     placeLog(): Promise<{ at: number; display: number; why: string; want: { x: number; y: number; width: number; height: number }; got: { x: number; y: number; width: number; height: number } }[]>;
   };
   on(channel: 'progress', cb: (p: Progress) => void): () => void;
+  /** a failure in the main process nobody caught (shown once as a quiet toast) */
+  on(channel: 'app-error', cb: (text: string) => void): () => void;
   /** a copy or move into a folder, item by item */
   on(channel: 'files-progress', cb: (p: import('./fileops').TransferProgress) => void): () => void;
   on(channel: 'library-changed' | 'island-changed', cb: () => void): () => void;

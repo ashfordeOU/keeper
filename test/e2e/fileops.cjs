@@ -165,6 +165,14 @@ const read = (p) => (exists(p) ? fs.readFileSync(p, 'utf8') : '');
   check(exists(path.join(FAV, 'c.txt')), 'columns view: copy and paste work too');
   await main.locator('[data-testid="view-grid"]').click();
 
+  // ---------------------------------------------------------------- a failure nobody caught is not lost
+  await main.evaluate(() => { for (let i = 0; i < 3; i++) void Promise.reject(new Error("Error invoking remote method 'files.copy': Error: Nobody caught this")); });
+  await sleep(800);
+  check(await main.locator('.toast', { hasText: 'Something didn’t work: Nobody caught this' }).count() === 1 && await main.locator('.toast', { hasText: 'Nobody caught this' }).locator('button', { hasText: 'Details' }).count() === 1, 'a failure nobody caught shows one quiet toast, with Details');
+  const logged = await main.evaluate(() => window.keeper.session.log()).then((l) => l.log.some((e) => e.kind === 'renderer-error' && /Nobody caught this/.test(e.detail)));
+  check(logged, 'and is written to the session log');
+  errors.splice(0, errors.length, ...errors.filter((m) => !/Nobody caught this/.test(m)));
+
   check(errors.length === 0, `no page errors${errors.length ? ': ' + errors.slice(0, 3).join(' | ') : ''}`);
   await Promise.race([app.close(), sleep(15000)]);
   process.exit(process.exitCode ?? 0);

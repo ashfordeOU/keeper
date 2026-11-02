@@ -103,7 +103,8 @@ export interface DueReminder {
 }
 
 export interface PimApi {
-  accounts(): Promise<(Account & { needsSignIn?: boolean; secretIn?: 'keychain' | 'memory' })[]>;
+  /** lastChecked: when mail or calendars were last fetched without trouble; lastError: the last failure since then */
+  accounts(): Promise<(Account & { needsSignIn?: boolean; secretIn?: 'keychain' | 'memory'; lastChecked?: number; lastError?: string })[]>;
   discover(email: string): Promise<MailConfig>;
   testAccount(a: NewAccount): Promise<{ ok: boolean; message: string }>;
   addAccount(a: NewAccount): Promise<Account>;

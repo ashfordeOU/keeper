@@ -13,6 +13,7 @@ import { ViewerView } from './screen/ViewerView';
 import { GuideMini } from './guide';
 import './styles/app.css';
 import './styles/a11y.css';
+import { installQuietErrors } from './lib/quiet-errors';
 
 // The small cue window beside an app (loads only in that window).
 const CuePopup = lazy(() => import('./cues/CuePopup').then((m) => ({ default: m.CuePopup })));
@@ -44,6 +45,8 @@ const VoiceHud = lazy(() => import('./voice/VoiceHud').then((m) => ({ default: m
 const params = new URLSearchParams(location.search);
 const view = params.get('view') ?? 'app';
 document.documentElement.dataset.view = view;
+// Failures nobody caught are logged and shown once, not lost.
+if (view !== 'wallpaper' && view !== 'studio-export') installQuietErrors(view);
 
 createRoot(document.getElementById('root')!).render(
   // A wallpaper window needs none of the app's state: it starts nothing but its own drawing.

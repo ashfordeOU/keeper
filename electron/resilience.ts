@@ -9,6 +9,7 @@
 //     starts it again (into safe mode after repeated crashes);
 //   • crash reports stay on this computer (Settings → Keeper's processes).
 
+import { errorText, ignorable, throttle } from '../core/quiet-errors';
 import { app, BrowserWindow, crashReporter, dialog, ipcMain, nativeTheme, screen, shell, type WebContents } from 'electron';
 import { spawn } from 'node:child_process';
 import { closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, statSync, writeSync } from 'node:fs';
@@ -397,6 +398,18 @@ export function initResilience(d: ResilienceDeps) {
   });
   ipcMain.handle('session.lastSession', () => snapshot.windows.length ? snapshot.savedAt : 0);
   ipcMain.handle('session.log', () => ({ log: readLog().slice().reverse(), dumps: crashDumps(), crashedLastTime: lastRun.unclean, safeMode: SAFE_MODE }));
+  // Failures nobody caught: a window's, and the main process's own (logged, and shown once in the main window).
+  ipcMain.handle('session.rendererError', (_e, view: string, text: string, stack?: string) => logEvent('renderer-error', `${String(view).slice(0, 30)}: ${String(text).slice(0, 300)}${stack ? `\n${String(stack).split('\n').slice(1, 4).join('\n')}` : ''}`));
+  const once = throttle(60_000);
+  const report = (kind: string, e: unknown) => {
+    if (ignorable(e)) return;
+    const text = errorText(e);
+    logEvent(kind, `${text}${e instanceof Error && e.stack ? `\n${e.stack.split('\n').slice(1, 4).join('\n')}` : ''}`);
+    const w = deps.main();
+    if (once(text) && w && !w.isDestroyed()) w.webContents.send('event:app-error', text);
+  };
+  process.on('unhandledRejection', (e) => report('main-rejection', e));
+  process.on('uncaughtException', (e) => report('main-exception', e));
   ipcMain.handle('session.openDumps', () => shell.openPath(app.getPath('crashDumps')));
   ipcMain.handle('session.report', () => {
     const lines = [`Keeper ${app.getVersion()} on ${process.platform} ${process.arch}, Electron ${process.versions.electron}`, `Safe mode: ${SAFE_MODE}`, `Last run ended unexpectedly: ${lastRun.unclean}`, '', ...readLog().slice(-60).map((e) => `${new Date(e.at).toISOString()}  ${e.kind}  ${e.detail}`), '', `Crash dumps: ${crashDumps().length}`];

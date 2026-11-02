@@ -33,6 +33,8 @@ export interface SessionApi {
   /** when the last session was saved (0: none) */
   lastSession(): Promise<number>;
   log(): Promise<SessionLog>;
+  /** a failure nobody caught in a window: written to the session log */
+  rendererError(view: string, text: string, stack?: string): Promise<void>;
   openDumps(): Promise<void>;
   /** a plain-text report to copy */
   report(): Promise<string>;

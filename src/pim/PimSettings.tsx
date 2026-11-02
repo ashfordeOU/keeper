@@ -10,6 +10,7 @@ import type { MailRule } from '../../core/pim/mail';
 import type { PimPrefsView } from '../../core/pim/prefs';
 import { ACTION_LABELS, SCHEMES, showCombo, type MailAction, type SchemeId } from '../../core/pim/shortcuts';
 import type { Account } from '../../core/pim/types';
+import { relativeTime } from '../../core/format';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
 import { Toggle } from '../components/ui';
@@ -81,7 +82,7 @@ function Shortcuts({ prefs, set, mac }: { prefs: PimPrefsView; set: (p: Partial<
 
 export function PimSettings() {
   const { toast, info } = useStore();
-  const [accounts, setAccounts] = useState<(Account & { needsSignIn?: boolean; secretIn?: string })[]>([]);
+  const [accounts, setAccounts] = useState<(Account & { needsSignIn?: boolean; secretIn?: string; lastChecked?: number; lastError?: string })[]>([]);
   const [prefs, setPrefs] = useState<PimPrefsView | null>(null);
   const [rules, setRules] = useState<MailRule[]>([]);
   const [adding, setAdding] = useState(false);
@@ -107,6 +108,9 @@ export function PimSettings() {
             <div className="ellipsis"><b>{a.label}</b> <span className="small muted">{KIND[a.kind] ?? a.kind}</span></div>
             <div className="small muted">{[a.mail ? 'mail' : '', a.calendar ? 'calendars' : '', a.contacts ? 'contacts' : ''].filter(Boolean).join(' · ') || 'nothing switched on'}{a.secretIn === 'memory' ? ' · password kept until Keeper quits (no keychain on this system)' : ''}</div>
             {a.needsSignIn ? <div className="small" style={{ color: 'var(--warn)' }}>Sign in again: the server did not accept the saved password or token.</div> : null}
+            {a.lastError && !a.needsSignIn ? (
+              <div className="small" data-testid="pim-account-error" style={{ color: 'var(--warn)' }}>Couldn’t check it: {a.lastError}{a.lastChecked ? ` · last checked ${relativeTime(a.lastChecked)}` : ''} <button className="btn sm ghost" onClick={() => void api.pim.refresh(a.id).then(() => toast('Checked'), (e: Error) => toast(e.message.replace(/^Error invoking remote method '[^']+': (\w*Error: )?/, ''))).finally(load)}>Retry</button></div>
+            ) : a.lastChecked ? <div className="small muted" data-testid="pim-account-checked">Checked {relativeTime(a.lastChecked)}</div> : null}
           </div>
           {a.kind === 'imap' || a.kind === 'caldav' ? (
             pw?.id === a.id

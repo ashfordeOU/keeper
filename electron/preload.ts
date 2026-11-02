@@ -119,7 +119,7 @@ const api = {
   aiActions: group('aiActions', ['provider', 'suggestName', 'summarize', 'receipts', 'altText', 'translateSubtitles']),
   // Tabs and windows that survive crashes (see electron/resilience.ts).
   session: {
-    ...group('session', ['openWindow', 'lastSession', 'log', 'openDumps', 'report', 'relaunch']),
+    ...group('session', ['openWindow', 'lastSession', 'log', 'openDumps', 'report', 'relaunch', 'rendererError']),
     initial: () => ipcRenderer.sendSync('session.initial'),
     save: (w: unknown) => ipcRenderer.send('session.save', w),
   },

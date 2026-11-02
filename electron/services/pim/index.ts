@@ -331,7 +331,28 @@ async function folderOf(a: Account, special: MailFolder['special']): Promise<str
   return list.find((f) => f.special === special)?.path;
 }
 
-async function refreshFolder(a: Account, folder: string) {
+// ---------------------------------------------------------------- when each account was last checked
+
+/** Per account: when mail or calendars were last fetched without trouble, and the last failure. */
+const health = new Map<string, { checked?: number; error?: string; errorAt?: number }>();
+async function noted<T>(a: Account, what: 'mail' | 'calendars', p: Promise<T>): Promise<T> {
+  try {
+    const r = await p;
+    health.set(a.id, { checked: Date.now() });
+    return r;
+  } catch (e) {
+    const msg = (e instanceof Error ? e.message : String(e)).split('\n')[0].slice(0, 200);
+    health.set(a.id, { ...health.get(a.id), error: `${what === 'mail' ? 'Mail' : 'Calendars'}: ${msg}`, errorAt: Date.now() });
+    changed('accounts');
+    throw e;
+  }
+}
+
+function refreshFolder(a: Account, folder: string) {
+  return noted(a, 'mail', refreshFolderNow(a, folder));
+}
+
+async function refreshFolderNow(a: Account, folder: string) {
   const first = !firstSync.has(fkey(a.id, folder));
   const r = await mailbox(a).sync(folder);
   firstSync.add(fkey(a.id, folder));
@@ -700,7 +721,11 @@ function calOf(id: string) {
   return state.calendars.find((c) => c.id === id);
 }
 
-async function syncAccountCalendars(a: Account) {
+function syncAccountCalendars(a: Account) {
+  return noted(a, 'calendars', syncAccountCalendarsNow(a));
+}
+
+async function syncAccountCalendarsNow(a: Account) {
   const window = { from: Date.now() - 120 * 86_400_000, to: Date.now() + 400 * 86_400_000 };
   if (a.kind === 'ics') {
     const id = `${a.id}:ics`;
@@ -1268,7 +1293,10 @@ async function unsubscribeWith(u: NonNullable<OpenMessage['unsubscribe']>, accou
 export const pim: PimApi = {
   async accounts() {
     await load();
-    return accounts.map((a) => ({ ...a, needsSignIn: needsSignIn.has(a.id) || undefined, secretIn: memory.get(a.id)?.secret }));
+    return accounts.map((a) => {
+      const h = health.get(a.id);
+      return { ...a, needsSignIn: needsSignIn.has(a.id) || undefined, secretIn: memory.get(a.id)?.secret, lastChecked: h?.checked, lastError: h?.error && (!h.checked || (h.errorAt ?? 0) > h.checked) ? h.error : undefined };
+    });
   },
   discover: (email) => discoverConfig(email.trim()),
   testAccount: testNew,

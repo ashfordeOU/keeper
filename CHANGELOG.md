@@ -59,6 +59,10 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 ### Fixed — Studio and Stage
 - A Studio recording no longer ends your own Stage session: when it stops, Stage goes back to the preset you had on (or off, if it was off). If you changed Stage yourself during the recording, it is left as you set it.
 
+### Fixed — Failures are no longer silent
+- A failure nobody handled, in any window or in the background, is now written to the session log (Settings → Keeper's processes) and shown once as a quiet toast with Details (in the Island, as its one-line message). The same message shows at most once every few seconds; cancelled work is not reported.
+- Mail and calendar accounts record when they were last checked and the last thing that went wrong. Settings → Mail & Calendar shows "Checked 4 min ago", or "Couldn't check it: <reason>" with Retry, and the Mail sidebar marks an account with a problem instead of it just looking quiet.
+
 ### Fixed — Setup and permissions
 - macOS: Allow for Accessibility, Screen Recording and Input Monitoring works every time. macOS shows those questions only once per app, so Keeper now remembers that it asked, opens the exact System Settings page when the answer is still not yes a moment later, and labels the button (and "Ask again" in Allow all) "Open System Settings" from then on. A row that stays off after that suggests removing Keeper with − and adding it again (macOS can hold an older copy's approval).
 - The macOS keychain question after an update ("Keeper Safe Storage") is explained in the Software Update window before it restarts, and in docs/PERMISSIONS.md. Until a Developer ID build, that line asks you to type your login password and choose Always Allow.
