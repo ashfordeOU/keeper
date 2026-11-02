@@ -35,6 +35,7 @@ const en: Dict = {
   'weather.title': 'Weather', 'weather.hourly': 'Next 24 hours', 'weather.week': 'Next 10 days', 'weather.radar': 'Radar', 'weather.compare': 'Compare places', 'weather.trips': 'Trips from your calendar', 'weather.alerts': 'Alerts', 'weather.addPlace': 'Add a place',
   'health.title': 'Health', 'health.today': 'Today', 'health.topToday': 'What worked hardest today',
   'tidy.title': 'Tidy this folder', 'tidy.byKind': 'By kind', 'tidy.byMonth': 'By month', 'tidy.byExt': 'By extension',
+  'widget.weekOf': 'Week of {date}', 'widget.thisWeek': 'This week', 'widget.prevWeek': 'Previous week', 'widget.nextWeek': 'Next week', 'widget.add': '+ add', 'widget.addTask': 'Add a task or event to {day}', 'widget.markDone': 'Mark done', 'widget.overlap': 'Overlap', 'widget.noOverlap': 'No hours everyone works', 'widget.now': 'Now', 'widget.addCity': '+ add city', 'widget.unknownCity': 'Unknown city or time zone', 'widget.removeCity': 'Remove {city}', 'widget.start': 'Start', 'widget.pause': 'Pause', 'widget.resume': 'Resume', 'widget.reset': 'Reset', 'widget.plusMin': '+1 min', 'widget.timer': 'Timer', 'widget.minutes': '{n} min', 'widget.night': 'Night', 'widget.morning': 'Morning', 'widget.afternoon': 'Afternoon', 'widget.evening': 'Evening', 'widget.today': 'Today', 'widget.noForecast': 'Choose a place in Island settings to see the forecast.', 'widget.rain': 'Rain',
 };
 
 const es: Dict = {
@@ -54,6 +55,7 @@ const es: Dict = {
   'weather.title': 'Tiempo', 'weather.hourly': 'Próximas 24 horas', 'weather.week': 'Próximos 10 días', 'weather.radar': 'Radar', 'weather.compare': 'Comparar lugares', 'weather.trips': 'Viajes de tu calendario', 'weather.alerts': 'Avisos', 'weather.addPlace': 'Añadir un lugar',
   'health.title': 'Estado', 'health.today': 'Hoy', 'health.topToday': 'Lo que más trabajó hoy',
   'tidy.title': 'Ordenar esta carpeta', 'tidy.byKind': 'Por tipo', 'tidy.byMonth': 'Por mes', 'tidy.byExt': 'Por extensión',
+  'widget.weekOf': 'Semana del {date}', 'widget.thisWeek': 'Esta semana', 'widget.prevWeek': 'Semana anterior', 'widget.nextWeek': 'Semana siguiente', 'widget.add': '+ añadir', 'widget.addTask': 'Añadir una tarea o evento el {day}', 'widget.markDone': 'Marcar como hecha', 'widget.overlap': 'Coinciden', 'widget.noOverlap': 'Ninguna hora en la que trabajen todos', 'widget.now': 'Ahora', 'widget.addCity': '+ añadir ciudad', 'widget.unknownCity': 'Ciudad o zona horaria desconocida', 'widget.removeCity': 'Quitar {city}', 'widget.start': 'Iniciar', 'widget.pause': 'Pausar', 'widget.resume': 'Reanudar', 'widget.reset': 'Restablecer', 'widget.plusMin': '+1 min', 'widget.timer': 'Temporizador', 'widget.minutes': '{n} min', 'widget.night': 'Noche', 'widget.morning': 'Mañana', 'widget.afternoon': 'Tarde', 'widget.evening': 'Atardecer', 'widget.today': 'Hoy', 'widget.noForecast': 'Elige un lugar en los ajustes de la Isla para ver el pronóstico.', 'widget.rain': 'Lluvia',
 };
 
 const de: Dict = {
@@ -73,6 +75,7 @@ const de: Dict = {
   'weather.title': 'Wetter', 'weather.hourly': 'Nächste 24 Stunden', 'weather.week': 'Nächste 10 Tage', 'weather.radar': 'Radar', 'weather.compare': 'Orte vergleichen', 'weather.trips': 'Reisen aus deinem Kalender', 'weather.alerts': 'Warnungen', 'weather.addPlace': 'Ort hinzufügen',
   'health.title': 'Zustand', 'health.today': 'Heute', 'health.topToday': 'Was heute am meisten gearbeitet hat',
   'tidy.title': 'Diesen Ordner aufräumen', 'tidy.byKind': 'Nach Art', 'tidy.byMonth': 'Nach Monat', 'tidy.byExt': 'Nach Endung',
+  'widget.weekOf': 'Woche vom {date}', 'widget.thisWeek': 'Diese Woche', 'widget.prevWeek': 'Vorherige Woche', 'widget.nextWeek': 'Nächste Woche', 'widget.add': '+ hinzufügen', 'widget.addTask': 'Aufgabe oder Termin am {day} hinzufügen', 'widget.markDone': 'Als erledigt markieren', 'widget.overlap': 'Überschneidung', 'widget.noOverlap': 'Keine Stunden, in denen alle arbeiten', 'widget.now': 'Jetzt', 'widget.addCity': '+ Stadt hinzufügen', 'widget.unknownCity': 'Unbekannte Stadt oder Zeitzone', 'widget.removeCity': '{city} entfernen', 'widget.start': 'Starten', 'widget.pause': 'Pause', 'widget.resume': 'Fortsetzen', 'widget.reset': 'Zurücksetzen', 'widget.plusMin': '+1 Min.', 'widget.timer': 'Timer', 'widget.minutes': '{n} Min.', 'widget.night': 'Nacht', 'widget.morning': 'Morgen', 'widget.afternoon': 'Nachmittag', 'widget.evening': 'Abend', 'widget.today': 'Heute', 'widget.noForecast': 'Wähle in den Island-Einstellungen einen Ort, um die Vorhersage zu sehen.', 'widget.rain': 'Regen',
 };
 
 const fr: Dict = {
@@ -92,6 +95,7 @@ const fr: Dict = {
   'weather.title': 'Météo', 'weather.hourly': '24 prochaines heures', 'weather.week': '10 prochains jours', 'weather.radar': 'Radar', 'weather.compare': 'Comparer des lieux', 'weather.trips': 'Voyages de votre calendrier', 'weather.alerts': 'Alertes', 'weather.addPlace': 'Ajouter un lieu',
   'health.title': 'État', 'health.today': 'Aujourd’hui', 'health.topToday': 'Ce qui a le plus travaillé aujourd’hui',
   'tidy.title': 'Ranger ce dossier', 'tidy.byKind': 'Par type', 'tidy.byMonth': 'Par mois', 'tidy.byExt': 'Par extension',
+  'widget.weekOf': 'Semaine du {date}', 'widget.thisWeek': 'Cette semaine', 'widget.prevWeek': 'Semaine précédente', 'widget.nextWeek': 'Semaine suivante', 'widget.add': '+ ajouter', 'widget.addTask': 'Ajouter une tâche ou un événement le {day}', 'widget.markDone': 'Marquer comme fait', 'widget.overlap': 'Chevauchement', 'widget.noOverlap': 'Aucune heure où tout le monde travaille', 'widget.now': 'Maintenant', 'widget.addCity': '+ ajouter une ville', 'widget.unknownCity': 'Ville ou fuseau horaire inconnu', 'widget.removeCity': 'Retirer {city}', 'widget.start': 'Démarrer', 'widget.pause': 'Pause', 'widget.resume': 'Reprendre', 'widget.reset': 'Réinitialiser', 'widget.plusMin': '+1 min', 'widget.timer': 'Minuteur', 'widget.minutes': '{n} min', 'widget.night': 'Nuit', 'widget.morning': 'Matin', 'widget.afternoon': 'Après-midi', 'widget.evening': 'Soir', 'widget.today': 'Aujourd’hui', 'widget.noForecast': 'Choisissez un lieu dans les réglages de l’Île pour voir les prévisions.', 'widget.rain': 'Pluie',
 };
 
 const ptBR: Dict = {
@@ -111,6 +115,7 @@ const ptBR: Dict = {
   'weather.title': 'Clima', 'weather.hourly': 'Próximas 24 horas', 'weather.week': 'Próximos 10 dias', 'weather.radar': 'Radar', 'weather.compare': 'Comparar lugares', 'weather.trips': 'Viagens da sua agenda', 'weather.alerts': 'Alertas', 'weather.addPlace': 'Adicionar um lugar',
   'health.title': 'Saúde', 'health.today': 'Hoje', 'health.topToday': 'O que mais trabalhou hoje',
   'tidy.title': 'Organizar esta pasta', 'tidy.byKind': 'Por tipo', 'tidy.byMonth': 'Por mês', 'tidy.byExt': 'Por extensão',
+  'widget.weekOf': 'Semana de {date}', 'widget.thisWeek': 'Esta semana', 'widget.prevWeek': 'Semana anterior', 'widget.nextWeek': 'Próxima semana', 'widget.add': '+ adicionar', 'widget.addTask': 'Adicionar tarefa ou evento em {day}', 'widget.markDone': 'Marcar como feita', 'widget.overlap': 'Em comum', 'widget.noOverlap': 'Nenhum horário em que todos trabalham', 'widget.now': 'Agora', 'widget.addCity': '+ adicionar cidade', 'widget.unknownCity': 'Cidade ou fuso horário desconhecido', 'widget.removeCity': 'Remover {city}', 'widget.start': 'Iniciar', 'widget.pause': 'Pausar', 'widget.resume': 'Retomar', 'widget.reset': 'Redefinir', 'widget.plusMin': '+1 min', 'widget.timer': 'Timer', 'widget.minutes': '{n} min', 'widget.night': 'Noite', 'widget.morning': 'Manhã', 'widget.afternoon': 'Tarde', 'widget.evening': 'Noitinha', 'widget.today': 'Hoje', 'widget.noForecast': 'Escolha um lugar nos ajustes da Ilha para ver a previsão.', 'widget.rain': 'Chuva',
 };
 
 const it: Dict = {
@@ -130,6 +135,7 @@ const it: Dict = {
   'weather.title': 'Meteo', 'weather.hourly': 'Prossime 24 ore', 'weather.week': 'Prossimi 10 giorni', 'weather.radar': 'Radar', 'weather.compare': 'Confronta luoghi', 'weather.trips': 'Viaggi dal tuo calendario', 'weather.alerts': 'Allerte', 'weather.addPlace': 'Aggiungi un luogo',
   'health.title': 'Stato', 'health.today': 'Oggi', 'health.topToday': 'Cosa ha lavorato di più oggi',
   'tidy.title': 'Riordina questa cartella', 'tidy.byKind': 'Per tipo', 'tidy.byMonth': 'Per mese', 'tidy.byExt': 'Per estensione',
+  'widget.weekOf': 'Settimana del {date}', 'widget.thisWeek': 'Questa settimana', 'widget.prevWeek': 'Settimana precedente', 'widget.nextWeek': 'Settimana successiva', 'widget.add': '+ aggiungi', 'widget.addTask': 'Aggiungi un’attività o un evento il {day}', 'widget.markDone': 'Segna come fatto', 'widget.overlap': 'Sovrapposizione', 'widget.noOverlap': 'Nessuna ora in cui lavorano tutti', 'widget.now': 'Adesso', 'widget.addCity': '+ aggiungi città', 'widget.unknownCity': 'Città o fuso orario sconosciuto', 'widget.removeCity': 'Rimuovi {city}', 'widget.start': 'Avvia', 'widget.pause': 'Pausa', 'widget.resume': 'Riprendi', 'widget.reset': 'Azzera', 'widget.plusMin': '+1 min', 'widget.timer': 'Timer', 'widget.minutes': '{n} min', 'widget.night': 'Notte', 'widget.morning': 'Mattina', 'widget.afternoon': 'Pomeriggio', 'widget.evening': 'Sera', 'widget.today': 'Oggi', 'widget.noForecast': 'Scegli un luogo nelle impostazioni dell’Isola per vedere le previsioni.', 'widget.rain': 'Pioggia',
 };
 
 const ru: Dict = {
@@ -149,6 +155,7 @@ const ru: Dict = {
   'weather.title': 'Погода', 'weather.hourly': 'Ближайшие 24 часа', 'weather.week': 'Ближайшие 10 дней', 'weather.radar': 'Радар', 'weather.compare': 'Сравнить места', 'weather.trips': 'Поездки из календаря', 'weather.alerts': 'Предупреждения', 'weather.addPlace': 'Добавить место',
   'health.title': 'Состояние', 'health.today': 'Сегодня', 'health.topToday': 'Что больше всего нагружало сегодня',
   'tidy.title': 'Навести порядок в папке', 'tidy.byKind': 'По типу', 'tidy.byMonth': 'По месяцам', 'tidy.byExt': 'По расширению',
+  'widget.weekOf': 'Неделя с {date}', 'widget.thisWeek': 'Эта неделя', 'widget.prevWeek': 'Предыдущая неделя', 'widget.nextWeek': 'Следующая неделя', 'widget.add': '+ добавить', 'widget.addTask': 'Добавить задачу или событие на {day}', 'widget.markDone': 'Отметить выполненным', 'widget.overlap': 'Пересечение', 'widget.noOverlap': 'Нет часов, когда работают все', 'widget.now': 'Сейчас', 'widget.addCity': '+ добавить город', 'widget.unknownCity': 'Неизвестный город или часовой пояс', 'widget.removeCity': 'Убрать {city}', 'widget.start': 'Старт', 'widget.pause': 'Пауза', 'widget.resume': 'Продолжить', 'widget.reset': 'Сброс', 'widget.plusMin': '+1 мин', 'widget.timer': 'Таймер', 'widget.minutes': '{n} мин', 'widget.night': 'Ночь', 'widget.morning': 'Утро', 'widget.afternoon': 'День', 'widget.evening': 'Вечер', 'widget.today': 'Сегодня', 'widget.noForecast': 'Выберите место в настройках Острова, чтобы увидеть прогноз.', 'widget.rain': 'Дождь',
 };
 
 const hi: Dict = {
@@ -168,6 +175,7 @@ const hi: Dict = {
   'weather.title': 'मौसम', 'weather.hourly': 'अगले 24 घंटे', 'weather.week': 'अगले 10 दिन', 'weather.radar': 'रडार', 'weather.compare': 'जगहों की तुलना', 'weather.trips': 'कैलेंडर की यात्राएँ', 'weather.alerts': 'चेतावनियाँ', 'weather.addPlace': 'जगह जोड़ें',
   'health.title': 'सेहत', 'health.today': 'आज', 'health.topToday': 'आज सबसे ज़्यादा काम किसने किया',
   'tidy.title': 'यह फ़ोल्डर व्यवस्थित करें', 'tidy.byKind': 'प्रकार के अनुसार', 'tidy.byMonth': 'महीने के अनुसार', 'tidy.byExt': 'एक्सटेंशन के अनुसार',
+  'widget.weekOf': '{date} का सप्ताह', 'widget.thisWeek': 'यह सप्ताह', 'widget.prevWeek': 'पिछला सप्ताह', 'widget.nextWeek': 'अगला सप्ताह', 'widget.add': '+ जोड़ें', 'widget.addTask': '{day} को काम या इवेंट जोड़ें', 'widget.markDone': 'पूरा हुआ चिह्नित करें', 'widget.overlap': 'साझा समय', 'widget.noOverlap': 'कोई ऐसा घंटा नहीं जब सब काम करते हों', 'widget.now': 'अभी', 'widget.addCity': '+ शहर जोड़ें', 'widget.unknownCity': 'अज्ञात शहर या समय क्षेत्र', 'widget.removeCity': '{city} हटाएँ', 'widget.start': 'शुरू करें', 'widget.pause': 'रोकें', 'widget.resume': 'जारी रखें', 'widget.reset': 'रीसेट', 'widget.plusMin': '+1 मिनट', 'widget.timer': 'टाइमर', 'widget.minutes': '{n} मिनट', 'widget.night': 'रात', 'widget.morning': 'सुबह', 'widget.afternoon': 'दोपहर', 'widget.evening': 'शाम', 'widget.today': 'आज', 'widget.noForecast': 'पूर्वानुमान देखने के लिए आइलैंड सेटिंग्स में कोई जगह चुनें।', 'widget.rain': 'बारिश',
 };
 
 const ja: Dict = {
@@ -187,6 +195,7 @@ const ja: Dict = {
   'weather.title': '天気', 'weather.hourly': '24時間予報', 'weather.week': '10日間予報', 'weather.radar': 'レーダー', 'weather.compare': '場所を比較', 'weather.trips': 'カレンダーの予定先', 'weather.alerts': '警報・注意報', 'weather.addPlace': '場所を追加',
   'health.title': 'ヘルス', 'health.today': '今日', 'health.topToday': '今日いちばん負荷をかけたもの',
   'tidy.title': 'このフォルダを整理', 'tidy.byKind': '種類別', 'tidy.byMonth': '月別', 'tidy.byExt': '拡張子別',
+  'widget.weekOf': '{date} の週', 'widget.thisWeek': '今週', 'widget.prevWeek': '前の週', 'widget.nextWeek': '次の週', 'widget.add': '+ 追加', 'widget.addTask': '{day} にタスクか予定を追加', 'widget.markDone': '完了にする', 'widget.overlap': '重なり', 'widget.noOverlap': '全員が働いている時間はありません', 'widget.now': '現在', 'widget.addCity': '+ 都市を追加', 'widget.unknownCity': '不明な都市またはタイムゾーン', 'widget.removeCity': '{city} を削除', 'widget.start': '開始', 'widget.pause': '一時停止', 'widget.resume': '再開', 'widget.reset': 'リセット', 'widget.plusMin': '+1 分', 'widget.timer': 'タイマー', 'widget.minutes': '{n} 分', 'widget.night': '夜間', 'widget.morning': '朝', 'widget.afternoon': '午後', 'widget.evening': '夕方', 'widget.today': '今日', 'widget.noForecast': '予報を見るにはアイランドの設定で場所を選んでください。', 'widget.rain': '雨',
 };
 
 const zh: Dict = {
@@ -206,6 +215,7 @@ const zh: Dict = {
   'weather.title': '天气', 'weather.hourly': '未来 24 小时', 'weather.week': '未来 10 天', 'weather.radar': '雷达', 'weather.compare': '比较地点', 'weather.trips': '日历中的行程', 'weather.alerts': '预警', 'weather.addPlace': '添加地点',
   'health.title': '运行状况', 'health.today': '今天', 'health.topToday': '今天占用最多的程序',
   'tidy.title': '整理此文件夹', 'tidy.byKind': '按类型', 'tidy.byMonth': '按月份', 'tidy.byExt': '按扩展名',
+  'widget.weekOf': '{date} 所在周', 'widget.thisWeek': '本周', 'widget.prevWeek': '上一周', 'widget.nextWeek': '下一周', 'widget.add': '+ 添加', 'widget.addTask': '在 {day} 添加任务或日程', 'widget.markDone': '标记为完成', 'widget.overlap': '重叠', 'widget.noOverlap': '没有所有人都在工作的时间', 'widget.now': '现在', 'widget.addCity': '+ 添加城市', 'widget.unknownCity': '未知的城市或时区', 'widget.removeCity': '移除 {city}', 'widget.start': '开始', 'widget.pause': '暂停', 'widget.resume': '继续', 'widget.reset': '重置', 'widget.plusMin': '+1 分钟', 'widget.timer': '计时器', 'widget.minutes': '{n} 分钟', 'widget.night': '夜间', 'widget.morning': '上午', 'widget.afternoon': '下午', 'widget.evening': '晚上', 'widget.today': '今天', 'widget.noForecast': '在灵动岛设置中选择地点即可查看预报。', 'widget.rain': '雨',
 };
 
 const DICTS: Record<string, Dict> = { en, es, de, fr, 'pt-BR': ptBR, pt: ptBR, it, ru, hi, ja, 'zh-CN': zh, zh };

@@ -2,11 +2,12 @@
 // Desktop widgets: add, style and arrange small windows that live on the desktop.
 
 import { useEffect, useRef, useState } from 'react';
+import { DEFAULT_WORK } from '../../core/widget-world';
 import { DEFAULT_WORLD, presetBounds, WIDGET_KINDS, newWidget, type WidgetConfig, type WidgetKind, type WidgetShape, type WidgetSizePreset } from '../../core/widgets';
 import { api, isDemo } from '../api';
 import { Icon } from '../components/Icon';
 import { Empty, PageHead, Toggle } from '../components/ui';
-import { useWidgetTint, WidgetBody, widgetSurface } from '../island/Widget';
+import { useWidgetTint, WidgetBody, widgetInk, widgetSurface } from '../island/Widget';
 import { useStore } from '../state';
 import '../styles/widgets.css';
 
@@ -14,18 +15,25 @@ const KIND_ICON: Record<WidgetKind, string> = {
   clock: 'clock', date: 'calendar', events: 'calendar', weather: 'sun', countdown: 'timer', 'sun-moon': 'moon', photo: 'image',
   text: 'text', battery: 'battery', disk: 'weight', system: 'bolt', focus: 'timer', clipboard: 'clipboard',
   day: 'calendar', year: 'chart', season: 'sun', world: 'globe', quote: 'note',
+  week: 'calendar', timer: 'timer', forecast: 'sun',
 };
+
+/** Wide widgets get a wider card on this page, so their preview stays readable. */
+const WIDE = new Set<WidgetKind>(['week', 'forecast', 'world']);
+const isWide = (w: WidgetConfig) => WIDE.has(w.kind) && w.bounds.width >= 400;
+const minutesText = (m: number) => `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+const textMinutes = (s: string) => { const [h, m] = s.split(':').map(Number); return (h || 0) * 60 + (m || 0); };
 
 const ZONES = ['America/Los_Angeles', 'America/New_York', 'America/Sao_Paulo', 'Europe/London', 'Europe/Berlin', 'Africa/Lagos', 'Asia/Dubai', 'Asia/Kolkata', 'Asia/Singapore', 'Asia/Tokyo', 'Australia/Sydney', 'Pacific/Auckland'];
 
 function Preview({ w }: { w: WidgetConfig }) {
   const tint = useWidgetTint();
   // Scaled to fit the card while keeping the widget's real proportions.
-  const scale = Math.min(1, 300 / w.bounds.width, 220 / w.bounds.height);
+  const scale = Math.min(1, (isWide(w) ? 640 : 300) / w.bounds.width, (isWide(w) ? 300 : 220) / w.bounds.height);
   return (
-    <div className="wgp-stage">
+    <div className={`wgp-stage${isWide(w) ? ' wide' : ''}`}>
       <div style={{ width: w.bounds.width * scale, height: w.bounds.height * scale }}>
-        <div className={`wg locked shape-${w.style.shape ?? 'card'}`} style={{ ...widgetSurface(w, tint), width: w.bounds.width, height: w.bounds.height, transform: `scale(${scale})`, transformOrigin: '0 0' }}>
+        <div className={`wg locked shape-${w.style.shape ?? 'card'} kind-${w.kind}`} data-ink={widgetInk(w)} style={{ ...widgetSurface(w, tint), width: w.bounds.width, height: w.bounds.height, transform: `scale(${scale})`, transformOrigin: '0 0' }}>
           <WidgetBody w={w} />
         </div>
       </div>
@@ -57,19 +65,22 @@ function Editor({ w, onChange, onRemove }: { w: WidgetConfig; onChange: (w: Widg
           {row('Date', <input className="input" type="datetime-local" value={w.options.target ? new Date(w.options.target - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 16) : ''} onChange={(e) => opt({ target: new Date(e.target.value).getTime() })} />)}
         </>
       ) : null}
+      {w.kind === 'timer' ? row('Minutes', <input className="input" type="number" min={1} max={1440} style={{ width: 80 }} value={w.options.minutes ?? 25} onChange={(e) => opt({ minutes: Math.min(1440, Math.max(1, Math.round(Number(e.target.value) || 25))) })} />) : null}
       {w.kind === 'text' ? row('Text', <textarea className="input" rows={3} value={w.options.text ?? ''} onChange={(e) => opt({ text: e.target.value })} />) : null}
       {w.kind === 'quote' ? row('Your own lines (one per line; empty uses Keeper’s)', <textarea className="input" rows={3} value={(w.options.quotes ?? []).join('\n')} onChange={(e) => opt({ quotes: e.target.value.split('\n') })} />) : null}
       {w.kind === 'world' ? (
         <div className="wge-row" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
-          <span>Places</span>
+          <span>Places and working hours (their own time; type a city or zone on the widget to add one)</span>
           {(w.options.places ?? DEFAULT_WORLD).map((p, i, all) => (
             <span key={i} className="row">
               <input className="input grow" value={p.label} onChange={(e) => opt({ places: all.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)) })} />
+              <input className="input" type="time" step={900} style={{ width: 92 }} title="Working hours start (their time)" value={minutesText((p.work ?? DEFAULT_WORK).start)} onChange={(e) => opt({ places: all.map((x, j) => (j === i ? { ...x, work: { ...(x.work ?? DEFAULT_WORK), start: textMinutes(e.target.value) } } : x)) })} />
+              <input className="input" type="time" step={900} style={{ width: 92 }} title="Working hours end (their time)" value={minutesText((p.work ?? DEFAULT_WORK).end)} onChange={(e) => opt({ places: all.map((x, j) => (j === i ? { ...x, work: { ...(x.work ?? DEFAULT_WORK), end: textMinutes(e.target.value) } } : x)) })} />
               <select className="input" value={p.zone} onChange={(e) => opt({ places: all.map((x, j) => (j === i ? { ...x, zone: e.target.value } : x)) })}>{[...new Set([p.zone, ...ZONES])].map((z) => <option key={z} value={z}>{z.replace(/_/g, ' ')}</option>)}</select>
               <button className="btn ghost icon sm" onClick={() => opt({ places: all.filter((_, j) => j !== i) })} aria-label="Remove"><Icon name="close" size={11} /></button>
             </span>
           ))}
-          {(w.options.places ?? DEFAULT_WORLD).length < 6 ? <button className="btn sm" style={{ alignSelf: 'flex-start' }} onClick={() => opt({ places: [...(w.options.places ?? DEFAULT_WORLD), { label: 'Singapore', zone: 'Asia/Singapore' }] })}><Icon name="plus" size={11} /> Add a place</button> : null}
+          {(w.options.places ?? DEFAULT_WORLD).length < 8 ? <button className="btn sm" style={{ alignSelf: 'flex-start' }} onClick={() => opt({ places: [...(w.options.places ?? DEFAULT_WORLD), { label: 'Singapore', zone: 'Asia/Singapore' }] })}><Icon name="plus" size={11} /> Add a place</button> : null}
         </div>
       ) : null}
       {w.kind === 'photo' ? (
@@ -152,7 +163,7 @@ export function Widgets() {
           {list?.map((w) => {
             const meta = WIDGET_KINDS.find((k) => k.kind === w.kind)!;
             return (
-              <div key={w.id} className="card wgp">
+              <div key={w.id} className={`card wgp${isWide(w) ? ' wide' : ''}`}>
                 <Preview w={w} />
                 <div className="row" style={{ padding: '10px 14px' }}>
                   <Icon name={KIND_ICON[w.kind]} size={14} />

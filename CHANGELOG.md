@@ -10,6 +10,11 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - Extras: captions made on this computer from the microphone (shown in the video or written as .srt), chapters from the apps used (inside MP4 and WebM files), keyboard-shortcut badges from the key log, and privacy blur: email addresses, keys and tokens found by reading the picture on this computer, plus blur boxes you draw.
 - Export to MP4 (H.264), HEVC, WebM and GIF at 480p to 4K and 15 to 60 fps, with presets (Standard, Crisp 4K, Quick share, Vertical, Square, Small HEVC, Web, GIF), progress and Cancel, then Show in Folder or Copy. Every frame is drawn by the same code as the preview, so the export matches what you saw.
 
+### Added — Desktop widgets
+- New widgets: Week (seven days of calendar events and planned tasks in calendar colours, today highlighted, earlier and later weeks, × to finish a task and "+ add" in each day: words with a time such as "Lunch 1pm" add an event, anything else a task), Timer (a countdown ring with Start, Pause, Reset, +1 min and 5 / 10 / 15 / 25 minutes; it runs as one of Keeper's own timers, so it rings in the Island even if the widget closes) and 7-day forecast (each day's sky, highs and lows in °C and °F, chance of rain, and rain in the night, morning, afternoon and evening, from the weather Keeper already has).
+- World clock: each city's working hours (9:00–18:00 unless set otherwise on the Widgets page) as a 24-hour strip on your own day, quarter-hour exact for places such as India and Nepal and following clock changes; an Overlap row with the hours when everyone works; a line at now and a slider to look at any hour (every time follows it; Now goes back); type a city or zone (Tokyo, Dubai, Europe/Paris) to add it, × to remove. Narrow world clocks keep the simple list.
+- Widgets with dark text on a light card draw their colours in darker shades. Widgets that do not show Island data no longer read it every 30 seconds, and the new ones wake once a minute (the timer once a second only while it runs).
+
 ## [0.1.0-beta.7] - 2026-11-02
 
 ### Fixed

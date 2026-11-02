@@ -2,10 +2,14 @@
 // Desktop widgets: small always-on-desktop windows showing the time, weather,
 // your next events, a countdown, photos and more, each styled by the user.
 
+import { cleanMinutes } from './widget-timer';
+import { cleanWork, zoneLabel, type WorkHours } from './widget-world';
+
 export type WidgetKind =
   | 'clock' | 'date' | 'events' | 'weather' | 'countdown' | 'battery' | 'disk' | 'sun-moon'
   | 'photo' | 'text' | 'clipboard' | 'focus' | 'system'
-  | 'day' | 'year' | 'season' | 'world' | 'quote';
+  | 'day' | 'year' | 'season' | 'world' | 'quote'
+  | 'week' | 'timer' | 'forecast';
 
 export type WidgetShape = 'card' | 'circle' | 'pill' | 'none';
 export type WidgetSizePreset = 'S' | 'M' | 'L';
@@ -49,12 +53,17 @@ export interface WidgetConfig {
     mount?: string;
     /** quote widget: the person's own lines (one per entry); empty uses the built-in ones */
     quotes?: string[];
-    /** world clock: up to six places */
-    places?: { label: string; zone: string }[];
+    /** world clock: up to six places, each with its working hours (minutes after midnight there; 9:00–18:00 when absent) */
+    places?: WorldPlace[];
+    /** timer: the chosen minutes, and the running countdown timer it started */
+    minutes?: number;
+    timerId?: string;
   };
 }
 
-export const WIDGET_KINDS: { kind: WidgetKind; name: string; description: string; size: [number, number] }[] = [
+export interface WorldPlace { label: string; zone: string; work?: WorkHours }
+
+export const WIDGET_KINDS: { kind: WidgetKind; name: string; description: string; size: [number, number]; presets?: Record<WidgetSizePreset, [number, number]> }[] = [
   { kind: 'clock', name: 'Clock', description: 'Analog or digital, with other time zones', size: [220, 220] },
   { kind: 'date', name: 'Calendar', description: 'Today and the month at a glance', size: [240, 240] },
   { kind: 'events', name: 'Up next', description: 'Your next events from the calendar link', size: [280, 200] },
@@ -71,8 +80,11 @@ export const WIDGET_KINDS: { kind: WidgetKind; name: string; description: string
   { kind: 'day', name: 'Day', description: 'The weekday, big and bold', size: [260, 130] },
   { kind: 'year', name: 'Year progress', description: 'How much of the year, month and day has gone', size: [260, 150] },
   { kind: 'season', name: 'Season', description: 'The season, and days until the next one', size: [240, 150] },
-  { kind: 'world', name: 'World clock', description: 'Several cities at a glance, day or night', size: [300, 200] },
+  { kind: 'world', name: 'World clock', description: 'Cities, their working hours and when they overlap', size: [540, 280], presets: { S: [320, 210], M: [540, 280], L: [680, 350] } },
   { kind: 'quote', name: 'Quote', description: 'A new line to think about every day', size: [300, 150] },
+  { kind: 'week', name: 'Week', description: 'Seven days of events and tasks; add one in a click', size: [780, 320], presets: { S: [620, 260], M: [780, 320], L: [980, 420] } },
+  { kind: 'timer', name: 'Timer', description: 'A countdown ring with 5, 10, 15 and 25 minutes', size: [230, 280], presets: { S: [190, 240], M: [230, 280], L: [290, 350] } },
+  { kind: 'forecast', name: '7-day forecast', description: 'Highs, lows and rain by part of the day', size: [780, 300], presets: { S: [620, 270], M: [780, 300], L: [960, 370] } },
 ];
 
 /** S, M and L as a multiple of a kind's natural size. */
@@ -82,8 +94,8 @@ export const SIZE_PRESETS: Record<WidgetSizePreset, number> = { S: 0.75, M: 1, L
 export function presetBounds(kind: WidgetKind, preset: WidgetSizePreset, at: { x: number; y: number }, shape: WidgetShape = 'card') {
   const def = WIDGET_KINDS.find((k) => k.kind === kind) ?? WIDGET_KINDS[0];
   const f = SIZE_PRESETS[preset];
-  let w = Math.round(def.size[0] * f);
-  let h = Math.round(def.size[1] * f);
+  let w = def.presets ? def.presets[preset][0] : Math.round(def.size[0] * f);
+  let h = def.presets ? def.presets[preset][1] : Math.round(def.size[1] * f);
   if (shape === 'circle') w = h = Math.max(w, h);
   if (shape === 'pill') h = Math.min(h, Math.round(w / 2.2));
   return { x: Math.round(at.x), y: Math.round(at.y), width: w, height: h };
@@ -185,7 +197,7 @@ export function snapBounds(b: Rect, others: Rect[], area: Rect, threshold = 14, 
   return { ...b, x: Math.round(x), y: Math.round(y) };
 }
 
-export const DEFAULT_WORLD: { label: string; zone: string }[] = [
+export const DEFAULT_WORLD: WorldPlace[] = [
   { label: 'San Francisco', zone: 'America/Los_Angeles' }, { label: 'New York', zone: 'America/New_York' }, { label: 'London', zone: 'Europe/London' }, { label: 'Tokyo', zone: 'Asia/Tokyo' },
 ];
 
@@ -202,7 +214,7 @@ export function newWidget(kind: WidgetKind, at: { x: number; y: number }, now = 
     locked: false,
     allWorkspaces: true,
     style: defaultStyle(),
-    options: kind === 'countdown' ? { title: 'New year', target: new Date(new Date(now).getFullYear() + 1, 0, 1).getTime() } : kind === 'text' ? { text: 'Keep what you love.' } : kind === 'clock' ? { analog: false, seconds: false, timeZones: [] } : kind === 'photo' ? { interval: 30 } : kind === 'world' ? { places: DEFAULT_WORLD } : {},
+    options: kind === 'countdown' ? { title: 'New year', target: new Date(new Date(now).getFullYear() + 1, 0, 1).getTime() } : kind === 'text' ? { text: 'Keep what you love.' } : kind === 'clock' ? { analog: false, seconds: false, timeZones: [] } : kind === 'photo' ? { interval: 30 } : kind === 'world' ? { places: DEFAULT_WORLD } : kind === 'timer' ? { minutes: 25 } : {},
   };
 }
 
@@ -218,5 +230,23 @@ export function normalizeWidgets(raw: unknown): WidgetConfig[] {
   if (!Array.isArray(raw)) return [];
   return raw
     .filter((w): w is WidgetConfig => !!w && typeof w.id === 'string' && WIDGET_KINDS.some((k) => k.kind === w.kind) && !!w.bounds)
-    .map((w) => ({ ...w, style: { ...defaultStyle(), ...(w.style ?? {}) }, options: w.options ?? {} }));
+    .map((w) => ({ ...w, style: { ...defaultStyle(), ...(w.style ?? {}) }, options: cleanOptions(w.kind, w.options ?? {}) }));
+}
+
+/** Options read from settings: world places with a label and clean working hours, timers whole minutes. */
+function cleanOptions(kind: WidgetKind, o: WidgetConfig['options']): WidgetConfig['options'] {
+  if (kind === 'world' && Array.isArray(o.places)) {
+    return { ...o, places: o.places.filter((p) => p && typeof p.zone === 'string').map((p) => ({ label: String(p.label ?? zoneLabel(p.zone)), zone: p.zone, ...(p.work ? { work: cleanWork(p.work) } : {}) })) };
+  }
+  if (kind === 'timer') return { ...o, minutes: cleanMinutes(o.minutes) };
+  return o;
+}
+
+/** A dark text colour (a light card): parts drawn in colour switch to their darker shades. */
+export function inkIsDark(color: string): boolean {
+  const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(color.trim());
+  if (!m) return false;
+  const hex = m[1].length === 3 ? m[1].split('').map((c) => c + c).join('') : m[1];
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b < 0.5;
 }

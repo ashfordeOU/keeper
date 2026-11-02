@@ -24,7 +24,7 @@ const demoScreen = () => SCREENS[params.get('screen') ?? 'notch'] ?? SCREENS.not
 
 type IslandApi = KeeperApi['island'];
 
-export function createMockIsland(island: IslandState, files: FileEntry[], settings: AllSettings, emit: () => void): { island: Partial<IslandApi>; widgets: KeeperApi['widgets'] } {
+export function createMockIsland(island: IslandState, files: FileEntry[], settings: AllSettings, emit: () => void, notify?: (channel: string) => void): { island: Partial<IslandApi>; widgets: KeeperApi['widgets'] } {
   const byPath = (p: string) => files.find((f) => f.path === p);
   let store = shelves.addItems(shelves.newStore(), island.shelf.map((f) => f.path));
   const trip = shelves.createShelf(store, 'Trip photos');
@@ -83,7 +83,15 @@ export function createMockIsland(island: IslandState, files: FileEntry[], settin
     { ...newWidget('weather', { x: 280, y: 80 }), id: 'w-weather' },
     { ...newWidget('countdown', { x: 40, y: 320 }), id: 'w-count', options: { title: 'Lisbon trip', target: Date.now() + 23 * 86_400_000 } },
     { ...newWidget('sun-moon', { x: 300, y: 300 }), id: 'w-sun' },
+    { ...newWidget('week', { x: 40, y: 520 }), id: 'w-week' },
+    { ...newWidget('world', { x: 620, y: 80 }), id: 'w-world', options: { places: [{ label: 'New York', zone: 'America/New_York' }, { label: 'London', zone: 'Europe/London' }, { label: 'Berlin', zone: 'Europe/Berlin' }, { label: 'Bengaluru', zone: 'Asia/Kolkata', work: { start: 11 * 60, end: 20 * 60 } }] } },
+    { ...newWidget('timer', { x: 620, y: 420 }), id: 'w-timer' },
+    { ...newWidget('forecast', { x: 40, y: 880 }), id: 'w-forecast' },
   ]);
+  // Demo only: ?widgetLook=light shows the widgets as light cards with dark text (for screenshots).
+  if (typeof location !== 'undefined' && new URLSearchParams(location.search).get('widgetLook') === 'light') {
+    widgets = widgets.map((w) => ({ ...w, style: { ...w.style, background: 'solid', bgColor: '#f7f7f9', color: '#1d1d1f', opacity: 0.94 } }));
+  }
   settings.widgets = widgets;
 
   return {
@@ -146,8 +154,8 @@ export function createMockIsland(island: IslandState, files: FileEntry[], settin
     },
     widgets: {
       list: async () => structuredClone(widgets),
-      save: async (w) => { widgets = widgets.some((x) => x.id === w.id) ? widgets.map((x) => (x.id === w.id ? w : x)) : [...widgets, w]; settings.widgets = widgets; return structuredClone(widgets); },
-      remove: async (id) => { widgets = widgets.filter((w) => w.id !== id); settings.widgets = widgets; return structuredClone(widgets); },
+      save: async (w) => { widgets = widgets.some((x) => x.id === w.id) ? widgets.map((x) => (x.id === w.id ? w : x)) : [...widgets, w]; settings.widgets = widgets; notify?.('widgets-changed'); return structuredClone(widgets); },
+      remove: async (id) => { widgets = widgets.filter((w) => w.id !== id); settings.widgets = widgets; notify?.('widgets-changed'); return structuredClone(widgets); },
       photos: async () => files.filter((f) => f.kind === 'image').map((f) => f.path),
       current: async () => widgets.find((w) => w.id === new URLSearchParams(location.search).get('id')) ?? null,
     },

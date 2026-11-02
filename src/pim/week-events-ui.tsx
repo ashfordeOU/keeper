@@ -71,7 +71,7 @@ export function CalendarAccessRow({ status, onChange, toast }: { status: Calenda
  * Events for a run of days (yyyy-mm-dd) from every calendar Keeper reads,
  * read when the days change and when the calendar service reports a change.
  */
-export function useWeekEvents(days: string[], o: { island?: boolean } = {}): Map<string, WeekEvent[]> {
+export function useWeekEvents(days: string[], o: { island?: boolean; watch?: boolean } = {}): Map<string, WeekEvent[]> {
   const [occ, setOcc] = useState<Occurrence[]>([]);
   const [cals, setCals] = useState<CalendarInfo[]>([]);
   const from = days.length ? dayStart(days[0]) : 0;
@@ -87,10 +87,13 @@ export function useWeekEvents(days: string[], o: { island?: boolean } = {}): Map
   useEffect(load, [load]);
   useEffect(() => api.on('pim-changed', ((k: string) => { if (k === 'calendar' || k === 'accounts') ref.current(); }) as never), []);
   // Shown now: the calendar service looks for changes sooner for a few minutes (its own schedule, no timer here).
+  // A desktop widget is always shown, so it leaves the service to its usual pace (watch: false).
+  const watch = o.watch !== false;
   useEffect(() => {
+    if (!watch) return undefined;
     void api.pim?.watchCalendar?.(true).catch(() => undefined);
     return () => { void api.pim?.watchCalendar?.(false).catch(() => undefined); };
-  }, []);
+  }, [watch]);
   const key = days.join(',');
   // eslint-disable-next-line react-hooks/exhaustive-deps
   return useMemo(() => eventsByDay(occ, cals, days, { island: o.island }), [occ, cals, key, o.island]);

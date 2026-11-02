@@ -134,7 +134,7 @@ const api = {
   // Cues and Island+ (calls, levels, notifications, agents).
   cues: group('cues', ['state', 'list', 'create', 'update', 'toggleItem', 'skipItem', 'complete', 'reopen', 'snooze', 'remove', 'restore', 'purge', 'dismiss', 'templates', 'saveTemplate', 'removeTemplate', 'startTemplate', 'parse', 'suggest', 'settings', 'setSettings', 'compose', 'openFolder', 'exportMarkdown', 'syncWithDevices', 'popup', 'closePopup', 'reportPage', 'openPage']),
   islandx: group('islandx', ['status', 'callMute', 'callDismiss', 'hideFor', 'installAgentHooks', 'removeAgentHooks', 'openNotifyPermission', 'testNotification', 'startBreak', 'focusFor', 'mediaMode', 'openLauncher', 'showPage']),
-  widgets: group('widgets', ['list', 'save', 'remove', 'photos', 'current', 'arrange', 'arranging', 'tint']),
+  widgets: group('widgets', ['list', 'save', 'remove', 'photos', 'current', 'arrange', 'arranging', 'tint', 'focus']),
   // Dictation anywhere and meeting recording; the listening pill streams its microphone samples here.
   voice: {
     ...group('voice', ['status', 'settings', 'setSettings', 'start', 'stop', 'toggle', 'cancel', 'confirm', 'history', 'removeTake', 'clearHistory', 'stats', 'reuseTake', 'correct', 'preview', 'downloadModel', 'removeModel', 'testKey', 'meetings', 'meeting', 'startMeeting', 'pauseMeeting', 'stopMeeting', 'dismissOffer', 'renameSpeaker', 'renameMeeting', 'writeNotes', 'exportMeeting', 'removeMeeting', 'linkEvent', 'eventsNear', 'tray', 'voices', 'forgetVoices', 'saveStatsPng']),

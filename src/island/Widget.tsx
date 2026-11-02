@@ -8,12 +8,13 @@ import { moonPath, moonPhase, sunTimes } from '../../core/astro';
 import { formatBytes } from '../../core/format';
 import type { DiskInfo } from '../../core/types';
 import { describeCode } from '../../core/weather';
-import { countdownParts, quoteOfDay, seasonInfo, shapeRadius, yearProgress, type WidgetConfig } from '../../core/widgets';
+import { countdownParts, inkIsDark, quoteOfDay, seasonInfo, shapeRadius, yearProgress, type WidgetConfig, type WidgetKind } from '../../core/widgets';
 import { hemisphereFor } from '../../core/themes';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
 import '../styles/widgets.css';
 import { openNative } from '../lib/native';
+import { ForecastWidget, TimerWidget, WeekWidget, WorldWidget } from './WidgetsPlus';
 
 const FONTS: Record<WidgetConfig['style']['font'], string> = {
   system: 'var(--font)',
@@ -40,24 +41,34 @@ export function widgetSurface(w: WidgetConfig, tint?: string | null): React.CSSP
   };
 }
 
-function useNow(ms = 1000) {
+/** Kinds that keep their own time (or none): no shared ticking timer for them. */
+const OWN_CLOCK = new Set<WidgetKind>(['week', 'world', 'timer', 'forecast', 'photo', 'text', 'disk', 'system']);
+/** Kinds that show something from the Island's state. */
+const NEEDS_ISLAND = new Set<WidgetKind>(['events', 'weather', 'sun-moon', 'battery', 'focus', 'season', 'clipboard']);
+
+/** "light": dark text on a light card, so coloured parts use their darker shades. */
+export const widgetInk = (w: WidgetConfig) => (inkIsDark(w.style.color) ? 'light' : 'dark');
+
+function useNow(ms: number | null = 1000) {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
+    if (ms === null) return undefined;
     const t = setInterval(() => setNow(Date.now()), ms);
     return () => clearInterval(t);
   }, [ms]);
   return now;
 }
 
-function useIsland(): IslandState | null {
+function useIsland(on = true): IslandState | null {
   const [s, setS] = useState<IslandState | null>(null);
   useEffect(() => {
+    if (!on) return undefined;
     const load = () => void api.island.state().then(setS).catch(() => undefined);
     load();
     const off = api.on('island-changed', load);
     const t = setInterval(load, 30_000);
     return () => { off(); clearInterval(t); };
-  }, []);
+  }, [on]);
   return s;
 }
 
@@ -101,8 +112,8 @@ function Spark({ values, height = 34 }: { values: number[]; height?: number }) {
 }
 
 export function WidgetBody({ w }: { w: WidgetConfig }) {
-  const now = useNow(w.kind === 'clock' && (w.options.seconds || w.options.analog) ? 1000 : w.kind === 'quote' || w.kind === 'season' ? 600_000 : 15_000);
-  const isl = useIsland();
+  const now = useNow(OWN_CLOCK.has(w.kind) ? null : w.kind === 'clock' && (w.options.seconds || w.options.analog) ? 1000 : w.kind === 'quote' || w.kind === 'season' ? 600_000 : 15_000);
+  const isl = useIsland(NEEDS_ISLAND.has(w.kind));
   const [disks, setDisks] = useState<DiskInfo[]>([]);
   const [health, setHealth] = useState<HealthReport | null>(null);
   const [photos, setPhotos] = useState<string[]>([]);
@@ -291,23 +302,14 @@ export function WidgetBody({ w }: { w: WidgetConfig }) {
         </div>
       );
     }
-    case 'world': {
-      const places = w.options.places?.length ? w.options.places : [];
-      return (
-        <div className="wg-world">
-          {places.slice(0, 6).map((p) => {
-            let t = '—';
-            let h = 12;
-            try {
-              t = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: p.zone });
-              h = Number(new Intl.DateTimeFormat('en-GB', { hour: '2-digit', hour12: false, timeZone: p.zone }).format(d));
-            } catch { /* unknown zone */ }
-            const day = h >= 7 && h < 19;
-            return <div key={p.zone + p.label} className="wg-world-row"><span className="wg-world-dot" data-day={day ? '1' : '0'}>{day ? '☀︎' : '☾'}</span><span className="wg-ell">{p.label}</span><b>{t}</b></div>;
-          })}
-        </div>
-      );
-    }
+    case 'world':
+      return <WorldWidget w={w} />;
+    case 'week':
+      return <WeekWidget w={w} />;
+    case 'timer':
+      return <TimerWidget w={w} />;
+    case 'forecast':
+      return <ForecastWidget w={w} />;
     case 'quote':
       return <div className="wg-quote">“{quoteOfDay(now, w.options.quotes)}”</div>;
     case 'clipboard': {
@@ -348,7 +350,7 @@ export function WidgetView() {
   }, []);
   if (!w) return null;
   return (
-    <div className={`wg ${w.locked && !arranging ? 'locked' : ''} ${arranging ? 'arranging' : ''} shape-${w.style.shape ?? 'card'}`} style={widgetSurface(w, tint)}>
+    <div className={`wg ${w.locked && !arranging ? 'locked' : ''} ${arranging ? 'arranging' : ''} shape-${w.style.shape ?? 'card'} kind-${w.kind}`} data-ink={widgetInk(w)} style={widgetSurface(w, tint)}>
       <WidgetBody w={w} />
       {arranging ? <button className="wg-arrange-done" onClick={() => void api.widgets.arrange?.(false)}>Done arranging</button> : null}
     </div>

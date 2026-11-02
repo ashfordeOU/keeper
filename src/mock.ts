@@ -245,6 +245,14 @@ export function createMockApi(): KeeperApi {
       current: { temp: 19, feels: 18, code: 2, wind: 14, humidity: 64, isDay: true, uv: 3, aqi: 38 },
       hourly: Array.from({ length: 24 }, (_, i) => ({ t: now + i * 3600_000, temp: 19 + Math.round(4 * Math.sin(i / 4)), code: i > 14 && i < 18 ? 61 : 2, rainChance: i > 13 && i < 19 ? 60 : 10, rain: i > 14 && i < 18 ? 0.8 : 0, uv: Math.max(0, 5 - Math.abs(i - 4)), wind: 12 })),
       daily: Array.from({ length: 7 }, (_, i) => ({ t: now + i * DAY, min: 13 + (i % 3), max: 21 + (i % 4), code: [2, 61, 3, 0, 1, 80, 2][i], rainChance: [10, 70, 30, 0, 5, 60, 20][i], sunrise: now - 3 * 3600_000, sunset: now + 6 * 3600_000, uvMax: 5 })),
+      // Every hour of the week, so the 7-day forecast widget can show rain by part of the day.
+      hours: Array.from({ length: 7 * 24 }, (_, i) => {
+        const t = new Date(now).setHours(0, 0, 0, 0) + i * 3600_000;
+        const d = Math.floor(i / 24);
+        const h = i % 24;
+        const wet = [[5, 10, 35, 20], [40, 75, 85, 60], [25, 30, 15, 10], [0, 0, 5, 0], [5, 0, 10, 15], [30, 55, 70, 45], [15, 20, 25, 10]][d][Math.floor(h / 6)];
+        return { t, temp: 15 + (d % 3) + Math.round(5 * Math.sin(((h - 9) / 24) * 2 * Math.PI)), code: [2, 61, 3, 0, 1, 80, 2][d], rainChance: Math.max(0, wet - (h % 6) * 3), rain: wet > 50 ? 0.6 : 0, uv: Math.max(0, 5 - Math.abs(h - 13)), wind: 12, isDay: h >= 7 && h < 18 };
+      }),
       nowcast: 'Rain starting in about 40 minutes',
     },
     agents: [
@@ -260,7 +268,7 @@ export function createMockApi(): KeeperApi {
     alerts: [],
   };
   const lockX = mockLock(HOME, () => listeners.get('library-changed')?.forEach((cb) => cb(undefined)));
-  const islandX = createMockIsland(island, files, settings, () => listeners.get('island-changed')?.forEach((cb) => cb(undefined)));
+  const islandX = createMockIsland(island, files, settings, () => listeners.get('island-changed')?.forEach((cb) => cb(undefined)), (ch) => listeners.get(ch)?.forEach((cb) => cb(undefined)));
   const ok = { freed: 0, removed: 0, failed: 0, skipped: [] as string[] };
   const browse = (dir: string): BrowseEntry[] => {
     const seen = new Map<string, BrowseEntry>();

@@ -580,6 +580,8 @@ export interface KeeperApi extends KeeperApiX {
     arranging?(): Promise<boolean>;
     /** the colour "tinted" widgets use (from the wallpaper's palette), or null for the theme's accent */
     tint?(): Promise<string | null>;
+    /** a widget window asks for the keyboard (its text field was clicked) */
+    focus?(): Promise<boolean>;
   };
   /** live wallpaper, vibes, ambient sound and folder icons */
   ambience: import('./scenes/api').AmbienceApi;

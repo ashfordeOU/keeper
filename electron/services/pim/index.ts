@@ -36,6 +36,7 @@ import { cidMap, compose, MailAccount, smtpSend, smtpVerify, toBody, type Auth }
 import { dav, deleteHref, discover, fetchContacts, fetchIcs, graphCalendars, graphDelete, graphEvents, graphSave, putEvent, putTodo, syncCalendar, type DavAuth } from './dav';
 import { accessToken, cancelSignIn, clientFor, saveTokens, signIn } from './oauth';
 import { dropSecret, emptyState, files, hash, loadAccounts, loadContacts, loadState, putSecret, readJson, readSecret, saveAccounts, writeJson, type EventCache, type FolderCache, type PimState } from './store';
+import { extendTimer } from '../../../core/widget-timer';
 
 export interface PimDeps {
   broadcast: (channel: string, ...args: unknown[]) => void;
@@ -1496,6 +1497,7 @@ export const pim: PimApi = {
     else if (action === 'resume' && t.endsAt === undefined) { t.endsAt = now + (t.leftMs ?? t.durationMs); t.leftMs = undefined; }
     else if (action === 'restart') { t.endsAt = now + t.durationMs; t.leftMs = undefined; }
     else if (action === 'cancel') state.timers = state.timers.filter((x) => x.id !== id);
+    else if (action === 'extend') Object.assign(t, extendTimer(t, 60_000, now));
     saveState();
     changed('alarms');
   },

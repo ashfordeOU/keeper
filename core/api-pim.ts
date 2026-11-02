@@ -167,7 +167,8 @@ export interface PimApi {
   snoozeAlarm(id: string): Promise<void>;
   stopRinging(id: string): Promise<void>;
   startTimer(label: string, ms: number): Promise<CountdownTimer>;
-  timerAction(id: string, action: 'pause' | 'resume' | 'cancel' | 'restart'): Promise<void>;
+  /** extend: one more minute */
+  timerAction(id: string, action: 'pause' | 'resume' | 'cancel' | 'restart' | 'extend'): Promise<void>;
   saveClocks(c: WorldClock[]): Promise<void>;
   /** ask the system to wake the computer for an alarm (macOS; asks for an administrator) */
   scheduleWake(id: string): Promise<{ ok: boolean; message: string }>;

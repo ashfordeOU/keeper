@@ -14,6 +14,7 @@ import type { Account, Alarm, CalEvent, CalendarInfo, Contact, CountdownTimer, M
 import { suggest } from '../core/pim/vcard';
 import { buildCalendarStatus, upcomingFrom } from '../core/pim/week-events';
 import type { SystemAccess } from '../core/pim/syscal';
+import { extendTimer } from '../core/widget-timer';
 
 type Emit = (channel: string, ...args: unknown[]) => void;
 
@@ -269,6 +270,7 @@ export function mockPim(emit: Emit): { pim: PimApi } {
       if (action === 'resume' && !t.endsAt) { t.endsAt = Date.now() + (t.leftMs ?? t.durationMs); t.leftMs = undefined; }
       if (action === 'restart') { t.endsAt = Date.now() + t.durationMs; t.leftMs = undefined; }
       if (action === 'cancel') timers = timers.filter((x) => x.id !== id);
+      if (action === 'extend') Object.assign(t, extendTimer(t));
       changed('alarms');
     },
     saveClocks: async (c) => { clocks = c; changed('alarms'); },

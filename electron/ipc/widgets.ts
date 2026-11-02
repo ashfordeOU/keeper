@@ -161,4 +161,14 @@ export function registerWidgetsIpc(c: WidgetsContext) {
   h('widgets.arrange', (on: boolean) => { setArranging(!!on); return arranging; });
   h('widgets.arranging', () => arranging);
   h('widgets.tint', () => tint);
+  // Typing into a widget (the Week's "+ add", the world clock's city field): desktop-layer
+  // windows open without focus, so the field asks for the keyboard when it is clicked.
+  ipcMain.handle('widgets.focus', (e) => {
+    const id = widgetFor(e.sender);
+    const win = id ? widgetWins.get(id) : undefined;
+    if (!win || win.isDestroyed()) return false;
+    win.focus();
+    win.webContents.focus();
+    return true;
+  });
 }
