@@ -29,6 +29,8 @@ export interface SuitePart {
 
 export interface SuiteApi {
   parts(): Promise<SuitePart[]>;
+  /** Keeper's own processes together (its main process, windows, graphics; not its services) */
+  app(): Promise<{ memory: number; cpu: number; processes: number; pid: number; startedAt: number }>;
   restart(id: PartRole): Promise<SuitePart[]>;
   /** whether parts run separately now, and at the next start */
   separate(): Promise<{ now: boolean; next: boolean; env: string | null }>;

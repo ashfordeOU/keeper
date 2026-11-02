@@ -25,7 +25,11 @@ import {
 } from '../../core/procs';
 
 const PLATFORM = process.platform;
-const SELF = process.pid;
+/** Keeper's own main process (this code may run in a service process of its own: electron/svc/procs-host.ts). */
+let SELF = process.pid;
+export function configureProcs(c: { appPid?: number }) {
+  if (c?.appPid) SELF = c.appPid;
+}
 const MY_UID = typeof process.getuid === 'function' ? process.getuid() : -1;
 
 // ---------------------------------------------------------------- shared state between readings

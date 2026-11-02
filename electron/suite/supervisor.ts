@@ -20,6 +20,7 @@ import { normalizeWidgets } from '../../core/widgets';
 import { featureOn, onFeature } from '../services/features';
 import { onSettings, settings } from '../store';
 import { roleRunning, suiteDir } from './channel';
+import { ownUsage } from './metrics';
 import { onPartBye, onPartHello, partCommand, partConnected, partPid } from './hub';
 
 const SAFE_MODE = process.argv.includes('--safe-mode');
@@ -277,6 +278,12 @@ export async function listParts(): Promise<SuitePart[]> {
 
 export function registerSuiteIpc() {
   ipcMain.handle('suite.parts', () => listParts());
+  // The app's own processes (its services are listed apart, on the suite page and the Processes page).
+  ipcMain.handle('suite.app', async () => {
+    const { allHosts } = await import('../svc/host');
+    const services = new Set(allHosts().map((h) => h.pid).filter(Boolean));
+    return { ...ownUsage((pid) => services.has(pid)), pid: process.pid, startedAt: Math.round(Date.now() - process.uptime() * 1000) };
+  });
   ipcMain.handle('suite.restart', (_e, role: PartRole) => { restartPart(role); return listParts(); });
   ipcMain.handle('suite.separate', () => ({ now: separateAtStart, next: settings().suiteSeparate !== false, env: process.env.KEEPER_SUITE ?? null }));
 }

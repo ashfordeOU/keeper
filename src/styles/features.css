@@ -37,3 +37,5 @@
 .component-prompt { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; margin: 0 0 12px; }
 .component-prompt .component-need { margin-top: 6px; }
 .components-section { margin-top: 18px; }
+.suite-intro { padding: 0 2px 8px; }
+.suite-row .kproc-dot { flex: none; }

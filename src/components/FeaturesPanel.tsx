@@ -8,6 +8,7 @@ import { api } from '../api';
 import { useFeatureStates } from '../features';
 import { useStore } from '../state';
 import { Icon } from './Icon';
+import { SuitePanel } from './SuitePanel';
 import { SECTION_COLOR, SECTION_IDS } from './NavSection';
 import { Toggle } from './ui';
 import { ComponentNeeds, ComponentsSection } from './ComponentsPanel';
@@ -99,6 +100,7 @@ export function FeaturesPanel() {
             </select></label>
         </div>
       </div>
+      <SuitePanel />
       <div className="feature-search">
         <Icon name="search" size={14} />
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a feature" aria-label="Find a feature" />

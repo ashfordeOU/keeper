@@ -86,6 +86,7 @@ if (!cliOnly) {
     // The watchdog that starts Keeper again after an unexpected stop, and the service hosts.
     { ...common, entryPoints: ['electron/watchdog.ts'], outfile: 'dist-electron/watchdog.cjs', sourcemap: false },
     { ...common, entryPoints: ['electron/svc/net-host.ts'], outfile: 'dist-electron/svc-net.cjs' },
+    { ...common, entryPoints: ['electron/svc/procs-host.ts'], outfile: 'dist-electron/svc-procs.cjs' },
     // Keeper Link without the app (unattended access for your own devices; installed as a system service).
     { ...common, entryPoints: ['electron/linkd.ts'], outfile: 'dist-electron/linkd.cjs' },
     // Keeper Mesh's privileged helper (runs as the administrator; small and separate on purpose).

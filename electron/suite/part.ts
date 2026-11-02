@@ -20,6 +20,7 @@ import { EXIT_ALREADY_RUNNING, ORPHAN_GRACE_MS, roleOf, type PartRole, type Send
 import type { AllSettings } from '../../core/settings';
 import { installNavGuard } from '../nav-guard';
 import { adoptSettings, setSettingsWriter } from '../store';
+import { ownUsage } from './metrics';
 import { connect, readCoreInfo, suiteDir, takeRoleLock, type Peer } from './channel';
 
 const role = roleOf(process.argv) as PartRole;
@@ -128,17 +129,6 @@ function deliver(channel: string, args: unknown[], to?: number) {
 type Commands = Record<string, (...args: never[]) => unknown>;
 let commands: Commands = {};
 
-function metrics() {
-  let memory = 0;
-  let cpu = 0;
-  const list = app.getAppMetrics();
-  for (const m of list) {
-    memory += (m.memory?.workingSetSize ?? 0) * 1024;
-    cpu += m.cpu?.percentCPUUsage ?? 0;
-  }
-  return { memory, cpu, processes: list.length };
-}
-
 async function onMessage(m: SuiteMessage, onWelcome: () => void) {
   switch (m.t) {
     case 'welcome':
@@ -168,7 +158,7 @@ async function onMessage(m: SuiteMessage, onWelcome: () => void) {
       deliver(m.channel, m.args, m.to);
       break;
     case 'cmd': {
-      const fn = m.name === 'quit' ? () => setTimeout(() => app.quit(), 10) : m.name === 'metrics' ? metrics : commands[m.name];
+      const fn = m.name === 'quit' ? () => setTimeout(() => app.quit(), 10) : m.name === 'metrics' ? () => ownUsage() : commands[m.name];
       if (!fn) { peer?.send({ t: 'result', id: m.id, ok: false, error: `unknown command ${m.name}` }); break; }
       try {
         peer?.send({ t: 'result', id: m.id, ok: true, value: (await fn(...(m.args as never[]))) ?? null });
