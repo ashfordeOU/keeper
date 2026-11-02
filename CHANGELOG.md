@@ -4,6 +4,8 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 
 ## [Unreleased]
 
+## [0.1.0-beta.5] - 2026-11-02
+
 ## [0.1.0-beta.4] - 2026-11-01
 
 ### Changed
