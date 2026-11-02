@@ -13,9 +13,10 @@ import { Toggle } from './ui';
 import '../styles/usage.css';
 
 const MODES: [ResourceMode, string, string][] = [
-  ['minimal', 'Minimal', 'The least use of your computer. Reading text in pictures and understanding files wait until you take a break on mains power; checks look less often. From the next start Keeper also draws without the graphics card (about 60 MB less), unless a live wallpaper is playing.'],
+  // The stored values stay 'minimal', 'balanced' and 'performance' (settings from every version read the same).
+  ['minimal', 'Save battery', 'The least use of your computer. Reading text in pictures and understanding files wait until you take a break on mains power; checks look less often. From the next start Keeper also draws without the graphics card (about 60 MB less), unless a live wallpaper is playing.'],
   ['balanced', 'Balanced', 'Background work fits around you: it slows down while you work, waits on battery for the heavy parts and catches up when you are away.'],
-  ['performance', 'Performance', 'Gets everything ready as fast as possible, even while you work or on battery. Keeper’s window also stays loaded when closed to the tray.'],
+  ['performance', 'Fastest', 'Gets everything ready as fast as possible, even while you work or on battery. Keeper’s window also stays loaded when closed to the tray.'],
 ];
 
 const CHECK_NAMES: Record<string, string> = {
@@ -102,7 +103,7 @@ export function UsagePanel() {
         <div className="usage-memory-row">
           <div className="grow">
             <b>Close the window to free memory</b>
-            <div className="small muted">When you close Keeper’s window and it keeps running in the tray, its page is let go a moment later (about 50–80 MB). Opening it again takes under a second and brings back your tabs, pages, scroll positions and drafts. Off keeps it loaded{mode === 'performance' ? '' : ' for a while (15 minutes, 2 in Minimal mode)'}.</div>
+            <div className="small muted">When you close Keeper’s window and it keeps running in the tray, its page is let go a moment later (about 50–80 MB). Opening it again takes under a second and brings back your tabs, pages, scroll positions and drafts. Off keeps it loaded{mode === 'performance' ? '' : ' for a while (15 minutes, 2 in Save battery)'}.</div>
           </div>
           <Toggle label="Close the window to free memory" on={settings.freeWindowOnClose ?? mode !== 'performance'} onChange={(v) => void updateSettings({ freeWindowOnClose: v })} />
         </div>

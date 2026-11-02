@@ -96,7 +96,9 @@ export async function setFeature(id: string, on: boolean): Promise<FeatureRow[]>
 }
 
 export async function applyPreset(preset: PresetId): Promise<FeatureRow[]> {
-  const patch = presetPatch(settings(), preset);
+  // Recommended is for this computer (coding tools, an AI on it, memory…).
+  const ctx = presetName(preset) === 'recommended' ? await import('./setup').then((m) => m.computerContext()).catch(() => undefined) : undefined;
+  const patch = presetPatch(settings(), preset, ctx);
   if (Object.keys(patch).length) await updateSettings(patch);
   const loginOn = featureStates(settings()).get('login')?.wanted ?? false;
   await setLoginItem(loginOn);

@@ -3,7 +3,7 @@
 // costs, presets, and Customize sidebar.
 
 import { useEffect, useMemo, useState } from 'react';
-import { currentPreset, currentSet, FEATURE_GROUPS, FEATURES, featureDef, PRESETS, type CostLevel, type FeatureSet } from '../../core/features';
+import { currentPreset, currentSet, FEATURE_GROUPS, FEATURES, featureDef, PRESETS, type ComputerContext, type CostLevel, type FeatureSet } from '../../core/features';
 import { api } from '../api';
 import { useFeatureStates } from '../features';
 import { useStore } from '../state';
@@ -20,7 +20,9 @@ export function FeaturesPanel() {
   const states = useFeatureStates();
   const [q, setQ] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
-  const preset = settings ? currentPreset(settings) : undefined;
+  const [ctx, setCtx] = useState<ComputerContext | undefined>();
+  useEffect(() => { void api.setup?.context().then(setCtx).catch(() => undefined); }, []);
+  const preset = settings ? currentPreset(settings, ctx) : undefined;
   const [sets, setSets] = useState<{ sets: FeatureSet[]; onBattery: string; onPower: string } | null>(null);
   const [live, setLive] = useState<Record<string, { name: string; everyMs: number | null; runs: number }[]>>({});
   const [newName, setNewName] = useState('');
@@ -64,6 +66,11 @@ export function FeaturesPanel() {
             <span className="small muted">{p.description}</span>
           </button>
         ))}
+        {/* Anything else is Custom: the person's own mix. */}
+        <button role="radio" aria-checked={!preset} aria-disabled className={`feature-preset ${!preset ? 'on' : ''}`} data-testid="preset-custom" title="Your own mix of parts">
+          <b>Custom</b>
+          <span className="small muted">Your own mix of parts.</span>
+        </button>
       </div>
       <div className="feature-sets" data-testid="feature-sets">
         <div className="feature-group-title">Your sets</div>
