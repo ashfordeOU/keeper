@@ -6,7 +6,7 @@
 import { shell } from 'electron';
 import http from 'node:http';
 import { authUrl, codeExchange, GRAPH_SCOPES, pkce, readRedirect, readTokenResponse, refreshRequest, type OAuthClient, type OAuthProvider, type Tokens } from '../../../core/pim/oauth';
-import { readSecret, putSecret } from './store';
+import { assertSecretReadable, readSecret, putSecret } from './store';
 
 /** Client IDs: Settings first, then the ones Keeper was built with (environment at build or run time). */
 export function clientFor(p: OAuthProvider, prefs?: { google?: string; googleSecret?: string; microsoft?: string }): OAuthClient | undefined {
@@ -79,7 +79,10 @@ export async function saveTokens(account: string, t: Tokens, resource = 'mail') 
  */
 export async function accessToken(account: string, p: OAuthProvider, client: OAuthClient, resource: 'mail' | 'graph' = 'mail'): Promise<string> {
   const raw = (await readSecret(tokenKey(account, resource))) ?? (resource === 'graph' ? await readSecret(tokenKey(account, 'mail')) : undefined);
-  if (!raw) throw new Error('Sign in again to use this account');
+  if (!raw) {
+    await assertSecretReadable(tokenKey(account, resource), 'this account’s sign-in');
+    throw new Error('Sign in again to use this account');
+  }
   const t = JSON.parse(raw) as Tokens;
   if (resource === 'mail' && t.expires > Date.now()) return t.access;
   if (resource === 'graph' && raw === (await readSecret(tokenKey(account, 'graph'))) && t.expires > Date.now()) return t.access;

@@ -433,6 +433,8 @@ export interface KeeperApi extends KeeperApiX {
   /** anonymous usage stats: the switch, exactly what is sent, and the install ID */
   usageStats: import('./telemetry').UsageStatsApi;
   permissions: import('./permissions').PermissionsApi;
+  /** whether Keeper's saved sign-ins can be read (the system keychain), and Try again */
+  keychain: import('./keychain').KeychainApi;
   /** AI usage and subscriptions: limits left per account, warnings, the menu-bar pop-over */
   aiUsage: import('./api-ai-usage').AiUsageApi;
   /** Keeper's sister apps by Ashforde (Monorail on macOS) */
@@ -750,6 +752,8 @@ export interface KeeperApi extends KeeperApiX {
   on(channel: 'toggle-inspector' | 'toggle-sidebar', cb: () => void): () => void;
   /** a feature needs a system permission now (the window points to Settings → Permissions) */
   on(channel: 'permission-needed', cb: (p: { id: string; feature?: string }) => void): () => void;
+  /** the keychain started or stopped refusing Keeper's saved sign-ins */
+  on(channel: 'keychain-changed', cb: (s: import('./keychain').KeychainStatus) => void): () => void;
   /** the tool launcher was shown again (focus the search box); the menu-bar pop-over's live reading */
   on(channel: 'launcher-shown', cb: () => void): () => void;
   on(channel: 'sysmon-live', cb: (r: import('./monitor-tray').LiveReading) => void): () => void;

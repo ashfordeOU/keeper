@@ -72,6 +72,17 @@ battery levels of connected devices come from System Information) or
 | **Local Network** | Lets Keeper find and reach your other devices, servers and shared folders on this network. | Keeper on your other devices, Network browsing, Keeper Mesh, Cloud and servers, Remote Desktops | Runs a check (the system may ask). Keeper looks for devices on the network; if macOS asks, choose “Allow”. | System Settings → Privacy & Security → Local Network: switch Keeper off (or select it and press −). |
 | **Open at login** | Starts Keeper quietly in the menu bar when you log in. | Start at login | Turns it on. Keeper adds itself; macOS may show a note that a login item was added. | System Settings → General → Login Items & Extensions: remove Keeper, or switch off Start at login in Keeper’s Settings → Features. |
 
+### The keychain question after an update ("Keeper Safe Storage")
+
+Keeper keeps mail passwords, AI keys, sign-in tokens and this device's Link key sealed with the macOS keychain, under an item called **Keeper Safe Storage**. Until Keeper is signed with an Apple Developer ID, macOS sees each update as a new app and asks once: *"Keeper wants to use your confidential information stored in 'Keeper Safe Storage' in your keychain."* This is expected. Type your Mac login password and choose **Always Allow**. The Software Update window says so before it restarts.
+
+If you choose **Deny**, nothing is lost. Keeper shows a banner, "Keeper can't read its saved passwords and keys", with **Try again**. Mail and AI say that the keychain refused (not that a password is wrong), and Keeper Link waits for this device's key instead of making a new one, so paired devices keep trusting it. Press **Try again** and choose **Always Allow**. If macOS does not ask again, use **Restart Keeper** on the banner.
+
+### Files and folders, and the local network
+
+- **Desktop, Documents and Downloads.** macOS asks once per folder the first time Keeper's library reads it. Keeper waits until the welcome tour is done before it looks. Turning on **Full Disk Access** answers all three at once.
+- **Local Network** (macOS 15 and later) and the **Windows Firewall** question appear only when Keeper Link first opens to your network: when you pair a device, show a pairing code, look for devices, or switch on *Let devices on this network find this computer* on the Devices page. Until then Link answers only this computer.
+
 ## Windows
 
 | Permission | Why | Used by | What Allow does | How to take it back |
@@ -94,6 +105,8 @@ battery levels of connected devices come from System Information) or
 | **Keyboard access (input group)** (restart) | Lets Keeper notice the hold-to-talk key and show keystrokes on Stage under Wayland, by reading /dev/input. | Hold a key to talk, Display keys, Stage mode | Explains; the system asks when needed. In a terminal run: sudo usermod -aG input $USER — then log out and in again. Only do this if you use these features: any app you run can then read the keyboard. | sudo gpasswd -d $USER input, then log out and in again. |
 | **Accessibility bus (AT-SPI)** | Lets Keeper read other apps’ notifications and controls for the Island and AI agents. | Notifications in the Island, AI agents, Dictation | Runs a check (the system may ask). On GNOME, switch on Settings → Accessibility → any assistive feature, or run: gsettings set org.gnome.desktop.interface toolkit-accessibility true | gsettings set org.gnome.desktop.interface toolkit-accessibility false |
 
+
+On Linux, Keeper keeps passwords and keys in the **Secret Service** keyring (GNOME Keyring or KWallet). Without one, Keeper refuses to store AI keys and keeps mail passwords only until it quits. To fix that, install `gnome-keyring` (or KWallet), log out and log in again. If the keyring is locked, Keeper shows the keychain banner with **Try again**.
 
 ## For developers
 

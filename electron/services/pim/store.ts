@@ -10,7 +10,8 @@ import path from 'node:path';
 import type { LogEntry } from '../../../core/pim/insights';
 import type { Draft, MailRule } from '../../../core/pim/mail';
 import type { Account, Alarm, CalEvent, CalendarInfo, Contact, CountdownTimer, MessageSummary, Reminder, WorldClock } from '../../../core/pim/types';
-import { getSecret, setSecret } from '../../store';
+import { KeychainLockedError } from '../../../core/keychain';
+import { getSecret, secretLocked, setSecret } from '../../store';
 
 // KEEPER_PIM_DIR lets the tests run the mail and calendar code outside Electron.
 export const pimDir = () => process.env.KEEPER_PIM_DIR ?? path.join(app.getPath('userData'), 'pim');
@@ -198,6 +199,11 @@ export async function putSecret(name: string, value: string): Promise<'keychain'
 
 export async function readSecret(name: string): Promise<string | undefined> {
   return memory.get(name) ?? (await getSecret(`pim.${name}`).catch(() => undefined));
+}
+
+/** Throws a "keychain locked" error when the saved secret is there but unreadable (not a wrong password). */
+export async function assertSecretReadable(name: string, what: string) {
+  if (!memory.has(name) && (await secretLocked(`pim.${name}`).catch(() => false))) throw new KeychainLockedError(process.platform, what);
 }
 
 export async function dropSecret(name: string) {

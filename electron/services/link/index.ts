@@ -11,7 +11,7 @@ import path from 'node:path';
 import type { CompanionInvite, FileOffer, LinkSettings, LinkState, PairPrompt, TunnelStatus } from '../../../core/api-link';
 import type { TunnelConfig, TunnelMode } from '../../../core/link/cloudflared';
 import type { PermissionSet } from '../../../core/link/perms';
-import { getSecret, setSecret } from '../../store';
+import { getSecret, onKeychain, secretLocked, setSecret } from '../../store';
 import { readText, writeText } from '../clip';
 import { featureOn } from '../features';
 import { startJob, workHeldUntil, type JobHandle } from '../governor';
@@ -76,6 +76,7 @@ export async function startLink(deps: { broadcast: Broadcast; show: (route?: str
       save,
       getSecret,
       setSecret,
+      secretLocked,
       changed,
       transfer: (p) => {
         trackTransfer(p);
@@ -129,6 +130,8 @@ export async function startLink(deps: { broadcast: Broadcast; show: (route?: str
   );
   await yieldDaemon();
   await node.start();
+  // Waiting for the keychain (Deny in the macOS question): carry on once Try again opens it.
+  onKeychain((k) => { if (k.state === 'ok') void node?.keychainReady(); });
   startAccess(node, { broadcast, show: showWindow, version: app.getVersion() });
   if (node.port) await writeJson(controlFile(), { port: node.port, token: controlToken, pid: process.pid }).catch(() => undefined);
   tunnel = new TunnelSupervisor({

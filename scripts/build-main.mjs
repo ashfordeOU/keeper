@@ -19,7 +19,16 @@ const common = {
   sourcemap: true,
   logLevel: 'info',
   // KEEPER_OFFICIAL_BUILD=1 is set only by Ashforde's release workflow; every other build reports itself as unofficial.
-  define: { __KEEPER_VERSION__: JSON.stringify(version), __KEEPER_OFFICIAL__: JSON.stringify(process.env.KEEPER_OFFICIAL_BUILD === '1') },
+  // The sign-in client IDs (Google, Microsoft) come from the release workflow's secrets; empty means "not in this build",
+  // and the Sign in with Google / Microsoft buttons stay hidden. KEEPER_DEVELOPER_ID=1 marks an Apple Developer ID build.
+  define: {
+    __KEEPER_VERSION__: JSON.stringify(version),
+    __KEEPER_OFFICIAL__: JSON.stringify(process.env.KEEPER_OFFICIAL_BUILD === '1'),
+    __KEEPER_GOOGLE_CLIENT_ID__: JSON.stringify(process.env.KEEPER_GOOGLE_CLIENT_ID ?? ''),
+    __KEEPER_GOOGLE_CLIENT_SECRET__: JSON.stringify(process.env.KEEPER_GOOGLE_CLIENT_SECRET ?? ''),
+    __KEEPER_MS_CLIENT_ID__: JSON.stringify(process.env.KEEPER_MS_CLIENT_ID ?? ''),
+    __KEEPER_DEVELOPER_ID__: JSON.stringify(process.env.KEEPER_DEVELOPER_ID === '1'),
+  },
   // libheif-js (LGPL-3.0) stays a separate module under node_modules so it can be replaced; see THIRD-PARTY-NOTICES.md.
   // usocket and x11 are optional extras of the D-Bus client (abstract sockets, X11 bus lookup); it works without them.
   external: ['electron', 'tesseract.js', 'ffmpeg-static', 'pdfjs-dist', 'sharp', 'onnxruntime-node', 'usocket', 'x11', 'cpu-features', '*.node', 'node-pty', 'libheif-js'],

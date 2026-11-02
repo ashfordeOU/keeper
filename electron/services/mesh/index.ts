@@ -15,7 +15,8 @@ import http from 'node:http';
 import path from 'node:path';
 import { newWgKey, wgPublic, type WgKeyPair } from '../../../core/mesh/keys';
 import { cleanPlaces, type MeshApi, type MeshInvite, type MeshRole, type MeshRule, type MeshState, type TrayRow } from '../../../core/mesh/types';
-import { getSecret, setSecret } from '../../store';
+import { KeychainLockedError } from '../../../core/keychain';
+import { getSecret, secretLocked, setSecret } from '../../store';
 import { runCmds } from '../elevate';
 import { featureOn, onFeature } from '../features';
 import { poll } from '../governor';
@@ -51,6 +52,8 @@ const save = (d: MeshData) => (writing = writing.then(() => writeJson(file(), d)
 async function wgKey(): Promise<WgKeyPair> {
   const fromKeychain = await getSecret('mesh.wgKey').catch(() => undefined);
   if (fromKeychain) return { priv: fromKeychain, pub: wgPublic(fromKeychain) };
+  // Saved but the keychain said no: a new key would cut this device off from its mesh.
+  if (await secretLocked('mesh.wgKey').catch(() => false)) throw new KeychainLockedError(process.platform, 'this device’s mesh key');
   const f = path.join(dir(), 'wg.key');
   const fromFile = await fsp.readFile(f, 'utf8').then((t) => t.trim(), () => '');
   if (fromFile) {

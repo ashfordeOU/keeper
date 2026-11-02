@@ -26,7 +26,8 @@ import type { HarnessEnv } from '../../core/brain/harness';
 import '../../core/brain/adapters';
 import { COMPATIBLE_PRESETS, createProvider, providerFactories, registerProvider, type ChatMessage, type ChatProvider } from '../../core/brain/providers';
 import type { FileIndex } from '../../core/indexer';
-import { getSecret, hasSecret, settings, updateSettings } from '../store';
+import { KeychainLockedError } from '../../core/keychain';
+import { getSecret, hasSecret, secretLocked, settings, updateSettings } from '../store';
 import { appleProvider, mcpLaunch } from './platform';
 import { useBrain } from './platform/brain-adapter';
 import { canWork, conditions, pacer, track, whenIdle } from './governor';
@@ -304,6 +305,8 @@ export async function rebuild(): Promise<BrainStatus> {
 
 async function providerFor(c: AiConnection): Promise<ChatProvider> {
   const key = c.kind === 'ollama' || c.kind === 'platform' ? undefined : await getSecret(c.id);
+  // A key that is saved but the keychain will not open: say that, not "add your key".
+  if (key === undefined && c.kind !== 'ollama' && c.kind !== 'platform' && (await secretLocked(c.id).catch(() => false))) throw new KeychainLockedError(process.platform, `the key for ${c.label || c.kind}`);
   const p = createProvider({ kind: c.kind, model: c.model, apiKey: key, baseUrl: c.baseUrl, tools: c.tools, contextTokens: c.contextTokens });
   // The name the person knows it by.
   p.label = c.label || p.label;

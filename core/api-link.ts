@@ -31,6 +31,8 @@ export interface LinkSettings {
   /** allow forwards and the SOCKS proxy to reach this device's local network, not only itself */
   forwardLan: boolean;
   shares: LinkShare[];
+  /** let devices on this network find this computer before anything is paired (otherwise Link listens only on this computer until you pair) */
+  discoverable?: boolean;
   /** where remote access shows up (tray, Island, palette, right-click menu); missing = everywhere */
   surfaces?: Record<string, string[]>;
 }
@@ -75,6 +77,10 @@ export interface ThisDevice {
   addresses: string[];
   port: number;
   listening: boolean;
+  /** reachable from the local network (false until something is paired, pairing is open, or findable is on) */
+  lanOpen?: boolean;
+  /** this device's key is in the keychain, which will not open now (Link waits instead of making a new key) */
+  keyWaiting?: boolean;
   relay?: { url: string; connected: boolean; error?: string };
   tunnel?: TunnelStatus;
   wireguard?: string[];

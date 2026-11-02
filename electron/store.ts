@@ -5,6 +5,8 @@ import { app, safeStorage } from 'electron';
 import { promises as fsp, readFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { DEVELOPER_ID } from './build-flags';
+import { overallState, readSealed, type KeychainStatus, type SecretState } from '../core/keychain';
 import { defaultFolders } from '../core/platform';
 import { defaultRules } from '../core/rules';
 import { defaultSettings, mergeSettings, type AllSettings } from '../core/settings';
@@ -86,17 +88,61 @@ export async function setSecret(name: string, value: string): Promise<boolean> {
   else return false;
   await fsp.mkdir(path.dirname(secretsFile()), { recursive: true });
   await fsp.writeFile(secretsFile(), JSON.stringify(all), { mode: 0o600 });
+  noteRead(name, clean ? 'ok' : 'missing');
   return true;
 }
 
-export async function getSecret(name: string): Promise<string | undefined> {
-  const v = (await readSecrets())[name];
-  if (!v?.startsWith('enc:') || !secureAvailable()) return undefined;
-  try {
-    return safeStorage.decryptString(Buffer.from(v.slice(4), 'base64'));
-  } catch {
-    return undefined;
+// What the last reads found per secret: a saved one the keychain would not
+// open is "locked", never "missing" (see core/keychain.ts).
+const lastRead = new Map<string, SecretState>();
+const keychainListeners = new Set<(s: KeychainStatus) => void>();
+let lastState: KeychainStatus['state'] = 'ok';
+
+export function keychainStatus(): KeychainStatus {
+  const bad = [...lastRead.values()].filter((s) => s === 'locked' || s === 'unavailable').length;
+  return { state: overallState([...lastRead.values()]), platform: process.platform, unreadable: bad || undefined, updateAsks: process.platform === 'darwin' && !DEVELOPER_ID };
+}
+
+export function onKeychain(fn: (s: KeychainStatus) => void): () => void {
+  keychainListeners.add(fn);
+  return () => keychainListeners.delete(fn);
+}
+
+function noteRead(name: string, state: SecretState) {
+  if (state === 'missing') lastRead.delete(name);
+  else lastRead.set(name, state);
+  const now = keychainStatus();
+  if (now.state === lastState) return;
+  lastState = now.state;
+  for (const l of keychainListeners) {
+    try { l(now); } catch { /* one listener failing must not stop the rest */ }
   }
+}
+
+/** A saved secret and whether it could be read: 'locked' means it is there but the keychain said no. */
+export async function readSecretState(name: string): Promise<{ state: SecretState; value?: string }> {
+  const stored = (await readSecrets())[name];
+  const r = readSealed(stored, secureAvailable(), (b) => safeStorage.decryptString(b), process.platform);
+  noteRead(name, r.state);
+  return r;
+}
+
+export async function getSecret(name: string): Promise<string | undefined> {
+  return (await readSecretState(name)).value;
+}
+
+/** Whether a saved secret exists but cannot be read now (the keychain refused). */
+export async function secretLocked(name: string): Promise<boolean> {
+  const s = (await readSecretState(name)).state;
+  return s === 'locked' || s === 'unavailable';
+}
+
+/** Reads every saved secret again: after Try again (macOS asks again when it can), or at start. */
+export async function retryKeychain(): Promise<KeychainStatus> {
+  const all = await readSecrets();
+  for (const name of Object.keys(all)) await readSecretState(name);
+  for (const name of [...lastRead.keys()]) if (!(name in all)) noteRead(name, 'missing');
+  return keychainStatus();
 }
 
 export async function hasSecret(name: string): Promise<boolean> {

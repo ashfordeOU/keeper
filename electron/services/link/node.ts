@@ -100,6 +100,8 @@ export interface LinkHooks {
   save(d: LinkData): Promise<void>;
   getSecret(name: string): Promise<string | undefined>;
   setSecret(name: string, value: string): Promise<boolean>;
+  /** a secret is saved but the keychain will not open it now (denied, locked) */
+  secretLocked?(name: string): Promise<boolean>;
   /** something on the Devices page should refresh */
   changed(): void;
   transfer(p: Progress): void;
@@ -167,6 +169,12 @@ export class LinkNode {
   private offers = new Map<string, { resolve: (ok: boolean) => void; device: string; offer: Offer }>();
   private pairWaits = new Map<string, (ok: boolean) => void>();
   private invite: { code: string; secret: string; expires: number; misses: number } | null = null;
+  /** where the endpoint listens now: '127.0.0.1' until something needs the network (see lanWanted) */
+  private boundHost: string | null = null;
+  /** the person opened pairing or looked for devices this session */
+  private lanOpened = false;
+  /** this device's key is in the keychain, which will not open now: wait instead of making a new one */
+  private keyWaiting = false;
   private forwards = new Map<string, { srv?: net.Server; error?: string }>();
   private relayCtl: Wire | null = null;
   private relayState: { connected: boolean; error?: string } = { connected: false };
@@ -217,6 +225,7 @@ export class LinkNode {
     };
     await this.loadIdentity();
     await this.listen();
+    if (this.keyWaiting) return;
     for (const f of this.data.forwards) void this.startForward(f);
     void this.startRelay();
     this.scheduleNote(2000);
@@ -227,8 +236,18 @@ export class LinkNode {
     if (fromKeychain) {
       this.me = identityFromJson(JSON.parse(fromKeychain));
       this.keyProtected = true;
+      this.keyWaiting = false;
       return;
     }
+    // The key is saved but the keychain said no (Deny, locked): a new one would make every
+    // paired device stop trusting this computer. Hold a throwaway one in memory that is never
+    // saved, shown or used on the network, and wait for the keychain (keychainReady).
+    if (!this.data.identity && (await this.hooks.secretLocked?.('link.identity').catch(() => false))) {
+      this.me = newIdentity();
+      this.keyWaiting = true;
+      return;
+    }
+    this.keyWaiting = false;
     if (this.data.identity) {
       this.me = identityFromJson(this.data.identity);
       // Move it into the keychain when that has become available.
@@ -248,6 +267,47 @@ export class LinkNode {
 
   get id() {
     return deviceId(this.me.publicKey);
+  }
+
+  /** Waiting for the keychain to give back this device's key. */
+  get waitingForKey() {
+    return this.keyWaiting;
+  }
+
+  /** The keychain may open again (Try again): read the saved key and start the network. */
+  async keychainReady() {
+    if (!this.keyWaiting || this.stopped) return;
+    await this.loadIdentity();
+    if (this.keyWaiting) return;
+    await this.restartNetwork();
+    for (const f of this.data.forwards) void this.startForward(f);
+    this.hooks.changed();
+  }
+
+  private needKey() {
+    if (this.keyWaiting) throw new Error('Keeper can’t read this device’s Link key from the system keychain right now. Press Try again in the keychain banner; paired devices keep trusting this computer.');
+  }
+
+  /**
+   * The endpoint stays on this computer (the keeper command only) until it is
+   * needed on the network: something is paired, pairing or looking for
+   * devices was opened, or the person chose to be findable. So no firewall
+   * or Local Network question shows before the person has paired anything.
+   */
+  private lanWanted(): boolean {
+    return this.data.devices.length > 0 || this.data.companions.length > 0 || !!this.data.settings.discoverable || this.lanOpened || (!!this.invite && this.invite.expires > Date.now());
+  }
+
+  /** Opens the endpoint to the local network (pairing, looking for devices); keeps open connections. */
+  async openLan() {
+    this.lanOpened = true;
+    if (this.stopped || this.keyWaiting || this.bindHost() !== '0.0.0.0' || this.boundHost === '0.0.0.0') return;
+    const old = this.server;
+    this.server = null;
+    // Stop listening on loopback without cutting what is in flight (a keeper command asking for an invite).
+    if (old) await new Promise<void>((r) => { old.close(() => undefined); setImmediate(r); });
+    await this.listen();
+    this.hooks.changed();
   }
 
   private closeServer(): Promise<void> {
@@ -284,6 +344,7 @@ export class LinkNode {
   /** Re-applies network settings: endpoint, local discovery, relay. */
   private async restartNetwork() {
     await this.closeServer();
+    this.port = 0;
     this.mdns.stop();
     this.relayCtl?.close('settings changed');
     await this.listen();
@@ -293,12 +354,13 @@ export class LinkNode {
 
   private bindHost(): string | null {
     const s = this.data.settings;
-    if (s.mode === 'off') return null;
-    return '0.0.0.0';
+    if (s.mode === 'off' || this.keyWaiting) return null;
+    return this.lanWanted() ? '0.0.0.0' : '127.0.0.1';
   }
 
   private async listen() {
     const host = this.bindHost();
+    this.boundHost = host;
     if (!host) {
       this.port = 0;
       return;
@@ -317,13 +379,16 @@ export class LinkNode {
           resolve((server.address() as net.AddressInfo).port);
         });
       });
-    try {
-      this.port = await tryPort(this.data.settings.port || DEFAULT_PORT);
-    } catch {
-      this.port = await tryPort(0);
+    // Opening to the network keeps the port the keeper command already knows (the old one may take a moment to let go).
+    const want = this.port || this.data.settings.port || DEFAULT_PORT;
+    let got = 0;
+    for (let i = 0; i < 4 && !got; i++) {
+      got = await tryPort(want).catch(() => 0);
+      if (!got && i < 3) await new Promise((r) => setTimeout(r, 40));
     }
+    this.port = got || (await tryPort(0));
     this.server = server;
-    if (this.opts.mdns !== false) {
+    if (this.opts.mdns !== false && host === '0.0.0.0') {
       this.mdns.onfound = () => this.hooks.changed();
       await this.mdns.start(() => ({ id: this.id, name: this.data.name, port: this.port, host: `keeper-${this.id.slice(0, 8)}`, addresses: lanIPv4(), pairing: !!this.invite && this.invite.expires > Date.now(), os: this.opts.os ?? process.platform, help: this.help.tag() }));
     }
@@ -765,7 +830,7 @@ export class LinkNode {
   reach(): Reach {
     const s = this.data.settings;
     const r: Reach = { at: Date.now() };
-    if (s.mode !== 'off' && this.port) r.lan = lanIPv4().map((ip) => `${ip}:${this.port}`);
+    if (s.mode !== 'off' && this.port && this.boundHost === '0.0.0.0') r.lan = lanIPv4().map((ip) => `${ip}:${this.port}`);
     if (s.mode === 'internet' && !s.localOnly) {
       if (this.tunnelUrl) r.tunnel = this.tunnelUrl;
       if (s.relayUrl && this.relayState.connected) r.relay = s.relayUrl;
@@ -791,6 +856,7 @@ export class LinkNode {
   private async dial(device: string): Promise<Conn> {
     const dev = this.data.devices.find((d) => d.id === device);
     if (!dev) throw new Error('That device is not paired');
+    this.needKey();
     const s = this.data.settings;
     if (s.mode === 'off') throw new Error('Keeper Link is off on this device');
     const pub = Buffer.from(dev.pub, 'base64');
@@ -888,7 +954,7 @@ export class LinkNode {
   private async startRelay() {
     clearTimeout(this.relayTimer);
     const s = this.data.settings;
-    if (this.stopped || s.mode !== 'internet' || s.localOnly || !s.relayUrl) {
+    if (this.stopped || this.keyWaiting || s.mode !== 'internet' || s.localOnly || !s.relayUrl) {
       this.relayState = { connected: false };
       return;
     }
@@ -928,7 +994,7 @@ export class LinkNode {
 
   private async postNotes() {
     const s = this.data.settings;
-    if (this.stopped || s.mode !== 'internet' || s.localOnly || !s.mailbox || !this.data.devices.length) return;
+    if (this.stopped || this.keyWaiting || s.mode !== 'internet' || s.localOnly || !s.mailbox || !this.data.devices.length) return;
     const reach = this.reach();
     const key = JSON.stringify({ ...reach, at: 0 });
     if (key === this.lastNote) return;
@@ -946,6 +1012,8 @@ export class LinkNode {
   // ---------------------------------------------------------------- pairing
 
   async createInvite(): Promise<PairInvite> {
+    this.needKey();
+    await this.openLan();
     const code = newPairCode();
     const secret = newPairSecret();
     this.invite = { code, secret, expires: Date.now() + 10 * 60_000, misses: 0 };
@@ -1030,6 +1098,8 @@ export class LinkNode {
     };
     this.data.devices = [...this.data.devices.filter((d) => d.id !== id), dev];
     await this.save();
+    // Paired: from now on the other device must be able to reach this one.
+    void this.openLan();
     this.hooks.notify('Device paired', `${dev.name} can now reach this device within the permissions you set.`);
     this.hooks.changed();
     this.scheduleNote(500);
@@ -1039,6 +1109,7 @@ export class LinkNode {
   /** Pairs with another device that is showing a code or QR. */
   async pair(target: { deviceId?: string; address?: string; code?: string; link?: string }): Promise<{ ok: boolean; error?: string; device?: string }> {
     try {
+      this.needKey();
       let addrs: string[] = [];
       let tunnel: string | undefined;
       let secret = target.code?.replace(/\D/g, '') ?? '';
@@ -1312,7 +1383,7 @@ export class LinkNode {
     const before = this.data.settings;
     this.data.settings = { ...before, ...patch, shares: patch.shares ?? before.shares };
     await this.save();
-    if (patch.mode !== undefined || patch.port !== undefined || patch.relayUrl !== undefined || patch.localOnly !== undefined) await this.restartNetwork();
+    if (patch.mode !== undefined || patch.port !== undefined || patch.relayUrl !== undefined || patch.localOnly !== undefined || patch.discoverable !== undefined) await this.restartNetwork();
     this.hooks.changed();
   }
 
@@ -1321,6 +1392,7 @@ export class LinkNode {
   }
 
   async discover(waitMs = 1500): Promise<NearbyDevice[]> {
+    await this.openLan();
     this.mdns.query();
     await new Promise((r) => setTimeout(r, waitMs));
     return this.nearby();
@@ -1343,6 +1415,8 @@ export class LinkNode {
       addresses: lanIPv4(),
       port: this.port,
       listening: !!this.server,
+      lanOpen: this.boundHost === '0.0.0.0',
+      keyWaiting: this.keyWaiting || undefined,
       relay: this.data.settings.relayUrl ? { url: this.data.settings.relayUrl, ...this.relayState } : undefined,
       tunnel: this.hooks.tunnel(),
       wireguard: wireguardInterfaces(),
@@ -1386,6 +1460,8 @@ export class LinkNode {
   // ---------------------------------------------------------------- the phone companion
 
   async companionInvite(base: string): Promise<CompanionInvite> {
+    this.needKey();
+    await this.openLan();
     const secret = crypto.randomBytes(32);
     const expires = Date.now() + 10 * 60_000;
     this.companionInvites.set(inviteId(secret), { secret, expires });

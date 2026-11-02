@@ -382,3 +382,49 @@ setTimeout(() => process.exit(1), 150);
     await expect(fsp.readdir(path.join(root, 'bins', '2026.10.7'))).resolves.toEqual([]);
   });
 });
+
+const ping = (port: number) => new Promise<number>((resolve, reject) => http.get({ host: '127.0.0.1', port, path: '/link/ping', agent: false }, (res) => { res.resume(); resolve(res.statusCode ?? 0); }).on('error', reject));
+
+describe('quiet until paired, and the keychain', () => {
+  it('listens only on this computer until pairing is opened, then on the network', async () => {
+    const a = await makeNode('fresh');
+    expect(a.node.state().me.lanOpen).toBe(false);
+    expect(a.node.reach().lan).toBeUndefined();
+    // the keeper command on this computer still reaches it
+    expect(await ping(a.node.port)).toBe(200);
+    const port = a.node.port;
+    await a.node.createInvite();
+    expect(a.node.state().me.lanOpen).toBe(true);
+    expect(a.node.port).toBe(port);
+    expect(await ping(a.node.port)).toBe(200);
+  });
+
+  it('"findable" opens it without pairing', async () => {
+    const a = await makeNode('findable');
+    await a.node.setSettings({ discoverable: true });
+    expect(a.node.state().me.lanOpen).toBe(true);
+  });
+
+  it('never makes a new device key while the keychain says no, and picks the saved one up after', async () => {
+    const saved = new Map<string, string>();
+    const first = await makeNode('keyed', { getSecret: async (n) => saved.get(n), setSecret: async (n, v) => (saved.set(n, v), true) });
+    const id = first.node.id;
+    const data = first.node.data;
+    await first.node.stop();
+    let locked = true;
+    const again = await makeNode('keyed2', {
+      load: async () => JSON.parse(JSON.stringify(data)),
+      getSecret: async (n) => (locked ? undefined : saved.get(n)),
+      setSecret: async () => { throw new Error('must not write a new key while locked'); },
+      secretLocked: async () => locked,
+    });
+    expect(again.node.state().me.keyWaiting).toBe(true);
+    expect(again.node.port).toBe(0);
+    await expect(again.node.createInvite()).rejects.toThrow(/keychain/);
+    locked = false;
+    await again.node.keychainReady();
+    expect(again.node.id).toBe(id);
+    expect(again.node.state().me.keyWaiting).toBeUndefined();
+    expect(again.node.port).toBeGreaterThan(0);
+  });
+});

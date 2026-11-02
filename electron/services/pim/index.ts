@@ -36,7 +36,7 @@ import { poll, pollNow } from '../governor';
 import { cidMap, compose, MailAccount, smtpSend, smtpVerify, toBody, type Auth } from './mail';
 import { dav, deleteHref, discover, fetchContacts, fetchIcs, graphCalendars, graphDelete, graphEvents, graphSave, putEvent, putTodo, syncCalendar, type DavAuth } from './dav';
 import { accessToken, cancelSignIn, clientFor, saveTokens, signIn } from './oauth';
-import { dropSecret, emptyState, files, hash, loadAccounts, loadContacts, loadState, putSecret, readJson, readSecret, saveAccounts, writeJson, type EventCache, type FolderCache, type PendingOp, type PimState } from './store';
+import { assertSecretReadable, dropSecret, emptyState, files, hash, loadAccounts, loadContacts, loadState, putSecret, readJson, readSecret, saveAccounts, writeJson, type EventCache, type FolderCache, type PendingOp, type PimState } from './store';
 import { extendTimer } from '../../../core/widget-timer';
 
 export interface PimDeps {
@@ -165,12 +165,14 @@ async function mailAuth(a: Account): Promise<Auth> {
       needsSignIn.delete(a.id);
       return { user: a.email ?? user, accessToken: token };
     } catch (e) {
-      needsSignIn.add(a.id);
+      // A keychain that said no is not a wrong sign-in: the account is fine once it opens again.
+      if ((e as { code?: string }).code !== 'KEYCHAIN_LOCKED') needsSignIn.add(a.id);
       throw e;
     }
   }
   const pass = await readSecret(secretName(a.id));
   if (pass === undefined) {
+    await assertSecretReadable(secretName(a.id), 'this account’s saved password');
     needsSignIn.add(a.id);
     throw new Error('Enter the password for this account again');
   }
@@ -181,6 +183,7 @@ async function davAuth(a: Account): Promise<DavAuth> {
   if (a.oauth === 'google') return { bearer: (await mailAuth(a) as { accessToken: string }).accessToken };
   const pass = await readSecret(secretName(a.id));
   if (pass === undefined) {
+    await assertSecretReadable(secretName(a.id), 'this account’s saved password');
     needsSignIn.add(a.id);
     throw new Error('Enter the password for this account again');
   }

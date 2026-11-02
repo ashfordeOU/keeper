@@ -95,6 +95,7 @@ import { ForceQuitHost } from './screens/Processes';
 import { FILE_ROUTES, mod, shift, useAsync, useStore, type Route, type RouteName } from './state';
 import { Splitter } from './components/Splitter';
 import { PermissionNudgeHost } from './components/PermissionsPanel';
+import { KeychainBanner } from './components/KeychainBanner';
 import { inspectorRange } from '../core/inspector';
 import { asSidebarMode, isRail, SIDEBAR_RAIL, SIDEBAR_RANGE } from '../core/sidebar-layout';
 import { viewScope, viewsFor } from '../core/folder-view';
@@ -555,7 +556,7 @@ export function App() {
         {/* Tabs: middle-click or ⌘/Ctrl-click anything to open it in a new one; they survive restarts and crashes. */}
         <TabStrip />
         <RecoveryNotice />
-        <div className="content" id="content" tabIndex={-1}><UpdateBanner /><CoachHost route={store.route} /><RouteHints route={store.route} /><PageBoundary route={`${store.route.name}:${store.route.arg ?? ''}:${store.route.q ?? ''}`}><Page /></PageBoundary></div>
+        <div className="content" id="content" tabIndex={-1}><UpdateBanner /><KeychainBanner /><CoachHost route={store.route} /><RouteHints route={store.route} /><PageBoundary route={`${store.route.name}:${store.route.arg ?? ''}:${store.route.q ?? ''}`}><Page /></PageBoundary></div>
       </main>
       <InspectorPane shown={showInspector} />
       {palette ? <CommandPalette onClose={() => setPalette(false)} /> : null}

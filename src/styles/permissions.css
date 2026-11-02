@@ -32,3 +32,9 @@
   .perm-state { width: auto; }
 }
 @media (prefers-reduced-motion: reduce) { .perm-row { transition: none; } }
+
+/* The keychain banner (main window, menu-bar pop-over). */
+.keychain-banner { display: flex; align-items: center; gap: 10px; margin: -8px 0 16px; padding: 8px 10px 8px 14px; border-radius: 12px; background: var(--warn-soft); color: var(--text); border: 1px solid color-mix(in srgb, var(--warn) 40%, transparent); }
+.keychain-banner > svg { color: var(--warn); flex: none; }
+.keychain-banner.compact { margin: 6px 8px; padding: 6px 8px; font-size: 12px; }
+@media (max-width: 640px) { .keychain-banner { flex-wrap: wrap; } }

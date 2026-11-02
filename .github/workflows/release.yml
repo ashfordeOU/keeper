@@ -130,6 +130,14 @@ jobs:
         env:
           # Marks the app as an official Ashforde build (anonymous usage stats report official: true).
           KEEPER_OFFICIAL_BUILD: '1'
+          # Sign in with Google / Microsoft (mail, calendars): compiled in when these secrets exist; without
+          # them the buttons are hidden and people use app passwords. A Google "Desktop app" client's secret
+          # is not confidential (Google's own guidance for installed apps).
+          KEEPER_GOOGLE_CLIENT_ID: ${{ secrets.KEEPER_GOOGLE_CLIENT_ID }}
+          KEEPER_GOOGLE_CLIENT_SECRET: ${{ secrets.KEEPER_GOOGLE_CLIENT_SECRET }}
+          KEEPER_MS_CLIENT_ID: ${{ secrets.KEEPER_MS_CLIENT_ID }}
+          # A Developer ID certificate is configured: the update window stops warning about the keychain question.
+          KEEPER_DEVELOPER_ID: ${{ matrix.platform == 'darwin' && secrets.CSC_LINK != '' && '1' || '' }}
       # Apple Intelligence, Live Text and Spotlight on macOS (universal, so either processor's build can carry it).
       # The same build as scripts/build-mac-native.mjs, which npm run dist:mac runs locally.
       - name: macOS helper

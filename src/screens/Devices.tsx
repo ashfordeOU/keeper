@@ -71,7 +71,9 @@ function Overview({ s, onPair }: { s: LinkState; onPair: (m: 'host' | 'join') =>
           <div className="small muted">This device · {osName(s.me.os)} · key <code>{s.me.fingerprint}</code></div>
           <div className="link-badges">
             <span className={`badge ${s.settings.mode === 'off' ? '' : 'accent'}`}>{s.settings.mode === 'off' ? 'Link is off' : s.settings.mode === 'lan' ? 'This network only' : s.settings.localOnly ? 'Never leaves my network' : 'Reachable from anywhere'}</span>
-            {s.me.listening ? <span className="badge">{s.me.addresses[0] ?? 'localhost'}:{s.me.port}</span> : null}
+            {s.me.listening && s.me.lanOpen !== false ? <span className="badge">{s.me.addresses[0] ?? 'localhost'}:{s.me.port}</span> : null}
+            {s.me.listening && s.me.lanOpen === false ? <span className="badge" title="Nothing is paired yet, so Link answers only this computer: no firewall or Local Network question until you pair or switch on Findable.">This computer only until you pair</span> : null}
+            {s.me.keyWaiting ? <span className="badge warn" title="The system keychain did not open, so Link waits for this device’s key instead of making a new one (paired devices would stop trusting it). Use Try again in the keychain banner.">Waiting for the keychain</span> : null}
             {s.me.tunnel?.state === 'connected' ? <span className="badge ok">Tunnel connected</span> : null}
             {s.me.relay ? <span className={`badge ${s.me.relay.connected ? 'ok' : 'warn'}`}>Relay {s.me.relay.connected ? 'connected' : 'not connected'}</span> : null}
             {s.me.wireguard?.length ? <span className="badge" title="A WireGuard network is up on this computer; Keeper Link works over it like any other network.">WireGuard: {s.me.wireguard.join(', ')}</span> : null}
@@ -90,6 +92,13 @@ function Overview({ s, onPair }: { s: LinkState; onPair: (m: 'host' | 'join') =>
             <button className="btn primary" onClick={() => onPair('host')}>Show a Code Here</button>
             <button className="btn" onClick={() => onPair('join')}>Enter a Code</button>
           </div>
+          {s.settings.mode !== 'off' ? (
+            <label className="row small" style={{ gap: 6, justifyContent: 'center', marginTop: 10 }}>
+              <input type="checkbox" checked={!!s.settings.discoverable} onChange={(e) => void api.link.setSettings({ discoverable: e.target.checked })} />
+              Let devices on this network find this computer now
+            </label>
+          ) : null}
+          <p className="small muted">Until then Link answers only this computer. Pairing opens it to your network; {s.me.os === 'win32' ? 'Windows Firewall then asks once: allow Private networks only.' : s.me.os === 'darwin' ? 'macOS then asks about the local network once: choose Allow.' : 'nothing else to set up.'}</p>
         </Empty>
       )}
 

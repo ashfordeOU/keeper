@@ -6,6 +6,7 @@
 
 import { useEffect, useState } from 'react';
 import type { UpdateStatus } from '../../core/api-x';
+import { UPDATE_KEYCHAIN_NOTE } from '../../core/keychain';
 import { noteBlocks, updateWindowView, type NoteInline, type UpdateWindowAction } from '../../core/update-window';
 import { wantsBeta } from '../../core/updates';
 import { api } from '../api';
@@ -49,6 +50,8 @@ export function UpdateWindow() {
   const [s, setS] = useState<UpdateStatus | null>(null);
   const [last, setLast] = useState<'check' | 'install'>('check');
   const [copied, setCopied] = useState(false);
+  const [keychainAsks, setKeychainAsks] = useState(false);
+  useEffect(() => { void api.keychain?.status().then((k) => setKeychainAsks(!!k.updateAsks)).catch(() => undefined); }, []);
   useEffect(() => {
     document.title = 'Software Update';
     let alive = true;
@@ -93,6 +96,8 @@ export function UpdateWindow() {
             </div>
           ) : null}
           {v.note ? <div className="upw-note">{v.note}</div> : null}
+          {/* Before restarting into the new version: the macOS keychain question that follows is expected. */}
+          {keychainAsks && (v.kind === 'available' || v.kind === 'downloading' || v.kind === 'ready') ? <div className="upw-note" data-testid="update-keychain-note">{UPDATE_KEYCHAIN_NOTE}</div> : null}
         </div>
       </div>
 

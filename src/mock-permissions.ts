@@ -6,9 +6,10 @@
 
 import { featureDef, featureStates } from '../core/features';
 import { buildReport, type PermissionsApi, type RawPermission } from '../core/permissions';
+import type { KeychainApi } from '../core/keychain';
 import type { AllSettings } from '../core/settings';
 
-export function mockPermissions(get: () => AllSettings): { permissions: PermissionsApi } {
+export function mockPermissions(get: () => AllSettings): { permissions: PermissionsApi; keychain: KeychainApi } {
   const raw: Record<string, RawPermission> = {
     accessibility: 'authorized', screen: 'notDetermined', input: 'notDetermined', microphone: 'authorized', camera: 'denied',
     fullDisk: 'notDetermined', 'automation.systemevents': 'authorized', 'automation.finder': 'notDetermined', 'automation.music': 'notRunning',
@@ -31,5 +32,13 @@ export function mockPermissions(get: () => AllSettings): { permissions: Permissi
       test: async () => ({ ok: true, message: 'Keeper looked for devices on the network.' }),
       restart: async () => { restartPending.clear(); location.reload(); },
     },
+    // ?keychain=locked shows the banner for a keychain that said no.
+    keychain: (() => {
+      let state: 'ok' | 'locked' = new URLSearchParams(location.search).get('keychain') === 'locked' ? 'locked' : 'ok';
+      return {
+        status: async () => ({ state, platform: 'darwin', unreadable: state === 'ok' ? undefined : 3 }),
+        retry: async () => { state = 'ok'; return { state, platform: 'darwin' }; },
+      };
+    })(),
   };
 }

@@ -49,6 +49,7 @@ const api = {
   usageStats: group('usageStats', ['status', 'setOn', 'resetId', 'setBlocked', 'page']),
   // The system permissions Keeper's features use (first run, Settings → Permissions).
   permissions: group('permissions', ['list', 'request', 'openSettings', 'test', 'restart']),
+  keychain: group('keychain', ['status', 'retry']),
   features: group('features', ['list', 'set', 'preset', 'sets', 'saveSet', 'removeSet', 'applySet', 'setPowerSets', 'live']),
   // Studio: recordings with their parts kept apart, the editor and exports.
   studio: group('studio', ['support', 'options', 'setOptions', 'state', 'record', 'pause', 'resume', 'stop', 'discard', 'projects', 'open', 'save', 'remove', 'reveal', 'pick', 'levels', 'transcribe', 'privacyScan', 'export', 'exportState', 'cancelExport', 'copyFile', 'revealFile', 'work', 'workChunk', 'workProgress', 'workDone']),
