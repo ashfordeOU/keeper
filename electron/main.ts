@@ -115,6 +115,7 @@ import { registerPimIpc } from './ipc/pim';
 import { registerNotesIpc } from './ipc/notes';
 import { registerSearchIpc } from './ipc/search';
 import { setOriginRefresh } from './services/origin-mark';
+import { stageAfterStudio, stageBefore, type StageBefore } from '../core/stage/studio';
 import { allowRoot as allowPreviewRoot } from './services/preview';
 import { adoptIslandCalendarUrl, logFocus, startPim, stopPim } from './services/pim';
 import { registerNetIpc } from './ipc/net';
@@ -1473,7 +1474,9 @@ app.whenReady().then(async () => {
     navigate: (route) => showMain(route),
   });
   // Studio: recordings that keep the screen, pointer, clicks, sound and camera apart, and their editor.
-  let studioSince: number | undefined;
+  /** How Stage was before a Studio recording switched it (see core/stage/studio.ts). */
+let studioStageBefore: StageBefore | null | undefined;
+let studioSince: number | undefined;
   registerStudioIpc({
     preload: preload(), capturePreload: capturePreload(), broadcast, show: (route) => showMain(route), updateTray: () => void updateTray(),
     load: async (win, query) => {
@@ -1491,8 +1494,15 @@ app.whenReady().then(async () => {
       const st = stageSvc();
       if (!st || !featureOn('stage')) return;
       // Studio draws its own clicks and shortcut badges, and leaves the pointer out: Stage's would be doubled
+      if (on) studioStageBefore = stageBefore(st.status());
       if (on) await st.start('recording', { reason: 'Studio', skipCountdown: true, override: { clicks: false, keystrokes: 'off', spotlight: { mode: 'off', size: 'm', dim: 0 } } });
-      else await st.stop('Studio recording ended');
+      else {
+        // Back to the preset the person had (or off); left alone if they changed Stage meanwhile.
+        const next = stageAfterStudio(studioStageBefore, st.status());
+        studioStageBefore = undefined;
+        if (next.action === 'restore') await st.start(next.preset, { reason: next.reason, skipCountdown: true }).catch(() => st.stop('Studio recording ended'));
+        else if (next.action === 'stop') await st.stop('Studio recording ended');
+      }
     },
     added: (p) => void index.refresh(p).then(() => islandSvc.addToShelf([p])).then(() => libraryChanged()).catch(() => undefined),
     reregister: () => registerShortcuts(),
