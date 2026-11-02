@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 import { readFileSync } from 'node:fs';
+import { featureOfRoute, HUB_TABS, NAV_PAGES } from '../core/nav';
 import { describe, expect, it } from 'vitest';
 import { commandHidden, CORE, currentPreset, currentSet, FEATURES, featurePatch, featureStates, hiddenRoutes, isOn, presetPatch, setForPower, setPatch, snapshotSet } from '../core/features';
 import { defaultSettings, type AllSettings } from '../core/settings';
@@ -115,6 +116,8 @@ const src = (p: string) => readFileSync(new URL(`../${p}`, import.meta.url), 'ut
 const owners = (kind: 'routes' | 'commands', id: string): string[] => {
   const hit = FEATURES.filter((f) => (f[kind] ?? []).some((c) => (c.endsWith('*') ? id.startsWith(c.slice(0, -1)) : c === id))).map((f) => f.id);
   if ((CORE[kind] as string[]).some((c) => (c.endsWith('*') ? id.startsWith(c.slice(0, -1)) : c === id))) hit.push('core');
+  // A page whose owner is named in the page map (core/nav.ts) rather than in a feature's routes.
+  if (kind === 'routes' && !hit.length && featureOfRoute(id)) hit.push(featureOfRoute(id)!);
   return hit;
 };
 
@@ -128,8 +131,10 @@ describe('feature coverage', () => {
   });
 
   it('every sidebar entry belongs to a feature or to Keeper itself', () => {
+    // The sidebar's rows come from the page map (core/nav.ts) plus a few written in App.tsx.
     const app = src('src/App.tsx');
     const navs = [...app.matchAll(/NavItem[^>]*route=\{\{ name: '([a-z]+)'/g)].map((m) => m[1]);
+    navs.push(...NAV_PAGES.filter((p) => p.group !== 'none').flatMap((p) => [p.route.name, ...(p.also ?? [])]));
     expect(navs.length).toBeGreaterThan(15);
     const orphans = [...new Set(navs)].filter((r) => !owners('routes', r).length);
     expect(orphans, `sidebar entries without an owning feature id: ${orphans.join(', ')}`).toEqual([]);
@@ -140,11 +145,14 @@ describe('feature coverage', () => {
     const body = pal.slice(pal.indexOf('const commands = useMemo'));
     const fixed = [...body.matchAll(/\bid: '([a-z0-9-]+)'/g)].map((m) => m[1]).filter((id) => id !== 'search' || true);
     // Template ids: `awake-${m}` → "awake-x"; `go-${label}` is checked through the pages it opens (below).
-    const templ = [...body.matchAll(/\bid: `([a-z0-9-]+)\$\{/g)].map((m) => `${m[1]}x`).filter((id) => id !== 'go-x');
+    // `recent-${…}` are pages already visited, hidden with their page (they carry its route).
+    const templ = [...body.matchAll(/\bid: `([a-z0-9-]+)\$\{/g)].map((m) => `${m[1]}x`).filter((id) => id !== 'go-x' && id !== 'recent-x');
     const orphans = [...new Set([...fixed, ...templ])].filter((id) => !owners('commands', id).length);
     expect(orphans, `palette commands without an owning feature id: ${orphans.join(', ')}`).toEqual([]);
     // "Go to" pages
     const pages = [...pal.slice(0, pal.indexOf('export function CommandPalette')).matchAll(/\[\{ name: '([a-z]+)'/g)].map((m) => m[1]);
+    // …and every page and merged page's tab in the page map, which the palette lists.
+    pages.push(...NAV_PAGES.map((p) => p.route.name), ...Object.values(HUB_TABS).flat().map((t) => t.route.name));
     expect(pages.length).toBeGreaterThan(10);
     const orphanPages = pages.filter((r) => !owners('routes', r).length);
     expect(orphanPages, `palette pages without an owning feature id: ${orphanPages.join(', ')}`).toEqual([]);
