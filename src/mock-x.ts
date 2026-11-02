@@ -38,9 +38,10 @@ function weatherFor(p: Place, units: 'metric' | 'imperial'): Weather {
   const seed = Math.abs(Math.round(p.lat * 10)) % 7;
   return {
     place: p, fetchedAt: now, units,
-    current: { temp: f(17 + seed), feels: f(16 + seed), code: [2, 61, 0, 3, 1, 80, 2][seed], wind: 14 + seed, humidity: 60 + seed, isDay: true, uv: 3 + (seed % 4), aqi: 30 + seed * 9 },
+    current: { temp: f(17 + seed), feels: f(16 + seed), code: [2, 61, 0, 3, 1, 80, 2][seed], wind: 14 + seed, humidity: 60 + seed, isDay: true, uv: 3 + (seed % 4), aqi: 30 + seed * 9, windDir: 40 * seed + 200, gusts: 26 + seed, dewPoint: f(9 + seed), pressure: 1012 + seed * 2, visibility: 24_000, rainNextHour: seed % 2 ? 0.2 : 0 },
     hourly: Array.from({ length: 24 }, (_, i) => ({ t: now + i * 3600_000, temp: f(15 + seed + Math.round(5 * Math.sin((i - 4) / 4))), code: i > 14 && i < 18 ? 61 : 2, rainChance: i > 13 && i < 19 ? 55 + i : 8, rain: i > 14 && i < 18 ? 0.6 + (i % 3) * 0.4 : 0, uv: Math.max(0, 6 - Math.abs(i - 5)), wind: 10 + (i % 6) * 2 })),
-    daily: Array.from({ length: 7 }, (_, i) => ({ t: new Date(now + i * 86_400_000).setHours(0, 0, 0, 0), min: f(11 + ((i + seed) % 4)), max: f(19 + ((i * 3 + seed) % 6)), code: [2, 61, 3, 0, 1, 80, 95][(i + seed) % 7], rainChance: [10, 70, 30, 0, 5, 60, 80][(i + seed) % 7], sunrise: new Date(now + i * 86_400_000).setHours(7, 12), sunset: new Date(now + i * 86_400_000).setHours(18, 4), uvMax: 5 })),
+    daily: Array.from({ length: 10 }, (_, i) => ({ t: new Date(now + i * 86_400_000).setHours(0, 0, 0, 0), min: f(6 + ((i * 5 + seed) % 7)), max: f(Math.max(i === 0 ? 19 + seed : 0, 14 + ((i * 3 + seed) % 6) + ((i * 5 + seed) % 7) / 2)), code: [2, 61, 3, 0, 1, 80, 95, 45, 53, 2][(i + seed) % 10], rainChance: [10, 70, 30, 0, 5, 60, 80, 20, 45, 10][(i + seed) % 10], rainSum: [0, 6.2, 0.4, 0, 0, 3.1, 12.5, 0, 1.2, 0][(i + seed) % 10], sunrise: new Date(now + i * 86_400_000).setHours(7, 12), sunset: new Date(now + i * 86_400_000).setHours(18, 4), uvMax: 5 - (i % 3) })),
+    hours: Array.from({ length: 10 * 24 }, (_, i) => { const t = new Date(now).setHours(0, 0, 0, 0) + i * 3600_000; const h = new Date(t).getHours(); return { t, temp: f(13 + seed + Math.round(6 * Math.sin(((h - 9) / 24) * 2 * Math.PI)) + (i % 5)), code: [2, 61, 3, 0, 1, 80, 95, 45, 53, 2][(Math.floor(i / 24) + seed) % 10], rainChance: [10, 70, 30, 0, 5, 60, 80, 20, 45, 10][(Math.floor(i / 24) + seed) % 10], rain: 0, uv: Math.max(0, 6 - Math.abs(h - 13)), wind: 10 + (i % 6) * 2, isDay: h >= 7 && h < 18 }; }),
     nowcast: seed % 2 ? 'Rain starting in about 40 minutes' : undefined,
   };
 }
@@ -88,7 +89,13 @@ export function mockX(): KeeperApiX {
       savePlaces: async (p) => (places = p),
       get: async (p, units) => delay(weatherFor(p, units), 200),
       alerts: async (p) => (p.country === 'United States' ? { supported: true, alerts: [{ id: 'a', title: 'Wind Advisory', severity: 'moderate', headline: 'Wind Advisory until 6 PM', description: 'West winds 25 to 35 mph with gusts up to 55 mph.', instruction: 'Secure outdoor objects.', starts: now, ends: now + 6 * 3600_000, source: 'NWS Boulder CO' }] } : { supported: false, alerts: [] }),
-      radar: async () => null,
+      // Twelve past frames and three forecast ones, ten minutes apart. The demo has no radar
+      // service, so these paths load nothing (the map shows without rain); the screenshot
+      // script answers them with drawn tiles.
+      radar: async () => {
+        const last = Math.floor(now / 600_000) * 600_000;
+        return { host: 'https://tilecache.rainviewer.com', frames: Array.from({ length: 15 }, (_, i) => ({ time: last + (i - 11) * 600_000, path: `/v2/radar/demo-${i}` })) };
+      },
       climate: async (p) => Array.from({ length: 12 }, (_, m) => ({ month: m, avgMax: Math.round((15 + 10 * Math.sin(((m - 3) / 12) * 2 * Math.PI) + (p.lat > 39 ? -3 : 0)) * 10) / 10, avgMin: Math.round((7 + 8 * Math.sin(((m - 3) / 12) * 2 * Math.PI) + (p.lat > 39 ? -6 : 0)) * 10) / 10, rainMm: Math.round(90 - 70 * Math.sin(((m - 3) / 12) * 2 * Math.PI)), rainyDays: Math.round(11 - 8 * Math.sin(((m - 3) / 12) * 2 * Math.PI)), sunHours: Math.round(180 + 120 * Math.sin(((m - 3) / 12) * 2 * Math.PI)) })),
       trips: async (units) => [{
         stop: { event: { uid: 't', title: 'Web Summit', start: now + 3 * 86_400_000, end: now + 3 * 86_400_000 + 8 * 3600_000, allDay: false, location: 'Altice Arena, Lisbon, Portugal' }, location: 'Altice Arena, Lisbon, Portugal', day: new Date(now + 3 * 86_400_000).setHours(0, 0, 0, 0) },

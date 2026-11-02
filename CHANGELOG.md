@@ -31,6 +31,9 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - The same message shown several times in a row (such as pressing a button again) no longer stacks identical toasts; it shows once, with ×2, ×3.
 - Places & Tracks → Sources: Find My no longer says “Off” next to a switch that is on.
 
+### Changed — Weather
+- Weather is redesigned: a sky-tinted summary of now with a one-line outlook ("Clear until this evening, then cloudy"), an hour-by-hour strip with sunrise and sunset, a 10-day list whose bars share one scale (and open into that day's hours), tiles for air quality, UV, wind, humidity, feels like, sun, precipitation, pressure and visibility and the moon, place cards with their temperature and local time, and one set of drawn condition icons for every weather code (no more missing emoji). The radar fills its card, pans and zooms by drag, wheel or pinch, uses a dark map in dark mode, preloads its frames and pauses while the window is hidden. Trips from your calendar now read Keeper's calendars (this computer's, connected accounts and links) and add a packing hint.
+
 ## [0.1.0-beta.6] - 2026-11-02
 
 0.1.0-beta.5 was not published; everything listed under it is in this release.
