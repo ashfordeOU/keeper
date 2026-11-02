@@ -44,8 +44,14 @@ export interface OpenMessage {
 
 export interface MailView {
   account?: string;
-  /** a folder path, or 'unified' for every inbox */
+  /**
+   * a folder path, or a view across accounts: 'unified' (every inbox),
+   * 'unified:sent' (every Sent folder), 'snoozed', or 'search' (every folder
+   * kept on this computer)
+   */
   folder: string;
+  /** an inbox's Important or Other half */
+  split?: 'important' | 'other';
   query?: string;
   filter?: 'all' | 'unread' | 'flagged' | 'attachments';
   threaded?: boolean;
@@ -56,7 +62,35 @@ export interface Outbox {
   sendAt: number;
   subject: string;
   error?: string;
+  /** a time chosen with Send later (rather than the few seconds to undo) */
+  scheduled?: boolean;
 }
+
+/** Sent mail with no answer yet. */
+export interface WaitingItem {
+  message: MessageSummary;
+  /** whole days since it was sent */
+  days: number;
+  to: Address[];
+  /** messages in the conversation */
+  count: number;
+  /** older than the follow-up time set in Settings */
+  overdue: boolean;
+}
+
+export interface SubscriptionItem {
+  key: string;
+  name: string;
+  address: string;
+  count: number;
+  opened: number;
+  last: number;
+  canUnsubscribe: boolean;
+  neverOpened: boolean;
+}
+
+export type MailAiTask = 'summarize' | 'reply' | 'replies' | 'extract' | 'translate';
+export type WriteTask = 'shorter' | 'friendly' | 'professional' | 'proofread' | 'translate';
 
 export type Ring =
   | { kind: 'alarm' | 'reminder' | 'timer'; id: string; title: string; at: number; late: boolean }
@@ -81,7 +115,25 @@ export interface PimApi {
   oauthReady(): Promise<{ google: boolean; microsoft: boolean }>;
 
   folders(): Promise<MailFolder[]>;
-  messages(v: MailView): Promise<{ messages: MessageSummary[]; threads?: Thread[] }>;
+  messages(v: MailView): Promise<{ messages: MessageSummary[]; threads?: Thread[]; counts?: { important: number; other: number } }>;
+  /** the servers' own search, for mail older than what is kept here (local results come from messages({ folder: 'search' })) */
+  searchServer(query: string, account?: string): Promise<MessageSummary[]>;
+  /** sent mail without an answer, newest first */
+  waiting(): Promise<WaitingItem[]>;
+  /** a follow-up to an unanswered message, ready to send */
+  followUp(id: string): Promise<Draft & { account: string }>;
+  dismissWaiting(id: string): Promise<void>;
+  /** newsletters and lists, the ones never opened first */
+  subscriptions(): Promise<SubscriptionItem[]>;
+  /** unsubscribe from a sender and/or archive (or delete) everything from it */
+  cleanup(key: string, action: 'unsubscribe' | 'archive' | 'both' | 'trash'): Promise<{ how: string; moved: number }>;
+  /** always put this sender's mail in Important or Other */
+  setCategory(address: string, category: 'important' | 'other'): Promise<void>;
+  unsnooze(ids: string[]): Promise<void>;
+  /** AI help with a piece of writing (the compose window) */
+  write(text: string, task: WriteTask, lang?: string): Promise<string>;
+  /** a question answered from your mail, with the messages it used */
+  askMail(question: string): Promise<{ answer: string; sources: MessageSummary[] }>;
   refresh(account?: string, folder?: string): Promise<void>;
   older(account: string, folder: string): Promise<void>;
   open(id: string, opts?: { allowRemote?: boolean; markRead?: boolean }): Promise<OpenMessage>;
@@ -104,7 +156,7 @@ export interface PimApi {
   saveDraft(d: Draft & { account: string }): Promise<void>;
   suggest(q: string): Promise<Address[]>;
   /** AI on a conversation, with the AI chosen in Settings → AI & Brain */
-  ai(id: string, task: 'summarize' | 'reply' | 'extract'): Promise<{ text: string; events?: QuickEvent[] }>;
+  ai(id: string, task: MailAiTask, opts?: { lang?: string }): Promise<{ text: string; events?: QuickEvent[]; options?: string[] }>;
   respond(id: string, status: 'accepted' | 'declined' | 'tentative'): Promise<void>;
   rules(): Promise<MailRule[]>;
   saveRules(r: MailRule[]): Promise<void>;

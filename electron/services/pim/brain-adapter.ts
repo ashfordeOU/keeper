@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // What AI agents (Keeper's assistant, MCP clients) may use from mail and
 // calendars: searching mail and listing events read only what is already on
-// this computer; creating an event is a change and is meant to be offered
+// this computer (never Spam, Trash or security mail); creating an event is a change and is meant to be offered
 // for the person's approval by the agents layer.
 
 import { redact } from '../../../core/brain/redact';
+import { hiddenFolder } from '../../../core/pim/mail-mcp';
 import { parseQuickAdd } from '../../../core/pim/quickadd';
+import { hasSignInCode, isSecurityAlert } from '../../../core/pim/triage';
 import { pim } from './index';
 
 export const pimTools = {
@@ -18,6 +20,8 @@ export const pimTools = {
       const r = await pim.messages({ account: f.account, folder: f.path, query }).catch(() => ({ messages: [] }));
       for (const m of r.messages) {
         if (seen.has(m.id)) continue;
+        // Spam, Trash and security mail (sign-in codes, password resets) are never handed to agents.
+        if (hiddenFolder(m.folder, folders, m.account) || m.security || isSecurityAlert(m) || hasSignInCode(`${m.subject}\n${m.snippet}`)) continue;
         seen.add(m.id);
         out.push({ id: m.id, from: m.from ? `${m.from.name ?? ''} <${m.from.address}>`.trim() : undefined, subject: m.subject, date: new Date(m.date).toISOString(), snippet: redact(m.snippet).text, account: m.account, folder: m.folder });
         if (out.length >= limit) return out;

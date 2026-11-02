@@ -58,6 +58,18 @@ function headerList(buf: Buffer | undefined, name: string): string | undefined {
   return m?.[1].trim();
 }
 
+const LIST_HEADERS = ['references', 'list-id', 'list-unsubscribe', 'list-unsubscribe-post', 'precedence', 'auto-submitted'];
+
+/** Mailing-list and bulk headers: for Important / Other and the subscriptions list. */
+export function listInfo(buf: Buffer | undefined): Pick<MessageSummary, 'bulk' | 'listId' | 'unsub'> {
+  const id = headerList(buf, 'list-id')?.match(/<([^>]+)>/)?.[1] ?? headerList(buf, 'list-id');
+  const unsub = parseUnsubscribe(headerList(buf, 'list-unsubscribe'), headerList(buf, 'list-unsubscribe-post'));
+  const prec = headerList(buf, 'precedence')?.toLowerCase();
+  const auto = headerList(buf, 'auto-submitted')?.toLowerCase();
+  const bulk = !!id || prec === 'bulk' || prec === 'list' || prec === 'junk' || (!!auto && auto !== 'no');
+  return { ...(bulk ? { bulk } : {}), ...(id ? { listId: id } : {}), ...(unsub ? { unsub } : {}) };
+}
+
 function hasAttachments(structure: FetchMessageObject['bodyStructure']): boolean {
   if (!structure) return false;
   const walk = (n: NonNullable<FetchMessageObject['bodyStructure']>): boolean =>
@@ -158,8 +170,29 @@ export class MailAccount {
       snippet: '',
       hasAttachments: hasAttachments(m.bodyStructure),
       size: m.size,
-      labels: [...(m.flags ?? [])].filter((f) => !f.startsWith('\\') && !f.startsWith('$')),
+      labels: [...new Set([...(m.flags ?? []), ...((m as { labels?: Set<string> }).labels ?? [])])].filter((f) => !f.startsWith('\\') && !f.startsWith('$')),
+      ...listInfo(m.headers),
     };
+  }
+
+  /** What the list needs of each message; Gmail's labels too where the server has them. */
+  private listQuery(c: ImapFlow) {
+    return { uid: true, envelope: true, flags: true, bodyStructure: true, size: true, internalDate: true, headers: LIST_HEADERS, ...(c.capabilities?.has('X-GM-EXT-1') ? { labels: true } : {}) };
+  }
+
+  /** Summaries of particular messages (the server's search results that are not in the list). */
+  async summaries(folder: string, uids: number[]): Promise<MessageSummary[]> {
+    if (!uids.length) return [];
+    return this.run(async (c) => {
+      const lock = await c.getMailboxLock(folder, { readOnly: true });
+      try {
+        const out: MessageSummary[] = [];
+        for await (const m of c.fetch(uids.join(','), this.listQuery(c), { uid: true })) out.push(this.summary(folder, m));
+        return out;
+      } finally {
+        lock.release();
+      }
+    });
   }
 
   async cached(folder: string): Promise<FolderCache> {
@@ -181,7 +214,7 @@ export class MailAccount {
         let list = cache.uidValidity === validity ? cache.messages : [];
         const known = new Map(list.map((m) => [m.uid, m]));
         const added: MessageSummary[] = [];
-        const q = { uid: true, envelope: true, flags: true, bodyStructure: true, size: true, internalDate: true, headers: ['references'] };
+        const q = this.listQuery(c);
         if (box.exists) {
           const since = list.length ? Math.max(...list.map((m) => m.uid)) + 1 : 0;
           const range = since ? `${since}:*` : `${Math.max(1, box.exists - FIRST + 1)}:*`;
@@ -236,7 +269,7 @@ export class MailAccount {
       const lock = await c.getMailboxLock(folder, { readOnly: true });
       try {
         const got: MessageSummary[] = [];
-        for await (const m of c.fetch(`${Math.max(1, oldest - count)}:${oldest - 1}`, { uid: true, envelope: true, flags: true, bodyStructure: true, size: true, internalDate: true, headers: ['references'] }, { uid: true })) got.push(this.summary(folder, m));
+        for await (const m of c.fetch(`${Math.max(1, oldest - count)}:${oldest - 1}`, this.listQuery(c), { uid: true })) got.push(this.summary(folder, m));
         const all = [...cache.messages, ...got].sort((a, b) => b.date - a.date);
         await writeJson(files.folder(this.account.id, folder), { ...cache, messages: all.slice(0, KEEP * 2) });
         return all;
@@ -314,7 +347,8 @@ export class MailAccount {
       const lock = await c.getMailboxLock(folder, { readOnly: true });
       try {
         const r = await c.search({ or: [{ subject: text }, { from: text }, { body: text }] }, { uid: true });
-        return Array.isArray(r) ? r : [];
+        // The newest first, and not too many.
+        return Array.isArray(r) ? r.sort((a, b) => b - a).slice(0, 100) : [];
       } finally {
         lock.release();
       }

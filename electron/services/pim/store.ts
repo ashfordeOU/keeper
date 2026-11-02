@@ -42,6 +42,22 @@ export interface PimPrefs {
   birthdays?: boolean;
   /** Google and Microsoft OAuth client IDs (overrides the ones built in) */
   clients?: { google?: string; googleSecret?: string; microsoft?: string };
+  /** sort inboxes into Important and Other (on unless false) */
+  splitInbox?: boolean;
+  /** which new mail drops down from the Island: Important only (default), all, or none */
+  islandMail?: 'important' | 'all' | 'off';
+  /** senders moved to Important or Other by hand (lower case) */
+  importantSenders?: string[];
+  otherSenders?: string[];
+  /** sent mail unanswered for this many days is called out in Waiting for reply (default 3) */
+  followUpDays?: number;
+  /** the reading layout: list beside the message, or a wide list with bulk actions */
+  mailLayout?: 'split' | 'wide';
+  /** keyboard shortcuts: which set, and the person's own changes ("action": "key, key") */
+  shortcutScheme?: 'gmail' | 'apple' | 'superhuman';
+  shortcutOverrides?: Record<string, string>;
+  /** keep the newest inbox messages' text on this computer for reading offline (on unless false) */
+  offlineBodies?: boolean;
 }
 
 export interface QueuedMail {
@@ -55,7 +71,17 @@ export interface QueuedMail {
   error?: string;
   /** what was written, so "Undo" can bring it back */
   draft?: Draft;
+  /** when Send was pressed */
+  queuedAt?: number;
+  /** a time chosen with Send later (not just the undo pause) */
+  scheduled?: boolean;
 }
+
+/** A change made while the server could not be reached, tried again later. */
+export type PendingOp =
+  | { kind: 'flag'; account: string; folder: string; uids: number[]; flag: string; on: boolean }
+  | { kind: 'move'; account: string; folder: string; uids: number[]; dest: string }
+  | { kind: 'remove'; account: string; folder: string; uids: number[]; trash?: string };
 
 export interface PimState {
   calendars: CalendarInfo[];
@@ -76,6 +102,12 @@ export interface PimState {
   log?: LogEntry[];
   /** one-time moves already made (the Island's own to-dos onto the task list) */
   migrated?: { islandTodos?: boolean };
+  /** snoozed messages and when they come back */
+  snoozes?: { id: string; until: number }[];
+  /** sent messages taken off Waiting for reply */
+  waitingDismissed?: string[];
+  /** changes made offline, waiting for the server */
+  pendingOps?: PendingOp[];
 }
 
 const DEFAULT_PREFS: PimPrefs = { notifyPreviews: true, notifyMail: true, undoSendSec: 10, trustedSenders: [], defaultAlertMin: 10, weekStart: 1, showWeekNumbers: false };

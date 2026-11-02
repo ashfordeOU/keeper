@@ -109,6 +109,23 @@ describe('IMAP against Dovecot', () => {
     await m.stop();
   }, 30_000);
 
+  it.skipIf(!fs.existsSync('/usr/sbin/dovecot'))('reads list headers for Other and the subscriptions list, and finds older mail on the server', async () => {
+    const m = new mail.MailAccount({ ...account(), id: 'lists' }, async () => ({ user: 'ana', pass: 'secret' }));
+    await m.append('INBOX', RAW('Weekly news', 'List-Id: Weekly News <news.weekly.example>\r\nList-Unsubscribe: <https://weekly.example/u?x=1>, <mailto:leave@weekly.example>\r\nList-Unsubscribe-Post: List-Unsubscribe=One-Click\r\nPrecedence: bulk'), []);
+    await m.append('INBOX', RAW('A person'), []);
+    const r = await m.sync('INBOX');
+    const news = r.messages.find((x) => x.subject === 'Weekly news')!;
+    expect(news).toMatchObject({ bulk: true, listId: 'news.weekly.example', unsub: { url: 'https://weekly.example/u?x=1', mailto: 'mailto:leave@weekly.example', oneClick: true } });
+    expect(r.messages.find((x) => x.subject === 'A person')!.bulk).toBeUndefined();
+    // The server's search, and the summaries of what it found.
+    const uids = await m.search('INBOX', 'Weekly');
+    expect(uids).toHaveLength(1);
+    const found = await m.summaries('INBOX', uids);
+    expect(found.map((x) => x.subject)).toEqual(['Weekly news']);
+    expect(found[0].listId).toBe('news.weekly.example');
+    await m.stop();
+  }, 30_000);
+
   it.skipIf(!fs.existsSync('/usr/sbin/dovecot'))('refuses a wrong password', async () => {
     const m = new mail.MailAccount(account(), async () => ({ user: 'ana', pass: 'wrong' }));
     await expect(m.test()).rejects.toThrow();

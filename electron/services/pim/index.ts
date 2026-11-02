@@ -10,7 +10,7 @@ import { randomUUID } from 'node:crypto';
 import { promises as fsp } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import type { DueReminder, MailView, NewAccount, OpenMessage, Outbox, PimApi, Ring } from '../../../core/api-pim';
+import type { DueReminder, MailAiTask, MailView, NewAccount, OpenMessage, Outbox, PimApi, Ring, WaitingItem, WriteTask } from '../../../core/api-pim';
 import { addLog, insights as insightsOf, type LogEntry } from '../../../core/pim/insights';
 import { completeTask, moveToDay, todosToTasks, type OldTodo } from '../../../core/pim/tasks';
 import { autoconfigUrls, fromSrv, guess, knownProvider, parseAutoconfig, type MailConfig } from '../../../core/pim/autoconfig';
@@ -19,6 +19,7 @@ import { occurrences as expandOccurrences, parseEvents, serializeEvents } from '
 import { readInvitation, replyTo } from '../../../core/pim/imip';
 import { makeReply, matchesQuery, riskyAttachment, ruleMatches, snippetOf, threadMessages, type Draft, type MailRule } from '../../../core/pim/mail';
 import type { PimPrefsView } from '../../../core/pim/prefs';
+import { classify, dueSnoozes, hasSignInCode, isSecurityAlert, followUpDraft, isOfflineError, isSnoozed, mergeResults, nextSnoozeWake, pickForQuestion, sortTime, splitSuggestions, subscriptions as subscriptionsOf, triageContext, voiceSamples, waitingForReply, type TriageContext } from '../../../core/pim/triage';
 import { parseQuickAdd } from '../../../core/pim/quickadd';
 import { dueKey, dueNow, meetingLink, nextAlarmTime, type Due } from '../../../core/pim/alarms';
 import { inIsland } from '../../../core/pim/agenda';
@@ -35,13 +36,16 @@ import { poll, pollNow } from '../governor';
 import { cidMap, compose, MailAccount, smtpSend, smtpVerify, toBody, type Auth } from './mail';
 import { dav, deleteHref, discover, fetchContacts, fetchIcs, graphCalendars, graphDelete, graphEvents, graphSave, putEvent, putTodo, syncCalendar, type DavAuth } from './dav';
 import { accessToken, cancelSignIn, clientFor, saveTokens, signIn } from './oauth';
-import { dropSecret, emptyState, files, hash, loadAccounts, loadContacts, loadState, putSecret, readJson, readSecret, saveAccounts, writeJson, type EventCache, type FolderCache, type PimState } from './store';
+import { dropSecret, emptyState, files, hash, loadAccounts, loadContacts, loadState, putSecret, readJson, readSecret, saveAccounts, writeJson, type EventCache, type FolderCache, type PendingOp, type PimState } from './store';
 import { extendTimer } from '../../../core/widget-timer';
 
 export interface PimDeps {
   broadcast: (channel: string, ...args: unknown[]) => void;
-  /** a short alert in the Island ('reminder': a task is due, shown even when other alerts are not) */
-  alert: (title: string, detail?: string, kind?: 'reminder') => void;
+  /**
+   * a short alert in the Island ('reminder': a task is due, shown even when other
+   * alerts are not; 'mail': new Important mail, with the message id as ref)
+   */
+  alert: (title: string, detail?: string, kind?: 'reminder' | 'mail', ref?: string) => void;
   /** reminders ringing now, for the Island's live activity (Snooze, Done) */
   islandReminders?: (list: DueReminder[]) => void;
   /** today's and tomorrow's events for the Island's "next meeting" */
@@ -138,6 +142,8 @@ function saveEvents(calendar: string) {
 }
 
 function changed(kind: 'accounts' | 'mail' | 'calendar' | 'reminders' | 'alarms' | 'outbox' | 'contacts', extra?: unknown) {
+  // Who you are and who you write to decide Important / Other.
+  if (kind === 'accounts' || kind === 'contacts' || kind === 'outbox') ctxCache = null;
   if (kind === 'contacts') {
     refreshDerived();
     deps?.broadcast('pim-changed', 'calendar');
@@ -342,28 +348,77 @@ async function refreshFolder(a: Account, folder: string) {
     }
     list = (await mailbox(a).sync(folder)).messages;
   }
+  // Keeper-only marks (snooze) survive the server's list.
+  const old = folderCache.get(fkey(a.id, folder));
+  if (old) {
+    const mine = new Map(old.filter((m) => m.snoozedUntil || m.returnedAt).map((m) => [m.id, m]));
+    for (const m of list) {
+      const o = mine.get(m.id);
+      if (o) Object.assign(m, { snoozedUntil: o.snoozedUntil, returnedAt: o.returnedAt });
+    }
+  }
   folderCache.set(fkey(a.id, folder), list);
-  if (!first && folder.toUpperCase() === 'INBOX') notifyNew(a, r.added.filter((m) => !m.seen));
+  if (folder.toUpperCase() !== 'INBOX') ctxCache = null;
+  if (!first && folder.toUpperCase() === 'INBOX') void notifyNew(a, r.added.filter((m) => !m.seen)).catch(() => undefined);
   changed('mail', { account: a.id, folder });
+  // Back online: changes made while offline go to the server now.
+  if (state.pendingOps?.some((o) => o.account === a.id)) void replayOps(a.id);
 }
 
-function notifyNew(a: Account, fresh: MessageSummary[]) {
-  if (!fresh.length || !state.prefs.notifyMail || !Notification.isSupported()) return;
-  const one = fresh.length === 1 ? fresh[0] : undefined;
-  const title = state.prefs.notifyPreviews && one ? one.from?.name || one.from?.address || 'New mail' : `${fresh.length} new message${fresh.length === 1 ? '' : 's'}`;
+/** New mail: a notification and the Island's drop-down for Important mail (or all, or none, as set). */
+async function notifyNew(a: Account, fresh: MessageSummary[]) {
+  if (!fresh.length || !state.prefs.notifyMail) return;
+  const how = state.prefs.islandMail ?? 'important';
+  if (how === 'off') return;
+  const ctx = await triageCtx();
+  const sorted = fresh.map((m) => withTriage(m, ctx));
+  const shown = how === 'all' ? sorted : sorted.filter((m) => m.category === 'important');
+  if (!shown.length) return;
+  const one = shown.length === 1 ? shown[0] : undefined;
+  const sec = shown.some((m) => m.security);
+  const who = one ? one.from?.name || one.from?.address || 'New mail' : `${shown.length} new message${shown.length === 1 ? '' : 's'}`;
+  const title = state.prefs.notifyPreviews ? (sec && one ? `Security: ${who}` : who) : `${shown.length} new message${shown.length === 1 ? '' : 's'}`;
   const body = state.prefs.notifyPreviews && one ? one.subject : a.label;
-  const n = new Notification({ title, body, silent: false });
-  n.on('click', () => deps?.broadcast('navigate', 'mail'));
-  n.show();
-  deps?.alert(title, body);
+  if (Notification.isSupported()) {
+    const n = new Notification({ title, body, silent: false });
+    n.on('click', () => deps?.broadcast('navigate', one ? `mail:${one.id}` : 'mail'));
+    n.show();
+  }
+  deps?.alert(title, body, 'mail', one?.id ?? `${a.id}:INBOX`);
 }
 
 async function refreshAccount(a: Account) {
   await mailbox(a).folders();
   await refreshFolder(a, 'INBOX');
+  // Sent and Archive too, so Waiting for reply and Important see your replies (and work offline).
+  for (const special of ['sent', 'archive'] as const) {
+    // Gmail has no Archive: All Mail holds archived mail there.
+    const f = (await folderOf(a, special)) ?? (special === 'archive' ? await folderOf(a, 'all') : undefined);
+    if (f) await refreshFolder(a, f).catch(() => undefined);
+  }
+  void prefetchBodies(a).catch(() => undefined);
+}
+
+/** The newest inbox messages' text, kept on this computer so they open offline. */
+async function prefetchBodies(a: Account) {
+  if (state.prefs.offlineBodies === false) return;
+  const list = (await cachedMessages(a.id, 'INBOX')).slice(0, 30);
+  for (const m of list) {
+    if (await fsp.access(files.body(m.id)).then(() => true, () => false)) continue;
+    const { body, parsed } = await mailbox(a).body(m.folder, m.uid);
+    const entry = { body, cid: cidMap(parsed) };
+    if (JSON.stringify(entry).length < 3_000_000) await writeJson(files.body(m.id), entry);
+  }
+}
+
+function persistFolder(account: string, folder: string) {
+  const list = folderCache.get(fkey(account, folder));
+  if (!list) return;
+  void readJson<FolderCache>(files.folder(account, folder), { messages: [] }).then((c) => writeJson(files.folder(account, folder), { ...c, messages: list }));
 }
 
 function applyLocal(ids: string[], patch: Partial<MessageSummary> | null) {
+  const touched = new Set<string>();
   for (const id of ids) {
     const { account, folder } = splitId(id);
     const list = folderCache.get(fkey(account, folder));
@@ -372,8 +427,126 @@ function applyLocal(ids: string[], patch: Partial<MessageSummary> | null) {
     if (i < 0) continue;
     if (patch) list[i] = { ...list[i], ...patch };
     else list.splice(i, 1);
+    touched.add(fkey(account, folder));
   }
+  // Kept on disk at once, so a change made offline is still there after a restart.
+  for (const k of touched) persistFolder(...(k.split('\n') as [string, string]));
   changed('mail');
+}
+
+// ---------------------------------------------------------------- offline changes
+
+async function runOp(o: PendingOp) {
+  const a = acct(o.account);
+  if (!a) return;
+  if (o.kind === 'flag') await mailbox(a).setFlags(o.folder, o.uids, o.flag, o.on);
+  else if (o.kind === 'move') await mailbox(a).move(o.folder, o.uids, o.dest);
+  else await mailbox(a).remove(o.folder, o.uids, o.trash);
+}
+
+/** A change to the server; when it cannot be reached, the change waits and is tried again. */
+async function serverOp(o: PendingOp) {
+  try {
+    await runOp(o);
+  } catch (e) {
+    if (!isOfflineError(e)) throw e;
+    state.pendingOps = [...(state.pendingOps ?? []), o];
+    saveState();
+  }
+}
+
+let replaying = false;
+async function replayOps(account: string) {
+  if (replaying) return;
+  replaying = true;
+  try {
+    const mine = (state.pendingOps ?? []).filter((o) => o.account === account);
+    const left: PendingOp[] = (state.pendingOps ?? []).filter((o) => o.account !== account);
+    for (let i = 0; i < mine.length; i++) {
+      try {
+        await runOp(mine[i]);
+      } catch (e) {
+        // Still offline: keep this one and the rest. Other failures (a folder gone) are dropped.
+        if (isOfflineError(e)) { left.push(...mine.slice(i)); break; }
+      }
+    }
+    state.pendingOps = left;
+    saveState();
+  } finally {
+    replaying = false;
+  }
+}
+
+// ---------------------------------------------------------------- Important and Other
+
+const myAddresses = () => accounts.flatMap((a) => [a.email, ...a.identities.map((i) => i.email)]).filter((x): x is string => !!x).map((x) => x.toLowerCase());
+
+/** Every cached message of the given kind of folder, across mail accounts. */
+async function cachedOf(special: 'inbox' | 'sent' | 'archive', account?: string): Promise<MessageSummary[]> {
+  const out: MessageSummary[] = [];
+  for (const a of accounts.filter((x) => x.mail && (!account || x.id === account))) {
+    const f = special === 'inbox' ? 'INBOX' : (await folderOf(a, special)) ?? (special === 'archive' ? await folderOf(a, 'all') : undefined);
+    if (f) out.push(...(await cachedMessages(a.id, f)));
+  }
+  return out;
+}
+
+/** Every folder kept on this computer, except Spam and Trash unless asked. */
+async function cachedEverywhere(account?: string, withHidden = false): Promise<MessageSummary[]> {
+  const out: MessageSummary[] = [];
+  for (const a of accounts.filter((x) => x.mail && (!account || x.id === account))) {
+    for (const f of await mailbox(a).cachedFolders()) {
+      if (!withHidden && (f.special === 'junk' || f.special === 'trash')) continue;
+      out.push(...(await cachedMessages(a.id, f.path)));
+    }
+  }
+  return out;
+}
+
+let ctxCache: { at: number; ctx: TriageContext } | null = null;
+async function triageCtx(): Promise<TriageContext> {
+  if (ctxCache && Date.now() - ctxCache.at < 5000) return ctxCache.ctx;
+  const ctx = triageContext({
+    me: myAddresses(), sent: await cachedOf('sent'), contacts: contacts.flatMap((c) => c.emails), recent: state.recent.map((r) => r.address),
+    important: state.prefs.importantSenders, other: state.prefs.otherSenders,
+  });
+  ctxCache = { at: Date.now(), ctx };
+  return ctx;
+}
+
+function withTriage(m: MessageSummary, ctx: TriageContext): MessageSummary {
+  const t = classify(m, ctx);
+  return { ...m, category: t.category, security: t.security || undefined };
+}
+
+// ---------------------------------------------------------------- snooze
+
+let snoozeTimer: NodeJS.Timeout | undefined;
+function armSnooze() {
+  clearTimeout(snoozeTimer);
+  const next = nextSnoozeWake(state.snoozes ?? [], Date.now());
+  if (next === undefined) return;
+  snoozeTimer = setTimeout(() => void wakeSnoozed(), Math.max(0, Math.min(next - Date.now(), 2_147_000_000)));
+}
+
+/** Snoozed mail whose time has come is back at the top of the inbox, unread, and the Island says so. */
+async function wakeSnoozed() {
+  const { due, waiting } = dueSnoozes(state.snoozes ?? [], Date.now());
+  state.snoozes = waiting;
+  saveState();
+  for (const s of due) {
+    const { account, folder, uid } = splitId(s.id);
+    const list = await cachedMessages(account, folder);
+    const m = list.find((x) => x.id === s.id);
+    if (!m) continue;
+    Object.assign(m, { snoozedUntil: undefined, returnedAt: s.until, seen: false });
+    persistFolder(account, folder);
+    const a = acct(account);
+    if (a) void serverOp({ kind: 'flag', account, folder, uids: [uid], flag: '\\Seen', on: false }).catch(() => undefined);
+    deps?.alert(`Back from snooze: ${m.from?.name || m.from?.address || ''}`.trim(), m.subject, 'mail', m.id);
+  }
+  if (due.length) changed('mail');
+  armSnooze();
 }
 
 function byFolder(ids: string[]): Map<string, { a: Account; folder: string; uids: number[] }> {
@@ -457,7 +630,8 @@ async function queue(d: Draft & { account: string; sendAt?: number; markdown?: b
   const html = d.markdown !== false ? (marked.parse(body.replace(/^>.*$/gm, (l) => l), { async: false, gfm: true, breaks: true }) as string) : undefined;
   const atts = (d.attachments ?? []).map((x) => ({ filename: x.name ?? path.basename(x.path), path: x.path }));
   const { raw, envelope } = await compose({ from, to: d.to, cc: d.cc, bcc: d.bcc, subject: d.subject, text: body, html, inReplyTo: d.inReplyTo, references: d.references, attachments: atts });
-  const item = { id: randomUUID(), account: a.id, sendAt: d.sendAt ?? Date.now() + state.prefs.undoSendSec * 1000, raw: raw.toString('base64'), envelope, subject: d.subject, draft: d };
+  const now = Date.now();
+  const item = { id: randomUUID(), account: a.id, sendAt: d.sendAt ?? now + state.prefs.undoSendSec * 1000, raw: raw.toString('base64'), envelope, subject: d.subject, draft: d, queuedAt: now, scheduled: d.sendAt !== undefined && d.sendAt - now > 60_000 };
   state.outbox.push(item);
   for (const r of [...d.to, ...d.cc, ...d.bcc]) {
     state.recent = [{ ...r, at: Date.now() }, ...state.recent.filter((x) => x.address.toLowerCase() !== r.address.toLowerCase())].slice(0, 300);
@@ -465,7 +639,7 @@ async function queue(d: Draft & { account: string; sendAt?: number; markdown?: b
   saveState();
   armOutbox();
   changed('outbox');
-  return { id: item.id, sendAt: item.sendAt, subject: item.subject };
+  return { id: item.id, sendAt: item.sendAt, subject: item.subject, scheduled: item.scheduled };
 }
 
 function armOutbox() {
@@ -978,15 +1152,25 @@ async function scheduleWake(id: string): Promise<{ ok: boolean; message: string 
 
 // ---------------------------------------------------------------- AI
 
-async function aiOnThread(id: string, task: 'summarize' | 'reply' | 'extract') {
+/** The AI chosen in Settings → AI & Brain (on this computer first when that is what the person chose). */
+async function aiProvider() {
   const { providerForConnection, brainSettings } = await import('../brain');
   const b = brainSettings();
   const p = await providerForConnection(b.active);
   if (b.localOnly && !p.local) throw new Error('You chose to use only AIs on this computer (Settings → AI & Brain)');
+  // Keys, passwords and card numbers never leave the computer.
+  const clean = (t: string) => (p.local ? t : redact(t).text);
+  const ask = async (system: string, user: string, maxTokens = 1200) => (await p.chat([{ role: 'system', content: `${system} Today is ${new Date().toDateString()}.` }, { role: 'user', content: user }], [], { maxTokens })).text.trim();
+  return { clean, ask };
+}
+
+async function threadText(id: string): Promise<{ text: string; last?: MessageSummary }> {
   const { account, folder } = splitId(id);
   const list = await cachedMessages(account, folder);
   const me = list.find((m) => m.id === id);
-  const thread = me ? threadMessages(list).find((t) => t.messages.some((m) => m.id === id)) : undefined;
+  // The conversation across folders (your replies in Sent belong to it too).
+  const pool = me ? [...list, ...(await cachedOf('sent', account))] : [];
+  const thread = me ? threadMessages(pool).find((t) => t.messages.some((m) => m.id === id)) : undefined;
   const msgs = thread?.messages ?? (me ? [me] : []);
   const parts: string[] = [];
   for (const m of msgs.slice(-8)) {
@@ -994,17 +1178,86 @@ async function aiOnThread(id: string, task: 'summarize' | 'reply' | 'extract') {
     const text = (o?.text ?? m.snippet).slice(0, 6000);
     parts.push(`From: ${m.from?.name ?? ''} <${m.from?.address ?? ''}>\nDate: ${new Date(m.date).toString()}\nSubject: ${m.subject}\n\n${text}`);
   }
-  // Keys, passwords and card numbers never leave the computer.
-  const body = p.local ? parts.join('\n\n---\n\n') : redact(parts.join('\n\n---\n\n')).text;
+  return { text: parts.join('\n\n---\n\n'), last: msgs[msgs.length - 1] };
+}
+
+async function aiOnThread(id: string, task: MailAiTask, opts: { lang?: string } = {}) {
+  const ai = await aiProvider();
+  const { text, last } = await threadText(id);
+  // Sign-in codes, password resets and sign-in alerts never go to an AI.
+  if (last && (isSecurityAlert(last) || hasSignInCode(`${last.subject}\n${last.snippet}`))) throw new Error('Keeper does not send security mail (sign-in codes, password resets) to an AI');
+  const body = ai.clean(text);
+  const system = 'You help with email.';
+  if (task === 'replies') {
+    // Three different answers, written the way the person writes.
+    const samples = voiceSamples(await cachedOf('sent', splitId(id).account), myAddresses());
+    const voice = samples.length ? `\n\nHow I write (lines from my own sent mail, match this tone, length and greeting style):\n${samples.map((x) => `- ${ai.clean(x)}`).join('\n')}` : '';
+    const r = await ai.ask(system, `Write three different short replies to the last message in this conversation, as me, in the same language as that message: 1) a yes / positive answer, 2) a reply that asks a question or suggests something else, 3) a polite no or "not now". Only the reply texts, no subject lines, no signatures, separated by a line containing only ===.${voice}\n\n${body}`);
+    const options = splitSuggestions(r);
+    return { text: options[0] ?? r, options };
+  }
+  if (task === 'translate') {
+    const lang = opts.lang || 'English';
+    return { text: await ai.ask(system, `Translate the last message of this conversation into ${lang}. Keep the meaning, names and numbers; only the translation.\n\n${body}`, 2000) };
+  }
   const ask = {
     summarize: 'Summarize this email conversation in 3–6 short bullet points: what it is about, what was decided, and anything the reader needs to do (with dates). Plain text.',
     reply: 'Draft a short, friendly reply to the last message in this conversation, in the same language. Only the reply text, no subject line, no signature.',
     extract: 'List every event, meeting, appointment or deadline in this conversation, one per line, each as a short plain-English phrase with its date and time, starting with "EVENT: " (e.g. "EVENT: Dinner with Ana Friday 7pm at Café Sol"). Use absolute dates. If there are none, answer "NONE".',
   }[task];
-  const r = await p.chat([{ role: 'system', content: 'You help with email. Today is ' + new Date().toDateString() + '.' }, { role: 'user', content: `${ask}\n\n${body}` }], [], { maxTokens: 1200 });
-  if (task !== 'extract') return { text: r.text.trim() };
-  const evs = r.text.split('\n').filter((l) => /^EVENT:/i.test(l.trim())).map((l) => parseQuickAdd(l.trim().slice(6))).filter((x): x is NonNullable<typeof x> => !!x);
-  return { text: r.text.trim(), events: evs };
+  const r = await ai.ask(system, `${ask}\n\n${body}`);
+  if (task !== 'extract') return { text: r };
+  const evs = r.split('\n').filter((l) => /^EVENT:/i.test(l.trim())).map((l) => parseQuickAdd(l.trim().slice(6))).filter((x): x is NonNullable<typeof x> => !!x);
+  return { text: r, events: evs };
+}
+
+/** Rewrites a draft (shorter, friendlier, more formal, proofread) or translates it. */
+async function aiWrite(text: string, task: WriteTask, lang?: string): Promise<string> {
+  if (!text.trim()) return text;
+  const ai = await aiProvider();
+  const { writingPrompt, cleanWritingReply } = await import('../writing');
+  const prompt = task === 'translate'
+    ? `Translate this email into ${lang || 'English'}, keeping its tone, names, numbers and line breaks.\n\nReply with the resulting text only — no introduction, quotes or notes.\n\n<text>\n${ai.clean(text)}\n</text>`
+    : writingPrompt(task, ai.clean(text));
+  return cleanWritingReply(await ai.ask('You help write email.', prompt, 3000));
+}
+
+/** "When does my flight leave?": answered from the mail that best fits, with those messages as sources. */
+async function askMail(question: string): Promise<{ answer: string; sources: MessageSummary[] }> {
+  const ai = await aiProvider();
+  const ctx = await triageCtx();
+  // Security mail (codes, password resets) is never sent to an AI.
+  const all = (await cachedEverywhere()).filter((m) => !classify(m, ctx).security);
+  const picked = pickForQuestion(question, all, 8);
+  if (!picked.length) return { answer: 'Nothing in the mail kept on this computer matches that question.', sources: [] };
+  const parts: string[] = [];
+  for (const [i, m] of picked.entries()) {
+    const o = i < 5 ? await openMessage(m.id, { markRead: false }).catch(() => null) : null;
+    parts.push(`[${i + 1}] From: ${m.from?.name ?? ''} <${m.from?.address ?? ''}> · ${new Date(m.date).toDateString()} · ${m.subject}\n${(o?.text ?? m.snippet).slice(0, 3000)}`);
+  }
+  const answer = await ai.ask('You answer questions about the person\'s own email. Use only the messages given; cite them like [1]. If they do not contain the answer, say so.', `Question: ${question}\n\nMessages:\n\n${ai.clean(parts.join('\n\n'))}`, 800);
+  return { answer, sources: picked };
+}
+
+/** One-click unsubscribe (RFC 8058) when offered, else by mail, else the sender's page. */
+async function unsubscribeWith(u: NonNullable<OpenMessage['unsubscribe']>, account: string): Promise<{ done: boolean; how: string }> {
+  if (u.url && u.oneClick) {
+    const res = await fetch(u.url, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: 'List-Unsubscribe=One-Click' }).catch(() => null);
+    if (res?.ok) return { done: true, how: 'Unsubscribed' };
+  }
+  if (u.mailto) {
+    const m = new URL(u.mailto);
+    const a = acct(account);
+    if (a?.smtp) {
+      await queue({ account: a.id, to: [{ address: decodeURIComponent(m.pathname) }], cc: [], bcc: [], subject: m.searchParams.get('subject') ?? 'unsubscribe', body: m.searchParams.get('body') ?? 'unsubscribe', sendAt: Date.now(), markdown: false });
+      return { done: true, how: 'An unsubscribe request was sent by mail' };
+    }
+  }
+  if (u.url) {
+    await shell.openExternal(u.url);
+    return { done: false, how: 'The sender’s unsubscribe page opened in your browser' };
+  }
+  return { done: false, how: 'Could not unsubscribe automatically' };
 }
 
 // ---------------------------------------------------------------- the API
@@ -1048,11 +1301,15 @@ export const pim: PimApi = {
       memory.set(a.id, { at: Date.now(), secret: await putSecret(secretName(a.id), password) });
       needsSignIn.delete(a.id);
     }
-    await mailboxes.get(id)?.stop();
-    mailboxes.delete(id);
     await saveAccounts(accounts);
     changed('accounts');
-    void startAccount(a);
+    ctxCache = null;
+    // Signatures, sharing and labels need no new connection.
+    if (password !== undefined || 'imap' in rest || 'smtp' in rest || 'mail' in rest || 'calendar' in rest || 'oauth' in rest || 'insecureTls' in rest || 'caldav' in rest) {
+      await mailboxes.get(id)?.stop();
+      mailboxes.delete(id);
+      void startAccount(a);
+    }
     return a;
   },
   async removeAccount(id) {
@@ -1089,19 +1346,126 @@ export const pim: PimApi = {
   },
   async messages(v: MailView) {
     await load();
-    let list: MessageSummary[] = [];
-    if (v.folder === 'unified') {
-      for (const a of accounts.filter((x) => x.mail && (!v.account || x.id === v.account))) list.push(...(await cachedMessages(a.id, 'INBOX')));
-    } else if (v.account) list = [...(await cachedMessages(v.account, v.folder))];
     const now = Date.now();
-    list = list.filter((m) => !(m.snoozedUntil && m.snoozedUntil > now));
+    let list: MessageSummary[] = [];
+    if (v.folder === 'unified') list = await cachedOf('inbox', v.account);
+    else if (v.folder === 'unified:sent') list = await cachedOf('sent', v.account);
+    else if (v.folder === 'snoozed') list = (await cachedEverywhere(v.account)).filter((m) => isSnoozed(m, now));
+    else if (v.folder === 'search') list = await cachedEverywhere(v.account, true);
+    else if (v.account) list = [...(await cachedMessages(v.account, v.folder))];
+    if (v.folder !== 'snoozed') list = list.filter((m) => !isSnoozed(m, now));
+    const ctx = await triageCtx();
+    list = list.map((m) => withTriage(m, ctx));
+    // An inbox splits into Important and Other (security alerts are always Important).
+    const inbox = v.folder === 'unified' || v.folder.toUpperCase() === 'INBOX';
+    let counts: { important: number; other: number } | undefined;
+    if (inbox && state.prefs.splitInbox !== false) {
+      counts = { important: list.filter((m) => !m.seen && m.category === 'important').length, other: list.filter((m) => !m.seen && m.category === 'other').length };
+      if (v.split) list = list.filter((m) => m.category === v.split);
+    }
     if (v.filter === 'unread') list = list.filter((m) => !m.seen);
     else if (v.filter === 'flagged') list = list.filter((m) => m.flagged);
     else if (v.filter === 'attachments') list = list.filter((m) => m.hasAttachments);
-    if (v.query?.trim()) list = list.filter((m) => matchesQuery(m, v.query!));
-    list.sort((a, b) => b.date - a.date);
-    return { messages: list, threads: v.threaded ? threadMessages(list) : undefined };
+    if (v.query?.trim()) {
+      const exact = list.filter((m) => matchesQuery(m, v.query!));
+      // A question in plain words ("when does my flight leave?") matches on its words instead.
+      list = exact.length || v.folder !== 'search' ? exact : pickForQuestion(v.query, list.filter((m) => !m.security), 50);
+    }
+    // Search: this computer's inboxes first, then the rest, newest first within each.
+    const rank = (m: MessageSummary) => (v.folder === 'search' ? (m.folder.toUpperCase() === 'INBOX' ? 0 : 1) : 0);
+    list.sort((a, b) => rank(a) - rank(b) || sortTime(b, now) - sortTime(a, now));
+    if (v.folder === 'search') list = list.slice(0, 500);
+    return { messages: list, threads: v.threaded ? threadMessages(list).sort((a, b) => Math.max(...b.messages.map((m) => sortTime(m, now))) - Math.max(...a.messages.map((m) => sortTime(m, now)))) : undefined, counts };
   },
+  async searchServer(query, account) {
+    await load();
+    const q = query.replace(/\b\w+:("[^"]*"|\S+)/g, '').trim();
+    if (!q) return [];
+    const ctx = await triageCtx();
+    const found: MessageSummary[] = [];
+    for (const a of accounts.filter((x) => x.mail && (!account || x.id === account))) {
+      const where = new Set<string>(['INBOX']);
+      for (const sp of ['sent', 'archive', 'all'] as const) { const f = await folderOf(a, sp); if (f) where.add(f); }
+      for (const f of where) {
+        try {
+          const known = new Set((await cachedMessages(a.id, f)).map((m) => m.uid));
+          const uids = (await mailbox(a).search(f, q)).filter((u) => !known.has(u)).slice(0, 40);
+          found.push(...(await mailbox(a).summaries(f, uids)));
+        } catch {
+          // Offline or the server refused: the local results stand.
+        }
+      }
+    }
+    return mergeResults([], found.map((m) => withTriage(m, ctx))).sort((x, y) => y.date - x.date);
+  },
+  async waiting() {
+    await load();
+    const now = Date.now();
+    const pool = [...(await cachedOf('inbox')), ...(await cachedOf('sent')), ...(await cachedOf('archive'))];
+    const days = state.prefs.followUpDays ?? 3;
+    return waitingForReply(pool, myAddresses(), now, { maxDays: 45, dismissed: state.waitingDismissed }).map((w): WaitingItem => ({ message: w.message, days: w.days, to: w.to, count: w.thread.messages.length, overdue: w.days >= days }));
+  },
+  async followUp(id) {
+    const o = await openMessage(id, { markRead: false }).catch(() => null);
+    const { account, folder } = splitId(id);
+    const m = o?.summary ?? (await cachedMessages(account, folder)).find((x) => x.id === id);
+    if (!m) throw new Error('That message is no longer here');
+    return { ...followUpDraft({ ...m, text: o?.text }, myAddresses()), account };
+  },
+  async dismissWaiting(id) {
+    const { account, folder } = splitId(id);
+    const m = (await cachedMessages(account, folder)).find((x) => x.id === id);
+    state.waitingDismissed = [...(state.waitingDismissed ?? []), m?.messageId ?? id].slice(-500);
+    saveState();
+    changed('mail');
+  },
+  async subscriptions() {
+    await load();
+    const pool = [...(await cachedOf('inbox')), ...(await cachedOf('archive'))];
+    return subscriptionsOf(pool, myAddresses()).slice(0, 150).map((x) => ({ key: x.key, name: x.name, address: x.address, count: x.count, opened: x.opened, last: x.last, canUnsubscribe: !!x.unsub, neverOpened: x.neverOpened }));
+  },
+  async cleanup(key, action) {
+    await load();
+    const pool = [...(await cachedOf('inbox')), ...(await cachedOf('archive'))];
+    const sub = subscriptionsOf(pool, myAddresses()).find((x) => x.key === key);
+    if (!sub) throw new Error('Nothing from that sender is here any more');
+    let how = '';
+    if (action === 'unsubscribe' || action === 'both') {
+      const latest = pool.find((m) => m.id === sub.latest);
+      how = (latest?.unsub ? await unsubscribeWith(latest.unsub, latest.account) : await pim.unsubscribe(sub.latest)).how;
+    }
+    // Only what is still in an inbox is moved.
+    const inboxIds = sub.ids.filter((id) => splitId(id).folder.toUpperCase() === 'INBOX');
+    if (action === 'archive' || action === 'both') await pim.archive(inboxIds);
+    if (action === 'trash') await pim.trash(inboxIds);
+    const moved = action === 'unsubscribe' ? 0 : inboxIds.length;
+    if (action !== 'unsubscribe') how = [how, `${moved} message${moved === 1 ? '' : 's'} ${action === 'trash' ? 'deleted' : 'archived'}`].filter(Boolean).join(' · ');
+    // Whatever still comes from them goes to Other.
+    if (action !== 'trash') await pim.setCategory(sub.address, 'other');
+    return { how, moved };
+  },
+  async setCategory(address, category) {
+    const a = address.toLowerCase();
+    state.prefs.importantSenders = (state.prefs.importantSenders ?? []).filter((x) => x !== a);
+    state.prefs.otherSenders = (state.prefs.otherSenders ?? []).filter((x) => x !== a);
+    if (category === 'important') state.prefs.importantSenders.push(a);
+    else state.prefs.otherSenders.push(a);
+    ctxCache = null;
+    saveState();
+    changed('mail');
+  },
+  async unsnooze(ids) {
+    state.snoozes = (state.snoozes ?? []).filter((x) => !ids.includes(x.id));
+    for (const id of ids) {
+      const { account, folder } = splitId(id);
+      await cachedMessages(account, folder);
+    }
+    applyLocal(ids, { snoozedUntil: undefined, returnedAt: Date.now() });
+    saveState();
+    armSnooze();
+  },
+  write: (text, task, lang) => aiWrite(text, task, lang),
+  askMail: (q) => askMail(q),
   async refresh(account, folder) {
     await load();
     for (const a of accounts.filter((x) => x.mail && (!account || x.id === account))) {
@@ -1116,51 +1480,47 @@ export const pim: PimApi = {
     changed('mail', { account, folder });
   },
   open: openMessage,
+  // Each change shows at once and goes to the server; offline, it waits and is sent later.
   async setRead(ids, read) {
     applyLocal(ids, { seen: read });
-    for (const g of byFolder(ids).values()) await mailbox(g.a).setFlags(g.folder, g.uids, '\\Seen', read);
+    for (const g of byFolder(ids).values()) await serverOp({ kind: 'flag', account: g.a.id, folder: g.folder, uids: g.uids, flag: '\\Seen', on: read });
   },
   async setFlagged(ids, flagged) {
     applyLocal(ids, { flagged });
-    for (const g of byFolder(ids).values()) await mailbox(g.a).setFlags(g.folder, g.uids, '\\Flagged', flagged);
+    for (const g of byFolder(ids).values()) await serverOp({ kind: 'flag', account: g.a.id, folder: g.folder, uids: g.uids, flag: '\\Flagged', on: flagged });
   },
   async move(ids, dest) {
     applyLocal(ids, null);
-    for (const g of byFolder(ids).values()) await mailbox(g.a).move(g.folder, g.uids, dest);
+    for (const g of byFolder(ids).values()) await serverOp({ kind: 'move', account: g.a.id, folder: g.folder, uids: g.uids, dest });
   },
   async archive(ids) {
     for (const g of byFolder(ids).values()) {
       const dest = (await folderOf(g.a, 'archive')) ?? (await folderOf(g.a, 'all'));
       if (!dest) throw new Error(`${g.a.label} has no Archive folder`);
       applyLocal(g.uids.map((u) => `${g.a.id}:${g.folder}:${u}`), null);
-      await mailbox(g.a).move(g.folder, g.uids, dest);
+      await serverOp({ kind: 'move', account: g.a.id, folder: g.folder, uids: g.uids, dest });
     }
   },
   async trash(ids) {
     applyLocal(ids, null);
-    for (const g of byFolder(ids).values()) await mailbox(g.a).remove(g.folder, g.uids, await folderOf(g.a, 'trash'));
+    for (const g of byFolder(ids).values()) await serverOp({ kind: 'remove', account: g.a.id, folder: g.folder, uids: g.uids, trash: await folderOf(g.a, 'trash') });
   },
   async junk(ids) {
     for (const g of byFolder(ids).values()) {
       const dest = await folderOf(g.a, 'junk');
       if (!dest) throw new Error(`${g.a.label} has no Junk folder`);
       applyLocal(g.uids.map((u) => `${g.a.id}:${g.folder}:${u}`), null);
-      await mailbox(g.a).move(g.folder, g.uids, dest);
+      await serverOp({ kind: 'move', account: g.a.id, folder: g.folder, uids: g.uids, dest });
     }
   },
   async snooze(ids, until) {
-    applyLocal(ids, { snoozedUntil: until });
-    for (const id of ids) {
-      const { account, folder } = splitId(id);
-      const list = folderCache.get(fkey(account, folder));
-      if (list) void writeJson(files.folder(account, folder), { ...(await readJson<FolderCache>(files.folder(account, folder), { messages: [] })), messages: list });
-    }
-    // Comes back as a reminder at that time.
-    const m = await cachedMessages(splitId(ids[0]).account, splitId(ids[0]).folder);
-    const first = m.find((x) => x.id === ids[0]);
-    state.reminders.push({ id: `local:snooze-${randomUUID()}`, list: 'local', title: `Mail: ${first?.subject ?? 'snoozed message'}`, remindAt: until, done: false, notes: ids.join('\n') });
+    await load();
+    // Kept on this computer: the message hides until then, then comes back unread at the top.
+    for (const id of ids) await cachedMessages(splitId(id).account, splitId(id).folder);
+    applyLocal(ids, { snoozedUntil: until, returnedAt: undefined });
+    state.snoozes = [...(state.snoozes ?? []).filter((x) => !ids.includes(x.id)), ...ids.map((id) => ({ id, until }))];
     saveState();
-    changed('reminders');
+    armSnooze();
   },
   async saveAttachment(id, att, to) {
     const { filename, content } = await rawAttachment(id, att);
@@ -1189,23 +1549,7 @@ export const pim: PimApi = {
     const o = await openMessage(id, { markRead: false });
     const u = o.unsubscribe;
     if (!u) return { done: false, how: 'This message has no unsubscribe link' };
-    if (u.url && u.oneClick) {
-      const res = await fetch(u.url, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: 'List-Unsubscribe=One-Click' }).catch(() => null);
-      if (res?.ok) return { done: true, how: 'Unsubscribed' };
-    }
-    if (u.mailto) {
-      const m = new URL(u.mailto);
-      const a = acct(o.summary.account);
-      if (a?.smtp) {
-        await queue({ account: a.id, to: [{ address: decodeURIComponent(m.pathname) }], cc: [], bcc: [], subject: m.searchParams.get('subject') ?? 'unsubscribe', body: m.searchParams.get('body') ?? 'unsubscribe', sendAt: Date.now(), markdown: false });
-        return { done: true, how: 'An unsubscribe request was sent by mail' };
-      }
-    }
-    if (u.url) {
-      await shell.openExternal(u.url);
-      return { done: false, how: 'The sender’s unsubscribe page opened in your browser' };
-    }
-    return { done: false, how: 'Could not unsubscribe automatically' };
+    return unsubscribeWith(u, o.summary.account);
   },
   async trustSender(address) {
     const a = address.toLowerCase();
@@ -1234,7 +1578,7 @@ export const pim: PimApi = {
   },
   async outbox() {
     await load();
-    return state.outbox.map((q) => ({ id: q.id, sendAt: q.sendAt, subject: q.subject, error: q.error }));
+    return state.outbox.map((q) => ({ id: q.id, sendAt: q.sendAt, subject: q.subject, error: q.error, scheduled: q.scheduled }));
   },
   async saveDraft(d) {
     const a = acct(d.account);
@@ -1248,7 +1592,7 @@ export const pim: PimApi = {
     await load();
     return suggestAddresses(contacts, state.recent, q);
   },
-  ai: (id, task) => aiOnThread(id, task),
+  ai: (id, task, opts) => aiOnThread(id, task, opts),
   async respond(id, status) {
     const o = await openMessage(id, { markRead: false });
     if (!o.invite) throw new Error('This message has no invitation');
@@ -1559,10 +1903,12 @@ function startMail() {
     for (const a of accounts.filter((x) => x.mail)) await refreshFolder(a, 'INBOX').catch(() => undefined);
   }, { now: false, feature: 'mail' }));
   armOutbox();
+  armSnooze();
 }
 
 async function stopMail() {
   clearTimeout(outboxTimer);
+  clearTimeout(snoozeTimer);
   for (const m of mailboxes.values()) await m.stop();
   mailboxes.clear();
 }
@@ -1604,6 +1950,14 @@ export async function stopPim() {
   clearTimeout(saveTimer);
   await stopMail();
   await writeJson(files.state(), state);
+}
+
+/** The conversation a message belongs to (its folder and your Sent mail), oldest first. */
+export async function threadOf(id: string): Promise<MessageSummary[]> {
+  await load();
+  const { account, folder } = splitId(id);
+  const pool = [...(await cachedMessages(account, folder)), ...(await cachedOf('sent', account))];
+  return threadMessages(pool).find((t) => t.messages.some((m) => m.id === id))?.messages ?? [];
 }
 
 /** For tests and the agents layer. */

@@ -3,8 +3,11 @@
 // keeper command and AI agents through Keeper's local socket.
 
 import { ipcMain } from 'electron';
+import { mailMcp } from '../../core/pim/mail-mcp';
+import { setToolProvider } from '../services/agents';
 import { registerKeeperMethod } from '../services/brain';
-import { pim } from '../services/pim';
+import { featureOn } from '../services/features';
+import { pim, threadOf } from '../services/pim';
 import { pimTools } from '../services/pim/brain-adapter';
 
 export const PIM_METHODS = Object.keys(pim) as (keyof typeof pim)[];
@@ -17,4 +20,14 @@ export function registerPimIpc() {
   registerKeeperMethod('keeper/mail.search', (p) => pimTools.searchMail(String(p.query ?? ''), Number(p.limit ?? 20)));
   registerKeeperMethod('keeper/calendar.list', (p) => pimTools.listEvents(Number(p.from ?? Date.now()), Number(p.to ?? Date.now() + 7 * 86_400_000)));
   registerKeeperMethod('keeper/calendar.add', (p) => pimTools.createEvent(String(p.text ?? '')));
+  // Mail for coding assistants (MCP): only accounts the person shared, search, read and drafts only.
+  const mail = mailMcp({
+    accounts: () => pim.accounts(),
+    folders: () => pim.folders(),
+    search: async (query, limit) => (await pim.messages({ folder: 'search', query })).messages.slice(0, limit),
+    read: async (id) => { const o = await pim.open(id, { markRead: false }); return { summary: o.summary, text: o.text }; },
+    thread: (id) => threadOf(id),
+    saveDraft: (d) => pim.saveDraft(d),
+  });
+  setToolProvider('mail', { tools: () => (featureOn('mail') ? mail.tools() as never : []), call: (name, args) => mail.call(name, args) });
 }
