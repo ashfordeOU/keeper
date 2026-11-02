@@ -486,6 +486,7 @@ export function createMockApi(): KeeperApi {
       },
       move: async (paths) => ({ ...ok, removed: paths.length }),
       copy: async (paths) => ({ ...ok, removed: paths.length }),
+      conflicts: async () => [],
       rename: async (p, name) => { const f = byPath(p); if (f) { f.name = name; f.path = p.replace(/[^/]+$/, name); } return p.replace(/[^/]+$/, name); },
       previewRename: async (paths, steps) => previewRename(paths.map((p) => byPath(p)!).filter(Boolean), steps),
       applyRename: async (paths) => ({ ...ok, removed: paths.length }),

@@ -1,0 +1,12 @@
+/* Copy, move and drop onto folders (src/fileops.tsx). */
+.drop-over { outline: 2px solid var(--accent); outline-offset: -2px; background: color-mix(in srgb, var(--accent) 14%, transparent) !important; border-radius: 8px; }
+.fileops-progress { position: fixed; right: 18px; bottom: 70px; z-index: 95; display: flex; flex-direction: column; gap: 8px; width: min(320px, calc(100vw - 36px)); }
+.fileops-job { background: var(--bg-elev); border-radius: 12px; box-shadow: var(--shadow-pop); padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+.fileops-bar { height: 4px; border-radius: 2px; background: var(--line, rgba(127, 127, 127, .25)); overflow: hidden; }
+.fileops-bar i { display: block; height: 100%; background: var(--accent); transition: width .2s; }
+.fileops-names { margin: 0 0 6px; padding-left: 18px; max-height: 160px; overflow: auto; }
+.fileops-pick { gap: 2px; }
+.fileops-dest { justify-content: flex-start; gap: 8px; text-align: left; min-width: 0; }
+.fileops-dest .small { max-width: 50%; }
+.is-cut { opacity: .5; }
+@media (prefers-reduced-motion: reduce) { .fileops-bar i { transition: none; } }

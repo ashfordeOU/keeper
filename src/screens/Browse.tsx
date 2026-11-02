@@ -16,6 +16,7 @@ import { ContextMenu, Empty, Files, HiddenToggle, Loading, Modal, RenameDialog, 
 import { LockDialog, lockError, UnlockDialog } from '../components/LockDialog';
 import '../styles/lock.css';
 import { useAsync, useStore } from '../state';
+import { chooseDestination, folderDrop, pasteInto, setFileClip, useFileClip } from '../fileops';
 import '../styles/screens-a.css';
 import { TidyDialog } from '../components/TidyDialog';
 import { parseServerAddress } from '../../core/places';
@@ -25,7 +26,8 @@ import '../styles/places.css';
 type SortKey = 'name' | 'date' | 'size' | 'kind';
 
 export function Browse() {
-  const { route, go, info, version, settings, updateSettings, refresh, toast, trash, view, setSelection, setFocused } = useStore();
+  const { route, go, info, version, settings, updateSettings, refresh, toast, trash, view, selection, setSelection, setFocused } = useStore();
+  const clip = useFileClip();
   const dir = route.arg || info?.home || '';
   const sep = info?.sep ?? (dir.includes('\\') ? '\\' : '/');
   const hidden = !!settings?.showHidden;
@@ -137,10 +139,17 @@ export function Browse() {
       const t = e.target as HTMLElement | null;
       if (t?.closest?.('input, textarea, select, [contenteditable="true"], .modal, .menu, .palette, .ql')) return;
       if (e.key === 'ArrowUp' && (e.metaKey || e.ctrlKey || e.altKey) && !e.shiftKey && parent) { e.preventDefault(); go({ name: 'browse', arg: parent }); }
+      const cmd = (e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey;
+      if (!cmd || t?.closest?.('[role="dialog"]') || window.getSelection()?.toString()) return;
+      const k = e.key.toLowerCase();
+      // ⌘V / Ctrl+V: paste what was copied or cut into this folder.
+      if (k === 'v' && dir) { e.preventDefault(); void pasteInto(dir); }
+      // The columns view has no file grid of its own to take ⌘C and ⌘X.
+      else if (view === 'columns' && (k === 'c' || k === 'x') && selection.length) { e.preventDefault(); setFileClip(k === 'x' ? 'cut' : 'copy', selection); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [parent, go]);
+  }, [parent, go, dir, view, selection]);
 
   const openDir = useCallback((f: FileEntry) => (f.locked ? setUnlocking(f.path) : go({ name: 'browse', arg: f.path })), [go]);
   const onContext = (e: React.MouseEvent, f: FileEntry) => {
@@ -157,6 +166,12 @@ export function Browse() {
     { label: 'Get Info', icon: 'info', run: () => getInfo(e.path, e.name) },
     { label: 'Rename…', icon: 'rename', run: () => setRenaming(e.path) },
     { label: 'Show Size in Space Map', icon: 'map', run: () => go({ name: 'space', arg: e.path }) },
+    { sep: true, label: '' },
+    { label: 'Cut', icon: 'drag', run: () => setFileClip('cut', [e.path]) },
+    { label: 'Copy', icon: 'copy', run: () => setFileClip('copy', [e.path]) },
+    { label: 'Paste Into Folder', icon: 'clipboard', run: () => void pasteInto(e.path) },
+    { label: 'Move to…', icon: 'folder', run: () => chooseDestination('move', selection.includes(e.path) ? selection : [e.path]) },
+    { label: 'Copy to…', icon: 'copy', run: () => chooseDestination('copy', selection.includes(e.path) ? selection : [e.path]) },
     { label: 'Copy Path', icon: 'copy', run: () => void api.files.copyText(e.path) },
     { label: 'Open in Terminal', icon: 'terminal', run: () => go({ name: 'terminal', arg: e.path }) },
     { label: 'Compress', icon: 'zip', run: () => void api.files.compress([e.path]).then(() => refresh()) },
@@ -176,7 +191,7 @@ export function Browse() {
   ];
 
   return (
-    <div>
+    <div className="browse-page" {...folderDrop(dir || undefined)}>
       <div className="page-head" style={{ alignItems: 'center' }}>
         <div className="row" style={{ minWidth: 0, gap: 6 }}>
           <button className="btn ghost sm icon" disabled={!parent} onClick={() => parent && go({ name: 'browse', arg: parent })} title={`Enclosing folder (${info?.platform === 'darwin' ? '⌘↑' : 'Alt+↑'})`} aria-label="Enclosing folder"><Icon name="arrowUp" size={14} /></button>
@@ -189,7 +204,7 @@ export function Browse() {
             {crumbs.map((c, i) => (
               <span key={c.path} className="row" style={{ gap: 2 }}>
                 {i > 0 ? <Icon name="chevronRight" size={12} className="muted" /> : null}
-                <button className="crumb" aria-current={i === crumbs.length - 1 ? 'location' : undefined} onClick={() => go({ name: 'browse', arg: c.path })}>
+                <button className="crumb" {...folderDrop(c.path)} aria-current={i === crumbs.length - 1 ? 'location' : undefined} onClick={() => go({ name: 'browse', arg: c.path })}>
                   {i === 0 ? <Icon name={c.path === info?.home ? 'home' : 'disk'} size={13} /> : null}{c.label}
                 </button>
               </span>
@@ -200,6 +215,7 @@ export function Browse() {
         </div>
         <div className="btn-row">
           <HiddenToggle />
+          {clip ? <button className="btn sm" data-testid="paste-here" onClick={() => void pasteInto(dir)} title={`Paste ${clip.paths.length === 1 ? 'the item' : `${clip.paths.length} items`} you ${clip.op === 'cut' ? 'cut' : 'copied'} into this folder`}><Icon name="clipboard" size={13} /> Paste{clip.op === 'cut' ? ' (Move)' : ''}</button> : null}
           <button className="btn sm" onClick={() => setNewFolder('untitled folder')}><Icon name="plus" size={13} /> New Folder</button>
           <button className="btn sm" onClick={() => setTidy(true)} title="Sort loose files into folders by kind, month or extension"><Icon name="broom" size={13} /> Tidy</button>
           <button className="btn sm" onClick={() => settings && void updateSettings({ pinned: pinned ? settings.pinned.filter((p) => p !== dir) : [...settings.pinned, dir] })}>

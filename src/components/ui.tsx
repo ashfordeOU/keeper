@@ -10,6 +10,7 @@ import type { RenamePreview, RenameStep } from '../../core/rename';
 import type { FileEntry, FileKind } from '../../core/types';
 import { formatBytes, formatDate, formatDuration, relativeTime } from '../../core/format';
 import { api } from '../api';
+import { chooseDestination, folderDrop, pasteInto, setFileClip, useFileClip } from '../fileops';
 import { mod, shift, useStore } from '../state';
 import { Icon } from './Icon';
 import { isQuickLookOpen, openQuickLook } from '../preview/QuickLook';
@@ -235,8 +236,12 @@ export function useFileSelection(files: FileEntry[], opts: SelectionOptions = {}
         void trash(selection);
       } else if (e.key === 'Delete' && selection.length) {
         void trash(selection);
-      } else if (cmd && e.key.toLowerCase() === 'c' && selection.length && !window.getSelection()?.toString()) {
-        void api.files.copyPaths(selection);
+      } else if (cmd && !e.shiftKey && e.key.toLowerCase() === 'c' && selection.length && !window.getSelection()?.toString()) {
+        // Copy: paste into another folder with ⌘V (and into other apps from the system clipboard).
+        setFileClip('copy', selection);
+      } else if (cmd && !e.shiftKey && e.key.toLowerCase() === 'x' && selection.length && !window.getSelection()?.toString()) {
+        e.preventDefault();
+        setFileClip('cut', selection);
       }
     };
     window.addEventListener('keydown', onKey);
@@ -322,6 +327,8 @@ function FileCard({ f, i, picked, selection, header, onFocus, onClick, onOpen, o
   onFocus: (e: React.FocusEvent<HTMLDivElement>) => void; onClick: (e: React.MouseEvent) => void; onOpen: () => void;
   onContext: (e: React.MouseEvent, f: FileEntry) => void; onMenuKey: (r: DOMRect) => void; rich?: boolean;
 }) {
+  const clip = useFileClip();
+  const cut = clip?.op === 'cut' && clip.paths.includes(f.path);
   return (
     <>
       {header ?? null}
@@ -335,12 +342,13 @@ function FileCard({ f, i, picked, selection, header, onFocus, onClick, onOpen, o
         tabIndex={picked.size ? (picked.has(f.path) && f.path === selection[selection.length - 1] ? 0 : -1) : i === 0 ? 0 : -1}
         onFocus={onFocus}
         onKeyDown={(e) => { if ((e.key === 'F10' && e.shiftKey) || e.key === 'ContextMenu') { e.preventDefault(); onMenuKey(e.currentTarget.getBoundingClientRect()); } }}
-        className={`file-card ${f.dir ? 'is-dir' : ''} ${picked.has(f.path) ? 'selected' : ''} ${isHiddenFile(f) ? 'is-hidden' : ''}`}
+        className={`file-card ${f.dir ? 'is-dir' : ''} ${picked.has(f.path) ? 'selected' : ''} ${isHiddenFile(f) ? 'is-hidden' : ''} ${cut ? 'is-cut' : ''}`}
         onClick={onClick}
         onDoubleClick={onOpen}
         onContextMenu={(e) => { if (!picked.has(f.path)) onClick(e); onContext(e, f); }}
         draggable
         onDragStart={(e) => { e.preventDefault(); api.files.startDrag(picked.has(f.path) ? selection : [f.path]); }}
+        {...folderDrop(f.dir && !f.locked ? f.path : undefined)}
         title={f.path}
       >
         <div className={`thumb ${f.kind === 'image' || f.kind === 'video' ? '' : 'contain'}`}>
@@ -387,6 +395,7 @@ export function FileList({ files, sort, onSort, showSource, showFolder, tree, on
     return true;
   };
   const { selection, click, open } = useFileSelection(files, { onOpenDir, onKey });
+  const clip = useFileClip();
   const menu = useFileMenu();
   const { shown, more, sentinel } = useProgressive(files, selection, pathOf);
   const picked = useMemo(() => new Set(selection), [selection]);
@@ -429,12 +438,13 @@ export function FileList({ files, sort, onSort, showSource, showFolder, tree, on
                   tabIndex={picked.size ? (picked.has(f.path) && f.path === selection[selection.length - 1] ? 0 : -1) : i === 0 ? 0 : -1}
                   onFocus={(e) => { if (!picked.has(f.path) && e.currentTarget.matches(':focus-visible')) { setSelection([f.path]); setFocused(f); } }}
                   onKeyDown={(e) => { if ((e.key === 'F10' && e.shiftKey) || e.key === 'ContextMenu') { e.preventDefault(); const r = e.currentTarget.getBoundingClientRect(); context({ preventDefault: () => undefined, clientX: r.left + 40, clientY: r.top + 10 } as React.MouseEvent, f); } }}
-                  className={`${f.dir ? 'is-dir' : ''} ${picked.has(f.path) ? 'selected' : ''} ${isHiddenFile(f) ? 'is-hidden' : ''}`}
+                  className={`${f.dir ? 'is-dir' : ''} ${picked.has(f.path) ? 'selected' : ''} ${isHiddenFile(f) ? 'is-hidden' : ''} ${clip?.op === 'cut' && clip.paths.includes(f.path) ? 'is-cut' : ''}`}
                   onClick={(e) => click(e, i)}
                   onDoubleClick={() => open(f)}
                   onContextMenu={(e) => { if (!picked.has(f.path)) click(e, i); context(e, f); }}
                   draggable
                   onDragStart={(e) => { e.preventDefault(); api.files.startDrag(picked.has(f.path) ? selection : [f.path]); }}
+                  {...folderDrop(f.dir && !f.locked ? f.path : undefined)}
                 >
                   {tree ? (
                     // Finder's list: the triangle, the icon and the name, indented by how deep the row is.
@@ -615,7 +625,11 @@ export function useFileMenu() {
     ...(store.route.name !== 'browse' ? [{ label: 'Show in Enclosing Folder', icon: 'folder', run: () => showInFolder(store.go, state.file.path) }] : []),
     { label: store.info?.platform === 'win32' ? 'Show in Explorer' : store.info?.platform === 'darwin' ? 'Show in Finder' : 'Show in Folder', icon: 'reveal', run: () => void api.files.reveal(state.file.path) },
     { sep: true, label: '' },
-    { label: 'Copy', icon: 'copy', kbd: `${mod}C`, run: () => void api.files.copyPaths(sel) },
+    { label: 'Cut', icon: 'drag', kbd: `${mod}X`, run: () => setFileClip('cut', sel) },
+    { label: 'Copy', icon: 'copy', kbd: `${mod}C`, run: () => setFileClip('copy', sel) },
+    ...(state.file.dir && !state.file.locked ? [{ label: 'Paste Into Folder', icon: 'clipboard', run: () => void pasteInto(state.file.path) }] : []),
+    { label: 'Move to…', icon: 'folder', run: () => chooseDestination('move', sel) },
+    { label: 'Copy to…', icon: 'copy', run: () => chooseDestination('copy', sel) },
     { label: 'Copy Path', icon: 'copy', run: () => void api.files.copyText(sel.join('\n')) },
     ...(state.file.text ? [{ label: 'Copy Text in Image', icon: 'text', kbd: `${shift}${mod}C`, run: () => void copyFullText(state.file) }] : []),
     { label: 'Add to Shelf', icon: 'island', run: () => void api.island.addToShelf(sel) },

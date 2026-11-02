@@ -4,6 +4,7 @@
 
 // Must stay the first import: test runs move every folder before anything reads one.
 import './test-home';
+import type { TransferOptions } from '../core/fileops';
 import { clipboardImage, readFile as readCaptureFile } from './services/capture';
 import { addBusyCheck } from './services/busy';
 import { onBeforeInstall, onUpdateNotificationClick, onUpdateStatus } from './services/updater';
@@ -1060,12 +1061,14 @@ function registerIpc() {
   handle('files.copyPaths', (paths: string[]) => files.copyPaths(paths));
   handle('files.copyText', (t: string) => files.copyText(t));
   handle('files.trash', (paths: string[], title?: string) => { for (const p of paths) recordUsage({ type: 'trash', path: p }); return files.trash(paths, title); });
-  handle('files.move', async (paths: string[], dir: string) => {
-    const r = await files.move(paths, dir);
+  handle('files.move', async (paths: string[], dir: string, opts?: TransferOptions) => {
+    const r = await files.move(paths, dir, { ...opts }, (p) => broadcast('files-progress', p));
     for (const op of journal.get(r.journalId ?? '')?.ops ?? []) if (op.type === 'move' && op.to) recordUsage({ type: 'move', from: op.from, to: op.to });
     return r;
   });
-  handle('files.copy', (paths: string[], dir: string) => files.copy(paths, dir));
+  handle('files.copy', (paths: string[], dir: string, opts?: TransferOptions) => files.copy(paths, dir, { ...opts }, (p) => broadcast('files-progress', p)));
+  handle('files.clipboardPaths', () => files.clipboardPaths());
+  handle('files.conflicts', (paths: string[], dir: string, op?: 'copy' | 'move') => files.conflicts(paths, dir, op));
   handle('files.rename', (p: string, name: string) => files.rename(p, name));
   handle('files.previewRename', (paths: string[], steps: never) => files.previewRename(paths, steps));
   handle('files.applyRename', (paths: string[], steps: never) => files.applyRename(paths, steps));

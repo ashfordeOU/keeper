@@ -8,6 +8,7 @@ import path from 'node:path';
 import type { BrowseEntry } from '../../core/api';
 import { extOf, kindOf } from '../../core/classify';
 import type { FileIndex } from '../../core/indexer';
+import { clashes, planTransfer, transferError, type TransferOptions, type TransferProgress } from '../../core/fileops';
 import { moveFile, type Journal } from '../../core/journal';
 import { run, powershell } from '../../core/platform';
 import { previewRename, type RenameStep } from '../../core/rename';
@@ -15,7 +16,7 @@ import { uniqueName } from '../../core/rules';
 import { checkRemovable } from '../../core/safety';
 import type { CleanResult, FileEntry, JournalOp } from '../../core/types';
 import { settings } from '../store';
-import { writePaths, writeText } from './clip';
+import { readFileList, writePaths, writeText } from './clip';
 import { richThumbnail } from './thumbs';
 
 /**
@@ -130,6 +131,11 @@ export class FileService {
     if (process.platform === 'win32') await powershell(`Set-Clipboard -Path ${paths.map((p) => `'${p.replace(/['‘’‚‛]/g, '$&$&')}'`).join(',')}`);
   }
 
+  /** Files copied in the system file manager, to paste into a folder. */
+  clipboardPaths(): Promise<string[]> {
+    return readFileList();
+  }
+
   async copyText(text: string) {
     await writeText(text);
   }
@@ -166,41 +172,76 @@ export class FileService {
     return res;
   }
 
-  async move(paths: string[], dir: string, title?: string): Promise<CleanResult> {
-    const res: CleanResult = { freed: 0, removed: 0, failed: 0, skipped: [] };
-    const ops: JournalOp[] = [];
-    await fsp.mkdir(dir, { recursive: true });
-    for (const p of paths) {
-      try {
-        const to = uniqueName(path.join(dir, path.basename(p)), existsSync);
-        await moveFile(p, to);
-        ops.push({ type: 'move', from: p, to, size: 0 });
-        this.index.rename(p, to);
-        res.removed++;
-      } catch (e) {
-        res.failed++;
-        res.skipped.push(`${path.basename(p)}: ${e instanceof Error ? e.message : 'could not be moved'}`);
-      }
-    }
-    const entry = await this.journal.record(title ?? `Moved ${res.removed} item${res.removed === 1 ? '' : 's'} to ${path.basename(dir)}`, ops);
-    res.journalId = entry?.id;
-    this.onChange();
-    return res;
+  /** The names already in dir that copying or moving these items there would clash with. */
+  conflicts(paths: string[], dir: string, op: 'copy' | 'move' = 'move'): string[] {
+    return clashes(planTransfer(op, paths, dir, existsSync));
   }
 
-  async copy(paths: string[], dir: string): Promise<CleanResult> {
+  async move(paths: string[], dir: string, opts?: string | TransferOptions, onProgress?: (p: TransferProgress) => void): Promise<CleanResult> {
+    return this.transfer('move', paths, dir, typeof opts === 'string' ? { title: opts } : (opts ?? {}), onProgress);
+  }
+
+  async copy(paths: string[], dir: string, opts?: TransferOptions, onProgress?: (p: TransferProgress) => void): Promise<CleanResult> {
+    return this.transfer('copy', paths, dir, opts ?? {}, onProgress);
+  }
+
+  /**
+   * Copies or moves items into a folder, item by item. A name already there is
+   * replaced (the old one goes to the Trash), kept beside it ("name 2") or
+   * skipped. Moves across disks copy and then remove. Moves (and anything
+   * replaced) go into the History so they can be undone.
+   */
+  private async transfer(op: 'copy' | 'move', paths: string[], dir: string, opts: TransferOptions, onProgress?: (p: TransferProgress) => void): Promise<CleanResult> {
     const res: CleanResult = { freed: 0, removed: 0, failed: 0, skipped: [] };
-    for (const p of paths) {
+    const ops: JournalOp[] = [];
+    try {
+      await fsp.mkdir(dir, { recursive: true });
+    } catch (e) {
+      return { ...res, failed: paths.length, skipped: [`${path.basename(dir) || dir}: ${transferError(e, op, dir)}`] };
+    }
+    const steps = planTransfer(op, paths, dir, existsSync);
+    let done = 0;
+    for (const s of steps) {
+      const name = path.basename(s.from);
+      onProgress?.({ job: opts.job, op, done, total: steps.length, name });
+      done++;
+      if (s.refuse) { res.failed++; res.skipped.push(s.refuse); continue; }
+      if (s.same) continue;
       try {
-        const to = uniqueName(path.join(dir, path.basename(p)), existsSync);
-        await fsp.cp(p, to, { recursive: true, errorOnExist: true, force: false, preserveTimestamps: true });
-        await this.index.refresh(to);
+        let to = s.to;
+        if (op === 'copy' && !s.clash) to = uniqueName(s.to, existsSync);
+        else if (s.clash) {
+          const choice = opts.conflict ?? 'keep';
+          if (choice === 'skip') { res.skipped.push(`${name}: skipped, one is already there`); continue; }
+          if (choice === 'keep') to = uniqueName(s.to, existsSync);
+          else {
+            // Replace: the one already there goes to the Trash first (never deleted outright).
+            const st = await fsp.lstat(s.to);
+            await shell.trashItem(s.to);
+            this.index.remove(s.to);
+            ops.push({ type: 'trash', from: s.to, size: st.isDirectory() ? 0 : st.size });
+          }
+        }
+        if (op === 'move') {
+          await moveFile(s.from, to);
+          ops.push({ type: 'move', from: s.from, to, size: 0 });
+          this.index.rename(s.from, to);
+        } else {
+          await fsp.cp(s.from, to, { recursive: true, errorOnExist: true, force: false, preserveTimestamps: true });
+          await this.index.refresh(to).catch(() => undefined);
+        }
         res.removed++;
       } catch (e) {
         res.failed++;
-        res.skipped.push(`${path.basename(p)}: ${e instanceof Error ? e.message : 'could not be copied'}`);
+        res.skipped.push(`${name}: ${transferError(e, op, dir)}`);
       }
     }
+    onProgress?.({ job: opts.job, op, done: steps.length, total: steps.length, name: '' });
+    const n = res.removed;
+    const title = opts.title ?? `${op === 'move' ? 'Moved' : 'Copied'} ${n} item${n === 1 ? '' : 's'} to ${path.basename(dir) || dir}`;
+    const entry = await this.journal.record(title, ops);
+    res.journalId = ops.some((o) => o.type === 'move') ? entry?.id : undefined;
+    if (!n && !res.failed && !res.skipped.length && steps.every((s) => s.same)) res.skipped.push(`Already in “${path.basename(dir) || dir}”`);
     this.onChange();
     return res;
   }

@@ -8,6 +8,7 @@ import { formatBytes } from '../../core/format';
 import type { Place, PlacesModel } from '../../core/places';
 import { api } from '../api';
 import { useStore, type Route } from '../state';
+import { folderDrop } from '../fileops';
 import { Icon } from './Icon';
 import { NavSection } from './NavSection';
 import { ContextMenu, type MenuItem } from './ui';
@@ -37,7 +38,7 @@ function volumeIcon(p: Place): string {
 }
 
 export function PlacesSidebar() {
-  const { route, go, settings, updateSettings, toast, info } = useStore();
+  const { route, go, settings, updateSettings, toast, info, trash } = useStore();
   const [m, reload] = usePlaces();
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
   const [ejecting, setEjecting] = useState<string | null>(null);
@@ -76,7 +77,9 @@ export function PlacesSidebar() {
     // The full name (and where it is, and how full a disk is) in the tooltip; the row itself shortens a long name with an ellipsis.
     const tip = [p.name, p.path && p.path !== p.name ? p.path : '', p.total ? `${formatBytes(p.free ?? 0)} free of ${formatBytes(p.total)}` : ''].filter(Boolean).join('\n');
     return (
-      <div key={p.id} className={`place-row ${p.ejectable ? 'has-eject' : ''}`} onContextMenu={(e) => menuFor(e, p)}>
+      // Files dropped on a folder or disk move there (⌥ or Ctrl copies); on the Trash, they go to the Trash.
+      <div key={p.id} className={`place-row ${p.ejectable ? 'has-eject' : ''}`} onContextMenu={(e) => menuFor(e, p)}
+        {...(p.id === 'trash' ? folderDrop(undefined, { onTrash: (paths) => void trash(paths) }) : p.path && !opts.onClick && !opts.route ? folderDrop(p.path) : {})}>
         <button className={`nav-item ${!opts.onClick && active(r) ? 'active' : ''} ${used !== undefined ? 'has-bar' : ''}`} data-nav-key={p.path || p.id} title={tip} onClick={() => (opts.onClick ? opts.onClick() : go(r))}>
           <Icon name={opts.icon ?? p.icon} size={15} />
           <span className="label ellipsis grow">{p.name}</span>
@@ -93,7 +96,7 @@ export function PlacesSidebar() {
     );
   };
 
-  // Folders dragged in from Browse or the system file manager are pinned here.
+  // Folders dragged in from Browse or the system file manager onto the section (not onto a row) are pinned here.
   const onDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     setOver(false);

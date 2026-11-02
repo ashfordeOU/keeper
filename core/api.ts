@@ -2,6 +2,7 @@
 // The contract between the interface and the main process. The preload script
 // exposes exactly this object as `window.keeper`; the demo build fakes it.
 
+import type { TransferOptions } from './fileops';
 import type { PimApi } from './api-pim';
 import type { AgentSession, CalendarEvent, ClipItem, FocusState, LyricLine } from './island';
 import type { CaptureEntry, CaptureOptions, PickedColor } from './capture';
@@ -630,8 +631,13 @@ export interface KeeperApi extends KeeperApiX {
     copyPaths(paths: string[]): Promise<void>;
     copyText(text: string): Promise<void>;
     trash(paths: string[], title?: string): Promise<CleanResult>;
-    move(paths: string[], dir: string): Promise<CleanResult>;
-    copy(paths: string[], dir: string): Promise<CleanResult>;
+    /** moves into a folder; a name already there is kept beside it unless opts.conflict says otherwise; sends 'files-progress' */
+    move(paths: string[], dir: string, opts?: TransferOptions): Promise<CleanResult>;
+    copy(paths: string[], dir: string, opts?: TransferOptions): Promise<CleanResult>;
+    /** the names already in dir that a copy or move there would clash with */
+    conflicts(paths: string[], dir: string, op?: 'copy' | 'move'): Promise<string[]>;
+    /** files copied in the system file manager (to paste into a folder) */
+    clipboardPaths?(): Promise<string[]>;
     rename(path: string, name: string): Promise<string>;
     previewRename(paths: string[], steps: RenameStep[]): Promise<RenamePreview[]>;
     applyRename(paths: string[], steps: RenameStep[]): Promise<CleanResult>;
@@ -747,6 +753,8 @@ export interface KeeperApi extends KeeperApiX {
     placeLog(): Promise<{ at: number; display: number; why: string; want: { x: number; y: number; width: number; height: number }; got: { x: number; y: number; width: number; height: number } }[]>;
   };
   on(channel: 'progress', cb: (p: Progress) => void): () => void;
+  /** a copy or move into a folder, item by item */
+  on(channel: 'files-progress', cb: (p: import('./fileops').TransferProgress) => void): () => void;
   on(channel: 'library-changed' | 'island-changed', cb: () => void): () => void;
   on(channel: 'navigate', cb: (route: string) => void): () => void;
   on(channel: 'dictation', cb: (state: 'start' | 'stop') => void): () => void;

@@ -101,6 +101,7 @@ import { asSidebarMode, isRail, SIDEBAR_RAIL, SIDEBAR_RANGE } from '../core/side
 import { viewScope, viewsFor } from '../core/folder-view';
 import { setSidebarPinned, setSidebarWidth, useSidebarLocal } from './sidebar-state';
 import { QuickLookHost } from './preview/QuickLook';
+import { FileOpsHost } from './fileops';
 import { ThemeQuickPicker } from './components/ThemeQuickPicker';
 import { toggleThemePatch } from './theme';
 import { useProgressAnnouncer } from './a11y';
@@ -562,6 +563,7 @@ export function App() {
       {palette ? <CommandPalette onClose={() => setPalette(false)} /> : null}
       <WhatsNew />
       <QuickLookHost />
+      <FileOpsHost />
       {/* An alarm or timer that is ringing, with Snooze and Stop. */}
       <RingHost />
       <LinkPrompts />

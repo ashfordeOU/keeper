@@ -11,6 +11,7 @@ import { sortFoldersFirst, type Sort } from '../../core/folder-view';
 import type { FileEntry, FileKind } from '../../core/types';
 import { api } from '../api';
 import { useStore } from '../state';
+import { folderDrop } from '../fileops';
 import { Icon } from './Icon';
 import { openQuickLook } from '../preview/QuickLook';
 import { KIND_COLOR, Loading, Thumb, useFileMenu } from './ui';
@@ -102,7 +103,7 @@ export function ColumnView({ dir, items, hidden, sort, onOpenDir, onContext }: {
   return (
     <div className="col-view" ref={box} tabIndex={0} role="group" aria-label="Columns" onKeyDown={onKey}>
       {columns.map((c, col) => (
-        <div key={c.dir} className="col-pane" role="listbox" aria-label={c.dir.split(/[\\/]/).pop() || c.dir}>
+        <div key={c.dir} className="col-pane" role="listbox" aria-label={c.dir.split(/[\\/]/).pop() || c.dir} {...folderDrop(c.dir)}>
           {c.items === undefined ? <Loading /> : typeof c.items === 'string' ? <div className="small muted" style={{ padding: 12 }}>{c.items}</div> : !c.items.length ? <div className="small muted" style={{ padding: 12 }}>Empty folder</div> : c.items.map((f) => {
             const on = trail[col]?.path === f.path;
             return (
@@ -119,6 +120,7 @@ export function ColumnView({ dir, items, hidden, sort, onOpenDir, onContext }: {
                 onContextMenu={(e) => { choose(col, f); if (!onContext?.(e, f)) menu.open(e, f); }}
                 draggable
                 onDragStart={(e) => { e.preventDefault(); api.files.startDrag([f.path]); }}
+                {...folderDrop(f.dir && !f.locked ? f.path : undefined)}
               >
                 <span className="col-icon" style={{ color: f.dir ? 'var(--accent)' : KIND_COLOR[f.kind] }}><Icon name={f.dir ? (f.locked ? 'folderLock' : 'folder') : f.kind} size={15} /></span>
                 <span className="ellipsis grow">{f.name}</span>

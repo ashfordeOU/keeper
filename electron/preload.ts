@@ -19,7 +19,7 @@ const api = {
   convert: group('convert', ['run', 'capabilities', 'duration', 'pageCount', 'mediaInfo', 'pdfFields', 'pdfThumbs', 'displays', 'setDisplay', 'phoneBackups', 'webToPdf', 'downloadVideo', 'cancelDownload', 'saveRecording']),
   library: group('library', ['status', 'rescan', 'speedUp', 'totals', 'recent', 'list', 'search', 'bySource', 'tags', 'setTags', 'inspect', 'readText', 'largeFiles']),
   files: {
-    ...group('files', ['browse', 'thumbnail', 'icon', 'open', 'openWith', 'reveal', 'copyPaths', 'copyText', 'trash', 'move', 'copy', 'rename', 'previewRename', 'applyRename', 'newFolder', 'compress', 'readImage', 'writeImage', 'copyImage']),
+    ...group('files', ['browse', 'thumbnail', 'icon', 'open', 'openWith', 'reveal', 'copyPaths', 'copyText', 'trash', 'move', 'copy', 'conflicts', 'clipboardPaths', 'rename', 'previewRename', 'applyRename', 'newFolder', 'compress', 'readImage', 'writeImage', 'copyImage']),
     startDrag: (paths: string[]) => ipcRenderer.send('files.startDrag', paths),
     /** the real path of a File dropped from the OS */
     pathOf: (file: File) => webUtils.getPathForFile(file),
