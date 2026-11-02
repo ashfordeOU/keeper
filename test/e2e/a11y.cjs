@@ -435,12 +435,12 @@ function audit(scope) {
   await w.waitForTimeout(300);
 
   // ------------------------------------------------------------------ system settings
+  // Wait for the change rather than a fixed time: on a busy machine the media-query event can take a while.
+  const motionIs = (v) => w.waitForFunction((x) => document.documentElement.dataset.motion === x, v, { timeout: 3000 }).then(() => true, () => false);
   await w.emulateMedia({ reducedMotion: 'reduce' });
-  await w.waitForTimeout(200);
-  check(await w.evaluate(() => document.documentElement.dataset.motion) === 'reduce', 'reduce motion follows the system setting');
+  check(await motionIs('reduce'), 'reduce motion follows the system setting');
   await w.emulateMedia({ reducedMotion: 'no-preference' });
-  await w.waitForTimeout(200);
-  check(await w.evaluate(() => document.documentElement.dataset.motion) === 'system', 'and animates again when the system does');
+  check(await motionIs('system'), 'and animates again when the system does');
   await w.emulateMedia({ forcedColors: 'active' });
   await w.waitForTimeout(300);
   await w.evaluate(() => document.querySelector('.topbar button:not([disabled])')?.focus());
