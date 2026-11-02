@@ -565,6 +565,7 @@ export function App() {
         {store.toasts.map((t) => (
           <div className="toast" key={t.id}>
             <span>{t.text}</span>
+            {t.count > 1 ? <span className="toast-count" aria-label={`${t.count} times`}>×{t.count}</span> : null}
             {t.action ? <button className="btn sm" onClick={t.action.run}>{t.action.label}</button> : null}
           </div>
         ))}

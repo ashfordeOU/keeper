@@ -2,6 +2,7 @@
 // App-wide state: the current page, selection, inspector, music player,
 // settings and toasts. Small enough that plain React context does the job.
 
+import { expireToast, pushToast, toastLife } from './lib/toasts';
 import { rememberRoute, scrollMap, seedScroll, setPlaceMemory, startPlace, onScrollChanged } from './place';
 import { activeTab, closeOthers, closeTab, closeToRight, detachTab, duplicateTab, emptyWindow, goBack, goForward, moveTab, navigate, newTab, openTab, pinTab, reopenClosed, selectTab, type Tab, type WindowState } from '../core/session';
 import type { SessionInitial } from '../core/api-session';
@@ -36,6 +37,9 @@ export interface Toast {
   id: number;
   text: string;
   action?: { label: string; run: () => void };
+  /** the same message asked for again while showing (shown as ×N) */
+  count: number;
+  at: number;
 }
 
 export interface TabsApi {
@@ -303,9 +307,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const toast = useCallback((text: string, action?: Toast['action']) => {
-    const id = Date.now() + Math.random();
-    setToasts((t) => [...t.slice(-2), { id, text, action }]);
-    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), action ? 8000 : 4000);
+    // The same text again while it shows collapses into one toast with a count.
+    let id = Date.now() + Math.random();
+    setToasts((t) => {
+      const r = pushToast(t, text, action, Date.now(), id);
+      id = r.id;
+      return r.list;
+    });
+    setTimeout(() => setToasts((t) => expireToast(t, id, Date.now())), toastLife(!!action));
   }, []);
 
   const refresh = useCallback(() => setVersion((v) => v + 1), []);
