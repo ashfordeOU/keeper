@@ -36,7 +36,7 @@ export interface AshfordeCtx {
 export function registerAshfordeIpc(c: AshfordeCtx) {
   if (c.coexist) coexist.initCoexist(c.coexist);
   // One hold on staying awake, not two (Monorail's Stay Awake): only on a Mac, where Monorail runs.
-  if (mono.isMac()) setAwakePeer({ before: () => coexist.awakeBefore(), after: () => coexist.awakeAfter() });
+  if (mono.isMac()) setAwakePeer({ before: () => coexist.awakeBefore(), after: () => coexist.awakeAfter(), handoff: (ack) => coexist.awakeHandoffDone(ack), ready: () => void coexist.hello() });
   // The handshake: what Keeper says about itself on its own channel (`keeper hello`, and Monorail when it asks).
   registerKeeperMethod('keeper/hello', () => coexist.helloPayload());
   void mono.init({

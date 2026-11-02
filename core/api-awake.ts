@@ -23,6 +23,8 @@ export interface AwakeStatus {
   holds: string[];
   /** closed-lid mode is active right now */
   closedDisplay: boolean;
+  /** macOS: the one-time closed-lid setup (the sudoers rule) is in place; false elsewhere */
+  closedLidReady?: boolean;
   /** a step the person still has to take (closed-lid setup, a missing tool) */
   notice?: string;
   /** the screen is allowed to sleep at the moment (display mode or screen-saver timeout) */

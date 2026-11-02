@@ -562,10 +562,40 @@ export function closedDisplaySafe(f: Pick<Facts, 'battery' | 'onPower' | 'therma
   return { ok: true };
 }
 
+/**
+ * Whether closed-lid mode may stay on now. On top of closedDisplaySafe: with
+ * "Closed-lid mode only while plugged in" (the default), unplugging ends it.
+ * Only the lid part ends; the session itself goes on (unlike the session's own
+ * `onlyOnPower`, which ends the whole session).
+ */
+export function closedLidKeep(f: Pick<Facts, 'battery' | 'onPower' | 'thermal' | 'lowPowerMode'>, o: { onlyOnPower: boolean; minBattery: number }): LidSafety {
+  if (o.onlyOnPower && !f.onPower) return { ok: false, why: 'Unplugged from power' };
+  return closedDisplaySafe(f, o.minBattery);
+}
+
+/**
+ * macOS closed-lid mode, given whether sleep is already disabled (SleepDisabled 1).
+ * Keeper only switches it on (and later off) when it was off; a 1 someone else
+ * set is used as it is and never switched off by Keeper.
+ */
+export function macLidPlan(sleepDisabledNow: boolean): { switchOn: boolean; owner: 'keeper' | 'someone-else' } {
+  return sleepDisabledNow ? { switchOn: false, owner: 'someone-else' } : { switchOn: true, owner: 'keeper' };
+}
+
+/** The record written once Keeper itself ran `disablesleep 1` (only then). */
+export function macLidRecord(now: number): RestoreRecord {
+  return { platform: 'darwin', macDisableSleep: true, at: now };
+}
+
+/** Whether a leftover record means `disablesleep 0` must run: only when Keeper's own record says Keeper set it. */
+export function macRestoreNeeded(r: Partial<RestoreRecord> | null | undefined, platform: Platform): boolean {
+  return platform === 'darwin' && !!r && r.platform === 'darwin' && r.macDisableSleep === true;
+}
+
 /** What Keeper must undo on its next start if it ended without cleaning up. */
 export interface RestoreRecord {
   platform: Platform;
-  /** macOS: sleep was enabled before (disablesleep 0 must be restored) */
+  /** macOS: Keeper itself ran `disablesleep 1` (sleep was enabled before), so `disablesleep 0` must be restored */
   macDisableSleep?: boolean;
   /** Windows: the lid actions before */
   winLid?: { ac: number; dc: number };
@@ -698,7 +728,13 @@ export function specFromCli(p: Record<string, unknown>): SessionSpec {
     if (!d) throw new Error(`Could not read the duration “${String(dur)}”. Try 30m, 2h, 1h30m or 90.`);
     Object.assign(spec, d);
   }
-  if (p.until) {
+  if (p.until && /^\d{11,}$/.test(String(p.until))) {
+    // An exact time in epoch milliseconds (Monorail's hand-over links).
+    const at = Number(p.until);
+    if (at <= now) throw new Error('That time has already passed.');
+    delete spec.minutes;
+    spec.until = at;
+  } else if (p.until) {
     const d = parseDuration(`until ${String(p.until)}`, now);
     if (!d?.until) throw new Error(`Could not read the time “${String(p.until)}”. Try 18:30 or 6:30 pm.`);
     spec.until = d.until;
@@ -710,12 +746,39 @@ export function specFromCli(p: Record<string, unknown>): SessionSpec {
   }
   for (const k of ['audio', 'power', 'display', 'vpn', 'agent', 'job', 'network', 'bluetooth'] as WhileKind[]) if (p[`while-${k}`] !== undefined || p[`while${k[0].toUpperCase()}${k.slice(1)}`] !== undefined) spec.while!.push({ kind: k });
   if (p['allow-display-sleep'] || p.display === 'sleep') spec.options!.display = 'allow-sleep';
-  if (p['closed-lid'] || p.lid) spec.options!.closedDisplay = true;
+  if (truthy(p['closed-lid']) || truthy(p.closedLid) || truthy(p.lid)) spec.options!.closedDisplay = true;
   if (p['only-on-power']) spec.options!.onlyOnPower = true;
   if (p['lock-at-end']) spec.options!.lockAtEnd = true;
   if (p['end-below']) spec.options!.endBelowBattery = Number(p['end-below']) || 10;
   if (p.source === 'link') spec.source = 'link';
   return spec;
+}
+
+const truthy = (v: unknown) => v !== undefined && v !== '' && v !== false && v !== '0' && v !== 'false' && v !== 'no' && v !== 'off';
+
+/** A Monorail hand-over id: 8 hex characters. */
+export const isHandoffId = (s: unknown): s is string => typeof s === 'string' && /^[0-9a-f]{8}$/i.test(s);
+
+export interface AwakeLink {
+  /** on, off, toggle, extend */
+  verb: string;
+  /** the query, ready for specFromCli */
+  params: Record<string, unknown>;
+  /** keeper://awake?…&handoff=<id>&from=monorail: Monorail hands its session to Keeper and waits for the answer in Keeper's hello */
+  handoff?: { id: string; from: 'monorail' };
+}
+
+/** keeper://awake?for=30m | ?until=18:30 | ?until=<epoch ms> | ?app=Name | &closedLid=1 | &handoff=<id>&from=monorail ; /off ; /toggle ; /extend?for=30m */
+export function parseAwakeLink(u: URL): AwakeLink {
+  const verb = u.pathname.replace(/^\/+/, '') || u.searchParams.get('do') || (u.searchParams.get('on') === 'false' ? 'off' : 'on');
+  const params: Record<string, unknown> = {};
+  for (const [k, v] of u.searchParams) params[k] = v;
+  params.source = 'link';
+  if (params.app) params['while-app'] = params.app;
+  if (params.minutes) params.for = params.minutes;
+  const id = u.searchParams.get('handoff');
+  const handoff = verb === 'on' && isHandoffId(id) && u.searchParams.get('from') === 'monorail' ? { id: id.toLowerCase(), from: 'monorail' as const } : undefined;
+  return { verb, params, handoff };
 }
 
 /** Menu-bar pictures for Keep Awake (core/awake-icons.ts); Keeper's owl first and by default. */
@@ -748,6 +811,8 @@ export interface AwakeSettings {
   closedDisplayAgreed: boolean;
   /** battery percent at which closed-lid mode always ends */
   closedDisplayMinBattery: number;
+  /** closed-lid mode only while plugged in: unplugging ends the lid part (the session goes on) */
+  closedLidOnlyOnPower: boolean;
 }
 
 export function defaultAwakeSettings(): AwakeSettings {
@@ -763,6 +828,7 @@ export function defaultAwakeSettings(): AwakeSettings {
     focusOffShortcut: '',
     closedDisplayAgreed: false,
     closedDisplayMinBattery: 20,
+    closedLidOnlyOnPower: true,
   };
 }
 
@@ -773,6 +839,9 @@ export function normalizeAwakeSettings(a: Partial<AwakeSettings> | undefined, ol
   out.defaults = { ...d.defaults, ...(a?.defaults ?? {}) };
   if (!['keep-on', 'allow-sleep'].includes(out.defaults.display)) out.defaults.display = 'keep-on';
   if (!Array.isArray(out.defaults.driveAlive)) out.defaults.driveAlive = [];
+  // Settings from before the plugged-in rule get its default (on).
+  if (typeof out.closedLidOnlyOnPower !== 'boolean') out.closedLidOnlyOnPower = d.closedLidOnlyOnPower;
+  if (!Number.isFinite(out.closedDisplayMinBattery) || out.closedDisplayMinBattery < 0 || out.closedDisplayMinBattery > 100) out.closedDisplayMinBattery = d.closedDisplayMinBattery;
   out.quick = Array.isArray(out.quick) ? out.quick.filter((n) => Number.isFinite(n) && n > 0).slice(0, 12) : d.quick;
   if (!out.quick.length) out.quick = d.quick;
   if (!ICON_STYLES.includes(out.iconStyle)) out.iconStyle = 'owl';

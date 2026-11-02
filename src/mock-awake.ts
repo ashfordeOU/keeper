@@ -29,6 +29,7 @@ export function mockAwake(get: () => AllSettings, apply: (patch: Partial<AllSett
       matching: cfg.triggers.filter((t) => t.enabled && ruleMatches(t, f)).map((t) => t.name),
       holds: session ? ['powerSaveBlocker (prevent-display-sleep)', 'caffeinate'] : [],
       closedDisplay: !!session?.options.closedDisplay && cfg.closedDisplayAgreed,
+      closedLidReady: cfg.closedDisplayAgreed,
       displayAllowed: !session || session.options.display === 'allow-sleep',
       checking: !!session || cfg.triggers.some((t) => t.enabled),
       platform: 'darwin',

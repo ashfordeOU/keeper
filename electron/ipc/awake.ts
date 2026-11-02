@@ -4,7 +4,7 @@
 
 import path from 'node:path';
 import { app, ipcMain, Menu, nativeImage, Tray } from 'electron';
-import { describeSpec, fmtDuration, fmtRemaining, parseDuration, specFromCli, specFromOptions, type AwakeSettings, type IconStyle, type SessionSpec } from '../../core/awake-engine';
+import { describeSpec, fmtDuration, fmtRemaining, parseAwakeLink, parseDuration, specFromCli, specFromOptions, type AwakeSettings, type IconStyle, type SessionSpec } from '../../core/awake-engine';
 import type { AwakeStatus } from '../../core/api-awake';
 import { svgFor, trayColor } from '../../core/awake-icons';
 import type { KeepAwakeState } from '../../core/api';
@@ -101,14 +101,17 @@ export function registerAwakeIpc(c: { islandSvc: IslandService; broadcast: (chan
   onSettings((next, prev) => { if (next.awake?.menuItem !== prev?.awake?.menuItem) void menuBar.update(svc.status()); });
 }
 
-/** keeper://awake?for=30m | ?until=18:30 | ?app=Name ; keeper://awake/off (or ?do=off) ; keeper://awake/toggle ; /extend?for=30m */
+/**
+ * keeper://awake?for=30m | ?until=18:30 | ?app=Name ; keeper://awake/off (or ?do=off) ; keeper://awake/toggle ; /extend?for=30m
+ * keeper://awake?for=2h&closedLid=1&handoff=<8 hex>&from=monorail: Monorail hands over a closed-lid session (answered in Keeper's hello)
+ */
 export function handleAwakeLink(u: URL) {
   if (!svc) return;
-  const verb = u.pathname.replace(/^\/+/, '') || u.searchParams.get('do') || (u.searchParams.get('on') === 'false' ? 'off' : 'on');
-  const p: Record<string, unknown> = { source: 'link' };
-  for (const [k, v] of u.searchParams) p[k] = v;
-  if (p.app) p['while-app'] = p.app;
-  if (p.minutes) p.for = p.minutes;
+  const { verb, params: p, handoff } = parseAwakeLink(u);
+  if (handoff) {
+    void svc.takeHandoff(handoff.id, () => specFromCli(p)).catch(() => undefined);
+    return;
+  }
   const run = async () => {
     if (verb === 'off') return svc.stop();
     if (verb === 'toggle') return svc.toggle(specFromCli(p));

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 import { describe, expect, it } from 'vitest';
 import {
-  IGNORED_TITLES, MODE_OFF, TILE_MIN, TugGuard, awakeAfterNote, awakeHandOver, comboAccelerator, desktopOverlap, fitsTiling, keeperHello, keeperModeChanged,
+  HANDOFF_KEEP_MS, IGNORED_TITLES, MODE_OFF, TILE_MIN, TugGuard, handoffAck, handoffOutcome, liveHandoff, awakeAfterNote, awakeHandOver, comboAccelerator, desktopOverlap, fitsTiling, keeperHello, keeperModeChanged,
   keeperWindowKind, layoutIntact, layoutRepairs, monorailModeChanged, parseHello, parseWindows, patchAtPath, selfUpdating, shouldPushTheme, suggestShortcut,
   updatesBy, withSuggestions, type ModeSync,
 } from '../core/ashforde/coexist';
@@ -200,5 +200,48 @@ describe('updates, themes, the desktop, the handshake', () => {
   it('reads the newer state fields when Monorail publishes them, and works without', () => {
     expect(parseState(JSON.stringify({ workspace: 1, slides: 2, focusMode: true, presenting: true, awake: false }))).toMatchObject({ presenting: true, awake: false });
     expect(parseState(JSON.stringify({ workspace: 1, slides: 2 }))!.presenting).toBeUndefined();
+  });
+});
+
+describe('closed lid: Monorail hands its session to Keeper', () => {
+  const base = { version: '1.2.3', pid: 42, focus: false, awake: true, stage: false };
+  it('hello says Keeper can do the closed lid, and whether it is ready without a prompt (macOS only)', () => {
+    expect(keeperHello({ ...base, platform: 'darwin', closedLidReady: true }).caps).toEqual({ closedLid: true, closedLidReady: true });
+    expect(keeperHello({ ...base, platform: 'darwin', closedLidReady: false }).caps).toEqual({ closedLid: true, closedLidReady: false });
+    expect(keeperHello({ ...base, platform: 'linux', closedLidReady: true }).caps.closedLidReady).toBe(false);
+    expect(keeperHello(base).caps).toEqual({ closedLid: true, closedLidReady: false });
+    expect(keeperHello(base).owns.awake).toBe(true);
+  });
+
+  it('builds the answers Monorail matches on', () => {
+    expect(handoffAck('1a2b3c4d', { ok: true }, 1000)).toEqual({ id: '1a2b3c4d', ok: true, closedLid: true, at: 1000 });
+    expect(handoffAck('1a2b3c4d', { ok: false, reason: 'denied' }, 1000)).toEqual({ id: '1a2b3c4d', ok: false, closedLid: false, at: 1000, reason: 'denied' });
+  });
+
+  it('every hello carries the last answer for 60 s, then drops it', () => {
+    const ack = handoffAck('deadbeef', { ok: true }, 10_000);
+    const at = (now: number) => keeperHello({ ...base, platform: 'darwin', closedLidReady: true, awakeHandoff: ack, now }).state;
+    expect(at(10_000).awakeHandoff).toEqual(ack);
+    expect(at(10_000 + HANDOFF_KEEP_MS - 1).awakeHandoff).toEqual(ack);
+    expect(at(10_000 + HANDOFF_KEEP_MS).awakeHandoff).toBeUndefined();
+    expect('awakeHandoff' in at(10_000 + HANDOFF_KEEP_MS)).toBe(false);
+    expect(liveHandoff(undefined, 1)).toBeUndefined();
+    expect(liveHandoff(ack, 9_000)).toBeUndefined(); // a clock that went back
+    expect(JSON.parse(JSON.stringify(at(10_500))).awakeHandoff).toEqual({ id: 'deadbeef', ok: true, closedLid: true, at: 10_000 });
+  });
+
+  it('answers ok only when closed-lid mode really is on, and says why not otherwise', () => {
+    const mac = { platform: 'darwin', ready: true };
+    expect(handoffOutcome({ ...mac, lid: 'on' })).toEqual({ ok: true });
+    // Sleep already off (someone else's setting): used, never switched off by Keeper.
+    expect(handoffOutcome({ ...mac, lid: 'someone-else' })).toEqual({ ok: true });
+    expect(handoffOutcome({ platform: 'darwin', ready: false, lid: 'on' })).toEqual({ ok: false, reason: 'not-ready' });
+    expect(handoffOutcome({ platform: 'win32', ready: true, lid: 'on' })).toEqual({ ok: false, reason: 'not-ready' });
+    expect(handoffOutcome({ ...mac, lid: 'not-ready' })).toEqual({ ok: false, reason: 'not-ready' });
+    expect(handoffOutcome({ ...mac, lid: 'denied' })).toEqual({ ok: false, reason: 'denied' });
+    expect(handoffOutcome({ ...mac, lid: 'unsafe' })).toEqual({ ok: false, reason: 'failed' });
+    expect(handoffOutcome({ ...mac, lid: 'failed' })).toEqual({ ok: false, reason: 'failed' });
+    expect(handoffOutcome({ ...mac, error: true })).toEqual({ ok: false, reason: 'failed' });
+    expect(handoffOutcome(mac)).toEqual({ ok: false, reason: 'failed' });
   });
 });

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 import { describe, expect, it } from 'vitest';
 import {
-  addRecord, caffeinateArgs, closedDisplaySafe, conditionHolds, DEFAULT_OPTIONS, defaultAwakeSettings, ICON_STYLES, describeRule, describeSpec, evaluate, extend, ipMatches, matchingRules,
+  addRecord, caffeinateArgs, closedDisplaySafe, closedLidKeep, conditionHolds, isHandoffId, macLidPlan, macLidRecord, macRestoreNeeded, parseAwakeLink, DEFAULT_OPTIONS, defaultAwakeSettings, ICON_STYLES, describeRule, describeSpec, evaluate, extend, ipMatches, matchingRules,
   migrateOldTriggers, newSession, normalizeAwakeSettings, parseDuration, parsePmsetAssertions, parsePmsetSleepDisabled, parsePowercfgLid, parsePowercfgRequests,
   parseSystemdInhibit, pmsetDisableSleep, powercfgLid, ruleMatches, specFromCli, specFromOptions, summarize, systemdInhibitArgs, trackFalse, triggerConditionHolds, windowsHoldScript, fmtDuration,
   type AwakeRule, type Facts,
@@ -260,5 +260,107 @@ describe('Keep Awake menu-bar pictures', () => {
     expect(colour).toContain('url(#x-g)');
     expect(svgFor('owl', false, '#9aa0a6', { colour: true })).not.toContain('linearGradient');
     for (const s of ICON_STYLES) expect(svgFor(s, true, '#000').startsWith('<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22"')).toBe(true);
+  });
+});
+
+describe('closed lid: the plugged-in rule, sleep someone else disabled, the restore record', () => {
+  const both = { onlyOnPower: true, minBattery: 20 };
+  it('unplugging ends only the lid part when “only while plugged in” is on (the default)', () => {
+    expect(defaultAwakeSettings().closedLidOnlyOnPower).toBe(true);
+    expect(closedLidKeep({ onPower: true, battery: 90 }, both)).toEqual({ ok: true });
+    expect(closedLidKeep({ onPower: false, battery: 90 }, both)).toEqual({ ok: false, why: 'Unplugged from power' });
+    // The session itself goes on: its own onlyOnPower is a different, whole-session rule.
+    const s = session({ options: { closedDisplay: true } });
+    expect(evaluate(s, facts({ onPower: false, battery: 90 }))).toMatchObject({ end: false });
+    expect(evaluate(session({ options: { onlyOnPower: true } }), facts({ onPower: false }))).toMatchObject({ end: true, why: 'Unplugged from power' });
+  });
+
+  it('with the rule off, lid mode runs on battery down to the floor', () => {
+    const off = { onlyOnPower: false, minBattery: 20 };
+    expect(closedLidKeep({ onPower: false, battery: 21 }, off)).toEqual({ ok: true });
+    expect(closedLidKeep({ onPower: false, battery: 19 }, off)).toMatchObject({ ok: false, why: expect.stringContaining('20%') });
+    expect(closedLidKeep({ onPower: false, battery: 50 }, { onlyOnPower: false, minBattery: 60 })).toMatchObject({ ok: false });
+  });
+
+  it('heat (serious or critical) and Low Power Mode end the lid part, plugged in or not', () => {
+    for (const o of [both, { onlyOnPower: false, minBattery: 20 }]) {
+      expect(closedLidKeep({ onPower: true, thermal: 'serious' }, o)).toMatchObject({ ok: false, why: expect.stringContaining('hot') });
+      expect(closedLidKeep({ onPower: true, thermal: 'critical' }, o)).toMatchObject({ ok: false });
+      expect(closedLidKeep({ onPower: true, thermal: 'fair' }, o)).toEqual({ ok: true });
+      expect(closedLidKeep({ onPower: true, lowPowerMode: true }, o)).toMatchObject({ ok: false, why: 'Low Power Mode is on' });
+    }
+  });
+
+  it('existing settings get the plugged-in default; a choice is kept', () => {
+    const old = { ...defaultAwakeSettings() } as Partial<ReturnType<typeof defaultAwakeSettings>>;
+    delete old.closedLidOnlyOnPower;
+    expect(normalizeAwakeSettings(old).closedLidOnlyOnPower).toBe(true);
+    expect(normalizeAwakeSettings({ closedLidOnlyOnPower: 'yes' as never }).closedLidOnlyOnPower).toBe(true);
+    expect(normalizeAwakeSettings({ closedLidOnlyOnPower: false }).closedLidOnlyOnPower).toBe(false);
+    expect(normalizeAwakeSettings({ closedDisplayMinBattery: -3 }).closedDisplayMinBattery).toBe(20);
+    expect(normalizeAwakeSettings({ closedDisplayMinBattery: 35 }).closedDisplayMinBattery).toBe(35);
+  });
+
+  it('never switches off a SleepDisabled 1 Keeper did not set', () => {
+    expect(macLidPlan(false)).toEqual({ switchOn: true, owner: 'keeper' });
+    expect(macLidPlan(true)).toEqual({ switchOn: false, owner: 'someone-else' });
+    expect(macLidPlan(parsePmsetSleepDisabled(' SleepDisabled\t\t1\n'))).toMatchObject({ switchOn: false });
+    // No record of Keeper's own: nothing to restore on launch.
+    expect(macRestoreNeeded(undefined, 'darwin')).toBe(false);
+    expect(macRestoreNeeded(null, 'darwin')).toBe(false);
+    expect(macRestoreNeeded({ platform: 'darwin', at: 1 }, 'darwin')).toBe(false);
+    expect(macRestoreNeeded({ platform: 'darwin', macDisableSleep: false, at: 1 }, 'darwin')).toBe(false);
+    expect(macRestoreNeeded({ platform: 'darwin', macDisableSleep: 'true' as never, at: 1 }, 'darwin')).toBe(false);
+    expect(macRestoreNeeded({ platform: 'win32', winLid: { ac: 1, dc: 1 }, at: 1 }, 'darwin')).toBe(false);
+    expect(macRestoreNeeded({ platform: 'linux', gnomeBanners: true, at: 1 }, 'darwin')).toBe(false);
+  });
+
+  it('the restore record says Keeper set it, and only then is 0 restored', () => {
+    const r = macLidRecord(1234);
+    expect(r).toEqual({ platform: 'darwin', macDisableSleep: true, at: 1234 });
+    expect(macRestoreNeeded(JSON.parse(JSON.stringify(r)), 'darwin')).toBe(true);
+    expect(macRestoreNeeded(r, 'linux')).toBe(false);
+    expect(pmsetDisableSleep(false)).toEqual(['-a', 'disablesleep', '0']);
+  });
+});
+
+describe('keeper://awake links, including Monorail’s closed-lid hand-over', () => {
+  const link = (s: string) => parseAwakeLink(new URL(s));
+  it('reads a hand-over: for, closedLid, handoff, from', () => {
+    const l = link('keeper://awake?for=2h&closedLid=1&handoff=1a2B3c4d&from=monorail');
+    expect(l.verb).toBe('on');
+    expect(l.handoff).toEqual({ id: '1a2b3c4d', from: 'monorail' });
+    const spec = specFromCli(l.params);
+    expect(spec).toMatchObject({ minutes: 120, source: 'link', options: { closedDisplay: true } });
+  });
+
+  it('reads until as epoch milliseconds, and as a clock time', () => {
+    const at = Date.now() + 3 * 3_600_000;
+    const l = link(`keeper://awake?until=${at}&closedLid=1&handoff=deadbeef&from=monorail`);
+    expect(l.handoff?.id).toBe('deadbeef');
+    expect(specFromCli(l.params)).toMatchObject({ until: at, options: { closedDisplay: true } });
+    expect(specFromCli(link('keeper://awake?until=18:30').params).until).toBeGreaterThan(Date.now() - 86_400_000);
+    expect(() => specFromCli({ until: String(Date.now() - 60_000) })).toThrow(/passed/);
+  });
+
+  it('is only a hand-over with an 8-hex id from Monorail, on a start', () => {
+    expect(link('keeper://awake?for=2h&closedLid=1&handoff=1a2b3c4&from=monorail').handoff).toBeUndefined();
+    expect(link('keeper://awake?for=2h&closedLid=1&handoff=1a2b3c4g&from=monorail').handoff).toBeUndefined();
+    expect(link('keeper://awake?for=2h&closedLid=1&handoff=1a2b3c4d').handoff).toBeUndefined();
+    expect(link('keeper://awake?for=2h&handoff=1a2b3c4d&from=someone').handoff).toBeUndefined();
+    expect(link('keeper://awake/off?handoff=1a2b3c4d&from=monorail').handoff).toBeUndefined();
+    expect(isHandoffId('0123abcd')).toBe(true);
+    expect(isHandoffId('0123abcde')).toBe(false);
+    expect(isHandoffId(12345678)).toBe(false);
+  });
+
+  it('closedLid=0 does not ask for the lid; the older links still work', () => {
+    expect(specFromCli(link('keeper://awake?for=30m&closedLid=0').params).options?.closedDisplay).toBeUndefined();
+    expect(link('keeper://awake/off').verb).toBe('off');
+    expect(link('keeper://awake?do=toggle').verb).toBe('toggle');
+    expect(link('keeper://awake?on=false').verb).toBe('off');
+    const l = link('keeper://awake?minutes=45&app=Zoom');
+    expect(specFromCli(l.params)).toMatchObject({ minutes: 45, while: [{ kind: 'app', value: 'Zoom' }], source: 'link' });
+    expect(l.handoff).toBeUndefined();
   });
 });

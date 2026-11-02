@@ -4,6 +4,14 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 
 ## [Unreleased]
 
+### Added — Keep Awake with the lid closed, with Monorail
+- Monorail can hand a closed-lid session to Keeper (`keeper://awake?for=2h&closedLid=1&handoff=<id>&from=monorail`, or `until=<epoch ms>`). Keeper keeps the Mac awake with the lid closed and answers in its hello (`state.awakeHandoff`, kept for 60 seconds); if it cannot (setup missing, permission refused, anything else) it starts nothing and says why, and Monorail keeps the Mac awake itself. Keeper's hello now says whether it can do this without a password prompt (`caps.closedLid`, `caps.closedLidReady`).
+- New setting "Closed-lid mode only while plugged in" (on by default; existing settings get it too). When you unplug, only the lid part turns off and Keep Awake goes on, with a notification. With it off, closed-lid mode runs on battery down to the battery floor (20% by default). Heat, the battery floor and Low Power Mode also turn off only the lid part.
+- Keep Awake's settings show "Set up closed-lid mode (asks for your password once)" on a Mac whenever the permission it needs is missing.
+
+### Fixed — Keep Awake
+- Keeper never switches off "sleep disabled" that it did not switch on itself; it uses it as it is. On Linux, ending closed-lid mode during a session now really releases the lid switch.
+
 ### Changed — Home
 - Jump back in: recent files under the project or folder they belong to (a code repository's root, a top-level folder in Documents, Desktop or Developer, Downloads as one, or the folder they share), each with its newest files, small pictures or type icons, and Open folder. When there is no clear grouping it is one plain list. The arrow keys move through the files; Enter opens one.
 - Today, on by default: today's events (visible calendars, the same meeting once), tasks due with a box to tick off, important unread mail, and running timers, focus, Keep Awake and recordings. Each row opens its event, task or message. A column on the right of a wide window, in line on a narrow one, with its own Hide button; it follows calendar, task and mail changes rather than checking again on a timer.

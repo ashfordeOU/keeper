@@ -4,7 +4,8 @@
 // area is docs/KEEPER-MONORAIL.md.
 //
 //   Focus and presentation  follow each other both ways (state.json, monorail:// links)
-//   Keep Awake              one hold: Keeper takes over a session Monorail started by hand
+//   Keep Awake              one hold: Keeper takes over a session Monorail started by hand,
+//                           and a closed-lid session Monorail hands over (keeper://awake?…&handoff=)
 //   Stage                   Monorail's layout is read before other apps are hidden and
 //                           put back (workspace by workspace, then a re-tile) afterwards
 //   computer use            "bring this window forward" scrolls Monorail's strip to it
@@ -16,9 +17,10 @@
 
 import { app } from 'electron';
 import {
-  MODE_OFF, awakeAfterNote, awakeHandOver, desktopOverlap, keeperHello, keeperModeChanged, layoutIntact, layoutRepairs, monorailModeChanged, parseHello, parseWindows,
-  type ModeSync, type MonoWindow,
+  MODE_OFF, awakeAfterNote, liveHandoff, awakeHandOver, desktopOverlap, keeperHello, keeperModeChanged, layoutIntact, layoutRepairs, monorailModeChanged, parseHello, parseWindows,
+  type AwakeHandoff, type ModeSync, type MonoWindow,
 } from '../../../core/ashforde/coexist';
+import { awakeService } from '../awake';
 import type { CoexistStatus } from '../../../core/api-ashforde';
 import type { MonorailState } from '../../../core/ashforde/monorail';
 import * as mono from './monorail';
@@ -184,13 +186,30 @@ export async function placesByWindow(): Promise<Map<string, string>> {
 
 // ---------------------------------------------------------------- the handshake
 
+/** Keeper's last answer to a closed-lid hand-over from Monorail; every hello carries it for 60 s. */
+let lastHandoff: AwakeHandoff | undefined;
+
+function me() {
+  const now = Date.now();
+  if (lastHandoff && !liveHandoff(lastHandoff, now)) lastHandoff = undefined;
+  return keeperHello({
+    version: app.getVersion(), pid: process.pid, focus: !!deps?.focusOn(), awake: !!deps?.awakeOn(), stage: !!deps?.stageOn(),
+    platform: process.platform, closedLidReady: !!awakeService()?.closedLidReady(), awakeHandoff: lastHandoff, now,
+  });
+}
+
 /** Keeper says who it is (newer Monorail versions keep it) and asks Monorail the same. */
 export async function hello(): Promise<CoexistStatus['peer']> {
-  const me = keeperHello({ version: app.getVersion(), pid: process.pid, focus: !!deps?.focusOn(), awake: !!deps?.awakeOn(), stage: !!deps?.stageOn() });
-  await ask('POST', '/peer', me as never);
+  await ask('POST', '/peer', me() as never);
   const h = parseHello(await ask('GET', '/hello'));
   peer = h ? { app: h.app, version: h.version } : undefined;
   return peer;
+}
+
+/** A hand-over was answered: tell Monorail straight away (it polls Keeper's hello for up to 10 s). */
+export async function awakeHandoffDone(ack: AwakeHandoff): Promise<void> {
+  lastHandoff = ack;
+  await ask('POST', '/peer', me() as never);
 }
 
 /** Monorail's local API stopped (it quit, or the API was switched off): it no longer knows Keeper. */
@@ -200,7 +219,7 @@ export function forgetPeer() {
 
 /** What Keeper tells Monorail (and anything else on its own channel) about itself. */
 export function helloPayload() {
-  return keeperHello({ version: app.getVersion(), pid: process.pid, focus: !!deps?.focusOn(), awake: !!deps?.awakeOn(), stage: !!deps?.stageOn() });
+  return me();
 }
 
 export async function coexistStatus(): Promise<CoexistStatus> {
@@ -227,4 +246,5 @@ export function resetCoexist() {
   peer = undefined;
   lastStage = undefined;
   stageBefore = null;
+  lastHandoff = undefined;
 }

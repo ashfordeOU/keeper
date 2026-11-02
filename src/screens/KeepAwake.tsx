@@ -88,7 +88,7 @@ export function KeepAwake() {
       <PageHead title="Keep Awake" sub="Stop this computer from sleeping for a while, until a time, or while something is going on." />
       <Hero st={st} now={now} quick={cfg.quick} onStart={start} />
       <StartBuilder cfg={cfg} onStart={start} />
-      <Options cfg={cfg} st={st} save={save} />
+      <Options cfg={cfg} st={st} save={save} onStatus={setSt} />
       <Triggers cfg={cfg} st={st} setCfg={setCfg} />
       <Blockers on={st.on} />
       <Stats enabled={cfg.stats} save={save} />
@@ -210,8 +210,10 @@ function CondEditor({ kinds, c, apps, onChange, onRemove }: { kinds: { kind: str
   );
 }
 
-function Options({ cfg, st, save }: { cfg: AwakeSettings; st: AwakeStatus; save: (p: Partial<AwakeSettings>) => void }) {
+function Options({ cfg, st, save, onStatus }: { cfg: AwakeSettings; st: AwakeStatus; save: (p: Partial<AwakeSettings>) => void; onStatus: (s: AwakeStatus) => void }) {
   const d = cfg.defaults;
+  // Mac only: the sudoers rule is missing (older Keeper versions only knew the "agreed" setting).
+  const lidSetup = st.platform === 'darwin' && st.supports.closedDisplay && !(st.closedLidReady ?? cfg.closedDisplayAgreed);
   const set = (p: Partial<SessionOptions>) => save({ defaults: { ...d, ...p } });
   const [setupMsg, setSetupMsg] = useState('');
   const num = (v: string) => Math.max(0, Number(v) || 0);
@@ -225,13 +227,20 @@ function Options({ cfg, st, save }: { cfg: AwakeSettings; st: AwakeStatus; save:
         </Row>
         <Row title="Keep running with the lid closed" desc={
           st.supports.closedDisplay
-            ? `${st.platform === 'darwin' ? 'Needs your administrator password once. ' : st.platform === 'win32' ? 'Sets the lid action to “Do nothing” and puts it back afterwards. ' : 'Holds the lid switch through systemd-inhibit. '}Ends by itself below ${cfg.closedDisplayMinBattery}% battery, in Low Power Mode or when the computer gets hot; if Keeper quits or crashes, the setting is put back.`
+            ? `${st.platform === 'darwin' ? 'Needs your administrator password once. ' : st.platform === 'win32' ? 'Sets the lid action to “Do nothing” and puts it back afterwards. ' : 'Holds the lid switch through systemd-inhibit. '}Ends by itself ${cfg.closedLidOnlyOnPower ? 'when unplugged, ' : ''}below ${cfg.closedDisplayMinBattery}% battery, in Low Power Mode or when the computer gets hot; if Keeper quits or crashes, the setting is put back.`
             : 'Not available on this computer.'}>
-          {st.platform === 'darwin' && !cfg.closedDisplayAgreed ? (
-            <button className="btn sm" onClick={async () => { const r = await api.awake.setupClosedDisplay(); setSetupMsg(r.ok ? 'Ready.' : r.message ?? 'Did not finish.'); }}>Set up…</button>
-          ) : <Toggle on={d.closedDisplay} onChange={(v) => { if (v && !cfg.closedDisplayAgreed) void api.awake.setupClosedDisplay(); set({ closedDisplay: v }); }} />}
-          {setupMsg ? <span className="muted small">{setupMsg}</span> : null}
+          {lidSetup ? null : <Toggle on={d.closedDisplay} onChange={(v) => { if (v && !cfg.closedDisplayAgreed) void api.awake.setupClosedDisplay(); set({ closedDisplay: v }); }} />}
         </Row>
+        {lidSetup ? (
+          <Row title="" desc={setupMsg || undefined}>
+            <button className="btn sm" data-testid="awake-lid-setup" onClick={async () => { const r = await api.awake.setupClosedDisplay(); setSetupMsg(r.ok ? 'Ready.' : r.message ?? 'Did not finish.'); void api.awake.status().then(onStatus); }}>Set up closed-lid mode (asks for your password once)</button>
+          </Row>
+        ) : setupMsg ? <Row title="" desc={setupMsg}>{null}</Row> : null}
+        {st.supports.closedDisplay ? (
+          <Row title="Closed-lid mode only while plugged in" desc="When you unplug, the lid part turns off and Keep Awake goes on.">
+            <Toggle on={cfg.closedLidOnlyOnPower} onChange={(v) => save({ closedLidOnlyOnPower: v })} />
+          </Row>
+        ) : null}
         <Row title="End below battery" desc="While on battery. 0 = never.">
           <select className="input" value={d.endBelowBattery} onChange={(e) => set({ endBelowBattery: Number(e.target.value) })}>
             {[0, 5, 10, 15, 20, 30, 50].map((n) => <option key={n} value={n}>{n ? `${n}%` : 'Never'}</option>)}

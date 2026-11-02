@@ -289,6 +289,50 @@ export function desktopOverlap(s: MonorailSettings & { workspaceWallpapers?: Rec
   return undefined;
 }
 
+// ---------------------------------------------------------------- closed lid: Monorail hands its session over
+
+/** Why a hand-over did not take: no sudoers rule yet, `sudo -n pmset` refused, or anything else. */
+export type HandoffReason = 'not-ready' | 'denied' | 'failed';
+
+/** Keeper's answer to keeper://awake?…&closedLid=1&handoff=<id>&from=monorail, carried in its hello. */
+export interface AwakeHandoff {
+  id: string;
+  ok: boolean;
+  closedLid: boolean;
+  /** epoch ms */
+  at: number;
+  reason?: HandoffReason;
+}
+
+/** How long every hello keeps the last answer (Monorail polls for up to 10 s). */
+export const HANDOFF_KEEP_MS = 60_000;
+
+export function handoffAck(id: string, r: { ok: true } | { ok: false; reason: HandoffReason }, now: number): AwakeHandoff {
+  return r.ok ? { id, ok: true, closedLid: true, at: now } : { id, ok: false, closedLid: false, at: now, reason: r.reason };
+}
+
+/** How switching closed-lid mode on went (electron/services/awake). */
+export type LidOutcome = 'on' | 'someone-else' | 'not-ready' | 'denied' | 'failed' | 'unsafe';
+
+/**
+ * The answer to a hand-over. Not ready (not a Mac, or no sudoers rule): Keeper
+ * starts nothing. Otherwise only real closed-lid mode counts as taken, whether
+ * Keeper switched it on or sleep was already off (someone else's setting, used
+ * as it is); `sudo -n pmset` refused is "denied"; anything else is "failed".
+ */
+export function handoffOutcome(o: { platform: string; ready: boolean; error?: boolean; lid?: LidOutcome }): { ok: true } | { ok: false; reason: HandoffReason } {
+  if (o.platform !== 'darwin' || !o.ready) return { ok: false, reason: 'not-ready' };
+  if (o.error || !o.lid) return { ok: false, reason: 'failed' };
+  if (o.lid === 'on' || o.lid === 'someone-else') return { ok: true };
+  if (o.lid === 'denied' || o.lid === 'not-ready') return { ok: false, reason: o.lid };
+  return { ok: false, reason: 'failed' };
+}
+
+/** The answer still worth sending (for 60 s), or nothing. */
+export function liveHandoff(h: AwakeHandoff | undefined, now: number): AwakeHandoff | undefined {
+  return h && now - h.at >= 0 && now - h.at < HANDOFF_KEEP_MS ? h : undefined;
+}
+
 // ---------------------------------------------------------------- the handshake
 
 export interface PeerHello {
@@ -302,17 +346,24 @@ export interface PeerHello {
   overlays: string[];
   /** where to reach it: Keeper's links (keeper://awake, keeper://focus, keeper://stage) */
   links: string[];
-  state: { focus: boolean; awake: boolean; stage: boolean };
+  /**
+   * closedLid: Keeper can keep a Mac awake with the lid closed (Monorail may hand it over);
+   * closedLidReady: the sudoers rule is in place, so it switches without a password prompt (macOS only)
+   */
+  caps: { closedLid: boolean; closedLidReady: boolean };
+  state: { focus: boolean; awake: boolean; stage: boolean; awakeHandoff?: AwakeHandoff };
 }
 
 /** What Keeper tells Monorail about itself (POST /peer, and `keeper/hello` on Keeper's own channel). */
-export function keeperHello(o: { version: string; pid: number; focus: boolean; awake: boolean; stage: boolean }): PeerHello {
+export function keeperHello(o: { version: string; pid: number; focus: boolean; awake: boolean; stage: boolean; platform?: string; closedLidReady?: boolean; awakeHandoff?: AwakeHandoff; now?: number }): PeerHello {
+  const handoff = liveHandoff(o.awakeHandoff, o.now ?? Date.now());
   return {
     app: 'Keeper', bundleID: KEEPER_BUNDLE_ID, version: o.version, pid: o.pid,
     owns: { awake: true, focus: false, stage: true },
     overlays: IGNORED_TITLES,
     links: ['keeper://awake?for=30m', 'keeper://awake/off', 'keeper://focus?minutes=25', 'keeper://focus?minutes=0', 'keeper://stage/on', 'keeper://stage/off'],
-    state: { focus: o.focus, awake: o.awake, stage: o.stage },
+    caps: { closedLid: true, closedLidReady: o.platform === 'darwin' && o.closedLidReady === true },
+    state: { focus: o.focus, awake: o.awake, stage: o.stage, ...(handoff ? { awakeHandoff: handoff } : {}) },
   };
 }
 

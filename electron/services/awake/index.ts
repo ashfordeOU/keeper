@@ -23,12 +23,13 @@ import os from 'node:os';
 import path from 'node:path';
 import { app, powerMonitor, powerSaveBlocker, screen, shell } from 'electron';
 import {
-  addRecord, caffeinateArgs, closedDisplaySafe, describeCondition, evaluate, extend as extendSession, fmtDuration, matchingRules, newSession,
-  parsePmsetAssertions, parsePmsetSleepDisabled, parsePowercfgLid, parsePowercfgRequests, parseSystemdInhibit, pmsetDisableSleep, powercfgLid, ruleMatches,
+  addRecord, caffeinateArgs, closedLidKeep, describeCondition, evaluate, extend as extendSession, fmtDuration, matchingRules, newSession,
+  macLidPlan, macLidRecord, macRestoreNeeded, parsePmsetAssertions, parsePmsetSleepDisabled, parsePowercfgLid, parsePowercfgRequests, parseSystemdInhibit, pmsetDisableSleep, powercfgLid, ruleMatches,
   summarize, systemdInhibitArgs, trackFalse, triggerConditionHolds, windowsHoldScript,
   type AwakeRule, type AwakeSettings, type Blocker, type Facts, type RestoreRecord, type Session, type SessionRecord, type SessionSpec,
 } from '../../../core/awake-engine';
 import type { AwakeStatus, TriggerTest } from '../../../core/api-awake';
+import { handoffAck, handoffOutcome, type AwakeHandoff, type LidOutcome } from '../../../core/ashforde/coexist';
 import { powershell, run } from '../../../core/platform';
 import { onSettings, settings, updateSettings } from '../../store';
 import { featureOn, onFeature } from '../features';
@@ -59,8 +60,17 @@ export const awakeService = () => svc;
  * Another app that can also hold the computer awake (Monorail's Stay Awake).
  * before() runs as Keeper takes its hold, so there is one hold and not two;
  * after() runs when Keeper lets go. Each may return a note for the person.
+ * handoff() answers a closed-lid session Monorail handed over (in Keeper's
+ * hello); ready() says the closed-lid setup changed (so the hello is resent).
  */
-export interface AwakePeer { before(): Promise<string | undefined>; after(): Promise<string | undefined> }
+export interface AwakePeer {
+  before(): Promise<string | undefined>;
+  after(): Promise<string | undefined>;
+  handoff?(ack: AwakeHandoff): Promise<unknown>;
+  ready?(): void;
+}
+
+type LidResult = LidOutcome;
 let peer: AwakePeer | null = null;
 export const setAwakePeer = (p: AwakePeer | null) => { peer = p; };
 
@@ -75,6 +85,9 @@ export class AwakeService {
   private childName = '';
   private lidWatch: ChildProcess | null = null;
   private closedOn = false;
+  /** macOS: sleep was already disabled by someone else; used as it is, never switched off by Keeper */
+  private lidBorrowed = false;
+  private lidResult?: LidResult;
   private notice?: string;
   private displayAllowed = false;
   private stopPoll?: () => void;
@@ -222,7 +235,15 @@ export class AwakeService {
     } catch {
       this.child = null;
     }
-    if (s.options.closedDisplay) await this.setClosedDisplay(true);
+    this.lidResult = undefined;
+    if (!s.options.closedDisplay) return;
+    const res = await this.setClosedDisplay(true);
+    if (res !== 'on' && res !== 'someone-else' && this.session === s) {
+      // No lid mode this time: the session goes on without it (Linux: hold again without the lid switch).
+      this.session = { ...s, options: { ...s.options, closedDisplay: false } };
+      if (isLinux) await this.hold();
+    }
+    this.lidResult = res;
   }
 
   private applyBlocker(keepDisplay: boolean) {
@@ -249,6 +270,7 @@ export class AwakeService {
       this.blockerType = null;
     }
     this.killChild();
+    this.lidBorrowed = false;
     if (this.closedOn) await this.setClosedDisplay(false);
   }
 
@@ -269,6 +291,51 @@ export class AwakeService {
     return isMac || isWin || isLinux;
   }
 
+  /** macOS: the sudoers rule is in place, so closed-lid mode switches without a password prompt. */
+  closedLidReady(): boolean {
+    return isMac && existsSync(SUDOERS);
+  }
+
+  /** Closed-lid mode may be on with these facts (battery floor, heat, Low Power Mode, and the plugged-in rule). */
+  private lidKeep(f: Pick<Facts, 'battery' | 'onPower' | 'thermal' | 'lowPowerMode'>, s = this.session) {
+    return closedLidKeep(f, { onlyOnPower: this.cfg.closedLidOnlyOnPower, minBattery: Math.max(this.cfg.closedDisplayMinBattery, s?.options.endBelowBattery ?? 0) });
+  }
+
+  private async lidFacts() {
+    const c = conditions();
+    const b = this.host.live().battery ?? (await readBattery().catch(() => undefined));
+    return { onPower: !powerMonitor.isOnBatteryPower(), battery: b?.percent, thermal: c.thermal, lowPowerMode: c.lowPower };
+  }
+
+  /**
+   * keeper://awake?…&closedLid=1&handoff=<id>&from=monorail: Monorail hands over a
+   * session to keep the Mac awake with the lid closed. Keeper takes it only if
+   * closed-lid mode really goes on; otherwise it starts nothing and answers why,
+   * and Monorail runs the session itself. The answer goes out in Keeper's hello.
+   */
+  async takeHandoff(id: string, build: () => SessionSpec): Promise<AwakeHandoff> {
+    const answer = async (o: Omit<Parameters<typeof handoffOutcome>[0], 'platform' | 'ready'>) => {
+      const ack = handoffAck(id, handoffOutcome({ platform: process.platform, ready: this.closedLidReady(), ...o }), Date.now());
+      await peer?.handoff?.(ack).catch(() => undefined);
+      return ack;
+    };
+    if (!this.closedLidReady()) return answer({});
+    let spec: SessionSpec;
+    try {
+      spec = build();
+      if (!featureOn('keepAwake')) throw new Error('Keep Awake is off');
+      if (!this.lidKeep(await this.lidFacts(), undefined).ok) throw new Error('Closed-lid mode is not safe right now');
+      await this.begin({ ...spec, source: 'link', options: { ...spec.options, closedDisplay: true } });
+    } catch {
+      return answer({ error: true });
+    }
+    const lid = this.lidResult;
+    const ack = await answer({ lid });
+    // No lid mode: Monorail runs the session itself, so Keeper holds nothing.
+    if (!ack.ok) await this.stop('Handed back to Monorail', true);
+    return ack;
+  }
+
   /** macOS: one administrator prompt adds a rule that lets Keeper run only `pmset -a disablesleep 0|1` without a password. */
   async setupClosedDisplay(): Promise<{ ok: boolean; message?: string }> {
     if (!isMac) {
@@ -283,26 +350,45 @@ export class AwakeService {
     const r = await run('/usr/bin/osascript', ['-e', `do shell script ${JSON.stringify(cmd)} with administrator privileges with prompt "Keeper needs your password once to keep this Mac awake with the lid closed."`], 120_000);
     if (!r.ok) return { ok: false, message: /cancel/i.test(r.stderr) ? 'Cancelled.' : r.stderr.trim() || 'The setup did not finish.' };
     await this.saveSettings({ closedDisplayAgreed: true });
+    peer?.ready?.();
     return { ok: true };
   }
 
-  private async setClosedDisplay(on: boolean) {
+  private async setClosedDisplay(on: true): Promise<LidResult>;
+  private async setClosedDisplay(on: false): Promise<void>;
+  private async setClosedDisplay(on: boolean): Promise<LidResult | void> {
     const rec = path.join(this.dir, 'awake-restore.json');
     if (on) {
-      if (!this.cfg.closedDisplayAgreed) {
+      // On a Mac the sudoers rule itself is the agreement (it may come from an earlier install).
+      if (!this.cfg.closedDisplayAgreed && !this.closedLidReady()) {
         this.notice = 'Closed-lid mode needs its one-time setup on the Keep Awake page.';
-        return;
+        return 'not-ready';
       }
-      const record: RestoreRecord = { platform: process.platform, at: Date.now() };
+      // Not on battery when "only while plugged in", nor below the floor, hot, or in Low Power Mode.
+      const safe = this.lidKeep(await this.lidFacts());
+      if (!safe.ok) {
+        this.notice = `Closed-lid mode is off (${safe.why}).`;
+        return 'unsafe';
+      }
+      let record: RestoreRecord = { platform: process.platform, at: Date.now() };
       if (isMac) {
-        const was = parsePmsetSleepDisabled((await run('/usr/bin/pmset', ['-g'], 5000)).stdout);
-        if (was) return; // already disabled by the person; nothing of ours to undo
+        const now = await run('/usr/bin/pmset', ['-g'], 5000);
+        if (!now.ok) return 'failed';
+        // Already disabled by the person (or another app): use it, and never switch it off.
+        if (macLidPlan(parsePmsetSleepDisabled(now.stdout)).owner === 'someone-else') {
+          this.lidBorrowed = true;
+          return 'someone-else';
+        }
+        if (!this.closedLidReady()) {
+          this.notice = 'Closed-lid mode needs its one-time setup again (the permission was removed).';
+          return 'not-ready';
+        }
         const r = await run('/usr/bin/sudo', ['-n', '/usr/bin/pmset', ...pmsetDisableSleep(true)], 10_000);
         if (!r.ok) {
           this.notice = 'Closed-lid mode needs its one-time setup again (the permission was removed).';
-          return;
+          return 'denied';
         }
-        record.macDisableSleep = true;
+        record = macLidRecord(Date.now());
         // Restores sleep the moment Keeper's process is gone, whatever the reason.
         this.lidWatch = spawn('/bin/sh', ['-c', `while kill -0 ${process.pid} 2>/dev/null; do sleep 5; done; /usr/bin/sudo -n /usr/bin/pmset -a disablesleep 0`], { detached: true, stdio: 'ignore' });
         this.lidWatch.unref();
@@ -310,7 +396,7 @@ export class AwakeService {
         const before = parsePowercfgLid((await run('powercfg', ['/q', 'SCHEME_CURRENT', 'SUB_BUTTONS', 'LIDACTION'], 10_000)).stdout);
         if (!before) {
           this.notice = 'Could not read the lid setting.';
-          return;
+          return 'failed';
         }
         for (const args of powercfgLid(0, 0)) await run('powercfg', args, 10_000);
         record.winLid = before;
@@ -321,6 +407,7 @@ export class AwakeService {
       // Linux: systemd-inhibit holds handle-lid-switch for as long as the session runs; nothing to restore.
       await fsp.writeFile(rec, JSON.stringify(record)).catch(() => undefined);
       this.closedOn = true;
+      return 'on';
     } else {
       this.closedOn = false;
       try { this.lidWatch?.kill(); } catch { /* gone */ }
@@ -332,7 +419,8 @@ export class AwakeService {
   }
 
   private async undo(r: RestoreRecord) {
-    if (r.macDisableSleep && isMac) await run('/usr/bin/sudo', ['-n', '/usr/bin/pmset', ...pmsetDisableSleep(false)], 10_000);
+    // Only a 1 Keeper itself set is switched back to 0.
+    if (macRestoreNeeded(r, process.platform)) await run('/usr/bin/sudo', ['-n', '/usr/bin/pmset', ...pmsetDisableSleep(false)], 10_000);
     if (r.winLid && isWin) for (const args of powercfgLid(r.winLid.ac, r.winLid.dc)) await run('powercfg', args, 10_000);
     if (r.gnomeBanners !== undefined && isLinux) await run('gsettings', ['set', 'org.gnome.desktop.notifications', 'show-banners', String(r.gnomeBanners)], 5000);
   }
@@ -482,11 +570,17 @@ export class AwakeService {
       await this.stop(v.why);
       return;
     }
+    // Unplugged (with "only while plugged in"), the battery floor, heat or Low Power Mode end
+    // only the lid part: plain Keep Awake goes on.
     if (s.options.closedDisplay && this.closedOn) {
-      const safe = closedDisplaySafe(f, Math.max(this.cfg.closedDisplayMinBattery, s.options.endBelowBattery));
+      const safe = this.lidKeep(f, s);
       if (!safe.ok) {
         await this.setClosedDisplay(false);
-        this.host.notify('Closed-lid mode ended', safe.why);
+        this.session = s = { ...s, options: { ...s.options, closedDisplay: false } };
+        // Linux holds the lid switch in the same systemd-inhibit as the rest: hold again without it.
+        if (isLinux) await this.hold();
+        this.notice = `Closed-lid mode ended (${safe.why}). Keep Awake goes on.`;
+        this.host.notify('Closed-lid mode ended', `${safe.why}. Keep Awake goes on.`);
       }
     }
     if (v.remind) {
@@ -680,6 +774,7 @@ export class AwakeService {
     if (this.blocker !== null && powerSaveBlocker.isStarted(this.blocker)) out.push(`powerSaveBlocker (${this.blockerType})`);
     if (this.child && this.childName) out.push(this.childName);
     if (this.closedOn) out.push('closed lid');
+    else if (this.lidBorrowed) out.push('closed lid (sleep was already off)');
     return out;
   }
 
@@ -690,7 +785,8 @@ export class AwakeService {
       session: s && { id: s.id, startedAt: s.startedAt, endsAt: s.endsAt, reason: s.reason, source: s.source, while: s.while, options: s.options, triggerId: s.triggerId },
       matching: this.matching,
       holds: this.holds(),
-      closedDisplay: this.closedOn,
+      closedDisplay: this.closedOn || this.lidBorrowed,
+      closedLidReady: this.closedLidReady(),
       notice: this.notice,
       displayAllowed: s ? this.displayAllowed : true,
       checking: !!this.stopPoll,
