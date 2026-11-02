@@ -15,6 +15,11 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 ### Fixed — AI usage
 - Claude Code token counts also read the newer `~/.config/claude` folder and folders that only had files appended to, skip the tool's own zero-token notices, and say what was actually read instead of "Counted from 1 session file".
 
+### Added — Calendar and Notes in the Island
+- Calendar events in the week: the Island's Week tab and the Planner's week show each day's events beside its tasks (time, title and calendar colour; a click opens Calendar), from every calendar Keeper reads: the Mac's own through EventKit (iCloud, Google, Exchange and others added in Calendar) and Google, Outlook and CalDAV accounts connected in Keeper. When Keeper cannot see the computer's calendars, the Week, the Island's Calendar tab and the Planner say so with Allow, Open Privacy Settings or Connect Google / Outlook calendar, instead of showing nothing. macOS: calendar access given on the Permissions screen (or in System Settings) now reaches Keeper's already-running helper, which could keep answering "not decided" and read no calendars until Keeper restarted.
+- Apple Notes in the Island: the Notes tab lists the notes of Notes Everywhere's connected apps (Apple Notes first on a Mac) under Keeper's own, searchable with the same box and readable in place, with Open in Notes. On a Mac it offers to show Apple Notes (macOS asks once whether Keeper may control Notes, and Keeper shows what it would copy first), and says how to allow it in Privacy & Security → Automation when it was refused.
+- For other pages: the calendar service answers `pim.upcomingEvents(from, to)` (events from every source, with place and join link) and `pim.calendarStatus()` (each source, connected and allowed, and the Mac's EventKit state).
+
 ## [0.1.0-beta.6] - 2026-11-02
 
 0.1.0-beta.5 was not published; everything listed under it is in this release.

@@ -98,6 +98,17 @@ Find it in the sidebar under **Sync & Backup → Notes Everywhere**.
 - **Sticky Notes:** Keeper writes only while the app is closed, and only after
   you turn on write-back.
 
+## In the Island
+
+The Island's **Notes** tab lists the hub's notes under Keeper's own quick
+notes, grouped by app (Apple Notes first on a Mac), searchable with the same
+box. They open read only in the Island, with **Open in Notes** for Apple
+Notes. The tab reads the notes folder when it opens and when the hub reports
+a change; it does not sync on its own (the ↻ beside an app reads it again).
+On a Mac without Apple Notes connected it offers **Allow**: macOS asks once
+whether Keeper may control Notes (Privacy & Security → Automation), then you
+see what would be copied before anything is.
+
 ## Moving notes between apps
 
 Open a note, then **Copy or move to another app**. Copy keeps the original;
