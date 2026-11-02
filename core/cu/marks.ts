@@ -80,6 +80,8 @@ export interface AxNode {
   y?: number;
   width?: number;
   height?: number;
+  /** the accessibility engine says it can be acted on */
+  actionable?: boolean;
   children?: AxNode[];
 }
 
@@ -89,7 +91,7 @@ export function marksFromAx(root: AxNode | undefined, viewport: { width: number;
   const raw: (RawElement & { id?: string })[] = [];
   const walk = (n: AxNode | undefined, depth: number) => {
     if (!n || depth > 40) return;
-    if (n.role && ACTIONABLE.test(n.role) && n.width && n.height) raw.push({ role: n.role.toLowerCase(), name: n.name ?? '', value: n.value, x: n.x ?? 0, y: n.y ?? 0, w: n.width, h: n.height, id: n.id });
+    if (n.role && (ACTIONABLE.test(n.role) || (n.actionable && !/scroll/i.test(n.role))) && n.width && n.height) raw.push({ role: n.role.toLowerCase(), name: n.name ?? '', value: n.value, x: n.x ?? 0, y: n.y ?? 0, w: n.width, h: n.height, id: n.id });
     for (const c of n.children ?? []) walk(c, depth + 1);
   };
   walk(root, 0);

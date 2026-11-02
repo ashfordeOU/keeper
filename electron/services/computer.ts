@@ -22,7 +22,8 @@ import {
 import type { ToolSpec } from '../../core/brain/providers';
 import type { HostDisplay, InputEvent, Mods } from '../../core/screen/types';
 import { agentSettings, recordAgentActivity, requestApproval } from './agents';
-import { focusWindow, frontBounds, frontWindow, listWindows, openApp, pressElement, uiTree } from './computer-os';
+import { focusWindow, frontBounds, frontWindow, listWindows, openApp, pressElement, setAccessibilityEngine, setElementValue, uiTree } from './computer-os';
+import { MaybeDelivered } from './agent-desktop';
 import { injector } from './screen/injector';
 import { axInShot, centre, desktopMarksText, marksFromAx, marksFromOcr, type Mark } from '../../core/cu/marks';
 import { fromGeminiCall, geminiBlocked, geminiNeedsConfirmation, openAiActions, type OpenAiNativeArgs, type OpenAiSafetyCheck } from '../../core/cu/native';
@@ -267,6 +268,7 @@ export async function runComputer(client: string, input: Record<string, unknown>
   if (Array.isArray(input.openai_actions) || typeof input.gemini_action === 'string') return runNative(client, input);
   const policy = agentSettings().computer;
   limiter.set(policy.maxActionsPerMinute);
+  setAccessibilityEngine(policy.accessibilityEngine);
   let action: ComputerAction;
   try {
     action = internal.has(input) && input.__action ? (input.__action as ComputerAction) : fromToolInput(String(input.action ?? ''), input);
@@ -328,7 +330,7 @@ export async function runComputer(client: string, input: Record<string, unknown>
       return { text: `Not allowed: ${why}. Ask the person to switch to another app, or do this part themselves.`, isError: true };
     }
   }
-  if (action.type === 'type') {
+  if (action.type === 'type' || action.type === 'set_value') {
     const secret = secretIn(action.text);
     if (secret) {
       log('refused', `would have typed a ${secret}`);
@@ -413,6 +415,13 @@ export async function runComputer(client: string, input: Record<string, unknown>
         text = `Pressed ${n.role}${n.name ? ` “${n.name}”` : ''}.`;
         break;
       }
+      case 'set_value': {
+        const n = findNode(lastTree, action.id);
+        if (!n) throw new Error('Unknown control: call ui_tree first and use one of its ids');
+        if (!(await setElementValue(action.id, action.text))) throw new Error('That control does not take a value this way: click it and use type instead');
+        text = `Filled ${n.role}${n.name ? ` “${n.name}”` : ''}.`;
+        break;
+      }
       case 'marks': {
         if (!shots.get(session.id)) await screenshotFor(session.id);
         const sh = shots.get(session.id)!;
@@ -455,7 +464,8 @@ export async function runComputer(client: string, input: Record<string, unknown>
         const m = lastMarks?.marks.find((x) => x.ref === action.ref);
         if (!m) throw new Error('Unknown mark: call marks first and use one of its numbers');
         const id = lastMarks!.ids.get(m.ref);
-        if (!(id && (await pressElement(id).catch(() => false)))) {
+        // A press that may already have landed is not followed by a click (it would press twice).
+        if (!(id && (await pressElement(id).catch((e) => { if (e instanceof MaybeDelivered) throw e; return false; })))) {
           const c = centre(m.box);
           await pointer(session.id, { type: 'click', button: 'left', count: 1, x: c.x, y: c.y });
         }
@@ -580,8 +590,8 @@ export function computerToolSpec(): ToolSpec {
 
 /** Claude's toolset has no app/window/accessibility actions; these come as a second tool beside it. */
 export function computerAppsToolSpec(): ToolSpec {
-  const g = genericComputerTool(0, 0, ['open', 'list_windows', 'focus_window', 'ui_tree', 'click_element', 'marks', 'click_mark']);
-  return { ...g, name: 'computer_apps', description: 'Open apps, web pages and files; list and switch windows; number what can be clicked in the front window (marks, from accessibility or read off the screen) and click one by number (click_mark); read the controls (ui_tree) and press one by id (click_element). Same rules as the computer tool.' };
+  const g = genericComputerTool(0, 0, ['open', 'list_windows', 'focus_window', 'ui_tree', 'click_element', 'set_value', 'marks', 'click_mark']);
+  return { ...g, name: 'computer_apps', description: 'Open apps, web pages and files; list and switch windows; number what can be clicked in the front window (marks, from accessibility or read off the screen) and click one by number (click_mark); read the controls (ui_tree), press one by id (click_element) or fill a field by id (set_value). Same rules as the computer tool.' };
 }
 
 export const COMPUTER_INSTRUCTIONS =

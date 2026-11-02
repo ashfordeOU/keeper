@@ -16,6 +16,11 @@ const MODES: [ComputerPolicy['permission'], string, string][] = [
   ['allow', 'Allowed', 'AIs you use may start without asking; the Island still shows it, and Stop always works.'],
 ];
 
+const ENGINES: [ComputerPolicy['accessibilityEngine'], string, string][] = [
+  ['auto', 'Automatic', 'Reads and presses controls with agent-desktop, which comes with Keeper; falls back to the system scripts when it cannot.'],
+  ['builtin', 'Built-in', 'Only the system scripts (System Events, UI Automation, AT-SPI): slower, but use it if an app misbehaves.'],
+];
+
 export function useComputerState(): ComputerState {
   const [s, setS] = useState<ComputerState>({ sessions: [], stopShortcut: '' });
   useEffect(() => {
@@ -69,6 +74,13 @@ export function ComputerUsePanel() {
             <label className="small">At most <input className="input sm" type="number" min={5} max={600} value={p.maxActionsPerMinute} onChange={(e) => void save({ maxActionsPerMinute: Number(e.target.value) })} style={{ width: 70 }} /> actions a minute</label>
             <label className="small">End after <input className="input sm" type="number" min={1} max={240} value={p.idleMinutes} onChange={(e) => void save({ idleMinutes: Number(e.target.value) })} style={{ width: 60 }} /> idle minutes</label>
             <label className="small">or <input className="input sm" type="number" min={1} max={1440} value={p.maxMinutes} onChange={(e) => void save({ maxMinutes: Number(e.target.value) })} style={{ width: 70 }} /> minutes in all</label>
+          </div>
+          <div className="row" style={{ gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            <span className="small" style={{ fontWeight: 600 }}>Accessibility engine</span>
+            <div className="seg">
+              {ENGINES.map(([e, l, d]) => <button key={e} title={d} className={p.accessibilityEngine === e ? 'on' : ''} onClick={() => void save({ accessibilityEngine: e })}>{l}</button>)}
+            </div>
+            <span className="small muted">{ENGINES.find(([e]) => e === p.accessibilityEngine)?.[2]}</span>
           </div>
           <div className="small muted">Passwords, keys and card numbers are never typed by an AI; Keeper fills saved sign-ins itself (below). Every action, with a small picture of what the AI saw, is listed below.</div>
         </div>

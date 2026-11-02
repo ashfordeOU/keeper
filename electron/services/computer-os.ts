@@ -9,6 +9,11 @@
 //            Accessibility permission, the same one control needs)
 //   Windows  PowerShell: user32 for windows, UI Automation for controls
 //   Linux    xdotool / wmctrl on X11; AT-SPI through python3-gi when present
+//
+// Controls are read and pressed with agent-desktop first (agent-desktop.ts,
+// shipped with Keeper): faster and steadier than the scripts above, which stay
+// as the fallback when it is missing, fails or is too slow, and when the person
+// picks the built-in engine (Use this computer → Accessibility engine).
 
 import { spawn } from 'node:child_process';
 import { existsSync, promises as fsp, readdirSync } from 'node:fs';
@@ -16,6 +21,7 @@ import os from 'node:os';
 import path from 'node:path';
 import type { UiNode } from '../../core/computer';
 import { run } from '../../core/platform';
+import { AgentDesktop, AgentDesktopError, findAgentDesktop, MaybeDelivered, type MappedTree } from './agent-desktop';
 
 export interface FrontWindow {
   app?: string;
@@ -231,6 +237,15 @@ try{el.actions['AXPress'].perform();done=true}catch(e){}
 if(!done){try{el.click();done=true}catch(e){}}
 JSON.stringify(done)`;
 
+const MAC_SET = (idPath: string[], text: string) => `
+const se=Application('System Events');const p=se.processes.whose({frontmost:true})[0];
+let el=p.windows[0];
+for(const i of ${JSON.stringify(idPath.map(Number))}) el=el.uiElements[i];
+let done=false;
+try{el.focused=true}catch(e){}
+try{el.value=${JSON.stringify(text)};done=true}catch(e){}
+JSON.stringify(done)`;
+
 const WIN_TREE = (depth: number) => `${PS_WIN32}
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
 $h=[KeeperCu]::GetForegroundWindow()
@@ -258,6 +273,17 @@ $done=$false
 foreach($pat in @([System.Windows.Automation.InvokePattern]::Pattern,[System.Windows.Automation.TogglePattern]::Pattern,[System.Windows.Automation.SelectionItemPattern]::Pattern,[System.Windows.Automation.ExpandCollapsePattern]::Pattern)){
   if(-not $done){ try { $p=$el.GetCurrentPattern($pat); if($p -is [System.Windows.Automation.InvokePattern]){$p.Invoke()} elseif($p -is [System.Windows.Automation.TogglePattern]){$p.Toggle()} elseif($p -is [System.Windows.Automation.SelectionItemPattern]){$p.Select()} else {$p.Expand()}; $done=$true } catch {} }
 }
+$done | ConvertTo-Json -Compress`;
+
+const WIN_SET = (idPath: string[], text: string) => `${PS_WIN32}
+Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+$h=[KeeperCu]::GetForegroundWindow()
+$el=[System.Windows.Automation.AutomationElement]::FromHandle($h)
+$walker=[System.Windows.Automation.TreeWalker]::ControlViewWalker
+foreach($i in @(${idPath.map(Number).join(',')})){ $k=$walker.GetFirstChild($el); for($j=0;$j -lt $i;$j++){ $k=$walker.GetNextSibling($k) }; $el=$k }
+$t=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${Buffer.from(text, 'utf8').toString('base64')}'))
+$done=$false
+try { $el.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue($t); $done=$true } catch {}
 $done | ConvertTo-Json -Compress`;
 
 const ATSPI = `
@@ -308,9 +334,14 @@ else:
     o = win
     for k in path: o = o.get_child_at_index(k)
     done = False
-    try:
-        if o.get_n_actions() > 0: done = o.do_action(0)
-    except Exception: pass
+    if mode == 'set':
+        text = sys.argv[4] if len(sys.argv) > 4 else ''
+        try: done = Atspi.EditableText.set_text_contents(o, text)
+        except Exception: pass
+    else:
+        try:
+            if o.get_n_actions() > 0: done = o.do_action(0)
+        except Exception: pass
     print(json.dumps(bool(done)))
 `;
 import { permissionNeeded } from './permission-nudge';
@@ -331,16 +362,129 @@ const idPath = (id: string) => {
   return id.split('/').slice(1);
 };
 
+// ---------------------------------------------------------------- the engine: agent-desktop first
+
+export type AccessibilityEngine = 'auto' | 'builtin';
+
+let engine: AccessibilityEngine = 'auto';
+/** auto: agent-desktop when it is there and working; builtin: only the system scripts above. */
+export function setAccessibilityEngine(e: AccessibilityEngine) {
+  engine = e === 'builtin' ? 'builtin' : 'auto';
+}
+
+let ad: AgentDesktop | null | undefined;
+let adPausedUntil = 0;
+const adWarned = new Set<string>();
+/** The tree the AI's ids refer to: agent-desktop's (with refs) or the built-in one's. */
+let last: { source: 'agent-desktop'; tree: MappedTree } | { source: 'builtin' } = { source: 'builtin' };
+
+/** For tests: start over with this program (or none) and forget the last tree. */
+export function resetAgentDesktop(a?: AgentDesktop | null) {
+  ad = a;
+  adPausedUntil = 0;
+  adWarned.clear();
+  last = { source: 'builtin' };
+}
+
+async function agentDesktop(): Promise<AgentDesktop | null> {
+  if (engine === 'builtin' || Date.now() < adPausedUntil) return null;
+  if (ad === undefined) {
+    let appPath: string | undefined;
+    let userData: string | undefined;
+    try {
+      const { app } = await import('electron');
+      appPath = app.getAppPath();
+      userData = app.getPath('userData');
+    } catch {
+      /* not in Electron */
+    }
+    const bin = findAgentDesktop({ resourcesPath: process.resourcesPath, appPath });
+    ad = bin ? new AgentDesktop({ bin, home: userData ? path.join(userData, 'agent-desktop') : undefined }) : null;
+  }
+  return ad;
+}
+
+/** It failed: use the built-in scripts for this call, and for a few minutes when the failure will not pass by itself. */
+function adFailed(e: unknown) {
+  const code = e instanceof AgentDesktopError ? e.code : 'ERROR';
+  if (['NOT_STARTED', 'NO_ENVELOPE', 'PERM_DENIED', 'PLATFORM_NOT_SUPPORTED', 'TIMEOUT', 'INTERNAL', 'ERROR'].includes(code)) adPausedUntil = Date.now() + 5 * 60_000;
+  if (!adWarned.has(code)) {
+    adWarned.add(code);
+    console.warn(`[computer] agent-desktop: ${code} (${e instanceof Error ? e.message : String(e)}); using the built-in accessibility scripts`);
+  }
+}
+
+async function builtinTree(d: number): Promise<UiNode | undefined> {
+  const r = isMac ? await jxa(MAC_TREE(d), 20_000) : isWin ? await ps(WIN_TREE(d), 20_000) : await atspi(['tree', String(d)]);
+  return (r ?? undefined) as UiNode | undefined;
+}
+
 /** The controls in the front window, or undefined when the system or app does not say. */
 export async function uiTree(depth = 6): Promise<UiNode | undefined> {
   const d = Math.max(1, Math.min(12, depth));
-  const r = isMac ? await jxa(MAC_TREE(d), 20_000) : isWin ? await ps(WIN_TREE(d), 20_000) : await atspi(['tree', String(d)]);
-  return (r ?? undefined) as UiNode | undefined;
+  const a = await agentDesktop();
+  if (a) {
+    try {
+      // agent-desktop skips empty wrappers, so its depth goes further than the scripts' for the same number.
+      const tree = await a.snapshot({ maxDepth: Math.max(10, d + 4), timeoutMs: 4000 });
+      last = { source: 'agent-desktop', tree };
+      return tree.root;
+    } catch (e) {
+      adFailed(e);
+    }
+  }
+  last = { source: 'builtin' };
+  return builtinTree(d);
+}
+
+function findIn(root: UiNode, id: string): UiNode | undefined {
+  if (root.id === id) return root;
+  for (const c of root.children ?? []) {
+    const f = findIn(c, id);
+    if (f) return f;
+  }
+  return undefined;
+}
+
+/**
+ * A press or write through agent-desktop, for an id from its tree. undefined: it has no ref, or
+ * agent-desktop could not do it and nothing was sent (the caller then goes on as before).
+ * Throws MaybeDelivered when it may have reached the app: doing it again could do it twice.
+ */
+async function adAct(kind: 'click' | 'set-value', id: string, text?: string): Promise<boolean | undefined> {
+  if (last.source !== 'agent-desktop') return undefined;
+  const ref = last.tree.refs.get(id);
+  const a = await agentDesktop();
+  if (!ref || !a) return false;
+  try {
+    await a.act(kind, ref, findIn(last.tree.root, id), { text });
+    return true;
+  } catch (e) {
+    if (e instanceof AgentDesktopError && e.safe) {
+      if (e.code === 'STALE_REF' || e.code === 'AMBIGUOUS_TARGET' || e.code === 'SNAPSHOT_NOT_FOUND') throw new Error('That control changed or is gone. Call ui_tree again and use a fresh id.');
+      adFailed(e);
+      return false;
+    }
+    adFailed(e);
+    throw new MaybeDelivered(`It may or may not have worked (${e instanceof Error ? e.message : String(e)}). Take a screenshot to check before trying again.`);
+  }
 }
 
 /** Presses a control through accessibility; false when it has no action (the caller then clicks its centre). */
 export async function pressElement(id: string): Promise<boolean> {
   const p = idPath(id);
+  const viaAd = await adAct('click', id);
+  // An id from agent-desktop's tree means nothing to the scripts: the caller clicks its centre instead.
+  if (viaAd !== undefined) return viaAd;
   const r = isMac ? await jxa(MAC_PRESS(p)) : isWin ? await ps(WIN_PRESS(p)) : await atspi(['press', '0', p.join('/')]);
+  return r === true;
+}
+
+/** Puts text into a field (or a value into a slider) through accessibility; false when the control takes no value. */
+export async function setElementValue(id: string, text: string): Promise<boolean> {
+  const p = idPath(id);
+  const viaAd = await adAct('set-value', id, text);
+  if (viaAd !== undefined) return viaAd;
+  const r = isMac ? await jxa(MAC_SET(p, text)) : isWin ? await ps(WIN_SET(p, text)) : await atspi(['set', '0', p.join('/'), text]);
   return r === true;
 }

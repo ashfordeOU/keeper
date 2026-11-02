@@ -48,6 +48,8 @@ export type ComputerAction =
   | { type: 'focus_window'; id: string }
   | { type: 'ui_tree'; depth?: number }
   | { type: 'click_element'; id: string }
+  /** puts text into a field from ui_tree through accessibility (no keystrokes) */
+  | { type: 'set_value'; id: string; text: string }
   /** numbered marks over what can be clicked in the front window (accessibility, or read from the screen) */
   | { type: 'marks' }
   | { type: 'click_mark'; ref: number };
@@ -79,6 +81,7 @@ export function describeComputer(a: ComputerAction): string {
     case 'focus_window': return `brought window ${a.id} to the front`;
     case 'ui_tree': return 'read the controls in the front window';
     case 'click_element': return `pressed control ${a.id}`;
+    case 'set_value': return `filled control ${a.id} with ${a.text.length} character${a.text.length === 1 ? '' : 's'}`;
     case 'marks': return 'numbered what can be clicked on the screen';
     case 'click_mark': return `clicked mark ${a.ref}`;
   }
@@ -89,11 +92,11 @@ export function describeComputer(a: ComputerAction): string {
 const ACTION_NAMES = [
   'screenshot', 'zoom', 'left_click', 'right_click', 'middle_click', 'double_click', 'triple_click', 'mouse_move', 'left_click_drag',
   'left_mouse_down', 'left_mouse_up', 'scroll', 'type', 'key', 'hold_key', 'wait', 'cursor_position',
-  'open', 'list_windows', 'focus_window', 'ui_tree', 'click_element', 'marks', 'click_mark',
+  'open', 'list_windows', 'focus_window', 'ui_tree', 'click_element', 'set_value', 'marks', 'click_mark',
 ] as const;
 
 /** Actions Anthropic's toolset does not have; with it, these come as a second tool. */
-export const EXTRA_ACTIONS = ['open', 'list_windows', 'focus_window', 'ui_tree', 'click_element', 'marks', 'click_mark'] as const;
+export const EXTRA_ACTIONS = ['open', 'list_windows', 'focus_window', 'ui_tree', 'click_element', 'set_value', 'marks', 'click_mark'] as const;
 
 const coord = { type: 'array', items: { type: 'number' }, minItems: 2, maxItems: 2 };
 
@@ -111,7 +114,7 @@ export function genericComputerTool(width: number, height: number, actions: read
         action: { type: 'string', enum: [...actions] },
         coordinate: { ...coord, description: '[x, y] in screenshot pixels' },
         start_coordinate: { ...coord, description: 'drag start [x, y]' },
-        text: { type: 'string', description: 'text to type; for key/hold_key a key or combination such as "Return", "ctrl+s", "cmd+shift+t"; for clicks optional modifiers such as "shift"' },
+        text: { type: 'string', description: 'text to type; for set_value the new contents of the field; for key/hold_key a key or combination such as "Return", "ctrl+s", "cmd+shift+t"; for clicks optional modifiers such as "shift"' },
         scroll_direction: { type: 'string', enum: ['up', 'down', 'left', 'right'] },
         scroll_amount: { type: 'integer', minimum: 1, maximum: 30 },
         duration: { type: 'number', minimum: 0, maximum: 30, description: 'seconds (wait, hold_key)' },
@@ -119,7 +122,7 @@ export function genericComputerTool(width: number, height: number, actions: read
         region: { type: 'array', items: { type: 'number' }, minItems: 4, maxItems: 4, description: 'zoom: [x0, y0, x1, y1]' },
         target: { type: 'string', description: 'open: an app name, a web address or a file path' },
         window_id: { type: 'string', description: 'focus_window: an id from list_windows' },
-        element_id: { type: 'string', description: 'click_element: an id from ui_tree' },
+        element_id: { type: 'string', description: 'click_element, set_value: an id from ui_tree' },
         ref: { type: 'integer', minimum: 1, description: 'click_mark: a number from marks' },
         depth: { type: 'integer', minimum: 1, maximum: 12 },
       },
@@ -180,6 +183,10 @@ export function fromToolInput(action: string, input: Record<string, unknown>): C
     case 'focus_window': if (!input.window_id) throw new Error('focus_window needs window_id from list_windows'); return { type: 'focus_window', id: String(input.window_id) };
     case 'ui_tree': return { type: 'ui_tree', depth: Math.max(1, Math.min(12, Math.round(num(input.depth) ?? 6))) };
     case 'click_element': if (!input.element_id) throw new Error('click_element needs element_id from ui_tree'); return { type: 'click_element', id: String(input.element_id) };
+    case 'set_value':
+      if (!input.element_id) throw new Error('set_value needs element_id from ui_tree');
+      if (text === undefined) throw new Error('set_value needs text: the new contents of the field');
+      return { type: 'set_value', id: String(input.element_id), text };
     case 'marks': return { type: 'marks' };
     case 'click_mark': {
       const r = num(input.ref) ?? Number(input.ref);
@@ -342,6 +349,8 @@ export interface ComputerPolicy {
   idleMinutes: number;
   /** and after this many minutes in all */
   maxMinutes: number;
+  /** reading and pressing controls: agent-desktop first (auto), or only the system scripts (builtin) */
+  accessibilityEngine: 'auto' | 'builtin';
 }
 
 export const DEFAULT_BLOCKED_APPS = [
@@ -352,7 +361,7 @@ export const DEFAULT_BLOCKED_APPS = [
 export const DEFAULT_BLOCKED_TITLES = ['online banking', 'internet banking', 'bank account', 'sign in to your bank', 'paypal', 'crypto wallet', 'seed phrase', 'recovery phrase', 'password manager'];
 
 export function defaultComputerPolicy(): ComputerPolicy {
-  return { permission: 'off', blockedApps: [...DEFAULT_BLOCKED_APPS], blockedTitles: [...DEFAULT_BLOCKED_TITLES], maxActionsPerMinute: 90, idleMinutes: 10, maxMinutes: 60 };
+  return { permission: 'off', blockedApps: [...DEFAULT_BLOCKED_APPS], blockedTitles: [...DEFAULT_BLOCKED_TITLES], maxActionsPerMinute: 90, idleMinutes: 10, maxMinutes: 60, accessibilityEngine: 'auto' };
 }
 
 export function normalizeComputerPolicy(raw: unknown): ComputerPolicy {
@@ -367,6 +376,7 @@ export function normalizeComputerPolicy(raw: unknown): ComputerPolicy {
     maxActionsPerMinute: int(r.maxActionsPerMinute, d.maxActionsPerMinute, 5, 600),
     idleMinutes: int(r.idleMinutes, d.idleMinutes, 1, 240),
     maxMinutes: int(r.maxMinutes, d.maxMinutes, 1, 24 * 60),
+    accessibilityEngine: r.accessibilityEngine === 'builtin' ? 'builtin' : 'auto',
   };
 }
 
@@ -435,6 +445,8 @@ export interface UiNode {
   width?: number;
   height?: number;
   enabled?: boolean;
+  /** the accessibility engine can act on it directly (it has a ref) */
+  actionable?: boolean;
   children?: UiNode[];
 }
 
@@ -447,7 +459,7 @@ export function uiTreeText(root: UiNode | undefined, map: (x: number, y: number)
     const label = [n.name, n.value && n.value !== n.name ? `= “${n.value.slice(0, 80)}”` : ''].filter(Boolean).join(' ');
     const at = n.x !== undefined && n.y !== undefined && n.width !== undefined && n.height !== undefined ? map(n.x + n.width / 2, n.y + n.height / 2) : undefined;
     // Containers with nothing to say are skipped, their children are not.
-    const interesting = !!label || /button|link|field|text|check|radio|menu|tab|combo|slider|list item|cell|image/i.test(n.role);
+    const interesting = !!label || !!n.actionable || /button|link|field|text|check|radio|menu|tab|combo|slider|list item|cell|image/i.test(n.role);
     if (interesting) lines.push(`${'  '.repeat(depth)}[${n.id}] ${n.role}${label ? ` ${label}` : ''}${at ? ` @${at.x},${at.y}` : ''}${n.enabled === false ? ' (disabled)' : ''}`);
     for (const c of n.children ?? []) walk(c, interesting ? depth + 1 : depth);
   };
