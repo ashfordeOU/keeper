@@ -152,6 +152,23 @@ async function launch(name) {
   try { execFileSync(process.execPath, [path.join(ROOT, 'dist-cli/keeper.cjs'), 'backup', 'list', `--from=${drive}`], { env: { ...A.env, KEEPER_BACKUP_PASSWORD: 'nope' }, encoding: 'utf8', stdio: 'pipe' }); } catch (e) { wrong = String(e.stderr ?? '') + String(e.stdout ?? ''); }
   check(/does not open/.test(wrong), 'the wrong password is refused');
 
+  // A backup can be paused and edited from the Backups tab; where it is stored stays.
+  await A.app.evaluate(({ BrowserWindow }) => { for (const w of BrowserWindow.getAllWindows()) w.webContents.send('event:navigate', 'sync:backups'); });
+  await A.win.locator('[data-testid="backup-pause"]').first().click({ timeout: 15_000 });
+  await sleep(500);
+  const pausedJob = await A.win.evaluate((id) => window.keeper.sync.overview().then((o) => o.backups.find((x) => x.id === id)), jobId);
+  check(pausedJob?.paused === true && pausedJob.nextRun === undefined && await A.win.locator('.badge', { hasText: 'Paused' }).count() >= 1, 'a backup can be paused');
+  await A.win.locator('[data-testid="backup-edit"]').first().click();
+  await A.win.locator('.modal input[aria-label="Name"]').fill('Shared, edited');
+  await A.win.locator('.modal input[type="radio"]').nth(1).check();
+  await A.win.locator('[data-testid="backup-save"]').click();
+  await sleep(500);
+  const editedJob = await A.win.evaluate((id) => window.keeper.sync.overview().then((o) => o.backups.find((x) => x.id === id)), jobId);
+  check(editedJob?.name === 'Shared, edited' && editedJob.schedule === 'hourly' && editedJob.dest.path === drive && editedJob.paused === true, `a backup can be edited, keeping where it is stored (${editedJob?.name}, ${editedJob?.schedule})`);
+  await A.win.locator('[data-testid="backup-pause"]').first().click();
+  await sleep(300);
+  await A.win.evaluate((id) => window.keeper.sync.updateBackup(id, { name: 'Shared to drive', schedule: 'manual' }), jobId);
+
   // Settings → Features → Sync and backup off: the checks stop and a backup does not start.
   await A.win.evaluate(() => window.keeper.features.set('sync', false));
   const checks = await A.win.evaluate(() => window.keeper.usage.get().then((u) => u.checks.filter((c) => c.name.startsWith('sync.'))));

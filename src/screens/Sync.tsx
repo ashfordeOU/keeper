@@ -290,6 +290,7 @@ function ConflictsDialog({ folder, onClose }: { folder: SyncFolderStatus; onClos
 function Backups({ ov, onChange, reload }: { ov: SyncOverview; onChange: (o: SyncOverview) => void; reload: () => void }) {
   const { toast } = useStore();
   const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<BackupJobStatus | null>(null);
   const [restoring, setRestoring] = useState<BackupJobStatus | null>(null);
   const [asking, setAsking] = useState<{ job: BackupJobStatus; then: (pw: string) => void } | null>(null);
   const withPassword = (job: BackupJobStatus, fn: (pw?: string) => void) => (job.needsPassword ? setAsking({ job, then: fn }) : fn());
@@ -309,14 +310,14 @@ function Backups({ ov, onChange, reload }: { ov: SyncOverview; onChange: (o: Syn
               <div className="row" style={{ gap: 8 }}>
                 <b className="ellipsis">{b.name}</b>
                 <span className="badge"><Icon name="lock" size={10} /> Encrypted</span>
-                <StateBadge state={b.state === 'idle' && b.lastOk === false ? 'error' : b.state} />
+                <StateBadge state={b.paused && b.state !== 'running' ? 'paused' : b.state === 'idle' && b.lastOk === false ? 'error' : b.state} />
                 {b.testDue ? <button className="badge warn" title="Check that this backup can be restored" onClick={() => verify(b)}>Test due</button> : null}
               </div>
               <div className="small muted ellipsis">{b.sources.map((s) => s.name).join(', ')} → {b.destLabel}</div>
               <div className="small muted">
-                {SCHEDULE_LABEL[b.schedule]}
+                {b.paused ? 'Paused (it runs again when you resume it)' : SCHEDULE_LABEL[b.schedule]}
                 {b.lastRun ? ` · last ${relativeTime(b.lastRun)}${b.lastMessage ? `: ${b.lastMessage}` : ''}` : ' · not run yet'}
-                {b.nextRun ? ` · next ${relativeTime(b.nextRun)}` : ''}
+                {b.nextRun && !b.paused ? ` · next ${relativeTime(b.nextRun)}` : ''}
                 {b.snapshots !== undefined ? ` · ${b.snapshots} backups kept` : ''}
               </div>
               {b.progress ? (
@@ -334,6 +335,8 @@ function Backups({ ov, onChange, reload }: { ov: SyncOverview; onChange: (o: Syn
               )}
               <button className="btn sm" onClick={() => withPassword(b, () => setRestoring(b))}><Icon name="undo" size={13} /> Restore…</button>
               <button className="btn sm ghost icon" title="Check the backup" aria-label="Check the backup" onClick={() => verify(b)}><Icon name="shield" size={14} /></button>
+              <button className="btn sm ghost icon" data-testid="backup-pause" title={b.paused ? 'Resume its schedule' : 'Pause its schedule (Back up now still works)'} aria-label={b.paused ? 'Resume' : 'Pause'} aria-pressed={!!b.paused} onClick={() => void api.sync.updateBackup(b.id, { paused: !b.paused }).then(onChange, (e: Error) => toast(e.message))}><Icon name={b.paused ? 'play' : 'pause'} size={14} /></button>
+              <button className="btn sm ghost icon" data-testid="backup-edit" title="Edit: name, folders and schedule" aria-label="Edit" onClick={() => setEditing(b)}><Icon name="rename" size={14} /></button>
               <button className="btn sm ghost icon" title="Remove (the backup itself stays where it is)" aria-label="Remove (the backup itself stays where it is)" onClick={() => void api.sync.removeBackup(b.id).then(onChange)}><Icon name="trash" size={14} /></button>
             </div>
           </div>
@@ -343,6 +346,7 @@ function Backups({ ov, onChange, reload }: { ov: SyncOverview; onChange: (o: Syn
       )}
       <div><button className="btn primary" onClick={() => setAdding(true)}><Icon name="plus" size={14} /> New backup</button></div>
       {adding ? <BackupWizard onClose={() => setAdding(false)} onSaved={onChange} /> : null}
+      {editing ? <BackupEditDialog job={editing} onClose={() => setEditing(null)} onSaved={onChange} /> : null}
       {restoring ? <RestoreDialog job={restoring} onClose={() => setRestoring(null)} /> : null}
       {asking ? <PasswordDialog job={asking.job} onClose={() => setAsking(null)} onOk={(pw) => { const t = asking.then; setAsking(null); t(pw); }} /> : null}
     </div>
@@ -392,6 +396,36 @@ function DestinationPicker({ value, onChange }: { value: StoreTarget | null; onC
       {dests === null ? <Loading /> : null}
       {value ? <div className="small muted" style={{ gridColumn: '1 / -1' }}>Saved in <b>{value.kind === 'folder' ? value.path : `${value.label ?? 'connection'} › ${value.path}`}</b> <input className="input sm" style={{ width: 160, marginLeft: 6 }} value={sub} onChange={(e) => setSub(e.target.value)} title="Folder name there" /></div> : null}
     </div>
+  );
+}
+
+/** A backup's name, folders and schedule. Where it is stored and its password stay (a new place is a new backup). */
+function BackupEditDialog({ job, onClose, onSaved }: { job: BackupJobStatus; onClose: () => void; onSaved: (o: SyncOverview) => void }) {
+  const { toast } = useStore();
+  const [name, setName] = useState(job.name);
+  const [sources, setSources] = useState(job.sources);
+  const [schedule, setSchedule] = useState(job.schedule);
+  const save = () => void api.sync.updateBackup(job.id, { name: name.trim() || job.name, sources, schedule }).then((o) => { onSaved(o); onClose(); toast('Backup updated'); }, (e: Error) => toast(e.message));
+  return (
+    <Modal title={`Edit “${job.name}”`} onClose={onClose} width={560}>
+      <div className="col" style={{ gap: 10 }}>
+        <input className="input" aria-label="Name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" />
+        <div className="field-label">Folders to back up</div>
+        {sources.map((s) => (
+          <label key={s.path} className="row small sync-check"><input type="checkbox" checked onChange={() => setSources(sources.filter((x) => x.path !== s.path))} />{s.name}<span className="muted ellipsis">{s.path}</span></label>
+        ))}
+        <div><button className="btn sm" onClick={() => void api.settings.pickFolder().then((p) => p && !sources.some((s) => s.path === p) && setSources([...sources, { name: p.split(/[\\/]/).pop() || 'Folder', path: p }]))}><Icon name="plus" size={12} /> Add a folder…</button></div>
+        <div className="field-label">When</div>
+        {(Object.keys(SCHEDULE_LABEL) as BackupJobStatus['schedule'][]).filter((s) => s !== 'drive' || job.dest.kind === 'folder').map((s) => (
+          <label key={s} className={`update-mode ${schedule === s ? 'on' : ''}`}><input type="radio" checked={schedule === s} onChange={() => setSchedule(s)} /><div>{SCHEDULE_LABEL[s]}</div></label>
+        ))}
+        <div className="small muted">Stored at {job.destLabel}, encrypted with its password. To store it somewhere else, make a new backup.</div>
+        <div className="btn-row" style={{ justifyContent: 'flex-end' }}>
+          <button className="btn" onClick={onClose}>Cancel</button>
+          <button className="btn primary" data-testid="backup-save" disabled={!sources.length} onClick={save}>Save</button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 
@@ -560,7 +594,9 @@ function RestoreDialog({ job, onClose }: { job: BackupJobStatus; onClose: () => 
 // ---------------------------------------------------------------- mirrors
 
 function Mirrors({ ov, onChange }: { ov: SyncOverview; onChange: (o: SyncOverview) => void }) {
+  const { toast } = useStore();
   const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<MirrorJobStatus | null>(null);
   const dir = (m: MirrorJobStatus) => (m.direction === 'up' ? 'This computer → there' : m.direction === 'down' ? 'There → this computer' : 'Both ways');
   return (
     <div className="col" style={{ gap: 12 }}>
@@ -570,13 +606,15 @@ function Mirrors({ ov, onChange }: { ov: SyncOverview; onChange: (o: SyncOvervie
           <div className="row" style={{ gap: 12, alignItems: 'flex-start' }}>
             <div className={`sync-icon state-${m.state}`}><Icon name="cloud" size={20} /></div>
             <div className="grow" style={{ minWidth: 0 }}>
-              <div className="row" style={{ gap: 8 }}><b className="ellipsis">{m.name}</b><span className="badge">{dir(m)}</span><StateBadge state={m.state} /></div>
+              <div className="row" style={{ gap: 8 }}><b className="ellipsis">{m.name}</b><span className="badge">{dir(m)}</span><StateBadge state={m.paused && m.state !== 'running' ? 'paused' : m.state} /></div>
               <div className="small muted ellipsis">{m.local} ↔ {m.destLabel}</div>
-              <div className="small muted">{m.schedule === 'live' ? 'As soon as something changes' : m.schedule === 'hourly' ? 'Every hour' : 'When I start it'}{m.lastRun ? ` · last ${relativeTime(m.lastRun)}${m.lastMessage ? `: ${m.lastMessage}` : ''}` : ''}</div>
+              <div className="small muted">{m.paused ? 'Paused · ' : ''}{m.schedule === 'live' ? 'As soon as something changes' : m.schedule === 'hourly' ? 'Every hour' : 'When I start it'}{m.lastRun ? ` · last ${relativeTime(m.lastRun)}${m.lastMessage ? `: ${m.lastMessage}` : ''}` : ''}</div>
               {m.progress ? <div className="sync-progress"><div className="progress" role="progressbar" aria-label="Progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(Number(Math.round((m.progress.done / Math.max(1, m.progress.total)) * 100)) || 0)}><i style={{ width: `${Math.round((m.progress.done / Math.max(1, m.progress.total)) * 100)}%` }} /></div><span className="small muted ellipsis">{m.progress.file}</span></div> : null}
             </div>
             <div className="btn-row">
               <button className="btn sm" onClick={() => void api.sync.runMirror(m.id).then(onChange)}><Icon name="refresh" size={13} /> Run now</button>
+              <button className="btn sm ghost icon" data-testid="mirror-pause" title={m.paused ? 'Resume' : 'Pause (Run now still works)'} aria-label={m.paused ? 'Resume' : 'Pause'} aria-pressed={!!m.paused} onClick={() => void api.sync.updateMirror(m.id, { paused: !m.paused }).then(onChange, (e: Error) => toast(e.message))}><Icon name={m.paused ? 'play' : 'pause'} size={14} /></button>
+              <button className="btn sm ghost icon" data-testid="mirror-edit" title="Edit: name, direction and schedule" aria-label="Edit" onClick={() => setEditing(m)}><Icon name="rename" size={14} /></button>
               <button className="btn sm ghost icon" title="Remove (files stay on both sides)" aria-label="Remove (files stay on both sides)" onClick={() => void api.sync.removeMirror(m.id).then(onChange)}><Icon name="trash" size={14} /></button>
             </div>
           </div>
@@ -584,23 +622,40 @@ function Mirrors({ ov, onChange }: { ov: SyncOverview; onChange: (o: SyncOvervie
       )) : <Empty icon="cloud" title="No mirrors yet">For example, keep Screenshots copied to OneDrive, or a Scans folder the same here and in iCloud Drive.</Empty>}
       <div><button className="btn primary" onClick={() => setAdding(true)}><Icon name="plus" size={14} /> New mirror</button></div>
       {adding ? <MirrorDialog onClose={() => setAdding(false)} onSaved={onChange} /> : null}
+      {editing ? <MirrorDialog mirror={editing} onClose={() => setEditing(null)} onSaved={onChange} /> : null}
     </div>
   );
 }
 
-function MirrorDialog({ onClose, onSaved }: { onClose: () => void; onSaved: (o: SyncOverview) => void }) {
-  const [local, setLocal] = useState('');
-  const [dest, setDest] = useState<StoreTarget | null>(null);
-  const [direction, setDirection] = useState<MirrorJobStatus['direction']>('up');
-  const [schedule, setSchedule] = useState<MirrorJobStatus['schedule']>('hourly');
+/** A new mirror, or (with `mirror`) its name, direction and schedule; its two folders stay. */
+function MirrorDialog({ mirror, onClose, onSaved }: { mirror?: MirrorJobStatus; onClose: () => void; onSaved: (o: SyncOverview) => void }) {
+  const { toast } = useStore();
+  const [local, setLocal] = useState(mirror?.local ?? '');
+  const [dest, setDest] = useState<StoreTarget | null>(mirror?.dest ?? null);
+  const [name, setName] = useState(mirror?.name ?? '');
+  const [direction, setDirection] = useState<MirrorJobStatus['direction']>(mirror?.direction ?? 'up');
+  const [schedule, setSchedule] = useState<MirrorJobStatus['schedule']>(mirror?.schedule ?? 'hourly');
+  const save = () => (mirror
+    ? api.sync.updateMirror(mirror.id, { name: name.trim() || mirror.name, direction, schedule })
+    : api.sync.addMirror({ name: `${local.split(/[\\/]/).pop()}`, local, dest: dest!, direction, schedule })
+  ).then((o) => { onSaved(o); onClose(); if (mirror) toast('Mirror updated'); }, (e: Error) => toast(e.message));
   return (
-    <Modal title="New mirror" onClose={onClose} width={620}>
+    <Modal title={mirror ? `Edit “${mirror.name}”` : 'New mirror'} onClose={onClose} width={620}>
       <div className="col" style={{ gap: 12 }}>
-        <div className="row" style={{ gap: 8 }}>
-          <input className="input grow" placeholder="Folder on this computer" value={local} onChange={(e) => setLocal(e.target.value)} />
-          <button className="btn" onClick={() => void api.settings.pickFolder().then((p) => p && setLocal(p))}><Icon name="folder" size={14} /> Choose…</button>
-        </div>
-        <DestinationPicker value={dest} onChange={setDest} />
+        {mirror ? (
+          <>
+            <input className="input" aria-label="Name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" />
+            <div className="small muted">{mirror.local} ↔ {mirror.destLabel}. To use other folders, make a new mirror.</div>
+          </>
+        ) : (
+          <>
+            <div className="row" style={{ gap: 8 }}>
+              <input className="input grow" placeholder="Folder on this computer" value={local} onChange={(e) => setLocal(e.target.value)} />
+              <button className="btn" onClick={() => void api.settings.pickFolder().then((p) => p && setLocal(p))}><Icon name="folder" size={14} /> Choose…</button>
+            </div>
+            <DestinationPicker value={dest} onChange={setDest} />
+          </>
+        )}
         <div className="seg">
           {(['up', 'down', 'both'] as const).map((d) => <button key={d} className={direction === d ? 'on' : ''} onClick={() => setDirection(d)}>{d === 'up' ? 'Copy there' : d === 'down' ? 'Copy here' : 'Both ways'}</button>)}
         </div>
@@ -612,7 +667,7 @@ function MirrorDialog({ onClose, onSaved }: { onClose: () => void; onSaved: (o: 
         </select>
         <div className="btn-row" style={{ justifyContent: 'flex-end' }}>
           <button className="btn" onClick={onClose}>Cancel</button>
-          <button className="btn primary" disabled={!local || !dest} onClick={() => void api.sync.addMirror({ name: `${local.split(/[\\/]/).pop()}`, local, dest: dest!, direction, schedule }).then((o) => { onSaved(o); onClose(); })}>Start</button>
+          <button className="btn primary" data-testid="mirror-save" disabled={!mirror && (!local || !dest)} onClick={() => void save()}>{mirror ? 'Save' : 'Start'}</button>
         </div>
       </div>
     </Modal>

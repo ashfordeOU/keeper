@@ -644,7 +644,11 @@ export const syncApi: SyncApi = {
     return { overview: await overview(), recovery };
   },
   async updateBackup(id, patch) {
-    await jobPatch(id, patch);
+    // Where it is stored and when it was made stay: a new place is a new backup.
+    const { name, sources, schedule, retention, ignore, paused } = patch;
+    const clean = Object.fromEntries(Object.entries({ name, sources, schedule, retention, ignore, paused }).filter(([, v]) => v !== undefined)) as Partial<BackupJobSetting>;
+    if (clean.sources && !clean.sources.length) throw new Error('Choose at least one folder to back up');
+    await jobPatch(id, clean);
     return overview();
   },
   async removeBackup(id) {
@@ -702,7 +706,10 @@ export const syncApi: SyncApi = {
     return overview();
   },
   async updateMirror(id, patch) {
-    await save({ mirrors: conf().mirrors.map((m) => (m.id === id ? { ...m, ...patch, id } : m)) });
+    // The two folders stay (the mirror's record of what was copied belongs to them): a new pair is a new mirror.
+    const { name, direction, schedule, ignore, paused } = patch;
+    const clean = Object.fromEntries(Object.entries({ name, direction, schedule, ignore, paused }).filter(([, v]) => v !== undefined)) as Partial<MirrorJobSetting>;
+    await save({ mirrors: conf().mirrors.map((m) => (m.id === id ? { ...m, ...clean, id } : m)) });
     return overview();
   },
   async removeMirror(id) {

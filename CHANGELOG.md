@@ -43,6 +43,10 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 ### Changed — Downloaded From knows Keeper's own downloads
 - Files Keeper saves now record where they came from, the way browsers do (on a Mac kMDItemWhereFroms, so Finder's Get Info shows it, plus the usual download quarantine; on Windows the Zone.Identifier note; on Linux user.xdg.origin.url): saved mail attachments (Downloaded From → Mail), video downloads (the site, such as YouTube), cloud and server downloads (the connection's name), files received over Keeper Link (Keeper Link · the device's name) and downloads in Keeper's browser tabs (the site and the page).
 
+### Added — Pause and edit backups and mirrors
+- Sync → Backups: each backup has Pause / Resume (its schedule stops; Back up now still works) and Edit (name, folders and schedule). Where it is stored and its password stay, so editing never starts a new backup or asks for the password again.
+- Sync → Mirrors: Pause / Resume and Edit (name, direction and schedule). The two folders stay; a different pair is a new mirror.
+
 ### Fixed — Setup and permissions
 - macOS: Allow for Accessibility, Screen Recording and Input Monitoring works every time. macOS shows those questions only once per app, so Keeper now remembers that it asked, opens the exact System Settings page when the answer is still not yes a moment later, and labels the button (and "Ask again" in Allow all) "Open System Settings" from then on. A row that stays off after that suggests removing Keeper with − and adding it again (macOS can hold an older copy's approval).
 - The macOS keychain question after an update ("Keeper Safe Storage") is explained in the Software Update window before it restarts, and in docs/PERMISSIONS.md. Until a Developer ID build, that line asks you to type your login password and choose Always Allow.
