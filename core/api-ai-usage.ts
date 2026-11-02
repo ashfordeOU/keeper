@@ -61,6 +61,12 @@ export interface AiUsageApi {
   exportCsv(): Promise<{ path?: string; rows: number }>;
   /** coding tools' config folders found on this computer */
   detect(): Promise<DetectedAccount[]>;
+  /**
+   * Web accounts (claude.ai, chatgpt.com): opens the provider's own sign-in page in a window of
+   * its own, in the account's own partition, and waits. A new account (no id) is added first and
+   * dropped again if the window is closed before signing in.
+   */
+  signIn(a: AccountInput | { id: string }): Promise<{ ok: boolean; message: string; accountId?: string; accounts: AccountView[] }>;
   /** reads the 5-hour and weekly limits from the tool's status line (changes its settings file; undoable) */
   setStatusLine(accountId: string, on: boolean): Promise<{ ok: boolean; message: string }>;
   /** receipts from AI services in Mail (sender, subject and preview only) */

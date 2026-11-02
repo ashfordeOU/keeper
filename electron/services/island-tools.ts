@@ -16,7 +16,7 @@ import { newSales, parseRates, parseSales, salesRequest, SALES_PROVIDERS, summar
 import { coingeckoChartUrl, coingeckoPriceUrl, coinId, parseCoingeckoChart, parseCoingeckoPrices, parseStooq, parseTwelveQuotes, parseTwelveSeries, stooqQuoteUrl, twelveQuoteUrl, twelveSeriesUrl, type Point, type Quote } from '../../core/island-tools/stocks';
 import { scriptFromText } from '../../core/island-tools/teleprompter';
 import type { Rates } from '../../core/island-tools/units';
-import { claudeLocal, claudeOAuthUsage, claudeTokenLines, codexRateLimits, copilotQuota, copilotToken, cursorUsage, USAGE_TOOLS, type TokenLine, type UsageReport, type UsageTool } from '../../core/island-tools/usage';
+import { claudeDataDirs, claudeLocal, claudeOAuthUsage, claudeReadText, claudeTokenLines, codexRateLimits, copilotQuota, copilotToken, cursorUsage, USAGE_TOOLS, type TokenLine, type UsageReport, type UsageTool } from '../../core/island-tools/usage';
 import { officeText } from '../../core/brain/extract';
 import { getSecret, setSecret, settings } from '../store';
 
@@ -190,13 +190,16 @@ async function newestFiles(dir: string, match: (name: string) => boolean, max: n
 const usageCache = new Map<UsageTool, { at: number; r: UsageReport }>();
 
 async function claudeReport(): Promise<UsageReport> {
-  const dir = process.env.KEEPER_CLAUDE_DIR ?? path.join(home(), '.claude');
+  // Newer versions of the tool write to ~/.config/claude, older ones to ~/.claude; CLAUDE_CONFIG_DIR moves both.
+  const dirs = (process.env.KEEPER_CLAUDE_DIR ? [process.env.KEEPER_CLAUDE_DIR] : claudeDataDirs(home(), { configDir: process.env.CLAUDE_CONFIG_DIR, xdgConfig: process.env.XDG_CONFIG_HOME }, path.sep)).filter((d) => existsSync(d));
+  const dir = dirs[0];
   const base: UsageReport = { tool: 'claude', label: 'Claude Code', state: 'none', windows: [], source: '', updatedAt: Date.now() };
-  if (!existsSync(dir)) return { ...base, message: 'Claude Code is not set up on this computer.' };
-  const files = await newestFiles(path.join(dir, 'projects'), (n) => n.endsWith('.jsonl'), 60);
+  if (!dir) return { ...base, message: 'Claude Code is not set up on this computer.' };
+  const files = (await Promise.all(dirs.map((d) => newestFiles(path.join(d, 'projects'), (n) => n.endsWith('.jsonl'), 60)))).flat();
   const lines: TokenLine[] = [];
   for (const f of files) lines.push(...claudeTokenLines(await fsp.readFile(f, 'utf8').catch(() => '')));
-  const r: UsageReport = { ...base, state: 'partial', windows: claudeLocal(lines), source: `Counted from ${files.length} session file${files.length === 1 ? '' : 's'} in ~/.claude` };
+  const where = dirs.map((d) => (d.startsWith(home()) ? `~${d.slice(home().length)}` : d)).join(' and ');
+  const r: UsageReport = { ...base, state: 'partial', windows: claudeLocal(lines), source: claudeReadText({ files: files.length, replies: lines.length, weekReplies: lines.filter((l) => l.at > Date.now() - 7 * 86_400_000).length, where }) };
   if (!prefs.usageOnline.claude) return { ...r, message: 'Exact limits: allow Keeper to ask Anthropic with Claude Code\'s sign-in.' };
   try {
     let token: string | undefined;
@@ -207,7 +210,7 @@ async function claudeReport(): Promise<UsageReport> {
     const res = await get(process.env.KEEPER_CLAUDE_USAGE_URL ?? 'https://api.anthropic.com/api/oauth/usage', { authorization: `Bearer ${token}`, 'anthropic-beta': 'oauth-2025-04-20', accept: 'application/json' });
     const w = res.ok ? claudeOAuthUsage(res.body) : [];
     if (!w.length) return { ...r, message: `Anthropic did not return limits (${res.status}); showing local counts.` };
-    return { ...r, state: 'ok', windows: [...w, ...r.windows.filter((x) => x.label === 'Last 7 days')], source: 'Limits from Anthropic with Claude Code\'s sign-in; tokens counted in ~/.claude' };
+    return { ...r, state: 'ok', windows: [...w, ...r.windows.filter((x) => x.label === 'Last 7 days')], source: `Limits from Anthropic with Claude Code's sign-in; tokens counted in ${where}` };
   } catch (e) {
     return { ...r, message: e instanceof Error ? e.message : String(e) };
   }

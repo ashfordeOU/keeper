@@ -53,6 +53,7 @@ export function mockAiUsage(): { aiUsage: AiUsageApi } {
       history: async () => recent,
       exportCsv: async () => ({ rows: 0 }),
       detect: async () => [],
+      signIn: async () => ({ ok: false, message: 'Signing in is not part of the demo', accounts }),
       setStatusLine: async () => ({ ok: false, message: 'Not in the demo' }),
       scanReceipts: async () => [],
       openPage: async () => undefined,

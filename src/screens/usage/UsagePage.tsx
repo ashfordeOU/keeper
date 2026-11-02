@@ -19,10 +19,18 @@ import { UsageSettings } from './UsageSettings';
 type Tab = 'overview' | 'accounts' | 'subscriptions' | 'costs' | 'history' | 'settings';
 const TABS: [Tab, string][] = [['overview', 'Overview'], ['accounts', 'Accounts'], ['subscriptions', 'Subscriptions'], ['costs', 'Costs'], ['history', 'History'], ['settings', 'Settings']];
 
+/** `add` or `add:<service>` (from the Island's "+ Add account"): the Accounts tab with the editor open. */
+function addFrom(initial?: string): Partial<AccountInput> | null {
+  const m = /^add(?::([\w-]+))?$/.exec(initial ?? '');
+  if (!m) return null;
+  const provider = PROVIDERS.some((p) => p.id === m[1]) ? (m[1] as ProviderId) : 'claude-web';
+  return { provider, name: '' };
+}
+
 export function UsagePage({ initial }: { initial?: string }) {
   const { o, reload, refresh, busy } = useUsage();
-  const [tab, setTab] = useState<Tab>((TABS.find((t) => t[0] === initial)?.[0]) ?? 'overview');
-  const [edit, setEdit] = useState<Partial<AccountInput> | null>(null);
+  const [tab, setTab] = useState<Tab>(addFrom(initial) ? 'accounts' : (TABS.find((t) => t[0] === initial)?.[0]) ?? 'overview');
+  const [edit, setEdit] = useState<Partial<AccountInput> | null>(() => addFrom(initial));
   const store = useStore();
   if (!o) return <div className="page usage-page"><PageHead title="Usage" /></div>;
   return (
@@ -30,7 +38,7 @@ export function UsagePage({ initial }: { initial?: string }) {
       <PageHead title="Usage" sub="What is left of your AI accounts’ limits, credits and budgets, and what your subscriptions cost.">
         <button className="btn sm" disabled={busy} onClick={() => void refresh()}><Icon name="refresh" size={14} />{busy ? 'Looking…' : 'Refresh'}</button>
         <button className="btn sm" onClick={() => void api.aiUsage.exportCsv().then((r) => r.path && store.toast(`Saved ${r.rows} rows to ${r.path}`))}><Icon name="down" size={14} />Export CSV</button>
-        <button className="btn sm primary" onClick={() => setEdit({ provider: 'cc', name: '' })}><Icon name="plus" size={14} />Add account</button>
+        <button className="btn sm primary" onClick={() => setEdit({ provider: 'claude-web', name: '' })}><Icon name="plus" size={14} />Add account</button>
       </PageHead>
       <div className="seg tabs" role="tablist">
         {TABS.map(([id, label]) => <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>{label}</button>)}
@@ -50,7 +58,7 @@ type O = NonNullable<ReturnType<typeof useUsage>['o']>;
 
 function Overview({ o, onAdd }: { o: O; onAdd: () => void }) {
   if (!o.accounts.length) {
-    return <Empty icon="chart" title="No AI accounts yet"><p className="muted">Add a coding tool on this computer (each config folder is its own account), a service with an admin or usage key, Keeper’s own calls, or a subscription you pay for. Nothing is read until you do.</p><button className="btn primary" onClick={onAdd}>Add an account</button></Empty>;
+    return <Empty icon="chart" title="No AI accounts yet"><p className="muted">Sign in to a Claude or ChatGPT subscription (as many accounts as you have, each kept apart), add a coding tool on this computer (each config folder is its own account), a service with an admin or usage key, Keeper’s own calls, or a subscription you pay for. Nothing is read until you do.</p><button className="btn primary" onClick={onAdd}>Add an account</button></Empty>;
   }
   const s = o.summary;
   return (
@@ -67,9 +75,10 @@ function Overview({ o, onAdd }: { o: O; onAdd: () => void }) {
         const color = a.color ?? providerInfo(a.provider).color;
         return (
           <div className="card" key={a.id} data-testid="usage-account-card">
-            <div className="row" style={{ gap: 8, marginBottom: 6 }}><Badge a={a} /><b className="grow">{a.name}</b><span className="small muted">{providerInfo(a.provider).label} · {st?.accuracy ?? '…'}{providerInfo(a.provider).unofficial || (a.online && providerInfo(a.provider).optIn) ? ' · unofficial' : ''}</span></div>
+            <div className="row" style={{ gap: 8, marginBottom: 6 }}><Badge a={a} /><b className="grow">{a.name}</b><span className="small muted">{providerInfo(a.provider).label}{st?.plan ? ` · ${st.plan}` : ''} · {st?.accuracy ?? '…'}{providerInfo(a.provider).unofficial || (a.online && providerInfo(a.provider).optIn) ? ' · unofficial' : ''}</span></div>
             {(st?.limits ?? []).filter((l) => !a.limits || a.limits.includes(l.key)).map((l) => <MetricRow key={l.key} l={l} item={o.items.find((i) => i.accountId === a.id && i.limit.key === l.key)} points={o.recent[`${a.id}:${l.key}`] ?? []} color={color} />)}
             {st?.message ? <div className="umsg">{st.message}</div> : null}
+            {st?.needsSignIn ? <SignInButton a={a} again={!!a.signedIn} /> : null}
             {st?.source ? <div className="small muted" style={{ marginTop: 6 }}>Source: {st.source}.</div> : null}
           </div>
         );
@@ -98,10 +107,11 @@ function Accounts({ o, onEdit, reload }: { o: O; onEdit: (a: Partial<AccountInpu
               <button className="btn ghost icon sm" aria-label={`Move ${a.name} down`} disabled={i === o.accounts.length - 1} onClick={() => move(i, 1)}><Icon name="chevronDown" size={12} /></button>
             </span>
             <Badge a={a} />
-            <div className="meta"><b>{a.name}{a.paused ? <span className="muted"> · paused</span> : null}{a.hideInMenuBar ? <span className="muted"> · not in the glance</span> : null}</b><span>{providerInfo(a.provider).label}{a.configDir ? ` · ${a.configDir}` : ''}{a.hasKey ? ' · key in keychain' : ''}</span></div>
+            <div className="meta"><b>{a.name}{a.paused ? <span className="muted"> · paused</span> : null}{a.hideInMenuBar ? <span className="muted"> · not in the glance</span> : null}</b><span>{providerInfo(a.provider).label}{a.configDir ? ` · ${a.configDir}` : ''}{a.hasKey ? ' · key in keychain' : ''}{providerInfo(a.provider).kind === 'web' ? ` · ${signedInText(a)}` : ''}</span></div>
             <span className="row" style={{ gap: 6 }}>
+              {providerInfo(a.provider).kind === 'web' && (!a.signedIn || a.signedIn.expired) ? <SignInButton a={a} again={!!a.signedIn} small /> : null}
               <button className="btn sm" onClick={() => onEdit(a)}>Edit</button>
-              <button className="btn sm ghost" onClick={() => { if (confirm(`Stop tracking ${a.name}? Its history and key are removed.`)) void api.aiUsage.removeAccount(a.id).then(reload); }}>Remove</button>
+              <button className="btn sm ghost" onClick={() => { if (confirm(providerInfo(a.provider).kind === 'web' ? `Stop tracking ${a.name}? Its history is removed and Keeper signs it out here, wiping its cookies and storage.` : `Stop tracking ${a.name}? Its history and key are removed.`)) void api.aiUsage.removeAccount(a.id).then(reload); }}>Remove</button>
             </span>
           </div>
         ))}
@@ -231,6 +241,24 @@ function History({ o }: { o: O }) {
   );
 }
 
+// ---------------------------------------------------------------- web sign-ins
+
+const signedInText = (a: Pick<Account, 'signedIn'>) => (!a.signedIn ? 'not signed in' : a.signedIn.expired ? 'signed out' : `signed in${a.signedIn.email ? ` as ${a.signedIn.email}` : ''}`);
+
+/** "Sign in" / "Sign in again": the provider's own sign-in page in a window of its own. */
+function SignInButton({ a, again, small }: { a: AccountView; again: boolean; small?: boolean }) {
+  const store = useStore();
+  const [busy, setBusy] = useState(false);
+  return (
+    <button className={`btn ${small ? 'sm' : 'sm primary'}`} style={small ? undefined : { marginTop: 6 }} disabled={busy} data-testid="usage-signin-again" onClick={() => {
+      setBusy(true);
+      void api.aiUsage.signIn({ id: a.id }).then((r) => store.toast(r.message)).finally(() => setBusy(false));
+    }}>{busy ? 'Waiting for the sign-in…' : again ? 'Sign in again' : 'Sign in'}</button>
+  );
+}
+
+const KIND_GROUPS: [string, string][] = [['web', 'Sign in on the web'], ['local', 'On this computer'], ['api', 'With a key'], ['manual', 'Kept by hand']];
+
 // ---------------------------------------------------------------- adding and editing an account
 
 const SWATCHES = ['#d97757', '#10a37f', '#4285f4', '#7c6cf0', '#f59e0b', '#e5484d', '#2fb380', '#64748b', '#ec4899'];
@@ -244,6 +272,27 @@ function AccountEditor({ init, o, onClose }: { init: Partial<AccountInput>; o: O
   const has = (f: (typeof info.fields)[number]) => info.fields.includes(f);
   const set = (p: Partial<Account>) => setA((x) => ({ ...x, ...p }));
   const st = a.id ? o.states[a.id] : undefined;
+  const web = info.kind === 'web';
+  const site = info.id === 'claude-web' ? 'claude.ai' : 'chatgpt.com';
+  /** Web accounts: sign in (adding the account first when it is new). */
+  const signIn = async () => {
+    setBusy(true);
+    setMsg('Sign in in the window that opened. Keeper waits here.');
+    try {
+      const { hasKey: _h, statusLineOn: _s, ...rest } = a as AccountView;
+      const r = await api.aiUsage.signIn(a.id ? { id: a.id } : ({ ...rest, provider: info.id, name: (a.name ?? '').trim() } as AccountInput));
+      if (r.ok && a.id) {
+        // Keep what was changed in the form too.
+        await api.aiUsage.saveAccount({ ...rest, provider: info.id, name: (a.name ?? '').trim() || (r.accounts.find((x) => x.id === a.id)?.name ?? info.label) } as AccountInput);
+      }
+      if (r.ok) onClose();
+      else setMsg(r.message);
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
   const save = async () => {
     setBusy(true);
     try {
@@ -263,15 +312,37 @@ function AccountEditor({ init, o, onClose }: { init: Partial<AccountInput>; o: O
       <div className="uform" data-testid="usage-editor">
         <label htmlFor="ue-provider">Service</label>
         <select id="ue-provider" className="input" value={info.id} disabled={!!a.id} onChange={(e) => set({ provider: e.target.value as ProviderId })}>
-          {PROVIDERS.map((p) => <option key={p.id} value={p.id}>{p.label}{p.unofficial ? ` (${UNOFFICIAL.toLowerCase()})` : ''}</option>)}
+          {KIND_GROUPS.map(([kind, label]) => (
+            <optgroup key={kind} label={label}>
+              {PROVIDERS.filter((p) => p.kind === kind).map((p) => <option key={p.id} value={p.id}>{p.label}{p.unofficial ? ` (${UNOFFICIAL.toLowerCase()})` : ''}</option>)}
+            </optgroup>
+          ))}
         </select>
         <span className="hint">{info.how} <b>{info.accuracy === 'exact' ? 'Exact.' : info.accuracy === 'estimated' ? 'Estimated.' : 'Kept by hand.'}</b></span>
         <label htmlFor="ue-name">Name</label>
-        <input id="ue-name" className="input" placeholder={info.id === 'cc' ? 'Work, Personal…' : info.label} value={a.name ?? ''} onChange={(e) => set({ name: e.target.value })} />
+        <input id="ue-name" className="input" placeholder={info.id === 'cc' ? 'Work, Personal…' : info.id === 'claude-web' ? 'Claude — Work' : info.id === 'chatgpt-web' ? 'ChatGPT — Personal' : info.label} value={a.name ?? ''} onChange={(e) => set({ name: e.target.value })} />
+        {web ? <span className="hint">Left empty, it takes the email you sign in with.</span> : null}
         <label>Colour</label>
         <div className="uswatches">{SWATCHES.map((c) => <button key={c} aria-label={`Colour ${c}`} className={a.color === c ? 'on' : ''} style={{ background: c }} onClick={() => set({ color: c })} />)}<button aria-label="Default colour" className={!a.color ? 'on' : ''} style={{ background: info.color, opacity: .5 }} onClick={() => set({ color: undefined })} /></div>
         <label htmlFor="ue-icon">Badge</label>
         <input id="ue-icon" className="input" maxLength={2} style={{ width: 70 }} placeholder={info.glyph} value={a.icon ?? ''} onChange={(e) => set({ icon: e.target.value || undefined })} />
+        {has('signIn') ? <>
+          <label>Sign-in</label>
+          <span className="col" style={{ gap: 4 }} data-testid="usage-signin">
+            <span className="row" style={{ gap: 8 }}>
+              <span className="grow small">{a.id ? signedInText(a) : 'Not signed in yet'}</span>
+              <button className="btn sm" disabled={busy} onClick={() => void signIn()} data-testid="usage-signin-button">{a.signedIn && !a.signedIn.expired ? 'Sign in again' : a.id ? 'Sign in…' : `Add and sign in to ${site}…`}</button>
+            </span>
+            <span className="small muted" data-testid="usage-signin-explain">Opens {site}’s own sign-in page in a window of its own. Keeper never sees your password; the sign-in is kept only in this account’s own storage, apart from every other account, and is wiped when you remove the account.</span>
+          </span>
+          {st?.orgs && st.orgs.length > 1 ? <>
+            <label htmlFor="ue-org">Organization</label>
+            <select id="ue-org" className="input" value={a.orgId ?? ''} onChange={(e) => set({ orgId: e.target.value || undefined })}>
+              <option value="">The paid one (automatic)</option>
+              {st.orgs.map((x) => <option key={x.id} value={x.id}>{x.name}{x.plan ? ` (${x.plan})` : ''}</option>)}
+            </select>
+          </> : null}
+        </> : null}
         {has('configDir') ? <>
           <label htmlFor="ue-dir">Config folder</label>
           <input id="ue-dir" className="input" placeholder={info.defaultDir ? `~/${info.defaultDir}` : 'The usual folder'} value={a.configDir ?? ''} onChange={(e) => set({ configDir: e.target.value || undefined })} />
@@ -349,7 +420,9 @@ function AccountEditor({ init, o, onClose }: { init: Partial<AccountInput>; o: O
         {msg ? <div className="full small" role="status">{msg}</div> : null}
         <div className="full btn-row" style={{ justifyContent: 'flex-end', marginTop: 6 }}>
           <button className="btn" onClick={onClose}>Cancel</button>
-          <button className="btn primary" disabled={busy} onClick={() => void save()} data-testid="usage-save">{a.id ? 'Save' : 'Add'}</button>
+          {web && !a.id
+            ? <button className="btn primary" disabled={busy} onClick={() => void signIn()} data-testid="usage-save">{busy ? 'Waiting for the sign-in…' : `Sign in to ${site}…`}</button>
+            : <button className="btn primary" disabled={busy} onClick={() => void save()} data-testid="usage-save">{a.id ? 'Save' : 'Add'}</button>}
         </div>
       </div>
     </Modal>

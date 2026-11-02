@@ -4,7 +4,7 @@
 // reset), and expiring (much left and it resets soon: use it before it
 // goes). Pure: give it accounts, their latest limits and recent history.
 
-import { percentLeft, providerInfo, type Account, type AccountState, type Limit, type Thresholds } from './model';
+import { accountGlyph, percentLeft, providerInfo, type Account, type AccountState, type Limit, type Thresholds } from './model';
 
 export type Urgency = 'used-up' | 'running-out' | 'expiring' | 'ok';
 
@@ -91,7 +91,8 @@ export function prioritize(accounts: Account[], states: Record<string, AccountSt
       const stale = l.resetsAt !== undefined && l.resetsAt <= now;
       const lim = stale ? { ...l, usedPercent: l.usedPercent === undefined ? undefined : 0, used: l.used === undefined ? undefined : 0, resetsAt: l.windowMs ? l.resetsAt! + Math.ceil((now - l.resetsAt!) / l.windowMs) * l.windowMs : undefined } : l;
       const c = classify(lim, history[`${a.id}:${l.key}`] ?? [], th, now);
-      out.push({ accountId: a.id, accountName: a.name, provider: a.provider, glyph: info.glyph, color: a.color ?? info.color, icon: a.icon, hideInMenuBar: !!a.hideInMenuBar, limit: lim, left: percentLeft(lim), urgency: c.urgency, runsOutAt: c.runsOutAt, why: c.why });
+      // Two accounts of one service get letters of their own ("CW", "CP"), not the service's twice.
+      out.push({ accountId: a.id, accountName: a.name, provider: a.provider, glyph: accountGlyph(a, accounts), color: a.color ?? info.color, icon: a.icon, hideInMenuBar: !!a.hideInMenuBar, limit: lim, left: percentLeft(lim), urgency: c.urgency, runsOutAt: c.runsOutAt, why: c.why });
     }
   }
   return out.sort((x, y) => ORDER[x.urgency] - ORDER[y.urgency]

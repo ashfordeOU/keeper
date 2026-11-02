@@ -22,6 +22,7 @@ export function registerUsageTrackerIpc(deps: t.UsageTrackerDeps) {
   h('history', (days?: number) => t.history(Number(days) || 90));
   h('exportCsv', () => t.exportCsv());
   h('detect', () => t.detect());
+  h('signIn', (a: Parameters<typeof t.signIn>[0]) => t.signIn(a && typeof a === 'object' ? a : { id: String(a) }));
   h('setStatusLine', (id: string, on: boolean) => t.setStatusLine(String(id), !!on));
   h('scanReceipts', () => t.scanReceipts());
   h('openPage', (tab?: string) => deps.showMain(tab ? `aiusage:${tab}` : 'aiusage'));

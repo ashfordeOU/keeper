@@ -99,16 +99,17 @@ describe('the short label and the glance card', () => {
 
   it('most urgent with the provider letters and +N', () => {
     const l = renderLabel(items, S, NOW);
-    expect(l.text).toBe('CC 25%  +1');
+    // Two accounts of one service: each with letters of its own (Work → CW, Personal → CP).
+    expect(l.text).toBe('CW 25%  +1');
     expect(l.overflow).toBe(1);
     expect(l.tone).toBe('out');
     expect(l.ring).toBe(25);
-    expect(renderLabel(items, { ...S, count: 2 }, NOW).text).toBe('CC 25%  CX 0% · 22h 10m');
+    expect(renderLabel(items, { ...S, count: 2 }, NOW).text).toBe('CW 25%  CX 0% · 22h 10m');
     expect(renderLabel(items, { ...S, count: 2, glyph: false, overflow: false }, NOW).text).toBe('25%  0% · 22h 10m');
   });
 
   it('reset countdowns', () => {
-    expect(renderLabel(items, { ...S, mode: 'countdown', count: 2 }, NOW).text).toBe('CC Reset 1d 6h  CX Reset 22h 10m');
+    expect(renderLabel(items, { ...S, mode: 'countdown', count: 2 }, NOW).text).toBe('CW Reset 1d 6h  CX Reset 22h 10m');
   });
 
   it('icon only', () => {
@@ -119,7 +120,7 @@ describe('the short label and the glance card', () => {
 
   it('busy day: always the lowest, one per account first', () => {
     const calm = prioritize(accounts, { a: st('a', [{ key: '5h', label: '5-hour', usedPercent: 31 }]), d: st('d', [{ key: '5h', label: '5-hour', usedPercent: 50 }]) }, {}, TH, NOW);
-    expect(renderLabel(calm, { ...S, mode: 'busy', count: 2 }, NOW).text).toBe('CC 50%  CC 69%');
+    expect(renderLabel(calm, { ...S, mode: 'busy', count: 2 }, NOW).text).toBe('CP 50%  CW 69%');
     expect(renderLabel(calm, { ...S, mode: 'urgent' }, NOW).text).toBe('');
   });
 
@@ -130,7 +131,7 @@ describe('the short label and the glance card', () => {
   });
 
   it('the AI usage card in the owl\'s glance', () => {
-    expect(glanceUsage(items, S, NOW)).toMatchObject({ value: 'CC 25%  +1', detail: 'Work Weekly, resets in 1d 6h', usedPercent: 75, tone: 'bad' });
+    expect(glanceUsage(items, S, NOW)).toMatchObject({ value: 'CW 25%  +1', detail: 'Work Weekly, resets in 1d 6h', usedPercent: 75, tone: 'bad' });
     expect(glanceUsage(items, { ...S, mode: 'icon' }, NOW)).toMatchObject({ value: 'Used up', tone: 'bad' });
     const calm = prioritize([accounts[0]], { a: st('a', [{ key: '5h', label: '5-hour', usedPercent: 31 }]) }, {}, TH, NOW);
     expect(glanceUsage(calm, S, NOW)).toMatchObject({ value: 'All clear', detail: 'Lowest: Work 5-hour, 69% left', usedPercent: 31, tone: 'ok' });
@@ -259,7 +260,7 @@ describe('the list of sources', () => {
       expect(p.optIn, p.id).toBeTruthy();
       expect(p.fields).toContain('online');
     }
-    expect(PROVIDERS.filter((x) => x.unofficial).map((x) => x.id)).toEqual(['copilot', 'cursor']);
+    expect(PROVIDERS.filter((x) => x.unofficial).map((x) => x.id)).toEqual(['claude-web', 'chatgpt-web', 'copilot', 'cursor']);
     for (const p of PROVIDERS.filter((x) => x.optIn)) expect(p.optIn!.explain, p.id).toMatch(/unofficial|undocumented/i);
   });
 });

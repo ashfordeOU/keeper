@@ -1,0 +1,21 @@
+{
+ "uuid": "acct-1",
+ "email_address": "me@example.com",
+ "full_name": "Me Example",
+ "display_name": "Me",
+ "created_at": "2025-01-02T00:00:00Z",
+ "memberships": [
+  {
+   "role": "admin",
+   "organization": {
+    "uuid": "org-max-1",
+    "name": "me@example.com's Organization",
+    "capabilities": [
+     "chat",
+     "claude_max"
+    ],
+    "rate_limit_tier": "default_claude_max_5x"
+   }
+  }
+ ]
+}

@@ -15,7 +15,6 @@ import { addEditorHooks, hookScriptPs, hookScriptSh, removeEditorHooks } from '.
 import { statusDir } from '../../core/island-scan';
 import { mirrorSupport } from '../../core/island-notify';
 import { lowDiskAlert, plusSetting, type IslandPlusStatus } from '../../core/island-plus';
-import { mostUsed } from '../../core/island-tools/usage';
 import { settings } from '../store';
 import { featureOn, onFeature } from './features';
 import { poll, pollNow } from './governor';
@@ -24,7 +23,7 @@ import { HudWatcher } from './island-hud';
 import type { IslandService } from './island';
 import { micInUse } from './media';
 import { permissionNeeded } from './permission-nudge';
-import { onUsageChange, usageIslandAlert } from './usage-tracker';
+import { onUsageChange, usageIslandAlert, usagePinItem } from './usage-tracker';
 
 const HOOK_EDITORS = [
   { id: 'cursor', name: 'Cursor', file: path.join(os.homedir(), '.cursor', 'hooks.json'), dir: path.join(os.homedir(), '.cursor') },
@@ -53,7 +52,7 @@ export class IslandPlus {
       onFeature('islandHud', (on) => void this.hudOn(on), { now: true }),
       onFeature('islandCalls', (on) => { if (!on && this.call) { this.call = undefined; this.emit(); } }),
       // The usage tracker's ring: redrawn when its numbers change.
-      onUsageChange(() => this.emit()),
+      onUsageChange(() => { this.pinFromTracker(); this.emit(); }),
     );
   }
 
@@ -130,9 +129,13 @@ export class IslandPlus {
 
   private async pollUsagePin() {
     if (!plusSetting(settings().island, 'usagePin')) return;
-    const { usage } = await import('./island-tools');
-    const best = mostUsed(await usage().catch(() => []));
-    const next = best ? { tool: best.tool, label: `${best.label} · ${best.window.label}`, percent: Math.round(best.window.usedPercent ?? 0) } : undefined;
+    this.pinFromTracker();
+  }
+
+  /** The ring follows the usage tracker's accounts (Keeper → Usage), named by account. */
+  private pinFromTracker() {
+    if (!plusSetting(settings().island, 'usagePin')) return;
+    const next = usagePinItem();
     if (JSON.stringify(next) !== JSON.stringify(this.usagePin)) { this.usagePin = next; this.emit(); }
   }
 

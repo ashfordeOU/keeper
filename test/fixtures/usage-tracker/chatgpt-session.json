@@ -1,0 +1,15 @@
+{
+ "user": {
+  "id": "user-1",
+  "name": "Me Example",
+  "email": "me@example.com",
+  "image": "",
+  "picture": "",
+  "idp": "auth0",
+  "iat": 1793500000,
+  "mfa": false
+ },
+ "expires": "2027-01-30T12:00:00.000Z",
+ "accessToken": "eyJhbGciOiAiUlMyNTYiLCAidHlwIjogIkpXVCJ9.eyJodHRwczovL2FwaS5vcGVuYWkuY29tL2F1dGgiOiB7ImNoYXRncHRfcGxhbl90eXBlIjogInBybyIsICJjaGF0Z3B0X2FjY291bnRfaWQiOiAiYWNjLTEyMyIsICJ1c2VyX2lkIjogInVzZXItMSJ9LCAiaHR0cHM6Ly9hcGkub3BlbmFpLmNvbS9wcm9maWxlIjogeyJlbWFpbCI6ICJtZUBleGFtcGxlLmNvbSIsICJlbWFpbF92ZXJpZmllZCI6IHRydWV9LCAiZXhwIjogMTg5MzQ1NjAwMH0.c2lnbmF0dXJl",
+ "authProvider": "auth0"
+}

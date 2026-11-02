@@ -6,6 +6,12 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 
 ### Fixed
 - Memory in use now reads as the system's own monitor counts it. On a Mac that is Activity Monitor's Memory Used (App Memory + Wired + Compressed), not total minus free, which counted the file cache as used (a 36 GB Mac showed 35.6 GB instead of about 32). The memory bar is coloured by memory pressure, and a line under it shows the cached, swap and compressed memory. On Linux, used is total minus MemAvailable. This applies to the System view, the Island's System tool, the glance, the menu-bar readings, Monitor, the AI summary and Link device stats. Background work holds back under memory pressure on a Mac.
+### Added — AI usage
+- Usage → Accounts → Add account: sign in to Claude (claude.ai: Pro, Max, Team) or ChatGPT (Plus, Pro, Team, with the Codex limits) inside Keeper, one window and one isolated sign-in per account, so several Claude accounts sit side by side. Keeper never sees the password; removing the account wipes its sign-in. Reading the usage is unofficial (the sites' own pages) and opt-in per account; signed-out accounts show "Sign in again".
+- The Island's AI Usage tab now shows the tracker's accounts by name, with bars, the share left and reset countdowns, most urgent first, and "+ Add account". The glance, the Island's ring and the warnings name each account, and two accounts of one service get letters of their own.
+
+### Fixed — AI usage
+- Claude Code token counts also read the newer `~/.config/claude` folder and folders that only had files appended to, skip the tool's own zero-token notices, and say what was actually read instead of "Counted from 1 session file".
 
 ## [0.1.0-beta.6] - 2026-11-02
 

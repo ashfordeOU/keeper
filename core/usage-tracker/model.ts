@@ -8,6 +8,7 @@ import { USAGE_TOOLS } from '../island-tools/usage';
 
 /** Where an account's numbers come from. */
 export type ProviderId =
+  | 'claude-web' | 'chatgpt-web'
   | 'cc' | 'codex' | 'gemini-cli' | 'qwen' | 'opencode' | 'copilot' | 'cursor'
   | 'anthropic-api' | 'openai-api' | 'openrouter' | 'deepseek' | 'xai' | 'mistral' | 'groq' | 'gemini-api'
   | 'keeper' | 'subscription' | 'http';
@@ -15,7 +16,7 @@ export type ProviderId =
 /** How sure the numbers are. */
 export type Accuracy = 'exact' | 'estimated' | 'manual';
 
-export type ProviderField = 'configDir' | 'key' | 'teamId' | 'plan' | 'budget' | 'http' | 'subscription' | 'online' | 'statusLine';
+export type ProviderField = 'configDir' | 'key' | 'teamId' | 'plan' | 'budget' | 'http' | 'subscription' | 'online' | 'statusLine' | 'signIn';
 
 export interface ProviderInfo {
   id: ProviderId;
@@ -23,7 +24,8 @@ export interface ProviderInfo {
   /** two letters drawn in the provider's badge */
   glyph: string;
   color: string;
-  kind: 'local' | 'api' | 'manual';
+  /** local: files on this computer; api: a key; web: a sign-in inside Keeper; manual: kept by hand */
+  kind: 'local' | 'api' | 'web' | 'manual';
   accuracy: Accuracy;
   /** what the account editor asks for */
   fields: ProviderField[];
@@ -48,6 +50,12 @@ export const UNOFFICIAL = 'Unofficial; may break';
 const [cc, codex] = USAGE_TOOLS;
 
 export const PROVIDERS: ProviderInfo[] = [
+  { id: 'claude-web', label: 'Claude (claude.ai)', glyph: 'CL', color: '#d97757', kind: 'web', accuracy: 'exact', fields: ['signIn', 'online'], unofficial: true,
+    how: 'A Claude subscription (Pro, Max, Team) as claude.ai’s own usage page shows it: the 5-hour session and the weekly limits (all models, Opus), with their resets and the plan. It covers claude.ai, the apps and Claude Code on the web. You sign in to claude.ai in a window of its own; each account keeps its sign-in apart, so you can add several.',
+    optIn: { label: 'Read usage from claude.ai', explain: 'Unofficial: uses claude.ai’s own pages; may stop working. Keeper asks claude.ai for this account’s usage with this account’s own sign-in, at most once every service interval (10 minutes by default).' } },
+  { id: 'chatgpt-web', label: 'ChatGPT (chatgpt.com)', glyph: 'GP', color: '#10a37f', kind: 'web', accuracy: 'exact', fields: ['signIn', 'online'], unofficial: true,
+    how: 'A ChatGPT plan (Plus, Pro, Team…) and the Codex 5-hour and weekly limits chatgpt.com shows for it, which cover Codex in the cloud as well as the CLI. You sign in to chatgpt.com in a window of its own; each account keeps its sign-in apart.',
+    optIn: { label: 'Read usage from chatgpt.com', explain: 'Unofficial: uses chatgpt.com’s own pages; may stop working. Keeper asks chatgpt.com for this account’s plan and Codex limits with this account’s own sign-in, at most once every service interval (10 minutes by default).' } },
   { id: 'cc', label: cc.label, glyph: 'CC', color: '#d97757', kind: 'local', accuracy: 'estimated', fields: ['configDir', 'plan', 'statusLine', 'online'], defaultDir: `.${cc.id}`, dirEnv: `${cc.id.toUpperCase()}_CONFIG_DIR`,
     how: 'Tokens counted from the session files in its config folder (one account per folder). The 5-hour and weekly limits are exact once Keeper reads them from its status line; otherwise they are estimated against the plan limits you enter.',
     optIn: { label: 'Ask Anthropic with its own sign-in', explain: 'Uses the tool’s saved sign-in with an undocumented Anthropic usage endpoint. Unofficial; may stop working at any time.' } },
@@ -152,6 +160,10 @@ export interface Account {
   online?: boolean;
   /** Keeper reads the 5-hour and weekly limits from the tool's status line */
   statusLine?: boolean;
+  /** web accounts: signed in inside Keeper (in the account's own partition); expired when the site said signed out */
+  signedIn?: { at: number; email?: string; expired?: boolean };
+  /** claude.ai: the organization to read when the sign-in has more than one */
+  orgId?: string;
   createdAt: number;
 }
 
@@ -182,6 +194,12 @@ export interface AccountState {
   accuracy: Accuracy;
   /** dollars spent this month (API accounts, Keeper's own calls) */
   monthUsd?: number;
+  /** web accounts: the sign-in is missing or has ended; the page offers "Sign in again" */
+  needsSignIn?: boolean;
+  /** web accounts: the plan the site reports (Pro, Max 5×, Plus…) */
+  plan?: string;
+  /** claude.ai: the organizations this sign-in can read, to choose from */
+  orgs?: { id: string; name: string; plan?: string }[];
 }
 
 export interface Thresholds {
@@ -315,6 +333,36 @@ export function amountText(l: Pick<Limit, 'used' | 'limit' | 'unit'>): string {
 }
 
 export const percentLeft = (l: Pick<Limit, 'usedPercent'>): number | undefined => (l.usedPercent === undefined ? undefined : Math.max(0, Math.min(100, 100 - l.usedPercent)));
+
+/**
+ * The letters an account shows before its numbers (the glance, the Island): its own badge when
+ * set; the service's letters when it is the only account of that service; otherwise the
+ * service's first letter and the first letter of what tells the account apart in its name
+ * ("Claude — Work" → "CW"). When another account already reads the same, the first two letters
+ * of that word ("Pe", "Pl"); failing that, a number.
+ */
+export function accountGlyph(a: Pick<Account, 'id' | 'provider' | 'name' | 'icon'>, all: Pick<Account, 'id' | 'provider' | 'name' | 'icon'>[]): string {
+  const own = (x: typeof a) => (x.icon && x.icon.length <= 2 ? x.icon : undefined);
+  if (own(a)) return own(a)!;
+  const words = (n: string) => n.split(/[\s—–·:|/()@._-]+/).filter(Boolean);
+  const word = (x: typeof a) => {
+    const label = new Set(words(providerInfo(x.provider).label.toLowerCase()));
+    return words(x.name).find((w) => !label.has(w.toLowerCase())) ?? words(x.name)[0] ?? '?';
+  };
+  const first = (x: typeof a): string => {
+    if (own(x)) return own(x)!;
+    const info = providerInfo(x.provider);
+    if (all.filter((y) => y.provider === x.provider && !own(y)).length <= 1) return info.glyph;
+    return `${info.glyph[0]}${word(x)[0].toUpperCase()}`;
+  };
+  const g = first(a);
+  const clash = all.filter((x) => first(x) === g);
+  if (clash.length <= 1) return g;
+  const second = (x: typeof a) => { const w = word(x); return `${w[0].toUpperCase()}${(w[1] ?? '').toLowerCase()}`; };
+  const g2 = second(a);
+  if (g2.length === 2 && clash.filter((x) => second(x) === g2).length === 1 && !all.some((x) => first(x) === g2)) return g2;
+  return `${g[0]}${clash.findIndex((x) => x.id === a.id) + 1}`;
+}
 
 /** A short, unique-enough id. */
 export function newId(prefix = 'a'): string {

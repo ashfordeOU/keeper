@@ -1,0 +1,34 @@
+{
+ "five_hour": null,
+ "seven_day": null,
+ "limits": [
+  {
+   "name": "five_hour",
+   "utilization": "55",
+   "resets_at": "2026-11-01T15:00:00Z"
+  },
+  {
+   "name": "seven_day",
+   "utilization": 20,
+   "resets_at": "2026-11-06T00:00:00Z"
+  },
+  {
+   "name": "seven_day",
+   "weekly_scoped": true,
+   "model": "opus",
+   "utilization": 64,
+   "resets_at": "2026-11-06T00:00:00Z"
+  },
+  {
+   "name": "broken",
+   "utilization": true
+  },
+  "nonsense"
+ ],
+ "extra_usage": {
+  "is_enabled": false,
+  "monthly_limit": null,
+  "used_credits": null,
+  "utilization": null
+ }
+}

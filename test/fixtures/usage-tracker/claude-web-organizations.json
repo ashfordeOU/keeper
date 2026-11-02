@@ -1,0 +1,43 @@
+[
+ {
+  "id": 101,
+  "uuid": "org-api-1",
+  "name": "me@example.com's Organization",
+  "settings": {},
+  "capabilities": [
+   "api",
+   "api_individual"
+  ],
+  "rate_limit_tier": "auto_api_evaluation",
+  "billing_type": null,
+  "created_at": "2025-01-02T00:00:00Z"
+ },
+ {
+  "id": 102,
+  "uuid": "org-max-1",
+  "name": "me@example.com's Organization",
+  "settings": {},
+  "capabilities": [
+   "chat",
+   "claude_max"
+  ],
+  "rate_limit_tier": "default_claude_max_20x",
+  "billing_type": "stripe_subscription",
+  "free_credits_status": null,
+  "api_disabled_reason": null,
+  "created_at": "2025-03-04T00:00:00Z"
+ },
+ {
+  "id": 103,
+  "uuid": "org-team-1",
+  "name": "Acme",
+  "settings": {},
+  "capabilities": [
+   "chat",
+   "raven"
+  ],
+  "rate_limit_tier": "default_raven",
+  "billing_type": "stripe_subscription",
+  "created_at": "2025-05-06T00:00:00Z"
+ }
+]

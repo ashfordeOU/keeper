@@ -7,6 +7,7 @@
 //     OpenRouter and DeepSeek answered by a local stub (honoured only in unofficial builds)
 //     and a subscription kept by hand
 //   - the AI usage card in the owl's glance (Keeper's one menu-bar icon): running out, used up,
+//     with letters of each account's own when a service has several (Codex Plus → "Pl"),
 //     all clear, "only when something runs low"; custom names, the Usage page with its
 //     Priority, CSV export, `keeper usage --json`
 // Screenshots of the glance in three states and of the page, light and dark.
@@ -160,10 +161,10 @@ const server = http.createServer((req, res) => {
 
   // ---- the AI usage card in the owl's glance (no menu-bar item of its own)
   const gs = await until(async () => { const t = await u('glanceState'); return t.card ? t : null; }, 5000);
-  check(!!gs && gs.text === 'CX 3%  +2' && gs.card.value === 'CX 3%  +2' && gs.card.tone === 'bad', `glance card: "${gs?.card?.value}" (${gs?.card?.detail})`);
+  check(!!gs && gs.text === 'Pl 3%  +2' && gs.card.value === 'Pl 3%  +2' && gs.card.tone === 'bad', `glance card: "${gs?.card?.value}" (${gs?.card?.detail})`);
   check(gs?.tooltip.includes('Codex Team 5-hour: used up'), 'the summary names custom accounts');
   await u('setSettings', { menuBar: { mode: 'countdown', count: 2 } });
-  check((await u('glanceState')).card.value.startsWith('CX Reset 22h'), `countdown: "${(await u('glanceState')).card.value}"`);
+  check((await u('glanceState')).card.value.startsWith('CT Reset 22h'), `countdown: "${(await u('glanceState')).card.value}"`);
   await u('setSettings', { menuBar: { mode: 'urgent', count: 1 } });
   // A glance that has already closed itself (it hides when it loses focus) is just not pictured.
   const shoot = async (pop, name) => { await wait(600); await pop.screenshot({ path: path.join(SHOTS, `${name}.png`), timeout: 10_000 }).catch(() => undefined); };
@@ -180,7 +181,7 @@ const server = http.createServer((req, res) => {
     return { g, text: (await card.count()) ? await card.getAttribute('aria-label') : null };
   };
   let gc = await glanceCard();
-  check(!!gc.text && gc.text.startsWith('AI usage: CX 3%  +2') && /Codex Plus Weekly/.test(gc.text), `the glance shows the card ("${gc.text}")`);
+  check(!!gc.text && gc.text.startsWith('AI usage: Pl 3%  +2') && /Codex Plus Weekly/.test(gc.text), `the glance shows the card ("${gc.text}")`);
   gc.g.on('pageerror', (e) => errors.push(`glance: ${e.message}`));
   await shoot(gc.g, 'glance-running-out-light');
   check(!app.windows().some((w) => w.url().includes('ai-usage-popover')), 'no pop-over window of its own');
@@ -257,7 +258,7 @@ const server = http.createServer((req, res) => {
   codexRollout(codexB, 100, 30, { h5: 22 });
   await until(async () => (await u('refresh')).summary.runningOut.length > 0, 10_000, 1000);
   gc = await glanceCard();
-  check(!!gc.text && /AI usage: CX/.test(gc.text), `dark: the card follows the newest readings ("${gc.text}")`);
+  check(!!gc.text && /AI usage: (Pl|CT)/.test(gc.text), `dark: the card follows the newest readings ("${gc.text}")`);
   await shoot(gc.g, 'glance-running-out-dark');
   await main.evaluate(() => window.keeper.glance.close());
   await wait(800);

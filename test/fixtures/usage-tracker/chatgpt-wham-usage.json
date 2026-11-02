@@ -1,0 +1,57 @@
+{
+ "plan_type": "pro",
+ "rate_limit": {
+  "allowed": true,
+  "limit_reached": false,
+  "primary_window": {
+   "used_percent": 37,
+   "limit_window_seconds": 18000,
+   "reset_after_seconds": 7200,
+   "reset_at": 1793556000
+  },
+  "secondary_window": {
+   "used_percent": 92,
+   "limit_window_seconds": 604800,
+   "reset_after_seconds": 200000,
+   "reset_at": 1793800000
+  }
+ },
+ "code_review_rate_limit": {
+  "allowed": true,
+  "limit_reached": false,
+  "primary_window": {
+   "used_percent": 5,
+   "limit_window_seconds": 604800,
+   "reset_after_seconds": 300000,
+   "reset_at": 1793900000
+  },
+  "secondary_window": null
+ },
+ "additional_rate_limits": [
+  {
+   "limit_name": "codex_spark",
+   "metered_feature": "codex_spark",
+   "rate_limit": {
+    "primary_window": {
+     "used_percent": 10,
+     "limit_window_seconds": 18000,
+     "reset_after_seconds": 1000,
+     "reset_at": 1793550000
+    }
+   }
+  }
+ ],
+ "credits": {
+  "has_credits": true,
+  "unlimited": false,
+  "balance": "12.5",
+  "approx_local_messages": [
+   1,
+   2
+  ],
+  "approx_cloud_messages": [
+   1,
+   2
+  ]
+ }
+}

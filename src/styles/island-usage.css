@@ -1,0 +1,30 @@
+/* SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 */
+/* The Island's AI usage tab (src/island/tools/UsageTool.tsx): the tracker's accounts. */
+.isl .iu { gap: 8px; }
+.isl .iu-top { display: flex; align-items: center; gap: 6px; }
+.isl .iu-state { font-weight: 600; padding: 2px 8px; border-radius: 999px; background: rgba(74, 222, 128, .16); color: #86efac; }
+.isl .iu-state.low { background: rgba(251, 191, 36, .16); color: #fcd34d; }
+.isl .iu-state.out { background: rgba(248, 113, 113, .18); color: #fca5a5; }
+.isl .iu-acct { display: flex; flex-direction: column; gap: 5px; }
+.isl .iu-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.isl .iu-badge { flex: none; display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 3px; border-radius: 6px; color: #fff; font-size: 10px; font-weight: 700; letter-spacing: .02em; }
+.isl .iu-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.isl .iu-what { margin-left: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.isl .iu-limit { display: grid; grid-template-columns: minmax(90px, 140px) minmax(60px, 1fr) 64px 92px; gap: 8px; align-items: center; font-size: 12px; }
+.isl .iu-lab { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.isl .iu-lab i { font-style: normal; color: #8b8b94; }
+.isl .iu-bar { height: 6px; border-radius: 6px; background: rgba(255, 255, 255, .12); overflow: hidden; }
+.isl .iu-bar i { display: block; height: 100%; border-radius: 6px; background: #4ade80; transition: width .4s ease; }
+.isl .iu-limit.low .iu-bar i { background: #fbbf24; }
+.isl .iu-limit.out .iu-bar i { background: #f87171; }
+.isl .iu-limit.out { opacity: .75; }
+.isl .iu-amt { color: #a1a1aa; font-variant-numeric: tabular-nums; }
+.isl .iu-num { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+.isl .iu-reset { color: #8b8b94; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.isl .iu-optin { display: flex; align-items: center; gap: 8px; }
+.isl .iu-optin .muted { flex: 1; }
+.isl .iu-choices { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 6px; }
+.isl .iu-choice { display: flex; align-items: center; gap: 8px; text-align: left; border: 0; border-radius: 12px; padding: 8px 10px; background: rgba(255, 255, 255, .07); color: inherit; cursor: default; }
+.isl .iu-choice:hover { background: rgba(255, 255, 255, .14); }
+.isl .iu-choice > span:last-child { display: flex; flex-direction: column; min-width: 0; }
+@media (prefers-reduced-motion: reduce) { .isl .iu-bar i { transition: none; } }

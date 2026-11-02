@@ -13,7 +13,7 @@ import { existsSync, promises as fsp, watch, type FSWatcher } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import type { AccountInput, AccountView, DetectedAccount, UsageOverview } from '../../core/api-ai-usage';
-import { claudeTokenLines, copilotQuota, copilotToken, cursorUsage, type TokenLine } from '../../core/island-tools/usage';
+import { claudeDataDirs, claudeReadText, claudeTokenLines, copilotQuota, copilotToken, cursorUsage, type TokenLine } from '../../core/island-tools/usage';
 import { geminiReplies, opencodeReply, type ReplyLine } from '../../core/island-tools/usage-more';
 import { glanceUsage, renderLabel, type GlanceUsage, type MenuBarLabel } from '../../core/usage-tracker/label';
 import { countdown, defaultTrackerSettings, newId, normalizeTrackerSettings, providerInfo, PROVIDERS, type Account, type AccountState, type Limit, type ProviderId, type TrackerSettings } from '../../core/usage-tracker/model';
@@ -23,6 +23,7 @@ import {
   anthropicCostUsd, anthropicUsageTokens, apiMonthLimits, ccLocalWindows, ccOAuth, ccStatusLine, codexLatest, codexSnapshots, costLimits, dailyLimits,
   deepseekBalance, fromUsageWindows, geminiQuota, httpLimits, keeperLimits, mergeExact, monthStartUtc, openaiCostsUsd, openaiUsage, openrouterKey, rateLimits, serviceOf, xaiBalance,
 } from '../../core/usage-tracker/sources';
+import { chatgptSession, chatgptUsage, claudeIdentity, claudeOrgs, claudeWebUsage, defaultWebName, isWebProvider, pickClaudeOrg, WEB_PROVIDERS, type ClaudeOrg, type WebProviderId } from '../../core/usage-tracker/web';
 import { addPoint, dueReminders, historyCsv, monthlyTotals, MONTHLY_FACTOR, receiptFrom, subscriptionLimits, type ReceiptGuess } from '../../core/usage-tracker/subscriptions';
 import { getSecret, setSecret } from '../store';
 import { featureOn, onFeature } from './features';
@@ -117,7 +118,12 @@ const hasKey = async (id: string) => memKeys.has(id) || !!(await getSecret(keyNa
 const home = () => os.homedir();
 const parsed = new Map<string, { mtime: number; size: number; value: unknown }>();
 
-async function newestFiles(dir: string, match: (name: string) => boolean, o: { maxAgeMs: number; depth: number; max: number }): Promise<{ p: string; m: number; s: number }[]> {
+/**
+ * The newest matching files under `dir`. `prune` skips folders untouched since the window began;
+ * that is right only for folders made per day (Codex's sessions/YYYY/MM/DD), because a folder's
+ * time changes when a file is added, not when one is appended to.
+ */
+async function newestFiles(dir: string, match: (name: string) => boolean, o: { maxAgeMs: number; depth: number; max: number; prune?: boolean }): Promise<{ p: string; m: number; s: number }[]> {
   const out: { p: string; m: number; s: number }[] = [];
   const since = Date.now() - o.maxAgeMs;
   const walk = async (d: string, left: number) => {
@@ -126,9 +132,12 @@ async function newestFiles(dir: string, match: (name: string) => boolean, o: { m
     for (const e of entries) {
       const p = path.join(d, e.name);
       if (e.isDirectory() && left > 0) {
-        // A folder untouched since the window began holds nothing new.
-        const st = await fsp.stat(p).catch(() => null);
-        if (st && st.mtimeMs >= since - D) await walk(p, left - 1);
+        // A folder made per day and untouched since the window began holds nothing new.
+        if (!o.prune) await walk(p, left - 1);
+        else {
+          const st = await fsp.stat(p).catch(() => null);
+          if (st && st.mtimeMs >= since - D) await walk(p, left - 1);
+        }
       } else if (e.isFile() && match(e.name)) {
         const st = await fsp.stat(p).catch(() => null);
         if (st && st.mtimeMs >= since) out.push({ p, m: st.mtimeMs, s: st.size });
@@ -214,15 +223,30 @@ function macKeychain(service: string): Promise<string | undefined> {
   return new Promise((resolve) => execFile('/usr/bin/security', ['find-generic-password', '-s', service, '-w'], { timeout: 5000 }, (err, out) => resolve(err ? undefined : out.trim())));
 }
 
+/**
+ * The folders an account of the coding CLI reads: the one it names; else the one(s) the
+ * environment points the tool at; else both the XDG folder and ~/.claude (newer versions of the
+ * tool write to the first).
+ */
+function ccDirs(a: Account): string[] {
+  if (a.configDir) return [dirOf(a)];
+  const env = providerInfo('cc').dirEnv!;
+  return claudeDataDirs(home(), { configDir: process.env[env], xdgConfig: process.env.XDG_CONFIG_HOME }, path.sep);
+}
+const tilde = (p: string) => (p.startsWith(home()) ? `~${p.slice(home().length)}` : p);
+
 async function ccRead(a: Account): Promise<AccountState> {
+  const dirs = ccDirs(a).filter((d) => existsSync(d));
+  if (!dirs.length) return state(a, { state: 'empty', limits: [], source: '', message: `Nothing in ${ccDirs(a).map(tilde).join(' or ')} yet. Use the tool once with this folder.` });
+  // The status line and the saved sign-in live in the account's own folder (~/.claude by default).
   const dir = dirOf(a);
-  if (!existsSync(dir)) return state(a, { state: 'empty', limits: [], source: '', message: `Nothing in ${dir} yet. Use the tool once with this folder.` });
-  const files = await newestFiles(path.join(dir, 'projects'), (n) => n.endsWith('.jsonl'), { maxAgeMs: 8 * D, depth: 4, max: 300 });
+  const files = (await Promise.all(dirs.map((d) => newestFiles(path.join(d, 'projects'), (n) => n.endsWith('.jsonl'), { maxAgeMs: 8 * D, depth: 4, max: 300 })))).flat();
   const lines: TokenLine[] = [];
   for (const f of files) lines.push(...(await cachedParse(f, claudeTokenLines)));
   const now = Date.now();
   let exact: Limit[] = [];
-  const sources: string[] = [`tokens counted from ${files.length} session file${files.length === 1 ? '' : 's'}`];
+  const read = claudeReadText({ files: files.length, replies: lines.length, weekReplies: lines.filter((l) => l.at > now - 7 * D).length, where: dirs.map(tilde).join(' and ') });
+  const sources: string[] = [read.charAt(0).toLowerCase() + read.slice(1)];
   let message: string | undefined;
   if (a.statusLine) {
     const st = await readStatusFile(dir);
@@ -259,7 +283,7 @@ async function ccRead(a: Account): Promise<AccountState> {
 async function codexRead(a: Account): Promise<AccountState> {
   const dir = dirOf(a);
   if (!existsSync(dir)) return state(a, { state: 'empty', limits: [], source: '', message: `Nothing in ${dir} yet.` });
-  const files = await newestFiles(path.join(dir, 'sessions'), (n) => n.startsWith('rollout-') && n.endsWith('.jsonl'), { maxAgeMs: 8 * D, depth: 4, max: 6 });
+  const files = await newestFiles(path.join(dir, 'sessions'), (n) => n.startsWith('rollout-') && n.endsWith('.jsonl'), { maxAgeMs: 8 * D, depth: 4, max: 6, prune: true });
   const snaps = [];
   for (const f of files) snaps.push(...(await cachedParse(f, (t) => codexSnapshots(t))));
   const latest = codexLatest(snaps);
@@ -294,6 +318,100 @@ async function repliesRead(a: Account, kind: 'gemini-cli' | 'qwen'): Promise<Acc
   } catch (e) {
     return state(a, { state: 'ok', limits: local, source, message: e instanceof Error ? e.message : String(e) });
   }
+}
+
+// ---------------------------------------------------------------- web sign-ins (claude.ai, chatgpt.com): unofficial, opt-in
+
+/** When each web account last asked its site, and the ones to ask on the next look regardless. */
+const webAsked = new Map<string, number>();
+const webFresh = new Set<string>();
+const claudeOrgCache = new Map<string, { at: number; orgs: ClaudeOrg[] }>();
+
+const signInAgain = (a: Account, message: string): AccountState => state(a, { state: 'empty', limits: [], source: '', message, needsSignIn: true });
+
+/** The site said this account is signed out: remember it, so nothing more is sent until the person signs in again. */
+function signedOut(a: Account, site: string): AccountState {
+  a.signedIn = { at: a.signedIn?.at ?? Date.now(), email: a.signedIn?.email, expired: true };
+  void persist();
+  return signInAgain(a, `Signed out of ${site}. Sign in again to keep reading this account.`);
+}
+
+async function claudeOrgsFor(a: Account, force = false): Promise<ClaudeOrg[] | AccountState> {
+  const { webGet } = await import('./usage-web');
+  const c = claudeOrgCache.get(a.id);
+  if (c && !force && Date.now() - c.at < 6 * 3600_000) return c.orgs;
+  const r = await webGet(a.id, 'claude-web', '/api/organizations');
+  if (r.answer === 'signed-out') return signedOut(a, 'claude.ai');
+  if (r.answer !== 'ok') throw new SourceError(webTrouble(r.answer, r.status, 'claude.ai'));
+  const orgs = claudeOrgs(r.body);
+  claudeOrgCache.set(a.id, { at: Date.now(), orgs });
+  return orgs;
+}
+
+const webTrouble = (answer: string, status: number, site: string) => answer === 'blocked'
+  ? `${site} asked for a browser check. Open “Sign in again” once to pass it.`
+  : answer === 'busy' ? `${site} asked Keeper to slow down (429); it tries again later.` : `${site} answered ${status} (unofficial endpoint; it may have changed).`;
+
+async function webRead(a: Account & { provider: WebProviderId }): Promise<AccountState> {
+  const site = WEB_PROVIDERS[a.provider].site;
+  if (!a.signedIn) return signInAgain(a, `Not signed in yet. Choose “Sign in” to sign in to ${site} in a window of its own.`);
+  if (a.signedIn.expired) return signInAgain(a, `Signed out of ${site}. Sign in again to keep reading this account.`);
+  if (!a.online) return state(a, { state: 'empty', limits: [], source: '', message: offMessage(a) });
+  // Never more often than the service interval, except right after signing in or opting in.
+  const every = (store?.settings.apiEveryMin ?? 10) * 60_000;
+  const last = webAsked.get(a.id);
+  const prev = store?.states[a.id];
+  if (!webFresh.has(a.id) && last && Date.now() - last < every - 15_000 && prev && prev.state !== 'error') return prev;
+  webFresh.delete(a.id);
+  webAsked.set(a.id, Date.now());
+  const { webGet } = await import('./usage-web');
+  const now = Date.now();
+  if (a.provider === 'claude-web') {
+    const orgs = await claudeOrgsFor(a);
+    if (!Array.isArray(orgs)) return orgs;
+    const org = pickClaudeOrg(orgs, a.orgId);
+    if (!org) return state(a, { state: 'empty', limits: [], source: '', message: 'This sign-in has no claude.ai organization to read.' });
+    const r = await webGet(a.id, 'claude-web', `/api/organizations/${encodeURIComponent(org.id)}/usage`);
+    if (r.answer === 'signed-out') return signedOut(a, site);
+    if (r.answer !== 'ok') throw new SourceError(webTrouble(r.answer, r.status, site));
+    const limits = claudeWebUsage(r.body, now);
+    const choices = orgs.filter((o) => o.chat).map((o) => ({ id: o.id, name: o.name, plan: o.plan }));
+    const base = { plan: org.plan, orgs: choices.length > 1 ? choices : undefined };
+    if (!limits.length) return state(a, { ...base, state: 'empty', limits: [], source: `claude.ai (unofficial)`, message: `claude.ai shows no limits for ${org.name}${org.plan ? ` (${org.plan})` : ''}${org.plan === 'Free' ? '; free plans may have none to show' : ''}.` });
+    return state(a, { ...base, state: 'ok', limits, source: `claude.ai’s own usage page data for ${org.name}${org.plan ? `, ${org.plan} plan` : ''} (unofficial)` });
+  }
+  // ChatGPT: the session gives a short-lived token (kept in memory for this request only).
+  const sr = await webGet(a.id, 'chatgpt-web', '/api/auth/session');
+  if (sr.answer === 'signed-out') return signedOut(a, site);
+  if (sr.answer !== 'ok') throw new SourceError(webTrouble(sr.answer, sr.status, site));
+  const sess = chatgptSession(sr.body);
+  if (!sess.accessToken) return signedOut(a, site);
+  const r = await webGet(a.id, 'chatgpt-web', '/backend-api/wham/usage', { authorization: `Bearer ${sess.accessToken}`, ...(sess.accountId ? { 'chatgpt-account-id': sess.accountId } : {}) });
+  const noWeb = `Codex limits are not available from the web for this account; add its Codex folder (Accounts → Add account → Codex) for exact numbers.`;
+  if (r.answer === 'signed-out' && r.status === 401) return signedOut(a, site);
+  if (r.answer !== 'ok') return state(a, { state: 'empty', limits: [], plan: sess.plan, source: 'chatgpt.com (unofficial)', message: r.status === 404 || r.status === 403 ? noWeb : webTrouble(r.answer, r.status, site) });
+  const u = chatgptUsage(r.body, now);
+  const plan = u.plan ?? sess.plan;
+  if (!u.limits.length) return state(a, { state: 'empty', limits: [], plan, source: 'chatgpt.com (unofficial)', message: `${plan ? `${plan} plan. ` : ''}${noWeb}` });
+  return state(a, { state: 'ok', limits: u.limits, plan, source: `chatgpt.com’s own Codex usage data${plan ? `, ${plan} plan` : ''} (unofficial)` });
+}
+
+/** Who is signed in, asked once right after signing in (the person's own action). */
+async function webIdentity(a: Account & { provider: WebProviderId }): Promise<{ email?: string } | undefined> {
+  const { webGet } = await import('./usage-web');
+  if (a.provider === 'claude-web') {
+    const r = await webGet(a.id, 'claude-web', '/api/account').catch(() => null);
+    if (r?.answer === 'ok') {
+      const orgs = claudeOrgs(r.body);
+      if (orgs.length) claudeOrgCache.set(a.id, { at: Date.now(), orgs });
+      return { email: claudeIdentity(r.body).email };
+    }
+    const o = await webGet(a.id, 'claude-web', '/api/organizations').catch(() => null);
+    return o?.answer === 'ok' ? {} : undefined;
+  }
+  const r = await webGet(a.id, 'chatgpt-web', '/api/auth/session').catch(() => null);
+  const sess = r?.answer === 'ok' ? chatgptSession(r.body) : {};
+  return sess.accessToken ? { email: sess.email } : undefined;
 }
 
 const offMessage = (a: Account) => `Unofficial source: turn on “${providerInfo(a.provider).optIn?.label}” in its settings to read it.`;
@@ -413,12 +531,14 @@ async function readAccount(a: Account): Promise<AccountState> {
     case 'opencode': return opencodeRead(a);
     case 'copilot': return copilotRead(a);
     case 'cursor': return cursorRead(a);
+    case 'claude-web': case 'chatgpt-web': return webRead(a as Account & { provider: WebProviderId });
     case 'subscription': return state(a, { state: 'ok', limits: a.subscription ? subscriptionLimits(a.subscription, Date.now()) : [], source: 'kept by hand' });
     default: return apiRead(a);
   }
 }
 
-const isLocal = (a: Account) => providerInfo(a.provider).kind !== 'api' || a.provider === 'keeper';
+/** Read on the 2-minute local schedule (files, Keeper's own log, subscriptions); services and web sign-ins go on the slower one. */
+const isLocal = (a: Account) => { const k = providerInfo(a.provider).kind; return k === 'local' || k === 'manual'; };
 
 // ---------------------------------------------------------------- looking, with backoff on errors
 
@@ -593,6 +713,13 @@ export function usageIslandAlert(): UsageIslandAlert | undefined {
   return { id: `${i.accountId}:${i.limit.key}`, title: `${i.accountName} ${i.limit.label}`, detail: i.urgency === 'used-up' ? `Used up · ${reset}` : `${Math.round(i.left ?? 0)}% left${reset ? ` · ${reset}` : ''}`, left: Math.round(i.left ?? 0), urgency: i.urgency as 'running-out' | 'used-up' };
 }
 
+/** The limit closest to running out across every tracked account, for the ring beside the Island. */
+export function usagePinItem(): { tool: string; label: string; percent: number } | undefined {
+  if (!store || store.settings.paused || !featureOn('usageTracker')) return undefined;
+  const best = items.filter((i) => i.left !== undefined && i.urgency !== 'expiring').sort((a, b) => (a.left ?? 100) - (b.left ?? 100))[0];
+  return best ? { tool: best.provider, label: `${best.accountName} · ${best.limit.label}`, percent: Math.round(100 - (best.left ?? 100)) } : undefined;
+}
+
 export function onUsageChange(fn: () => void): () => void {
   islandListeners.add(fn);
   return () => islandListeners.delete(fn);
@@ -644,15 +771,20 @@ export async function saveAccount(input: AccountInput, key?: string): Promise<Ac
   if (!PROVIDERS.some((p) => p.id === input.provider)) throw new Error('Unknown service');
   const prev = input.id ? s.accounts.find((a) => a.id === input.id) : undefined;
   // Only the account's own fields (not what the page shows about it).
-  const { hasKey: _k, statusLineOn: _s, ...fields } = input as AccountInput & Partial<AccountView>;
+  // The sign-in state is Keeper's own record, never taken from the page.
+  const { hasKey: _k, statusLineOn: _s, signedIn: _si, ...fields } = input as AccountInput & Partial<AccountView>;
   const a: Account = {
     ...(prev ?? {}),
     ...fields,
     id: prev?.id ?? newId('u'),
     name: clean(input.name, 60) || providerInfo(input.provider).label,
+    signedIn: prev?.signedIn,
     createdAt: prev?.createdAt ?? Date.now(),
   } as Account;
+  if (prev && prev.provider !== a.provider) throw new Error('An account’s service cannot change');
   if (a.configDir) a.configDir = clean(a.configDir, 1000) || undefined;
+  // A web account asks its site straight away when it was just opted in or pointed at another organization.
+  if (isWebProvider(a.provider) && (a.online && !prev?.online || a.orgId !== prev?.orgId)) webFresh.add(a.id);
   s.accounts = prev ? s.accounts.map((x) => (x.id === a.id ? a : x)) : [...s.accounts, a];
   if (key !== undefined) await keepKey(a.id, key.trim());
   failures.delete(a.id);
@@ -666,6 +798,11 @@ export async function removeAccount(id: string): Promise<AccountView[]> {
   const s = await load();
   const a = s.accounts.find((x) => x.id === id);
   if (a?.statusLine) await setStatusLine(id, false).catch(() => undefined);
+  // A web sign-in: its partition's cookies and storage go with it.
+  if (a && isWebProvider(a.provider)) await import('./usage-web').then((w) => w.forgetSignIn(id)).catch(() => undefined);
+  webAsked.delete(id);
+  webFresh.delete(id);
+  claudeOrgCache.delete(id);
   s.accounts = s.accounts.filter((x) => x.id !== id);
   delete s.states[id];
   delete s.costs[id];
@@ -675,6 +812,45 @@ export async function removeAccount(id: string): Promise<AccountView[]> {
   syncPolling();
   after();
   return accounts();
+}
+
+/**
+ * Signs a web account in (claude.ai, chatgpt.com) in a window of its own, in the account's own
+ * partition. A new account (no id yet) is added first, and taken away again when the window is
+ * closed before signing in. The name defaults to the signed-in email.
+ */
+export async function signIn(input: AccountInput | { id: string }): Promise<{ ok: boolean; message: string; accountId?: string; accounts: AccountView[] }> {
+  const s = await load();
+  let a: Account | undefined = 'provider' in input && !input.id ? undefined : s.accounts.find((x) => x.id === input.id);
+  let added = false;
+  if (!a) {
+    if (!('provider' in input) || !isWebProvider(input.provider)) return { ok: false, message: 'Not a web account', accounts: await accounts() };
+    const list = await saveAccount({ ...input, name: (input.name ?? '').trim() });
+    a = s.accounts.find((x) => x.id === list[list.length - 1].id)!;
+    added = true;
+  }
+  if (!isWebProvider(a.provider)) return { ok: false, message: 'Not a web account', accounts: await accounts() };
+  const acct = a as Account & { provider: WebProviderId };
+  const site = WEB_PROVIDERS[acct.provider].site;
+  const web = await import('./usage-web');
+  let email: string | undefined;
+  const r = await web.signInWindow(acct.id, acct.provider, async () => {
+    const who = await webIdentity(acct);
+    email = who?.email;
+    return !!who;
+  }, { parent: BrowserWindow.getFocusedWindow(), title: `Sign in to ${site} · ${acct.name}` });
+  if (!r.ok) {
+    if (added && !acct.signedIn) await removeAccount(acct.id);
+    return { ok: false, message: r.message ?? 'Not signed in.', accounts: await accounts() };
+  }
+  acct.signedIn = { at: Date.now(), email };
+  acct.name = defaultWebName(acct.name, providerInfo(acct.provider).label, email);
+  failures.delete(acct.id);
+  webFresh.add(acct.id);
+  await persist(true);
+  syncPolling();
+  void lookOnce('all', acct.id, true);
+  return { ok: true, message: `Signed in to ${site}${email ? ` as ${email}` : ''}.`, accountId: acct.id, accounts: await accounts() };
 }
 
 export async function reorder(ids: string[]): Promise<AccountView[]> {
@@ -730,7 +906,7 @@ export async function detect(): Promise<DetectedAccount[]> {
   try {
     const { agentClis } = await import('./agents');
     for (const prof of (await agentClis()).profiles) {
-      const provider: ProviderId | undefined = prof.agent.startsWith(PROVIDERS[0].defaultDir!.slice(1)) ? 'cc' : prof.agent === 'codex' ? 'codex' : undefined;
+      const provider: ProviderId | undefined = prof.agent.startsWith(providerInfo('cc').defaultDir!.slice(1)) ? 'cc' : prof.agent === 'codex' ? 'codex' : undefined;
       if (provider && prof.configDir) add(provider, prof.configDir, `${providerInfo(provider).label} · ${prof.label}`);
     }
   } catch {
@@ -816,7 +992,7 @@ export async function statusText(): Promise<{ text: string; data: unknown }> {
   const lines: string[] = [];
   for (const a of o.accounts) {
     const st = o.states[a.id];
-    lines.push(`${a.name} (${providerInfo(a.provider).label}${st ? `, ${st.accuracy}` : ''})${st?.message ? ` — ${st.message}` : ''}`);
+    lines.push(`${a.name} (${providerInfo(a.provider).label}${st?.plan ? ` ${st.plan}` : ''}${st ? `, ${st.accuracy}` : ''})${st?.message ? ` — ${st.message}` : ''}`);
     for (const l of st?.limits ?? []) {
       const it = o.items.find((i) => i.accountId === a.id && i.limit.key === l.key);
       lines.push(`  ${l.label}: ${l.usedPercent !== undefined ? `${Math.round(100 - l.usedPercent)}% left` : ''}${l.used !== undefined ? ` ${l.unit === 'usd' ? `$${l.used.toFixed(2)}` : Math.round(l.used)}${l.limit !== undefined ? ` of ${l.unit === 'usd' ? `$${l.limit}` : l.limit}` : ''}${l.unit && l.unit !== 'usd' ? ` ${l.unit}` : ''}` : ''}${l.resetsAt ? `, resets in ${countdown(l.resetsAt - now)}` : ''}${it && it.urgency !== 'ok' ? ` [${it.urgency}]` : ''}${l.estimated ? ' (estimated)' : ''}`);
@@ -828,7 +1004,7 @@ export async function statusText(): Promise<{ text: string; data: unknown }> {
     runningOut: o.summary.runningOut.map(brief),
     usedUp: o.summary.usedUp.map(brief),
     expiring: o.summary.expiring.map(brief),
-    accounts: o.accounts.map((a) => ({ id: a.id, name: a.name, service: a.provider, accuracy: o.states[a.id]?.accuracy, state: o.states[a.id]?.state, message: o.states[a.id]?.message, limits: (o.states[a.id]?.limits ?? []).map((l) => ({ key: l.key, label: l.label, usedPercent: l.usedPercent, used: l.used, limit: l.limit, unit: l.unit, resetsAt: l.resetsAt ? new Date(l.resetsAt).toISOString() : undefined, estimated: !!l.estimated })) })),
+    accounts: o.accounts.map((a) => ({ id: a.id, name: a.name, service: a.provider, plan: o.states[a.id]?.plan, needsSignIn: o.states[a.id]?.needsSignIn || undefined, accuracy: o.states[a.id]?.accuracy, state: o.states[a.id]?.state, message: o.states[a.id]?.message, limits: (o.states[a.id]?.limits ?? []).map((l) => ({ key: l.key, label: l.label, usedPercent: l.usedPercent, used: l.used, limit: l.limit, unit: l.unit, resetsAt: l.resetsAt ? new Date(l.resetsAt).toISOString() : undefined, estimated: !!l.estimated })) })),
     subscriptionsMonthly: o.subscriptions.monthly,
     label: o.label.text,
   };
@@ -847,6 +1023,8 @@ export async function initUsageTracker(d: UsageTrackerDeps) {
       label = renderLabel(items, s.settings.menuBar, Date.now());
     }
     syncPolling();
+    // Sign-ins of web accounts removed while Keeper was not there to wipe them.
+    if (featureOn('usageTracker')) void import('./usage-web').then((w) => w.forgetOrphans(s.accounts.filter((a) => isWebProvider(a.provider)).map((a) => a.id))).catch(() => undefined);
   };
   onFeature('usageTracker', (on) => {
     if (!on) {

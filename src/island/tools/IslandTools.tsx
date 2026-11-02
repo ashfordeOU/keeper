@@ -14,7 +14,7 @@ import { useFeature } from '../../features';
 import type { SalesSummary } from '../../../core/island-tools/sales';
 import { parseWatchlist, sparkPath, type Point, type Quote } from '../../../core/island-tools/stocks';
 import { answer, type Rates } from '../../../core/island-tools/units';
-import { formatTokens, warnLevel, type UsageReport, type UsageTool } from '../../../core/island-tools/usage';
+import { warnLevel } from '../../../core/island-tools/usage';
 import { agendaFor, countdown, inIsland, islandAgenda, type AgendaItem } from '../../../core/pim/agenda';
 import { parseQuickAdd } from '../../../core/pim/quickadd';
 import type { SystemAccess } from '../../../core/pim/syscal';
@@ -30,11 +30,6 @@ import { useStore } from '../../state';
 const say = (text: string) => window.dispatchEvent(new CustomEvent('island-toast', { detail: text }));
 const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 const timeOf = (t: number) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-const until = (t?: number) => {
-  if (!t) return '';
-  const m = Math.max(0, Math.round((t - Date.now()) / 60_000));
-  return m < 60 ? `${m} min` : m < 48 * 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${Math.round(m / 1440)} days`;
-};
 
 /** Runs `fn` now and every `ms` while the tool is on screen; nothing in the background. */
 function useWhileVisible(fn: () => void, ms: number) {
@@ -148,36 +143,8 @@ function Bar({ pct, level }: { pct: number; level: string }) {
   return <div className={`ubar ${level}`}><i style={{ width: `${Math.max(2, Math.min(100, pct))}%` }} /></div>;
 }
 
-export function UsageTool() {
-  const [list, setList] = useState<UsageReport[] | null>(null);
-  const [online, setOnline] = useState<Partial<Record<UsageTool, boolean>>>({});
-  const load = useCallback(() => { void api.islandTools.usage().then(setList); void api.islandTools.usageOnline().then(setOnline); }, []);
-  useWhileVisible(load, 60_000);
-  const allow = async (t: UsageTool, on: boolean) => { await api.islandTools.setUsageOnline(t, on); load(); };
-  if (!list) return <div className="muted">Looking…</div>;
-  return (
-    <div className="itool usage">
-      {list.map((r) => (
-        <div key={r.tool} className={`tile urow state-${r.state}`}>
-          <div className="row-x"><b>{r.label}</b><span className="muted small grow">{r.source}</span>
-            {(r.tool === 'claude' || r.tool === 'copilot' || r.tool === 'cursor') && r.state !== 'none' ? (
-              <label className="small" title="Ask the provider for exact limits with this tool's own sign-in (nothing goes anywhere else)"><input type="checkbox" checked={!!online[r.tool]} onChange={(e) => void allow(r.tool, e.target.checked)} /> Exact limits</label>
-            ) : null}
-          </div>
-          {r.windows.map((w) => (
-            <div key={w.label} className="uwin">
-              <span className="small">{w.label}</span>
-              {w.usedPercent !== undefined ? <Bar pct={w.usedPercent} level={warnLevel(w.usedPercent)} /> : <span className="grow" />}
-              <span className="small num">{w.usedPercent !== undefined ? `${Math.round(w.usedPercent)}%` : w.tokens !== undefined ? `${formatTokens(w.tokens)} tokens` : ''}{w.used !== undefined && w.limit ? ` · ${w.used}/${w.limit}` : ''}</span>
-              <span className="muted small">{w.resetsAt ? `resets in ${until(w.resetsAt)}` : ''}</span>
-            </div>
-          ))}
-          {r.message ? <div className="muted small">{r.message}</div> : null}
-        </div>
-      ))}
-    </div>
-  );
-}
+// The AI usage tab shows the usage tracker's accounts (./UsageTool.tsx).
+export { UsageTool } from './UsageTool';
 
 // ---------------------------------------------------------------- Sales
 

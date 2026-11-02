@@ -76,27 +76,74 @@ export interface TokenLine {
   model?: string;
 }
 
-/** Assistant turns with token usage from a Claude Code session file (JSON lines). */
+const tokenNum = (v: unknown): number => {
+  const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() !== '' ? Number(v) : NaN;
+  return Number.isFinite(n) && n > 0 ? n : 0;
+};
+const lineTime = (v: unknown): number => (typeof v === 'number' ? (v > 1e12 ? v : v * 1000) : typeof v === 'string' ? Date.parse(v) : NaN);
+
+/** All tokens of one reply's `usage`: input, output and both cache kinds (from the nested `cache_creation` when the total is missing). */
+export function usageTokens(u: Record<string, unknown>): number {
+  let cacheWrite = tokenNum(u.cache_creation_input_tokens);
+  const cc = u.cache_creation as Record<string, unknown> | undefined;
+  if (!cacheWrite && cc && typeof cc === 'object') cacheWrite = Object.values(cc).reduce<number>((n, v) => n + tokenNum(v), 0);
+  return tokenNum(u.input_tokens) + tokenNum(u.output_tokens) + cacheWrite + tokenNum(u.cache_read_input_tokens);
+}
+
+/**
+ * Assistant turns with token usage from a Claude Code session file (JSON lines): each line's
+ * `message.usage` (or a top-level `usage`), with `timestamp`. Streaming writes the same reply
+ * once per content block (same message id and request id); it counts once, with its largest
+ * reading. Replies with no tokens at all (the tool's own notices, such as a limit message) are
+ * left out.
+ */
 export function claudeTokenLines(jsonl: string): TokenLine[] {
   const out: TokenLine[] = [];
-  const seen = new Set<string>();
+  const byId = new Map<string, number>();
   for (const line of jsonl.split('\n')) {
     if (!line.includes('"usage"')) continue;
     try {
-      const o = JSON.parse(line) as { timestamp?: string; requestId?: string; message?: { id?: string; model?: string; usage?: Record<string, number> } };
-      const u = o.message?.usage;
-      if (!u || !o.timestamp) continue;
-      // Streaming writes the same message more than once; count it once.
+      const o = JSON.parse(line) as { timestamp?: string | number; requestId?: string; type?: string; usage?: Record<string, unknown>; message?: { id?: string; model?: string; usage?: Record<string, unknown> } };
+      const u = o.message?.usage ?? o.usage;
+      if (!u || typeof u !== 'object' || o.timestamp === undefined) continue;
+      const at = lineTime(o.timestamp);
+      const tokens = usageTokens(u);
+      if (!Number.isFinite(at) || !tokens) continue;
       const id = `${o.message?.id ?? ''}:${o.requestId ?? ''}`;
-      if (id !== ':' && seen.has(id)) continue;
-      seen.add(id);
-      const tokens = (u.input_tokens ?? 0) + (u.output_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0);
-      out.push({ at: Date.parse(o.timestamp), tokens, model: o.message?.model });
+      if (id !== ':') {
+        const i = byId.get(id);
+        if (i !== undefined) {
+          if (tokens > out[i].tokens) out[i] = { ...out[i], tokens };
+          continue;
+        }
+        byId.set(id, out.length);
+      }
+      out.push({ at, tokens, model: o.message?.model });
     } catch {
       /* a partly written line */
     }
   }
-  return out.filter((l) => Number.isFinite(l.at));
+  return out;
+}
+
+/**
+ * Where the coding CLI keeps its session files: the folder it was pointed at
+ * (`CLAUDE_CONFIG_DIR`, which may list several separated by commas), else both the newer
+ * XDG folder (`~/.config/claude`) and the classic `~/.claude`. Each one's `projects` folder.
+ */
+export function claudeDataDirs(home: string, env: { configDir?: string; xdgConfig?: string }, sep = '/'): string[] {
+  const join = (...p: string[]) => p.join(sep).replace(/[\\/]+/g, sep);
+  if (env.configDir?.trim()) return env.configDir.split(',').map((d) => d.trim()).filter(Boolean);
+  return [join(env.xdgConfig || join(home, '.config'), 'claude'), join(home, '.claude')];
+}
+
+/** What a reading of session files says it read, in plain words. */
+export function claudeReadText(o: { files: number; replies: number; weekReplies: number; where: string }): string {
+  if (!o.files) return `No session files from the last week in ${o.where}`;
+  const files = `${o.files} session file${o.files === 1 ? '' : 's'}`;
+  if (!o.replies) return `Read ${files} in ${o.where}; none has replies with token counts`;
+  if (!o.weekReplies) return `Read ${files} in ${o.where}; no replies in the last 7 days`;
+  return `Counted ${o.weekReplies} repl${o.weekReplies === 1 ? 'y' : 'ies'} from ${files} in ${o.where}`;
 }
 
 /**
