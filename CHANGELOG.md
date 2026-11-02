@@ -112,6 +112,12 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - While music plays, an agent works, a timer runs or something records and its view is not pinned, it borrows a place before More until it ends.
 - Calendar is called Week on the deck and the planner's week of tasks is called Planner. Keep awake and Stage moved from the tab bar to Home's status line.
 
+### Changed — Island motion
+- Opening and closing use real springs (src/island/spring.ts) instead of one CSS curve: a slightly bouncy open, a close that never bounces, its own spring for switching views, the wings and cards, and a new target keeps the speed it has, so a hover that turns into an open (or a close called off) is one motion. Nothing runs on animation frames once the shape is still.
+- The pointer arriving makes the closed Island grow a little at once; it opens after 140 ms (was 250 ms; a delay you chose is kept), and a pointer sweeping along the menu bar only passes by. The window grows to the open size during that wait, still letting clicks through outside the shape, so opening is only the shape's motion.
+- Closing: 220 ms after the pointer leaves (not while a menu is open, a field has the keyboard, something is dragged or a button is held), the content fades out first and then the shape closes; the window shrinks once it has come to rest. With Reduce motion the sizes change at once.
+- macOS: a light trackpad tap as the Island opens, never when the pointer only passes over it (Settings → Island → Haptic feedback; needs keeper-helper, nothing happens without it).
+
 ### Fixed — Island
 - macOS: the Island is a plain borderless window instead of a panel, so macOS 26 no longer draws a grey rounded backdrop behind the open Island. Its scroll bars are dark and thin, with no light square in the corner.
 - Opening the Island no longer takes the keyboard, so it never brings Keeper or its main window to the front; it takes the keyboard when you click a field in it (or the New task shortcut opens it). The closed pill never takes focus.

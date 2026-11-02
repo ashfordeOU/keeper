@@ -363,8 +363,12 @@ export interface IslandSettings {
   activitiesOff?: string[];
   /** open the Island when the pointer rests on it (tap or click always works) */
   hoverOpen?: boolean;
-  /** how long the pointer rests before it opens, in ms */
+  /** how long the pointer rests before it opens, in ms (140 by default; core/island-open.ts) */
   hoverDelayMs?: number;
+  /** a light trackpad tap when the Island opens (macOS) */
+  haptics?: boolean;
+  /** 1 once the hover delay was moved to the open model's default (settings from before keep a delay they chose) */
+  openModel?: number;
   /** the Island's tools in the person's order, and the ones turned off (see core/island-tools/tools.ts) */
   toolOrder?: string[];
   toolsOff?: string[];
@@ -722,6 +726,10 @@ export interface KeeperApi extends KeeperApiX {
     setInteractive?(on: boolean): void;
     /** a field in the open Island was clicked: it takes the keyboard (opening alone never does) */
     takeFocus?(): void;
+    /** the pointer rests on the closed Island: its window may already grow to the open size (it stays click-through outside the shape) */
+    prepare?(on: boolean): void;
+    /** a light trackpad tap as the Island opens (macOS with keeper-helper; nothing elsewhere) */
+    haptic?(): void;
     /** the closed pill's size, so the window covers nothing else */
     setSize(width: number, height: number): void;
     createShelf(name?: string): Promise<void>;

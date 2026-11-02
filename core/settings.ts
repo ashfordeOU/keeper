@@ -7,6 +7,7 @@ import { defaultAbilities } from './abilities/config';
 import type { IslandSettings } from './api';
 import { cleanPanelSizes, isPanelSize, islandWindowType } from './island-size';
 import { DEFAULT_DECK, cleanDeck, migrateDeck } from './island-tools/tools';
+import { HOVER_DWELL_MS, migrateHoverDelay } from './island-open';
 import { defaultBrainSettings, normalizeBrainSettings } from './brain/config';
 import { defaultAgentSettings, normalizeAgentSettings } from './agents-config';
 import { defaultSyncSettings, normalizeSyncSettings } from './sync/config';
@@ -68,7 +69,9 @@ export function defaultIsland(): IslandSettings {
     privacyDots: true,
     activitiesOff: [],
     hoverOpen: true,
-    hoverDelayMs: 250,
+    hoverDelayMs: HOVER_DWELL_MS,
+    haptics: true,
+    openModel: 1,
     openShortcut: 'CommandOrControl+Alt+I',
     focusSound: 'off',
     focusVolume: 0.4,
@@ -200,6 +203,9 @@ export function mergeSettings(base: AllSettings, raw: unknown): AllSettings {
   // The deck (pinned tools) came after the tabs: settings from before it keep the person's first choices.
   const rawIsland = r.island && typeof r.island === 'object' ? (r.island as Record<string, unknown>) : {};
   out.island.deck = Array.isArray(rawIsland.deck) ? cleanDeck(rawIsland.deck) : migrateDeck(out.island.toolOrder, out.island.toolsOff);
+  // The open model's shorter hover delay: settings from before it that still have the old default get the new one, once.
+  out.island.hoverDelayMs = migrateHoverDelay(out.island.hoverDelayMs, Object.keys(rawIsland).length > 0 && rawIsland.openModel !== 1);
+  out.island.openModel = 1;
   out.island = { ...out.island, panelSize: isPanelSize(out.island.panelSize) ? out.island.panelSize : 'regular', panelSizes: cleanPanelSizes(out.island.panelSizes) as IslandSettings['panelSizes'], windowType: islandWindowType(out.island.windowType) };
   out.sidebarSectionLimit = Number.isFinite(out.sidebarSectionLimit) ? Math.max(0, Math.min(50, Math.round(out.sidebarSectionLimit))) : 5;
   if (!['', 'all', 'onDemand'].includes(out.permissionsSetup)) out.permissionsSetup = '';

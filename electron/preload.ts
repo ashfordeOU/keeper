@@ -132,6 +132,8 @@ const api = {
     setExpanded: (v: boolean) => ipcRenderer.send('island.setExpanded', v),
     setInteractive: (v: boolean) => ipcRenderer.send('island.setInteractive', v),
     takeFocus: () => ipcRenderer.send('island.takeFocus'),
+    prepare: (v: boolean) => ipcRenderer.send('island.prepare', v),
+    haptic: () => ipcRenderer.send('island.haptic'),
     setSize: (w: number, h: number) => ipcRenderer.send('island.setSize', w, h),
     closeClips: () => ipcRenderer.send('island.closeClips'),
   },

@@ -13,7 +13,8 @@
 // input.key, input.text. Permissions.swift adds permissions.status and
 // permissions.request (the Permissions screen). Extras.swift adds speech.transcribe, ddc.list,
 // ddc.get, ddc.set and translate; Calendar.swift the calendar.* methods; Front.swift
-// front.watch, front.now, place.measure and apps.running; Memory.swift memory.stats.
+// front.watch, front.now, place.measure and apps.running; Memory.swift memory.stats;
+// haptic.tap (the Island opening) is here.
 
 import Foundation
 import AppKit
@@ -547,6 +548,10 @@ func handle(id: Int, method: String, params: [String: Any]) async {
         case "calls.muted": Wire.shared.result(id, callsMuted())
         case "calls.mute": Wire.shared.result(id, try callsMute(params))
         case "hud.levels": Wire.shared.result(id, hudLevels())
+        case "haptic.tap":
+            // The Island opened: one light tap on a Force Touch trackpad (nothing with a mouse). Main thread, as AppKit wants.
+            await MainActor.run { NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now) }
+            Wire.shared.result(id, ["ok": true])
         case "hud.watch": try await hudWatch(id: id, params: params); Wire.shared.result(id, ["ended": true])
         case "front.watch": try await frontWatch(id: id, params: params); Wire.shared.result(id, ["ended": true])
         case "front.now": Wire.shared.result(id, frontNow() ?? [:])

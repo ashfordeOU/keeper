@@ -4,7 +4,9 @@
 // only itself, and that activities, the Live Activity card and the panel open and close;
 // the open Island's sizes (the window is exactly the panel at each one, the grip snaps)
 // the calendars picker (a calendar switched off leaves the Calendar tab and the pill's countdown);
-// the deck (never wider than the panel, only the open view named), More, pinning and unpinning.
+// the deck (never wider than the panel, only the open view named), More, pinning and unpinning;
+// the open model (the breath at once, the window grown while it waits, open after the rest, content out
+// before the shape shrinks) and no animation frames at rest.
 const { _electron } = require('playwright');
 const http = require('http');
 const { execFileSync } = require('child_process');
@@ -258,6 +260,64 @@ const SHARED = ics([['BEGIN:VEVENT', 'UID:holiday@island', `DTSTART:${local(tomo
   check(/Shared holiday lunch/.test(text), '“Show all” brings it back');
   await closeIsland();
   feeds.close();
+
+  // ---------------------------------------------------------------- the open model and the springs
+  // Nothing runs on animation frames once the Island is closed and still (the springs stop at rest).
+  await isl.evaluate(() => {
+    if (window.__rafWrapped) return;
+    window.__rafWrapped = true;
+    window.__raf = 0;
+    const raf = window.requestAnimationFrame.bind(window);
+    window.requestAnimationFrame = (cb) => { window.__raf++; return raf(cb); };
+  });
+  const rafs = () => isl.evaluate(() => window.__raf);
+  await setIsl({ hoverOpen: true, hoverDelayMs: 450 });
+  await wait(1500);
+  await isl.evaluate(() => { window.__raf = 0; });
+  await wait(2000);
+  let idleFrames = await rafs();
+  check(idleFrames === 0, `no animation frames while the Island is closed and idle (${idleFrames} in 2 s)`);
+  // The pointer arrives: the shape grows a little at once and the window grows to the open size; it opens after the rest.
+  const shapeW = () => isl.evaluate(() => { const el = document.querySelector('.isl-shape'); const m = /inset\(\S+ ([\d.]+)px/.exec(el.style.clipPath || ''); return m ? el.getBoundingClientRect().width - 2 * parseFloat(m[1]) : 0; });
+  const w0 = await shapeW();
+  const bw0 = (await islandBounds()).width;
+  const pill = await isl.evaluate(() => { const r = document.querySelector('.isl-content').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
+  const t0 = Date.now();
+  await isl.mouse.move(pill.x, pill.y);
+  await wait(150);
+  const breathing = await isl.evaluate(() => document.querySelector('.isl-root').classList.contains('breath') && !document.querySelector('.live-card, .isl-panel'));
+  const w1 = await shapeW();
+  const bw1 = (await islandBounds()).width;
+  check(breathing && w1 > w0, `the pointer arriving grows the shape at once, before it opens (${Math.round(w0)} → ${Math.round(w1)} px)`);
+  check(bw1 > bw0, `the window grows to the open size while it waits (${bw0} → ${bw1})`);
+  for (let i = 0; i < 60 && !(await isl.locator('.live-card, .isl-panel').count()); i++) await wait(25);
+  const opened = Date.now() - t0;
+  check(await isl.locator('.live-card, .isl-panel').count() === 1 && opened >= 400, `then it opens after the rest (${opened} ms after arriving, delay 450)`);
+  check(await rafs() > 0, 'the motion runs on animation frames');
+  await wait(900);
+  const opacity = () => isl.evaluate(() => getComputedStyle(document.querySelector('.isl-in')).opacity);
+  check(await opacity() === '1', 'the content shows once the shape is open');
+  // Leaving: the content fades out before the shape starts to shrink.
+  await isl.mouse.move(-50, 2000);
+  await isl.locator('.isl-content').dispatchEvent('mouseleave');
+  await wait(260);
+  const fading = await isl.evaluate(() => ({ o: getComputedStyle(document.querySelector('.isl-in')).opacity, open: !!document.querySelector('.live-card, .isl-panel') }));
+  check(fading.open && Number(fading.o) < 1, `the content fades before the shape shrinks (opacity ${fading.o}, still open)`);
+  await wait(1600);
+  check(await isl.locator('.cmp').count() === 1, 'then it closes to the pill');
+  await isl.evaluate(() => { window.__raf = 0; });
+  await wait(2000);
+  idleFrames = await rafs();
+  check(idleFrames === 0, `and no animation frames run after the close has settled (${idleFrames} in 2 s)`);
+  // A quick sweep across does not open it (the breath shows, the panel does not).
+  await isl.mouse.move(0, pill.y);
+  await isl.mouse.move(pill.x * 2, pill.y, { steps: 6 });
+  await isl.mouse.move(-50, 2000);
+  await isl.locator('.isl-content').dispatchEvent('mouseleave');
+  await wait(900);
+  check(await isl.locator('.live-card, .isl-panel').count() === 0, 'a pointer passing straight across does not open it');
+  await setIsl({ hoverDelayMs: 140 });
+  await wait(800);
 
   // Bigger in Settings: the layout follows.
   await main.evaluate(async () => { const s = await window.keeper.settings.get(); await window.keeper.settings.set({ island: { ...s.island, size: 'large' } }); });

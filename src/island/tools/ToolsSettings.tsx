@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { DECK_MAX, ISLAND_TOOLS, migrateDeck, moveInDeck, orderedTools, pinTool, toggleTool, unpinTool, type IslandToolId } from '../../../core/island-tools/tools';
 import { Icon } from '../../components/Icon';
 import { Toggle } from '../../components/ui';
+import { HOVER_DWELL_MS } from '../../../core/island-open';
 import { PANEL_PX, PANEL_SIZES, PANEL_SIZE_LABEL, isPanelSize, tabPanel, withTabSize, type PanelSize } from '../../../core/island-size';
 
 const DRAG = 'text/x-island-tool';
@@ -37,11 +38,20 @@ export function IslandToolsSettings({ isl, set }: { isl: IS; set: (p: Partial<IS
         </div>
         <div className="row" style={{ gap: 8, alignItems: 'center' }}>
           <span className="small muted">after</span>
-          <input type="range" min={0} max={1000} step={10} value={isl.hoverDelayMs ?? 250} disabled={isl.hoverOpen === false} aria-label="Hover delay" onChange={(e) => set({ hoverDelayMs: Number(e.target.value) })} />
-          <span className="small num" style={{ width: 52 }}>{isl.hoverDelayMs ?? 250} ms</span>
+          <input type="range" min={0} max={1000} step={10} value={isl.hoverDelayMs ?? HOVER_DWELL_MS} disabled={isl.hoverOpen === false} aria-label="Hover delay" onChange={(e) => set({ hoverDelayMs: Number(e.target.value) })} />
+          <span className="small num" style={{ width: 52 }}>{isl.hoverDelayMs ?? HOVER_DWELL_MS} ms</span>
           <Toggle on={isl.hoverOpen !== false} onChange={(v) => set({ hoverOpen: v })} />
         </div>
       </div>
+      {/macintosh|mac os/i.test(navigator.userAgent) ? (
+        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 12, marginTop: 10 }}>
+          <div>
+            <div style={{ fontWeight: 600 }}>Haptic feedback</div>
+            <div className="small muted">A light tap on the trackpad as the Island opens (not when the pointer only passes over it).</div>
+          </div>
+          <Toggle on={isl.haptics !== false} label="Haptic feedback" onChange={(v) => set({ haptics: v })} />
+        </div>
+      ) : null}
       <div style={{ fontWeight: 600, margin: '14px 0 2px' }}>Deck</div>
       <div className="small muted" style={{ marginBottom: 8 }}>Up to {DECK_MAX} tools sit at the top of the open Island; every other tool is in More. Drag to reorder, or drop a tool from the list on a place. You can also pin from More in the Island.</div>
       <div className="deck-slots" data-testid="island-deck-settings" role="list" aria-label={`Pinned tools (${deck.length} of ${DECK_MAX})`}>

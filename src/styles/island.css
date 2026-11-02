@@ -118,7 +118,8 @@ html[data-view='island'], html[data-view='island'] body, html[data-view='island'
 .isl-root { --spring: cubic-bezier(.32, 1.32, .5, 1); position: relative; display: block; width: 100vw; height: 100vh; overflow: hidden; }
 .isl-shadow { position: absolute; inset: 0; pointer-events: none; }
 .isl-root:not(.view-compact):not(.anchor-notch) .isl-shadow { filter: drop-shadow(0 10px 24px rgba(0, 0, 0, .38)); }
-.isl-shape { position: absolute; width: var(--full-w); height: var(--full-h); background: var(--island-bg, #0a0a0c); transition: clip-path .46s var(--spring); will-change: clip-path; }
+.isl-shape { position: absolute; width: var(--full-w); height: var(--full-h); background: var(--island-bg, #0a0a0c); }
+/* The clip is written by the spring driver (src/island/spring.ts via Island.tsx) only while it moves; no CSS transition. */
 .isl-root.anchor-notch .isl-shape, .isl-root.anchor-notch .isl-bubble { background: #000; }
 .isl-root.edge-top .isl-shape { top: 0; left: 50%; transform: translateX(-50%); }
 .isl-root.edge-left .isl-shape { left: 0; top: 50%; transform: translateY(-50%); }
@@ -128,12 +129,16 @@ html[data-view='island'], html[data-view='island'] body, html[data-view='island'
 .isl-root.edge-top .isl-content { top: 0; left: 50%; transform: translateX(-50%); }
 .isl-root.edge-left .isl-content { left: 0; top: 50%; transform: translateY(-50%); }
 .isl-root.edge-right .isl-content { right: 0; top: 50%; transform: translateY(-50%); }
-.isl-in { width: 100%; height: 100%; padding-top: var(--notch-h); animation: isl-in .34s var(--spring) both; overflow: hidden; }
-.view-compact .isl-in { padding-top: 0; animation-duration: .24s; }
-@keyframes isl-in { from { opacity: 0; transform: scale(.94) translateY(-6px); } to { opacity: 1; transform: none; } }
+.isl-in { width: 100%; height: 100%; padding-top: var(--notch-h); overflow: hidden; }
+.view-compact .isl-in { padding-top: 0; }
+/* the breath: the wings' content brightens while the pointer rests on the closed Island */
+.isl-root.breath .cmp .live, .isl-root.breath .cmp .wing { opacity: 1; }
+.cmp .wing { opacity: .92; transition: opacity .18s ease-out; }
 
 /* the concave corners where the notch meets the top of the screen */
 .isl-content .ear { position: absolute; top: 0; width: 10px; height: 10px; pointer-events: none; }
+.isl-content .ear.l { transform: translateX(var(--ear-dx, 0px)); }
+.isl-content .ear.r { transform: translateX(calc(-1 * var(--ear-dx, 0px))); }
 .isl-content .ear.l { left: -10px; background: radial-gradient(circle at 0 100%, transparent 9.5px, #000 10px); }
 .isl-content .ear.r { right: -10px; background: radial-gradient(circle at 100% 100%, transparent 9.5px, #000 10px); }
 
@@ -193,7 +198,7 @@ html[data-view='island'], html[data-view='island'] body, html[data-view='island'
 .isl .btn.danger { background: #ff453a; color: #fff; }
 .isl-alert { height: 100%; display: flex; align-items: center; gap: 12px; padding: 0 16px; }
 .isl-panel { height: 100%; display: flex; flex-direction: column; }
-@media (prefers-reduced-motion: reduce) { .isl-shape { transition: none; } .isl-in, .isl-bubble { animation: none; } .act-wave i, .live-bar.charge::after { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .isl-bubble { animation: none; } .cmp .wing { transition: none; } .act-wave i, .live-bar.charge::after { animation: none; } }
 .act-pair { display: inline-flex; align-items: center; gap: 6px; }
 /* The deck (src/island/Deck.tsx): never scrolls, never clips. It gives up the live slot, then names, when short of room. */
 .isl-panel .tabs.deck { flex: none; display: flex; align-items: center; gap: 2px; overflow: hidden; min-width: 0; }

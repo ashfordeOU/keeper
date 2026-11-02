@@ -77,6 +77,8 @@ export class IslandWindows {
    */
   private belowBarFallback = false;
   private expanded = new Set<number>();
+  /** closed windows the pointer rests on: already the open size while the Island waits to open (still click-through outside the shape) */
+  private grown = new Set<number>();
   private hidden = false;
   private follow: NodeJS.Timeout | null = null;
   /** the size the page asked for, so the Island's window covers nothing but the Island, closed or open */
@@ -164,7 +166,7 @@ export class IslandWindows {
       const prev = this.sizes.get(id);
       if (prev && Math.abs(prev.width - width) < 1 && Math.abs(prev.height - height) < 1) return;
       this.sizes.set(id, { width, height });
-      const open = this.expanded.has(id);
+      const open = this.expanded.has(id) || this.grown.has(id);
       this.place(id, win, this.bounds(this.displayOf(id), open), open ? 'open size' : 'pill size');
     }
   }
@@ -275,6 +277,7 @@ export class IslandWindows {
     for (const w of this.wins.values()) if (!w.isDestroyed()) w.destroy();
     this.wins.clear();
     this.expanded.clear();
+    this.grown.clear();
     this.want.clear();
     this.sizes.clear();
   }
@@ -285,12 +288,26 @@ export class IslandWindows {
       const d = this.displayOf(id);
       if (v) this.expanded.add(id);
       else this.expanded.delete(id);
+      this.grown.delete(id);
       this.place(id, win, this.bounds(d, v), v ? 'expand' : 'collapse');
       clickThrough(win, !v);
       // Opening never takes the keyboard (a plain window would bring Keeper, and maybe its main
       // window, to the front): the open Island takes it when a field in it is clicked (takeFocus).
       // The closed pill never takes focus from the app in front.
       if (!v) win.setFocusable(false);
+    }
+  }
+
+  /**
+   * The pointer rests on the closed Island (on) or left it (off): the page may grow the window to the open
+   * size during the wait, so opening is only the shape's motion. Clicks still go through outside the shape
+   * (setInteractive follows the pointer). Nothing moves until the page sends the size.
+   */
+  prepare(sender: WebContents, on: boolean) {
+    for (const [id, win] of this.wins) {
+      if (win.webContents !== sender || win.isDestroyed() || this.expanded.has(id)) continue;
+      if (on) this.grown.add(id);
+      else this.grown.delete(id);
     }
   }
 
@@ -489,6 +506,12 @@ export function registerIslandIpc(c: IslandContext) {
   }
   ipcMain.handle('island.layout', (e) => islandWindows.layoutFor(e.sender));
   ipcMain.on('island.takeFocus', (e) => islandWindows.takeFocus(e.sender));
+  ipcMain.on('island.prepare', (e, on: unknown) => islandWindows.prepare(e.sender, on === true));
+  // A light trackpad tap as the Island opens: macOS through keeper-helper; without the helper (or elsewhere) nothing.
+  ipcMain.on('island.haptic', () => {
+    if (process.platform !== 'darwin' || settings().island.haptics === false) return;
+    void import('../services/platform/mac').then((m) => m.macHelperCall('haptic.tap', {}, 2000)).catch(() => undefined);
+  });
   // Window type changed in Settings → Island → Advanced: the Island's windows are made again.
   onSettings((next, prev) => { if (next.island.windowType !== prev.island.windowType && next.island.enabled) islandWindows.ensure(true); });
   ipcMain.on('island.setSize', (e, w: number, hgt: number) => { if (Number.isFinite(w) && Number.isFinite(hgt)) islandWindows.setShownSize(e.sender, w, hgt); });

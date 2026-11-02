@@ -26,6 +26,8 @@ import { VibesTool } from '../wallpaper/IslandVibes';
 import { DECK_MAX, ISLAND_TOOLS, addRecentTool, deckTools, liveSlot, migrateDeck, moreTools, moveInDeck, pinTool, unpinTool, type IslandToolId, type LiveSlot } from '../../core/island-tools/tools';
 import { Deck, type DeckItem, type DeckView } from './Deck';
 import { MoreGrid, readRecentTools, writeRecentTools } from './MoreGrid';
+import { SpringSet, SPRINGS } from './spring';
+import { BREATH, CLOSE_GRACE_MS, CONTENT_FADE_IN_MS, CONTENT_FADE_OUT_MS, CONTENT_REVEAL_AT, HOVER_DWELL_MS, addSample, isSweep, mayClose, motionFor, progressOf, type IslandView, type PointerSample } from '../../core/island-open';
 import { chime, Leading, LiveCard, PrivacyDots, Trailing, useActivities, useGestures, useLayout } from './Activities';
 import { useFeatureStates } from '../features';
 import { PANEL_SIZES, PANEL_SIZE_LABEL, largestBox, panelBox, roomIn, snapSize, stepSize, tabPanel, withTabSize, type PanelSize } from '../../core/island-size';
@@ -57,8 +59,32 @@ function mmss(ms: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
-/** how long the shape's morph from one state to the next takes (`.isl-shape` in island.css) */
-const SHAPE_MORPH_MS = 460;
+/** the window shrinks this long after the shape's spring has come to rest */
+const SHRINK_AFTER_REST_MS = 50;
+/** the person (or the system) asked for less motion: springs jump and content crossfades */
+const reducedMotion = () => {
+  const m = document.documentElement.dataset.motion;
+  if (m === 'reduce') return true;
+  if (m === 'full') return false;
+  try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; }
+};
+/** fades an element in over `ms` */
+function fadeIn(el: HTMLElement, ms: number) {
+  el.style.transition = `opacity ${ms}ms ease-out`;
+  el.style.opacity = '1';
+}
+type Box = { w: number; h: number };
+/** what the shape is drawn in: the black is as big as the biggest state and clipped to the current one */
+type ShapeGeo = { full: Box; box: Box; edge: string; floating: boolean };
+/** The clip that shows a w × h shape (corner radius r) of the black, for the Island's edge. */
+function clipFor(g: ShapeGeo, w: number, h: number, r: number): string {
+  const dx = (g.full.w - w) / 2;
+  const dy = (g.full.h - h) / 2;
+  if (g.edge === 'left') return `inset(${dy}px ${g.full.w - w}px ${dy}px 0px round 0 ${r}px ${r}px 0)`;
+  if (g.edge === 'right') return `inset(${dy}px 0px ${dy}px ${g.full.w - w}px round ${r}px 0 0 ${r}px)`;
+  const top = g.floating ? r : 0;
+  return `inset(0px ${dx}px ${g.full.h - h}px ${dx}px round ${top}px ${top}px ${r}px ${r}px)`;
+}
 /** room around the open Island for its shadow or glow (`.isl-shadow` in island.css) */
 const HALO = 28;
 /** the size button's short name for each size */
@@ -92,6 +118,94 @@ export function Island() {
   const [custom, setCustom] = useState(15);
   const closeTimer = useRef<number | undefined>(undefined);
   const seenAlerts = useRef(new Set<string>());
+  // The pointer rests on the closed Island: the shape breathes (grows a little) and the window is already the open size.
+  const [breath, setBreath] = useState(false);
+  const pointerIn = useRef(false);
+  const samples = useRef<PointerSample[]>([]);
+  const pressed = useRef(0);
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
+  const bannerUp = useRef(false);
+  // Where the pointer has been (to tell a visit from a sweep along the menu bar) and whether a button is held.
+  useEffect(() => {
+    const move = (e: MouseEvent) => { samples.current = addSample(samples.current, { x: e.screenX, y: e.screenY, t: performance.now() }); if (!e.buttons) pressed.current = 0; };
+    const down = () => { pressed.current = Date.now(); };
+    const up = () => { pressed.current = 0; };
+    window.addEventListener('mousemove', move, { passive: true });
+    window.addEventListener('pointerdown', down, true);
+    window.addEventListener('pointerup', up, true);
+    window.addEventListener('pointercancel', up, true);
+    window.addEventListener('blur', up);
+    return () => { window.removeEventListener('mousemove', move); window.removeEventListener('pointerdown', down, true); window.removeEventListener('pointerup', up, true); window.removeEventListener('pointercancel', up, true); window.removeEventListener('blur', up); };
+  }, []);
+
+  // ---------------------------------------------------------------- the shape's motion (src/island/spring.ts)
+  // One black shape, clipped to the current state; its width, height and corner radius are springs, written
+  // straight to the clip each frame (no React render per frame). Nothing runs once they come to rest.
+  const shapeEl = useRef<HTMLDivElement>(null);
+  const contentEl = useRef<HTMLDivElement>(null);
+  const inEl = useRef<HTMLDivElement>(null);
+  const geo = useRef<ShapeGeo | null>(null);
+  const target = useRef<{ view: IslandView; breath: boolean; w: number; h: number; r: number } | null>(null);
+  const shown = useRef<{ view: IslandView; breath: boolean; w: number; h: number; r: number } | null>(null);
+  // The content waits until the shape is most of the way to its new size, then fades in.
+  const reveal = useRef<{ from: Box; to: Box } | null>(null);
+  const closing = useRef<number | undefined>(undefined);
+  const springs = useRef<SpringSet<'w' | 'h' | 'r'> | null>(null);
+  const draw = useRef((v: Record<'w' | 'h' | 'r', number>) => {
+    const g = geo.current;
+    const el = shapeEl.current;
+    if (!g || !el) return;
+    const w = Math.max(0, Math.min(g.full.w, v.w));
+    const h = Math.max(0, Math.min(g.full.h, v.h));
+    el.style.clipPath = clipFor(g, w, h, Math.max(0, Math.min(v.r, w / 2, h)));
+    // The notch's ears ride the shape's edges.
+    contentEl.current?.style.setProperty('--ear-dx', `${(g.box.w - w) / 2}px`);
+    const rv = reveal.current;
+    if (rv && inEl.current && progressOf(rv.from, rv.to, v) >= CONTENT_REVEAL_AT) {
+      reveal.current = null;
+      fadeIn(inEl.current, CONTENT_FADE_IN_MS);
+    }
+  }).current;
+  if (!springs.current) springs.current = new SpringSet<'w' | 'h' | 'r'>(draw);
+  useEffect(() => () => springs.current?.stop(), []);
+  useLayoutEffect(() => {
+    const t = target.current;
+    const s = springs.current!;
+    if (!t) return;
+    const was = shown.current;
+    shown.current = t;
+    const to = { w: t.w, h: t.h, r: t.r };
+    if (!was) { s.jump(to); return; }
+    const viewChanged = was.view !== t.view;
+    if (!viewChanged && was.breath === t.breath && was.w === t.w && was.h === t.h && was.r === t.r) {
+      if (!s.running) draw(s.get()); // the black's own size may have changed
+      return;
+    }
+    const reduced = reducedMotion();
+    if (viewChanged && inEl.current) {
+      inEl.current.style.transition = 'none';
+      inEl.current.style.opacity = '0';
+      const now = s.get();
+      reveal.current = { from: { w: now.w, h: now.h }, to };
+    }
+    const kind = motionFor(was, t);
+    if (reduced) {
+      // Less motion: sizes jump, the content crossfades.
+      s.jump(to);
+      if (reveal.current && inEl.current) { reveal.current = null; fadeIn(inEl.current, 120); }
+    } else {
+      s.to(to, SPRINGS[kind]);
+      if (!s.running) draw(s.get());
+    }
+    if (kind === 'close') {
+      // The window shrinks back to the pill only once the shape has closed.
+      s.whenAtRest(() => {
+        window.clearTimeout(closing.current);
+        closing.current = window.setTimeout(() => { if (modeRef.current === 'compact' && !bannerUp.current) api.island.setExpanded(false); }, SHRINK_AFTER_REST_MS);
+      });
+    }
+  });
 
   const load = useCallback(() => void api.island.state().then(setState), []);
   useEffect(() => {
@@ -124,17 +238,47 @@ export function Island() {
   // Opening grows the window first and then the shape; closing shrinks the shape, then the window.
   const show = (m: 'live' | 'panel', id?: string) => {
     window.clearTimeout(closeTimer.current);
+    window.clearTimeout(hoverTimer.current);
+    window.clearTimeout(closing.current);
+    setBreath(false);
+    unfade();
     api.island.setExpanded(true);
     if (id) setLiveId(id);
     setMode(m);
   };
-  const collapse = (delay = 350) => {
+  /** A close that was fading out is called off (the pointer came back): the content shows again. */
+  const unfade = () => {
+    const el = inEl.current;
+    if (el && el.style.opacity === '0' && !reveal.current) fadeIn(el, 120);
+  };
+  /** What keeps the open Island open after the pointer leaves: a menu, a field with the keyboard, a drag, a held button. */
+  const holds = () => ({
+    menuOpen: !!document.querySelector('.isl-content [role="menu"], .isl-content .shelf-pop'),
+    fieldFocused: document.hasFocus() && !!(document.activeElement as HTMLElement | null)?.matches?.(FIELD),
+    dragging: !!drag.current,
+    pressed: pressed.current > 0 && Date.now() - pressed.current < 10_000,
+  });
+  /**
+   * Closes after `delay` (the grace after the pointer leaves; coming back calls it off). With `guard`, it waits
+   * while something holds it open. The content fades out first, then the shape closes without a bounce, and
+   * the window shrinks once the shape is at rest.
+   */
+  const collapse = (delay = CLOSE_GRACE_MS, guard = false) => {
     window.clearTimeout(closeTimer.current);
-    closeTimer.current = window.setTimeout(() => {
-      setMode('compact');
-      setAlertOpen(false);
-      closeTimer.current = window.setTimeout(() => { if (!alert || alertRules.current.alertStyle !== 'banner') api.island.setExpanded(false); }, 420);
-    }, delay);
+    window.clearTimeout(hoverTimer.current);
+    const attempt = () => {
+      if (guard && (pointerIn.current || !mayClose(holds()))) { if (!pointerIn.current) closeTimer.current = window.setTimeout(attempt, 300); return; }
+      const el = inEl.current;
+      const fade = el && !reducedMotion() ? CONTENT_FADE_OUT_MS : 0;
+      if (el && fade) { el.style.transition = `opacity ${fade}ms linear`; el.style.opacity = '0'; }
+      closeTimer.current = window.setTimeout(() => {
+        bannerUp.current = !!alert && alertRules.current.alertStyle === 'banner';
+        setMode('compact');
+        setAlertOpen(false);
+        setBreath(false);
+      }, fade);
+    };
+    closeTimer.current = window.setTimeout(attempt, delay);
   };
 
   // ---------------------------------------------------------------- dictation
@@ -257,7 +401,13 @@ export function Island() {
     if (shrinkTo.current) { window.clearTimeout(shrinkTo.current.t); shrinkTo.current = null; }
     if (!had || (want.w >= had.w && want.h >= had.h)) { send(want); return; }
     if (want.w > had.w || want.h > had.h) send({ w: Math.max(want.w, had.w), h: Math.max(want.h, had.h) });
-    shrinkTo.current = { ...want, t: window.setTimeout(() => { shrinkTo.current = null; send(want); }, SHAPE_MORPH_MS) };
+    // Shrinks once the shape's spring has come to rest (and a moment more), never while it still moves.
+    const job = { ...want, t: 0 };
+    shrinkTo.current = job;
+    springs.current!.whenAtRest(() => {
+      if (shrinkTo.current !== job) return;
+      job.t = window.setTimeout(() => { if (shrinkTo.current === job) { shrinkTo.current = null; send(want); } }, SHRINK_AFTER_REST_MS);
+    });
   });
   useEffect(() => () => { if (shrinkTo.current) window.clearTimeout(shrinkTo.current.t); }, []);
 
@@ -307,41 +457,69 @@ export function Island() {
   const tabP = tabPanel(tab, isl ?? {});
   const tabSize = tabP.size;
   const panelSize = dragSize ?? tabSize;
-  const box = {
+  const boxes = {
     compact: compact,
     alert: { w: Math.round(420 * sc), h: notchH + Math.round(76 * sc) },
     live: { w: Math.max(Math.round(440 * sc), gap + 160), h: notchH + Math.round(150 * sc) },
     panel: panelBox(dragSize ?? tabP.px, sizeRoom),
-  }[view];
+  };
+  const box = boxes[view];
   // The shape is drawn as big as the biggest panel, so every change (open, close, another size) is one morph.
   const most = largestBox(sizeRoom);
   const full = { w: Math.max(box.w, most.w), h: Math.max(box.h, most.h) };
   const floating = layout?.anchor === 'below-bar' || side;
-  if (layout && view !== 'compact') {
-    // Open: the window is the card or panel itself (and the notch's ears), plus room for the shadow
-    // below a floating Island or the artwork glow, the only things ever drawn outside the shape.
-    winSize.current = side ? { w: box.w + halo, h: box.h + 2 * halo } : { w: box.w + 2 * Math.max(ears, halo), h: box.h + (halo ? halo + 6 : 0) };
-  }
+  // Open: the window is the card or panel itself (and the notch's ears), plus room for the shadow
+  // below a floating Island or the artwork glow, the only things ever drawn outside the shape.
+  const openWindow = (b: Box) => (side ? { w: b.w + halo, h: b.h + 2 * halo } : { w: b.w + 2 * Math.max(ears, halo), h: b.h + (halo ? halo + 6 : 0) });
+  // What opens from here: an inline alert, the main activity's card, or the panel.
+  const opensTo = inlineAlert ? boxes.alert : primary ? boxes.live : boxes.panel;
+  if (layout && view !== 'compact') winSize.current = openWindow(box);
+  // While the pointer rests on the closed Island, its window already grows to what will open (clicks still
+  // go through outside the shape), so opening is only the shape's own motion.
+  else if (layout && breath) winSize.current = ((a, b) => ({ w: Math.max(a.w, b.w), h: Math.max(a.h, b.h) }))(winSize.current ?? compact, openWindow(opensTo));
   const r = view === 'compact' ? (floating ? box.h / 2 : Math.min(box.h / 2, 20 * sc)) : plusSetting(isl, 'cornerRadius') * sc;
   const edge = layout?.edge ?? isl?.edge ?? 'top';
-  const dx = (full.w - box.w) / 2;
-  const dy = (full.h - box.h) / 2;
-  // The black shape stays one element and is clipped to each state, so going from one to the next is one smooth morph.
-  const clip = edge === 'left' ? `inset(${dy}px ${full.w - box.w}px ${dy}px 0px round 0 ${r}px ${r}px 0)`
-    : edge === 'right' ? `inset(${dy}px 0px ${dy}px ${full.w - box.w}px round ${r}px 0 0 ${r}px)`
-      : `inset(0px ${dx}px ${full.h - box.h}px ${dx}px round ${floating ? r : 0}px ${floating ? r : 0}px ${r}px ${r}px)`;
+  // The breath: the closed shape grows a little at once (not with less motion; the content keeps its place).
+  const breathing = view === 'compact' && breath && !reducedMotion();
+  const grow = breathing ? (side ? { w: BREATH.h * sc, h: BREATH.w * sc } : { w: BREATH.w * sc, h: BREATH.h * sc }) : { w: 0, h: 0 };
+  const shapeBox = { w: box.w + grow.w, h: box.h + grow.h };
+  geo.current = { full: { w: Math.max(full.w, shapeBox.w), h: Math.max(full.h, shapeBox.h) }, box, edge, floating };
+  target.current = { view, breath: breathing, w: shapeBox.w, h: shapeBox.h, r: view === 'compact' && floating ? shapeBox.h / 2 : r };
   const hover = isl?.hoverOpen !== false;
+  /** Opens what the closed Island leads to (an inline alert, the main activity's card, or the panel), with a tap on the trackpad. */
+  const openNow = (tap = true) => {
+    if (inlineAlert) openAlert();
+    else if (primary) show('live', primary.id);
+    else show('panel');
+    if (tap && isl?.haptics !== false) api.island.haptic?.();
+  };
   const enter = () => {
+    pointerIn.current = true;
     if (view === 'compact') {
+      // At once: the shape breathes and the window grows to what will open.
+      api.island.prepare?.(true);
+      setBreath(true);
       if (!hover) return;
-      // Rests a moment before opening, so passing the pointer over the top of the screen does not open it.
+      // Then a short rest before opening; a pointer sweeping along the menu bar only passes by.
       window.clearTimeout(hoverTimer.current);
-      hoverTimer.current = window.setTimeout(() => {
-        if (inlineAlert) openAlert();
-        else if (primary) show('live', primary.id);
-        else show('panel');
-      }, Math.max(0, isl?.hoverDelayMs ?? 250));
-    } else window.clearTimeout(closeTimer.current);
+      const attempt = () => {
+        if (!pointerIn.current) return;
+        if (isSweep(samples.current, performance.now())) { hoverTimer.current = window.setTimeout(attempt, 60); return; }
+        openNow();
+      };
+      hoverTimer.current = window.setTimeout(attempt, Math.max(0, isl?.hoverDelayMs ?? HOVER_DWELL_MS));
+    } else {
+      window.clearTimeout(closeTimer.current);
+      unfade();
+    }
+  };
+  /** The pointer left the closed Island: no open, the breath settles, the window shrinks back after it. */
+  const leaveClosed = () => {
+    pointerIn.current = false;
+    window.clearTimeout(hoverTimer.current);
+    setBreath(false);
+    api.island.prepare?.(false);
+    api.island.setInteractive?.(false);
   };
   /** The person asked to see an inline alert in full: it drops down from the notch or pill now. */
   function openAlert() {
@@ -651,13 +829,14 @@ export function Island() {
     '--notch-h': `${notchH}px`, '--gap': `${gap}px`, '--box-w': `${box.w}px`, '--box-h': `${box.h}px`, '--full-w': `${full.w}px`, '--full-h': `${full.h}px`, '--bubble': `${bubble}px`, '--wing': `${layout?.wing || 120}px`,
   } as React.CSSProperties;
   return (
-    <div className={`isl-root edge-${edge} anchor-${layout?.anchor ?? 'edge'} view-${view} size-${panelSize} ${floating ? 'floating' : ''} ${isl?.monochrome ? 'mono' : ''}`} style={vars} role="region" aria-label="Island">
+    <div className={`isl-root edge-${edge} anchor-${layout?.anchor ?? 'edge'} view-${view} size-${panelSize} ${floating ? 'floating' : ''} ${isl?.monochrome ? 'mono' : ''} ${breathing ? 'breath' : ''}`} style={vars} role="region" aria-label="Island">
       {/* Alerts are read out by screen readers as they arrive, without taking focus. */}
       <div className="sr-only" role="status" aria-live="assertive" aria-atomic="true">{view === 'alert' && alert ? [alert.app, alert.title, alert.detail].filter(Boolean).join('. ') : ''}</div>
       <div aria-hidden className={`isl-shadow ${plusSetting(isl, 'shadow') ? '' : 'no-shadow'} ${glow ? 'glowing' : ''}`} style={glow ? ({ '--glow': glow } as React.CSSProperties) : undefined}>
-        <div className="isl-shape" style={{ clipPath: clip }} />
+        <div className="isl-shape" ref={shapeEl} />
       </div>
       <div
+        ref={contentEl}
         className={`isl isl-content view-${view}`}
         // Compact, the Island is one button: Enter or Space opens it, Escape closes it.
         role={view === 'compact' ? 'button' : undefined}
@@ -665,7 +844,7 @@ export function Island() {
         aria-label={view === 'compact' ? (primary ? `${primary.title}: open` : 'Open the Island') : undefined}
         onKeyDown={(e) => {
           if (view === 'compact' && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); if (primary) show('live', primary.id); else show('panel'); }
-          else if (view !== 'compact' && e.key === 'Escape') collapse();
+          else if (view !== 'compact' && e.key === 'Escape') collapse(0);
         }}
         onMouseEnter={() => { api.island.setInteractive?.(true); enter(); }}
         // The open Island takes the keyboard only when a field in it is clicked, so opening it never
@@ -676,19 +855,21 @@ export function Island() {
           // A window that just grew or moved can report a leave with the pointer still on the Island (Linux): not a leave.
           const r = e.currentTarget.getBoundingClientRect();
           if (e.clientX > r.left + 1 && e.clientX < r.right - 1 && e.clientY > r.top + 1 && e.clientY < r.bottom - 1) return;
-          if (view === 'compact') api.island.setInteractive?.(false); else if (view === 'alert' && alertOpen) { setAlertOpen(false); api.island.setExpanded(false); } else collapse(Date.now() - dragEnded.current < 500 ? 1500 : 350); }}
+          if (view === 'compact') { leaveClosed(); return; }
+          pointerIn.current = false;
+          if (view === 'alert' && alertOpen) { setAlertOpen(false); api.island.setExpanded(false); } else collapse(Date.now() - dragEnded.current < 500 ? 1500 : CLOSE_GRACE_MS, true); }}
         onClick={(e) => {
           if (view !== 'compact') return;
           // Alt/Option-click hides the Island for a minute (alerts still come back after).
           if (e.altKey) { void api.islandx?.hideFor(plusSetting(isl, 'altHideMinutes')); return; }
-          if (inlineAlert) openAlert();
-          else if (primary) show('live', primary.id); else show('panel');
+          // A click opens at once (also with hover-to-open off).
+          openNow();
         }}
         onDragEnter={(e) => { if (!e.dataTransfer.types.includes('Files')) return; show('panel'); setTab('shelf'); }}
         {...gestures}
       >
         {notch ? <><i className="ear l" aria-hidden /><i className="ear r" aria-hidden /></> : null}
-        <div key={view} className="isl-in">{content}</div>
+        <div key={view} ref={inEl} className="isl-in">{content}</div>
       </div>
       {view === 'compact' && state.usagePin && !idleNotch ? <UsagePin pin={state.usagePin} /> : null}
       {bubble && view === 'compact' && secondary ? (
