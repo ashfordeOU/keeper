@@ -474,6 +474,8 @@ export interface Settings {
   sidebarMode: import('./sidebar-layout').SidebarMode;
   /** long sidebar sections show this many items (most used first) and "Show all"; 0 shows everything */
   sidebarSectionLimit: number;
+  /** Settings → General → Always show all settings: every section's "More settings" starts open */
+  settingsAdvanced?: boolean;
   /** Home's sections, order, density and styles (Edit Home) */
   home: import('./home-layout').HomeSettings;
   /** the first-run Permissions step: set everything up now, only what gets turned on, or not chosen yet */

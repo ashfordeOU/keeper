@@ -143,6 +143,7 @@ export function defaultSettings(folders: string[], rules: Rule[]): AllSettings {
     inspectorMode: 'selection',
     sidebarMode: 'auto',
     sidebarSectionLimit: 5,
+    settingsAdvanced: false,
     home: defaultHomeSettings(),
     permissionsSetup: '',
     permissionsAsked: {},

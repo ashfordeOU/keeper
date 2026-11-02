@@ -215,11 +215,11 @@ function registerVoiceAbilities(v: VoiceService) {
 // ---------------------------------------------------------------- shortcuts, menu bar, links
 
 /** Called from main's shortcut registration (it clears every shortcut first). */
-export function registerVoiceShortcuts(reg: (acc: string, fn: () => void) => void) {
+export function registerVoiceShortcuts(reg: (acc: string, fn: () => void, owner?: string) => void) {
   if (!svc || !featureOn('dictation')) return;
   const s = voiceSettings().dictation;
-  reg(s.shortcut, () => svc?.toggleFromShortcut());
-  if (s.voiceEdit !== 'off') reg(s.editShortcut, () => { const v = svc; if (v) void (v.state.phase === 'editing' ? v.stop() : v.start('edit')).catch(() => undefined); });
+  reg(s.shortcut, () => svc?.toggleFromShortcut(), 'Dictation');
+  if (s.voiceEdit !== 'off') reg(s.editShortcut, () => { const v = svc; if (v) void (v.state.phase === 'editing' ? v.stop() : v.start('edit')).catch(() => undefined); }, 'Edit by voice');
 }
 
 export function voiceTrayItems(): MenuItemConstructorOptions[] {

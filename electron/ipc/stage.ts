@@ -179,12 +179,12 @@ export function registerStageIpc(c: StageCtx) {
 }
 
 /** The Stage shortcut, each preset's own shortcut and the display keys (called from Keeper's shortcut registration). */
-export function registerStageShortcuts(reg: (acc: string, fn: () => void) => void) {
+export function registerStageShortcuts(reg: (acc: string, fn: () => void, owner?: string) => void) {
   if (!svc) return;
   const s = svc;
   if (featureOn('stage') && s.cfg.surfaces.shortcut) {
-    reg(s.cfg.shortcut, () => void s.toggle(undefined, 'Shortcut').catch(() => undefined));
-    for (const p of s.cfg.presets) if (p.shortcut) reg(p.shortcut, () => void s.toggle(p.id, 'Shortcut').catch(() => undefined));
+    reg(s.cfg.shortcut, () => void s.toggle(undefined, 'Shortcut').catch(() => undefined), 'Stage');
+    for (const p of s.cfg.presets) if (p.shortcut) reg(p.shortcut, () => void s.toggle(p.id, 'Shortcut').catch(() => undefined), `Stage: ${p.name}`);
   }
   if (featureOn('displayKeys')) registerDisplayKeys(s.cfg.displayKeys);
 }

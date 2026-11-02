@@ -14,7 +14,7 @@ import { Toggle } from './ui';
 import { ComponentNeeds, ComponentsSection } from './ComponentsPanel';
 import '../styles/features.css';
 
-const COST_WORD: Record<CostLevel, string> = { none: 'No background cost', low: 'Light', medium: 'Moderate', high: 'Heavy while it works' };
+const COST_WORD: Record<CostLevel, string> = { none: 'Nothing until you use it', low: 'Light', medium: 'Some', high: 'Heavy while working' };
 
 export function FeaturesPanel() {
   const { settings, info, toast } = useStore();
@@ -134,7 +134,7 @@ export function FeaturesPanel() {
                     ) : st?.on === false ? <div className="small muted feature-live">Now: nothing running</div> : null}
                     <ComponentNeeds featureId={f.id} on={!!st?.on} />
                     {st?.blockedBy?.length && wanted ? (
-                      <div className="small warn-text">Off until {st.blockedBy.map((b) => featureDef(b)?.name ?? b).join(' and ')} {st.blockedBy.length > 1 ? 'are' : 'is'} on</div>
+                      <div className="small warn-text">Needs {st.blockedBy.map((b) => featureDef(b)?.name ?? b).join(' and ')}. <button className="link-btn" onClick={() => void set(f.id, true)}>Turn on {st.blockedBy.length > 1 ? 'all' : 'both'}</button></div>
                     ) : null}
                   </div>
                   <Toggle on={wanted} onChange={(v) => !f.always && busy !== f.id && void set(f.id, v)} />

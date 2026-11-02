@@ -151,7 +151,7 @@ export function ThemeTweaks() {
   );
   return (
     <>
-      <Row title="Accent colour" desc={weak ? 'This colour is hard to see on this theme’s panels; a darker or brighter one will read better.' : 'Buttons, links and highlights. “Theme” keeps the theme’s own.'}>
+      <Row title="Accent color" desc={weak ? 'This color is hard to see on this theme’s panels; a darker or brighter one will read better.' : 'Buttons, links and highlights. “Theme” keeps the theme’s own.'}>
         <div className="tg-swatches">
           <button className={`btn sm ${!s.accent ? 'primary' : ''}`} onClick={() => void updateSettings({ accent: '' })}>Theme</button>
           {ACCENTS.map((c) => (

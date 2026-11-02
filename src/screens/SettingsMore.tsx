@@ -24,12 +24,11 @@ export function LanguageRow() {
 }
 
 export function LoginRow() {
-  const t = useT();
   const [on, setOn] = useState<boolean | null>(null);
   useEffect(() => { void api.appInfo.loginItem().then(setOn); }, []);
   if (on === null) return null;
   return (
-    <Row title={t('settings.startup')} desc="Keeper starts quietly in the tray so Quick Search, the Island and automations are ready.">
+    <Row title="Open at login" desc="Keeper starts quietly, so Quick Search, the Island and automations are ready.">
       <Toggle on={on} onChange={async (v) => setOn(await api.appInfo.setLoginItem(v))} />
     </Row>
   );
@@ -37,7 +36,7 @@ export function LoginRow() {
 
 const LABEL: Record<UpdateStatus['state'], string> = {
   idle: 'Not checked yet', checking: 'Checking…', available: 'A new version is available', downloading: 'Downloading…', ready: 'Ready to install',
-  none: 'Keeper is up to date', error: 'Could not check', unsupported: 'Updates are handled elsewhere', installing: 'Installing…',
+  none: 'Keeper is up to date', error: 'Could not check', unsupported: 'Your package manager updates Keeper', installing: 'Installing…',
 };
 
 export function UpdateRow() {
