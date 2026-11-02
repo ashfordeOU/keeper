@@ -20,6 +20,7 @@ import {
   findClashes, isAppStoreEdition, isMonorailBundleId, keeperAccelerators, missingFloatRules, spotlightQuery, monorailShortcuts, monorailThemeFor, monorailUrl, newestRelease, parseCodesign, parseState,
   pickAssets, sliderBand, versionOf, withFloatRules, withOverlayRules, type MonorailLink, type MonorailSettings, type MonorailState, type Release,
 } from '../../../core/ashforde/monorail';
+import { wantsBeta } from '../../../core/updates';
 import { TugGuard, selfUpdating, shouldPushTheme, updatesBy, withSuggestions } from '../../../core/ashforde/coexist';
 import { DEFAULT_ASHFORDE_PREFS, type AshfordePrefs, type MonorailStatus } from '../../../core/api-ashforde';
 import type { Placement } from '../../../core/island-place';
@@ -372,9 +373,15 @@ async function fetchJson(url: string): Promise<unknown> {
   return r.json();
 }
 
+/** Monorail's pre-releases too, when the person follows Keeper's betas (Settings → Updates). */
+function followsBetas(): boolean {
+  const s = (deps?.settings() ?? {}) as { updateBeta?: boolean; updateBetaChosen?: boolean };
+  return wantsBeta(app.getVersion(), s.updateBeta, s.updateBetaChosen);
+}
+
 async function latestRelease(): Promise<Release> {
   const list = (await fetchJson(`https://api.github.com/repos/${MONORAIL.repo}/releases?per_page=10`)) as Release[];
-  const r = newestRelease(list);
+  const r = newestRelease(list, followsBetas());
   if (!r) throw new Error('No Monorail release with an app and checksums was found.');
   return r;
 }
@@ -516,6 +523,17 @@ export async function checkUpdate(): Promise<MonorailStatus> {
     lastError = e instanceof Error ? e.message : String(e);
   }
   return status(true);
+}
+
+let latestCache: { at: number; beta: boolean; info: { version: string; size?: number } } | undefined;
+/** The release Install would fetch: its version and download size (cached for an hour). */
+export async function latestInfo(): Promise<{ version: string; size?: number }> {
+  const beta = followsBetas();
+  if (latestCache && latestCache.beta === beta && Date.now() - latestCache.at < 3600_000) return latestCache.info;
+  const rel = await latestRelease();
+  const info = { version: versionOf(rel.tag_name), size: pickAssets(rel)?.archive.size };
+  latestCache = { at: Date.now(), beta, info };
+  return info;
 }
 
 export async function uninstall(removeSettings = false): Promise<MonorailStatus> {

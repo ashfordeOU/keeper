@@ -72,18 +72,34 @@ export interface Release {
 /** "v1.2.0" → "1.2.0". */
 export const versionOf = (tag: string) => tag.trim().replace(/^v/i, '');
 
-/** Negative when a is older than b, 0 when equal, positive when newer. */
+/**
+ * Negative when a is older than b, 0 when equal, positive when newer. Semantic
+ * versions: a release is newer than its own pre-releases (1.2.0 > 1.2.0-beta.3),
+ * and pre-release parts compare number by number (beta.10 > beta.9).
+ */
 export function compareVersions(a: string, b: string): number {
-  const pa = versionOf(a).split(/[.-]/);
-  const pb = versionOf(b).split(/[.-]/);
-  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
-    const x = pa[i] ?? '0';
-    const y = pb[i] ?? '0';
-    const nx = Number(x);
-    const ny = Number(y);
-    if (Number.isFinite(nx) && Number.isFinite(ny)) {
-      if (nx !== ny) return nx - ny;
-    } else if (x !== y) return x < y ? -1 : 1;
+  const split = (v: string) => {
+    const s = versionOf(v).replace(/\+.*$/, '');
+    const i = s.indexOf('-');
+    return { core: (i < 0 ? s : s.slice(0, i)).split('.'), pre: i < 0 ? [] : s.slice(i + 1).split('.') };
+  };
+  const x = split(a);
+  const y = split(b);
+  for (let i = 0; i < Math.max(x.core.length, y.core.length); i++) {
+    const d = (Number(x.core[i] ?? 0) || 0) - (Number(y.core[i] ?? 0) || 0);
+    if (d) return d;
+  }
+  if (!x.pre.length || !y.pre.length) return (x.pre.length ? -1 : 0) + (y.pre.length ? 1 : 0);
+  for (let i = 0; i < Math.max(x.pre.length, y.pre.length); i++) {
+    const p = x.pre[i];
+    const q = y.pre[i];
+    if (p === undefined) return -1;
+    if (q === undefined) return 1;
+    const pn = /^\d+$/.test(p);
+    const qn = /^\d+$/.test(q);
+    if (pn && qn && +p !== +q) return +p - +q;
+    if (pn !== qn) return pn ? -1 : 1;
+    if (p !== q) return p < q ? -1 : 1;
   }
   return 0;
 }
@@ -105,7 +121,11 @@ export function checksumFor(sums: string, file: string): string | null {
   return null;
 }
 
-/** The newest usable release from a list (no drafts; pre-releases only when asked). */
+/**
+ * The newest usable release from a list (no drafts; pre-releases only when asked:
+ * Keeper asks when the person follows Keeper's betas). A stable release beats its
+ * own pre-releases.
+ */
 export function newestRelease(list: Release[], prerelease = false): Release | null {
   const ok = list.filter((r) => !r.draft && (prerelease || !r.prerelease) && pickAssets(r));
   ok.sort((a, b) => compareVersions(b.tag_name, a.tag_name));
