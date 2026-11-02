@@ -47,6 +47,8 @@ export interface EngineOptions {
   getText: (f: FileEntry) => Promise<string | undefined>;
   /** never index or return anything under these */
   isExcluded?: (p: string) => boolean;
+  /** getText reads this file from disk itself (the library's copy of its text does not matter) */
+  readsItself?: (f: FileEntry) => boolean;
 }
 
 const RRF_K = 60;
@@ -83,7 +85,12 @@ export class BrainEngine {
 
   needsUpdate(f: FileEntry): boolean {
     const b = this.files.get(f.path);
-    return !b || b.mtime !== f.mtime || b.size !== f.size || b.sig !== sigOf(f);
+    if (!b || b.mtime !== f.mtime || b.size !== f.size) return true;
+    const sig = sigOf(f);
+    if (b.sig === sig) return false;
+    // A document the brain reads itself: the library's copy of its text arriving (or not) changes
+    // nothing here. Comparing it made every text document be read twice on a first start.
+    return !(this.opts.readsItself?.(f) && b.sig.slice(0, b.sig.lastIndexOf('|')) === sig.slice(0, sig.lastIndexOf('|')));
   }
 
   remove(p: string): void {
@@ -123,6 +130,36 @@ export class BrainEngine {
   }
 
   /**
+   * Catches up on just these paths (the library says which changed): read again when
+   * changed, dropped when gone. Looking at a quarter of a million files to find the dozen
+   * that changed took a second each time text arrived.
+   */
+  async syncPaths(paths: Iterable<string>, lookup: (p: string) => FileEntry | undefined, o: { signal?: AbortSignal; pause?: () => Promise<void> } = {}): Promise<number> {
+    const todo: FileEntry[] = [];
+    let removed = 0;
+    for (const p of paths) {
+      const f = lookup(p);
+      if (!f || this.opts.isExcluded?.(p)) {
+        if (this.files.has(p)) { this.remove(p); removed++; }
+        continue;
+      }
+      if (this.needsUpdate(f)) todo.push(f);
+    }
+    todo.sort((a, b) => b.mtime - a.mtime);
+    let done = 0;
+    for (const f of todo) {
+      if (o.signal?.aborted) break;
+      // Before the first file too: on battery nothing is read at all.
+      if (done % 50 === 0 && o.pause) await o.pause();
+      await this.update(f);
+      if (++done % 50 === 0 && !o.pause) await new Promise((r) => setImmediate(r));
+    }
+    this.textCache.clear();
+    this.textCacheChars = 0;
+    return done + removed;
+  }
+
+  /**
    * Brings the brain in line with the library: new and changed files are read,
    * removed ones dropped. Newest files first, so recent work is searchable soonest.
    */
@@ -139,10 +176,12 @@ export class BrainEngine {
     let done = 0;
     for (const f of todo) {
       if (o.signal?.aborted) break;
+      // Before the first file too: on battery nothing is read at all.
+      if (done % 50 === 0 && o.pause) await o.pause();
       await this.update(f);
       if (++done % 50 === 0) {
         o.onProgress?.(done, todo.length);
-        await (o.pause?.() ?? new Promise((r) => setImmediate(r)));
+        if (!o.pause) await new Promise((r) => setImmediate(r));
       }
     }
     o.onProgress?.(done, todo.length);

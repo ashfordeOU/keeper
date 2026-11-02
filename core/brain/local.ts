@@ -12,7 +12,7 @@ import { findExactDuplicates } from '../duplicates';
 import type { FileIndex } from '../indexer';
 import type { FileEntry } from '../types';
 import { BrainEngine, type Embedder } from './engine';
-import { extractText } from './extract';
+import { extractText, readsItself } from './extract';
 import { Harness, type HarnessEnv, type HarnessResult, type Visibility } from './harness';
 // More AI services (Responses API, Gemini, Bedrock) register themselves.
 import './adapters';
@@ -47,7 +47,7 @@ export class LocalBrain implements Brain {
   private dirty = false;
 
   constructor(private o: LocalBrainOptions) {
-    this.engine = new BrainEngine({ getText: (f) => extractText(f), isExcluded: (p) => this.isExcluded(p) });
+    this.engine = new BrainEngine({ getText: (f) => extractText(f), isExcluded: (p) => this.isExcluded(p), readsItself });
   }
 
   // ------------------------------------------------------------ files on disk
@@ -57,7 +57,9 @@ export class LocalBrain implements Brain {
 
   async load(): Promise<boolean> {
     try {
-      const data = JSON.parse(await fsp.readFile(this.jsonFile, 'utf8'));
+      const text = await fsp.readFile(this.jsonFile, 'utf8');
+      this.savedBytes = Buffer.byteLength(text);
+      const data = JSON.parse(text);
       this.engine.load(data);
       return true;
     } catch {
@@ -83,10 +85,22 @@ export class LocalBrain implements Brain {
     this.markDirty();
   }
 
+  /** bytes of the last save (brain.json and vectors.bin), and when it finished */
+  private savedBytes = 0;
+  private savedAt = 0;
+  /** bytes written since start, for the performance check */
+  bytesWritten = 0;
+
+  /**
+   * Saves within a while. The brain is one file rewritten whole (tens of megabytes for a big
+   * library), so the gap grows with its size: about 128 KB a second on average, at least 20
+   * seconds and at most ten minutes. What is lost in a crash is rebuilt from the library.
+   */
   markDirty(): void {
     this.dirty = true;
     if (this.saveTimer) return;
-    this.saveTimer = setTimeout(() => { this.saveTimer = undefined; void this.save(); }, 20_000);
+    const gap = Math.min(10 * 60_000, Math.max(20_000, (this.savedBytes / (128 * 1024)) * 1000));
+    this.saveTimer = setTimeout(() => { this.saveTimer = undefined; void this.save(); }, Math.max(20_000, this.savedAt + gap - Date.now()));
     this.saveTimer.unref?.();
   }
 
@@ -114,6 +128,9 @@ export class LocalBrain implements Brain {
           const vectors = this.engine.vectors?.toBuffer();
           await writeChunksAtomic(this.jsonFile, json, `${this.jsonFile}.${process.pid}.tmp`);
           if (vectors) await writeChunksAtomic(this.vecFile, [vectors], `${this.vecFile}.${process.pid}.tmp`);
+          this.savedBytes = json.reduce((n, b) => n + b.length, 0) + (vectors?.length ?? 0);
+          this.bytesWritten += this.savedBytes;
+          this.savedAt = Date.now();
         }
       } finally {
         this.saving = null;
@@ -134,15 +151,25 @@ export class LocalBrain implements Brain {
     await fsp.rm(this.jsonFile, { force: true });
     await fsp.rm(this.vecFile, { force: true });
     const e = this.engine.embedder;
-    this.engine = new BrainEngine({ getText: (f) => extractText(f), isExcluded: (p) => this.isExcluded(p) });
+    this.engine = new BrainEngine({ getText: (f) => extractText(f), isExcluded: (p) => this.isExcluded(p), readsItself });
     if (e) this.engine.useEmbedder(e);
   }
 
   // ------------------------------------------------------------ what may be seen
 
+  private excludedFor: string[] | null = null;
+  private excludedNorm: string[] = [];
+
   isExcluded(p: string): boolean {
+    const list = this.o.excluded();
+    if (!list.length) return false;
+    // Normalised once per list (this runs for every file in the library on each catch-up).
+    if (list !== this.excludedFor) {
+      this.excludedFor = list;
+      this.excludedNorm = list.map(norm);
+    }
     const n = norm(p);
-    return this.o.excluded().some((x) => { const e = norm(x); return n === e || n.startsWith(e + path.sep) || n.startsWith(e + '/'); });
+    return this.excludedNorm.some((e) => n === e || n.startsWith(e + path.sep) || n.startsWith(e + '/'));
   }
 
   /** Inside a library folder (or a file the library knows) and not excluded. */
@@ -156,8 +183,10 @@ export class LocalBrain implements Brain {
 
   // ------------------------------------------------------------ Brain
 
-  async sync(o: { signal?: AbortSignal; onProgress?: (done: number, total: number) => void } = {}): Promise<number> {
-    const n = await this.engine.sync(this.o.index().files.values(), o);
+  /** Catches up with the library: everything, or only `paths` when the library knows which changed. */
+  async sync(o: { signal?: AbortSignal; onProgress?: (done: number, total: number) => void; pause?: () => Promise<void>; paths?: string[] | null } = {}): Promise<number> {
+    const ix = this.o.index();
+    const n = o.paths ? await this.engine.syncPaths(o.paths, (p) => ix.files.get(p), o) : await this.engine.sync(ix.files.values(), o);
     if (n) this.markDirty();
     return n;
   }

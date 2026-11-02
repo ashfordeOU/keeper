@@ -127,6 +127,16 @@ function notebookText(raw: string): string {
   }
 }
 
+/**
+ * Whether extractText reads this file itself (rather than using the text the library found):
+ * then the library's text arriving later changes nothing for the brain.
+ */
+export function readsItself(f: Pick<FileEntry, 'ext' | 'size'>): boolean {
+  if (OFFICE.has(f.ext)) return f.size <= MAX_OFFICE;
+  const textual = PLAIN.has(f.ext) || HTML.has(f.ext) || SUBS.has(f.ext) || isCode(f.ext) || f.ext === 'eml' || f.ext === 'rtf';
+  return textual && f.size <= MAX_READ;
+}
+
 /** Reads the text of one file for the brain; undefined when it has none. */
 export async function extractText(f: FileEntry): Promise<string | undefined> {
   const cut = (s: string) => (s.length > MAX_TEXT ? s.slice(0, MAX_TEXT) : s);
