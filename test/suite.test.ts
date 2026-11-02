@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import v8 from 'node:v8';
 import { afterEach, describe, expect, it } from 'vitest';
-import { DEFAULT_POLICY, PARTS, frame, initialStatus, isPartRole, restartExit, roleOf, splitFrames, step, tokenMatches, validHello, type PartEvent, type PartStatus, type RestartPolicy } from '../core/suite';
+import { DEFAULT_POLICY, PARTS, separateByDefault, frame, initialStatus, isPartRole, restartExit, roleOf, splitFrames, step, tokenMatches, validHello, type PartEvent, type PartStatus, type RestartPolicy } from '../core/suite';
 import { connect, listen, readCoreInfo, roleRunning, socketPath, takeRoleLock, writeCoreInfo, type Peer } from '../electron/suite/channel';
 
 function run(events: [PartEvent, number][], policy: RestartPolicy = DEFAULT_POLICY, from: PartStatus = initialStatus()) {
@@ -37,6 +37,11 @@ describe('suite: roles', () => {
     }
     expect(PARTS.find((p) => p.role === 'mail')!.features).toEqual(expect.arrayContaining(['mail', 'calendars', 'alarms']));
     expect(isPartRole('app')).toBe(false);
+    // In processes of their own unless the person said no, or chose the Minimal resource mode.
+    expect(separateByDefault({})).toBe(true);
+    expect(separateByDefault({ resourceMode: 'minimal' })).toBe(false);
+    expect(separateByDefault({ resourceMode: 'minimal', suiteSeparate: true })).toBe(true);
+    expect(separateByDefault({ suiteSeparate: false })).toBe(false);
     expect(isPartRole(undefined)).toBe(false);
   });
 });

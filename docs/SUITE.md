@@ -139,8 +139,8 @@ running; the updated app starts the parts again. No part checks for updates.
 
 ## Placement: separate or shared
 
-Settings → Features → "Run parts in processes of their own" (`suiteSeparate`,
-on unless switched off) applies at the next start. Off, the Island and widgets
+Settings → Features → "Run parts in processes of their own" (`suiteSeparate`;
+unset: on, except in the Minimal resource mode) applies at the next start. Off, the Island and widgets
 run in the app's process as they did before the suite: the lightest choice,
 but they stop with the app. `KEEPER_SUITE=shared|separate` overrides the
 setting for one run (diagnostics and tests).
@@ -148,24 +148,32 @@ setting for one run (diagnostics and tests).
 ## Memory
 
 Measured with `test/e2e/perf-budget.cjs` (2,000 files, idle after settling, Linux,
-the same machine, the Island on, no widgets):
+one busy machine, the same build, the Island and Mail on, no widgets):
 
 | | proportional (PSS) | private | anonymous |
 |---|---|---|---|
-| one process (before) | 450 MB | 305 MB | 218 MB |
-| Island in its own process | see CHANGELOG / CI | | |
+| one process (`KEEPER_SUITE=shared`) | 327 MB | 205 MB | 208 MB |
+| parts in processes of their own (the default) | 456–466 MB | 283–308 MB | 331–333 MB |
 
-What a part costs: its main process (about 30 MB private; it loads only the
-window code), its page process (about 35 MB private; the Island's page no
-longer shares the main window's), and Chromium's two small zygote processes
-(about 1 MB private each, but about 10 MB anonymous each, counted again for
-every copy). A part has no graphics process of its own (it draws in software:
-small windows that change little) and no network process (the network service
-runs inside its main process). The app's own processes shrink by what moved
-out (the Island's windows and page), so proportional and private memory for
-everything together stay about the same; anonymous memory, which counts the
-zygotes' shared pages once per process, rises. A part that is off, or a widgets
-part with no widgets, costs nothing.
+Per process with parts separate: the app's main process about 77–104 MB private,
+its page 64 MB, graphics 21 MB, network 12 MB; the Island's main process 33 MB, its
+page 33 MB, its zygotes 11 MB; Mail's main process 30 MB.
+
+What a part costs: its main process (about 30 MB private; it loads only its own
+code), and for the Island and widgets their page process (about 33 MB; one
+process with the app shares the Island's page with the main window's) and
+Chromium's two small zygote processes (about 11 MB private, but about 10 MB
+anonymous each, counted again for every copy). Mail starts with `--no-zygote` on
+Linux: it opens no pages, so it needs no zygote (and so no sandbox, which only
+holds pages). No part has a graphics process of its own (they draw in software:
+small windows that change little) or a network process (the network service
+runs inside its main process).
+
+A part that is off costs nothing: no process. Widgets with no widget on the
+desktop do not run. The Minimal resource mode keeps everything in one process
+unless the person chose otherwise (`separateByDefault` in core/suite.ts), and
+its budgets are those of one process; the default budgets in perf-budget.cjs
+rose by what the parts cost, with these measurements beside them.
 
 ## Platform notes
 

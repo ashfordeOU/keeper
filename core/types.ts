@@ -439,7 +439,7 @@ export interface Settings {
   resourceMode: import('./governor').ResourceMode;
   /** closing the main window while Keeper stays in the tray lets its page go (unset: yes, except in Performance mode) */
   freeWindowOnClose?: boolean;
-  /** the Island and widgets run in processes of their own, apart from the main window (unset: yes; applies at the next start; docs/SUITE.md) */
+  /** the Island, widgets and Mail run in processes of their own, apart from the main window (unset: yes, except in the Minimal resource mode; applies at the next start; docs/SUITE.md) */
   suiteSeparate?: boolean;
   /** features switched away from their default (see core/features.ts) */
   features: Record<string, boolean>;

@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import type { SuitePart } from '../../core/api-suite';
 import type { KeeperProcess } from '../../core/api-session';
 import { featureDef } from '../../core/features';
+import { separateByDefault } from '../../core/suite';
 import { formatBytes, relativeTime } from '../../core/format';
 import { api } from '../api';
 import { useFeatureStates } from '../features';
@@ -57,7 +58,7 @@ export function SuitePanel() {
     void api.suite.separate().then((s) => alive && setSeparate(s)).catch(() => undefined);
     const t = window.setInterval(load, 3000);
     return () => { alive = false; window.clearInterval(t); };
-  }, [settings?.suiteSeparate]);
+  }, [settings?.suiteSeparate, settings?.resourceMode]);
   if (!api.suite || !settings) return null;
 
   const restart = async (id: SuitePart['id']) => {
@@ -137,13 +138,13 @@ export function SuitePanel() {
       <div className="feature-row suite-row">
         <div className="grow">
           <div className="feature-name">Run parts in processes of their own</div>
-          <div className="small muted">On: the Island, widgets and Mail keep running if the main window stops, at the cost of some memory for each. Off: everything runs in one process, the lightest choice. Applies when Keeper starts again.</div>
+          <div className="small muted">On: the Island, widgets and Mail keep running if the main window stops, at the cost of some memory for each. Off: everything runs in one process, the lightest choice (the default in the Minimal resource mode). Applies when Keeper starts again.</div>
           {separate?.env ? <div className="small warn-text">Set to “{separate.env}” for this run by KEEPER_SUITE.</div> : null}
           {changePending ? (
             <div className="small warn-text">Applies at the next start. <button className="btn sm" onClick={() => void api.session.relaunch(false)}>Restart Keeper now</button></div>
           ) : null}
         </div>
-        <Toggle label="Run parts in processes of their own" on={settings.suiteSeparate !== false} onChange={(v) => void updateSettings({ suiteSeparate: v }).then(() => setSeparate((s) => (s ? { ...s, next: v } : s)))} />
+        <Toggle label="Run parts in processes of their own" on={separateByDefault(settings)} onChange={(v) => void updateSettings({ suiteSeparate: v }).then(() => setSeparate((s) => (s ? { ...s, next: v } : s)))} />
       </div>
     </div>
   );

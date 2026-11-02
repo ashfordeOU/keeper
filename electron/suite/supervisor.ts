@@ -14,7 +14,7 @@ import { app, ipcMain } from 'electron';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { readdirSync, rmSync } from 'node:fs';
 import path from 'node:path';
-import { DEFAULT_POLICY, EXIT_ALREADY_RUNNING, PARTS, ROLE_FLAG, initialStatus, restartExit, step, type PartAction, type PartEvent, type PartRole, type PartStatus } from '../../core/suite';
+import { DEFAULT_POLICY, EXIT_ALREADY_RUNNING, PARTS, ROLE_FLAG, initialStatus, separateByDefault, restartExit, step, type PartAction, type PartEvent, type PartRole, type PartStatus } from '../../core/suite';
 import type { SuitePart } from '../../core/api-suite';
 import { normalizeWidgets } from '../../core/widgets';
 import { featureOn, onFeature } from '../services/features';
@@ -35,7 +35,7 @@ export const separateAtStart = (() => {
   if (env === 'shared') return false;
   if (env === 'separate') return true;
   try {
-    return settings().suiteSeparate !== false;
+    return separateByDefault(settings());
   } catch {
     return true;
   }
@@ -73,6 +73,10 @@ function command(role: PartRole): [string, string[]] {
     `${ROLE_FLAG}${role}`,
     `--user-data-dir=${app.getPath('userData')}`,
     ...process.argv.filter((a) => a === '--no-sandbox' || a.startsWith('--ozone-platform')),
+    // Mail shows no web pages at all, so on Linux it needs none of Chromium's zygote processes, which
+    // would otherwise start with it only to fork pages it never opens (about 20 MB). Without pages
+    // there is nothing for the sandbox to hold, and Chromium allows no zygote only without it.
+    ...(role === 'mail' && process.platform === 'linux' ? ['--no-zygote', ...(process.argv.includes('--no-sandbox') ? [] : ['--no-sandbox'])] : []),
   ];
   // An AppImage runs from a temporary mount that goes when the app quits: start from the file itself.
   if (process.env.APPIMAGE) return [process.env.APPIMAGE, args.filter((a) => a !== app.getAppPath())];
@@ -288,5 +292,5 @@ export function registerSuiteIpc() {
     return { ...ownUsage((pid) => services.has(pid)), pid: process.pid, startedAt: Math.round(Date.now() - process.uptime() * 1000) };
   });
   ipcMain.handle('suite.restart', (_e, role: PartRole) => { restartPart(role); return listParts(); });
-  ipcMain.handle('suite.separate', () => ({ now: separateAtStart, next: settings().suiteSeparate !== false, env: process.env.KEEPER_SUITE ?? null }));
+  ipcMain.handle('suite.separate', () => ({ now: separateAtStart, next: separateByDefault(settings()), env: process.env.KEEPER_SUITE ?? null }));
 }

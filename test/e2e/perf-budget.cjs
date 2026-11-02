@@ -101,9 +101,23 @@ const BUDGET = {
   //   Minimal now     328–400 MB   213–265 MB   184–219 MB
   // Anonymous memory (what Keeper allocates itself) is the steady one, so it has the tight
   // budget; PSS and private memory have room for the spread between machines.
-  pssMB: Number(process.env.KEEPER_PERF_PSS_MB ?? (MODE === 'minimal' ? 440 : 500)),
-  privMB: Number(process.env.KEEPER_PERF_PRIV_MB ?? (MODE === 'minimal' ? 300 : 340)),
-  anonMB: Number(process.env.KEEPER_PERF_ANON_MB ?? (MODE === 'minimal' ? 245 : 255)),
+  //
+  // Keeper as a suite (docs/SUITE.md): by default the Island and Mail and calendars run in
+  // processes of their own (widgets too, but this test has none, so that part does not run).
+  // Measured on one busy machine, two runs each, the same build:
+  //                                  PSS          private      anonymous
+  //   one process (KEEPER_SUITE=shared)  327 MB    205 MB       208 MB
+  //   parts in their own processes  456–466 MB   283–308 MB   331–333 MB
+  // The difference is the parts' own processes: the Island's main process (about 33 MB private),
+  // its Chromium zygotes (about 11 MB) and its page, which no longer shares the main window's
+  // page process (about 33 MB); Mail's main process (about 30 MB; it starts no zygotes). That
+  // is what keeps the Island, widgets and Mail running when the main window stops. The default
+  // budgets rise by that much (anonymous by 90 MB, to 345 MB; PSS and private memory by 80 and
+  // 60 MB). Minimal mode keeps everything in one process (core/suite.ts separateByDefault),
+  // so its budgets stay as they were.
+  pssMB: Number(process.env.KEEPER_PERF_PSS_MB ?? (MODE === 'minimal' ? 440 : 580)),
+  privMB: Number(process.env.KEEPER_PERF_PRIV_MB ?? (MODE === 'minimal' ? 300 : 400)),
+  anonMB: Number(process.env.KEEPER_PERF_ANON_MB ?? (MODE === 'minimal' ? 245 : 345)),
 };
 const SECONDS = Number(process.env.KEEPER_PERF_SECONDS ?? 60);
 // Keeper finishes its first-start work (thumbnails, sources, the meaning index) in the
@@ -388,7 +402,8 @@ async function once() {
     const known = new Set(info.metrics.map((m) => m.pid));
     // The suite's parts (docs/SUITE.md) are Keeper processes of their own: named by their role, and
     // their page, graphics and zygote processes by the part they belong to.
-    const argsOf = (pid) => { try { return fs.readFileSync(`/proc/${pid}/cmdline`, 'utf8').split('\0'); } catch { return []; } };
+    // (Chromium rewrites its processes' titles, joining the arguments with spaces.)
+    const argsOf = (pid) => { try { return fs.readFileSync(`/proc/${pid}/cmdline`, 'utf8').split(/[\0 ]/); } catch { return []; } };
     const parentOf = (pid) => { try { const st = fs.readFileSync(`/proc/${pid}/stat`, 'utf8'); return +st.slice(st.lastIndexOf(')') + 2).split(' ')[1]; } catch { return 0; } };
     const partOf = (pid) => { for (let p = pid, i = 0; p > 1 && i < 6; p = parentOf(p), i++) { const r = argsOf(p).find((x) => x.startsWith('--keeper-role=')); if (r) return r.slice(14); } return ''; };
     const others = tree(root).filter((p) => p !== root && !known.has(p)).map((pid) => {
