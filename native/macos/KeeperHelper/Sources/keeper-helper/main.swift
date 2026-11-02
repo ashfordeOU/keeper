@@ -503,6 +503,7 @@ func handle(id: Int, method: String, params: [String: Any]) async {
             Wire.shared.result(id, try ddcSet(params))
         case let m where m.hasPrefix("stage."): Wire.shared.result(id, try await stageCall(id: id, method: m, params: params))
         case let m where m.hasPrefix("voice."): Wire.shared.result(id, try await voiceCall(id: id, method: m, params: params))
+        case let m where m.hasPrefix("studio."): Wire.shared.result(id, try await studioCall(id: id, method: m, params: params))
         case "translate":
             Wire.shared.result(id, try await translateTexts(params))
         case "eventkit.events":

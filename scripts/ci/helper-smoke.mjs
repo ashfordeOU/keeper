@@ -80,6 +80,15 @@ check(Array.isArray(running.result?.running) && !running.result.running.includes
 const cam = await call('camera.inUse');
 check(typeof cam.result?.inUse === 'boolean' && typeof cam.result?.devices === 'number', `camera.inUse ${show(cam.result)}`);
 
+// Studio: whether ScreenCaptureKit recording is possible (asks nothing), stopping an unknown
+// recording is harmless, and a recording with no file is refused before any permission is asked.
+const studio = await call('studio.support');
+check(typeof studio.result?.available === 'boolean' && typeof studio.result?.allowed === 'boolean', `studio.support ${show(studio.result)}`);
+const studioStop = await call('studio.stop', { token: 'not-recording' });
+check(studioStop.result?.ok === true, `studio.stop ${show(studioStop.result)}`);
+const studioBad = await call('studio.record', {});
+check(typeof studioBad.error === 'string' && !studioBad.timeout, `studio.record without a file is refused ${show(studioBad.error)}`);
+
 const mem = await call('memory.stats');
 const mr = mem.result;
 check(isObj(mr) && mr.total > 0 && [mr.internal, mr.external, mr.purgeable, mr.wired, mr.compressed, mr.free].every((n) => typeof n === 'number' && n >= 0) && mr.wired > 0
