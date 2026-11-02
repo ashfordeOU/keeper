@@ -205,9 +205,9 @@ export function parseExtensionMessage(m: unknown): ExtensionMessage | null {
   return null;
 }
 
-/** What each browser can do, in plain words (shown on the Browsers page). */
+/** What each browser can do, in plain words (shown on the Browser tabs page under Details). */
 export const BROWSER_LIMITS = [
-  { browser: 'Chrome, Edge, Brave, Vivaldi, Opera', text: 'Everything: tabs, mute, sleep, site permissions (camera, microphone, location, notifications, JavaScript, cookies), blocking rules and per-site proxy.' },
-  { browser: 'Firefox', text: 'Tabs, mute, sleep, blocking rules, cookies and per-site proxy. Firefox has no contentSettings API, so camera, microphone, location and JavaScript per site are changed in Firefox\'s own site settings (the padlock in the address bar).' },
-  { browser: 'Safari', text: 'Not linked yet. A Safari extension can only talk to an app it is packaged inside and must be built with Xcode and signed by Apple; scripts/build-safari-extension.sh makes the Xcode project from the same extension on a Mac, but Keeper does not ship it yet.' },
+  { browser: 'Chrome, Edge, Brave, Vivaldi, Opera, Arc', text: 'Everything: tabs, mute, sleep, site permissions, tracker blocking and a proxy per site.' },
+  { browser: 'Firefox', text: 'Tabs, mute, sleep, tracker blocking, cookies and a proxy per site. Camera, microphone, location and JavaScript per site are set in Firefox itself (the padlock in the address bar).' },
+  { browser: 'Safari', text: 'Safari support is coming.' },
 ];

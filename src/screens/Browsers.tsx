@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Browser tabs: every open tab in every browser linked through Keeper's
 // extension, with mute, sleep, close, site permissions, tracker blocking,
-// site data and per-site proxy.
+// site data and per-site proxy. Until a browser connects, the page is a
+// one-screen setup (BrowserSetup).
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CONTENT_LABEL, allowedValues, flattenTabs, type BrowserSession, type ContentType, type ContentValue } from '../../core/browser-tabs';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
-import { Empty, Modal, PageHead, Toggle } from '../components/ui';
+import { ContextMenu, Modal, PageHead, Toggle, type MenuItem } from '../components/ui';
+import { BrowserSetup } from './BrowserSetup';
 import { useStore } from '../state';
 import { formatBytes } from '../../core/format';
 import '../styles/controls.css';
@@ -22,6 +24,9 @@ export function Browsers() {
   const [q, setQ] = useState('');
   const [site, setSite] = useState<{ tab: Tab; settings: Record<string, string> } | null>(null);
   const [proxy, setProxy] = useState('');
+  const [setup, setSetup] = useState(false);
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const load = useCallback(() => void api.browserTabs.sessions().then(setData), []);
   useEffect(() => { load(); return api.on('browsers-changed', load); }, [load]);
@@ -37,18 +42,30 @@ export function Browsers() {
     }
   };
 
+  // Keeper registers itself with browsers by itself; this is only for when something was changed by hand.
+  const relink = () => {
+    if (busy) return;
+    setBusy(true);
+    void api.browserTabs.installHost().then((r) => toast(r.message)).finally(() => setBusy(false));
+  };
+  const linked = !!data?.sessions.length;
+  const items: MenuItem[] = [
+    ...(linked ? [{ label: 'Add another browser…', icon: 'plus', run: () => setSetup(true) }] : []),
+    { label: busy ? 'Re-linking…' : 'Re-link browsers', icon: 'link', run: relink },
+  ];
+
   if (!data) return <div className="page sp-page"><PageHead title="Browser tabs" /></div>;
+  const showSetup = !linked || setup;
   return (
     <div className="page sp-page" data-testid="browsers-page">
-      <PageHead title="Browser tabs" sub="All open tabs across your browsers, with per-tab and per-site controls. Data and memory figures are estimates from what the browser reports.">
-        <button className="btn sm" onClick={() => void api.browserTabs.syncBlocking().then((r) => toast(r.message))}><Icon name="shield" size={13} /> Send blocklists to browsers</button>
-        <button className="btn sm" onClick={() => void api.browserTabs.installHost().then((r) => toast(r.message))}><Icon name="link" size={13} /> Link browsers</button>
+      <PageHead title="Browser tabs" sub={showSetup && !linked ? 'All your open tabs in one place, once Keeper’s extension is in your browser.' : 'All open tabs across your browsers, with per-tab and per-site controls. Data and memory figures are estimates from what the browser reports.'}>
+        {linked ? <button className="btn sm" onClick={() => void api.browserTabs.syncBlocking().then((r) => toast(r.message))}><Icon name="shield" size={13} /> Send blocklists to browsers</button> : null}
+        <button className="btn sm ghost" aria-label="More" title="More" aria-haspopup="menu" data-testid="browsers-more" onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setMenu({ x: r.right - 200, y: r.bottom + 4 }); }}>⋯</button>
       </PageHead>
+      {menu ? <ContextMenu x={menu.x} y={menu.y} items={items} onClose={() => setMenu(null)} label="Browser tabs" /> : null}
 
-      {!data.sessions.length ? (
-        <Empty icon="globe" title="No browser is linked yet">
-          Install Keeper’s extension (Chrome, Edge, Brave, Vivaldi, Opera or Firefox), then press “Link browsers”. Tabs appear here while the browser is open.
-        </Empty>
+      {showSetup ? (
+        <BrowserSetup onConnected={() => { load(); setSetup(false); }} onClose={linked ? () => setSetup(false) : undefined} />
       ) : (
         <>
           <div className="qc-summary muted">{data.sessions.map((s) => <span key={s.id} className="qc-how qc-how-direct">{s.browser}: {s.tabs.length} tabs</span>)}</div>
@@ -78,10 +95,10 @@ export function Browsers() {
         </>
       )}
 
-      <div className="card">
-        <div className="qc-h">What each browser allows</div>
+      <details className="card bs-details">
+        <summary>Details: what each browser allows</summary>
         {data.limits.map((l) => <div key={l.browser} className="qc-row"><div className="qc-txt"><div className="qc-label">{l.browser}</div><div className="muted qc-desc">{l.text}</div></div></div>)}
-      </div>
+      </details>
 
       {site ? (
         <Modal title={`Site settings: ${host(site.tab.url)}`} onClose={() => setSite(null)} width={620}>

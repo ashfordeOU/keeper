@@ -10,7 +10,7 @@ import { BROWSER_LIMITS, buildBlockRules, buildPac, checkCommand, flattenTabs, t
 import { parseList } from '../../core/fw/blocklist';
 import type { BrowserTabsApi } from '../../core/api-settingsplus';
 import { fwApi } from './fw';
-import { installBrowserHost } from './security';
+import { addExtension, autoLink, revealExtension, setupStatus } from './browser-setup';
 
 interface Live extends BrowserSession {
   notify: (method: string, params: unknown) => void;
@@ -124,10 +124,16 @@ async function syncBlocking(only?: string): Promise<{ ok: boolean; message: stri
   return { ok: !failed, message: failed ? `${failed} browser(s) refused the rules` : `${rules.length} rule groups sent to ${targets.length} browser(s)` };
 }
 
+const liveList = (): BrowserSession[] => [...sessions.values()].map(({ notify: _n, end: _e, ...s }) => s);
+
+/** At start (with the feature on): registers Keeper with the browsers found, so linking needs no button. */
+export function startBrowserLink() {
+  setTimeout(() => void autoLink(liveList()).catch(() => undefined), 8_000).unref?.();
+}
+
 export const browserTabsApi: BrowserTabsApi = {
   async sessions() {
-    const list = [...sessions.values()].map(({ notify: _n, end: _e, ...s }) => s);
-    return { sessions: list, limits: BROWSER_LIMITS, hostInstalled: true };
+    return { sessions: liveList(), limits: BROWSER_LIMITS, hostInstalled: true };
   },
   async tab(session, tabId, action) {
     const c: TabCommand = action === 'mute' || action === 'unmute' ? { cmd: 'mute', tabId, muted: action === 'mute' } : { cmd: action, tabId };
@@ -156,9 +162,12 @@ export const browserTabsApi: BrowserTabsApi = {
     return ok(command(session, { cmd: 'setProxy', pac: proxy ? buildPac(sites, proxy) : null }));
   },
   async installHost() {
-    const r = await installBrowserHost();
-    return { ok: r.installed.length > 0, message: r.installed.length ? `Linked for ${r.installed.join(', ')}. Load the extension from ${r.extensionFolder}.` : `No supported browser found. The extension is in ${r.extensionFolder}.` };
+    const r = await autoLink(liveList(), true);
+    return { ok: !!r?.installed.length, message: r?.installed.length ? `Keeper is registered with ${r.installed.join(', ')}` : 'No supported browser found on this computer' };
   },
+  setup: () => setupStatus(liveList()),
+  addExtension: (id) => addExtension(id),
+  revealExtension: (id) => revealExtension(id),
 };
 
 /** For agents: every open tab across browsers. */

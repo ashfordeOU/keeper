@@ -78,7 +78,15 @@ setInterval(() => {
 // own extension APIs allow.
 
 const isFirefox = typeof globalThis.browser !== 'undefined' && /Firefox/.test(navigator.userAgent);
-const browserName = () => navigator.userAgent.match(/(Firefox|Edg|OPR|Brave|Vivaldi|Chrome)\/(\d+)/)?.slice(1).join(' ').replace('Edg', 'Edge').replace('OPR', 'Opera') ?? 'Browser';
+// Brave, Opera and Edge also name themselves in the client hints; Brave's user agent says only "Chrome".
+const brandName = () => {
+  const brands = (navigator.userAgentData?.brands ?? []).map((b) => b.brand);
+  const ver = navigator.userAgent.match(/Chrome\/(\d+)/)?.[1] ?? '';
+  if (navigator.brave || brands.includes('Brave')) return `Brave ${ver}`;
+  const named = [['Microsoft Edge', 'Edge'], ['Opera', 'Opera'], ['Vivaldi', 'Vivaldi']].find(([b]) => brands.includes(b));
+  return named ? `${named[1]} ${ver}` : null;
+};
+const browserName = () => brandName() ?? navigator.userAgent.match(/(Firefox|Edg|OPR|Brave|Vivaldi|Chrome)\/(\d+)/)?.slice(1).join(' ').replace('Edg', 'Edge').replace('OPR', 'Opera') ?? 'Browser';
 const caps = () => ['tabs', 'mute', 'discard', ...(api.contentSettings ? ['contentSettings'] : []), ...(api.declarativeNetRequest ? ['dnr'] : []), ...(api.browsingData ? ['cookies'] : []), ...(api.proxy ? ['proxy'] : [])];
 
 /** tabId → { bytes, requests, parties: Map<host, {requests, blocked}> } since the page loaded */

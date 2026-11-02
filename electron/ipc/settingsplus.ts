@@ -5,11 +5,11 @@
 import { ipcMain } from 'electron';
 import { registerAbility } from '../../core/abilities/registry';
 import { settingById } from '../../core/settings-catalog';
-import { featureOn } from '../services/features';
+import { featureOn, onFeature } from '../services/features';
 import { registerKeeperMethod, registerKeeperStream } from '../services/brain';
 import { apply, catalogApi, onCatalogChanged, preview, readValues, reset } from '../services/settings-catalog';
 import { appctlApi, startAppctl } from '../services/appctl';
-import { allTabs, attach, browserTabsApi, detach, onBrowsersChanged, ping, reply, tabsReport } from '../services/browser-tabs';
+import { allTabs, attach, browserTabsApi, detach, onBrowsersChanged, ping, reply, startBrowserLink, tabsReport } from '../services/browser-tabs';
 
 type Fns = Record<string, (...a: never[]) => unknown>;
 const handle = (prefix: string, api: object, feature: string) => {
@@ -116,4 +116,6 @@ export function registerSettingsPlusIpc(deps: { broadcast: (ch: string, ...a: un
   });
 
   if (featureOn('appControls')) void startAppctl().catch(() => undefined);
+  // Browser tabs: Keeper registers itself with the browsers it finds whenever the feature is on.
+  onFeature('browserTabs', (on) => { if (on) startBrowserLink(); }, { now: true });
 }

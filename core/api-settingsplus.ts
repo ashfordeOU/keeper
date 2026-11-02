@@ -4,6 +4,7 @@
 
 import type { AppRef, ControlId, Priority, Support } from './appctl';
 import type { BrowserSession, BrowserTab, ContentType, ContentValue } from './browser-tabs';
+import type { DetectedBrowser, SetupBrowserId } from './browser-setup';
 import type { After, ChangeRecord, Category, Os, ProfilePreviewItem, ReadResult, Risk } from './settings-catalog/types';
 
 /** A catalogue entry as the interface shows it (commands are previewed separately). */
@@ -140,6 +141,30 @@ export interface BrowserTabsApi {
   siteBlocking(session: string, site: string, on: boolean): Promise<{ ok: boolean; message?: string }>;
   /** send these sites through a proxy (or null to stop) */
   siteProxy(session: string, sites: string[], proxy: { type: 'PROXY' | 'SOCKS5' | 'HTTPS'; host: string; port: number } | null): Promise<{ ok: boolean; message?: string }>;
-  /** registers the native messaging host for installed browsers */
+  /** registers the native messaging host for installed browsers (Keeper also does this by itself) */
   installHost(): Promise<{ ok: boolean; message: string }>;
+  /** the browsers on this computer: registered with Keeper, extension connected */
+  setup(): Promise<BrowserSetupStatus>;
+  /** "Add to Chrome": opens the store page, or the extensions page with the folder shown and its path copied */
+  addExtension(id: SetupBrowserId): Promise<AddExtensionResult>;
+  /** shows the extension's folder again and copies its path */
+  revealExtension(id: SetupBrowserId): Promise<{ ok: boolean; folder: string }>;
+}
+
+export interface BrowserSetupStatus {
+  browsers: DetectedBrowser[];
+  /** any browser's extension is talking to Keeper */
+  connected: boolean;
+}
+
+export interface AddExtensionResult {
+  ok: boolean;
+  /** store: the store page opened; unpacked: the extensions page and the folder */
+  mode: 'store' | 'unpacked' | 'unsupported';
+  /** the browser opened the page */
+  opened: boolean;
+  page?: string;
+  /** the folder (Chromium) or manifest.json (Firefox) to choose */
+  folder?: string;
+  message?: string;
 }

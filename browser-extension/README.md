@@ -6,10 +6,18 @@ It needs access to all sites, because that is the only way to see requests, and 
 
 ## Install
 
-1. In Keeper, open Privacy & Security → Browsers and press **Connect browsers**. That registers Keeper with each installed browser.
-2. Chromium browsers (Chrome, Edge, Brave, Vivaldi, Opera, Arc): open the extensions page, turn on Developer mode, choose **Load unpacked** and pick this folder. Its id is always `lkgnaaiefeiflokcnjnpmocahliakgac`.
-3. Firefox: copy `manifest.firefox.json` over `manifest.json` in a copy of this folder, then open `about:debugging` → This Firefox → **Load Temporary Add-on**. A signed add-on is needed for permanent installation.
-4. Safari is not supported: it does not allow native messaging to apps outside the App Store.
+Keeper does every step a browser allows an app to do:
+
+1. **Registration is automatic.** While Browser tab controls are on, Keeper finds the browsers on the computer (Chrome, Chromium, Edge, Brave, Vivaldi, Opera, Arc, Firefox) and registers itself with each one (native messaging host manifests; registry keys on Windows), again whenever a new browser appears. Browser tabs → ⋯ → **Re-link browsers** does it once more by hand.
+2. **Adding the extension is the person's click.** Browsers do not let an app install an extension by itself except through company policies, which Keeper does not use. Browser tabs shows each browser found with a big **Add to …** button:
+   - If the extension's store page is set in `STORE_LISTINGS` (`core/browser-setup.ts`), the button opens that page in that browser and adding it is one click.
+   - Otherwise it opens the browser's extensions page (`chrome://extensions`, `edge://extensions`, `brave://extensions`…), shows the extension's folder and copies its path, and walks through three steps: turn on Developer mode, click **Load unpacked**, choose the folder. Keeper keeps a copy of the extension in its own data folder (on a Mac `~/Library/Application Support/Keeper/browser-extension`), refreshed on every update, because the copy inside the app is hard to reach in a file dialog. The extension's id is always `lkgnaaiefeiflokcnjnpmocahliakgac`.
+   - Firefox: it opens `about:debugging#/runtime/this-firefox`; **Load Temporary Add-on…** and choose `manifest.json` in `browser-extension-firefox` (Keeper's copy with the Firefox manifest). Firefox forgets temporary add-ons when it quits; a signed add-on is needed to keep it.
+3. The page checks only while the setup is on screen and switches to the tabs by itself once the extension connects.
+
+Safari is not supported yet.
+
+**TODO (publishing):** publish the extension on the Chrome Web Store (it also installs in Edge, Brave, Vivaldi, Opera and Arc), on Microsoft Edge Add-ons and on Firefox Add-ons (addons.mozilla.org, which also signs it so Firefox keeps it), then put the listing addresses in `STORE_LISTINGS` in `core/browser-setup.ts`. "Add to Chrome" then opens the store page and adding Keeper's extension is one click, with automatic updates from the store. Keep the store build's key so its id stays the one in the native messaging manifest, or add the store id to `hostManifest`'s allowed origins.
 
 ## Cues
 

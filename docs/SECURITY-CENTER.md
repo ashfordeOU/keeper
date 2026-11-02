@@ -65,7 +65,7 @@ The Connections tab builds on Network Activity's flows. For each app it shows:
 - **Browsers:** Chromium-family browsers (MV3) and Firefox.
 - **Data:** it observes requests with `webRequest.onCompleted`, without blocking or changing anything, and counts first and third parties for each tab.
 - **Delivery:** it sends the counts to Keeper through **native messaging**: a 4-byte length followed by JSON, at most 1 MB per message. The host is `org.ashforde.keeper`, which runs `keeper browser-host` and forwards to the running app over its local socket.
-- **Install:** **Connect browsers** writes the host manifests (registry keys on Windows).
+- **Install:** Keeper writes the host manifests (registry keys on Windows) by itself for every browser it finds while Browser tab controls are on; Browser tabs → **Add to …** guides adding the extension (see browser-extension/README.md). **Connect browsers** here does the registration by hand.
 - **Permissions:** it needs access to all sites, because it can't report on sites it can't see.
 - **Safari:** not supported.
 

@@ -8,7 +8,7 @@
 // and says plainly which of them are working.
 
 import { app, dialog, net, shell } from 'electron';
-import { existsSync, promises as fsp, watch, type FSWatcher } from 'node:fs';
+import { existsSync, promises as fsp, readFileSync, watch, type FSWatcher } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { Worker } from 'node:worker_threads';
@@ -32,6 +32,7 @@ import { readBrowsers, readPermissions, readPersistence, readPosture, signerOf }
 
 const dir = () => path.join(app.getPath('userData'), 'security');
 const file = (n: string) => path.join(dir(), n);
+const readFileSyncSafe = (f: string) => { try { return readFileSync(f, 'utf8'); } catch { return ''; } };
 
 const DEFAULTS: SecuritySettings = {
   realtime: true, autoQuarantine: true, clamavUpdates: true, hashLookups: false, behaviour: true, persistenceAlerts: true,
@@ -800,33 +801,69 @@ export function siteReport(r: SiteReport) {
   save();
 }
 
-export async function installBrowserHost(): Promise<{ installed: string[]; extensionFolder: string }> {
+async function writeIfChanged(f: string, text: string, mode?: number): Promise<boolean> {
+  try {
+    if ((await fsp.readFile(f, 'utf8')) === text) return false;
+  } catch {
+    /* not there yet */
+  }
+  await fsp.writeFile(f, text, mode ? { mode } : undefined);
+  return true;
+}
+
+/**
+ * Registers Keeper with every browser found here (native messaging), and
+ * refreshes the easy-to-pick copy of the extension. Safe to run again and
+ * again: unchanged files are left alone. `also` names registration places of
+ * browsers that are installed but have never made their own folder.
+ */
+export async function installBrowserHost(also: string[] = [], force = false): Promise<{ installed: string[]; extensionFolder: string }> {
   const cli = path.join(app.getAppPath(), 'dist-cli', 'keeper.cjs').replace('app.asar' + path.sep, 'app.asar.unpacked' + path.sep);
   const exe = process.execPath;
   const launcher = process.platform === 'win32' ? file('native-host.cmd') : file('native-host.sh');
   await fsp.mkdir(dir(), { recursive: true });
-  await fsp.writeFile(launcher, process.platform === 'win32' ? `@echo off\r\nset ELECTRON_RUN_AS_NODE=1\r\n"${exe}" "${cli}" browser-host\r\n` : `#!/bin/sh\nELECTRON_RUN_AS_NODE=1 exec "${exe}" "${cli}" browser-host\n`, { mode: 0o755 });
+  await writeIfChanged(launcher, process.platform === 'win32' ? `@echo off\r\nset ELECTRON_RUN_AS_NODE=1\r\n"${exe}" "${cli}" browser-host\r\n` : `#!/bin/sh\nELECTRON_RUN_AS_NODE=1 exec "${exe}" "${cli}" browser-host\n`, 0o755);
   const installed: string[] = [];
+  // Windows registry keys already pointing at the right file (so reg.exe is not run every time).
+  const regDone = file('native-host-registered.json');
+  let registered: Record<string, string> = {};
+  try { registered = JSON.parse(await fsp.readFile(regDone, 'utf8')); } catch { /* none yet */ }
   for (const loc of hostManifestLocations(process.platform, os.homedir())) {
     const manifest = JSON.stringify(hostManifest(launcher, loc.engine, []), null, 2);
     try {
       if (loc.dir) {
-        if (!existsSync(path.dirname(loc.dir))) continue;
+        if (!existsSync(path.dirname(loc.dir)) && !also.includes(loc.browser)) continue;
         await fsp.mkdir(loc.dir, { recursive: true });
-        await fsp.writeFile(path.join(loc.dir, 'org.ashforde.keeper.json'), manifest);
+        await writeIfChanged(path.join(loc.dir, 'org.ashforde.keeper.json'), manifest);
       } else if (loc.regKey) {
         const mf = file(`native-host-${loc.engine}.json`);
-        await fsp.writeFile(mf, manifest);
-        const r = await run('reg.exe', ['add', loc.regKey, '/ve', '/t', 'REG_SZ', '/d', mf, '/f']);
-        if (!r.ok) continue;
+        await writeIfChanged(mf, manifest);
+        if (force || registered[loc.regKey] !== mf) {
+          const r = await run('reg.exe', ['add', loc.regKey, '/ve', '/t', 'REG_SZ', '/d', mf, '/f']);
+          if (!r.ok) continue;
+          registered[loc.regKey] = mf;
+        }
       }
       installed.push(loc.browser);
     } catch {
       /* that browser is skipped */
     }
   }
-  const extensionFolder = path.join(app.getAppPath(), 'browser-extension').replace('app.asar' + path.sep, 'app.asar.unpacked' + path.sep);
-  return { installed, extensionFolder };
+  if (process.platform === 'win32') await fsp.writeFile(regDone, JSON.stringify(registered)).catch(() => undefined);
+  const { prepareExtensionCopies, bundledExtensionFolder } = await import('../browser-extension-copy');
+  const copies = await prepareExtensionCopies().catch(() => null);
+  return { installed, extensionFolder: copies?.chromium ?? bundledExtensionFolder() };
+}
+
+/** Is Keeper registered at this place (a folder or, on Windows, a registry key it set)? */
+export function browserHostRegistered(loc: { dir?: string; regKey?: string }): boolean {
+  if (loc.dir) return existsSync(path.join(loc.dir, 'org.ashforde.keeper.json'));
+  if (!loc.regKey) return false;
+  try {
+    return !!JSON.parse(readFileSyncSafe(file('native-host-registered.json')) || '{}')[loc.regKey];
+  } catch {
+    return false;
+  }
 }
 
 /** Exported for the CLI's browser-host bridge tests. */

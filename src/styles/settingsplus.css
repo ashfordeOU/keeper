@@ -33,3 +33,39 @@
 .sp-site { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; padding: 6px 0; }
 .sp-site label { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12.5px; }
 @media (max-width: 760px) { .sp-split { grid-template-columns: 1fr; } }
+
+/* Browser tabs: the extension setup */
+.bs-setup h3 { margin: 0 0 4px; font-size: 16px; }
+.sp-page .bs-intro, .sp-page .bs-guide, .sp-page .bs-browser { padding: 14px 16px; }
+.bs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; margin-bottom: 14px; }
+.sp-page .bs-grid .card { margin-bottom: 0; }
+.bs-browser { display: flex; flex-direction: column; gap: 8px; }
+.bs-browser.sel { outline: 2px solid var(--accent); outline-offset: -1px; }
+.bs-browser.ok { background: var(--ok-soft); }
+.bs-name { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 15px; }
+.bs-ok { color: var(--ok); display: flex; align-items: center; gap: 4px; }
+.bs-add { height: 38px; font-size: 14px; font-weight: 600; margin-top: auto; }
+.bs-steps { list-style: none; padding: 0; margin: 12px 0 6px; display: grid; gap: 14px; }
+.bs-steps li { display: grid; grid-template-columns: 230px 1fr; gap: 14px; align-items: start; }
+.bs-step-t { font-weight: 600; display: flex; align-items: center; gap: 8px; margin-bottom: 2px; }
+.bs-num { width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: var(--accent-text); display: inline-grid; place-items: center; font-size: 12px; flex: none; }
+.bs-step-pic { border: 1px solid var(--line); border-radius: 10px; background: var(--bg-sunk); padding: 8px; min-height: 44px; font-size: 11.5px; overflow: hidden; }
+.bs-pic-bar { display: flex; align-items: center; gap: 4px; }
+.bs-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
+.bs-url { margin-left: 6px; flex: 1; background: var(--bg-elev); border-radius: 6px; padding: 3px 8px; font-family: var(--mono, ui-monospace, monospace); outline: 2px solid var(--accent); }
+.bs-pic-top { display: flex; align-items: center; gap: 6px; justify-content: space-between; flex-wrap: wrap; }
+.bs-pic-dev { display: flex; align-items: center; gap: 6px; font-weight: 600; }
+.bs-switch { width: 24px; height: 14px; border-radius: 7px; background: var(--line); position: relative; display: inline-block; }
+.bs-switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 10px; height: 10px; border-radius: 50%; background: #fff; }
+.bs-switch.on { background: var(--accent); }
+.bs-switch.on::after { left: 12px; }
+.bs-pic-btn { border: 1px solid var(--line); border-radius: 6px; padding: 2px 6px; background: var(--bg-elev); }
+.bs-pic-btn.hl { border-color: var(--accent); color: var(--accent); font-weight: 600; box-shadow: 0 0 0 2px var(--accent-soft); }
+.bs-folder { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.bs-folder code { font-size: 11.5px; background: var(--bg-sunk); border-radius: 6px; padding: 3px 7px; word-break: break-all; user-select: text; }
+.bs-wait { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.bs-spin { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--accent); animation: bs-spin 1s linear infinite; }
+@keyframes bs-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .bs-spin { animation: none; } }
+.bs-details summary { cursor: pointer; padding: 8px 14px; color: var(--text-2); font-size: 12.5px; }
+@media (max-width: 720px) { .bs-steps li { grid-template-columns: 1fr; } }
