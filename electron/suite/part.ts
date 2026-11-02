@@ -1,27 +1,31 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
-// A part of Keeper in a process of its own: `Keeper --keeper-role=island` or
-// `--keeper-role=widgets` (docs/SUITE.md). It owns only its windows. What they
-// ask for (window.keeper.*) is answered by the app over the suite channel;
-// the events the app sends its windows reach these windows too.
+// A part of Keeper in a process of its own: `Keeper --keeper-role=island`,
+// `--keeper-role=widgets` or `--keeper-role=mail` (docs/SUITE.md). The Island and
+// widgets own only their windows: what they ask for (window.keeper.*) is
+// answered by the app over the suite channel, and the events the app sends its
+// windows reach these windows too. Mail and calendars has no windows: it runs
+// mail sync, send later, snoozes and alerts here, and the app asks it.
 //
 //   • one copy per part (its own lock), no Dock icon, its own Chromium storage;
-//   • if the app stops, the windows stay as they are and the part reconnects
-//     when the app is back (the watchdog starts it again); calls made meanwhile
-//     wait a little, then fail politely;
-//   • if the app does not come back (it was quit for good, or Force Quit on a
-//     Mac), the part closes too after a while.
+//   • if the app stops, the part carries on (the windows stay as they are) and
+//     reconnects when the app is back (the watchdog starts it again); window
+//     calls made meanwhile wait a little, then fail politely;
+//   • if the app does not come back (Force Quit on a Mac), the part stays; the
+//     next time a person uses one of its windows, Keeper is started again;
+//   • a normal quit of Keeper (and an update) closes every part.
 
 // Must stay the first import: test runs move every folder before anything reads one.
 import '../test-home';
 import { app, BrowserWindow, ipcMain, nativeImage, shell, webContents } from 'electron';
-import { existsSync, readFileSync } from 'node:fs';
+import { spawn } from 'node:child_process';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { EXIT_ALREADY_RUNNING, ORPHAN_GRACE_MS, roleOf, type PartRole, type SenderInfo, type SuiteMessage } from '../../core/suite';
 import type { AllSettings } from '../../core/settings';
 import { installNavGuard } from '../nav-guard';
-import { adoptSettings, setSettingsWriter } from '../store';
+import { adoptSettings, setSettingsWriter, settings } from '../store';
 import { ownUsage } from './metrics';
-import { connect, readCoreInfo, suiteDir, takeRoleLock, type Peer } from './channel';
+import { connect, readCoreInfo, suiteDir, takeRoleLock, type CoreInfo, type Peer } from './channel';
 
 const role = roleOf(process.argv) as PartRole;
 const DEV_URL = process.env.VITE_DEV_SERVER_URL;
@@ -42,7 +46,7 @@ installNavGuard(path.join(__dirname, '..', 'dist'), DEV_URL);
 declare const __KEEPER_OFFICIAL__: boolean | undefined;
 // Tests only (never official builds): a fixed debugging port per part, so a test can drive its windows.
 const cdpBase = Number(process.env.KEEPER_PART_CDP_PORT_BASE);
-if (!(typeof __KEEPER_OFFICIAL__ === 'boolean' && __KEEPER_OFFICIAL__) && cdpBase > 0) app.commandLine.appendSwitch('remote-debugging-port', String(cdpBase + (role === 'island' ? 0 : 1)));
+if (!(typeof __KEEPER_OFFICIAL__ === 'boolean' && __KEEPER_OFFICIAL__) && cdpBase > 0 && role !== 'mail') app.commandLine.appendSwitch('remote-debugging-port', String(cdpBase + (role === 'island' ? 0 : 1)));
 // Only Keeper itself has a Dock icon and an entry in the app switcher.
 try { if (process.platform === 'darwin') app.setActivationPolicy('accessory'); } catch { /* before launch on older systems */ }
 
@@ -89,6 +93,7 @@ const senderOf = (wc: Electron.WebContents): SenderInfo => ({ id: wc.id, url: wc
 
 function whenConnected(ms: number): Promise<Peer> {
   if (peer && welcomed) return Promise.resolve(peer);
+  if (Date.now() - lastInput < 5000) wakeKeeper();
   return new Promise((resolve, reject) => {
     const t = setTimeout(() => { const i = waiting.indexOf(go); if (i >= 0) waiting.splice(i, 1); reject(new Error('Keeper is starting again; try once more in a moment')); }, ms);
     const go = () => { clearTimeout(t); resolve(peer!); };
@@ -129,12 +134,19 @@ function deliver(channel: string, args: unknown[], to?: number) {
 type Commands = Record<string, (...args: never[]) => unknown>;
 let commands: Commands = {};
 
+/** Tells the app something, if it is there (what must not be missed is kept and said again on reconnecting). */
+function note(name: string, args: unknown[]) {
+  if (peer && welcomed) peer.send({ t: 'note', name, args });
+}
+
 async function onMessage(m: SuiteMessage, onWelcome: () => void) {
   switch (m.t) {
     case 'welcome':
       adoptSettings(m.settings as AllSettings);
       forward(m.channels, m.sends);
       welcomed = true;
+      everWelcomed = true;
+      awaySince = 0;
       clearTimeout(orphanTimer);
       onWelcome();
       for (const go of waiting.splice(0)) go();
@@ -181,6 +193,7 @@ async function connectLoop(onWelcome: () => void) {
   for (;;) {
     const info = readCoreInfo(userData);
     if (info) {
+      lastCore = info;
       try {
         const p = await connect(info.socket);
         peer = p;
@@ -203,22 +216,79 @@ async function connectLoop(onWelcome: () => void) {
   }
 }
 
-/** The app is gone: wait for it to come back, but not for ever. */
+let everWelcomed = false;
+let awaySince = 0;
+let lastCore: CoreInfo | null = null;
+let wokeAt = 0;
+/** When a person last clicked or typed in one of this part's windows (its pages also ask on their own, on timers). */
+let lastInput = 0;
+app.on('web-contents-created', (_e, wc) => {
+  wc.on('input-event', (_ev, input) => {
+    if (input.type !== 'mouseDown' && input.type !== 'keyDown' && input.type !== 'rawKeyDown') return;
+    lastInput = Date.now();
+    if (!welcomed) wakeKeeper();
+  });
+});
+/** Keeper's program as this part started: an update or an uninstall changes or removes it. */
+const exeStamp = (() => { try { return statSync(process.execPath).mtimeMs; } catch { return 0; } })();
+
+/**
+ * The app is gone. A part it never welcomed (started by hand, or the app went before
+ * answering), or one of a development run without a watchdog, does not linger. One it did stays, whatever happened to the app: the
+ * watchdog starts a crashed Keeper again, and after a Force Quit on a Mac (not started
+ * again) the Island and widgets stay on screen and Mail keeps sending what was
+ * scheduled. It only closes when Keeper's program itself changed or went away
+ * (updated or uninstalled while the app was not there to say so).
+ */
 function orphaned() {
   clearTimeout(orphanTimer);
-  clearInterval(stoppedTimer);
-  const since = Date.now();
-  orphanTimer = setTimeout(() => { if (!welcomed) app.quit(); }, Number(process.env.KEEPER_PART_GRACE_MS) || ORPHAN_GRACE_MS);
-  // The watchdog says Keeper was stopped on purpose (Force Quit on a Mac) and will not be started again: go now.
-  stoppedTimer = setInterval(() => {
-    if (welcomed) return clearInterval(stoppedTimer);
-    try {
-      const r = JSON.parse(readFileSync(path.join(suiteDir(userData), 'app-stopped.json'), 'utf8')) as { at?: number };
-      if ((r.at ?? 0) >= since - 30_000) app.quit();
-    } catch { /* not stopped on purpose */ }
-  }, 2000);
+  awaySince ||= Date.now();
+  const grace = Number(process.env.KEEPER_PART_GRACE_MS) || ORPHAN_GRACE_MS;
+  // A development run without a watchdog has nothing that would bring the app back: do not linger there either.
+  const looked = app.isPackaged || process.env.KEEPER_WATCHDOG === '1';
+  if (!everWelcomed || !looked) {
+    orphanTimer = setTimeout(() => { if (!welcomed) app.quit(); }, grace);
+    return;
+  }
+  const look = () => {
+    if (welcomed) return;
+    let now = 0;
+    try { now = statSync(process.execPath).mtimeMs; } catch { /* removed */ }
+    if (now !== exeStamp) return app.quit();
+    orphanTimer = setTimeout(look, grace);
+  };
+  orphanTimer = setTimeout(look, grace);
 }
-let stoppedTimer: NodeJS.Timeout | undefined;
+
+/** Stopped on purpose (the watchdog's note after a Force Quit on a Mac)? */
+function appStoppedOnPurpose(): boolean {
+  try {
+    const r = JSON.parse(readFileSync(path.join(suiteDir(userData), 'app-stopped.json'), 'utf8')) as { at?: number };
+    return (r.at ?? 0) >= awaySince - 30_000;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * A person clicked or typed in one of this part's windows while Keeper is away: start it again,
+ * unless it is on its way back already (the watchdog restarts a crash within seconds).
+ */
+function wakeKeeper() {
+  if (role === 'mail' || !everWelcomed || !awaySince || Date.now() - wokeAt < 30_000) return;
+  if (!appStoppedOnPurpose() && Date.now() - awaySince < 20_000) return;
+  const cmd = lastCore?.cmd;
+  if (!cmd?.length) return;
+  wokeAt = Date.now();
+  const env: NodeJS.ProcessEnv = { ...process.env };
+  delete env.ELECTRON_RUN_AS_NODE;
+  delete env.KEEPER_PART_OF;
+  try {
+    spawn(cmd[0], cmd.slice(1), { detached: true, stdio: 'ignore', env }).unref();
+  } catch (e) {
+    console.error('[suite] could not start Keeper', (e as Error).message);
+  }
+}
 
 // ---------------------------------------------------------------- the part itself
 
@@ -256,12 +326,61 @@ async function startWidgets() {
   return () => w.syncWidgets();
 }
 
+async function startMail() {
+  const m = await import('../services/pim');
+  const { pimTools } = await import('../services/pim/brain-adapter');
+  // The Island's views of mail and calendars: kept, and said again whenever the app (re)connects.
+  const last = new Map<string, unknown[]>();
+  const keep = (name: string, args: unknown[]) => { last.set(name, args); note(name, args); };
+  // Passwords that live only in memory (no keychain) survive a restart of this process in the app.
+  const secrets = await import('../services/pim/store');
+  secrets.restoreMemorySecrets(await call('suite:mail.secrets', []).catch(() => null) as Record<string, string> | null);
+  secrets.onMemorySecrets((all) => keep('secrets', [all]));
+  await m.startPim({
+    broadcast: (channel, ...args) => note('broadcast', [channel, ...args]),
+    alert: (...args) => note('alert', args),
+    islandReminders: (list) => keep('islandReminders', [list]),
+    islandEvents: (evs) => keep('islandEvents', [evs]),
+    islandTimers: (t) => keep('islandTimers', [t]),
+    show: (route) => note('show', [route]),
+    islandCalendarUrl: () => settings().island.calendarUrl,
+    // Open and save pickers belong to the window the person is using, in the app.
+    dialogs: {
+      open: (o, none) => call('suite:dialog.open', [o, none]) as Promise<Electron.OpenDialogReturnValue>,
+      save: (o, none) => call('suite:dialog.save', [o, none]) as Promise<Electron.SaveDialogReturnValue>,
+    },
+  });
+  app.on('will-quit', (e) => {
+    if (mailStopped) return;
+    e.preventDefault();
+    mailStopped = true;
+    void Promise.race([m.stopPim(), new Promise((r) => setTimeout(r, 2000))]).finally(() => app.quit());
+  });
+  const own = (o: object, k: string) => Object.prototype.hasOwnProperty.call(o, k) && typeof (o as Record<string, unknown>)[k] === 'function';
+  commands = {
+    pim: (method: string, args: unknown[]) => {
+      if (!own(m.pim, method)) throw new Error(`unknown mail call ${method}`);
+      return (m.pim as unknown as Record<string, (...a: unknown[]) => unknown>)[method](...(args ?? []));
+    },
+    tool: (name: string, args: unknown[]) => {
+      if (!own(pimTools, name)) throw new Error(`unknown mail tool ${name}`);
+      return (pimTools as unknown as Record<string, (...a: unknown[]) => unknown>)[name](...(args ?? []));
+    },
+    threadOf: (id: string) => m.threadOf(id),
+    logFocus: (minutes: number, taskId?: string) => m.logFocus(minutes, taskId),
+    adoptIslandCalendarUrl: (url: string) => m.adoptIslandCalendarUrl(url),
+  };
+  return () => { for (const [name, args] of last) note(name, args); };
+}
+let mailStopped = false;
+
 if (lock) {
   app.on('window-all-closed', () => { /* a part with nothing to show waits for the app to say so */ });
   app.on('second-instance', () => undefined);
   void app.whenReady().then(async () => {
     if (process.platform === 'darwin') app.dock?.hide();
-    setSettingsWriter((patch) => call('settings.set', [patch]) as Promise<AllSettings>);
+    // The app owns settings.json (a part without windows asks on a channel only parts reach).
+    setSettingsWriter((patch) => call(role === 'mail' ? 'suite:settings.set' : 'settings.set', [patch]) as Promise<AllSettings>);
     // The windows open once the app has answered (their first calls need it); after the app
     // comes back from a crash they are only put in place again.
     let show: (() => void) | null = null;
@@ -270,7 +389,7 @@ if (lock) {
       if (show) return show();
       if (starting) return;
       starting = true;
-      void (role === 'island' ? startIsland() : startWidgets()).then((s) => { show = s; s(); });
+      void (role === 'island' ? startIsland() : role === 'widgets' ? startWidgets() : startMail()).then((s) => { show = s; s(); });
     });
     // Never started by the app, or the app is gone before it answered: do not linger.
     orphaned();

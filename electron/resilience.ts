@@ -321,7 +321,7 @@ function watchContents(wc: WebContents) {
 // ---------------------------------------------------------------- the watchdog
 
 /** The command that starts Keeper again (an AppImage restarts from its file, not its temporary mount). */
-function relaunchCommand(): string[] {
+export function relaunchCommand(): string[] {
   if (process.env.APPIMAGE) return [process.env.APPIMAGE];
   // Debugging flags from a test runner or a developer are not carried over.
   const args = process.argv.slice(1).filter((a) => a !== '--safe-mode' && !a.startsWith('--remote-debugging') && !a.startsWith('--inspect') && a !== '--hidden');

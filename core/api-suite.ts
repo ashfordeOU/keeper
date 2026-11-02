@@ -9,9 +9,11 @@ export interface SuitePart {
   description: string;
   /** the feature switch that turns it on and off */
   feature: string;
+  /** every feature it serves (its switch turns them all; it runs while any is on) */
+  features: string[];
   /** parts run in processes of their own at this start (false: inside the app, as one process) */
   separate: boolean;
-  /** its feature switch */
+  /** any of its features is on */
   on: boolean;
   /** it should be running now (on, and something to show) */
   wanted: boolean;

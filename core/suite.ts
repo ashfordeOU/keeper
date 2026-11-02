@@ -5,8 +5,12 @@
 // the list of parts, the rules for starting, stopping and restarting them (a
 // small state machine), and the framing of messages between Keeper's processes.
 
-/** A part that owns windows runs as Keeper's own program started with `--keeper-role=<role>`. */
-export type PartRole = 'island' | 'widgets';
+/**
+ * A part runs as Keeper's own program started with `--keeper-role=<role>`: the
+ * Island and widgets own windows; Mail and calendars has none (its sync, send-later,
+ * snooze and alert timers keep running while the app is away).
+ */
+export type PartRole = 'island' | 'widgets' | 'mail';
 
 export interface PartDef {
   role: PartRole;
@@ -14,20 +18,27 @@ export interface PartDef {
   description: string;
   /** the feature in core/features.ts that switches it on and off */
   feature: string;
+  /** every feature it serves: it runs while any of them is on, and its switch turns them all */
+  features: string[];
 }
 
 export const PARTS: PartDef[] = [
-  { role: 'island', name: 'Island', description: 'The Island and the clipboard picker, in a process of their own: they stay on screen if Keeper’s main window stops.', feature: 'island' },
-  { role: 'widgets', name: 'Desktop widgets', description: 'Each widget on the desktop, in a process of their own: they stay if Keeper’s main window stops.', feature: 'widgets' },
+  { role: 'island', name: 'Island', description: 'The Island and the clipboard picker, in a process of their own: they stay on screen if Keeper’s main window stops.', feature: 'island', features: ['island'] },
+  { role: 'widgets', name: 'Desktop widgets', description: 'Each widget on the desktop, in a process of their own: they stay if Keeper’s main window stops.', feature: 'widgets', features: ['widgets'] },
+  { role: 'mail', name: 'Mail and calendars', description: 'Mail, calendars, reminders and alarms, in a process of their own: new mail, send later, snoozes and alerts carry on if Keeper’s main window stops.', feature: 'mail', features: ['mail', 'calendars', 'alarms'] },
 ];
+
+export const PART_ROLES: readonly PartRole[] = PARTS.map((p) => p.role);
+export const isPartRole = (r: unknown): r is PartRole => typeof r === 'string' && (PART_ROLES as readonly string[]).includes(r);
+export const partDef = (role: PartRole) => PARTS.find((p) => p.role === role)!;
 
 export const ROLE_FLAG = '--keeper-role=';
 
-/** The role this process was started for ('app' for Keeper itself). */
+/** The role this process was started for ('app' for Keeper itself, with or without `--keeper-role=app`). */
 export function roleOf(argv: readonly string[]): PartRole | 'app' {
   const a = argv.find((x) => x.startsWith(ROLE_FLAG));
   const r = a?.slice(ROLE_FLAG.length);
-  return r === 'island' || r === 'widgets' ? r : 'app';
+  return isPartRole(r) ? r : 'app';
 }
 
 /** Exit code of a part that found another copy of itself already running. */
@@ -176,7 +187,10 @@ export type SuiteMessage =
   | { t: 'hello'; role: PartRole; token: string; pid: number; version: string }
   | { t: 'welcome'; settings: unknown; channels: string[]; sends: string[] }
   | { t: 'denied'; reason: string }
-  /** a part asks the app to run one of its IPC handlers (`sender` names the part's window) */
+  /**
+   * a part asks the app to run one of its IPC handlers (`sender` names the part's window);
+   * channels that start with `suite:` are the app's answers for parts only, never a window's
+   */
   | { t: 'call'; id: number; channel: string; args: unknown[]; sender?: SenderInfo }
   | { t: 'result'; id: number; ok: true; value: unknown }
   | { t: 'result'; id: number; ok: false; error: string }
@@ -187,6 +201,8 @@ export type SuiteMessage =
   /** the app tells a part to do something (open the Island on a tab, close, report memory…) */
   | { t: 'cmd'; id: number; name: string; args: unknown[] }
   | { t: 'channels'; channels: string[]; sends: string[] }
+  /** a part tells the app something, no answer (Mail's new-mail alert for the Island…) */
+  | { t: 'note'; name: string; args: unknown[] }
   | { t: 'ping' }
   | { t: 'pong' };
 
@@ -230,7 +246,7 @@ export function tokenMatches(a: string, b: string): boolean {
 /** Is this a well-formed first message from a part? */
 export function validHello(m: unknown): m is Extract<SuiteMessage, { t: 'hello' }> {
   const h = m as Record<string, unknown> | null;
-  return !!h && h.t === 'hello' && (h.role === 'island' || h.role === 'widgets') && typeof h.token === 'string' && typeof h.pid === 'number';
+  return !!h && h.t === 'hello' && isPartRole(h.role) && typeof h.token === 'string' && typeof h.pid === 'number';
 }
 
 /**

@@ -1,14 +1,19 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Usage (Linux): xvfb-run -a -s "-screen 0 1440x900x24" node test/e2e/suite.cjs <scratch dir> <screenshots dir>
-// Keeper as a suite (docs/SUITE.md): the Island and desktop widgets run in
-// processes of their own. Drives the real app and checks that
-//   • both parts start, and their windows work (calls answered by the app);
+// Keeper as a suite (docs/SUITE.md): the Island, desktop widgets and Mail and
+// calendars run in processes of their own. Drives the real app and checks that
+//   • the parts start, and their windows work (calls answered by the app);
 //   • killing the Island's process (SIGKILL) brings it back, and the app does not notice;
+//   • killing the Mail process brings it back, and a message scheduled with Send later
+//     still goes (against a local Dovecot and SMTP server, when Dovecot is installed);
 //   • switching a part off stops its process, switching it on starts it again;
-//   • killing the app's main process (SIGKILL) leaves the Island and the widgets
-//     running, on screen, and the watchdog's new Keeper picks them up again.
+//   • killing the app's main process (SIGKILL) leaves the Island, the widgets and Mail
+//     running (Send later fires while the app is away), and the watchdog's new Keeper
+//     picks them up again.
 const { _electron, chromium } = require('playwright');
 const { execFileSync } = require('child_process');
+const { SMTPServer } = require('smtp-server');
+const { startDovecot } = require('../servers/dovecot.cjs');
 const fs = require('fs');
 const path = require('path');
 
@@ -73,18 +78,31 @@ const env = {
 };
 
 (async () => {
+  // A mail account against local servers, for Send later across crashes.
+  const dovecot = await startDovecot().catch(() => null);
+  const sent = [];
+  const smtp = new SMTPServer({
+    secure: false, disabledCommands: ['STARTTLS'], allowInsecureAuth: true,
+    // The password must come through the Mail process's restart (kept in the app's memory where there is no keychain).
+    onAuth: (a, _s, cb) => (a.username === 'ana' && a.password === 'secret' ? cb(null, { user: 'ana' }) : cb(new Error('Invalid login'))),
+    onData: (stream, _s, cb) => { const c = []; stream.on('data', (x) => c.push(x)); stream.on('end', () => { sent.push(Buffer.concat(c).toString()); cb(); }); },
+  });
+  await new Promise((r) => smtp.listen(0, '127.0.0.1', r));
+  const smtpPort = smtp.server.address().port;
+  const wasSent = (subject) => sent.some((m) => m.includes(`Subject: ${subject}`));
   const app = await _electron.launch({ executablePath: path.join(APP, 'node_modules/.bin/electron'), args: [APP, '--no-sandbox'], env });
   const browsers = [];
   try {
     const main = await until(() => app.windows().find((x) => /view=app/.test(x.url())), 60000);
     await main.waitForSelector('.sidebar', { timeout: 60000 });
     const appPid = await app.evaluate(() => process.pid);
-    // ---------------------------------------------------------------- 1. both parts run
-    const parts = await until(async () => { const l = await main.evaluate(() => window.keeper.suite.parts()); return l.every((p) => p.state === 'running') ? l : null; }, 40000, 500);
-    check(!!parts, `the Island and the widgets run in processes of their own (${parts ? parts.map((p) => `${p.id} pid ${p.pid}, ${(p.memory / 1048576).toFixed(0)} MB in ${p.processes} processes`).join('; ') : 'not running'})`);
+    // ---------------------------------------------------------------- 1. the parts run
+    const parts = await until(async () => { const l = await main.evaluate(() => window.keeper.suite.parts()); return l.length === 3 && l.every((p) => p.state === 'running') ? l : null; }, 40000, 500);
+    check(!!parts, `the Island, the widgets and Mail run in processes of their own (${parts ? parts.map((p) => `${p.id} pid ${p.pid}, ${(p.memory / 1048576).toFixed(0)} MB in ${p.processes} processes`).join('; ') : 'not running'})`);
     const islandPid = pidOf('island');
     const widgetsPid = pidOf('widgets');
-    check(!!islandPid && !!widgetsPid && islandPid !== appPid && widgetsPid !== appPid, `separate processes: app ${appPid}, Island ${islandPid}, widgets ${widgetsPid}`);
+    const mailPid = pidOf('mail');
+    check(!!islandPid && !!widgetsPid && !!mailPid && ![islandPid, widgetsPid, mailPid].includes(appPid), `separate processes: app ${appPid}, Island ${islandPid}, widgets ${widgetsPid}, Mail ${mailPid}`);
     check(app.windows().every((w) => !/view=(island|widget)\b/.test(w.url())), 'the app’s own process has no Island or widget window');
     let isl = await partPage(PART_PORT, 'island');
     browsers.push(isl.browser);
@@ -116,6 +134,29 @@ const env = {
     check(alive(appPid) && (await main.evaluate(() => window.keeper.library.status().then((s) => typeof s.files === 'number'))), 'the app was not touched (same process, still answering)');
     check(alive(widgetsPid), 'the widgets were not touched');
 
+    // ---------------------------------------------------------------- 2b. Mail crashes; Send later still goes
+    let accId = null;
+    if (dovecot) {
+      const acc = await main.evaluate(([imapPort, smtpPort]) => window.keeper.pim.addAccount({
+        kind: 'imap', email: 'ana@example.org', name: 'Ana', password: 'secret',
+        imap: { host: '127.0.0.1', port: imapPort, security: 'none', user: 'ana' }, smtp: { host: '127.0.0.1', port: smtpPort, security: 'none', user: 'ana' },
+      }), [dovecot.port, smtpPort]).catch((e) => { console.error(e); return null; });
+      accId = acc?.id ?? null;
+      check(!!accId, 'a mail account is added (through the Mail process)');
+    } else console.log('SKIP Send later checks: Dovecot is not installed');
+    if (accId) {
+      const later = await main.evaluate((acc) => window.keeper.pim.send({ account: acc, to: [{ address: 'bob@example.org' }], cc: [], bcc: [], subject: 'Suite later one', body: 'Later.', sendAt: Date.now() + 12_000 }), accId);
+      check(!!later?.id && (await main.evaluate(() => window.keeper.pim.outbox())).some((o) => o.id === later.id), 'a message is scheduled with Send later');
+      await sleep(1500);
+      process.kill(mailPid, 'SIGKILL');
+      const newMail = await until(() => { const p = pidOf('mail'); return p && p !== mailPid ? p : null; }, 20000, 250);
+      check(!!newMail, `after SIGKILL the Mail process is started again (pid ${mailPid} → ${newMail})`);
+      const listed = await until(async () => (await main.evaluate(() => window.keeper.pim.outbox())).length > 0, 20000, 500);
+      check(!!listed, 'the scheduled message is still in the outbox after the restart');
+      check(!!(await until(() => wasSent('Suite later one'), 40000, 500)), 'and Send later still fires: the message reached the SMTP server');
+      check(alive(appPid) && alive(widgetsPid), 'the app and the widgets were not touched by the Mail crash');
+    }
+
     // ---------------------------------------------------------------- 3. off and on again
     await main.evaluate(() => window.keeper.features.set('widgets', false));
     const gone = await until(() => !alive(widgetsPid) && !pidOf('widgets'), 10000);
@@ -128,6 +169,16 @@ const env = {
     const widPage = await partPage(PART_PORT + 1, 'widget');
     browsers.push(widPage.browser);
     check(!!widPage.page, 'with the clock widget on the desktop again');
+    // Mail and calendars: one switch on the suite page turns its three features; all off ends the process.
+    const mailBefore = pidOf('mail');
+    await main.evaluate(async () => { for (const f of ['mail', 'calendars', 'alarms']) await window.keeper.features.set(f, false); });
+    check(!!(await until(() => !alive(mailBefore) && !pidOf('mail'), 10000)), 'switching Mail and calendars off ends its process');
+    const mailOff = (await main.evaluate(() => window.keeper.suite.parts())).find((p) => p.id === 'mail');
+    check(mailOff.state === 'off' && !mailOff.on, `and the suite page says it is off (${mailOff.state})`);
+    await main.evaluate(async () => { for (const f of ['mail', 'calendars', 'alarms']) await window.keeper.features.set(f, true); });
+    const mailAgain = await until(() => pidOf('mail'), 20000);
+    check(!!mailAgain && mailAgain !== mailBefore, `switching it on starts it again (pid ${mailAgain})`);
+    if (accId) check(!!(await until(async () => (await main.evaluate(() => window.keeper.pim.accounts())).some((a) => a.email === 'ana@example.org'), 20000, 500)), 'with the mail account still there');
 
     // ---------------------------------------------------------------- 4. the app crashes
     isl = await partPage(PART_PORT, 'island');
@@ -135,12 +186,16 @@ const env = {
     await isl.page.waitForSelector('.isl-content', { timeout: 20000 });
     const islandNow = pidOf('island');
     const widgetsNow = pidOf('widgets');
+    const mailNow = pidOf('mail');
+    if (accId) await main.evaluate((acc) => window.keeper.pim.send({ account: acc, to: [{ address: 'bob@example.org' }], cc: [], bcc: [], subject: 'Suite later two', body: 'While Keeper is away.', sendAt: Date.now() + 6_000 }), accId);
+    if (accId) await sleep(1000);
     const watchdogs = () => fs.readdirSync('/proc').filter((d) => /^\d+$/.test(d)).filter((p) => { try { const a = fs.readFileSync(`/proc/${p}/cmdline`, 'utf8'); return a.includes('watchdog.cjs') && a.includes(userData); } catch { return false; } });
     check(watchdogs().length >= 1, 'the watchdog is running');
     process.kill(appPid, 'SIGKILL');
     await until(() => !alive(appPid), 5000, 100);
     await sleep(1500);
-    check(alive(islandNow) && alive(widgetsNow), `after SIGKILL of the app, the Island (${islandNow}) and widgets (${widgetsNow}) are still running`);
+    check(alive(islandNow) && alive(widgetsNow) && alive(mailNow), `after SIGKILL of the app, the Island (${islandNow}), widgets (${widgetsNow}) and Mail (${mailNow}) are still running`);
+    if (accId) check(!!(await until(() => wasSent('Suite later two'), 20000, 300)) && !alive(appPid), 'Send later fires while the app is away (from the Mail process)');
     const shown = await isl.page.locator('.isl-content').count().catch(() => 0);
     check(shown === 1, 'and the Island is still on screen, answering its page');
     screenshot('2-app-killed');
@@ -149,19 +204,43 @@ const env = {
     const reconnected = await until(() => isl.page.evaluate(() => window.keeper.suite.parts()).then((l) => {
       const i = l.find((p) => p.id === 'island');
       const w = l.find((p) => p.id === 'widgets');
-      return i.state === 'running' && i.pid === islandNow && w.state === 'running' && w.pid === widgetsNow ? l : null;
+      const m = l.find((p) => p.id === 'mail');
+      return i.state === 'running' && i.pid === islandNow && w.state === 'running' && w.pid === widgetsNow && m.state === 'running' && m.pid === mailNow ? l : null;
     }), 45000, 1000);
-    check(!!reconnected, 'the new Keeper adopted the running Island and widgets (same processes, not started twice)');
-    check(keeperProcesses().filter((p) => p.role === 'island').length === 1 && keeperProcesses().filter((p) => p.role === 'widgets').length === 1, 'one copy of each part');
+    check(!!reconnected, 'the new Keeper adopted the running Island, widgets and Mail (same processes, not started twice)');
+    check(['island', 'widgets', 'mail'].every((r) => keeperProcesses().filter((p) => p.role === r).length === 1), 'one copy of each part');
+    if (accId) check((await isl.page.evaluate(() => window.keeper.pim.accounts()).catch(() => [])).some((a) => a.email === 'ana@example.org'), 'the new Keeper reaches Mail and its account');
     const answered = await isl.page.evaluate(() => window.keeper.island.state().then((s) => !!s)).catch(() => false);
     check(answered, 'the Island’s calls are answered by the new Keeper');
     screenshot('3-app-back');
+
+    // ---------------------------------------------------------------- 5. Force Quit (as on a Mac: not started again)
+    // The watchdog writes app-stopped.json when a Mac's Keeper was stopped without a crash report;
+    // here the watchdog is stopped first and the note written by hand.
+    const app2 = pidOf('app');
+    for (const w of watchdogs()) try { process.kill(Number(w), 'SIGKILL'); } catch { /* gone */ }
+    process.kill(app2, 'SIGKILL');
+    await until(() => !alive(app2), 5000, 100);
+    fs.writeFileSync(path.join(userData, 'suite', 'app-stopped.json'), JSON.stringify({ pid: app2, at: Date.now() }));
+    await sleep(8000);
+    const mailStill = pidOf('mail');
+    check(!pidOf('app') && alive(islandNow) && alive(widgetsNow) && !!mailStill, 'after a Force Quit Keeper stays stopped, and the Island, widgets and Mail keep running');
+    check(!pidOf('app'), 'the Island’s own calls on its timers do not start Keeper again');
+    // A click on the Island starts Keeper again, which picks the parts up.
+    await isl.page.click('.isl-content', { timeout: 5000 }).catch((e) => console.error(e.message));
+    const woke = await until(() => pidOf('app'), 30000, 500);
+    check(!!woke, `clicking the Island starts Keeper again (pid ${woke})`);
+    const again = await until(() => isl.page.evaluate(() => window.keeper.suite.parts()).then((l) => (l.every((p) => p.state === 'running') && l.find((p) => p.id === 'island').pid === islandNow ? l : null)), 45000, 1000);
+    check(!!again, 'and that Keeper adopted the parts that stayed');
   } catch (e) {
     console.error(e);
     failed++;
   } finally {
+    smtp.close();
+    dovecot?.stop();
     for (const b of browsers) await b?.close().catch(() => undefined);
-    await app.close().catch(() => undefined);
+    // The first Keeper was killed on purpose: closing it may never answer.
+    await Promise.race([app.close().catch(() => undefined), sleep(5000)]);
     // Everything this test started, including what the watchdog started.
     const all = keeperProcesses().map((p) => p.pid);
     for (const p of [...all, ...all.flatMap(descendants)]) try { process.kill(p, 'SIGKILL'); } catch { /* gone */ }

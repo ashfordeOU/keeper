@@ -56,6 +56,27 @@ export interface PimDeps {
   show?: (route: string) => void;
   /** the Island's old single "calendar link" setting, added to the calendars as a subscription */
   islandCalendarUrl?: () => string;
+  /**
+   * open and save pickers, when this runs where the person's windows are not (Mail and
+   * calendars in a process of its own: electron/suite/part.ts); otherwise the focused window's
+   */
+  dialogs?: {
+    /** `none`: the answer when no window of Keeper's is focused */
+    open(o: Electron.OpenDialogOptions, none: Electron.OpenDialogReturnValue): Promise<Electron.OpenDialogReturnValue>;
+    save(o: Electron.SaveDialogOptions, none: Electron.SaveDialogReturnValue): Promise<Electron.SaveDialogReturnValue>;
+  };
+}
+
+/** The focused window's picker (none focused: `none`), or the app's when this runs in a part. */
+function openDialog(o: Electron.OpenDialogOptions, none: Electron.OpenDialogReturnValue): Promise<Electron.OpenDialogReturnValue> {
+  if (deps?.dialogs) return deps.dialogs.open(o, none);
+  const win = BrowserWindow.getFocusedWindow();
+  return win ? dialog.showOpenDialog(win, o) : Promise.resolve(none);
+}
+function saveDialog(o: Electron.SaveDialogOptions, none: Electron.SaveDialogReturnValue): Promise<Electron.SaveDialogReturnValue> {
+  if (deps?.dialogs) return deps.dialogs.save(o, none);
+  const win = BrowserWindow.getFocusedWindow();
+  return win ? dialog.showSaveDialog(win, o) : Promise.resolve(none);
 }
 
 const LOCAL = 'local';
@@ -1558,8 +1579,7 @@ export const pim: PimApi = {
     let dest = to;
     if (!dest) {
       const dir = state.prefs.attachmentsFolder ?? app.getPath('downloads');
-      const win = BrowserWindow.getFocusedWindow();
-      const r = win ? await dialog.showSaveDialog(win, { defaultPath: path.join(dir, filename) }) : { canceled: false, filePath: path.join(dir, filename) };
+      const r = await saveDialog({ defaultPath: path.join(dir, filename) }, { canceled: false, filePath: path.join(dir, filename) });
       if (r.canceled || !r.filePath) return null;
       dest = r.filePath;
     }
@@ -1661,8 +1681,7 @@ export const pim: PimApi = {
     saveState();
   },
   async pickFiles() {
-    const win = BrowserWindow.getFocusedWindow();
-    const r = win ? await dialog.showOpenDialog(win, { properties: ['openFile', 'multiSelections'] }) : { canceled: true, filePaths: [] };
+    const r = await openDialog({ properties: ['openFile', 'multiSelections'] }, { canceled: true, filePaths: [] });
     return r.canceled ? [] : r.filePaths;
   },
 
@@ -1701,8 +1720,7 @@ export const pim: PimApi = {
     await load();
     let p = file;
     if (!p) {
-      const win = BrowserWindow.getFocusedWindow();
-      const r = win ? await dialog.showOpenDialog(win, { filters: [{ name: 'Calendar', extensions: ['ics', 'ical'] }] }) : { canceled: true, filePaths: [] };
+      const r = await openDialog({ filters: [{ name: 'Calendar', extensions: ['ics', 'ical'] }] }, { canceled: true, filePaths: [] });
       if (r.canceled || !r.filePaths[0]) return 0;
       p = r.filePaths[0];
     }
@@ -1717,8 +1735,7 @@ export const pim: PimApi = {
     await load();
     const cal = calOf(calendar);
     if (!cal) return null;
-    const win = BrowserWindow.getFocusedWindow();
-    const r = win ? await dialog.showSaveDialog(win, { defaultPath: path.join(app.getPath('downloads'), `${cal.name}.ics`) }) : { canceled: true, filePath: undefined };
+    const r = await saveDialog({ defaultPath: path.join(app.getPath('downloads'), `${cal.name}.ics`) }, { canceled: true, filePath: '' });
     if (r.canceled || !r.filePath) return null;
     await fsp.writeFile(r.filePath, serializeEvents(events.get(cal.id) ?? []));
     return r.filePath;

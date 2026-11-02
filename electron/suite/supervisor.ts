@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
-// Starts, stops and restarts Keeper's parts (the Island, desktop widgets), each
+// Starts, stops and restarts Keeper's parts (the Island, desktop widgets, Mail and calendars), each
 // as Keeper's own program with `--keeper-role=<part>`, following the rules in
 // core/suite.ts: a part that stops unexpectedly comes back after a wait that
 // grows with each crash in a row; one that keeps crashing is left stopped and
@@ -59,8 +59,12 @@ export function partWanted(role: PartRole): boolean {
   if (!separateAtStart || SAFE_MODE || quitting) return false;
   if (role === 'island') return featureOn('island') && settings().island.enabled !== false;
   if (role === 'widgets') return featureOn('widgets') && normalizeWidgets(settings().widgets).length > 0;
+  if (role === 'mail') return partOn('mail');
   return false;
 }
+
+/** Any of the part's features is switched on. */
+const partOn = (role: PartRole) => PARTS.find((p) => p.role === role)!.features.some((f) => featureOn(f));
 
 /** Keeper's own program and the arguments that start a part (a development run passes the app's folder). */
 function command(role: PartRole): [string, string[]] {
@@ -215,8 +219,7 @@ export function startSuite() {
     } catch { /* none */ }
   }
   refreshParts();
-  onFeature('island', () => refreshParts());
-  onFeature('widgets', () => refreshParts());
+  for (const f of new Set(PARTS.flatMap((p) => p.features))) onFeature(f, () => refreshParts());
   onSettings((next, prev) => {
     if (next.island.enabled !== prev.island.enabled || JSON.stringify(next.widgets) !== JSON.stringify(prev.widgets)) refreshParts();
   });
@@ -269,7 +272,7 @@ export async function listParts(): Promise<SuitePart[]> {
     }
     out.push({
       id: p.role, name: p.name, description: p.description, feature: p.feature,
-      separate: separateAtStart, on: featureOn(p.feature), wanted: s.wanted, state: separateAtStart ? s.state : (featureOn(p.feature) ? 'shared' : 'off'),
+      features: p.features, separate: separateAtStart, on: partOn(p.role), wanted: s.wanted, state: separateAtStart ? s.state : (partOn(p.role) ? 'shared' : 'off'),
       pid: s.pid, startedAt: s.startedAt, restarts: s.restarts, lastCrash: s.lastCrash, memory, cpu, processes,
     });
   }

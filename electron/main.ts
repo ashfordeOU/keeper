@@ -8,6 +8,7 @@ import './test-home';
 import { partBroadcast, startHub } from './suite/hub';
 import { registerSuiteIpc, separateAtStart, startSuite } from './suite/supervisor';
 import { installRemotes, uninstallRemotes } from './suite/remote';
+import { installMailRemote, uninstallMailRemote } from './suite/mail';
 import type { TransferOptions } from '../core/fileops';
 import { clipboardImage, readFile as readCaptureFile } from './services/capture';
 import { addBusyCheck } from './services/busy';
@@ -121,7 +122,8 @@ import { registerSearchIpc } from './ipc/search';
 import { setOriginRefresh } from './services/origin-mark';
 import { stageAfterStudio, stageBefore, type StageBefore } from '../core/stage/studio';
 import { allowRoot as allowPreviewRoot } from './services/preview';
-import { adoptIslandCalendarUrl, logFocus, startPim, stopPim } from './services/pim';
+import { startPim, stopPim, type PimDeps } from './services/pim';
+import { adoptIslandCalendarUrlCall as adoptIslandCalendarUrl, logFocusCall as logFocus } from './services/pim/route';
 import { registerNetIpc } from './ipc/net';
 import { registerSecurityIpc, stopSecurityIpc } from './ipc/security';
 import { registerControlsIpc } from './ipc/controls';
@@ -187,6 +189,8 @@ let vision: VisionQueue;
 let islandSvc: IslandService;
 let lastCleanup: CleanupGroup[] = [];
 let quitting = false;
+/** Mail and calendars runs in this process (Keeper as one process), not in a part of its own. */
+let pimInApp = false;
 
 const preload = () => path.join(__dirname, 'preload.cjs');
 const capturePreload = () => path.join(__dirname, 'capture-preload.cjs');
@@ -1422,7 +1426,7 @@ app.whenReady().then(async () => {
   // Notes: vaults are read only while the Notes page is open.
   registerNotesIpc({ broadcast, allowRoot: allowPreviewRoot });
   registerSearchIpc({ show: showMain });
-  void startPim({
+  const pimDeps: PimDeps = {
     broadcast,
     alert: (title, detail, kind, ref) => islandSvc?.alert({ kind: kind ?? 'info', title, detail, ref }),
     islandReminders: (list) => islandSvc?.setDueReminders(featureOn('islandTodos') ? list : []),
@@ -1430,7 +1434,10 @@ app.whenReady().then(async () => {
     islandTimers: (t) => islandSvc?.setCountdowns(t),
     show: (route) => showMain(route),
     islandCalendarUrl: () => settings().island.calendarUrl,
-  });
+  };
+  // In a process of its own (the Mail and calendars part), or here when Keeper is one process (and in safe mode).
+  if (separateAtStart && !process.argv.includes('--safe-mode')) installMailRemote(pimDeps);
+  else { pimInApp = true; void startPim(pimDeps); }
   registerNetIpc({ alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }) });
   // Privacy & Security: permissions, browsers, posture, real-time malware protection and quarantine.
   registerSecurityIpc({ broadcast, alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }) });
@@ -1615,6 +1622,9 @@ let studioSince: number | undefined;
     if (await startHub(() => settings())) startSuite();
     else {
       uninstallRemotes({ preload: preload(), lockDown });
+      uninstallMailRemote();
+      pimInApp = true;
+      void startPim(pimDeps);
       createIsland();
       syncWidgets();
     }
@@ -1680,7 +1690,8 @@ app.on('before-quit', (e) => {
   stopPlatform();
   shutdownVoice();
   stopSecurityIpc();
-  void stopPim();
+  // Only where it ran: the Mail and calendars part saves its own state as it quits.
+  if (pimInApp) void stopPim();
   void stopRemote();
   void stopAgents();
   unwireAbilities();

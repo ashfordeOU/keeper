@@ -2,10 +2,11 @@
 
 Keeper is one install, one updater, one version and one Settings, but not one
 process. Parts that people see on their desktop all day (the Island, desktop
-widgets) run in processes of their own, so a crash in one never takes the
-others with it: if Keeper's main window stops, the Island and the widgets stay
-on screen, and if the Island stops, it comes back without the main window
-noticing. Each part has its own switch in Settings → Features, and a part that
+widgets) and Mail and calendars run in processes of their own, so a crash in
+one never takes the others with it: if Keeper's main window stops, the Island
+and the widgets stay on screen and mail keeps arriving and going out (Send
+later, snoozes, alarms and event alerts), and if the Island or Mail stops, it
+comes back without the main window noticing. Each part has its own switch in Settings → Features, and a part that
 is off has no process at all.
 
 ## Process map
@@ -15,6 +16,7 @@ is off has no process at all.
 | **Keeper** (the app) | `Keeper` (at login: `Keeper --hidden`) | main window, Quick Search, the tray / menu-bar owl and its glance, the library, every IPC handler and service behind the windows (index, Island state, mail and calendars, Keep Awake, brain, sync, Link…), the updater, the suite supervisor and channel | the watchdog |
 | **Island** | `Keeper --keeper-role=island` | the Island's windows (one per display), the clipboard picker | the supervisor in Keeper |
 | **Desktop widgets** | `Keeper --keeper-role=widgets` | one window per widget | the supervisor in Keeper |
+| **Mail and calendars** | `Keeper --keeper-role=mail` | no windows: mail accounts (IMAP IDLE, SMTP), the outbox and Send later, snoozes, calendars and their sync, reminders, alarms, timers and their alerts (electron/services/pim) | the supervisor in Keeper |
 | Watchdog | Keeper's runtime as plain Node (`watchdog.cjs`) | nothing; checks every 3 s that Keeper is alive | Keeper, at each start |
 | Services | Electron utility processes (`svc-*.cjs`, electron/svc/host.ts), started on first use, stopped a minute after the last | Network Activity sampling (`svc-net`), the process manager's sampling and actions (`svc-procs`: reading every process on the computer, and the PowerShell host that does it on Windows) | Keeper's ServiceHost, with growing waits; the call in flight is tried once more |
 | Terminal host | Keeper's runtime as plain Node (`term-host.cjs`) | terminal sessions | Keeper, on demand |
@@ -33,6 +35,7 @@ of them. The parts take nothing of their own from the system.
 - `electron/suite/hub.ts` (in the app): accepts parts, runs their windows' calls through the app's own IPC handlers, sends them the app's events.
 - `electron/suite/supervisor.ts` (in the app): starts, stops, restarts and adopts parts; `suite.parts` / `suite.restart` for the suite page.
 - `electron/suite/remote.ts` (in the app): what the app used to do to the Island's and widgets' windows (`islandWindows.openOn`, `syncWidgets`…) is sent to their processes instead.
+- `electron/suite/mail.ts` (in the app) and `electron/services/pim/route.ts`: the app's callers (the `pim.*` IPC handlers, the `keeper` command's and agents' mail and calendar tools, MCP mail, Voice's meeting list, the Island's focus log) call `pimCalls` / `pimToolCalls`, which go to the Mail part when it runs, and are answered in the app when Keeper is one process. What the Mail part reports (new Important mail and other alerts for the Island, its next meeting, timers and due reminders, `pim-changed` for the windows, "show the calendar") comes back as `note` messages and goes where it always went.
 - `electron/ipc/island.ts`, `electron/ipc/widgets.ts`: the window code, shared by both placements (in the app, or in the part).
 
 ## The channel
@@ -59,7 +62,19 @@ of them. The parts take nothing of their own from the system.
   copy of the settings and follows `settings-changed`; a part that changes a
   setting (a widget dragged) asks the app, which owns `settings.json`.
 - The app sends commands the other way: `quit`, `metrics`, `ensure`, `openOn`,
-  `openClips`, `sync`, `state`.
+  `openClips`, `sync`, `state`; to Mail: `pim` (a method of the mail and calendar
+  API with its arguments, checked against the API's own methods), `tool`,
+  `threadOf`, `logFocus`, `adoptIslandCalendarUrl`.
+- A part tells the app things with `note` (no answer), and asks it with a `call`
+  on a `suite:` channel, which only parts reach (never a window), each allowed for
+  named parts only: Mail asks for open and save pickers over the window the person
+  is using (`suite:dialog.open`, `suite:dialog.save`).
+- Mail has no windows, so it gets none of the windows' channels or events, only
+  `settings-changed`; its calls for window handlers are refused.
+- Where the computer has no keychain (Linux without a keyring), passwords live
+  only in memory. Mail's are mirrored to the app's memory over the channel and
+  handed back when Mail starts again, so a crash of Mail does not ask for them
+  again; they are never written to disk.
 
 ## Starting, stopping, restarting
 
@@ -67,9 +82,10 @@ The app starts the parts when everything else is registered (the end of
 `whenReady` in main.ts), in this order: the channel listens and `core.json` is
 written, then each part that is wanted is started (or adopted).
 
-A part is **wanted** when its feature is on (`island`, `widgets` in core/features.ts),
-it has something to show (widgets: at least one widget), Keeper is not in safe
-mode, and parts run separately (below).
+A part is **wanted** when its feature is on (`island`, `widgets` in core/features.ts;
+Mail and calendars: any of `mail`, `calendars`, `alarms`, and its switch on the
+suite page turns all three), it has something to show (widgets: at least one
+widget), Keeper is not in safe mode, and parts run separately (below).
 
 The state machine (`step()` in core/suite.ts):
 
@@ -99,11 +115,21 @@ The state machine (`step()` in core/suite.ts):
 
 - The parts keep running and keep their windows. The Island shows what it showed;
   calls its windows make wait up to 15 seconds for the app to be back, then fail
-  with "Keeper is starting again".
+  with "Keeper is starting again". Mail keeps its connections, sends what Send
+  later scheduled, brings snoozed mail back and rings alarms and event alerts (as
+  system notifications; the Island hears of them when the app is back).
 - The watchdog starts the app again (a few seconds; on a Mac only after a crash
-  report, so a Force Quit is not undone). The new app adopts the running parts.
-- A part whose app does not come back within 90 seconds (Keeper quit for good,
-  Force Quit on a Mac, a crash loop) quits too, so no Island is left behind.
+  report, so a Force Quit is not undone). The new app adopts the running parts,
+  and Mail tells it again what the Island should show.
+- After a Force Quit on a Mac the app stays stopped, and the parts stay: the
+  Island and widgets on screen, Mail sending. When a person clicks or types in the
+  Island or a widget again, the part starts Keeper (with the command the app left
+  in `core.json`), and that Keeper adopts the parts. The calls the parts' pages
+  make on their own timers never start it.
+- A part only closes by itself when Keeper's program changed or went away while
+  the app was not there (an update or an uninstall), or when the app never
+  welcomed it (started by hand, or the app went before answering: 90 seconds).
+  A normal quit of Keeper closes every part.
 
 ## Updates
 
@@ -157,18 +183,25 @@ part with no widgets, costs nothing.
 
 ## Not (yet) separate
 
+- The tray, the updater and the suite's supervisor live in the app, not in a small
+  process of their own: the watchdog is what brings the app back, and the app
+  adopts the parts. A separate supervisor process would keep the tray during the
+  few seconds the app is away, at the cost of one more Electron process (about
+  35 MB) and a macOS Dock and activation question (the process the system starts
+  from the bundle is the one with the Dock icon, the one TCC prompts name, and the
+  one that receives open-file and reopen events); that is why the app stays the
+  process the system starts.
 - The Island's *state* (shelves, clipboard history, focus timer, media, alerts)
   lives in the app's process: while the app is away, the Island is on screen but
   its contents do not change. Moving `IslandService` into the Island's process is
   the next step.
-- Mail and calendar sync, Keep Awake, the brain and sync run in the app's process.
-  Background services move into utility processes through `ServiceHost`
-  (electron/svc/host.ts) one at a time. A utility process ends with the app that
-  started it, so this protects the app from a service, not a service from the
-  app; a service that must outlive the app belongs in a part. Keep Awake needs
-  Electron's power-save blocker, which only a main process has, so it would move
-  into a part (for example the Island's) rather than a utility process. Mail is
-  being reworked (electron/services/pim) and moves once that settles; its sync
-  calls Electron's dialogs and notifications from inside, which a utility
-  process does not have.
+- Keep Awake, the brain and indexer, Studio's export and sync run in the app's
+  process. Background services move into utility processes through `ServiceHost`
+  (electron/svc/host.ts) one at a time (Network Activity and process sampling so
+  far). A utility process ends with the app that started it, so this protects the
+  app from a service, not a service from the app; a service that must outlive the
+  app belongs in a part, as Mail does (it needs Electron's notifications, the
+  keychain, power events and pickers, which only a main process has). Keep Awake
+  needs Electron's power-save blocker, which only a main process has, so it would
+  move into a part too rather than a utility process.
 - The tray lives in the app; while the app is away the owl is gone for a few seconds.

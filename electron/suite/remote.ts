@@ -33,10 +33,11 @@ export function installRemotes() {
   });
   // A part that (re)connects is told the state it cannot read from settings.
   onPartHello((role) => {
+    if (role === 'mail') return;
     if (role === 'widgets') widgets('state', state);
     setTimeout(() => void refreshCount(role), 1500);
   });
-  onPartBye((role) => { counts[role] = 0; });
+  onPartBye((role) => { if (role !== 'mail') counts[role] = 0; });
 }
 
 async function refreshCount(role: 'island' | 'widgets') {

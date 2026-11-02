@@ -187,13 +187,28 @@ export async function loadContacts(): Promise<Contact[]> {
 // until Keeper quits instead of being written in plain text.
 const memory = new Map<string, string>();
 
+/**
+ * Passwords kept only in memory (no keychain) are mirrored to Keeper's app when Mail
+ * and calendars runs in a process of its own, so a restart of that process does not
+ * ask for them again (electron/suite/part.ts). Never written to disk.
+ */
+let memoryListener: ((all: Record<string, string>) => void) | null = null;
+export function onMemorySecrets(fn: (all: Record<string, string>) => void) {
+  memoryListener = fn;
+}
+export function restoreMemorySecrets(all: Record<string, string> | null | undefined) {
+  for (const [k, v] of Object.entries(all ?? {})) if (typeof v === 'string' && !memory.has(k)) memory.set(k, v);
+}
+const memoryChanged = () => memoryListener?.(Object.fromEntries(memory));
+
 export async function putSecret(name: string, value: string): Promise<'keychain' | 'memory'> {
   const ok = await setSecret(`pim.${name}`, value).catch(() => false);
   if (ok) {
-    memory.delete(name);
+    if (memory.delete(name)) memoryChanged();
     return 'keychain';
   }
   memory.set(name, value);
+  memoryChanged();
   return 'memory';
 }
 
@@ -207,6 +222,6 @@ export async function assertSecretReadable(name: string, what: string) {
 }
 
 export async function dropSecret(name: string) {
-  memory.delete(name);
+  if (memory.delete(name)) memoryChanged();
   await setSecret(`pim.${name}`, '').catch(() => false);
 }

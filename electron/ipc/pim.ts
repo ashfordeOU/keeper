@@ -7,13 +7,14 @@ import { mailMcp } from '../../core/pim/mail-mcp';
 import { setToolProvider } from '../services/agents';
 import { registerKeeperMethod } from '../services/brain';
 import { featureOn } from '../services/features';
-import { pim, threadOf } from '../services/pim';
-import { pimTools } from '../services/pim/brain-adapter';
 import { mailLink } from '../../core/pim/mail-link';
 import { markOrigin } from '../services/origin-mark';
+import { pim as pimHere } from '../services/pim';
+import { pimCalls as pim, pimToolCalls as pimTools, threadOfCall as threadOf } from '../services/pim/route';
 
-export const PIM_METHODS = Object.keys(pim) as (keyof typeof pim)[];
+export const PIM_METHODS = Object.keys(pimHere) as (keyof typeof pimHere)[];
 
+// Answered here, or by Mail and calendars in a process of its own (services/pim/route.ts).
 export function registerPimIpc() {
   for (const m of PIM_METHODS) {
     ipcMain.handle(`pim.${m}`, (_e, ...args: unknown[]) => (pim[m] as (...a: unknown[]) => unknown)(...args));

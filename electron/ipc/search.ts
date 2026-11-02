@@ -12,7 +12,8 @@ import { searchCatalog, type Os } from '../../core/settings-catalog';
 import { best, groupHits, queryWords, withTimeout, type EverythingHit, type EverythingKind, type EverythingResult } from '../../core/search-everything';
 import { featureOn } from '../services/features';
 import * as notes from '../services/notes';
-import { pim } from '../services/pim';
+// Answered here, or by Mail and calendars in a process of its own (services/pim/route.ts).
+import { pimCalls as pim } from '../services/pim/route';
 
 const DAY = 86_400_000;
 const LIMIT_MS = 1500;

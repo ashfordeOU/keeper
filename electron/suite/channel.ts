@@ -26,7 +26,8 @@ export function socketPath(userData: string, name: string, platform = process.pl
 }
 
 /** What a part needs to reach the app: written by the app when it listens. */
-export interface CoreInfo { pid: number; socket: string; token: string; version: string }
+/** `cmd`: how to start Keeper again (a part does when a person uses it after a Force Quit). */
+export interface CoreInfo { pid: number; socket: string; token: string; version: string; cmd?: string[] }
 
 export const coreInfoFile = (userData: string) => path.join(suiteDir(userData), 'core.json');
 

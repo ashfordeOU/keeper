@@ -13,6 +13,7 @@ import { allHosts, onHostRestarted, onHostsChanged } from './host';
 import { logEvent } from '../resilience';
 import { limitsStatus, startLimits } from './limits';
 import { listParts, restartPart } from '../suite/supervisor';
+import type { PartRole } from '../../core/suite';
 
 const broadcast = (channel: string, ...args: unknown[]) => {
   for (const w of BrowserWindow.getAllWindows()) if (!w.isDestroyed()) w.webContents.send(`event:${channel}`, ...args);
@@ -107,7 +108,7 @@ export function registerSvcIpc() {
       return [];
     }
     if (id.startsWith('window:')) webContents.fromId(Number(id.slice(7)))?.reload();
-    if (id.startsWith('part:')) restartPart(id.slice(5) as 'island' | 'widgets');
+    if (id.startsWith('part:')) restartPart(id.slice(5) as PartRole);
     const h = allHosts().find((x) => `svc:${x.opts.name}` === id);
     if (h) await h.restart().catch(() => undefined);
     return listProcesses();

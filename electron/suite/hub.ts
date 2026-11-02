@@ -14,7 +14,8 @@ import { app, ipcMain } from 'electron';
 import { rmSync, unlinkSync } from 'node:fs';
 import path from 'node:path';
 import type net from 'node:net';
-import { tokenMatches, validHello, type PartRole, type SenderInfo, type SuiteMessage } from '../../core/suite';
+import { partDef, tokenMatches, validHello, type PartRole, type SenderInfo, type SuiteMessage } from '../../core/suite';
+import { relaunchCommand } from '../resilience';
 import { clearCoreInfo, listen, newToken, socketPath, suiteDir, writeCoreInfo, type Peer } from './channel';
 
 type Handler = (e: unknown, ...args: unknown[]) => unknown;
@@ -42,6 +43,27 @@ let server: net.Server | null = null;
 const listeners = { hello: new Set<(role: PartRole, pid: number) => void>(), bye: new Set<(role: PartRole, pid: number) => void>() };
 
 export function onPartHello(fn: (role: PartRole, pid: number) => void) { listeners.hello.add(fn); }
+
+/** Parts without windows (Mail and calendars) need none of the windows' channels or events, only the settings. */
+const windowless = (role: PartRole) => role === 'mail';
+
+/** What a part tells the app (`note`), by part. */
+const notes = new Map<PartRole, (name: string, args: unknown[]) => void>();
+export function onPartNote(role: PartRole, fn: (name: string, args: unknown[]) => void) { notes.set(role, fn); }
+
+/** The app's answers for parts only (`suite:<name>`): never reachable from a window. */
+const partHandlers = new Map<string, { roles: PartRole[]; fn: (...args: unknown[]) => unknown }>();
+export function handleForParts(name: string, roles: PartRole[], fn: (...args: never[]) => unknown) { partHandlers.set(`suite:${name}`, { roles, fn: fn as (...args: unknown[]) => unknown }); }
+
+/** Resolves once the part is connected (at once if it is), or rejects after `ms`. */
+export function whenPart(role: PartRole, ms: number): Promise<void> {
+  if (conns.has(role)) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const go = (r: PartRole) => { if (r === role) { clearTimeout(t); listeners.hello.delete(go); resolve(); } };
+    const t = setTimeout(() => { listeners.hello.delete(go); reject(new Error(`${partDef(role).name} is starting again; try once more in a moment`)); }, ms);
+    listeners.hello.add(go);
+  });
+}
 export function onPartBye(fn: (role: PartRole, pid: number) => void) { listeners.bye.add(fn); }
 export const partConnected = (role: PartRole) => conns.has(role);
 export const partPid = (role: PartRole) => conns.get(role)?.pid;
@@ -55,7 +77,7 @@ function channelsChanged() {
   if (!conns.size || channelsTimer) return;
   channelsTimer = setTimeout(() => {
     channelsTimer = undefined;
-    for (const c of conns.values()) c.peer.send({ t: 'channels', channels: [...handlers.keys()], sends: sendChannels() });
+    for (const c of conns.values()) if (!windowless(c.role)) c.peer.send({ t: 'channels', channels: [...handlers.keys()], sends: sendChannels() });
   }, 200);
 }
 
@@ -76,6 +98,18 @@ function senderFor(c: Conn, s?: SenderInfo) {
 }
 
 async function onCall(c: Conn, m: Extract<SuiteMessage, { t: 'call' }>) {
+  if (m.channel.startsWith('suite:')) {
+    const h = partHandlers.get(m.channel);
+    if (!h || !h.roles.includes(c.role)) return c.peer.send({ t: 'result', id: m.id, ok: false, error: `No handler registered for '${m.channel}'` });
+    try {
+      c.peer.send({ t: 'result', id: m.id, ok: true, value: (await h.fn(...m.args)) ?? null });
+    } catch (e) {
+      c.peer.send({ t: 'result', id: m.id, ok: false, error: e instanceof Error ? e.message : String(e) });
+    }
+    return;
+  }
+  // A part without windows has no window that could ask for the app's handlers.
+  if (windowless(c.role)) return c.peer.send({ t: 'result', id: m.id, ok: false, error: `No handler registered for '${m.channel}'` });
   const fn = handlers.get(m.channel);
   if (!fn) return c.peer.send({ t: 'result', id: m.id, ok: false, error: `No handler registered for '${m.channel}'` });
   try {
@@ -103,7 +137,7 @@ function onPeer(peer: Peer) {
       conn = { role: m.role, pid: m.pid, peer, seq: 0, pending: new Map() };
       const c = conn;
       conns.set(m.role, c);
-      peer.send({ t: 'welcome', settings: settingsNow(), channels: [...handlers.keys()], sends: sendChannels() });
+      peer.send({ t: 'welcome', settings: settingsNow(), channels: windowless(m.role) ? [] : [...handlers.keys()], sends: windowless(m.role) ? [] : sendChannels() });
       void peer.closedP.then(() => {
         if (conns.get(c.role) === c) conns.delete(c.role);
         for (const p of c.pending.values()) { clearTimeout(p.timer); p.reject(new Error('the part stopped')); }
@@ -116,7 +150,12 @@ function onPeer(peer: Peer) {
     const c = conn;
     switch (m.t) {
       case 'call': void onCall(c, m); break;
+      case 'note': {
+        try { notes.get(c.role)?.(m.name, m.args); } catch (e) { console.error(`[suite] ${c.role} note ${m.name}`, e); }
+        break;
+      }
       case 'send': {
+        if (windowless(c.role)) break;
         const ev = senderFor(c, m.sender);
         ipcMain.emit(m.channel, ev, ...m.args);
         break;
@@ -149,7 +188,7 @@ export async function startHub(getSettings: () => unknown): Promise<boolean> {
     console.error('[suite] could not open the channel', (e as Error).message);
     return false;
   }
-  writeCoreInfo(userData, { pid: process.pid, socket, token, version: app.getVersion() });
+  writeCoreInfo(userData, { pid: process.pid, socket, token, version: app.getVersion(), cmd: relaunchCommand() });
   // An earlier Keeper's "stopped on purpose" (from the watchdog) no longer applies.
   try { rmSync(path.join(suiteDir(userData), 'app-stopped.json'), { force: true }); } catch { /* none */ }
   app.on('will-quit', () => {
@@ -162,7 +201,7 @@ export async function startHub(getSettings: () => unknown): Promise<boolean> {
 
 /** An event for every window of every part (the windows here get it from the caller). */
 export function partBroadcast(channel: string, args: unknown[]) {
-  for (const c of conns.values()) c.peer.send({ t: 'event', channel, args });
+  for (const c of conns.values()) if (!windowless(c.role) || channel === 'event:settings-changed') c.peer.send({ t: 'event', channel, args });
 }
 
 /** Sends an event to one part's windows. */

@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import v8 from 'node:v8';
 import { afterEach, describe, expect, it } from 'vitest';
-import { DEFAULT_POLICY, frame, initialStatus, restartExit, roleOf, splitFrames, step, tokenMatches, validHello, type PartEvent, type PartStatus, type RestartPolicy } from '../core/suite';
+import { DEFAULT_POLICY, PARTS, frame, initialStatus, isPartRole, restartExit, roleOf, splitFrames, step, tokenMatches, validHello, type PartEvent, type PartStatus, type RestartPolicy } from '../core/suite';
 import { connect, listen, readCoreInfo, roleRunning, socketPath, takeRoleLock, writeCoreInfo, type Peer } from '../electron/suite/channel';
 
 function run(events: [PartEvent, number][], policy: RestartPolicy = DEFAULT_POLICY, from: PartStatus = initialStatus()) {
@@ -25,6 +25,19 @@ describe('suite: roles', () => {
     expect(roleOf(['/x/Keeper', '.', '--keeper-role=widgets'])).toBe('widgets');
     expect(roleOf(['/x/Keeper', '--keeper-role=../../etc'])).toBe('app');
     expect(roleOf(['/x/Keeper', '--hidden'])).toBe('app');
+    expect(roleOf(['/x/Keeper', '--keeper-role=mail'])).toBe('mail');
+    expect(roleOf(['/x/Keeper', '--keeper-role=app'])).toBe('app');
+  });
+
+  it('every part has a name and the features it serves, its own switch first', () => {
+    expect(PARTS.map((p) => p.role)).toEqual(['island', 'widgets', 'mail']);
+    for (const p of PARTS) {
+      expect(isPartRole(p.role)).toBe(true);
+      expect(p.features[0]).toBe(p.feature);
+    }
+    expect(PARTS.find((p) => p.role === 'mail')!.features).toEqual(expect.arrayContaining(['mail', 'calendars', 'alarms']));
+    expect(isPartRole('app')).toBe(false);
+    expect(isPartRole(undefined)).toBe(false);
   });
 });
 
@@ -162,7 +175,9 @@ describe('suite: messages', () => {
     expect(tokenMatches('', '')).toBe(false);
     expect(tokenMatches('ab', 'abc')).toBe(false);
     expect(validHello({ t: 'hello', role: 'island', token: 'x', pid: 1 })).toBe(true);
+    expect(validHello({ t: 'hello', role: 'mail', token: 'x', pid: 1 })).toBe(true);
     expect(validHello({ t: 'hello', role: 'app', token: 'x', pid: 1 })).toBe(false);
+    expect(validHello({ t: 'hello', role: 'island', token: 5, pid: 1 })).toBe(false);
     expect(validHello({ t: 'call', id: 1 })).toBe(false);
     expect(validHello(null)).toBe(false);
   });
