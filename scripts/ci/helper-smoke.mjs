@@ -80,6 +80,12 @@ check(Array.isArray(running.result?.running) && !running.result.running.includes
 const cam = await call('camera.inUse');
 check(typeof cam.result?.inUse === 'boolean' && typeof cam.result?.devices === 'number', `camera.inUse ${show(cam.result)}`);
 
+const mem = await call('memory.stats');
+const mr = mem.result;
+check(isObj(mr) && mr.total > 0 && [mr.internal, mr.external, mr.purgeable, mr.wired, mr.compressed, mr.free].every((n) => typeof n === 'number' && n >= 0) && mr.wired > 0
+  && mr.internal + mr.wired + mr.compressed > 0 && typeof mr.swapTotal === 'number' && typeof mr.swapUsed === 'number' && (mr.pressureLevel === undefined || [1, 2, 4].includes(mr.pressureLevel)), `memory.stats ${show(mr ?? mem.error)}`);
+if (isObj(mr) && mr.pressureLevel === undefined) console.log('INFO memory.stats could not read kern.memorystatus_vm_pressure_level here');
+
 // A CI runner may have no app in front; the answer is then an empty object, never a hang.
 const frontNow = await call('front.now');
 check(isObj(frontNow.result) && (frontNow.result.pid === undefined || (typeof frontNow.result.pid === 'number' && typeof frontNow.result.fullscreen === 'boolean')), `front.now ${show(frontNow.result)}`);

@@ -13,7 +13,7 @@
 // input.key, input.text. Permissions.swift adds permissions.status and
 // permissions.request (the Permissions screen). Extras.swift adds speech.transcribe, ddc.list,
 // ddc.get, ddc.set and translate; Calendar.swift the calendar.* methods; Front.swift
-// front.watch, front.now, place.measure and apps.running.
+// front.watch, front.now, place.measure and apps.running; Memory.swift memory.stats.
 
 import Foundation
 import AppKit
@@ -552,6 +552,7 @@ func handle(id: Int, method: String, params: [String: Any]) async {
         case "place.measure", "menubar.layout": Wire.shared.result(id, placeMeasure())
         case "apps.running": Wire.shared.result(id, appsRunning(params))
         case "camera.inUse": Wire.shared.result(id, cameraInUse())
+        case "memory.stats": Wire.shared.result(id, memoryStats())
         case "pasteboard.changeCount": Wire.shared.result(id, ["count": NSPasteboard.general.changeCount])
         case "desktop.setImage": Wire.shared.result(id, try desktopSetImage(params))
         case "desktop.getImage": Wire.shared.result(id, desktopGetImage())
