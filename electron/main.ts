@@ -118,6 +118,7 @@ import { registerNetIpc } from './ipc/net';
 import { registerSecurityIpc, stopSecurityIpc } from './ipc/security';
 import { registerControlsIpc } from './ipc/controls';
 import { registerSettingsPlusIpc } from './ipc/settingsplus';
+import { registerComponentsIpc } from './ipc/components';
 import { ashfordeThemeChanged, monorailFocusChanged, monorailPresentationChanged, onMonorailState, registerAshfordeIpc } from './ipc/ashforde';
 import { cached as controlsCached, list as controlsList, onControlsChanged, set as controlsSet, applyPreset as controlsPreset } from './services/controls';
 import { PRESETS as CONTROL_PRESETS } from '../core/controls/catalog';
@@ -1418,6 +1419,8 @@ app.whenReady().then(async () => {
   // Anonymous usage stats: on by default, off with one switch; at most one small report a day (Settings → Privacy).
   registerUsageStatsIpc();
   registerPermissionsIpc();
+  // Downloadable parts: paths now, any download a while after start (docs/COMPONENTS.md).
+  registerComponentsIpc({ broadcast, alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }) });
   // Sync, backups and mirrors. Keeper Link and cloud connections attach when they are ready
   // (attachTransport / attachConnections); KEEPER_SYNC_LOOPBACK is for tests only.
   // Notes Everywhere: the hub of notes from every notes app (nothing runs until an app is connected).

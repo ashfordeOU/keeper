@@ -13,6 +13,7 @@ import { mockStage } from './mock-stage';
 import { mockStudio } from './mock-studio';
 import { mockVoice } from './mock-voice';
 import { mockAshforde } from './mock-ashforde';
+import { mockComponents } from './mock-components';
 import { featureStates } from '../core/features';
 import type { BrowseEntry, IslandState, KeeperApi } from '../core/api';
 import { extOf, kindOf, looksLikeScreenshot } from '../core/classify';
@@ -347,6 +348,7 @@ export function createMockApi(): KeeperApi {
     ...mockBrain(files, (ch, v) => listeners.get(ch)?.forEach((cb) => cb(v)), HOME),
     ...mockAgents(files, (ch, v) => listeners.get(ch)?.forEach((cb) => cb(v)), HOME),
     ...mockCu(),
+    ...mockComponents((ch) => listeners.get(ch)?.forEach((cb) => (cb as () => void)())),
     ...mockUsageStats(() => settings, (patch) => {
       Object.assign(settings, patch);
       listeners.get('settings-changed')?.forEach((cb) => (cb as (v: unknown) => void)(structuredClone(settings)));

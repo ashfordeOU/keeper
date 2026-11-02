@@ -430,6 +430,8 @@ export interface KeeperApi extends KeeperApiX {
   usage: UsageApi;
   /** switch parts of Keeper on and off */
   features: FeaturesApi;
+  /** downloadable parts of Keeper and add-on apps (docs/COMPONENTS.md) */
+  components: import('./api-components').ComponentsApi;
   /** anonymous usage stats: the switch, exactly what is sent, and the install ID */
   usageStats: import('./telemetry').UsageStatsApi;
   permissions: import('./permissions').PermissionsApi;
@@ -770,6 +772,8 @@ export interface KeeperApi extends KeeperApiX {
   on(channel: 'tracks-changed', cb: () => void): () => void;
   on(channel: 'features-changed', cb: () => void): () => void;
   on(channel: 'ashforde-changed', cb: () => void): () => void;
+  /** a downloadable part's state or progress changed (core/api-components.ts) */
+  on(channel: 'components-changed', cb: () => void): () => void;
   on(channel: 'awake-changed', cb: (s: import('./api-awake').AwakeStatus) => void): () => void;
   on(channel: 'voice-state', cb: (s: import('./voice/types').DictationState, meeting?: import('./voice/types').MeetingLive, offer?: import('./voice/types').MeetingOffer) => void): () => void;
   on(channel: 'voice-meeting', cb: (m: import('./voice/types').MeetingLive | null) => void): () => void;

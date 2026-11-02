@@ -51,6 +51,8 @@ const api = {
   permissions: group('permissions', ['list', 'request', 'openSettings', 'test', 'restart']),
   keychain: group('keychain', ['status', 'retry']),
   features: group('features', ['list', 'set', 'preset', 'sets', 'saveSet', 'removeSet', 'applySet', 'setPowerSets', 'live']),
+  // Downloadable parts (ffmpeg, ONNX Runtime, rclone) and add-on apps (docs/COMPONENTS.md).
+  components: group('components', ['list', 'sizes', 'download', 'cancel', 'remove', 'removeAll', 'downloadAll', 'ensureFor', 'switchedOn', 'check', 'addons', 'addonAction']),
   // Studio: recordings with their parts kept apart, the editor and exports.
   studio: group('studio', ['support', 'options', 'setOptions', 'state', 'record', 'pause', 'resume', 'stop', 'discard', 'projects', 'open', 'save', 'remove', 'reveal', 'pick', 'levels', 'transcribe', 'privacyScan', 'export', 'exportState', 'cancelExport', 'copyFile', 'revealFile', 'work', 'workChunk', 'workProgress', 'workDone']),
   stage: group('stage', ['status', 'start', 'stop', 'toggle', 'extend', 'settings', 'setSettings', 'savePreset', 'removePreset', 'support', 'journal', 'detect', 'modes', 'apps', 'preview', 'displayInputs', 'setDisplayInput', 'overlays', 'tray']),
