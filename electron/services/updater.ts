@@ -25,7 +25,7 @@ import path from 'node:path';
 import type { UpdateStatus } from '../../core/api-x';
 import { run } from '../../core/platform';
 import { detectInstallSource, INSTALL_SOURCES } from '../../core/install-source';
-import { compareVersions, feedAllowed, pickAsset, pickRelease, releaseFor, versionNotes, wantsBeta, type GhAsset, type GhRelease, type InstallKind, type VersionNote } from '../../core/updates';
+import { compareVersions, feedAllowed, parseVersion, pickAsset, pickUpdate, releaseFits, releaseFor, versionNotes, wantsBeta, type GhAsset, type GhRelease, type InstallKind, type VersionNote } from '../../core/updates';
 import { CHECKSUMS_FILE, checksumProblem, designatedRequirement, isAdHocRequirement } from '../../core/update-verify';
 import { describePlan, nextStep, planFor, type UpdateWhen } from '../../core/update-schedule';
 import { isSkipped } from '../../core/update-window';
@@ -107,6 +107,17 @@ function beta(): boolean {
   return wantsBeta(app.getVersion(), s.updateBeta, s.updateBetaChosen);
 }
 
+/** The kind of installer this copy updates from (a source checkout acts like this system's usual installer). */
+function assetKind(): InstallKind {
+  if (kind !== 'source') return kind;
+  return process.platform === 'linux' ? 'appimage' : process.platform === 'darwin' ? 'mac' : 'nsis';
+}
+
+/** Releases with a build for this computer. A release for other systems only (macOS first, say) is not offered here. */
+function forThisComputer(list: GhRelease[]): GhRelease[] {
+  return list.filter((r) => releaseFits(r, process.platform, process.arch, assetKind()));
+}
+
 // ---------------------------------------------------------------- checking
 
 async function fetchReleases(): Promise<GhRelease[]> {
@@ -125,12 +136,12 @@ export async function checkForUpdates(user = true): Promise<UpdateStatus> {
   try {
     const s = settings();
     const list = await fetchReleases();
-    release = pickRelease(list, app.getVersion(), beta());
+    release = pickUpdate(forThisComputer(list), app.getVersion(), { beta: s.updateBeta, chosen: s.updateBetaChosen });
     if (!release) {
       set({ state: 'none', version: undefined, notes: undefined, checkedAt: Date.now(), message: 'Keeper is up to date' });
       return status;
     }
-    asset = pickAsset(release.assets, process.platform, process.arch, kind === 'source' ? (process.platform === 'linux' ? 'appimage' : process.platform === 'darwin' ? 'mac' : 'nsis') : kind);
+    asset = pickAsset(release.assets, process.platform, process.arch, assetKind());
     const version = release.tag_name.replace(/^v/i, '');
     if (downloaded && status.version !== version) downloaded = undefined;
     set({
@@ -237,9 +248,11 @@ export async function downloadUpdate(): Promise<UpdateStatus> {
       eu ??= (await import('electron-updater')).autoUpdater;
       eu.autoDownload = false;
       eu.autoInstallOnAppQuit = false;
-      eu.allowPrerelease = beta();
+      eu.allowPrerelease = !!parseVersion(release.tag_name)?.pre;
       eu.logger = null;
-      if (FEED) eu.setFeedURL({ provider: 'generic', url: FEED });
+      // Read the update information of exactly the release chosen above, not GitHub's "latest":
+      // that one may be a release without a build for this system (a macOS-only version).
+      eu.setFeedURL({ provider: 'generic', url: FEED ?? `${RELEASES}/download/${release.tag_name}` });
       eu.removeAllListeners('download-progress');
       eu.on('download-progress', (p) => set({ state: 'downloading', percent: Math.round(p.percent) }));
       await eu.checkForUpdates();
@@ -465,7 +478,7 @@ let notesCache: { at: number; list: VersionNote[] } | undefined;
 export async function listVersionNotes(): Promise<VersionNote[]> {
   if (notesCache && Date.now() - notesCache.at < 3600_000) return notesCache.list;
   try {
-    const list = versionNotes(await fetchReleases(), app.getVersion(), beta());
+    const list = versionNotes(forThisComputer(await fetchReleases()), app.getVersion(), beta());
     notesCache = { at: Date.now(), list };
     return list;
   } catch {

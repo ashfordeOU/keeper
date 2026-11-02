@@ -157,3 +157,45 @@ export function feedAllowed(feed: string | undefined): boolean {
     return false;
   }
 }
+
+// ---------------------------------------------------------------- releases for some systems only
+
+/**
+ * Assets that belong to a release but are never an installer: the download-on-switch
+ * components (keeper-component-…-<platform>-<arch>.tar.gz) and their lists.
+ */
+const NOT_INSTALLERS = /^(keeper-component-|components-)/i;
+
+/** The update information electron-updater reads for in-place installs (Windows installer, AppImage). */
+export function updateInfoFile(platform: string, arch: string, kind: InstallKind): string | undefined {
+  if (platform === 'win32' && kind === 'nsis') return 'latest.yml';
+  if (platform === 'linux' && kind === 'appimage') return arch === 'arm64' ? 'latest-linux-arm64.yml' : 'latest-linux.yml';
+  return undefined;
+}
+
+/**
+ * Whether a release carries what this computer updates from: its installer, plus the
+ * update information when electron-updater installs it. A release published for other
+ * systems only (a macOS-only version, say) is invisible here, so it is never offered.
+ */
+export function releaseFits(r: GhRelease, platform: string, arch: string, kind: InstallKind): boolean {
+  if (!pickAsset(r.assets.filter((a) => !NOT_INSTALLERS.test(a.name)), platform, arch, kind)) return false;
+  const info = updateInfoFile(platform, arch, kind);
+  return !info || r.assets.some((a) => a.name === info);
+}
+
+/**
+ * The update to offer. A beta copy whose person never chose a channel takes the first
+ * stable version newer than it (1.0.0 after the 0.x betas) and then follows stable;
+ * one that turned betas on keeps getting betas; a stable copy only gets betas when
+ * the person asked for them. `fits` drops releases without a build for this computer.
+ */
+export function pickUpdate(
+  releases: GhRelease[],
+  current: string,
+  opts: { beta?: boolean; chosen?: boolean; fits?: (r: GhRelease) => boolean } = {},
+): GhRelease | undefined {
+  const list = opts.fits ? releases.filter(opts.fits) : releases;
+  if (!opts.chosen && !opts.beta && current.includes('-')) return pickRelease(list, current, false) ?? pickRelease(list, current, true);
+  return pickRelease(list, current, wantsBeta(current, opts.beta, opts.chosen));
+}
