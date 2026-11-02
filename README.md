@@ -355,20 +355,15 @@ Details: [docs/KEEP-AWAKE.md](docs/KEEP-AWAKE.md) and [docs/STAGE.md](docs/STAGE
 
 ## Install
 
+### macOS (12 or later)
+
 ```bash
-# macOS and Linux
 curl -fsSL https://raw.githubusercontent.com/ashfordeOU/keeper/main/scripts/install.sh | sh
 ```
 
-```powershell
-# Windows (PowerShell)
-irm https://raw.githubusercontent.com/ashfordeOU/keeper/main/scripts/install.ps1 | iex
-```
+The one line in Terminal picks `Keeper-mac-arm64.dmg` (Apple silicon) or `Keeper-mac-x64.dmg` (Intel), checks it against the release's `SHA256SUMS.txt`, quits a running Keeper, puts `Keeper.app` in `/Applications` and opens it. Or:
 
-**macOS**, three ways; each one installs once, and Keeper then updates itself from GitHub Releases:
-
-- **One line in Terminal** (above). It picks `Keeper-mac-arm64.dmg` or `Keeper-mac-x64.dmg` for your processor, checks it against the release's `SHA256SUMS.txt`, quits a running Keeper, puts `Keeper.app` in `/Applications` and opens it. For the newest beta: `curl -fsSL https://raw.githubusercontent.com/ashfordeOU/keeper/main/scripts/install.sh | sh -s -- --beta`.
-- **The disk image**: [Keeper-mac-arm64.dmg](https://github.com/ashfordeOU/keeper/releases/latest/download/Keeper-mac-arm64.dmg) (Apple silicon) or [Keeper-mac-x64.dmg](https://github.com/ashfordeOU/keeper/releases/latest/download/Keeper-mac-x64.dmg) (Intel); drag Keeper into Applications. Builds are not notarized yet, so on macOS 15 and later the first open is blocked: open **System Settings → Privacy & Security** and click **Open Anyway** (on older versions, Control-click Keeper and choose **Open**).
+- **The disk image**: [Keeper-mac-arm64.dmg](https://github.com/ashfordeOU/keeper/releases/latest/download/Keeper-mac-arm64.dmg) (Apple silicon) or [Keeper-mac-x64.dmg](https://github.com/ashfordeOU/keeper/releases/latest/download/Keeper-mac-x64.dmg) (Intel); drag Keeper into Applications.
 - **Homebrew**:
 
   ```bash
@@ -376,54 +371,42 @@ irm https://raw.githubusercontent.com/ashfordeOU/keeper/main/scripts/install.ps1
   brew install --cask keeper
   ```
 
-Mac releases are signed with the same certificate every time (once it is set up; see [How releases work](docs/INSTALL.md#how-releases-work)), so macOS keeps the permissions you grant (Accessibility, Screen Recording and the rest) across updates, and Keeper only installs an update that matches the release's checksum and is signed the same way.
+Keeper then updates itself from GitHub Releases (Settings → Updates). The newest beta instead: add `-s -- --beta` after `sh`.
 
-The scripts check every download against the release checksums and add the `keeper` command. Homebrew, winget, Scoop, Chocolatey, the AUR, Flatpak, Snap, apt and dnf, npm (`keeper-cli`), updates, uninstalling and verifying downloads are all in **[docs/INSTALL.md](docs/INSTALL.md)**.
+**First launch on a Mac.** Keeper is signed with its own certificate ("Keeper Self-Signed"), not yet an Apple Developer ID, so macOS treats it as an app from an unidentified developer:
 
-Or download the latest build from **[Releases](https://github.com/ashfordeOU/keeper/releases/latest)**. The file names never change, so these links always give you the newest version:
+1. **Gatekeeper, once.** After a dmg or Homebrew install, the first open is blocked: open **System Settings → Privacy & Security**, find the line about Keeper and click **Open Anyway** (on macOS 14 and older, Control-click Keeper in Applications and choose **Open**). The install script removes the quarantine flag, so it skips this step.
+2. **Keychain, once per update.** Keeper keeps its saved keys and passwords encrypted with a key in your keychain ("Keeper Safe Storage"). After an update macOS may ask whether Keeper may use it: enter your password and click **Always Allow**. Until Keeper has a Developer ID this comes back once after each update, never more often.
+3. **Permissions stay.** Every release is signed with the same certificate, so Accessibility, Screen Recording and the other permissions you grant carry over updates, and Keeper only installs an update that matches the release's checksum and is signed the same way. The welcome tour offers to set up the permissions Keeper's features use (Settings → Permissions any time; [docs/PERMISSIONS.md](docs/PERMISSIONS.md) says what each is for).
 
-| System | Download | Notes |
+### Windows 10/11 and Linux
+
+```powershell
+# Windows (PowerShell); also Windows on ARM
+irm https://raw.githubusercontent.com/ashfordeOU/keeper/main/scripts/install.ps1 | iex
+```
+
+```bash
+# Linux (x64 and ARM64): the .deb, the .rpm, or the AppImage elsewhere
+curl -fsSL https://raw.githubusercontent.com/ashfordeOU/keeper/main/scripts/install.sh | sh
+```
+
+The scripts install the newest release that has a build for your system: a version can come out for macOS first and for Windows and Linux in a following release, and until then they install, and Keeper updates to, the newest version that has your system's files. The files themselves are on the **[Releases](https://github.com/ashfordeOU/keeper/releases)** page; pick the newest release that lists yours:
+
+| System | File | Notes |
 |---|---|---|
-| **macOS 12+**, Apple silicon | [Keeper-mac-arm64.dmg](https://github.com/ashfordeOU/keeper/releases/latest/download/Keeper-mac-arm64.dmg) | Open, drag Keeper into Applications |
-| **macOS 12+**, Intel | [Keeper-mac-x64.dmg](https://github.com/ashfordeOU/keeper/releases/latest/download/Keeper-mac-x64.dmg) | |
-| **Windows 10/11** (also Windows on ARM) | [Keeper-setup-x64.exe](https://github.com/ashfordeOU/keeper/releases/latest/download/Keeper-setup-x64.exe) | Per user, no administrator needed |
-| Windows, no install | [Keeper-portable.exe](https://github.com/ashfordeOU/keeper/releases/latest/download/Keeper-portable.exe) | Runs from anywhere, e.g. a USB stick |
-| **Linux** x64, any distribution | [Keeper-linux-x86_64.AppImage](https://github.com/ashfordeOU/keeper/releases/latest/download/Keeper-linux-x86_64.AppImage) | `chmod +x` and run |
-| Linux ARM64 | [Keeper-linux-arm64.AppImage](https://github.com/ashfordeOU/keeper/releases/latest/download/Keeper-linux-arm64.AppImage) | |
+| **Windows 10/11** (also on ARM) | `Keeper-setup-x64.exe` | Per user, no administrator needed |
+| Windows, no install | `Keeper-portable.exe` | Runs from anywhere, e.g. a USB stick |
+| **Linux** x64 / ARM64, any distribution | `Keeper-linux-x86_64.AppImage` / `Keeper-linux-arm64.AppImage` | `chmod +x` and run |
 | Debian, Ubuntu, Mint, Pop!_OS | `Keeper-linux-amd64.deb` / `-arm64.deb` | `sudo apt install ./Keeper-linux-amd64.deb` |
 | Fedora, RHEL, openSUSE | `Keeper-linux-x86_64.rpm` / `-aarch64.rpm` | `sudo dnf install ./Keeper-linux-x86_64.rpm` |
 | Other Linux | `Keeper-linux-x64.tar.gz` | Unpack anywhere and run `keeper` |
 
-Every release lists `SHA256SUMS.txt`, a Sigstore signature of it and GitHub build attestations; see [Verifying a download](docs/INSTALL.md#verifying-a-download). Keeper keeps itself up to date (automatically, after asking, or only when you check, in **Settings → Updates**).
+**First launch.** On **Windows**, if SmartScreen appears, choose **More info → Run anyway** (the installer is not yet signed with a paid certificate). On **Linux**, now playing, dictation and download sources use `playerctl`, `xdotool` (or `wtype` on Wayland) and `attr`.
 
-**First launch.** Builds are not yet signed with paid Apple and Microsoft certificates. On **Windows**, if SmartScreen appears, choose **More info → Run anyway**. On **macOS**, the install script removes the quarantine flag; after a dmg or Homebrew install choose **Open Anyway** in System Settings → Privacy & Security, or run `xattr -cr /Applications/Keeper.app`. On **Linux**, now playing, dictation and download sources use `playerctl`, `xdotool` (or `wtype` on Wayland) and `attr`. The welcome tour then offers to set up every permission Keeper's features use in one go (Settings → Permissions any time); see [docs/PERMISSIONS.md](docs/PERMISSIONS.md) for what each one is for and how to take it back.
+### Everything else
 
----
-
-## Everything is a switch
-
-Keeper does a lot, and stays out of the way. **Settings → Features** lists every part of Keeper (121 features in [`core/features.ts`](core/features.ts)) with what it costs: what runs in the background, how often, and how much memory. Turning one off stops it completely: no window, no timers, no watchers, and its pages and menu items leave the sidebar. A test fails the build if any page, sidebar entry or command has no feature that owns it.
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/features-dark.webp">
-  <img src="docs/screenshots/features-light.webp" width="100%" alt="Settings, Features: presets, your own sets, switching by power source, and every feature with what it costs">
-</picture>
-
-- **Presets**: Everything, Balanced, Minimal and Files only, plus your own saved sets, and a set to switch to by itself **on battery** and another **on power**.
-- **Resource modes** in **Settings → Keeper's own usage**: Minimal, Balanced (default) and Performance, with Keeper's processor and memory use right now and why background work is waiting.
-- **The governor** slows background work while you work, waits while the computer is hot, short of memory or on battery, and catches up when you are away. Checks slow down after a minute without input and pause while the screen is locked.
-
-Measured on Linux with a 14,400-file library (Xvfb, one minute per state, all of Keeper's processes together; memory is PSS):
-
-| | Default features | Only the library on |
-|---|---|---|
-| First scan | 2.3 s, 2.3 s of processor | — |
-| Idle, window open | 0.9 % of one core | 0.1 % |
-| Idle, closed to the tray | 0.5 % | 0.3 % |
-| Wake-ups per second (main process) | 25–35 | 3 |
-| Memory | 340–490 MB | 270–310 MB |
-
-A check in CI starts the built app and fails if Keeper idles above 1 % of a core or 550 MB.
+winget, Scoop, Chocolatey, the AUR, Flatpak, Snap, apt and dnf, npm (`keeper-cli`), updates, uninstalling and verifying downloads are in **[docs/INSTALL.md](docs/INSTALL.md)**. Every release lists `SHA256SUMS.txt`, a Sigstore signature of it and GitHub build attestations ([Verifying a download](docs/INSTALL.md#verifying-a-download)). What Keeper sends and keeps is under [Privacy](#privacy) and in [docs/PRIVACY-USAGE-STATS.md](docs/PRIVACY-USAGE-STATS.md); how to report a vulnerability, and the latest security review, are in [SECURITY.md](SECURITY.md). How a release is made: [RELEASING.md](RELEASING.md).
 
 ---
 

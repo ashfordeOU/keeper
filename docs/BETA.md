@@ -96,14 +96,20 @@ beta versions**.
 
 - **Stable** (switch off, the default for stable builds): Keeper offers the newest non-pre-release version that is
   newer than the one running.
-- **Beta** (switch on, the default for beta builds): Keeper offers the newest version of any kind, beta or stable, that is
+- **Beta** (switch on): Keeper offers the newest version of any kind, beta or stable, that is
   newer than the one running. When `0.2.0` is out, a beta tester on `0.2.0-beta.3` gets `0.2.0`,
   and then the `0.3.0` betas once they start.
+- **A beta build nobody switched** (the switch shows on, but the person never touched it) follows
+  betas until a stable version newer than it is out, then takes that stable version and follows
+  stable from there. This is how the 0.1.0 betas move to 1.0.0 and stay on stable releases.
 
-The choice is made by `pickRelease` in [`core/updates.ts`](../core/updates.ts), from the GitHub
+Only releases with a build for this computer count: a macOS-only release is never offered on
+Windows or Linux (`releaseFits` in `core/updates.ts`).
+
+The choice is made by `pickUpdate` in [`core/updates.ts`](../core/updates.ts), from the GitHub
 releases list. Drafts are always skipped. The Windows installer and the AppImage then download
-through electron-updater with `allowPrerelease` following the same switch, and fall back to the
-`latest*.yml` that every release carries. Macs download the `.dmg` themselves, and `.deb`/`.rpm`
+through electron-updater, which reads the `latest*.yml` of exactly the release chosen (not GitHub's
+latest release). Macs download the `.dmg` themselves, and `.deb`/`.rpm`
 copies download the package and ask for the system password.
 
 **Going back to stable** from a beta: switch **Include beta versions** off. Keeper never

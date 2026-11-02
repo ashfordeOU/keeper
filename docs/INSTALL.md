@@ -29,6 +29,7 @@ What the scripts do:
 - On macOS, the script downloads the right `.dmg` for your processor (`Keeper-mac-arm64.dmg` or `Keeper-mac-x64.dmg`), quits a running Keeper, replaces Keeper in `/Applications` (or `~/Applications` if that folder isn't writable), removes the quarantine flag and opens it.
 - On Linux, it installs the `.deb` (Debian, Ubuntu and similar), the `.rpm` (Fedora, openSUSE and similar), or the AppImage on any other distribution.
 - On Windows, it runs the per-user installer silently, so no administrator prompt appears.
+- Without `--version`, the scripts take the newest stable release that has the file for this computer, not simply GitHub's latest release: a version can come out for macOS first and for Windows and Linux in a following release.
 - Every download is checked against the release's `SHA256SUMS.txt`. Nothing is installed if the checksum doesn't match, or if the release has no checksums.
 - If the [GitHub CLI](https://cli.github.com) is installed and signed in, the script also checks the file's build attestation.
 - Each script puts a `keeper` command on your PATH: in `~/.local/bin` on macOS and Linux, and in `%LOCALAPPDATA%\Keeper\bin` on Windows. Run `keeper` with no arguments to open the app, or `keeper --help` for the command line.
@@ -37,8 +38,8 @@ Options:
 
 | macOS / Linux (`sh -s -- …`) | Windows | |
 |---|---|---|
-| `--version 0.2.0` | `-Version 0.2.0` | A specific version instead of the latest |
-| `--beta` | | The newest release, betas included (a beta copy then keeps updating to betas) |
+| `--version 0.2.0` | `-Version 0.2.0` | A specific version instead of the newest one with a build for this computer |
+| `--beta` | | The newest release, betas included (a beta copy follows betas until a newer stable version is out) |
 | `--appimage` | | Linux: use the AppImage even where a .deb or .rpm would fit |
 | | `-Portable` | The portable `Keeper.exe` instead of the installer |
 | `--cli-only` | | Only the `keeper` command, from npm (needs Node.js 22+) |
@@ -171,7 +172,9 @@ Before an update goes in, Keeper checks it:
 
 On macOS, until Keeper is signed with an Apple Developer ID, macOS asks once after each update whether Keeper may use **Keeper Safe Storage** in your keychain. Type your login password and choose **Always Allow**. The Software Update window says so before it restarts. [PERMISSIONS.md](PERMISSIONS.md#the-keychain-question-after-an-update-keeper-safe-storage) explains what happens if you choose Deny.
 
-A beta (a version with a hyphen, like `0.3.0-beta.1`) updates to the next beta, and to the next stable release, unless you turn off **Include beta versions** in Settings → Updates.
+A beta (a version with a hyphen, like `0.3.0-beta.1`) updates to the next beta until a stable version newer than it is out; then it updates to that stable version and follows stable releases from there. Turn on **Include beta versions** in Settings → Updates to keep getting betas; a stable copy never gets a beta otherwise.
+
+A release can be made for some systems only (macOS first, say). On the others it is invisible: Keeper only offers a version whose release has the installer for this computer (and, for the Windows installer and the AppImage, its `latest*.yml`), so those copies stay put until a release with their build comes out.
 
 When any other package manager installed Keeper, let that package manager update it so its records stay right. Keeper detects these installs (`core/install-source.ts`):
 
@@ -251,11 +254,14 @@ Your files are never touched. Settings stay in `~/Library/Application Support/Ke
 
 Nobody builds Keeper by hand. To release:
 
-1. Bump `"version"` in `package.json` on `main` (and add a `## [x.y.z]` section to `CHANGELOG.md`; it becomes the release notes).
-2. GitHub Actions ([`.github/workflows/release.yml`](../.github/workflows/release.yml)) sees the change, builds every platform and processor, creates the tag `vx.y.z` on that commit and publishes the GitHub Release with `SHA256SUMS.txt`. A push whose version already has a release builds nothing; a running release is never cancelled by a later push.
-3. Installed copies find the new release and update themselves. After a stable release the workflow also commits the new version and checksums to [`Casks/keeper.rb`](../Casks/keeper.rb) and the Scoop bucket.
+The exact steps are in [RELEASING.md](../RELEASING.md). In short:
 
-Versions with a hyphen (`0.3.0-beta.1`) are published as pre-releases: only betas, and copies with **Include beta versions** on, pick them up, and package-manager channels skip them (npm publishes them under `next`). Pushing a tag `vx.y.z` that matches `package.json` still works, and **Run workflow** with *Build only* builds everything without publishing.
+1. Run **Release check** on `main` and wait for it to be green.
+2. Bump `"version"` in `package.json` (and add a `## [x.y.z]` section to `CHANGELOG.md`; it becomes the release notes, unless `.github/release-notes/x.y.z.md` exists), push it to the `incoming` branch, and `sign-and-land.yml` signs it, moves `main` and starts the release.
+3. GitHub Actions ([`.github/workflows/release.yml`](../.github/workflows/release.yml)) builds the systems listed in [`.github/release.json`](../.github/release.json) (all three, or macOS only, say), creates the tag `vx.y.z` on that commit and publishes the GitHub Release with `SHA256SUMS.txt`. A push whose version already has a release builds nothing; a running release is never cancelled by a later push.
+4. Installed copies find the new release and update themselves. After a stable release the workflow also commits the new version and checksums to [`Casks/keeper.rb`](../Casks/keeper.rb) and the Scoop bucket through `incoming`, so those commits are signed too.
+
+Versions with a hyphen (`0.3.0-beta.1`) are published as pre-releases: only betas, and copies with **Include beta versions** on, pick them up, and every package-manager channel and npm skip them. Pushing a tag `vx.y.z` that matches `package.json` still works, and **Run workflow** with *Build only* builds everything without publishing.
 
 **One-time step: the Mac signing certificate.** macOS ties Accessibility, Screen Recording and other permissions to an app's signature. Ad-hoc signatures change with every build, so without a stable certificate people must grant them again after each update (the workflow warns about this). On your own Mac, run once:
 
@@ -267,14 +273,14 @@ It creates a self-signed code-signing certificate named "Keeper Self-Signed" and
 
 ## Maintainers: channels, secrets and signing
 
-A release is a version bump in `package.json` on `main`, or a pushed tag such as `v0.2.0` (see [How releases work](#how-releases-work)). With no secrets at all, it still builds every installer, publishes the GitHub Release, writes `SHA256SUMS.txt`, signs that file with Sigstore, attests every file, and updates the Scoop bucket and the Homebrew cask in this repository. Every other channel switches on when its secret exists. Package-manager channels publish stable releases only. npm publishes pre-releases under the `next` tag.
+A release is a version bump in `package.json` on `main`, or a pushed tag such as `v0.2.0` (see [How releases work](#how-releases-work)). With no secrets at all, it still builds every installer, publishes the GitHub Release, writes `SHA256SUMS.txt`, signs that file with Sigstore and attests every file. Every other channel switches on when its secret exists; a channel whose secret is missing is skipped with a notice on the run's summary and never fails the release. Channels publish stable releases only, and only for the systems in the release.
 
 | Channel | Status | Needs |
 |---|---|---|
 | GitHub Releases, install scripts | Works now | — |
 | Build attestations, Sigstore signature | Works now | — |
-| Scoop (this repository is the bucket) | Works now: the workflow commits `bucket/keeper.json` | An unprotected default branch, or update it by hand |
-| Homebrew cask in this repository | Works now: the workflow commits `Casks/keeper.rb` | An unprotected default branch, or update it by hand |
+| Scoop (this repository is the bucket) | The workflow commits `bucket/keeper.json` to `incoming`; `sign-and-land.yml` signs and lands it | `COMMIT_SIGNING_KEY` (the key `sign-and-land.yml` already uses); Windows in the release |
+| Homebrew cask in this repository | The workflow commits `Casks/keeper.rb` the same way | `COMMIT_SIGNING_KEY`; macOS in the release |
 | Stable Mac signature (keeps permissions across updates) | Needs a one-time step | `KEEPER_SIGNING_CERT` and `KEEPER_SIGNING_PASSWORD`, made by `scripts/make-signing-cert.sh` (see [How releases work](#how-releases-work)) |
 | npm `keeper-cli` | Needs a secret | `NPM_TOKEN`: an npm automation token for an account that owns `keeper-cli` |
 | Homebrew tap | Needs a secret and a one-time step | Create `ashfordeOU/homebrew-keeper`. `HOMEBREW_TAP_TOKEN` is a fine-grained token with *Contents: write* on that repository. |
