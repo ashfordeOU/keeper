@@ -184,7 +184,8 @@ export class StudioSession {
     if (o.mic) side.push({ name: 'mic', kind: 'mic', file: path.join(this.dir, 'mic.webm'), deviceId: o.micId });
     if (o.webcam) side.push({ name: 'webcam', kind: 'webcam', file: path.join(this.dir, 'webcam.webm'), deviceId: o.camId });
     const systemSide = o.systemAudio && process.platform === 'win32' && how !== 'browser';
-    if (systemSide) side.push({ name: 'system', kind: 'system', file: path.join(this.dir, 'system.webm') });
+    // Windows shares the computer's sound together with a screen's picture (the picture is dropped)
+    if (systemSide) side.push({ name: 'system', kind: 'system', file: path.join(this.dir, 'system.webm'), sourceId: await screenSource(t.displayId) });
     if (o.systemAudio && process.platform === 'linux') this.notes.push('The computer’s sound cannot be recorded on Linux yet; only the microphone was.');
     let screenRec: ScreenRecorder;
     this.side = new SideRecorder(this.ctx.preload, app.getPath('userData'));

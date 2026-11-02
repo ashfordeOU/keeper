@@ -133,6 +133,10 @@ function Home({ onOpen }: { onOpen(dir: string): void }) {
               <Toggle on={opts.stage} onChange={(v) => void set({ stage: v })} label="Clean the screen with Stage first" />
             </div>
             <div className="st-opt">
+              <span className="st-opt-label"><Icon name="eyeOff" size={14} /> Move Keeper out of the way</span>
+              <Toggle on={opts.hideWindow} onChange={(v) => void set({ hideWindow: v })} label="Move Keeper out of the way while recording" />
+            </div>
+            <div className="st-opt">
               <span className="st-opt-label">Frame rate</span>
               <div className="seg" role="radiogroup" aria-label="Frame rate">{([30, 60] as const).map((f) => <button key={f} role="radio" aria-checked={opts.fps === f} className={opts.fps === f ? 'on' : ''} onClick={() => void set({ fps: f })}>{f} fps</button>)}</div>
             </div>

@@ -17,13 +17,13 @@
 .studio-recorder { background: var(--bg-elev); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; display: grid; gap: 16px; }
 .studio-rec-main { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; justify-content: space-between; }
 .studio-modes button { height: 34px; padding: 0 14px; font-size: 13px; }
-.studio-record { display: inline-flex; align-items: center; gap: 10px; height: 44px; padding: 0 22px; border-radius: 22px; border: 0; background: var(--danger); color: #fff; font-size: 15px; font-weight: 650; cursor: default; box-shadow: 0 6px 20px var(--danger-soft); transition: transform .12s var(--ease), filter .12s; }
+.studio-record { display: inline-flex; align-items: center; gap: 10px; height: 44px; padding: 0 22px; border-radius: 22px; border: 0; background: #c3262d; color: #fff; font-size: 15px; font-weight: 650; cursor: default; box-shadow: 0 6px 20px var(--danger-soft); transition: transform .12s var(--ease), filter .12s; }
 .studio-record:hover { filter: brightness(1.07); }
 .studio-record:active { transform: scale(.97); }
 .studio-record:disabled { opacity: .5; }
 .studio-record:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .studio-record .studio-dot { background: #fff; box-shadow: none; }
-.studio-record kbd { background: rgba(255, 255, 255, .2); color: #fff; border: 0; border-radius: 6px; padding: 1px 6px; font-size: 11px; font-family: var(--font); }
+.studio-record kbd { background: rgba(0, 0, 0, .28); color: #fff; border: 0; border-radius: 6px; padding: 1px 6px; font-size: 11px; font-family: var(--font); }
 .studio-rec-options { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px 22px; }
 .st-opt { display: flex; align-items: center; gap: 10px; min-height: 32px; flex-wrap: wrap; }
 .st-opt-label { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-2); flex: 1; min-width: 120px; }

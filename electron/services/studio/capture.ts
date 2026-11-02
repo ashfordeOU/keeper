@@ -15,6 +15,7 @@ import { createWriteStream, promises as fsp, type WriteStream } from 'node:fs';
 import path from 'node:path';
 import type { CaptureHow } from '../../../core/studio/types';
 import type { Region } from '../../../core/studio/record';
+import { parseStart } from '../../../core/studio/probe';
 import { ffmpegPath } from '../recorder';
 
 export interface ScreenTarget {
@@ -96,14 +97,6 @@ export function x11Usable(): boolean {
   return process.platform === 'linux' && !!process.env.DISPLAY && process.env.XDG_SESSION_TYPE !== 'wayland' && !process.env.WAYLAND_DISPLAY;
 }
 
-/** The `start: <seconds>` ffmpeg prints for a live input: the wall-clock time of its first frame. */
-export function parseStart(stderr: string): number | null {
-  const m = stderr.match(/Input #0, (?:x11grab|gdigrab)[\s\S]*?start: ([\d.]+)/);
-  if (!m) return null;
-  const s = +m[1];
-  return s > 1e9 ? s * 1000 : null;
-}
-
 export function ffmpegGrabArgs(platform: NodeJS.Platform, t: ScreenTarget, fps: number, file: string): string[] {
   const s = t.region.scale;
   // the grabbers work in device pixels
@@ -165,7 +158,7 @@ async function open(t) {
   if (t.kind === 'mic') return navigator.mediaDevices.getUserMedia({ audio: { deviceId: t.deviceId ? { exact: t.deviceId } : undefined, echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 } });
   if (t.kind === 'webcam') return navigator.mediaDevices.getUserMedia({ video: { deviceId: t.deviceId ? { exact: t.deviceId } : undefined, width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } } });
   if (t.kind === 'system') {
-    const s = await navigator.mediaDevices.getUserMedia({ audio: { mandatory: { chromeMediaSource: 'desktop' } }, video: { mandatory: { chromeMediaSource: 'desktop', maxWidth: 2, maxHeight: 2, maxFrameRate: 1 } } });
+    const s = await navigator.mediaDevices.getUserMedia({ audio: { mandatory: { chromeMediaSource: 'desktop' } }, video: { mandatory: { chromeMediaSource: 'desktop', chromeMediaSourceId: t.sourceId, maxWidth: 160, maxHeight: 120, maxFrameRate: 1 } } });
     s.getVideoTracks().forEach((v) => { v.stop(); s.removeTrack(v); });
     return s;
   }

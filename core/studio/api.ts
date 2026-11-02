@@ -16,6 +16,8 @@ export interface StudioOptions {
   countdown: number;
   /** clean the screen with Stage before recording */
   stage: boolean;
+  /** move Keeper's window out of the way while recording */
+  hideWindow: boolean;
   /** where projects go (empty: Videos › Keeper Studio) */
   folder: string;
   /** project folders opened before, newest first */
@@ -28,7 +30,7 @@ export interface StudioOptions {
 }
 
 export function defaultStudioOptions(): StudioOptions {
-  return { mode: 'full', mic: true, webcam: false, systemAudio: false, fps: 60, countdown: 3, stage: false, folder: '', recent: [], shortcut: 'CommandOrControl+Shift+2', pauseShortcut: 'CommandOrControl+Shift+3' };
+  return { mode: 'full', mic: true, webcam: false, systemAudio: false, fps: 60, countdown: 3, stage: false, hideWindow: true, folder: '', recent: [], shortcut: 'CommandOrControl+Shift+2', pauseShortcut: 'CommandOrControl+Shift+3' };
 }
 
 export function normalizeStudioOptions(raw: unknown): StudioOptions {
@@ -44,6 +46,7 @@ export function normalizeStudioOptions(raw: unknown): StudioOptions {
     fps: r.fps === 30 ? 30 : 60,
     countdown: typeof r.countdown === 'number' ? Math.max(0, Math.min(10, Math.round(r.countdown))) : d.countdown,
     stage: typeof r.stage === 'boolean' ? r.stage : d.stage,
+    hideWindow: typeof r.hideWindow === 'boolean' ? r.hideWindow : d.hideWindow,
     folder: typeof r.folder === 'string' ? r.folder : '',
     recent: Array.isArray(r.recent) ? r.recent.filter((x): x is string => typeof x === 'string').slice(0, 40) : [],
     shortcut: typeof r.shortcut === 'string' ? r.shortcut : d.shortcut,

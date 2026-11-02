@@ -62,7 +62,7 @@ fs.mkdirSync(SHOTS, { recursive: true });
   await w.waitForSelector('[data-testid="studio-record"]', { timeout: 15000 });
   const support = await w.evaluate(() => window.keeper.studio.support());
   check(support.screen.how === 'ffmpeg' && support.screen.cursorHidden, `X11 records with ffmpeg, pointer left out (${support.screen.how})`);
-  await w.evaluate(() => window.keeper.studio.setOptions({ countdown: 0, mic: true, webcam: true, systemAudio: false, fps: 30, mode: 'full', stage: false }));
+  await w.evaluate(() => window.keeper.studio.setOptions({ countdown: 0, mic: true, webcam: true, systemAudio: false, fps: 30, mode: 'full', stage: false, hideWindow: false }));
   await nav('home');
   await w.waitForTimeout(300);
   await nav('studio');
@@ -174,6 +174,13 @@ fs.mkdirSync(SHOTS, { recursive: true });
     const p = probe(gif);
     check(p.codec === 'gif' && p.height === 480, `the GIF is 480 lines (${p.codec} ${p.width}x${p.height})`);
   } else check(false, 'the GIF export finished');
+
+  const webm = await exportOnce('Web', 'webm');
+  if (webm) {
+    const p = probe(webm);
+    check(p.codec === 'vp9' && p.height === 1080 && p.audio, `the WebM is VP9 at 1080 lines with sound (${p.codec} ${p.width}x${p.height})`);
+    check(Math.abs(p.duration - expected) < 250, `the WebM is as long as the timeline (${Math.round(p.duration)} ms)`);
+  } else check(false, 'the WebM export finished');
 
   check(!errors.length, `no page errors (${errors.slice(0, 3).join(' | ')})`);
   await setTheme('light');

@@ -1477,11 +1477,13 @@ app.whenReady().then(async () => {
     stage: async (on) => {
       const st = stageSvc();
       if (!st || !featureOn('stage')) return;
-      if (on) await st.start('recording', { reason: 'Studio', skipCountdown: true });
+      // Studio draws its own clicks and shortcut badges, and leaves the pointer out: Stage's would be doubled
+      if (on) await st.start('recording', { reason: 'Studio', skipCountdown: true, override: { clicks: false, keystrokes: 'off', spotlight: { mode: 'off', size: 'm', dim: 0 } } });
       else await st.stop('Studio recording ended');
     },
     added: (p) => void index.refresh(p).then(() => islandSvc.addToShelf([p])).then(() => libraryChanged()).catch(() => undefined),
     reregister: () => registerShortcuts(),
+    minimize: () => { if (main && !main.isDestroyed() && main.isVisible()) main.minimize(); },
   });
   setStudioRecorder({ active: studioRecording, since: () => studioSince, stop: studioStop });
 

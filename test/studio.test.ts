@@ -418,3 +418,14 @@ describe('studio project', () => {
     expect(frameAt(withCursor, ev, d, 2100).cursor).toBeNull();
   });
 });
+
+describe('studio ffmpeg output', () => {
+  it('reads a file’s length, picture and sound', async () => {
+    const { parseProbe, parseStart } = await import('../core/studio/probe');
+    const p = parseProbe("Input #0, matroska,webm, from 'x.webm':\n  Duration: 00:01:02.50, start: 0.000000, bitrate: 1 kb/s\n  Stream #0:0: Video: vp9 (Profile 0), yuv420p(tv), 1920x1080, SAR 1:1 DAR 16:9, 60 fps, 60 tbr, 1k tbn (default)\n  Stream #0:1: Audio: opus, 48000 Hz, stereo, fltp (default)\n");
+    expect(p).toEqual({ duration: 62500, start: 0, video: { codec: 'vp9', width: 1920, height: 1080, fps: 60 }, audio: true });
+    expect(parseProbe('nothing').video).toBeUndefined();
+    expect(parseStart("Input #0, x11grab, from ':99+0,0':\n  Duration: N/A, start: 1793643532.856465, bitrate: 1 kb/s")).toBeCloseTo(1793643532856.465, 1);
+    expect(parseStart("Input #0, matroska, from 'a':\n  Duration: N/A, start: 0.0")).toBeNull();
+  });
+});

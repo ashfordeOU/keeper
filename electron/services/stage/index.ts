@@ -189,10 +189,12 @@ export class StageService {
     return this.cfg.presets.find((p) => p.id.toLowerCase() === want || p.name.toLowerCase() === want);
   }
 
-  async start(presetId?: string, opts: { reason?: string; auto?: boolean; skipCountdown?: boolean } = {}): Promise<StageStatus> {
+  /** `override` changes some of the preset's switches for this time only (Studio draws its own clicks and keys). */
+  async start(presetId?: string, opts: { reason?: string; auto?: boolean; skipCountdown?: boolean; override?: Partial<import('../../../core/stage/types').StageSwitches> } = {}): Promise<StageStatus> {
     if (!featureOn('stage')) throw new Error('Stage mode is switched off in Settings → Features.');
-    const preset = this.findPreset(presetId);
-    if (!preset) throw new Error(`There is no Stage preset called “${presetId}”.`);
+    const found = this.findPreset(presetId);
+    if (!found) throw new Error(`There is no Stage preset called “${presetId}”.`);
+    const preset = opts.override ? { ...found, switches: { ...found.switches, ...opts.override } } : found;
     if (this.on && this.preset?.id === preset.id) return this.status();
     if (this.on) await this.stop('Switched to another preset', true);
     if (this.countdownEndsAt) return this.status();

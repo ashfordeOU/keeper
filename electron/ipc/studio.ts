@@ -36,11 +36,15 @@ export interface StudioCtx {
   /** a new file: index it and put it on the shelf */
   added(p: string): void;
   reregister(): void;
+  /** moves Keeper's main window out of the way (it comes back when the recording is saved) */
+  minimize(): void;
 }
 
 let session: StudioSession | null = null;
 let exporter: Exporter | null = null;
 let ctx: StudioCtx;
+/** the window was moved away for this recording */
+let hidden = false;
 
 function handle(name: string, fn: (...args: never[]) => unknown) {
   ipcMain.removeHandler(name);
@@ -138,8 +142,9 @@ export function registerStudioIpc(c: StudioCtx) {
       const live = s.phase === 'recording' || s.phase === 'paused';
       c.recording(live, live ? s.since : undefined);
       c.updateTray();
-      // a finished recording opens in the editor
-      if (s.phase === 'idle' && s.project) c.show(`studio:${s.project}`);
+      // a finished recording opens in the editor; a cancelled one brings the window back
+      if (s.phase === 'idle' && (s.project || hidden)) c.show(s.project ? `studio:${s.project}` : 'studio');
+      if (s.phase === 'idle') hidden = false;
     },
     alert: c.alert,
     stage: c.stage,
@@ -155,6 +160,7 @@ export function registerStudioIpc(c: StudioCtx) {
     const opts = o ? await setStudioOptions(o) : await studioOptions();
     if (process.platform !== 'darwin' && !ffmpegPath()) throw new Error('Keeper’s bundled ffmpeg is missing; Studio needs it to record and export.');
     // the page should not be in the picture: it comes back when the recording is saved
+    if (opts.hideWindow && !session!.active) { hidden = true; c.minimize(); }
     return session!.record(opts);
   });
   handle('studio.pause', () => session!.pause());
