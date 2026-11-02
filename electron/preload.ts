@@ -126,6 +126,7 @@ const api = {
     ...group('island', ['createShelf', 'selectShelf', 'renameShelf', 'setShelfColor', 'pinShelf', 'closeShelf', 'reopenShelf', 'moveShelfItem', 'renameShelfItem', 'shelfAction', 'updateClip', 'toggleClipCollection', 'pasteClip', 'exportClips', 'importClips', 'openClips', 'openShelf', 'openTab', 'hide', 'setVolume', 'setMuted', 'setBrightness', 'refreshDevices', 'awakeStatus', 'layout', 'placementPreview', 'placeLog']),
     setExpanded: (v: boolean) => ipcRenderer.send('island.setExpanded', v),
     setInteractive: (v: boolean) => ipcRenderer.send('island.setInteractive', v),
+    takeFocus: () => ipcRenderer.send('island.takeFocus'),
     setSize: (w: number, h: number) => ipcRenderer.send('island.setSize', w, h),
     closeClips: () => ipcRenderer.send('island.closeClips'),
   },

@@ -6,6 +6,7 @@ import type { IslandSettings as IS } from '../../../core/api';
 import { ISLAND_TOOLS, moveTool, orderedTools, toggleTool } from '../../../core/island-tools/tools';
 import { Icon } from '../../components/Icon';
 import { Toggle } from '../../components/ui';
+import { PANEL_PX, PANEL_SIZES, PANEL_SIZE_LABEL, isPanelSize, tabPanel, withTabSize, type PanelSize } from '../../../core/island-size';
 
 export function IslandToolsSettings({ isl, set }: { isl: IS; set: (p: Partial<IS>) => void }) {
   const all = orderedTools(isl.toolOrder, []);
@@ -33,6 +34,10 @@ export function IslandToolsSettings({ isl, set }: { isl: IS; set: (p: Partial<IS
               <Icon name="drag" size={12} />
               <Icon name={t.icon} size={14} />
               <span className="grow">{t.label}</span>
+              <select className="input sm" aria-label={`Size of the open Island for ${t.label}`} title="How big the Island opens on this tab" value={isPanelSize(isl.panelSizes?.[id]) ? isl.panelSizes![id] : ''} onChange={(e) => set({ panelSizes: withTabSize(isl, id, (e.target.value || null) as PanelSize | null) as IS['panelSizes'] })} style={{ width: 150 }}>
+                <option value="">Default ({((d) => (d.px === PANEL_PX[d.size] ? PANEL_SIZE_LABEL[d.size] : `${d.px.w}×${d.px.h}`))(tabPanel(id, { ...isl, panelSizes: {} }))})</option>
+                {PANEL_SIZES.map((z) => <option key={z} value={z}>{PANEL_SIZE_LABEL[z]}</option>)}
+              </select>
               <button className="btn sm icon" disabled={i === 0} title="Move up" aria-label="Move up" onClick={() => set({ toolOrder: moveTool(isl.toolOrder, id, i - 1) })}><Icon name="arrowUp" size={11} /></button>
               <button className="btn sm icon" disabled={i === all.length - 1} title="Move down" aria-label="Move down" onClick={() => set({ toolOrder: moveTool(isl.toolOrder, id, i + 1) })}><Icon name="chevronDown" size={11} /></button>
               {id === 'home' ? <span className="small muted" style={{ width: 40 }}>always</span> : <Toggle on={shown.has(id)} onChange={(v) => set({ toolsOff: toggleTool(isl.toolsOff, id, v) })} />}

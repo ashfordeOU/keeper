@@ -12,6 +12,8 @@ import { useAsync, useStore } from '../state';
 import { PlacementSettings } from '../island/PlacementSettings';
 import { IslandToolsSettings } from '../island/tools/ToolsSettings';
 import { PlusSettings } from '../island/PlusSettings';
+import { CalendarPicker, useIslandCalendars } from '../island/CalendarPicker';
+import { PANEL_SIZES, PANEL_SIZE_LABEL, isPanelSize } from '../../core/island-size';
 import '../styles/screens-b.css';
 
 export function Row({ title, desc, children, id }: { title: string; desc?: ReactNode; children: ReactNode; id?: string }) {
@@ -39,6 +41,8 @@ export function IslandSettings() {
   const [presenting, setPresenting] = useState(false);
   const hasUpload = useAsync(() => api.settings.hasSecret('upload'), []);
   const [uploadKey, setUploadKey] = useState('');
+  const [cals, calAccounts, reloadCals] = useIslandCalendars();
+  const isMac = navigator.platform.includes('Mac');
 
   useEffect(() => { if (state.data) setAwake(state.data.keepAwake); }, [state.data]);
   useEffect(() => {
@@ -83,6 +87,22 @@ export function IslandSettings() {
 
       <h2 style={{ margin: '18px 0 8px' }}>Tools</h2>
       <IslandToolsSettings isl={isl} set={set} />
+
+      <h2 style={{ margin: '18px 0 8px' }}>Open Island size</h2>
+      <div className="card settings-section">
+        <Row id="island-panel-size" title="Size when open" desc="For every tab without its own size. Calendar, Week, Notes and Mail open at least Large. Choose a tab’s own size above, with the size button in the open Island, or by dragging the grip on its bottom edge. Never bigger than the screen.">
+          <select className="input" aria-label="Size when open" value={isPanelSize(isl.panelSize) ? isl.panelSize : 'regular'} onChange={(e) => set({ panelSize: e.target.value as IS['panelSize'] })}>
+            {PANEL_SIZES.map((z) => <option key={z} value={z}>{PANEL_SIZE_LABEL[z]}</option>)}
+          </select>
+          {Object.keys(isl.panelSizes ?? {}).length ? <button className="btn sm" onClick={() => set({ panelSizes: {} })}>Reset tabs’ own sizes</button> : null}
+        </Row>
+      </div>
+
+      <h2 style={{ margin: '18px 0 8px' }}>Calendars in the Island</h2>
+      <div className="card settings-section" data-testid="island-settings-calendars">
+        <div className="small muted" style={{ marginBottom: 8 }}>Ticked calendars show in the Island’s Calendar and Week tabs and in the countdown to your next event. The same switch is in Settings → Mail &amp; Calendar.</div>
+        <div className="cal-pick-settings"><CalendarPicker cals={cals} accounts={calAccounts} onChanged={reloadCals} variant="settings" /></div>
+      </div>
 
       <h2 style={{ margin: '18px 0 8px' }}>What it shows</h2>
       <div className="card settings-section">
@@ -242,6 +262,20 @@ export function IslandSettings() {
           </Row>
         ))}
       </div>
+
+      {isMac ? (
+        <>
+          <h2 style={{ margin: '18px 0 8px' }}>Advanced</h2>
+          <div className="card settings-section">
+            <Row id="island-window-type" title="Window type" desc="Standard is a plain borderless window (no grey backdrop behind the open Island on macOS 26). Panel is the floating panel Keeper used before; switch to it if the Island misbehaves. The Island is made again when you change this.">
+              <select className="input" aria-label="Window type" value={isl.windowType === 'panel' ? 'panel' : 'standard'} onChange={(e) => set({ windowType: e.target.value as IS['windowType'] })}>
+                <option value="standard">Standard (default)</option>
+                <option value="panel">Panel</option>
+              </select>
+            </Row>
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }

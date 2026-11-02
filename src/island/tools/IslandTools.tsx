@@ -8,7 +8,7 @@ import type { IslandState } from '../../../core/api';
 import type { IslandShortcut, SalesConfigView } from '../../../core/api-island-tools';
 import { addRecent, buildIndex, GROUPS, searchEmoji, TONES, withTone, type EmojiEntry } from '../../../core/island-tools/emoji';
 import { isTodayPad, noteTitle, takeLine, todayPad, upsert, type IslandToolsStore, type QuickNote } from '../../../core/island-tools/notes';
-import { dayKey } from '../../../core/pim/tasks';
+import { dayKey, weekDays } from '../../../core/pim/tasks';
 import { addTaskFromText } from '../../pim/tasks-ui';
 import { CalendarAccessRow, useCalendarStatus } from '../../pim/week-events-ui';
 import { groupNotes, notesSetupRow, type IslandNotesView } from '../../../core/island-tools/note-sources';
@@ -21,6 +21,10 @@ import { warnLevel } from '../../../core/island-tools/usage';
 import { agendaFor, countdown, inIsland, islandAgenda, type AgendaItem } from '../../../core/pim/agenda';
 import { parseQuickAdd } from '../../../core/pim/quickadd';
 import type { CalendarInfo, Occurrence } from '../../../core/pim/types';
+import { eventsByDay, weekEventTime } from '../../../core/pim/week-events';
+import { hiddenSummary } from '../../../core/island-calendars';
+import type { PanelSize } from '../../../core/island-size';
+import { CalendarPicker } from '../CalendarPicker';
 import { describeCode } from '../../../core/weather';
 import { formatBytes } from '../../../core/format';
 import { memoryDetail, memoryTone } from '../../../core/memory';
@@ -611,7 +615,34 @@ function AgendaRow({ e, now }: { e: AgendaItem; now: number }) {
   );
 }
 
-export function CalendarTool({ now }: { state: IslandState; now: number }) {
+/** Extra large: the week of the picked day (or this week), a column per day. */
+function WeekColumns({ occ, cals, from, now, weekStart }: { occ: Occurrence[]; cals: CalendarInfo[]; from: number; now: number; weekStart: number }) {
+  const days = weekDays(dayKey(from), weekStart);
+  const by = useMemo(() => eventsByDay(occ, cals, days, { island: true }), [occ, cals, days.join()]);
+  const today = dayKey(now);
+  return (
+    <div className="cal-week" data-testid="island-cal-week">
+      {days.map((k) => {
+        const [y, m, d] = k.split('-').map(Number);
+        const date = new Date(y, m - 1, d);
+        const list = by.get(k) ?? [];
+        return (
+          <div key={k} className={`cal-wday${k === today ? ' today' : ''}`}>
+            <div className="small muted cal-wday-head"><b>{date.toLocaleDateString([], { weekday: 'short' })}</b> {d}</div>
+            {list.map((e) => (
+              <button key={e.key} className="cal-wev" style={{ borderLeftColor: e.color }} title={`${e.title} · ${e.calendarName}`} onClick={() => void api.pim.openEvent(e.eventId, e.instance)}>
+                <span className="muted">{weekEventTime(e, timeOf)}</span>
+                <b className="ellipsis">{e.title}</b>
+              </button>
+            ))}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+export function CalendarTool({ now, size = 'regular' }: { state: IslandState; now: number; size?: PanelSize }) {
   const [month, setMonth] = useState(() => { const d = new Date(now); return new Date(d.getFullYear(), d.getMonth(), 1).getTime(); });
   const [occ, setOcc] = useState<Occurrence[]>([]);
   const [cals, setCals] = useState<CalendarInfo[]>([]);
@@ -620,6 +651,9 @@ export function CalendarTool({ now }: { state: IslandState; now: number }) {
   const [quick, setQuick] = useState('');
   const [target, setTarget] = useState('');
   const [drop, setDrop] = useState(false);
+  const [picking, setPicking] = useState(false);
+  const [accounts, setAccounts] = useState<{ id: string; label: string }[]>([]);
+  const [weekStart, setWeekStart] = useState(1);
   const m0 = new Date(month);
   const start = new Date(m0.getFullYear(), m0.getMonth(), 1 - ((m0.getDay() + 6) % 7)).getTime();
   const end = Math.max(start + 42 * DAY_MS, addDay(now, 2));
@@ -628,6 +662,7 @@ export function CalendarTool({ now }: { state: IslandState; now: number }) {
     if (!api.pim) return;
     void api.pim.occurrences(from, end).then(setOcc).catch(() => setOcc([]));
     void api.pim.calendars().then(setCals).catch(() => setCals([]));
+    void api.pim.accounts?.().then((a) => setAccounts(a.map((x) => ({ id: x.id, label: x.label })))).catch(() => setAccounts([]));
   }, [from, end]);
   useEffect(load, [load]);
   useEffect(() => api.on('pim-changed', ((k: string) => { if (k === 'calendar' || k === 'accounts') load(); }) as never), [load]);
@@ -638,7 +673,7 @@ export function CalendarTool({ now }: { state: IslandState; now: number }) {
     const h = setInterval(() => void api.pim.watchCalendar(true), 60_000);
     return () => { clearInterval(h); void api.pim.watchCalendar(false); };
   }, []);
-  useEffect(() => { void api.pim?.prefs?.().then((p) => setTarget((t) => t || p.defaultCalendar || '')).catch(() => undefined); }, []);
+  useEffect(() => { void api.pim?.prefs?.().then((p) => { setTarget((t) => t || p.defaultCalendar || ''); if (typeof p.weekStart === 'number') setWeekStart(p.weekStart); }).catch(() => undefined); }, []);
   const writable = cals.filter((c) => !c.readOnly && !c.tasks);
   const agenda = useMemo(() => islandAgenda(occ, cals, now), [occ, cals, now]);
   const picked = useMemo(() => (day === null ? null : agendaFor(occ, cals, day, now)), [occ, cals, day, now]);
@@ -671,8 +706,15 @@ export function CalendarTool({ now }: { state: IslandState; now: number }) {
     load();
   };
   const days = Array.from({ length: 42 }, (_, i) => new Date(start + i * DAY_MS + 3600_000));
+  const hidden = hiddenSummary(cals);
+  const calendarsBtn = (
+    <button className={`btn sm${picking ? ' primary' : ''}`} data-testid="island-cal-pick-btn" aria-haspopup="dialog" aria-expanded={picking} title="Choose which calendars the Island shows" onClick={() => setPicking(!picking)}>
+      <Icon name="calendar" size={11} /> Calendars{hidden ? <span className="muted small"> · {hidden}</span> : null}
+    </button>
+  );
+  const week = size === 'xl' ? <WeekColumns occ={occ} cals={cals} from={day ?? now} now={now} weekStart={weekStart} /> : null;
   return (
-    <div className={`itool cal${drop ? ' dropping' : ''}`} onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); setDrop(true); } }} onDragLeave={() => setDrop(false)} onDrop={(e) => void onDrop(e)}>
+    <div className={`itool cal cal-${size}${drop ? ' dropping' : ''}`} onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); setDrop(true); } }} onDragLeave={() => setDrop(false)} onDrop={(e) => void onDrop(e)}>
       <div className="mgrid">
         <div className="row-x"><button className="btn sm icon" aria-label="Previous month" title="Previous month" onClick={() => setMonth(new Date(m0.getFullYear(), m0.getMonth() - 1, 1).getTime())}><Icon name="chevronLeft" size={11} /></button><b className="grow" style={{ textAlign: 'center' }}>{m0.toLocaleDateString([], { month: 'long', year: 'numeric' })}</b><button className="btn sm icon" aria-label="Next month" title="Next month" onClick={() => setMonth(new Date(m0.getFullYear(), m0.getMonth() + 1, 1).getTime())}><Icon name="chevronRight" size={11} /></button></div>
         <div className="mdays" role="grid" aria-label="Month">
@@ -685,6 +727,13 @@ export function CalendarTool({ now }: { state: IslandState; now: number }) {
           })}
         </div>
       </div>
+      {picking ? (
+        <div className="cal-pick-pop" role="dialog" aria-label="Calendars in the Island" onMouseLeave={() => setPicking(false)}>
+          <div className="row-x"><b className="grow small">Calendars in the Island</b><button className="btn sm icon ghost" aria-label="Close" onClick={() => setPicking(false)}><Icon name="close" size={11} /></button></div>
+          <CalendarPicker cals={cals} accounts={accounts} onChanged={load} />
+        </div>
+      ) : null}
+      {week}
       <div className="mlist" data-testid="island-agenda">
         <div className="cal-quick">
           <input className="input sm" value={quick} onChange={(e) => setQuick(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void add()} placeholder="Add: lunch with Sam tomorrow 1pm" aria-label="Quick add an event" />
@@ -693,6 +742,7 @@ export function CalendarTool({ now }: { state: IslandState; now: number }) {
               {writable.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           ) : null}
+          {calendarsBtn}
         </div>
         {preview ? <div className="muted small ellipsis" aria-live="polite">{preview.title} · {new Date(preview.start).toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: preview.allDay ? undefined : 'numeric', minute: preview.allDay ? undefined : '2-digit' })}{preview.rrule ? ' · repeats' : ''} — press Return</div> : null}
         <CalendarAccessRow status={status} onChange={() => { reloadStatus(); load(); }} toast={say} />

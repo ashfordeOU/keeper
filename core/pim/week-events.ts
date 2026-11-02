@@ -38,7 +38,9 @@ export interface WeekEventOptions {
   island?: boolean;
 }
 
-const shown = (c: CalendarInfo | undefined, island?: boolean) => !!c && c.visible && !c.tasks && (!island || c.island !== false);
+/** Keeper's own calendar ("On this computer") holds events as well as tasks; other task lists hold none. */
+const holdsEvents = (c: CalendarInfo) => !c.tasks || c.account === 'local';
+const shown = (c: CalendarInfo | undefined, island?: boolean) => !!c && c.visible && holdsEvents(c) && (!island || c.island !== false);
 
 /**
  * Occurrences sorted into the given days (yyyy-mm-dd, local time). An event

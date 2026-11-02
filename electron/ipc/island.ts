@@ -15,7 +15,8 @@ import { onFrontAppChange } from '../services/fg-watch';
 import { featureOn } from '../services/features';
 import { keepUnmanaged, overlayOptions } from '../services/unmanaged';
 import { TugGuard } from '../../core/ashforde/coexist';
-import { settings } from '../store';
+import { onSettings, settings } from '../store';
+import { islandUsesPanel } from '../../core/island-size';
 
 export interface IslandContext {
   islandSvc: IslandService;
@@ -79,6 +80,8 @@ export class IslandWindows {
   private follow: NodeJS.Timeout | null = null;
   /** the size the page asked for, so the Island's window covers nothing but the Island, closed or open */
   private sizes = new Map<number, { width: number; height: number }>();
+  /** the windows are panels (Settings → Island → Advanced → Window type on macOS; always elsewhere) */
+  private panel: boolean | null = null;
 
   // Where it goes is worked out in core/island-place.ts: the notch, menu and
   // top bars, taskbars, the camera, a turned tablet, and the nudge from Settings.
@@ -197,6 +200,10 @@ export class IslandWindows {
   ensure(reposition = false) {
     const s = settings().island;
     if (!s.enabled) return this.destroyAll();
+    // Another window type is chosen: the windows are made again (a window's type is fixed when it is made).
+    const panel = islandUsesPanel(process.platform, s.windowType);
+    if (this.panel !== null && this.panel !== panel && this.wins.size) this.destroyAll();
+    this.panel = panel;
     const wanted = this.displays();
     this.followPointer(s.displays === 'mouse');
     // Following the pointer: move the one window rather than making a new one.
@@ -232,10 +239,11 @@ export class IslandWindows {
       const first = this.clampRect(d, this.bounds(d, false));
       const win = new BrowserWindow({
         // Not an ordinary window: window arrangers (Monorail, tilers, snapping tools) leave it alone.
-        // On macOS it is a plain borderless window, not a panel: macOS 26 draws a grey rounded
-        // backdrop behind a transparent panel's clear area, which showed as a frame around the
-        // open Island. Monorail still floats it by its fixed title, and any move is undone.
-        ...overlayOptions('island', { panel: process.platform !== 'darwin' }),
+        // On macOS it is a plain borderless window by default, not a panel: macOS 26 draws a grey
+        // rounded backdrop behind a transparent panel's clear area, which showed as a frame around
+        // the open Island. Settings → Island → Advanced can make it a panel again. Monorail floats
+        // it by its fixed title either way, and any move is undone.
+        ...overlayOptions('island', { panel }),
         ...first, frame: false, transparent: true, resizable: false, movable: false, skipTaskbar: true, alwaysOnTop: true,
         fullscreenable: false, hasShadow: false, focusable: false, show: false, backgroundColor: '#00000000',
         // No corners or edge drawn by the system (macOS, Windows 11): the page draws the Island's whole shape.
@@ -267,6 +275,7 @@ export class IslandWindows {
     this.wins.clear();
     this.expanded.clear();
     this.want.clear();
+    this.sizes.clear();
   }
 
   setExpanded(sender: WebContents, v: boolean) {
@@ -277,9 +286,19 @@ export class IslandWindows {
       else this.expanded.delete(id);
       this.place(id, win, this.bounds(d, v), v ? 'expand' : 'collapse');
       clickThrough(win, !v);
-      // Only the open Island takes the keyboard; the closed pill never takes focus from the app in front.
-      win.setFocusable(v);
-      if (v) win.focus();
+      // Opening never takes the keyboard (a plain window would bring Keeper, and maybe its main
+      // window, to the front): the open Island takes it when a field in it is clicked (takeFocus).
+      // The closed pill never takes focus from the app in front.
+      if (!v) win.setFocusable(false);
+    }
+  }
+
+  /** A field in the open Island was clicked (or the New task shortcut opened it): it takes the keyboard. */
+  takeFocus(sender: WebContents) {
+    for (const [id, win] of this.wins) {
+      if (win.webContents !== sender || win.isDestroyed() || !this.expanded.has(id)) continue;
+      win.setFocusable(true);
+      if (!win.isFocused()) win.focus();
     }
   }
 
@@ -466,6 +485,9 @@ export function registerIslandIpc(c: IslandContext) {
     });
   }
   ipcMain.handle('island.layout', (e) => islandWindows.layoutFor(e.sender));
+  ipcMain.on('island.takeFocus', (e) => islandWindows.takeFocus(e.sender));
+  // Window type changed in Settings → Island → Advanced: the Island's windows are made again.
+  onSettings((next, prev) => { if (next.island.windowType !== prev.island.windowType && next.island.enabled) islandWindows.ensure(true); });
   ipcMain.on('island.setSize', (e, w: number, hgt: number) => { if (Number.isFinite(w) && Number.isFinite(hgt)) islandWindows.setShownSize(e.sender, w, hgt); });
   h('island.placementPreview', async () => { await refreshPlaceEnv(); return placementPreview(); });
   h('island.placeLog', () => islandPlaceLog());

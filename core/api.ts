@@ -408,6 +408,12 @@ export interface IslandSettings {
   alertStyle?: 'notch' | 'banner';
   /** also show low-priority alerts (guide findings, general information); otherwise they wait on To do and in the tray */
   alertsInfo?: boolean;
+  /** the open Island's size for every tab without its own (core/island-size.ts); Calendar, Week, Notes and Mail open at least Large */
+  panelSize?: 'compact' | 'regular' | 'large' | 'xl';
+  /** a tab's own size, chosen with the grip on the open Island, its size button or Settings */
+  panelSizes?: Record<string, 'compact' | 'regular' | 'large' | 'xl'>;
+  /** macOS: the Island as a plain borderless window (default) or a floating panel (NSPanel), as Keeper made it before */
+  windowType?: 'standard' | 'panel';
 }
 
 export interface KeeperApi extends KeeperApiX {
@@ -696,6 +702,8 @@ export interface KeeperApi extends KeeperApiX {
     setExpanded(expanded: boolean): void;
     /** the pointer is over the closed pill: take clicks there, let them through elsewhere */
     setInteractive?(on: boolean): void;
+    /** a field in the open Island was clicked: it takes the keyboard (opening alone never does) */
+    takeFocus?(): void;
     /** the closed pill's size, so the window covers nothing else */
     setSize(width: number, height: number): void;
     createShelf(name?: string): Promise<void>;

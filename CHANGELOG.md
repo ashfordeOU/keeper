@@ -21,6 +21,16 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - World clock: each city's working hours (9:00–18:00 unless set otherwise on the Widgets page) as a 24-hour strip on your own day, quarter-hour exact for places such as India and Nepal and following clock changes; an Overlap row with the hours when everyone works; a line at now and a slider to look at any hour (every time follows it; Now goes back); type a city or zone (Tokyo, Dubai, Europe/Paris) to add it, × to remove. Narrow world clocks keep the simple list.
 - Widgets with dark text on a light card draw their colours in darker shades. Widgets that do not show Island data no longer read it every 30 seconds, and the new ones wake once a minute (the timer once a second only while it runs).
 
+### Added — Island
+- Sizes for the open Island: Compact, Regular, Large and Extra large, chosen per tab. Calendar, Week, Notes and Mail open Large; the others at the default from Settings → Island → Open Island size. Drag the grip on the panel's bottom edge (it snaps to the sizes), use the size button beside the tabs, or pick a tab's size in Settings → Island → Tools. Never bigger than the screen's work area, and the window is still exactly the size of the panel.
+- The Calendar tab uses the room: a bigger month and a wider list at Large, and the week beside the month at Extra large.
+- Choose which calendars the Island shows: a Calendars button in the Calendar tab and Settings → Island → Calendars in the Island list every calendar under its account, with its colour, a tick, and Show all / Hide all. It is the calendar's own Island switch (also in Mail & Calendar), so the Calendar and Week tabs and the countdown to the next event follow it.
+- Settings → Island → Advanced (macOS): Window type, Standard (default) or Panel, the floating panel Keeper used before. The Island is made again when it changes.
+
+### Fixed — Island
+- macOS: the Island is a plain borderless window instead of a panel, so macOS 26 no longer draws a grey rounded backdrop behind the open Island. Its scroll bars are dark and thin, with no light square in the corner.
+- Opening the Island no longer takes the keyboard, so it never brings Keeper or its main window to the front; it takes the keyboard when you click a field in it (or the New task shortcut opens it). The closed pill never takes focus.
+
 ## [0.1.0-beta.7] - 2026-11-02
 
 ### Fixed

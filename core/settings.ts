@@ -5,6 +5,7 @@ import { defaultA11y, normalizeA11y } from './a11y';
 import { defaultAwakeSettings, normalizeAwakeSettings } from './awake-engine';
 import { defaultAbilities } from './abilities/config';
 import type { IslandSettings } from './api';
+import { cleanPanelSizes, isPanelSize, islandWindowType } from './island-size';
 import { defaultBrainSettings, normalizeBrainSettings } from './brain/config';
 import { defaultAgentSettings, normalizeAgentSettings } from './agents-config';
 import { defaultSyncSettings, normalizeSyncSettings } from './sync/config';
@@ -73,6 +74,9 @@ export function defaultIsland(): IslandSettings {
     shelfKeepCopies: false,
     shelfRetentionDays: 7,
     mediaKeys: false,
+    panelSize: 'regular',
+    panelSizes: {},
+    windowType: 'standard',
   };
 }
 
@@ -189,6 +193,8 @@ export function mergeSettings(base: AllSettings, raw: unknown): AllSettings {
   if (!['selection', 'always', 'never'].includes(out.inspectorMode)) out.inspectorMode = 'selection';
   if (!['auto', 'full', 'compact'].includes(out.sidebarMode)) out.sidebarMode = 'auto';
   out.home = normalizeHome(r.home);
+  // The open Island's sizes and window type (settings from before them get the defaults).
+  out.island = { ...out.island, panelSize: isPanelSize(out.island.panelSize) ? out.island.panelSize : 'regular', panelSizes: cleanPanelSizes(out.island.panelSizes) as IslandSettings['panelSizes'], windowType: islandWindowType(out.island.windowType) };
   out.sidebarSectionLimit = Number.isFinite(out.sidebarSectionLimit) ? Math.max(0, Math.min(50, Math.round(out.sidebarSectionLimit))) : 5;
   if (!['', 'all', 'onDemand'].includes(out.permissionsSetup)) out.permissionsSetup = '';
   return out;

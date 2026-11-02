@@ -1,0 +1,13 @@
+/* SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 */
+/* The calendars picker: which calendars the Island shows (the Calendar tab's menu and Settings → Island). */
+
+.cal-pick { display: flex; flex-direction: column; gap: 8px; }
+.cal-pick-group { display: flex; flex-direction: column; gap: 1px; }
+.cal-pick-head { display: flex; align-items: center; gap: 4px; padding-bottom: 2px; }
+.cal-pick-row { display: flex; align-items: center; gap: 8px; padding: 3px 4px; border-radius: 7px; font-size: 12.5px; min-width: 0; }
+.cal-pick-row:hover { background: rgba(127, 127, 127, .12); }
+.cal-pick-row.off { opacity: .55; }
+.cal-pick-row .cal-dot { flex: none; width: 9px; height: 9px; border-radius: 50%; }
+.cal-pick-settings { max-width: 520px; }
+.cal-pick .grow { flex: 1; min-width: 0; }
+.cal-pick .ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

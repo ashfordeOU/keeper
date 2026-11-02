@@ -236,7 +236,11 @@ export function roomBesideNotch(d: DisplayInfo, env: PlaceEnv, notch: Cutout): {
 const SCALE: Record<PlaceOptions['size'], number> = { compact: 0.86, normal: 1, large: 1.2 };
 /** collapsed window (holds the pill, a second bubble, and room for the shadow and the morph) */
 const COLLAPSED = { width: 400, height: 72 };
-const EXPANDED = { width: 700, height: 380 };
+/**
+ * the most the open window may take: the Extra large panel (core/island-size.ts, 1000 × 580 below
+ * the notch) and room for its shadow. The window itself is only ever as big as what shows.
+ */
+const EXPANDED = { width: 1080, height: 680 };
 /** the pill when nothing is in the way */
 const PILL = { width: 220, height: 34 };
 /** room on each side of the notch for a glyph */
@@ -267,6 +271,8 @@ export function place(d: DisplayInfo, env: PlaceEnv, opt: Partial<PlaceOptions> 
   if (sideEdge) {
     const c = sz(COLLAPSED);
     const e = sz(EXPANDED);
+    e.width = Math.min(e.width, d.workArea.width);
+    e.height = Math.min(e.height, d.workArea.height);
     const x = (w: number) => (sideEdge === 'left' ? d.workArea.x : d.workArea.x + d.workArea.width - w);
     const yMid = cutout.kind === 'camera' && cutout.edge === sideEdge ? B.y + cutout.center : d.workArea.y + d.workArea.height * 0.3 + c.height / 2;
     const y = (h: number) => clamp(Math.round(yMid - h / 2), d.workArea.y, d.workArea.y + d.workArea.height - h);
@@ -339,7 +345,9 @@ export function place(d: DisplayInfo, env: PlaceEnv, opt: Partial<PlaceOptions> 
   c.width = Math.max(c.width, pill.width + 120);
   c.height = Math.max(c.height, pill.height + 40);
   const e = sz(EXPANDED);
-  e.width = Math.max(e.width, pill.width + 120);
+  e.width = Math.max(Math.min(e.width, d.workArea.width), pill.width + 120);
+  // Never past the bottom of the work area (the Dock, a taskbar).
+  e.height = Math.max(c.height, Math.min(e.height, d.workArea.y + d.workArea.height - top));
   return finish({
     displayId: d.id, anchor, edge: 'top', cutout, topBar: ins.top, topBarKind: kind, scale, gap, pill,
     ...(wing !== undefined ? { wing, hang } : {}),

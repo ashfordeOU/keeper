@@ -26,6 +26,7 @@ import { VibesTool } from '../wallpaper/IslandVibes';
 import { ISLAND_TOOLS, moveTool, orderedTools, toggleTool, type IslandToolId } from '../../core/island-tools/tools';
 import { chime, Leading, LiveCard, PrivacyDots, Trailing, useActivities, useGestures, useLayout } from './Activities';
 import { useFeatureStates } from '../features';
+import { PANEL_SIZES, PANEL_SIZE_LABEL, largestBox, panelBox, roomIn, snapSize, stepSize, tabPanel, withTabSize, type PanelSize } from '../../core/island-size';
 import { useStore } from '../state';
 import '../styles/island.css';
 
@@ -58,6 +59,10 @@ function mmss(ms: number): string {
 const SHAPE_MORPH_MS = 460;
 /** room around the open Island for its shadow or glow (`.isl-shadow` in island.css) */
 const HALO = 28;
+/** the size button's short name for each size */
+const SIZE_SHORT: Record<PanelSize, string> = { compact: 'S', regular: 'M', large: 'L', xl: 'XL' };
+/** fields that take typing: clicking one gives the open Island the keyboard */
+const FIELD = 'input, textarea, select, [contenteditable=""], [contenteditable="true"]';
 const timeOf = (t: number) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
 export function Island() {
@@ -155,9 +160,18 @@ export function Island() {
   useEffect(() => api.on('island-open', (t: string) => {
     const [id, then] = t.split(':');
     setTab((ISLAND_TOOLS.some((x) => x.id === id) ? id : 'home') as Tab);
-    if (then === 'new') setComposeKey(Date.now());
     show('panel');
+    // The New task shortcut is for typing straight away: only then does opening take the keyboard.
+    if (then === 'new') { setComposeKey(Date.now()); api.island.takeFocus?.(); }
   }), []);
+
+  // The open panel's size while the grip is dragged (or until Settings has the size it was dropped at),
+  // and the size button's menu.
+  const [dragSize, setDragSize] = useState<PanelSize | null>(null);
+  const drag = useRef<{ y0: number; h0: number; moved?: boolean } | null>(null);
+  const dragEnded = useRef(0);
+  const [sizeMenu, setSizeMenu] = useState(false);
+  useEffect(() => { if (!drag.current) setDragSize(null); }, [isl?.panelSizes, isl?.panelSize, tab]);
 
   const [toast, setToast] = useState('');
   useEffect(() => {
@@ -285,18 +299,25 @@ export function Island() {
     // The activity ended while its card was open.
     window.setTimeout(() => collapse(0), 0);
   }
+  // The open panel: the tab's size (core/island-size.ts), never bigger than the room the placement has.
+  const halo = glow || (plusSetting(isl, 'shadow') && !notch) ? HALO : 0;
+  const sizeRoom = { scale: sc, notchH, max: layout ? roomIn(layout.expanded, { side, ears, halo }) : undefined };
+  const tabP = tabPanel(tab, isl ?? {});
+  const tabSize = tabP.size;
+  const panelSize = dragSize ?? tabSize;
   const box = {
     compact: compact,
     alert: { w: Math.round(420 * sc), h: notchH + Math.round(76 * sc) },
     live: { w: Math.max(Math.round(440 * sc), gap + 160), h: notchH + Math.round(150 * sc) },
-    panel: { w: Math.round(640 * sc), h: notchH + Math.round(300 * sc) },
+    panel: panelBox(dragSize ?? tabP.px, sizeRoom),
   }[view];
-  const full = { w: Math.max(box.w, Math.round(640 * sc)), h: Math.max(box.h, notchH + Math.round(300 * sc)) };
+  // The shape is drawn as big as the biggest panel, so every change (open, close, another size) is one morph.
+  const most = largestBox(sizeRoom);
+  const full = { w: Math.max(box.w, most.w), h: Math.max(box.h, most.h) };
   const floating = layout?.anchor === 'below-bar' || side;
   if (layout && view !== 'compact') {
     // Open: the window is the card or panel itself (and the notch's ears), plus room for the shadow
     // below a floating Island or the artwork glow, the only things ever drawn outside the shape.
-    const halo = glow || (plusSetting(isl, 'shadow') && !notch) ? HALO : 0;
     winSize.current = side ? { w: box.w + halo, h: box.h + 2 * halo } : { w: box.w + 2 * Math.max(ears, halo), h: box.h + (halo ? halo + 6 : 0) };
   }
   const r = view === 'compact' ? (floating ? box.h / 2 : Math.min(box.h / 2, 20 * sc)) : plusSetting(isl, 'cornerRadius') * sc;
@@ -403,6 +424,35 @@ export function Island() {
     return { id, icon: t.icon, label: LABELS[id] ?? t.label, badge: BADGES[id] };
   });
   const setIsl = (p: Partial<NonNullable<typeof isl>>) => isl && void updateSettings({ island: { ...isl, ...p } });
+  /** This tab's own size (null: back to the default for it). */
+  const setTabSize = (size: PanelSize | null) => {
+    if (!isl) return;
+    if (size) setDragSize(size);
+    setIsl({ panelSizes: withTabSize(isl, tab, size) as NonNullable<typeof isl>['panelSizes'] });
+  };
+  // The grip on the bottom edge: drag to resize, snapping to the nearest size; arrow keys step.
+  const grip = (
+    <div
+      className="isl-grip" role="slider" tabIndex={0} data-testid="island-grip"
+      aria-label="Size of the open Island" aria-valuemin={0} aria-valuemax={PANEL_SIZES.length - 1} aria-valuenow={PANEL_SIZES.indexOf(panelSize)} aria-valuetext={PANEL_SIZE_LABEL[panelSize]}
+      title={`${PANEL_SIZE_LABEL[panelSize]}: drag to make the Island bigger or smaller for this tab`}
+      onPointerDown={(e) => { if (e.button !== 0) return; e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); drag.current = { y0: e.clientY, h0: box.h }; setDragSize(panelSize); }}
+      onPointerMove={(e) => {
+        if (!drag.current) return;
+        const next = snapSize(drag.current.h0 + e.clientY - drag.current.y0, sizeRoom);
+        if (next !== panelSize) { drag.current.moved = true; setDragSize(next); }
+      }}
+      onPointerUp={() => { const d = drag.current; if (!d) return; drag.current = null; dragEnded.current = Date.now(); if (panelSize !== tabSize || (d.moved && !tabP.own)) setTabSize(panelSize); else setDragSize(null); }}
+      onPointerCancel={() => { drag.current = null; setDragSize(null); }}
+      onKeyDown={(e) => {
+        const by = e.key === 'ArrowDown' || e.key === 'ArrowRight' ? 1 : e.key === 'ArrowUp' || e.key === 'ArrowLeft' ? -1 : 0;
+        if (!by) return;
+        e.preventDefault();
+        const next = stepSize(panelSize, by);
+        if (next !== panelSize) setTabSize(next);
+      }}
+    ><i /></div>
+  );
 
   const lyricIdx = np && state.lyrics ? lineAt(state.lyrics, np.position) : -1;
 
@@ -416,6 +466,7 @@ export function Island() {
             </button>
           ))}
           <span style={{ flex: 1 }} />
+          <button className="size-btn" title={`Size: ${PANEL_SIZE_LABEL[panelSize]} (for this tab)`} aria-label={`Size of the open Island: ${PANEL_SIZE_LABEL[panelSize]}`} aria-haspopup="menu" aria-expanded={sizeMenu} data-testid="island-size-btn" onClick={() => setSizeMenu(!sizeMenu)}>{SIZE_SHORT[panelSize]}</button>
           {featureStates?.get('toolLauncher')?.on === false ? null : <button title="Tool launcher" aria-label="Tool launcher" data-testid="island-launcher-btn" onClick={() => void api.islandx?.openLauncher()}><Icon name="grid" size={13} /></button>}
           {state.awakeAvailable === false ? null : <button title={state.keepAwake.on ? 'Stop keeping awake' : 'Keep awake'} aria-label={state.keepAwake.on ? 'Stop keeping awake' : 'Keep awake'} className={state.keepAwake.on ? 'on' : ''} onClick={() => void api.island.keepAwake(!state.keepAwake.on).then(load)}><Icon name="coffee" size={13} /></button>}
           {featureStates?.get('stage')?.on === false ? null : <button title={state.stage?.on ? 'Stop Stage' : 'Stage: a clean screen'} aria-label={state.stage?.on ? 'Stop Stage' : 'Stage: a clean screen'} data-testid="island-stage-btn" className={state.stage?.on ? 'on' : ''} onClick={() => void (state.stage?.on ? api.stage.stop() : api.stage.toggle()).then(load)}><Icon name="eye" size={13} /></button>}
@@ -428,6 +479,13 @@ export function Island() {
             {tabMenu.id !== 'home' ? <button onClick={() => { setIsl({ toolsOff: toggleTool(isl?.toolsOff, tabMenu.id, false) }); if (tab === tabMenu.id) setTab('home'); setTabMenu(null); }}><Icon name="close" size={11} /> Hide this tool</button> : null}
             <div className="muted small" style={{ padding: '4px 8px' }}>Show</div>
             {ISLAND_TOOLS.filter((x) => !toolIds.includes(x.id)).map((x) => <button key={x.id} onClick={() => { setIsl({ toolsOff: toggleTool(isl?.toolsOff, x.id, true) }); setTab(x.id); setTabMenu(null); }}><Icon name={x.icon} size={11} /> {x.label}</button>)}
+          </div>
+        ) : null}
+        {sizeMenu ? (
+          <div className="shelf-pop tab-menu size-menu" role="menu" style={{ right: 12, left: 'auto', top: 40 }} onMouseLeave={() => setSizeMenu(false)}>
+            <div className="muted small" style={{ padding: '4px 8px' }}>Size for {tabs.find((t) => t.id === tab)?.label ?? 'this tab'}</div>
+            {PANEL_SIZES.map((z) => <button key={z} role="menuitemradio" aria-checked={z === panelSize} className={z === panelSize ? 'on' : ''} onClick={() => { setTabSize(z); setSizeMenu(false); }}><b style={{ width: 22, display: 'inline-block' }}>{SIZE_SHORT[z]}</b> {PANEL_SIZE_LABEL[z]}</button>)}
+            {isl?.panelSizes?.[tab] ? <button onClick={() => { setTabSize(null); setSizeMenu(false); }}><Icon name="undo" size={11} /> Use the default</button> : null}
           </div>
         ) : null}
         {toast ? <div className="isl-toast">{toast}</div> : null}
@@ -568,9 +626,10 @@ export function Island() {
             </div>
           ) : null}
 
-          {tab === 'calendar' ? <CalendarTool state={state} now={now} /> : null}
+          {tab === 'calendar' ? <CalendarTool state={state} now={now} size={panelSize} /> : null}
           {tab === 'cues' ? <CuesTool state={state} now={now} /> : null}
         </div>
+        {side ? null : grip}
       </div>
   );
 
@@ -578,7 +637,7 @@ export function Island() {
     '--notch-h': `${notchH}px`, '--gap': `${gap}px`, '--box-w': `${box.w}px`, '--box-h': `${box.h}px`, '--full-w': `${full.w}px`, '--full-h': `${full.h}px`, '--bubble': `${bubble}px`, '--wing': `${layout?.wing || 120}px`,
   } as React.CSSProperties;
   return (
-    <div className={`isl-root edge-${edge} anchor-${layout?.anchor ?? 'edge'} view-${view} ${floating ? 'floating' : ''} ${isl?.monochrome ? 'mono' : ''}`} style={vars} role="region" aria-label="Island">
+    <div className={`isl-root edge-${edge} anchor-${layout?.anchor ?? 'edge'} view-${view} size-${panelSize} ${floating ? 'floating' : ''} ${isl?.monochrome ? 'mono' : ''}`} style={vars} role="region" aria-label="Island">
       {/* Alerts are read out by screen readers as they arrive, without taking focus. */}
       <div className="sr-only" role="status" aria-live="assertive" aria-atomic="true">{view === 'alert' && alert ? [alert.app, alert.title, alert.detail].filter(Boolean).join('. ') : ''}</div>
       <div aria-hidden className={`isl-shadow ${plusSetting(isl, 'shadow') ? '' : 'no-shadow'} ${glow ? 'glowing' : ''}`} style={glow ? ({ '--glow': glow } as React.CSSProperties) : undefined}>
@@ -595,7 +654,10 @@ export function Island() {
           else if (view !== 'compact' && e.key === 'Escape') collapse();
         }}
         onMouseEnter={() => { api.island.setInteractive?.(true); enter(); }}
-        onMouseLeave={() => { if (view === 'compact') api.island.setInteractive?.(false); else if (view === 'alert' && alertOpen) { setAlertOpen(false); api.island.setExpanded(false); } else collapse(); }}
+        // The open Island takes the keyboard only when a field in it is clicked, so opening it never
+        // brings Keeper (or its main window) to the front.
+        onMouseDownCapture={(e) => { if (view !== 'compact' && (e.target as HTMLElement).closest?.(FIELD)) api.island.takeFocus?.(); }}
+        onMouseLeave={() => { if (drag.current) return; if (view === 'compact') api.island.setInteractive?.(false); else if (view === 'alert' && alertOpen) { setAlertOpen(false); api.island.setExpanded(false); } else collapse(Date.now() - dragEnded.current < 500 ? 1500 : 350); }}
         onClick={(e) => {
           if (view !== 'compact') return;
           // Alt/Option-click hides the Island for a minute (alerts still come back after).

@@ -334,3 +334,35 @@ html[data-view='island'], html[data-view='island'] body, html[data-view='island'
 
 /* Black and white (Settings → Island): everything in greys; the glow and shadow stay neutral too. */
 .isl-root.mono .isl-content, .isl-root.mono .isl-bubble, .isl-root.mono .isl-shadow { filter: grayscale(1); }
+
+/* ---------------------------------------------------------------- the open Island's sizes (core/island-size.ts) */
+.isl-panel { position: relative; }
+.isl-panel .tabs .size-btn { min-width: 26px; justify-content: center; font-size: 10.5px; font-weight: 700; letter-spacing: .02em; color: #a1a1aa; }
+.isl .size-menu > button.on { background: rgba(255, 255, 255, .12); font-weight: 600; }
+/* The grip on the bottom edge: drag to resize (snaps to the sizes), or focus it and use the arrow keys. */
+.isl-grip { position: absolute; left: 50%; bottom: 0; width: 72px; height: 12px; margin-left: -36px; display: grid; place-items: center; cursor: ns-resize; z-index: 6; touch-action: none; outline: none; }
+.isl-grip i { width: 36px; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, .16); transition: background .15s, width .15s; }
+.isl-grip:hover i, .isl-grip:focus-visible i, .isl-grip:active i { background: rgba(255, 255, 255, .42); width: 48px; }
+
+/* The Calendar tab uses the room it has: a bigger month and a wider list (Large), and the week beside them (Extra large). */
+.isl .cal { position: relative; }
+.isl .cal .cal-quick { flex-wrap: nowrap; align-items: center; }
+.isl .cal .cal-quick > .btn { flex: none; white-space: nowrap; }
+.isl .cal-large .mgrid { width: 290px; }
+.isl .cal-large .mday { height: 34px; font-size: 12.5px; }
+.isl .cal-large .ev { min-height: 34px; }
+.isl .cal-xl { display: grid; grid-template-columns: 290px minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); grid-template-areas: "grid week" "list week"; gap: 10px 14px; }
+.isl .cal-xl .mgrid { width: auto; grid-area: grid; }
+.isl .cal-xl .mlist { grid-area: list; min-height: 0; }
+.isl .cal-xl .mday { height: 30px; }
+.isl .cal-week { grid-area: week; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; min-height: 0; overflow-y: auto; }
+.isl .cal-wday { display: flex; flex-direction: column; gap: 3px; padding: 4px; border-radius: 9px; background: rgba(255, 255, 255, .04); min-width: 0; }
+.isl .cal-wday.today { background: rgba(167, 139, 250, .13); }
+.isl .cal-wday.today .cal-wday-head b { color: var(--island-accent, #a78bfa); }
+.isl .cal-wday-head { padding: 0 2px 2px; white-space: nowrap; }
+.isl .cal-wev { display: flex; flex-direction: column; align-items: flex-start; gap: 0; border: 0; border-left: 3px solid #8e8e93; background: rgba(255, 255, 255, .07); color: #fff; text-align: left; font-size: 11px; padding: 3px 5px; border-radius: 5px; min-width: 0; cursor: default; }
+.isl .cal-wev b { max-width: 100%; font-weight: 600; }
+.isl .cal-wev:hover { background: rgba(255, 255, 255, .14); }
+
+/* The calendars picker (a menu in the Calendar tab; also in Settings → Island). */
+.isl .cal-pick-pop { position: absolute; z-index: 8; top: 0; right: 0; width: min(340px, 100%); max-height: 100%; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: 12px; background: color-mix(in srgb, var(--island-bg, #0a0a0c) 88%, #fff); border: 1px solid rgba(255, 255, 255, .12); box-shadow: 0 10px 30px rgba(0, 0, 0, .5); }
