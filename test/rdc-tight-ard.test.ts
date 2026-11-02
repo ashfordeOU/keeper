@@ -16,6 +16,8 @@ import { decodeTightBasic, DEFAULT_ENCODINGS, ENC, FAST_ENCODINGS, PIXEL_FORMAT,
 const be16 = (n: number) => [n >> 8, n & 255];
 const be32 = (n: number) => [(n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255];
 const tick = () => new Promise((r) => setTimeout(r, 5));
+/** Waits until `ok()` holds (the Diffie-Hellman answer can take a while on a slow runner). */
+const until = async (ok: () => boolean, ms = 5000) => { const end = Date.now() + ms; while (!ok() && Date.now() < end) await tick(); };
 const rect = (x: number, y: number, w: number, h: number, enc: number) => [...be16(x), ...be16(y), ...be16(w), ...be16(h), ...be32(enc >>> 0)];
 /** Tight's compact length */
 const clen = (n: number) => (n < 128 ? [n] : n < 16384 ? [(n & 127) | 128, n >> 7] : [(n & 127) | 128, ((n >> 7) & 127) | 128, n >> 14]);
@@ -163,7 +165,7 @@ describe('rdc: Apple’s sign-in (type 30)', () => {
     expect(Buffer.from(sent[0]).toString()).toBe('RFB 003.008\n');
     expect([...sent[1]]).toEqual([30]);
     c.feed(Uint8Array.from([...be16(2), ...be16(128), ...Buffer.from(PRIME, 'hex'), ...serverPub]));
-    await tick();
+    await until(() => sent.length > 2);
     const answer = sent[2];
     expect(answer.length).toBe(256);
     const shared = dh.computeSecret(Buffer.from(answer.subarray(128)));
