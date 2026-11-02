@@ -70,6 +70,18 @@ export function PlusAlertActions({ alert, onDone }: { alert: IslandAlert; onDone
       </div>
     );
   }
+  if (alert.kind === 'mail' && alert.ref) {
+    // New Important mail dropped down from the notch: read it, or deal with it from here.
+    const id = alert.ref;
+    const one = id.split(':').length > 2;
+    return (
+      <div className="btn-row" data-testid="island-mail-actions">
+        <button className="btn sm primary" onClick={() => { void api.islandx.showPage(one ? `mail:${id}` : 'mail'); onDone(); }}>Open</button>
+        {one ? <button className="btn sm icon" title="Archive" aria-label="Archive" onClick={() => { void api.pim.archive([id]); onDone(); }}><Icon name="archive" size={12} /></button> : null}
+        {one ? <button className="btn sm icon" title="Mark read" aria-label="Mark read" onClick={() => { void api.pim.setRead([id], true); onDone(); }}><Icon name="check" size={12} /></button> : null}
+      </div>
+    );
+  }
   if (alert.kind === 'disk') return <div className="btn-row"><button className="btn sm" onClick={() => { void api.islandx.showPage('cleanup'); onDone(); }}>Clean Up</button></div>;
   return null;
 }

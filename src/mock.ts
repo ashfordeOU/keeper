@@ -265,7 +265,8 @@ export function createMockApi(): KeeperApi {
     ],
     nowPlaying: { app: 'Music', title: 'Morning Light', artist: 'Ana Sol', album: 'Coast', playing: true, position: 42, duration: 214 },
     lyrics: [{ t: 30, text: 'Salt on the window, sun in the hall' }, { t: 40, text: 'Every small thing has a place after all' }, { t: 52, text: 'Keep what you love, let the rest of it go' }],
-    alerts: [],
+    // ?mailalert=1: new Important mail dropping down from the notch.
+    alerts: typeof location !== 'undefined' && new URLSearchParams(location.search).get('mailalert') ? [{ id: 'mail1', kind: 'mail', ref: 'work:INBOX:101', title: 'Ana Lopez', detail: 'Homepage drafts — round 2', at: now }] : [],
   };
   const lockX = mockLock(HOME, () => listeners.get('library-changed')?.forEach((cb) => cb(undefined)));
   const islandX = createMockIsland(island, files, settings, () => listeners.get('island-changed')?.forEach((cb) => cb(undefined)), (ch) => listeners.get(ch)?.forEach((cb) => cb(undefined)));

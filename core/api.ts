@@ -102,8 +102,8 @@ export interface NowPlaying {
 
 export interface IslandAlert {
   id: string;
-  kind: 'download' | 'screenshot' | 'focus' | 'agent' | 'battery' | 'info' | 'notification' | 'cue' | 'call' | 'disk' | 'reminder' | 'update';
-  /** a cue's id (Done/Snooze in the banner), or what a hint is about */
+  kind: 'download' | 'screenshot' | 'focus' | 'agent' | 'battery' | 'info' | 'notification' | 'cue' | 'call' | 'disk' | 'reminder' | 'update' | 'mail';
+  /** a cue's id (Done/Snooze in the banner), a new message's id (mail), or what a hint is about */
   ref?: string;
   title: string;
   /** the app a mirrored notification came from */
