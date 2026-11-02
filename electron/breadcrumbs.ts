@@ -2,10 +2,10 @@
 // What Keeper was doing just before it stopped, for crashes that leave no
 // JavaScript trace (a native abort or a fatal error in the main process: macOS
 // then reports EXC_BREAKPOINT on CrBrowserMain and nothing else). The last 200
-// lines Keeper logged, its memory, the regular checks (and which one is
-// running), timers and sleep/wake are kept in session/breadcrumbs.json: written
-// once a minute when something changed, at once on sleep, wake, warnings and
-// errors, all from the main thread with a small atomic write. After a crash the
+// lines Keeper logged, its memory (with a reading a minute for the last six
+// hours), the regular checks (and which one is running), timers and sleep/wake
+// are kept in session/breadcrumbs.json: written once a minute, at once on
+// sleep, wake, warnings and errors, all from the main thread with a small atomic write. After a crash the
 // next start keeps that file as breadcrumbs-<time>.json (the last five) beside
 // Crashpad's local minidump (crash reports are never uploaded).
 
@@ -13,13 +13,18 @@ import { app, powerMonitor } from 'electron';
 import { closeSync, existsSync, fsyncSync, mkdirSync, openSync, readdirSync, renameSync, rmSync, writeSync, copyFileSync } from 'node:fs';
 import path from 'node:path';
 import { format } from 'node:util';
+import { getHeapStatistics } from 'node:v8';
+import { MemoryTrend } from '../core/memory-trend';
 
 const MAX_LINES = 200;
 const lines: string[] = [];
 const power: string[] = [];
-let dirty = false;
 let pollsOf: () => unknown = () => [];
 let started = false;
+// Main-process memory once a minute for the last hours, so a crash report shows the trend
+// toward an out-of-memory abort (macOS then reports only EXC_BREAKPOINT on CrBrowserMain).
+const trend = new MemoryTrend();
+const heapLimit = () => { try { return getHeapStatistics().heap_size_limit; } catch { return 0; } };
 
 const dir = () => path.join(app.getPath('userData'), 'session');
 const file = () => path.join(dir(), 'breadcrumbs.json');
@@ -28,7 +33,6 @@ function remember(kind: string, args: unknown[]) {
   const text = `${new Date().toISOString()} ${kind} ${format(...args)}`.slice(0, 600);
   lines.push(text);
   if (lines.length > MAX_LINES) lines.splice(0, lines.length - MAX_LINES);
-  dirty = true;
 }
 
 function writeNow(why: string) {
@@ -38,6 +42,8 @@ function writeNow(why: string) {
     const body = JSON.stringify({
       at: Date.now(), why, pid: process.pid, version: app.getVersion(), uptimeSec: Math.round(process.uptime()),
       memoryMB: { rss: Math.round(m.rss / 1048576), heapUsed: Math.round(m.heapUsed / 1048576), heapTotal: Math.round(m.heapTotal / 1048576), external: Math.round(m.external / 1048576), arrayBuffers: Math.round(m.arrayBuffers / 1048576) },
+      heapLimitMB: Math.round(heapLimit() / 1048576),
+      memoryTrend: trend.rows(),
       activeResources: (process as unknown as { getActiveResourcesInfo?: () => string[] }).getActiveResourcesInfo?.().reduce<Record<string, number>>((o, k) => ((o[k] = (o[k] ?? 0) + 1), o), {}),
       polls: pollsOf(),
       power: power.slice(-20),
@@ -47,7 +53,6 @@ function writeNow(why: string) {
     const fd = openSync(tmp, 'w');
     try { writeSync(fd, body); fsyncSync(fd); } finally { closeSync(fd); }
     renameSync(tmp, file());
-    dirty = false;
   } catch {
     /* a read-only profile: nothing to keep */
   }
@@ -84,8 +89,14 @@ export function startBreadcrumbs(o: { polls: () => unknown; crashedLastTime: boo
   for (const ev of ['suspend', 'resume', 'lock-screen', 'unlock-screen', 'shutdown'] as const) powerMonitor.on(ev as 'suspend', note(ev));
   app.on('child-process-gone', (_e, d) => { remember('child-process-gone', [d.type, d.reason, d.exitCode, d.name ?? '']); writeSoon('child-process-gone'); });
   app.on('render-process-gone', (_e, _wc, d) => { remember('render-process-gone', [d.reason, d.exitCode]); writeSoon('render-process-gone'); });
-  const t = setInterval(() => { if (dirty) writeNow('minute'); }, 60_000);
+  const t = setInterval(() => {
+    const warn = trend.add(Date.now(), process.memoryUsage(), heapLimit());
+    if (warn) remember('memory', [warn]);
+    // Written every minute now: the memory trend is news even when nothing was logged.
+    writeNow(warn ? 'memory' : 'minute');
+  }, 60_000);
   t.unref?.();
+  trend.add(Date.now(), process.memoryUsage(), heapLimit());
   writeNow('start');
 }
 
