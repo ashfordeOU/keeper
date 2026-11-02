@@ -3,22 +3,11 @@
 // the bundled ffmpeg is, and the standard output folder. Kept apart so that these
 // do not load the converters (and the PDF, image and signing libraries they use).
 
-import { existsSync } from 'node:fs';
-import { createRequire } from 'node:module';
-import path from 'node:path';
+import { ffmpegBinary } from '../../core/component-paths';
 
-const req = createRequire(__filename);
-
-/** ffmpeg ships inside the app; when packaged it lives outside the asar archive. */
+/** ffmpeg: inside the app (offline installer), downloaded as a component, or a development copy. */
 export function ffmpegPath(): string | null {
-  try {
-    const p = (req('ffmpeg-static') as string | null) ?? null;
-    if (!p) return null;
-    const unpacked = p.replace(`app.asar${path.sep}`, `app.asar.unpacked${path.sep}`);
-    return existsSync(unpacked) ? unpacked : existsSync(p) ? p : null;
-  } catch {
-    return null;
-  }
+  return ffmpegBinary();
 }
 
 /** The person's standard output folder (set by the app; the command line keeps results next to the originals). */

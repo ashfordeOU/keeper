@@ -6,10 +6,10 @@
 
 import { createHash } from 'node:crypto';
 import { createReadStream, createWriteStream, existsSync, promises as fsp } from 'node:fs';
-import { createRequire } from 'node:module';
 import path from 'node:path';
 import { UnigramTokenizer } from './tokenizer';
 import type { Embedder } from './engine';
+import { onnxRuntime } from '../component-paths';
 
 export const E5 = {
   id: 'multilingual-e5-small-int8@761b726',
@@ -126,8 +126,7 @@ export class E5Embedder implements Embedder {
   /** Loads the model from disk. `threads` stays low so the computer stays responsive. */
   static async load(modelsDir: string, opts: { threads?: number; maxTokens?: number } = {}): Promise<E5Embedder> {
     const dir = e5Dir(modelsDir);
-    const req = createRequire(__filename);
-    const ort = req('onnxruntime-node') as Ort;
+    const ort = onnxRuntime<Ort>('Search by meaning');
     const tok = UnigramTokenizer.fromJson(await fsp.readFile(path.join(dir, 'tokenizer.json'), 'utf8'));
     const session = await ort.InferenceSession.create(path.join(dir, 'model_quantized.onnx'), {
       intraOpNumThreads: opts.threads ?? 2,

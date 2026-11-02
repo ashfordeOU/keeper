@@ -12,11 +12,12 @@ import type { SpeechEngine } from '../../../core/voice/types';
 import type { WhisperSize } from '../../../core/whisper';
 import { getSecret, settings } from '../../store';
 import { sharedWhisper, type LocalSegment, type LocalWhisper } from '../whisper';
+import { ffmpegBinary } from '../../../core/component-paths';
 
 export interface Recognized { language: string; segments: LocalSegment[] }
 
 export const modelsDir = () => path.join(app.getPath('userData'), 'models');
-const ffmpeg = () => { try { return (require('ffmpeg-static') as string).replace('app.asar', 'app.asar.unpacked'); } catch { return 'ffmpeg'; } };
+const ffmpeg = () => ffmpegBinary() ?? 'ffmpeg';
 export const whisper = (): LocalWhisper => sharedWhisper(modelsDir(), ffmpeg);
 
 /** 16-bit WAV for recognizers that read files, and for kept recordings. */

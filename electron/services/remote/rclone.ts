@@ -14,6 +14,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { normalizeRemote, onServer } from '../../../core/remote/paths';
 import type { Connection, Quota, RemoteEntry, RemoteFs } from '../../../core/remote/types';
+import { rcloneBinary } from '../../../core/component-paths';
 
 export interface RcloneEnv {
   /** the rclone program */
@@ -34,6 +35,8 @@ export function findRclone(opts: { resourcesPath?: string; appPath?: string; env
   const env = opts.env ?? process.env;
   const candidates = [
     env.KEEPER_RCLONE,
+    // Inside the app (offline installer) or downloaded as a component (core/component-paths.ts).
+    rcloneBinary(),
     opts.resourcesPath && path.join(opts.resourcesPath, 'rclone', exe),
     opts.appPath && path.join(opts.appPath, 'vendor', 'rclone', 'current', exe),
   ].filter((p): p is string => !!p);

@@ -27,6 +27,7 @@ import { isKitTool, type KitOp } from '../../core/filekit/tools';
 // The standard output folder (set by the app) and ffmpeg's place live in convert-shared.ts.
 export { setStandardOutput } from './convert-shared';
 import { ffmpegPath, standardOutput } from './convert-shared';
+import { onnxRuntime, onnxRuntimeReady } from '../../core/component-paths';
 
 type Sharp = typeof import('sharp').default;
 
@@ -125,9 +126,8 @@ export class Converter {
   async capabilities(): Promise<ConvertCapabilities> {
     let bg = false;
     try {
-      // The JavaScript is always there; the native library may not be (onnxruntime has no Intel Mac build).
-      const dir = path.dirname(req.resolve('onnxruntime-node/package.json'));
-      bg = existsSync(path.join(dir, 'bin', 'napi-v6', process.platform, process.arch, 'onnxruntime_binding.node'));
+      // Inside the app or downloaded as a component (none is built for Intel Macs).
+      bg = onnxRuntimeReady();
     } catch {
       bg = false;
     }
@@ -635,12 +635,7 @@ export class Converter {
   private async model(): Promise<NonNullable<Converter['session']>> {
     if (this.session) return this.session;
     this.session = (async () => {
-      let ort: typeof import('onnxruntime-node');
-      try {
-        ort = req('onnxruntime-node');
-      } catch {
-        throw new Error('Background removal is not available in this copy of Keeper (its on-device model runtime is missing).');
-      }
+      const ort = onnxRuntime('Background removal');
       await fsp.mkdir(this.opts.modelsDir, { recursive: true });
       const file = path.join(this.opts.modelsDir, 'u2netp.onnx');
       if (!existsSync(file)) {
@@ -663,7 +658,7 @@ export class Converter {
   private async removeBackground(input: string, output: string, progress: (f: number, phase: string) => void): Promise<string> {
     const sharp = this.sharp();
     const session = await this.model();
-    const ort = req('onnxruntime-node') as typeof import('onnxruntime-node');
+    const ort = onnxRuntime('Background removal');
     progress(0.3, 'Finding the subject');
     const base = await (await this.image(input)).removeAlpha().toBuffer();
     const meta = await sharp(base).metadata();

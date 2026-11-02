@@ -11,6 +11,7 @@ import path from 'node:path';
 import { recordingName } from '../../core/capture';
 import { uniqueName } from '../../core/rules';
 import { displayUnderCursor, getOptions, pickArea, pickWindow, remember, type Rect } from './capture';
+import { ffmpegBinary } from '../../core/component-paths';
 
 export type RecordMode = 'full' | 'window' | 'area';
 
@@ -56,14 +57,8 @@ keeperRecorder.onStop(() => { if (rec && rec.state !== 'inactive') rec.stop(); e
 
 /** The bundled ffmpeg binary, or one on the PATH. */
 export function ffmpegPath(): string | null {
-  try {
-    // Kept outside the bundle so its own path logic still works; packaged builds unpack it from the archive.
-    const p = (require('ffmpeg-static') as string | null)?.replace('app.asar', 'app.asar.unpacked');
-    if (p && existsSync(p)) return p;
-  } catch {
-    /* not installed */
-  }
-  return null;
+  // Inside the app, downloaded as a component (core/component-paths.ts), or a development copy.
+  return ffmpegBinary();
 }
 
 export function runFfmpeg(args: string[], timeout = 30 * 60_000): Promise<boolean> {

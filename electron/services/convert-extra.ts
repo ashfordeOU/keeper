@@ -9,7 +9,6 @@
 import { spawn } from 'node:child_process';
 import { existsSync, promises as fsp } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import { extractPdfText, freeName, parseFfmpegTime, stemOf } from '../../core/convert';
@@ -28,8 +27,8 @@ import { docKind, docxXmlPieces, htmlPieces, markdownPieces, subtitlePieces, tex
 import { adaptiveThreshold, findPage, quadSize, scaleQuad, warpPerspective, type Quad } from '../../core/scan';
 import type { SpeechOptions } from '../../core/convert-types';
 import { fillPdf, makeSearchable, organizePdf, pdfToDocx, redactPdf, signPdf, type OcrWords, type RenderPages } from './pdf-tools';
+import { onnxRuntime } from '../../core/component-paths';
 
-const req = createRequire(__filename);
 type Sharp = typeof import('sharp').default;
 
 export interface ExtraHooks {
@@ -515,7 +514,7 @@ export class Extra {
 
   private async faceModel() {
     this.faceSession ??= (async () => {
-      const ort = req('onnxruntime-node') as typeof import('onnxruntime-node');
+      const ort = onnxRuntime('Hide faces');
       await fsp.mkdir(this.ctx.modelsDir, { recursive: true });
       const file = path.join(this.ctx.modelsDir, 'face-rfb320.onnx');
       if (!existsSync(file)) {
@@ -540,7 +539,7 @@ export class Extra {
     const W = meta.width ?? 0;
     const H = meta.height ?? 0;
     const session = await this.faceModel();
-    const ort = req('onnxruntime-node') as typeof import('onnxruntime-node');
+    const ort = onnxRuntime('Hide faces');
     // Small faces in big photos: also look at overlapping tiles of the picture.
     const boxes: { x1: number; y1: number; x2: number; y2: number; score: number }[] = [];
     const looks: { x: number; y: number; w: number; h: number }[] = [{ x: 0, y: 0, w: W, h: H }];

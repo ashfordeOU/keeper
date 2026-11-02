@@ -22,6 +22,7 @@ import type { DisplayImage, PreviewInfo } from '../../core/previewTypes';
 import { jpegSize, largestIcnsPng, largestJpeg } from '../../core/raw';
 import { isInside } from '../../core/safety';
 import { settings } from '../store';
+import { ffmpegBinary } from '../../core/component-paths';
 
 // ---------------------------------------------------------------- access
 
@@ -143,15 +144,7 @@ function run(file: string, args: string[], timeout = 30_000): Promise<{ ok: bool
 }
 
 export function ffmpegPath(): string | null {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const p = require('ffmpeg-static') as string | null;
-    if (!p) return null;
-    const unpacked = p.replace('app.asar', 'app.asar.unpacked');
-    return existsSync(unpacked) ? unpacked : existsSync(p) ? p : null;
-  } catch {
-    return null;
-  }
+  return ffmpegBinary();
 }
 
 // ---------------------------------------------------------------- info

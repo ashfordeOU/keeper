@@ -7,14 +7,13 @@
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { createWriteStream, existsSync, promises as fsp } from 'node:fs';
-import { createRequire } from 'node:module';
 import path from 'node:path';
 import {
   applyTimestampRules, argmax, bpeFromTokenizer, decodeTokens, isLooping, langToken, logMelRaw, melFilters, normalizeMel, promptTokens, segmentsFromTokens, tidySegments, tokensFor, vocabFromTokenizer,
   WHISPER_LANGS, WHISPER_MODELS, whisperUrl, SAMPLE_RATE, WINDOW_SAMPLES, type BpeTokenizer, type TokenIds, type WhisperFile, type WhisperModel, type WhisperSize,
 } from '../../core/whisper';
+import { onnxRuntime } from '../../core/component-paths';
 
-const req = createRequire(__filename);
 
 type Tensor = { data: Float32Array; dims: number[] };
 type Session = { run(feeds: Record<string, unknown>, fetches?: string[]): Promise<Record<string, Tensor>>; release?(): Promise<void> };
@@ -98,7 +97,7 @@ export class LocalWhisper {
     const model = WHISPER_MODELS[size];
     await this.ensure(model, progress);
     progress(0, 'Loading the speech model');
-    const ort = req('onnxruntime-node') as typeof import('onnxruntime-node');
+    const ort = onnxRuntime('The built-in speech model');
     const dir = this.dir(size);
     const opts = { logSeverityLevel: 3, graphOptimizationLevel: 'all' } as const;
     const encoder = (await ort.InferenceSession.create(path.join(dir, path.basename(model.files.encoder.path)), opts)) as unknown as Session;
@@ -166,7 +165,7 @@ export class LocalWhisper {
     clearTimeout(this.idle);
     try {
       const m = await this.load(o.size ?? 'base', progress);
-      const ort = req('onnxruntime-node') as typeof import('onnxruntime-node');
+      const ort = onnxRuntime('The built-in speech model');
       const { tok } = m;
       const total = audio.length / SAMPLE_RATE;
       const filters = melFilters(m.mels);
