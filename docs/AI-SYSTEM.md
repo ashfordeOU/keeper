@@ -16,7 +16,7 @@ Any AI you set up in Keeper, and any agent connected to Keeper over MCP, can use
 - type and press keys;
 - open apps, web pages and files;
 - list and switch windows;
-- read the controls in the front window and press one by name.
+- read the controls in the front window, press one by name or fill a field.
 
 **Off by default.** Turn it on under **Agents → What agents may do → Use this computer**, with one of three settings:
 - **Off**: no AI may use the computer.
@@ -49,12 +49,23 @@ Any AI you set up in Keeper, and any agent connected to Keeper over MCP, can use
 
 | System | Pointer and keyboard | Windows and apps | Reading controls (accessibility) |
 | --- | --- | --- | --- |
-| Linux (X11) | xdotool | wmctrl / xdotool, `.desktop` launchers | AT-SPI through python3-gi when installed |
-| Linux (Wayland) | ⛔ apps cannot inject input without the RemoteDesktop portal, which Keeper does not use yet: the screen can be seen, not controlled | — | AT-SPI |
-| macOS | CGEvent through Keeper's helper (needs Accessibility) | System Events | System Events (Accessibility) |
-| Windows | SendInput through a persistent PowerShell | user32 | UI Automation |
+| Linux (X11) | xdotool | wmctrl / xdotool, `.desktop` launchers | agent-desktop (AT-SPI); else AT-SPI through python3-gi when installed |
+| Linux (Wayland) | ⛔ apps cannot inject input without the RemoteDesktop portal, which Keeper does not use yet: the screen can be seen, not controlled | — | agent-desktop (AT-SPI); else AT-SPI through python3-gi |
+| macOS | CGEvent through Keeper's helper (needs Accessibility) | System Events | agent-desktop (AX, Keeper's Accessibility permission); else System Events |
+| Windows | SendInput through a persistent PowerShell | user32 | agent-desktop (UI Automation); else UI Automation through PowerShell |
 
 Linux X11 is ✅ verified. macOS and Windows are 🧪 not run.
+
+**Reading and pressing controls.** Keeper ships [agent-desktop](https://github.com/vercel-labs/agent-desktop) (Apache-2.0, pinned v1.0.2, SHA-256 checked by `scripts/fetch-agent-desktop.mjs`) in its resources folder and uses it first for `ui_tree`, `marks`, `click_element`, `click_mark` and `set_value` (`electron/services/agent-desktop.ts`, `computer-os.ts`). Each `ui_tree` is one `snapshot --compact --include-bounds` of the focused app; Keeper keeps its own path ids (`w0/1/2`) for the AI and the snapshot's refs beside them. A press is `click <ref>`, a fill `set-value <ref>`, both headless (accessibility calls; Keeper never passes `--headed`). On `STALE_REF`, `AMBIGUOUS_TARGET` or `SNAPSHOT_NOT_FOUND` that says nothing was sent, Keeper takes one fresh snapshot, finds the same control by role, label and place, and tries once more; an error whose delivery is unknown or uncertain is reported to the AI ("take a screenshot to check") and never repeated or followed by a click. A control without an accessibility action is clicked at its centre with Keeper's pointer, as before. agent-desktop keeps its state in Keeper's data folder (`agent-desktop/`, mode 0700), apart from any copy the person uses in a terminal. If it is missing, answers with an error, or takes longer than its deadline, the built-in scripts take over (for five minutes after a failure that will not pass by itself, such as no permission or a timeout). **Use this computer → Accessibility engine → Built-in** turns it off.
+
+Measured on Linux (Ubuntu 24.04, Xvfb, openbox, AT-SPI 2.52, a loaded 4-core machine; median of 7):
+
+| Busy window | Built-in `ui_tree` | agent-desktop snapshot | Built-in press | agent-desktop press |
+| --- | --- | --- | --- | --- |
+| Electron page (30 links, 40 fields, 40 checkboxes, 200 buttons, a table) | 129 ms at depth 6 (13 nodes: none of the page); 360 ms at depth 10 (cut at 351 nodes; Button 199 missing); 479 ms without the cut | 1.8 s, 734 nodes, 448 refs, complete | 109 ms | 553 ms (`delivered_unverified`) |
+| GTK 3 window (40 entries, 40 checkboxes, 200 buttons) | 280–346 ms (250 nodes; a container's children cut at 80) | 0.8 s, 530 nodes, 486 refs, complete | 87 ms | 850 ms |
+
+On Linux agent-desktop is slower per call than the AT-SPI script (it checks each reading and re-identifies each target before acting) but sees the whole window and never presses a control by a position that may have moved. macOS (where System Events is the slow part) and Windows are 🧪 not measured.
 
 ## macOS: Siri, Apple Intelligence, Spotlight, Shortcuts, Writing Tools
 
