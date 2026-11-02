@@ -30,6 +30,12 @@ describe('the permission catalogue', () => {
       if (p.platform === 'win32' && p.settingsUrl) expect(p.settingsUrl).toMatch(/^(ms-settings|windowsdefender):/);
     }
   });
+  it('names every feature that records the screen, the microphone or the camera', () => {
+    // Studio records all three; the meeting recorder the screen's sound and the microphone.
+    const needs: Record<string, string[]> = { screen: ['capture', 'studio', 'meetings', 'remoteScreen'], microphone: ['dictation', 'meetings', 'studio'], camera: ['island', 'studio'], 'portal.screencast': ['capture', 'studio'], 'portal.camera': ['studio'] };
+    for (const p of PERMISSIONS) for (const f of needs[p.id] ?? []) expect(p.features, `${p.platform}:${p.id} → ${f}`).toContain(f);
+    expect(PERMISSIONS.filter((p) => /camera/.test(p.id)).every((p) => /Studio/.test(p.why))).toBe(true);
+  });
   it('marks the ones that need a restart', () => {
     expect(catalogueFor('darwin').filter((p) => p.restart).map((p) => p.id).sort()).toEqual(['input', 'screen']);
   });

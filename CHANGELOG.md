@@ -53,6 +53,9 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - Meetings read calendars only while Calendar and reminders is on, and turn action items into tasks only while Planner is on (they checked a switch that does not exist, which always read as on).
 - A test now fails when a switch is read by nothing, and reading a switch that does not exist is an error during development.
 
+### Fixed — Permissions say what uses them
+- Settings → Permissions and docs/PERMISSIONS.md: the camera is used by the Island's mirror and by Studio recordings with the camera on (it said "only the Island's mirror"); Studio is listed under Screen Recording, Microphone and Camera on every system, so a missing permission points to it too.
+
 ### Fixed — Setup and permissions
 - macOS: Allow for Accessibility, Screen Recording and Input Monitoring works every time. macOS shows those questions only once per app, so Keeper now remembers that it asked, opens the exact System Settings page when the answer is still not yes a moment later, and labels the button (and "Ask again" in Allow all) "Open System Settings" from then on. A row that stays off after that suggests removing Keeper with − and adding it again (macOS can hold an older copy's approval).
 - The macOS keychain question after an update ("Keeper Safe Storage") is explained in the Software Update window before it restarts, and in docs/PERMISSIONS.md. Until a Developer ID build, that line asks you to type your login password and choose Always Allow.
