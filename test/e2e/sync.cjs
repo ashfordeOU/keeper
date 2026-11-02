@@ -152,6 +152,17 @@ async function launch(name) {
   try { execFileSync(process.execPath, [path.join(ROOT, 'dist-cli/keeper.cjs'), 'backup', 'list', `--from=${drive}`], { env: { ...A.env, KEEPER_BACKUP_PASSWORD: 'nope' }, encoding: 'utf8', stdio: 'pipe' }); } catch (e) { wrong = String(e.stderr ?? '') + String(e.stdout ?? ''); }
   check(/does not open/.test(wrong), 'the wrong password is refused');
 
+  // Settings → Features → Sync and backup off: the checks stop and a backup does not start.
+  await A.win.evaluate(() => window.keeper.features.set('sync', false));
+  const checks = await A.win.evaluate(() => window.keeper.usage.get().then((u) => u.checks.filter((c) => c.name.startsWith('sync.'))));
+  check(checks.length >= 4 && checks.every((c) => c.everyMs === null && (c.features ?? []).includes('sync')), `with Sync off its checks stop (${checks.map((c) => `${c.name}=${c.everyMs}`).join(', ')})`);
+  const before = (await A.win.evaluate((id) => window.keeper.sync.overview().then((o) => o.backups.find((x) => x.id === id)), jobId)).lastRun;
+  await A.win.evaluate((id) => window.keeper.sync.runBackup(id), jobId);
+  await sleep(1500);
+  const after = await A.win.evaluate((id) => window.keeper.sync.overview().then((o) => o.backups.find((x) => x.id === id)), jobId);
+  check(after.lastRun === before && after.state !== 'running', 'with Sync off a backup does not run');
+  await A.win.evaluate(() => window.keeper.features.set('sync', true));
+
   // Screenshots of the real pages.
   for (const [who, scheme] of [[B, 'light'], [A, 'dark']]) {
     await who.win.evaluate((s) => window.keeper.settings.set({ appearance: s }), scheme);

@@ -15,6 +15,7 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 
 ### Fixed — Connections and reliability
 - Browser tabs: the set-up page opens again in the installed app (it showed "This page ran into a problem"). A new check makes sure every method the interface calls is exposed to it and handled by the main process.
+- Settings → Features → Sync and backup now really stops sync, scheduled backups, mirrors and version clean-up: their checks pause, folders are no longer watched and a running backup or mirror is cancelled. Switching it back on picks up where it left off.
 
 ### Changed — Computer use
 - Reading and pressing the controls in other apps now goes through agent-desktop (Apache-2.0, by Vercel Labs), a small program that comes with Keeper: one call reads the whole front window, hidden fields' contents stay hidden, and each control is found again by what it is (role, label, place) before it is pressed, so a press never lands on a different control after the app changed. A stale control is looked up once in a fresh reading; a press that may already have happened is reported, never repeated. Presses stay accessibility calls: the pointer only moves when Keeper clicks a control's centre itself, as before. When agent-desktop is missing, fails or is too slow, Keeper uses its own system scripts (System Events, UI Automation, AT-SPI) as before.

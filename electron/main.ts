@@ -1431,7 +1431,7 @@ app.whenReady().then(async () => {
     },
     whenIdle: (k) => whenIdle(k),
     pace: (k) => pace(k),
-    poll: (name, everyMs, fn) => poll(name, { baseMs: everyMs, idleFactor: 2 }, fn, { now: false }),
+    poll: (name, everyMs, fn) => poll(name, { baseMs: everyMs, idleFactor: 2 }, fn, { now: false, feature: 'sync' }),
     onBattery: () => conditions().onBattery,
     idleSeconds: () => conditions().idleSec,
   }).then(syncConnections);

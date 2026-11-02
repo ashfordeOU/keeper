@@ -17,6 +17,7 @@ import { SyncNode } from '../../../core/sync/node';
 import { FolderStore, type PeerTransport, type RemoteStore } from '../../../core/sync/ports';
 import { archive, cleanVersions, DEFAULT_POLICY, listVersions, restoreVersion } from '../../../core/sync/versions';
 import { getSecret, setSecret, settings, updateSettings } from '../../store';
+import { featureOn, onFeature } from '../features';
 
 export interface SyncServiceDeps {
   userData: string;
@@ -51,6 +52,9 @@ const backupState = new Map<string, Pick<BackupJobStatus, 'state' | 'progress' |
 const backupRuns = new Map<string, AbortController>();
 const repos = new Map<string, BackupRepo>();
 const mirrorState = new Map<string, Pick<MirrorJobStatus, 'state' | 'progress'>>();
+const mirrorRuns = new Map<string, AbortController>();
+/** Settings → Features → Sync and backup: when off, nothing scans, uploads or prunes. */
+const syncOn = () => featureOn('sync');
 const stops: (() => void)[] = [];
 let syncing = false;
 let offers: SyncOverview['offers'] = [];
@@ -152,6 +156,7 @@ function unloadFolder(id: string) {
 
 async function reloadFolders() {
   for (const id of [...folders.keys()]) unloadFolder(id);
+  if (!syncOn()) return;
   for (const f of conf().folders) await loadFolder(f);
 }
 
@@ -167,7 +172,7 @@ async function runSync() {
     return;
   }
   const c = conf();
-  if (c.paused || (c.pauseOnBattery && deps.onBattery?.())) return;
+  if (!syncOn() || c.paused || (c.pauseOnBattery && deps.onBattery?.())) return;
   syncing = true;
   try {
     await deps.whenIdle?.('scan');
@@ -281,7 +286,7 @@ function jobPatch(id: string, patch: Partial<BackupJobSetting>) {
 
 async function runBackupJob(id: string, password?: string) {
   const job = conf().backups.find((b) => b.id === id);
-  if (!job || backupRuns.has(id)) return;
+  if (!job || backupRuns.has(id) || !syncOn()) return;
   const ac = new AbortController();
   backupRuns.set(id, ac);
   backupState.set(id, { ...backupState.get(id), state: 'running', progress: { phase: 'Starting', files: 0, bytes: 0 } });
@@ -321,6 +326,7 @@ function nextRun(b: BackupJobSetting): number | undefined {
 
 const drivesSeen = new Map<string, boolean>();
 async function scheduledBackups() {
+  if (!syncOn()) return;
   for (const b of conf().backups) {
     if (b.paused || backupRuns.has(b.id)) continue;
     if (!(await getSecret(`backup:${b.id}`))) continue;
@@ -345,7 +351,9 @@ async function scheduledBackups() {
 
 async function runMirrorJob(id: string) {
   const m = conf().mirrors.find((x) => x.id === id);
-  if (!m || mirrorState.get(id)?.state === 'running') return;
+  if (!m || mirrorState.get(id)?.state === 'running' || !syncOn()) return;
+  const ac = new AbortController();
+  mirrorRuns.set(id, ac);
   mirrorState.set(id, { state: 'running' });
   changed();
   try {
@@ -355,6 +363,7 @@ async function runMirrorJob(id: string) {
     const r = await mirror(m.local, store, '', m.direction, state, {
       ignore: m.ignore,
       deviceName: conf().deviceName,
+      signal: ac.signal,
       onFile: (rel, done, total) => {
         mirrorState.set(id, { state: 'running', progress: { file: rel, done, total } });
         if (done % 20 === 0) deps.broadcast('progress', { task: 'mirror', phase: m.name, done, total, current: rel });
@@ -368,6 +377,7 @@ async function runMirrorJob(id: string) {
     mirrorState.set(id, { state: 'error' });
     await save({ mirrors: conf().mirrors.map((x) => (x.id === id ? { ...x, lastRun: Date.now(), lastMessage: e instanceof Error ? e.message : String(e) } : x)) });
   } finally {
+    mirrorRuns.delete(id);
     deps.broadcast('progress', { task: 'mirror', phase: 'Done', done: 1, total: 1 });
     changed();
   }
@@ -738,16 +748,32 @@ export async function startSync(d: SyncServiceDeps) {
     for (const m of conf().mirrors) if (!m.paused && m.schedule !== 'manual') void runMirrorJob(m.id);
   });
   every('sync.versions', 24 * 3600_000, async () => {
+    if (!syncOn()) return;
     for (const f of conf().folders) await cleanVersions(f.path, f.versioning ?? DEFAULT_POLICY).catch(() => undefined);
   });
-  if (conf().folders.length) soon(3000);
+  // Switching "Sync and backup" off stops watching folders and cancels running backups and
+  // mirrors; switching it back on picks the folders up again.
+  stops.push(onFeature('sync', (on) => {
+    if (on) {
+      void reloadFolders().then(() => soon(1000));
+      return;
+    }
+    pauseAll();
+    changed();
+  }));
+  if (conf().folders.length && syncOn()) soon(3000);
+}
+
+function pauseAll() {
+  for (const id of [...folders.keys()]) unloadFolder(id);
+  for (const ac of backupRuns.values()) ac.abort();
+  for (const ac of mirrorRuns.values()) ac.abort();
+  clearTimeout(debounce);
 }
 
 export function stopSync() {
   for (const s of stops.splice(0)) s();
-  for (const id of [...folders.keys()]) unloadFolder(id);
-  for (const ac of backupRuns.values()) ac.abort();
-  clearTimeout(debounce);
+  pauseAll();
 }
 
 /**
