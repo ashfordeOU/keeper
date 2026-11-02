@@ -15,6 +15,7 @@ import { matchAgent } from '../../core/agents-detect';
 import { poll } from './governor';
 import { recordMinute, saveHistory, seedFromLegacy } from './monitor-history';
 import { monitorSettings } from './monitor-settings';
+import { readMemory } from './memory';
 
 /** Where heavy-use alerts also show (the Island), set by the main process. */
 let islandAlert: ((title: string, detail: string) => void) | null = null;
@@ -112,13 +113,13 @@ export class MonitorService {
   }
 
   async sample(): Promise<HealthSample> {
-    const [procs, batt] = await Promise.all([listProcesses(), readBattery().catch(() => undefined)]);
+    const [procs, batt, mem] = await Promise.all([listProcesses(), readBattery().catch(() => undefined), readMemory()]);
     const top = procs.filter((p) => p.pid !== process.pid).sort((a, b) => b.cpu - a.cpu).slice(0, 6).map((p) => ({ name: p.name, cpu: Math.round(p.cpu * 10) / 10, memory: p.memory }));
     // Add the biggest memory user too, so memory alerts can see it.
     const memTop = procs.sort((a, b) => b.memory - a.memory)[0];
     if (memTop && !top.some((t) => t.name === memTop.name)) top.push({ name: memTop.name, cpu: memTop.cpu, memory: memTop.memory });
     const s: HealthSample = {
-      t: Date.now(), cpu: cpuNow(), memUsed: os.totalmem() - os.freemem(), memTotal: os.totalmem(),
+      t: Date.now(), cpu: cpuNow(), memUsed: mem.used, memTotal: mem.total,
       battery: batt && Number.isFinite(batt.percent) ? batt.percent : undefined, charging: batt ? batt.charging : undefined, top,
     };
     this.history = pushSample(this.history, s);

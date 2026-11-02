@@ -8,6 +8,7 @@
 import { Fragment, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ForceQuitApp, ProcAction, ProcActionResult, ProcDetails } from '../../core/api-procs';
 import { formatBytes, relativeTime } from '../../core/format';
+import { memoryTone } from '../../core/memory';
 import {
   buildTree, canEnd, flattenTree, groupByApp, matchProc, procChanges, procRegex, procsCsv, PRIORITIES, priorityOf, type PriorityLevel, type ProcRow, type ProcSample, type ServiceRow,
 } from '../../core/procs';
@@ -430,8 +431,12 @@ export function Processes() {
         <Meter label="CPU" value={`${Math.round(sys.cpu)}%`} sub={`${s.procs.length} processes${threads ? ` · ${threads.toLocaleString()} threads` : ''}`} values={hist.cpu} color="var(--accent)">
           <div className="cores" title="Each processor core">{sys.perCore.map((v, i) => <i key={i} style={{ height: `${Math.max(4, v)}%` }} title={`Core ${i + 1}: ${Math.round(v)}%`} />)}</div>
         </Meter>
-        <Meter label="Memory" value={formatBytes(sys.memUsed)} sub={`of ${formatBytes(sys.memTotal)}${sys.swapTotal ? ` · swap ${formatBytes(sys.swapUsed ?? 0)} of ${formatBytes(sys.swapTotal)}` : ''}`} values={hist.mem} color="var(--ok)">
-          <div className="pressure"><i style={{ width: `${(sys.memUsed / sys.memTotal) * 100}%`, background: sys.memUsed / sys.memTotal > 0.9 ? 'var(--danger)' : sys.memUsed / sys.memTotal > 0.75 ? 'var(--warn)' : 'var(--ok)' }} /></div>
+        <Meter
+          label="Memory" value={formatBytes(sys.memUsed)} values={hist.mem} color="var(--ok)"
+          sub={`of ${formatBytes(sys.memTotal)}${sys.memCached ? ` · cached ${formatBytes(sys.memCached)}` : ''}${sys.memCompressed ? ` · compressed ${formatBytes(sys.memCompressed)}` : ''}${sys.swapTotal ? ` · swap ${formatBytes(sys.swapUsed ?? 0)} of ${formatBytes(sys.swapTotal)}` : ''}`}
+        >
+          {/* On a Mac the bar's colour is memory pressure, as in Activity Monitor; elsewhere how full it is. */}
+          <div className="pressure" title={sys.memPressure ? `Memory pressure: ${sys.memPressure}` : undefined}><i style={{ width: `${(sys.memUsed / sys.memTotal) * 100}%`, background: { ok: 'var(--ok)', warn: 'var(--warn)', bad: 'var(--danger)' }[memoryTone({ used: sys.memUsed, total: sys.memTotal, pressure: sys.memPressure })] }} /></div>
         </Meter>
         <Meter label="Disk" value={sys.diskRead === undefined ? '—' : rateText((sys.diskRead ?? 0) + (sys.diskWrite ?? 0))} sub={sys.diskWrite === undefined ? (sys.diskRead === undefined ? 'measuring…' : 'read and written together') : `read ${rateText(sys.diskRead)} · written ${rateText(sys.diskWrite)}`} values={hist.disk} color="var(--warn)" />
         <Meter label="Network" value={sys.netIn === undefined ? '—' : rateText((sys.netIn ?? 0) + (sys.netOut ?? 0))} sub={sys.netIn === undefined ? 'measuring…' : `in ${rateText(sys.netIn)} · out ${rateText(sys.netOut)}`} values={hist.net} color="#8b5cf6" />

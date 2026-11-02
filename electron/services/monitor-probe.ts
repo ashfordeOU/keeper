@@ -16,7 +16,8 @@ import {
 } from '../../core/monitor-sensors';
 import type { LiveReading } from '../../core/monitor-tray';
 import { powershell, run } from '../../core/platform';
-import { coreUsage, parseCmdline, parseDiskstats, parseIostat, parseMeminfo, parseNetDev, parseNetstatIb, parseProcStat, parseStatusUid } from '../../core/procs';
+import { readMemory } from './memory';
+import { coreUsage, parseCmdline, parseDiskstats, parseIostat, parseNetDev, parseNetstatIb, parseProcStat, parseStatusUid } from '../../core/procs';
 
 const PLATFORM = process.platform;
 const MY_UID = typeof process.getuid === 'function' ? process.getuid() : -1;
@@ -64,14 +65,6 @@ async function counters(): Promise<Counters> {
 
 const perSec = (a: number | undefined, b: number | undefined, ms: number) => (a === undefined || b === undefined || ms <= 0 ? undefined : Math.max(0, Math.round(((b - a) * 1000) / ms)));
 
-function memNow(): { used: number; total: number } {
-  if (PLATFORM === 'linux') {
-    const m = parseMeminfo(readSmall('/proc/meminfo') ?? '');
-    if (m.total && m.available !== undefined) return { used: m.total - m.available, total: m.total };
-  }
-  return { used: os.totalmem() - os.freemem(), total: os.totalmem() };
-}
-
 /**
  * Live readings from counters: processor and memory cost nothing to read;
  * network and disk are one small file read (Linux), one short command (Mac)
@@ -90,8 +83,11 @@ export class LiveSampler {
     const prev = this.last;
     this.last = c;
     const ms = prev ? c.t - prev.t : 0;
-    const mem = memNow();
-    const r: LiveReading = { t: c.t, cpu: cpu.total, perCore: cpu.perCore, memUsed: mem.used, memTotal: mem.total };
+    const mem = await readMemory();
+    const r: LiveReading = {
+      t: c.t, cpu: cpu.total, perCore: cpu.perCore, memUsed: mem.used, memTotal: mem.total,
+      memPressure: mem.pressure, memCached: mem.cached, memCompressed: mem.compressed, swapUsed: mem.swapUsed,
+    };
     if (prev) {
       r.netIn = perSec(prev.netIn, c.netIn, ms);
       r.netOut = perSec(prev.netOut, c.netOut, ms);

@@ -5,6 +5,8 @@
 // into tray images. macOS shows text next to a template picture; Windows and
 // Linux show only pictures, so the number is drawn into the picture there.
 
+import { memoryDetail, type MemoryPressure } from './memory';
+
 export type TrayMetric = 'cpu' | 'mem' | 'net' | 'disk' | 'gpu' | 'power' | 'temp' | 'battery';
 export const TRAY_METRICS: { id: TrayMetric; label: string; short: string }[] = [
   { id: 'cpu', label: 'Processor', short: 'CPU' },
@@ -116,6 +118,11 @@ export interface LiveReading {
   perCore?: number[];
   memUsed: number;
   memTotal: number;
+  /** macOS memory pressure (the colour of the memory reading there) */
+  memPressure?: MemoryPressure;
+  memCached?: number;
+  memCompressed?: number;
+  swapUsed?: number;
   /** bytes per second */
   netIn?: number;
   netOut?: number;
@@ -151,7 +158,8 @@ export function strainOf(metric: TrayMetric, r: LiveReading): Strain {
   const memPct = r.memTotal ? (r.memUsed / r.memTotal) * 100 : 0;
   switch (metric) {
     case 'cpu': return r.cpu >= 85 ? 'high' : r.cpu >= 60 ? 'warn' : 'ok';
-    case 'mem': return memPct >= 92 ? 'high' : memPct >= 80 ? 'warn' : 'ok';
+    // macOS: by memory pressure, as Activity Monitor colours it; a Mac full of file cache is fine.
+    case 'mem': return r.memPressure ? (r.memPressure === 'critical' ? 'high' : r.memPressure === 'warning' ? 'warn' : 'ok') : memPct >= 92 ? 'high' : memPct >= 80 ? 'warn' : 'ok';
     case 'gpu': return (r.gpu ?? 0) >= 90 ? 'high' : (r.gpu ?? 0) >= 70 ? 'warn' : 'ok';
     case 'temp': return (r.temp ?? 0) >= 90 ? 'high' : (r.temp ?? 0) >= 80 ? 'warn' : 'ok';
     case 'battery': return r.charging ? 'ok' : (r.battery ?? 100) <= 10 ? 'high' : (r.battery ?? 100) <= 20 ? 'warn' : 'ok';
@@ -197,7 +205,8 @@ export function trayTitle(metrics: TrayMetric[], r: LiveReading | undefined, s: 
 /** A full one-line-per-metric summary for tooltips and the menu. */
 export function trayTooltip(r: LiveReading | undefined, s: TrayReadingsSettings): string {
   if (!r) return 'Reading…';
-  const lines = TRAY_METRICS.filter((m) => metricValue(m.id, r, s) !== undefined).map((m) => `${m.label}: ${metricText(m.id, r, s)}`);
+  const memMore = memoryDetail({ cached: r.memCached, swapUsed: r.swapUsed, compressed: r.memCompressed });
+  const lines = TRAY_METRICS.filter((m) => metricValue(m.id, r, s) !== undefined).map((m) => `${m.label}: ${metricText(m.id, r, s)}${m.id === 'mem' && memMore ? ` (${memMore})` : ''}`);
   return lines.join('\n');
 }
 

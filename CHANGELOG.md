@@ -4,6 +4,9 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 
 ## [Unreleased]
 
+### Fixed
+- Memory in use now reads as the system's own monitor counts it. On a Mac that is Activity Monitor's Memory Used (App Memory + Wired + Compressed), not total minus free, which counted the file cache as used (a 36 GB Mac showed 35.6 GB instead of about 32). The memory bar is coloured by memory pressure, and a line under it shows the cached, swap and compressed memory. On Linux, used is total minus MemAvailable. This applies to the System view, the Island's System tool, the glance, the menu-bar readings, Monitor, the AI summary and Link device stats. Background work holds back under memory pressure on a Mac.
+
 ## [0.1.0-beta.6] - 2026-11-02
 
 0.1.0-beta.5 was not published; everything listed under it is in this release.

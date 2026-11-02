@@ -4,6 +4,7 @@
 
 import { useEffect, useState } from 'react';
 import type { LiveReading } from '../../../core/monitor-tray';
+import { memoryDetail } from '../../../core/memory';
 import { api } from '../../api';
 import '../../styles/monitor.css';
 
@@ -125,7 +126,7 @@ export function LiveStrip() {
   const memPct = (r: LiveReading) => (r.memTotal ? (r.memUsed / r.memTotal) * 100 : undefined);
   const tiles: { label: string; val: string; sub?: string; vals: (number | undefined)[]; max?: number; color: string }[] = [
     { label: 'Processor', val: `${Math.round(latest.cpu)}%`, sub: latest.perCore ? `${latest.perCore.length} cores` : undefined, vals: pick((r) => r.cpu), max: 100, color: 'var(--accent)' },
-    { label: 'Memory', val: `${Math.round(memPct(latest) ?? 0)}%`, vals: pick(memPct), max: 100, color: 'var(--c-video)' },
+    { label: 'Memory', val: `${Math.round(memPct(latest) ?? 0)}%`, sub: memoryDetail({ cached: latest.memCached, swapUsed: latest.swapUsed, compressed: latest.memCompressed }) || undefined, vals: pick(memPct), max: 100, color: latest.memPressure === 'critical' ? 'var(--danger)' : latest.memPressure === 'warning' ? 'var(--warn)' : 'var(--c-video)' },
     { label: 'Network', val: `↓ ${rate(latest.netIn)}`, sub: `↑ ${rate(latest.netOut)}`, vals: pick((r) => (r.netIn ?? 0) + (r.netOut ?? 0)), color: 'var(--ok)' },
     { label: 'Disk', val: rate((latest.diskR ?? 0) + (latest.diskW ?? 0)), sub: latest.diskW !== undefined ? `read ${rate(latest.diskR)} · write ${rate(latest.diskW)}` : undefined, vals: pick((r) => (r.diskR ?? 0) + (r.diskW ?? 0)), color: 'var(--c-document)' },
   ];

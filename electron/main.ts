@@ -131,6 +131,7 @@ import { remoteFolders } from './services/places';
 import { emptyAndBroken, removeBrokenLink } from './services/tools';
 import { readDownloadSources, readFinderTags } from '../core/platform';
 import { conditions, pace, poll, pollerSnapshot, startGovernor, usage, whenIdle } from './services/governor';
+import { useMemoryHelper } from './services/memory';
 import { applyFeatureSet, applyPreset, featureOn, featureSets, listFeatures, liveCosts, onFeature, onFeaturesChanged, removeFeatureSet, saveFeatureSet, setFeature, setPowerSets, startPowerSets } from './services/features';
 import { getSecret, hasSecret, onSettings, setSecret, settings, updateSettings } from './store';
 import { registerUsageStatsIpc } from './ipc/usage-stats';
@@ -1140,6 +1141,7 @@ app.whenReady().then(async () => {
   }
   // Decides when background work runs and how often regular checks look (battery, idle, locked screen).
   startGovernor();
+  if (process.platform === 'darwin') useMemoryHelper((method, params, ms) => import('./services/platform/mac').then((m) => m.macHelperCall(method, params, ms)));
   // Local files for previews and the music player: read-only, seekable, only from allowed places.
   registerFileProtocol();
   registerPreviewIpc();

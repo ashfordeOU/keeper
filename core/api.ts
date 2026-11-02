@@ -16,6 +16,7 @@ import type { FeaturesApi } from './api-features';
 import type { AshfordeApi } from './api-ashforde';
 import type { RemoteApi } from './api-remote';
 import type { PlatformApi } from './api-platform';
+import type { MemoryStats } from './memory';
 import type { LockApi } from './api-lock';
 import type { LinkApi } from './api-link';
 import type { AccessApi } from './api-access';
@@ -126,7 +127,11 @@ export interface HealthReport {
   cpuPercent: number;
   cores: number;
   cpuModel: string;
-  memory: { total: number; free: number };
+  /**
+   * free is total − used, where used is what the system's own monitor calls used
+   * (macOS: App Memory + Wired + Compressed, not total − free pages). The rest when known.
+   */
+  memory: Pick<MemoryStats, 'total' | 'pressure' | 'cached' | 'compressed' | 'swapUsed'> & { free: number };
   uptimeSec: number;
   loadAvg: number[];
   battery?: { percent: number; charging: boolean; health?: number; cycles?: number };

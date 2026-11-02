@@ -8,6 +8,7 @@ import os from 'node:os';
 import type { HealthReport } from '../../core/api';
 import { powershell, run } from '../../core/platform';
 import type { DiskInfo } from '../../core/types';
+import { readMemory } from './memory';
 
 // ---------------------------------------------------------------- disks
 
@@ -175,12 +176,12 @@ function dedupePorts(list: HealthReport['listening']) {
 }
 
 export async function health(): Promise<HealthReport> {
-  const [procs, bat, blockers, ports] = await Promise.all([processes(), battery(), awakeBlockers(), listening()]);
+  const [procs, bat, blockers, ports, mem] = await Promise.all([processes(), battery(), awakeBlockers(), listening(), readMemory()]);
   return {
     cpuPercent: cpuPercent(),
     cores: os.cpus().length,
     cpuModel: os.cpus()[0]?.model ?? '',
-    memory: { total: os.totalmem(), free: os.freemem() },
+    memory: { total: mem.total, free: mem.total - mem.used, pressure: mem.pressure, cached: mem.cached, compressed: mem.compressed, swapUsed: mem.swapUsed },
     uptimeSec: os.uptime(),
     loadAvg: os.loadavg(),
     battery: bat ?? (powerMonitor.isOnBatteryPower() ? { percent: NaN, charging: false } : undefined),

@@ -15,6 +15,7 @@ import { call, type Stream } from '../../../core/link/mux';
 import { safeName } from '../../../core/link/transfer';
 import { parseControl, TermReader, termControl, termFrame, TERM_CTL, TERM_DATA, type TermControl } from '../../../core/link/term';
 import type { LinkNode } from './node';
+import { readMemory } from '../memory';
 
 export interface OpsDeps {
   /** show the owner a command the first time a device asks to run it */
@@ -116,6 +117,7 @@ async function snapshot(name: string, deps: OpsDeps): Promise<SysInfo> {
     }
   }
   const cpus = os.cpus();
+  const mem = await readMemory();
   return {
     name,
     os: ({ darwin: 'macOS', win32: 'Windows', linux: 'Linux' } as Record<string, string>)[process.platform] ?? process.platform,
@@ -123,8 +125,9 @@ async function snapshot(name: string, deps: OpsDeps): Promise<SysInfo> {
     arch: process.arch,
     cpus: cpus.length,
     cpuModel: cpus[0]?.model?.trim() ?? '',
-    memTotal: os.totalmem(),
-    memFree: os.freemem(),
+    // Free as the system's own monitor counts it (macOS: total − App Memory − Wired − Compressed).
+    memTotal: mem.total,
+    memFree: mem.total - mem.used,
     uptime: os.uptime(),
     load: os.loadavg(),
     disks,

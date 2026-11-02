@@ -18,6 +18,7 @@ import { decide, DEFAULT_CONDITIONS, paceMs, pollDelay, type Conditions, type Po
 import { settings } from '../store';
 import { featureOn, onFeaturesChanged } from './features';
 import { measuredRun, pollLog } from './poll-log';
+import { lastMemory } from './memory';
 
 export type { WorkKind } from '../../core/governor';
 
@@ -48,9 +49,13 @@ function mainVisible(): boolean {
 
 export function conditions(): Conditions {
   if (!started) return { ...DEFAULT_CONDITIONS, mode: settings().resourceMode ?? 'balanced' };
-  // Linux and Windows report memory that is really available. macOS counts its file cache
-  // and compressed memory as used, so its "free" figure is small even when all is well.
-  const memoryLow = process.platform !== 'darwin' && os.freemem() < Math.min(512 * 1048576, os.totalmem() * 0.05);
+  // macOS: its "free" figure is small even when all is well (the file cache and compressed memory
+  // count as used), so memory pressure decides, as Activity Monitor shows it. Elsewhere: what is
+  // really available (Linux MemAvailable). The last shared reading, at most 30 s old: this answers at once.
+  const mem = lastMemory(30_000);
+  const memoryLow = process.platform === 'darwin'
+    ? mem.pressure === 'warning' || mem.pressure === 'critical'
+    : (mem.available ?? os.freemem()) < Math.min(512 * 1048576, mem.total * 0.05);
   noticeMemory(memoryLow);
   return {
     mode: settings().resourceMode ?? 'balanced',

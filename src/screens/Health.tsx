@@ -4,6 +4,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import type { HealthReport } from '../../core/api';
 import { formatBytes } from '../../core/format';
+import { memoryDetail, memoryTone } from '../../core/memory';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
 import { Empty, Loading, Modal, PageHead } from '../components/ui';
@@ -101,6 +102,8 @@ function HealthOverview() {
   const usedMem = h.memory.total - h.memory.free;
   const memPct = (usedMem / h.memory.total) * 100;
   const tone = (v: number) => (v > 85 ? 'var(--danger)' : v > 60 ? 'var(--warn)' : 'var(--ok)');
+  // On a Mac, memory pressure (as Activity Monitor colours it); elsewhere how full it is.
+  const memColor = h.memory.pressure ? { ok: 'var(--ok)', warn: 'var(--warn)', bad: 'var(--danger)' }[memoryTone({ used: usedMem, total: h.memory.total, pressure: h.memory.pressure })] : tone(memPct);
 
   return (
     <div>
@@ -109,7 +112,11 @@ function HealthOverview() {
       <Suspense fallback={null}><LiveStrip /></Suspense>
       <div className="kv-grid" style={{ marginBottom: 16 }}>
         <div className="card pad col" style={{ alignItems: 'center' }}><Ring value={h.cpuPercent} size={120} color={tone(h.cpuPercent)} label={`${Math.round(h.cpuPercent)}%`} sub="processor" /><span className="small muted">Load {h.loadAvg.map((l) => l.toFixed(1)).join(' · ')}</span></div>
-        <div className="card pad col" style={{ alignItems: 'center' }}><Ring value={memPct} size={120} color={tone(memPct)} label={`${Math.round(memPct)}%`} sub="memory" /><span className="small muted">{formatBytes(usedMem)} of {formatBytes(h.memory.total)}</span></div>
+        <div className="card pad col" style={{ alignItems: 'center' }} title={h.memory.pressure ? `Memory pressure: ${h.memory.pressure}` : undefined}>
+          <Ring value={memPct} size={120} color={memColor} label={`${Math.round(memPct)}%`} sub="memory" />
+          <span className="small muted">{formatBytes(usedMem)} of {formatBytes(h.memory.total)}</span>
+          {memoryDetail(h.memory) ? <span className="small muted">{memoryDetail(h.memory)}</span> : null}
+        </div>
         {h.battery ? (
           <div className="card pad col" style={{ alignItems: 'center' }}>
             <Ring value={h.battery.percent} size={120} color={h.battery.percent < 20 ? 'var(--danger)' : 'var(--ok)'} label={`${Math.round(h.battery.percent)}%`} sub={h.battery.charging ? 'charging' : 'battery'} />

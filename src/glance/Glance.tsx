@@ -15,7 +15,7 @@ const size = (n: number) => (n >= 1e9 ? `${(n / 1e9).toFixed(1)} GB` : n >= 1e6 
 
 function Card({ c }: { c: GlanceCard }) {
   return (
-    <button className={`gl-card ${c.tone ?? ''}`} data-testid={`glance-card-${c.id}`} onClick={() => void api.glance.open(c.open)} aria-label={`${c.title}: ${c.value}${c.detail ? `, ${c.detail}` : ''}`}>
+    <button className={`gl-card ${c.tone ?? ''}`} data-testid={`glance-card-${c.id}`} onClick={() => void api.glance.open(c.open)} title={c.hint} aria-label={`${c.title}: ${c.value}${c.detail ? `, ${c.detail}` : ''}`}>
       <span className="gl-ic"><Icon name={CARD_ICON[c.id] ?? 'info'} size={14} /></span>
       <span className="gl-txt">
         <span className="gl-title">{c.title}</span>

@@ -21,6 +21,7 @@ import type { SystemAccess } from '../../../core/pim/syscal';
 import type { CalendarInfo, Occurrence } from '../../../core/pim/types';
 import { describeCode } from '../../../core/weather';
 import { formatBytes } from '../../../core/format';
+import { memoryDetail, memoryTone } from '../../../core/memory';
 import { api } from '../../api';
 import { openNative } from '../../lib/native';
 import { Icon } from '../../components/Icon';
@@ -374,7 +375,10 @@ export function SystemTool() {
   }, 2000);
   useEffect(() => { void api.system.disks().then((d) => { const sys = d.find((x) => x.system) ?? d[0]; if (sys) setDisk({ total: sys.total, free: sys.free }); }).catch(() => undefined); }, []);
   if (!h) return <div className="muted">Reading…</div>;
+  // Used as the system's own monitor counts it; on a Mac the colour follows memory pressure, as Activity Monitor's does.
   const memUsed = h.memory.total - h.memory.free;
+  const memLevel = { ok: 'ok', warn: 'high', bad: 'full' }[memoryTone({ used: memUsed, total: h.memory.total, pressure: h.memory.pressure })];
+  const memMore = memoryDetail(h.memory);
   const rows: [string, number, string][] = [
     ['Processor', h.cpuPercent, `${Math.round(h.cpuPercent)}% of ${h.cores} cores`],
     ['Memory', (memUsed / h.memory.total) * 100, `${formatBytes(memUsed)} of ${formatBytes(h.memory.total)}`],
@@ -383,9 +387,10 @@ export function SystemTool() {
   if (h.battery) rows.push(['Battery', h.battery.percent, `${Math.round(h.battery.percent)}%${h.battery.charging ? ' · charging' : ''}${h.battery.health ? ` · health ${Math.round(h.battery.health)}%` : ''}`]);
   return (
     <div className="itool system">
-      {rows.map(([label, pct, detail]) => (
-        <div key={label} className="uwin"><span className="small">{label}</span><Bar pct={pct} level={label === 'Battery' ? (pct < 20 ? 'full' : 'ok') : warnLevel(pct)} /><span className="small num">{detail}</span></div>
-      ))}
+      {rows.flatMap(([label, pct, detail]) => [
+        <div key={label} className="uwin" title={label === 'Memory' && h.memory.pressure ? `Memory pressure: ${h.memory.pressure}` : undefined}><span className="small">{label}</span><Bar pct={pct} level={label === 'Battery' ? (pct < 20 ? 'full' : 'ok') : label === 'Memory' ? memLevel : warnLevel(pct)} /><span className="small num">{detail}</span></div>,
+        label === 'Memory' && memMore ? <div key="mem-more" className="small muted num" style={{ textAlign: 'right' }}>{memMore}</div> : null,
+      ])}
       {net ? <div className="uwin"><span className="small">Network</span><span className="small num grow">↓ {formatBytes(net.rateIn)}/s · ↑ {formatBytes(net.rateOut)}/s</span></div> : null}
       <div className="small muted">Busiest: {h.processes.slice(0, 3).map((p) => `${p.name} ${Math.round(p.cpu)}%`).join(' · ')}</div>
     </div>

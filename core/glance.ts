@@ -6,6 +6,8 @@
 // file turns raw readings into cards; electron/services/glance.ts gathers the
 // readings (only while the glance is open) and src/glance/Glance.tsx draws it.
 
+import { memoryTone, type MemoryPressure } from './memory';
+
 export const GLANCE_CARDS = ['weather', 'storage', 'system', 'network', 'awake', 'usage', 'calendar', 'tip'] as const;
 export type GlanceCardId = (typeof GLANCE_CARDS)[number];
 
@@ -62,7 +64,13 @@ export interface GlanceInputs {
   now: number;
   weather?: { place: string; temp: number; units: 'c' | 'f'; summary: string; nowcast?: string };
   disk?: { total: number; free: number; name: string };
-  system?: { cpu: number; memUsed: number; memTotal: number; battery?: { percent: number; charging: boolean; minutesLeft?: number } };
+  system?: {
+    cpu: number; memUsed: number; memTotal: number; battery?: { percent: number; charging: boolean; minutesLeft?: number };
+    /** macOS memory pressure; colours the memory reading there instead of how full it is */
+    memPressure?: MemoryPressure;
+    /** "Cached 3.8 GB · Swap 24.6 GB · Compressed 16.4 GB" */
+    memDetail?: string;
+  };
   network?: { downBps?: number; upBps?: number; wifi?: string; vpn?: string; mesh?: string; online: boolean };
   awake?: { on: boolean; until?: number; reason?: string };
   usage?: { label: string; percent: number; resetsAt?: number }[];
@@ -80,6 +88,8 @@ export interface GlanceCard {
   /** 0–100 for a bar (storage, memory, usage) */
   bar?: number;
   tone?: 'ok' | 'warn' | 'bad';
+  /** more on hover */
+  hint?: string;
   /** the page it opens (a route for showMain), or an action */
   open: string;
 }
@@ -114,7 +124,10 @@ export function glanceCards(i: GlanceInputs, chosen: GlanceCardId[]): GlanceCard
       const mem = i.system.memTotal ? Math.round((i.system.memUsed / i.system.memTotal) * 100) : 0;
       const b = i.system.battery;
       const batt = b ? ` · battery ${Math.round(b.percent)}%${b.charging ? ', charging' : b.minutesLeft ? `, ${fmtLeft(b.minutesLeft * 60_000)} left` : ''}` : '';
-      out.push({ id, title: 'This computer', value: `CPU ${Math.round(i.system.cpu)}%`, detail: `memory ${mem}%${batt}`, bar: mem, tone: i.system.cpu >= 90 || mem >= 92 ? 'warn' : 'ok', open: 'health' });
+      const memTone = i.system.memPressure ? memoryTone({ used: i.system.memUsed, total: i.system.memTotal, pressure: i.system.memPressure }) : mem >= 92 ? 'warn' : 'ok';
+      const tone = memTone === 'bad' ? 'bad' : i.system.cpu >= 90 || memTone === 'warn' ? 'warn' : 'ok';
+      const hint = [`Memory ${fmtBytes(i.system.memUsed)} of ${fmtBytes(i.system.memTotal)} in use`, i.system.memDetail, i.system.memPressure ? `pressure ${i.system.memPressure}` : ''].filter(Boolean).join(' · ');
+      out.push({ id, title: 'This computer', value: `CPU ${Math.round(i.system.cpu)}%`, detail: `memory ${mem}%${batt}`, bar: mem, tone, hint, open: 'health' });
     } else if (id === 'network' && i.network) {
       const n = i.network;
       const where = n.vpn ? `VPN ${n.vpn}` : n.mesh ? `Mesh ${n.mesh}` : n.wifi ? n.wifi : n.online ? 'Online' : 'Offline';

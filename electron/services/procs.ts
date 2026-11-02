@@ -16,6 +16,7 @@ import os from 'node:os';
 import path from 'node:path';
 import type { ForceQuitApp, ProcAction, ProcActionResult, ProcDetails } from '../../core/api-procs';
 import { powershell, run } from '../../core/platform';
+import { readMemory } from './memory';
 import {
   canEnd, coreUsage, cpuPercent, descendants, energyImpact, macAppBundle, parseBootTime, parseCmdline, parseDiskstats, parseIostat, parseLaunchctlList,
   parseMeminfo, parseNetDev, parseNetSockets, parseNetstatIb, parsePasswd, parsePidRest, parseProcIo, parseProcStat, parsePsLine, parseStatusMemory,
@@ -241,7 +242,9 @@ async function sampleMac(withNet: boolean): Promise<ProcSample> {
       if (m) macUsers.set(Number(m[2]), m[1]);
     }
   }
-  if (now - macSwap.t > 10_000) {
+  // Activity Monitor's figures (App Memory + Wired + Compressed), from keeper-helper when it runs.
+  const mem = await readMemory();
+  if (mem.swapTotal === undefined && now - macSwap.t > 10_000) {
     const s = parseSwapusage((await run('/usr/sbin/sysctl', ['vm.swapusage'], 3000)).stdout);
     macSwap = { t: now, ...s };
   }
@@ -267,8 +270,9 @@ async function sampleMac(withNet: boolean): Promise<ProcSample> {
   });
   const net = parseNetstatIb(netOut);
   const sys: SystemRates = {
-    cpu: 0, perCore: [], memTotal: os.totalmem(), memUsed: os.totalmem() - os.freemem(),
-    swapTotal: macSwap.total, swapUsed: macSwap.used, diskRead: parseIostat(ioOut), netIn: net.rx, netOut: net.tx,
+    cpu: 0, perCore: [], memTotal: mem.total, memUsed: mem.used, memAvailable: mem.available,
+    memPressure: mem.pressure, memCached: mem.cached, memCompressed: mem.compressed,
+    swapTotal: mem.swapTotal ?? macSwap.total, swapUsed: mem.swapUsed ?? macSwap.used, diskRead: parseIostat(ioOut), netIn: net.rx, netOut: net.tx,
   };
   const raw = { diskRead: sys.diskRead, netIn: sys.netIn, netOut: sys.netOut };
   const out = finish(rows, sys, now, ['threads', 'disk', 'network']);
@@ -377,8 +381,9 @@ async function sampleWindows(withNet: boolean): Promise<ProcSample> {
     cpu: 0, memory: p.memory, threads: p.threads, started: p.started, path: p.path, command: p.command, app: windows.has(p.pid),
     cpuMs: p.cpuMs, ioRead: p.read, ioWrite: p.write, connections: withNet ? counts.get(p.pid) ?? 0 : undefined,
   }));
+  const mem = await readMemory();
   const sys: SystemRates = {
-    cpu: 0, perCore: [], memTotal: os.totalmem(), memUsed: os.totalmem() - os.freemem(),
+    cpu: 0, perCore: [], memTotal: mem.total, memUsed: mem.used,
     swapTotal: j.swT ? j.swT * 1024 * 1024 : undefined, swapUsed: j.swU !== undefined ? j.swU * 1024 * 1024 : undefined,
     diskRead: j.dR, diskWrite: j.dW, netIn: j.nIn, netOut: j.nOut,
   };

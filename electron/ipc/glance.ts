@@ -9,6 +9,8 @@ import { normalizeGlanceSettings, type GlanceActionId, type GlanceInputs, type G
 import type { IslandService } from '../services/island';
 import { glanceSettings, glanceView, hideGlance, initGlance, showGlance, type GlanceRecent } from '../services/glance';
 import { liveState, unwatchLive, watchLive } from '../services/monitor-live';
+import { lastMemory, readMemory } from '../services/memory';
+import { memoryDetail } from '../../core/memory';
 import { settings, updateSettings } from '../store';
 
 export interface GlanceIpcDeps {
@@ -41,8 +43,12 @@ async function inputs(d: GlanceIpcDeps, light: boolean): Promise<GlanceInputs> {
   // This computer and the network from the live readings (running only while the glance is open).
   if (!light) watchLive('glance', 2000, ['cpu', 'mem', 'net', 'battery']);
   const r = light ? undefined : liveState().latest;
-  const mem = { used: os.totalmem() - os.freemem(), total: os.totalmem() };
-  out.system = { cpu: r?.cpu ?? 0, memUsed: r?.memUsed ?? mem.used, memTotal: r?.memTotal ?? mem.total, battery: r?.battery !== undefined ? { percent: r.battery, charging: !!r.charging } : st?.battery ? { percent: st.battery.percent, charging: st.battery.charging } : undefined };
+  // The shared memory reading (Activity Monitor's figures on a Mac); the tooltip takes the last one.
+  const mem = light ? lastMemory(10_000) : await readMemory();
+  out.system = {
+    cpu: r?.cpu ?? 0, memUsed: mem.used, memTotal: mem.total, memPressure: mem.pressure, memDetail: memoryDetail(mem) || undefined,
+    battery: r?.battery !== undefined ? { percent: r.battery, charging: !!r.charging } : st?.battery ? { percent: st.battery.percent, charging: st.battery.charging } : undefined,
+  };
   if (!light && (!wifi || now - wifi.at > 60_000)) {
     const { wifiName } = await import('../services/devices');
     wifi = { at: now, name: await wifiName().catch(() => undefined) };

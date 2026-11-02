@@ -4,6 +4,8 @@
 // trees, grouping helpers under their app, and which processes must never be
 // stopped. No I/O here, so every piece is tested.
 
+import type { MemoryPressure } from './memory';
+
 export interface ProcRow {
   pid: number;
   ppid: number;
@@ -43,6 +45,12 @@ export interface SystemRates {
   memTotal: number;
   /** memory the system can hand out without swapping, when known */
   memAvailable?: number;
+  /** macOS memory pressure: what the memory reading's colour follows there */
+  memPressure?: MemoryPressure;
+  /** file cache the system gives back when asked (macOS Cached Files) */
+  memCached?: number;
+  /** macOS: memory the compressor holds */
+  memCompressed?: number;
   swapUsed?: number;
   swapTotal?: number;
   diskRead?: number;
