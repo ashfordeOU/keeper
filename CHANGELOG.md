@@ -34,6 +34,9 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 ### Changed — Weather
 - Weather is redesigned: a sky-tinted summary of now with a one-line outlook ("Clear until this evening, then cloudy"), an hour-by-hour strip with sunrise and sunset, a 10-day list whose bars share one scale (and open into that day's hours), tiles for air quality, UV, wind, humidity, feels like, sun, precipitation, pressure and visibility and the moon, place cards with their temperature and local time, and one set of drawn condition icons for every weather code (no more missing emoji). The radar fills its card, pans and zooms by drag, wheel or pinch, uses a dark map in dark mode, preloads its frames and pauses while the window is hidden. Trips from your calendar now read every calendar Keeper reads (`pim.upcomingEvents`: this computer's, Google, Outlook, CalDAV and links), skip video meetings and rooms, and add a packing hint; when no calendar can be read they show the same "Keeper can't see your calendars yet" row as the Week and the Planner.
 
+### Changed — Folders and sidebar
+- Folders work like Finder and File Explorer everywhere: a folder shows its subfolders first, then its files, as icons, a list with disclosure triangles, columns or a gallery (⌘1–⌘4), with a path bar, Back/Forward (⌘[ ⌘], Alt+← →) and the enclosing folder (⌘↑, Alt+↑). The Library's kinds are now "All Documents", "All Archives" and so on, with filled tiles instead of folder icons, a line that says what they are, grouped by folder (with "Show in folder") and opened as a list for text-heavy kinds; text files show a clean type icon. The sidebar no longer spills past its edge: long names end in an ellipsis with the full name in the tooltip, highlights, disk bars and focus rings stay inside, counts line up on the right.
+
 ## [0.1.0-beta.6] - 2026-11-02
 
 0.1.0-beta.5 was not published; everything listed under it is in this release.

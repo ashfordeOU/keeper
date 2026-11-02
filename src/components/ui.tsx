@@ -4,7 +4,7 @@
 
 import { tracksFileMenu } from '../screens/TracksSurfaces';
 import { shownIn } from '../screen/surfaces';
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { RenamePreview, RenameStep } from '../../core/rename';
 import type { FileEntry, FileKind } from '../../core/types';
@@ -16,6 +16,8 @@ import { isQuickLookOpen, openQuickLook } from '../preview/QuickLook';
 import { canRenderThumb, renderThumb } from '../preview/thumbs';
 import { arrowNav, isTypeKey, labelFromContext, useFocusTrap, useTypeahead } from '../a11y';
 import { readableOn } from '../../core/themes';
+import { isPlainText, parentOf, prettyFolder, viewScope, viewsFor, type FileView } from '../../core/folder-view';
+import { showInFolder } from '../folder-nav';
 
 export const KIND_COLOR: Record<FileKind | 'folder', string> = {
   image: 'var(--c-image)', video: 'var(--c-video)', audio: 'var(--c-audio)', document: 'var(--c-document)', archive: 'var(--c-archive)',
@@ -107,7 +109,28 @@ export function ExtTile({ ext, kind }: { ext: string; kind: FileKind | 'folder' 
   return <div className="ext-tile" style={{ background: KIND_COLOR[kind], color: inkOnKind(kind) }}>{(ext || kind).slice(0, 5).toUpperCase()}</div>;
 }
 
-export function Thumb({ file, size = 256 }: { file: Pick<FileEntry, 'path' | 'kind' | 'ext'>; size?: number }) {
+/** A folder's icon where files show thumbnails (with a lock for one Keeper locked). */
+function FolderThumb({ locked }: { locked?: boolean }) {
+  return (
+    <span className="thumb-box folder-thumb">
+      <Icon name="folder" size={48} stroke={1.4} />
+      {locked ? <span className="lock-badge"><Icon name="lock" size={10} stroke={2.4} /></span> : null}
+    </span>
+  );
+}
+
+/**
+ * A file's picture: folders get a folder, plain text a clean type icon (a page
+ * of tiny text tells nothing) unless `rich` asks for the real page, as the
+ * gallery does; everything else its thumbnail.
+ */
+export function Thumb({ file, size = 256, rich }: { file: Pick<FileEntry, 'path' | 'kind' | 'ext' | 'dir' | 'locked'>; size?: number; rich?: boolean }) {
+  if (file.dir) return <FolderThumb locked={file.locked} />;
+  if (!rich && isPlainText(file.ext)) return <span className="thumb-box"><ExtTile ext={file.ext} kind={file.kind} /></span>;
+  return <RealThumb file={file} size={size} />;
+}
+
+function RealThumb({ file, size }: { file: Pick<FileEntry, 'path' | 'kind' | 'ext'>; size: number }) {
   const box = useRef<HTMLSpanElement>(null);
   const src = useThumb(file.path, file.kind, size, box);
   return (
@@ -125,7 +148,17 @@ export async function copyFullText(f: Pick<FileEntry, 'path' | 'text' | 'textCut
 
 // ------------------------------------------------------------------ selection + keyboard
 
-export function useFileSelection(files: FileEntry[]) {
+export interface SelectionOptions {
+  /** opens a folder (pages that show folders and files together) */
+  onOpenDir?: (f: FileEntry) => void;
+  /** a page's own keys (a list's disclosure triangles); true when it handled the key */
+  onKey?: (e: KeyboardEvent, cur: number) => boolean;
+}
+
+/** Where the arrow keys move the selection. */
+const FILE_AREAS = '.file-grid, .file-list, .gallery-strip';
+
+export function useFileSelection(files: FileEntry[], opts: SelectionOptions = {}) {
   const { selection, setSelection, setFocused, play, trash } = useStore();
   const anchor = useRef<number>(-1);
   const typeahead = useTypeahead();
@@ -137,7 +170,7 @@ export function useFileSelection(files: FileEntry[]) {
     const el = document.querySelector<HTMLElement>(`[data-path="${CSS.escape(files[i].path)}"]`);
     el?.scrollIntoView({ block: 'nearest' });
     // Keyboard focus follows when it is already in the grid or list.
-    if (el && document.activeElement?.closest('.file-grid, .file-list')) el.focus({ preventScroll: true });
+    if (el && document.activeElement?.closest(FILE_AREAS)) el.focus({ preventScroll: true });
   };
 
   const click = (e: React.MouseEvent, i: number) => {
@@ -156,7 +189,8 @@ export function useFileSelection(files: FileEntry[]) {
   };
 
   const open = (f: FileEntry) => {
-    if (f.kind === 'audio') play(f);
+    if (f.dir) opts.onOpenDir?.(f);
+    else if (f.kind === 'audio') play(f);
     else void api.files.open(f.path);
   };
 
@@ -166,30 +200,33 @@ export function useFileSelection(files: FileEntry[]) {
       if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable) return;
       // Menus and dialogs handle their own keys, and so do buttons, tabs and other controls outside the files.
       if (t.closest?.('.menu, .modal, .palette, .ql, [role="dialog"]')) return;
-      if (t !== document.body && !t.closest?.('.file-grid, .file-list') && t.matches?.('button, a[href], summary, [role="button"], [role="tab"], [role="radio"], [role="switch"], [role="checkbox"], [role="option"], [role="menuitem"], [role="slider"], [role="treeitem"], [tabindex]:not([tabindex="-1"])')) return;
+      if (t !== document.body && !t.closest?.(FILE_AREAS) && t.matches?.('button, a[href], summary, [role="button"], [role="tab"], [role="radio"], [role="switch"], [role="checkbox"], [role="option"], [role="menuitem"], [role="slider"], [role="treeitem"], [tabindex]:not([tabindex="-1"])')) return;
       const cur = files.findIndex((f) => f.path === selection[selection.length - 1]);
       const cmd = e.metaKey || e.ctrlKey;
-      if ((e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowUp') && files.length) {
+      if (!cmd && !e.altKey && opts.onKey?.(e, cur)) {
+        e.preventDefault();
+      } else if (!cmd && !e.altKey && (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowUp') && files.length) {
         const cols = Math.max(1, Math.round((document.querySelector('.file-grid')?.clientWidth ?? 1) / ((document.querySelector('.file-card') as HTMLElement)?.offsetWidth + 14 || 1)));
         const step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowDown' ? (document.querySelector('.file-grid') ? cols : 1) : (document.querySelector('.file-grid') ? -cols : -1);
         const next = Math.max(0, Math.min(files.length - 1, (cur < 0 ? -step : cur) + step));
         pick(next);
         e.preventDefault();
-      } else if ((e.key === 'Home' || e.key === 'End') && files.length && t.closest?.('.file-grid, .file-list')) {
+      } else if ((e.key === 'Home' || e.key === 'End') && files.length && t.closest?.(FILE_AREAS)) {
         e.preventDefault();
         pick(e.key === 'Home' ? 0 : files.length - 1);
-      } else if (isTypeKey(e) && files.length && (t === document.body || t.closest?.('.file-grid, .file-list'))) {
+      } else if (isTypeKey(e) && files.length && (t === document.body || t.closest?.(FILE_AREAS))) {
         // Type-to-select: the first letters of a name jump to it.
         const i = typeahead(e.key, files.map((f) => f.name), cur);
         if (i >= 0) { e.preventDefault(); pick(i); }
-      } else if (e.key === 'Enter' && cur >= 0) {
+      } else if (e.key === 'Enter' && !cmd && cur >= 0) {
+        e.preventDefault();
         open(files[cur]);
       } else if (e.key === ' ' && cur >= 0) {
         // Space opens Quick Look on the selection (or the whole list, starting at this file).
         e.preventDefault();
-        if (isQuickLookOpen()) return;
-        const sel = files.filter((f) => selection.includes(f.path));
-        const list = sel.length > 1 ? sel : files;
+        if (isQuickLookOpen() || files[cur].dir) return;
+        const sel = files.filter((f) => selection.includes(f.path) && !f.dir);
+        const list = sel.length > 1 ? sel : files.filter((f) => !f.dir);
         openQuickLook(list.map((f) => ({ path: f.path, name: f.name })), Math.max(0, list.findIndex((f) => f.path === files[cur].path)));
       } else if (cmd && e.key.toLowerCase() === 'a') {
         e.preventDefault();
@@ -244,47 +281,34 @@ const pathOf = (f: FileEntry) => f.path;
 /** A hidden file, or one inside a hidden folder: shown dimmed. */
 const isHiddenFile = (f: FileEntry) => !!f.hidden || /(^|[\\/])\.[^\\/.]/.test(f.path);
 
-export function FileGrid({ files, onContext }: { files: FileEntry[]; onContext?: (e: React.MouseEvent, f: FileEntry) => void }) {
+/** What a page passes to the grid, list and gallery beyond its files. */
+export interface FileViewProps {
+  /** its own right-click menu; return true when it showed one (else the usual file menu shows) */
+  onContext?: (e: React.MouseEvent, f: FileEntry) => boolean | void;
+  /** opens a folder (pages that show folders and files together) */
+  onOpenDir?: (f: FileEntry) => void;
+  /** a heading drawn before a file (the Library's folder groups) */
+  header?: (f: FileEntry, i: number) => ReactNode;
+}
+
+const kindLabel = (f: FileEntry) => (f.dir ? 'Folder' : f.screenshot ? 'Screenshot' : f.ext.toUpperCase() || f.kind);
+const metaLine = (f: FileEntry) => (f.dir ? `${f.locked ? 'Locked' : 'Folder'} · ${relativeTime(f.mtime)}` : `${formatBytes(f.size)} · ${relativeTime(f.mtime)}`);
+
+export function FileGrid({ files, onContext, onOpenDir, header }: { files: FileEntry[] } & FileViewProps) {
   const { cardSize, setSelection, setFocused } = useStore();
-  const { selection, click, open } = useFileSelection(files);
+  const { selection, click, open } = useFileSelection(files, { onOpenDir });
   const menu = useFileMenu();
   const { shown, more, sentinel } = useProgressive(files, selection, pathOf);
   const picked = useMemo(() => new Set(selection), [selection]);
+  const context = (e: React.MouseEvent, f: FileEntry) => { if (!onContext?.(e, f)) menu.open(e, f); };
   return (
     <div className="file-grid" role="listbox" aria-label="Files" aria-multiselectable="true" aria-orientation="horizontal" style={{ ['--card' as string]: `${cardSize}px` }}>
       {shown.map((f, i) => (
-        <div
-          key={f.path}
-          data-path={f.path}
-          role="option"
-          aria-selected={picked.has(f.path)}
-          aria-label={`${f.name}, ${formatBytes(f.size)}, ${relativeTime(f.mtime)}`}
-          // One stop in the Tab order: the selected file (or the first one).
-          tabIndex={picked.size ? (picked.has(f.path) && f.path === selection[selection.length - 1] ? 0 : -1) : i === 0 ? 0 : -1}
+        <FileCard key={f.path} f={f} i={i} picked={picked} selection={selection} header={header?.(f, i)}
           onFocus={(e) => { if (!picked.has(f.path) && e.currentTarget.matches(':focus-visible')) { setSelection([f.path]); setFocused(f); } }}
-          onKeyDown={(e) => { if ((e.key === 'F10' && e.shiftKey) || e.key === 'ContextMenu') { e.preventDefault(); const r = e.currentTarget.getBoundingClientRect(); (onContext ?? menu.open)({ preventDefault: () => undefined, clientX: r.left + 20, clientY: r.top + 20 } as React.MouseEvent, f); } }}
-          className={`file-card ${picked.has(f.path) ? 'selected' : ''} ${isHiddenFile(f) ? 'is-hidden' : ''}`}
-          onClick={(e) => click(e, i)}
-          onDoubleClick={() => open(f)}
-          onContextMenu={(e) => { if (!picked.has(f.path)) click(e, i); (onContext ?? menu.open)(e, f); }}
-          draggable
-          onDragStart={(e) => { e.preventDefault(); api.files.startDrag(picked.has(f.path) ? selection : [f.path]); }}
-          title={f.path}
-        >
-          <div className={`thumb ${f.kind === 'image' || f.kind === 'video' ? '' : 'contain'}`}>
-            <Thumb file={f} />
-            {f.meta?.durationSec ? <span className="duration">{formatDuration(f.meta.durationSec)}</span> : null}
-          </div>
-          {f.text && f.kind === 'image' ? (
-            <div className="hover-actions">
-              <button className="btn sm icon" title="Copy text in image" aria-label="Copy text in image" onClick={(e) => { e.stopPropagation(); void copyFullText(f); }}>
-                <Icon name="text" size={13} />
-              </button>
-            </div>
-          ) : null}
-          <div className="name">{f.name}</div>
-          <div className="meta">{formatBytes(f.size)} · {relativeTime(f.mtime)}</div>
-        </div>
+          onClick={(e) => click(e, i)} onOpen={() => open(f)} onContext={context}
+          onMenuKey={(r) => context({ preventDefault: () => undefined, clientX: r.left + 20, clientY: r.top + 20 } as React.MouseEvent, f)}
+        />
       ))}
       {more ? <div ref={sentinel} style={{ gridColumn: '1 / -1', height: 1 }} /> : null}
       {menu.node}
@@ -292,14 +316,82 @@ export function FileGrid({ files, onContext }: { files: FileEntry[]; onContext?:
   );
 }
 
+/** One card in the icons view or the gallery's strip. */
+function FileCard({ f, i, picked, selection, header, onFocus, onClick, onOpen, onContext, onMenuKey, rich }: {
+  f: FileEntry; i: number; picked: Set<string>; selection: string[]; header?: ReactNode;
+  onFocus: (e: React.FocusEvent<HTMLDivElement>) => void; onClick: (e: React.MouseEvent) => void; onOpen: () => void;
+  onContext: (e: React.MouseEvent, f: FileEntry) => void; onMenuKey: (r: DOMRect) => void; rich?: boolean;
+}) {
+  return (
+    <>
+      {header ?? null}
+      <div
+        data-path={f.path}
+        data-dir={f.dir ? '1' : undefined}
+        role="option"
+        aria-selected={picked.has(f.path)}
+        aria-label={`${f.name}, ${metaLine(f)}`}
+        // One stop in the Tab order: the selected file (or the first one).
+        tabIndex={picked.size ? (picked.has(f.path) && f.path === selection[selection.length - 1] ? 0 : -1) : i === 0 ? 0 : -1}
+        onFocus={onFocus}
+        onKeyDown={(e) => { if ((e.key === 'F10' && e.shiftKey) || e.key === 'ContextMenu') { e.preventDefault(); onMenuKey(e.currentTarget.getBoundingClientRect()); } }}
+        className={`file-card ${f.dir ? 'is-dir' : ''} ${picked.has(f.path) ? 'selected' : ''} ${isHiddenFile(f) ? 'is-hidden' : ''}`}
+        onClick={onClick}
+        onDoubleClick={onOpen}
+        onContextMenu={(e) => { if (!picked.has(f.path)) onClick(e); onContext(e, f); }}
+        draggable
+        onDragStart={(e) => { e.preventDefault(); api.files.startDrag(picked.has(f.path) ? selection : [f.path]); }}
+        title={f.path}
+      >
+        <div className={`thumb ${f.kind === 'image' || f.kind === 'video' ? '' : 'contain'}`}>
+          <Thumb file={f} rich={rich} />
+          {f.meta?.durationSec ? <span className="duration">{formatDuration(f.meta.durationSec)}</span> : null}
+        </div>
+        {f.text && f.kind === 'image' ? (
+          <div className="hover-actions">
+            <button className="btn sm icon" title="Copy text in image" aria-label="Copy text in image" onClick={(e) => { e.stopPropagation(); void copyFullText(f); }}>
+              <Icon name="text" size={13} />
+            </button>
+          </div>
+        ) : null}
+        <div className="name">{f.name}</div>
+        <div className="meta">{metaLine(f)}</div>
+      </div>
+    </>
+  );
+}
+
 type SortKey = 'name' | 'date' | 'size' | 'kind';
 
-export function FileList({ files, sort, onSort, showSource }: { files: FileEntry[]; sort?: { key: SortKey; desc: boolean }; onSort?: (k: SortKey) => void; showSource?: boolean }) {
-  const { setSelection, setFocused } = useStore();
-  const { selection, click, open } = useFileSelection(files);
+/** List view's disclosure triangles: how deep each row is, which folders are open, and opening one. */
+export interface ListTree {
+  depth: (path: string) => number;
+  expanded: (path: string) => boolean;
+  toggle: (path: string, open?: boolean) => void;
+}
+
+export function FileList({ files, sort, onSort, showSource, showFolder, tree, onContext, onOpenDir, header }: { files: FileEntry[]; sort?: { key: SortKey; desc: boolean }; onSort?: (k: SortKey) => void; showSource?: boolean; /** a Folder column (the Library, when not grouped by folder) */ showFolder?: boolean; tree?: ListTree } & FileViewProps) {
+  const { setSelection, setFocused, info } = useStore();
+  // ← and → fold and unfold a folder, as in Finder's list view (and do nothing else in a list).
+  const onKey = (e: KeyboardEvent, cur: number) => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return false;
+    const f = files[cur];
+    if (!tree || !f) return true;
+    if (e.key === 'ArrowRight' && f.dir && !f.locked) tree.toggle(f.path, true);
+    else if (e.key === 'ArrowLeft' && f.dir && tree.expanded(f.path)) tree.toggle(f.path, false);
+    else if (e.key === 'ArrowLeft' && tree.depth(f.path) > 0) {
+      // To the folder this row is in.
+      const d = tree.depth(f.path);
+      for (let i = cur - 1; i >= 0; i--) if (tree.depth(files[i].path) < d) { setSelection([files[i].path]); setFocused(files[i]); break; }
+    }
+    return true;
+  };
+  const { selection, click, open } = useFileSelection(files, { onOpenDir, onKey });
   const menu = useFileMenu();
   const { shown, more, sentinel } = useProgressive(files, selection, pathOf);
   const picked = useMemo(() => new Set(selection), [selection]);
+  const context = (e: React.MouseEvent, f: FileEntry) => { if (!onContext?.(e, f)) menu.open(e, f); };
+  const cols = (tree ? 4 : 5) + (showSource ? 1 : 0) + (showFolder ? 1 : 0);
   const th = (k: SortKey, label: string, style?: React.CSSProperties) => (
     <th style={style} aria-sort={sort?.key === k ? (sort.desc ? 'descending' : 'ascending') : undefined}>
       {onSort ? <button className="th-sort" onClick={() => onSort(k)}>{label} <span aria-hidden>{sort?.key === k ? (sort.desc ? '↓' : '↑') : ''}</span></button> : label}
@@ -307,11 +399,12 @@ export function FileList({ files, sort, onSort, showSource }: { files: FileEntry
   );
   return (
     <>
-      <table className="file-list" aria-label="Files" aria-multiselectable="true">
+      <table className={`file-list ${tree ? 'is-tree' : ''}`} aria-label="Files" aria-multiselectable="true">
         <thead>
           <tr>
-            <th className="icon-cell"><span className="sr-only">Preview</span></th>
+            {tree ? null : <th className="icon-cell"><span className="sr-only">Preview</span></th>}
             {th('name', 'Name')}
+            {showFolder ? <th style={{ width: '28%' }}>Folder</th> : null}
             {th('date', 'Modified', { width: 130 })}
             {th('size', 'Size', { width: 90, textAlign: 'right' })}
             {th('kind', 'Kind', { width: 100 })}
@@ -319,30 +412,59 @@ export function FileList({ files, sort, onSort, showSource }: { files: FileEntry
           </tr>
         </thead>
         <tbody>
-          {shown.map((f, i) => (
-            <tr
-              key={f.path}
-              data-path={f.path}
-              aria-selected={picked.has(f.path)}
-              tabIndex={picked.size ? (picked.has(f.path) && f.path === selection[selection.length - 1] ? 0 : -1) : i === 0 ? 0 : -1}
-              onFocus={(e) => { if (!picked.has(f.path) && e.currentTarget.matches(':focus-visible')) { setSelection([f.path]); setFocused(f); } }}
-              onKeyDown={(e) => { if ((e.key === 'F10' && e.shiftKey) || e.key === 'ContextMenu') { e.preventDefault(); const r = e.currentTarget.getBoundingClientRect(); menu.open({ preventDefault: () => undefined, clientX: r.left + 40, clientY: r.top + 10 } as React.MouseEvent, f); } }}
-              className={`${picked.has(f.path) ? 'selected' : ''} ${isHiddenFile(f) ? 'is-hidden' : ''}`}
-              onClick={(e) => click(e, i)}
-              onDoubleClick={() => open(f)}
-              onContextMenu={(e) => { if (!picked.has(f.path)) click(e, i); menu.open(e, f); }}
-              draggable
-              onDragStart={(e) => { e.preventDefault(); api.files.startDrag(picked.has(f.path) ? selection : [f.path]); }}
-            >
-              <td className="icon-cell"><div className="mini-thumb"><Thumb file={f} size={64} /></div></td>
-              <td className="ellipsis" style={{ maxWidth: 420 }} title={f.path}>{f.name}</td>
-              <td className="muted">{formatDate(f.mtime)}</td>
-              <td className="muted num" style={{ textAlign: 'right' }}>{formatBytes(f.size)}</td>
-              <td className="muted">{f.screenshot ? 'Screenshot' : f.ext.toUpperCase() || f.kind}</td>
-              {showSource ? <td className="muted ellipsis" style={{ maxWidth: 130 }}>{f.source?.name ?? ''}</td> : null}
-            </tr>
-          ))}
-          {more ? <tr ref={sentinel as unknown as React.RefObject<HTMLTableRowElement>}><td colSpan={6} style={{ height: 1, padding: 0 }} /></tr> : null}
+          {shown.map((f, i) => {
+            const depth = tree?.depth(f.path) ?? 0;
+            const open1 = !!tree?.expanded(f.path);
+            const head = header?.(f, i);
+            return (
+              <Fragment key={f.path}>
+                {head ? <tr className="group-row"><td colSpan={cols}>{head}</td></tr> : null}
+                <tr
+                  data-path={f.path}
+                  data-dir={f.dir ? '1' : undefined}
+                  data-depth={tree ? depth : undefined}
+                  aria-selected={picked.has(f.path)}
+                  aria-level={tree ? depth + 1 : undefined}
+                  aria-expanded={tree && f.dir ? open1 : undefined}
+                  tabIndex={picked.size ? (picked.has(f.path) && f.path === selection[selection.length - 1] ? 0 : -1) : i === 0 ? 0 : -1}
+                  onFocus={(e) => { if (!picked.has(f.path) && e.currentTarget.matches(':focus-visible')) { setSelection([f.path]); setFocused(f); } }}
+                  onKeyDown={(e) => { if ((e.key === 'F10' && e.shiftKey) || e.key === 'ContextMenu') { e.preventDefault(); const r = e.currentTarget.getBoundingClientRect(); context({ preventDefault: () => undefined, clientX: r.left + 40, clientY: r.top + 10 } as React.MouseEvent, f); } }}
+                  className={`${f.dir ? 'is-dir' : ''} ${picked.has(f.path) ? 'selected' : ''} ${isHiddenFile(f) ? 'is-hidden' : ''}`}
+                  onClick={(e) => click(e, i)}
+                  onDoubleClick={() => open(f)}
+                  onContextMenu={(e) => { if (!picked.has(f.path)) click(e, i); context(e, f); }}
+                  draggable
+                  onDragStart={(e) => { e.preventDefault(); api.files.startDrag(picked.has(f.path) ? selection : [f.path]); }}
+                >
+                  {tree ? (
+                    // Finder's list: the triangle, the icon and the name, indented by how deep the row is.
+                    <td className="tree-cell" style={{ maxWidth: 480 }} title={f.path}>
+                      <div className="fl-tree" style={{ paddingLeft: depth * 18 }}>
+                        {f.dir && !f.locked ? (
+                          <button className={`disclose ${open1 ? 'open' : ''}`} tabIndex={-1} aria-label={`${open1 ? 'Collapse' : 'Expand'} ${f.name}`} onClick={(e) => { e.stopPropagation(); tree.toggle(f.path); }} onDoubleClick={(e) => e.stopPropagation()}>
+                            <Icon name="chevronRight" size={12} />
+                          </button>
+                        ) : <span className="disclose-space" aria-hidden />}
+                        <div className="mini-thumb"><Thumb file={f} size={64} /></div>
+                        <span className="fl-name ellipsis">{f.name}</span>
+                      </div>
+                    </td>
+                  ) : (
+                    <>
+                      <td className="icon-cell"><div className="mini-thumb"><Thumb file={f} size={64} /></div></td>
+                      <td className="ellipsis" style={{ maxWidth: 420 }} title={f.path}><span className="fl-name">{f.name}</span></td>
+                    </>
+                  )}
+                  {showFolder ? <td className="muted ellipsis" style={{ maxWidth: 260 }} title={parentOf(f.path)}>{prettyFolder(parentOf(f.path), info?.home)}</td> : null}
+                  <td className="muted">{formatDate(f.mtime)}</td>
+                  <td className="muted num" style={{ textAlign: 'right' }}>{f.dir ? '—' : formatBytes(f.size)}</td>
+                  <td className="muted">{kindLabel(f)}</td>
+                  {showSource ? <td className="muted ellipsis" style={{ maxWidth: 130 }}>{f.source?.name ?? ''}</td> : null}
+                </tr>
+              </Fragment>
+            );
+          })}
+          {more ? <tr ref={sentinel as unknown as React.RefObject<HTMLTableRowElement>}><td colSpan={cols} style={{ height: 1, padding: 0 }} /></tr> : null}
         </tbody>
       </table>
       {menu.node}
@@ -350,11 +472,53 @@ export function FileList({ files, sort, onSort, showSource }: { files: FileEntry
   );
 }
 
-export function Files({ files, sort, onSort, showSource, empty }: { files: FileEntry[] | undefined; sort?: { key: SortKey; desc: boolean }; onSort?: (k: SortKey) => void; showSource?: boolean; empty?: ReactNode }) {
+/**
+ * Gallery: the selected item large, the rest in a strip below, as in Finder.
+ * ← and → step through; double-click or Enter opens (a folder opens in place).
+ */
+export function GalleryView({ files, onContext, onOpenDir }: { files: FileEntry[] } & FileViewProps) {
+  const { setSelection, setFocused } = useStore();
+  const { selection, click, open } = useFileSelection(files, { onOpenDir });
+  const menu = useFileMenu();
+  const { shown, more, sentinel } = useProgressive(files, selection, pathOf);
+  const picked = useMemo(() => new Set(selection), [selection]);
+  const context = (e: React.MouseEvent, f: FileEntry) => { if (!onContext?.(e, f)) menu.open(e, f); };
+  const cur = files.find((f) => f.path === selection[selection.length - 1]) ?? files[0];
+  // The strip follows the selection.
+  useEffect(() => { if (cur) document.querySelector<HTMLElement>(`.gallery-strip [data-path="${CSS.escape(cur.path)}"]`)?.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }, [cur]);
+  return (
+    <div className="gallery-view">
+      {cur ? (
+        <div className="gallery-stage" onDoubleClick={() => open(cur)}>
+          <div className="gallery-pic">{cur.dir ? <FolderThumb locked={cur.locked} /> : <Thumb key={cur.path} file={cur} size={1024} rich />}</div>
+          <div className="gallery-cap">
+            <div className="ellipsis" style={{ fontWeight: 600 }} title={cur.path}>{cur.name}</div>
+            <div className="small muted">{cur.dir ? metaLine(cur) : `${kindLabel(cur)} · ${metaLine(cur)}`}</div>
+          </div>
+        </div>
+      ) : null}
+      <div className="gallery-strip" role="listbox" aria-label="Files" aria-multiselectable="true" aria-orientation="horizontal">
+        {shown.map((f, i) => (
+          <FileCard key={f.path} f={f} i={i} picked={picked} selection={selection} rich
+            onFocus={(e) => { if (!picked.has(f.path) && e.currentTarget.matches(':focus-visible')) { setSelection([f.path]); setFocused(f); } }}
+            onClick={(e) => click(e, i)} onOpen={() => open(f)} onContext={context}
+            onMenuKey={(r) => context({ preventDefault: () => undefined, clientX: r.left + 20, clientY: r.top + 20 } as React.MouseEvent, f)}
+          />
+        ))}
+        {more ? <div ref={sentinel} style={{ width: 1, flex: 'none' }} /> : null}
+      </div>
+      {menu.node}
+    </div>
+  );
+}
+
+export function Files({ files, sort, onSort, showSource, showFolder, empty, tree, ...rest }: { files: FileEntry[] | undefined; sort?: { key: SortKey; desc: boolean }; onSort?: (k: SortKey) => void; showSource?: boolean; showFolder?: boolean; empty?: ReactNode; tree?: ListTree } & FileViewProps) {
   const { view } = useStore();
   if (!files) return <Loading />;
   if (!files.length) return <>{empty ?? <Empty icon="search" title="Nothing here yet" />}</>;
-  return view === 'grid' ? <FileGrid files={files} /> : <FileList files={files} sort={sort} onSort={onSort} showSource={showSource} />;
+  if (view === 'grid') return <FileGrid files={files} {...rest} />;
+  if (view === 'gallery') return <GalleryView files={files} {...rest} />;
+  return <FileList files={files} sort={sort} onSort={onSort} showSource={showSource} showFolder={showFolder} tree={tree} {...rest} />;
 }
 
 // ------------------------------------------------------------------ context menu
@@ -447,6 +611,8 @@ export function useFileMenu() {
     { label: 'Quick Look', icon: 'eye', kbd: 'Space', run: () => openQuickLook([{ path: state.file.path, name: state.file.name }]) },
     // Places & Tracks: GPX, FIT, KML and photos with a place in them.
     ...tracksFileMenu(state.file.path, store.go),
+    // Keeper's own view of the folder it is in, with the file selected.
+    ...(store.route.name !== 'browse' ? [{ label: 'Show in Enclosing Folder', icon: 'folder', run: () => showInFolder(store.go, state.file.path) }] : []),
     { label: store.info?.platform === 'win32' ? 'Show in Explorer' : store.info?.platform === 'darwin' ? 'Show in Finder' : 'Show in Folder', icon: 'reveal', run: () => void api.files.reveal(state.file.path) },
     { sep: true, label: '' },
     { label: 'Copy', icon: 'copy', kbd: `${mod}C`, run: () => void api.files.copyPaths(sel) },
@@ -663,23 +829,34 @@ export function PageHead({ title, sub, children }: { title: ReactNode; sub?: Rea
   );
 }
 
-export function ViewControls({ sort, onSort }: { sort?: { key: SortKey; desc: boolean }; onSort?: (s: { key: SortKey; desc: boolean }) => void }) {
-  const { view, setView } = useStore();
+const VIEW_BUTTONS: Record<FileView, { icon: string; label: string; key: string }> = {
+  grid: { icon: 'grid', label: 'Icons', key: '1' },
+  list: { icon: 'list', label: 'List', key: '2' },
+  columns: { icon: 'columns', label: 'Columns', key: '3' },
+  gallery: { icon: 'gallery', label: 'Gallery', key: '4' },
+};
+
+export function ViewControls({ sort, onSort, views }: { sort?: { key: SortKey; desc: boolean }; onSort?: (s: { key: SortKey; desc: boolean }) => void; /** the views this page offers (columns only for real folders) */ views?: FileView[] }) {
+  const { view, setView, route } = useStore();
+  const offered = views ?? viewsFor(viewScope(route));
   return (
     <div className="btn-row">
       {sort && onSort ? (
         <select className="input" aria-label="Sort by" value={`${sort.key}:${sort.desc ? 'desc' : 'asc'}`} onChange={(e) => { const [k, d] = e.target.value.split(':'); onSort({ key: k as SortKey, desc: d === 'desc' }); }} style={{ height: 30 }}>
+          <option value="name:asc">Name A–Z</option>
+          <option value="name:desc">Name Z–A</option>
           <option value="date:desc">Newest first</option>
           <option value="date:asc">Oldest first</option>
           <option value="size:desc">Biggest first</option>
           <option value="size:asc">Smallest first</option>
-          <option value="name:asc">Name A–Z</option>
           <option value="kind:asc">Kind</option>
         </select>
       ) : null}
-      <div className="seg">
-        <button className={view === 'grid' ? 'on' : ''} aria-pressed={view === 'grid'} onClick={() => setView('grid')} title={`Grid (${mod}1)`} aria-label={`Grid (${mod}1)`}><Icon name="grid" size={14} /></button>
-        <button className={view === 'list' ? 'on' : ''} aria-pressed={view === 'list'} onClick={() => setView('list')} title={`List (${mod}2)`} aria-label={`List (${mod}2)`}><Icon name="list" size={14} /></button>
+      <div className="seg" role="group" aria-label="View">
+        {offered.map((v) => {
+          const b = VIEW_BUTTONS[v];
+          return <button key={v} data-testid={`view-${v}`} className={view === v ? 'on' : ''} aria-pressed={view === v} onClick={() => setView(v)} title={`${b.label} (${mod}${b.key})`} aria-label={`${b.label} (${mod}${b.key})`}><Icon name={b.icon} size={14} /></button>;
+        })}
       </div>
     </div>
   );

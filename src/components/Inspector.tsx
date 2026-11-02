@@ -38,6 +38,8 @@ export function Inspector({ frozen = false }: { frozen?: boolean } = {}) {
     const path = focused?.path ?? selection[0];
     if (!path) { setFile(null); return; }
     if (focused && focused.path === path) setFile(focused);
+    // A folder is not in the library: show what the folder view knows.
+    if (focused?.dir && focused.path === path) return;
     let alive = true;
     void api.library.inspect(path).then(async (f) => {
       if (!alive || !f) return;
@@ -74,6 +76,8 @@ export function Inspector({ frozen = false }: { frozen?: boolean } = {}) {
       </aside>
     );
   }
+
+  if (file.dir) return <FolderInspector file={file} frozen={frozen} />;
 
   const m = file.meta;
   const dir = file.path.slice(0, file.path.length - file.name.length - 1);
@@ -179,6 +183,32 @@ export function Inspector({ frozen = false }: { frozen?: boolean } = {}) {
             }}
           />
         </div>
+      </div>
+    </aside>
+  );
+}
+
+/** A folder chosen in a folder view: where it is, when it changed, and its size on request. */
+function FolderInspector({ file, frozen }: { file: FileEntry; frozen: boolean }) {
+  // While it slides away it is out of the Tab order.
+  const tab = frozen ? -1 : undefined;
+  const { info, go } = useStore();
+  const [size, setSize] = useState<string | null>(null);
+  useEffect(() => setSize(null), [file.path]);
+  const dir = file.path.slice(0, file.path.length - file.name.length - 1);
+  return (
+    <aside className="inspector" id="inspector" aria-label="Inspector">
+      <div className="insp-folder"><Icon name={file.locked ? 'folderLock' : 'folder'} size={64} stroke={1.3} /></div>
+      <h3 style={{ wordBreak: 'break-word' }}>{file.name}</h3>
+      <dl className="kv">
+        <dt>Kind</dt><dd>{file.locked ? 'Locked folder' : 'Folder'}</dd>
+        <dt>Modified</dt><dd>{formatDate(file.mtime)} · {relativeTime(file.mtime)}</dd>
+        <dt>Size</dt><dd>{size ?? <button className="btn sm" tabIndex={tab} onClick={() => { setSize('Measuring…'); void api.places.folderSize(file.path).then((s) => setSize(`${formatBytes(s.size)} · ${s.files.toLocaleString()} files`), () => setSize('Unknown')); }}>Calculate</button>}</dd>
+        <dt>Where</dt><dd><span className="mono" style={{ fontSize: 11.5 }}>{info?.home && dir.startsWith(info.home) ? '~' + dir.slice(info.home.length) : dir}</span></dd>
+      </dl>
+      <div className="insp-actions">
+        {file.locked ? null : <button className="btn sm" tabIndex={tab} onClick={() => go({ name: 'browse', arg: file.path })}><Icon name="folder" size={12} /> Open</button>}
+        <button className="btn sm" tabIndex={tab} onClick={() => void api.files.reveal(file.path)}><Icon name="reveal" size={12} /> {info?.platform === 'darwin' ? 'Show in Finder' : info?.platform === 'win32' ? 'Show in Explorer' : 'Show in Folder'}</button>
       </div>
     </aside>
   );

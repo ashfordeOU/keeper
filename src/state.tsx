@@ -15,6 +15,7 @@ import { applyTheme, onNewDay, onSystemAppearance } from './theme';
 import { applyA11y } from './a11y';
 import { formatBytes } from '../core/format';
 import { asInspectorMode, clampInspectorWidth, inspectorVisible, nextForced, INSPECTOR_DEFAULT_WIDTH } from '../core/inspector';
+import { resolveView, viewScope, type FileView } from '../core/folder-view';
 
 export type RouteName =
   | 'home' | 'recents' | 'library' | 'screenshots' | 'search' | 'browse' | 'downloads' | 'source' | 'tag' | 'saved'
@@ -90,8 +91,9 @@ interface Store {
   setFocused(f: FileEntry | null): void;
   playing: FileEntry | null;
   play(f: FileEntry | null): void;
-  view: 'grid' | 'list';
-  setView(v: 'grid' | 'list'): void;
+  /** this page's view: icons, list, columns (real folders) or gallery; remembered per kind of page */
+  view: FileView;
+  setView(v: FileView): void;
   cardSize: number;
   setCardSize(n: number): void;
   toasts: Toast[];
@@ -183,7 +185,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // Clearing the selection clears the file the Inspector follows too.
   const select = useCallback((paths: string[]) => { setSelection(paths); if (!paths.length) setFocused(null); }, []);
   const [playing, play] = useState<FileEntry | null>(null);
-  const [view, setViewState] = useState<'grid' | 'list'>(() => load('view', 'grid'));
+  // Each kind of page keeps its own view (real folders, each Library collection, everything else).
+  const [views, setViews] = useState<Record<string, FileView>>(() => load('views', {}));
+  const legacyView = useMemo(() => load<'grid' | 'list'>('view', 'grid'), []);
   const [cardSize, setCardSizeState] = useState<number>(() => load('cardSize', 150));
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [version, setVersion] = useState(0);
@@ -351,10 +355,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     info, settings, updateSettings, selection, setSelection: select,
     inspector, setInspector: (v) => setInspectorForced(v), inspectorWidth, setInspectorWidth,
     focused, setFocused, playing, play,
-    view, setView: (v) => { setViewState(v); save('view', v); },
+    view: resolveView(viewScope(route), views, legacyView),
+    setView: (v) => setViews((cur) => { const next = { ...cur, [viewScope(route)]: v }; save('views', next); return next; }),
     cardSize, setCardSize: (n) => { const c = Math.max(100, Math.min(280, n)); setCardSizeState(c); save('cardSize', c); },
     toasts, toast, version, refresh, trash,
-  }), [route, go, back, forward, tab, tabs, draft, setDraft, boot, info, settings, updateSettings, selection, select, inspector, inspectorWidth, setInspectorWidth, focused, playing, view, cardSize, toasts, toast, version, refresh, trash]);
+  }), [route, go, back, forward, tab, tabs, draft, setDraft, boot, info, settings, updateSettings, selection, select, inspector, inspectorWidth, setInspectorWidth, focused, playing, views, legacyView, cardSize, toasts, toast, version, refresh, trash]);
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>;
 }

@@ -45,6 +45,10 @@ export interface FileEntry {
   meta?: MediaMeta;
   /** file only exists in the cloud (iCloud / OneDrive placeholder) */
   cloudOnly?: boolean;
+  /** a folder, where a page shows folders and files together (never in the index) */
+  dir?: boolean;
+  /** a folder Keeper locked (shown as a folder with a lock) */
+  locked?: boolean;
 }
 
 export interface MediaMeta {

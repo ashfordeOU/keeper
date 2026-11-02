@@ -95,6 +95,7 @@ import { Splitter } from './components/Splitter';
 import { PermissionNudgeHost } from './components/PermissionsPanel';
 import { inspectorRange } from '../core/inspector';
 import { asSidebarMode, isRail, SIDEBAR_RAIL, SIDEBAR_RANGE } from '../core/sidebar-layout';
+import { viewScope, viewsFor } from '../core/folder-view';
 import { setSidebarPinned, setSidebarWidth, useSidebarLocal } from './sidebar-state';
 import { QuickLookHost } from './preview/QuickLook';
 import { ThemeQuickPicker } from './components/ThemeQuickPicker';
@@ -117,7 +118,7 @@ function TodoNav() {
   return <NavItem route={{ name: 'todo' }} icon="check" label="To do" count={n || undefined} />;
 }
 
-function NavItem({ route, icon, label, count, color }: { route: Route; icon?: string; label: string; count?: number | string; color?: string }) {
+function NavItem({ route, icon, label, count, color, tip }: { route: Route; icon?: string; label: string; count?: number | string; /** a filled tile in this colour: a collection, never a folder */ color?: string; tip?: string }) {
   const { route: cur, go, settings, updateSettings, tabs } = useStore();
   const hiddenRoutes = useHiddenRoutes();
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
@@ -134,8 +135,8 @@ function NavItem({ route, icon, label, count, color }: { route: Route; icon?: st
         { label: 'Customize Sidebar…', icon: 'settings', run: () => go({ name: 'settings', arg: 'sidebar' }) },
       ]} />
     ) : null}
-    <button className={`nav-item ${active ? 'active' : ''}`} aria-current={active ? 'page' : undefined} data-nav-key={key} onClick={() => go(route)} title={label} onContextMenu={(e) => { e.preventDefault(); setMenu({ x: e.clientX, y: e.clientY }); }}>
-      {color ? <span className="dot" style={{ background: color }} aria-hidden /> : <Icon name={icon ?? 'folder'} size={15} />}
+    <button className={`nav-item ${active ? 'active' : ''} ${color ? 'is-collection' : ''}`} aria-current={active ? 'page' : undefined} data-nav-key={key} onClick={() => go(route)} title={tip ? `${label}\n${tip}` : label} onContextMenu={(e) => { e.preventDefault(); setMenu({ x: e.clientX, y: e.clientY }); }}>
+      {color ? <span className="nav-kind" style={{ background: color }} aria-hidden><Icon name={icon ?? 'collection'} size={11} stroke={2.2} /></span> : <Icon name={icon ?? 'folder'} size={15} />}
       <span className="label ellipsis">{label}</span>
       {count !== undefined ? <span className="count">{count}</span> : null}
     </button>
@@ -212,9 +213,10 @@ function SidebarNav({ rail, expanded, onToggle, canPin }: { rail: boolean; expan
       <NavItem route={{ name: 'weather' }} icon="sun" label={t('nav.weather')} />
       <TracksNav />
 
+      {/* Every file of a kind, wherever it is: collections (filled tiles), not folders (Favorites, below). */}
       <NavSection id="library" title={t('section.library')}>
-        {SHELVES.map((k) => <NavItem key={k} route={{ name: 'library', arg: k }} color={KIND_COLOR[k]} label={t(`kind.${k}`)} count={short(totals.data?.[k].count)} />)}
-        <NavItem route={{ name: 'screenshots' }} icon="screenshot" label={t('kind.screenshot')} />
+        {SHELVES.map((k) => <NavItem key={k} route={{ name: 'library', arg: k }} color={KIND_COLOR[k]} icon={k} label={t(`kindAll.${k}`)} tip="Every file of this kind on this computer, whichever folder it is in" count={short(totals.data?.[k].count)} />)}
+        <NavItem route={{ name: 'screenshots' }} color="var(--c-image)" icon="screenshot" label={t('kindAll.screenshot')} tip="Every screenshot on this computer, whichever folder it is in" />
       </NavSection>
 
       {settings?.savedSearches.length ? (
@@ -505,11 +507,17 @@ export function App() {
       else if (cmd && !e.shiftKey && (e.code === 'KeyI' || k === 'i')) { e.preventDefault(); store.setInspector(!store.inspector); }
       // Escape clears the selection on a file page (dialogs and menus take Escape first).
       else if (e.key === 'Escape' && !cmd && store.selection.length + (store.focused ? 1 : 0) > 0 && !(e.target as HTMLElement | null)?.closest?.('input, textarea, [contenteditable="true"], .modal, .palette, .menu, .tour, .guide-panel') && !document.querySelector('.modal, .palette, .menu, .ql')) { store.setSelection([]); }
-      else if (cmd && k === '1') { e.preventDefault(); store.setView('grid'); }
-      else if (cmd && k === '2') { e.preventDefault(); store.setView('list'); }
+      // ⌘1–⌘4: icons, list, columns (real folders) and gallery, as in Finder.
+      else if (cmd && !e.shiftKey && !e.altKey && ['1', '2', '3', '4'].includes(k)) {
+        const v = (['grid', 'list', 'columns', 'gallery'] as const)[Number(k) - 1];
+        if (viewsFor(viewScope(store.route)).includes(v)) { e.preventDefault(); store.setView(v); }
+      }
       else if (cmd && (k === '=' || k === '+')) { e.preventDefault(); store.setCardSize(store.cardSize + 20); }
       else if (cmd && k === '-') { e.preventDefault(); store.setCardSize(store.cardSize - 20); }
       else if (cmd && k === '[') { e.preventDefault(); store.back(); }
+      else if (cmd && k === ']') { e.preventDefault(); store.forward(); }
+      // Alt+← and Alt+→: Back and Forward, as in File Explorer and other file managers.
+      else if (e.altKey && !cmd && !e.shiftKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !(e.target as HTMLElement | null)?.closest?.('input, textarea, [contenteditable="true"]')) { e.preventDefault(); if (e.key === 'ArrowLeft') store.back(); else store.forward(); }
       else if (cmd && k === ',') { e.preventDefault(); store.go({ name: 'settings' }); }
     };
     window.addEventListener('keydown', onKey);
