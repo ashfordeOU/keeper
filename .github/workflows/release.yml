@@ -5,7 +5,15 @@
 # Release; the release creates the tag. Versions with a hyphen (0.3.0-beta.1)
 # become pre-releases. A push whose version already has a release builds nothing.
 # Run it by hand (workflow_dispatch) with "Build only" to test the build without
-# publishing.
+# publishing. release-check.yml runs it that way as part of the gate before a release.
+#
+# Which systems a release covers comes from .github/release.json ("platforms": any of
+# mac, windows, linux), or from the "platforms" input of a manual run. A system left out
+# keeps its current version: no latest*.yml for it is published, so its installed copies
+# are offered nothing, and the install scripts keep giving the newest release that has
+# its files. Channels for a system left out are skipped (winget, Scoop and Chocolatey
+# need Windows; the AUR, Snap and the apt/dnf repositories need Linux; the Homebrew cask
+# needs macOS). See RELEASING.md.
 #
 # Mac builds are signed with the stable "Keeper Self-Signed" certificate once
 # KEEPER_SIGNING_CERT / KEEPER_SIGNING_PASSWORD exist (scripts/make-signing-cert.sh),
@@ -14,6 +22,12 @@
 # Pre-releases are published on GitHub only (with their update information, for testers
 # who switch on "Include beta versions"), never to Homebrew, winget, Chocolatey, Scoop,
 # Snap, the AUR, npm or the apt/dnf repositories. See docs/BETA.md.
+#
+# Every channel job is skipped, with a notice saying why, when its secret is missing;
+# a missing secret never fails the release. Commits this workflow adds to this
+# repository go through the incoming branch, where sign-and-land.yml signs them as
+# ashfordeOU (gh-pages commits are signed here with the same key), so every commit
+# stays Verified.
 #
 # The msstore job also builds the Microsoft Store package (.msix) as a workflow artifact;
 # it is uploaded to Partner Center by hand (docs/STORES.md), never attached to the release.
@@ -38,6 +52,19 @@ on:
         description: Build only (do not publish a release)
         type: boolean
         default: false
+      platforms:
+        description: 'Systems to release: "mac", "windows", "linux" (comma-separated) or "all"; empty = .github/release.json'
+        type: string
+        default: ''
+  # release-check.yml builds everything this way, without publishing.
+  workflow_call:
+    inputs:
+      dry_run:
+        type: boolean
+        default: true
+      platforms:
+        type: string
+        default: ''
 
 permissions:
   contents: write
@@ -46,7 +73,8 @@ permissions:
 # the same commit (a version bump and its tag) wait for each other, so the second
 # finds the release and skips.
 concurrency:
-  group: release-${{ github.sha }}
+  # (github.workflow keeps release-check.yml's build-only run apart.)
+  group: release-${{ github.workflow }}-${{ github.sha }}
   cancel-in-progress: false
 
 jobs:
@@ -60,6 +88,13 @@ jobs:
       prerelease: ${{ steps.tag.outputs.prerelease }}
       publish: ${{ steps.tag.outputs.publish }}
       build: ${{ steps.tag.outputs.build }}
+      platforms: ${{ steps.platforms.outputs.platforms }}
+      mac: ${{ steps.platforms.outputs.mac }}
+      windows: ${{ steps.platforms.outputs.windows }}
+      linux: ${{ steps.platforms.outputs.linux }}
+      matrix: ${{ steps.platforms.outputs.matrix }}
+      cli_from: ${{ steps.platforms.outputs.cli_from }}
+      make_latest: ${{ steps.platforms.outputs.make_latest }}
     steps:
       - uses: actions/checkout@v5
       - id: tag
@@ -95,6 +130,66 @@ jobs:
             echo "publish=$publish"
             echo "build=$build"
           } | tee -a "$GITHUB_OUTPUT"
+      # Which systems this release covers, and the build matrix for them.
+      - id: platforms
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED: ${{ inputs.platforms }}
+          PRERELEASE: ${{ steps.tag.outputs.prerelease }}
+        run: |
+          set -euo pipefail
+          if [ -n "$REQUESTED" ]; then list="$REQUESTED"; from="the platforms input"
+          else list="$(jq -r '.platforms | join(",")' .github/release.json)"; from=".github/release.json"
+          fi
+          list="$(printf '%s' "$list" | tr 'A-Z ' 'a-z,')"
+          [ "$list" = all ] && list="mac,windows,linux"
+          mac=false; windows=false; linux=false
+          for p in $(printf '%s' "$list" | tr ',' ' '); do
+            case "$p" in
+              mac|macos|darwin) mac=true ;;
+              windows|win|win32) windows=true ;;
+              linux) linux=true ;;
+              *) echo "::error::Unknown platform \"$p\" in $from (use mac, windows, linux or all)"; exit 1 ;;
+            esac
+          done
+          platforms=""
+          [ "$mac" = true ] && platforms="$platforms,mac"
+          [ "$windows" = true ] && platforms="$platforms,windows"
+          [ "$linux" = true ] && platforms="$platforms,linux"
+          platforms="${platforms#,}"
+          [ -n "$platforms" ] || { echo "::error::$from names no platform"; exit 1; }
+          # The build matrix: one entry per system and processor, kept to the systems released.
+          matrix="$(jq -c --arg p ",$platforms," '{include: [.[] | select(.group as $g | $p | contains("," + $g + ","))]}' <<'MATRIX'
+          [
+            { "name": "macOS (Apple silicon)", "runner": "macos-latest", "platform": "darwin", "arch": "arm64", "target": "--mac", "group": "mac" },
+            { "name": "macOS (Intel)", "runner": "macos-latest", "platform": "darwin", "arch": "x64", "target": "--mac", "group": "mac" },
+            { "name": "Windows (x64)", "runner": "windows-latest", "platform": "win32", "arch": "x64", "target": "--win", "group": "windows" },
+            { "name": "Linux (x64)", "runner": "ubuntu-latest", "platform": "linux", "arch": "x64", "target": "--linux", "group": "linux" },
+            { "name": "Linux (ARM64)", "runner": "ubuntu-24.04-arm", "platform": "linux", "arch": "arm64", "target": "--linux", "group": "linux" }
+          ]
+          MATRIX
+          )"
+          # The keeper command (npm package, Homebrew formula) is plain JavaScript: built once, on a system that is released.
+          if [ "$linux" = true ]; then cli_from="linux-x64"; elif [ "$mac" = true ]; then cli_from="darwin-arm64"; else cli_from="win32-x64"; fi
+          # GitHub's "latest" release backs the README's download links, Flathub and the apt
+          # source. A release for some systems only takes it over only while there is no
+          # stable release yet (1.0.0); after that the last full release keeps it.
+          make_latest=true
+          if [ "$PRERELEASE" = true ]; then make_latest=false
+          elif [ "$platforms" != "mac,windows,linux" ] && gh api "repos/$GITHUB_REPOSITORY/releases/latest" >/dev/null 2>&1; then make_latest=false
+          fi
+          if [ "$platforms" != "mac,windows,linux" ]; then
+            echo "::notice title=Platforms::This release covers $platforms only (from $from). The others keep their current version."
+          fi
+          {
+            echo "platforms=$platforms"
+            echo "mac=$mac"
+            echo "windows=$windows"
+            echo "linux=$linux"
+            echo "matrix=$matrix"
+            echo "cli_from=$cli_from"
+            echo "make_latest=$make_latest"
+          } | tee -a "$GITHUB_OUTPUT"
 
   build:
     name: ${{ matrix.name }}
@@ -103,13 +198,8 @@ jobs:
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - { name: macOS (Apple silicon), runner: macos-latest, platform: darwin, arch: arm64, target: --mac }
-          - { name: macOS (Intel), runner: macos-latest, platform: darwin, arch: x64, target: --mac }
-          - { name: Windows (x64), runner: windows-latest, platform: win32, arch: x64, target: --win }
-          - { name: Linux (x64), runner: ubuntu-latest, platform: linux, arch: x64, target: --linux }
-          - { name: Linux (ARM64), runner: ubuntu-24.04-arm, platform: linux, arch: arm64, target: --linux }
+      # Built by the tag job from .github/release.json (or the platforms input): only the systems released.
+      matrix: ${{ fromJSON(needs.tag.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -214,8 +304,9 @@ jobs:
             release/latest*.yml
             release/*.blockmap
           if-no-files-found: error
-      # The keeper command on its own, for the npm package and the Homebrew formula.
-      - if: matrix.platform == 'linux' && matrix.arch == 'x64'
+      # The keeper command on its own, for the npm package and the Homebrew formula
+      # (from Linux x64, or the first released system when Linux is left out).
+      - if: format('{0}-{1}', matrix.platform, matrix.arch) == needs.tag.outputs.cli_from
         uses: actions/upload-artifact@v4
         with:
           name: cli-bundle
@@ -235,12 +326,14 @@ jobs:
       version: ${{ needs.tag.outputs.version }}
       prerelease: ${{ needs.tag.outputs.prerelease }}
       repos: ${{ steps.repos.outputs.built }}
+      manifests: ${{ steps.channels.outputs.manifests }}
       homebrew: ${{ steps.channels.outputs.homebrew }}
       npm: ${{ steps.channels.outputs.npm }}
       winget: ${{ steps.channels.outputs.winget }}
       choco: ${{ steps.channels.outputs.choco }}
       aur: ${{ steps.channels.outputs.aur }}
       snap: ${{ steps.channels.outputs.snap }}
+      pages: ${{ steps.channels.outputs.pages }}
     env:
       KEEPER_GPG_PRIVATE_KEY: ${{ secrets.KEEPER_GPG_PRIVATE_KEY }}
       KEEPER_GPG_PASSPHRASE: ${{ secrets.KEEPER_GPG_PASSPHRASE }}
@@ -290,7 +383,7 @@ jobs:
           echo "fpr=$(gpg --list-secret-keys --with-colons | awk -F: '/^fpr/ {print $10; exit}')" >> "$GITHUB_OUTPUT"
       - name: apt and dnf repositories
         id: repos
-        if: env.KEEPER_GPG_PRIVATE_KEY != '' && steps.meta.outputs.prerelease == 'false'
+        if: env.KEEPER_GPG_PRIVATE_KEY != '' && steps.meta.outputs.prerelease == 'false' && needs.tag.outputs.linux == 'true'
         env:
           KEEPER_GPG_KEY_ID: ${{ steps.gpg.outputs.fpr }}
           RELEASE_VERSION: ${{ steps.meta.outputs.version }}
@@ -310,37 +403,36 @@ jobs:
           KEY: ${{ steps.gpg.outputs.fpr }}
         run: |
           cd artifacts
-          for f in SHA256SUMS.txt *.AppImage; do gpg --batch --yes --local-user "$KEY" --armor --detach-sign -o "$f.asc" "$f"; done
+          for f in SHA256SUMS.txt *.AppImage; do
+            [ -e "$f" ] || continue # no AppImage in a release without Linux
+            gpg --batch --yes --local-user "$KEY" --armor --detach-sign -o "$f.asc" "$f"
+          done
           ls -1 -- *.asc
+      # Only the kinds of file this release has (a release without Linux has no AppImage):
+      # a pattern that matches nothing would stop the attestation.
+      - name: Files to attest
+        id: subjects
+        run: |
+          {
+            echo 'paths<<SUBJECTS'
+            for f in artifacts/*.dmg artifacts/*.zip artifacts/*.exe artifacts/*.AppImage artifacts/*.deb artifacts/*.rpm artifacts/*.tar.gz artifacts/*.tgz artifacts/SHA256SUMS.txt; do
+              [ -e "$f" ] && echo "$f"
+            done
+            echo SUBJECTS
+          } >> "$GITHUB_OUTPUT"
       - name: Build provenance attestations
         uses: actions/attest-build-provenance@v4
         with:
-          subject-path: |
-            artifacts/*.dmg
-            artifacts/*.zip
-            artifacts/*.exe
-            artifacts/*.AppImage
-            artifacts/*.deb
-            artifacts/*.rpm
-            artifacts/*.tar.gz
-            artifacts/*.tgz
-            artifacts/SHA256SUMS.txt
-      - name: Release notes from the changelog
+          subject-path: ${{ steps.subjects.outputs.paths }}
+      # .github/release-notes/<version>.md when it exists, else the CHANGELOG section; long
+      # notes fold their long sections; then the platforms line and the install notes.
+      - name: Release notes
         env:
           RELEASE_VERSION: ${{ steps.meta.outputs.version }}
+          PLATFORMS: ${{ needs.tag.outputs.platforms }}
         run: |
-          awk -v v="$RELEASE_VERSION" '$0 ~ "^## \\[" v "\\]" {f=1; next} /^## \[/ && f {exit} f' CHANGELOG.md > notes.md
-          [ -s notes.md ] || echo "Keeper $RELEASE_VERSION" > notes.md
-          cat >> notes.md <<'NOTES'
-
-          ### Install
-          On a Mac, from Terminal:
-          ```bash
-          curl -fsSL https://raw.githubusercontent.com/ashfordeOU/keeper/main/scripts/install.sh | sh
-          ```
-          Or download the file for your system below. Copies already installed update themselves.
-          If macOS says it cannot verify the developer, open **System Settings → Privacy & Security** and click **Open Anyway**.
-          NOTES
+          node .github/scripts/release-notes.mjs --version "$RELEASE_VERSION" --platforms "$PLATFORMS" --out notes.md
+          wc -c notes.md
       # Creates the tag on the commit that was built when it does not exist yet.
       - uses: softprops/action-gh-release@v2
         with:
@@ -350,13 +442,22 @@ jobs:
           body_path: notes.md
           generate_release_notes: true
           prerelease: ${{ steps.meta.outputs.prerelease == 'true' }}
+          make_latest: ${{ needs.tag.outputs.make_latest }}
 
       # ---- Manifests for the package managers, and which channels have their secret
+      # Only the channels of the systems in this release (the others' files are not in SHA256SUMS.txt).
       - name: Package-manager manifests
         env:
           VERSION: ${{ steps.meta.outputs.version }}
+          MAC: ${{ needs.tag.outputs.mac }}
+          WINDOWS: ${{ needs.tag.outputs.windows }}
+          LINUX: ${{ needs.tag.outputs.linux }}
         run: |
-          node scripts/render-packaging.mjs --version "$VERSION" --sums artifacts/SHA256SUMS.txt --cli cli-bundle/keeper.cjs --out packaging-out
+          only=npm
+          [ "$MAC" = true ] && only="$only,homebrew"
+          [ "$WINDOWS" = true ] && only="$only,scoop,winget,chocolatey"
+          [ "$LINUX" = true ] && only="$only,aur,flatpak"
+          node scripts/render-packaging.mjs --version "$VERSION" --sums artifacts/SHA256SUMS.txt --cli cli-bundle/keeper.cjs --out packaging-out --only "$only"
           cp artifacts/keeper-cli-*.tgz packaging-out/
       - uses: actions/upload-artifact@v4
         with:
@@ -368,84 +469,105 @@ jobs:
           name: pages
           path: pages-out
           include-hidden-files: true
+      # Which channels run: a stable release, the channel's system in this release, and its
+      # secret. Each one that does not run says why in a notice; none of them fails the release.
       - id: channels
         env:
+          PRERELEASE: ${{ steps.meta.outputs.prerelease }}
+          MAC: ${{ needs.tag.outputs.mac }}
+          WINDOWS: ${{ needs.tag.outputs.windows }}
+          LINUX: ${{ needs.tag.outputs.linux }}
+          REPOS: ${{ steps.repos.outputs.built }}
+          COMMIT_SIGNING_KEY: ${{ secrets.COMMIT_SIGNING_KEY }}
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
           CHOCO_API_KEY: ${{ secrets.CHOCO_API_KEY }}
           AUR_SSH_KEY: ${{ secrets.AUR_SSH_KEY }}
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+          GPG_KEY: ${{ secrets.KEEPER_GPG_PRIVATE_KEY }}
         run: |
-          has() { if [ -n "$2" ]; then echo "$1=true"; else echo "$1=false"; fi; }
-          {
-            has homebrew "$HOMEBREW_TAP_TOKEN"
-            has npm "$NPM_TOKEN"
-            has winget "$WINGET_TOKEN"
-            has choco "$CHOCO_API_KEY"
-            has aur "$AUR_SSH_KEY"
-            has snap "$SNAPCRAFT_STORE_CREDENTIALS"
-          } | tee -a "$GITHUB_OUTPUT"
+          # channel output-name title system-included system-name secret secret-name
+          channel() {
+            on=true
+            if [ "$PRERELEASE" = true ]; then on=false
+            elif [ "$3" != true ]; then on=false; echo "::notice title=$2 skipped::this release has no $4 build"
+            elif [ -z "$5" ]; then on=false; echo "::notice title=$2 skipped::the $6 secret is not set (see RELEASING.md)"
+            fi
+            echo "$1=$on" | tee -a "$GITHUB_OUTPUT"
+          }
+          [ "$PRERELEASE" = true ] && echo "::notice title=Channels skipped::a pre-release goes to GitHub only"
+          macwin=false; if [ "$MAC" = true ] || [ "$WINDOWS" = true ]; then macwin=true; fi
+          linuxrepos=false; if [ "$LINUX" = true ] && [ "$REPOS" = true ]; then linuxrepos=true; fi
+          if [ "$LINUX" = true ] && [ "$PRERELEASE" = false ] && [ -z "$GPG_KEY" ]; then
+            echo "::notice title=GPG signatures, apt and dnf repositories skipped::the KEEPER_GPG_PRIVATE_KEY secret is not set (see RELEASING.md)"
+          fi
+          channel manifests 'Casks/keeper.rb and the Scoop bucket' "$macwin" 'macOS or Windows' "$COMMIT_SIGNING_KEY" COMMIT_SIGNING_KEY
+          channel homebrew 'Homebrew tap' "$MAC" macOS "$HOMEBREW_TAP_TOKEN" HOMEBREW_TAP_TOKEN
+          channel npm 'npm keeper-cli' true any "$NPM_TOKEN" NPM_TOKEN
+          channel winget winget "$WINDOWS" Windows "$WINGET_TOKEN" WINGET_TOKEN
+          channel choco Chocolatey "$WINDOWS" Windows "$CHOCO_API_KEY" CHOCO_API_KEY
+          channel aur AUR "$LINUX" Linux "$AUR_SSH_KEY" AUR_SSH_KEY
+          channel snap 'Snap Store' "$LINUX" Linux "$SNAPCRAFT_STORE_CREDENTIALS" SNAPCRAFT_STORE_CREDENTIALS
+          channel pages 'dnf repository on gh-pages' "$linuxrepos" 'Linux (with KEEPER_GPG_PRIVATE_KEY)' "$COMMIT_SIGNING_KEY" COMMIT_SIGNING_KEY
 
-  # ---- Channels. Each runs only when its secret exists, and only for stable releases:
-  # a pre-release (a tag with a hyphen) never reaches a package manager.
-  scoop:
-    needs: release
-    if: needs.release.outputs.prerelease == 'false'
+  # ---- Channels. Each runs only for a stable release that includes its system, and only
+  # when its secret exists (the release job's channels step says which, and why not).
+
+  # Casks/keeper.rb (brew tap ashfordeOU/keeper https://github.com/ashfordeOU/keeper) and
+  # bucket/keeper.json (the Scoop bucket) in this repository. The commit is made as
+  # ashfordeOU on top of the incoming branch, and sign-and-land.yml signs it with
+  # COMMIT_SIGNING_KEY and moves main, so it is Verified like every other commit there.
+  # It does not touch package.json, so it starts no release.
+  manifests:
+    needs: [tag, release]
+    if: needs.release.outputs.manifests == 'true' && needs.release.outputs.prerelease == 'false'
     runs-on: ubuntu-latest
-    continue-on-error: true # a protected default branch only means the bucket waits for a manual update
+    permissions:
+      contents: write # push to incoming
+      actions: write # start sign-and-land.yml (pushes made with this token start no workflows)
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
       - uses: actions/download-artifact@v4
         with:
           name: packaging
-          path: packaging-out
-      - name: Update bucket/keeper.json
-        run: |
-          cp packaging-out/scoop/keeper.json bucket/keeper.json
-          git diff --quiet && exit 0
-          git config user.name "${{ github.actor }}"
-          git config user.email "${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com"
-          git commit -am "Scoop: Keeper ${{ needs.release.outputs.version }}"
-          git push
-
-  # Casks/keeper.rb in this repository (brew tap ashfordeOU/keeper https://github.com/ashfordeOU/keeper).
-  # Runs after the Scoop bucket so the two commits to the default branch never race. The
-  # commit cannot start another release: it does not touch package.json, and pushes made
-  # with the workflow's token start no workflows.
-  cask:
-    needs: [release, scoop]
-    if: always() && needs.release.result == 'success' && needs.release.outputs.prerelease == 'false'
-    runs-on: ubuntu-latest
-    env:
-      BRANCH: ${{ github.event.repository.default_branch }}
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          ref: ${{ github.event.repository.default_branch }}
-      - uses: actions/download-artifact@v4
-        with:
-          name: packaging
-          path: packaging-out
-      - name: Update Casks/keeper.rb
+          path: ${{ runner.temp }}/packaging-out
+      - name: Commit the cask and the bucket to incoming
+        id: push
         env:
           VERSION: ${{ needs.release.outputs.version }}
+          MAC: ${{ needs.tag.outputs.mac }}
+          WINDOWS: ${{ needs.tag.outputs.windows }}
+          OUT: ${{ runner.temp }}/packaging-out
         run: |
-          mkdir -p Casks
-          cp packaging-out/homebrew/Casks/keeper.rb Casks/keeper.rb
-          git add Casks/keeper.rb
-          git diff --cached --quiet && exit 0
-          git config user.name "${{ github.actor }}"
-          git config user.email "${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com"
-          git commit -m "Homebrew: Keeper $VERSION [skip ci]"
+          set -euo pipefail
+          git config user.name ashfordeOU
+          git config user.email 236818772+ashfordeOU@users.noreply.github.com
+          what=()
           for attempt in 1 2 3 4 5; do
-            if git pull --rebase origin "$BRANCH" && git push origin "HEAD:$BRANCH"; then exit 0; fi
-            sleep $((attempt * 5))
+            git fetch -q origin main
+            # incoming is main plus whatever is waiting to be signed; start from it when it builds on main.
+            base=origin/main
+            if git fetch -q origin incoming 2>/dev/null && git merge-base --is-ancestor origin/main origin/incoming; then base=origin/incoming; fi
+            git checkout -q --detach "$base"
+            what=()
+            if [ "$MAC" = true ]; then mkdir -p Casks; cp "$OUT/homebrew/Casks/keeper.rb" Casks/keeper.rb; git add Casks/keeper.rb; what+=("Homebrew"); fi
+            if [ "$WINDOWS" = true ]; then mkdir -p bucket; cp "$OUT/scoop/keeper.json" bucket/keeper.json; git add bucket/keeper.json; what+=("Scoop"); fi
+            if git diff --cached --quiet; then echo "Casks/keeper.rb and bucket/keeper.json are up to date."; echo "pushed=false" >> "$GITHUB_OUTPUT"; exit 0; fi
+            label="${what[0]}"; [ "${#what[@]}" -gt 1 ] && label="${what[0]} and ${what[1]}"
+            git commit -q -m "$label: Keeper $VERSION [skip ci]"
+            if git push origin HEAD:refs/heads/incoming; then echo "pushed=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+            sleep $((attempt * 10))
           done
-          echo "::error::Could not push Casks/keeper.rb to $BRANCH"
+          echo "::error::Could not push the cask and bucket update to incoming"
           exit 1
+      - name: Sign and land it on main
+        if: steps.push.outputs.pushed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run sign-and-land.yml --ref incoming --repo "$GITHUB_REPOSITORY"
 
   # The ashfordeOU/homebrew-keeper tap (brew install --cask ashfordeou/keeper/keeper), when its token exists.
   homebrew:
@@ -462,18 +584,34 @@ jobs:
           repository: ashfordeOU/homebrew-keeper
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           path: tap
+      # Committed as ashfordeOU, and signed with COMMIT_SIGNING_KEY when it is set (Verified on GitHub).
       - name: Update the cask and the formula
+        env:
+          VERSION: ${{ needs.release.outputs.version }}
+          SIGNING_KEY: ${{ secrets.COMMIT_SIGNING_KEY }}
         run: |
+          set -euo pipefail
           mkdir -p tap/Casks tap/Formula
           cp packaging-out/homebrew/Casks/keeper.rb tap/Casks/keeper.rb
           cp packaging-out/homebrew/Formula/keeper-cli.rb tap/Formula/keeper-cli.rb
           cd tap
           git add -A
           git diff --cached --quiet && exit 0
-          git config user.name "${{ github.actor }}"
-          git config user.email "${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com"
-          git commit -m "Keeper ${{ needs.release.outputs.version }}"
+          git config user.name ashfordeOU
+          git config user.email 236818772+ashfordeOU@users.noreply.github.com
+          if [ -n "$SIGNING_KEY" ]; then
+            key="$RUNNER_TEMP/signing_key"
+            install -m 600 /dev/null "$key"
+            printf '%s\n' "$SIGNING_KEY" > "$key"
+            git config gpg.format ssh
+            git config user.signingkey "$key"
+            git config commit.gpgsign true
+          else
+            echo "::notice title=Homebrew tap::COMMIT_SIGNING_KEY is not set, so the tap commit is not signed"
+          fi
+          git commit -m "Keeper $VERSION"
           git push
+          rm -f "$RUNNER_TEMP/signing_key"
 
   npm:
     needs: release
@@ -540,8 +678,8 @@ jobs:
         with:
           pkgname: keeper-bin
           pkgbuild: packaging-out/aur/keeper-bin/PKGBUILD
-          commit_username: ${{ github.actor }}
-          commit_email: ${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com
+          commit_username: ashfordeOU
+          commit_email: 236818772+ashfordeOU@users.noreply.github.com
           ssh_private_key: ${{ secrets.AUR_SSH_KEY }}
           commit_message: Keeper ${{ needs.release.outputs.version }}
 
@@ -581,7 +719,7 @@ jobs:
   msstore:
     name: Microsoft Store (MSIX)
     needs: tag
-    if: needs.tag.outputs.build == 'true'
+    if: needs.tag.outputs.build == 'true' && needs.tag.outputs.windows == 'true'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v5
@@ -617,9 +755,11 @@ jobs:
           path: release/*.msix
           if-no-files-found: error
 
+  # The dnf repository and the public key on gh-pages (GitHub Pages). The commit is made as
+  # ashfordeOU and signed here with COMMIT_SIGNING_KEY, so gh-pages stays Verified too.
   pages:
     needs: release
-    if: needs.release.outputs.repos == 'true'
+    if: needs.release.outputs.pages == 'true' && needs.release.outputs.prerelease == 'false'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -632,7 +772,10 @@ jobs:
       - name: Publish the dnf repository and the signing key to gh-pages
         env:
           SRC: ${{ runner.temp }}/pages-out
+          VERSION: ${{ needs.release.outputs.version }}
+          SIGNING_KEY: ${{ secrets.COMMIT_SIGNING_KEY }}
         run: |
+          set -euo pipefail
           if git ls-remote --exit-code --heads origin gh-pages >/dev/null; then
             git fetch origin gh-pages && git switch gh-pages
           else
@@ -642,7 +785,13 @@ jobs:
           cp -r "$SRC"/. .
           git add -A
           git diff --cached --quiet && exit 0
-          git config user.name "${{ github.actor }}"
-          git config user.email "${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com"
-          git commit -m "Package repositories for Keeper ${{ needs.release.outputs.version }}"
+          key="$RUNNER_TEMP/signing_key"
+          install -m 600 /dev/null "$key"
+          printf '%s\n' "$SIGNING_KEY" > "$key"
+          git config user.name ashfordeOU
+          git config user.email 236818772+ashfordeOU@users.noreply.github.com
+          git config gpg.format ssh
+          git config user.signingkey "$key"
+          git commit -S -m "Package repositories for Keeper $VERSION"
           git push origin gh-pages
+          rm -f "$key"

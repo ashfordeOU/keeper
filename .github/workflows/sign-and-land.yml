@@ -7,11 +7,16 @@
 #
 # A push made with the workflow's own token does not start other workflows, so this
 # one starts CI itself, and the release when the version in package.json changed.
+# Release jobs that commit to this repository push to incoming and start this workflow
+# (workflow_dispatch), so their commits are signed here as well.
 name: Sign and land
 
 on:
   push:
     branches: [incoming]
+  # The release workflow pushes the cask and Scoop bucket update to incoming with its own
+  # token, which starts no workflow, and then starts this one by hand (--ref incoming).
+  workflow_dispatch:
 
 permissions:
   contents: write

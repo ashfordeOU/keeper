@@ -1,0 +1,4 @@
+{
+  "_about": "Which systems a version bump publishes. Any of \"mac\", \"windows\", \"linux\". Read by the tag job of .github/workflows/release.yml (a manual run's \"platforms\" input overrides it). A system left out keeps its current version: its installed copies are offered nothing, and the install scripts keep giving the newest release that has its files. See RELEASING.md.",
+  "platforms": ["mac", "windows", "linux"]
+}
