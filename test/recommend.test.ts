@@ -134,3 +134,15 @@ describe('tiered approvals', () => {
     expect(approvalsFor('win32', onFor({ ...macLaptop, platform: 'win32' })).now).toEqual([]);
   });
 });
+
+describe('Choose starts from Recommended', () => {
+  it('leaves out parts that only follow a part that is off, so nothing extra turns on', async () => {
+    const { recommendedIds } = await import('../core/features');
+    const ids = recommendedIds({ platform: 'linux', battery: true, memoryGb: 16, cores: 8 }, 'linux');
+    for (const id of ['remoteScreen', 'remoteFleet', 'linkDirect', 'islandPlanner']) expect(ids, id).not.toContain(id);
+    const s = { ...base(), ...choicePatch(base(), ids) };
+    const on = [...featureStates(s, 'linux').values()].filter((f) => f.on).map((f) => f.id);
+    expect(on).not.toContain('link');
+    expect(on).not.toContain('planner');
+  });
+});

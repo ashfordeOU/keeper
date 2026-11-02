@@ -72,7 +72,7 @@ async function fixtures() {
   main.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
   await main.setViewportSize({ width: 1360, height: 900 }).catch(() => undefined);
   await main.waitForTimeout(2500);
-  const skipTour = async () => { for (const label of ['Skip tour', 'Got it']) { const b = main.locator('button', { hasText: label }); if (await b.count()) await b.first().click().catch(() => undefined); } };
+  const skipTour = async () => { for (const label of ['Skip setup', 'Got it']) { const b = main.locator('button', { hasText: label }); if (await b.count()) await b.first().click().catch(() => undefined); } };
   await skipTour();
   const run = (op, inputs, extra = {}) => main.evaluate(([o, i, x]) => window.keeper.convert.run({ op: o, inputs: i, ...x }), [op, inputs, extra]);
   const nav = (r) => app.evaluate(({ BrowserWindow }, route) => BrowserWindow.getAllWindows().forEach((w) => w.webContents.send('event:navigate', route)), r);

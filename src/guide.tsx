@@ -14,8 +14,8 @@ import { api } from './api';
 import { Icon } from './components/Icon';
 import { resolveLanguage } from './i18n';
 import { useStore, type Route } from './state';
-import { TourUsageStats } from './components/UsageStatsPanel';
-import { openPermissions, PermissionsPanel, takeReopen } from './components/PermissionsPanel';
+import { openPermissions, takeReopen } from './components/PermissionsPanel';
+import { FirstRunHost } from './setup/FirstRun';
 import './styles/guide.css';
 
 // ---------------------------------------------------------------- shared state: which guide is open
@@ -341,93 +341,14 @@ export function CoachHost({ route }: { route: Route }) {
   );
 }
 
-const TOUR: { title: string; text: string; route?: Route; practice?: boolean; stats?: boolean; permissions?: boolean; island?: boolean }[] = [
-  { title: 'Welcome to Keeper', text: 'Your files, your computer’s health and your privacy in one place. Here is a 30-second look around.' },
-  { title: 'Anonymous usage stats', text: 'Keeper sends a small anonymous report once a day to help us improve it: its version, the kind of computer, which features and pages you use, and crash counts. Never your files, searches or names. Switch it off here or any time in Settings → Privacy.', stats: true },
-  { title: 'Permissions', text: 'Some features need your OK in the system’s settings: seeing the screen, the microphone, typing for you and so on. Set them up now, in one go, and nothing interrupts you later. You can change this any time in Settings → Permissions.', permissions: true },
-  { title: 'Find anything', text: 'Type what you remember in the search bar — “pdfs from gmail last month”, “screenshots with wifi password”.' },
-  { title: 'Your To do list', text: 'Keeper checks space, security, privacy, backups and updates, and lists what is worth doing — each with “Fix” that does it or walks you through it.', route: { name: 'todo' as Route['name'] } },
-  { title: 'The Island', text: 'The bar at the top of the screen (under the notch on a Mac) holds what is going on: music, timers, calls and reminders that are due, with Snooze and Done. Point at it to open it: drop files on the shelf, check off today’s tasks, plan the week, take notes or start a focus session. Ctrl+Alt+N (⌘⌥N) adds a task from anywhere.', island: true },
-  { title: 'Ask how', text: 'Press ⌘K / Ctrl+K and type “How do I…” — free up space, stop apps watching my camera, encrypt my disk, back up my photos.' },
-  { title: 'Try it: copy text from the screen', text: 'Text in pictures, videos and shared screens can be copied too. Press “Try it”, then drag a box over the card below; its text lands on your clipboard.', practice: true },
-];
-
-/** The practice step: a card with text to capture, and what came back. */
-function PracticeCapture() {
-  const [state, setState] = useState<'idle' | 'busy' | 'done' | 'none'>('idle');
-  const [text, setText] = useState('');
-  const shortcut = navigator.platform.startsWith('Mac') ? '⌘⇧2' : 'Ctrl+Shift+2';
-  const go = async () => {
-    setState('busy');
-    try {
-      const r = await api.capture.text();
-      const t = (r?.text || r?.code || '').trim();
-      setText(t);
-      setState(t ? 'done' : 'none');
-    } catch {
-      setState('none');
-    }
-  };
-  return (
-    <div className="col" style={{ gap: 8 }}>
-      <div className="tour-practice" aria-label="Practice text">Meeting moved to <b>Thursday 10:30</b> · Room 4B · Code 7291</div>
-      <div className="row" style={{ gap: 8 }}>
-        <button className="btn sm" disabled={state === 'busy'} onClick={() => void go()}>{state === 'busy' ? <span className="spinner" /> : null} Try it</button>
-        <span className="small muted">Later, use the capture shortcut ({shortcut}, or your own in Settings).</span>
-      </div>
-      {state === 'done' ? <div className="small tour-got">Copied: “{text.slice(0, 120)}”</div> : null}
-      {state === 'none' ? <div className="small muted">Nothing was read. Drag over the card’s text and try again.</div> : null}
-    </div>
-  );
-}
-
-/** The tour's Permissions step: the choice, then the whole screen for "Set up everything now". */
-function TourPermissions({ step }: { step: number }) {
-  const { settings, updateSettings } = useStore();
-  const choice = settings?.permissionsSetup ?? '';
-  if (choice === 'all') return <PermissionsPanel inTour tourStep={step} />;
-  return (
-    <div className="col" style={{ gap: 8 }} data-testid="tour-permissions">
-      <div className="perm-choice" role="radiogroup" aria-label="How to set up permissions">
-        <button role="radio" aria-checked={false} data-testid="tour-perm-all" onClick={() => void updateSettings({ permissionsSetup: 'all' })}><b>Set up everything now</b><span className="small muted">Recommended</span></button>
-        <button role="radio" aria-checked={choice === 'onDemand'} className={choice === 'onDemand' ? 'on' : ''} data-testid="tour-perm-later" onClick={() => void updateSettings({ permissionsSetup: 'onDemand' })}><b>Only what I turn on</b><span className="small muted">Each feature asks when you first use it</span></button>
-      </div>
-      {choice === 'onDemand' ? <p className="small muted">Fine. Features ask when you turn them on; everything is in Settings → Permissions.</p> : null}
-    </div>
-  );
-}
-
+/** The first-run setup (src/setup/FirstRun.tsx); after "Restart Keeper now" in Permissions, Permissions again. */
 export function TourHost() {
-  const { go, settings } = useStore();
-  const [i, setI] = useState<number | null>(() => {
-    // Back from "Restart Keeper now" in the tour: the Permissions step again.
+  const [firstRun] = useState(() => {
     const back = takeReopen();
-    if (back && back.tourStep !== null && !seen('tour')) return back.tourStep;
-    if (back) setTimeout(() => openPermissions(), 300);
-    return seen('tour') ? null : 0;
+    if (back && back.tourStep === null) setTimeout(() => openPermissions(), 300);
+    return !seen('tour');
   });
-  if (i === null) return null;
-  const step = TOUR[i];
-  const end = () => { markSeen('tour'); setI(null); };
-  const wide = step.permissions && settings?.permissionsSetup === 'all';
-  return (
-    <div className="tour" role="dialog" aria-label="Welcome tour">
-      <div className={`tour-card ${wide ? 'wide' : ''}`}>
-        <div className="small muted">{i + 1} / {TOUR.length}</div>
-        <h3>{step.title}</h3>
-        <p className="small">{step.text}</p>
-        {step.practice ? <PracticeCapture /> : null}
-        {step.stats ? <TourUsageStats /> : null}
-        {step.permissions ? <TourPermissions step={i} /> : null}
-        {step.island && settings?.island?.enabled !== false ? <div className="btn-row"><button className="btn sm" data-testid="tour-island" onClick={() => void api.island.openTab?.('reminders:new')}><Icon name="island" size={12} /> Show me</button></div> : null}
-        <div className="btn-row" style={{ justifyContent: 'flex-end' }}>
-          {step.permissions ? <button className="btn sm ghost" data-testid="tour-perm-skip" onClick={() => setI(i + 1)}>Skip this step</button> : null}
-          <button className="btn sm ghost" onClick={end}>Skip tour</button>
-          {i < TOUR.length - 1 ? <button className="btn sm primary" onClick={() => { const n = i + 1; if (TOUR[n].route) go(TOUR[n].route!); setI(n); }}>Next</button> : <button className="btn sm primary" onClick={end}>Start</button>}
-        </div>
-      </div>
-    </div>
-  );
+  return <FirstRunHost firstRun={firstRun} />;
 }
 
 // ---------------------------------------------------------------- the badge

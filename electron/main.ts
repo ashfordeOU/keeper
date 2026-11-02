@@ -10,7 +10,7 @@ import { addBusyCheck } from './services/busy';
 import { onBeforeInstall, onUpdateNotificationClick, onUpdateStatus } from './services/updater';
 import { openAboutWindow, openUpdateWindow, registerUpdateWindowIpc } from './services/update-window';
 import { shouldOfferUpdate, trayUpdateLabel } from '../core/update-window';
-import { BRAND, COPYRIGHT, REPORT_URL, TRADEMARK, WEBSITE } from '../core/brand';
+import { BRAND, COPYRIGHT, docUrl, REPORT_URL, TRADEMARK, WEBSITE } from '../core/brand';
 // First, so local crash reports cover everything that follows.
 import { initResilience, lastRun, restoreExtraWindows } from './resilience';
 import { attachHover, glanceView, showGlance, toggleGlance } from './services/glance';
@@ -380,6 +380,12 @@ function appMenu(): Menu {
     role: 'help',
     submenu: [
       ...(isMac ? [] : [check, about, { type: 'separator' as const }]),
+      { label: 'Set Up Keeper Again…', click: () => { showMain(); setTimeout(() => main?.webContents.send('event:setup-again'), main?.webContents.isLoading() ? 900 : 50); } },
+      { type: 'separator' as const },
+      { label: 'User Guide', click: () => void shell.openExternal(`${WEBSITE}#readme`) },
+      { label: 'Install and First Launch', click: () => void shell.openExternal(docUrl('INSTALL')) },
+      { label: 'Permissions', click: () => void shell.openExternal(docUrl('PERMISSIONS')) },
+      { type: 'separator' as const },
       { label: 'Keeper on GitHub', click: () => void shell.openExternal(WEBSITE) },
       { label: 'Report a Problem…', click: () => void shell.openExternal(REPORT_URL) },
     ],

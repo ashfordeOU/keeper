@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The command palette: jump anywhere or run any action by typing a few letters.
 
+import { openSetupAgain } from '../setup/FirstRun';
 import { openPermissions } from './PermissionsPanel';
 import { accessCommands } from '../screen/palette';
 import { FLOWS } from '../../core/guide/builtin';
@@ -26,7 +27,7 @@ import { usageCommands } from '../screens/usage/palette';
 interface Command {
   id: string;
   label: string;
-  group: 'Go to' | 'Actions' | 'Search';
+  group: 'Go to' | 'Actions' | 'Search' | 'Recent' | 'Common';
   icon: string;
   kbd?: string;
   keywords?: string;
@@ -97,6 +98,17 @@ const PAGES: [Route, string, string, string?][] = [
   [{ name: 'settings' }, 'Settings', 'settings', `${mod},`],
 ];
 
+// With nothing typed: the commands run last, then the common pages and actions, then the rest.
+const RECENT_KEY = 'palette.recent';
+const COMMON = ['setup-again', 'go-Home', 'go-Clean Up', 'go-Recents', 'go-Health', 'go-Assistant', 'go-Settings', 'browse', 'check-updates'];
+function recentIds(): string[] {
+  try { return (JSON.parse(localStorage.getItem(RECENT_KEY) ?? '[]') as unknown[]).filter((x): x is string => typeof x === 'string').slice(0, 5); } catch { return []; }
+}
+function noteRecent(id: string) {
+  if (id === 'search') return;
+  try { localStorage.setItem(RECENT_KEY, JSON.stringify([id, ...recentIds().filter((x) => x !== id)].slice(0, 5))); } catch { /* storage unavailable */ }
+}
+
 export function CommandPalette({ onClose }: { onClose: () => void }) {
   const store = useStore();
   const [text, setText] = useState('');
@@ -130,6 +142,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     ...PAGES.map(([route, label, icon, kbd]) => ({ id: `go-${label}`, label, group: 'Go to' as const, icon, kbd, route: route.name, run: () => store.go(route) })),
     { id: 'browse', label: 'Browse Home Folder', group: 'Go to', icon: 'folder', run: () => store.go({ name: 'browse', arg: store.info?.home }) },
     { id: 'rescan', label: 'Rescan Library', group: 'Actions', icon: 'refresh', keywords: 'index refresh reload', run: async () => { await api.library.rescan(); store.toast('Reading your folders…'); } },
+    { id: 'setup-again', label: 'Set Up Keeper Again…', group: 'Actions', icon: 'sparkle', keywords: 'welcome tour first run onboarding recommended presets choose parts', run: () => openSetupAgain() },
     { id: 'check-updates', label: 'Check for Updates…', group: 'Actions', icon: 'refresh', keywords: 'update upgrade new version release software', run: () => void api.appInfo.openUpdateWindow() },
     { id: 'about', label: 'About Keeper', group: 'Actions', icon: 'info', keywords: 'version licence license electron', run: () => void api.appInfo.openAbout() },
     { id: 'terminal', label: 'Terminal', group: 'Actions', icon: 'terminal', keywords: 'shell console command line ssh sftp tabs panes', run: () => store.go({ name: 'terminal' }) },
@@ -260,6 +273,13 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
       .sort((a, b) => b.s - a.s)
       .map((x) => x.c);
     const search: Command[] = looksLikeSearch ? [{ id: 'search', label: `Search files for “${q}”`, group: 'Search', icon: 'search', kbd: '↩', run: () => store.go({ name: 'search', q }) }] : [];
+    if (!q) {
+      const byId = new Map(scored.map((c) => [c.id, c]));
+      const recent = recentIds().map((id) => byId.get(id)).filter((c): c is Command => !!c).map((c) => ({ ...c, group: 'Recent' as const }));
+      const common = COMMON.filter((id) => !recent.some((r) => r.id === id)).map((id) => byId.get(id)).filter((c): c is Command => !!c).map((c) => ({ ...c, group: 'Common' as const }));
+      const shown = new Set([...recent, ...common].map((c) => c.id));
+      return [...recent, ...common, ...scored.filter((c) => !shown.has(c.id))];
+    }
     // A strong command match goes first; otherwise searching files does.
     const commandFirst = /^(theme|look)\b/i.test(q) && scored.some((c) => c.id.startsWith('theme-'));
     return q && scored.length && (commandFirst || fuzzyScore(scored[0].label, q) >= 90) ? [...scored, ...search] : [...search, ...scored];
@@ -272,6 +292,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
 
   const run = (c: Command | undefined) => {
     if (!c) return;
+    noteRecent(c.id);
     onClose();
     void c.run();
   };

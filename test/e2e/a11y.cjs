@@ -222,7 +222,7 @@ function audit(scope) {
   await w.setViewportSize({ width: 1440, height: 900 }).catch(() => undefined);
   await w.waitForSelector('.sidebar', { timeout: 60000 });
   await w.waitForTimeout(2000);
-  const skipTour = await w.$('.tour button:has-text("Skip tour")');
+  const skipTour = await w.$('.tour button:has-text("Skip setup")');
   if (skipTour) await skipTour.click();
   const nav = (r) => app.evaluate(({ BrowserWindow }, r) => { for (const x of BrowserWindow.getAllWindows()) if (x.webContents.getURL().includes('view=app')) x.webContents.send('event:navigate', r); }, r);
   const set = (patch) => w.evaluate((p) => window.keeper.settings.set(p), patch);

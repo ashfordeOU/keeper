@@ -1,0 +1,47 @@
+/* SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 */
+/* The first-run setup (src/setup/FirstRun.tsx), on top of the tour's overlay and card. */
+.setup-card { width: min(520px, calc(100vw - 32px)); max-height: calc(100vh - 48px); overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+.setup-card.wide { width: min(680px, calc(100vw - 32px)); }
+.setup-card h3 { margin: 2px 0 0; }
+.setup-card p { margin: 0; }
+.setup-dots { display: flex; gap: 6px; }
+.setup-dots i { width: 22px; height: 4px; border-radius: 2px; background: var(--line); }
+.setup-dots i.on { background: var(--accent); }
+.setup-pillars { list-style: none; margin: 4px 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.setup-pillars li { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; line-height: 1.45; }
+.setup-pillars svg { color: var(--accent); flex: none; margin-top: 2px; }
+.setup-choices { display: flex; flex-direction: column; gap: 8px; }
+.setup-choice { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; text-align: left; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: transparent; color: inherit; cursor: pointer; font: inherit; }
+.setup-choice.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; background: color-mix(in srgb, var(--accent) 6%, transparent); }
+.setup-found { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 0 4px; }
+.setup-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 4px 2px 8px; border-radius: 999px; background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.setup-chip .icon-btn { border: 0; background: transparent; color: inherit; padding: 2px; cursor: pointer; display: inline-flex; border-radius: 50%; }
+.setup-included { align-self: flex-start; padding-left: 4px; }
+.setup-included-list { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 3px; }
+.setup-also { display: flex; flex-direction: column; gap: 4px; }
+.setup-check { display: flex; gap: 6px; align-items: center; font-size: 13px; }
+.setup-foot { line-height: 1.6; }
+.setup-groups { display: flex; flex-direction: column; gap: 8px; }
+.setup-group { border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; }
+.setup-group.on { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.setup-group-head { display: flex; gap: 10px; align-items: flex-start; }
+.setup-group-head input { margin-top: 3px; }
+.setup-group-more { margin: 4px 0 0 24px; }
+.setup-parts { display: flex; flex-direction: column; gap: 6px; margin: 6px 0 2px 24px; }
+.setup-part { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; }
+.setup-part input { margin-top: 3px; }
+.setup-part .badge.sm { margin-left: 6px; font-size: 10px; }
+.setup-footer { position: sticky; bottom: -18px; display: flex; gap: 8px; align-items: center; padding: 10px 0 4px; background: var(--bg-elev, var(--bg)); border-top: 1px solid var(--line); }
+.setup-approvals { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.setup-approvals li { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; }
+.setup-approvals svg { color: var(--ok); margin-top: 2px; }
+.setup-ring { width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid var(--muted, #888); margin-top: 3px; flex: none; }
+.setup-connect { display: flex; flex-direction: column; gap: 8px; }
+.setup-conn { display: flex; gap: 10px; align-items: center; font-size: 13px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; }
+.setup-conn > svg { color: var(--accent); flex: none; }
+.setup-conn .ok { color: var(--ok); white-space: nowrap; }
+.setup-downloads { display: flex; gap: 8px; align-items: center; }
+.setup-downloads .progress { width: 80px; height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; display: inline-block; }
+.setup-downloads .progress i { display: block; height: 100%; background: var(--accent); }
+.warn-text { color: var(--warn, #b45309); }
+@media (max-width: 520px) { .setup-footer { flex-wrap: wrap; } }

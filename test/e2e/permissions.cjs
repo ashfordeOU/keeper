@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Usage (Linux): xvfb-run -a -s "-screen 0 1440x900x24" node test/e2e/permissions.cjs /tmp/kp /tmp/kp-shots
-// (without KEEPER_SKIP_TOUR: the first-run tour is part of the test)
-// The Permissions step of the first-run tour (the choice, the live list,
-// Skip), Settings → Permissions from the palette, Allow (stubbed, so nothing
+// (without KEEPER_SKIP_TOUR: the first-run setup is part of the test)
+// The approvals step of the first-run setup, Settings → Permissions from the palette, Allow (stubbed, so nothing
 // is opened on this computer), and a feature pointing to its row.
 const { _electron } = require('playwright');
 const fs = require('fs');
@@ -35,33 +34,22 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const theme = async (dark) => { await main.evaluate((d) => window.keeper.settings.set({ appearance: d ? 'dark' : 'light' }), dark); await sleep(450); };
   const both = async (name) => { for (const dark of [false, true]) { await theme(dark); await main.screenshot({ path: path.join(SHOTS, `${name}-${dark ? 'dark' : 'light'}.png`) }); } await theme(false); };
 
-  // ---- the first-run tour: Welcome → usage stats → Permissions
-  check(await main.getByText('Welcome to Keeper').count() > 0, 'the first-run tour opens');
-  const tour = main.locator('.tour');
-  await tour.getByRole('button', { name: 'Next' }).click();
-  await tour.getByRole('button', { name: 'Next' }).click();
-  await sleep(300);
-  check(await tour.getByRole('heading', { name: 'Permissions' }).count() === 1, 'the tour has a Permissions step');
-  check(await main.locator('[data-testid="tour-perm-all"]').count() === 1 && await main.locator('[data-testid="tour-perm-later"]').count() === 1, 'it offers "Set up everything now" and "Only what I turn on"');
-  await both('perm-tour-choice');
-  await main.click('[data-testid="tour-perm-all"]');
-  await main.waitForSelector('.tour [data-testid="permissions-panel"] .perm-row', { timeout: 20000 });
-  await sleep(1500);
-  const states = await main.locator('.tour .perm-row').evaluateAll((rows) => rows.map((r) => `${r.getAttribute('data-testid')}=${r.getAttribute('data-state')}`));
-  console.log('  ' + states.join(' '));
-  check(states.length === 6, `the Linux list has all six entries (${states.length})`);
-  check(states.every((s) => /=(allowed|missing|denied|notNeeded|unknown|unavailable|info)$/.test(s)), 'every row shows a status');
-  check(await main.locator('.tour .perm-row .badge').first().textContent().then((t) => t.trim().length > 2), 'statuses are written out');
+  // ---- the first-run setup: Welcome → Recommended → A few approvals (only what the chosen parts need now)
+  check(await main.getByText('Welcome to Keeper').count() > 0, 'the first-run setup opens');
+  await main.click('[data-testid="setup-start"]');
+  await main.click('[data-testid="setup-continue"]');
+  await main.waitForSelector('.tour [data-step="approvals"]', { timeout: 20000 });
+  check(await main.locator('.tour h3', { hasText: 'A few approvals' }).count() === 1, 'setup has an approvals step');
+  await main.waitForSelector('[data-testid="setup-now"], [data-testid="setup-nothing-now"]', { timeout: 20000 });
+  check(await main.locator('[data-testid="setup-now"] li').count() <= 2, 'Recommended needs at most two approvals now');
+  await both('perm-setup-approvals');
   const settings = JSON.parse(fs.readFileSync(path.join(HOME, '.config/Keeper/settings.json'), 'utf8'));
-  check(settings.permissionsSetup === 'all', 'the choice is kept');
-  await both('perm-tour-list');
-  // Skip goes on with the tour.
-  await main.click('[data-testid="tour-perm-skip"]');
-  await sleep(300);
-  check(await tour.getByRole('heading', { name: 'Find anything' }).count() === 1, 'Skip this step goes on with the tour');
-  await tour.getByRole('button', { name: 'Skip tour' }).click();
-  await sleep(300);
-  check(await main.locator('.tour').count() === 0, 'the tour can be skipped');
+  check(settings.features && settings.features.mail === false, 'Recommended wrote its choices (Mail off until an account is added)');
+  await main.click(await main.locator('[data-testid="setup-later"]').count() ? '[data-testid="setup-later"]' : '[data-testid="setup-approvals-next"]');
+  await main.click('[data-testid="setup-connect-skip"]');
+  await main.click('[data-testid="setup-done"]');
+  await sleep(500);
+  check(await main.locator('.tour').count() === 0, 'setup finishes');
 
   // ---- Settings → Permissions from the palette
   await main.keyboard.press('Control+k');
@@ -71,7 +59,6 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await main.waitForSelector('#permissions', { timeout: 10000 });
   await main.waitForSelector('.settings-section [data-testid="permissions-panel"] .perm-row', { timeout: 20000 });
   check(true, 'the palette opens Settings → Permissions');
-  check(await main.locator('.settings-section .perm-choice [aria-checked="true"]').textContent().then((t) => /everything/i.test(t)), 'Settings shows the choice made in the tour');
   await main.locator('#permissions').scrollIntoViewIfNeeded();
   await sleep(400);
   await both('perm-settings');
@@ -93,7 +80,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await app.evaluate(({ BrowserWindow }) => { for (const w of BrowserWindow.getAllWindows()) w.webContents.send('event:permission-needed', { id: 'atspi', feature: 'notifyMirror' }); });
   const toast = main.locator('.toast', { hasText: 'Open Permissions' });
   await toast.waitFor({ timeout: 5000 });
-  check(/Accessibility bus/.test(await toast.textContent()), 'a feature that needs a permission shows which one');
+  check(/other apps’ windows/.test(await toast.textContent()), 'a feature that needs a permission shows which one');
   await toast.getByRole('button', { name: 'Open Permissions' }).click();
   await main.waitForSelector('[data-testid="perm-atspi"].lit', { timeout: 10000 });
   check(true, 'Open Permissions highlights that row');

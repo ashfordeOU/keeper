@@ -429,6 +429,25 @@ export function presetPatch(s: AllSettings, preset: PresetId, ctx?: ComputerCont
   return diff(s, next);
 }
 
+/**
+ * The parts Recommended turns on here, as a list for "Choose what you want" to start from:
+ * a part that only follows another (with parent) is left out while that one is off,
+ * so starting from this list never switches the parent on.
+ */
+export function recommendedIds(ctx: ComputerContext | undefined, platform: string = HOST): string[] {
+  const parts = FEATURES.filter((f) => (!f.platforms || f.platforms.includes(platform as NodeJS.Platform)) && !f.ownChoice && recommend(f, ctx));
+  const on = new Set(parts.map((f) => f.id));
+  for (let changed = true; changed;) {
+    changed = false;
+    for (const f of parts) {
+      if (!on.has(f.id) || f.always) continue;
+      const need = [...(f.follows ? [f.follows] : []), ...(f.requires ?? [])];
+      if (need.some((r) => !on.has(r) && !byId.get(r)?.always)) { on.delete(f.id); changed = true; }
+    }
+  }
+  return [...on];
+}
+
 /** The settings change for "Choose what you want": exactly these parts on (and what they need), the rest off. */
 export function choicePatch(s: AllSettings, on: Iterable<string>): Partial<AllSettings> {
   const want = new Set(on);

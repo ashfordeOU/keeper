@@ -7,7 +7,7 @@ import { app, ipcMain, screen } from 'electron';
 import { existsSync, promises as fsp, readFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { choicePatch, FEATURES, featureStates, presetName, presetPatch, PRESETS, type ComputerContext, type PresetId } from '../../core/features';
+import { choicePatch, FEATURES, featurePatch, featureStates, presetName, presetPatch, recommendedIds, type ComputerContext, type PresetId } from '../../core/features';
 import { approvalsFor, type PermPlatform, type SetupApprovals } from '../../core/permissions';
 import { run } from '../../core/platform';
 import { settings, updateSettings } from '../store';
@@ -145,27 +145,19 @@ export interface SetupExtras {
   usageStats?: boolean;
 }
 
-/**
- * Hook for the download-on-switch components: fetch what the chosen parts need
- * (Recommended, Light and Files only fetch nothing partial). Until the components
- * service is in this build there is nothing to fetch.
- */
-async function ensureComponentsFor(featureIds: string[], opts: { partly?: boolean }): Promise<void> {
-  // COMPONENTS HOOK: when electron/ipc/components.ts exports ensureComponentsFor, call it here:
-  //   (await import('../ipc/components')).ensureComponentsFor(featureIds, opts)
-  void featureIds;
-  void opts;
-}
-
 export async function applySetup(choice: SetupChoice, extras: SetupExtras = {}): Promise<{ on: string[] }> {
   const s = settings();
   let patch;
-  let partly = true;
+  let pendingAI: 'apple' | 'ollama' | undefined;
+  // Recommended, Light and Files only fetch only what their parts need whole; Everything and Choose may fetch parts of a component.
+  let partly: boolean | undefined;
   if ('preset' in choice) {
     const id = presetName(choice.preset);
     const ctx = id === 'recommended' ? { ...(await computerContext()), declined: choice.declined } : undefined;
     patch = presetPatch(s, id, ctx);
-    partly = id === 'everything';
+    if (id !== 'everything') partly = false;
+    // An AI on this computer, and the online one has no key yet: use the local one.
+    if (ctx?.localAI && !ctx.declined?.includes('ai')) pendingAI = ctx.localAI;
   } else {
     const known = new Set(FEATURES.map((f) => f.id));
     patch = choicePatch(s, choice.parts.filter((p) => known.has(p)));
@@ -175,9 +167,46 @@ export async function applySetup(choice: SetupChoice, extras: SetupExtras = {}):
   if (extras.login !== undefined) features.login = extras.login;
   await updateSettings({ ...patch, features, ...(extras.updates !== undefined ? { updateCheck: extras.updates } : {}) });
   if (extras.login !== undefined) await setLoginItem(extras.login).catch(() => false);
+  if (pendingAI && (await activeAINeedsKey())) await useLocalAI(pendingAI).catch(() => false);
   const on = [...featureStates(settings(), PLATFORM).values()].filter((f) => f.on).map((f) => f.id);
-  await ensureComponentsFor(on, { partly }).catch(() => undefined);
+  // Downloads run on in the background (progress shows under the setup card); never blocks Next.
+  void import('./components').then((m) => m.ensureComponentsFor(on, partly === false ? { partly: false } : {})).catch(() => undefined);
   return { on };
+}
+
+/**
+ * Makes the AI on this computer Keeper's AI (Apple's own model, or Ollama) and turns on the
+ * parts that use it. Recommended does this by itself when the AI picked now has no key.
+ */
+export async function useLocalAI(kind?: 'apple' | 'ollama'): Promise<boolean> {
+  const which = kind ?? (await computerContext()).localAI;
+  if (!which) return false;
+  const s = settings();
+  const brain = { ...s.brain, connections: [...s.brain.connections] };
+  if (which === 'apple') {
+    if (!brain.connections.some((c) => c.kind === 'platform')) brain.connections.push({ id: 'apple', kind: 'platform', label: 'Apple Intelligence (this Mac)', model: 'on-device' } as (typeof brain.connections)[number]);
+    brain.active = brain.connections.find((c) => c.kind === 'platform')!.id;
+  } else {
+    if (!brain.connections.some((c) => c.id === 'ollama')) return false;
+    brain.active = 'ollama';
+  }
+  let next = { ...settings(), brain };
+  for (const id of ['assistant', 'writingHelp', 'islandAsk', 'brain']) next = { ...next, ...featurePatch(next, id, true) };
+  await updateSettings({ brain: next.brain, features: next.features, island: next.island });
+  return true;
+}
+
+/** Does the AI Keeper would use now still need a key (none saved)? */
+async function activeAINeedsKey(): Promise<boolean> {
+  const b = settings().brain;
+  const c = b.connections.find((x) => x.id === b.active);
+  if (!c || c.kind === 'platform' || c.kind === 'ollama') return false;
+  try {
+    const { hasSecret } = await import('../store');
+    return !(await hasSecret(c.id));
+  } catch {
+    return true;
+  }
 }
 
 /** The approvals the parts that are on need, tiered. */
@@ -201,13 +230,12 @@ export async function finishSetup(): Promise<void> {
 export function registerSetupIpc() {
   ipcMain.handle('setup.context', () => computerContext());
   ipcMain.handle('setup.recommended', async (_e, declined?: ComputerContext['declined']) => {
-    const ctx = { ...(await computerContext()), declined };
-    const rec = PRESETS.find((p) => p.id === 'recommended')!;
-    return FEATURES.filter((f) => (!f.platforms || f.platforms.includes(PLATFORM)) && !f.ownChoice && rec.on(f, ctx)).map((f) => f.id);
+    return recommendedIds({ ...(await computerContext()), declined }, PLATFORM);
   });
   ipcMain.handle('setup.apply', (_e, choice: SetupChoice, extras?: SetupExtras) => applySetup(choice, extras ?? {}));
   ipcMain.handle('setup.approvals', (_e, parts?: string[]) => setupApprovals(Array.isArray(parts) ? parts.filter((p) => typeof p === 'string') : undefined));
   ipcMain.handle('setup.finish', () => finishSetup());
+  ipcMain.handle('setup.useAI', (_e, kind?: 'apple' | 'ollama') => useLocalAI(kind === 'apple' || kind === 'ollama' ? kind : undefined));
   // Look the computer up early: setup's second screen needs it within seconds of opening.
   void app.whenReady().then(() => setTimeout(() => void computerContext(), 1500));
 }

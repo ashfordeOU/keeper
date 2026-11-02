@@ -15,6 +15,8 @@ export interface SetupApi {
   apply(choice: { preset: PresetId; declined?: ComputerContext['declined'] } | { parts: string[] }, extras?: { login?: boolean; updates?: boolean; usageStats?: boolean }): Promise<{ on: string[] }>;
   /** the approvals these parts (or the parts that are on) need, tiered */
   approvals(parts?: string[]): Promise<SetupApprovals>;
+  /** makes the AI on this computer Keeper's AI and turns on the parts that use it */
+  useAI(kind?: 'apple' | 'ollama'): Promise<boolean>;
   /** setup finished or skipped: the library reads every folder from now on */
   finish(): Promise<void>;
 }

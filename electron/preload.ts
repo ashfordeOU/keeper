@@ -52,7 +52,7 @@ const api = {
   usageStats: group('usageStats', ['status', 'setOn', 'resetId', 'setBlocked', 'page']),
   // The system permissions Keeper's features use (first run, Settings → Permissions).
   permissions: group('permissions', ['list', 'request', 'openSettings', 'test', 'restart']),
-  setup: group('setup', ['context', 'recommended', 'apply', 'approvals', 'finish']),
+  setup: group('setup', ['context', 'recommended', 'apply', 'approvals', 'finish', 'useAI']),
   keychain: group('keychain', ['status', 'retry']),
   features: group('features', ['list', 'set', 'preset', 'sets', 'saveSet', 'removeSet', 'applySet', 'setPowerSets', 'live']),
   // Downloadable parts (ffmpeg, ONNX Runtime, rclone) and add-on apps (docs/COMPONENTS.md).

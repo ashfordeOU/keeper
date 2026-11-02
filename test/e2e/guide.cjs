@@ -49,7 +49,7 @@ const check = (ok, what) => { console.log(`${ok ? 'PASS' : 'FAIL'} ${what}`); if
   // The first-run tour.
   check(await main.getByText('Welcome to Keeper').count() > 0, 'the first-run tour opens');
   await main.screenshot({ path: path.join(SHOTS, 'tour-light.png') });
-  await main.getByText('Skip tour').click();
+  await main.getByText('Skip setup').click();
 
   // To do: check now.
   await main.click('.sidebar [title="To do"]');
