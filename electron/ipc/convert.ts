@@ -23,6 +23,7 @@ import { phoneScanFiles } from '../../core/scan';
 import { batches, piecesPrompt, readPieces, type DocKind } from '../../core/translate-doc';
 import { complete } from '../../core/ai-actions';
 import { startJob } from '../services/governor';
+import { markOrigin } from '../services/origin-mark';
 
 const req = createRequire(__filename);
 
@@ -296,6 +297,8 @@ export function registerConvertIpc(deps: Deps) {
         job.update(`${Math.round(p.fraction * 100)}%`);
         deps.progress({ task: 'download-video', phase: p.phase, done: Math.round(p.fraction * 1000), total: 1000 });
       });
+      // Each video records the page it came from (Downloaded From → YouTube, Vimeo…).
+      for (const f of files) await markOrigin(f, { url: o.url });
       for (const f of files) void deps.refresh(f);
       deps.changed();
       return files;

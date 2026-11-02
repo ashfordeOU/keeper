@@ -8,6 +8,7 @@
 //   Linux   extended attribute user.xdg.origin.url / user.xdg.referrer.url
 
 import type { DownloadSource } from './types';
+import { keeperSource } from './origin';
 
 interface Known {
   id: string;
@@ -94,6 +95,11 @@ export function sourceFromUrls(urls: (string | undefined | null)[]): DownloadSou
   const clean = urls.filter((u): u is string => !!u && u.trim().length > 0).map((u) => u.trim());
   if (clean.length === 0) return undefined;
   const [url, referrer] = clean;
+  // Saved by Keeper itself: Mail, Keeper Link (from a device), a cloud connection.
+  for (const u of clean) {
+    const k = keeperSource(u);
+    if (k) return { ...k, url, referrer };
+  }
   // Referrer first: it is the page the user was on.
   for (const u of [...clean.slice(1), clean[0]]) {
     const h = hostOf(u);

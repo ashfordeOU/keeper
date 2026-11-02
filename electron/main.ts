@@ -114,6 +114,7 @@ import { setMonitorIslandAlert } from './services/monitor';
 import { registerPimIpc } from './ipc/pim';
 import { registerNotesIpc } from './ipc/notes';
 import { registerSearchIpc } from './ipc/search';
+import { setOriginRefresh } from './services/origin-mark';
 import { allowRoot as allowPreviewRoot } from './services/preview';
 import { adoptIslandCalendarUrl, logFocus, startPim, stopPim } from './services/pim';
 import { registerNetIpc } from './ipc/net';
@@ -1234,6 +1235,8 @@ app.whenReady().then(async () => {
   index = makeIndex(s);
   journal = new Journal(path.join(app.getPath('userData'), 'history.json'));
   files = new FileService(index, journal, libraryChanged);
+  // Files Keeper saves (mail attachments, video and cloud downloads, Link) record where they came from.
+  setOriginRefresh((p) => void index.refresh(p).then(libraryChanged));
   vision = new VisionQueue(index, () => ({ ocr: settings().ocrEnabled && featureOn('ocr'), text: featureOn('docText'), langs: settings().ocrLanguages }), libraryDetailsChanged);
   // Switching text reading on later catches up on what was skipped.
   for (const f of ['ocr', 'docText'] as const) onFeature(f, (on) => { if (on && index) vision.schedule(index.all()); });

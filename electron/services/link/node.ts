@@ -28,6 +28,8 @@ import { relayDial, relayListen, relayOnline } from '../../../core/link/relay';
 import { Receiver, safeName, sendFile, uniquePath, type Offer, type Progress } from '../../../core/link/transfer';
 import { acceptWebSocket, connectWs, type WsServerConn } from '../../../core/link/ws';
 import { DirectPaths } from './direct';
+import { keeperUrl } from '../../../core/origin';
+import { markOrigin } from '../origin-mark';
 import { HelpSessions } from './help';
 import { lanIPv4, MdnsPeer, wireguardInterfaces } from './mdns-socket';
 
@@ -823,6 +825,8 @@ export class LinkNode {
       const name = this.peer(p.peer)?.name ?? p.peer;
       this.audit({ kind: 'transfer', direction: p.direction === 'send' ? 'out' : 'in', device: p.peer, deviceName: name, title: `${p.direction === 'send' ? 'Sent' : 'Received'} ${p.name}`, detail: `${p.size} bytes${p.state !== 'done' ? ` · ${p.error ?? p.state}` : ''}${this.carrierOf(p.peer) ? ` · ${this.carrierOf(p.peer)}` : ''}`, ok: p.state === 'done' });
     }
+    // A received file records the device it came from (Downloaded From → Keeper Link · Pixel 8).
+    if (p.state === 'done' && p.direction === 'receive' && p.savedAs) void markOrigin(p.savedAs, { url: keeperUrl('link', p.peer ? this.peer(p.peer)?.name ?? p.peer : 'another device') });
     if (p.state === 'done' && p.direction === 'receive') this.hooks.notify(`Received ${p.name}`, `Saved in ${path.dirname(p.savedAs ?? this.downloadDir())}`);
   }
 
@@ -1253,6 +1257,7 @@ export class LinkNode {
     }
     await fh.close();
     await fsp.rename(tmp, dest);
+    void markOrigin(dest, { url: keeperUrl('link', this.peer(device)?.name ?? device) });
     return dest;
   }
 

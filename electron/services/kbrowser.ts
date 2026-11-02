@@ -17,6 +17,7 @@ import { guard, hostOf, injectionFlags, untrusted, type Sensitive } from '../../
 import { describeTyping, fillSecrets, hasSecret, scrub, type SavedSecret } from '../../core/cu/secrets';
 import { expectFor, StuckDetector, verify, type Observed } from '../../core/cu/run';
 import type { RecordedEvent } from '../../core/cu/workflow';
+import { markOrigin } from './origin-mark';
 
 export interface BrowserDeps {
   /** whether the AI may act now; rejects with a reason */
@@ -112,8 +113,11 @@ function setUpSession(profile: string) {
     let file = path.join(dir, item.getFilename());
     for (let i = 2; existsSync(file) && i < 1000; i++) file = path.join(dir, `${path.parse(item.getFilename()).name} ${i}${path.parse(item.getFilename()).ext}`);
     item.setSavePath(file);
+    const page = wc?.getURL();
     item.once('done', (_ev, state) => {
       if (state !== 'completed') return;
+      // Where it came from, as a browser records it (Downloaded From).
+      void markOrigin(file, { url: item.getURLChain().at(-1) || item.getURL(), referrer: page || undefined });
       tab?.downloads.push(file);
       if (tab?.recording) tab.recording.events.push({ kind: 'download', url: tab.win.webContents.getURL(), name: path.basename(file), at: Date.now() });
       deps?.downloaded?.(file);

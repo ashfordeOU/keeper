@@ -20,6 +20,8 @@ import { FtpFs } from './ftp';
 import { findRclone, RcloneDaemon, RcloneFs, remoteNameFor } from './rclone';
 import { HostKeyChanged, readKey, SftpFs, type HostKeys } from './sftp';
 import { WebDavFs } from './webdav';
+import { keeperUrl } from '../../../core/origin';
+import { markOrigin } from '../origin-mark';
 
 type Emit = (channel: string, ...args: unknown[]) => void;
 
@@ -575,6 +577,8 @@ export async function download(id: string, entries: RemoteEntry[], to?: string):
         target = path.join(into, `${localSafeName(path.basename(e.name, ext))} ${i}${ext}`);
       }
       await fsp.copyFile(cached, target);
+      // Downloaded From → the connection's name (Dropbox, the NAS…).
+      await markOrigin(target, { url: keeperUrl('cloud', find(id).name) });
       update({ state: 'done', bytes: e.size });
       done++;
     } catch (err) {
