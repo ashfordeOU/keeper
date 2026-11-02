@@ -59,3 +59,12 @@
 .remote-name { font-size: 13px; font-weight: 550; }
 .transfers { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; padding: 10px 12px; border-radius: 12px; background: var(--bg-sunk); }
 .transfer { display: flex; align-items: center; gap: 8px; }
+
+/* Cloud & Servers with no connection chosen: one card per connection. */
+.conn-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.conn-card { display: flex; flex-direction: column; gap: 10px; padding: 14px; }
+.conn-card-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.conn-card-name { min-width: 0; }
+.conn-card-title { font-weight: 600; }
+.conn-card-quota { display: flex; flex-direction: column; gap: 4px; }
+.conn-card .conn-dot { display: inline-block; vertical-align: middle; }

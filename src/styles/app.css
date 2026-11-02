@@ -316,6 +316,9 @@ html[data-look='minimal'] .toggle.on::after { background: var(--bg); }
 
 .empty { display: grid; place-items: center; text-align: center; padding: 60px 20px; color: var(--text-3); gap: 8px; }
 .empty svg { opacity: .5; }
+.empty-title { font-weight: 600; color: var(--text-2); }
+.empty-text { max-width: 380px; }
+.empty-actions { justify-content: center; margin-top: 6px; }
 
 .spinner { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--line-strong); border-top-color: var(--accent); animation: spin .8s linear infinite; flex: none; }
 @keyframes spin { to { transform: rotate(360deg); } }

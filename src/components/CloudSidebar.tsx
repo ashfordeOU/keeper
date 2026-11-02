@@ -14,7 +14,7 @@ import { NavSection } from './NavSection';
 import { ContextMenu, type MenuItem } from './ui';
 import '../styles/remote.css';
 
-const STATE_LABEL: Record<ConnStatus['state'], string> = {
+export const STATE_LABEL: Record<ConnStatus['state'], string> = {
   idle: 'Ready', connecting: 'Connecting…', connected: 'Connected', 'needs-sign-in': 'Sign in again', offline: 'Can’t reach it', error: 'Problem',
 };
 

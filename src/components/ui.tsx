@@ -812,12 +812,14 @@ export function Check({ on, onChange, label }: { on: boolean; onChange: (v: bool
   );
 }
 
-export function Empty({ icon = 'search', title, children }: { icon?: string; title: string; children?: ReactNode }) {
+/** The one empty state: an icon, a title, a line of text and an optional button row. */
+export function Empty({ icon = 'search', title, children, action }: { icon?: string; title: string; children?: ReactNode; /** buttons under the text */ action?: ReactNode }) {
   return (
     <div className="empty">
       <Icon name={icon} size={40} stroke={1.3} />
-      <div style={{ fontWeight: 600, color: 'var(--text-2)' }}>{title}</div>
-      {children ? <div className="small" style={{ maxWidth: 380 }}>{children}</div> : null}
+      <div className="empty-title">{title}</div>
+      {children ? <div className="small empty-text">{children}</div> : null}
+      {action ? <div className="btn-row empty-actions">{action}</div> : null}
     </div>
   );
 }

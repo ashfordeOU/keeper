@@ -15,6 +15,7 @@ import { Icon } from '../components/Icon';
 import { ContextMenu, Empty, ExtTile, Loading, Modal, type MenuItem } from '../components/ui';
 import { openQuickLook } from '../preview/QuickLook';
 import { useStore } from '../state';
+import { RemoteOverview } from './RemoteOverview';
 import '../styles/remote.css';
 import '../styles/screens-a.css';
 
@@ -107,7 +108,8 @@ export function Remote() {
     return { folders: list.filter((e) => e.isDir).sort(by), files: list.filter((e) => !e.isDir).sort(by) };
   }, [entries, sort]);
 
-  if (!loc) return <Empty icon="cloud" title="Choose a connection in the sidebar" />;
+  // No connection chosen: the overview of every connection, with Add….
+  if (!loc) return <RemoteOverview />;
   const crumbs = remoteCrumbs(conn?.name ?? 'Connection', dir);
   const parent = parentRemote(dir);
   const open = (e: RemoteEntry) => (e.isDir ? go({ name: 'remote', arg: remoteRoute(id, e.path) }) : void preview(e));
