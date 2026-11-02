@@ -7,6 +7,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { parseTask } from '../../core/pim/quickadd';
+import { mailIdIn } from '../../core/pim/mail-link';
 import { dayKey, effectiveDay, newStep, REPEATS, repeatLabel, reorder, stepProgress, taskDay, type Task } from '../../core/pim/tasks';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
@@ -336,6 +337,7 @@ export function TaskDetail({ task, today, projects = [], onClose, compact }: { t
         <input className="input sm" placeholder="Add a step and press Return" value={step} onChange={(e) => setStep(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && step.trim()) { put({ steps: [...steps, newStep(step.trim())] }); setStep(''); } }} aria-label="New step" />
       </div>
 
+      {mailIdIn(t.url ?? t.notes) ? <button className="btn sm tk-open-mail" data-testid="task-open-mail" style={{ alignSelf: 'flex-start' }} onClick={() => void api.search.open(`mail:${mailIdIn(t.url ?? t.notes)}`)}><Icon name="mail" size={12} /> Open the email</button> : null}
       <textarea className="input tk-notes" placeholder="Notes" value={t.notes ?? ''} onChange={(e) => setT({ ...t, notes: e.target.value })} onBlur={() => (t.notes ?? '') !== (task.notes ?? '') && put({ notes: t.notes || undefined })} aria-label="Notes" />
 
       <div className="tk-detail-foot small muted">

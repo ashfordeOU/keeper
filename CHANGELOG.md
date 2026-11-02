@@ -28,6 +28,11 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 ### Added — One search box for everything
 - Search (the toolbar box and its page) and Quick Search now also find mail on this computer, calendar events, tasks, contacts, notes in your Notes vaults, Keeper's own features and pages, and system settings (System Settings+). Files come first, then each kind under its own heading; ↑ ↓ move through all of them in Quick Search and Enter opens the message, event, task, note, page or setting where it lives (a contact opens the mail from them). Each source answers within a moment or is left out, sources whose feature is off are not searched, and nothing is sent anywhere.
 
+### Added — Mail and Tasks
+- Add to Tasks on a message (the reader's toolbar, the right-click menu and the bar for several selected messages): one task per message, titled with its subject, with who it is from in its notes and a link back to the email. The task shows Open the email.
+- Dates from mail added to the calendar ("Find dates" → Add to calendar) keep a link back to the email too, and the event shows Open the email. keeper://mail/<id> links open the message.
+- The Island's new-mail alert says so when Archive or Mark read fails, instead of failing silently.
+
 ### Fixed — Setup and permissions
 - macOS: Allow for Accessibility, Screen Recording and Input Monitoring works every time. macOS shows those questions only once per app, so Keeper now remembers that it asked, opens the exact System Settings page when the answer is still not yes a moment later, and labels the button (and "Ask again" in Allow all) "Open System Settings" from then on. A row that stays off after that suggests removing Keeper with − and adding it again (macOS can hold an older copy's approval).
 - The macOS keychain question after an update ("Keeper Safe Storage") is explained in the Software Update window before it restarts, and in docs/PERMISSIONS.md. Until a Developer ID build, that line asks you to type your login password and choose Always Allow.

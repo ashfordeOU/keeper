@@ -12,6 +12,10 @@ import { api } from '../api';
 import { Icon } from '../components/Icon';
 
 /** A call: which app, how long, mute or unmute (system microphone or the app's own button). */
+/** A short line in the Island (as Island.tsx's islandSay). */
+const say = (msg: string) => window.dispatchEvent(new CustomEvent('island-toast', { detail: msg }));
+const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e)).replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
+
 export function CallCard({ call, now }: { call: NonNullable<IslandState['call']>; now: number }) {
   const [busy, setBusy] = useState(false);
   const toggle = async () => {
@@ -77,8 +81,8 @@ export function PlusAlertActions({ alert, onDone }: { alert: IslandAlert; onDone
     return (
       <div className="btn-row" data-testid="island-mail-actions">
         <button className="btn sm primary" onClick={() => { void api.islandx.showPage(one ? `mail:${id}` : 'mail'); onDone(); }}>Open</button>
-        {one ? <button className="btn sm icon" title="Archive" aria-label="Archive" onClick={() => { void api.pim.archive([id]); onDone(); }}><Icon name="archive" size={12} /></button> : null}
-        {one ? <button className="btn sm icon" title="Mark read" aria-label="Mark read" onClick={() => { void api.pim.setRead([id], true); onDone(); }}><Icon name="check" size={12} /></button> : null}
+        {one ? <button className="btn sm icon" title="Archive" aria-label="Archive" onClick={() => { api.pim.archive([id]).catch((e) => say(`Couldn’t archive it: ${errMsg(e)}`)); onDone(); }}><Icon name="archive" size={12} /></button> : null}
+        {one ? <button className="btn sm icon" title="Mark read" aria-label="Mark read" onClick={() => { api.pim.setRead([id], true).catch((e) => say(`Couldn’t mark it read: ${errMsg(e)}`)); onDone(); }}><Icon name="check" size={12} /></button> : null}
       </div>
     );
   }

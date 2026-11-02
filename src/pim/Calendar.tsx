@@ -3,6 +3,7 @@
 // quick add in plain English, drag to move or resize, and an editor for
 // repeats, alerts, places and people.
 
+import { mailIdIn } from '../../core/pim/mail-link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { meetingLink } from '../../core/pim/alarms';
 import { parseQuickAdd } from '../../core/pim/quickadd';
@@ -501,6 +502,7 @@ export function EventEditor({ event, instance, calendars, onClose }: { event: Ca
         <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
           {link ? <a className="btn sm" href={link} target="_blank" rel="noreferrer"><Icon name="external" size={13} /> Join the meeting</a> : null}
           {e.location && !link ? <MapButtons place={{ address: e.location }} /> : null}
+          {mailIdIn(e.url ?? e.description) ? <button className="btn sm" data-testid="event-open-mail" onClick={() => void api.search.open(`mail:${mailIdIn(e.url ?? e.description)}`)}><Icon name="mail" size={12} /> Open the email</button> : null}
           {event.id ? <button className="btn sm" onClick={() => void openNative('calendar', { eventUrl: event.openUrl, date: instance ?? e.start }, toast)}><Icon name="calendar" size={12} /> Open in Calendar</button> : null}
         </div>
         <input className="input" placeholder="People (email addresses; they get an invitation from your calendar server)" value={people} disabled={readOnly} onChange={(x) => setPeople(x.target.value)} />

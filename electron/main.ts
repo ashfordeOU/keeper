@@ -639,6 +639,8 @@ function handleDeepLink(url: string) {
     else if (action === 'cue') handleCueLink(u);
     // keeper://studio/record (start or stop), /stop, /pause (pause or resume)
     else if (action === 'studio') handleStudioLink(u);
+    // keeper://mail/<message id> (a task or event made from an email links back to it)
+    else if (action === 'mail' && u.pathname.length > 1) showMain(`mail:${decodeURIComponent(u.pathname.slice(1))}`);
     else if (action === 'help') showMain(`devices:help=${u.searchParams.get('code') ?? ''}${u.searchParams.get('pw') ? `.${u.searchParams.get('pw')}` : ''}`);
     else showMain(action || undefined);
   } catch {

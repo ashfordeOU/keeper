@@ -239,6 +239,8 @@ export interface Reminder {
   plannedFor?: string;
   /** repeats: an RRULE body such as FREQ=WEEKLY;BYDAY=MO (VTODO RRULE) */
   rrule?: string;
+  /** a link to where it came from (keeper://mail/<id> for a task made from an email) */
+  url?: string;
   steps?: TaskStep[];
   /** a project or area ("#home"), shown as a tag */
   project?: string;

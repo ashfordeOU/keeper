@@ -94,6 +94,12 @@ const MSG = (subject, extra = '') => [
   check(/Content-Security-Policy/.test(doc) && (await main.locator('.message-frame').getAttribute('sandbox')) === 'allow-popups allow-popups-to-escape-sandbox', 'the message is drawn in a sandboxed frame without scripts');
   check(await main.getByText('1 picture from the internet held back').count() > 0, 'the banner offers to show the picture');
   await main.screenshot({ path: `${SHOTS}/app-mail-read.png` });
+  // Add to Tasks: a task titled with the subject that links back to the email.
+  await main.locator('[data-testid="mail-add-task"]').click();
+  await main.waitForTimeout(600);
+  const fromMail = (await main.evaluate(() => window.keeper.pim.reminders())).find((t) => t.title === 'The garden project');
+  check(!!fromMail && /^keeper:\/\/mail\//.test(fromMail.url ?? '') && /keeper:\/\/mail\//.test(fromMail.notes ?? '') && /From an email from/.test(fromMail.notes ?? ''), 'Add to Tasks makes a task that links back to the email');
+  if (fromMail) await main.evaluate((id) => window.keeper.pim.deleteReminder(id), fromMail.id);
 
   // Reply with Markdown; Undo send window, then it goes and lands in Sent.
   await main.keyboard.press('r');

@@ -15,6 +15,7 @@ import { bindings, comboOf, makeResolver, type MailAction } from '../../core/pim
 import { outboxPhase, snoozeChoices } from '../../core/pim/triage';
 import type { Account, MailFolder, MessageSummary, Thread } from '../../core/pim/types';
 import { formatBytes } from '../../core/format';
+import { mailLink, notesFromMessage } from '../../core/pim/mail-link';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
 import { ContextMenu, Empty, Modal, type MenuItem } from '../components/ui';
@@ -277,6 +278,7 @@ export function Mail() {
         ? { label: 'Always Important from this sender', icon: 'star', run: () => void act(() => api.pim.setCategory(sender, 'important'), 'Mail from this sender goes to Important') }
         : { label: 'Move this sender to Other', icon: 'inbox', run: () => void act(() => api.pim.setCategory(sender, 'other'), 'Mail from this sender goes to Other') }] : []),
       { sep: true, label: '' },
+      { label: 'Add to Tasks', icon: 'listCheck', run: () => void act(() => addToTasks([m]), 'Added to Tasks') },
       { label: 'Archive', icon: 'archive', run: () => void act(() => api.pim.archive([m.id]), 'Archived') },
       { label: 'Move to Junk', icon: 'warning', run: () => void act(() => api.pim.junk([m.id]), 'Moved to Junk') },
       { label: 'Delete', icon: 'trash', danger: true, run: () => void act(() => api.pim.trash([m.id]), 'Moved to Trash') },
@@ -409,6 +411,7 @@ export function Mail() {
                   <button className="btn sm ghost" onClick={() => void act(() => api.pim.setRead([...checked], true))}>Mark read</button>
                   <button className="btn sm ghost" onClick={() => void act(() => api.pim.setRead([...checked], false))}>Unread</button>
                   <button className="btn sm ghost" onClick={(e) => snoozeMenu(e.clientX, e.clientY + 10, [...checked])}>Snooze</button>
+                  <button className="btn sm ghost" onClick={() => void act(() => addToTasks(rows.map((r) => r.last).filter((m) => checked.has(m.id))), checked.size === 1 ? 'Added to Tasks' : `Added ${checked.size} tasks`)}>Add to Tasks</button>
                   <button className="btn sm ghost" onClick={() => void act(() => api.pim.archive([...checked]), 'Archived')}>Archive</button>
                   <button className="btn sm ghost" onClick={() => void act(() => api.pim.trash([...checked]), 'Moved to Trash')}>Delete</button>
                   <button aria-label="Clear selection" title="Clear selection" className="btn sm ghost icon" onClick={() => setChecked(new Set())}><Icon name="close" size={13} /></button>
@@ -444,6 +447,11 @@ export function Mail() {
       {menu ? <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} /> : null}
     </div>
   );
+}
+
+/** "Add to Tasks": one task per message, titled with its subject, linking back to it. */
+async function addToTasks(ms: MessageSummary[]) {
+  for (const m of ms) await api.pim.saveReminder({ id: '', list: '', title: m.subject || '(no subject)', notes: notesFromMessage(m), url: mailLink(m.id), done: false });
 }
 
 function Conversation({ row, accounts, onReply, act, onBack, onSnooze }: {
@@ -488,6 +496,7 @@ function Conversation({ row, accounts, onReply, act, onBack, onSnooze }: {
         <button className="btn sm ghost" title="Snooze" aria-label="Snooze" onClick={(e) => onSnooze(e.clientX, e.clientY + 10)}><Icon name="clock" size={14} /></button>
         <button className="btn sm ghost" title="Flag" aria-label="Flag" onClick={() => void act(() => api.pim.setFlagged([last.id], !last.flagged))}><Icon name="flag" size={14} style={last.flagged ? { color: 'var(--warn)' } : undefined} /></button>
         <button className="btn sm ghost" title="Mark as unread" aria-label="Mark as unread" onClick={() => void act(() => api.pim.setRead([last.id], false))}><Icon name="mail" size={14} /></button>
+        <button className="btn sm ghost" title="Add to Tasks (the task links back to this email)" aria-label="Add to Tasks" data-testid="mail-add-task" onClick={() => void act(() => addToTasks([last]), 'Added to Tasks')}><Icon name="listCheck" size={14} /></button>
         <span className="grow" />
         {aiBtn('summarize', 'sparkle', 'Summarize')}
         {aiBtn('replies', 'sparkle', 'Reply ideas')}
@@ -502,7 +511,7 @@ function Conversation({ row, accounts, onReply, act, onBack, onSnooze }: {
             ai.events.length ? ai.events.map((e, i) => (
               <div key={i} className="row" style={{ gap: 8, marginTop: 6 }}>
                 <span className="grow">{e.title} · {new Date(e.start).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: e.allDay ? undefined : 'numeric', minute: e.allDay ? undefined : '2-digit' })}</span>
-                <button className="btn sm" onClick={() => void act(() => api.pim.saveEvent({ id: '', uid: '', calendar: '', title: e.title, start: e.start, end: e.end, allDay: e.allDay }), 'Added to your calendar')}>Add to calendar</button>
+                <button className="btn sm" onClick={() => void act(() => api.pim.saveEvent({ id: '', uid: '', calendar: '', title: e.title, start: e.start, end: e.end, allDay: e.allDay, description: notesFromMessage(last), url: mailLink(last.id) }), 'Added to your calendar')}>Add to calendar</button>
               </div>
             )) : <div className="small muted">No dates in this conversation.</div>
           ) : ai.task === 'replies' && ai.options?.length ? (
