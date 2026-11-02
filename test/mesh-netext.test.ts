@@ -30,7 +30,8 @@ process.stdin.on('data', (d) => (s += d)).on('end', () => {
 `);
 chmodSync(tool, 0o755);
 
-describe('mesh: macOS Network Extension client', () => {
+// The fake extension is a shell script; Windows cannot start one (and the extension is macOS-only).
+describe.skipIf(process.platform === 'win32')('mesh: macOS Network Extension client', () => {
   it('is not available off macOS, or without the signed build’s tool', async () => {
     expect(await new NetworkExtensionPlane(tool, { platform: 'linux' }).available()).toBe(false);
     expect(await new NetworkExtensionPlane(path.join(dir, 'missing'), { platform: 'darwin' }).available()).toBe(false);
