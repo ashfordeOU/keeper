@@ -18,6 +18,7 @@ import { isKitTool, kitBlocked, kitDefaults, type KitOp } from '../../core/filek
 import { familyOf } from '../../core/filekit/matrix';
 import { KitOptions } from './KitOptions';
 import { WorkflowsPanel } from './WorkflowsPanel';
+import { ComponentPrompt } from '../components/ComponentsPanel';
 
 const CATEGORIES: { id: ConvertCategory; label: string; icon: string }[] = [
   { id: 'convert', label: 'Convert to…', icon: 'refresh' },
@@ -721,6 +722,7 @@ export function Convert() {
   return (
     <div className="conv">
       <PageHead title="Convert" sub="Video, audio, pictures, PDFs and any file — on this computer. Results go to a new folder; your originals are never changed." />
+      <ComponentPrompt featureId="convert" title="Video, audio and background removal need one more download" />
 
       <div
         className={`card pad conv-drop ${drag ? 'drag' : ''}`}

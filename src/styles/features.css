@@ -27,3 +27,13 @@
 .feature-sets .feature-row.current { box-shadow: inset 3px 0 0 var(--accent); }
 .feature-sets label select { margin-left: 4px; }
 .feature-live { margin-top: 2px; }
+
+/* Downloadable parts (src/components/ComponentsPanel.tsx) */
+.component-needs { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+.component-need { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.component-progress { display: inline-flex; align-items: center; gap: 8px; min-width: 200px; }
+.component-progress .progress { flex: 1; min-width: 120px; }
+.component-disk { margin-top: 4px; }
+.component-prompt { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; margin: 0 0 12px; }
+.component-prompt .component-need { margin-top: 6px; }
+.components-section { margin-top: 18px; }

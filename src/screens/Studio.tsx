@@ -14,6 +14,7 @@ import { useStore } from '../state';
 import { Editor } from '../studio/Editor';
 import { fmt } from '../studio/Timeline';
 import '../styles/studio.css';
+import { ComponentPrompt } from '../components/ComponentsPanel';
 
 const mac = /Mac/.test(navigator.platform);
 const keyText = (a: string) => a.replace('CommandOrControl', mac ? '⌘' : 'Ctrl').replace('Shift', mac ? '⇧' : 'Shift').replace('Alt', mac ? '⌥' : 'Alt').replace(/\+/g, mac ? '' : '+');
@@ -84,6 +85,7 @@ function Home({ onOpen }: { onOpen(dir: string): void }) {
       <PageHead title="Studio" sub="Record the screen, then make it look produced: zooms where you click and type, a smooth pointer, a clean frame, captions. Everything stays on this computer.">
         <button className="btn" onClick={() => void api.studio.pick().then((d) => (d ? onOpen(d) : undefined))}><Icon name="folder" size={14} /> Open Project…</button>
       </PageHead>
+      <ComponentPrompt featureId="studio" />
 
       {live ? (
         <section className="studio-live" aria-live="polite" data-testid="studio-live">

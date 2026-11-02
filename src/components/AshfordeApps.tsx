@@ -74,7 +74,7 @@ function MonorailCard({ app }: { app: AshfordeOverview['apps'][number] }) {
           </div>
           <div className="small" style={{ marginTop: 4 }}>{app.description}</div>
         </div>
-        {app.offered ? <Toggle on={on} onChange={(v) => void api.features.set('monorail', v)} /> : null}
+        {app.offered ? <Toggle on={on} onChange={(v) => void api.features.set('monorail', v).then(() => (v ? api.components.switchedOn('monorail') : undefined))} /> : null}
       </div>
 
       {!app.offered ? (

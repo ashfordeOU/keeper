@@ -15,6 +15,7 @@ import { Empty, PageHead, Toggle } from '../components/ui';
 import { useStore } from '../state';
 import { Row } from './IslandSettings';
 import '../voice/voice.css';
+import { ComponentPrompt } from '../components/ComponentsPanel';
 
 const COLORS = ['var(--accent)', '#ef8f3c', '#2f9e62', '#d946ef', '#0ea5e9', '#e5484d', '#a16207', '#64748b'];
 const fmtDate = (t: number) => new Date(t).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -47,6 +48,7 @@ export function Meetings({ initial }: { initial?: string }) {
       <PageHead title="Meetings" sub="Your microphone and the computer’s sound, written down on this computer, with who said what and notes after.">
         <button className="btn" onClick={() => setShowSettings(!showSettings)} data-testid="meetings-settings-toggle"><Icon name="settings" size={13} /> {showSettings ? 'Hide settings' : 'Settings'}</button>
       </PageHead>
+      <ComponentPrompt featureId="meetings" />
       <LiveCard live={live} offer={offer} onStart={start} onStop={stop} />
       {showSettings && cfg ? <MeetingSettings cfg={cfg} save={async (p) => setCfg(await api.voice.setSettings(p))} /> : null}
       <h2 className="voice-h">Recorded</h2>

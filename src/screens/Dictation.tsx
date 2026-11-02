@@ -17,6 +17,7 @@ import { useStore } from '../state';
 import { Row } from './IslandSettings';
 import { statsPng } from '../voice/stats-png';
 import '../voice/voice.css';
+import { ComponentPrompt } from '../components/ComponentsPanel';
 
 type Tab = 'dictate' | 'history' | 'words' | 'apps' | 'settings';
 const isMac = navigator.platform.includes('Mac');
@@ -47,6 +48,7 @@ export function Dictation({ initialTab }: { initialTab?: string }) {
   return (
     <div className="page voice-page" data-testid="dictation-page">
       <PageHead title="Dictation" sub="Speak in any app and finished text appears where your cursor is. Recognised on this computer unless you choose a service." />
+      <ComponentPrompt featureId="dictation" />
       <div className="seg voice-tabs" role="tablist">
         {([['dictate', 'Dictate'], ['history', 'History'], ['words', 'Words & snippets'], ['apps', 'Per app'], ['settings', 'Settings']] as const).map(([k, l]) => <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} data-testid={`dictation-tab-${k}`} onClick={() => setTab(k)}>{l}</button>)}
       </div>

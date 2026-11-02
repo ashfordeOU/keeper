@@ -10,6 +10,7 @@ import { useStore } from '../state';
 import { Icon } from './Icon';
 import { SECTION_COLOR, SECTION_IDS } from './NavSection';
 import { Toggle } from './ui';
+import { ComponentNeeds, ComponentsSection } from './ComponentsPanel';
 import '../styles/features.css';
 
 const COST_WORD: Record<CostLevel, string> = { none: 'No background cost', low: 'Light', medium: 'Moderate', high: 'Heavy while it works' };
@@ -44,6 +45,8 @@ export function FeaturesPanel() {
     setBusy(id);
     try {
       await api.features.set(id, on);
+      // The person's own switch: the parts it needs start downloading (and an add-on app installs).
+      if (on) void api.components.switchedOn(id).catch(() => undefined);
       const f = featureDef(id);
       const needs = on ? (f?.requires ?? []).filter((r) => !states.get(r)?.on) : [];
       if (needs.length) toast(`Also turned on ${needs.map((r) => featureDef(r)?.name).join(', ')}`);
@@ -119,6 +122,7 @@ export function FeaturesPanel() {
                         Now: {live[f.id].map((c) => `${c.name.replace(/^[^.]*\./, '')} ${c.everyMs === null ? 'paused' : `every ${c.everyMs >= 60_000 ? `${Math.round(c.everyMs / 60_000)} min` : `${Math.round(c.everyMs / 1000) || '<1'} s`}`}`).join(' · ')}
                       </div>
                     ) : st?.on === false ? <div className="small muted feature-live">Now: nothing running</div> : null}
+                    <ComponentNeeds featureId={f.id} on={!!st?.on} />
                     {st?.blockedBy?.length && wanted ? (
                       <div className="small warn-text">Off until {st.blockedBy.map((b) => featureDef(b)?.name ?? b).join(' and ')} {st.blockedBy.length > 1 ? 'are' : 'is'} on</div>
                     ) : null}
@@ -130,6 +134,7 @@ export function FeaturesPanel() {
           </div>
         );
       })}
+      <ComponentsSection platform={info?.platform ?? ''} />
     </div>
   );
 }
