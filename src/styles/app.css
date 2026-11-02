@@ -434,11 +434,11 @@ html[data-view='quick'] #root { padding: 10px; }
 
 /* The top bar's theme pop-over (src/components/ThemeQuickPicker.tsx). */
 .theme-quick { position: relative; display: inline-flex; }
-.theme-quick-pop { position: absolute; top: calc(100% + 6px); right: 0; z-index: 60; width: 380px; max-width: calc(100vw - 32px); background: var(--elev); color: var(--text); border: 1px solid var(--border, rgba(127,127,127,.25)); border-radius: 14px; box-shadow: 0 14px 40px rgba(0,0,0,.35); padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.theme-quick-pop { position: absolute; top: calc(100% + 6px); right: 0; z-index: 60; width: 380px; max-width: calc(100vw - 32px); background: var(--bg-elev); color: var(--text); border: 1px solid var(--line-strong, var(--line)); border-radius: 14px; box-shadow: 0 18px 50px rgba(0,0,0,.45), var(--shadow); isolation: isolate; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
 .theme-quick-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .theme-quick-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; max-height: 340px; overflow-y: auto; padding-right: 2px; }
 .theme-quick-item { display: flex; align-items: center; gap: 8px; border: 1px solid transparent; background: none; color: inherit; border-radius: 9px; padding: 5px 7px; text-align: left; font-size: 12.5px; cursor: default; }
-.theme-quick-item:hover { background: var(--sunk); }
+.theme-quick-item:hover { background: var(--bg-sunk); }
 .theme-quick-item.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); font-weight: 600; }
 .theme-quick-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .theme-quick-sw { display: inline-flex; gap: 2px; align-items: center; padding: 3px; border-radius: 7px; border: 1px solid; flex: none; }
