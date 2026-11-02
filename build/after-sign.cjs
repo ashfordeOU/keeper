@@ -12,7 +12,7 @@
 // The requirements are deliberately not preserved: an ad-hoc requirement pins
 // one build's cdhash, which is exactly what this replaces.
 
-const { execFileSync } = require('node:child_process');
+const { execFileSync, spawnSync } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -25,7 +25,62 @@ function agentDesktopBinaries(resources) {
 }
 exports.agentDesktopBinaries = agentDesktopBinaries;
 
+/**
+ * The core build's downloadable components (staged by build/after-pack.cjs): every Mach-O program
+ * and library in them is signed with the app's own identity before scripts/components.mjs packs
+ * them, so they run without Gatekeeper prompts, keep the permissions granted to Keeper and pass
+ * the app's check when they are downloaded (electron/services/components.ts).
+ */
+function signComponents(staging, identity) {
+  if (!fs.existsSync(staging)) return 0;
+  const files = [];
+  const walk = (d) => {
+    for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+      const p = path.join(d, e.name);
+      if (e.isDirectory()) walk(p);
+      else if (e.isFile()) {
+        const fd = fs.openSync(p, 'r');
+        const b = Buffer.alloc(4);
+        fs.readSync(fd, b, 0, 4, 0);
+        fs.closeSync(fd);
+        if ([0xfeedface, 0xfeedfacf, 0xcefaedfe, 0xcffaedfe, 0xcafebabe, 0xbebafeca].includes(b.readUInt32BE(0))) files.push(p);
+      }
+    }
+  };
+  walk(staging);
+  for (const f of files) codesign(['--force', '--sign', identity, f]);
+  return files.length;
+}
+exports.signComponents = signComponents;
+
+/** The identity the app was signed with: KEEPER_SIGN_IDENTITY, the Developer ID electron-builder used, or ad hoc. */
+function appIdentity(app) {
+  if (process.env.KEEPER_SIGN_IDENTITY && !process.env.CSC_LINK) return process.env.KEEPER_SIGN_IDENTITY;
+  // codesign -dvv prints the signing chain leaf first ("Authority=Developer ID Application: …") on stderr.
+  const r = spawnSync('/usr/bin/codesign', ['-dvv', app], { encoding: 'utf8' });
+  const m = /^Authority=(.+)$/m.exec(`${r.stdout ?? ''}\n${r.stderr ?? ''}`);
+  return m ? m[1].trim() : '-';
+}
+
 exports.default = async function afterSign(context) {
+  if (context.electronPlatformName === 'darwin' && process.platform === 'darwin') {
+    const { componentsStaging, ARCH } = require('./after-pack.cjs');
+    const staging = componentsStaging(context.outDir, 'darwin', ARCH[context.arch] ?? 'x64');
+    // Signed last, after the app, with the very identity the app now carries.
+    context.__signComponents = () => {
+      const app = path.join(context.appOutDir, `${context.packager.appInfo.productFilename}.app`);
+      const n = signComponents(staging, appIdentity(app));
+      if (n) console.log(`  • after-sign: signed ${n} program(s) in the downloadable components like the app`);
+    };
+  }
+  try {
+    await signApp(context);
+  } finally {
+    context.__signComponents?.();
+  }
+};
+
+async function signApp(context) {
   const identity = process.env.KEEPER_SIGN_IDENTITY;
   if (!identity || context.electronPlatformName !== 'darwin' || process.platform !== 'darwin') return;
   if (process.env.CSC_LINK) {

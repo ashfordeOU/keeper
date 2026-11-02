@@ -91,7 +91,30 @@ exports.default = async function afterPack(context) {
 
   console.log(`  • after-pack: removed ${(freed / 1024 / 1024).toFixed(0)} MB of files for other systems`);
 
-  // Everything Keeper needs travels inside the package: nothing to install afterwards.
+  // The core installer (KEEPER_EDITION=core, the default download) leaves the heavy optional parts
+  // out: they are copied to the staging folder, packed as release assets by scripts/components.mjs
+  // pack and downloaded by Keeper when a feature needs them (docs/COMPONENTS.md). The offline
+  // installer (KEEPER_EDITION=full, also what a plain local build makes) keeps everything inside.
+  const edition = editionOf(process.env);
+  const staging = componentsStaging(context.outDir, platform, arch);
+  if (edition === 'core') {
+    const { stageComponents } = await import(require('node:url').pathToFileURL(path.join(__dirname, '..', 'scripts', 'components.mjs')).href);
+    stageComponents({ resources, platform, arch, out: staging, strip: true });
+  }
+
+  // Everything Keeper needs travels inside the package (or, for the core installer, in the staged components).
   const appDir = platform === 'darwin' ? path.join(context.appOutDir, `${context.packager.appInfo.productFilename}.app`) : context.appOutDir;
-  require('../scripts/verify-package.cjs').verifyPackage({ appDir, resources, platform, arch, strict: process.env.KEEPER_REQUIRE_ALL === '1' });
+  require('../scripts/verify-package.cjs').verifyPackage({ appDir, resources, platform, arch, strict: process.env.KEEPER_REQUIRE_ALL === '1', edition, staging });
 };
+
+/** core: the default installer without the downloadable parts; full: everything inside (the offline installer). */
+function editionOf(env) {
+  return env.KEEPER_EDITION === 'core' ? 'core' : 'full';
+}
+/** Where the core build leaves its components for scripts/components.mjs pack (and build/after-sign.cjs). */
+function componentsStaging(outDir, platform, arch) {
+  return process.env.KEEPER_COMPONENTS_STAGING || path.join(outDir, 'components-staging', `${platform}-${arch}`);
+}
+exports.editionOf = editionOf;
+exports.componentsStaging = componentsStaging;
+exports.ARCH = ARCH;
