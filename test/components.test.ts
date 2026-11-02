@@ -426,3 +426,15 @@ describe('Monorail add-on', () => {
     expect(addonRow('monorail', 'darwin', { supported: true, installed: false, busy: { step: 'Downloading Monorail 1.2.0', progress: 0.4 } })).toMatchObject({ actions: [], line: 'Downloading Monorail 1.2.0 40%' });
   });
 });
+
+describe('updates never pick a component or the offline installer', () => {
+  it('keeps to the core installer for every kind', async () => {
+    const { pickAsset } = await import('../core/updates');
+    const a = (name: string) => ({ name, size: 1, browser_download_url: name });
+    const assets = ['keeper-component-ffmpeg-linux-x64.tar.gz', 'components-linux-x64.json', 'Keeper-linux-x64-full.tar.gz', 'Keeper-linux-x64.tar.gz', 'Keeper-linux-x86_64-full.AppImage', 'Keeper-linux-x86_64.AppImage', 'Keeper-mac-arm64-full.dmg', 'Keeper-mac-arm64.dmg', 'Keeper-setup-x64-full.exe', 'Keeper-setup-x64.exe'].map(a);
+    expect(pickAsset(assets, 'linux', 'x64', 'tar')?.name).toBe('Keeper-linux-x64.tar.gz');
+    expect(pickAsset(assets, 'linux', 'x64', 'appimage')?.name).toBe('Keeper-linux-x86_64.AppImage');
+    expect(pickAsset(assets, 'darwin', 'arm64', 'mac')?.name).toBe('Keeper-mac-arm64.dmg');
+    expect(pickAsset(assets, 'win32', 'x64', 'nsis')?.name).toBe('Keeper-setup-x64.exe');
+  });
+});

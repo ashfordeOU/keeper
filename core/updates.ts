@@ -81,7 +81,9 @@ export function releaseFor(releases: GhRelease[], version: string): GhRelease | 
  * Keeper-linux-x86_64.AppImage, Keeper-linux-amd64.deb, Keeper-linux-x86_64.rpm …
  */
 export function pickAsset(assets: GhAsset[], platform: string, arch: string, kind: InstallKind): GhAsset | undefined {
-  const a = assets.filter((x) => !/\.(blockmap|yml|yaml|sig|sha256)$/i.test(x.name));
+  // Never a component archive, and never the offline installer (…-full): updates are the core build,
+  // which downloads the parts the person uses (docs/COMPONENTS.md).
+  const a = assets.filter((x) => !/\.(blockmap|yml|yaml|sig|sha256)$/i.test(x.name) && !NOT_INSTALLERS.test(x.name) && !FULL_INSTALLER.test(x.name));
   const archRe = (() => {
     if (arch === 'arm64') return /(arm64|aarch64)/i;
     if (arch === 'ia32') return /(ia32|i386|x86(?!_64))/i;
@@ -165,6 +167,8 @@ export function feedAllowed(feed: string | undefined): boolean {
  * components (keeper-component-…-<platform>-<arch>.tar.gz) and their lists.
  */
 const NOT_INSTALLERS = /^(keeper-component-|components-)/i;
+/** The offline installers (Keeper-mac-arm64-full.dmg …): for people who ask for them, never for updates. */
+const FULL_INSTALLER = /-full\.(dmg|exe|AppImage|tar\.gz|zip)$/i;
 
 /** The update information electron-updater reads for in-place installs (Windows installer, AppImage). */
 export function updateInfoFile(platform: string, arch: string, kind: InstallKind): string | undefined {
