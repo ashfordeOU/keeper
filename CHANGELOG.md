@@ -31,6 +31,19 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - macOS: the Island is a plain borderless window instead of a panel, so macOS 26 no longer draws a grey rounded backdrop behind the open Island. Its scroll bars are dark and thin, with no light square in the corner.
 - Opening the Island no longer takes the keyboard, so it never brings Keeper or its main window to the front; it takes the keyboard when you click a field in it (or the New task shortcut opens it). The closed pill never takes focus.
 
+### Added — Mail
+- Important and Other: inboxes sort themselves into people you write to, replies to your mail and mail written to you (Important) and newsletters, receipts and automatic mail (Other), with unread counts on each. Sign-in alerts, one-time codes and password resets are always Important and marked Security. Right-click a message to keep a sender in Important or Other.
+- Waiting for reply: sent mail nobody has answered (across accounts, Sent and Archive), how long it has waited, and Follow up, which writes the follow-up to the same people in the same conversation. Done takes one off the list; Settings sets when a message counts as waiting a while.
+- Subscriptions: every newsletter and list by sender with how many arrived and how many you opened, the ones you never open first. Unsubscribe (one click where the sender offers it), archive everything from a sender, or both; their later mail goes to Other.
+- Unified All sent and Snoozed views beside All inboxes. Snoozed mail comes back unread at the top of the inbox at its time (later today, this evening, tomorrow, this weekend, next week), with a note in the Island. Send later has more times, a time of your own and a Scheduled list to edit or cancel. Undo send still holds a message for a few seconds.
+- Search looks through every account and folder kept on this computer first, then asks the servers for older mail, shown apart. End a search with a question mark (or press Ask) to have it answered from your mail, with the messages it used.
+- New Important mail drops down from the Island with Open, Archive and Mark read (Settings: Important only, all mail, or never).
+- AI: three reply ideas written the way you write (from your own sent mail), summaries of long threads, translation into your language, and Rewrite in the compose window (shorter, friendlier, more formal, proofread, translate, with Undo). It uses the AI chosen in Settings → AI & Brain, on this computer if that is what you chose; security mail is never sent to it.
+- A wide layout (one line per message, bulk actions for the selection: read, unread, snooze, archive, delete) beside the split one, and keyboard-shortcut sets: web mail single letters, desktop mail with ⌘ / Ctrl, and fast triage (E done, H snooze), each key changeable in Settings.
+- Offline: the newest inbox messages are kept on this computer to read without a connection, and changes made offline (read, flag, archive, delete, move) go to the server when it is back. Sent and Archive are kept in step too.
+- Coding assistants: accounts you choose can be searched and read over Keeper's MCP server, and drafts written into their Drafts folder. Sending, deleting and moving are not offered; Spam, Trash and security mail are never shown; secrets and codes are blanked.
+- Signatures can be written in Settings → Mail & Calendar and show under the message while you write; nested folders are indented; labels (Gmail's too) show on messages and work in search as label:. AOL and Zoho are set up from the address alone.
+
 ## [0.1.0-beta.7] - 2026-11-02
 
 ### Fixed

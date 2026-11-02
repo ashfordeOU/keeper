@@ -50,23 +50,60 @@ JMAP is not used yet; Fastmail works through IMAP and CalDAV with an app passwor
   hide. **Send later** (tomorrow morning, afternoon, Monday) and **Undo send**
   (5–30 seconds, Settings). A copy goes to Sent (Gmail files its own).
 - Reply, Reply All (without you) and Forward; flag, read/unread, archive, junk,
-  delete (to Trash), move by dragging onto a folder, **snooze** (comes back as a
-  reminder), **unsubscribe** (one-click when the list offers it, otherwise by
-  mail or the list's page), save or open attachments.
+  delete (to Trash), move by dragging onto a folder, **snooze** (hidden until
+  then, comes back unread at the top with a note in the Island; the *Snoozed*
+  view lists what is waiting), **unsubscribe** (one-click when the list offers
+  it, otherwise by mail or the list's page), save or open attachments.
+- **Important and Other** (`core/pim/triage.ts`): people you have written to
+  or keep as contacts, replies to your own mail, flagged mail and mail written
+  to you by a person are Important; mailing lists (List-Id, List-Unsubscribe,
+  Precedence: bulk, Auto-Submitted), and machine senders (no-reply, news,
+  orders…) are Other. **Security mail** (sign-in alerts, one-time codes,
+  password resets, in several languages) is always Important and marked. A
+  sender can be pinned to either side from the message's menu.
+- **Waiting for reply**: conversations whose newest message is yours, written
+  to a person, from the last six weeks (Inbox, Sent and Archive of every
+  account, copies counted once), with *Follow up* (a reply-all to your own
+  message, ready to send) and *Done*.
+- **Subscriptions**: lists and newsletters grouped by List-Id or sender, with
+  how many arrived and how many were opened; *Unsubscribe & archive*, *Archive
+  all*, *Unsubscribe*, *Delete all*. Their later mail goes to Other.
+- **Views across accounts**: All inboxes, All sent, Snoozed, Scheduled (Send
+  later), Waiting for reply, Subscriptions.
+- **Search**: every folder kept on this computer first (inboxes first), then
+  the servers' own search for older mail (Inbox, Sent, Archive / All Mail),
+  shown in a section of its own. A question (ending in `?`, or *Ask*) is
+  answered by the AI from the best-matching messages, with links to them.
+- **Offline**: lists, Sent, Archive and the newest 30 inbox messages' text are
+  kept on this computer. Read, flag, archive, delete and move work offline;
+  the change is queued and sent when the server answers again.
+- **Layouts**: *Split* (folders, list, message) or *Wide list* (one line per
+  message with columns, bulk actions always shown, the message opens in place
+  of the list).
 - **Invitations**: meeting requests show a card with *Accept / Maybe / Decline*;
   Keeper sends the answer to the organiser (iTIP REPLY) and puts the event in
   your calendar.
 - **Filters** for new inbox mail run on this computer (sender, recipients,
   subject or text contains … → mark read, flag, move, label, delete).
-- **AI** (optional, with the AI chosen in Settings → AI & Brain): *Summarize* a
-  conversation, *Draft reply*, *Find dates* (turns them into events you can
-  add). Keys, passwords and card numbers are blanked before anything goes to an
-  AI on the internet.
-- Keyboard: `j`/`k` move, `r` reply, `a` reply all, `f` forward, `e` archive,
-  `#` delete, `s` flag, `u` unread, `c` new message, `/` search, `⌘↩`/`Ctrl+↩`
-  send.
+- **AI** (optional, with the AI chosen in Settings → AI & Brain, which can be
+  on this computer only): *Summarize* a conversation, *Reply ideas* (three
+  answers, yes / ask / not now, in your own voice taken from lines of your sent
+  mail), *Translate* into the interface language, *Find dates* (turns them
+  into events you can add), *Rewrite* in the compose window (shorter,
+  friendlier, more formal, proofread, translate; on the selection or all, with
+  Undo) and *Ask* across your mail. Keys, passwords and card numbers are
+  blanked before anything goes to an AI on the internet; security mail is
+  never sent at all.
+- Keyboard (`core/pim/shortcuts.ts`), three sets: *web mail* (`j`/`k`, `r`,
+  `a`, `f`, `e` archive, `#` delete, `s` flag, `b` snooze, `x` select, `g i` /
+  `g o` Important / Other, `⇧F` follow up), *desktop mail* (↑/↓, `⌘R`, `⌘⇧R`,
+  `⌘⇧F`, `⌘N`, `⌫`), and *fast triage* (`e` done, `h` snooze, `u` toggle
+  read, Tab / ⇧Tab between Important and Other). Every key can be changed in
+  Settings → Mail & Calendar. `⌘↩`/`Ctrl+↩` sends.
 - Notifications for new mail, with *no previews* if you prefer (only "New
-  mail" is shown).
+  mail" is shown). New **Important** mail drops down from the Island (the
+  notch or the pill) with *Open*, *Archive* and *Mark read*; Settings can
+  include all mail or none.
 
 ## Where calendars come from
 
@@ -228,11 +265,29 @@ address on `127.0.0.1` (RFC 8252); the answer's `state` must match.
 `electron/services/pim/brain-adapter.ts` offers `searchMail`, `listEvents`,
 `previewEvent` and `createEvent` to the agents layer, and the local socket
 answers `keeper/mail.search`, `keeper/calendar.list` and
-`keeper/calendar.add`.
+`keeper/calendar.add`. Spam, Trash and security mail are left out.
+
+**MCP mail tools** (`core/pim/mail-mcp.ts`, registered by
+`electron/ipc/pim.ts`): `mail_search`, `mail_read`, `mail_thread` and
+`mail_draft`, only for accounts switched on under *Share with coding
+assistants* (off by default). There is no tool to send, delete or move; a draft
+is written into the account's Drafts folder for you to send. Spam and Trash
+(by special use or usual name) and security mail (sign-in alerts, one-time
+codes, password resets) are never returned, and secrets and codes are blanked
+in what is.
 
 ## What was tested, and what was not
 
 Tested here (Linux):
+
+- Mail sorting and safety (`test/mail-triage.test.ts`): Important / Other and
+  security alerts, sign-in code detection and blanking, Waiting for reply
+  across folders and copies, follow-up drafts, subscription statistics,
+  snooze and send-later times, the undo-send window, offline errors, local
+  then server search, the shortcut sets and two-key sequences, and the MCP
+  tools' limits (no send/delete/move, no Spam, Trash, security mail or
+  unshared accounts, secrets blanked, drafts only). Against Dovecot: List-Id /
+  List-Unsubscribe / Precedence read at sync, server search summaries.
 
 - Unit tests (`test/pim.test.ts`): time zones and daylight saving, repeat
   rules (weekly with intervals, "last Friday", BYSETPOS, UNTIL, skipped month

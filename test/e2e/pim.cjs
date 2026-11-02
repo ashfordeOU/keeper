@@ -48,7 +48,7 @@ const MSG = (subject, extra = '') => [
   await imap.logout();
 
   const root = path.resolve(__dirname, '../..');
-  const app = await _electron.launch({ executablePath: path.join(root, 'node_modules/.bin/electron'), args: [root, '--no-sandbox'], env: { ...process.env, HOME, NODE_OPTIONS: '', XDG_CONFIG_HOME: HOME + '/.config', XDG_DATA_HOME: HOME + '/.local/share' } });
+  const app = await _electron.launch({ executablePath: path.join(root, 'node_modules/.bin/electron'), args: [root, '--no-sandbox'], env: { ...process.env, HOME, NODE_OPTIONS: '', KEEPER_SKIP_TOUR: '1', XDG_CONFIG_HOME: HOME + '/.config', XDG_DATA_HOME: HOME + '/.local/share' } });
   const errors = [];
   let main;
   for (let i = 0; i < 60 && !main; i++) {
@@ -117,6 +117,75 @@ const MSG = (subject, extra = '') => [
   await main.locator('button[title="Check for new mail"]').click();
   await main.waitForTimeout(2000);
   check(await main.locator('.mail-row', { hasText: 'Re: The garden project' }).count() === 1, 'the reply shows in Sent in Keeper');
+
+  // ---------------------------------------------------------------- Important / Other, the Island, waiting, subscriptions, snooze, send later
+  const RAW2 = (from, subject, extra = []) => [`From: ${from}`, 'To: Ana <ana@example.org>', `Subject: ${subject}`, `Message-ID: <${subject.replace(/\W/g, '')}.${Date.now()}@example.net>`, `Date: ${new Date().toUTCString()}`, 'MIME-Version: 1.0', 'Content-Type: text/plain; charset=utf-8', ...extra, '', `${subject}.`].join('\r\n');
+  const accId = (await main.evaluate(() => window.keeper.pim.accounts())).find((a) => a.mail).id;
+  await main.locator('.mail-folder', { hasText: 'All inboxes' }).click();
+  await main.waitForTimeout(500);
+  const im2 = new ImapFlow({ host: '127.0.0.1', port: dovecot.port, secure: false, doSTARTTLS: false, auth: { user: 'ana', pass: 'secret' }, logger: false });
+  await im2.connect();
+  await im2.append('INBOX', RAW2('Weekly Picks <news@weekly.example.net>', 'Weekly picks', ['List-Id: <picks.weekly.example.net>', 'List-Unsubscribe: <https://weekly.example.net/u>', 'Precedence: bulk']), []);
+  await im2.append('INBOX', RAW2('Cloudbox <no-reply@accounts.example.net>', 'New sign-in to your account'), []);
+  await im2.logout();
+  let mailAlert = null;
+  for (let i = 0; i < 60 && !mailAlert; i++) {
+    mailAlert = (await main.evaluate(() => window.keeper.island.state())).alerts.find((a) => a.kind === 'mail') ?? null;
+    if (!mailAlert) await main.waitForTimeout(500);
+  }
+  check(!!mailAlert && /Security/.test(mailAlert.title) && /New sign-in/.test(mailAlert.detail ?? ''), 'new Important mail (a sign-in alert) dropped down from the Island, through IDLE');
+  check(!!mailAlert?.ref && mailAlert.ref.split(':').length > 2, 'the Island alert names the message (Open, Archive, Mark read)');
+  const imp = await main.evaluate(() => window.keeper.pim.messages({ folder: 'unified', split: 'important' }));
+  const oth = await main.evaluate(() => window.keeper.pim.messages({ folder: 'unified', split: 'other' }));
+  check(imp.messages.some((m) => /New sign-in/.test(m.subject) && m.security) && !imp.messages.some((m) => m.subject === 'Weekly picks'), 'the sign-in alert is Important (Security); the newsletter is not');
+  check(oth.messages.some((m) => m.subject === 'Weekly picks' && m.bulk && m.unsub), 'the newsletter is in Other, with its list headers');
+  await main.locator('.mail-tabs button', { hasText: 'Important' }).click();
+  await main.waitForTimeout(600);
+  await main.screenshot({ path: `${SHOTS}/app-mail-important.png` });
+
+  // Sent to someone else, no answer: Waiting for reply, with a follow-up.
+  await main.evaluate((acc) => window.keeper.pim.send({ account: acc, to: [{ name: 'Bob', address: 'bob@example.org' }], cc: [], bcc: [], subject: 'Quote for the garden', body: 'Here is the quote.', sendAt: Date.now() }), accId);
+  for (let i = 0; i < 40 && sent.length < 2; i++) await main.waitForTimeout(500);
+  await main.evaluate(() => window.keeper.pim.refresh());
+  const waiting = await main.evaluate(() => window.keeper.pim.waiting());
+  const w = waiting.find((x) => x.message.subject === 'Quote for the garden');
+  check(!!w && w.to.some((a) => a.address === 'bob@example.org'), 'the unanswered message is in Waiting for reply');
+  const fu = w ? await main.evaluate((id) => window.keeper.pim.followUp(id), w.message.id) : null;
+  check(!!fu && fu.subject === 'Re: Quote for the garden' && fu.to.some((a) => a.address === 'bob@example.org') && !!fu.inReplyTo, 'Follow up writes to the same person in the same conversation');
+  await main.locator('[data-testid="mail-nav-waiting"]').click();
+  await main.waitForSelector('[data-testid="mail-waiting"]', { timeout: 5000 }).catch(() => {});
+  check(await main.locator('.waiting-row', { hasText: 'Quote for the garden' }).count() === 1, 'Waiting for reply shows it');
+
+  // Subscriptions: archive everything from the newsletter (moved on the server).
+  const subs = await main.evaluate(() => window.keeper.pim.subscriptions());
+  const sub = subs.find((x) => x.address === 'news@weekly.example.net');
+  check(!!sub && sub.canUnsubscribe && !subs.some((x) => /accounts\.example/.test(x.address)), 'Subscriptions lists the newsletter (not the security mail)');
+  if (sub) await main.evaluate((k) => window.keeper.pim.cleanup(k, 'archive'), sub.key);
+  const im3 = new ImapFlow({ host: '127.0.0.1', port: dovecot.port, secure: false, doSTARTTLS: false, auth: { user: 'ana', pass: 'secret' }, logger: false });
+  await im3.connect();
+  let inArchive = false;
+  { const lock = await im3.getMailboxLock('Archive'); try { for await (const m of im3.fetch('1:*', { envelope: true })) if (m.envelope.subject === 'Weekly picks') inArchive = true; } finally { lock.release(); } }
+  await im3.logout();
+  check(inArchive, 'Archive all moved the newsletter to Archive on the server');
+
+  // Snooze: gone now, back unread a few seconds later, with a note in the Island.
+  const garden = (await main.evaluate(() => window.keeper.pim.messages({ folder: 'unified' }))).messages.find((m) => m.subject === 'The garden project');
+  await main.evaluate((id) => window.keeper.pim.snooze([id], Date.now() + 3000), garden.id);
+  const hidden = !(await main.evaluate(() => window.keeper.pim.messages({ folder: 'unified' }))).messages.some((m) => m.id === garden.id);
+  const listed = (await main.evaluate(() => window.keeper.pim.messages({ folder: 'snoozed' }))).messages.some((m) => m.id === garden.id);
+  check(hidden && listed, 'a snoozed message leaves the inbox and is listed under Snoozed');
+  let back = false;
+  for (let i = 0; i < 30 && !back; i++) {
+    await main.waitForTimeout(500);
+    back = (await main.evaluate(() => window.keeper.pim.messages({ folder: 'unified' }))).messages.some((m) => m.id === garden.id && !m.seen);
+  }
+  check(back, 'it comes back unread at its time');
+
+  // Send later: scheduled, listed, and can be taken back to edit.
+  const later = await main.evaluate((acc) => window.keeper.pim.send({ account: acc, to: [{ address: 'bob@example.org' }], cc: [], bcc: [], subject: 'Tomorrow morning', body: 'Later.', sendAt: Date.now() + 3_600_000 }), accId);
+  check(later.scheduled === true && (await main.evaluate(() => window.keeper.pim.outbox())).some((o) => o.id === later.id && o.scheduled), 'Send later is scheduled');
+  const undone = await main.evaluate((id) => window.keeper.pim.undoSend(id), later.id);
+  check(undone?.subject === 'Tomorrow morning' && sent.length === 2, 'a scheduled message can be taken back before it goes');
 
   // ---------------------------------------------------------------- calendar (CalDAV)
   await main.evaluate((u) => window.keeper.pim.addAccount({ kind: 'caldav', caldav: u, davUser: 'ana', password: 'secret', label: 'Home server' }), dav.url);
