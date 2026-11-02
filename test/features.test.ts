@@ -52,7 +52,8 @@ describe('features', () => {
 
   it('presets switch everything at once and are recognised afterwards', () => {
     let s = base();
-    expect(currentPreset(s)).toBe('balanced');
+    s = apply(s, presetPatch(s, 'recommended'));
+    expect(currentPreset(s)).toBe('recommended');
     s = apply(s, presetPatch(s, 'files'));
     expect(currentPreset(s)).toBe('files');
     expect(isOn(s, 'island', 'linux')).toBe(false);

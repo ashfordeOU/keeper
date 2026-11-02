@@ -142,6 +142,7 @@ import { applyFeatureSet, applyPreset, featureOn, featureSets, listFeatures, liv
 import { getSecret, hasSecret, onSettings, setSecret, settings, updateSettings } from './store';
 import { registerUsageStatsIpc } from './ipc/usage-stats';
 import { registerPermissionsIpc } from './ipc/permissions';
+import { registerSetupIpc } from './services/setup';
 import { nativeApps, nativeOpen } from './services/native-apps';
 
 void squarify; // the interface lays out the Space Map; kept for the CLI's future text treemap
@@ -669,8 +670,20 @@ function onSecondInstance(argv: string[]) {
 
 // ---------------------------------------------------------------- library
 
+/**
+ * The folders the library reads. Until the first-run setup is finished (or skipped) only
+ * Downloads: reading Desktop and Documents would make macOS ask about each folder before
+ * the person has seen anything (setup offers Full Disk Access as one switch instead).
+ */
+function libraryFolders(s: AllSettings) {
+  const all = s.folders.filter((f) => existsSync(f));
+  const waiting = !s.setupDone && !NO_TOUR;
+  const downloads = (() => { try { return app.getPath('downloads'); } catch { return ''; } })();
+  return (waiting ? all.filter((f) => f === downloads || path.basename(f) === 'Downloads') : all).map((f) => ({ path: f, label: path.basename(f) }));
+}
+
 function makeIndex(s: AllSettings) {
-  const folders = s.folders.filter((f) => existsSync(f)).map((f) => ({ path: f, label: path.basename(f) }));
+  const folders = libraryFolders(s);
   // Looked up each time, so "Where downloads came from" can be switched off and on.
   const hooks = {
     get readSource() { return featureOn('sources') ? readDownloadSource : undefined; },
@@ -1427,11 +1440,12 @@ app.whenReady().then(async () => {
   onControlsChanged(() => void updateTray());
   // Firewall: rules, alerts, the DNS filter and traffic history (nothing runs until switched on).
   registerFirewallIpc({ alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }), broadcast });
-  // Anonymous usage stats: on by default, off with one switch; at most one small report a day (Settings → Privacy).
+  // Anonymous usage stats: asked in setup (unticked), off with one switch; at most one small report a day (Settings → Privacy).
   registerUsageStatsIpc();
   registerPermissionsIpc();
   // Downloadable parts: paths now, any download a while after start (docs/COMPONENTS.md).
   registerComponentsIpc({ broadcast, alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }) });
+  registerSetupIpc();
   // Sync, backups and mirrors. Keeper Link and cloud connections attach when they are ready
   // (attachTransport / attachConnections); KEEPER_SYNC_LOOPBACK is for tests only.
   // Notes Everywhere: the hub of notes from every notes app (nothing runs until an app is connected).
@@ -1592,8 +1606,8 @@ let studioSince: number | undefined;
     if (next.theme !== prev.theme || next.themeSeasons !== prev.themeSeasons) ashfordeThemeChanged();
     if (JSON.stringify(next.brain) !== JSON.stringify(prev.brain)) void brainSettingsChanged(next.brain, prev.brain);
     if (JSON.stringify(next.agents) !== JSON.stringify(prev.agents)) void agentSettingsChanged(normalizeAgentSettings(next.agents), normalizeAgentSettings(prev.agents));
-    if (next.folders.join() !== prev.folders.join() || next.excluded.join() !== prev.excluded.join() || next.showHidden !== prev.showHidden || next.includeRemote !== prev.includeRemote) {
-      index.folders = next.folders.filter(existsSync).map((f) => ({ path: f, label: path.basename(f) }));
+    if (next.folders.join() !== prev.folders.join() || next.excluded.join() !== prev.excluded.join() || next.showHidden !== prev.showHidden || next.includeRemote !== prev.includeRemote || next.setupDone !== prev.setupDone) {
+      index.folders = libraryFolders(next);
       index.excluded = next.includeRemote ? next.excluded : [...new Set([...next.excluded, ...remoteFolders()])];
       void rescan();
     }

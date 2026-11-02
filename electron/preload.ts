@@ -3,8 +3,9 @@
 // the renderer never gets Node or Electron access of its own.
 
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
+import { cleanIpcError } from '../core/ipc-error';
 
-const invoke = (ch: string) => (...args: unknown[]) => ipcRenderer.invoke(ch, ...args);
+const invoke = (ch: string) => (...args: unknown[]) => ipcRenderer.invoke(ch, ...args).catch((e: unknown) => { throw cleanIpcError(e); });
 
 function group(name: string, methods: string[]) {
   return Object.fromEntries(methods.map((m) => [m, invoke(`${name}.${m}`)]));
@@ -51,6 +52,7 @@ const api = {
   usageStats: group('usageStats', ['status', 'setOn', 'resetId', 'setBlocked', 'page']),
   // The system permissions Keeper's features use (first run, Settings → Permissions).
   permissions: group('permissions', ['list', 'request', 'openSettings', 'test', 'restart']),
+  setup: group('setup', ['context', 'recommended', 'apply', 'approvals', 'finish']),
   keychain: group('keychain', ['status', 'retry']),
   features: group('features', ['list', 'set', 'preset', 'sets', 'saveSet', 'removeSet', 'applySet', 'setPowerSets', 'live']),
   // Downloadable parts (ffmpeg, ONNX Runtime, rclone) and add-on apps (docs/COMPONENTS.md).

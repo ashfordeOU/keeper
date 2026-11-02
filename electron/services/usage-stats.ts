@@ -146,7 +146,7 @@ function sample() {
 
 const HW_VERSION = 2;
 
-async function hardware(): Promise<NonNullable<Stored['hw']>> {
+export async function hardware(): Promise<NonNullable<Stored['hw']>> {
   const d = load();
   // Earlier versions took any Mac whose model name lacks "MacBook" (Mac16,6 and the like) for a desktop.
   if (d.hw && (d.hw.v ?? 1) >= HW_VERSION) return d.hw;

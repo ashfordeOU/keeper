@@ -189,9 +189,11 @@ describe('switching it off', () => {
     expect(policyPath('darwin', {})).toBe('/Library/Application Support/Keeper/policy.json');
     expect(policyPath('win32', { ProgramData: 'C:\\ProgramData' })).toBe('C:\\ProgramData\\Keeper\\policy.json');
   });
-  it('is a feature, on by default, that presets and saved sets never switch', () => {
+  it('is a feature, off for new installs until setup’s box is ticked, that presets and saved sets never switch', () => {
     const s = defaultSettings([], []);
-    expect(featureStates(s).get('usageStats')?.on).toBe(true);
+    expect(featureStates(s).get('usageStats')?.on).toBe(false);
+    // Installs from before 1.0 had it on, and keep it (core/features keepChoices).
+    expect(FEATURES.find((f) => f.id === 'usageStats')?.defaultBefore1).toBe(true);
     const off = { ...s, features: { ...(s.features ?? {}), usageStats: false } };
     expect(presetPatch(off, 'everything').features?.usageStats ?? false).toBe(false);
     expect(featureStates({ ...off, ...presetPatch(off, 'everything') }).get('usageStats')?.on).toBe(false);

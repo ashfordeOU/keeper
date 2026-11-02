@@ -63,7 +63,7 @@ const ai = http.createServer((req, res) => {
 
 /** `keeper mcp` with stdin kept open until every answer is in. */
 function mcpSession(lines, expect) {
-  const p = spawn(process.execPath, [path.join(ROOT, 'dist-cli/keeper.cjs'), 'mcp'], { env: { ...process.env, KEEPER_DATA_DIR: DATA, HOME } });
+  const p = spawn(process.execPath, [path.join(ROOT, 'dist-cli/keeper.cjs'), 'mcp'], { env: { ...process.env, KEEPER_DEFAULTS: 'before-1.0', KEEPER_DATA_DIR: DATA, HOME } });
   let out = '';
   const answers = new Map();
   const done = new Promise((resolve) => {
@@ -100,7 +100,7 @@ async function post(port, token, pathname, body, headers = {}) {
     agents: { gateway: true, a2a: true, actions: true, learn: true },
   }));
 
-  const app = await _electron.launch({ executablePath: path.join(ROOT, 'node_modules/.bin/electron'), args: [ROOT, '--no-sandbox'], env: { ...process.env, HOME, NODE_OPTIONS: '', XDG_CONFIG_HOME: HOME + '/.config', XDG_DATA_HOME: HOME + '/.local/share' } });
+  const app = await _electron.launch({ executablePath: path.join(ROOT, 'node_modules/.bin/electron'), args: [ROOT, '--no-sandbox'], env: { ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME, NODE_OPTIONS: '', XDG_CONFIG_HOME: HOME + '/.config', XDG_DATA_HOME: HOME + '/.local/share' } });
   const errors = [];
   let main;
   for (let i = 0; i < 40 && !main; i++) {

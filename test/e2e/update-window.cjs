@@ -39,7 +39,7 @@ const server = http.createServer((req, res) => {
   const app = await _electron.launch({
     executablePath: path.resolve(__dirname, '../../node_modules/.bin/electron'),
     args: [path.resolve(__dirname, '../..'), '--no-sandbox'],
-    env: { ...process.env, HOME, NODE_OPTIONS: '', XDG_CONFIG_HOME: HOME + '/.config', XDG_DATA_HOME: HOME + '/.local/share', KEEPER_UPDATE_FEED: FEED, KEEPER_SKIP_TOUR: '1' },
+    env: { ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME, NODE_OPTIONS: '', XDG_CONFIG_HOME: HOME + '/.config', XDG_DATA_HOME: HOME + '/.local/share', KEEPER_UPDATE_FEED: FEED, KEEPER_SKIP_TOUR: '1' },
   });
   let main;
   for (let i = 0; i < 60 && !main; i++) { main = app.windows().find((w) => w.url().includes('view=app')); if (!main) await wait(500); }

@@ -56,7 +56,7 @@ async function until(fn, ms = 15_000, step = 300) {
 const sh = (file, args, timeout = 20_000) => { const r = spawnSync(file, args, { encoding: 'utf8', timeout, windowsHide: true }); return { ok: r.status === 0, out: `${r.stdout ?? ''}${r.stderr ?? ''}` }; };
 
 // ---------------------------------------------------------------- a clean data folder
-const env = { ...process.env, KEEPER_SKIP_TOUR: '1', NODE_OPTIONS: '', ELECTRON_RUN_AS_NODE: '' };
+const env = { ...process.env, KEEPER_DEFAULTS: 'before-1.0', KEEPER_SKIP_TOUR: '1', NODE_OPTIONS: '', ELECTRON_RUN_AS_NODE: '' };
 delete env.ELECTRON_RUN_AS_NODE;
 let dataDir;
 if (OS === 'linux') {

@@ -9,8 +9,11 @@ import { DEVELOPER_ID } from './build-flags';
 import { overallState, readSealed, type KeychainStatus, type SecretState } from '../core/keychain';
 import { defaultFolders } from '../core/platform';
 import { defaultRules } from '../core/rules';
-import { keepChoices } from '../core/features';
+import { keepChoices, presetPatch } from '../core/features';
 import { defaultSettings, mergeSettings, type AllSettings } from '../core/settings';
+
+declare const __KEEPER_OFFICIAL__: boolean | undefined;
+const OFFICIAL = typeof __KEEPER_OFFICIAL__ === 'boolean' && __KEEPER_OFFICIAL__;
 
 const file = () => path.join(app.getPath('userData'), 'settings.json');
 const secretsFile = () => path.join(app.getPath('userData'), 'secrets.json');
@@ -29,7 +32,13 @@ export function settings(): AllSettings {
   }
   if (!raw || typeof raw !== 'object') {
     // A new install: the defaults (and the first-run setup) apply; nothing to keep.
+    // Test runs of a development build can ask for the defaults from before 1.0 instead
+    // (KEEPER_DEFAULTS=before-1.0), for end-to-end checks written against them.
     current = { ...base, featuresPinned: true };
+    if (!OFFICIAL && process.env.KEEPER_DEFAULTS === 'before-1.0') current = { ...current, ...keepChoices(current) };
+    // Recommended without knowing the computer yet (setup refines it), written through the
+    // older settings some parts live in (the AI's own switch, the Island's coding assistants).
+    else current = { ...current, ...presetPatch(current, 'recommended') };
     return current;
   }
   current = mergeSettings(base, raw);
@@ -79,7 +88,7 @@ export function onSettings(fn: (s: AllSettings, prev: AllSettings) => void): () 
 
 // ---------------------------------------------------------------- secrets
 
-function secureAvailable(): boolean {
+export function secureAvailable(): boolean {
   if (!safeStorage.isEncryptionAvailable()) return false;
   // On Linux without a keyring Electron falls back to a fixed key; that is not real protection.
   if (process.platform === 'linux' && safeStorage.getSelectedStorageBackend?.() === 'basic_text') return false;

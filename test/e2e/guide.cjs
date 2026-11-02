@@ -28,7 +28,7 @@ const check = (ok, what) => { console.log(`${ok ? 'PASS' : 'FAIL'} ${what}`); if
   const app = await _electron.launch({
     executablePath: path.resolve(__dirname, '../../node_modules/.bin/electron'),
     args: [path.resolve(__dirname, '../..'), '--no-sandbox'],
-    env: { ...process.env, HOME, NODE_OPTIONS: '', XDG_CONFIG_HOME: HOME + '/.config', XDG_DATA_HOME: HOME + '/.local/share', XDG_CURRENT_DESKTOP: 'GNOME', KEEPER_GUIDE_OPEN_STUB: STUB, KEEPER_GUIDE_TRASH_MIN: '1' },
+    env: { ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME, NODE_OPTIONS: '', XDG_CONFIG_HOME: HOME + '/.config', XDG_DATA_HOME: HOME + '/.local/share', XDG_CURRENT_DESKTOP: 'GNOME', KEEPER_GUIDE_OPEN_STUB: STUB, KEEPER_GUIDE_TRASH_MIN: '1' },
   });
   const errors = [];
   let main;

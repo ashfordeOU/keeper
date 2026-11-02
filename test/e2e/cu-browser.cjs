@@ -94,7 +94,7 @@ const ai = http.createServer((req, res) => {
 
 function runCli(args, lines) {
   return new Promise((resolve) => {
-    const p = spawn(process.execPath, [path.join(ROOT, 'dist-cli/keeper.cjs'), ...args], { env: { ...process.env, KEEPER_DATA_DIR: DATA, HOME } });
+    const p = spawn(process.execPath, [path.join(ROOT, 'dist-cli/keeper.cjs'), ...args], { env: { ...process.env, KEEPER_DEFAULTS: 'before-1.0', KEEPER_DATA_DIR: DATA, HOME } });
     let out = '';
     p.stdout.on('data', (d) => (out += d));
     p.on('close', () => resolve(out.trim().split('\n').filter(Boolean).map((l) => { try { return JSON.parse(l); } catch { return {}; } })));
@@ -120,7 +120,7 @@ const textOf = (r) => (r?.result?.content || []).map((c) => c.text || '').join('
   }));
   fs.writeFileSync(path.join(DATA, 'cu.json'), JSON.stringify({ secrets: [{ name: 'shop-login', sites: ['127.0.0.1'], source: 'op', ref: 'op://Shop/Login/password' }] }));
   const started = Date.now();
-  const app = await _electron.launch({ executablePath: path.join(ROOT, 'node_modules/.bin/electron'), args: [ROOT, '--no-sandbox'], env: { ...process.env, HOME, PATH: `${BIN}:${process.env.PATH}`, NODE_OPTIONS: '', XDG_CONFIG_HOME: HOME + '/.config', XDG_DATA_HOME: HOME + '/.local/share', XDG_DOWNLOAD_DIR: path.join(HOME, 'Downloads') } });
+  const app = await _electron.launch({ executablePath: path.join(ROOT, 'node_modules/.bin/electron'), args: [ROOT, '--no-sandbox'], env: { ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME, PATH: `${BIN}:${process.env.PATH}`, NODE_OPTIONS: '', XDG_CONFIG_HOME: HOME + '/.config', XDG_DATA_HOME: HOME + '/.local/share', XDG_DOWNLOAD_DIR: path.join(HOME, 'Downloads') } });
   const errors = [];
   let main;
   for (let i = 0; i < 40 && !main; i++) {

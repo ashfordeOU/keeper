@@ -246,7 +246,7 @@ async function big() {
   const app = await _electron.launch({
     executablePath: path.join(ROOT, 'node_modules', '.bin', 'electron'),
     args: [ROOT, '--no-sandbox', `--user-data-dir=${user}`, `--js-flags=--expose-gc --max-old-space-size=${BIG.heapLimitMB}`],
-    env: { ...process.env, HOME: home, XDG_CONFIG_HOME: user, NODE_OPTIONS: '', KEEPER_SKIP_TOUR: '1' },
+    env: { ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME: home, XDG_CONFIG_HOME: user, NODE_OPTIONS: '', KEEPER_SKIP_TOUR: '1' },
   });
   const pid = app.process().pid;
   let crashed = '';
@@ -317,7 +317,7 @@ async function battery() {
   const app = await _electron.launch({
     executablePath: path.join(ROOT, 'node_modules', '.bin', 'electron'),
     args: [ROOT, '--no-sandbox', `--user-data-dir=${user}`],
-    env: { ...process.env, HOME: home, XDG_CONFIG_HOME: user, NODE_OPTIONS: '', KEEPER_SKIP_TOUR: '1', KEEPER_TEST_CONDITIONS: JSON.stringify({ onBattery: true, idleSec: 0 }) },
+    env: { ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME: home, XDG_CONFIG_HOME: user, NODE_OPTIONS: '', KEEPER_SKIP_TOUR: '1', KEEPER_TEST_CONDITIONS: JSON.stringify({ onBattery: true, idleSec: 0 }) },
   });
   const launcher = app.process().pid;
   try {
@@ -359,7 +359,7 @@ async function once() {
   const app = await _electron.launch({
     executablePath: path.join(ROOT, 'node_modules', '.bin', 'electron'),
     args: [ROOT, '--no-sandbox', `--user-data-dir=${user}`],
-    env: { ...process.env, HOME: home, XDG_CONFIG_HOME: user, NODE_OPTIONS: '' },
+    env: { ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME: home, XDG_CONFIG_HOME: user, NODE_OPTIONS: '' },
   });
   try {
     const root = app.process().pid;

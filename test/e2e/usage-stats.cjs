@@ -67,7 +67,7 @@ async function launch(name, extraEnv) {
   fs.mkdirSync(path.join(BASE, name), { recursive: true });
   const home = fs.realpathSync(path.join(BASE, name));
   for (const d of ['Documents', 'Downloads', 'Desktop']) fs.mkdirSync(path.join(home, d), { recursive: true });
-  const env = { ...process.env, HOME: home, NODE_OPTIONS: '', XDG_CONFIG_HOME: home + '/.config', XDG_DATA_HOME: home + '/.local/share', KEEPER_TELEMETRY_URL: `http://127.0.0.1:${server.address().port}/v1/ping`, KEEPER_TELEMETRY_INTERVAL_MS: String(INTERVAL), ...extraEnv };
+  const env = { ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME: home, NODE_OPTIONS: '', XDG_CONFIG_HOME: home + '/.config', XDG_DATA_HOME: home + '/.local/share', KEEPER_TELEMETRY_URL: `http://127.0.0.1:${server.address().port}/v1/ping`, KEEPER_TELEMETRY_INTERVAL_MS: String(INTERVAL), ...extraEnv };
   delete env.DO_NOT_TRACK;
   if (!extraEnv.KEEPER_TELEMETRY) delete env.KEEPER_TELEMETRY;
   const app = await _electron.launch({ executablePath: path.join(APP, 'node_modules/.bin/electron'), args: [APP, '--no-sandbox'], env });

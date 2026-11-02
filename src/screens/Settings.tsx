@@ -32,6 +32,7 @@ import { NativeAppsPanel } from '../components/NativeAppsPanel';
 import { AccessibilityPanel } from '../components/AccessibilityPanel';
 import '../styles/screens-b.css';
 import { useFeature } from '../features';
+import { errorText } from '../../core/ipc-error';
 
 // Settings → Menu bar: the AI usage label (loads only when shown), under the glance settings.
 const UsageSettings = lazy(() => import('./usage/UsageSettings').then((m) => ({ default: m.UsageSettings })));
@@ -243,7 +244,7 @@ export function Settings() {
       <h2 id="tasks-notes" style={{ margin: '18px 0 8px' }}>Tasks and notes</h2>
       <div className="card settings-section">
         <Row title="Export tasks and notes" desc="Every task (all lists, with steps, repeats and notes) and every Island note, as one JSON file you keep. Nothing is uploaded.">
-          <button className="btn" data-testid="export-tasks" onClick={() => void api.islandTools.exportJson().then((p) => p && toast(`Saved to ${p}`), (e: unknown) => toast(String(e)))}><Icon name="down" size={13} /> Export…</button>
+          <button className="btn" data-testid="export-tasks" onClick={() => void api.islandTools.exportJson().then((p) => p && toast(`Saved to ${p}`), (e: unknown) => toast(errorText(e)))}><Icon name="down" size={13} /> Export…</button>
         </Row>
       </div>
 

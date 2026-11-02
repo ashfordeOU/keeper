@@ -38,7 +38,7 @@ for (const d of ['Downloads', 'Desktop', 'Documents', 'Pictures', 'Videos', '.co
 fs.mkdirSync(SHOTS, { recursive: true });
 
 (async () => {
-  const ENV = { ...process.env, HOME, NODE_OPTIONS: '', KEEPER_SKIP_TOUR: '1', XDG_CONFIG_HOME: path.join(HOME, '.config'), XDG_DATA_HOME: path.join(HOME, '.local/share'), XDG_VIDEOS_DIR: path.join(HOME, 'Videos') };
+  const ENV = { ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME, NODE_OPTIONS: '', KEEPER_SKIP_TOUR: '1', XDG_CONFIG_HOME: path.join(HOME, '.config'), XDG_DATA_HOME: path.join(HOME, '.local/share'), XDG_VIDEOS_DIR: path.join(HOME, 'Videos') };
   const app = await _electron.launch({
     executablePath: path.join(ROOT, 'node_modules/.bin/electron'),
     // Chromium's stand-in microphone (a beep) and camera (a test pattern), allowed without asking

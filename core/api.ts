@@ -442,6 +442,8 @@ export interface KeeperApi extends KeeperApiX {
   /** anonymous usage stats: the switch, exactly what is sent, and the install ID */
   usageStats: import('./telemetry').UsageStatsApi;
   permissions: import('./permissions').PermissionsApi;
+  /** the first-run setup (absent in the browser demo) */
+  setup?: import('./api-setup').SetupApi;
   /** whether Keeper's saved sign-ins can be read (the system keychain), and Try again */
   keychain: import('./keychain').KeychainApi;
   /** AI usage and subscriptions: limits left per account, warnings, the menu-bar pop-over */

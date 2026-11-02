@@ -40,7 +40,7 @@ async function until(fn, ms = 15000, step = 200) {
 /** A stand-in agent speaking MCP through `keeper mcp`, with its hub token in the environment. */
 class McpAgent {
   constructor(token) {
-    this.p = spawn(process.execPath, [path.join(ROOT, 'dist-cli/keeper.cjs'), 'mcp'], { env: { ...process.env, KEEPER_DATA_DIR: DATA, HOME, KEEPER_AGENT_TOKEN: token } });
+    this.p = spawn(process.execPath, [path.join(ROOT, 'dist-cli/keeper.cjs'), 'mcp'], { env: { ...process.env, KEEPER_DEFAULTS: 'before-1.0', KEEPER_DATA_DIR: DATA, HOME, KEEPER_AGENT_TOKEN: token } });
     this.seq = 0;
     this.waiting = new Map();
     let buf = '';
@@ -69,7 +69,7 @@ class McpAgent {
 
 (async () => {
   fs.writeFileSync(path.join(DATA, 'settings.json'), JSON.stringify({ folders: [WORK], agents: { actions: true, permissions: { terminal: 'allow' } } }));
-  const app = await _electron.launch({ executablePath: path.join(ROOT, 'node_modules/.bin/electron'), args: [ROOT, '--no-sandbox'], env: { ...process.env, HOME, NODE_OPTIONS: '', XDG_CONFIG_HOME: HOME + '/.config', XDG_DATA_HOME: HOME + '/.local/share', SHELL: '/bin/bash' } });
+  const app = await _electron.launch({ executablePath: path.join(ROOT, 'node_modules/.bin/electron'), args: [ROOT, '--no-sandbox'], env: { ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME, NODE_OPTIONS: '', XDG_CONFIG_HOME: HOME + '/.config', XDG_DATA_HOME: HOME + '/.local/share', SHELL: '/bin/bash' } });
   const errors = [];
   const main = await until(() => app.windows().find((w) => { const u = w.url(); return u && (!u.includes('view=') || u.includes('view=app')); }), 30000);
   main.on('pageerror', (e) => errors.push(e.message));
@@ -177,7 +177,7 @@ class McpAgent {
 
   // The keeper command uses the same tools.
   const cli = await new Promise((resolve) => {
-    const p = spawn(process.execPath, [path.join(ROOT, 'dist-cli/keeper.cjs'), 'hub', 'agents'], { env: { ...process.env, KEEPER_DATA_DIR: DATA, HOME } });
+    const p = spawn(process.execPath, [path.join(ROOT, 'dist-cli/keeper.cjs'), 'hub', 'agents'], { env: { ...process.env, KEEPER_DEFAULTS: 'before-1.0', KEEPER_DATA_DIR: DATA, HOME } });
     let o = '';
     p.stdout.on('data', (d) => (o += d));
     p.on('close', () => resolve(o));

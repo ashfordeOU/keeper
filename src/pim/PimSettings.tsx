@@ -12,6 +12,7 @@ import { ACTION_LABELS, SCHEMES, showCombo, type MailAction, type SchemeId } fro
 import type { Account } from '../../core/pim/types';
 import { relativeTime } from '../../core/format';
 import { docUrl } from '../../core/brand';
+import { errorText } from '../../core/ipc-error';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
 import { Toggle } from '../components/ui';
@@ -117,7 +118,7 @@ export function PimSettings() {
             pw?.id === a.id
               ? <><input className="input" type="password" autoFocus placeholder="Password" value={pw.value} onChange={(e) => setPw({ id: a.id, value: e.target.value })} style={{ width: 160 }} /><button className="btn sm primary" onClick={async () => { await api.pim.updateAccount(a.id, { password: pw.value } as Partial<Account>); setPw(null); toast('Password saved'); }}>Save</button></>
               : <button className="btn sm ghost" onClick={() => setPw({ id: a.id, value: '' })}>Password…</button>
-          ) : a.oauth ? <button className="btn sm ghost" onClick={async () => { try { await api.pim.signIn(a.oauth!, a.email); await api.pim.removeAccount(a.id); } catch (e) { toast(String(e)); } }}>Sign in again</button> : null}
+          ) : a.oauth ? <button className="btn sm ghost" onClick={async () => { try { await api.pim.signIn(a.oauth!, a.email); await api.pim.removeAccount(a.id); } catch (e) { toast(errorText(e)); } }}>Sign in again</button> : null}
           <button className="btn sm ghost icon" title="Remove account" aria-label="Remove account" onClick={() => { if (window.confirm(`Remove ${a.label} from Keeper? Mail and events stay on the server.`)) void api.pim.removeAccount(a.id); }}><Icon name="trash" size={13} /></button>
           {a.mail ? <AccountMailRow a={a} /> : null}
         </div>

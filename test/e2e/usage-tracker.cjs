@@ -104,7 +104,7 @@ const server = http.createServer((req, res) => {
 (async () => {
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   const stub = `http://127.0.0.1:${server.address().port}`;
-  const env = { ...process.env, PATH: `${path.join(HOME, 'bin')}:${process.env.PATH}`, HOME, NODE_OPTIONS: '', XDG_CONFIG_HOME: HOME + '/.config', XDG_DATA_HOME: HOME + '/.local/share', KEEPER_USAGE_STUB: stub, KEEPER_POPOVER_STAYS: '1', KEEPER_USAGE_CSV: path.join(HOME, 'usage.csv') };
+  const env = { ...process.env, KEEPER_DEFAULTS: 'before-1.0', PATH: `${path.join(HOME, 'bin')}:${process.env.PATH}`, HOME, NODE_OPTIONS: '', XDG_CONFIG_HOME: HOME + '/.config', XDG_DATA_HOME: HOME + '/.local/share', KEEPER_USAGE_STUB: stub, KEEPER_POPOVER_STAYS: '1', KEEPER_USAGE_CSV: path.join(HOME, 'usage.csv') };
   delete env.CODEX_HOME;
   delete env[`${CC.slice(1).toUpperCase()}_CONFIG_DIR`];
   const app = await _electron.launch({ executablePath: path.join(APP, 'node_modules/.bin/electron'), args: [APP, '--no-sandbox'], env });
@@ -241,7 +241,7 @@ const server = http.createServer((req, res) => {
   check(csv.path && fs.readFileSync(csv.path, 'utf8').includes('Codex Plus,codex,weekly'), `CSV export (${csv.rows} rows)`);
 
   // ---- keeper usage --json
-  const cli = (args) => execFileSync(process.execPath, [path.join(APP, 'dist-cli/keeper.cjs'), ...args], { encoding: 'utf8', env: { ...process.env, HOME, XDG_CONFIG_HOME: HOME + '/.config' }, timeout: 30_000 });
+  const cli = (args) => execFileSync(process.execPath, [path.join(APP, 'dist-cli/keeper.cjs'), ...args], { encoding: 'utf8', env: { ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME, XDG_CONFIG_HOME: HOME + '/.config' }, timeout: 30_000 });
   const j = JSON.parse(cli(['usage', '--json']));
   check(j.allClear === true && j.accounts.length === 7 && j.accounts.some((a) => a.name === 'Codex Team' && a.limits.some((l) => l.key === 'weekly')), 'keeper usage --json');
   check(/Codex Plus/.test(cli(['usage'])), 'keeper usage (text)');

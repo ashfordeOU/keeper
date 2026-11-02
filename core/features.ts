@@ -8,6 +8,7 @@
 // main process ask `featureOn(id)` / `onFeature(id, …)` before starting
 // anything (electron/services/features.ts).
 
+import { TIERS, type FeatureTier, type Normal, type SetupGroupId } from './feature-tiers';
 import type { AllSettings } from './settings';
 
 export type FeatureGroup = 'Library' | 'Tidy' | 'Island' | 'Desktop' | 'AI' | 'Connections' | 'System';
@@ -51,6 +52,24 @@ export interface FeatureDef {
    * Planning data only (docs/MAS-EDITION.md): nothing reads it yet. Absent means "available".
    */
   edition?: Partial<Record<KeeperEdition, EditionSupport>>;
+  // ---- filled in from core/feature-tiers.ts (data for setup and Settings → Features)
+  /**
+   * recommended: on in Recommended (always, by a rule about this computer, or following its parent);
+   * offered: off, but shown in Basic for people to turn on; advanced: shown only with advanced settings
+   */
+  tier?: 'recommended' | 'offered' | 'advanced';
+  /** what Recommended does with it (see FeatureTier) */
+  normal?: Normal;
+  /** it follows this part: on whenever that one is on, with no switch of its own in Basic */
+  follows?: string;
+  /** its own row in Basic, inside its group's Customize, or Advanced only */
+  shown?: FeatureTier['shown'];
+  /** the group card it belongs to in setup */
+  setup?: SetupGroupId;
+  /** its name in plain words */
+  plain?: string;
+  /** the default everyone had before 1.0 (`defaultOn` is the default for new installs) */
+  defaultBefore1?: boolean;
 }
 
 /** Builds of Keeper that differ in what they may do: the Mac App Store's sandboxed one so far. */
@@ -204,6 +223,26 @@ export const FEATURES: FeatureDef[] = [
   { id: 'usageStats', name: 'Anonymous usage stats', description: 'Once a day, a small anonymous report (version, kind of computer, which features and pages are used, crash counts) to help Ashforde improve Keeper. Never files, searches or names. Settings → Privacy shows exactly what is sent.', group: 'System', defaultOn: true, ownChoice: true, cost: { level: 'none', background: 'One look an hour; sends at most once a day when the computer is idle' } },
 ];
 
+// New installs get the 1.0 defaults (Recommended for a typical computer: core/feature-tiers.ts);
+// the values written above are what everyone had before, kept for upgrades (keepChoices).
+for (const f of FEATURES) {
+  const t = TIERS[f.id];
+  f.defaultBefore1 = f.defaultOn;
+  if (!t) continue;
+  f.plain = t.plain;
+  f.setup = t.setup;
+  f.normal = t.normal;
+  f.follows = t.follows;
+  f.shown = t.shown;
+  f.tier = t.shown === 'advanced' ? 'advanced' : t.normal === 'off' ? 'offered' : 'recommended';
+  if (!f.always) f.defaultOn = staticNormal(t.normal);
+}
+
+/** A part's 1.0 default without knowing the computer: rules about the computer count as off, except the "not on…" ones. */
+function staticNormal(n: Normal): boolean {
+  return n === 'on' || n === 'parent' || n === 'enoughMemory' || n === 'notWindows' || n === 'notMac';
+}
+
 /** Pages and palette commands that belong to Keeper itself and cannot be switched off (settings and appearance). */
 export const CORE = {
   routes: ['settings'],
@@ -241,7 +280,7 @@ export function keepChoices(s: AllSettings, platform: string = HOST, before: (f:
 
 /** The default a part had for everyone before 1.0 (what an upgrading install was running with). */
 export function defaultBefore(f: FeatureDef): boolean {
-  return f.defaultOn;
+  return f.defaultBefore1 ?? f.defaultOn;
 }
 
 /** What the person asked for (before dependencies). */
@@ -314,24 +353,94 @@ export function featurePatch(s: AllSettings, id: string, on: boolean): Partial<A
   return diff(s, next);
 }
 
-export type PresetId = 'everything' | 'balanced' | 'minimal' | 'files';
+/** Presets; 'balanced' and 'minimal' are their names before 1.0 (still read: saved power-source choices use them). */
+export type PresetId = 'recommended' | 'light' | 'files' | 'everything' | 'balanced' | 'minimal';
 
-export const PRESETS: { id: PresetId; name: string; description: string; on: (f: FeatureDef) => boolean }[] = [
-  { id: 'everything', name: 'Everything', description: 'Every feature on.', on: () => true },
-  { id: 'balanced', name: 'Balanced', description: 'Keeper as it comes: the useful things on, the heavier extras off until you want them.', on: (f) => f.defaultOn },
-  { id: 'minimal', name: 'Minimal', description: 'Files, search and tidying, with the Island and tray. Nothing heavy in the background.', on: (f) => ['Library', 'Tidy'].includes(f.group) ? f.id !== 'ocr' : ['island', 'tray', 'quickSearch', 'clipboard', 'focus', 'keepAwake', 'hideInFullscreen', 'updates'].includes(f.id) },
-  { id: 'files', name: 'Files only', description: 'A file manager and nothing else: library, search, places and tidying.', on: (f) => ['library', 'sources', 'docText', 'places', 'network', 'lock', 'cleanup', 'duplicates', 'space', 'convert', 'history', 'tray', 'quickSearch'].includes(f.id) },
+/** What Recommended knows about this computer (built in the main process: electron/services/setup.ts). */
+export interface ComputerContext {
+  platform: string;
+  /** has a battery (a laptop or tablet); null = unknown */
+  battery?: boolean | null;
+  /** a Mac whose screen has a notch */
+  notch?: boolean;
+  /** memory in GB and processor cores */
+  memoryGb?: number;
+  cores?: number;
+  /** free space on the home disk, GB */
+  freeDiskGb?: number;
+  /** coding tools found (VS Code, Cursor, Claude Code, Codex, git…), by name */
+  devTools?: string[];
+  /** Docker or Podman found */
+  docker?: boolean;
+  /** an Obsidian vault or a Markdown notes folder */
+  notesFound?: string;
+  /** an AI on this computer: Apple's own, or Ollama */
+  localAI?: 'apple' | 'ollama';
+  /** Monorail is installed */
+  monorail?: boolean;
+  /** what the person removed from the "found on this computer" chips */
+  declined?: ('dev' | 'docker' | 'notes' | 'ai')[];
+}
+
+const ALIASES: Record<string, PresetId> = { balanced: 'recommended', minimal: 'light' };
+/** The 1.0 name of a preset ('balanced' → 'recommended', 'minimal' → 'light'). */
+export const presetName = (id: string): PresetId => ALIASES[id] ?? (id as PresetId);
+
+/** Is this part on in Recommended, on this computer? */
+export function recommend(f: FeatureDef, ctx?: ComputerContext): boolean {
+  if (f.always) return true;
+  const n = f.normal;
+  if (!n) return f.defaultOn;
+  if (!ctx) return staticNormal(n);
+  const no = (k: 'dev' | 'docker' | 'notes' | 'ai') => ctx.declined?.includes(k) ?? false;
+  switch (n) {
+    case 'on': case 'parent': return true;
+    case 'off': return false;
+    case 'dev': return !!ctx.devTools?.length && !no('dev');
+    case 'docker': return !!ctx.docker && !no('dev') && !no('docker');
+    case 'notesFound': return !!ctx.notesFound && !no('notes');
+    case 'localAI': return !!ctx.localAI && !no('ai');
+    // Text in pictures is heavy: not on computers with under 8 GB of memory or 4 cores or fewer.
+    case 'enoughMemory': return (ctx.memoryGb ?? 8) >= 7.5 && (ctx.cores ?? 8) > 4;
+    case 'notWindows': return ctx.platform !== 'win32';
+    case 'notMac': return ctx.platform !== 'darwin';
+    case 'monorail': return !!ctx.monorail;
+  }
+  return false;
+}
+
+export const PRESETS: { id: PresetId; name: string; description: string; on: (f: FeatureDef, ctx?: ComputerContext) => boolean }[] = [
+  { id: 'recommended', name: 'Recommended', description: 'The essentials, picked for this computer. Light on battery.', on: (f, ctx) => recommend(f, ctx) },
+  { id: 'light', name: 'Light', description: 'Files, search and tidying, with the Island and the menu bar. Nothing heavy in the background.', on: (f) => ['Library', 'Tidy'].includes(f.group) ? f.id !== 'ocr' : ['island', 'tray', 'quickSearch', 'clipboard', 'focus', 'keepAwake', 'hideInFullscreen', 'updates'].includes(f.id) },
+  { id: 'files', name: 'Files only', description: 'A file manager and nothing else: files, search, places and tidying.', on: (f) => ['library', 'sources', 'docText', 'places', 'network', 'lock', 'cleanup', 'duplicates', 'space', 'convert', 'history', 'tray', 'quickSearch'].includes(f.id) },
+  { id: 'everything', name: 'Everything', description: 'Every part on, to try it all.', on: () => true },
 ];
 
-export function presetPatch(s: AllSettings, preset: PresetId): Partial<AllSettings> {
-  const p = PRESETS.find((x) => x.id === preset);
+export function presetPatch(s: AllSettings, preset: PresetId, ctx?: ComputerContext): Partial<AllSettings> {
+  const p = PRESETS.find((x) => x.id === presetName(preset));
   if (!p) return {};
   let next: AllSettings = { ...s, features: { ...(s.features ?? {}) } };
   for (const f of FEATURES) {
     if (f.always || f.ownChoice) continue;
-    const v = p.on(f);
+    const v = p.on(f, ctx);
     if (f.bridge) next = { ...next, ...f.bridge.set(v, next) };
     else next.features = { ...next.features, [f.id]: v };
+  }
+  return diff(s, next);
+}
+
+/** The settings change for "Choose what you want": exactly these parts on (and what they need), the rest off. */
+export function choicePatch(s: AllSettings, on: Iterable<string>): Partial<AllSettings> {
+  const want = new Set(on);
+  let next: AllSettings = { ...s, features: { ...(s.features ?? {}) } };
+  const apply = (f: FeatureDef, v: boolean) => {
+    if (f.bridge) next = { ...next, ...f.bridge.set(v, next) };
+    else next.features = { ...next.features, [f.id]: v };
+  };
+  for (const f of FEATURES) if (!f.always && !f.ownChoice) apply(f, want.has(f.id));
+  for (const id of want) {
+    const extra = featurePatch(next, id, true);
+    next = { ...next, ...extra };
   }
   return diff(s, next);
 }
@@ -375,9 +484,9 @@ export function setForPower(s: Pick<AllSettings, 'featureSetOnBattery' | 'featur
 }
 
 /** Which preset the current choices match, if any. */
-export function currentPreset(s: AllSettings): PresetId | undefined {
+export function currentPreset(s: AllSettings, ctx?: ComputerContext): PresetId | undefined {
   // Features this system cannot run never count against a preset.
-  return PRESETS.find((p) => FEATURES.every((f) => f.always || f.ownChoice || (f.platforms && !f.platforms.includes(HOST as NodeJS.Platform)) || wanted(s, f.id) === p.on(f)))?.id;
+  return PRESETS.find((p) => FEATURES.every((f) => f.always || f.ownChoice || (f.platforms && !f.platforms.includes(HOST as NodeJS.Platform)) || wanted(s, f.id) === p.on(f, ctx)))?.id;
 }
 
 function diff(prev: AllSettings, next: AllSettings): Partial<AllSettings> {

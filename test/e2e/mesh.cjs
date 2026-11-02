@@ -44,7 +44,7 @@ async function launch(home) {
   const app = await _electron.launch({
     executablePath: path.resolve(__dirname, '../../node_modules/.bin/electron'),
     args: [path.resolve(__dirname, '../..'), '--no-sandbox'],
-    env: { ...process.env, HOME: home, NODE_OPTIONS: '', XDG_CONFIG_HOME: home + '/.config', XDG_DATA_HOME: home + '/.local/share', KEEPER_MESH_FORCE_RELAY: '1' },
+    env: { ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME: home, NODE_OPTIONS: '', XDG_CONFIG_HOME: home + '/.config', XDG_DATA_HOME: home + '/.local/share', KEEPER_MESH_FORCE_RELAY: '1' },
   });
   let main;
   for (let i = 0; i < 160 && !main; i++) {
@@ -86,7 +86,7 @@ function dnsQuery(name, type) {
   // ---- a real Keeper Relay (with the new packet path), built from relay/
   spawnSync(process.execPath, [path.resolve(__dirname, '../../relay/build.mjs')], { stdio: 'ignore' });
   const relayPort = await freePort();
-  const relay = spawn(process.execPath, [path.resolve(__dirname, '../../relay/dist/keeper-relay.mjs')], { env: { ...process.env, PORT: String(relayPort), HOST: '127.0.0.1' }, stdio: 'ignore' });
+  const relay = spawn(process.execPath, [path.resolve(__dirname, '../../relay/dist/keeper-relay.mjs')], { env: { ...process.env, KEEPER_DEFAULTS: 'before-1.0', PORT: String(relayPort), HOST: '127.0.0.1' }, stdio: 'ignore' });
   const relayUrl = `http://127.0.0.1:${relayPort}`;
   await until(async () => (await fetch(relayUrl)).ok, 10000);
 

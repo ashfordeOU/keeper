@@ -23,7 +23,8 @@ import { featureDef, featureStates } from '../../core/features';
 import { buildReport, catalogueFor, openPaneAfterPrompt, requestRoute, inInputGroup, portalsFrom, rawFromConsent, rawFromMac, regValue, type PermissionsReport, type PermPlatform, type RawPermission } from '../../core/permissions';
 import { run } from '../../core/platform';
 import { markCleanExit } from '../resilience';
-import { settings, updateSettings } from '../store';
+import { keychainStatus, retryKeychain, secureAvailable, settings, updateSettings } from '../store';
+import { loginItemOn, setLoginItem } from './login-item';
 import { HelperClient } from './platform/helper-client';
 import { helperPath } from './platform/mac';
 
@@ -79,7 +80,6 @@ async function macRaw(): Promise<{ raw: Record<string, RawPermission>; helper: b
   raw.screen ??= media('screen');
   raw.accessibility ??= systemPreferences.isTrustedAccessibilityClient(false) ? 'authorized' : 'notDetermined';
   raw.fullDisk = await fullDiskAccess();
-  raw.loginItem = app.getLoginItemSettings().openAtLogin ? 'authorized' : 'notDetermined';
   raw.localNetwork = lastLocalNetwork;
   return { raw, helper: !!h };
 }
@@ -131,7 +131,7 @@ async function linuxRaw(): Promise<{ raw: Record<string, RawPermission>; details
 
 function featuresOn(): Set<string> {
   const st = featureStates(settings(), PLATFORM);
-  const login = (() => { try { return app.getLoginItemSettings().openAtLogin; } catch { return false; } })();
+  const login = loginItemOn();
   const on = new Set([...st.values()].filter((f) => f.on).map((f) => f.id));
   if (login) on.add('login');
   return on;
@@ -144,10 +144,16 @@ export async function listPermissions(): Promise<PermissionsReport> {
   if (PLATFORM === 'darwin') ({ raw, helper } = await macRaw());
   else if (PLATFORM === 'win32') raw = await winRaw();
   else ({ raw, details } = await linuxRaw());
+  raw.loginItem = loginItemOn() ? 'authorized' : 'notDetermined';
+  // The keychain: no keyring at all (Linux), refused or locked, or fine.
+  const kc = keychainStatus();
+  raw.keychain = !secureAvailable() ? 'notDetermined' : kc.state === 'ok' ? 'authorized' : 'denied';
+  if (!secureAvailable()) details.keychain = PLATFORM === 'linux' ? 'No keyring found: passwords and keys are kept only until Keeper quits.' : 'The system’s secure storage is not available right now.';
+  else if (kc.state !== 'ok') details.keychain = 'Keeper can’t read its saved passwords and keys: the keychain was locked or the request was denied.';
   if (PLATFORM === 'darwin' && !helper) {
     for (const id of ['input', 'calendars', 'reminders', 'location', 'notifications', 'automation.systemevents', 'automation.finder', 'automation.music', 'automation.notes']) if (!raw[id]) details[id] = 'Keeper’s macOS helper is not in this build, so this cannot be checked; Allow opens the settings page.';
   }
-  // Restart-only permissions: allowed now but missing when Keeper started.
+  // Restart-only permissions: allowed now but missing when Keeper started (read at start: snapshotAtStart).
   const restartIds = catalogueFor(PLATFORM).filter((d) => d.restart).map((d) => d.id);
   if (!startMissing) startMissing = new Set(restartIds.filter((id) => raw[id] !== 'authorized'));
   const restartPending = new Set([...startMissing].filter((id) => raw[id] === 'authorized'));
@@ -187,8 +193,31 @@ function pokeLocalNetwork(): Promise<{ ok: boolean; message: string }> {
   });
 }
 
+/**
+ * What the restart-only permissions (Screen Recording, Input Monitoring; the input group on
+ * Linux) were when Keeper started. Taken once at start, so one allowed later through the
+ * system's own question still shows "Restart Keeper to finish".
+ */
+export async function snapshotAtStart(): Promise<void> {
+  if (startMissing) return;
+  const ids = catalogueFor(PLATFORM).filter((d) => d.restart).map((d) => d.id);
+  if (!ids.length) return;
+  let raw: Record<string, RawPermission> = {};
+  if (PLATFORM === 'darwin') {
+    try { raw.screen = rawFromMac(systemPreferences.getMediaAccessStatus('screen').replace('not-determined', 'notDetermined')); } catch { /* unknown */ }
+    const h = await helperOnce<Record<string, string>>('permissions.status', {}, 5000);
+    for (const id of ids) if (h?.[id] !== undefined) raw[id] = rawFromMac(h[id]);
+  } else if (PLATFORM === 'linux') raw = (await linuxRaw()).raw;
+  startMissing ??= new Set(ids.filter((id) => raw[id] !== 'authorized'));
+}
+
 export async function testPermission(id: string): Promise<{ ok: boolean; message: string }> {
   if (id === 'localNetwork') return pokeLocalNetwork();
+  if (id === 'keychain') {
+    if (!secureAvailable()) return { ok: false, message: PLATFORM === 'linux' ? 'No keyring answered. Install gnome-keyring (or KWallet on KDE), log out and in again, then press Test.' : 'The system’s secure storage is not available right now.' };
+    const st = await retryKeychain();
+    return st.state === 'ok' ? { ok: true, message: 'Keeper can read its saved passwords and keys.' } : { ok: false, message: PLATFORM === 'darwin' ? 'macOS did not allow it. Press Try again and choose “Always Allow”, or restart Keeper if macOS does not ask.' : 'The keyring is still locked: unlock it with your login password, then press Test.' };
+  }
   if (PLATFORM === 'linux') {
     linuxCache = null;
     if (id === 'portal.screencast' || id === 'portal.remotedesktop') {
@@ -222,10 +251,7 @@ export async function requestPermission(id: string): Promise<{ ok: boolean; open
   if (!def) return { ok: false, message: 'Unknown permission' };
   if (process.env.KEEPER_PERMISSIONS_OPEN_STUB) { await fsp.appendFile(process.env.KEEPER_PERMISSIONS_OPEN_STUB, JSON.stringify({ request: id }) + '\n'); return { ok: true, opened: def.how === 'info' ? 'settings' : def.how }; }
   if (def.how === 'test') { const t = await testPermission(id); return { ok: t.ok, opened: 'test', message: t.message }; }
-  if (def.how === 'action' && id === 'loginItem') {
-    app.setLoginItemSettings({ openAtLogin: true, args: ['--hidden'] });
-    return { ok: app.getLoginItemSettings().openAtLogin, opened: 'action' };
-  }
+  if (def.how === 'action' && id === 'loginItem') return { ok: await setLoginItem(true), opened: 'action' };
   if (PLATFORM === 'darwin' && def.how === 'prompt') {
     const before = (await listPermissions()).items.find((i) => i.id === id)?.state;
     // Turned off, or one macOS asks about only once and already did: only System Settings can change it now.

@@ -35,7 +35,7 @@ async function until(fn, ms = 10000, step = 150) {
 (async () => {
   fs.mkdirSync(path.join(HOME, 'project'), { recursive: true });
   fs.writeFileSync(path.join(HOME, 'project', 'hello.txt'), 'hi\n');
-  const env = { ...process.env, HOME, XDG_CONFIG_HOME: path.join(HOME, '.config'), SHELL: '/bin/bash', NODE_OPTIONS: '' };
+  const env = { ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME, XDG_CONFIG_HOME: path.join(HOME, '.config'), SHELL: '/bin/bash', NODE_OPTIONS: '' };
   // The fake home hides Python packages installed for the real user; point Python at them for the notebook check.
   const userSite = spawnSync('python3', ['-m', 'site', '--user-site'], { encoding: 'utf8' }).stdout?.trim();
   if (userSite && fs.existsSync(userSite)) env.PYTHONPATH = [userSite, process.env.PYTHONPATH].filter(Boolean).join(':');

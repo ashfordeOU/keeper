@@ -8,7 +8,7 @@ const SHOTS = process.argv[3];
 const THEME = process.argv[4] || 'light';
 fs.mkdirSync(SHOTS, { recursive: true });
 (async () => {
-  const app = await _electron.launch({ executablePath: require('path').resolve(__dirname, '../../node_modules/.bin/electron'), args: [require('path').resolve(__dirname, '../..'), '--no-sandbox', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'], env: { ...process.env, HOME, NODE_OPTIONS: '', XDG_CONFIG_HOME: HOME + '/.config' } });
+  const app = await _electron.launch({ executablePath: require('path').resolve(__dirname, '../../node_modules/.bin/electron'), args: [require('path').resolve(__dirname, '../..'), '--no-sandbox', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'], env: { ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME, NODE_OPTIONS: '', XDG_CONFIG_HOME: HOME + '/.config' } });
   const errors = [];
   let main;
   for (let i = 0; i < 40 && !main; i++) {

@@ -54,7 +54,7 @@ function ask(port, name) {
   await new Promise((r) => up.bind(0, '127.0.0.1', r));
   const upPort = up.address().port;
 
-  const env = { ...process.env, HOME, NODE_OPTIONS: '', KEEPER_FW_FAKE: '1', XDG_CONFIG_HOME: HOME + '/.config', XDG_DATA_HOME: HOME + '/.local/share' };
+  const env = { ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME, NODE_OPTIONS: '', KEEPER_FW_FAKE: '1', XDG_CONFIG_HOME: HOME + '/.config', XDG_DATA_HOME: HOME + '/.local/share' };
   const app = await _electron.launch({ executablePath: path.join(APP, 'node_modules/.bin/electron'), args: [APP, '--no-sandbox'], env });
   const errors = [];
   let main;

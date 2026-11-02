@@ -11,8 +11,8 @@ describe('the permission catalogue', () => {
     for (const id of ['accessibility', 'screen', 'input', 'microphone', 'camera', 'fullDisk', 'automation.systemevents', 'automation.finder', 'automation.music', 'automation.notes', 'notifications', 'calendars', 'reminders', 'location', 'localNetwork', 'loginItem']) expect(mac).toContain(id);
   });
   it('covers Windows and Linux', () => {
-    expect(catalogueFor('win32').map((p) => p.id)).toEqual(['microphone', 'camera', 'location', 'notifications', 'admin', 'firewall']);
-    expect(catalogueFor('linux').map((p) => p.id)).toEqual(['portal.screencast', 'portal.remotedesktop', 'portal.location', 'portal.camera', 'inputGroup', 'atspi']);
+    expect(catalogueFor('win32').map((p) => p.id)).toEqual(['microphone', 'camera', 'location', 'notifications', 'admin', 'keychain', 'loginItem', 'firewall']);
+    expect(catalogueFor('linux').map((p) => p.id)).toEqual(['keychain', 'loginItem', 'portal.screencast', 'portal.remotedesktop', 'portal.location', 'portal.camera', 'inputGroup', 'atspi']);
   });
   it('every entry is complete and names real features', () => {
     const seen = new Set<string>();

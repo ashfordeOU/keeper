@@ -265,7 +265,7 @@ function wireguardGo() {
     if (sum !== src.sha256) { fs.rmSync(tar); return { why: `the downloaded source does not match the pinned SHA-256 (${sum})` }; }
     if (sh(['tar', '-xJf', tar, '-C', dir]).status !== 0) return { why: 'the source could not be unpacked' };
     const top = fs.readdirSync(dir).find((d) => d.startsWith('wireguard-go-'));
-    const b = sh(['go', 'build', '-trimpath', '-ldflags=-s -w -buildid=', '-o', bin, '.'], { cwd: path.join(dir, top), env: { ...process.env, GOFLAGS: '-mod=readonly', GOTOOLCHAIN: 'local', CGO_ENABLED: '0' }, timeout: 600_000 });
+    const b = sh(['go', 'build', '-trimpath', '-ldflags=-s -w -buildid=', '-o', bin, '.'], { cwd: path.join(dir, top), env: { ...process.env, KEEPER_DEFAULTS: 'before-1.0', GOFLAGS: '-mod=readonly', GOTOOLCHAIN: 'local', CGO_ENABLED: '0' }, timeout: 600_000 });
     if (b.status !== 0) return { why: `go build failed: ${(b.stderr || '').trim().slice(0, 200)}` };
   }
   const sum = require('node:crypto').createHash('sha256').update(fs.readFileSync(bin)).digest('hex');

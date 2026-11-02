@@ -45,7 +45,7 @@ const userData = path.join(HOME, '.config/Keeper');
 if (CLAMDB) { fs.mkdirSync(path.join(userData, 'security/clamav-db'), { recursive: true }); for (const f of fs.readdirSync(CLAMDB)) if (/\.(cvd|cld|cud)$/.test(f)) fs.copyFileSync(path.join(CLAMDB, f), path.join(userData, 'security/clamav-db', f)); }
 
 (async () => {
-  const app = await _electron.launch({ executablePath: path.join(ROOT, 'node_modules/.bin/electron'), args: [ROOT, '--no-sandbox'], env: { ...process.env, HOME, NODE_OPTIONS: '', XDG_CONFIG_HOME: path.join(HOME, '.config'), XDG_DATA_HOME: path.join(HOME, '.local/share'), PATH: `${path.join(HOME, 'bin')}:${process.env.PATH}` } });
+  const app = await _electron.launch({ executablePath: path.join(ROOT, 'node_modules/.bin/electron'), args: [ROOT, '--no-sandbox'], env: { ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME, NODE_OPTIONS: '', XDG_CONFIG_HOME: path.join(HOME, '.config'), XDG_DATA_HOME: path.join(HOME, '.local/share'), PATH: `${path.join(HOME, 'bin')}:${process.env.PATH}` } });
   await app.firstWindow();
   const w = await until(async () => app.windows().find((x) => { const u = x.url(); return u && (!u.includes('view=') || u.includes('view=app')); }), 30000, 200);
   const errors = [];

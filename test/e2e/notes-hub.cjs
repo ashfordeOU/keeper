@@ -38,7 +38,7 @@ async function until(fn, ms = 15_000, step = 250) {
 }
 
 (async () => {
-  const env = { ...process.env, HOME, NODE_OPTIONS: '', XDG_CONFIG_HOME: HOME + '/.config', XDG_DATA_HOME: HOME + '/.local/share', XDG_DOCUMENTS_DIR: HOME + '/Documents' };
+  const env = { ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME, NODE_OPTIONS: '', XDG_CONFIG_HOME: HOME + '/.config', XDG_DATA_HOME: HOME + '/.local/share', XDG_DOCUMENTS_DIR: HOME + '/Documents' };
   const app = await _electron.launch({ executablePath: path.join(APP, 'node_modules/.bin/electron'), args: [APP, '--no-sandbox'], env });
   const errors = [];
   let main;
@@ -176,7 +176,7 @@ async function until(fn, ms = 15_000, step = 250) {
       ` },
       outfile: out, bundle: true, platform: 'node', format: 'cjs', target: 'node22', logLevel: 'error', alias: { electron: stub },
     });
-    const r = require('child_process').spawnSync(path.join(APP, 'node_modules/.bin/electron'), [out], { env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }, encoding: 'utf8', timeout: 120_000 });
+    const r = require('child_process').spawnSync(path.join(APP, 'node_modules/.bin/electron'), [out], { env: { ...process.env, KEEPER_DEFAULTS: 'before-1.0', ELECTRON_RUN_AS_NODE: '1' }, encoding: 'utf8', timeout: 120_000 });
     let j = {};
     try { j = JSON.parse(r.stdout.trim().split('\n').pop()); } catch { j = { error: r.stderr || r.stdout }; }
     check(j.vec === 'bb6ec440708c271ce34decd7f997e2444d309b1105992779ccdb47f78a5fda6f', `Argon2id in Electron’s runtime (Node ${j.node}) matches Standard Notes’ published vector${j.error ? ' — ' + j.error : ''}`);

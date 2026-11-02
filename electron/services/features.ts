@@ -5,9 +5,10 @@
 //   if (featureOn('widgets')) …
 //   onFeature('widgets', (on) => (on ? startWidgets() : stopWidgets()), { now: true })
 
-import { app, powerMonitor } from 'electron';
-import { featureDef, featurePatch, FEATURES, featureStates, PRESETS, presetPatch, setForPower, setPatch, snapshotSet, type FeatureSet, type FeatureState, type PresetId } from '../../core/features';
+import { powerMonitor } from 'electron';
+import { featureDef, featurePatch, FEATURES, featureStates, PRESETS, presetName, presetPatch, setForPower, setPatch, snapshotSet, type FeatureSet, type FeatureState, type PresetId } from '../../core/features';
 import { onSettings, settings, updateSettings } from '../store';
+import { loginItemOn, setLoginItem } from './login-item';
 
 let states: Map<string, FeatureState> | null = null;
 const handlers = new Map<string, Set<(on: boolean) => void>>();
@@ -77,7 +78,7 @@ export function setExternalOff(id: string, fn: () => boolean) {
 
 export function listFeatures(): FeatureRow[] {
   const st = current();
-  const login = app.getLoginItemSettings?.().openAtLogin;
+  const login = loginItemOn();
   return FEATURES.map((f) => {
     const s = st.get(f.id)!;
     if (externalOff.get(f.id)?.()) return { id: f.id, wanted: s.wanted, on: false };
@@ -88,9 +89,7 @@ export function listFeatures(): FeatureRow[] {
 }
 
 export async function setFeature(id: string, on: boolean): Promise<FeatureRow[]> {
-  if (id === 'login') {
-    app.setLoginItemSettings({ openAtLogin: on, args: ['--hidden'] });
-  }
+  if (id === 'login') await setLoginItem(on);
   const patch = featurePatch(settings(), id, on);
   if (Object.keys(patch).length) await updateSettings(patch);
   return listFeatures();
@@ -100,7 +99,7 @@ export async function applyPreset(preset: PresetId): Promise<FeatureRow[]> {
   const patch = presetPatch(settings(), preset);
   if (Object.keys(patch).length) await updateSettings(patch);
   const loginOn = featureStates(settings()).get('login')?.wanted ?? false;
-  app.setLoginItemSettings({ openAtLogin: loginOn, args: ['--hidden'] });
+  await setLoginItem(loginOn);
   return listFeatures();
 }
 
@@ -134,7 +133,7 @@ export async function removeFeatureSet(id: string) {
 export async function applyFeatureSet(ref: string): Promise<FeatureRow[]> {
   if (ref.startsWith('preset:')) {
     const id = ref.slice(7) as PresetId;
-    if (PRESETS.some((p) => p.id === id)) return applyPreset(id);
+    if (PRESETS.some((p) => p.id === presetName(id))) return applyPreset(presetName(id));
     return listFeatures();
   }
   const set = (settings().featureSets ?? []).find((x) => x.id === ref);

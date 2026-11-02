@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Upgrade safety: everyone's on/off choices are written down before defaults change.
 import { describe, expect, it } from 'vitest';
-import { FEATURES, keepChoices, wanted, type FeatureDef } from '../core/features';
+import { defaultBefore, FEATURES, keepChoices, wanted, type FeatureDef } from '../core/features';
 import { defaultSettings, type AllSettings } from '../core/settings';
 
 const base = (): AllSettings => defaultSettings(['/home/a/Documents'], []);
@@ -21,7 +21,8 @@ describe('keeping choices for upgrades', () => {
 
   it('after keeping, a changed default no longer changes what is on', () => {
     const s = base();
-    const before = new Map(FEATURES.map((f) => [f.id, wanted(s, f.id, 'linux')]));
+    // What an install from before 1.0 was running with.
+    const before = new Map(FEATURES.map((f) => [f.id, wanted({ ...s, features: Object.fromEntries(FEATURES.filter((x) => !x.bridge).map((x) => [x.id, defaultBefore(x)])) }, f.id, 'linux')]));
     const kept = apply(s, keepChoices(s, 'linux'));
     // Pretend every default flipped.
     const flipped = FEATURES.map((f) => ({ ...f, defaultOn: !f.defaultOn }));

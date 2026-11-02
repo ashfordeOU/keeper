@@ -25,7 +25,7 @@ const check = (ok, label) => { console.log(`${ok ? 'PASS' : 'FAIL'} ${label}`); 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const until = async (fn, ms = 20000, step = 250) => { const t = Date.now(); for (;;) { try { const v = await fn(); if (v) return v; } catch { /* not yet */ } if (Date.now() - t > ms) return null; await sleep(step); } };
 const alive = (pid) => { try { process.kill(pid, 0); return true; } catch { return false; } };
-const env = { ...process.env, HOME, NODE_OPTIONS: '', XDG_CONFIG_HOME: HOME + '/.config', XDG_DATA_HOME: HOME + '/.local/share', KEEPER_WATCHDOG: '1', KEEPER_WATCHDOG_EXTRA: `--remote-debugging-port=${PORT} --no-sandbox` };
+const env = { ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME, NODE_OPTIONS: '', XDG_CONFIG_HOME: HOME + '/.config', XDG_DATA_HOME: HOME + '/.local/share', KEEPER_WATCHDOG: '1', KEEPER_WATCHDOG_EXTRA: `--remote-debugging-port=${PORT} --no-sandbox` };
 const userData = path.join(HOME, '.config', 'Keeper');
 const pageErrors = [];
 

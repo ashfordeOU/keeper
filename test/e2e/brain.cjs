@@ -63,7 +63,7 @@ const ai = http.createServer((req, res) => {
 
 function runCli(args, input) {
   return new Promise((resolve) => {
-    const p = spawn(process.execPath, [path.join(ROOT, 'dist-cli/keeper.cjs'), ...args], { env: { ...process.env, KEEPER_DATA_DIR: DATA, HOME } });
+    const p = spawn(process.execPath, [path.join(ROOT, 'dist-cli/keeper.cjs'), ...args], { env: { ...process.env, KEEPER_DEFAULTS: 'before-1.0', KEEPER_DATA_DIR: DATA, HOME } });
     let out = '', err = '';
     p.stdout.on('data', (d) => (out += d));
     p.stderr.on('data', (d) => (err += d));
@@ -88,7 +88,7 @@ function runCli(args, input) {
     },
   }));
 
-  const app = await _electron.launch({ executablePath: path.join(ROOT, 'node_modules/.bin/electron'), args: [ROOT, '--no-sandbox'], env: { ...process.env, HOME, NODE_OPTIONS: '', XDG_CONFIG_HOME: HOME + '/.config', XDG_DATA_HOME: HOME + '/.local/share' } });
+  const app = await _electron.launch({ executablePath: path.join(ROOT, 'node_modules/.bin/electron'), args: [ROOT, '--no-sandbox'], env: { ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME, NODE_OPTIONS: '', XDG_CONFIG_HOME: HOME + '/.config', XDG_DATA_HOME: HOME + '/.local/share' } });
   const errors = [];
   let main;
   for (let i = 0; i < 40 && !main; i++) {

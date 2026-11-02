@@ -26,7 +26,7 @@ const PK = path.join(HOME, 'pkexec.log');
 fs.writeFileSync(path.join(HOME, 'bin/pkexec'), `#!/bin/sh\nprintf '%s\\n' "$*" >> '${PK}'\necho 'Request dismissed' >&2\nexit 126\n`, { mode: 0o755 });
 
 const ENV = {
-  ...process.env, HOME, NODE_OPTIONS: '',
+  ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME, NODE_OPTIONS: '',
   XDG_CONFIG_HOME: path.join(HOME, '.config'), XDG_DATA_HOME: path.join(HOME, '.local/share'),
   PATH: `${path.join(HOME, 'bin')}:${process.env.PATH}`,
   // GNOME settings go to a private keyfile in this test home, not to this machine's dconf.

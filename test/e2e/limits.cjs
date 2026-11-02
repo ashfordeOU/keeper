@@ -24,7 +24,7 @@ const until = async (fn, ms = 20000, step = 250) => { const t = Date.now(); for 
 
 (async () => {
   const env = {
-    ...process.env, HOME, NODE_OPTIONS: '', XDG_CONFIG_HOME: HOME + '/.config', XDG_DATA_HOME: HOME + '/.local/share',
+    ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME, NODE_OPTIONS: '', XDG_CONFIG_HOME: HOME + '/.config', XDG_DATA_HOME: HOME + '/.local/share',
     // 1 byte for service processes; processor ceiling below zero, reached at once; a 2-minute hold.
     KEEPER_LIMITS: JSON.stringify({ hostMemory: 1, cpuCeiling: -1, cpuSustainMs: 0, cpuHoldMs: 120_000 }),
   };

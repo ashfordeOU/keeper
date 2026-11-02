@@ -4,7 +4,7 @@
 import { BrowserWindow, ipcMain } from 'electron';
 import { keychainStatus, onKeychain, retryKeychain, settings } from '../store';
 import { setPromptFallback } from '../services/permission-nudge';
-import { listPermissions, openPermissionSettings, requestPermission, restartKeeper, testPermission } from '../services/permissions';
+import { listPermissions, openPermissionSettings, requestPermission, restartKeeper, snapshotAtStart, testPermission } from '../services/permissions';
 
 export function registerPermissionsIpc() {
   const id = (v: unknown) => (typeof v === 'string' && v.length < 64 ? v : '');
@@ -13,6 +13,8 @@ export function registerPermissionsIpc() {
   ipcMain.handle('permissions.openSettings', (_e, v: unknown) => openPermissionSettings(id(v)));
   ipcMain.handle('permissions.test', (_e, v: unknown) => testPermission(id(v)));
   ipcMain.handle('permissions.restart', () => restartKeeper());
+  // What needs a restart is judged against the state when Keeper started, not when the screen first opened.
+  setTimeout(() => void snapshotAtStart().catch(() => undefined), 2000);
   // Features show the system's own question only when the person did not set everything up first.
   setPromptFallback(() => settings().permissionsSetup !== 'all');
   // The keychain ("Keeper Safe Storage"): every window can show the banner and Try again.

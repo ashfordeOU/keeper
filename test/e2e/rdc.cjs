@@ -34,7 +34,7 @@ async function until(fn, ms = 15000) {
   }
 }
 const procs = [];
-const bg = (cmd, args, env = {}) => { const p = spawn(cmd, args, { stdio: 'ignore', env: { ...process.env, ...env } }); procs.push(p); return p; };
+const bg = (cmd, args, env = {}) => { const p = spawn(cmd, args, { stdio: 'ignore', env: { ...process.env, KEEPER_DEFAULTS: 'before-1.0', ...env } }); procs.push(p); return p; };
 
 // ---------------------------------------------------------------- servers
 const VNC_DISPLAY = ':77';
@@ -66,7 +66,7 @@ function startSshd() {
 }
 
 async function launch(home, extraEnv = {}) {
-  const app = await _electron.launch({ executablePath: path.resolve(__dirname, '../../node_modules/.bin/electron'), args: [path.resolve(__dirname, '../..'), '--no-sandbox'], env: { ...process.env, HOME: home, NODE_OPTIONS: '', XDG_CONFIG_HOME: home + '/.config', XDG_DATA_HOME: home + '/.local/share', KEEPER_E2E_KEEP_QUICK: '1', KEEPER_SKIP_TOUR: '1', ...extraEnv } });
+  const app = await _electron.launch({ executablePath: path.resolve(__dirname, '../../node_modules/.bin/electron'), args: [path.resolve(__dirname, '../..'), '--no-sandbox'], env: { ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME: home, NODE_OPTIONS: '', XDG_CONFIG_HOME: home + '/.config', XDG_DATA_HOME: home + '/.local/share', KEEPER_E2E_KEEP_QUICK: '1', KEEPER_SKIP_TOUR: '1', ...extraEnv } });
   let main;
   for (let i = 0; i < 240 && !main; i++) {
     main = app.windows().find((w) => w.url().includes('view=app'));
@@ -147,7 +147,7 @@ async function pair(A, B) {
   await wait(400);
   await main.mouse.move(box.x + 300 * sx, box.y + 200 * sy);
   const moved = await until(async () => {
-    const out = execFileSync('xdotool', ['getmouselocation', '--shell'], { env: { ...process.env, DISPLAY: VNC_DISPLAY }, encoding: 'utf8' });
+    const out = execFileSync('xdotool', ['getmouselocation', '--shell'], { env: { ...process.env, KEEPER_DEFAULTS: 'before-1.0', DISPLAY: VNC_DISPLAY }, encoding: 'utf8' });
     const x = Number(/X=(\d+)/.exec(out)[1]), y = Number(/Y=(\d+)/.exec(out)[1]);
     return Math.abs(x - 300) <= 3 && Math.abs(y - 200) <= 3 ? `${x},${y}` : null;
   }, 8000);
@@ -262,7 +262,7 @@ async function pair(A, B) {
   const after = (await api(main, 'rdc.state')).sessions.filter((s) => s.kind === 'inapp' && s.state === 'connected').length;
   check(!!fr && !!fr.route && after === before + 1 && !!tabsAfter, `a .vnc file opens straight into a VNC tab (${tabsBefore} → ${tabsAfter} tabs)`);
   // The same through a second launch with the file as argument (what double-click does).
-  const second = spawn(path.resolve(__dirname, '../../node_modules/.bin/electron'), [path.resolve(__dirname, '../..'), '--no-sandbox', vncFile], { env: { ...process.env, HOME: homes.a, XDG_CONFIG_HOME: homes.a + '/.config', XDG_DATA_HOME: homes.a + '/.local/share', NODE_OPTIONS: '' }, stdio: 'ignore' });
+  const second = spawn(path.resolve(__dirname, '../../node_modules/.bin/electron'), [path.resolve(__dirname, '../..'), '--no-sandbox', vncFile], { env: { ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME: homes.a, XDG_CONFIG_HOME: homes.a + '/.config', XDG_DATA_HOME: homes.a + '/.local/share', NODE_OPTIONS: '' }, stdio: 'ignore' });
   const viaArgv = await until(async () => (await api(main, 'rdc.state')).sessions.filter((s) => s.kind === 'inapp' && s.state === 'connected').length === after + 1, 20000);
   second.kill();
   check(!!viaArgv, 'launching Keeper with a .vnc file (double-click) connects in the running Keeper');

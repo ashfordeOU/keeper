@@ -65,7 +65,7 @@ const ai = http.createServer((req, res) => {
 
 function runCli(args, lines) {
   return new Promise((resolve) => {
-    const p = spawn(process.execPath, [path.join(ROOT, 'dist-cli/keeper.cjs'), ...args], { env: { ...process.env, KEEPER_DATA_DIR: DATA, HOME } });
+    const p = spawn(process.execPath, [path.join(ROOT, 'dist-cli/keeper.cjs'), ...args], { env: { ...process.env, KEEPER_DEFAULTS: 'before-1.0', KEEPER_DATA_DIR: DATA, HOME } });
     let out = '';
     p.stdout.on('data', (d) => (out += d));
     p.on('close', () => resolve(out.trim().split('\n').filter(Boolean).map((l) => JSON.parse(l))));
@@ -101,7 +101,7 @@ const mcp = (calls) => runCli(['mcp'], [
   });
   Object.assign(target, geo);
 
-  const app = await _electron.launch({ executablePath: path.join(ROOT, 'node_modules/.bin/electron'), args: [ROOT, '--no-sandbox'], env: { ...process.env, HOME, NODE_OPTIONS: '', XDG_CONFIG_HOME: HOME + '/.config', XDG_DATA_HOME: HOME + '/.local/share' } });
+  const app = await _electron.launch({ executablePath: path.join(ROOT, 'node_modules/.bin/electron'), args: [ROOT, '--no-sandbox'], env: { ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME, NODE_OPTIONS: '', XDG_CONFIG_HOME: HOME + '/.config', XDG_DATA_HOME: HOME + '/.local/share' } });
   const errors = [];
   let main;
   for (let i = 0; i < 40 && !main; i++) {
@@ -210,7 +210,7 @@ const mcp = (calls) => runCli(['mcp'], [
 
   // What Siri's and Shortcuts' "Search Files" (the macOS helper) reads back from the keeper command.
   const searchOut = await new Promise((resolve) => {
-    const p = spawn(process.execPath, [path.join(ROOT, 'dist-cli/keeper.cjs'), 'search', '--brain', '--json', '--limit', '3', 'notes'], { env: { ...process.env, KEEPER_DATA_DIR: DATA, HOME } });
+    const p = spawn(process.execPath, [path.join(ROOT, 'dist-cli/keeper.cjs'), 'search', '--brain', '--json', '--limit', '3', 'notes'], { env: { ...process.env, KEEPER_DEFAULTS: 'before-1.0', KEEPER_DATA_DIR: DATA, HOME } });
     let out = '';
     p.stdout.on('data', (d) => (out += d));
     p.on('close', () => resolve(out));

@@ -36,7 +36,7 @@ exit 0
 `, { mode: 0o755 });
 
 (async () => {
-  const app = await _electron.launch({ executablePath: path.join(ROOT, 'node_modules/.bin/electron'), args: [ROOT, '--no-sandbox'], env: { ...process.env, HOME, NODE_OPTIONS: '', XDG_CONFIG_HOME: path.join(HOME, '.config'), XDG_DATA_HOME: path.join(HOME, '.local/share'), PATH: `${path.join(HOME, 'bin')}:${process.env.PATH}`, KEEPER_CONTROLS_DRYRUN: DRY, KEEPER_GUIDE_OPEN_STUB: path.join(HOME, 'guide-open.log') } });
+  const app = await _electron.launch({ executablePath: path.join(ROOT, 'node_modules/.bin/electron'), args: [ROOT, '--no-sandbox'], env: { ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME, NODE_OPTIONS: '', XDG_CONFIG_HOME: path.join(HOME, '.config'), XDG_DATA_HOME: path.join(HOME, '.local/share'), PATH: `${path.join(HOME, 'bin')}:${process.env.PATH}`, KEEPER_CONTROLS_DRYRUN: DRY, KEEPER_GUIDE_OPEN_STUB: path.join(HOME, 'guide-open.log') } });
   await app.firstWindow();
   const w = await until(async () => app.windows().find((x) => { const u = x.url(); return u && (!u.includes('view=') || u.includes('view=app')); }), 30000, 200);
   const errors = [];

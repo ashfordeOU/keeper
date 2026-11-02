@@ -2,7 +2,7 @@
 // Demo of Settings → Features in the browser preview.
 
 import type { FeatureRow, FeaturesApi } from '../core/api-features';
-import { FEATURES, featurePatch, featureStates, PRESETS, presetPatch, setPatch, snapshotSet } from '../core/features';
+import { FEATURES, featurePatch, featureStates, PRESETS, presetName, presetPatch, setPatch, snapshotSet } from '../core/features';
 import type { AllSettings } from '../core/settings';
 
 export function mockFeatures(get: () => AllSettings, apply: (patch: Partial<AllSettings>) => void): FeaturesApi {
@@ -24,7 +24,7 @@ export function mockFeatures(get: () => AllSettings, apply: (patch: Partial<AllS
     },
     removeSet: async (id) => { apply({ featureSets: (get().featureSets ?? []).filter((x) => x.id !== id) }); return sets(); },
     applySet: async (ref) => {
-      if (ref.startsWith('preset:')) { const p = PRESETS.find((x) => `preset:${x.id}` === ref); if (p) apply(presetPatch(get(), p.id)); return rows(); }
+      if (ref.startsWith('preset:')) { const p = PRESETS.find((x) => `preset:${x.id}` === `preset:${presetName(ref.slice(7))}`); if (p) apply(presetPatch(get(), p.id)); return rows(); }
       const set = (get().featureSets ?? []).find((x) => x.id === ref);
       if (set) apply(setPatch(get(), set));
       return rows();

@@ -43,7 +43,7 @@ const alive = (pid) => { try { process.kill(pid, 0); return true; } catch { retu
   fs.mkdirSync(path.join(proj, 'web'), { recursive: true });
   const port = await freePort();
   fs.writeFileSync(path.join(proj, 'web', 'server.js'), `require('http').createServer((q, r) => r.end('hi')).listen(${port}, '127.0.0.1');`);
-  const server = spawn(process.execPath, ['server.js'], { cwd: path.join(proj, 'web'), stdio: 'ignore', detached: true, env: { ...process.env, SHOP_API_TOKEN: 'tok-123', SHOP_MODE: 'dev' } });
+  const server = spawn(process.execPath, ['server.js'], { cwd: path.join(proj, 'web'), stdio: 'ignore', detached: true, env: { ...process.env, KEEPER_DEFAULTS: 'before-1.0', SHOP_API_TOKEN: 'tok-123', SHOP_MODE: 'dev' } });
   server.unref();
   // A pretend coding agent (named like one) that starts a helper.
   const bin = path.join(HOME, 'bin');
@@ -73,7 +73,7 @@ case "$1 $2" in
   "get-default-sink ") echo alsa_output.analog ;;
 esac
 `, { mode: 0o755 });
-  const env = { ...process.env, PATH: `${bin}:${process.env.PATH}`, HOME, NODE_OPTIONS: '', XDG_CONFIG_HOME: HOME + '/.config', XDG_DATA_HOME: HOME + '/.local/share' };
+  const env = { ...process.env, KEEPER_DEFAULTS: 'before-1.0', PATH: `${bin}:${process.env.PATH}`, HOME, NODE_OPTIONS: '', XDG_CONFIG_HOME: HOME + '/.config', XDG_DATA_HOME: HOME + '/.local/share' };
   const app = await _electron.launch({ executablePath: path.join(APP, 'node_modules/.bin/electron'), args: [APP, '--no-sandbox'], env });
   const errors = [];
   let main;
@@ -269,7 +269,7 @@ esac
   check((await sm('recentTools'))[0] === 'toolbox:json', 'the launcher remembers it as recent');
 
   // ---- the CLI
-  const cli = (args) => execFileSync(process.execPath, [path.join(APP, 'dist-cli/keeper.cjs'), ...args], { encoding: 'utf8', env: { ...process.env, HOME }, timeout: 30_000 });
+  const cli = (args) => execFileSync(process.execPath, [path.join(APP, 'dist-cli/keeper.cjs'), ...args], { encoding: 'utf8', env: { ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME }, timeout: 30_000 });
   const ps = JSON.parse(cli(['ps', '--json', '--limit', '500']));
   check(ps.some((p) => p.pid === process.pid), `keeper ps lists processes (${ps.length})`);
   const sleeper = spawn('sleep', ['120'], { stdio: 'ignore', detached: true });

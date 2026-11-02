@@ -54,7 +54,7 @@ function outsideAddress() {
   const port = server.address().port;
   const client = spawn(process.execPath, ['-e', `const s=require('net').connect(${port}, '${out.address}'); s.on('data',()=>{}); setInterval(()=>s.write('x'.repeat(4096)),300);`], { stdio: 'ignore' });
 
-  const app = await _electron.launch({ executablePath: path.resolve(APP, 'node_modules/.bin/electron'), args: [APP, '--no-sandbox'], env: { ...process.env, HOME, NODE_OPTIONS: '', XDG_CONFIG_HOME: HOME + '/.config', XDG_DATA_HOME: HOME + '/.local/share' } });
+  const app = await _electron.launch({ executablePath: path.resolve(APP, 'node_modules/.bin/electron'), args: [APP, '--no-sandbox'], env: { ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME, NODE_OPTIONS: '', XDG_CONFIG_HOME: HOME + '/.config', XDG_DATA_HOME: HOME + '/.local/share' } });
   const errors = [];
   let main;
   for (let i = 0; i < 40 && !main; i++) { main = app.windows().find((w) => w.url().includes('view=app')); if (!main) await wait(500); }

@@ -47,7 +47,7 @@ async function until(fn, ms = 15000) {
 }
 
 async function launch(home, extraEnv = {}) {
-  const app = await _electron.launch({ executablePath: path.resolve(__dirname, '../../node_modules/.bin/electron'), args: [path.resolve(__dirname, '../..'), '--no-sandbox'], env: { ...process.env, HOME: home, NODE_OPTIONS: '', XDG_CONFIG_HOME: home + '/.config', XDG_DATA_HOME: home + '/.local/share', KEEPER_LINK_TEST_NO_LAN: '1', KEEPER_SKIP_TOUR: '1', ...extraEnv } });
+  const app = await _electron.launch({ executablePath: path.resolve(__dirname, '../../node_modules/.bin/electron'), args: [path.resolve(__dirname, '../..'), '--no-sandbox'], env: { ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME: home, NODE_OPTIONS: '', XDG_CONFIG_HOME: home + '/.config', XDG_DATA_HOME: home + '/.local/share', KEEPER_LINK_TEST_NO_LAN: '1', KEEPER_SKIP_TOUR: '1', ...extraEnv } });
   let main;
   for (let i = 0; i < 160 && !main; i++) {
     main = app.windows().find((w) => w.url().includes('view=app'));
@@ -98,7 +98,7 @@ const idOf = async (from, name) => (await api(from.main, 'link.state')).devices.
 
 function cli(home, args, opts = {}) {
   return new Promise((resolve) => {
-    const p = spawn(process.execPath, [CLI, ...args], { env: { ...process.env, HOME: home, XDG_CONFIG_HOME: home + '/.config' }, stdio: ['pipe', 'pipe', 'pipe'] });
+    const p = spawn(process.execPath, [CLI, ...args], { env: { ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME: home, XDG_CONFIG_HOME: home + '/.config' }, stdio: ['pipe', 'pipe', 'pipe'] });
     let out = '';
     let err = '';
     p.stdout.on('data', (d) => (out += d));

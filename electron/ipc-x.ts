@@ -2,9 +2,8 @@
 // IPC for health history, the Weather page, Toolbox helpers, folder tidying,
 // AI file actions, updates and launch-at-login.
 
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { BrowserWindow, ipcMain } from 'electron';
 import { existsSync, promises as fsp } from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { ALT_TEXT_PROMPT, applyTranslation, buildSubtitles, cleanSuggestedName, complete, namePrompt, parseReceipt, parseSubtitles, receiptPrompt, subtitlePrompt, summaryPrompt, type ImageInput } from '../core/ai-actions';
 import type { AiProviderInfo } from '../core/api-x';
@@ -14,6 +13,7 @@ import type { Journal } from '../core/journal';
 import type { AlertRule } from '../core/monitor';
 import { run } from '../core/platform';
 import { uniqueName } from '../core/rules';
+import { loginItemOn, setLoginItem } from './services/login-item';
 import type { TidyMode } from '../core/tidy';
 import type { Place } from '../core/weather';
 import { ForecastService } from './services/forecast';
@@ -80,25 +80,8 @@ async function imageInput(p: string): Promise<ImageInput> {
 
 // ---------------------------------------------------------------- launch at login
 
-const autostartFile = () => path.join(process.env.XDG_CONFIG_HOME ?? path.join(os.homedir(), '.config'), 'autostart', 'keeper.desktop');
-
 async function loginItem(): Promise<boolean> {
-  if (process.platform === 'linux') return existsSync(autostartFile());
-  return app.getLoginItemSettings().openAtLogin;
-}
-
-async function setLoginItem(on: boolean): Promise<boolean> {
-  if (process.platform === 'linux') {
-    if (!on) await fsp.rm(autostartFile(), { force: true });
-    else {
-      const exec = process.env.APPIMAGE ?? process.execPath;
-      await fsp.mkdir(path.dirname(autostartFile()), { recursive: true });
-      await fsp.writeFile(autostartFile(), `[Desktop Entry]\nType=Application\nName=Keeper\nExec="${exec}" --hidden\nX-GNOME-Autostart-enabled=true\nNoDisplay=false\n`);
-    }
-  } else {
-    app.setLoginItemSettings({ openAtLogin: on, args: ['--hidden'] });
-  }
-  return loginItem();
+  return loginItemOn();
 }
 
 // ---------------------------------------------------------------- register
