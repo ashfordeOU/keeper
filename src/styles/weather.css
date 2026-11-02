@@ -285,3 +285,5 @@ html[data-theme='dark'] .wx-map-credit { background: rgba(0, 0, 0, .55); color: 
 @media (prefers-reduced-motion: reduce) {
   .wx-map-rain, .wx-day-chev, .wx-pcard-main { transition: none; }
 }
+.wx-panel .cal-access-row { margin-bottom: 10px; padding: 12px 14px; border-radius: 12px; }
+.wx-panel .cal-access-title { font-size: 13.5px; }
