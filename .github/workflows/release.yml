@@ -261,6 +261,9 @@ jobs:
         env:
           # Every piece (rclone, agent-desktop, Keeper Intents too) must be inside the package, or packaging stops.
           KEEPER_REQUIRE_ALL: '1'
+          # The standard download is the core installer: ffmpeg, ONNX Runtime and rclone are left out
+          # (staged for the next step) and downloaded when a feature needs them (docs/COMPONENTS.md).
+          KEEPER_EDITION: core
           # All optional. Without them macOS builds are ad-hoc signed and Windows builds unsigned.
           CSC_LINK: ${{ matrix.platform == 'darwin' && secrets.CSC_LINK || '' }}
           CSC_KEY_PASSWORD: ${{ matrix.platform == 'darwin' && secrets.CSC_KEY_PASSWORD || '' }}
@@ -286,6 +289,63 @@ jobs:
           if [ -z "${CSC_LINK:-}" ] && [ -z "${WIN_CSC_LINK:-}" ]; then export CSC_IDENTITY_AUTO_DISCOVERY=false; fi
           echo "Packaging with $config"
           npx electron-builder --config "$config" ${{ matrix.target }} --${{ matrix.arch }} --publish never
+      # ---- Downloadable components (docs/COMPONENTS.md): from this very build, signed like the app on
+      # macOS by build/after-sign.cjs, as keeper-component-<name>-<platform>-<arch>.tar.gz plus
+      # components-<platform>-<arch>.json. SHA256SUMS.txt (and its Sigstore signature) covers them.
+      - name: Downloadable components
+        shell: bash
+        env:
+          VERSION: ${{ needs.tag.outputs.version }}
+          TARGET: ${{ matrix.platform }}-${{ matrix.arch }}
+        run: |
+          node scripts/components.mjs pack --staging "release/components-staging/$TARGET" \
+            --platform "${{ matrix.platform }}" --arch "${{ matrix.arch }}" --version "$VERSION" --out release --require
+          rm -rf release/components-staging
+      # ---- The offline installer: the same build with every component inside, named …-full
+      # (Keeper-mac-arm64-full.dmg, Keeper-setup-x64-full.exe, Keeper-linux-x86_64-full.AppImage and
+      # Keeper-linux-x64-full.tar.gz). Its update information is not published: latest*.yml stays the
+      # core build's, and an offline copy that updates downloads the parts it uses afterwards.
+      - name: Offline installer (everything inside)
+        shell: bash
+        env:
+          KEEPER_REQUIRE_ALL: '1'
+          KEEPER_EDITION: full
+          CSC_LINK: ${{ matrix.platform == 'darwin' && secrets.CSC_LINK || '' }}
+          CSC_KEY_PASSWORD: ${{ matrix.platform == 'darwin' && secrets.CSC_KEY_PASSWORD || '' }}
+          WIN_CSC_LINK: ${{ matrix.platform == 'win32' && secrets.WIN_CSC_LINK || '' }}
+          WIN_CSC_KEY_PASSWORD: ${{ matrix.platform == 'win32' && secrets.WIN_CSC_KEY_PASSWORD || '' }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TRUSTED_SIGNING_ENDPOINT: ${{ vars.AZURE_TRUSTED_SIGNING_ENDPOINT }}
+          AZURE_TRUSTED_SIGNING_ACCOUNT: ${{ matrix.platform == 'win32' && vars.AZURE_TRUSTED_SIGNING_ACCOUNT || '' }}
+          AZURE_TRUSTED_SIGNING_PROFILE: ${{ vars.AZURE_TRUSTED_SIGNING_PROFILE }}
+        run: |
+          [ -n "$CSC_LINK" ] || unset CSC_LINK CSC_KEY_PASSWORD
+          [ -n "$WIN_CSC_LINK" ] || unset WIN_CSC_LINK WIN_CSC_KEY_PASSWORD
+          config=electron-builder.yml
+          if [ -n "${CSC_LINK:-}" ] || [ -n "$AZURE_TRUSTED_SIGNING_ACCOUNT" ]; then
+            config=packaging/electron-builder.signed.cjs
+          fi
+          if [ -z "${CSC_LINK:-}" ] && [ -z "${WIN_CSC_LINK:-}" ]; then export CSC_IDENTITY_AUTO_DISCOVERY=false; fi
+          case "${{ matrix.platform }}" in
+            darwin) targets="--mac dmg" ;;
+            win32) targets="--win nsis" ;;
+            *) targets="--linux AppImage tar.gz" ;;
+          esac
+          # shellcheck disable=SC2086 # $targets is a list of words
+          npx electron-builder --config "$config" $targets --${{ matrix.arch }} --publish never -c.directories.output=release-full
+          shopt -s nullglob
+          for f in release-full/*.dmg release-full/*.exe release-full/*.AppImage release-full/*.tar.gz; do
+            base="$(basename "$f")"
+            case "$base" in
+              *.tar.gz) full="${base%.tar.gz}-full.tar.gz" ;;
+              *) full="${base%.*}-full.${base##*.}" ;;
+            esac
+            mv "$f" "release/$full"
+            echo "Offline installer: $full"
+          done
+          rm -rf release-full
       # Both Mac builds write latest-mac.yml; Keeper updates Mac copies from the dmg itself,
       # so the per-processor file is kept under its own name instead of clashing.
       - if: runner.os == 'macOS'
@@ -303,6 +363,7 @@ jobs:
             release/*.tar.gz
             release/latest*.yml
             release/*.blockmap
+            release/components-*.json
           if-no-files-found: error
       # The keeper command on its own, for the npm package and the Homebrew formula
       # (from Linux x64, or the first released system when Linux is left out).
