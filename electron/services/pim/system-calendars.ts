@@ -42,7 +42,8 @@ const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 function macDriver(): SystemDriver {
   const call = async <T>(method: string, params?: unknown, timeoutMs = 30_000) => (await import('../platform/mac')).macHelperCall<T>(method, params, timeoutMs);
   let legacy = false;
-  const toAccess = (status: string): SystemAccess => {
+  const toAccess = (status: string): SystemAccess => ({ ...eventKitAccess(status), raw: status });
+  const eventKitAccess = (status: string): SystemAccess => {
     switch (status) {
       case 'granted': return { state: 'granted', via: 'eventkit', canRequest: false, live: true, message: 'Keeper reads the calendars of the Calendar app: iCloud, Google, Exchange and every other account added there.' };
       case 'notDetermined': return { state: 'notDetermined', via: 'eventkit', canRequest: true, message: 'Allow calendar access to see the calendars of the Calendar app here (iCloud, Google, Exchange and others).' };
@@ -51,12 +52,36 @@ function macDriver(): SystemDriver {
       default: return { state: 'denied', via: 'eventkit', canRequest: false, message: 'Calendar access was not allowed. Turn on Keeper in System Settings → Privacy & Security → Calendars.' };
     }
   };
+  // Keeper's helper runs for hours; access given since it started (on the Permissions screen,
+  // or in System Settings) may not reach it. A fresh helper sees the current answer.
+  let freshAt = 0;
+  const freshStatus = async (): Promise<string | undefined> => {
+    // At most every half hour (the poll that calls this runs every few minutes); Allow and the Permissions screen act at once.
+    if (Date.now() - freshAt < 30 * 60_000) return undefined;
+    freshAt = Date.now();
+    const { helperPath } = await import('../platform/mac');
+    const { HelperClient } = await import('../platform/helper-client');
+    const p = helperPath();
+    if (!p) return undefined;
+    const c = new HelperClient(p, [], 0);
+    try {
+      return (await c.call<{ status: string }>('calendar.status', {}, { timeoutMs: 8000 })).status;
+    } catch {
+      return undefined;
+    } finally {
+      c.stop();
+    }
+  };
   return {
     kind: 'mac',
     async access(request) {
       try {
-        const r = await call<{ status: string }>('calendar.access', { request: !!request }, request ? 5 * 60_000 : 15_000);
+        let r = await call<{ status: string }>('calendar.access', { request: !!request }, request ? 5 * 60_000 : 15_000);
         legacy = false;
+        if (!request && r.status === 'notDetermined' && (await freshStatus()) === 'granted') {
+          // Already allowed: asking from this helper too answers at once, without a prompt, and resets its store.
+          r = await call<{ status: string }>('calendar.access', { request: true }, 30_000);
+        }
         return toAccess(r.status);
       } catch (e) {
         if (/Unknown method/i.test(message(e))) {

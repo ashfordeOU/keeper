@@ -8,6 +8,7 @@ import type { Account, Address, Alarm, Attachment, CalEvent, CalendarInfo, Conta
 import type { PimPrefsView } from './pim/prefs';
 import type { Insights } from './pim/insights';
 import type { SystemAccess } from './pim/syscal';
+import type { CalendarStatus, UpcomingEvent } from './pim/week-events';
 
 export interface NewAccount {
   kind: 'imap' | 'caldav' | 'ics' | 'google' | 'microsoft';
@@ -126,6 +127,22 @@ export interface PimApi {
   watchCalendar(visible: boolean): Promise<void>;
   /** opens an event where it lives (the Calendar app, the provider's page) or in Keeper's calendar */
   openEvent(id: string, instance?: number): Promise<void>;
+  /**
+   * Stable for other pages: every visible calendar's events from `from` to `to`
+   * (this computer's own through EventKit and the others, Google, Microsoft,
+   * CalDAV, .ics links, holidays), in time order, each with its place, join
+   * link and source. withLocation keeps only events that have a place.
+   */
+  upcomingEvents(from: number, to: number, opts?: { withLocation?: boolean; limit?: number }): Promise<UpcomingEvent[]>;
+  /**
+   * Stable for other pages, and cheap (nothing is fetched): per source whether
+   * it is connected and may be read, the computer's own access (on a Mac
+   * `system.raw` is EventKit's authorization state), and the "Keeper can't see
+   * your calendars yet" row to show, if any.
+   */
+  calendarStatus(): Promise<CalendarStatus>;
+  /** opens the main window on where calendars are connected (Google, Outlook, CalDAV) */
+  openCalendarSources(): Promise<void>;
 
   reminders(): Promise<Reminder[]>;
   /** saves a task; checking off a repeating one rolls it on to its next date */

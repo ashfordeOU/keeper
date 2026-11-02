@@ -111,6 +111,16 @@ if (ocrImage) {
 const ocrMissing = await call('ocr', { path: '/nonexistent/picture.png' });
 check(typeof ocrMissing.error === 'string', `ocr of a missing file is an error, not a crash: ${show(ocrMissing.error)}`);
 
+// Calendar access as macOS reports it, without asking: always an answer, never a prompt.
+const calStatus = await call('calendar.status', {}, 10_000);
+check(['granted', 'writeOnly', 'denied', 'restricted', 'notDetermined'].includes(calStatus.result?.status) && typeof calStatus.result?.raw === 'string', `calendar.status ${show(calStatus.result ?? calStatus.error)}`);
+const calAccess = await call('calendar.access', {}, 10_000);
+check(calAccess.result?.status === calStatus.result?.status, `calendar.access without asking agrees ${show(calAccess.result ?? calAccess.error)}`);
+if (calStatus.result?.status !== 'granted') {
+  const evs = await call('calendar.events', { from: Date.now(), to: Date.now() + 86_400_000 }, 10_000);
+  check(typeof evs.error === 'string', `calendar.events without access is a plain error: ${show(evs.error ?? evs.result)}`);
+}
+
 // Asked without a permission: an answer, a plain error, or (EventKit) waiting for the person to answer
 // the system's prompt, which nobody can on CI; the helper must keep answering everything else meanwhile.
 const ekPending = call('eventkit.reminders', {}, 8000);

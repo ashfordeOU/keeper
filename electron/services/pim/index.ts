@@ -25,6 +25,7 @@ import { inIsland } from '../../../core/pim/agenda';
 import { BIRTHDAYS_CALENDAR, birthdayEvents, HOLIDAY_COUNTRIES, holidayCalendarId, holidayEvents } from '../../../core/pim/holidays';
 import { CALENDAR_ONLY_SCOPES } from '../../../core/pim/oauth';
 import { adoptSnapshot, calendarPollMs, ICS_MIN_MS, type SystemAccess } from '../../../core/pim/syscal';
+import { buildCalendarStatus, upcomingFrom, type CalendarStatus, type UpcomingEvent } from '../../../core/pim/week-events';
 import { systemDriver, type SystemDriver } from './system-calendars';
 import type { Account, Address, Alarm, CalEvent, CalendarInfo, Contact, CountdownTimer, MailFolder, MessageSummary, Reminder, WorldClock } from '../../../core/pim/types';
 import { suggest as suggestAddresses, serializeVCard } from '../../../core/pim/vcard';
@@ -651,6 +652,19 @@ async function syncSystem() {
   }
 }
 
+/** Calendar access was just given elsewhere (the Permissions screen): look again now. */
+export async function systemCalendarsChanged() {
+  await load();
+  if (state.prefs.systemCalendars === false || !featureOn('calendars')) return;
+  sysAccess = await sysDriver().access(false).catch(() => sysAccess);
+  if (sysAccess?.state !== 'granted') {
+    // The running helper may not know yet; asking it answers at once now that macOS has the answer.
+    sysAccess = await sysDriver().access(true).catch(() => sysAccess);
+  }
+  deps?.broadcast('pim-changed', 'calendar');
+  if (sysAccess?.state === 'granted') await syncSystem();
+}
+
 /** Holidays and birthdays: worked out here, never downloaded. */
 function refreshDerived() {
   const want: CalendarInfo[] = [];
@@ -688,6 +702,29 @@ async function adoptIslandUrl(url: string | undefined) {
   await syncAccountCalendars(a).catch(() => undefined);
 }
 export { adoptIslandUrl as adoptIslandCalendarUrl };
+
+/**
+ * Every visible calendar's events in a range, for other pages (the Weather page's
+ * trips, the Island). Stable: see PimApi.upcomingEvents.
+ */
+export async function upcomingEvents(from: number, to: number, opts: { withLocation?: boolean; limit?: number } = {}): Promise<UpcomingEvent[]> {
+  await load();
+  if (!featureOn('calendars') || !(to > from)) return [];
+  return upcomingFrom(expandOccurrences(allEvents(), from, to), state.calendars, accounts, opts);
+}
+
+/** Where events come from and whether each may be read. Stable and cheap: see PimApi.calendarStatus. */
+export async function calendarStatus(): Promise<CalendarStatus> {
+  await load();
+  let system: SystemAccess;
+  if (!featureOn('calendars')) system = { state: 'unavailable', canRequest: false, raw: 'featureOff', message: 'Calendars are switched off (Settings → Features → Calendar and reminders).' };
+  else if (state.prefs.systemCalendars === false) system = { state: 'unavailable', canRequest: false, raw: 'switchedOff', message: 'Reading this computer’s calendars is switched off.' };
+  else system = sysAccess ?? (sysAccess = await sysDriver().access().catch((e) => ({ state: 'unavailable', canRequest: false, message: e instanceof Error ? e.message : String(e) }) as SystemAccess));
+  return buildCalendarStatus({
+    platform: process.platform, system, calendars: state.calendars,
+    accounts: accounts.map((a) => ({ id: a.id, kind: a.kind, oauth: a.oauth, label: a.label, calendar: a.calendar, needsSignIn: needsSignIn.has(a.id) })),
+  });
+}
 
 function allEvents(): CalEvent[] {
   const visible = new Set(state.calendars.filter((c) => c.visible).map((c) => c.id));
@@ -1322,6 +1359,11 @@ export const pim: PimApi = {
       pollNow('pim.system');
       pollNow('pim.calendars');
     }
+  },
+  upcomingEvents: (from, to, opts) => upcomingEvents(from, to, opts),
+  calendarStatus: () => calendarStatus(),
+  async openCalendarSources() {
+    deps?.show?.('calendar:sources');
   },
   async openEvent(id, instance) {
     await load();

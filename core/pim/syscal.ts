@@ -23,6 +23,8 @@ export interface SystemAccess {
   canRequest: boolean;
   /** changes arrive by themselves (no checking needed) */
   live?: boolean;
+  /** the system's own answer where it says more than `state` (EventKit: granted, writeOnly, denied, restricted, notDetermined) */
+  raw?: string;
 }
 
 /** One calendar as the system describes it. */

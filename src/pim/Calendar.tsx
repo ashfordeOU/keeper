@@ -93,6 +93,8 @@ export function Calendar() {
   // "New Event…" from the command palette; "calendar:event:<start>:<id>" from the Island.
   useEffect(() => {
     if (route.arg === 'new') newEvent(Date.now() + 3_600_000);
+    // "Connect Google / Outlook calendar" from the Island and the Planner.
+    if (route.arg === 'sources') setAdding(true);
     const m = route.arg?.match(/^event:(\d+):(.+)$/);
     if (m) {
       const at = Number(m[1]);

@@ -7,7 +7,9 @@ import { hourLabel, type Insights } from '../../core/pim/insights';
 import { addDays, inboxTasks, tasksByDay, weekDays, type Task } from '../../core/pim/tasks';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
+import type { WeekEvent } from '../../core/pim/week-events';
 import { addTaskFromText, TASK_MIME, TaskRow } from './tasks-ui';
+import { CalendarAccessRow, DayEvents, useCalendarStatus, useWeekEvents } from './week-events-ui';
 
 /** A drop target that moves dragged tasks to a day (or to the Inbox with null). */
 function useDayDrop(day: string | null) {
@@ -28,12 +30,13 @@ function useDayDrop(day: string | null) {
   };
 }
 
-function DayColumn({ day, label, sub, tasks, today, onOpen, selected }: { day: string | null; label: string; sub?: string; tasks: Task[]; today: string; onOpen?: (t: Task) => void; selected?: string | null }) {
+function DayColumn({ day, label, sub, tasks, events, today, onOpen, selected, toast }: { day: string | null; label: string; sub?: string; tasks: Task[]; events?: WeekEvent[]; today: string; onOpen?: (t: Task) => void; selected?: string | null; toast?: (t: string) => void }) {
   const drop = useDayDrop(day);
   const [text, setText] = useState('');
   return (
     <div className={`tk-day ${day === today ? 'today' : ''} ${drop.over ? 'over' : ''}`} {...drop.bind} data-day={day ?? 'inbox'}>
       <div className="tk-day-head"><span>{label}</span>{sub ? <span className="muted">{sub}</span> : null}</div>
+      {events?.length ? <DayEvents events={events} toast={toast} /> : null}
       {tasks.map((t) => <TaskRow key={t.id} t={t} today={today} showDay={false} onOpen={onOpen} selected={selected === t.id} />)}
       <input className="tk-day-add" placeholder="+ Add" value={text} aria-label={`Add a task to ${label}`} onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => {
@@ -46,11 +49,17 @@ function DayColumn({ day, label, sub, tasks, today, onOpen, selected }: { day: s
   );
 }
 
-/** Seven days from the week's first day, and the Inbox; drag tasks between them. */
-export function WeekBoard({ tasks, today, weekStart = 1, onOpen, selected, showDone }: { tasks: Task[]; today: string; weekStart?: number; onOpen?: (t: Task) => void; selected?: string | null; showDone?: boolean }) {
+/**
+ * Seven days from the week's first day, and the Inbox; drag tasks between them.
+ * Each day also lists its calendar events (read only); `island` keeps to the
+ * calendars shown in the Island.
+ */
+export function WeekBoard({ tasks, today, weekStart = 1, onOpen, selected, showDone, island, toast }: { tasks: Task[]; today: string; weekStart?: number; onOpen?: (t: Task) => void; selected?: string | null; showDone?: boolean; island?: boolean; toast?: (t: string) => void }) {
   const [offset, setOffset] = useState(0);
   const days = weekDays(today, weekStart, offset);
   const by = tasksByDay(tasks, days, today, { withDone: showDone });
+  const evs = useWeekEvents(days, { island });
+  const [status, reloadStatus] = useCalendarStatus();
   const fmt = (d: string) => new Date(`${d}T00:00`);
   return (
     <div className="tk-scope" style={{ display: 'flex', flexDirection: 'column', gap: 6, minHeight: 0 }}>
@@ -60,8 +69,9 @@ export function WeekBoard({ tasks, today, weekStart = 1, onOpen, selected, showD
         <button className="btn sm icon" title="Next week" aria-label="Next week" onClick={() => setOffset(offset + 1)}><Icon name="chevronRight" size={11} /></button>
         <span className="muted small">{fmt(days[0]).toLocaleDateString([], { day: 'numeric', month: 'short' })} – {fmt(days[6]).toLocaleDateString([], { day: 'numeric', month: 'short' })}</span>
       </div>
+      <CalendarAccessRow status={status} onChange={reloadStatus} toast={toast} />
       <div className="tk-week" data-testid="week-board">
-        {days.map((d) => <DayColumn key={d} day={d} label={fmt(d).toLocaleDateString([], { weekday: 'short' })} sub={String(fmt(d).getDate())} tasks={by.get(d) ?? []} today={today} onOpen={onOpen} selected={selected} />)}
+        {days.map((d) => <DayColumn key={d} day={d} label={fmt(d).toLocaleDateString([], { weekday: 'short' })} sub={String(fmt(d).getDate())} tasks={by.get(d) ?? []} events={evs.get(d)} today={today} onOpen={onOpen} selected={selected} toast={toast} />)}
         <DayColumn day={null} label="Inbox" sub={String(inboxTasks(tasks).length || '')} tasks={inboxTasks(tasks)} today={today} onOpen={onOpen} selected={selected} />
       </div>
     </div>

@@ -10,6 +10,7 @@ import { api } from '../api';
 import { Icon } from '../components/Icon';
 import { PageHead } from '../components/ui';
 import { useFeature } from '../features';
+import { useStore } from '../state';
 import { InsightsView, WeekBoard } from './planner-views';
 import { dayLabel, projectsOf, TaskComposer, TaskDetail, TaskList, UndoBar, useTasks, useToday } from './tasks-ui';
 import '../styles/pim.css';
@@ -20,6 +21,7 @@ export function Planner({ initial }: { initial?: string }) {
   const { tasks, loaded } = useTasks();
   const today = useToday();
   const insightsOn = useFeature('insights');
+  const { toast } = useStore();
   const [view, setView] = useState<View>((initial as View) || 'today');
   const [sel, setSel] = useState<string | null>(null);
   const [weekStart, setWeekStart] = useState(1);
@@ -51,7 +53,7 @@ export function Planner({ initial }: { initial?: string }) {
     body = <><TaskComposer defaults={{ plannedFor: today }} focusKey={composeKey} /><TaskList tasks={list} today={today} selected={sel} onOpen={open} showDay={false} empty="Nothing left for today. Plan something, or enjoy it." /></>;
   } else if (view === 'week') {
     title = 'Week';
-    body = <WeekBoard tasks={tasks} today={today} weekStart={weekStart} onOpen={open} selected={sel} showDone />;
+    body = <WeekBoard tasks={tasks} today={today} weekStart={weekStart} onOpen={open} selected={sel} showDone toast={toast} />;
   } else if (view === 'inbox') {
     title = 'Inbox';
     sub = 'Tasks without a day. Drag them onto a day in the week, or give them one.';

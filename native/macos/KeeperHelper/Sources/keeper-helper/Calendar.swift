@@ -3,6 +3,7 @@
 // EventKit: every account added in the Calendar app (iCloud, Google,
 // Exchange, CalDAV, subscriptions) without signing in again in Keeper.
 //
+//   calendar.status   {}                            → {status, raw}   (never asks)
 //   calendar.access   {request?: bool}              → {status}
 //   calendar.events   {from, to}                    → {calendars: [...], events: [...], truncated}
 //   calendar.watch    (streams "changed" whenever the Calendar database changes; runs until cancelled)
@@ -10,34 +11,72 @@
 //   calendar.delete   {id, occurrence?, all?}        → {ok}
 //
 // Times are milliseconds since 1970. status is granted, writeOnly, denied,
-// restricted or notDetermined.
+// restricted or notDetermined. raw is EventKit's own name for the state
+// (fullAccess, authorized, writeOnly, denied, restricted, notDetermined).
+//
+// Keeper keeps one helper running for hours. The Permissions screen asks macOS
+// from a helper of its own, so this one may have been started before access
+// was given: its event store then sees no calendars until it is reset, and
+// macOS may keep answering "notDetermined" to it. So the store is reset before
+// the first read after access was given, and an answer this helper got itself
+// ("allowed" or "not allowed") counts over a stale status.
 
 import Foundation
 import EventKit
 import CoreGraphics
 
-func calendarStatus() -> String {
+/// What this helper itself was told when it asked: nil (it did not ask), true (allowed) or false (not allowed).
+final class CalendarAnswer: @unchecked Sendable {
+    static let shared = CalendarAnswer()
+    private let lock = NSLock()
+    private var answer: Bool?
+    /// the event store has been reset since access was given
+    private var fresh = false
+    var asked: Bool? { lock.lock(); defer { lock.unlock() }; return answer }
+    func set(_ ok: Bool) { lock.lock(); answer = ok; if ok { fresh = false }; lock.unlock() }
+    /// true once per access: the store must be reset before it is read
+    func needsReset() -> Bool { lock.lock(); defer { lock.unlock() }; if fresh { return false }; fresh = true; return true }
+}
+
+/// EventKit's own name for the authorization state (macOS 14 and later split "authorized" into fullAccess and writeOnly).
+func calendarRawStatus() -> String {
     let s = EKEventStore.authorizationStatus(for: .event)
     if #available(macOS 14.0, *) {
-        if s == .fullAccess { return "granted" }
+        if s == .fullAccess { return "fullAccess" }
         if s == .writeOnly { return "writeOnly" }
     }
     switch s {
     case .notDetermined: return "notDetermined"
     case .restricted: return "restricted"
     case .denied: return "denied"
-    case .authorized: return "granted"
+    case .authorized: return "authorized"
+    default: return "unknown"
+    }
+}
+
+func calendarStatus() -> String {
+    let raw = calendarRawStatus()
+    switch raw {
+    case "fullAccess", "authorized": return "granted"
+    case "writeOnly", "denied", "restricted": return raw
+    case "notDetermined":
+        // Asked from this helper already: its own answer counts (macOS may still say notDetermined here).
+        if let a = CalendarAnswer.shared.asked { return a ? "granted" : "denied" }
+        return "notDetermined"
     default: return "denied"
     }
 }
 
 func calendarAccess(_ p: [String: Any]) async -> [String: Any] {
+    // Asked again even when this helper thinks it is still undecided: access given from
+    // another helper (the Permissions screen) answers at once, without a prompt.
     if (p["request"] as? Bool) == true && calendarStatus() == "notDetermined" {
         let ok = (try? await ekAccess(.event)) ?? false
+        CalendarAnswer.shared.set(ok)
         // A store made before access was given does not see the calendars until it is reset.
         if ok { eventStore.reset() }
     }
-    return ["status": calendarStatus()]
+    return ["status": calendarStatus(), "raw": calendarRawStatus()]
 }
 
 private func hexColor(_ c: CGColor?) -> String? {
@@ -77,6 +116,8 @@ private func ms(_ d: Date) -> Double { d.timeIntervalSince1970 * 1000 }
 
 func calendarEvents(_ p: [String: Any]) async throws -> [String: Any] {
     guard calendarStatus() == "granted" else { throw ekDenied("Calendar") }
+    // The first read after access was given: a store made before then shows no calendars.
+    if CalendarAnswer.shared.needsReset() { eventStore.reset() }
     let now = Date().timeIntervalSince1970 * 1000
     let from = Date(timeIntervalSince1970: ((p["from"] as? Double) ?? (now - 86_400_000 * 14)) / 1000)
     let to = Date(timeIntervalSince1970: ((p["to"] as? Double) ?? (now + 86_400_000 * 60)) / 1000)
@@ -259,6 +300,7 @@ func calendarDelete(_ p: [String: Any]) async throws -> [String: Any] {
 
 func calendarCall(id: Int, method: String, params: [String: Any]) async throws -> Any {
     switch method {
+    case "calendar.status": return ["status": calendarStatus(), "raw": calendarRawStatus()]
     case "calendar.access": return await calendarAccess(params)
     case "calendar.events": return try await calendarEvents(params)
     case "calendar.watch":

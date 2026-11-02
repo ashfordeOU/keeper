@@ -23,6 +23,16 @@ export function calendarSummary(r: any): { calendars: number; writable: number; 
   };
 }
 
+/** Monday 00:00 to the next Monday 00:00, local time. */
+export function thisWeek(now: number): { from: number; to: number } {
+  const d = new Date(now);
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  const from = d.getTime();
+  d.setDate(d.getDate() + 7);
+  return { from, to: d.getTime() };
+}
+
 export async function runCalendar(ctx: Ctx) {
   const { rec } = ctx;
   const helper = await ctx.helper();
@@ -31,6 +41,14 @@ export async function runCalendar(ctx: Ctx) {
     return;
   }
   let status = '';
+
+  await rec.check('calendar.status', 'calendar.status: EventKit’s authorization state is reported (no prompt)', 'auto', async (h) => {
+    const r = await helper.call('calendar.status', {}, { timeoutMs: 15_000 });
+    h.artifact(ctx.saveData('calendar-status.json', r));
+    if (!r.ok) return fail(/Unknown method/.test(r.error ?? '') ? 'This keeper-helper is older than calendar.status: rebuild it' : `calendar.status failed: ${r.error}`, r.error);
+    const known = ['granted', 'writeOnly', 'denied', 'restricted', 'notDetermined'].includes(r.result?.status);
+    return verdict(known && typeof r.result?.raw === 'string', `status: ${r.result?.status} (EventKit: ${r.result?.raw})`, r.result);
+  });
 
   await rec.check('calendar.access', 'Calendar access as macOS reports it (no prompt)', 'auto', async (h) => {
     const r = await helper.call('calendar.access', {}, { timeoutMs: 15_000 });
@@ -61,6 +79,33 @@ export async function runCalendar(ctx: Ctx) {
     const s = { ...calendarSummary(r.result), truncated: !!r.result?.truncated, ms: r.ms };
     h.artifact(ctx.saveData('calendar-events.json', s));
     return verdict(s.calendars > 0 && s.colours === s.calendars, `${s.calendars} calendars (${s.writable} writable) in ${s.accounts} accounts, ${s.colours} with colours; ${s.events} events (${s.allDay} all-day, ${s.recurring} repeating, ${s.withLink} with a meeting link) in ${s.ms} ms`, s);
+  });
+
+  await rec.check('calendar.week', 'calendar.events returns this week’s events (Monday to Sunday, counts only)', 'auto', async (h) => {
+    if (status !== 'granted' && !ctx.dry) return skip(`Calendar access is ${status || 'unknown'}`);
+    const { from, to } = thisWeek(Date.now());
+    const r = await helper.call('calendar.events', { from, to }, { timeoutMs: 60_000 });
+    if (!r.ok) return fail(`calendar.events failed: ${r.error}`, r.error);
+    const evs: any[] = Array.isArray(r.result?.events) ? r.result.events : [];
+    const inWeek = evs.filter((e) => typeof e.start === 'number' && typeof e.end === 'number' && e.end > from && e.start < to);
+    const s = { calendars: Array.isArray(r.result?.calendars) ? r.result.calendars.length : 0, events: evs.length, inWeek: inWeek.length, outside: evs.length - inWeek.length, from, to };
+    h.artifact(ctx.saveData('calendar-week.json', s));
+    if (!s.calendars) return fail('No calendars at all: the helper’s event store sees nothing (was access given after it started?)', undefined, s);
+    if (!s.events) return skip(`${s.calendars} calendars, but no events this week to count (add one in Calendar and run again)`);
+    return verdict(ctx.dry || s.outside === 0, `${s.inWeek} events this week from ${s.calendars} calendars${s.outside ? `; ${s.outside} outside the week` : ''}`, s);
+  });
+
+  await rec.check('calendar.keeper-week', 'Keeper’s calendar service: status and this week’s events from every source', 'auto', async (h) => {
+    const app = await ctx.app();
+    const st = await app.call<any>('pim.calendarStatus').catch((e: Error) => ({ error: e.message }));
+    const { from, to } = thisWeek(Date.now());
+    const evs = (await app.call<any[]>('pim.upcomingEvents', from, to).catch(() => null)) ?? null;
+    const info = { system: { state: st?.system?.state, raw: st?.system?.raw, via: st?.system?.via }, sources: (st?.sources ?? []).map((x: any) => ({ kind: x.kind, connected: x.connected, authorized: x.authorized, calendars: x.calendars })), row: st?.row?.action ?? null, events: evs?.length ?? null, bySource: evs ? Object.fromEntries([...new Set(evs.map((e: any) => e.source))].map((k) => [k, evs.filter((e: any) => e.source === k).length])) : null };
+    h.artifact(ctx.saveData('calendar-keeper-week.json', info));
+    if (st?.error || !st?.system) return fail(`pim.calendarStatus failed: ${st?.error ?? 'no answer'}`, st?.error);
+    if (evs === null) return fail('pim.upcomingEvents failed');
+    if (st.system.state !== 'granted') return verdict(!!st.row, `access ${st.system.state} (${st.system.raw ?? '?'}): the "can’t see your calendars" row is ${st.row ? `shown (${st.row.action})` : 'missing'}`, info);
+    return verdict(!st.row, `${evs.length} events this week in Keeper (${Object.entries(info.bySource ?? {}).map(([k, n]) => `${k} ${n}`).join(', ') || 'none'}); no access row`, info);
   });
 
   await rec.check('calendar.keeper', 'Keeper shows the Mac’s calendars (Calendar → sources)', 'auto', async (h) => {

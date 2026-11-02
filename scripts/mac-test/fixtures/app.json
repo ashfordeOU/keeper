@@ -560,6 +560,44 @@
   "canRequest": false,
   "message": "ok"
  },
+ "pim.calendarStatus": {
+  "platform": "darwin",
+  "system": {
+   "state": "granted",
+   "raw": "fullAccess",
+   "via": "eventkit",
+   "live": true,
+   "canRequest": false,
+   "message": "ok"
+  },
+  "sources": [
+   {
+    "id": "system",
+    "kind": "system",
+    "label": "This Mac",
+    "connected": true,
+    "authorized": true,
+    "calendars": 2
+   }
+  ],
+  "anyReadable": true,
+  "row": null
+ },
+ "pim.upcomingEvents": [
+  {
+   "key": "E1:0",
+   "eventId": "E1",
+   "instance": 0,
+   "title": "x",
+   "start": 0,
+   "end": 1,
+   "allDay": false,
+   "calendar": "system:1",
+   "calendarName": "Home",
+   "color": "#1badf8",
+   "source": "system"
+  }
+ ],
  "pim.syncCalendars": null,
  "pim.calendars": [
   {

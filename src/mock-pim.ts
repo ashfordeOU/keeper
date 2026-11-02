@@ -12,6 +12,8 @@ import { completeTask, moveToDay } from '../core/pim/tasks';
 import type { PimPrefsView } from '../core/pim/prefs';
 import type { Account, Alarm, CalEvent, CalendarInfo, Contact, CountdownTimer, MailFolder, MessageSummary, Reminder, WorldClock } from '../core/pim/types';
 import { suggest } from '../core/pim/vcard';
+import { buildCalendarStatus, upcomingFrom } from '../core/pim/week-events';
+import type { SystemAccess } from '../core/pim/syscal';
 
 type Emit = (channel: string, ...args: unknown[]) => void;
 
@@ -69,6 +71,11 @@ export function mockPim(emit: Emit): { pim: PimApi } {
     mk('home', 'INBOX', { subject: 'Your flight to Lisbon is confirmed', from: { name: 'Skyway Airlines', address: 'noreply@skyway.example' }, date: now - day, seen: false, flagged: true }, { text: 'Booking ABC123. Departure 12 March 07:40, arrival 10:15. Return 15 March 18:20.' }),
     mk('home', 'INBOX', { subject: 'Book club — next title', from: { name: 'Priya', address: 'priya@example.org' }, date: now - 2 * day }, { text: 'We picked the next book! See you on the 20th.' }),
   ];
+  // ?calaccess=notDetermined|denied|writeOnly in the browser preview shows the "can't see your calendars" row.
+  let sysRaw = (typeof location !== 'undefined' && new URLSearchParams(location.search).get('calaccess')) || 'granted';
+  const sysAccess = (): SystemAccess => (sysRaw === 'granted'
+    ? { state: 'granted', via: 'files', canRequest: false, message: 'In the browser preview the computer’s calendars are pretend ones.' }
+    : { state: sysRaw === 'notDetermined' ? 'notDetermined' : 'denied', via: 'eventkit', raw: sysRaw, canRequest: sysRaw === 'notDetermined', message: sysRaw === 'notDetermined' ? 'Allow calendar access to see the calendars of the Calendar app here (iCloud, Google, Exchange and others).' : 'Calendar access was not allowed. Turn on Keeper in System Settings → Privacy & Security → Calendars.' });
   const calendars: CalendarInfo[] = [
     { id: 'local:calendar', account: 'local', name: 'On this computer', color: '#bf5af2', url: '', readOnly: false, visible: true, tasks: true },
     { id: 'work:cal', account: 'work', name: 'Work', color: '#0a84ff', url: 'https://dav.studio.example/cal/work/', readOnly: false, visible: true },
@@ -224,7 +231,13 @@ export function mockPim(emit: Emit): { pim: PimApi } {
     importIcs: async () => 0,
     exportIcs: async () => '/Users/demo/Downloads/Work.ics',
     syncCalendars: async () => { await new Promise((r) => setTimeout(r, 500)); },
-    systemAccess: async () => ({ state: 'granted', via: 'files', canRequest: false, message: 'In the browser preview the computer’s calendars are pretend ones.' }),
+    systemAccess: async (request) => {
+      if (request && sysRaw === 'notDetermined') sysRaw = 'granted';
+      return sysAccess();
+    },
+    upcomingEvents: async (from, to, o) => upcomingFrom(occurrences(events, from, to), calendars, accounts, o),
+    calendarStatus: async () => buildCalendarStatus({ platform: sysRaw === 'granted' ? 'linux' : 'darwin', system: sysAccess(), calendars, accounts }),
+    openCalendarSources: async () => undefined,
     watchCalendar: async () => undefined,
     openEvent: async () => undefined,
 

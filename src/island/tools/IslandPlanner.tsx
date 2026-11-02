@@ -13,6 +13,8 @@ import { projectsOf, TaskComposer, TaskDetail, TaskList, UndoBar, useTasks, useT
 
 type View = 'today' | 'inbox' | 'overdue' | 'all';
 
+const say = (text: string) => window.dispatchEvent(new CustomEvent('island-toast', { detail: text }));
+
 /** Tasks in the Island. `composeKey` changing focuses the composer (the "New task" shortcut). */
 export function TasksTool({ composeKey }: { composeKey?: number }) {
   const { tasks } = useTasks();
@@ -88,7 +90,7 @@ function MacReminders() {
   );
 }
 
-/** The week ahead and the Inbox in the Island. */
+/** The week ahead and the Inbox in the Island, with each day's calendar events. */
 export function WeekTool() {
   const { tasks } = useTasks();
   const today = useToday();
@@ -97,7 +99,7 @@ export function WeekTool() {
   const [weekStart, setWeekStart] = useState(1);
   useEffect(() => { void api.pim?.prefs?.().then((p) => setWeekStart(p.weekStart)).catch(() => undefined); }, []);
   if (cur) return <div className="itool"><TaskDetail task={cur} today={today} projects={projectsOf(tasks)} onClose={() => setOpen(null)} compact /><UndoBar /></div>;
-  return <div className="itool"><WeekBoard tasks={tasks} today={today} weekStart={weekStart} onOpen={(t) => setOpen(t.id)} /><UndoBar /></div>;
+  return <div className="itool"><WeekBoard tasks={tasks} today={today} weekStart={weekStart} onOpen={(t) => setOpen(t.id)} island toast={say} /><UndoBar /></div>;
 }
 
 export function InsightsTool() {

@@ -251,6 +251,8 @@ export async function requestPermission(id: string): Promise<{ ok: boolean; open
       return { ok: true, opened: 'prompt' };
     }
     const r = await helperOnce<Record<string, string>>('permissions.request', { id }, id === 'location' ? 70_000 : 60_000);
+    // Calendars allowed here: the calendar service reads them now, not at its next look.
+    if (r && id === 'calendars') void import('./pim').then((m) => m.systemCalendarsChanged()).catch(() => undefined);
     if (!r) return { ok: await openPermissionSettings(id), opened: 'settings', message: 'Keeper’s macOS helper is not in this build: System Settings is open instead.' };
     return { ok: true, opened: 'prompt' };
   }

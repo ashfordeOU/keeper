@@ -119,6 +119,10 @@
    "ended": true
   }
  },
+ "calendar.status": {
+  "status": "granted",
+  "raw": "fullAccess"
+ },
  "calendar.access": {
   "status": "granted"
  },
