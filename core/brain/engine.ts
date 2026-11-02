@@ -13,6 +13,7 @@ import type { BrainHit, BrainSearchOptions, BrainStatus } from '../brain-contrac
 import { fold, passesFilters, search as metaSearch } from '../query/match';
 import { parseQuery } from '../query/parse';
 import type { FileEntry, Query } from '../types';
+import type { JsonChunks } from '../json-chunks';
 import { Bm25, type Bm25Data } from './bm25';
 import { chunkText, isCode, terms, type Chunk } from './chunk';
 import { normalize, VectorStore } from './vectors';
@@ -147,6 +148,7 @@ export class BrainEngine {
     o.onProgress?.(done, todo.length);
     this.textCache.clear();
     this.textCacheChars = 0;
+    if (done) this.bm25.trim();
     return done;
   }
 
@@ -362,6 +364,23 @@ export class BrainEngine {
       files: [...this.files.values()].map((b) => [b.path, b.mtime, b.size, b.sig, b.docs, b.chunks.flatMap((c) => [c.start, c.end]), b.chunks.map((c) => c.heading ?? '')]),
       bm25: this.bm25.toJSON(),
     };
+  }
+
+  /** The same JSON as toJSON(), written piece by piece: saving no longer needs several times the brain's size in memory. */
+  writeJSON(out: JsonChunks): void {
+    out.raw('{"v":1');
+    if (this.embedder?.id !== undefined) out.raw(',"model":').value(this.embedder.id);
+    out.raw(',"files":[');
+    let first = true;
+    for (const b of this.files.values()) {
+      out.raw(first ? '[' : ',[').value(b.path).raw(',').num(b.mtime).raw(',').num(b.size).raw(',').value(b.sig).raw(',').nums(b.docs).raw(',[');
+      b.chunks.forEach((c, i) => out.raw(`${i ? ',' : ''}${c.start},${c.end}`));
+      out.raw('],').value(b.chunks.map((c) => c.heading ?? '')).raw(']');
+      first = false;
+    }
+    out.raw('],"bm25":');
+    this.bm25.writeJSON(out);
+    out.raw('}');
   }
 
   load(data: Persisted): void {

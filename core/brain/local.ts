@@ -4,7 +4,8 @@
 // recent activity). Used by the app, and by `keeper mcp` / `keeper ask` when
 // the app is closed.
 
-import { existsSync, mkdirSync, promises as fsp, renameSync, writeFileSync } from 'node:fs';
+import { existsSync, promises as fsp } from 'node:fs';
+import { JsonChunks, writeChunksAtomic, writeChunksAtomicSync } from '../json-chunks';
 import path from 'node:path';
 import type { Brain, BrainHit, BrainSearchOptions, BrainStatus } from '../brain-contract';
 import { findExactDuplicates } from '../duplicates';
@@ -89,33 +90,44 @@ export class LocalBrain implements Brain {
     this.saveTimer.unref?.();
   }
 
+  private saving: Promise<void> | null = null;
+
+  /** The brain's JSON, built piece by piece outside the JavaScript heap (one consistent picture). */
+  private serialize(): Buffer[] {
+    const out = new JsonChunks();
+    this.engine.writeJSON(out);
+    return out.done();
+  }
+
+  /** Saves what changed; never two saves at once (one asked for meanwhile follows the current one). */
   async save(): Promise<void> {
-    if (!this.dirty) return;
-    this.dirty = false;
-    await fsp.mkdir(this.o.dir, { recursive: true });
-    const tmp = `${this.jsonFile}.${process.pid}.tmp`;
-    await fsp.writeFile(tmp, JSON.stringify(this.engine.toJSON()));
-    await fsp.rename(tmp, this.jsonFile);
-    if (this.engine.vectors) {
-      const vt = `${this.vecFile}.${process.pid}.tmp`;
-      await fsp.writeFile(vt, this.engine.vectors.toBuffer());
-      await fsp.rename(vt, this.vecFile);
+    if (this.saving) {
+      await this.saving;
+      if (this.saving) return this.saving;
     }
+    if (!this.dirty) return;
+    this.saving = (async () => {
+      try {
+        while (this.dirty) {
+          this.dirty = false;
+          const json = this.serialize();
+          const vectors = this.engine.vectors?.toBuffer();
+          await writeChunksAtomic(this.jsonFile, json, `${this.jsonFile}.${process.pid}.tmp`);
+          if (vectors) await writeChunksAtomic(this.vecFile, [vectors], `${this.vecFile}.${process.pid}.tmp`);
+        }
+      } finally {
+        this.saving = null;
+      }
+    })();
+    return this.saving;
   }
 
   /** For quitting: writes straight away. */
   saveSync(): void {
     if (!this.dirty) return;
     this.dirty = false;
-    mkdirSync(this.o.dir, { recursive: true });
-    const tmp = `${this.jsonFile}.${process.pid}.tmp`;
-    writeFileSync(tmp, JSON.stringify(this.engine.toJSON()));
-    renameSync(tmp, this.jsonFile);
-    if (this.engine.vectors) {
-      const vt = `${this.vecFile}.${process.pid}.tmp`;
-      writeFileSync(vt, this.engine.vectors.toBuffer());
-      renameSync(vt, this.vecFile);
-    }
+    writeChunksAtomicSync(this.jsonFile, this.serialize(), `${this.jsonFile}.${process.pid}.quit.tmp`);
+    if (this.engine.vectors) writeChunksAtomicSync(this.vecFile, [this.engine.vectors.toBuffer()], `${this.vecFile}.${process.pid}.quit.tmp`);
   }
 
   async clear(): Promise<void> {

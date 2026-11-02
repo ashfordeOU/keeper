@@ -3,9 +3,10 @@
 // details search needs. Kept in memory and saved to one JSON file, so the app
 // opens instantly and only re-reads what changed.
 
-import { mkdirSync, promises as fsp, renameSync, writeFileSync } from 'node:fs';
+import { promises as fsp } from 'node:fs';
 import path from 'node:path';
 import { kindOf, extOf, looksLikeScreenshot } from './classify';
+import { JsonChunks, ownString, writeChunksAtomic, writeChunksAtomicSync } from './json-chunks';
 import { search, type MatchOptions } from './query/match';
 import { parseQuery } from './query/parse';
 import { walk } from './walk';
@@ -73,24 +74,58 @@ export class FileIndex {
     }
   }
 
-  private snapshot(): Persisted {
-    return {
-      version: VERSION,
-      savedAt: this.lastScan,
-      files: [...this.files.values()].map((f) => ({ ...f, text: undefined })),
-      tags: Object.fromEntries(this.tags),
-      extras: Object.fromEntries(this.extras),
-      hashes: Object.fromEntries(this.hashes),
+  /**
+   * The saved form, written piece by piece (the same JSON as stringifying the
+   * whole Persisted object): no copy of every entry and no single giant string
+   * on the heap, which for a big library with its text was gigabytes.
+   */
+  serialize(): Buffer[] {
+    const out = new JsonChunks();
+    out.raw(`{"version":${VERSION},"savedAt":`).num(this.lastScan).raw(',"files":[');
+    let first = true;
+    for (const f of this.files.values()) {
+      out.raw(first ? '' : ',').raw(JSON.stringify({ ...f, text: undefined }));
+      first = false;
+    }
+    const record = (name: string, m: Map<string, unknown>) => {
+      out.raw(`,${JSON.stringify(name)}:{`);
+      let i = 0;
+      for (const [k, v] of m) {
+        if (v === undefined) continue;
+        out.raw(`${i++ ? ',' : ''}${JSON.stringify(k)}:${JSON.stringify(v)}`);
+      }
+      out.raw('}');
     };
+    out.raw(']');
+    record('tags', this.tags);
+    record('extras', this.extras);
+    record('hashes', this.hashes);
+    out.raw('}');
+    return out.done();
   }
 
+  private saving: Promise<void> | null = null;
+  private saveAgain = false;
+
+  /** Saves now; a save asked for while one is being written follows it (never two at once). */
   async save(): Promise<void> {
     if (!this.file) return;
-    const json = JSON.stringify(this.snapshot());
-    await fsp.mkdir(path.dirname(this.file), { recursive: true });
-    const tmp = this.file + '.tmp';
-    await fsp.writeFile(tmp, json);
-    await fsp.rename(tmp, this.file);
+    if (this.saving) {
+      this.saveAgain = true;
+      return this.saving;
+    }
+    const file = this.file;
+    this.saving = (async () => {
+      try {
+        do {
+          this.saveAgain = false;
+          await writeChunksAtomic(file, this.serialize());
+        } while (this.saveAgain);
+      } finally {
+        this.saving = null;
+      }
+    })();
+    return this.saving;
   }
 
   /** For quitting: the process may end before an asynchronous write finishes. */
@@ -98,10 +133,8 @@ export class FileIndex {
     if (!this.file) return;
     clearTimeout(this.saveTimer);
     this.saveTimer = undefined;
-    mkdirSync(path.dirname(this.file), { recursive: true });
-    const tmp = this.file + '.tmp';
-    writeFileSync(tmp, JSON.stringify(this.snapshot()));
-    renameSync(tmp, this.file);
+    // Its own temporary file, so an asynchronous save still writing cannot interleave with it.
+    writeChunksAtomicSync(this.file, this.serialize(), `${this.file}.quit.tmp`);
   }
 
   saveSoon(): void {
@@ -248,6 +281,8 @@ export class FileIndex {
   setText(p: string, text: string): void {
     const f = this.files.get(p);
     if (!f) return;
+    // Its own copy: text cut from a whole file would otherwise keep the whole file in memory.
+    text = ownString(text);
     f.text = text;
     this.setExtra(f, { text });
     this.saveSoon();
