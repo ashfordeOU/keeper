@@ -237,9 +237,13 @@ due dates ("Call the bank tomorrow 10am" sets the time), priorities, notes,
 
 ## Google and Microsoft sign-in: client IDs
 
-OAuth sign-in needs an app registration with each provider. Official builds
-include them; if yours does not, the *Sign in* buttons are disabled and an app
-password works instead. To register:
+OAuth sign-in needs an app registration with each provider. A build has them
+only when its release secrets `KEEPER_GOOGLE_CLIENT_ID` (with
+`KEEPER_GOOGLE_CLIENT_SECRET`) and `KEEPER_MS_CLIENT_ID` were set; when a
+provider's ID is missing, its *Sign in* button is hidden. Gmail, iCloud, Yahoo,
+AOL, Fastmail and Zoho then work with an app password (the account dialog links
+to the page that makes one). Outlook.com and Microsoft 365 no longer accept
+passwords from mail apps, so they need the Microsoft sign-in. To register:
 
 - **Google**: Google Cloud Console → APIs & Services → enable *Gmail API*,
   *CalDAV API* and *People/CardDAV*; OAuth consent screen with scopes
@@ -255,9 +259,11 @@ password works instead. To register:
   `Contacts.Read` (Microsoft Graph). No client secret.
 
 Give the IDs to the build as `KEEPER_GOOGLE_CLIENT_ID`,
-`KEEPER_GOOGLE_CLIENT_SECRET` and `KEEPER_MS_CLIENT_ID` (environment at run
-time), or paste them in **Settings → Mail & Calendar → Google and Microsoft
-sign-in**. Keeper uses the authorization-code flow with PKCE and a one-time
+`KEEPER_GOOGLE_CLIENT_SECRET` and `KEEPER_MS_CLIENT_ID` (compiled in by
+`scripts/build-main.mjs` from the build environment; the release workflow passes
+the repository secrets of the same names), set them in the environment at run
+time, or paste them in **Settings → Mail & Calendar → Developer options:
+sign-in client IDs**. Keeper uses the authorization-code flow with PKCE and a one-time
 address on `127.0.0.1` (RFC 8252); the answer's `state` must match.
 
 ## For agents and the keeper command

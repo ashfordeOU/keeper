@@ -296,6 +296,13 @@ describe('providers', () => {
     expect(knownProvider('me@zoho.eu')?.imap?.host).toBe('imap.zoho.eu');
     expect(knownProvider('me@zohomail.com')?.smtp?.host).toBe('smtp.zoho.com');
   });
+  it('links to the page that makes an app password, and says Outlook needs sign-in', () => {
+    expect(knownProvider('me@gmail.com')?.appPasswordUrl).toBe('https://myaccount.google.com/apppasswords');
+    for (const e of ['me@icloud.com', 'me@yahoo.com', 'me@fastmail.com', 'me@aol.com', 'me@zoho.eu']) expect(knownProvider(e)?.appPasswordUrl).toMatch(/^https:\/\//);
+    const ms = knownProvider('me@outlook.com');
+    expect(ms?.signInOnly).toBe(true);
+    expect(ms?.appPasswordUrl).toBeUndefined();
+  });
 });
 
 describe('mail for coding assistants (MCP)', () => {

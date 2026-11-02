@@ -111,11 +111,14 @@ export function AccountDialog({ onClose, onAdded, initialTab = 'mail' }: { onClo
 
       {tab === 'mail' ? (
         <div className="col" style={{ gap: 10 }}>
-          <div className="btn-row">
-            <button className="btn" disabled={!oauth.data?.google || !!busy} title={oauth.data?.google ? '' : 'This copy of Keeper has no Google sign-in set up; use an app password below'} onClick={() => void signIn('google')}>{busy === 'google' ? <div className="spinner" /> : <Icon name="globe" size={14} />} Sign in with Google</button>
-            <button className="btn" disabled={!oauth.data?.microsoft || !!busy} title={oauth.data?.microsoft ? '' : 'This copy of Keeper has no Microsoft sign-in set up; use an app password below'} onClick={() => void signIn('microsoft')}>{busy === 'microsoft' ? <div className="spinner" /> : <Icon name="globe" size={14} />} Sign in with Microsoft</button>
-          </div>
-          {!oauth.data?.google || !oauth.data?.microsoft ? <div className="small muted">Google and Microsoft sign-in need IDs registered for this copy of Keeper (Settings → Mail &amp; Calendar). Without them, use an app password from your provider.</div> : null}
+          {/* Only the sign-ins this copy of Keeper has; the others are not shown at all. */}
+          {oauth.data?.google || oauth.data?.microsoft ? (
+            <div className="btn-row">
+              {oauth.data?.google ? <button className="btn" disabled={!!busy} onClick={() => void signIn('google')}>{busy === 'google' ? <div className="spinner" /> : <Icon name="globe" size={14} />} Sign in with Google</button> : null}
+              {oauth.data?.microsoft ? <button className="btn" disabled={!!busy} onClick={() => void signIn('microsoft')}>{busy === 'microsoft' ? <div className="spinner" /> : <Icon name="globe" size={14} />} Sign in with Microsoft</button> : null}
+            </div>
+          ) : null}
+          {oauth.data && (!oauth.data.google || !oauth.data.microsoft) ? <div className="small muted">Enter your address and Keeper finds the servers. Most providers want an <b>app password</b> here rather than your usual one; Keeper links to the page that makes it.</div> : null}
           <label className="field"><span>Email address</span><input className="input" autoFocus value={email} onChange={(e) => { setEmail(e.target.value); setCfg(null); }} onKeyDown={(e) => e.key === 'Enter' && !cfg && void find()} placeholder="you@example.com" /></label>
           {!cfg ? <div className="btn-row" style={{ justifyContent: 'flex-end' }}><button className="btn primary" disabled={!!busy} onClick={() => void find()}>{busy === 'find' ? <div className="spinner" /> : null} Continue</button></div> : (
             <>
@@ -124,6 +127,8 @@ export function AccountDialog({ onClose, onAdded, initialTab = 'mail' }: { onClo
                 <button className="link-like small" onClick={() => setAdvanced(!advanced)}>{advanced ? 'Hide' : 'Change'} servers</button>
               </div>
               {cfg.note ? <div className="small muted">{cfg.note}</div> : null}
+              {cfg.signInOnly && cfg.oauth && !oauth.data?.[cfg.oauth] ? <div className="banner warn" data-testid="signin-only"><Icon name="warning" size={14} /> <span>{cfg.provider} accounts need Sign in with {cfg.oauth === 'microsoft' ? 'Microsoft' : 'Google'}, which this copy of Keeper doesn’t have yet. A password will not be accepted.</span></div> : null}
+              {cfg.appPasswordUrl ? <div className="btn-row"><button className="btn sm" data-testid="app-password-link" onClick={() => void api.system.openExternal(cfg.appPasswordUrl!)}><Icon name="external" size={12} /> Make an app password at {cfg.provider}</button></div> : null}
               <label className="field"><span>Your name</span><input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="As people will see it" /></label>
               <label className="field"><span>Password or app password</span><input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void add()} /></label>
               {advanced ? (

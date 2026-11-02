@@ -16,6 +16,10 @@ export interface MailConfig {
   oauth?: 'google' | 'microsoft';
   /** a note for the person, e.g. "use an app-specific password" */
   note?: string;
+  /** the provider's page where an app password is made (shown as "Make an app password") */
+  appPasswordUrl?: string;
+  /** the provider no longer accepts passwords for mail apps: only its own sign-in works */
+  signInOnly?: boolean;
 }
 
 const user = (email: string) => email;
@@ -29,16 +33,18 @@ export function knownProvider(email: string): MailConfig | undefined {
       provider: 'Google', oauth: 'google', caldav: 'https://apidata.googleusercontent.com/caldav/v2/', carddav: 'https://www.googleapis.com/carddav/v1/principals/',
       imap: { host: 'imap.gmail.com', port: 993, security: 'tls', user: u }, smtp: { host: 'smtp.gmail.com', port: 465, security: 'tls', user: u },
       note: 'Sign in with Google, or turn on 2-Step Verification and use an app password.',
+      appPasswordUrl: 'https://myaccount.google.com/apppasswords',
     };
   }
   if (/^(outlook|hotmail|live|msn)\.[a-z.]+$/.test(domain)) {
-    return { provider: 'Microsoft', oauth: 'microsoft', imap: { host: 'outlook.office365.com', port: 993, security: 'tls', user: u }, smtp: { host: 'smtp-mail.outlook.com', port: 587, security: 'starttls', user: u } };
+    return { provider: 'Microsoft', oauth: 'microsoft', signInOnly: true, note: 'Outlook.com and Microsoft 365 no longer accept passwords from mail apps: they need Sign in with Microsoft.', imap: { host: 'outlook.office365.com', port: 993, security: 'tls', user: u }, smtp: { host: 'smtp-mail.outlook.com', port: 587, security: 'starttls', user: u } };
   }
   if (/^(icloud|me|mac)\.com$/.test(domain)) {
     return {
       provider: 'iCloud', caldav: 'https://caldav.icloud.com/', carddav: 'https://contacts.icloud.com/',
       imap: { host: 'imap.mail.me.com', port: 993, security: 'tls', user: u.split('@')[0] }, smtp: { host: 'smtp.mail.me.com', port: 587, security: 'starttls', user: u },
       note: 'Use an app-specific password from your Apple Account settings (Sign-In and Security → App-Specific Passwords).',
+      appPasswordUrl: 'https://account.apple.com/account/manage',
     };
   }
   if (/^(fastmail\.(com|fm)|messagingengine\.com)$/.test(domain)) {
@@ -46,18 +52,19 @@ export function knownProvider(email: string): MailConfig | undefined {
       provider: 'Fastmail', caldav: 'https://caldav.fastmail.com/dav/', carddav: 'https://carddav.fastmail.com/dav/',
       imap: { host: 'imap.fastmail.com', port: 993, security: 'tls', user: u }, smtp: { host: 'smtp.fastmail.com', port: 465, security: 'tls', user: u },
       note: 'Use an app password from Fastmail’s Settings → Privacy & Security.',
+      appPasswordUrl: 'https://app.fastmail.com/settings/security',
     };
   }
   if (/^(yahoo|ymail)\.[a-z.]+$/.test(domain)) {
-    return { provider: 'Yahoo', caldav: 'https://caldav.calendar.yahoo.com/', imap: { host: 'imap.mail.yahoo.com', port: 993, security: 'tls', user: u }, smtp: { host: 'smtp.mail.yahoo.com', port: 465, security: 'tls', user: u }, note: 'Use an app password from your Yahoo account security page.' };
+    return { provider: 'Yahoo', caldav: 'https://caldav.calendar.yahoo.com/', imap: { host: 'imap.mail.yahoo.com', port: 993, security: 'tls', user: u }, smtp: { host: 'smtp.mail.yahoo.com', port: 465, security: 'tls', user: u }, note: 'Use an app password from your Yahoo account security page.', appPasswordUrl: 'https://login.yahoo.com/account/security' };
   }
   if (/^(aol|aim)\.[a-z.]+$/.test(domain)) {
-    return { provider: 'AOL', imap: { host: 'imap.aol.com', port: 993, security: 'tls', user: u }, smtp: { host: 'smtp.aol.com', port: 465, security: 'tls', user: u }, note: 'Use an app password from your AOL account security page.' };
+    return { provider: 'AOL', imap: { host: 'imap.aol.com', port: 993, security: 'tls', user: u }, smtp: { host: 'smtp.aol.com', port: 465, security: 'tls', user: u }, note: 'Use an app password from your AOL account security page.', appPasswordUrl: 'https://login.aol.com/account/security' };
   }
   if (/^(zoho(mail)?)\.(com|eu|in|com\.au|jp)$/.test(domain)) {
     const region = domain.split('.').slice(1).join('.');
     const host = region === 'com' ? 'zoho.com' : `zoho.${region}`;
-    return { provider: 'Zoho', imap: { host: `imap.${host}`, port: 993, security: 'tls', user: u }, smtp: { host: `smtp.${host}`, port: 465, security: 'tls', user: u }, note: 'Turn on IMAP in Zoho Mail’s settings and use an app-specific password if two-factor sign-in is on.' };
+    return { provider: 'Zoho', imap: { host: `imap.${host}`, port: 993, security: 'tls', user: u }, smtp: { host: `smtp.${host}`, port: 465, security: 'tls', user: u }, note: 'Turn on IMAP in Zoho Mail’s settings and use an app-specific password if two-factor sign-in is on.', appPasswordUrl: `https://accounts.${host}/home#security/app_password` };
   }
   if (/^(proton\.me|protonmail\.(com|ch)|pm\.me)$/.test(domain)) {
     return { provider: 'Proton', imap: { host: '127.0.0.1', port: 1143, security: 'starttls', user: u }, smtp: { host: '127.0.0.1', port: 1025, security: 'starttls', user: u }, note: 'Proton Mail works through Proton Mail Bridge running on this computer; use the password the Bridge shows.' };

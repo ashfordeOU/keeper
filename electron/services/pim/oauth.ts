@@ -6,15 +6,17 @@
 import { shell } from 'electron';
 import http from 'node:http';
 import { authUrl, codeExchange, GRAPH_SCOPES, pkce, readRedirect, readTokenResponse, refreshRequest, type OAuthClient, type OAuthProvider, type Tokens } from '../../../core/pim/oauth';
+import { BUILT_GOOGLE_CLIENT_ID, BUILT_GOOGLE_CLIENT_SECRET, BUILT_MS_CLIENT_ID } from '../../build-flags';
 import { assertSecretReadable, readSecret, putSecret } from './store';
 
-/** Client IDs: Settings first, then the ones Keeper was built with (environment at build or run time). */
+/** Client IDs: Settings (Developer options) first, then the ones compiled into this build, then the environment at run time. */
 export function clientFor(p: OAuthProvider, prefs?: { google?: string; googleSecret?: string; microsoft?: string }): OAuthClient | undefined {
   if (p === 'google') {
-    const id = prefs?.google || process.env.KEEPER_GOOGLE_CLIENT_ID;
-    return id ? { clientId: id, clientSecret: prefs?.googleSecret || process.env.KEEPER_GOOGLE_CLIENT_SECRET } : undefined;
+    const id = prefs?.google || BUILT_GOOGLE_CLIENT_ID || process.env.KEEPER_GOOGLE_CLIENT_ID;
+    const secret = prefs?.google ? prefs.googleSecret : BUILT_GOOGLE_CLIENT_ID ? BUILT_GOOGLE_CLIENT_SECRET : process.env.KEEPER_GOOGLE_CLIENT_SECRET;
+    return id ? { clientId: id, clientSecret: secret || undefined } : undefined;
   }
-  const id = prefs?.microsoft || process.env.KEEPER_MS_CLIENT_ID;
+  const id = prefs?.microsoft || BUILT_MS_CLIENT_ID || process.env.KEEPER_MS_CLIENT_ID;
   return id ? { clientId: id } : undefined;
 }
 

@@ -11,6 +11,7 @@ import type { PimPrefsView } from '../../core/pim/prefs';
 import { ACTION_LABELS, SCHEMES, showCombo, type MailAction, type SchemeId } from '../../core/pim/shortcuts';
 import type { Account } from '../../core/pim/types';
 import { relativeTime } from '../../core/format';
+import { docUrl } from '../../core/brand';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
 import { Toggle } from '../components/ui';
@@ -184,8 +185,8 @@ export function PimSettings() {
       </Row>
 
       <details style={{ marginTop: 14 }}>
-        <summary style={{ fontWeight: 600 }}>Google and Microsoft sign-in</summary>
-        <div className="small muted" style={{ margin: '6px 0' }}>Signing in with Google or Microsoft needs an app ID registered with them by whoever builds Keeper (see docs/PIM.md). Official builds include them; if yours does not, paste IDs from your own Google Cloud or Microsoft Entra registration here, or use an app password instead.</div>
+        <summary style={{ fontWeight: 600 }}>Developer options: sign-in client IDs</summary>
+        <div className="small muted" style={{ margin: '6px 0' }}>Sign in with Google or Microsoft needs an app registered with them. When this copy of Keeper has none, the sign-in buttons are hidden and Gmail, iCloud, Yahoo, AOL, Fastmail and Zoho work with an app password; Outlook.com and Microsoft 365 need the Microsoft sign-in. If you have your own Google Cloud or Microsoft Entra registration, paste its IDs here. <button className="link-like" onClick={() => void api.system.openExternal(docUrl('PIM'))}>How to register one</button></div>
         <div className="col" style={{ gap: 6, maxWidth: 520 }}>
           <input className="input" placeholder="Google OAuth client ID (Desktop app)" value={prefs.clients?.google ?? ''} onChange={(e) => void set({ clients: { ...prefs.clients, google: e.target.value || undefined } })} />
           <input className="input" placeholder="Google client secret (Desktop apps get one; it is not secret)" value={prefs.clients?.googleSecret ?? ''} onChange={(e) => void set({ clients: { ...prefs.clients, googleSecret: e.target.value || undefined } })} />

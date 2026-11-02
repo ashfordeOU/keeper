@@ -250,7 +250,7 @@ export function Mail() {
     return (
       <div className="pim-empty">
         <Empty icon="mail" title="Add a mail account">
-          Gmail, Outlook and Microsoft 365, iCloud, Yahoo, AOL, Fastmail, Zoho, or any mail service that offers IMAP. Keeper talks to your provider directly; your mail stays on its servers and on this computer.
+          Gmail, iCloud, Yahoo, AOL, Fastmail, Zoho, or any mail service that offers IMAP (Outlook.com and Microsoft 365 need Sign in with Microsoft). Keeper talks to your provider directly; your mail stays on its servers and on this computer.
         </Empty>
         <div className="btn-row" style={{ justifyContent: 'center' }}>
           <button className="btn primary" onClick={() => setAdding(true)}><Icon name="plus" size={14} /> Add account</button>
