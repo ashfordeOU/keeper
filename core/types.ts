@@ -476,6 +476,8 @@ export interface Settings {
   home: import('./home-layout').HomeSettings;
   /** the first-run Permissions step: set everything up now, only what gets turned on, or not chosen yet */
   permissionsSetup: '' | 'all' | 'onDemand';
+  /** permission id → when Keeper first showed the system's question for it (macOS asks some only once) */
+  permissionsAsked: Record<string, number>;
   /** which app opens maps, weather, events, addresses… per kind ('auto', 'web' or an app id; see core/native-apps.ts) */
   nativeApps?: import('./native-apps').NativeAppPrefs;
 }

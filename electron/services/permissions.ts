@@ -20,10 +20,10 @@ import { promises as fsp } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { featureDef, featureStates } from '../../core/features';
-import { buildReport, catalogueFor, inInputGroup, portalsFrom, rawFromConsent, rawFromMac, regValue, type PermissionsReport, type PermPlatform, type RawPermission } from '../../core/permissions';
+import { buildReport, catalogueFor, openPaneAfterPrompt, requestRoute, inInputGroup, portalsFrom, rawFromConsent, rawFromMac, regValue, type PermissionsReport, type PermPlatform, type RawPermission } from '../../core/permissions';
 import { run } from '../../core/platform';
 import { markCleanExit } from '../resilience';
-import { settings } from '../store';
+import { settings, updateSettings } from '../store';
 import { HelperClient } from './platform/helper-client';
 import { helperPath } from './platform/mac';
 
@@ -151,7 +151,7 @@ export async function listPermissions(): Promise<PermissionsReport> {
   const restartIds = catalogueFor(PLATFORM).filter((d) => d.restart).map((d) => d.id);
   if (!startMissing) startMissing = new Set(restartIds.filter((id) => raw[id] !== 'authorized'));
   const restartPending = new Set([...startMissing].filter((id) => raw[id] === 'authorized'));
-  return buildReport(PLATFORM, raw, featuresOn(), (id) => featureDef(id)?.name ?? id, { helper, restartPending, details });
+  return buildReport(PLATFORM, raw, featuresOn(), (id) => featureDef(id)?.name ?? id, { helper, restartPending, details, asked: settings().permissionsAsked });
 }
 
 // ---------------------------------------------------------------- asking
@@ -228,15 +228,16 @@ export async function requestPermission(id: string): Promise<{ ok: boolean; open
   }
   if (PLATFORM === 'darwin' && def.how === 'prompt') {
     const before = (await listPermissions()).items.find((i) => i.id === id)?.state;
-    // Asked once already and turned off: only System Settings can change it now.
-    if (before === 'denied') return { ok: await openPermissionSettings(id), opened: 'settings' };
+    // Turned off, or one macOS asks about only once and already did: only System Settings can change it now.
+    if (requestRoute(PLATFORM, def, before, !!settings().permissionsAsked?.[id]) === 'settings') return { ok: await openPermissionSettings(id), opened: 'settings', message: settingsNote(def.steps) };
+    void markAsked(id);
     if (id === 'microphone' || id === 'camera') {
       const ok = await systemPreferences.askForMediaAccess(id).catch(() => false);
       return { ok, opened: 'prompt' };
     }
     if (id === 'accessibility') {
       systemPreferences.isTrustedAccessibilityClient(true);
-      return { ok: true, opened: 'prompt' };
+      return paneIfStillMissing(id);
     }
     if (id.startsWith('automation.')) {
       // The target must be running for macOS to ask; open it in the background first.
@@ -254,9 +255,33 @@ export async function requestPermission(id: string): Promise<{ ok: boolean; open
     // Calendars allowed here: the calendar service reads them now, not at its next look.
     if (r && id === 'calendars') void import('./pim').then((m) => m.systemCalendarsChanged()).catch(() => undefined);
     if (!r) return { ok: await openPermissionSettings(id), opened: 'settings', message: 'Keeper’s macOS helper is not in this build: System Settings is open instead.' };
+    if (id === 'screen' || id === 'input') return paneIfStillMissing(id);
     return { ok: true, opened: 'prompt' };
   }
   return { ok: await openPermissionSettings(id), opened: 'settings' };
+}
+
+/** Remembers that the system's question was shown, so the next Allow goes to System Settings. */
+async function markAsked(id: string) {
+  const asked = settings().permissionsAsked ?? {};
+  if (asked[id]) return;
+  await updateSettings({ permissionsAsked: { ...asked, [id]: Date.now() } }).catch(() => undefined);
+}
+
+function settingsNote(steps: string): string {
+  return `System Settings is open: ${steps.replace(/^macOS asks: choose “Open System Settings”, (then )?/, '')}`;
+}
+
+/**
+ * macOS shows the Accessibility, Screen Recording and Input Monitoring
+ * questions once per app, and only as a pointer to System Settings anyway:
+ * when the answer is still not yes a moment later, open the page itself.
+ */
+async function paneIfStillMissing(id: string): Promise<{ ok: boolean; opened: 'prompt' | 'settings'; message?: string }> {
+  await new Promise((r) => setTimeout(r, 1500));
+  const after = (await listPermissions()).items.find((i) => i.id === id);
+  if (!openPaneAfterPrompt(PLATFORM, id, after?.state)) return { ok: true, opened: 'prompt' };
+  return { ok: await openPermissionSettings(id), opened: 'settings', message: settingsNote(after?.steps ?? '') };
 }
 
 export function restartKeeper() {

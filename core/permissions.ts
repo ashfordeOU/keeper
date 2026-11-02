@@ -43,6 +43,8 @@ export interface PermissionItem extends PermissionDef {
   usedBy: string[];
   /** allowed since Keeper started, and Keeper must restart before it takes effect */
   restartNeeded?: boolean;
+  /** Keeper already showed the system's question once; another Allow goes to the settings page */
+  askedOnce?: boolean;
 }
 
 export interface PermissionsReport {
@@ -161,6 +163,45 @@ export function portalsFrom(introspect: string): Set<string> {
   return out;
 }
 
+// ---------------------------------------------------------------- asking twice
+
+/**
+ * macOS shows the question for these only once per app (and reads a dismissed
+ * one as "not yet", not "turned off"), so a second Allow must open their
+ * System Settings page instead of asking into the void.
+ */
+export const ASKED_ONCE_ONLY = new Set(['accessibility', 'screen', 'input']);
+
+/** Shown on those rows after a round trip to System Settings changed nothing. */
+export const STALE_HINT = 'Already switched on in System Settings? macOS may still hold an older copy’s approval: select Keeper there, press −, then + and choose Keeper again.';
+
+/**
+ * What Allow does now: show the system's question, or go straight to the
+ * settings page (turned off, or one of the ask-once permissions asked before).
+ */
+export function requestRoute(platform: PermPlatform, def: Pick<PermissionDef, 'id' | 'how'>, state: PermState | undefined, askedOnce: boolean): 'prompt' | 'settings' | 'other' {
+  if (def.how !== 'prompt') return def.how === 'settings' || def.how === 'info' ? 'settings' : 'other';
+  if (platform !== 'darwin') return 'settings';
+  if (state === 'denied') return 'settings';
+  if (askedOnce && ASKED_ONCE_ONLY.has(def.id)) return 'settings';
+  return 'prompt';
+}
+
+/** After the question: open the settings page too when the answer is still not yes (ask-once permissions only). */
+export function openPaneAfterPrompt(platform: PermPlatform, id: string, stateAfter: PermState | undefined): boolean {
+  return platform === 'darwin' && ASKED_ONCE_ONLY.has(id) && stateAfter !== 'allowed';
+}
+
+/** The button on a row. */
+export function allowLabel(it: Pick<PermissionItem, 'how' | 'state' | 'askedOnce' | 'id'>, platform: string): string {
+  if (it.how === 'test') return 'Test';
+  if (it.how === 'action') return 'Turn on';
+  const pane = platform === 'darwin' ? 'Open System Settings' : 'Open Settings';
+  if (it.state === 'denied' || it.how === 'settings') return pane;
+  if (platform === 'darwin' && it.askedOnce && ASKED_ONCE_ONLY.has(it.id)) return pane;
+  return 'Allow';
+}
+
 const STATE_DETAIL: Partial<Record<RawPermission, string>> = {
   restricted: 'Blocked by a profile or parental controls on this computer.',
   limited: 'Only partly allowed: Keeper needs full access.',
@@ -187,10 +228,12 @@ export function itemState(def: PermissionDef, raw: RawPermission | undefined, fe
 }
 
 /** Builds the screen's list from the catalogue, the live answers and the features that are on. */
-export function buildReport(platform: PermPlatform, raw: Record<string, RawPermission>, featuresOn: Set<string>, featureName: (id: string) => string, o: { helper: boolean; restartPending?: Set<string>; now?: number; details?: Record<string, string> } = { helper: true }): PermissionsReport {
+export function buildReport(platform: PermPlatform, raw: Record<string, RawPermission>, featuresOn: Set<string>, featureName: (id: string) => string, o: { helper: boolean; restartPending?: Set<string>; now?: number; details?: Record<string, string>; asked?: Record<string, number> } = { helper: true }): PermissionsReport {
   const items = catalogueFor(platform).map((def): PermissionItem => {
     const s = itemState(def, raw[def.id], featuresOn);
-    return { ...def, ...s, detail: o.details?.[def.id] ?? s.detail, usedBy: s.usedBy.map(featureName), restartNeeded: s.state === 'allowed' && !!o.restartPending?.has(def.id) };
+    const askedOnce = !!o.asked?.[def.id];
+    const stale = askedOnce && platform === 'darwin' && ASKED_ONCE_ONLY.has(def.id) && (s.state === 'missing' || s.state === 'notNeeded') ? STALE_HINT : undefined;
+    return { ...def, ...s, detail: o.details?.[def.id] ?? s.detail ?? stale, usedBy: s.usedBy.map(featureName), restartNeeded: s.state === 'allowed' && !!o.restartPending?.has(def.id), askedOnce };
   });
   return { platform, items, helper: o.helper, checkedAt: o.now ?? Date.now() };
 }

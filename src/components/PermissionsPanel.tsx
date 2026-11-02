@@ -7,7 +7,7 @@
 // asking out of the blue.
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { allowAllQueue, catalogueFor, nextInQueue, STATE_LABEL, summarize, type PermissionItem, type PermissionsReport, type PermState } from '../../core/permissions';
+import { allowAllQueue, allowLabel, catalogueFor, nextInQueue, STATE_LABEL, summarize, type PermissionItem, type PermissionsReport, type PermState } from '../../core/permissions';
 import { api } from '../api';
 import { useStore } from '../state';
 import { Icon } from './Icon';
@@ -69,12 +69,7 @@ function usePermissions(active: boolean): [PermissionsReport | null, () => Promi
 const STATE_CLASS: Record<PermState, string> = { allowed: 'ok', missing: 'warn', denied: 'danger', notNeeded: '', unknown: '', unavailable: '', info: 'accent' };
 const STATE_ICON: Record<PermState, string> = { allowed: 'check', missing: 'clock', denied: 'warning', notNeeded: 'minus', unknown: 'info', unavailable: 'minus', info: 'info' };
 
-function actionLabel(it: PermissionItem, platform: string): string {
-  if (it.how === 'test') return 'Test';
-  if (it.how === 'action') return 'Turn on';
-  if (it.state === 'denied' || it.how === 'settings') return platform === 'darwin' ? 'Open System Settings' : 'Open Settings';
-  return 'Allow';
-}
+const actionLabel = allowLabel;
 
 function Row({ it, platform, onAct, current, lit }: { it: PermissionItem; platform: string; onAct: (it: PermissionItem) => void; current: boolean; lit: boolean }) {
   const ref = useRef<HTMLLIElement>(null);
@@ -182,7 +177,7 @@ export function PermissionsPanel({ inTour, tourStep, active = true }: { inTour?:
           <p className="small">{curItem.steps}</p>
           {curItem.restart ? <p className="small muted">This one takes effect after Keeper restarts; you can restart once at the end.</p> : null}
           <div className="btn-row">
-            <button className="btn sm" onClick={() => void act(curItem)}>{curItem.state === 'denied' || curItem.how === 'settings' ? 'Open settings again' : 'Ask again'}</button>
+            <button className="btn sm" onClick={() => void act(curItem)}>{allowLabel(curItem, platform) === 'Allow' ? 'Ask again' : allowLabel(curItem, platform)}</button>
             <button className="btn sm ghost" onClick={() => setRun({ ...run, skipped: new Set([...run.skipped, curItem.id]) })}>{curItem.state === 'unknown' ? 'Done, next' : 'Skip this one'}</button>
             <button className="btn sm ghost" onClick={() => setRun(null)}>Stop</button>
           </div>

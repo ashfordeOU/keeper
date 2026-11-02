@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 import { describe, expect, it } from 'vitest';
 import { FEATURES } from '../core/features';
-import { allowAllQueue, buildReport, catalogueFor, inInputGroup, itemState, newlyAllowed, nextInQueue, PERMISSIONS, portalsFrom, rawFromAppleEvents, rawFromConsent, rawFromMac, regValue, summarize, type RawPermission } from '../core/permissions';
+import { allowAllQueue, allowLabel, buildReport, catalogueFor, inInputGroup, itemState, newlyAllowed, nextInQueue, openPaneAfterPrompt, PERMISSIONS, portalsFrom, rawFromAppleEvents, rawFromConsent, rawFromMac, regValue, requestRoute, summarize, type RawPermission } from '../core/permissions';
 
 const ids = new Set(FEATURES.map((f) => f.id));
 
@@ -111,5 +111,36 @@ describe('Allow all', () => {
     const w = buildReport('win32', {}, on, (x) => x, { helper: true });
     expect(allowAllQueue(w.items)).not.toContain('admin');
     expect(allowAllQueue(w.items)).not.toContain('firewall');
+  });
+});
+
+describe('asking once, then System Settings (macOS)', () => {
+  const def = (id: string) => catalogueFor('darwin').find((d) => d.id === id)!;
+  it('asks the first time, opens the settings page after', () => {
+    expect(requestRoute('darwin', def('accessibility'), 'missing', false)).toBe('prompt');
+    expect(requestRoute('darwin', def('accessibility'), 'missing', true)).toBe('settings');
+    expect(requestRoute('darwin', def('screen'), 'missing', true)).toBe('settings');
+    expect(requestRoute('darwin', def('input'), 'unknown', true)).toBe('settings');
+    // The others say "turned off" themselves once answered; asked before but not turned off still asks.
+    expect(requestRoute('darwin', def('microphone'), 'missing', true)).toBe('prompt');
+    expect(requestRoute('darwin', def('microphone'), 'denied', true)).toBe('settings');
+    expect(requestRoute('darwin', def('fullDisk'), 'missing', false)).toBe('settings');
+  });
+  it('opens the page when the question left it off', () => {
+    expect(openPaneAfterPrompt('darwin', 'screen', 'missing')).toBe(true);
+    expect(openPaneAfterPrompt('darwin', 'screen', 'allowed')).toBe(false);
+    expect(openPaneAfterPrompt('darwin', 'microphone', 'missing')).toBe(false);
+    expect(openPaneAfterPrompt('win32', 'screen', 'missing')).toBe(false);
+  });
+  it('the report remembers it and the button says where it goes', () => {
+    const r = buildReport('darwin', { accessibility: 'notDetermined', screen: 'notDetermined' }, new Set(['dictation', 'capture']), (x) => x, { helper: true, asked: { accessibility: 1 } });
+    const ax = r.items.find((i) => i.id === 'accessibility')!;
+    const sc = r.items.find((i) => i.id === 'screen')!;
+    expect(ax.askedOnce).toBe(true);
+    expect(ax.detail).toMatch(/press −, then \+/);
+    expect(allowLabel(ax, 'darwin')).toBe('Open System Settings');
+    expect(sc.askedOnce).toBe(false);
+    expect(allowLabel(sc, 'darwin')).toBe('Allow');
+    expect(allowLabel({ ...sc, state: 'denied' }, 'win32')).toBe('Open Settings');
   });
 });
