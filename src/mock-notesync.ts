@@ -156,6 +156,13 @@ export function mockNotesync(emit: (channel: string, ...args: unknown[]) => void
     history: (id) => delay(history.filter((h) => !id || h.keeperId === id)),
     async shareWithDevices(on) { devices = on ? { on: true, folderId: 'f-notes', peers: 2 } : { on: false, peers: 0 }; changed(); return overview(); },
     shortcutGuide: async () => (await import('../core/notes-sync/connectors/applenotes')).shortcutSteps('Notes Everywhere → Connect → Markdown or text folder'),
+    // ?notes=none (Apple Notes not connected) or ?notes=denied (Automation refused) in the preview shows the Island's row.
+    async islandNotes(q = '') {
+      const mode = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('notes') : null;
+      const list = mode === 'none' ? connectors.filter((c) => c.kind !== 'applenotes') : mode === 'denied' ? connectors.map((c) => (c.kind === 'applenotes' ? { ...c, reviewed: false, state: 'error' as const, message: 'Allow Keeper to control Notes: System Settings → Privacy & Security → Automation.', notes: 0 } : c)) : connectors;
+      const hits = (await api.search(q)).filter((h) => mode === null || !h.apps.includes('applenotes'));
+      return { hubOn: true, platform: 'darwin', sources: list.map((c) => ({ id: c.id, kind: c.kind, app: c.app, enabled: c.enabled, available: c.available, reviewed: c.reviewed, state: c.state, message: c.message, notes: c.notes, lastSync: c.lastSync })), hits };
+    },
   };
   return { notesync: api };
 }

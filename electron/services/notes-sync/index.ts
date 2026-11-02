@@ -677,6 +677,26 @@ export const notesApi: NoteSyncApi = {
   async shortcutGuide() {
     return shortcutSteps('Notes Everywhere → Connect → Markdown or text folder');
   },
+  async islandNotes(q = '', limit = 300) {
+    const hubOn = featureOn('notesHub');
+    if (!hubOn) return { hubOn, platform: process.platform, sources: [], hits: [] };
+    const c = await conf();
+    const h = await store();
+    const hits = await notesApi.search(String(q ?? '').slice(0, 200), { limit: Math.max(1, Math.min(Number(limit) || 300, 1000)) });
+    const sources = c.connectors.map((x) => {
+      const def = connectorDef(x.kind);
+      const st = status.get(x.id);
+      let notes = 0;
+      for (const n of h.notes.values()) if (n.sources.some((s) => s.connector === x.id)) notes++;
+      const available = availableOn(def, process.platform);
+      return {
+        id: x.id, kind: x.kind, app: def.name, enabled: x.enabled, available, reviewed: x.reviewed, notes, lastSync: x.lastSync,
+        state: (!available ? 'unavailable' : st?.state ?? (!x.reviewed ? 'needs-review' : 'idle')) as 'idle' | 'syncing' | 'error' | 'needs-review' | 'unavailable',
+        message: st?.message ?? x.message,
+      };
+    });
+    return { hubOn, platform: process.platform, sources, hits: hits.map((x) => ({ keeperId: x.keeperId, title: x.title, snippet: x.snippet, tags: x.tags, apps: x.apps, modified: x.modified, locked: x.locked })) };
+  },
 };
 
 // ---------------------------------------------------------------- start, the To do list, the phone

@@ -5,6 +5,7 @@
 
 import type { ExportFormat } from './notes-sync/connectors/registry';
 import type { Capability, ConnectorKind, HistoryEntry, PlanAction, PlanCounts } from './notes-sync/types';
+import type { IslandNotesView } from './island-tools/note-sources';
 
 export type { Capability, ConnectorKind, ExportFormat, HistoryEntry, PlanAction, PlanCounts };
 
@@ -193,4 +194,9 @@ export interface NoteSyncApi {
   shareWithDevices(on: boolean, devices?: string[]): Promise<NotesOverview>;
   /** steps for copying iPhone notes without a Mac */
   shortcutGuide(): Promise<{ title: string; steps: string[]; note: string }>;
+  /**
+   * For the Island's Notes tab, light (no app is asked, only the notes folder is
+   * read): whether the hub is on, the connected apps, and the hub's notes matching `q`.
+   */
+  islandNotes(q?: string, limit?: number): Promise<IslandNotesView>;
 }

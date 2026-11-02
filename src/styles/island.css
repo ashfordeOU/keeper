@@ -239,6 +239,13 @@ html[data-view='island'], html[data-view='island'] body, html[data-view='island'
 .isl .notes .nitem.on, .isl .notes .nitem:hover { background: rgba(255, 255, 255, .1); color: #fff; }
 .isl .notes .nedit { flex: 1; display: flex; flex-direction: column; gap: 6px; }
 .isl .notes .nedit textarea { flex: 1; min-height: 160px; }
+.isl .notes-wrap { gap: 6px; }
+.isl .notes-wrap > .notes { display: flex; gap: 8px; flex: 1; min-height: 220px; }
+.isl .notes .ngroup { display: flex; flex-direction: column; gap: 1px; }
+.isl .notes .nghead { display: flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 600; color: #a1a1aa; margin: 6px 4px 1px; text-transform: uppercase; letter-spacing: .03em; }
+.isl .notes .nghead .btn { padding: 1px 4px; }
+.isl .notes .nempty { padding: 2px 8px; }
+.isl .notes .nview .nbody { flex: 1; min-height: 140px; overflow: auto; white-space: pre-wrap; font-size: 12px; line-height: 1.45; color: #e4e4e7; background: rgba(255, 255, 255, .04); border-radius: 8px; padding: 8px 10px; user-select: text; }
 .isl .wnow { display: flex; gap: 14px; align-items: center; }
 .isl .wdays { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
 .isl .wday { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 0; border-radius: 10px; background: rgba(255, 255, 255, .04); }

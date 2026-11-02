@@ -7,9 +7,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { IslandState } from '../../../core/api';
 import type { IslandShortcut, SalesConfigView } from '../../../core/api-island-tools';
 import { addRecent, buildIndex, GROUPS, searchEmoji, TONES, withTone, type EmojiEntry } from '../../../core/island-tools/emoji';
-import { isTodayPad, noteTitle, searchNotes, takeLine, todayPad, upsert, type IslandToolsStore, type QuickNote } from '../../../core/island-tools/notes';
+import { isTodayPad, noteTitle, takeLine, todayPad, upsert, type IslandToolsStore, type QuickNote } from '../../../core/island-tools/notes';
 import { dayKey } from '../../../core/pim/tasks';
 import { addTaskFromText } from '../../pim/tasks-ui';
+import { CalendarAccessRow, useCalendarStatus } from '../../pim/week-events-ui';
+import { groupNotes, notesSetupRow, type IslandNotesView } from '../../../core/island-tools/note-sources';
+import type { NoteDetail } from '../../../core/api-notesync';
 import { useFeature } from '../../features';
 import type { SalesSummary } from '../../../core/island-tools/sales';
 import { parseWatchlist, sparkPath, type Point, type Quote } from '../../../core/island-tools/stocks';
@@ -17,7 +20,6 @@ import { answer, type Rates } from '../../../core/island-tools/units';
 import { warnLevel } from '../../../core/island-tools/usage';
 import { agendaFor, countdown, inIsland, islandAgenda, type AgendaItem } from '../../../core/pim/agenda';
 import { parseQuickAdd } from '../../../core/pim/quickadd';
-import type { SystemAccess } from '../../../core/pim/syscal';
 import type { CalendarInfo, Occurrence } from '../../../core/pim/types';
 import { describeCode } from '../../../core/weather';
 import { formatBytes } from '../../../core/format';
@@ -250,22 +252,137 @@ export function StocksTool({ store, save }: { store: IslandToolsStore; save: (p:
 
 // ---------------------------------------------------------------- Notes
 
+/** The notes hub's side of the Notes tab: read when the tab opens, when the search changes and when the hub says it changed. */
+function useHubNotes(q: string): { view: IslandNotesView | null; query: string; reload: () => void } {
+  const [state, setState] = useState<{ view: IslandNotesView | null; query: string }>({ view: null, query: '' });
+  const qRef = useRef(q);
+  qRef.current = q;
+  const load = useCallback(() => {
+    const asked = qRef.current;
+    if (!api.notesync?.islandNotes) return;
+    void api.notesync.islandNotes(asked).then((view) => { if (qRef.current === asked) setState({ view, query: asked }); }).catch(() => undefined);
+  }, []);
+  useEffect(() => {
+    const t = window.setTimeout(load, q ? 250 : 0);
+    return () => window.clearTimeout(t);
+  }, [q, load]);
+  useEffect(() => api.on('notesync-changed', load as never), [load]);
+  return { ...state, reload: load };
+}
+
+const clean = (e: unknown) => (e instanceof Error ? e.message : String(e)).replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
+const ago = (t?: number) => {
+  if (!t) return '';
+  const m = Math.round((Date.now() - t) / 60_000);
+  return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : m < 48 * 60 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} days ago`;
+};
+
+/** A note from another app, read only here; it opens in its app. */
+function HubNoteView({ id, onOpenApp }: { id: string; onOpenApp: (apps: string[]) => void }) {
+  const [d, setD] = useState<NoteDetail | null | undefined>(undefined);
+  useEffect(() => {
+    setD(undefined);
+    void api.notesync.note(id).then(setD).catch(() => setD(null));
+  }, [id]);
+  if (d === undefined) return <div className="muted" style={{ margin: 'auto' }}>Opening…</div>;
+  if (d === null) return <div className="muted" style={{ margin: 'auto' }}>That note is gone.</div>;
+  const apps = [...new Set(d.where.map((w) => w.app))];
+  const where = d.where.map((w) => `${w.appName}${w.folder ? ` · ${w.folder}` : ''}`).join(', ');
+  return (
+    <div className="nedit nview" data-testid="hub-note">
+      <b className="ellipsis">{d.title}</b>
+      <div className="muted small ellipsis">{where || 'Keeper’s notes folder'} · {new Date(d.modified).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} · read only</div>
+      <div className="nbody">{d.locked ? 'This note is locked in its app; Keeper does not read locked notes. Open it there.' : d.body || 'Empty note'}</div>
+      <div className="row-x">
+        {apps.includes('applenotes') ? <button className="btn sm" onClick={() => onOpenApp(apps)}><Icon name="external" size={11} /> Open in Notes</button> : null}
+        {!d.locked ? <button className="btn sm" onClick={() => void navigator.clipboard.writeText(`${d.title}\n\n${d.body}`).then(() => say('Copied'))}><Icon name="copy" size={11} /> Copy</button> : null}
+      </div>
+    </div>
+  );
+}
+
+/** The row about Apple Notes (or the hub being off), and the look at what would be copied before the first copy. */
+function NotesSetup({ view, reload }: { view: IslandNotesView | null; reload: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [plan, setPlan] = useState<{ id: string; summary: string; add: number; locked: number } | null>(null);
+  const row = notesSetupRow(view);
+  const apple = view?.sources.find((s) => s.kind === 'applenotes');
+  const look = async (id: string) => {
+    const p = await api.notesync.plan(id);
+    if (p.message) { say(p.message); return; }
+    setPlan({ id, summary: p.summary, add: p.counts.add, locked: p.counts.locked });
+  };
+  const run = async (fn: () => Promise<unknown>) => {
+    setBusy(true);
+    try { await fn(); } catch (e) { say(clean(e)); } finally { setBusy(false); reload(); }
+  };
+  if (plan) {
+    return (
+      <div className="cal-access-row" role="note" data-testid="notes-setup">
+        <Icon name="note" size={14} />
+        <div className="grow" style={{ minWidth: 0 }}>
+          <div className="cal-access-title">{plan.add ? `${plan.add} Apple Notes to show here` : 'Apple Notes is in step'}</div>
+          <div className="small muted">Keeper copies them into its notes folder (Notes Everywhere){plan.locked ? `; ${plan.locked} locked notes are listed but not read` : ''}. Nothing in Notes is changed.</div>
+        </div>
+        <div className="cal-access-btns">
+          <button className="btn sm primary" disabled={busy} onClick={() => void run(async () => { await api.notesync.sync(plan.id); setPlan(null); })}>{busy ? 'Copying…' : 'Copy them in'}</button>
+          <button className="btn sm" disabled={busy} onClick={() => setPlan(null)}>Not now</button>
+        </div>
+      </div>
+    );
+  }
+  if (!row) return null;
+  const act = () => run(async () => {
+    if (row.action === 'enableHub') await api.features.set('notesHub', true);
+    else if (row.action === 'settings') await openNative('settings', { page: { darwin: row.settingsUrl } }, say);
+    else if (row.action === 'review' && apple) await look(apple.id);
+    else if (row.action === 'connect') {
+      const ov = await api.notesync.addConnector({ kind: 'applenotes' });
+      const c = ov.connectors.filter((x) => x.kind === 'applenotes').pop();
+      // The first look asks macOS whether Keeper may control Notes.
+      if (c) await look(c.id);
+    }
+  });
+  return (
+    <div className="cal-access-row" role="note" data-testid="notes-setup">
+      <Icon name="note" size={14} />
+      <div className="grow" style={{ minWidth: 0 }}>
+        <div className="cal-access-title">{row.title}</div>
+        <div className="small muted">{row.detail}</div>
+      </div>
+      <div className="cal-access-btns">
+        <button className="btn sm primary" disabled={busy} onClick={() => void act()}>{busy ? 'Asking Notes…' : row.label}</button>
+        {row.retry && apple ? <button className="btn sm" disabled={busy} onClick={() => void run(() => look(apple.id))}>Try again</button> : null}
+      </div>
+    </div>
+  );
+}
+
 export function NotesTool({ store, save }: { store: IslandToolsStore; save: (p: Partial<IslandToolsStore>) => void }) {
   const [q, setQ] = useState('');
   const [id, setId] = useState<string | null>(store.notes[0]?.id ?? null);
-  const list = searchNotes(store.notes, q);
-  const cur = store.notes.find((n) => n.id === id);
+  const [hubId, setHubId] = useState<string | null>(null);
+  const hubOn = useFeature('notesHub');
+  const hub = useHubNotes(q);
+  const groups = useMemo(() => groupNotes({ local: store.notes, hits: hub.view?.hits ?? [], sources: hub.view?.sources, platform: hub.view?.platform ?? '', q, hitsQuery: hub.query }), [store.notes, hub.view, hub.query, q]);
+  // The hub switched on or off in Settings: read again.
+  const reloadRef = useRef(hub.reload);
+  reloadRef.current = hub.reload;
+  useEffect(() => { reloadRef.current(); }, [hubOn]);
+  const [refreshing, setRefreshing] = useState('');
+  const cur = hubId ? undefined : store.notes.find((n) => n.id === id);
   const update = (n: QuickNote) => save({ notes: upsert(store.notes, n) });
+  const pick = (localId: string | null, hid: string | null = null) => { setId(localId); setHubId(hid); };
   const create = () => {
     const n: QuickNote = { id: uid(), text: '', created: Date.now(), updated: Date.now() };
     save({ notes: [n, ...store.notes] });
-    setId(n.id);
+    pick(n.id);
   };
   // Today's pad: one note a day, made the first time it is opened.
   const openToday = () => {
     const p = todayPad(store.notes, dayKey(Date.now()));
     if (p.created) save({ notes: [p.note, ...store.notes] });
-    setId(p.note.id);
+    pick(p.note.id);
   };
   const tasksOn = useFeature('islandTodos');
   // ⌘/Ctrl+Enter: the line under the cursor becomes a task for today (plain words work: "call Ana 3pm !!").
@@ -279,24 +396,50 @@ export function NotesTool({ store, save }: { store: IslandToolsStore; save: (p: 
     window.requestAnimationFrame(() => el.setSelectionRange(r.caret, r.caret));
     void addTaskFromText(r.task, { plannedFor: dayKey(Date.now()) }).then((t) => t && say(`Task added: ${t.title}`));
   };
+  const todayId = todayPad([], dayKey(Date.now())).note.id;
+  const refresh = async (sourceId: string) => {
+    setRefreshing(sourceId);
+    try { await api.notesync.sync(sourceId); } catch (e) { say(clean(e)); } finally { setRefreshing(''); }
+  };
   return (
-    <div className="itool notes">
-      <div className="nlist">
-        <div className="row-x"><input className="input sm grow" placeholder="Search notes" value={q} onChange={(e) => setQ(e.target.value)} /><button className="btn sm icon" title="New note" aria-label="New note" onClick={create}><Icon name="plus" size={11} /></button></div>
-        <button className={`nitem ${cur && cur.id === todayPad([], dayKey(Date.now())).note.id ? 'on' : ''}`} onClick={openToday} data-testid="notes-today"><Icon name="sun" size={10} /> Today</button>
-        {list.filter((n) => !isTodayPad(n) || n.id !== todayPad([], dayKey(Date.now())).note.id).map((n) => <button key={n.id} className={`nitem ${n.id === id ? 'on' : ''}`} onClick={() => setId(n.id)}>{n.pinned ? '📌 ' : ''}{noteTitle(n)}</button>)}
-      </div>
-      {cur ? (
-        <div className="nedit">
-          <textarea className="input" value={cur.text} placeholder={tasksOn ? 'Write anything; it saves as you type. ⌘/Ctrl+Enter turns a line into a task.' : 'Write anything; it saves as you type.'} onChange={(e) => update({ ...cur, text: e.target.value, updated: Date.now() })} onKeyDown={(e) => lineToTask(e, cur)} autoFocus />
-          <div className="row-x">
-            <button className="btn sm" onClick={() => update({ ...cur, pinned: !cur.pinned, updated: Date.now() })}><Icon name="pin" size={11} /> {cur.pinned ? 'Unpin' : 'Pin'}</button>
-            <button className="btn sm" onClick={() => void navigator.clipboard.writeText(cur.text).then(() => say('Copied'))}><Icon name="copy" size={11} /> Copy</button>
-            <span className="grow" />
-            <button className="btn sm" onClick={() => { save({ notes: store.notes.filter((n) => n.id !== cur.id) }); setId(null); }}><Icon name="trash" size={11} /> Delete</button>
-          </div>
+    <div className="itool notes-wrap">
+      <NotesSetup view={hub.view} reload={hub.reload} />
+      <div className="notes">
+        <div className="nlist" data-testid="notes-list">
+          <div className="row-x"><input className="input sm grow" placeholder="Search notes" value={q} onChange={(e) => setQ(e.target.value)} /><button className="btn sm icon" title="New note" aria-label="New note" onClick={create}><Icon name="plus" size={11} /></button></div>
+          {groups.map((g) => (
+            <div key={g.id} className="ngroup" data-group={g.id}>
+              {g.id !== 'keeper' || groups.length > 1 ? (
+                <div className="nghead">
+                  <span className="grow ellipsis">{g.label}</span>
+                  {g.source?.reviewed && g.source.state !== 'unavailable' ? (
+                    <button className="btn sm icon ghost" title={`Read ${g.label} again${g.source.lastSync ? ` (last ${ago(g.source.lastSync)})` : ''}`} aria-label={`Read ${g.label} again`} disabled={refreshing === g.source.id || g.source.state === 'syncing'} onClick={() => void refresh(g.source!.id)}><Icon name="refresh" size={10} /></button>
+                  ) : null}
+                </div>
+              ) : null}
+              {g.id === 'keeper' ? (
+                <>
+                  {!q ? <button className={`nitem ${cur && cur.id === todayId ? 'on' : ''}`} onClick={openToday} data-testid="notes-today"><Icon name="sun" size={10} /> Today</button> : null}
+                  {(g.local ?? []).filter((n) => !isTodayPad(n) || n.id !== todayId).map((n) => <button key={n.id} className={`nitem ${!hubId && n.id === id ? 'on' : ''}`} onClick={() => pick(n.id)}>{n.pinned ? '📌 ' : ''}{noteTitle(n)}</button>)}
+                </>
+              ) : (g.hub ?? []).length ? (g.hub ?? []).map((h) => (
+                <button key={h.keeperId} className={`nitem ${hubId === h.keeperId ? 'on' : ''}`} title={h.snippet} onClick={() => pick(null, h.keeperId)} data-testid="hub-note-item">{h.locked ? '🔒 ' : ''}{h.title || 'Untitled'}</button>
+              )) : <div className="muted small nempty">{g.source?.state === 'syncing' ? 'Reading…' : g.source && !g.source.reviewed ? 'Not copied yet' : 'No notes yet'}</div>}
+            </div>
+          ))}
         </div>
-      ) : <div className="muted" style={{ margin: 'auto' }}>No note selected.</div>}
+        {hubId ? <HubNoteView id={hubId} onOpenApp={() => void openNative('notes', {}, say)} /> : cur ? (
+          <div className="nedit">
+            <textarea className="input" value={cur.text} placeholder={tasksOn ? 'Write anything; it saves as you type. ⌘/Ctrl+Enter turns a line into a task.' : 'Write anything; it saves as you type.'} onChange={(e) => update({ ...cur, text: e.target.value, updated: Date.now() })} onKeyDown={(e) => lineToTask(e, cur)} autoFocus />
+            <div className="row-x">
+              <button className="btn sm" onClick={() => update({ ...cur, pinned: !cur.pinned, updated: Date.now() })}><Icon name="pin" size={11} /> {cur.pinned ? 'Unpin' : 'Pin'}</button>
+              <button className="btn sm" onClick={() => void navigator.clipboard.writeText(cur.text).then(() => say('Copied'))}><Icon name="copy" size={11} /> Copy</button>
+              <span className="grow" />
+              <button className="btn sm" onClick={() => { save({ notes: store.notes.filter((n) => n.id !== cur.id) }); setId(null); }}><Icon name="trash" size={11} /> Delete</button>
+            </div>
+          </div>
+        ) : <div className="muted" style={{ margin: 'auto' }}>No note selected.</div>}
+      </div>
     </div>
   );
 }
@@ -473,7 +616,7 @@ export function CalendarTool({ now }: { state: IslandState; now: number }) {
   const [occ, setOcc] = useState<Occurrence[]>([]);
   const [cals, setCals] = useState<CalendarInfo[]>([]);
   const [day, setDay] = useState<number | null>(null);
-  const [access, setAccess] = useState<SystemAccess | null>(null);
+  const [status, reloadStatus] = useCalendarStatus();
   const [quick, setQuick] = useState('');
   const [target, setTarget] = useState('');
   const [drop, setDrop] = useState(false);
@@ -495,7 +638,6 @@ export function CalendarTool({ now }: { state: IslandState; now: number }) {
     const h = setInterval(() => void api.pim.watchCalendar(true), 60_000);
     return () => { clearInterval(h); void api.pim.watchCalendar(false); };
   }, []);
-  useEffect(() => { void api.pim?.systemAccess?.().then(setAccess).catch(() => undefined); }, []);
   useEffect(() => { void api.pim?.prefs?.().then((p) => setTarget((t) => t || p.defaultCalendar || '')).catch(() => undefined); }, []);
   const writable = cals.filter((c) => !c.readOnly && !c.tasks);
   const agenda = useMemo(() => islandAgenda(occ, cals, now), [occ, cals, now]);
@@ -529,7 +671,6 @@ export function CalendarTool({ now }: { state: IslandState; now: number }) {
     load();
   };
   const days = Array.from({ length: 42 }, (_, i) => new Date(start + i * DAY_MS + 3600_000));
-  const ask = access && (access.state === 'notDetermined' || (access.state === 'denied' && access.via === 'eventkit'));
   return (
     <div className={`itool cal${drop ? ' dropping' : ''}`} onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); setDrop(true); } }} onDragLeave={() => setDrop(false)} onDrop={(e) => void onDrop(e)}>
       <div className="mgrid">
@@ -554,14 +695,7 @@ export function CalendarTool({ now }: { state: IslandState; now: number }) {
           ) : null}
         </div>
         {preview ? <div className="muted small ellipsis" aria-live="polite">{preview.title} · {new Date(preview.start).toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: preview.allDay ? undefined : 'numeric', minute: preview.allDay ? undefined : '2-digit' })}{preview.rrule ? ' · repeats' : ''} — press Return</div> : null}
-        {ask ? (
-          <div className="cal-access" role="note">
-            <span className="small">{access!.message}</span>
-            {access!.canRequest
-              ? <button className="btn sm primary" onClick={() => void api.pim.systemAccess(true).then((a) => { setAccess(a); load(); })}>Allow calendar access</button>
-              : <button className="btn sm" onClick={() => void api.system.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars')}>Open System Settings</button>}
-          </div>
-        ) : null}
+        <CalendarAccessRow status={status} onChange={() => { reloadStatus(); load(); }} toast={say} />
         {picked ? (
           <>
             <b className="small">{new Date(day!).toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' })}</b>
