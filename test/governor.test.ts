@@ -1,17 +1,44 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 import { describe, expect, it } from 'vitest';
-import { cpuBudget, decide, DEFAULT_CONDITIONS, paceMs, pollDelay, type Conditions } from '../core/governor';
+import { cpuBudget, decide, DEFAULT_CONDITIONS, dutyCycle, paceMs, pollDelay, restMs, type Conditions } from '../core/governor';
 
 const c = (patch: Partial<Conditions> = {}): Conditions => ({ ...DEFAULT_CONDITIONS, ...patch });
 
 describe('when background work may run', () => {
-  it('balanced: quick work always, heavy work waits on battery', () => {
+  it('balanced: on battery the library stays right and filling in details waits for the charger', () => {
     expect(decide('text', c()).ok).toBe(true);
     expect(decide('embed', c()).ok).toBe(true);
-    expect(decide('text', c({ onBattery: true })).ok).toBe(true);
-    const d = decide('embed', c({ onBattery: true }));
-    expect(d.ok).toBe(false);
-    expect(d.reason).toMatch(/battery/i);
+    expect(decide('scan', c({ onBattery: true })).ok).toBe(true);
+    expect(decide('sources', c({ onBattery: true })).ok).toBe(true);
+    for (const k of ['details', 'text', 'thumbs', 'ocr', 'hash', 'embed'] as const) {
+      const d = decide(k, c({ onBattery: true }));
+      expect(d.ok).toBe(false);
+      expect(d.reason).toMatch(/paused on battery/i);
+    }
+  });
+
+  it('"Speed up now" lets everything run, even on battery, but never while asleep or very hot', () => {
+    expect(decide('ocr', c({ onBattery: true, boost: true })).ok).toBe(true);
+    expect(decide('text', c({ mode: 'minimal', boost: true })).ok).toBe(true);
+    expect(decide('text', c({ boost: true, suspended: true })).ok).toBe(false);
+    expect(restMs('ocr', c({ onBattery: true, boost: true }), 1000)).toBe(0);
+  });
+
+  it('keeps background work to a small share of the time while the person works', () => {
+    // At the computer on mains power: a fifth of the time for quick reads, a tenth for heavy work.
+    expect(dutyCycle('text', c())).toBe(0.2);
+    expect(dutyCycle('ocr', c())).toBe(0.1);
+    // An item that took 100 ms rests 400 ms (text) or 900 ms (heavy).
+    expect(restMs('text', c(), 100)).toBe(400);
+    expect(restMs('embed', c(), 100)).toBe(900);
+    // Away: most of the time; on battery or in minimal mode: very little.
+    expect(dutyCycle('text', c({ idleSec: 600 }))).toBeGreaterThan(dutyCycle('text', c()));
+    expect(dutyCycle('text', c({ onBattery: true }))).toBeLessThanOrEqual(0.1);
+    expect(dutyCycle('ocr', c({ mode: 'minimal' }))).toBeLessThanOrEqual(0.05);
+    // Never less than the old gap, never more than half a minute, nothing in performance mode.
+    expect(restMs('text', c(), 0)).toBe(paceMs('text', c()));
+    expect(restMs('text', c(), 60_000)).toBe(30_000);
+    expect(restMs('text', c({ mode: 'performance' }), 5000)).toBe(0);
   });
 
   it('never works while asleep or very hot, whatever the mode', () => {
@@ -29,7 +56,7 @@ describe('when background work may run', () => {
 
   it('minimal: only what keeps the library right, the rest when away on mains power', () => {
     expect(decide('scan', c({ mode: 'minimal', onBattery: true })).ok).toBe(true);
-    expect(decide('text', c({ mode: 'minimal', idleSec: 5 })).ok).toBe(false);
+    expect(decide('text', c({ mode: 'minimal', idleSec: 5 })).reason).toMatch(/idle/);
     expect(decide('text', c({ mode: 'minimal', idleSec: 300 })).ok).toBe(true);
     expect(decide('ocr', c({ mode: 'minimal', locked: true })).ok).toBe(true);
     expect(decide('ocr', c({ mode: 'minimal', locked: true, onBattery: true })).ok).toBe(false);

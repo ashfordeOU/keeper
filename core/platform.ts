@@ -3,7 +3,7 @@
 // (plain Node, no Electron).
 
 import { execFile } from 'node:child_process';
-import { promises as fsp } from 'node:fs';
+import { existsSync, promises as fsp } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { parseGetfattrHex, parseMdlsWhereFroms, parseZoneIdentifier, sourceFromUrls, splitMdlsRaw } from './sources';
@@ -11,11 +11,27 @@ import type { DownloadSource } from './types';
 import type { TargetEnv } from './cleanup/targets';
 import type { IndexFolder } from './indexer';
 
-export function run(file: string, args: string[], timeout = 15_000): Promise<{ ok: boolean; stdout: string; stderr: string }> {
+let taskpolicy: boolean | undefined;
+
+/**
+ * Runs a program and collects its output. `background`: bulk work nobody waits for (reading
+ * where 268,000 files came from): on a Mac it runs in the background class (taskpolicy -b:
+ * low processor priority, throttled disk access, efficiency cores), elsewhere at a lower priority.
+ */
+export function run(file: string, args: string[], timeout = 15_000, opts: { background?: boolean } = {}): Promise<{ ok: boolean; stdout: string; stderr: string }> {
+  let cmd = file;
+  let argv = args;
+  if (opts.background && process.platform === 'darwin' && (taskpolicy ??= existsSync('/usr/bin/taskpolicy'))) {
+    cmd = '/usr/bin/taskpolicy';
+    argv = ['-b', file, ...args];
+  }
   return new Promise((resolve) => {
-    execFile(file, args, { timeout, windowsHide: true, maxBuffer: 16 * 1024 * 1024, encoding: 'utf8' }, (err, stdout, stderr) => {
+    const child = execFile(cmd, argv, { timeout, windowsHide: true, maxBuffer: 16 * 1024 * 1024, encoding: 'utf8' }, (err, stdout, stderr) => {
       resolve({ ok: !err, stdout: stdout ?? '', stderr: stderr ?? '' });
     });
+    if (opts.background && process.platform !== 'darwin' && child.pid) {
+      try { os.setPriority(child.pid, os.constants.priority.PRIORITY_LOW); } catch { /* not permitted */ }
+    }
   });
 }
 
@@ -62,13 +78,13 @@ function parseMdlsTags(raw: string): string[] | undefined {
 
 /**
  * Where many files came from, in one helper call per batch instead of one per
- * file: on a first scan of 20,000 files that is about 100 processes, not 20,000.
+ * file: on a first scan of 20,000 files that is about 40 processes, not 20,000.
  */
 export async function readDownloadSources(paths: string[]): Promise<Map<string, FileOrigin>> {
   const res = new Map<string, FileOrigin>();
   if (!paths.length) return res;
   if (process.platform === 'darwin') {
-    const r = await run('/usr/bin/mdls', ['-raw', '-name', 'kMDItemWhereFroms', '-name', 'kMDItemUserTags', ...paths], 30_000);
+    const r = await run('/usr/bin/mdls', ['-raw', '-name', 'kMDItemWhereFroms', '-name', 'kMDItemUserTags', ...paths], 30_000, { background: true });
     const rows = r.stdout ? splitMdlsRaw(r.stdout, paths.length, 2) : null;
     if (!rows) {
       // A file vanished or mdls changed its output: fall back to one at a time.
@@ -85,7 +101,7 @@ export async function readDownloadSources(paths: string[]): Promise<Map<string, 
   hasGetfattr ??= (await run('getfattr', ['--version'], 2000)).ok;
   if (!hasGetfattr) return res;
   const get = async (name: string, files: string[]) =>
-    parseGetfattrHex((await run('getfattr', ['--absolute-names', '-e', 'hex', '-n', name, '--', ...files], 30_000)).stdout, name);
+    parseGetfattrHex((await run('getfattr', ['--absolute-names', '-e', 'hex', '-n', name, '--', ...files], 30_000, { background: true })).stdout, name);
   const urls = await get('user.xdg.origin.url', paths);
   if (!urls.size) return res;
   const refs = await get('user.xdg.referrer.url', [...urls.keys()]);

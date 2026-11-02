@@ -11,7 +11,7 @@ import { extractPdfText } from '../../core/convert';
 import { cameraName, readExif } from '../../core/exif';
 import type { FileIndex } from '../../core/indexer';
 import type { FileEntry } from '../../core/types';
-import { pace, track } from './governor';
+import { pacer, track } from './governor';
 import { guessLatinLanguage, languagesForScript, scriptOfLanguage } from '../../core/ocr-lang';
 
 type TesseractWorker = { recognize(img: Buffer): Promise<{ data: { text: string } }>; terminate(): Promise<unknown>; setParameters?(p: Record<string, string>): Promise<unknown> };
@@ -162,6 +162,8 @@ export class VisionQueue {
   }
 
   private task = track('vision', 'Reading text in documents and pictures', 'text');
+  /** this queue's own pauses: its share of the time is measured on its own items */
+  private pace = pacer();
 
   private async pump() {
     if (this.running) return;
@@ -175,24 +177,26 @@ export class VisionQueue {
       const ocr = f.kind === 'image';
       this.task.set('working', { pending: this.pending, detail: ocr ? 'Recognising text in pictures' : 'Reading documents' });
       // Waits on battery, when hot or busy, and leaves a gap between files so nothing feels slow.
-      await pace(ocr ? 'ocr' : 'text');
+      await this.pace(ocr ? 'ocr' : 'text');
       try {
         await this.process(f);
       } catch {
         // Mark as done so a broken file is not retried forever.
         this.index.setExtra(f, { text: this.index.extras.get(p)?.text ?? '' });
       }
-      // Search results refresh every few seconds while text arrives, not after every file.
-      if (Date.now() - told > 5000) {
+      // The brain and search results catch up every ten seconds while text arrives, not after every file.
+      if (Date.now() - told > 10_000) {
         told = Date.now();
         this.onUpdate();
       }
     }
     this.pending = 0;
     this.running = false;
+    this.pace.idle();
     this.task.set('idle', { pending: 0, detail: undefined });
     this.onUpdate();
-    this.index.saveSoon();
+    // What was read is in the index's journal; this writes the last lines now.
+    void this.index.flushLog().catch(() => undefined);
   }
 
   private async process(f: FileEntry) {
@@ -213,12 +217,18 @@ export class VisionQueue {
       this.index.setText(f.path, (f.ext === 'rtf' ? raw.replace(/\\[a-z]+-?\d* ?|[{}]/g, '') : f.ext === 'html' || f.ext === 'htm' ? raw.replace(/<[^>]+>/g, ' ') : raw).slice(0, 20_000));
       return;
     }
-    const img = await loadImage(f.path);
+    const o = this.opts();
+    const wantText = o.ocr && this.index.extras.get(f.path)?.text === undefined;
+    // The system's recognizer reads the file itself (a Mac's Live Text): then no big picture is
+    // decoded at all. Only the built-in reader needs one; the fingerprint needs a small one.
+    let text: string | undefined;
+    if (wantText && nativeOcr) text = await nativeOcr(f.path, o.langs).catch(() => undefined);
+    const big = wantText && text === undefined;
+    const img = await loadImage(f.path, big ? 2000 : 512);
     if (!img) {
-      this.index.setExtra(f, { text: '', dhash: '' });
+      this.index.setExtra(f, { text: text ?? '', dhash: '' });
       return;
     }
-    const { width, height } = img.getSize();
     const meta: FileEntry['meta'] = { ...(f.meta ?? {}) };
     if (f.ext === 'jpg' || f.ext === 'jpeg') {
       const fh = await fsp.open(f.path, 'r');
@@ -236,16 +246,31 @@ export class VisionQueue {
       }
     }
     if (!meta.width) {
+      // The picture's own size from its header (the decoded copy above may be scaled down).
+      const size = await headerSize(f.path);
+      const { width, height } = size ?? img.getSize();
       meta.width = width;
       meta.height = height;
     }
     this.index.setMeta(f.path, meta);
     this.index.setDhash(f.path, fingerprint(img));
-    const o = this.opts();
-    if (o.ocr && this.index.extras.get(f.path)?.text === undefined) {
-      const text = await ocrFile(f.path, img, o.langs);
-      this.index.setText(f.path, text.length > 3 ? text : '');
+    if (wantText) {
+      const found = text !== undefined ? text.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim() : await ocrImage(img, o.langs);
+      this.index.setText(f.path, found.length > 3 ? found : '');
     }
+  }
+}
+
+/** Width and height from an image file's header, without decoding it. */
+async function headerSize(p: string): Promise<{ width: number; height: number } | null> {
+  try {
+    const sharp = (await import('sharp')).default;
+    const m = await sharp(p, { failOn: 'none' }).metadata();
+    if (!m.width || !m.height) return null;
+    // Pictures turned by their camera report the turned size.
+    return (m.orientation ?? 1) >= 5 ? { width: m.height, height: m.width } : { width: m.width, height: m.height };
+  } catch {
+    return null;
   }
 }
 

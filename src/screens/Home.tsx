@@ -38,13 +38,32 @@ function useHome(): [HomeSettings, (h: HomeSettings) => void] {
 function Header({ editing, onEdit }: { editing: boolean; onEdit: () => void }) {
   const { go, version } = useStore();
   const status = useAsync(() => api.library.status(), [version]);
+  // Files found so far while the folders are read (the walker reports every thousand).
+  const [found, setFound] = useState<number | undefined>();
   const disks = useAsync(() => api.system.disks(), []);
   const totals = useAsync(() => api.library.totals(), [version]);
   const weather = useAsync<Weather | null>(() => api.weather.get().catch(() => null), []);
   const [progress, setProgress] = useState<number | null>(null);
-  useEffect(() => api.on('progress', (p) => setProgress(p.total > 0 && p.done < p.total ? p.done / p.total : null)), []);
-  const disk = disks.data?.find((d) => d.system) ?? disks.data?.[0];
+  useEffect(() => api.on('progress', (p) => {
+    setProgress(p.total > 0 && p.done < p.total ? p.done / p.total : null);
+    if (p.task === 'index') setFound(p.found);
+  }), []);
+  const bg = status.data?.background;
   const indexing = !!status.data?.indexing;
+  // While reading or waiting, the line is looked at again now and then (it does not change otherwise).
+  const busy = indexing || (bg && bg.pending > 0 && bg.state !== 'idle');
+  useEffect(() => {
+    if (!busy) return;
+    const t = setInterval(() => status.reload(), 15_000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busy]);
+  const expected = status.data?.expected;
+  const seen = indexing ? Math.max(found ?? 0, status.data?.found ?? 0) : undefined;
+  const fraction = progress ?? (seen && expected && expected > seen ? seen / expected : null);
+  // Reading or filling in details at the gentle pace: the person can ask for full speed.
+  const slowed = !bg?.boostedUntil && (indexing || (!!bg && bg.pending > 0 && bg.state !== 'idle'));
+  const disk = disks.data?.find((d) => d.system) ?? disks.data?.[0];
   const w = weather.data;
   const breakdown = totals.data && disk ? SHELVES.filter((k) => totals.data![k].size).map((k) => `${KIND_LABEL[k]} ${formatBytes(totals.data![k].size)}`).join(' · ') : '';
   return (
@@ -53,8 +72,11 @@ function Header({ editing, onEdit }: { editing: boolean; onEdit: () => void }) {
         <h1>{greeting()}</h1>
         <div className="home-line">
           <span title={disk ? `${disk.label}: ${formatBytes(disk.free)} free of ${formatBytes(disk.total)}${breakdown ? `\n${breakdown}` : ''}` : undefined} data-testid="home-line">
-            {status.data || disk ? headerLine({ files: status.data?.files, indexing, free: disk?.free }, formatBytes) : ' '}
+            {status.data || disk ? headerLine({ files: status.data?.files, indexing, free: disk?.free, found: seen, expected, background: bg }, formatBytes) : ' '}
           </span>
+          {slowed ? (
+            <button className="btn ghost sm" data-testid="home-speed-up" title="Read at full speed for half an hour, even on battery" onClick={() => void api.library.speedUp().then(() => status.reload())}>Speed up now</button>
+          ) : null}
           {w ? (
             <button className="home-weather-chip" data-testid="home-weather-chip" onClick={() => go({ name: 'weather' })} title="Weather">
               <Icon name="sun" size={12} /> {w.place.name} {Math.round(w.current.temp)}° {describeCode(w.current.code).label.toLowerCase()}
@@ -67,7 +89,7 @@ function Header({ editing, onEdit }: { editing: boolean; onEdit: () => void }) {
         <button className="btn ghost icon" data-testid="home-rescan" title={status.data?.lastScan ? `Rescan (updated ${relativeTime(status.data.lastScan)})` : 'Rescan'} aria-label="Rescan the library" disabled={indexing} onClick={() => void api.library.rescan()}><Icon name="refresh" size={15} /></button>
       </div>
       {/* Reading the folders: a thin line instead of a spinner. */}
-      {indexing ? <div className={`home-progress ${progress === null ? 'indeterminate' : ''}`} role="progressbar" aria-label="Reading your folders" aria-valuenow={progress === null ? undefined : Math.round(progress * 100)} aria-valuemin={0} aria-valuemax={100}><i style={progress === null ? undefined : { width: `${Math.round(progress * 100)}%` }} /></div> : null}
+      {indexing ? <div className={`home-progress ${fraction === null ? 'indeterminate' : ''}`} role="progressbar" aria-label="Reading your folders" aria-valuenow={fraction === null ? undefined : Math.round(fraction * 100)} aria-valuemin={0} aria-valuemax={100}><i style={fraction === null ? undefined : { width: `${Math.round(fraction * 100)}%` }} /></div> : null}
     </header>
   );
 }

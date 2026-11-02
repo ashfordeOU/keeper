@@ -55,5 +55,12 @@ describe('the header line', () => {
   it('reads files and free space', () => {
     expect(headerLine({ files: 1, free: 98 * GB }, fmt)).toBe('1 file · 98 GB free');
     expect(headerLine({ indexing: true, files: 5 }, fmt)).toBe('Reading your folders…');
+    // Real progress: of about how many there were last time, or how many so far the first time.
+    expect(headerLine({ indexing: true, found: 120_000, expected: 270_000 }, fmt)).toBe(`Reading your folders · ${(120_000).toLocaleString()} of ~${(270_000).toLocaleString()}`);
+    expect(headerLine({ indexing: true, found: 2000, expected: 0 }, fmt)).toBe(`Reading your folders · ${(2000).toLocaleString()} so far`);
+    // Afterwards, why the details wait.
+    expect(headerLine({ files: 3, background: { pending: 40, state: 'waiting', reason: 'Paused on battery: continues when plugged in' } }, fmt)).toBe('3 files · Paused on battery');
+    expect(headerLine({ files: 3, background: { pending: 40, state: 'waiting', reason: 'Waiting until you’re idle' } }, fmt)).toBe('3 files · Waiting until you’re idle');
+    expect(headerLine({ files: 3, background: { pending: 0, state: 'idle' } }, fmt)).toBe('3 files');
   });
 });

@@ -56,6 +56,21 @@ export interface LibraryStatus {
   files: number;
   lastScan: number;
   ocrPending: number;
+  /** while reading the folders: files found so far, and about how many there were last time (0: first time) */
+  found?: number;
+  expected?: number;
+  /** filling in details after reading (text, pictures, download sources, meaning) */
+  background?: BackgroundWork;
+}
+
+export interface BackgroundWork {
+  /** items left */
+  pending: number;
+  state: 'working' | 'waiting' | 'idle';
+  /** why it waits ("Paused on battery: continues when plugged in") */
+  reason?: string;
+  /** "Speed up now" is on until then (0: not) */
+  boostedUntil?: number;
 }
 
 export interface BrowseEntry {
@@ -578,6 +593,8 @@ export interface KeeperApi extends KeeperApiX {
   library: {
     status(): Promise<LibraryStatus>;
     rescan(): Promise<void>;
+    /** Background reading at full speed for half an hour, even on battery ("Speed up now"). */
+    speedUp(): Promise<void>;
     totals(): Promise<Record<FileKind, { count: number; size: number }>>;
     recent(n: number, kind?: FileKind | 'screenshot' | 'download'): Promise<FileEntry[]>;
     list(opts: { kind?: FileKind; screenshot?: boolean; root?: string; source?: string; tag?: string; sort?: 'name' | 'date' | 'size' | 'kind'; desc?: boolean; limit?: number }): Promise<FileEntry[]>;

@@ -17,7 +17,7 @@ const api = {
   settings: group('settings', ['get', 'set', 'setSecret', 'hasSecret', 'pickFolder', 'pickFiles']),
   filekit: group('filekit', ['workflows', 'saveWorkflow', 'deleteWorkflow', 'runWorkflow', 'engines']),
   convert: group('convert', ['run', 'capabilities', 'duration', 'pageCount', 'mediaInfo', 'pdfFields', 'pdfThumbs', 'displays', 'setDisplay', 'phoneBackups', 'webToPdf', 'downloadVideo', 'cancelDownload', 'saveRecording']),
-  library: group('library', ['status', 'rescan', 'totals', 'recent', 'list', 'search', 'bySource', 'tags', 'setTags', 'inspect', 'readText', 'largeFiles']),
+  library: group('library', ['status', 'rescan', 'speedUp', 'totals', 'recent', 'list', 'search', 'bySource', 'tags', 'setTags', 'inspect', 'readText', 'largeFiles']),
   files: {
     ...group('files', ['browse', 'thumbnail', 'icon', 'open', 'openWith', 'reveal', 'copyPaths', 'copyText', 'trash', 'move', 'copy', 'rename', 'previewRename', 'applyRename', 'newFolder', 'compress', 'readImage', 'writeImage', 'copyImage']),
     startDrag: (paths: string[]) => ipcRenderer.send('files.startDrag', paths),

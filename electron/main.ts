@@ -130,7 +130,7 @@ import { pendingOnQuit, relockOnQuit } from './services/lock';
 import { remoteFolders } from './services/places';
 import { emptyAndBroken, removeBrokenLink } from './services/tools';
 import { readDownloadSources, readFinderTags } from '../core/platform';
-import { conditions, pace, poll, pollerSnapshot, startGovernor, usage, whenIdle } from './services/governor';
+import { boostWork, canWork, conditions, pace, pacer, poll, pollerSnapshot, startGovernor, usage, whenIdle, workBoostedUntil } from './services/governor';
 import { useMemoryHelper } from './services/memory';
 import { applyFeatureSet, applyPreset, featureOn, featureSets, listFeatures, liveCosts, onFeature, onFeaturesChanged, removeFeatureSet, saveFeatureSet, setFeature, setPowerSets, startPowerSets } from './services/features';
 import { getSecret, hasSecret, onSettings, setSecret, settings, updateSettings } from './store';
@@ -182,16 +182,40 @@ function broadcast(channel: string, ...args: unknown[]) {
   for (const w of BrowserWindow.getAllWindows()) if (!w.isDestroyed()) w.webContents.send(`event:${channel}`, ...args);
 }
 
-const progress = (p: Progress) => broadcast('progress', p);
+// Reading the folders reports every thousand files: windows hear of it at most twice a second.
+let progressAt = 0;
+const progress = (p: Progress) => {
+  const done = p.phase === 'Done' || (p.total > 0 && p.done >= p.total);
+  if (p.task === 'index' && !done && Date.now() - progressAt < 500) return;
+  progressAt = Date.now();
+  broadcast('progress', p);
+};
+
+// Every window refreshes what it shows (counts, recent files, search results) on "library-changed":
+// a quarter of a second after the last change, and never more often than every second and a half
+// (what you did yourself shows almost at once; a burst of changes is one refresh).
 let changeTimer: NodeJS.Timeout | undefined;
+let changedAt = 0;
 function libraryChanged() {
   clearTimeout(changeTimer);
   changeTimer = setTimeout(() => {
+    changedAt = Date.now();
     broadcast('library-changed');
     void updateTray();
     platformLibraryChanged();
     void syncBrain();
-  }, 250);
+  }, Math.max(250, changedAt + 1500 - Date.now()));
+}
+
+/**
+ * Text and details arriving in the background: the brain catches up (it paces itself) and
+ * the windows refresh every half a minute, not every few seconds for hours.
+ */
+let quietTimer: NodeJS.Timeout | undefined;
+function libraryDetailsChanged() {
+  void syncBrain();
+  if (quietTimer) return;
+  quietTimer = setTimeout(() => { quietTimer = undefined; libraryChanged(); }, Math.max(1000, changedAt + 30_000 - Date.now()));
 }
 
 declare const __KEEPER_OFFICIAL__: boolean | undefined;
@@ -645,11 +669,57 @@ function makeIndex(s: AllSettings) {
   return new FileIndex(path.join(app.getPath('userData'), 'index.json'), folders, s.excluded, hooks);
 }
 
+// Found so far and expected, for Home ("Reading your folders · 120,000 of ~270,000").
+let scanFound = 0;
+let scanExpected = 0;
+let enriching = 0;
+const scanPace = pacer();
+const sourcesPace = pacer();
+
 async function rescan() {
-  await index.scan({ onProgress: progress, showHidden: settings().showHidden });
+  if (index.scanning) return;
+  scanFound = 0;
+  scanExpected = index.files.size;
+  // Listing the folders is paced too (the "scan" kind runs on battery: the library must stay right).
+  await index.scan({
+    onProgress: (p) => { scanFound = p.found ?? scanFound; progress(p); },
+    showHidden: settings().showHidden,
+    pause: () => scanPace('scan'),
+    sources: false,
+  });
+  scanPace.idle();
   progress({ task: 'index', phase: 'Done', done: index.files.size, total: index.files.size });
   libraryChanged();
   vision.schedule(index.all());
+  // Where downloads came from: after the library counts as read, in the background, paced.
+  // (Only files not looked up yet at their current date: nothing, once the library is known.)
+  void lookUpSources();
+}
+
+let sourcesRunning = false;
+async function lookUpSources() {
+  if (sourcesRunning || !featureOn('sources')) return;
+  sourcesRunning = true;
+  try {
+    await index.enrichSources({
+      pause: () => sourcesPace('details'),
+      onProgress: (p) => { enriching = Math.max(0, p.total - p.done); },
+    });
+  } finally {
+    enriching = 0;
+    sourcesRunning = false;
+    sourcesPace.idle();
+  }
+  await index.flushLog().catch(() => undefined);
+  libraryChanged();
+}
+
+/** What background reading is doing, for Home. */
+function backgroundWork(): import('../core/api').BackgroundWork {
+  const pending = vision.pending + enriching;
+  if (!pending) return { pending: 0, state: 'idle', boostedUntil: workBoostedUntil() };
+  const d = canWork(vision.pending ? 'text' : 'details');
+  return { pending, state: d.ok ? 'working' : 'waiting', reason: d.ok ? undefined : d.reason, boostedUntil: workBoostedUntil() };
 }
 
 const sortFiles = (list: FileEntry[], key: string = 'date', desc = true) => {
@@ -939,7 +1009,9 @@ function registerIpc() {
     return r.canceled ? null : r.filePaths[0];
   });
 
-  handle('library.status', () => ({ indexing: index.scanning, files: index.files.size, lastScan: index.lastScan, ocrPending: vision.pending }));
+  handle('library.status', () => ({ indexing: index.scanning, files: index.files.size, lastScan: index.lastScan, ocrPending: vision.pending, found: index.scanning ? scanFound : undefined, expected: index.scanning ? scanExpected : undefined, background: backgroundWork() }));
+  // "Speed up now": background reading at full speed for half an hour, even on battery.
+  handle('library.speedUp', () => { boostWork(30 * 60_000); });
   handle('library.rescan', () => rescan());
   handle('library.totals', () => index.totals());
   handle('library.recent', (n: number, kind?: string) => index.recent(n, (f) => !kind || (kind === 'screenshot' ? !!f.screenshot : kind === 'download' ? f.root === 'Downloads' : f.kind === kind)).map(lite));
@@ -1151,10 +1223,10 @@ app.whenReady().then(async () => {
   index = makeIndex(s);
   journal = new Journal(path.join(app.getPath('userData'), 'history.json'));
   files = new FileService(index, journal, libraryChanged);
-  vision = new VisionQueue(index, () => ({ ocr: settings().ocrEnabled && featureOn('ocr'), text: featureOn('docText'), langs: settings().ocrLanguages }), libraryChanged);
+  vision = new VisionQueue(index, () => ({ ocr: settings().ocrEnabled && featureOn('ocr'), text: featureOn('docText'), langs: settings().ocrLanguages }), libraryDetailsChanged);
   // Switching text reading on later catches up on what was skipped.
   for (const f of ['ocr', 'docText'] as const) onFeature(f, (on) => { if (on && index) vision.schedule(index.all()); });
-  onFeature('sources', (on) => { if (on && index) void index.enrichSources().then(() => index.saveSoon()); });
+  onFeature('sources', (on) => { if (on && index) void lookUpSources(); });
   islandSvc = new IslandService(index, () => broadcast('island-changed'));
   // Focus sessions go into Insights and onto the task they were for.
   islandSvc.focusLog = (minutes, taskId) => void logFocus(minutes, taskId).catch(() => undefined);
@@ -1457,6 +1529,7 @@ app.whenReady().then(async () => {
   else if (!handleRdcArgv(process.argv)) handlePlatformArgv(process.argv);
 
   // File changes in watched folders arrive at once; this full re-read catches the rest.
+  // Unchanged files cost a look at their date and size only, and an unchanged library writes nothing.
   poll('library.rescan', { baseMs: 30 * 60_000, idleFactor: 2 }, async () => { await whenIdle('scan'); await rescan(); }, { now: false });
   poll('rules.run', { baseMs: 60 * 60_000, idleFactor: 1 }, () => runEnabledRules(), { now: false, feature: 'rules' });
   setTimeout(() => void runEnabledRules(), 5 * 60_000);

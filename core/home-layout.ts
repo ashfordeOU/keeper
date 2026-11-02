@@ -132,10 +132,34 @@ export function attention(i: AttentionInput, fmt: (bytes: number) => string): At
 }
 
 /** The quiet line under the greeting: "261,766 files · 98 GB free" (the weather chip follows it). */
-export function headerLine(o: { files?: number; indexing?: boolean; free?: number }, fmt: (bytes: number) => string): string {
+export function headerLine(o: { files?: number; indexing?: boolean; free?: number; found?: number; expected?: number; background?: { pending: number; state: 'working' | 'waiting' | 'idle'; reason?: string } }, fmt: (bytes: number) => string): string {
   const parts: string[] = [];
-  if (o.indexing) parts.push('Reading your folders…');
-  else if (o.files !== undefined) parts.push(`${o.files.toLocaleString()} file${o.files === 1 ? '' : 's'}`);
+  if (o.indexing) parts.push(readingLine(o.found, o.expected));
+  else {
+    if (o.files !== undefined) parts.push(`${o.files.toLocaleString()} file${o.files === 1 ? '' : 's'}`);
+    const bg = backgroundLine(o.background);
+    if (bg) parts.push(bg);
+  }
   if (o.free !== undefined) parts.push(`${fmt(o.free)} free`);
   return parts.join(' · ');
+}
+
+/** "Reading your folders · 120,000 of ~270,000" (or "· 120,000 so far" the first time). */
+export function readingLine(found?: number, expected?: number): string {
+  if (!found) return 'Reading your folders…';
+  // Past last time's count, the estimate is no use any more.
+  if (expected && expected > found) return `Reading your folders · ${found.toLocaleString()} of ~${expected.toLocaleString()}`;
+  return `Reading your folders · ${found.toLocaleString()} so far`;
+}
+
+/** What the background reading is doing, in a few words; empty when there is nothing to say. */
+export function backgroundLine(b?: { pending: number; state: 'working' | 'waiting' | 'idle'; reason?: string }): string {
+  if (!b || b.pending <= 0 || b.state === 'idle') return '';
+  if (b.state === 'waiting') {
+    const r = b.reason ?? '';
+    if (/battery/i.test(r)) return 'Paused on battery';
+    if (/idle|break|while you work/i.test(r)) return 'Waiting until you’re idle';
+    return r ? r.split(':')[0] : 'Waiting';
+  }
+  return `Reading details · ${b.pending.toLocaleString()} to go`;
 }

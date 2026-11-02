@@ -29,8 +29,8 @@ import type { FileIndex } from '../../core/indexer';
 import { getSecret, hasSecret, settings, updateSettings } from '../store';
 import { appleProvider, mcpLaunch } from './platform';
 import { useBrain } from './platform/brain-adapter';
-import { canWork, conditions, track, whenIdle } from './governor';
-import { paceMs } from '../../core/governor';
+import { canWork, conditions, pacer, track, whenIdle } from './governor';
+import { restMs } from '../../core/governor';
 
 export interface BrainDeps {
   index: () => FileIndex;
@@ -153,18 +153,38 @@ export function status(): BrainStatus {
 
 // ---------------------------------------------------------------- keeping up
 
-/** Brings the brain in line with the library (called when the library changes). */
+/**
+ * Brings the brain in line with the library (called when the library changes): only the
+ * files the library says changed, unless it says to look at everything (after loading or a
+ * big scan). Reading their text is background work: paced by the governor, and waiting on
+ * battery like the rest. Catch-ups come at most every ten seconds while text keeps arriving.
+ */
+let lastSync = 0;
+// The brain's reading is its own stream of background work (its share is measured on its own batches).
+const syncPace = pacer();
+let syncTimer: NodeJS.Timeout | undefined;
 export async function syncBrain(): Promise<void> {
   if (!lb || !brainSettings().enabled) return;
   if (syncing) { syncAgain = true; return; }
+  const wait = lastSync + 10_000 - Date.now();
+  if (wait > 0) {
+    if (!syncTimer) {
+      syncTimer = setTimeout(() => { syncTimer = undefined; void syncBrain(); }, wait);
+      syncTimer.unref?.();
+    }
+    return;
+  }
   syncing = true;
   try {
     do {
       syncAgain = false;
-      await lb.sync({ onProgress: () => statusChanged() });
+      const paths = deps!.index().drainChanged();
+      await lb.sync({ onProgress: () => statusChanged(), pause: () => syncPace('text'), paths });
+      lastSync = Date.now();
     } while (syncAgain && !stopped);
   } finally {
     syncing = false;
+    syncPace.idle();
   }
   statusChanged(true);
   void embedLoop();
@@ -197,10 +217,12 @@ async function embedLoop() {
       embedTask.set('working', { pending: lb.engine.pendingCount, detail: 'Building meaning vectors' });
       // Small batches while the person is using the computer, bigger ones when it is idle.
       const idle = powerMonitor.getSystemIdleTime();
+      const t0 = Date.now();
       await lb.engine.embedSome(idle < 10 ? 8 : 32, lookup);
       lb.markDirty();
       statusChanged();
-      await new Promise((r) => setTimeout(r, Math.max(idle < 10 ? 250 : 20, paceMs('embed', conditions()) * (idle < 10 ? 8 : 2))));
+      // Rests in proportion to the batch, so meaning vectors take their share of the time and no more.
+      await new Promise((r) => setTimeout(r, Math.max(idle < 10 ? 250 : 20, restMs('embed', conditions(), Date.now() - t0))));
     }
   } catch (e) {
     message = `Meaning search stopped: ${e instanceof Error ? e.message : e}`;

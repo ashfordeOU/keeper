@@ -416,6 +416,7 @@ export function createMockApi(): KeeperApi {
     library: {
       status: async () => ({ indexing: false, files: files.length, lastScan: now - 120_000, ocrPending: 0 }),
       rescan: async () => { await delay(0, 800); },
+      speedUp: async () => undefined,
       totals: async () => {
         const t = {} as Record<FileKind, { count: number; size: number }>;
         for (const k of ['image', 'video', 'audio', 'document', 'archive', 'installer', 'app', 'code', 'other'] as FileKind[]) t[k] = { count: 0, size: 0 };

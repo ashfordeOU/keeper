@@ -12,9 +12,9 @@
 import { jobHelpers, trackHelper } from '../helpers-registry';
 import { DEFAULT_LIMITS } from '../../core/limits';
 import { app, BrowserWindow, powerMonitor } from 'electron';
-import type { ChildProcess } from 'node:child_process';
+import { execFile, type ChildProcess } from 'node:child_process';
 import os from 'node:os';
-import { decide, DEFAULT_CONDITIONS, paceMs, pollDelay, type Conditions, type PollRule, type WorkKind } from '../../core/governor';
+import { decide, DEFAULT_CONDITIONS, pollDelay, restMs, type Conditions, type PollRule, type WorkKind } from '../../core/governor';
 import { settings } from '../store';
 import { featureOn, onFeaturesChanged } from './features';
 import { measuredRun, pollLog } from './poll-log';
@@ -47,8 +47,30 @@ function mainVisible(): boolean {
   return BrowserWindow.getAllWindows().some((w) => !w.isDestroyed() && w.isVisible() && !w.isMinimized() && /view=app|index\.html$|:\d+\/?$/.test(w.webContents.getURL()));
 }
 
+declare const __KEEPER_OFFICIAL__: boolean | undefined;
+/**
+ * Tests only (never in official builds): KEEPER_TEST_CONDITIONS='{"onBattery":true,"idleSec":0}'
+ * pretends the computer is in that state, so the performance check can measure "on battery"
+ * and "at the computer" under a virtual display.
+ */
+const TEST_CONDITIONS: Partial<Conditions> = (() => {
+  if (typeof __KEEPER_OFFICIAL__ === 'boolean' && __KEEPER_OFFICIAL__) return {};
+  try { return JSON.parse(process.env.KEEPER_TEST_CONDITIONS || '{}') as Partial<Conditions>; } catch { return {}; }
+})();
+
+// Read at most once a second: asking the system how long it has been idle is not free
+// (on Linux an X server round trip), and background work asks before every item.
+let cached: { at: number; c: Conditions } | null = null;
+
 export function conditions(): Conditions {
-  if (!started) return { ...DEFAULT_CONDITIONS, mode: settings().resourceMode ?? 'balanced' };
+  if (cached && Date.now() - cached.at < 1000) return cached.c;
+  const c = readConditions();
+  if (started) cached = { at: Date.now(), c };
+  return c;
+}
+
+function readConditions(): Conditions {
+  if (!started) return { ...DEFAULT_CONDITIONS, mode: settings().resourceMode ?? 'balanced', boost: boosted(), ...TEST_CONDITIONS };
   // macOS: its "free" figure is small even when all is well (the file cache and compressed memory
   // count as used), so memory pressure decides, as Activity Monitor shows it. Elsewhere: what is
   // really available (Linux MemAvailable). The last shared reading, at most 30 s old: this answers at once.
@@ -68,10 +90,13 @@ export function conditions(): Conditions {
     windowVisible: mainVisible(),
     keeperCpu: keeperCpu(),
     memoryLow,
+    boost: boosted(),
+    ...TEST_CONDITIONS,
   };
 }
 
 function changed() {
+  cached = null;
   for (const l of listeners) l();
 }
 
@@ -142,6 +167,26 @@ export function canWork(kind: WorkKind) {
   return decide(kind, conditions());
 }
 
+// ---------------------------------------------------------------- "Speed up now"
+
+let boostUntil = 0;
+let boostTimer: NodeJS.Timeout | undefined;
+const boosted = () => boostUntil > Date.now();
+
+/** Lets background work run at full speed for a while (Home → "Speed up now"), even on battery. */
+export function boostWork(ms = 30 * 60_000) {
+  boostUntil = Date.now() + ms;
+  clearTimeout(boostTimer);
+  boostTimer = setTimeout(() => { boostUntil = 0; changed(); }, ms);
+  boostTimer.unref?.();
+  changed();
+}
+
+/** Until when background work is sped up (0: not). */
+export function workBoostedUntil(): number {
+  return boosted() ? boostUntil : 0;
+}
+
 /** Resolves when this kind of work may run. */
 export function whenIdle(kind: WorkKind, signal?: AbortSignal): Promise<void> {
   if (canWork(kind).ok) return Promise.resolve();
@@ -165,11 +210,49 @@ export function whenIdle(kind: WorkKind, signal?: AbortSignal): Promise<void> {
   });
 }
 
-/** A short pause between two items of background work; waits longer while it should not run. */
-export async function pace(kind: WorkKind, signal?: AbortSignal): Promise<void> {
-  await whenIdle(kind, signal);
-  const ms = paceMs(kind, conditions());
-  if (ms > 0) await new Promise((r) => setTimeout(r, ms));
+// All background work shares one allowance: each item's rest is added to a common clock, and the
+// next item of any kind starts after it. Reading text, download sources and the brain at once
+// therefore take a fifth of the time between them, not a fifth each.
+let gate = 0;
+
+/**
+ * Pauses for one stream of background work (a queue, a scan): each pause keeps the work to its
+ * share of the time (core/governor dutyCycle), measured from when this stream last came back
+ * from a pause. After an item that took 200 ms, at a fifth of the time, it rests 800 ms.
+ * Waits while the work should not run at all. Call it before each item.
+ */
+export interface Pacer {
+  (kind: WorkKind, signal?: AbortSignal): Promise<void>;
+  /** The stream has run out of work: the time until its next pause is not counted as work. */
+  idle(): void;
+}
+
+export function pacer(): Pacer {
+  let resumedAt: number | undefined;
+  const p = async (kind: WorkKind, signal?: AbortSignal) => {
+    // More than ten seconds since the last pause: the stream was idle (or one huge item), not counted.
+    const since = resumedAt === undefined ? 0 : Date.now() - resumedAt;
+    const worked = since > 10_000 ? 0 : since;
+    await whenIdle(kind, signal);
+    const now = Date.now();
+    gate = Math.max(gate, now) + restMs(kind, conditions(), worked);
+    // Never more than a minute ahead (many streams at once, or a long wait just ended).
+    gate = Math.min(gate, now + 60_000);
+    const ms = gate - now;
+    if (ms > 0 && !signal?.aborted) await new Promise((r) => setTimeout(r, ms));
+    resumedAt = Date.now();
+  };
+  return Object.assign(p, { idle: () => { resumedAt = undefined; } });
+}
+
+// One stream per kind for callers that do not keep their own pacer.
+const shared = new Map<WorkKind, Pacer>();
+
+/** A pause between two items of background work (see pacer); one stream per kind. */
+export function pace(kind: WorkKind, signal?: AbortSignal): Promise<void> {
+  let p = shared.get(kind);
+  if (!p) shared.set(kind, (p = pacer()));
+  return p(kind, signal);
 }
 
 // ---------------------------------------------------------------- regular checks
@@ -318,6 +401,14 @@ export function lowerPriority(child: ChildProcess | number | undefined) {
     os.setPriority(pid, os.constants.priority.PRIORITY_BELOW_NORMAL);
   } catch {
     /* not permitted: leave it */
+  }
+  // macOS: the background class as well (lower priority, throttled disk access, efficiency cores).
+  if (process.platform === 'darwin') {
+    try {
+      execFile('/usr/bin/taskpolicy', ['-b', '-p', String(pid)], { timeout: 5000 }, () => undefined).unref();
+    } catch {
+      /* older macOS: the priority above is enough */
+    }
   }
 }
 
