@@ -34,6 +34,9 @@ const AboutWindow = lazy(() => import('./updates/AboutWindow').then((m) => ({ de
 // Remote Desktops' quick-connect window.
 const RdcQuickWindow = lazy(() => import('./screens/RemoteDesktopQuick').then((m) => ({ default: m.RdcQuickWindow })));
 
+// Studio's hidden export page: draws and encodes every frame of an export.
+const StudioExport = lazy(() => import('./studio/ExportWorker').then((m) => ({ default: m.ExportWorker })));
+
 // The listening pill (dictation and meetings): it also records, so it loads only its own code.
 const VoiceHud = lazy(() => import('./voice/VoiceHud').then((m) => ({ default: m.VoiceHud })));
 
@@ -45,6 +48,8 @@ document.documentElement.dataset.view = view;
 createRoot(document.getElementById('root')!).render(
   // A wallpaper window needs none of the app's state: it starts nothing but its own drawing.
   view === 'wallpaper' ? <Suspense fallback={null}><WallpaperView /></Suspense> :
+  // The export page draws frames and nothing else.
+  view === 'studio-export' ? <Suspense fallback={null}><StudioExport id={params.get('job') ?? ''} /></Suspense> :
   <StrictMode>
     <StoreProvider>{view === 'sysmon-popover' ? <Suspense fallback={null}><TrayPopover /></Suspense> : view === 'glance' ? <Suspense fallback={null}><Glance /></Suspense> : view === 'launcher' ? <Suspense fallback={null}><Launcher /></Suspense> : view === 'tool' ? <Suspense fallback={null}><ToolWindow id={params.get('id') ?? ''} /></Suspense> : view === 'quick' ? <QuickSearch /> : view === 'rdc-quick' ? <Suspense fallback={null}><RdcQuickWindow /></Suspense> : view === 'update' ? <Suspense fallback={null}><UpdateWindow /></Suspense> : view === 'about' ? <Suspense fallback={null}><AboutWindow /></Suspense> : view === 'island' ? <Island /> : view === 'clips' ? <ClipPicker /> : view === 'widget' ? <WidgetView /> : view === 'ambient' ? <Suspense fallback={null}><MixerPanel /></Suspense> : view === 'terminal' ? <TerminalApp mode={params.get('quick') ? 'quick' : 'window'} startCwd={params.get('cwd') ?? undefined} /> : view === 'voice' ? <Suspense fallback={null}><VoiceHud /></Suspense> : view === 'guide-mini' ? <GuideMini /> : view === 'screenhost' ? <HostView /> : view === 'screenviewer' ? <ViewerView /> : view === 'cue' ? <Suspense fallback={null}><CuePopup /></Suspense> : <App />}</StoreProvider>
   </StrictMode>,

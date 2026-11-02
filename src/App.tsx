@@ -80,6 +80,8 @@ const NotesApp = lazy(() => import('./notes/NotesApp').then((m) => ({ default: m
 const CuesPage = lazy(() => import('./screens/Cues').then((m) => ({ default: m.Cues })));
 const Dictation = lazy(() => import('./screens/Dictation').then((m) => ({ default: m.Dictation })));
 const Meetings = lazy(() => import('./screens/Meetings').then((m) => ({ default: m.Meetings })));
+// Studio (recording and the editor) loads the first time it opens.
+const StudioPage = lazy(() => import('./screens/Studio').then((m) => ({ default: m.Studio })));
 // Stage mode's page (presets and settings) loads the first time it opens.
 const StagePage = lazy(() => import('./screens/Stage').then((m) => ({ default: m.Stage })));
 import { CloudSidebar } from './components/CloudSidebar';
@@ -285,6 +287,7 @@ function SidebarNav({ rail, expanded, onToggle, canPin }: { rail: boolean; expan
         <NavItem route={{ name: 'aiusage' }} icon="chart" label="Usage" />
         <NavItem route={{ name: 'graph' }} icon="graph" label="Knowledge Graph" />
         <NavItem route={{ name: 'capture' }} icon="screenshot" label={t('nav.capture')} />
+        <NavItem route={{ name: 'studio' }} icon="video" label="Studio" />
         <NavItem route={{ name: 'dictation' }} icon="mic" label="Dictation" />
         <NavItem route={{ name: 'meetings' }} icon="calendar" label="Meetings" />
         <NavItem route={{ name: 'terminal' }} icon="terminal" label={tt('title')} />
@@ -408,6 +411,7 @@ function Page() {
     dictation: () => <Suspense fallback={null}><Dictation key={route.arg ?? ''} initialTab={route.arg} /></Suspense>,
     meetings: () => <Suspense fallback={null}><Meetings key={route.arg ?? ''} initial={route.arg} /></Suspense>,
     stage: () => <Suspense fallback={null}><StagePage /></Suspense>,
+    studio: () => <Suspense fallback={null}><StudioPage key={route.arg ?? ''} initial={route.arg} /></Suspense>,
     weather: () => <Weather />,
     tracks: () => <Suspense fallback={null}><Tracks key={route.arg?.startsWith('file:') ? route.arg : ''} /></Suspense>,
     capture: () => <Capture />,

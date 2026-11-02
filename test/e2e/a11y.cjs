@@ -34,7 +34,7 @@ const ROUTES = [
   'startup', 'apps', 'protection', 'rules', 'history', 'assistant', 'island', 'settings', 'settings:accessibility', 'tools', 'health', 'capture',
   'convert', 'widgets', 'ambience', 'weather', 'network', 'trash', 'remote', 'terminal', 'sync:folders', 'sync:backups', 'devices', 'netactivity',
   'vpn', 'firewall', 'agents', 'graph', 'mail', 'calendar', 'reminders', 'alarms', 'todo', 'awake', 'stage', 'controls', 'catalog',
-  'appcontrols', 'browsers', 'noteshub', 'notes', 'rdc', 'mesh', 'tracks', 'cues', 'dictation', 'meetings',
+  'appcontrols', 'browsers', 'noteshub', 'notes', 'rdc', 'mesh', 'tracks', 'cues', 'dictation', 'meetings', 'studio',
 ];
 
 // ------------------------------------------------------------------ the in-page checker
