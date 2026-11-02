@@ -39,6 +39,23 @@ export class Resolver {
 
   async start(): Promise<number> {
     this.client = clientFor(this.o.upstream, this.o.test);
+    // Port 0 means "any free port": UDP gets one, but TCP may not be allowed the same number
+    // (Windows reserves blocks of ports for Hyper-V and answers EACCES), so try another one.
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await this.listenOnce();
+      } catch (e) {
+        this.udp4?.close();
+        this.udp4 = undefined;
+        this.tcp?.close();
+        this.tcp = undefined;
+        const code = (e as NodeJS.ErrnoException).code;
+        if (this.o.port !== 0 || attempt >= 20 || (code !== 'EACCES' && code !== 'EADDRINUSE')) throw e;
+      }
+    }
+  }
+
+  private async listenOnce(): Promise<number> {
     const host = this.o.host ?? '127.0.0.1';
     this.udp4 = dgram.createSocket('udp4');
     await new Promise<void>((res, rej) => { this.udp4!.once('error', rej); this.udp4!.bind(this.o.port, host, () => res()); });
