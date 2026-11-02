@@ -1,0 +1,85 @@
+# SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
+# The gate before a release, started by hand on main (Actions → Release check → Run
+# workflow). Nothing is published. It runs, from the existing workflows:
+#
+#   ci        ci.yml in full: type checks, unit tests and a build on macOS, Windows and
+#             Linux, the macOS helpers and Windows C#, an unpacked app that starts,
+#             the performance budgets (idle, minimal, big library, battery) and
+#             native e2e on real macOS and Windows runners
+#   package   release.yml with "Build only": the release builds themselves for the
+#             systems to release (KEEPER_REQUIRE_ALL, signing, installers, latest*.yml),
+#             tests included, plus the Microsoft Store package when Windows is in
+#   verified  every commit on main since the last release tag is Verified on GitHub
+#             and authored by ashfordeOU (as resign-history.yml's verify job checks)
+#
+# Every job must be green before the version bump. See RELEASING.md.
+name: Release check
+
+on:
+  workflow_dispatch:
+    inputs:
+      platforms:
+        description: 'Systems to build: "mac", "windows", "linux" (comma-separated) or "all"; empty = .github/release.json'
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: CI
+    uses: ./.github/workflows/ci.yml
+
+  package:
+    name: Release build
+    uses: ./.github/workflows/release.yml
+    with:
+      dry_run: true
+      platforms: ${{ inputs.platforms }}
+    # release.yml's publishing jobs ask for these; with dry_run they are skipped and never use them.
+    permissions:
+      contents: write
+      actions: write
+      id-token: write
+      attestations: write
+    secrets: inherit
+
+  verified:
+    name: Commits since the last release are Verified
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Every commit on main since the last tag is Verified and by ashfordeOU
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          owner="${GITHUB_REPOSITORY%/*}"; name="${GITHUB_REPOSITORY#*/}"
+          git fetch -q --tags origin main
+          last="$(git describe --tags --abbrev=0 --match 'v*' origin/main 2>/dev/null || true)"
+          if [ -n "$last" ]; then range="$last..origin/main"; else range="origin/main"; fi
+          git rev-list "$range" > want.txt
+          need="$(wc -l < want.txt)"
+          echo "Checking $need commits on main since ${last:-the beginning}."
+          [ "$need" -gt 0 ] || exit 0
+          bad=0; seen=0; cursor=""
+          while :; do
+            after=""; [ -n "$cursor" ] && after=", after: \"$cursor\""
+            page="$(gh api graphql -f query="{ repository(owner: \"$owner\", name: \"$name\") { ref(qualifiedName: \"refs/heads/main\") { target { ... on Commit { history(first: 100$after) { pageInfo { hasNextPage endCursor } nodes { oid messageHeadline author { email } signature { isValid state } } } } } } } }")"
+            echo "$page" | jq -r '.data.repository.ref.target.history.nodes[] | "\(.oid) \(.signature.isValid // false) \(.signature.state // "UNSIGNED") \(.author.email) \(.messageHeadline)"' > page.txt
+            while read -r oid ok state email rest; do
+              grep -qx "$oid" want.txt || continue
+              seen=$((seen + 1))
+              if [ "$ok" != "true" ] || [ "$state" != "VALID" ]; then echo "::error::not Verified ($state): $oid $rest"; bad=$((bad + 1)); fi
+              if [ "$email" != "236818772+ashfordeOU@users.noreply.github.com" ]; then echo "::error::author $email: $oid $rest"; bad=$((bad + 1)); fi
+            done < page.txt
+            [ "$seen" -lt "$need" ] || break
+            [ "$(echo "$page" | jq -r '.data.repository.ref.target.history.pageInfo.hasNextPage')" = "true" ] || break
+            cursor="$(echo "$page" | jq -r '.data.repository.ref.target.history.pageInfo.endCursor')"
+          done
+          echo "Checked $seen of $need commits since ${last:-the beginning}: $bad problems."
+          if [ "$seen" -lt "$need" ]; then echo "::error::GitHub's history of main did not list $((need - seen)) of the commits (is this run on main?)"; exit 1; fi
+          [ "$bad" = 0 ]
