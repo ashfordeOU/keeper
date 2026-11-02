@@ -1,31 +1,38 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
-// Home's layout and its one "Attention" card: which sections show and in what
-// order (Edit Home), how roomy it is, the Library and Recent styles, and what,
-// if anything, is worth doing now. Plain functions so they are easy to test.
+// Home's layout and its one-line suggestion: which sections show and in what
+// order (Edit Home), how roomy it is, the Library style, the move of older
+// Home settings onto the current sections, and what, if anything, is worth
+// doing now. Plain functions so they are easy to test.
 
-export type HomeSectionId = 'attention' | 'library' | 'recent' | 'pinned' | 'weather' | 'usage' | 'calendar';
+/**
+ * suggestions: one line when something is worth doing (low space, a finding on To do);
+ * jump: recent files grouped by the project or folder they belong to;
+ * today: events, tasks due and what is running (a column beside the rest on a wide window).
+ */
+export type HomeSectionId = 'suggestions' | 'jump' | 'today' | 'library' | 'pinned' | 'weather' | 'usage';
 export type HomeDensity = 'comfortable' | 'compact' | 'spacious';
-export type RecentFilter = 'all' | 'download' | 'image' | 'video' | 'document';
+
+/** Bumped when the sections change; older settings are moved on by normalizeHome. */
+export const HOME_LAYOUT_VERSION = 2;
 
 export interface HomeSettings {
+  v: number;
   /** every section, in the person's order */
   order: HomeSectionId[];
   hidden: HomeSectionId[];
   density: HomeDensity;
-  /** the Library as a row of chips, or the larger tiles */
-  library: 'chips' | 'tiles';
-  recent: RecentFilter;
-  recentView: 'grid' | 'list';
+  /** the Library as tiles with counts, or a row of small chips */
+  library: 'tiles' | 'chips';
 }
 
 export const HOME_SECTIONS: { id: HomeSectionId; name: string; description: string }[] = [
-  { id: 'attention', name: 'Attention', description: 'Shows only when something is worth doing: low space or a finding on To do.' },
-  { id: 'library', name: 'Library', description: 'How many images, videos, documents and so on.' },
-  { id: 'recent', name: 'Recent', description: 'What arrived lately, with filters.' },
+  { id: 'suggestions', name: 'Suggestions', description: 'One line, only when something is worth doing: low space or a finding on To do.' },
+  { id: 'jump', name: 'Jump back in', description: 'Recent files, grouped by the project or folder they belong to.' },
+  { id: 'today', name: 'Today', description: 'Today’s events, tasks due, and timers, Keep Awake or a recording while they run.' },
+  { id: 'library', name: 'Library', description: 'All Images, All Videos, All Documents and so on, with counts.' },
   { id: 'pinned', name: 'Pinned folders', description: 'Folders you pinned to Favorites.' },
   { id: 'weather', name: 'Weather', description: 'The full forecast card (the header always has a small chip).' },
   { id: 'usage', name: 'Storage', description: 'How the disk is used, by kind of file.' },
-  { id: 'calendar', name: 'Calendar today', description: 'Today’s events from your calendars.' },
 ];
 
 export const HOME_DENSITIES: { id: HomeDensity; label: string }[] = [
@@ -34,38 +41,49 @@ export const HOME_DENSITIES: { id: HomeDensity; label: string }[] = [
   { id: 'spacious', label: 'Spacious' },
 ];
 
-export const RECENT_FILTERS: { id: RecentFilter; label: string }[] = [
-  { id: 'all', label: 'All' },
-  { id: 'download', label: 'Downloads' },
-  { id: 'image', label: 'Photos' },
-  { id: 'video', label: 'Videos' },
-  { id: 'document', label: 'Documents' },
-];
-
-/** At most this many items in Recent; "See all" opens the rest. */
-export const RECENT_MAX = 6;
+/** How many recent files Jump back in reads to find the groups (one quick query). */
+export const RECENT_READ = 60;
 
 const IDS = HOME_SECTIONS.map((s) => s.id);
+const isId = (s: unknown): s is HomeSectionId => IDS.includes(s as HomeSectionId);
 
 export function defaultHomeSettings(): HomeSettings {
-  return { order: [...IDS], hidden: ['weather', 'usage', 'calendar'], density: 'comfortable', library: 'chips', recent: 'all', recentView: 'grid' };
+  return { v: HOME_LAYOUT_VERSION, order: [...IDS], hidden: ['weather', 'usage'], density: 'comfortable', library: 'tiles' };
 }
 
-/** Bad or old values fall back; sections added later join at the end. */
+/** Sections of the first Home (before Jump back in and Today) and what they became. */
+const RENAMED: Record<string, HomeSectionId> = { attention: 'suggestions', recent: 'jump', calendar: 'today' };
+
+/**
+ * Settings from the first Home: Attention becomes Suggestions, Recent becomes
+ * Jump back in and Calendar today becomes the Today column, in the same place.
+ * Today is shown (it was off by default before); what else was hidden stays
+ * hidden; the order is kept; the Library moves to tiles, its new default.
+ */
+export function migrateHome(x: Record<string, unknown>): Record<string, unknown> {
+  const map = (a: unknown): HomeSectionId[] => (Array.isArray(a) ? a.map((s) => (typeof s === 'string' ? RENAMED[s] ?? s : s)).filter(isId) : []);
+  const order = [...new Set(map(x.order))];
+  // Today follows Jump back in when Calendar today was not in the list.
+  if (!order.includes('today')) order.splice(order.includes('jump') ? order.indexOf('jump') + 1 : order.length, 0, 'today');
+  const hidden = Array.isArray(x.hidden) ? map(x.hidden).filter((id) => id !== 'today') : undefined;
+  return { v: HOME_LAYOUT_VERSION, order, hidden, density: x.density, library: 'tiles' };
+}
+
+/** Bad or old values fall back; older layouts are moved on; sections added later join at the end. */
 export function normalizeHome(v: unknown): HomeSettings {
   const d = defaultHomeSettings();
   if (!v || typeof v !== 'object') return d;
-  const x = v as Partial<HomeSettings>;
-  const known = (a: unknown): HomeSectionId[] => (Array.isArray(a) ? a.filter((s): s is HomeSectionId => IDS.includes(s as HomeSectionId)) : []);
+  let x = v as Record<string, unknown>;
+  if (x.v !== HOME_LAYOUT_VERSION) x = migrateHome(x);
+  const known = (a: unknown): HomeSectionId[] => (Array.isArray(a) ? a.filter(isId) : []);
   const order = [...new Set(known(x.order))];
   for (const id of IDS) if (!order.includes(id)) order.push(id);
   return {
+    v: HOME_LAYOUT_VERSION,
     order,
     hidden: Array.isArray(x.hidden) ? [...new Set(known(x.hidden))] : d.hidden,
-    density: HOME_DENSITIES.some((o) => o.id === x.density) ? x.density! : d.density,
-    library: x.library === 'tiles' ? 'tiles' : 'chips',
-    recent: RECENT_FILTERS.some((o) => o.id === x.recent) ? x.recent! : 'all',
-    recentView: x.recentView === 'list' ? 'list' : 'grid',
+    density: HOME_DENSITIES.some((o) => o.id === x.density) ? (x.density as HomeDensity) : d.density,
+    library: x.library === 'chips' ? 'chips' : 'tiles',
   };
 }
 
@@ -88,12 +106,22 @@ export function setSectionShown(h: HomeSettings, id: HomeSectionId, shown: boole
   return { ...h, hidden: shown ? h.hidden.filter((x) => x !== id) : [...new Set([...h.hidden, id])] };
 }
 
-// ---------------------------------------------------------------- the Attention card
+/**
+ * Where each section goes: on a wide window Today is a column beside the
+ * others; on a narrow one everything is one column in the person's order.
+ */
+export function homeColumns(h: HomeSettings, wide: boolean): { main: HomeSectionId[]; side: HomeSectionId[] } {
+  const shown = visibleSections(h);
+  if (!wide) return { main: shown, side: [] };
+  return { main: shown.filter((id) => id !== 'today'), side: shown.filter((id) => id === 'today') };
+}
+
+// ---------------------------------------------------------------- the suggestion line
 
 export interface AttentionInput {
   disk?: { free: number; total: number; label?: string };
   /** open findings on To do, most important first */
-  findings?: { id: string; title: string; severity: string; why?: string }[];
+  findings?: { id: string; title: string; severity: string; why?: string; area?: string }[];
 }
 
 export interface Attention {
@@ -101,9 +129,20 @@ export interface Attention {
   title: string;
   detail: string;
   action: { label: string; route?: string; finding?: string };
+  /**
+   * The quiet second choice: Trust a security or privacy finding (it is
+   * ignored from then on: the person knows about it and it is fine), or put
+   * any other finding off for a week.
+   */
+  dismiss?: { label: 'Trust' | 'Not now'; finding: string; how: 'ignore' | 'snooze' };
   /** how many other things are on To do */
   more: number;
 }
+
+/** Areas whose findings the person may Trust (ignore for good) rather than fix. */
+const TRUSTABLE = new Set(['security', 'privacy']);
+/** "Not now" puts a finding off for this long. */
+export const SNOOZE_MS = 7 * 86_400_000;
 
 const GB = 1024 ** 3;
 const SERIOUS = new Set(['critical', 'high', 'medium']);
@@ -114,7 +153,7 @@ export function lowOnSpace(d: { free: number; total: number }): boolean {
   return d.free / d.total < 0.1 || d.free < 15 * GB;
 }
 
-/** The one thing worth doing now, or null (and the card stays hidden). Low space comes first. */
+/** The one thing worth doing now, or null (and the line stays hidden). Low space comes first. */
 export function attention(i: AttentionInput, fmt: (bytes: number) => string): Attention | null {
   const serious = (i.findings ?? []).filter((f) => SERIOUS.has(f.severity));
   if (i.disk && lowOnSpace(i.disk)) {
@@ -128,7 +167,12 @@ export function attention(i: AttentionInput, fmt: (bytes: number) => string): At
   }
   const f = serious[0];
   if (!f) return null;
-  return { kind: 'finding', title: f.title, detail: f.why ?? '', action: { label: 'Fix', finding: f.id }, more: serious.length - 1 };
+  const trust = TRUSTABLE.has(f.area ?? '');
+  return {
+    kind: 'finding', title: f.title, detail: f.why ?? '', action: { label: 'Fix', finding: f.id },
+    dismiss: { label: trust ? 'Trust' : 'Not now', finding: f.id, how: trust ? 'ignore' : 'snooze' },
+    more: serious.length - 1,
+  };
 }
 
 /** The quiet line under the greeting: "261,766 files · 98 GB free" (the weather chip follows it). */

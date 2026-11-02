@@ -4,6 +4,15 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 
 ## [Unreleased]
 
+### Changed — Home
+- Jump back in: recent files under the project or folder they belong to (a code repository's root, a top-level folder in Documents, Desktop or Developer, Downloads as one, or the folder they share), each with its newest files, small pictures or type icons, and Open folder. When there is no clear grouping it is one plain list. The arrow keys move through the files; Enter opens one.
+- Today, on by default: today's events (visible calendars, the same meeting once), tasks due with a box to tick off, important unread mail, and running timers, focus, Keep Awake and recordings. Each row opens its event, task or message. A column on the right of a wide window, in line on a narrow one, with its own Hide button; it follows calendar, task and mail changes rather than checking again on a timer.
+- Library tiles named and coloured as in the sidebar (All Images, All Videos, All Documents…), with counts and sizes, opening the same views; chips remain a choice in Edit Home.
+- The Attention block is now one line of suggestion: the title, how many more are on To do, the fix, and Trust (for a security or privacy finding: it stops being suggested) or Not now (asks again in a week).
+- The reading-your-folders line and Speed up now stay in the header, quieter.
+- Edit Home lists the new sections; settings from the earlier Home move on by themselves (Attention → Suggestions, Recent → Jump back in, Calendar today → Today, shown), keeping the person's order, spacing and hidden sections.
+- Planner opens a given task when asked (planner `task:<id>`), as Home's Today does.
+
 ### Changed — Computer use
 - Reading and pressing the controls in other apps now goes through agent-desktop (Apache-2.0, by Vercel Labs), a small program that comes with Keeper: one call reads the whole front window, hidden fields' contents stay hidden, and each control is found again by what it is (role, label, place) before it is pressed, so a press never lands on a different control after the app changed. A stale control is looked up once in a fresh reading; a press that may already have happened is reported, never repeated. Presses stay accessibility calls: the pointer only moves when Keeper clicks a control's centre itself, as before. When agent-desktop is missing, fails or is too slow, Keeper uses its own system scripts (System Events, UI Automation, AT-SPI) as before.
 - Use this computer → Accessibility engine: Automatic (agent-desktop first) or Built-in (only the system scripts).

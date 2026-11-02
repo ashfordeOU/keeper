@@ -6,8 +6,8 @@
 //     again when the selection is cleared, and the Show/Hide toggle;
 //   • the sidebar: a rail in a narrow window that opens on hover and stays open
 //     when pinned, "Show all" in a long section, and its width kept after a reload;
-//   • Home: the quiet header, the Attention card, Library chips, one Recent
-//     section with filters (kept after a reload) and Edit Home.
+//   • Home: the quiet header, the one-line suggestion, Jump back in grouped by
+//     project, the Today column (wide) or in line (narrow), Library tiles and Edit Home.
 // Screenshots in light and dark, at 1440×900 and in a small window.
 const { _electron } = require('playwright');
 const fs = require('fs');
@@ -70,44 +70,69 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await both('home-small');
     await size(1440, 900);
     if (process.env.LAYOUT_TAG === 'before') { await app.close(); return; }
-    // The calmer Home.
+    // Home: a quiet header, Jump back in grouped by folder, Today beside it, Library tiles.
     check(/files? · .* free/.test(await main.locator('[data-testid="home-line"]').textContent()), `one quiet line under the greeting ("${(await main.locator('[data-testid="home-line"]').textContent()).trim()}")`);
     check(await main.locator('[data-testid="home-rescan"]').count() === 1 && await main.getByRole('button', { name: /^Rescan$/ }).count() === 0, 'Rescan is a small icon button');
-    check(await main.locator('.home .card, .home .kind-tile').count() === 0, 'no big storage, clean-up or library cards');
-    check(await main.locator('[data-testid="home-library-chips"] .home-chip').count() >= 3, 'the Library is one row of chips');
+    check(await main.locator('.home .card, .home .kind-tile, .home-attention').count() === 0, 'no big storage, clean-up or attention cards');
+    const sugg = main.locator('[data-testid="home-suggestion"]');
+    if (await sugg.count()) {
+      const h = (await sugg.boundingBox())?.height ?? 0;
+      check(h <= 48, `a suggestion is one line (${Math.round(h)} px)`);
+    } else console.log('  (no suggestion on this computer)');
+    const tiles = main.locator('[data-testid="home-library-tiles"] .home-tile');
+    check(await tiles.count() >= 3 && /^All /.test((await tiles.first().locator('.lbl').textContent()) ?? ''), 'the Library is tiles named as in the sidebar (All Images…)');
     const recent = main.locator('[data-testid="home-recent"] .home-recent-item');
     const nRecent = await recent.count();
-    check(nRecent >= 1 && nRecent <= 6, `one Recent section with at most 6 items (${nRecent})`);
-    const tw = (await main.locator('.home-recent-grid .thumb').first().boundingBox())?.width ?? 0;
-    check(tw >= 100 && tw <= 200, `small pictures (${Math.round(tw)} px)`);
-    const attention = await main.locator('[data-testid="home-attention"]').count();
-    console.log(`  (Attention card ${attention ? 'shown' : 'hidden'} on this computer)`);
-    // A filter, kept after a reload.
-    await main.click('[data-testid="recent-document"]');
-    await sleep(800);
-    const docs = await main.locator('[data-testid="home-recent"] .home-recent-item').allTextContents();
-    check(docs.length > 0 && !docs.some((t) => /\.(png|jpe?g|webp|avif|tiff|dng|svg|mp4|mov|webm|mp3|wav|flac|zip)\b/i.test(t)), `the Documents filter shows documents (${docs.length})`);
-    await reload();
-    check(await main.locator('[data-testid="recent-document"]').getAttribute('aria-pressed') === 'true', 'the chosen filter is kept after a reload');
-    await main.click('[data-testid="recent-all"]');
-    // No layout shift while the pictures load: the grid's boxes keep their size.
-    const box1 = await main.locator('.home-recent-grid .thumb').first().boundingBox();
+    check(nRecent >= 1, `Jump back in shows recent files (${nRecent}, ${await main.locator('[data-testid="home-group"]').count()} groups)`);
+    const groups = await main.locator('[data-testid="home-group"]').count();
+    if (groups) {
+      check(await main.locator('[data-testid="home-open-folder"]').count() >= 1, 'each project group has Open folder');
+      await main.locator('[data-testid="home-open-folder"]').first().click();
+      await sleep(700);
+      check(await main.locator('.home').count() === 0, 'Open folder opens the folder');
+      await nav('home');
+      await sleep(800);
+    }
+    const today = main.locator('[data-testid="home-today"]');
+    check(await today.count() === 1, 'Today is shown by default');
+    const tb = await today.boundingBox();
+    const jb = await main.locator('[data-section="jump"]').boundingBox();
+    check(tb && jb && tb.x > jb.x + jb.width - 2, 'on a wide window Today is a column on the right');
+    // The keyboard: the arrow keys move through the files.
+    await recent.first().focus();
+    await main.keyboard.press('ArrowDown');
+    check(await main.evaluate(() => document.activeElement?.classList.contains('home-recent-item') && document.activeElement !== document.querySelector('[data-testid="home-recent"] .home-recent-item')), 'the arrow keys move between recent files');
+    // No layout shift while the pictures load.
+    const box1 = await recent.first().locator('.thumb').boundingBox();
     await sleep(1500);
-    const box2 = await main.locator('.home-recent-grid .thumb').first().boundingBox();
+    const box2 = await recent.first().locator('.thumb').boundingBox();
     check(box1 && box2 && Math.abs(box1.y - box2.y) < 1 && Math.abs(box1.height - box2.height) < 1, 'pictures load without moving anything');
-    // Edit Home: hide Library, show Storage, compact spacing; kept after a reload.
+    // Narrow: one column, Today in its place in the order.
+    await size(760, 800);
+    const tb2 = await today.boundingBox();
+    const jb2 = await main.locator('[data-section="jump"]').boundingBox();
+    check(tb2 && jb2 && tb2.y > jb2.y, 'on a narrow window Today follows Jump back in in one column');
+    await size(1440, 900);
+    // Today's own hide button, kept after a reload.
+    await main.click('[data-testid="home-today-hide"]');
+    await reload();
+    check(await main.locator('[data-testid="home-today"]').count() === 0, 'Today can be hidden from its own header');
+    // Edit Home: hide Library, show Storage, move Today up, compact spacing; kept after a reload.
     await main.click('[data-testid="home-edit"]');
     await sleep(300);
     await both('home-edit');
     await main.locator('[data-testid="home-edit-library"] button[role="switch"]').click();
     await main.locator('[data-testid="home-edit-usage"] button[role="switch"]').click();
+    await main.locator('[data-testid="home-edit-today"] button[role="switch"]').click();
+    await main.getByRole('button', { name: 'Move Jump back in up' }).click();
     await main.locator('[data-testid="home-edit-panel"]').getByRole('radio', { name: 'Compact' }).click();
     await main.click('[data-testid="home-edit"]');
     await reload();
-    check(await main.locator('[data-section="library"]').count() === 0 && await main.locator('[data-section="usage"]').count() === 1, 'Edit Home hides and shows sections, kept after a reload');
+    check(await main.locator('[data-section="library"]').count() === 0 && await main.locator('[data-section="usage"]').count() === 1 && await main.locator('[data-section="today"]').count() === 1, 'Edit Home hides and shows sections, kept after a reload');
+    check(await main.evaluate(async () => (await window.keeper.settings.get()).home.order[0]) === 'jump', 'and the order is kept');
     check(await main.locator('.home.home-compact').count() === 1, 'the spacing choice is kept');
     await both('home-edited');
-    await main.evaluate(async () => { const s = await window.keeper.settings.get(); await window.keeper.settings.set({ home: { ...s.home, hidden: ['weather', 'usage', 'calendar'], density: 'comfortable', recent: 'all' } }); });
+    await main.evaluate(async () => { const s = await window.keeper.settings.get(); await window.keeper.settings.set({ home: { ...s.home, order: ['suggestions', 'jump', 'today', 'library', 'pinned', 'weather', 'usage'], hidden: ['weather', 'usage'], density: 'comfortable' } }); });
     await sleep(500);
     // A few themes.
     for (const t of ['glass', 'retro', 'minimal']) {

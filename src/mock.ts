@@ -123,6 +123,11 @@ const seeds: [string, number, number, Partial<FileEntry>?][] = [
   ['Documents/Projects/site/index.html', 0.02, 4],
   ['Documents/Projects/site/app.ts', 0.03, 4],
   ['Documents/Archive/old-photos.zip', 1900, 700],
+  // A code project worked on today (Home's Jump back in groups it).
+  ['Developer/orbit-app/src/checkout.tsx', 0.01, 0.04],
+  ['Developer/orbit-app/README.md', 0.004, 0.15],
+  ['Developer/orbit-app/public/hero.png', 0.6, 0.6],
+  ['Developer/orbit-app/docs/roadmap.md', 0.003, 1.5],
 ];
 
 const files: FileEntry[] = seeds

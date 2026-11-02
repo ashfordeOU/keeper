@@ -1,65 +1,114 @@
 /* SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 */
 /* Home: a calm start. Few borders, quiet secondary text, room to breathe;
-   Edit Home sets how roomy (Comfortable, Compact, Spacious). */
+   Edit Home sets how roomy (Comfortable, Compact, Spacious). On a wide window
+   Today is a column on the right; on a narrow one everything is one column. */
 
-.home { --home-gap: 30px; --home-thumb: 120px; max-width: 1100px; }
-.home-compact { --home-gap: 20px; --home-thumb: 100px; }
-.home-spacious { --home-gap: 42px; --home-thumb: 140px; }
+.home { --home-gap: 32px; --home-side: 300px; max-width: 1240px; }
+.home-compact { --home-gap: 22px; }
+.home-spacious { --home-gap: 44px; }
 .home .section { margin-top: var(--home-gap); }
-.home .section-head { justify-content: flex-start; margin-bottom: 12px; }
-.home .section-head h2 { font-size: 14.5px; font-weight: 620; color: var(--text); }
+.home .section-head { justify-content: flex-start; margin-bottom: 12px; gap: 10px; }
+.home .section-head h2 { font-size: 14.5px; font-weight: 620; color: var(--text); margin: 0; }
+.home :is(button):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* A quiet text button: links within Home. */
+.home-link { display: inline-flex; align-items: center; gap: 3px; border: 0; background: none; padding: 2px 6px; margin: -2px -6px; border-radius: 6px; color: var(--accent); font: inherit; font-size: 12.5px; cursor: default; white-space: nowrap; }
+.home-link:hover { background: var(--accent-soft); }
+.home-link.quiet { color: var(--text-3); }
+.home-link.quiet:hover { color: var(--text-2); background: var(--bg-hover); }
 
 /* Header: the greeting, one quiet line and two small buttons. */
 .home-head { position: relative; display: flex; align-items: flex-start; gap: 12px; padding-bottom: 4px; }
 .home-head h1 { font-size: 26px; font-weight: 680; margin: 0 0 6px; }
-.home-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; color: var(--text-3); font-size: 13px; font-variant-numeric: tabular-nums; }
+.home-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; color: var(--text-3); font-size: 13px; font-variant-numeric: tabular-nums; }
+.home-line .home-link { font-size: 12.5px; margin: -2px 0; }
 .home-weather-chip { display: inline-flex; align-items: center; gap: 5px; border: 0; background: none; padding: 2px 8px; margin-left: -2px; border-radius: 999px; color: var(--text-3); font: inherit; font-size: 13px; cursor: default; }
 .home-weather-chip::before { content: '·'; margin-right: 4px; }
 .home-weather-chip:hover { background: var(--bg-hover); color: var(--text-2); }
 .home-head-actions { display: flex; gap: 2px; }
 .home-head-actions .btn.on { color: var(--accent); background: var(--accent-soft); }
-.home-progress { position: absolute; left: 0; right: 0; bottom: -6px; height: 2px; border-radius: 2px; overflow: hidden; background: color-mix(in srgb, var(--accent) 14%, transparent); }
-.home-progress i { display: block; height: 100%; background: var(--accent); transition: width .3s ease; }
+.home-progress { position: absolute; left: 0; right: 0; bottom: -6px; height: 2px; border-radius: 2px; overflow: hidden; background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.home-progress i { display: block; height: 100%; background: color-mix(in srgb, var(--accent) 70%, transparent); transition: width .3s ease; }
 .home-progress.indeterminate i { width: 30%; animation: home-slide 1.3s ease-in-out infinite; }
 @keyframes home-slide { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
 
-/* Cards are light: a soft background instead of a border and a shadow. */
-.home-card { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: var(--radius); background: color-mix(in srgb, var(--bg-elev) 70%, transparent); border: 1px solid transparent; text-align: left; font: inherit; color: inherit; width: 100%; }
-.home-attention { margin-top: var(--home-gap); background: color-mix(in srgb, var(--warn) 9%, var(--bg-elev)); color: var(--text); }
-.home-attention > svg { color: var(--warn); flex: none; }
-.home-attention p { margin: 3px 0 0; }
-.home-card.weather-mini { cursor: default; }
-.home-card.weather-mini .t { font-size: 30px; font-weight: 300; }
+/* Two columns on a wide window: the main sections, and Today. */
+.home-body { display: flex; align-items: flex-start; gap: 40px; }
+.home-main { flex: 1; min-width: 0; }
+.home-side { flex: none; width: var(--home-side); position: sticky; top: 0; }
+.home-side .home-today { margin-top: var(--home-gap); }
+.home-main .home-today { margin-top: var(--home-gap); }
 
-/* Library: one row of chips with counts. */
+/* The one suggestion: a single line, not a block. */
+.home-suggest { display: flex; align-items: center; gap: 10px; margin-top: calc(var(--home-gap) - 8px); padding: 6px 8px 6px 12px; min-height: 38px; border-radius: 10px; background: color-mix(in srgb, var(--warn) 7%, transparent); font-size: 13px; min-width: 0; }
+.home-suggest > svg { color: var(--warn); flex: none; }
+.home-suggest.space > svg { color: var(--text-2); }
+.home-suggest-title { border: 0; background: none; padding: 0; font: inherit; color: var(--text); cursor: default; text-align: left; min-width: 0; flex: 0 1 auto; }
+.home-suggest-title:hover { text-decoration: underline; text-underline-offset: 2px; }
+.home-suggest .btn.sm { height: 26px; }
+
+/* Jump back in: a card per project, a few files each. */
+.home-groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; }
+.home-group { min-width: 0; padding: 12px 12px 8px; border-radius: var(--radius); background: color-mix(in srgb, var(--bg-elev) 70%, transparent); border: 1px solid var(--line); }
+.home-group-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; padding: 0 2px; }
+.home-group-ico { width: 26px; height: 26px; flex: none; display: grid; place-items: center; border-radius: 7px; background: var(--accent-soft); color: var(--accent); }
+.home-group-ico.downloads { background: color-mix(in srgb, var(--c-installer) 16%, transparent); color: var(--c-installer); }
+.home-group-ico.other { background: var(--bg-hover); color: var(--text-3); }
+.home-group-name { font-weight: 600; font-size: 13.5px; }
+.home-group-dir { font-size: 11.5px; color: var(--text-3); }
+.home-group-items, .home-flat { display: flex; flex-direction: column; gap: 1px; }
+.home-flat { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 2px 14px; }
+.home-recent-item { display: flex; align-items: center; gap: 10px; width: 100%; min-width: 0; padding: 5px 6px; border: 0; border-radius: 8px; background: none; color: inherit; font: inherit; text-align: left; cursor: default; }
+.home-recent-item:hover { background: var(--bg-hover); }
+.home-recent-item.selected { background: var(--accent-soft); }
+.home-recent-item .thumb { width: 34px; height: 34px; flex: none; border-radius: 7px; background: var(--bg-sunk); overflow: hidden; display: grid; place-items: center; contain: strict; }
+.home-recent-item .thumb img { width: 100%; height: 100%; object-fit: cover; }
+.home-recent-item .thumb .ext-tile { font-size: 8px; }
+.home-recent-item .name { flex: 1; font-size: 13px; }
+.home-recent-item .meta { flex: none; font-size: 11.5px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+
+/* Today: compact rows. */
+.home-today .section-head { margin-bottom: 8px; }
+.home-today-date { min-width: 0; }
+.home-today-list { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-direction: column; gap: 1px; }
+.home-today-row { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; padding: 5px 6px; border: 0; border-radius: 7px; background: none; color: var(--text); font: inherit; font-size: 13px; text-align: left; cursor: default; }
+.home-today-row:hover { background: var(--bg-hover); }
+.home-today-row .t { flex: 1; }
+.home-today-row .when { flex: none; color: var(--text-3); font-size: 12px; font-variant-numeric: tabular-nums; }
+.home-today-row .when.late { color: var(--danger); }
+.home-today-row .dot { width: 3px; height: 16px; border-radius: 2px; flex: none; }
+.home-today-list:not(.home-running) .home-today-row .when { min-width: 44px; }
+.home-running .home-today-row { background: var(--accent-soft); color: var(--text); }
+.home-running .home-today-row > svg { color: var(--accent); flex: none; }
+.home-running .home-today-row .t { font-weight: 550; }
+.home-task { display: flex; align-items: center; gap: 2px; padding-left: 6px; }
+.home-task input { margin: 0; flex: none; accent-color: var(--accent); }
+.home-today > .home-link { margin: -4px 0 10px; }
+.home-today-empty { margin: 0 0 10px 6px; }
+.home-today-links { display: flex; gap: 14px; padding: 2px 6px; border-top: 1px solid var(--line); padding-top: 10px; }
+.home-today-links .home-link { margin: 0 -6px; color: var(--text-3); }
+.home-today-links .home-link:hover { color: var(--text-2); background: var(--bg-hover); }
+
+/* Library: tiles with counts in the kinds' colours (as in the sidebar). */
+.home-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.home-tile { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 10px; align-items: center; padding: 10px 12px; border-radius: var(--radius); border: 1px solid var(--line); background: transparent; color: inherit; font: inherit; text-align: left; cursor: default; min-width: 0; }
+.home-tile:hover { background: var(--bg-hover); }
+.home-tile .ico { grid-row: 1 / span 2; width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; color: #fff; }
+.home-tile .lbl { font-size: 12.5px; color: var(--text-2); }
+.home-tile .n { font-size: 15px; font-weight: 640; font-variant-numeric: tabular-nums; display: flex; gap: 6px; align-items: baseline; min-width: 0; white-space: nowrap; }
+.home-tile .n small { font-size: 11.5px; font-weight: 400; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; }
+
+/* Library as chips (Edit Home), and pinned folders. */
 .home-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .home-chip { display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--text-2); font: inherit; font-size: 13px; cursor: default; }
 .home-chip:hover { background: var(--bg-hover); color: var(--text); }
 .home-chip > i { width: 8px; height: 8px; border-radius: 3px; flex: none; }
 .home-chip .n { color: var(--text-3); font-variant-numeric: tabular-nums; }
-.home-chip:focus-visible, .home-filters button:focus-visible, .home-recent-item:focus-visible, .home-weather-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-/* Recent: filters, at most six items with small fixed-size pictures. */
-.home-filters { display: inline-flex; flex-wrap: wrap; gap: 2px; margin-left: 10px; }
-.home-filters button { border: 0; background: none; height: 26px; padding: 0 10px; border-radius: 999px; color: var(--text-3); font: inherit; font-size: 12.5px; cursor: default; }
-.home-filters button:hover { color: var(--text-2); background: var(--bg-hover); }
-.home-filters button.on { color: var(--text); background: var(--bg-active); font-weight: 600; }
-.home-recent-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--home-thumb), 1fr)); gap: 16px; }
-.home-recent-item { min-width: 0; cursor: default; border-radius: 12px; padding: 4px; margin: -4px; }
-.home-recent-item.selected { background: var(--accent-soft); }
-.home-recent-grid .thumb { width: 100%; aspect-ratio: 4 / 3; border-radius: 10px; background: var(--bg-sunk); overflow: hidden; display: grid; place-items: center; contain: strict; }
-.home-recent-grid .thumb img { width: 100%; height: 100%; object-fit: cover; }
-.home-recent-item .name { font-size: 12.5px; margin-top: 7px; }
-.home-recent-item .meta { font-size: 11.5px; color: var(--text-3); }
-.home-recent-list { display: flex; flex-direction: column; gap: 2px; }
-.home-recent-list .home-recent-item { display: flex; align-items: center; gap: 12px; margin: 0; padding: 6px 8px; }
-.home-recent-list .home-recent-item:hover { background: var(--bg-hover); }
-.home-recent-list .thumb { width: 40px; height: 32px; flex: none; border-radius: 6px; background: var(--bg-sunk); overflow: hidden; display: grid; place-items: center; contain: strict; }
-.home-recent-list .thumb img { width: 100%; height: 100%; object-fit: cover; }
-.home-recent-list .meta-wrap { min-width: 0; display: flex; gap: 12px; align-items: baseline; flex: 1; }
-.home-recent-list .name { margin: 0; flex: 1; }
-
-.home-agenda { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+/* Cards are light: a soft background instead of a border and a shadow. */
+.home-card { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: var(--radius); background: color-mix(in srgb, var(--bg-elev) 70%, transparent); border: 1px solid transparent; text-align: left; font: inherit; color: inherit; width: 100%; }
+.home-card.weather-mini { cursor: default; }
+.home-card.weather-mini .t { font-size: 30px; font-weight: 300; }
 
 /* Edit Home */
 .home-edit { flex-direction: column; align-items: stretch; margin-top: 18px; border-color: var(--line); background: var(--bg-elev); }
@@ -67,8 +116,9 @@
 .home-edit-list li { display: flex; align-items: center; gap: 6px; padding: 8px 0; border-top: 1px solid var(--line); }
 
 @media (max-width: 700px) {
-  .home-filters { margin-left: 0; }
   .home .section-head { flex-wrap: wrap; }
+  .home-groups { grid-template-columns: 1fr; }
+  .home-suggest { flex-wrap: wrap; }
 }
 @media (prefers-reduced-motion: reduce) {
   .home-progress.indeterminate i { animation: none; width: 100%; opacity: .5; }

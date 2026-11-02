@@ -22,12 +22,13 @@ export function Planner({ initial }: { initial?: string }) {
   const today = useToday();
   const insightsOn = useFeature('insights');
   const { toast } = useStore();
-  const [view, setView] = useState<View>((initial as View) || 'today');
+  const [view, setView] = useState<View>(initial && !initial.startsWith('task:') && initial !== 'new' ? (initial as View) : 'today');
   const [sel, setSel] = useState<string | null>(null);
   const [weekStart, setWeekStart] = useState(1);
   const [composeKey, setComposeKey] = useState(0);
   useEffect(() => { void api.pim.prefs().then((p) => setWeekStart(p.weekStart)).catch(() => undefined); }, []);
-  useEffect(() => { if (initial === 'new') { setView('today'); setComposeKey(Date.now()); } else if (initial) setView(initial as View); }, [initial]);
+  // "task:<id>" opens one task (from Home's Today) on the Today view.
+  useEffect(() => { if (initial === 'new') { setView('today'); setComposeKey(Date.now()); } else if (initial?.startsWith('task:')) { setView('today'); setSel(initial.slice(5)); } else if (initial) setView(initial as View); }, [initial]);
 
   const projects = projectsOf(tasks);
   const overdue = useMemo(() => overdueTasks(tasks), [tasks]);
