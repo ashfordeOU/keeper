@@ -127,6 +127,8 @@ const api = {
   },
   // Keeper's own processes and services (System → Keeper's processes).
   svc: group('svc', ['list', 'stop', 'restart', 'stopAllWork', 'held', 'limits']),
+  // Keeper's parts in processes of their own (Settings → Features).
+  suite: group('suite', ['parts', 'restart', 'separate']),
   appInfo: group('appInfo', ['updateStatus', 'checkForUpdates', 'installUpdate', 'downloadUpdate', 'whatsNew', 'releasesPage', 'versionNotes', 'scheduleUpdate', 'loginItem', 'setLoginItem', 'openUpdateWindow', 'installAndRelaunch', 'skipVersion', 'openUpdateSettings', 'openAbout', 'about']),
   island: {
     ...group('island', ['state', 'addToShelf', 'removeFromShelf', 'clearShelf', 'copyClip', 'pinClip', 'removeClip', 'clearClips', 'focus', 'keepAwake', 'presentation', 'media', 'openAgent', 'transcribe', 'typeText', 'dismiss']),

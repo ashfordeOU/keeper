@@ -31,7 +31,7 @@ const hasInhibit = (() => { try { execFileSync('systemd-inhibit', ['--list', '--
 const inhibitors = () => { try { return execFileSync('systemd-inhibit', ['--list', '--no-pager', '--no-legend'], { encoding: 'utf8', timeout: 5000 }); } catch { return ''; } };
 
 (async () => {
-  const env = { ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME, NODE_OPTIONS: '', XDG_CONFIG_HOME: HOME + '/.config', XDG_DATA_HOME: HOME + '/.local/share' };
+  const env = { ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME, NODE_OPTIONS: '', KEEPER_SUITE: 'shared', XDG_CONFIG_HOME: HOME + '/.config', XDG_DATA_HOME: HOME + '/.local/share' };
   const app = await _electron.launch({ executablePath: path.join(APP, 'node_modules/.bin/electron'), args: [APP, '--no-sandbox'], env });
   const errors = [];
   let main;

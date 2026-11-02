@@ -44,7 +44,7 @@ async function launch(home) {
   const app = await _electron.launch({
     executablePath: path.resolve(__dirname, '../../node_modules/.bin/electron'),
     args: [path.resolve(__dirname, '../..'), '--no-sandbox'],
-    env: { ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME: home, NODE_OPTIONS: '', XDG_CONFIG_HOME: home + '/.config', XDG_DATA_HOME: home + '/.local/share', KEEPER_MESH_FORCE_RELAY: '1' },
+    env: { ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME: home, NODE_OPTIONS: '', KEEPER_SUITE: 'shared', XDG_CONFIG_HOME: home + '/.config', XDG_DATA_HOME: home + '/.local/share', KEEPER_MESH_FORCE_RELAY: '1' },
   });
   let main;
   for (let i = 0; i < 160 && !main; i++) {

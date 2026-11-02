@@ -47,7 +47,7 @@ async function launch(port) {
   const app = await _electron.launch({
     executablePath: path.resolve(__dirname, '../../node_modules/.bin/electron'),
     args: [path.resolve(__dirname, '../..'), '--no-sandbox'],
-    env: { ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME, NODE_OPTIONS: '', XDG_CONFIG_HOME: HOME + '/.config', XDG_DATA_HOME: HOME + '/.local/share', KEEPER_SALES_BASE: `http://127.0.0.1:${port}`, KEEPER_CLAUDE_DIR: claudeDir, KEEPER_CODEX_DIR: codexDir },
+    env: { ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME, NODE_OPTIONS: '', KEEPER_SUITE: 'shared', XDG_CONFIG_HOME: HOME + '/.config', XDG_DATA_HOME: HOME + '/.local/share', KEEPER_SALES_BASE: `http://127.0.0.1:${port}`, KEEPER_CLAUDE_DIR: claudeDir, KEEPER_CODEX_DIR: codexDir },
   });
   let main;
   let isl;

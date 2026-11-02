@@ -143,6 +143,8 @@ async function check() {
   if (process.platform === 'darwin' && !(await macCrashRecorded())) {
     log(`Keeper (pid ${pid}) was stopped without a crash (Force Quit or similar); it is not started again`);
     stopLeftovers();
+    // The suite's parts (the Island, widgets) wait for Keeper to come back; tell them it will not (docs/SUITE.md).
+    try { writeFileSync(path.join(dir, '..', 'suite', 'app-stopped.json'), JSON.stringify({ pid, at: Date.now() })); } catch { /* no parts */ }
     process.exit(0);
   }
   // Any copy of Keeper already running for this person (restarted by them, or by macOS) holds the

@@ -41,6 +41,27 @@ function loadView(win: BrowserWindow, query: Record<string, string>) {
 }
 
 let ctx: IslandContext;
+/** What the windows need (in the app, and in the Island's own process). */
+let winCtx: Pick<IslandContext, 'preload' | 'lockDown'>;
+
+/**
+ * When the Island runs in a process of its own (electron/suite/part.ts), the app's
+ * IslandWindows hands everything to that process instead (electron/suite/remote.ts).
+ */
+export interface IslandRemote {
+  ensure(reposition: boolean): void;
+  setHidden(hidden: boolean): void;
+  openOn(tab: string): void;
+  send(channel: string, ...args: unknown[]): void;
+  count(): number;
+  openClips(): void;
+  hideClips(): Promise<void>;
+  toggleClips(): void;
+}
+let remote: IslandRemote | null = null;
+export function setIslandRemote(r: IslandRemote | null) {
+  remote = r;
+}
 
 // ---------------------------------------------------------------- Island windows
 
@@ -201,6 +222,7 @@ export class IslandWindows {
 
   /** Creates, moves or removes Island windows to match settings and the connected displays. */
   ensure(reposition = false) {
+    if (remote) return remote.ensure(reposition);
     const s = settings().island;
     if (!s.enabled) return this.destroyAll();
     // Another window type is chosen: the windows are made again (a window's type is fixed when it is made).
@@ -253,14 +275,14 @@ export class IslandWindows {
         roundedCorners: false,
         // macOS would otherwise push the window below the menu bar, away from the notch.
         enableLargerThanScreen: process.platform === 'darwin' && !this.belowBarFallback,
-        webPreferences: { preload: ctx.preload, contextIsolation: true, sandbox: true },
+        webPreferences: { preload: winCtx.preload, contextIsolation: true, sandbox: true },
       });
       keepUnmanaged(win, 'island');
       win.setAlwaysOnTop(true, 'status');
       // Clicks pass through the clear space around the pill to whatever is underneath.
       clickThrough(win, true);
       win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: false, skipTransformProcessType: true });
-      ctx.lockDown(win);
+      winCtx.lockDown(win);
       loadView(win, { view: 'island', display: String(d.id) });
       win.once('ready-to-show', () => { if (!this.hidden) win.showInactive(); });
       win.on('closed', () => { if (this.wins.get(d.id) === win) { this.wins.delete(d.id); this.expanded.delete(d.id); this.sizes.delete(d.id); this.want.delete(d.id); } });
@@ -329,6 +351,7 @@ export class IslandWindows {
   }
 
   setHidden(hidden: boolean) {
+    if (remote) return remote.setHidden(hidden);
     this.hidden = hidden;
     for (const w of this.wins.values()) {
       if (w.isDestroyed()) continue;
@@ -339,6 +362,7 @@ export class IslandWindows {
 
   /** Opens the Island on the display under the pointer, on a given tab. */
   openOn(tab: string) {
+    if (remote) return remote.openOn(tab);
     this.setHidden(false);
     const d = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
     const win = this.wins.get(d.id) ?? [...this.wins.values()][0];
@@ -347,10 +371,12 @@ export class IslandWindows {
   }
 
   send(channel: string, ...args: unknown[]) {
+    if (remote) return remote.send(channel, ...args);
     for (const w of this.wins.values()) if (!w.isDestroyed()) w.webContents.send(channel, ...args);
   }
 
   count() {
+    if (remote) return remote.count();
     return this.wins.size;
   }
 }
@@ -362,6 +388,7 @@ export const islandWindows = new IslandWindows();
 let clips: BrowserWindow | null = null;
 
 export function openClips() {
+  if (remote) return remote.openClips();
   const d = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
   const w = 460;
   const h = 520;
@@ -369,10 +396,10 @@ export function openClips() {
     clips = new BrowserWindow({
       ...overlayOptions('clips'),
       width: w, height: h, frame: false, transparent: true, resizable: false, show: false, skipTaskbar: true, alwaysOnTop: true,
-      fullscreenable: false, hasShadow: false, webPreferences: { preload: ctx.preload, contextIsolation: true, sandbox: true },
+      fullscreenable: false, hasShadow: false, webPreferences: { preload: winCtx.preload, contextIsolation: true, sandbox: true },
     });
     keepUnmanaged(clips, 'clips');
-    ctx.lockDown(clips);
+    winCtx.lockDown(clips);
     loadView(clips, { view: 'clips' });
     clips.on('blur', () => clips?.hide());
     clips.on('closed', () => (clips = null));
@@ -388,7 +415,8 @@ export function openClips() {
   clips.webContents.send('event:island-changed');
 }
 
-function hideClips() {
+export function hideClips(): void | Promise<void> {
+  if (remote) return remote.hideClips();
   if (!clips || clips.isDestroyed() || !clips.isVisible()) return;
   clips.hide();
   // Give focus back to the app the user was in, so the paste lands there.
@@ -397,10 +425,18 @@ function hideClips() {
 
 export const clipsWindowOpen = () => !!clips && !clips.isDestroyed() && clips.isVisible();
 
+/** The clipboard picker's shortcut: open it, or close it when it is open. */
+export function toggleClips() {
+  if (remote) return remote.toggleClips();
+  if (clipsWindowOpen()) void hideClips();
+  else openClips();
+}
+
 // ---------------------------------------------------------------- IPC & shortcuts
 
 export function registerIslandIpc(c: IslandContext) {
   ctx = c;
+  winCtx = c;
   const svc = c.islandSvc;
   svc.hooks = {
     compress: (paths) => c.files.compress(paths),
@@ -444,7 +480,7 @@ export function registerIslandIpc(c: IslandContext) {
   h('island.updateClip', (id: string, patch: { note?: string }) => svc.updateClip(id, patch));
   h('island.toggleClipCollection', (id: string, name: string) => svc.toggleClipCollection(id, name));
   h('island.pasteClip', async (id: string) => {
-    hideClips();
+    await hideClips();
     await svc.pasteClip(id);
   });
   h('island.exportClips', async () => {
@@ -459,7 +495,6 @@ export function registerIslandIpc(c: IslandContext) {
     return svc.importClips(await fsp.readFile(r.filePaths[0], 'utf8'));
   });
   h('island.openClips', () => openClips());
-  ipcMain.on('island.closeClips', () => hideClips());
   h('island.openShelf', () => islandWindows.openOn('shelf'));
   h('island.openTab', (tab: string) => islandWindows.openOn(String(tab ?? 'home')));
   h('island.hide', (hidden: boolean) => svc.hide(hidden));
@@ -483,6 +518,21 @@ export function registerIslandIpc(c: IslandContext) {
     }, 15_000);
   }
 
+  // The windows: here, or in the Island's own process (electron/suite/part.ts).
+  if (!remote) registerIslandWindowIpc(c);
+  else h('island.placementPreview', async () => { await refreshPlaceEnv(); return placementPreview(); });
+}
+
+/**
+ * The Island's windows themselves: where they go, their size, displays coming and
+ * going. In the app, or in the Island's own process (which has only this part).
+ */
+export function registerIslandWindowIpc(c: Pick<IslandContext, 'preload' | 'lockDown'>) {
+  winCtx = c;
+  const h = (name: string, fn: (...args: never[]) => unknown) => ipcMain.handle(name, (_e, ...args) => fn(...(args as never[])));
+  ipcMain.on('island.setExpanded', (e, v: boolean) => islandWindows.setExpanded(e.sender, v));
+  ipcMain.on('island.setInteractive', (e, v: boolean) => islandWindows.setInteractive(e.sender, !!v));
+  ipcMain.on('island.closeClips', () => void hideClips());
   // Follow displays being connected and disconnected.
   // The notch and menu bar are measured again first (a resolution change moves them).
   const replace = () => void refreshPlaceEnv().finally(() => islandWindows.ensure(true));
@@ -529,7 +579,7 @@ export function registerIslandShortcuts() {
       /* invalid or taken by another app */
     }
   };
-  reg(s.pasteShortcut, () => (clipsWindowOpen() ? hideClips() : openClips()));
+  reg(s.pasteShortcut, () => toggleClips());
   reg(s.shelfShortcut, () => islandWindows.openOn('shelf'));
   // New task: the Island's Tasks with the composer focused.
   if (featureOn('islandTodos')) reg(s.taskShortcut ?? '', () => islandWindows.openOn('reminders:new'));

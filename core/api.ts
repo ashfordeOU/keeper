@@ -428,6 +428,8 @@ export interface KeeperApi extends KeeperApiX {
   session: import('./api-session').SessionApi;
   /** Keeper's own processes and services */
   svc: import('./api-session').SvcApi;
+  /** the suite's parts: the Island and widgets in processes of their own (docs/SUITE.md) */
+  suite?: import('./api-suite').SuiteApi;
   /** the Island's tools: Ask, AI usage, sales, stocks, notes, to-dos, teleprompter, shortcuts */
   islandTools: IslandToolsApi;
   places: PlacesApi;

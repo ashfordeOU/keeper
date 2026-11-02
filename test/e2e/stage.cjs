@@ -48,7 +48,7 @@ async function until(fn, ms = 10_000, step = 250) {
     await wait(step);
   }
 }
-const env = { ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME, KEEPER_SKIP_TOUR: '1', NODE_OPTIONS: '', XDG_CONFIG_HOME: HOME + '/.config', XDG_DATA_HOME: HOME + '/.local/share', XDG_CURRENT_DESKTOP: 'GNOME' };
+const env = { ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME, KEEPER_SKIP_TOUR: '1', NODE_OPTIONS: '', KEEPER_SUITE: 'shared', XDG_CONFIG_HOME: HOME + '/.config', XDG_DATA_HOME: HOME + '/.local/share', XDG_CURRENT_DESKTOP: 'GNOME' };
 const gs = (schema, key) => execFileSync('gsettings', ['get', schema, key], { env, encoding: 'utf8' }).trim();
 const gset = (schema, key, v) => execFileSync('gsettings', ['set', schema, key, v], { env });
 const SOUND = ['org.gnome.desktop.sound', 'event-sounds'];

@@ -12,6 +12,7 @@ import { terminalHostPid } from '../services/terminal';
 import { allHosts, onHostRestarted, onHostsChanged } from './host';
 import { logEvent } from '../resilience';
 import { limitsStatus, startLimits } from './limits';
+import { listParts, restartPart } from '../suite/supervisor';
 
 const broadcast = (channel: string, ...args: unknown[]) => {
   for (const w of BrowserWindow.getAllWindows()) if (!w.isDestroyed()) w.webContents.send(`event:${channel}`, ...args);
@@ -73,6 +74,15 @@ export async function listProcesses(): Promise<KeeperProcess[]> {
       detail: h.pid ? 'Runs on its own: if it stops, the rest of Keeper carries on and it starts again.' : 'Not running: it starts when needed and stops after a quiet while.',
     });
   }
+  // The suite's parts (the Island, widgets) in processes of their own: all of each part's processes together.
+  for (const p of await listParts()) {
+    if (!p.separate) continue;
+    out.push({
+      id: `part:${p.id}`, label: p.name, kind: 'service', pid: p.pid, state: p.state === 'running' ? 'running' : p.state === 'starting' ? 'starting' : p.state === 'waiting' || p.state === 'failed' ? 'crashed' : 'stopped',
+      cpu: p.cpu, memory: p.memory, startedAt: p.startedAt, restarts: p.restarts, lastCrash: p.lastCrash, feature: p.feature, canStop: false, canRestart: p.wanted,
+      detail: p.state === 'failed' ? 'Stopped after crashing again and again; Restart tries once more.' : `Its own Keeper process${p.processes > 1 ? ` (and ${p.processes - 1} helper${p.processes > 2 ? 's' : ''})` : ''}: it stays when the main window stops, and starts again if it stops.`,
+    });
+  }
   const tpid = terminalHostPid();
   if (tpid) out.push({ id: 'terminal-host', label: 'Terminal sessions', kind: 'service', pid: tpid, state: 'running', cpu: 0, memory: await rssOf(tpid), feature: 'terminal', canStop: false, canRestart: false, detail: 'Keeps your terminals running when Keeper’s windows close, and after a crash.' });
   return out;
@@ -97,6 +107,7 @@ export function registerSvcIpc() {
       return [];
     }
     if (id.startsWith('window:')) webContents.fromId(Number(id.slice(7)))?.reload();
+    if (id.startsWith('part:')) restartPart(id.slice(5) as 'island' | 'widgets');
     const h = allHosts().find((x) => `svc:${x.opts.name}` === id);
     if (h) await h.restart().catch(() => undefined);
     return listProcesses();

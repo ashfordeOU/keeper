@@ -386,10 +386,18 @@ async function once() {
     }));
     const pageOf = (pid) => info.pages.filter((p) => p.pid === pid).map((p) => new URL(p.url).searchParams.get('view') || 'page').join('+');
     const known = new Set(info.metrics.map((m) => m.pid));
+    // The suite's parts (docs/SUITE.md) are Keeper processes of their own: named by their role, and
+    // their page, graphics and zygote processes by the part they belong to.
+    const argsOf = (pid) => { try { return fs.readFileSync(`/proc/${pid}/cmdline`, 'utf8').split('\0'); } catch { return []; } };
+    const parentOf = (pid) => { try { const st = fs.readFileSync(`/proc/${pid}/stat`, 'utf8'); return +st.slice(st.lastIndexOf(')') + 2).split(' ')[1]; } catch { return 0; } };
+    const partOf = (pid) => { for (let p = pid, i = 0; p > 1 && i < 6; p = parentOf(p), i++) { const r = argsOf(p).find((x) => x.startsWith('--keeper-role=')); if (r) return r.slice(14); } return ''; };
     const others = tree(root).filter((p) => p !== root && !known.has(p)).map((pid) => {
       let name = 'process';
-      try { name = path.basename(fs.readFileSync(`/proc/${pid}/cmdline`, 'utf8').split('\0').find((x) => /\.cjs$/.test(x)) ?? fs.readFileSync(`/proc/${pid}/comm`, 'utf8').trim()); } catch { /* gone */ }
-      return { pid, type: 'Child', name };
+      const a = argsOf(pid);
+      const part = partOf(pid);
+      const type = a.find((x) => x.startsWith('--type='))?.slice(7);
+      try { name = part ? `${part} ${type ?? 'main'}` : path.basename(a.find((x) => /\.cjs$/.test(x)) ?? fs.readFileSync(`/proc/${pid}/comm`, 'utf8').trim()); } catch { /* gone */ }
+      return { pid, type: part ? 'Part' : 'Child', name };
     });
     const procs = [...info.metrics, ...others].map((m) => {
       const mem = memOf(m.pid);

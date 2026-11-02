@@ -26,6 +26,21 @@ function loadView(win: BrowserWindow, query: Record<string, string>) {
 }
 
 let ctx: WidgetsContext | null = null;
+
+/**
+ * When the widgets run in a process of their own (electron/suite/part.ts), the app
+ * hands the windows' work to it (electron/suite/remote.ts).
+ */
+export interface WidgetsRemote {
+  sync(): void;
+  arrange(on: boolean): void;
+  tint(color: string | null): void;
+  count(): number;
+}
+let remote: WidgetsRemote | null = null;
+export function setWidgetsRemote(r: WidgetsRemote | null) {
+  remote = r;
+}
 const widgetWins = new Map<string, BrowserWindow>();
 const saveTimers = new Map<string, NodeJS.Timeout>();
 let arranging = false;
@@ -90,6 +105,7 @@ function openWidget(cfg: WidgetConfig) {
 
 /** Opens, updates and closes widget windows to match settings. */
 export function syncWidgets() {
+  if (remote) return remote.sync();
   if (!ctx) return;
   // Desktop widgets switched off in Settings → Features: every widget window closes.
   const list = featureOn('widgets') ? normalizeWidgets(settings().widgets) : [];
@@ -102,11 +118,12 @@ export function syncWidgets() {
   for (const cfg of list) openWidget(cfg);
 }
 
-export const widgetWindowCount = () => widgetWins.size;
+export const widgetWindowCount = () => (remote ? remote.count() : widgetWins.size);
 
 /** Arrange mode: every widget can be dragged (even locked ones) and snaps to edges and neighbours. */
 export function setArranging(on: boolean) {
   arranging = on;
+  remote?.arrange(on);
   syncWidgets();
   for (const w of widgetWins.values()) if (!w.isDestroyed()) w.webContents.send('event:widgets-arrange', on);
   ctx?.broadcast('widgets-arrange', on);
@@ -116,6 +133,7 @@ export function setArranging(on: boolean) {
 export function setWidgetTint(color: string | null) {
   if (color === tint) return;
   tint = color;
+  remote?.tint(color);
   for (const w of widgetWins.values()) if (!w.isDestroyed()) w.webContents.send('event:widgets-changed');
 }
 
@@ -133,6 +151,17 @@ async function photosIn(folder: string): Promise<string[]> {
   } catch {
     return [];
   }
+}
+
+/** The widget windows' own calls, answered where the windows are (the app, or the widgets' process). */
+export function registerWidgetWindowIpc(c: WidgetsContext) {
+  ctx = c;
+  ipcMain.handle('widgets.current', (e) => {
+    const id = widgetFor(e.sender);
+    return normalizeWidgets(settings().widgets).find((w) => w.id === id) ?? null;
+  });
+  ipcMain.handle('widgets.arranging', () => arranging);
+  ipcMain.handle('widgets.tint', () => tint);
 }
 
 export function registerWidgetsIpc(c: WidgetsContext) {
@@ -154,11 +183,12 @@ export function registerWidgetsIpc(c: WidgetsContext) {
     return saved;
   });
   h('widgets.photos', (folder: string) => photosIn(folder));
+  h('widgets.arrange', (on: boolean) => { setArranging(!!on); return arranging; });
+  // The widgets' process answers these itself for its windows; the app keeps them for its own pages.
   ipcMain.handle('widgets.current', (e) => {
     const id = widgetFor(e.sender);
     return normalizeWidgets(settings().widgets).find((w) => w.id === id) ?? null;
   });
-  h('widgets.arrange', (on: boolean) => { setArranging(!!on); return arranging; });
   h('widgets.arranging', () => arranging);
   h('widgets.tint', () => tint);
   // Typing into a widget (the Week's "+ add", the world clock's city field): desktop-layer
@@ -171,4 +201,17 @@ export function registerWidgetsIpc(c: WidgetsContext) {
     win.webContents.focus();
     return true;
   });
+}
+
+/** In the widgets' process: what the app said (arrange mode, the tint). */
+export function applyWidgetsState(state: { arranging?: boolean; tint?: string | null }) {
+  if (state.tint !== undefined && state.tint !== tint) {
+    tint = state.tint;
+    for (const w of widgetWins.values()) if (!w.isDestroyed()) w.webContents.send('event:widgets-changed');
+  }
+  if (state.arranging !== undefined && state.arranging !== arranging) {
+    arranging = state.arranging;
+    syncWidgets();
+    for (const w of widgetWins.values()) if (!w.isDestroyed()) w.webContents.send('event:widgets-arrange', arranging);
+  }
 }

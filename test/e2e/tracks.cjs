@@ -42,7 +42,7 @@ function png() {
   const tileUrl = `http://127.0.0.1:${tiles.address().port}/{z}/{x}/{y}.png`;
   const recvPort = 21000 + Math.floor(Math.random() * 20000);
 
-  const app = await _electron.launch({ executablePath: path.join(ROOT, 'node_modules/.bin/electron'), args: [ROOT, '--no-sandbox'], env: { ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME, TZ: 'UTC', NODE_OPTIONS: '', XDG_CONFIG_HOME: HOME + '/.config', XDG_DATA_HOME: HOME + '/.local/share', KEEPER_TRACKS_TILE_URL: tileUrl, KEEPER_SKIP_TOUR: '1' } });
+  const app = await _electron.launch({ executablePath: path.join(ROOT, 'node_modules/.bin/electron'), args: [ROOT, '--no-sandbox'], env: { ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME, TZ: 'UTC', NODE_OPTIONS: '', KEEPER_SUITE: 'shared', XDG_CONFIG_HOME: HOME + '/.config', XDG_DATA_HOME: HOME + '/.local/share', KEEPER_TRACKS_TILE_URL: tileUrl, KEEPER_SKIP_TOUR: '1' } });
   const errors = [];
   let main;
   for (let i = 0; i < 60 && !main; i++) { main = app.windows().find((w) => w.url().includes('view=app')); if (!main) await sleep(500); }

@@ -37,7 +37,7 @@ async function until(fn, ms = 10_000, step = 250) {
 
 (async () => {
   const haveSpeech = WAV && fs.existsSync(WAV) && fs.existsSync(path.join(userData, 'models', 'whisper-tiny'));
-  const env = { ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME, NODE_OPTIONS: '', KEEPER_SKIP_TOUR: '1', XDG_CONFIG_HOME: HOME + '/.config', XDG_DATA_HOME: HOME + '/.local/share' };
+  const env = { ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME, NODE_OPTIONS: '', KEEPER_SUITE: 'shared', KEEPER_SKIP_TOUR: '1', XDG_CONFIG_HOME: HOME + '/.config', XDG_DATA_HOME: HOME + '/.local/share' };
   const args = [APP, '--no-sandbox', '--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', ...(haveSpeech ? [`--use-file-for-fake-audio-capture=${WAV}`] : [])];
   const app = await _electron.launch({ executablePath: path.join(APP, 'node_modules/.bin/electron'), args, env });
   let main;

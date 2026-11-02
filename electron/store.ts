@@ -51,7 +51,34 @@ export function settings(): AllSettings {
   return current;
 }
 
+/**
+ * In a part of the suite (the Island, widgets: electron/suite/part.ts) the app
+ * owns settings.json: changes are sent to it, and its answer is adopted here.
+ */
+let remoteWriter: ((patch: Partial<AllSettings>) => Promise<AllSettings>) | null = null;
+export function setSettingsWriter(fn: (patch: Partial<AllSettings>) => Promise<AllSettings>) {
+  remoteWriter = fn;
+}
+
+/** Settings as the app has them now (a part hears of every change). */
+export function adoptSettings(next: AllSettings) {
+  const prev = settings();
+  current = next;
+  for (const l of listeners) {
+    try {
+      l(next, prev);
+    } catch (e) {
+      console.error('settings listener failed', e);
+    }
+  }
+}
+
 export async function updateSettings(patch: Partial<AllSettings>): Promise<AllSettings> {
+  if (remoteWriter) {
+    const next = await remoteWriter(patch);
+    adoptSettings(next);
+    return next;
+  }
   const prev = settings();
   const next: AllSettings = mergeSettings(prev, { ...prev, ...patch, island: { ...prev.island, ...(patch.island ?? {}) }, ai: { ...prev.ai, ...(patch.ai ?? {}) }, platform: { ...prev.platform, ...(patch.platform ?? {}) } });
   current = next;

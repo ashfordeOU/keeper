@@ -71,7 +71,7 @@ if (!cliOnly) {
     // code the CommonJS names it expects (require, __filename, __dirname), and every
     // piece sits next to main.mjs so __dirname is the same everywhere.
     {
-      ...common, entryPoints: { main: 'electron/main.ts' }, outdir: 'dist-electron', format: 'esm', splitting: true,
+      ...common, entryPoints: { main: 'electron/boot.ts' }, outdir: 'dist-electron', format: 'esm', splitting: true,
       outExtension: { '.js': '.mjs' }, chunkNames: 'main-[hash]', minifyWhitespace: !watch, minifySyntax: !watch,
       banner: { js: "import { createRequire as __keeperRequire } from 'node:module'; import { fileURLToPath as __keeperPath } from 'node:url'; import { dirname as __keeperDir } from 'node:path'; const require = __keeperRequire(import.meta.url); const __filename = __keeperPath(import.meta.url); const __dirname = __keeperDir(__filename);" + INTEROP },
       plugins: [lazyPackageInterop],

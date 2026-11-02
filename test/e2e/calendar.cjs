@@ -57,7 +57,7 @@ const ISLAND_LINK = ics([['BEGIN:VEVENT', 'UID:dentist@old', `DTSTART:${local(to
   const icsFile = path.join(HOME, 'Downloads', 'team.ics');
   fs.writeFileSync(icsFile, IMPORT);
 
-  const app = await _electron.launch({ executablePath: path.resolve(__dirname, '../../node_modules/.bin/electron'), args: [path.resolve(__dirname, '../..'), '--no-sandbox'], env: { ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME, NODE_OPTIONS: '', XDG_CONFIG_HOME: HOME + '/.config', XDG_DATA_HOME: HOME + '/.local/share' } });
+  const app = await _electron.launch({ executablePath: path.resolve(__dirname, '../../node_modules/.bin/electron'), args: [path.resolve(__dirname, '../..'), '--no-sandbox'], env: { ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME, NODE_OPTIONS: '', KEEPER_SUITE: 'shared', XDG_CONFIG_HOME: HOME + '/.config', XDG_DATA_HOME: HOME + '/.local/share' } });
   let main;
   let isl;
   for (let i = 0; i < 60 && !(main && isl); i++) {

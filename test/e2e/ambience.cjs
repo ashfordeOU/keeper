@@ -26,7 +26,7 @@ for (const d of ['Downloads', 'Desktop', 'Documents', 'Pictures/Trips']) fs.mkdi
 fs.mkdirSync(SHOTS, { recursive: true });
 
 (async () => {
-  const env = { ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME, NODE_OPTIONS: '', XDG_CONFIG_HOME: path.join(HOME, '.config'), XDG_DATA_HOME: path.join(HOME, '.local/share'), XDG_SESSION_TYPE: 'x11', KEEPER_AMBIENCE_DRYRUN: DRY, KEEPER_SKIP_TOUR: '1' };
+  const env = { ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME, NODE_OPTIONS: '', KEEPER_SUITE: 'shared', XDG_CONFIG_HOME: path.join(HOME, '.config'), XDG_DATA_HOME: path.join(HOME, '.local/share'), XDG_SESSION_TYPE: 'x11', KEEPER_AMBIENCE_DRYRUN: DRY, KEEPER_SKIP_TOUR: '1' };
   delete env.WAYLAND_DISPLAY;
   delete env.XDG_CURRENT_DESKTOP;
   const app = await _electron.launch({ executablePath: path.join(ROOT, 'node_modules/.bin/electron'), args: [ROOT, '--no-sandbox', '--enable-unsafe-swiftshader'], env }); // test only: software WebGL under Xvfb, so the shaders really compile and draw

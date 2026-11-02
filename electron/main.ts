@@ -4,6 +4,10 @@
 
 // Must stay the first import: test runs move every folder before anything reads one.
 import './test-home';
+// Next: it notes every IPC handler as it is registered, so the suite's parts can call them too.
+import { partBroadcast, startHub } from './suite/hub';
+import { registerSuiteIpc, separateAtStart, startSuite } from './suite/supervisor';
+import { installRemotes, uninstallRemotes } from './suite/remote';
 import type { TransferOptions } from '../core/fileops';
 import { clipboardImage, readFile as readCaptureFile } from './services/capture';
 import { addBusyCheck } from './services/busy';
@@ -189,6 +193,8 @@ const capturePreload = () => path.join(__dirname, 'capture-preload.cjs');
 
 function broadcast(channel: string, ...args: unknown[]) {
   for (const w of BrowserWindow.getAllWindows()) if (!w.isDestroyed()) w.webContents.send(`event:${channel}`, ...args);
+  // The Island's and the widgets' windows, when they run in processes of their own.
+  if (separateAtStart) partBroadcast(`event:${channel}`, args);
 }
 
 // Reading the folders reports every thousand files: windows hear of it at most twice a second.
@@ -1226,8 +1232,6 @@ function registerIpc() {
   handle('island.media', (a: 'toggle' | 'next' | 'previous' | 'seek', v?: number) => islandSvc.media(a, v));
   handle('island.openAgent', (id: string) => islandSvc.openAgent(id));
   handle('island.dismiss', (id: string) => islandSvc.dismiss(id));
-  ipcMain.on('island.setExpanded', (e, v: boolean) => islandWindows.setExpanded(e.sender, v));
-  ipcMain.on('island.setInteractive', (e, v: boolean) => islandWindows.setInteractive(e.sender, !!v));
 }
 
 // ---------------------------------------------------------------- start
@@ -1273,6 +1277,9 @@ app.whenReady().then(async () => {
   // Voice: dictation anywhere (talk key, pill, Island) and meeting recording (Island, tray, call detection).
   registerVoiceIpc({ islandSvc, broadcast, updateTray: () => void updateTray(), show: (route) => showMain(route), preload: preload(), lockDown, reregister: () => registerShortcuts() });
   registerIpc();
+  registerSuiteIpc();
+  // The Island and widgets in processes of their own: their windows are reached through the suite (docs/SUITE.md).
+  if (separateAtStart) installRemotes();
   registerIslandIpc({
     islandSvc, files, index, preload: preload(), lockDown, broadcast, updateTray: () => void updateTray(), setTrayTitle: (t) => tray?.setTitle(t),
     ocrImage: async (img) => (await import('./services/vision')).ocrImage(img, settings().ocrLanguages),
@@ -1602,8 +1609,19 @@ let studioSince: number | undefined;
   // Keeper's browser for AIs, private desktops, task plans, saved sign-ins and recorded workflows.
   void import('./services/cu').then((m) => m.initCu({ broadcast, alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }), downloaded: () => libraryChanged() })).catch((e) => console.error('computer use', e));
   libraryChanged();
-  createIsland();
-  syncWidgets();
+  if (separateAtStart) {
+    // Every handler is registered by now: the parts can connect and call them (a part that
+    // outlived a crash of the app reconnects here instead of starting again).
+    if (await startHub(() => settings())) startSuite();
+    else {
+      uninstallRemotes({ preload: preload(), lockDown });
+      createIsland();
+      syncWidgets();
+    }
+  } else {
+    createIsland();
+    syncWidgets();
+  }
   Menu.setApplicationMenu(appMenu());
   await updateTray();
   registerShortcuts();
