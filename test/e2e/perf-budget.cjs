@@ -17,7 +17,9 @@
 //        KEEPER_PERF_MODE=minimal …               the Minimal resource mode (checks slow
 //                                                 down, no graphics card)
 //        KEEPER_PERF_JSON=file                    also appends each run's figures as JSON
-//        KEEPER_PERF_MODE=big …                   a big library: the main process's heap stays bounded
+//        KEEPER_PERF_MODE=big …                   a big library: the main process's heap stays bounded,
+//                                                 and its processor time and disk writes while reading it
+//        KEEPER_PERF_MODE=battery …               a big library on battery: listed, then nothing else
 //
 // Big library mode: tens of thousands of files and 1,500 long text
 // documents (KEEPER_PERF_FILES, KEEPER_PERF_DOCS, KEEPER_PERF_DOC_KB), read
@@ -29,6 +31,19 @@
 // library's text, and saving the brain and the index took several times
 // that again) fails it outright. About two minutes.
 //
+// The same run also checks what reading the library costs the computer: the
+// main process's average processor use (percent of one core, from the window
+// appearing until everything is read) and the bytes it wrote to disk (wchar
+// from /proc/<pid>/io: every write, whether or not it reached the disk yet).
+// The writes caught the index and the brain being rewritten whole every few
+// seconds while text was read (gigabytes an hour on a big library).
+//
+// Battery mode: the computer pretends to be on battery with someone at it
+// (KEEPER_TEST_CONDITIONS, ignored by official builds). The folders are
+// listed (the library must stay right), and then reading text, pictures and
+// meaning waits for the charger: a minute after the listing, the main process
+// must be nearly idle, nothing must have been read and almost nothing written.
+//
 // For scale (docs/RESILIENCE.md, same machine and method): Dolphin idles at
 // about 0.01 % and 68 MB, GNOME Files at about 0.08 % and 228 MB.
 
@@ -38,7 +53,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const MODE = process.env.KEEPER_PERF_MODE === 'minimal' ? 'minimal' : process.env.KEEPER_PERF_MODE === 'big' ? 'big' : 'balanced';
+const MODE = ['minimal', 'big', 'battery'].includes(process.env.KEEPER_PERF_MODE) ? process.env.KEEPER_PERF_MODE : 'balanced';
 const BIG = {
   files: Number(process.env.KEEPER_PERF_FILES ?? 40_000),
   docs: Number(process.env.KEEPER_PERF_DOCS ?? 1500),
@@ -49,6 +64,27 @@ const BIG = {
   // at the 640 MB cap about a minute in.
   peakMB: Number(process.env.KEEPER_PERF_PEAK_MB ?? 600),
   settledMB: Number(process.env.KEEPER_PERF_SETTLED_MB ?? 320),
+  // The main process's average use of one core from its start until everything is read.
+  // Measured with these defaults (same machine): 77 % before background work shared one paced
+  // allowance and the folders were listed with direct calls, 25 % after (38 % in an earlier
+  // version that paced less evenly). Pacing keeps it near the allowed share whatever the
+  // machine's speed, so the budget sits between the two with room for a slower CI machine.
+  cpuPct: Number(process.env.KEEPER_PERF_BIG_CPU ?? 45),
+  // Bytes the main process wrote in that time (index, its journal, the brain). Measured: 371 MB
+  // before the index kept a journal and the brain's saves were spaced by size, 190–193 MB after (the
+  // index once, the journal, the brain two or three times). A return of the whole-file rewrite
+  // every 15 seconds goes well past it.
+  writtenMB: Number(process.env.KEEPER_PERF_WRITTEN_MB ?? 260),
+};
+// On battery with someone at the computer, a minute after the folders are listed. Measured:
+// 0.8–1.6 % of a core (most of it the Island's own checks: clipboard, media, microphone)
+// and 0.1 MB written; reading the waiting documents takes 8–20 % and megabytes.
+const BATTERY = {
+  files: Number(process.env.KEEPER_PERF_FILES ?? 20_000),
+  docs: Number(process.env.KEEPER_PERF_DOCS ?? 300),
+  seconds: Number(process.env.KEEPER_PERF_SECONDS ?? 60),
+  cpuPct: Number(process.env.KEEPER_PERF_BATTERY_CPU ?? 3),
+  writtenMB: Number(process.env.KEEPER_PERF_BATTERY_WRITTEN_MB ?? 2),
 };
 const BUDGET = {
   // Target 0.5 %. Measured (2,000 files, after two minutes to settle, medians of three):
@@ -155,14 +191,14 @@ function makeHome() {
 }
 
 /** Many small files of every kind, plus long text documents with a large vocabulary (what the brain and text reading hold). */
-function makeBigHome() {
+function makeBigHome(size = BIG) {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'keeper-perf-big-'));
   // Kinds Keeper lists without reading inside (pictures and PDFs would wait on the paced text recognition for minutes).
   const exts = ['mp4', 'mov', 'mkv', 'zip', 'mp3', 'm4a', 'dmg', 'key', 'psd', 'avi'];
   const tops = ['Pictures', 'Videos', 'Downloads', 'Music', 'Desktop'];
   let n = 0;
   const made = new Set();
-  for (let i = 0; i < BIG.files; i++) {
+  for (let i = 0; i < size.files; i++) {
     const dir = path.join(home, tops[i % tops.length], `set-${Math.floor(i / 500)}`, `part-${Math.floor(i / 50) % 10}`);
     if (!made.has(dir)) { fs.mkdirSync(dir, { recursive: true }); made.add(dir); }
     fs.writeFileSync(path.join(dir, `file ${i}.${exts[i % exts.length]}`), 'x'.repeat(64));
@@ -172,12 +208,12 @@ function makeBigHome() {
   const vocab = Array.from({ length: 200_000 }, (_v, i) => Math.floor(i * 7919 + 1e6).toString(36) + (i % 11 ? '' : 'é'));
   let seed = 7;
   const rnd = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
-  for (let i = 0; i < BIG.docs; i++) {
+  for (let i = 0; i < size.docs; i++) {
     const dir = path.join(home, 'Documents', `papers-${Math.floor(i / 100)}`);
     if (i % 100 === 0) fs.mkdirSync(dir, { recursive: true });
     const words = [];
     let len = 0;
-    while (len < BIG.docKB * 1024) {
+    while (len < (size.docKB ?? 80) * 1024) {
       const w = vocab[Math.floor(rnd() ** 3 * vocab.length)];
       words.push(w);
       len += w.length + 1;
@@ -187,6 +223,15 @@ function makeBigHome() {
     n++;
   }
   return { home, files: n };
+}
+
+/** Processor seconds (user + system) and bytes written so far by one process. */
+function costOf(pid) {
+  const st = fs.readFileSync(`/proc/${pid}/stat`, 'utf8');
+  const f = st.slice(st.lastIndexOf(')') + 2).split(' ');
+  let wchar = 0;
+  try { wchar = +(fs.readFileSync(`/proc/${pid}/io`, 'utf8').match(/^wchar: (\d+)/m) ?? [0, 0])[1]; } catch { /* not readable */ }
+  return { cpuS: (+f[11] + +f[12]) / 100, wchar, at: Date.now() };
 }
 
 /** Reads the main process's memory (and collects garbage first when asked). */
@@ -219,6 +264,8 @@ async function big() {
   app.process().stderr?.on('data', (d) => { stderr = (stderr + d).slice(-20_000); });
   let peak = 0;
   let last = null;
+  let mainPid = 0;
+  let cost = null;
   // Keeper's processes, so none is left running if the main one dies (its helpers then lose their parent).
   const pids = new Set();
   const t0 = Date.now();
@@ -229,6 +276,8 @@ async function big() {
       if (!win) await sleep(250);
     }
     if (!win) throw new Error(crashed || 'the main window never appeared');
+    // The main process itself (the launcher started it): its processor time and writes count from its start.
+    mainPid = await ask(() => app.evaluate(() => process.pid));
     // Until the library is read, the text in documents is too, and the brain has caught up (it saves 20 s after).
     let quiet = 0;
     for (let i = 0; i < 900 && !crashed; i++) {
@@ -244,6 +293,7 @@ async function big() {
       if (quiet >= 15) break;
       await sleep(2000);
     }
+    if (mainPid && !crashed) cost = costOf(mainPid);
     last = crashed ? null : await ask(() => mainMemory(app, true));
     if (!last) {
       const oom = stderr.split('\n').find((l) => /out of memory|heap limit/i.test(l));
@@ -255,7 +305,51 @@ async function big() {
     fs.rmSync(home, { recursive: true, force: true });
     fs.rmSync(user, { recursive: true, force: true });
   }
-  return { files, seconds: Math.round((Date.now() - t0) / 1000), peakMB: peak / 1048576, settledMB: last.heapUsed / 1048576, rssMB: last.rss / 1048576 };
+  const seconds = (cost?.at ?? Date.now()) - t0;
+  return { files, seconds: Math.round((Date.now() - t0) / 1000), peakMB: peak / 1048576, settledMB: last.heapUsed / 1048576, rssMB: last.rss / 1048576, cpuPct: cost ? (cost.cpuS / (seconds / 1000)) * 100 : NaN, writtenMB: cost ? cost.wchar / 1048576 : NaN };
+}
+
+/** On battery with someone at the computer: the folders are listed, then nothing else runs. */
+async function battery() {
+  const t0 = Date.now();
+  const { home, files } = makeBigHome({ files: BATTERY.files, docs: BATTERY.docs, docKB: 20 });
+  const user = fs.mkdtempSync(path.join(os.tmpdir(), 'keeper-perf-cfg-'));
+  const app = await _electron.launch({
+    executablePath: path.join(ROOT, 'node_modules', '.bin', 'electron'),
+    args: [ROOT, '--no-sandbox', `--user-data-dir=${user}`],
+    env: { ...process.env, HOME: home, XDG_CONFIG_HOME: user, NODE_OPTIONS: '', KEEPER_SKIP_TOUR: '1', KEEPER_TEST_CONDITIONS: JSON.stringify({ onBattery: true, idleSec: 0 }) },
+  });
+  const launcher = app.process().pid;
+  try {
+    let win;
+    for (let i = 0; i < 240 && !win; i++) {
+      for (const w of app.windows()) if (/view=app|index\.html$/.test(w.url()) && (await w.$('.sidebar').catch(() => null))) win = w;
+      if (!win) await sleep(250);
+    }
+    if (!win) throw new Error('the main window never appeared');
+    const pid = await app.evaluate(() => process.pid);
+    let st;
+    for (let i = 0; i < 600; i++) {
+      st = await win.evaluate(() => window.keeper.library.status());
+      if (!st.indexing && st.files >= files * 0.9) break;
+      await sleep(500);
+    }
+    const listedAfter = Math.round((Date.now() - t0) / 1000);
+    // A moment for the start to settle (windows drawing, first checks), then a minute of "nothing".
+    await sleep(15_000);
+    const a = costOf(pid);
+    const pendingBefore = (await win.evaluate(() => window.keeper.library.status())).ocrPending;
+    await sleep(BATTERY.seconds * 1000);
+    const b = costOf(pid);
+    const after = await win.evaluate(() => window.keeper.library.status());
+    const line = await win.evaluate(() => document.querySelector('[data-testid="home-line"]')?.textContent ?? '').catch(() => '');
+    return { files, listedAfter, cpuPct: ((b.cpuS - a.cpuS) / ((b.at - a.at) / 1000)) * 100, writtenMB: (b.wchar - a.wchar) / 1048576, pendingBefore, pendingAfter: after.ocrPending, background: after.background, line };
+  } finally {
+    await app.close().catch(() => undefined);
+    for (const p of tree(launcher)) try { process.kill(p, 'SIGKILL'); } catch { /* gone */ }
+    fs.rmSync(home, { recursive: true, force: true });
+    fs.rmSync(user, { recursive: true, force: true });
+  }
 }
 
 async function once() {
@@ -312,14 +406,26 @@ async function once() {
 }
 
 (async () => {
+  if (MODE === 'battery') {
+    const r = await battery().catch((e) => ({ error: e instanceof Error ? e.message : String(e) }));
+    if (r.error) {
+      console.log(`perf budget (battery): FAILED: ${r.error}`);
+      process.exit(1);
+    }
+    // Nothing read while on battery: the queue of documents waiting did not shrink.
+    const waited = r.pendingBefore > 0 && r.pendingAfter >= r.pendingBefore && r.background?.state === 'waiting';
+    const ok = waited && r.cpuPct <= BATTERY.cpuPct && r.writtenMB <= BATTERY.writtenMB;
+    console.log(`perf budget (battery): ${r.files} files listed in ${r.listedAfter} s; then ${BATTERY.seconds} s with ${r.pendingAfter} documents waiting (${r.background?.reason ?? 'not waiting'}; Home says "${r.line}"): main process ${r.cpuPct.toFixed(2)}% of a core (budget ${BATTERY.cpuPct}%), ${r.writtenMB.toFixed(2)} MB written (budget ${BATTERY.writtenMB} MB) ${ok ? 'OK' : 'OVER'}`);
+    process.exit(ok ? 0 : 1);
+  }
   if (MODE === 'big') {
     const r = await big().catch((e) => ({ error: e instanceof Error ? e.message : String(e) }));
     if (r.error) {
       console.log(`perf budget (big library): FAILED: ${r.error} (heap capped at ${BIG.heapLimitMB} MB)`);
       process.exit(1);
     }
-    const ok = r.peakMB <= BIG.peakMB && r.settledMB <= BIG.settledMB;
-    console.log(`perf budget (big library): ${r.files} files in ${r.seconds} s, main-process heap peak ${r.peakMB.toFixed(0)} MB (budget ${BIG.peakMB} MB), settled ${r.settledMB.toFixed(0)} MB (budget ${BIG.settledMB} MB), resident ${r.rssMB.toFixed(0)} MB ${ok ? 'OK' : 'OVER'}`);
+    const ok = r.peakMB <= BIG.peakMB && r.settledMB <= BIG.settledMB && r.cpuPct <= BIG.cpuPct && r.writtenMB <= BIG.writtenMB;
+    console.log(`perf budget (big library): ${r.files} files in ${r.seconds} s, main-process heap peak ${r.peakMB.toFixed(0)} MB (budget ${BIG.peakMB} MB), settled ${r.settledMB.toFixed(0)} MB (budget ${BIG.settledMB} MB), resident ${r.rssMB.toFixed(0)} MB; main process ${r.cpuPct.toFixed(1)}% of a core on average while reading (budget ${BIG.cpuPct}%), ${r.writtenMB.toFixed(0)} MB written (budget ${BIG.writtenMB} MB) ${ok ? 'OK' : 'OVER'}`);
     process.exit(ok ? 0 : 1);
   }
   for (let attempt = 1; attempt <= 2; attempt++) {
