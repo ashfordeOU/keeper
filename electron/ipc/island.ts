@@ -77,17 +77,19 @@ export class IslandWindows {
   private expanded = new Set<number>();
   private hidden = false;
   private follow: NodeJS.Timeout | null = null;
-  /** the size the pill asked for, so a closed Island covers nothing but itself */
+  /** the size the page asked for, so the Island's window covers nothing but the Island, closed or open */
   private sizes = new Map<number, { width: number; height: number }>();
 
   // Where it goes is worked out in core/island-place.ts: the notch, menu and
   // top bars, taskbars, the camera, a turned tablet, and the nudge from Settings.
+  // The page asks for the size of what it shows; the window is that size, centred where the closed or the
+  // open Island belongs and never bigger than its placement. A transparent window bigger than the Island
+  // can still be drawn by the system (macOS 26 showed it as a grey frame around the open Island).
   private bounds(display: Electron.Display, expanded: boolean) {
     const p = placementFor(display);
-    if (expanded) return p.expanded;
+    const c = expanded ? p.expanded : p.collapsed;
     const want = this.sizes.get(display.id);
-    if (!want) return p.collapsed;
-    const c = p.collapsed;
+    if (!want) return c;
     const width = Math.max(8, Math.min(c.width, Math.round(want.width)));
     const height = Math.max(4, Math.min(c.height, Math.round(want.height)));
     const x = p.edge === 'left' ? c.x : p.edge === 'right' ? c.x + c.width - width : Math.round(c.x + (c.width - width) / 2);
@@ -151,14 +153,15 @@ export class IslandWindows {
     setImmediate(() => { if (!win.isDestroyed()) this.place(id, win, r, 'put back'); });
   }
 
-  /** The pill's own size; the closed window shrinks to it (and grows back when the pill does). */
-  setCollapsedSize(sender: WebContents, width: number, height: number) {
+  /** The size of what the Island shows (the pill, a card, the panel); the window follows it. */
+  setShownSize(sender: WebContents, width: number, height: number) {
     for (const [id, win] of this.wins) {
       if (win.webContents !== sender || win.isDestroyed()) continue;
       const prev = this.sizes.get(id);
       if (prev && Math.abs(prev.width - width) < 1 && Math.abs(prev.height - height) < 1) return;
       this.sizes.set(id, { width, height });
-      if (!this.expanded.has(id)) this.place(id, win, this.bounds(this.displayOf(id), false), 'pill size');
+      const open = this.expanded.has(id);
+      this.place(id, win, this.bounds(this.displayOf(id), open), open ? 'open size' : 'pill size');
     }
   }
 
@@ -232,6 +235,8 @@ export class IslandWindows {
         ...overlayOptions('island'),
         ...first, frame: false, transparent: true, resizable: false, movable: false, skipTaskbar: true, alwaysOnTop: true,
         fullscreenable: false, hasShadow: false, focusable: false, show: false, backgroundColor: '#00000000',
+        // No corners or edge drawn by the system (macOS, Windows 11): the page draws the Island's whole shape.
+        roundedCorners: false,
         // macOS would otherwise push the window below the menu bar, away from the notch.
         enableLargerThanScreen: process.platform === 'darwin' && !this.belowBarFallback,
         webPreferences: { preload: ctx.preload, contextIsolation: true, sandbox: true },
@@ -458,7 +463,7 @@ export function registerIslandIpc(c: IslandContext) {
     });
   }
   ipcMain.handle('island.layout', (e) => islandWindows.layoutFor(e.sender));
-  ipcMain.on('island.setSize', (e, w: number, hgt: number) => { if (Number.isFinite(w) && Number.isFinite(hgt)) islandWindows.setCollapsedSize(e.sender, w, hgt); });
+  ipcMain.on('island.setSize', (e, w: number, hgt: number) => { if (Number.isFinite(w) && Number.isFinite(hgt)) islandWindows.setShownSize(e.sender, w, hgt); });
   h('island.placementPreview', async () => { await refreshPlaceEnv(); return placementPreview(); });
   h('island.placeLog', () => islandPlaceLog());
 }

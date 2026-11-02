@@ -65,13 +65,22 @@ const screenshot = (name) => { try { execFileSync('import', ['-window', 'root', 
   await wait(900);
   check(await isl.locator('.live-card').count() === 1, 'clicking opens the Live Activity card');
   b = await islandBounds();
-  check(b.width >= 600, `the window grows for the card (${b.width}×${b.height})`);
+  // The open window is the card itself (plus room for its shadow), never a frame around it.
+  const hugs = async () => {
+    const card = await isl.evaluate(() => { const r = document.querySelector('.isl-content').getBoundingClientRect(); return { w: r.width, h: r.height }; });
+    const w = await islandBounds();
+    return { ok: w.width >= card.w && w.height >= card.h && w.width - card.w <= 56 && w.height - card.h <= 34, text: `window ${w.width}×${w.height}, Island ${card.w}×${card.h}` };
+  };
+  let fit = await hugs();
+  check(b.width > layout.pill.width + 2 && fit.ok, `the window grows to the card and no further (${fit.text})`);
   screenshot('4-live-card');
 
   // More: the full panel.
   await isl.locator('.live-card button', { hasText: 'More' }).click();
   await wait(800);
   check(await isl.locator('.isl-panel .tabs').count() === 1, '“More” opens the full panel');
+  fit = await hugs();
+  check(fit.ok, `the window is the panel and no further (${fit.text})`);
   screenshot('5-panel');
 
   // Pointer leaves: back to the pill, and the window shrinks again.

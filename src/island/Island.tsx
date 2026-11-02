@@ -4,7 +4,7 @@
 
 import { OwlMark, type OwlMood } from '../components/OwlMark';
 import { resolveLanguage, translate } from '../i18n';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { IslandAlert, IslandState } from '../../core/api';
 import { formatDuration } from '../../core/format';
 import { focusLeft as focusShown, type LyricLine } from '../../core/island';
@@ -54,6 +54,10 @@ function mmss(ms: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
+/** how long the shape's morph from one state to the next takes (`.isl-shape` in island.css) */
+const SHAPE_MORPH_MS = 460;
+/** room around the open Island for its shadow or glow (`.isl-shadow` in island.css) */
+const HALO = 28;
 const timeOf = (t: number) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
 export function Island() {
@@ -219,13 +223,27 @@ export function Island() {
   const compact = { w: idleNotch ? gap : pillW, h: idleNotch ? pillH : pillH + hang };
   const bubble = secondary && !idleNotch ? pillH : 0;
   const ears = notch ? 10 : 0;
-  // The closed window is just big enough for the pill (kept centred) and its bubble.
-  useEffect(() => {
-    if (!layout) return;
-    const w = side ? compact.w + (bubble ? bubble + 6 : 0) : compact.w + 2 * ((bubble ? bubble + 6 : 0) + ears);
-    const h = side ? compact.h + (bubble ? bubble + 6 : 0) : compact.h;
-    api.island.setSize?.(w, h);
-  }, [layout, compact.w, compact.h, bubble, ears, side]);
+  // The window is never bigger than what is showing: the pill (kept centred) and its bubble when closed,
+  // the card or panel when open, plus room for a shadow or glow. Nothing else of the window is ever seen,
+  // so the system can never show it as a frame around the Island. It grows at once and shrinks only
+  // after the shape has finished its morph.
+  const winSize = useRef<{ w: number; h: number } | null>(null);
+  const sentSize = useRef<{ w: number; h: number } | null>(null);
+  const shrinkTo = useRef<{ w: number; h: number; t: number } | null>(null);
+  if (layout) winSize.current = side ? { w: compact.w + (bubble ? bubble + 6 : 0), h: compact.h + (bubble ? bubble + 6 : 0) } : { w: compact.w + 2 * ((bubble ? bubble + 6 : 0) + ears), h: compact.h };
+  useLayoutEffect(() => {
+    const want = winSize.current;
+    if (!want) return;
+    const send = (x: { w: number; h: number }) => { sentSize.current = x; api.island.setSize?.(x.w, x.h); };
+    const had = sentSize.current;
+    if (had && had.w === want.w && had.h === want.h) { if (shrinkTo.current) { window.clearTimeout(shrinkTo.current.t); shrinkTo.current = null; } return; }
+    if (shrinkTo.current && shrinkTo.current.w === want.w && shrinkTo.current.h === want.h) return;
+    if (shrinkTo.current) { window.clearTimeout(shrinkTo.current.t); shrinkTo.current = null; }
+    if (!had || (want.w >= had.w && want.h >= had.h)) { send(want); return; }
+    if (want.w > had.w || want.h > had.h) send({ w: Math.max(want.w, had.w), h: Math.max(want.h, had.h) });
+    shrinkTo.current = { ...want, t: window.setTimeout(() => { shrinkTo.current = null; send(want); }, SHAPE_MORPH_MS) };
+  });
+  useEffect(() => () => { if (shrinkTo.current) window.clearTimeout(shrinkTo.current.t); }, []);
 
   // The task a focus session is for (picked on the Timers tab).
   const [focusTask, setFocusTask] = useState('');
@@ -275,6 +293,12 @@ export function Island() {
   }[view];
   const full = { w: Math.max(box.w, Math.round(640 * sc)), h: Math.max(box.h, notchH + Math.round(300 * sc)) };
   const floating = layout?.anchor === 'below-bar' || side;
+  if (layout && view !== 'compact') {
+    // Open: the window is the card or panel itself (and the notch's ears), plus room for the shadow
+    // below a floating Island or the artwork glow, the only things ever drawn outside the shape.
+    const halo = glow || (plusSetting(isl, 'shadow') && !notch) ? HALO : 0;
+    winSize.current = side ? { w: box.w + halo, h: box.h + 2 * halo } : { w: box.w + 2 * Math.max(ears, halo), h: box.h + (halo ? halo + 6 : 0) };
+  }
   const r = view === 'compact' ? (floating ? box.h / 2 : Math.min(box.h / 2, 20 * sc)) : plusSetting(isl, 'cornerRadius') * sc;
   const edge = layout?.edge ?? isl?.edge ?? 'top';
   const dx = (full.w - box.w) / 2;
