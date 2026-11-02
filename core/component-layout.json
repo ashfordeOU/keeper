@@ -1,0 +1,30 @@
+{
+  "//": "What each downloadable component holds, where its files sit in a packaged Keeper, and where they go in the component. Read by core/components.ts (the app) and scripts/components.mjs (the release workflow). from: unpacked = resources/app.asar.unpacked, resources = resources, modules = the project's node_modules (plain JavaScript that is the same on every system). ${exe} is .exe on Windows. strip: removed from the core installer.",
+  "components": [
+    {
+      "id": "ffmpeg",
+      "probe": "ffmpeg${exe}",
+      "files": [
+        { "from": "unpacked", "path": "node_modules/ffmpeg-static/ffmpeg${exe}", "to": "ffmpeg${exe}", "strip": true },
+        { "from": "unpacked", "path": "node_modules/ffmpeg-static/ffmpeg.LICENSE", "to": "ffmpeg.LICENSE", "strip": true, "optional": true },
+        { "from": "unpacked", "path": "node_modules/ffmpeg-static/ffmpeg.README", "to": "ffmpeg.README", "strip": true, "optional": true }
+      ]
+    },
+    {
+      "id": "onnxruntime",
+      "probe": "node_modules/onnxruntime-node/bin/napi-v6/${platform}/${arch}/onnxruntime_binding.node",
+      "files": [
+        { "from": "unpacked", "path": "node_modules/onnxruntime-node", "to": "node_modules/onnxruntime-node", "strip": true },
+        { "from": "modules", "path": "onnxruntime-common", "to": "node_modules/onnxruntime-common" }
+      ],
+      "unavailable": ["darwin-x64"]
+    },
+    {
+      "id": "rclone",
+      "probe": "rclone${exe}",
+      "files": [
+        { "from": "resources", "path": "rclone", "to": ".", "strip": true }
+      ]
+    }
+  ]
+}
