@@ -3,6 +3,7 @@
 // a few conversations, a week of events, some to-dos, alarms and timers.
 
 import type { MailView, OpenMessage, Outbox, PimApi, Ring } from '../core/api-pim';
+import { classify, followUpDraft, isSnoozed, pickForQuestion, sortTime, subscriptions, triageContext, waitingForReply } from '../core/pim/triage';
 import { dueKey, dueNow, nextAlarmTime } from '../core/pim/alarms';
 import { occurrences } from '../core/pim/ical';
 import { makeReply, matchesQuery, threadMessages, type Draft, type MailRule } from '../core/pim/mail';
@@ -62,7 +63,7 @@ export function mockPim(emit: Emit): { pim: PimApi } {
     mk('work', 'INBOX', { subject: 'Homepage drafts', from: ana, date: now - 3 * day, messageId: 'home-1@lopez' }, { text: 'Hi Alex, first drafts of the homepage attached. Let me know what you think!' }),
     mk('work', 'INBOX', { subject: 'Invitation: Website kickoff', from: sam, date: now - 3 * 3_600_000, seen: false }, { text: 'Sam Okafor invited you to Website kickoff.', invite: kickoff }),
     mk('work', 'INBOX', { subject: 'Invoice #4471 from Acme Hosting', from: { name: 'Acme Hosting', address: 'billing@acme-hosting.example' }, date: now - 5 * 3_600_000, seen: false, hasAttachments: true }, { text: 'Your invoice for October is ready. Amount due: €42.00 by 15 November.', attachments: [{ id: '0', filename: 'invoice-4471.pdf', contentType: 'application/pdf', size: 88_000 }] }),
-    mk('work', 'INBOX', { subject: 'Design Weekly: 12 type pairings for 2026', from: { name: 'Design Weekly', address: 'news@designweekly.example' }, date: now - 9 * 3_600_000 }, {
+    mk('work', 'INBOX', { subject: 'Design Weekly: 12 type pairings for 2026', from: { name: 'Design Weekly', address: 'news@designweekly.example' }, date: now - 9 * 3_600_000, bulk: true, listId: 'weekly.designweekly.example', unsub: { url: 'https://designweekly.example/u', oneClick: true } }, {
       text: 'This week: type pairings, a new colour tool and an interview.',
       html: '<table width="100%" style="background:#f4f1ea"><tr><td style="padding:24px"><h2 style="font-family:Georgia">12 type pairings for 2026</h2><img data-blocked-src="https://img.designweekly.example/cover.jpg" width="560" alt="Cover"><p>This week: type pairings, a new colour tool and an interview with a studio in Lisbon.</p><a href="https://designweekly.example/issue/88" title="https://designweekly.example/issue/88" target="_blank">Read the issue</a></td></tr></table>',
       unsub: true,
@@ -71,7 +72,24 @@ export function mockPim(emit: Emit): { pim: PimApi } {
     mk('home', 'INBOX', { subject: 'Saturday hike?', from: { name: 'Jordan', address: 'jordan@example.net' }, date: now - 50 * 60_000, seen: false }, { text: 'Hey! Want to do the coast trail on Saturday? Meet at 8:30 at the station?' }),
     mk('home', 'INBOX', { subject: 'Your flight to Lisbon is confirmed', from: { name: 'Skyway Airlines', address: 'noreply@skyway.example' }, date: now - day, seen: false, flagged: true }, { text: 'Booking ABC123. Departure 12 March 07:40, arrival 10:15. Return 15 March 18:20.' }),
     mk('home', 'INBOX', { subject: 'Book club — next title', from: { name: 'Priya', address: 'priya@example.org' }, date: now - 2 * day }, { text: 'We picked the next book! See you on the 20th.' }),
+    // A security alert: always Important.
+    mk('home', 'INBOX', { subject: 'New sign-in to your account', from: { name: 'Cloudbox', address: 'no-reply@accounts.cloudbox.example' }, date: now - 12 * 60_000, seen: false, bulk: true }, { text: 'We noticed a new sign-in to your Cloudbox account from Firefox on Linux in Lisbon, Portugal. If this was you, you can ignore this message.' }),
+    // Newsletters and shops: Other, and the cleanup list.
+    ...[3, 10, 17, 24].map((d, i) => mk('work', 'INBOX', { subject: ['Spring sale: 30% off everything', 'New arrivals you will love', 'Last chance: free shipping ends tonight', 'Your weekly picks'][i], from: { name: 'Northwind Store', address: 'offers@northwind-store.example' }, date: now - d * day - 3_600_000, seen: i === 3, bulk: true, listId: 'offers.northwind-store.example', unsub: { url: 'https://northwind-store.example/u', oneClick: true } }, { text: 'Fresh picks for you this week.', unsub: true })),
+    ...[1, 8, 15].map((d, i) => mk('home', 'INBOX', { subject: ['Your daily digest', 'Trending this week in Photography', 'You have 4 new notifications'][i], from: { name: 'Pixelboard', address: 'digest@pixelboard.example' }, date: now - d * day - 7_200_000, seen: false, bulk: true, unsub: { url: 'https://pixelboard.example/u', oneClick: false } }, { text: 'See what people are sharing.', unsub: true })),
+    mk('work', 'INBOX', { subject: 'Your order has shipped', from: { name: 'Paperworks', address: 'orders@paperworks.example' }, date: now - 30 * 3_600_000, seen: false }, { text: 'Your order #20931 is on its way and should arrive Friday.' }),
+    // Sent mail still waiting for an answer.
+    mk('work', 'Sent', { subject: 'Quote for the brand refresh', from: { name: 'Alex Rivera', address: 'alex@studio.example' }, to: [{ name: 'Lena Fischer', address: 'lena@brightside.example' }], date: now - 5 * day, messageId: 'quote-1@studio' }, { text: 'Hi Lena, here is our quote for the brand refresh. Could you let me know by Friday if the timeline works for you?' }),
+    mk('work', 'Sent', { subject: 'Studio photos for the case study?', from: { name: 'Alex Rivera', address: 'alex@studio.example' }, to: [sam], date: now - day - 4 * 3_600_000, messageId: 'photos-1@studio' }, { text: 'Hey Sam, do you still have the studio photos from the launch? I would like to use two in the case study.' }),
+    mk('home', '[Gmail]/Sent Mail', { subject: 'Dinner on the 14th?', from: { name: 'Alex Rivera', address: 'alex.rivera@gmail.com' }, to: [{ name: 'Marta', address: 'marta@example.net' }], date: now - 9 * day, messageId: 'dinner-1@gmail' }, { text: 'Marta! Are you free for dinner on the 14th? Thinking of the new place by the river.' }),
   ];
+  const me = ['alex@studio.example', 'alex.rivera@gmail.com'];
+  const sentFolders = new Set(['Sent', '[Gmail]/Sent Mail']);
+  const triaged = (list: MessageSummary[]) => {
+    const ctx = triageContext({ me, sent: messages.filter((m) => sentFolders.has(m.folder)), contacts: contacts.flatMap((c) => c.emails), important: prefs.importantSenders, other: prefs.otherSenders });
+    return list.map((m) => { const t = classify(m, ctx); return { ...m, category: t.category, security: t.security || undefined }; });
+  };
+  let dismissed: string[] = [];
   // ?calaccess=notDetermined|denied|writeOnly in the browser preview shows the "can't see your calendars" row.
   let sysRaw = (typeof location !== 'undefined' && new URLSearchParams(location.search).get('calaccess')) || 'granted';
   const sysAccess = (): SystemAccess => (sysRaw === 'granted'
@@ -159,14 +177,49 @@ export function mockPim(emit: Emit): { pim: PimApi } {
 
     folders: async () => folders.map((f) => ({ ...f, unread: messages.filter((m) => m.account === f.account && m.folder === f.path && !m.seen).length, total: messages.filter((m) => m.account === f.account && m.folder === f.path).length })),
     messages: async (v: MailView) => {
-      let list = v.folder === 'unified' ? messages.filter((m) => m.folder === 'INBOX' && (!v.account || m.account === v.account)) : messages.filter((m) => m.account === v.account && m.folder === v.folder);
+      const t = Date.now();
+      let list = v.folder === 'unified' ? messages.filter((m) => m.folder === 'INBOX' && (!v.account || m.account === v.account))
+        : v.folder === 'unified:sent' ? messages.filter((m) => sentFolders.has(m.folder))
+          : v.folder === 'snoozed' ? messages.filter((m) => isSnoozed(m, t))
+            : v.folder === 'search' ? [...messages]
+              : messages.filter((m) => m.account === v.account && m.folder === v.folder);
+      if (v.folder !== 'snoozed') list = list.filter((m) => !isSnoozed(m, t));
+      list = triaged(list);
+      let counts: { important: number; other: number } | undefined;
+      if ((v.folder === 'unified' || v.folder === 'INBOX') && prefs.splitInbox !== false) {
+        counts = { important: list.filter((m) => !m.seen && m.category === 'important').length, other: list.filter((m) => !m.seen && m.category === 'other').length };
+        if (v.split) list = list.filter((m) => m.category === v.split);
+      }
       if (v.filter === 'unread') list = list.filter((m) => !m.seen);
       if (v.filter === 'flagged') list = list.filter((m) => m.flagged);
       if (v.filter === 'attachments') list = list.filter((m) => m.hasAttachments);
-      if (v.query) list = list.filter((m) => matchesQuery(m, v.query!));
-      list = [...list].sort((a, b) => b.date - a.date);
-      return { messages: list, threads: v.threaded ? threadMessages(v.folder === 'unified' ? [...list, ...messages.filter((m) => m.folder === 'Sent' && list.some((x) => x.references?.includes(m.messageId!)))] : list) : undefined };
+      if (v.query) { const exact = list.filter((m) => matchesQuery(m, v.query!)); list = exact.length || v.folder !== 'search' ? exact : pickForQuestion(v.query, list.filter((m) => !m.security), 50); }
+      list = [...list].sort((a, b) => sortTime(b, t) - sortTime(a, t));
+      return { messages: list, counts, threads: v.threaded ? threadMessages(v.folder === 'unified' ? [...list, ...messages.filter((m) => m.folder === 'Sent' && list.some((x) => x.references?.includes(m.messageId!)))] : list) : undefined };
     },
+    searchServer: async (q) => { await new Promise((r) => setTimeout(r, 900)); return /lisbon|flight/i.test(q) ? triaged([{ id: 'home:[Gmail]/All Mail:9', account: 'home', folder: '[Gmail]/All Mail', uid: 9, subject: 'Lisbon apartment — booking confirmed', from: { name: 'Stayfinder', address: 'bookings@stayfinder.example' }, to: [], cc: [], date: now - 40 * day, seen: true, flagged: false, answered: false, snippet: 'Your stay in Alfama, 12–15 March, is confirmed.', hasAttachments: false }]) : []; },
+    waiting: async () => waitingForReply(messages, me, Date.now(), { dismissed }).map((w) => ({ message: w.message, days: w.days, to: w.to, count: w.thread.messages.length, overdue: w.days >= (prefs.followUpDays ?? 3) })),
+    followUp: async (id) => { const m = messages.find((x) => x.id === id)!; return { ...followUpDraft({ ...m, text: bodies.get(id)?.text }, me), account: m.account }; },
+    dismissWaiting: async (id) => { dismissed.push(messages.find((x) => x.id === id)?.messageId ?? id); changed('mail'); },
+    subscriptions: async () => subscriptions(messages.filter((m) => m.folder === 'INBOX' || m.folder === 'Archive'), me).map((x) => ({ key: x.key, name: x.name, address: x.address, count: x.count, opened: x.opened, last: x.last, canUnsubscribe: !!x.unsub, neverOpened: x.neverOpened })),
+    cleanup: async (key, action) => {
+      const sub = subscriptions(messages.filter((m) => m.folder === 'INBOX'), me).find((x) => x.key === key);
+      if (!sub) return { how: 'Nothing left', moved: 0 };
+      if (action !== 'unsubscribe') for (const m of messages) if (sub.ids.includes(m.id)) m.folder = action === 'trash' ? 'Trash' : 'Archive';
+      if (action !== 'trash') prefs.otherSenders = [...(prefs.otherSenders ?? []), sub.address];
+      changed('mail');
+      const moved = action === 'unsubscribe' ? 0 : sub.ids.length;
+      return { how: [action === 'unsubscribe' || action === 'both' ? 'Unsubscribed' : '', moved ? `${moved} messages ${action === 'trash' ? 'deleted' : 'archived'}` : ''].filter(Boolean).join(' · '), moved };
+    },
+    setCategory: async (address, category) => {
+      prefs.importantSenders = (prefs.importantSenders ?? []).filter((x) => x !== address);
+      prefs.otherSenders = (prefs.otherSenders ?? []).filter((x) => x !== address);
+      (category === 'important' ? (prefs.importantSenders ??= []) : (prefs.otherSenders ??= [])).push(address);
+      changed('mail');
+    },
+    unsnooze: async (ids) => { for (const m of messages) if (ids.includes(m.id)) { m.snoozedUntil = undefined; m.returnedAt = Date.now(); } changed('mail'); },
+    write: async (text, task) => { await new Promise((r) => setTimeout(r, 600)); return task === 'shorter' ? text.split(/(?<=[.!?])\s+/).slice(0, 2).join(' ') : task === 'professional' ? text.replace(/^Hey\b/, 'Hello').replace(/Thanks!?/, 'Kind regards,') : task === 'friendly' ? `${text}\n\nHope you are having a great week!` : text; },
+    askMail: async (q) => { await new Promise((r) => setTimeout(r, 800)); const src = pickForQuestion(q, triaged(messages).filter((m) => !m.security), 3); return { answer: /flight|lisbon/i.test(q) ? 'Your flight to Lisbon leaves on 12 March at 07:40 and lands at 10:15; the return is on 15 March at 18:20 (booking ABC123) [1].' : src.length ? `The closest match is “${src[0].subject}” from ${src[0].from?.name} [1].` : 'Nothing in your mail matches that.', sources: src }; },
     refresh: async () => { await new Promise((r) => setTimeout(r, 400)); changed('mail'); },
     older: async () => undefined,
     open: async (id, opts) => {
@@ -183,13 +236,13 @@ export function mockPim(emit: Emit): { pim: PimApi } {
     archive: async (ids) => { for (const m of messages) if (ids.includes(m.id)) m.folder = 'Archive'; changed('mail'); },
     trash: async (ids) => { for (const m of messages) if (ids.includes(m.id)) m.folder = 'Trash'; changed('mail'); },
     junk: async () => undefined,
-    snooze: async (ids, until) => { for (const m of messages) if (ids.includes(m.id)) m.snoozedUntil = until; changed('mail'); },
+    snooze: async (ids, until) => { for (const m of messages) if (ids.includes(m.id)) { m.snoozedUntil = until; m.returnedAt = undefined; } changed('mail'); },
     saveAttachment: async (_id, att) => `/Users/demo/Downloads/${att}`,
     openAttachment: async () => undefined,
     unsubscribe: async () => ({ done: true, how: 'Unsubscribed' }),
     trustSender: async (a) => { prefs.trustedSenders.push(a); },
     draftFor: async (id, mode) => { const m = messages.find((x) => x.id === id)!; return makeReply({ original: { ...m, text: bodies.get(id)?.text }, me: ['alex@studio.example', 'alex.rivera@gmail.com'], mode }); },
-    send: async (d) => { const o = { id: String(Date.now()), sendAt: Date.now() + prefs.undoSendSec * 1000, subject: d.subject, draft: d }; outbox.push(o); changed('outbox'); setTimeout(() => { const i = outbox.indexOf(o); if (i >= 0) { outbox.splice(i, 1); messages.push(mk(d.account, d.account === 'work' ? 'Sent' : '[Gmail]/Sent Mail', { subject: d.subject, from: { name: 'Alex Rivera', address: accounts.find((a) => a.id === d.account)?.email ?? '' }, to: d.to, date: Date.now() }, { text: d.body })); changed('outbox'); changed('mail'); } }, prefs.undoSendSec * 1000); return { id: o.id, sendAt: o.sendAt, subject: o.subject }; },
+    send: async (d) => { const o = { id: String(Date.now()), sendAt: d.sendAt ?? Date.now() + prefs.undoSendSec * 1000, subject: d.subject, draft: d, scheduled: !!d.sendAt && d.sendAt - Date.now() > 60_000 }; outbox.push(o); changed('outbox'); setTimeout(() => { const i = outbox.indexOf(o); if (i >= 0) { outbox.splice(i, 1); messages.push(mk(d.account, d.account === 'work' ? 'Sent' : '[Gmail]/Sent Mail', { subject: d.subject, from: { name: 'Alex Rivera', address: accounts.find((a) => a.id === d.account)?.email ?? '' }, to: d.to, date: Date.now() }, { text: d.body })); changed('outbox'); changed('mail'); } }, Math.min(o.sendAt - Date.now(), 2_000_000_000)); return { id: o.id, sendAt: o.sendAt, subject: o.subject, scheduled: o.scheduled }; },
     undoSend: async (id) => { const i = outbox.findIndex((x) => x.id === id); if (i < 0) return null; const [o] = outbox.splice(i, 1); changed('outbox'); return o.draft; },
     outbox: async () => outbox.map(({ draft: _d, ...o }) => o),
     saveDraft: async () => undefined,
@@ -198,6 +251,11 @@ export function mockPim(emit: Emit): { pim: PimApi } {
       await new Promise((r) => setTimeout(r, 700));
       if (task === 'summarize') return { text: '• Ana sent round 2 of the homepage drafts: bigger hero image, new type.\n• The old layout is kept as option B.\n• She needs your feedback by Thursday.' };
       if (task === 'reply') return { text: 'Hi Ana,\n\nThanks — these look great. I prefer the new type; let’s go with option A. I’ll send detailed notes by Thursday.\n\nAlex' };
+      if (task === 'replies') {
+        const options = ['Hi Ana,\n\nThese look great — let’s go with option A and the new type. Detailed notes coming by Thursday.\n\nAlex', 'Hi Ana,\n\nLooks good! Before I decide: could we see the bigger hero with the old layout too? Happy to jump on a quick call.\n\nAlex', 'Hi Ana,\n\nThanks for these. I’m swamped this week, so feedback will come early next week — hope that still works.\n\nAlex'];
+        return { text: options[0], options };
+      }
+      if (task === 'translate') return { text: 'Hola Alex:\n\nAquí tienes los bocetos actualizados de la página de inicio, con la imagen principal más grande y la nueva tipografía. Mantuve el diseño anterior como opción B.\n\n¿Podrías enviarme tus comentarios antes del jueves?\n\nGracias,\nAna' };
       return { text: 'EVENT: Feedback due Thursday 5pm', events: [parseQuickAdd('Homepage feedback due Thursday 5pm')!] };
     },
     respond: async () => { changed('calendar'); },

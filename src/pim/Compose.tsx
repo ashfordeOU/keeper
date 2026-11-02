@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Writing mail: address suggestions, Markdown (bold, lists, links) turned into
-// a proper message, attachments by button or drag (also from Browse), send
-// later, and a few seconds to undo after pressing Send.
+// a proper message, attachments by button or drag (also from Browse), your
+// signature, AI help (shorter, friendlier, more formal, proofread, translate),
+// send later, and a few seconds to undo after pressing Send.
 
 import { marked } from 'marked';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { Outbox } from '../../core/api-pim';
+import type { Outbox, WriteTask } from '../../core/api-pim';
 import { formatAddress, parseAddressList, type Draft } from '../../core/pim/mail';
+import { sendLaterChoices } from '../../core/pim/triage';
 import type { Account, Address } from '../../core/pim/types';
 import { api } from '../api';
 import { sanitize } from '../preview/util';
@@ -72,7 +74,40 @@ export function Compose({ draft, accounts, onClose, onSent }: { draft: Draft & {
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
   const [sending, setSending] = useState(false);
   const [drag, setDrag] = useState(false);
+  const [rewriting, setRewriting] = useState<string | null>(null);
+  const [undoText, setUndoText] = useState<string | null>(null);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
+  const signature = accounts.find((a) => a.id === from?.account)?.identities.find((i) => i.email === from?.email)?.signature;
+
+  // AI help on what is written (or on the selected part of it); the old text can be brought back.
+  const rewrite = async (task: WriteTask, label: string) => {
+    const el = bodyRef.current;
+    const [a, b] = el && el.selectionEnd > el.selectionStart ? [el.selectionStart, el.selectionEnd] : [0, body.length];
+    const part = body.slice(a, b);
+    if (!part.trim()) { toast('Write something first'); return; }
+    setRewriting(label);
+    try {
+      const lang = task === 'translate' ? window.prompt('Translate into which language?', 'English') ?? '' : undefined;
+      if (task === 'translate' && !lang) return;
+      const out = await api.pim.write(part, task, lang);
+      setUndoText(body);
+      setBody(body.slice(0, a) + out + body.slice(b));
+    } catch (e) {
+      toast(e instanceof Error ? e.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '') : String(e));
+    } finally {
+      setRewriting(null);
+    }
+  };
+  const aiMenu = (e: React.MouseEvent) => {
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setMenu({ x: r.left, y: r.top - 190, items: [
+      { label: 'Make shorter', icon: 'minus', run: () => void rewrite('shorter', 'Shortening') },
+      { label: 'Make friendlier', icon: 'smile', run: () => void rewrite('friendly', 'Rewriting') },
+      { label: 'Make more formal', icon: 'document', run: () => void rewrite('professional', 'Rewriting') },
+      { label: 'Fix spelling and grammar', icon: 'check', run: () => void rewrite('proofread', 'Proofreading') },
+      { label: 'Translate…', icon: 'globe', run: () => void rewrite('translate', 'Translating') },
+    ] });
+  };
 
   useEffect(() => { if (draft.to.length) bodyRef.current?.focus(); }, [draft.to.length]);
 
@@ -98,11 +133,14 @@ export function Compose({ draft, accounts, onClose, onSent }: { draft: Draft & {
 
   const later = (e: React.MouseEvent) => {
     const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const t = (h: number, add = 0) => { const d = new Date(); d.setDate(d.getDate() + add); d.setHours(h, 0, 0, 0); return d.getTime(); };
-    setMenu({ x: r.left, y: r.top - 150, items: [
-      { label: 'Tomorrow morning (8:00)', icon: 'clock', run: () => void send(t(8, 1)) },
-      { label: 'Tomorrow afternoon (13:00)', icon: 'clock', run: () => void send(t(13, 1)) },
-      { label: 'Monday morning', icon: 'calendar', run: () => { const d = new Date(); d.setDate(d.getDate() + (((8 - d.getDay()) % 7) || 7)); d.setHours(8, 0, 0, 0); void send(d.getTime()); } },
+    const choices = sendLaterChoices(Date.now());
+    setMenu({ x: r.left, y: r.top - 40 - (choices.length + 2) * 30, items: [
+      ...choices.map((c) => ({ label: `Send ${c.label.charAt(0).toLowerCase()}${c.label.slice(1)}`, icon: 'clock', run: () => void send(c.at) })),
+      { label: 'Send at…', icon: 'calendar', run: () => {
+        const v = window.prompt('Send at (YYYY-MM-DD HH:MM)', new Date(Date.now() + 86_400_000).toISOString().slice(0, 16).replace('T', ' '));
+        const t = v ? new Date(v.replace(' ', 'T')).getTime() : NaN;
+        if (Number.isFinite(t) && t > Date.now()) void send(t); else if (v) toast('That time is not in the future');
+      } },
       { label: 'Save as draft', icon: 'rename', run: () => void api.pim.saveDraft(build()).then(() => { toast('Saved to Drafts'); onClose(); }) },
     ] });
   };
@@ -131,6 +169,7 @@ export function Compose({ draft, accounts, onClose, onSent }: { draft: Draft & {
           {preview
             ? <div className="compose-preview" dangerouslySetInnerHTML={{ __html: sanitize(marked.parse(body || '*Nothing written yet*', { async: false, gfm: true, breaks: true }) as string).html }} />
             : <textarea ref={bodyRef} value={body} onChange={(e) => setBody(e.target.value)} placeholder="Write your message. **bold**, *italic*, - lists and [links](https://…) work." aria-label="Message" />}
+          {signature && !preview ? <div className="compose-signature small muted" title="Your signature (Settings → Mail & Calendar)">-- <br />{signature}</div> : null}
           {quoted ? (
             <div className="compose-quote">
               <button className="link-like small" onClick={() => setShowQuote(!showQuote)}>{showQuote ? 'Hide' : 'Show'} quoted text</button>
@@ -150,6 +189,8 @@ export function Compose({ draft, accounts, onClose, onSent }: { draft: Draft & {
           </div>
           <button className="btn ghost sm" onClick={async () => { const p = await api.pim.pickFiles(); if (p.length) setFiles([...files, ...p]); }}><Icon name="paperclip" size={14} /> Attach</button>
           <button className={`btn ghost sm ${preview ? 'on' : ''}`} onClick={() => setPreview(!preview)}><Icon name="eye" size={14} /> {preview ? 'Edit' : 'Preview'}</button>
+          <button className="btn ghost sm" disabled={!!rewriting} onClick={aiMenu} title="Shorter, friendlier, more formal, proofread or translate (the selection, or everything)" data-testid="compose-ai">{rewriting ? <><div className="spinner" /> {rewriting}…</> : <><Icon name="sparkle" size={14} /> Rewrite</>}</button>
+          {undoText !== null ? <button className="btn ghost sm" onClick={() => { setBody(undoText); setUndoText(null); }}><Icon name="undo" size={13} /> Undo rewrite</button> : null}
           <span className="grow" />
           <span className="small muted">⌘↩ / Ctrl+↩ to send</span>
         </footer>

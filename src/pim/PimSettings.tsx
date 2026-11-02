@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
-// Settings → Mail & Calendar: accounts, notifications, undo send, the week,
-// mail filters, trusted senders, where calendars come from (CalendarSources)
-// and the sign-in IDs for Google and Microsoft.
+// Settings → Mail & Calendar: accounts (signatures, sharing with coding
+// assistants), notifications and the Island, Important / Other, follow-ups,
+// layout and keyboard shortcuts, undo send, the week, mail filters, trusted
+// senders, where calendars come from (CalendarSources) and the sign-in IDs
+// for Google and Microsoft.
 
 import { useCallback, useEffect, useState } from 'react';
 import type { MailRule } from '../../core/pim/mail';
 import type { PimPrefsView } from '../../core/pim/prefs';
+import { ACTION_LABELS, SCHEMES, showCombo, type MailAction, type SchemeId } from '../../core/pim/shortcuts';
 import type { Account } from '../../core/pim/types';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
@@ -26,8 +29,58 @@ function Row({ title, desc, children }: { title: string; desc?: string; children
   );
 }
 
-export function PimSettings() {
+function AccountMailRow({ a }: { a: Account }) {
   const { toast } = useStore();
+  const [sig, setSig] = useState<string | null>(null);
+  const id0 = a.identities[0];
+  return (
+    <div className="pim-account-extra">
+      <label className="row small" style={{ gap: 8 }} title="Coding assistants and other apps connected to Keeper over MCP may search and read this account's mail and write drafts. They can never send, delete or move mail, and never see Spam, Trash or security mail such as sign-in codes.">
+        <Toggle on={!!a.mcp} onChange={(v) => void api.pim.updateAccount(a.id, { mcp: v }).then(() => toast(v ? 'Coding assistants can now search, read and draft in this account' : 'This account is no longer shared'))} />
+        Share with coding assistants (MCP): search, read and draft only
+      </label>
+      {id0 ? (
+        sig === null
+          ? <button className="btn sm ghost" onClick={() => setSig(id0.signature ?? '')}><Icon name="rename" size={12} /> {id0.signature ? 'Edit signature' : 'Add a signature'}</button>
+          : (
+            <div className="col" style={{ gap: 6, width: '100%' }}>
+              <textarea className="input" rows={3} autoFocus value={sig} placeholder={`${id0.name}\n…`} onChange={(e) => setSig(e.target.value)} aria-label="Signature" />
+              <div className="row" style={{ gap: 6 }}>
+                <button className="btn sm primary" onClick={() => void api.pim.updateAccount(a.id, { identities: a.identities.map((x, i) => (i === 0 ? { ...x, signature: sig.trim() || undefined } : x)) }).then(() => { setSig(null); toast('Signature saved'); })}>Save</button>
+                <button className="btn sm ghost" onClick={() => setSig(null)}>Cancel</button>
+              </div>
+            </div>
+          )
+      ) : null}
+    </div>
+  );
+}
+
+function Shortcuts({ prefs, set, mac }: { prefs: PimPrefsView; set: (p: Partial<PimPrefsView>) => void; mac: boolean }) {
+  const scheme = (prefs.shortcutScheme ?? 'gmail') as SchemeId;
+  const own = prefs.shortcutOverrides ?? {};
+  return (
+    <details style={{ padding: '8px 0', borderBottom: '1px solid var(--line)' }}>
+      <summary className="small">Show and change the keys</summary>
+      <div className="shortcut-grid">
+        {(Object.keys(ACTION_LABELS) as MailAction[]).map((a) => {
+          const keys = own[a] ?? (SCHEMES[scheme].keys[a] ?? []).join(', ');
+          return (
+            <label key={a} className="row small" style={{ gap: 8 }}>
+              <span className="grow">{ACTION_LABELS[a]}</span>
+              <span className="muted">{keys ? keys.split(',').map((k) => showCombo(k.trim(), mac)).join(' · ') : 'none'}</span>
+              <input className="input" style={{ width: 120 }} value={keys} onChange={(e) => set({ shortcutOverrides: { ...own, [a]: e.target.value } })} aria-label={`Keys for ${ACTION_LABELS[a]}`} />
+            </label>
+          );
+        })}
+      </div>
+      <div className="small muted">Keys like <code>e</code>, <code>shift+u</code>, <code>mod+r</code> (⌘ on a Mac, Ctrl elsewhere) or two in a row like <code>g i</code>; several separated by commas. {Object.keys(own).length ? <button className="link-like small" onClick={() => set({ shortcutOverrides: {} })}>Back to the set’s keys</button> : null}</div>
+    </details>
+  );
+}
+
+export function PimSettings() {
+  const { toast, info } = useStore();
   const [accounts, setAccounts] = useState<(Account & { needsSignIn?: boolean; secretIn?: string })[]>([]);
   const [prefs, setPrefs] = useState<PimPrefsView | null>(null);
   const [rules, setRules] = useState<MailRule[]>([]);
@@ -48,7 +101,7 @@ export function PimSettings() {
     <div className="pim-settings">
       <div style={{ fontWeight: 600, marginBottom: 6 }}>Accounts</div>
       {accounts.length ? accounts.map((a) => (
-        <div key={a.id} className="row" style={{ gap: 10, padding: '8px 0', borderBottom: '1px solid var(--line)' }}>
+        <div key={a.id} className="row" style={{ gap: 10, padding: '8px 0', borderBottom: '1px solid var(--line)', flexWrap: 'wrap' }}>
           <i className="dot" style={{ background: a.color ?? 'var(--accent)' }} />
           <div className="grow" style={{ minWidth: 0 }}>
             <div className="ellipsis"><b>{a.label}</b> <span className="small muted">{KIND[a.kind] ?? a.kind}</span></div>
@@ -61,6 +114,7 @@ export function PimSettings() {
               : <button className="btn sm ghost" onClick={() => setPw({ id: a.id, value: '' })}>Password…</button>
           ) : a.oauth ? <button className="btn sm ghost" onClick={async () => { try { await api.pim.signIn(a.oauth!, a.email); await api.pim.removeAccount(a.id); } catch (e) { toast(String(e)); } }}>Sign in again</button> : null}
           <button className="btn sm ghost icon" title="Remove account" aria-label="Remove account" onClick={() => { if (window.confirm(`Remove ${a.label} from Keeper? Mail and events stay on the server.`)) void api.pim.removeAccount(a.id); }}><Icon name="trash" size={13} /></button>
+          {a.mail ? <AccountMailRow a={a} /> : null}
         </div>
       )) : <div className="small muted">No accounts yet.</div>}
       <button className="btn sm" style={{ marginTop: 8 }} onClick={() => setAdding(true)}><Icon name="plus" size={13} /> Add account</button>
@@ -68,6 +122,25 @@ export function PimSettings() {
       <div style={{ fontWeight: 600, margin: '18px 0 2px' }}>Mail</div>
       <Row title="Notify about new mail" desc="A notification and an Island alert when mail arrives in an inbox."><Toggle on={prefs.notifyMail} onChange={(v) => void set({ notifyMail: v })} /></Row>
       <Row title="Show sender and subject in notifications" desc="Turn off so people near your screen only see “New mail”."><Toggle on={prefs.notifyPreviews} onChange={(v) => void set({ notifyPreviews: v })} /></Row>
+      <Row title="New mail in the Island" desc="Drops down from the notch (or the pill) with Open, Archive and Mark read.">
+        <select className="input" value={prefs.islandMail ?? 'important'} onChange={(e) => void set({ islandMail: e.target.value as PimPrefsView['islandMail'] })}><option value="important">Important mail only</option><option value="all">All new mail</option><option value="off">Never</option></select>
+      </Row>
+      <Row title="Sort inboxes into Important and Other" desc="People you write to and replies to your mail are Important; newsletters, receipts and automatic mail go to Other. Sign-in alerts and codes are always Important.">
+        <Toggle on={prefs.splitInbox !== false} onChange={(v) => void set({ splitInbox: v })} />
+      </Row>
+      <Row title="Follow up after" desc="Sent mail without an answer for this long is called out in Waiting for reply.">
+        <select className="input" value={prefs.followUpDays ?? 3} onChange={(e) => void set({ followUpDays: Number(e.target.value) })}>{[1, 2, 3, 5, 7, 14].map((d) => <option key={d} value={d}>{d} day{d === 1 ? '' : 's'}</option>)}</select>
+      </Row>
+      <Row title="Layout" desc="The list beside the message, or a wide list with bulk actions that opens messages in its place.">
+        <div className="seg"><button className={(prefs.mailLayout ?? 'split') === 'split' ? 'on' : ''} onClick={() => void set({ mailLayout: 'split' })}>Split</button><button className={prefs.mailLayout === 'wide' ? 'on' : ''} onClick={() => void set({ mailLayout: 'wide' })}>Wide list</button></div>
+      </Row>
+      <Row title="Keyboard shortcuts" desc="Pick the set your fingers know; change any key below.">
+        <select className="input" value={prefs.shortcutScheme ?? 'gmail'} onChange={(e) => void set({ shortcutScheme: e.target.value as SchemeId, shortcutOverrides: {} })}>{(Object.keys(SCHEMES) as SchemeId[]).map((k) => <option key={k} value={k}>{SCHEMES[k].label}</option>)}</select>
+      </Row>
+      <Shortcuts prefs={prefs} set={(p) => void set(p)} mac={info?.platform === 'darwin'} />
+      <Row title="Keep recent mail for reading offline" desc="The newest inbox messages are kept on this computer, so they open without a connection. Changes made offline go to the server when it is back.">
+        <Toggle on={prefs.offlineBodies !== false} onChange={(v) => void set({ offlineBodies: v })} />
+      </Row>
       <Row title="Undo send" desc="How long a message waits before it goes, so you can take it back.">
         <select className="input" value={prefs.undoSendSec} onChange={(e) => void set({ undoSendSec: Number(e.target.value) })}>{[0, 5, 10, 20, 30].map((s) => <option key={s} value={s}>{s ? `${s} seconds` : 'Off'}</option>)}</select>
       </Row>
