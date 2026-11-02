@@ -15,7 +15,7 @@ import { joinRemote, localSafeName, normalizeRemote } from '../../../core/remote
 import { formFor, needsSignIn, providerCatalog, type FormField, type ProviderInfo } from '../../../core/remote/providers';
 import type { Connection, ConnectionInput, ConnState, ConnStatus, RemoteEntry, RemoteFs, Transfer } from '../../../core/remote/types';
 import { getSecret, setSecret } from '../../store';
-import { lowerPriority, onMemoryPressure, pace, poll, pollNow } from '../governor';
+import { lowerPriority, onMemoryPressure, pace, poll, pollNow, startJob } from '../governor';
 import { FtpFs } from './ftp';
 import { findRclone, RcloneDaemon, RcloneFs, remoteNameFor } from './rclone';
 import { HostKeyChanged, readKey, SftpFs, type HostKeys } from './sftp';
@@ -477,9 +477,13 @@ function conflictName(p: string): string {
 function startTransfer(label: string, direction: Transfer['direction'], total: number) {
   const t: Transfer & { abort?: AbortController } = { id: randomUUID().slice(0, 8), label, direction, bytes: 0, total, state: 'running', abort: new AbortController() };
   transfers.set(t.id, t);
+  // Listed as Keeper's work while it runs (Keep Awake's "while Keeper is working", Performance).
+  const job = startJob(`${direction === 'up' ? 'Uploading' : direction === 'down' ? 'Downloading' : 'Copying'} ${label}`, { id: `remote-${t.id}` });
   let last = 0;
   const update = (patch: Partial<Transfer>) => {
     Object.assign(t, patch);
+    if (t.state !== 'running') job.end();
+    else if (t.total) job.update(`${Math.round((t.bytes / t.total) * 100)}%`);
     const now = Date.now();
     if (t.state !== 'running' || now - last > 250) {
       last = now;

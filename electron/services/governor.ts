@@ -11,7 +11,7 @@
 
 import { jobHelpers, trackHelper } from '../helpers-registry';
 import { DEFAULT_LIMITS } from '../../core/limits';
-import { app, BrowserWindow, powerMonitor } from 'electron';
+import { app, BrowserWindow, powerMonitor, powerSaveBlocker } from 'electron';
 import { execFile, type ChildProcess } from 'node:child_process';
 import os from 'node:os';
 import { decide, DEFAULT_CONDITIONS, pollDelay, restMs, type Conditions, type PollRule, type WorkKind } from '../../core/governor';
@@ -338,6 +338,8 @@ export interface TaskInfo {
   detail?: string;
   /** items left */
   pending?: number;
+  /** something the person started (a recording, an export, a download); never held back */
+  job?: boolean;
 }
 
 const tasks = new Map<string, TaskInfo>();
@@ -351,6 +353,63 @@ export function track(id: string, label: string, kind: WorkKind) {
       Object.assign(t, { state, ...patch });
     },
   };
+}
+
+export interface JobHandle {
+  /** what it is doing now ("42%", "photo.jpg") */
+  update(detail?: string): void;
+  /** finished, failed or cancelled; calling it again does nothing */
+  end(): void;
+}
+
+let jobSeq = 0;
+/**
+ * A long job the person started (a recording, an export, a download, a backup, a transfer).
+ * It is listed as Keeper's work (Settings → Performance) while it runs, so Keep Awake's
+ * "while Keeper is working" trigger holds the computer awake for it. With `keepAwake` the
+ * job also keeps the computer from sleeping itself (the display may still turn off): for
+ * recordings, which would be cut short. Call end() when it finishes or fails.
+ */
+export function startJob(label: string, opts: { id?: string; detail?: string; keepAwake?: boolean } = {}): JobHandle {
+  const id = opts.id ?? `job-${++jobSeq}`;
+  const t: TaskInfo = { id, label, kind: 'scan', state: 'working', detail: opts.detail, job: true };
+  tasks.set(id, t);
+  let blocker = -1;
+  if (opts.keepAwake) {
+    try {
+      blocker = powerSaveBlocker.start('prevent-app-suspension');
+    } catch {
+      /* not available here */
+    }
+  }
+  let ended = false;
+  return {
+    update(detail) {
+      t.detail = detail;
+    },
+    end() {
+      if (ended) return;
+      ended = true;
+      if (tasks.get(id) === t) tasks.delete(id);
+      if (blocker >= 0) {
+        try {
+          powerSaveBlocker.stop(blocker);
+        } catch {
+          /* already gone */
+        }
+      }
+    },
+  };
+}
+
+/** Runs `fn` as a job (see startJob), ending it however `fn` ends. */
+export async function asJob<T>(label: string, fn: (job: JobHandle) => Promise<T>, opts: { id?: string; keepAwake?: boolean } = {}): Promise<T> {
+  const job = startJob(label, opts);
+  try {
+    return await fn(job);
+  } finally {
+    job.end();
+  }
 }
 
 export function usage(): import('../../core/api-usage').KeeperUsage {
@@ -376,6 +435,7 @@ export function usage(): import('../../core/api-usage').KeeperUsage {
     hardwareGraphics: (() => { try { return app.isHardwareAccelerationEnabled(); } catch { return undefined; } })(),
     conditions: { onBattery: c.onBattery, locked: c.locked, idleSec: c.idleSec, thermal: c.thermal, lowPower: c.lowPower, memoryLow: c.memoryLow },
     tasks: [...tasks.values()].map((t) => {
+      if (t.job) return { ...t };
       const d = decide(t.kind, c);
       return { ...t, state: t.state === 'working' && !d.ok ? 'waiting' as const : t.state, detail: !d.ok && t.state !== 'idle' ? d.reason : t.detail };
     }),

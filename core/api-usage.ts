@@ -14,7 +14,7 @@ export interface KeeperUsage {
   hardwareGraphics?: boolean;
   conditions: { onBattery: boolean; locked: boolean; idleSec: number; thermal: string; lowPower: boolean; memoryLow: boolean };
   /** background work, what it is doing and why it waits */
-  tasks: { id: string; label: string; kind: WorkKind; state: 'working' | 'waiting' | 'idle'; detail?: string; pending?: number }[];
+  tasks: { id: string; label: string; kind: WorkKind; state: 'working' | 'waiting' | 'idle'; detail?: string; pending?: number; /** something the person started (a recording, an export, a download) */ job?: boolean }[];
   /** regular checks and how often they look right now (null = paused) */
   checks: { name: string; everyMs: number | null; runs: number; /** the features that own it */ features?: string[] }[];
   /** only with KEEPER_POLL_LOG=1: what each check has cost since start */

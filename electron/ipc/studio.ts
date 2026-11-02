@@ -12,6 +12,7 @@ import type { ExportSettings } from '../../core/studio/export';
 import { captionsFrom, sampleTimes, sensitiveBoxes, blursFromSamples } from '../../core/studio/overlays';
 import { PROJECT_EXT, type Clip, type StudioProject } from '../../core/studio/types';
 import { featureOn } from '../services/features';
+import { startJob, type JobHandle } from '../services/governor';
 import { allowRoot, fileUrl } from '../services/preview';
 import { ffmpegPath } from '../services/recorder';
 import { Exporter } from '../services/studio/exporter';
@@ -133,6 +134,21 @@ export function stopStudio() {
   if (session?.active) void session.stop();
 }
 
+// A recording and each export are Keeper's work while they run (Keep Awake, Performance).
+let recordingJob: JobHandle | null = null;
+const exportJobs = new Map<string, JobHandle>();
+function trackExport(j: ExportJob) {
+  const over = j.phase === 'done' || j.phase === 'error' || j.phase === 'cancelled';
+  let job = exportJobs.get(j.id);
+  if (over) {
+    job?.end();
+    exportJobs.delete(j.id);
+    return;
+  }
+  if (!job) exportJobs.set(j.id, (job = startJob('Studio export', { id: `studio-export-${j.id}` })));
+  job.update(`${Math.round(j.progress * 100)}%`);
+}
+
 export function registerStudioIpc(c: StudioCtx) {
   ctx = c;
   session = new StudioSession({
@@ -141,6 +157,8 @@ export function registerStudioIpc(c: StudioCtx) {
       c.broadcast('studio-changed', s);
       const live = s.phase === 'recording' || s.phase === 'paused';
       c.recording(live, live ? s.since : undefined);
+      if (live && !recordingJob) recordingJob = startJob('Studio recording', { id: 'studio-recording', keepAwake: true });
+      else if (!live && recordingJob && s.phase === 'idle') { recordingJob.end(); recordingJob = null; }
       c.updateTray();
       // a finished recording opens in the editor; a cancelled one brings the window back
       if (s.phase === 'idle' && (s.project || hidden)) c.show(s.project ? `studio:${s.project}` : 'studio');
@@ -149,7 +167,7 @@ export function registerStudioIpc(c: StudioCtx) {
     alert: c.alert,
     stage: c.stage,
   });
-  exporter = new Exporter({ preload: c.preload, load: c.load, changed: (j: ExportJob) => c.broadcast('studio-export', j), added: c.added });
+  exporter = new Exporter({ preload: c.preload, load: c.load, changed: (j: ExportJob) => { trackExport(j); c.broadcast('studio-export', j); }, added: c.added });
 
   handle('studio.support', () => support());
   handle('studio.options', () => studioOptions());

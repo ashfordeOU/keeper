@@ -18,6 +18,7 @@ import { FolderStore, type PeerTransport, type RemoteStore } from '../../../core
 import { archive, cleanVersions, DEFAULT_POLICY, listVersions, restoreVersion } from '../../../core/sync/versions';
 import { getSecret, setSecret, settings, updateSettings } from '../../store';
 import { featureOn, onFeature } from '../features';
+import { startJob } from '../governor';
 
 export interface SyncServiceDeps {
   userData: string;
@@ -289,6 +290,7 @@ async function runBackupJob(id: string, password?: string) {
   if (!job || backupRuns.has(id) || !syncOn()) return;
   const ac = new AbortController();
   backupRuns.set(id, ac);
+  const work = startJob(`Backup: ${job.name}`, { id: `backup-${id}` });
   backupState.set(id, { ...backupState.get(id), state: 'running', progress: { phase: 'Starting', files: 0, bytes: 0 } });
   changed();
   const report = (p: BackupProgress) => {
@@ -309,6 +311,7 @@ async function runBackupJob(id: string, password?: string) {
     backupState.set(id, { ...backupState.get(id), state: (e as BackupError).code === 'wrong-key' ? 'waiting' : 'error', progress: undefined });
     await jobPatch(id, { lastRun: Date.now(), lastOk: false, lastMessage: msg });
   } finally {
+    work.end();
     backupRuns.delete(id);
     deps.broadcast('progress', { task: 'backup', phase: 'Done', done: 1, total: 1 });
     changed();
@@ -354,6 +357,7 @@ async function runMirrorJob(id: string) {
   if (!m || mirrorState.get(id)?.state === 'running' || !syncOn()) return;
   const ac = new AbortController();
   mirrorRuns.set(id, ac);
+  const work = startJob(`Mirror: ${m.name}`, { id: `mirror-${id}` });
   mirrorState.set(id, { state: 'running' });
   changed();
   try {
@@ -377,6 +381,7 @@ async function runMirrorJob(id: string) {
     mirrorState.set(id, { state: 'error' });
     await save({ mirrors: conf().mirrors.map((x) => (x.id === id ? { ...x, lastRun: Date.now(), lastMessage: e instanceof Error ? e.message : String(e) } : x)) });
   } finally {
+    work.end();
     mirrorRuns.delete(id);
     deps.broadcast('progress', { task: 'mirror', phase: 'Done', done: 1, total: 1 });
     changed();

@@ -22,7 +22,7 @@ import type {
 import { WHISPER_MODELS, type WhisperSize } from '../../../core/whisper';
 import { frontmostApp } from '../devices';
 import { featureOn } from '../features';
-import { poll } from '../governor';
+import { poll, startJob, type JobHandle } from '../governor';
 import { recognize, wav, whisper } from './engine';
 import { Hud } from './hud';
 import { focusedIsSecure, insertText, readSelection } from './insert';
@@ -92,6 +92,8 @@ interface MeetingRun {
   pending: number;
   prints: Map<string, Float32Array | null>;
   timer?: NodeJS.Timeout;
+  /** listed as Keeper's work, and keeps the computer from sleeping, until the transcript is saved */
+  job?: JobHandle;
 }
 
 export class VoiceService {
@@ -549,6 +551,7 @@ export class VoiceService {
     };
     const run: MeetingRun = { rec, paused: false, pausedMs: 0, tracks: { mic: { samples: new Samples(), cut: 0, level: 0 } }, queue: Promise.resolve(), pending: 0, prints: new Map() };
     this.meetingRun = run;
+    run.job = startJob('Meeting recording', { id: `meeting-${rec.id}`, keepAwake: true });
     if (s.keepAudio) await this.openTrackFile(run, 'mic');
     if (s.systemAudio) {
       run.tracks.system = { samples: new Samples(), cut: 0, level: 0 };
@@ -653,6 +656,14 @@ export class VoiceService {
   async stopMeeting(): Promise<MeetingRecord | null> {
     const run = this.meetingRun;
     if (!run) return null;
+    try {
+      return await this.finishMeeting(run);
+    } finally {
+      run.job?.end();
+    }
+  }
+
+  private async finishMeeting(run: MeetingRun): Promise<MeetingRecord | null> {
     if (run.paused) await this.pauseMeeting(false);
     clearInterval(run.timer);
     run.sys?.stop();

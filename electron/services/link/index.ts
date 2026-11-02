@@ -14,7 +14,7 @@ import type { PermissionSet } from '../../../core/link/perms';
 import { getSecret, setSecret } from '../../store';
 import { readText, writeText } from '../clip';
 import { featureOn } from '../features';
-import { workHeldUntil } from '../governor';
+import { startJob, workHeldUntil, type JobHandle } from '../governor';
 import { startAccess } from './access';
 import { trayChanged } from './surfaces';
 import { TunnelSupervisor } from './cloudflared';
@@ -77,7 +77,10 @@ export async function startLink(deps: { broadcast: Broadcast; show: (route?: str
       getSecret,
       setSecret,
       changed,
-      transfer: (p) => broadcast('link-transfer', p),
+      transfer: (p) => {
+        trackTransfer(p);
+        broadcast('link-transfer', p);
+      },
       pairPrompt: (p) => {
         pendingPairs.set(p.id, p);
         broadcast('link-pair', p);
@@ -142,6 +145,21 @@ export async function startLink(deps: { broadcast: Broadcast; show: (route?: str
     tunnel?.kick();
     node?.scheduleNote(3000);
   });
+}
+
+// Files going to or coming from another device are Keeper's work while they move (Keep Awake, Performance).
+const transferJobs = new Map<string, JobHandle>();
+function trackTransfer(p: import('../../../core/link/transfer').Progress) {
+  const key = `${p.direction}:${p.id}`;
+  let job = transferJobs.get(key);
+  if (p.state === 'done' || p.state === 'failed' || p.state === 'declined') {
+    job?.end();
+    transferJobs.delete(key);
+    return;
+  }
+  if (p.state === 'waiting') return;
+  if (!job) transferJobs.set(key, (job = startJob(p.direction === 'send' ? `Sending ${p.name}` : `Receiving ${p.name}`, { id: `link-${key}` })));
+  job.update(p.size ? `${Math.round((p.done / p.size) * 100)}%` : undefined);
 }
 
 /**

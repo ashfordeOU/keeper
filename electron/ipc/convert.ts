@@ -22,6 +22,7 @@ import { linkNode } from '../services/link';
 import { phoneScanFiles } from '../../core/scan';
 import { batches, piecesPrompt, readPieces, type DocKind } from '../../core/translate-doc';
 import { complete } from '../../core/ai-actions';
+import { startJob } from '../services/governor';
 
 const req = createRequire(__filename);
 
@@ -289,12 +290,17 @@ export function registerConvertIpc(deps: Deps) {
   const downloader = new VideoDownloader(path.join(app.getPath('userData'), 'bin'), ffmpegPath);
   ipcMain.handle('convert.downloadVideo', async (_e, o: Omit<DownloadOptions, 'folder'> & { folder?: string }) => {
     const folder = o.folder || path.join(downloadsDir(), 'Keeper Videos');
+    const job = startJob('Downloading a video', { id: 'download-video' });
     try {
-      const files = await downloader.download({ ...o, folder }, (p) => deps.progress({ task: 'download-video', phase: p.phase, done: Math.round(p.fraction * 1000), total: 1000 }));
+      const files = await downloader.download({ ...o, folder }, (p) => {
+        job.update(`${Math.round(p.fraction * 100)}%`);
+        deps.progress({ task: 'download-video', phase: p.phase, done: Math.round(p.fraction * 1000), total: 1000 });
+      });
       for (const f of files) void deps.refresh(f);
       deps.changed();
       return files;
     } finally {
+      job.end();
       deps.progress({ task: 'download-video', phase: 'Done', done: 1, total: 1 });
     }
   });
