@@ -437,6 +437,8 @@ export interface KeeperApi extends KeeperApiX {
   voice: import('./voice/types').VoiceApi;
   /** Stage mode: a clean screen for recording, presenting and screenshots; external monitor inputs */
   stage: import('./stage/types').StageApi;
+  /** Studio: screen recordings with the pointer, clicks, sound and camera kept apart, an editor and exports */
+  studio: import('./studio/api').StudioApi;
   /** Cloud & servers: cloud services, servers, home servers, NAS boxes and other computers */
   remote: RemoteApi;
   platform: PlatformApi;
@@ -764,6 +766,9 @@ export interface KeeperApi extends KeeperApiX {
   on(channel: 'voice-capture', cb: (c: { mic: boolean; deviceId?: string; system: boolean }) => void): () => void;
   on(channel: 'voice-sound', cb: (kind: 'start' | 'stop' | 'cancel') => void): () => void;
   on(channel: 'stage-changed', cb: (s: import('./stage/types').StageStatus) => void): () => void;
+  on(channel: 'studio-changed', cb: (s: import('./studio/api').StudioRecordState) => void): () => void;
+  on(channel: 'studio-export', cb: (j: import('./studio/api').ExportJob) => void): () => void;
+  on(channel: 'studio-progress', cb: (p: { what: string; fraction: number; label?: string }) => void): () => void;
   on(channel: 'resilience', cb: (e: { kind: 'reloaded' | 'service-restarted'; reason?: string; name?: string }) => void): () => void;
   on(channel: 'svc-changed', cb: () => void): () => void;
   on(channel: 'remote-changed', cb: () => void): () => void;

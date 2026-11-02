@@ -68,8 +68,18 @@ export async function startRecording(mode: RecordMode, opts: { mic?: boolean; sy
   return s;
 }
 
+/** Studio's recorder: the Island's and tray's Stop end it too, and it counts as recording. */
+let studio: { active(): boolean; since(): number | undefined; stop(): Promise<unknown> } | null = null;
+export function setStudioRecorder(s: typeof studio) {
+  studio = s;
+}
+
 export async function stopRecording(): Promise<string | null> {
   const ctx = ctxRef!;
+  if (studio?.active() && !recorder?.state.recording) {
+    await studio.stop();
+    return null;
+  }
   const p = (await recorder?.stop()) ?? null;
   if (p) {
     await ctx.added(p, true);
@@ -79,6 +89,10 @@ export async function stopRecording(): Promise<string | null> {
 }
 
 export async function toggleRecording(mode: RecordMode = 'full'): Promise<RecordState> {
+  if (studio?.active() && !recorder?.state.recording) {
+    await studio.stop();
+    return recordingState();
+  }
   if (recorder?.state.recording) {
     await stopRecording();
     return recorder.state;
@@ -87,6 +101,7 @@ export async function toggleRecording(mode: RecordMode = 'full'): Promise<Record
 }
 
 export function recordingState(): RecordState {
+  if (studio?.active() && !recorder?.state.recording) return { recording: true, since: studio.since() };
   return recorder?.state ?? { recording: false };
 }
 
@@ -128,7 +143,7 @@ export function registerCaptureIpc(ctx: CaptureContext) {
   handle('capture.screenshot', (mode: ScreenshotMode = 'full') => screenshot(mode));
   handle('capture.record', (mode: RecordMode = 'full', opts?: { mic?: boolean; systemAudio?: boolean; countdown?: number }) => startRecording(mode, opts));
   handle('capture.stopRecording', () => stopRecording());
-  handle('capture.recordState', () => recorder!.state);
+  handle('capture.recordState', () => recordingState());
   handle('capture.color', () => colorPick());
   handle('capture.colors', async () => {
     await loadHistory();

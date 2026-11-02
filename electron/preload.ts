@@ -50,6 +50,8 @@ const api = {
   // The system permissions Keeper's features use (first run, Settings → Permissions).
   permissions: group('permissions', ['list', 'request', 'openSettings', 'test', 'restart']),
   features: group('features', ['list', 'set', 'preset', 'sets', 'saveSet', 'removeSet', 'applySet', 'setPowerSets', 'live']),
+  // Studio: recordings with their parts kept apart, the editor and exports.
+  studio: group('studio', ['support', 'options', 'setOptions', 'state', 'record', 'pause', 'resume', 'stop', 'discard', 'projects', 'open', 'save', 'remove', 'reveal', 'pick', 'levels', 'transcribe', 'privacyScan', 'export', 'exportState', 'cancelExport', 'copyFile', 'revealFile', 'work', 'workChunk', 'workProgress', 'workDone']),
   stage: group('stage', ['status', 'start', 'stop', 'toggle', 'extend', 'settings', 'setSettings', 'savePreset', 'removePreset', 'support', 'journal', 'detect', 'modes', 'apps', 'preview', 'displayInputs', 'setDisplayInput', 'overlays', 'tray']),
   awake: group('awake', ['status', 'start', 'stop', 'toggle', 'extend', 'parse', 'settings', 'setSettings', 'saveTrigger', 'removeTrigger', 'reorderTriggers', 'testTrigger', 'blockers', 'stats', 'resetStats', 'apps', 'setupClosedDisplay']),
   places: {

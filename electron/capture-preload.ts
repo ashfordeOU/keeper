@@ -16,3 +16,10 @@ contextBridge.exposeInMainWorld('keeperRecorder', {
   done: () => ipcRenderer.send('recorder.done'),
   error: (msg: string) => ipcRenderer.send('recorder.error', msg),
 });
+
+// Studio's hidden recording page: commands in, chunks and events out.
+contextBridge.exposeInMainWorld('keeperStudioRec', {
+  onCommand: (cb: (cmd: unknown) => void) => ipcRenderer.on('studio.rec.cmd', (_e, cmd) => cb(cmd)),
+  chunk: (track: string, buf: ArrayBuffer) => ipcRenderer.send('studio.rec.chunk', track, buf),
+  event: (track: string, what: string, detail?: unknown) => ipcRenderer.send('studio.rec.event', track, what, detail),
+});

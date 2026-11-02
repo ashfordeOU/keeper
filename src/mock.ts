@@ -10,6 +10,7 @@ import { mockUsageStats } from './mock-usage-stats';
 import { mockPermissions } from './mock-permissions';
 import { mockAwake } from './mock-awake';
 import { mockStage } from './mock-stage';
+import { mockStudio } from './mock-studio';
 import { mockVoice } from './mock-voice';
 import { mockAshforde } from './mock-ashforde';
 import { featureStates } from '../core/features';
@@ -317,6 +318,7 @@ export function createMockApi(): KeeperApi {
     ...mockLink(HOME, (ch, ...args) => listeners.get(ch)?.forEach((cb) => (cb as (...a: unknown[]) => void)(...args))),
     ...mockMesh((ch, ...args) => listeners.get(ch)?.forEach((cb) => (cb as (...a: unknown[]) => void)(...args))),
     ...mockStage((ch, ...args) => listeners.get(ch)?.forEach((cb) => (cb as (...a: unknown[]) => void)(...args))),
+    ...mockStudio((ch, ...args) => listeners.get(ch)?.forEach((cb) => (cb as (...a: unknown[]) => void)(...args))),
     ...mockVoice((ch, ...args) => listeners.get(ch)?.forEach((cb) => (cb as (...a: unknown[]) => void)(...args))),
     usage: mockUsage(),
     ...mockAwake(() => settings, (patch) => {

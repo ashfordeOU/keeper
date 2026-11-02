@@ -43,7 +43,8 @@ import { walk } from '../core/walk';
 import { searchPlaces } from '../core/weather';
 import { listApps, uninstall } from './services/apps';
 import { captureText } from './services/capture';
-import { colorPick, quietly, recordingState, registerCaptureIpc, registerCaptureShortcuts, screenshot, toggleRecording } from './ipc/capture';
+import { colorPick, quietly, recordingState, registerCaptureIpc, registerCaptureShortcuts, screenshot, setStudioRecorder, toggleRecording } from './ipc/capture';
+import { handleStudioLink, registerStudioIpc, registerStudioShortcuts, stopStudio, studioRecording, studioStop, studioTrayItems } from './ipc/studio';
 import { FileService } from './services/files';
 import { IslandService } from './services/island';
 import { islandWindows, openClips, registerIslandIpc, registerIslandShortcuts } from './ipc/island';
@@ -489,7 +490,7 @@ let trayMenuKey = '';
 function trayTemplate(): Electron.MenuItemConstructorOptions[] {
   const awake = islandSvc?.awake.on;
   const more: Electron.MenuItemConstructorOptions[] = [
-    ...meshTrayItems(), ...ambienceTrayItems(), ...cueTrayItems(), ...stageTrayItems(), ...voiceTrayItems(),
+    ...meshTrayItems(), ...ambienceTrayItems(), ...cueTrayItems(), ...stageTrayItems(), ...studioTrayItems(), ...voiceTrayItems(),
     ...(featureOn('quickControls') ? [{ label: 'Quick Controls', submenu: trayControls() }] : []),
     ...trayAccessItems(showMain),
     ...(() => { try { return rdcTrayItems(); } catch { return []; } })(),
@@ -556,6 +557,7 @@ function registerShortcuts() {
   if (featureOn('capture')) void registerCaptureShortcuts();
   registerLauncherShortcut();
   registerCueShortcut();
+  void registerStudioShortcuts(reg);
 }
 
 /** Text from the clipboard's picture or a file, copied like a screen capture. */
@@ -632,6 +634,8 @@ function handleDeepLink(url: string) {
     // keeper://help?code=123456789&pw=… ("Ask for help" links) opens Help Someone with the code filled in.
     // keeper://cue?text=…&attach=page,app opens a new cue beside the app in front; keeper://cues opens the page.
     else if (action === 'cue') handleCueLink(u);
+    // keeper://studio/record (start or stop), /stop, /pause (pause or resume)
+    else if (action === 'studio') handleStudioLink(u);
     else if (action === 'help') showMain(`devices:help=${u.searchParams.get('code') ?? ''}${u.searchParams.get('pw') ? `.${u.searchParams.get('pw')}` : ''}`);
     else showMain(action || undefined);
   } catch {
@@ -1455,6 +1459,31 @@ app.whenReady().then(async () => {
     },
     navigate: (route) => showMain(route),
   });
+  // Studio: recordings that keep the screen, pointer, clicks, sound and camera apart, and their editor.
+  let studioSince: number | undefined;
+  registerStudioIpc({
+    preload: preload(), capturePreload: capturePreload(), broadcast, show: (route) => showMain(route), updateTray: () => void updateTray(),
+    load: async (win, query) => {
+      lockDown(win);
+      if (DEV_URL) await win.loadURL(`${DEV_URL}?${new URLSearchParams(query)}`);
+      else await win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'), { query });
+    },
+    alert: (title, detail) => islandSvc.alert({ kind: 'info', title, detail }),
+    recording: (on, since) => {
+      studioSince = on ? since : undefined;
+      islandSvc.recording = on && since ? { since } : undefined;
+      broadcast('island-changed');
+    },
+    stage: async (on) => {
+      const st = stageSvc();
+      if (!st || !featureOn('stage')) return;
+      if (on) await st.start('recording', { reason: 'Studio', skipCountdown: true });
+      else await st.stop('Studio recording ended');
+    },
+    added: (p) => void index.refresh(p).then(() => islandSvc.addToShelf([p])).then(() => libraryChanged()).catch(() => undefined),
+    reregister: () => registerShortcuts(),
+  });
+  setStudioRecorder({ active: studioRecording, since: () => studioSince, stop: studioStop });
 
   // The window opens straight away; the saved library fills it in a moment later.
   // Started at login to sit in the tray: the window's page loads only when it is first opened.
@@ -1593,6 +1622,7 @@ app.on('before-quit', (e) => {
   islandSvc?.stop();
   stopIslandX();
   stopCues();
+  stopStudio();
   try {
     index?.saveSync();
   } catch {
