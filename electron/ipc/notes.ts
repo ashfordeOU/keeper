@@ -5,6 +5,15 @@
 import { ipcMain } from 'electron';
 import * as svc from '../services/notes';
 import { registerKeeperMethod } from '../services/brain';
+import { featureOn } from '../services/features';
+import { linkKeeperVaults } from '../services/notes-sync';
+
+/** A vault added, made or removed: Notes Everywhere follows (when it is on). */
+const vaultsChanged = <A extends unknown[], R>(fn: (...a: A) => Promise<R>) => async (...a: A): Promise<R> => {
+  const r = await fn(...a);
+  if (featureOn('notesHub')) void svc.vaults().then(linkKeeperVaults).catch(() => undefined);
+  return r;
+};
 
 function handle(name: string, fn: (...args: never[]) => unknown) {
   ipcMain.handle(name, async (_e, ...args) => fn(...(args as never[])));
@@ -13,7 +22,7 @@ function handle(name: string, fn: (...args: never[]) => unknown) {
 export function registerNotesIpc(d: { broadcast: (channel: string, ...args: unknown[]) => void; allowRoot?: (dir: string) => void }) {
   svc.initNotes(d);
   const m: Record<string, (...a: never[]) => unknown> = {
-    vaults: svc.vaults, addVault: svc.addVault, createVault: svc.createVault, removeVault: svc.removeVault,
+    vaults: svc.vaults, addVault: vaultsChanged(svc.addVault), createVault: vaultsChanged(svc.createVault), removeVault: vaultsChanged(svc.removeVault),
     open: svc.openVault, close: svc.close, vaultPath: svc.vaultPath,
     read: svc.read, write: (id: string, p: string, t: string) => svc.write(id, p, t), create: svc.create, createFolder: svc.createFolder, newNote: svc.newNote,
     remove: svc.remove, rename: svc.rename,

@@ -29,6 +29,8 @@ import { HubStore } from './hubstore';
 interface NotesConfig {
   hubFolder: string;
   connectors: ConnectorConfig[];
+  /** Keeper Notes vaults already linked once (one removed by the person is not linked again) */
+  keeperVaults?: string[];
   dismissedDuplicates: string[];
   devicesFolderId?: string;
 }
@@ -690,7 +692,7 @@ export const notesApi: NoteSyncApi = {
       for (const n of h.notes.values()) if (n.sources.some((s) => s.connector === x.id)) notes++;
       const available = availableOn(def, process.platform);
       return {
-        id: x.id, kind: x.kind, app: def.name, enabled: x.enabled, available, reviewed: x.reviewed, notes, lastSync: x.lastSync,
+        id: x.id, kind: x.kind, app: def.name, label: x.fields.keeperVault ? x.label : undefined, enabled: x.enabled, available, reviewed: x.reviewed, notes, lastSync: x.lastSync,
         state: (!available ? 'unavailable' : st?.state ?? (!x.reviewed ? 'needs-review' : 'idle')) as 'idle' | 'syncing' | 'error' | 'needs-review' | 'unavailable',
         message: st?.message ?? x.message,
       };
@@ -701,10 +703,45 @@ export const notesApi: NoteSyncApi = {
 
 // ---------------------------------------------------------------- start, the To do list, the phone
 
-export async function startNotes(d: NotesDeps) {
+export async function startNotes(d: NotesDeps & { vaults?: () => Promise<KeeperVault[]> }) {
   deps = d;
   await conf();
   onFeature('notesSync', () => schedule(), { now: true });
+  // Keeper's own Notes vaults show in the hub and the Island, whenever Notes Everywhere is on.
+  if (d.vaults) onFeature('notesHub', (on) => { if (on) void d.vaults!().then(linkKeeperVaults).catch(() => undefined); }, { now: true });
+}
+
+export interface KeeperVault { id: string; name: string; path: string; missing?: boolean }
+
+/**
+ * Keeper's own Notes vaults as connections of the notes hub: read only (Keeper
+ * never writes into a vault from the hub), so no dry run is needed; their
+ * notes show in Notes Everywhere, its search and the Island's Notes. A vault
+ * linked once is not linked again after the person removes the connection;
+ * a vault removed from Notes takes its connection with it (the hub keeps its copies).
+ */
+export async function linkKeeperVaults(list: KeeperVault[]): Promise<void> {
+  const c = await conf();
+  const seen = new Set(c.keeperVaults ?? []);
+  const hubP = path.resolve(c.hubFolder);
+  const fresh: ConnectorConfig[] = [];
+  for (const v of list) {
+    if (v.missing || seen.has(v.id)) continue;
+    seen.add(v.id);
+    const p = path.resolve(v.path);
+    if (p === hubP || p.startsWith(hubP + path.sep) || hubP.startsWith(p + path.sep)) continue;
+    if (c.connectors.some((x) => x.kind === 'folder' && x.fields.path && path.resolve(x.fields.path) === p)) continue;
+    fresh.push({ id: `folder-${Math.random().toString(36).slice(2, 8)}`, kind: 'folder', label: `${v.name} (Keeper Notes)`, enabled: true, writeBack: false, pushNew: false, fields: { path: p, keeperVault: v.id }, everyMin: 30, reviewed: true });
+  }
+  const ids = new Set(list.map((v) => v.id));
+  const gone = c.connectors.filter((x) => x.fields.keeperVault && !ids.has(x.fields.keeperVault));
+  for (const g of gone) stopPolls.get(g.id)?.();
+  if (!fresh.length && !gone.length && seen.size === (c.keeperVaults ?? []).length) return;
+  await save({ connectors: [...c.connectors.filter((x) => !gone.includes(x)), ...fresh], keeperVaults: [...seen] });
+  schedule();
+  changed();
+  // Their notes are copied in straight away (only reading the vault).
+  if (featureOn('notesHub')) for (const f of fresh) void runSync(f.id).catch(() => undefined);
 }
 
 export function stopNotes() {

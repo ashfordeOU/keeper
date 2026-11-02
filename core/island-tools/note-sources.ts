@@ -25,6 +25,8 @@ export interface IslandNoteSource {
   id: string;
   kind: ConnectorKind;
   app: string;
+  /** a name of its own (a Keeper Notes vault: "Work (Keeper Notes)") */
+  label?: string;
   enabled: boolean;
   available: boolean;
   /** a dry run was looked at (syncing is allowed) */
@@ -117,7 +119,7 @@ export function groupNotes(input: {
     const items = (by.get(k) ?? []).sort((a, b) => b.modified - a.modified);
     const source = sources.find((s) => s.kind === k);
     if (!items.length && (q || !source)) continue;
-    groups.push({ id: k, label: appLabel(k as ConnectorKind), hub: items, source });
+    groups.push({ id: k, label: source?.label && sources.filter((s) => s.kind === k).length === 1 ? source.label : appLabel(k as ConnectorKind), hub: items, source });
   }
   const loose = by.get('hub');
   if (loose?.length) groups.push({ id: 'hub', label: 'Notes Everywhere', hub: loose.sort((a, b) => b.modified - a.modified) });

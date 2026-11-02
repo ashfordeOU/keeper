@@ -183,6 +183,18 @@ async function until(fn, ms = 15_000, step = 250) {
     check(JSON.stringify(j.titles) === JSON.stringify(['Book ideas', 'Diary', 'Gift ideas', 'Old draft']) && j.plaintextSent === false, `signed in to the stand-in Standard Notes server, opened the notes on this computer, wrote one back, and sent no plain text (${JSON.stringify(j.titles)})`);
   }
 
+  // A Keeper Notes vault joins Notes Everywhere and the Island's Notes by itself, read only.
+  const KV = path.join(HOME, 'Keeper Vault');
+  fs.mkdirSync(KV, { recursive: true });
+  fs.writeFileSync(path.join(KV, 'Packing list.md'), 'Passport\nCharger\n');
+  await main.evaluate((p) => window.keeper.notes.addVault(p), KV);
+  const kvConn = await until(async () => (await ns('overview')).connectors.find((c) => /\(Keeper Notes\)$/.test(c.label)));
+  check(!!kvConn && kvConn.label === 'Keeper Vault (Keeper Notes)' && kvConn.writeBack === false, 'a Keeper Notes vault is linked into Notes Everywhere, read only');
+  const kvHit = await until(async () => ((await ns('islandNotes', 'Passport')).hits ?? []).length > 0);
+  const isl = await ns('islandNotes', '');
+  check(!!kvHit && isl.sources.some((s) => s.label === 'Keeper Vault (Keeper Notes)'), 'its notes are found from the Island, under the vault’s name');
+  check(fs.readFileSync(path.join(KV, 'Packing list.md'), 'utf8') === 'Passport\nCharger\n', 'the vault was only read');
+
   check(errors.length === 0, `no page errors${errors.length ? ': ' + errors.join(' | ') : ''}`);
   await app.close();
   console.log(process.exitCode ? 'SOME CHECKS FAILED' : 'ALL CHECKS PASSED');

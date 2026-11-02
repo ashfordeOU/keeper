@@ -37,6 +37,9 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - Weather → Trips now also shows flights, stays, events and other bookings that Places & Tracks found in your mail, next to calendar events with a place: a stay where it is, a flight, train or bus where it arrives, each with that day's forecast and what to pack, marked Booking. A booking and an event at the same place on the same day show once. With no calendar connected, bookings still show.
 - Removed an unused second trip finder in the main process (`forecast.trips`).
 
+### Changed — Notes vaults everywhere
+- Vaults opened or made in Keeper's Notes now join Notes Everywhere by themselves, read only, as "<vault> (Keeper Notes)": their notes are copied into the hub straight away, found by its search and listed in the Island's Notes under the vault's name. Keeper never writes into a vault from the hub. Removing a vault from Notes removes its connection (the hub keeps its copies); a connection you remove is not added again.
+
 ### Fixed — Setup and permissions
 - macOS: Allow for Accessibility, Screen Recording and Input Monitoring works every time. macOS shows those questions only once per app, so Keeper now remembers that it asked, opens the exact System Settings page when the answer is still not yes a moment later, and labels the button (and "Ask again" in Allow all) "Open System Settings" from then on. A row that stays off after that suggests removing Keeper with − and adding it again (macOS can hold an older copy's approval).
 - The macOS keychain question after an update ("Keeper Safe Storage") is explained in the Software Update window before it restarts, and in docs/PERMISSIONS.md. Until a Developer ID build, that line asks you to type your login password and choose Always Allow.
