@@ -113,11 +113,11 @@ export function studioTrayItems(): Electron.MenuItemConstructorOptions[] {
   return [{ label: 'Studio: Record the Screen', click: () => void studioToggle() }];
 }
 
-export async function registerStudioShortcuts(reg: (acc: string, fn: () => void) => void) {
+export async function registerStudioShortcuts(reg: (acc: string, fn: () => void, owner?: string) => void) {
   if (!featureOn('studio')) return;
   const o = await studioOptions();
-  reg(o.shortcut, () => void studioToggle().catch(() => undefined));
-  reg(o.pauseShortcut, () => togglePause());
+  reg(o.shortcut, () => void studioToggle().catch(() => undefined), 'Studio: record');
+  reg(o.pauseShortcut, () => togglePause(), 'Studio: pause');
 }
 
 /** keeper://studio/record · /stop · /pause */

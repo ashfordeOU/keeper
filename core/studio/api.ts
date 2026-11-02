@@ -29,8 +29,14 @@ export interface StudioOptions {
   lastExport?: Partial<ExportSettings>;
 }
 
+/** Record and pause from anywhere. ⌘⇧2 / Ctrl+Shift+2 is Copy text from screen's, and ⌘⇧3 is the Mac's own screenshot key. */
+export const STUDIO_SHORTCUT = 'CommandOrControl+Shift+9';
+export const STUDIO_PAUSE_SHORTCUT = 'CommandOrControl+Shift+0';
+/** The defaults before 1.0.0, which clashed with those keys: options still holding them move to the new ones. */
+const OLD_DEFAULTS: Record<string, string> = { 'CommandOrControl+Shift+2': STUDIO_SHORTCUT, 'CommandOrControl+Shift+3': STUDIO_PAUSE_SHORTCUT };
+
 export function defaultStudioOptions(): StudioOptions {
-  return { mode: 'full', mic: true, webcam: false, systemAudio: false, fps: 60, countdown: 3, stage: false, hideWindow: true, folder: '', recent: [], shortcut: 'CommandOrControl+Shift+2', pauseShortcut: 'CommandOrControl+Shift+3' };
+  return { mode: 'full', mic: true, webcam: false, systemAudio: false, fps: 60, countdown: 3, stage: false, hideWindow: true, folder: '', recent: [], shortcut: STUDIO_SHORTCUT, pauseShortcut: STUDIO_PAUSE_SHORTCUT };
 }
 
 export function normalizeStudioOptions(raw: unknown): StudioOptions {
@@ -49,8 +55,8 @@ export function normalizeStudioOptions(raw: unknown): StudioOptions {
     hideWindow: typeof r.hideWindow === 'boolean' ? r.hideWindow : d.hideWindow,
     folder: typeof r.folder === 'string' ? r.folder : '',
     recent: Array.isArray(r.recent) ? r.recent.filter((x): x is string => typeof x === 'string').slice(0, 40) : [],
-    shortcut: typeof r.shortcut === 'string' ? r.shortcut : d.shortcut,
-    pauseShortcut: typeof r.pauseShortcut === 'string' ? r.pauseShortcut : d.pauseShortcut,
+    shortcut: typeof r.shortcut === 'string' ? (r.shortcut === 'CommandOrControl+Shift+2' ? OLD_DEFAULTS[r.shortcut] : r.shortcut) : d.shortcut,
+    pauseShortcut: typeof r.pauseShortcut === 'string' ? (r.pauseShortcut === 'CommandOrControl+Shift+3' ? OLD_DEFAULTS[r.pauseShortcut] : r.pauseShortcut) : d.pauseShortcut,
     lastExport: r.lastExport && typeof r.lastExport === 'object' ? r.lastExport : undefined,
   };
 }

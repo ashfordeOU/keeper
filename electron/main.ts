@@ -115,6 +115,7 @@ import { registerSysmonIpc } from './ipc/sysmon';
 import { registerUsageTrackerIpc } from './ipc/usage-tracker';
 import { flushUsageTracker } from './services/usage-tracker';
 import { registerLauncherShortcut, toggleLauncher } from './services/monitor-launcher';
+import { claimShortcut, resetShortcutBook } from './services/prefs';
 import { setMonitorIslandAlert } from './services/monitor';
 import { registerPimIpc } from './ipc/pim';
 import { registerNotesIpc } from './ipc/notes';
@@ -557,21 +558,17 @@ function trayTemplate(): Electron.MenuItemConstructorOptions[] {
 
 function registerShortcuts() {
   globalShortcut.unregisterAll();
+  resetShortcutBook();
   const s = settings();
-  const reg = (acc: string, fn: () => void) => {
-    try {
-      if (acc) globalShortcut.register(acc, fn);
-    } catch {
-      /* invalid or taken */
-    }
-  };
+  // A shortcut that is taken or not valid is reported in Settings → Shortcuts ("taken by …").
+  const reg = (acc: string, fn: () => void, owner?: string) => void claimShortcut(acc, fn, owner);
   // A feature that is off gives its shortcut back to the system.
-  if (featureOn('quickSearch')) reg(s.quickSearchShortcut, toggleQuick);
+  if (featureOn('quickSearch')) reg(s.quickSearchShortcut, toggleQuick, 'Quick Search');
   // Quick connect to a remote desktop from anywhere (Remote Desktops → Places).
   const rdcKey = rdcShortcut();
-  if (rdcKey) reg(rdcKey.accelerator, rdcKey.run);
-  if (featureOn('assistant')) reg(s.platform?.askShortcut, () => askKeeper());
-  if (featureOn('capture')) reg(s.island.captureShortcut, () => void doCapture());
+  if (rdcKey) reg(rdcKey.accelerator, rdcKey.run, 'Remote Desktops: quick connect');
+  if (featureOn('assistant')) reg(s.platform?.askShortcut, () => askKeeper(), 'Ask Keeper');
+  if (featureOn('capture')) reg(s.island.captureShortcut, () => void doCapture(), 'Copy text from screen');
   // Dictation (Voice): its toggle and edit-by-voice shortcuts; holding the talk key needs no shortcut.
   registerVoiceShortcuts(reg);
   if (featureOn('island')) registerIslandShortcuts();

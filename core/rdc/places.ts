@@ -20,7 +20,7 @@ export interface RdcPlaces {
   sessions: 'tab' | 'window';
 }
 
-export const DEFAULT_PLACES: RdcPlaces = { shortcut: true, accelerator: 'CommandOrControl+Alt+R', palette: true, tray: true, files: true, sessions: 'tab' };
+export const DEFAULT_PLACES: RdcPlaces = { shortcut: true, accelerator: 'CommandOrControl+Alt+E', palette: true, tray: true, files: true, sessions: 'tab' };
 
 export function normalizePlaces(raw: unknown): RdcPlaces {
   const o = (raw && typeof raw === 'object' ? raw : {}) as Partial<RdcPlaces>;

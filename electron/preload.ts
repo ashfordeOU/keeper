@@ -16,6 +16,7 @@ const api = {
   capture: group('capture', ['text', 'clipboardImage', 'readFile', 'screenshot', 'record', 'stopRecording', 'recordState', 'color', 'colors', 'history', 'removeHistory', 'clearHistory', 'options', 'setOptions', 'openLink']),
   weather: group('weather', ['get', 'search']),
   settings: group('settings', ['get', 'set', 'setSecret', 'hasSecret', 'pickFolder', 'pickFiles']),
+  prefs: group('prefs', ['shortcuts', 'saveFile', 'openFile']),
   filekit: group('filekit', ['workflows', 'saveWorkflow', 'deleteWorkflow', 'runWorkflow', 'engines']),
   convert: group('convert', ['run', 'capabilities', 'duration', 'pageCount', 'mediaInfo', 'pdfFields', 'pdfThumbs', 'displays', 'setDisplay', 'phoneBackups', 'webToPdf', 'downloadVideo', 'cancelDownload', 'saveRecording']),
   library: group('library', ['status', 'rescan', 'speedUp', 'totals', 'recent', 'list', 'search', 'bySource', 'tags', 'setTags', 'inspect', 'readText', 'largeFiles']),

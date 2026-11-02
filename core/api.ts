@@ -621,6 +621,14 @@ export interface KeeperApi extends KeeperApiX {
     /** shows a result's page ("name:arg") in the main window */
     open(route: string): Promise<void>;
   };
+  /** Settings helpers: which global shortcuts work, and saving or opening a settings file (export and import). */
+  prefs: {
+    shortcuts(): Promise<import('./shortcuts').ShortcutStatus[]>;
+    /** asks where to save; the path, or null when cancelled */
+    saveFile(name: string, text: string): Promise<string | null>;
+    /** asks for a file; its text, or null when cancelled */
+    openFile(): Promise<string | null>;
+  };
   library: {
     status(): Promise<LibraryStatus>;
     rescan(): Promise<void>;

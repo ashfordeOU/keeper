@@ -2,7 +2,7 @@
 // IPC for the screen tools: text capture, screenshots, recording, the colour
 // picker, the capture history and saving edited images.
 
-import { app, globalShortcut, ipcMain, shell } from 'electron';
+import { app, ipcMain, shell } from 'electron';
 import { existsSync, promises as fsp } from 'node:fs';
 import path from 'node:path';
 import type { CaptureOptions } from '../../core/capture';
@@ -13,6 +13,7 @@ import {
   screenshotFolder, setOptions, takeScreenshot, type ScreenshotMode,
 } from '../services/capture';
 import { writeImage } from '../services/clip';
+import { claimShortcut } from '../services/prefs';
 import { Recorder, type RecordMode, type RecordState } from '../services/recorder';
 import { loadImage } from '../services/vision';
 
@@ -120,16 +121,10 @@ export function quietly<T>(fn: () => Promise<T>): void {
 /** Global shortcuts for screenshots, recording and the colour picker (called after the app's own). */
 export async function registerCaptureShortcuts() {
   const o = await getOptions();
-  const reg = (acc: string, fn: () => void) => {
-    try {
-      if (acc && !globalShortcut.isRegistered(acc)) globalShortcut.register(acc, fn);
-    } catch {
-      /* invalid or taken */
-    }
-  };
-  reg(o.screenshotShortcut, () => quietly(() => screenshot('area')));
-  reg(o.recordShortcut, () => quietly(() => toggleRecording('full')));
-  reg(o.colorShortcut, () => quietly(() => colorPick()));
+  // Taken or not valid: reported in Settings → Shortcuts.
+  claimShortcut(o.screenshotShortcut, () => quietly(() => screenshot('area')), 'Screenshot');
+  claimShortcut(o.recordShortcut, () => quietly(() => toggleRecording('full')), 'Record the screen');
+  claimShortcut(o.colorShortcut, () => quietly(() => colorPick()), 'Pick a color');
 }
 
 export function registerCaptureIpc(ctx: CaptureContext) {

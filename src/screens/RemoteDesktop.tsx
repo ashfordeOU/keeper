@@ -705,7 +705,7 @@ function PlacesPanel() {
         <div className="small muted">Reach your computers from anywhere on this one, not only from this page. Switch off what you do not want.</div>
         <div className="rdc-places-row" data-testid="rdc-place-shortcut">
           <div className="grow col" style={{ gap: 2 }}><b>Quick connect from anywhere</b><span className="small muted">A small box opens with {nice(p.accelerator)}: type an address or pick a favourite.</span></div>
-          <input className="input mono" style={{ width: 210 }} value={acc} onChange={(e) => setAcc(e.target.value)} onBlur={() => acc !== p.accelerator && void set({ accelerator: acc })} title="For example CommandOrControl+Alt+R" />
+          <input className="input mono" style={{ width: 210 }} value={acc} onChange={(e) => setAcc(e.target.value)} onBlur={() => acc !== p.accelerator && void set({ accelerator: acc })} title="For example CommandOrControl+Alt+E" />
           <button className="btn sm" onClick={() => void api.rdc.showQuick()}>Try It</button>
           <Toggle on={p.shortcut} onChange={(v) => void set({ shortcut: v })} />
         </div>

@@ -403,6 +403,18 @@ export function createMockApi(): KeeperApi {
       pickFolder: async () => `${HOME}/Projects`,
       pickFiles: async () => [`${HOME}/Movies/Lisbon trip.mov`],
     },
+    prefs: {
+      // The demo's shortcuts: the clash Settings → Shortcuts warns about, once.
+      shortcuts: async () => [
+        { owner: 'Quick Search', accelerator: settings.quickSearchShortcut, state: 'ok' as const },
+        { owner: 'Copy text from screen', accelerator: settings.island.captureShortcut, state: 'ok' as const },
+        { owner: 'Studio: record', accelerator: 'CommandOrControl+Shift+9', state: 'ok' as const },
+        { owner: 'Clipboard history', accelerator: settings.island.pasteShortcut, state: 'ok' as const },
+        { owner: 'Screenshot', accelerator: 'CommandOrControl+Alt+S', state: 'taken' as const, takenBy: 'another app' },
+      ],
+      saveFile: async (name: string) => `${HOME}/Documents/${name}`,
+      openFile: async () => null,
+    },
     convert: {
       run: async (job) => {
         const first = job.inputs[0] ?? `${HOME}/file`;
