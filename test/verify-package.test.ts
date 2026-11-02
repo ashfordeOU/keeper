@@ -54,4 +54,19 @@ describe('the package check', () => {
     expect(() => verifyPackage({ ...none, strict: true })).toThrow(/agent-desktop/);
     expect(() => verifyPackage(fakeMac(['agentDesktopLicence']))).toThrow(/LICENSE\.txt and NOTICE\.txt/);
   });
+
+  it('an Intel Mac core installer passes without onnxruntime (it has no Intel Mac build), even with the package\'s empty bin folder left in', () => {
+    const o = fakeMac(['ffmpeg', 'ort', 'rclone']);
+    const mods = path.join(o.resources, 'app.asar.unpacked', 'node_modules');
+    fs.mkdirSync(path.join(mods, 'onnxruntime-node', 'bin', 'napi-v6'), { recursive: true });
+    fs.mkdirSync(path.join(mods, '@img', 'sharp-darwin-x64', 'lib'), { recursive: true });
+    fs.writeFileSync(path.join(mods, '@img', 'sharp-darwin-x64', 'lib', 'sharp-darwin-x64.node'), 'x');
+    fs.mkdirSync(path.join(mods, 'node-pty', 'prebuilds', 'darwin-x64'), { recursive: true });
+    fs.writeFileSync(path.join(mods, 'node-pty', 'prebuilds', 'darwin-x64', 'pty.node'), 'x');
+    const staging = fs.mkdtempSync(path.join(os.tmpdir(), 'keeper-stage-'));
+    dirs.push(staging);
+    for (const [id, f] of [['ffmpeg', 'ffmpeg'], ['rclone', 'rclone']]) { fs.mkdirSync(path.join(staging, id), { recursive: true }); fs.writeFileSync(path.join(staging, id, f), 'x'); }
+    expect(() => verifyPackage({ ...o, arch: 'x64', edition: 'core', staging })).not.toThrow();
+  });
 });
+

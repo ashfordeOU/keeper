@@ -59,7 +59,8 @@ function checkPackage(o) {
     // The core installer is the small one: what became a component must really be gone from it.
     const left = [
       fs.existsSync(path.join(mods, 'ffmpeg-static', `ffmpeg${exe}`)) && 'ffmpeg',
-      fs.existsSync(path.join(mods, 'onnxruntime-node', 'bin')) && 'onnxruntime',
+      // Only this computer's build counts: Intel Macs have none (onnxruntime makes no Intel Mac build).
+      fs.existsSync(path.join(mods, 'onnxruntime-node', 'bin', 'napi-v6', platform, arch, 'onnxruntime_binding.node')) && 'onnxruntime',
       fs.existsSync(path.join(resources, 'rclone')) && 'rclone',
     ].filter(Boolean);
     pieces.push({ name: 'core installer without its downloadable components', have: !left.length, fix: `build/after-pack.cjs left ${left.join(', ')} inside; check scripts/components.mjs stage`, required: true });
