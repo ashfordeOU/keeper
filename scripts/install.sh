@@ -6,8 +6,8 @@
 #   curl -fsSL https://raw.githubusercontent.com/ashfordeOU/keeper/main/scripts/install.sh | sh -s -- --appimage
 #
 # Options:
-#   --version X    install a specific version (default: the latest release)
-#   --beta         the newest release, betas included (a beta then keeps updating to betas)
+#   --version X    install a specific version (default: the newest release with a build for this computer)
+#   --beta         the newest release, betas included (a beta copy follows betas until a newer stable is out)
 #   --appimage     on Linux, use the AppImage even when a .deb/.rpm would fit
 #   --cli-only     install only the `keeper` command (needs Node.js 22+ and npm)
 #   --uninstall    remove Keeper (the app, the command and the menu entry; your files are untouched)
@@ -145,14 +145,33 @@ cli_only() {
 
 # ---------------------------------------------------------------- the release
 
-release_json() {
-  if [ "$VERSION" != latest ]; then fetch_text "$API/releases/tags/v$VERSION"
-  elif [ "$BETA" -eq 1 ]; then
-    # The releases list is newest first and includes pre-releases; take the first tag.
-    tag="$(fetch_text "$API/releases?per_page=10" | tr ',' '\n' | sed -n 's/^[[:space:]]*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)"
-    [ -n "$tag" ] || return 1
-    fetch_text "$API/releases/tags/$tag"
-  else fetch_text "$API/releases/latest"; fi
+# The newest release that has the file `name` (pre-releases only with --beta), read from the
+# releases list (newest first) on stdin. A release made for some systems only (macOS first,
+# say) is skipped on the others, so this is not simply /releases/latest.
+newest_tag_with() { # name
+  tr ',' '\n' | awk -v want="$1" -v beta="$BETA" '
+    function val(s) { sub(/^[^:]*:[[:space:]]*/, "", s); gsub(/^"|"[[:space:]]*}*]*}*[[:space:]]*$/, "", s); return s }
+    /"tag_name"[[:space:]]*:/ { tag = val($0); pre = 0; draft = 0; next }
+    /"prerelease"[[:space:]]*:[[:space:]]*true/ { pre = 1; next }
+    /"draft"[[:space:]]*:[[:space:]]*true/ { draft = 1; next }
+    /"browser_download_url"[[:space:]]*:/ {
+      u = val($0); n = u; sub(/.*\//, "", n)
+      if (n == want && tag != "" && !draft && (beta == 1 || !pre)) { print tag; exit }
+    }'
+}
+
+release_json() { # name of the file this computer needs
+  if [ "$VERSION" != latest ]; then
+    fetch_text "$API/releases/tags/v$VERSION" || fail "could not read release v$VERSION from GitHub"
+    return 0
+  fi
+  list="$(fetch_text "$API/releases?per_page=50")" || fail "could not read the release information from GitHub"
+  tag="$(printf '%s' "$list" | newest_tag_with "$1")"
+  if [ -z "$tag" ]; then
+    if [ "$BETA" -eq 1 ]; then fail "no release has $1 yet"; fi
+    fail "no stable release has $1 yet (for the newest beta add --beta)"
+  fi
+  fetch_text "$API/releases/tags/$tag" || fail "could not read release $tag from GitHub"
 }
 
 # Picks the download URL of an asset by exact name from the release JSON (no jq needed).
@@ -205,7 +224,7 @@ quit_running_mac() {
 }
 
 install_mac() {
-  json="$(release_json)" || fail "could not read the release information from GitHub"
+  json="$(release_json "Keeper-mac-$ARCH.dmg")" || exit 1
   download_verified "$json" "Keeper-mac-$ARCH.dmg"
   MNT="$TMP/mnt"; mkdir -p "$MNT"
   # The disk image shows Keeper's licence before it opens; a piped install has no keyboard to
@@ -230,9 +249,9 @@ install_mac() {
 }
 
 install_linux_package() { # kind
-  json="$(release_json)" || fail "could not read the release information from GitHub"
   if [ "$1" = deb ]; then
     debarch=amd64; [ "$ARCH" = arm64 ] && debarch=arm64
+    json="$(release_json "Keeper-linux-$debarch.deb")" || exit 1
     download_verified "$json" "Keeper-linux-$debarch.deb"
     need_sudo
     step "Installing the .deb package"
@@ -240,6 +259,7 @@ install_linux_package() { # kind
     else $SUDO dpkg -i "$DOWNLOADED"; fi
   else
     rpmarch=x86_64; [ "$ARCH" = arm64 ] && rpmarch=aarch64
+    json="$(release_json "Keeper-linux-$rpmarch.rpm")" || exit 1
     download_verified "$json" "Keeper-linux-$rpmarch.rpm"
     need_sudo
     step "Installing the .rpm package"
@@ -253,8 +273,8 @@ install_linux_package() { # kind
 }
 
 install_linux_appimage() {
-  json="$(release_json)" || fail "could not read the release information from GitHub"
   aiarch=x86_64; [ "$ARCH" = arm64 ] && aiarch=arm64
+  json="$(release_json "Keeper-linux-$aiarch.AppImage")" || exit 1
   download_verified "$json" "Keeper-linux-$aiarch.AppImage"
   mkdir -p "$BIN_DIR" "$DATA_DIR/applications" "$DATA_DIR/keeper-cli"
   step "Installing the AppImage into $BIN_DIR"
@@ -298,7 +318,7 @@ case "$MODE" in
   cli) cli_only; exit 0 ;;
 esac
 
-label="$VERSION"; [ "$VERSION" = latest ] && [ "$BETA" -eq 1 ] && label="newest, betas included"
+label="$VERSION"; [ "$VERSION" = latest ] && label="newest for this computer"; [ "$VERSION" = latest ] && [ "$BETA" -eq 1 ] && label="newest, betas included"
 say "Installing Keeper by Ashforde® ($label) for $OS-$ARCH"
 if [ "$OS" = mac ]; then
   install_mac

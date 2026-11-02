@@ -6,7 +6,7 @@
 # With options (piping into iex cannot pass them, so run it as a script block):
 #   & ([scriptblock]::Create((irm https://raw.githubusercontent.com/ashfordeOU/keeper/main/scripts/install.ps1))) -Portable
 #
-#   -Version X      install a specific version (default: the latest release)
+#   -Version X      install a specific version (default: the newest stable release with a Windows build)
 #   -Portable       the portable Keeper.exe instead of the installer (no admin rights, no auto-update)
 #   -Uninstall      remove Keeper (the app, the keeper command, shortcuts; your files are untouched)
 #   -DownloadOnly   download and verify the installer into the current folder, then stop
@@ -43,10 +43,21 @@ function Say([string]$Text) { Write-Host $Text }
 function Step([string]$Text) { Write-Host "==> $Text" -ForegroundColor Cyan }
 function Fail([string]$Text) { throw "Keeper installer: $Text" }
 
-function Get-Release {
-  $url = if ($Version -eq 'latest') { "$Api/releases/latest" } else { "$Api/releases/tags/v$Version" }
-  try { Invoke-RestMethod -Uri $url -Headers @{ 'User-Agent' = 'keeper-installer' } }
+# The newest stable release that has the file this computer needs: a release made for some
+# systems only (macOS first, say) is skipped, so this is not simply /releases/latest.
+function Get-Release([string]$Name) {
+  $headers = @{ 'User-Agent' = 'keeper-installer' }
+  if ($Version -ne 'latest') {
+    $url = "$Api/releases/tags/v$Version"
+    try { return Invoke-RestMethod -Uri $url -Headers $headers }
+    catch { Fail "could not read the release information ($url): $($_.Exception.Message)" }
+  }
+  $url = "$Api/releases?per_page=50"
+  try { $list = Invoke-RestMethod -Uri $url -Headers $headers }
   catch { Fail "could not read the release information ($url): $($_.Exception.Message)" }
+  $release = @($list) | Where-Object { -not $_.draft -and -not $_.prerelease -and ($_.assets | Where-Object { $_.name -eq $Name }) } | Select-Object -First 1
+  if (-not $release) { Fail "no stable release has $Name yet" }
+  $release
 }
 
 function Get-VerifiedAsset($Release, [string]$Name, [string]$Folder) {
@@ -111,9 +122,9 @@ function Stop-Keeper {
 
 function Install-Keeper {
   if (-not [Environment]::Is64BitOperatingSystem) { Fail 'Keeper needs 64-bit Windows.' }
-  $release = Get-Release
-  Say "Installing Keeper by Ashforde$([char]0xAE) $($release.tag_name)"
   $name = if ($Portable) { 'Keeper-portable.exe' } else { 'Keeper-setup-x64.exe' }
+  $release = Get-Release $name
+  Say "Installing Keeper by Ashforde$([char]0xAE) $($release.tag_name)"
   if ($DownloadOnly) {
     $path = Get-VerifiedAsset $release $name (Get-Location).Path
     Say "Downloaded and verified: $path"
