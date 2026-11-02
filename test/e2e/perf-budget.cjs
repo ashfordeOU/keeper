@@ -17,6 +17,17 @@
 //        KEEPER_PERF_MODE=minimal …               the Minimal resource mode (checks slow
 //                                                 down, no graphics card)
 //        KEEPER_PERF_JSON=file                    also appends each run's figures as JSON
+//        KEEPER_PERF_MODE=big …                   a big library: the main process's heap stays bounded
+//
+// Big library mode: tens of thousands of files and 1,500 long text
+// documents (KEEPER_PERF_FILES, KEEPER_PERF_DOCS, KEEPER_PERF_DOC_KB), read
+// for the first time with the main process's JavaScript heap capped
+// (KEEPER_PERF_HEAP_LIMIT_MB, default 640). It waits until the library, the
+// text in documents and the brain are done, then checks the peak heap seen
+// while that ran and the heap left after a full collection. A main-process
+// out-of-memory abort (what a big library on a Mac hit: the heap grew with the
+// library's text, and saving the brain and the index took several times
+// that again) fails it outright. About two minutes.
 //
 // For scale (docs/RESILIENCE.md, same machine and method): Dolphin idles at
 // about 0.01 % and 68 MB, GNOME Files at about 0.08 % and 228 MB.
@@ -27,7 +38,18 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const MODE = process.env.KEEPER_PERF_MODE === 'minimal' ? 'minimal' : 'balanced';
+const MODE = process.env.KEEPER_PERF_MODE === 'minimal' ? 'minimal' : process.env.KEEPER_PERF_MODE === 'big' ? 'big' : 'balanced';
+const BIG = {
+  files: Number(process.env.KEEPER_PERF_FILES ?? 40_000),
+  docs: Number(process.env.KEEPER_PERF_DOCS ?? 1500),
+  docKB: Number(process.env.KEEPER_PERF_DOC_KB ?? 80),
+  heapLimitMB: Number(process.env.KEEPER_PERF_HEAP_LIMIT_MB ?? 640),
+  // Measured 370–490 MB peak and 255 MB settled with the defaults, in about two minutes.
+  // Before saving was streamed and the brain's postings packed: an out-of-memory abort
+  // at the 640 MB cap about a minute in.
+  peakMB: Number(process.env.KEEPER_PERF_PEAK_MB ?? 600),
+  settledMB: Number(process.env.KEEPER_PERF_SETTLED_MB ?? 320),
+};
 const BUDGET = {
   // Target 0.5 %. Measured (2,000 files, after two minutes to settle, medians of three):
   // 0.24–0.31 % by default (was 0.40–0.44 %) and 0.20–0.22 % in Minimal mode (was 0.27–0.38 %);
@@ -132,6 +154,110 @@ function makeHome() {
   return { home, files: n };
 }
 
+/** Many small files of every kind, plus long text documents with a large vocabulary (what the brain and text reading hold). */
+function makeBigHome() {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'keeper-perf-big-'));
+  // Kinds Keeper lists without reading inside (pictures and PDFs would wait on the paced text recognition for minutes).
+  const exts = ['mp4', 'mov', 'mkv', 'zip', 'mp3', 'm4a', 'dmg', 'key', 'psd', 'avi'];
+  const tops = ['Pictures', 'Videos', 'Downloads', 'Music', 'Desktop'];
+  let n = 0;
+  const made = new Set();
+  for (let i = 0; i < BIG.files; i++) {
+    const dir = path.join(home, tops[i % tops.length], `set-${Math.floor(i / 500)}`, `part-${Math.floor(i / 50) % 10}`);
+    if (!made.has(dir)) { fs.mkdirSync(dir, { recursive: true }); made.add(dir); }
+    fs.writeFileSync(path.join(dir, `file ${i}.${exts[i % exts.length]}`), 'x'.repeat(64));
+    n++;
+  }
+  // Pseudo-words with a long tail (like real prose and data), some outside ASCII.
+  const vocab = Array.from({ length: 200_000 }, (_v, i) => Math.floor(i * 7919 + 1e6).toString(36) + (i % 11 ? '' : 'é'));
+  let seed = 7;
+  const rnd = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+  for (let i = 0; i < BIG.docs; i++) {
+    const dir = path.join(home, 'Documents', `papers-${Math.floor(i / 100)}`);
+    if (i % 100 === 0) fs.mkdirSync(dir, { recursive: true });
+    const words = [];
+    let len = 0;
+    while (len < BIG.docKB * 1024) {
+      const w = vocab[Math.floor(rnd() ** 3 * vocab.length)];
+      words.push(w);
+      len += w.length + 1;
+      if (words.length % 90 === 0) words.push('.\n\n');
+    }
+    fs.writeFileSync(path.join(dir, `paper ${i}.${['txt', 'md', 'csv'][i % 3]}`), words.join(' '));
+    n++;
+  }
+  return { home, files: n };
+}
+
+/** Reads the main process's memory (and collects garbage first when asked). */
+const mainMemory = (app, collect) => app.evaluate((_e, c) => {
+  if (c && typeof globalThis.gc === 'function') { globalThis.gc(); globalThis.gc(); }
+  return process.memoryUsage();
+}, collect);
+
+async function big() {
+  const { home, files } = makeBigHome();
+  const user = fs.mkdtempSync(path.join(os.tmpdir(), 'keeper-perf-cfg-'));
+  const app = await _electron.launch({
+    executablePath: path.join(ROOT, 'node_modules', '.bin', 'electron'),
+    args: [ROOT, '--no-sandbox', `--user-data-dir=${user}`, `--js-flags=--expose-gc --max-old-space-size=${BIG.heapLimitMB}`],
+    env: { ...process.env, HOME: home, XDG_CONFIG_HOME: user, NODE_OPTIONS: '', KEEPER_SKIP_TOUR: '1' },
+  });
+  const pid = app.process().pid;
+  let crashed = '';
+  // Calls into a process that has died never answer: every one races the exit (and a timeout).
+  let died;
+  const gone = new Promise((resolve) => { died = resolve; });
+  app.process().on('exit', (code, signal) => { crashed = `the main process ended (${signal ?? code})`; died(null); });
+  const ask = (f) => {
+    let p;
+    try { p = Promise.resolve(f()).catch(() => null); } catch { p = Promise.resolve(null); }
+    return Promise.race([p, gone, sleep(60_000).then(() => null)]);
+  };
+  // What the main process said last (V8 reports an out-of-memory abort there).
+  let stderr = '';
+  app.process().stderr?.on('data', (d) => { stderr = (stderr + d).slice(-20_000); });
+  let peak = 0;
+  let last = null;
+  // Keeper's processes, so none is left running if the main one dies (its helpers then lose their parent).
+  const pids = new Set();
+  const t0 = Date.now();
+  try {
+    let win;
+    for (let i = 0; i < 240 && !win && !crashed; i++) {
+      for (const w of app.windows()) if (/view=app|index\.html$/.test(w.url()) && (await ask(() => w.$('.sidebar')))) win = w;
+      if (!win) await sleep(250);
+    }
+    if (!win) throw new Error(crashed || 'the main window never appeared');
+    // Until the library is read, the text in documents is too, and the brain has caught up (it saves 20 s after).
+    let quiet = 0;
+    for (let i = 0; i < 900 && !crashed; i++) {
+      for (const p of tree(pid)) pids.add(p);
+      const m = await ask(() => mainMemory(app, false));
+      if (!m) break;
+      peak = Math.max(peak, m.heapUsed);
+      const st = await ask(() => win.evaluate(async () => ({ lib: await window.keeper.library.status(), brain: await window.keeper.brain?.status?.().catch(() => null) })));
+      const busy = !st || st.lib.indexing || st.lib.files < files * 0.9 || st.lib.ocrPending > 0 || (st.brain && (st.brain.indexed ?? st.brain.files) < st.brain.files);
+      quiet = busy ? 0 : quiet + 1;
+      if (i % 15 === 0) console.log(`  ${Math.round((Date.now() - t0) / 1000)} s: heap ${(m.heapUsed / 1048576).toFixed(0)} MB, ${st ? `${st.lib.files} files, ${st.lib.ocrPending} to read` : '…'}`);
+      // Thirty quiet seconds: the brain's and the index's saves have run.
+      if (quiet >= 15) break;
+      await sleep(2000);
+    }
+    last = crashed ? null : await ask(() => mainMemory(app, true));
+    if (!last) {
+      const oom = stderr.split('\n').find((l) => /out of memory|heap limit/i.test(l));
+      throw new Error(`${crashed || 'the main process stopped answering'}${oom ? `\n  ${oom.trim()}` : ''}`);
+    }
+  } finally {
+    await ask(() => app.close());
+    for (const p of [pid, ...pids]) try { process.kill(p, 'SIGKILL'); } catch { /* already gone */ }
+    fs.rmSync(home, { recursive: true, force: true });
+    fs.rmSync(user, { recursive: true, force: true });
+  }
+  return { files, seconds: Math.round((Date.now() - t0) / 1000), peakMB: peak / 1048576, settledMB: last.heapUsed / 1048576, rssMB: last.rss / 1048576 };
+}
+
 async function once() {
   const { home, files } = makeHome();
   const user = fs.mkdtempSync(path.join(os.tmpdir(), 'keeper-perf-cfg-'));
@@ -186,6 +312,16 @@ async function once() {
 }
 
 (async () => {
+  if (MODE === 'big') {
+    const r = await big().catch((e) => ({ error: e instanceof Error ? e.message : String(e) }));
+    if (r.error) {
+      console.log(`perf budget (big library): FAILED: ${r.error} (heap capped at ${BIG.heapLimitMB} MB)`);
+      process.exit(1);
+    }
+    const ok = r.peakMB <= BIG.peakMB && r.settledMB <= BIG.settledMB;
+    console.log(`perf budget (big library): ${r.files} files in ${r.seconds} s, main-process heap peak ${r.peakMB.toFixed(0)} MB (budget ${BIG.peakMB} MB), settled ${r.settledMB.toFixed(0)} MB (budget ${BIG.settledMB} MB), resident ${r.rssMB.toFixed(0)} MB ${ok ? 'OK' : 'OVER'}`);
+    process.exit(ok ? 0 : 1);
+  }
   for (let attempt = 1; attempt <= 2; attempt++) {
     const r = await once();
     const ok = r.cpuPct <= BUDGET.cpuPct && r.pssMB <= BUDGET.pssMB && r.privMB <= BUDGET.privMB && r.anonMB <= BUDGET.anonMB;

@@ -84,6 +84,8 @@ jobs:
           npm install --no-save playwright-core@1.63.0
           xvfb-run -a -s "-screen 0 1440x900x24" node test/e2e/perf-budget.cjs
           KEEPER_PERF_MODE=minimal xvfb-run -a -s "-screen 0 1440x900x24" node test/e2e/perf-budget.cjs
+          # A big library read for the first time: the main process's heap stays bounded (about two minutes).
+          KEEPER_PERF_MODE=big xvfb-run -a -s "-screen 0 1440x900x24" node test/e2e/perf-budget.cjs
 
   # The packaged app on real macOS and Windows machines: Keeper's own read-only
   # commands against the system (ports, routes, sensors, powercfg/pmset, WMI,
