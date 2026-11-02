@@ -605,6 +605,12 @@ export interface KeeperApi extends KeeperApiX {
     pickFolder(): Promise<string | null>;
     pickFiles(opts?: { title?: string; extensions?: string[] }): Promise<string[]>;
   };
+  /** The one search box beyond files: mail, events, tasks, contacts, notes, Keeper's features and system settings. */
+  search: {
+    everything(q: string, opts?: { kinds?: import('./search-everything').EverythingKind[]; limit?: number }): Promise<import('./search-everything').EverythingResult>;
+    /** shows a result's page ("name:arg") in the main window */
+    open(route: string): Promise<void>;
+  };
   library: {
     status(): Promise<LibraryStatus>;
     rescan(): Promise<void>;

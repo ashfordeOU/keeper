@@ -115,6 +115,8 @@ export function Mail() {
   // "New Mail Message" from the command palette or a keeper:// link; a message id from the Island's drop-down.
   useEffect(() => {
     if (route.arg === 'compose') setCompose({ to: [], cc: [], bcc: [], subject: '', body: '' });
+    // A contact from the search box: the mail from them.
+    else if (route.arg?.startsWith('search:')) { setSide(null); setQuery(route.arg.slice(7)); }
     else if (route.arg && route.arg.split(':').length > 2) { setSide(null); setQuery(''); setView((v) => ({ ...v, folder: 'unified', account: undefined, split: undefined })); setSelected(route.arg); }
   }, [route.arg]);
   useEffect(loadList, [loadList]);

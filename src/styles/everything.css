@@ -1,0 +1,10 @@
+/* The search box's results beyond files (src/components/Everything.tsx, Quick Search). */
+.ev-groups { margin-top: 22px; display: flex; flex-direction: column; gap: 12px; }
+.ev-title { margin: 0; font-size: 12px; font-weight: 600; text-transform: none; }
+.ev-group { display: flex; flex-direction: column; gap: 2px; }
+.ev-head { padding: 2px 8px; font-weight: 600; }
+.ev-row { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border: 0; border-radius: 8px; background: transparent; color: inherit; text-align: left; cursor: default; font: inherit; min-width: 0; }
+.ev-row:hover, .ev-row:focus-visible { background: var(--bg-sunk); }
+.ev-text { display: flex; flex-direction: column; min-width: 0; }
+.ev-name { font-weight: 550; }
+.ev-icon { width: 30px; height: 30px; border-radius: 7px; background: var(--bg-sunk); display: grid; place-items: center; flex: none; color: var(--accent); }

@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Quick Search: the small panel that opens from any app with a global shortcut.
+// Files first, then cues, then mail, events, tasks, contacts, notes, Keeper's
+// features and system settings, as one list for the arrow keys.
 
 import { useEffect, useRef, useState } from 'react';
 import { formatBytes, relativeTime } from '../../core/format';
@@ -10,6 +12,8 @@ import { api } from '../api';
 import { Icon } from '../components/Icon';
 import { Thumb } from '../components/ui';
 import { isMac } from '../state';
+import { hitLine, HitIcon, useEverything } from '../components/Everything';
+import type { EverythingHit } from '../../core/search-everything';
 import '../styles/screens-a.css';
 
 export function QuickSearch() {
@@ -21,6 +25,10 @@ export function QuickSearch() {
   const [index, setIndex] = useState(0);
   // "ask" turns Enter into a question for Keeper's assistant; Tab switches.
   const [mode, setMode] = useState<'find' | 'ask'>('find');
+  const elsewhere = useEverything(mode === 'find' ? text : '', 120);
+  const hits: EverythingHit[] = elsewhere?.groups.flatMap((g) => g.hits) ?? [];
+  // One list for the arrow keys: files, then everything else.
+  const total = files.length + hits.length;
   const input = useRef<HTMLInputElement>(null);
   const list = useRef<HTMLDivElement>(null);
 
@@ -49,11 +57,12 @@ export function QuickSearch() {
     return () => { alive = false; clearTimeout(t); };
   }, [text]);
 
-  useEffect(() => setIndex(0), [files]);
+  useEffect(() => setIndex(0), [files, text]);
   useEffect(() => { list.current?.querySelector('.q-row.on')?.scrollIntoView({ block: 'nearest' }); }, [index]);
 
+  const openHit = (h: EverythingHit) => { void api.search.open(h.route); window.close(); };
   const act = (f: FileEntry | undefined, e: { metaKey: boolean; ctrlKey: boolean; altKey: boolean }) => {
-    if (!f) return;
+    if (!f) { const h = hits[index - files.length]; if (h) openHit(h); return; }
     if (e.altKey) void api.files.reveal(f.path);
     else if (e.metaKey || e.ctrlKey) void api.system.openExternal(`keeper://open?path=${encodeURIComponent(f.path)}`);
     else void api.files.open(f.path);
@@ -75,14 +84,14 @@ export function QuickSearch() {
           aria-label={mode === 'ask' ? 'Ask about your files (Tab switches to finding files)' : 'Find any file (Tab switches to asking)'}
           aria-expanded="true"
           aria-controls="quick-results"
-          aria-activedescendant={mode === 'find' && files[index] ? `quick-opt-${index}` : undefined}
-          placeholder={mode === 'ask' ? 'Ask about your files…' : 'Find any file…'}
+          aria-activedescendant={mode === 'find' && index < total ? `quick-opt-${index}` : undefined}
+          placeholder={mode === 'ask' ? 'Ask about your files…' : 'Find files, mail, events, notes, settings…'}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Escape') { if (text) setText(''); else if (mode === 'ask') setMode('find'); else window.close(); }
             else if (e.key === 'Tab') { e.preventDefault(); setMode(mode === 'ask' ? 'find' : 'ask'); }
             else if (e.key === 'Enter' && mode === 'ask' && text.trim()) { void api.platform.ask(text.trim()); window.close(); }
-            else if (e.key === 'ArrowDown') { e.preventDefault(); setIndex((i) => Math.min(files.length - 1, i + 1)); }
+            else if (e.key === 'ArrowDown') { e.preventDefault(); setIndex((i) => Math.min(total - 1, i + 1)); }
             else if (e.key === 'ArrowUp') { e.preventDefault(); setIndex((i) => Math.max(0, i - 1)); }
             else if (e.key === 'Enter') act(files[index], e);
           }}
@@ -100,6 +109,17 @@ export function QuickSearch() {
             <div className="grow ellipsis" style={{ fontWeight: 550 }}>{text.trim() ? `Ask Keeper: “${text.trim()}”` : 'Type a question, for example “when does my passport expire?”'}</div>
           </div>
         ) : null}
+        {mode === 'find' && files.length ? <div className="small muted" role="presentation" style={{ padding: '4px 10px' }}>{text ? 'Files' : 'Recent'}</div> : null}
+        {files.map((f, i) => (
+          <div key={f.path} id={`quick-opt-${i}`} role="option" aria-selected={mode === 'find' && i === index} className={`q-row ${mode === 'find' && i === index ? 'on' : ''}`} onMouseMove={() => { if (i !== index) setIndex(i); }} onClick={(e) => act(f, e)}
+            draggable onDragStart={(e) => { e.preventDefault(); api.files.startDrag([f.path]); }}>
+            <div style={{ width: 30, height: 30, borderRadius: 7, overflow: 'hidden', background: 'var(--bg-sunk)', display: 'grid', placeItems: 'center', flex: 'none' }}><Thumb file={f} size={64} /></div>
+            <div className="grow">
+              <div className="ellipsis" style={{ fontWeight: 550 }}>{f.name}</div>
+              <div className="small muted ellipsis">{formatBytes(f.size)} · {relativeTime(f.mtime)}{f.source ? ` · ${f.source.name}` : ''} · {f.path}</div>
+            </div>
+          </div>
+        ))}
         {mode === 'find' && cues.length ? (
           <>
             <div className="small muted" role="presentation" style={{ padding: '4px 10px' }}>Cues</div>
@@ -112,21 +132,29 @@ export function QuickSearch() {
                 </div>
               </div>
             ))}
-            <div className="small muted" role="presentation" style={{ padding: '4px 10px' }}>Files</div>
           </>
         ) : null}
-        {!text ? <div className="small muted" role="presentation" style={{ padding: '4px 10px' }}>Recent</div> : null}
-        {files.map((f, i) => (
-          <div key={f.path} id={`quick-opt-${i}`} role="option" aria-selected={mode === 'find' && i === index} className={`q-row ${mode === 'find' && i === index ? 'on' : ''}`} onMouseMove={() => { if (i !== index) setIndex(i); }} onClick={(e) => act(f, e)}
-            draggable onDragStart={(e) => { e.preventDefault(); api.files.startDrag([f.path]); }}>
-            <div style={{ width: 30, height: 30, borderRadius: 7, overflow: 'hidden', background: 'var(--bg-sunk)', display: 'grid', placeItems: 'center', flex: 'none' }}><Thumb file={f} size={64} /></div>
-            <div className="grow">
-              <div className="ellipsis" style={{ fontWeight: 550 }}>{f.name}</div>
-              <div className="small muted ellipsis">{formatBytes(f.size)} · {relativeTime(f.mtime)}{f.source ? ` · ${f.source.name}` : ''} · {f.path}</div>
+        {mode === 'find' ? elsewhere?.groups.map((g) => {
+          const start = files.length + hits.indexOf(g.hits[0]);
+          return (
+            <div key={g.kind} role="group" aria-label={g.label} data-testid={`quick-${g.kind}`}>
+              <div className="small muted" role="presentation" style={{ padding: '4px 10px' }}>{g.label}</div>
+              {g.hits.map((h, j) => {
+                const i = start + j;
+                return (
+                  <div key={`${h.kind}:${h.id}`} id={`quick-opt-${i}`} role="option" aria-selected={i === index} className={`q-row ${i === index ? 'on' : ''}`} onMouseMove={() => { if (i !== index) setIndex(i); }} onClick={() => openHit(h)}>
+                    <HitIcon h={h} />
+                    <div className="grow">
+                      <div className="ellipsis" style={{ fontWeight: 550 }}>{h.title}</div>
+                      <div className="small muted ellipsis">{hitLine(h)}</div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          </div>
-        ))}
-        {text && !files.length ? <div className="empty small" role="status">No matches</div> : null}
+          );
+        }) : null}
+        {text && !total && !cues.length ? <div className="empty small" role="status">No matches</div> : null}
       </div>
       <div className="q-foot">{mode === 'ask' ? <span>↩ ask</span> : null}<span>⇥ {mode === 'ask' ? 'find files' : 'ask instead'}</span>{mode === 'find' ? <span>↩ open</span> : null}<span>{cmd}↩ show in Keeper</span><span>{alt}↩ show in folder</span><span>esc close</span></div>
     </div>

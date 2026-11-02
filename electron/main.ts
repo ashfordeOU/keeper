@@ -113,6 +113,7 @@ import { registerLauncherShortcut, toggleLauncher } from './services/monitor-lau
 import { setMonitorIslandAlert } from './services/monitor';
 import { registerPimIpc } from './ipc/pim';
 import { registerNotesIpc } from './ipc/notes';
+import { registerSearchIpc } from './ipc/search';
 import { allowRoot as allowPreviewRoot } from './services/preview';
 import { adoptIslandCalendarUrl, logFocus, startPim, stopPim } from './services/pim';
 import { registerNetIpc } from './ipc/net';
@@ -1386,6 +1387,7 @@ app.whenReady().then(async () => {
   registerPimIpc();
   // Notes: vaults are read only while the Notes page is open.
   registerNotesIpc({ broadcast, allowRoot: allowPreviewRoot });
+  registerSearchIpc({ show: showMain });
   void startPim({
     broadcast,
     alert: (title, detail, kind, ref) => islandSvc?.alert({ kind: kind ?? 'info', title, detail, ref }),

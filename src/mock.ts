@@ -557,6 +557,14 @@ export function createMockApi(): KeeperApi {
       plan: async (id) => (id === 'screenshots-by-month' ? files.filter((f) => f.screenshot).map((f) => ({ file: f, action: rules[1].action, to: `${HOME}/Pictures/Screenshots/2026-10/${f.name}` })) : id === 'old-installers' ? files.filter((f) => f.kind === 'installer').map((f) => ({ file: f, action: { type: 'trash' as const } })) : []),
       run: async () => delay({ ...ok, removed: 3 }, 500),
     },
+    search: {
+      everything: async (q) => (q.trim() ? { groups: [
+        { kind: 'mail', label: 'Mail', hits: [{ kind: 'mail', id: 'm1', title: `Re: ${q}`, detail: 'Alice Martin', when: now - 3600_000, route: 'mail' }] },
+        { kind: 'event', label: 'Events', hits: [{ kind: 'event', id: 'e1', title: `${q} review`, detail: 'Room 4', when: now + 86_400_000, route: 'calendar' }] },
+        { kind: 'feature', label: 'Keeper', hits: [{ kind: 'feature', id: 'weather', title: 'Weather', detail: 'On · Forecasts for your places', route: 'weather' }] },
+      ], missed: [] } : { groups: [], missed: [] }),
+      open: async () => undefined,
+    },
     history: {
       list: async () => [
         { id: 'h1', at: now - 3600_000, title: 'Cleaned 4 groups', ops: [{ type: 'delete', from: '~/Library/Caches', size: 6.4 * 1024 * MB }], freed: 6.4 * 1024 * MB, undoable: false },

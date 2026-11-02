@@ -74,6 +74,8 @@ export function Catalog() {
   const loadLog = useCallback(() => { void api.catalog.log().then(setLog); void api.catalog.backups().then(setBackups); }, []);
   useEffect(() => { loadLog(); return api.on('catalog-changed', loadLog); }, [loadLog]);
   useEffect(() => { if (route.q !== undefined) setQ(route.q); }, [route.q]);
+  // A setting found in the search box (catalog:<title>).
+  useEffect(() => { if (route.arg) setQ(route.arg); }, [route.arg]);
 
   const [hits, setHits] = useState<CatalogEntry[] | null>(null);
   useEffect(() => {

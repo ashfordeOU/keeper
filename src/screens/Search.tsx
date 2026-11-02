@@ -9,6 +9,7 @@ import { api } from '../api';
 import { Icon } from '../components/Icon';
 import { copyFullText, Empty, Files, HiddenToggle, Loading, Modal, Thumb, ViewControls } from '../components/ui';
 import { useStore } from '../state';
+import { EverythingGroups, routeOf, useEverything } from '../components/Everything';
 import '../styles/screens-a.css';
 
 const EXAMPLES = [
@@ -35,6 +36,8 @@ export function Search() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState('');
+  // Mail, events, tasks, contacts, notes and settings, after the files.
+  const elsewhere = useEverything(q);
 
   useEffect(() => {
     if (!q.trim()) {
@@ -118,8 +121,9 @@ export function Search() {
       ) : null}
 
       {loading && !result ? <Loading label="Searching…" /> : (
-        <Files files={files} showSource empty={<Empty icon="search" title="No matches">Try fewer words, or remove a filter above.</Empty>} />
+        <Files files={files} showSource empty={elsewhere?.groups.length ? <div className="small muted">No files match.</div> : <Empty icon="search" title="No matches">Try fewer words, or remove a filter above.</Empty>} />
       )}
+      <EverythingGroups result={elsewhere} onOpen={(h) => go(routeOf(h.route))} />
 
       {saving ? (
         <Modal title="Save search" onClose={() => setSaving(false)} width={420}>

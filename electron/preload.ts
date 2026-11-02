@@ -37,6 +37,8 @@ const api = {
   security: group('security', ['overview', 'permissions', 'revoke', 'browsers', 'connections', 'installBrowserHost', 'persistence', 'scan', 'stopScan', 'scans', 'quarantine', 'quarantineFile', 'restore', 'deleteQuarantined', 'events', 'settings', 'setSettings', 'ignore', 'fix', 'installClamav', 'updateSignatures', 'checkPassword', 'exportReport']),
   rules: group('rules', ['list', 'save', 'remove', 'plan', 'run']),
   history: group('history', ['list', 'undo']),
+  // The one search box's other sources (mail, events, tasks, contacts, notes, features, settings).
+  search: group('search', ['everything', 'open']),
   ai: group('ai', ['ask']),
   monitor: group('monitor', ['history', 'topToday', 'alerts', 'setAlertRules', 'docker', 'dockerAction', 'killTree', 'stopAgent', 'thermals', 'disks', 'speedTest', 'speedHistory']),
   forecast: group('forecast', ['places', 'savePlaces', 'get', 'alerts', 'radar', 'climate', 'trips']),
