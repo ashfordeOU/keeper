@@ -4,6 +4,13 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 
 ## [Unreleased]
 
+## [0.1.0-beta.6] - 2026-11-02
+
+0.1.0-beta.5 was not published; everything listed under it is in this release.
+
+### Fixed
+- Windows: the DNS filter picks another port when Windows reserves the one it was given (Hyper-V port ranges).
+
 ### Fixed — memory
 - Keeper no longer runs out of memory while it first reads a big library's text (the crash after about ten minutes on a Mac). The library index and the search brain are saved piece by piece instead of as one huge string, extracted text no longer keeps its whole file in memory, and the brain's word index takes about half the room.
 - Linux: the tray menu no longer piles up a copy of itself every few seconds while the library is read.
