@@ -137,6 +137,9 @@ import { ashfordeThemeChanged, monorailFocusChanged, monorailPresentationChanged
 import { cached as controlsCached, list as controlsList, onControlsChanged, set as controlsSet, applyPreset as controlsPreset } from './services/controls';
 import { PRESETS as CONTROL_PRESETS } from '../core/controls/catalog';
 import { registerFirewallIpc, stopFirewall } from './ipc/fw';
+import { registerFocusBlockIpc } from './ipc/focus-block';
+import { focusChanged as focusBlockFocusChanged, focusStopRefusal, stopFocusBlock } from './services/focus-block';
+import { act as procAct, apps as procApps } from './services/procs';
 import { registerSyncIpc } from './ipc/sync';
 import { registerNotesyncIpc } from './ipc/notesync';
 import { registerNotesCompanion } from './services/notes-sync';
@@ -1540,7 +1543,24 @@ app.whenReady().then(async () => {
     },
   });
   onMonorailState((m) => islandSvc?.setMonorail(m));
-  if (islandSvc) islandSvc.modeHook = (kind, on) => (kind === 'focus' ? monorailFocusChanged(on) : monorailPresentationChanged(on));
+  if (islandSvc) islandSvc.modeHook = (kind, on) => {
+    if (kind === 'presentation') return monorailPresentationChanged(on);
+    monorailFocusChanged(on);
+    focusBlockFocusChanged(on);
+  };
+  // Focus blocking: sites through the browser extension and the DNS filter, apps through the app in front (nothing runs while off).
+  registerFocusBlockIpc({
+    preload: preload(), lockDown, broadcast,
+    focus: () => {
+      const f = islandSvc?.focus;
+      if (!f || f.mode !== 'focus') return { on: false, endsAt: 0 };
+      return { on: true, endsAt: f.stopwatch ? 0 : f.pausedLeft !== undefined ? Date.now() + f.pausedLeft : f.endsAt };
+    },
+    alert: (title, detail) => islandSvc?.alert({ kind: 'focus', title, detail }),
+    quitApp: async (pid) => (await procAct('quit', [pid])).ok,
+    runningApps: async () => [...new Set((await procApps()).map((a) => a.name))].sort((a, b) => a.localeCompare(b)),
+  });
+  if (islandSvc) islandSvc.stopGuard = focusStopRefusal;
   onControlsChanged(() => void updateTray());
   // Firewall: rules, alerts, the DNS filter and traffic history (nothing runs until switched on).
   registerFirewallIpc({ alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }), broadcast });
@@ -1803,6 +1823,7 @@ app.on('before-quit', (e) => {
   islandSvc?.stop();
   stopIslandX();
   stopCues();
+  stopFocusBlock();
   stopStudio();
   try {
     index?.saveSync();

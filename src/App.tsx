@@ -81,6 +81,8 @@ import { NotesHub } from './screens/NotesHub';
 const NotesApp = lazy(() => import('./notes/NotesApp').then((m) => ({ default: m.NotesApp })));
 // Cues (notes and checklists tied to an app, a site or a time) load the first time the page opens.
 const CuesPage = lazy(() => import('./screens/Cues').then((m) => ({ default: m.Cues })));
+// Focus blocking (lists, schedules, strict mode) loads the first time its page opens.
+const FocusBlockPage = lazy(() => import('./screens/FocusBlock').then((m) => ({ default: m.FocusBlock })));
 const Dictation = lazy(() => import('./screens/Dictation').then((m) => ({ default: m.Dictation })));
 const TypedSnippets = lazy(() => import('./screens/TypedSnippets').then((m) => ({ default: m.TypedSnippets })));
 const Meetings = lazy(() => import('./screens/Meetings').then((m) => ({ default: m.Meetings })));
@@ -418,6 +420,7 @@ function Page() {
     noteshub: () => <NotesHub key={route.arg ?? ''} />,
     notes: () => <Suspense fallback={null}><NotesApp /></Suspense>,
     cues: () => <Suspense fallback={null}><CuesPage /></Suspense>,
+    blocking: () => <Suspense fallback={null}><FocusBlockPage /></Suspense>,
     terminal: () => <TerminalApp mode="page" startCwd={route.arg} openSession={route.q?.startsWith('session:') ? route.q.slice(8) : undefined} />,
     rdc: () => <Suspense fallback={null}><RemoteDesktops /></Suspense>,
     devices: () => <Devices />,

@@ -19,6 +19,7 @@ import type { NetSample } from '../../../core/net/flows';
 import { run } from '../../../core/platform';
 import { poll } from '../governor';
 import { backendFor, FW_TESTABLE, type Backend } from './backends';
+import { siteFor } from '../../../core/focus-block';
 import { Resolver } from './resolver';
 
 const dir = () => path.join(app.getPath('userData'), 'firewall');
@@ -155,7 +156,21 @@ function upstreamById(id: string): Upstream {
 }
 
 /** What blocks a name: a host rule (deny), the person's domain list, or a blocklist. */
+// Sites a Focus block covers (electron/services/focus-block.ts): they come before every list and rule.
+let focusSites: string[] = [];
+export function setFocusSites(sites: string[]) {
+  if (sites.join('\n') === focusSites.join('\n')) return;
+  focusSites = sites;
+  resolver?.flush();
+}
+/** Is the DNS filter answering (so Focus blocking reaches every app, not only browsers)? */
+export function dnsFilterRunning(): boolean {
+  return !!resolver;
+}
+
 function nameBlockedBy(name: string): string | undefined {
+  const focus = focusSites.length ? siteFor(name, focusSites) : undefined;
+  if (focus) return `Focus blocking (${focus})`;
   let h = name.toLowerCase();
   for (;;) {
     const v = domainRules[h];

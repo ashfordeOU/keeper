@@ -8,7 +8,7 @@
 // This file is the shared protocol and the pure parts: command checking,
 // blocking-rule generation and PAC scripts. Tested without a browser.
 
-export type BrowserCap = 'tabs' | 'mute' | 'discard' | 'contentSettings' | 'dnr' | 'cookies' | 'proxy' | 'memory';
+export type BrowserCap = 'tabs' | 'mute' | 'discard' | 'contentSettings' | 'dnr' | 'cookies' | 'proxy' | 'memory' | 'focus' | 'readLater';
 
 export interface BrowserTab {
   id: number;
@@ -55,7 +55,9 @@ export type TabCommand =
   | { cmd: 'setBlockRules'; rules: DnrRule[] }
   | { cmd: 'setSiteBlocking'; site: string; on: boolean }
   | { cmd: 'setProxy'; pac: string | null }
-  | { cmd: 'tabInfo'; tabId: number };
+  | { cmd: 'tabInfo'; tabId: number }
+  // Focus blocking (core/focus-block.ts): pages on these sites open the extension's own block page.
+  | { cmd: 'setFocusBlock'; sites: string[]; until?: number; strict: boolean; waitSeconds: number; passMinutes: number; why: string };
 
 /** Messages from the extension (through the host). Messages without `kind` are the original page reports. */
 export type ExtensionMessage =
@@ -65,7 +67,11 @@ export type ExtensionMessage =
   | { kind: 'report'; site: string; thirdParties: { host: string; requests: number }[]; at: number; browser?: string }
   // Cues (core/cues): the page in front, and a cue left for a page or site.
   | { kind: 'active'; url: string; title: string }
-  | { kind: 'cue'; url: string; title: string; site: boolean; text: string };
+  | { kind: 'cue'; url: string; title: string; site: boolean; text: string }
+  // Focus blocking: "let me in for a few minutes" from the block page (Keeper decides).
+  | { kind: 'focusPass'; site: string; reqId: string }
+  // The reader: "save for later" from the toolbar menu or a page's right-click menu.
+  | { kind: 'readLater'; url: string; title: string };
 
 /** Message to the extension. */
 export interface HostCommand {
@@ -128,6 +134,11 @@ export function checkCommand(c: TabCommand): TabCommand {
       if (!Array.isArray(c.rules) || c.rules.length > MAX_DYNAMIC_RULES) throw new Error('Too many rules');
       return c;
     case 'setSiteBlocking': sitePattern(c.site); return c;
+    case 'setFocusBlock': {
+      if (!Array.isArray(c.sites) || c.sites.length > 1000) throw new Error('Too many sites');
+      const sites = c.sites.filter((x) => typeof x === 'string' && /^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(x));
+      return { cmd: 'setFocusBlock', sites, until: Number.isFinite(c.until) ? c.until : undefined, strict: !!c.strict, waitSeconds: Math.max(0, Math.min(120, Math.round(Number(c.waitSeconds) || 0))), passMinutes: Math.max(1, Math.min(30, Math.round(Number(c.passMinutes) || 5))), why: String(c.why ?? '').slice(0, 200) };
+    }
     case 'setProxy':
       if (c.pac !== null && (typeof c.pac !== 'string' || c.pac.length > 200_000 || !/function\s+FindProxyForURL/.test(c.pac))) throw new Error('Not a proxy script');
       return c;
@@ -201,6 +212,8 @@ export function parseExtensionMessage(m: unknown): ExtensionMessage | null {
   // Cues: the page in front, and "leave a cue for this page" from the toolbar button or right-click menu.
   if (o.kind === 'active' && typeof o.url === 'string') return { kind: 'active', url: o.url.slice(0, 4000), title: String(o.title ?? '').slice(0, 400) };
   if (o.kind === 'cue' && typeof o.url === 'string') return { kind: 'cue', url: o.url.slice(0, 4000), title: String(o.title ?? '').slice(0, 400), site: !!o.site, text: String(o.text ?? '').slice(0, 4000) };
+  if (o.kind === 'focusPass' && typeof o.site === 'string' && typeof o.reqId === 'string') return { kind: 'focusPass', site: o.site.slice(0, 253).toLowerCase(), reqId: o.reqId.slice(0, 64) };
+  if (o.kind === 'readLater' && typeof o.url === 'string' && /^https?:\/\//.test(o.url)) return { kind: 'readLater', url: o.url.slice(0, 4000), title: String(o.title ?? '').slice(0, 400) };
   if ((o.kind === undefined || o.kind === 'report') && typeof o.site === 'string' && Array.isArray(o.thirdParties)) return { kind: 'report', site: o.site, thirdParties: o.thirdParties as { host: string; requests: number }[], at: Number(o.at) || Date.now(), browser: typeof o.browser === 'string' ? o.browser : undefined };
   return null;
 }

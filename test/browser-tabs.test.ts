@@ -103,3 +103,30 @@ describe('native messaging host', () => {
     expect(out).toEqual([{ ok: false, error: 'Keeper is not running' }]);
   });
 });
+
+describe('Focus blocking and the reader through the extension', () => {
+  it('checks the Focus block before it is sent', () => {
+    const c = checkCommand({ cmd: 'setFocusBlock', sites: ['news.example.com', 'bad site', 'x.org'], until: 5, strict: true, waitSeconds: 999, passMinutes: 0, why: 'Focus session' });
+    expect(c).toEqual({ cmd: 'setFocusBlock', sites: ['news.example.com', 'x.org'], until: 5, strict: true, waitSeconds: 120, passMinutes: 5, why: 'Focus session' });
+    expect(() => checkCommand({ cmd: 'setFocusBlock', sites: Array(1001).fill('a.com'), strict: false, waitSeconds: 0, passMinutes: 5, why: '' })).toThrow();
+  });
+  it('reads a pass request and a page saved for later', () => {
+    expect(parseExtensionMessage({ kind: 'focusPass', site: 'News.Example.com', reqId: 'r9' })).toEqual({ kind: 'focusPass', site: 'news.example.com', reqId: 'r9' });
+    expect(parseExtensionMessage({ kind: 'readLater', url: 'https://a.example/post', title: 'Post' })).toEqual({ kind: 'readLater', url: 'https://a.example/post', title: 'Post' });
+    expect(parseExtensionMessage({ kind: 'readLater', url: 'file:///etc/passwd', title: '' })).toBeNull();
+  });
+  it('the host asks Keeper for a pass and answers the block page', async () => {
+    const out: unknown[] = [];
+    const calls: string[] = [];
+    const app: AppConnection = {
+      call: async (method) => { calls.push(method); return method === 'keeper/focus.pass' ? { ok: false, message: 'Strict mode is on' } : { ok: true }; },
+      raw: () => () => undefined,
+      close: () => undefined,
+    };
+    const host = hostSession({ write: (o) => out.push(o), connect: async () => app });
+    await host.handle({ kind: 'focusPass', site: 'x.com', reqId: 'q1' });
+    expect(out).toEqual([{ kind: 'focusPassResult', reqId: 'q1', ok: false, message: 'Strict mode is on' }]);
+    await host.handle({ kind: 'readLater', url: 'https://a.example/', title: 'A' });
+    expect(calls).toEqual(['keeper/focus.pass', 'keeper/reader.save']);
+  });
+});

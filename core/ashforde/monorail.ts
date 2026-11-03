@@ -279,6 +279,7 @@ export const OVERLAY_TITLES = {
   quickConnect: 'Quick Connect — Keeper',
   guide: 'Keeper guide',
   sharing: 'Keeper — sharing this screen',
+  blocked: 'Keeper — paused while you focus',
 } as const;
 export type OverlayKind = keyof typeof OVERLAY_TITLES;
 

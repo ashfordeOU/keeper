@@ -56,6 +56,14 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - Select text in any app and press ⌘⇧1 / Ctrl+Shift+1: a small bar beside the pointer offers Copy, Search, Translate, Rewrite, Define, Open link and Write to. Translate, Rewrite and Define use the AI you chose in Keeper (which can run on this computer) and only when you press them; results come with Copy and Replace.
 - Choose the buttons, the language to translate into and the search address in Settings → AI → Actions for selected text. Off until you turn it on.
 
+### Added — Focus Blocking
+- A new Focus Blocking page (Computer section; switch it on in Settings → Features) keeps chosen sites and apps out of reach while a Focus session runs, on a schedule (days and hours, also past midnight), or for 30 minutes, an hour or two by hand. Starter lists for social sites, news, and video and games can be changed or replaced.
+- In browsers with Keeper's extension a blocked site shows a calm page instead, with the time the block ends; pages already open move to it. With the firewall's DNS filter on, the same sites are blocked for every other app too, and the query log says Focus blocking stopped them.
+- A blocked app that comes to the front gets a small Keeper window over it with Close, Let me in and Not now; or Keeper closes it for you if you choose.
+- "Let me in for 5 minutes" waits a few seconds and asks once more before it opens one site or app; the length and the pause are in Settings.
+- Strict mode (in Settings, or for one block) takes away short visits and Stop until the block ends; it says plainly that quitting Keeper or an administrator can still end it.
+- The page shows why something is blocked, until when, and how many times today a site or app was stopped; the Island says when blocking starts and ends. The palette has Block Distractions for an Hour.
+
 ### Added — Mail: Today at the top of the inbox
 - The inbox opens with a greeting for the time of day and your first name (from the name you send mail as; with none, no name), today's date, and today's events as cards from every calendar Keeper reads: time, title, the calendar's colour, "Now · until 6:45 PM" on the one going on, "Next" on the one after, and Join for Zoom, Google Meet, Teams, Webex, FaceTime, Jitsi and Whereby links. Join opens the meeting in your default app. The cards scroll sideways and can be reached with the keyboard; with no events the row is hidden, and a narrow window shows one "Now: …" or "Next: …" line.
 - While Mail is open, the bar at the top of the window shows the meeting going on, or the next one within 15 minutes, with Join.

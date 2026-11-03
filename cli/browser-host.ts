@@ -74,6 +74,12 @@ export function hostSession(io: HostIo) {
           await c.call('keeper/cues.active', { url: m.url, title: m.title });
         } else if (m.kind === 'cue') {
           await c.call('keeper/cues.capture', { url: m.url, title: m.title, site: m.site, text: m.text });
+        } else if (m.kind === 'focusPass') {
+          // The block page waits for Keeper's answer: a pass, or why not (strict mode).
+          const r = await c.call('keeper/focus.pass', { site: m.site }).catch((e: unknown) => ({ ok: false, message: e instanceof Error ? e.message : String(e) }));
+          io.write({ kind: 'focusPassResult', reqId: m.reqId, ...(r as object) });
+        } else if (m.kind === 'readLater') {
+          await c.call('keeper/reader.save', { url: m.url, title: m.title });
         } else if (m.kind === 'reply') {
           await c.call('keeper/browser.reply', { session, reqId: m.reqId, ok: m.ok, result: m.result, error: m.error });
         }

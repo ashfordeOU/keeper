@@ -100,6 +100,8 @@ export class IslandService {
   modeHook?: (kind: 'focus' | 'presentation', on: boolean) => void;
   /** a focus session ended: its focused minutes and its task, for Insights and the task (electron/services/pim) */
   focusLog?: (minutes: number, taskId?: string) => void;
+  /** says why a Focus session cannot be stopped now (strict Focus blocking), or nothing */
+  stopGuard?: () => string | undefined;
   private lastFocusOn = false;
   private file = path.join(app.getPath('userData'), 'island.json');
 
@@ -704,6 +706,11 @@ export class IslandService {
    * its focused minutes are logged on it when it ends.
    */
   focusAction(action: 'start' | 'stopwatch' | 'pause' | 'resume' | 'stop' | 'extend', minutes?: number, o: { taskId?: string; taskTitle?: string } = {}): FocusState {
+    const refused = action === 'stop' && this.focus.mode === 'focus' ? this.stopGuard?.() : undefined;
+    if (refused) {
+      this.alert({ kind: 'focus', title: 'Strict mode is on', detail: refused });
+      return this.focus;
+    }
     if (action === 'start' || action === 'stopwatch') {
       // Starting over a running session ends that one first (and logs it).
       if (this.focus.mode === 'focus') this.endFocus();

@@ -1,0 +1,51 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Taking a break from this site</title>
+<style>
+  :root { color-scheme: light dark; --bg: #f6f5f2; --card: #ffffff; --text: #18181b; --text-2: #55555e; --line: rgba(20, 20, 30, .1); --accent: #5b5bf0; --accent-text: #fff; --soft: rgba(91, 91, 240, .1); }
+  @media (prefers-color-scheme: dark) { :root { --bg: #111114; --card: #1b1b20; --text: #f4f4f5; --text-2: #b4b4bc; --line: rgba(255, 255, 255, .1); --accent: #8282ff; --soft: rgba(130, 130, 255, .14); } }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: var(--bg); color: var(--text); font: 15px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; }
+  main { width: min(480px, calc(100vw - 32px)); background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 32px; text-align: center; box-shadow: 0 6px 30px rgba(0, 0, 0, .06); }
+  .leaf { width: 56px; height: 56px; margin: 0 auto 12px; border-radius: 50%; background: var(--soft); color: var(--accent); display: grid; place-items: center; }
+  h1 { font-size: 22px; margin: 0 0 6px; font-weight: 650; }
+  p { margin: 6px 0; color: var(--text-2); }
+  .site { font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 22px; }
+  button { font: inherit; border-radius: 10px; padding: 9px 16px; border: 1px solid var(--line); background: transparent; color: var(--text); cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+  button:disabled { opacity: .55; cursor: default; }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .wait { margin-top: 18px; padding: 14px; border-radius: 12px; background: var(--soft); }
+  .small { font-size: 13px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main role="main" aria-labelledby="title">
+  <div class="leaf" aria-hidden="true">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 7v5l3 2"/><path d="M17 3l4 4"/></svg>
+  </div>
+  <h1 id="title">This one can wait</h1>
+  <p><span class="site" id="site">This site</span> is paused while you focus.</p>
+  <p id="why" class="small"></p>
+  <div class="actions" id="actions">
+    <button class="primary" id="back">Go back</button>
+    <button id="pass">Let me in for 5 minutes</button>
+  </div>
+  <div class="wait" id="wait" hidden aria-live="polite">
+    <p id="waitText">Take a breath. Is this what you meant to do?</p>
+    <div class="actions">
+      <button id="cancel">Never mind</button>
+      <button class="primary" id="confirm" disabled>Open it</button>
+    </div>
+  </div>
+  <p id="note" class="small" aria-live="polite"></p>
+</main>
+<script src="blocked.js"></script>
+</body>
+</html>

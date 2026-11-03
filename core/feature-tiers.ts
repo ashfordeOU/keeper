@@ -84,6 +84,7 @@ export const TIERS: Record<string, FeatureTier> = {
   settingsCatalog: { plain: 'Hidden system settings', setup: 'computer', normal: 'off', shown: 'advanced' },
   appControls: { plain: 'Limits for each app', setup: 'computer', normal: 'off', shown: 'advanced' },
   browserTabs: { plain: 'Browser tabs', setup: 'computer', normal: 'off', shown: 'advanced' },
+  focusBlock: { plain: 'Block distractions while you focus', setup: 'computer', normal: 'off', shown: 'basic' },
   displayControl: { plain: 'Monitor controls', setup: 'computer', normal: 'off', shown: 'advanced' },
   displayKeys: { plain: 'Monitor brightness keys', setup: 'computer', normal: 'off', shown: 'advanced' },
   protection: { plain: 'Privacy and security check', setup: 'privacy', normal: 'on', shown: 'basic' },

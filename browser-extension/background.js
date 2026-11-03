@@ -87,7 +87,7 @@ const brandName = () => {
   return named ? `${named[1]} ${ver}` : null;
 };
 const browserName = () => brandName() ?? navigator.userAgent.match(/(Firefox|Edg|OPR|Brave|Vivaldi|Chrome)\/(\d+)/)?.slice(1).join(' ').replace('Edg', 'Edge').replace('OPR', 'Opera') ?? 'Browser';
-const caps = () => ['tabs', 'mute', 'discard', ...(api.contentSettings ? ['contentSettings'] : []), ...(api.declarativeNetRequest ? ['dnr'] : []), ...(api.browsingData ? ['cookies'] : []), ...(api.proxy ? ['proxy'] : [])];
+const caps = () => ['tabs', 'mute', 'discard', ...(api.contentSettings ? ['contentSettings'] : []), ...(api.declarativeNetRequest ? ['dnr'] : []), ...(api.browsingData ? ['cookies'] : []), ...(api.proxy ? ['proxy'] : []), ...(api.declarativeNetRequest ? ['focus'] : [])];
 
 /** tabId → { bytes, requests, parties: Map<host, {requests, blocked}> } since the page loaded */
 const usage = new Map();
@@ -155,6 +155,7 @@ function linkToKeeper() {
   });
   link.onMessage.addListener((m) => {
     if (m && m.kind === 'cmd') void run(m.reqId, m.command);
+    else if (m && m.kind === 'focusPassResult') passAnswered(m);
   });
   link.postMessage({ kind: 'hello', browser: browserName(), version: api.runtime.getManifest().version, caps: caps() });
   void sendTabs();
@@ -247,6 +248,10 @@ async function run(reqId, c) {
         await api.declarativeNetRequest.updateDynamicRules({ removeRuleIds: [id], addRules: c.on ? [] : [{ id, priority: 3, action: { type: 'allowAllRequests' }, condition: { requestDomains: [host], resourceTypes: ['main_frame', 'sub_frame'] } }] });
         break;
       }
+      case 'setFocusBlock':
+        await applyFocusBlock(c);
+        result = { sites: c.sites.length };
+        break;
       case 'setProxy':
         if (c.pac === null) await api.proxy.settings.clear({});
         else if (isFirefox) await api.proxy.settings.set({ value: { proxyType: 'autoConfig', autoConfigUrl: `data:application/x-ns-proxy-autoconfig,${encodeURIComponent(c.pac)}` } });
@@ -262,6 +267,81 @@ async function run(reqId, c) {
 }
 
 linkToKeeper();
+
+// ---------------------------------------------------------------- Focus blocking
+// While Keeper blocks sites for Focus, pages on them open the extension's own
+// block page (blocked.html) instead. The block is kept in the extension's
+// storage so it survives the browser restarting, and it ends by itself at its
+// time even if Keeper is not running then. "Let me in" asks Keeper, which
+// decides (no short visits in strict mode).
+
+const FOCUS_BASE = 990001;
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const blockPage = () => api.runtime.getURL('blocked.html');
+let focusTimer;
+
+async function applyFocusBlock(b) {
+  const live = b && (!b.until || b.until > Date.now()) ? b.sites.slice(0, 1000) : [];
+  await api.storage.local.set({ focusBlock: live.length ? b : null });
+  const old = await api.declarativeNetRequest.getDynamicRules();
+  const addRules = live.map((site, i) => ({
+    id: FOCUS_BASE + i,
+    priority: 10,
+    action: { type: 'redirect', redirect: { regexSubstitution: `${blockPage()}?site=${site}&u=\\0` } },
+    condition: { regexFilter: `^https?://([^/?#]*\\.)?${escapeRe(site)}(:[0-9]+)?([/?#].*)?$`, resourceTypes: ['main_frame'] },
+  }));
+  await api.declarativeNetRequest.updateDynamicRules({ removeRuleIds: old.filter((r) => r.id >= FOCUS_BASE).map((r) => r.id), addRules });
+  clearTimeout(focusTimer);
+  if (live.length && b.until) focusTimer = setTimeout(() => void applyFocusBlock(null), Math.min(b.until - Date.now() + 500, 2 ** 31 - 1));
+  // Pages already open on a blocked site move to the block page too.
+  if (!live.length) return;
+  for (const t of await api.tabs.query({})) {
+    try {
+      if (!/^https?:/.test(t.url ?? '')) continue;
+      const h = new URL(t.url).hostname.toLowerCase();
+      const s = live.find((x) => h === x || h.endsWith(`.${x}`));
+      if (s) await api.tabs.update(t.id, { url: `${blockPage()}?site=${s}&u=${t.url}` });
+    } catch { /* the tab went away */ }
+  }
+}
+
+// A block whose time passed while the browser was closed ends now.
+void api.storage.local.get('focusBlock').then((r) => {
+  const b = r.focusBlock;
+  if (b) void applyFocusBlock(b);
+}).catch(() => undefined);
+
+const passes = new Map();
+function passAnswered(m) {
+  const p = passes.get(m.reqId);
+  if (!p) return;
+  passes.delete(m.reqId);
+  clearTimeout(p.timer);
+  p.resolve({ ok: !!m.ok, message: m.message });
+}
+
+async function askPass(site) {
+  const l = linkToKeeper();
+  if (!l) return { ok: false, message: 'Keeper is not running, so it cannot let you in.' };
+  const reqId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const answer = await new Promise((resolve) => {
+    const timer = setTimeout(() => { passes.delete(reqId); resolve({ ok: false, message: 'Keeper did not answer. Is it running?' }); }, 8000);
+    passes.set(reqId, { resolve, timer });
+    try { l.postMessage({ kind: 'focusPass', site, reqId }); } catch { clearTimeout(timer); passes.delete(reqId); resolve({ ok: false, message: 'Keeper is not running.' }); }
+  });
+  if (answer.ok) {
+    // Let the page through straight away; Keeper sends the updated block (and takes the pass back when it ends).
+    const b = (await api.storage.local.get('focusBlock')).focusBlock;
+    if (b) await applyFocusBlock({ ...b, sites: b.sites.filter((s) => s !== site) });
+  }
+  return answer;
+}
+
+api.runtime.onMessage.addListener((m, sender, reply) => {
+  if (!m || m.kind !== 'focusPass' || sender.id !== api.runtime.id) return undefined;
+  void askPass(String(m.site ?? '')).then(reply);
+  return true;
+});
 
 // ---------------------------------------------------------------- cues
 // Keeper's cues (notes and checklists tied to a page or site) pop up when the

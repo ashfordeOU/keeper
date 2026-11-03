@@ -501,4 +501,6 @@ export interface Settings {
   setupDone: boolean;
   /** which app opens maps, weather, events, addresses… per kind ('auto', 'web' or an app id; see core/native-apps.ts) */
   nativeApps?: import('./native-apps').NativeAppPrefs;
+  /** blocking sites and apps during Focus, on a schedule or by hand: how strict it is (core/focus-block.ts); the lists live in focus-block.json */
+  focusBlock: import('./focus-block').FocusBlockOptions;
 }

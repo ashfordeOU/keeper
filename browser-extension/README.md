@@ -19,6 +19,10 @@ Safari is not supported yet.
 
 **TODO (publishing):** publish the extension on the Chrome Web Store (it also installs in Edge, Brave, Vivaldi, Opera and Arc), on Microsoft Edge Add-ons and on Firefox Add-ons (addons.mozilla.org, which also signs it so Firefox keeps it), then put the listing addresses in `STORE_LISTINGS` in `core/browser-setup.ts`. "Add to Chrome" then opens the store page and adding Keeper's extension is one click, with automatic updates from the store. Keep the store build's key so its id stays the one in the native messaging manifest, or add the store id to `hostManifest`'s allowed origins.
 
+## Focus blocking
+
+Version 0.4.0 shows Keeper's block page while Keeper blocks sites for Focus (Keeper's Focus Blocking page). Keeper sends the list of sites; the extension sends pages on them to its own `blocked.html` (a page inside the extension, listed in `web_accessible_resources`) and moves tabs already open there. "Let me in" asks Keeper, which decides; in strict mode there is no such button. The block is kept in the extension's storage and ends at its time even when Keeper is not running. Nothing about the pages you visit is sent for this.
+
 ## Cues
 
 Version 0.3.0 adds Keeper's cues: notes and checklists tied to a page or a site that pop up when you come back to it. The toolbar button (or Alt+Shift+K, or the page's right-click menu) leaves a cue for the page or the whole site, and the extension tells Keeper which page is in front when it changes so cues can show beside it. Only the page's address and title go to Keeper on this computer. It needs the `contextMenus` permission for the right-click entries.

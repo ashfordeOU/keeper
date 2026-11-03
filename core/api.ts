@@ -534,6 +534,8 @@ export interface KeeperApi extends KeeperApiX {
   glance: import('./glance').GlanceApi;
   /** Cues: notes, checklists, links and files tied to an app, a site, a page or a time */
   cues: import('./cues/api').CuesApi;
+  /** blocking sites and apps during Focus, on a schedule or by hand */
+  focusBlock: import('./api-focus').FocusBlockApi;
   /** Island+: calls, levels, other apps' notifications, more agents */
   islandx: import('./island-plus').IslandPlusApi;
   /** Mail, calendars, reminders, alarms and contacts */
@@ -853,6 +855,8 @@ export interface KeeperApi extends KeeperApiX {
   on(channel: 'widgets-changed', cb: () => void): () => void;
   /** Cues changed (any window), and the cue popup should look again */
   on(channel: 'cues-changed' | 'cue-popup', cb: () => void): () => void;
+  /** Focus blocking started, ended or changed */
+  on(channel: 'focusblock-changed', cb: () => void): () => void;
   on(channel: 'widgets-arrange', cb: (on: boolean) => void): () => void;
   on(channel: 'ambience-changed', cb: () => void): () => void;
   on(channel: 'wallpaper-policy', cb: (p: import('./scenes/policy').RenderPolicy) => void): () => void;

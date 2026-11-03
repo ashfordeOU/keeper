@@ -8,6 +8,7 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, promises as fsp } from 'node:fs';
 import { BROWSER_LIMITS, buildBlockRules, buildPac, checkCommand, flattenTabs, type BrowserCap, type BrowserSession, type BrowserTab, type TabCommand } from '../../core/browser-tabs';
 import { parseList } from '../../core/fw/blocklist';
+import type { BrowserFocusBlock } from '../../core/focus-block';
 import type { BrowserTabsApi } from '../../core/api-settingsplus';
 import { fwApi } from './fw';
 import { addExtension, autoLink, revealExtension, setupStatus } from './browser-setup';
@@ -42,8 +43,9 @@ export function attach(p: Record<string, unknown>, notify: (method: string, para
     expiry ??= setInterval(sweep, 30_000);
     expiry.unref?.();
     changed?.();
-    // New browsers get the current blocking rules straight away.
+    // New browsers get the current blocking rules straight away, and the Focus block (or its end).
     void syncBlocking(id).catch(() => undefined);
+    void syncFocus(id).catch(() => undefined);
   });
 }
 
@@ -122,6 +124,27 @@ async function syncBlocking(only?: string): Promise<{ ok: boolean; message: stri
   const res = await Promise.all(targets.map((s) => ok(command(s.id, { cmd: 'setBlockRules', rules }, 60_000))));
   const failed = res.filter((r) => !r.ok).length;
   return { ok: !failed, message: failed ? `${failed} browser(s) refused the rules` : `${rules.length} rule groups sent to ${targets.length} browser(s)` };
+}
+
+// ---------------------------------------------------------------- Focus blocking (electron/services/focus-block.ts)
+
+let focusBlock: BrowserFocusBlock = { sites: [], strict: false, waitSeconds: 10, passMinutes: 5, why: '' };
+
+/** Sends the Focus block to every linked browser that can show Keeper's block page (an empty list ends it). */
+export function setBrowserFocusBlock(b: BrowserFocusBlock) {
+  if (JSON.stringify(b) === JSON.stringify(focusBlock)) return;
+  focusBlock = b;
+  void syncFocus().catch(() => undefined);
+}
+
+/** How many linked browsers show Keeper's block page. */
+export function focusBrowsers(): string[] {
+  return [...sessions.values()].filter((s) => s.caps.includes('focus')).map((s) => s.browser);
+}
+
+async function syncFocus(only?: string) {
+  const targets = [...sessions.values()].filter((s) => (!only || s.id === only) && s.caps.includes('focus'));
+  await Promise.all(targets.map((s) => ok(command(s.id, { cmd: 'setFocusBlock', ...focusBlock }, 30_000))));
 }
 
 const liveList = (): BrowserSession[] => [...sessions.values()].map(({ notify: _n, end: _e, ...s }) => s);

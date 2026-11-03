@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Keeper by Ashforde® — Privacy",
-  "version": "0.3.0",
-  "description": "Shows Keeper which third parties each page loads, lets you control tabs and site permissions from Keeper, and leaves Keeper cues on pages. Talks only to the Keeper app on this computer.",
+  "version": "0.4.0",
+  "description": "Shows Keeper which third parties each page loads, lets you control tabs and site permissions from Keeper, leaves Keeper cues on pages and shows Keeper's gentle block page during Focus. Talks only to the Keeper app on this computer.",
   "permissions": [
     "webRequest",
     "nativeMessaging",
@@ -45,5 +45,15 @@
       },
       "description": "Leave a Keeper cue for this page"
     }
-  }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "blocked.html"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ]
 }

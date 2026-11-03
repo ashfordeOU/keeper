@@ -216,6 +216,15 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     { id: 'snippet-new', label: 'New Typed Snippet', group: 'Actions', icon: 'text', keywords: 'text expansion abbreviation autotext', run: async () => { store.go({ name: 'snippets' }); } },
     { id: 'focus', label: 'Start a 25-Minute Focus', group: 'Actions', icon: 'timer', keywords: 'pomodoro timer', run: async () => { await api.island.focus('start', 25); store.toast('Focus started — see you in 25 minutes'); } },
     { id: 'focus-stop', label: 'Stop Focus Timer', group: 'Actions', icon: 'timer', run: async () => { await api.island.focus('stop'); } },
+    { id: 'blocking-hour', label: 'Block Distractions for an Hour', group: 'Actions', icon: 'block', keywords: 'focus block sites apps social news', run: async () => {
+      try {
+        const st = await api.focusBlock.status();
+        const list = st.data.focusList ?? st.data.lists[0]?.id;
+        if (!list) { store.go({ name: 'blocking' }); return; }
+        await api.focusBlock.start(list, 60);
+        store.toast('Blocking distractions for an hour');
+      } catch (e) { store.toast(e instanceof Error ? e.message : String(e)); }
+    } },
     // Stage mode: a clean screen (presets from the Stage page).
     { id: 'stage-recording', label: 'Stage: Recording', group: 'Actions', icon: 'video', keywords: 'clean screen record hide desktop dock do not disturb spotlight keystrokes', run: async () => { const r = await api.stage.start('recording'); store.toast(r.on || r.countdownEndsAt ? 'Stage: Recording' : 'Stage could not start'); } },
     { id: 'stage-presenting', label: 'Stage: Presenting', group: 'Actions', icon: 'eye', keywords: 'clean screen present slides talk do not disturb', run: async () => { await api.stage.start('presenting'); store.toast('Stage: Presenting'); } },
