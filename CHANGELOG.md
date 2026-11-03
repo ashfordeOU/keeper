@@ -4,6 +4,10 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 
 ## [Unreleased]
 
+## [0.1.0-beta.8] - 2026-11-03
+
+The release candidate for 1.0: Keeper as a suite (the Island, widgets and Mail in their own processes), a new first run with fewer parts on, a redesigned Island, Home, sidebar and two-pane Settings, Studio, Mail on a par with the best Mac mail apps, copy and move in the file manager, one search for everything, smaller downloads with parts fetched when switched on, and the bridge to the Developer ID: this version also accepts updates signed with Ashforde's Apple Developer ID (team D69G45342Y), which 1.0.0 will be.
+
 ### Added — Mail
 - Narrow windows: below 900 px a clicked message takes the list's place, with Back (before, nothing showed).
 - Inbox tabs All, Primary, Updates and Promos with unread counts; Unread toggle; To Reply; smart mailboxes (saved searches).
