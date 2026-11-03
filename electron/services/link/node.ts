@@ -307,7 +307,15 @@ export class LinkNode {
     const old = this.server;
     this.server = null;
     // Stop listening on loopback without cutting what is in flight (a keeper command asking for an invite).
-    if (old) await new Promise<void>((r) => { old.close(() => undefined); setImmediate(r); });
+    // Wait until it has really let go of the port (Windows keeps it while idle keep-alive
+    // connections are open), so the network listener can take the same one.
+    if (old) {
+      await new Promise<void>((r) => {
+        const done = setTimeout(r, 3000);
+        old.close(() => { clearTimeout(done); r(); });
+        old.closeIdleConnections?.();
+      });
+    }
     await this.listen();
     this.hooks.changed();
   }
