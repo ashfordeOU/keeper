@@ -45,7 +45,7 @@ compare as semver, so `0.1.0-beta.2` < `0.1.0-beta.10` < `0.1.0`.
 | Homebrew tap, winget, Chocolatey, Scoop bucket | yes, if the secret exists | **no** |
 | Snap Store, AUR | yes, if the secret exists | **no** |
 | npm (`keeper-cli`) | yes, tag `latest` | **no** |
-| apt and dnf repositories (gh-pages) | yes, with the GPG key | **no** |
+| apt and dnf repositories (keeper.ashforde.org) | yes, with the GPG key | **no** |
 | Flathub | its bot follows `releases/latest`, which skips pre-releases | **no** |
 | Microsoft Store package (`.msix`) | built as a workflow artifact | built as a workflow artifact (never submitted automatically) |
 

@@ -21,8 +21,7 @@ import { escapeHtml, inline, markdown, slug } from './lib/markdown.mjs';
 const SITE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(SITE, '..');
 const BASE = 'https://keeper.ashforde.org/';
-/** The custom domain GitHub Pages serves gh-pages at (Settings → Pages → Custom domain). */
-export const DOMAIN = 'keeper.ashforde.org';
+/** The custom domain is set in Settings → Pages; the site is deployed from Actions, so no CNAME file is needed. */
 const REPO = 'https://github.com/ashfordeOU/keeper';
 /** Paths on gh-pages that belong to release.yml's pages job; the site must never write them. */
 export const RESERVED = ['rpm', 'keeper-release.asc', 'KEYS'];
@@ -170,8 +169,6 @@ function build() {
   write('robots.txt', `User-agent: *\nAllow: /\nSitemap: ${BASE}sitemap.xml\n`);
   write('sitemap.xml', `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${pages.map((p) => `<url><loc>${BASE}${p.replace(/index\.html$/, '')}</loc></url>`).join('')}</urlset>\n`);
   write('.nojekyll', '');
-  // Pages keeps the custom domain only while CNAME is on the branch, so every build writes it.
-  write('CNAME', `${DOMAIN}\n`);
   written.push('.site-files');
   writeFileSync(path.join(OUT, '.site-files'), `${written.sort().join('\n')}\n`);
 

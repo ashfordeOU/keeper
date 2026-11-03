@@ -41,8 +41,7 @@ describe('website', () => {
     for (const f of listed) expect(f).not.toMatch(/^(rpm|KEYS)(\/|$)|^keeper-release\.asc$/);
   });
 
-  it('is served at keeper.ashforde.org: CNAME on every build, canonical links there, nothing under the old /keeper/ path', () => {
-    expect(readFileSync(path.join(out, 'CNAME'), 'utf8')).toBe('keeper.ashforde.org\n');
+  it('is served at keeper.ashforde.org: canonical links there, nothing under the old /keeper/ path', () => {
     expect(readFileSync(path.join(out, 'index.html'), 'utf8')).toContain('<link rel="canonical" href="https://keeper.ashforde.org/');
     expect(readFileSync(path.join(out, 'sitemap.xml'), 'utf8')).toContain('<loc>https://keeper.ashforde.org/</loc>');
     for (const f of files(out).filter((p) => p.endsWith('.html'))) {
@@ -88,26 +87,27 @@ describe('website workflow', () => {
     expect(Object.keys(site.on).sort()).toEqual(['push', 'release', 'workflow_dispatch']);
     expect(site.on.push?.branches).toEqual(['main']);
     for (const p of ['site/**', 'README.md', 'CHANGELOG.md', 'docs/**']) expect(site.on.push?.paths).toContain(p);
-    expect(site.permissions).toEqual({ contents: 'write' });
+    expect(site.permissions).toEqual({ contents: 'read', pages: 'write', 'id-token': 'write' });
   });
 
-  it('builds without installing anything and publishes a signed commit as ashfordeOU', () => {
-    const steps = site.jobs.publish.steps ?? [];
+  it('builds without installing anything and deploys with Pages from Actions, committing nothing', () => {
+    const steps = site.jobs.build.steps ?? [];
     const raw = JSON.stringify(steps);
     expect(raw).not.toMatch(/npm (ci|install)/);
     expect(raw).toContain('node site/build.mjs --out');
-    const publish = steps.find((s) => s.name === 'Publish to gh-pages');
-    expect(publish?.env?.SIGNING_KEY).toContain('secrets.COMMIT_SIGNING_KEY');
-    expect(publish?.run).toContain('git commit -S');
-    expect(publish?.run).toContain('236818772+ashfordeOU@users.noreply.github.com');
-    expect(publish?.run).not.toMatch(/github-actions|github\.actor|\[bot\]/);
-    // Only what the last build listed is removed; the package repositories stay.
-    expect(publish?.run).toContain('.site-files');
-    expect(publish?.run).toMatch(/rpm\|rpm\/\*\|keeper-release\.asc/);
+    expect(raw).not.toMatch(/git (commit|push)/);
+    expect(steps.some((s) => s.uses?.startsWith('actions/upload-pages-artifact@'))).toBe(true);
+    expect((site.jobs.deploy as Job & { environment?: { name?: string } }).environment?.name).toBe('github-pages');
+    expect((site.jobs.deploy.steps ?? []).some((s) => s.uses?.startsWith('actions/deploy-pages@'))).toBe(true);
   });
 
-  it('never pushes to gh-pages at the same time as the release', () => {
-    expect(site.concurrency).toEqual({ group: 'gh-pages', 'cancel-in-progress': false });
+  it('serves the package repositories the release stores on gh-pages, and only those', () => {
+    const add = (site.jobs.build.steps ?? []).find((s) => s.name === 'Add the package repositories from gh-pages');
+    expect(add?.run).toContain('for p in rpm keeper-release.asc KEYS');
+    expect(add?.run).toContain('git archive FETCH_HEAD');
+    // The release stores them, then starts a deploy so the website shows the new version.
+    const web = release.jobs.website;
+    expect(web?.steps?.[0]?.run).toContain('gh workflow run site.yml --ref main');
     expect(release.jobs.pages.concurrency?.group).toBe('gh-pages');
   });
 
