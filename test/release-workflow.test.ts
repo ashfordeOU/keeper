@@ -34,8 +34,16 @@ describe('release workflow', () => {
   });
 
   it('no publishing job is left unchecked', () => {
-    const known = new Set(['tag', 'build', 'release', 'msstore', ...CHANNELS]);
+    const known = new Set(['tag', 'build', 'release', 'msstore', 'website', ...CHANNELS]);
     expect(Object.keys(wf.jobs).filter((j) => !known.has(j))).toEqual([]);
+  });
+
+  it('redeploys the website after a published release, publishing nothing itself', () => {
+    const web = wf.jobs.website as { needs?: string[]; if?: string; permissions?: Record<string, string>; steps?: { run?: string }[] };
+    expect(web.needs).toEqual(['release', 'pages']);
+    expect(web.if).toContain("needs.release.result == 'success'");
+    expect(web.permissions).toEqual({ actions: 'write' });
+    expect(web.steps?.map((s) => s.run ?? '').join('\n')).toBe('gh workflow run site.yml --ref main --repo "$GITHUB_REPOSITORY"');
   });
 
   it('builds the Store package only when a version is being built', () => {
