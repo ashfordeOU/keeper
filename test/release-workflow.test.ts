@@ -184,3 +184,29 @@ describe('release workflow', () => {
   });
 });
 
+
+describe('remove-old-releases workflow', () => {
+  const raw = readFileSync(path.join(ROOT, '.github/workflows/remove-old-releases.yml'), 'utf8');
+  const rm = yaml.load(raw) as { on: Record<string, { inputs?: Record<string, { required?: boolean }> }>; permissions: Record<string, string>; jobs: Record<string, Job> };
+
+  it('runs by hand on main only, with versions and a typed confirmation', () => {
+    expect(Object.keys(rm.on)).toEqual(['workflow_dispatch']);
+    expect(rm.on.workflow_dispatch.inputs?.versions?.required).toBe(true);
+    expect(rm.on.workflow_dispatch.inputs?.confirm?.required).toBe(true);
+    expect(rm.permissions).toEqual({ contents: 'write' });
+    expect(rm.jobs.remove.if).toBe("github.ref == 'refs/heads/main'");
+    expect(raw).toContain('[ "$CONFIRM" = "delete" ]');
+  });
+
+  it('deletes only pre-releases, only after a stable 1.0.0 or later, and keeps the tags', () => {
+    const run = rm.jobs.remove.steps?.map((s) => s.run ?? '').join('\n') ?? '';
+    expect(run).toContain('select(.draft == false and .prerelease == false)');
+    expect(run).toContain('No stable release 1.0.0 or later yet');
+    expect(run).toContain('is not a pre-release');
+    expect(run).toContain('gh release delete "$tag" --yes');
+    expect(run).not.toContain('--cleanup-tag');
+    expect(run).not.toMatch(/git push|git tag -d|gh api -X DELETE/);
+    // Every version is checked before the first deletion.
+    expect(run.indexOf('is not a pre-release')).toBeLessThan(run.indexOf('gh release delete'));
+  });
+});

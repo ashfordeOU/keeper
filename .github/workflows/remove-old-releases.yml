@@ -1,0 +1,80 @@
+# SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
+# One-off, started by hand: deletes old beta releases from GitHub once a stable
+# 1.0.0 or later is out. Only the GitHub release goes (its notes and its files,
+# including the latest*.yml the updater reads); the git tag stays. Refuses a
+# release that is not a pre-release, and refuses everything while no stable
+# release >= 1.0.0 exists. Every version is checked before anything is deleted.
+name: Remove old releases
+
+on:
+  workflow_dispatch:
+    inputs:
+      versions:
+        description: "Comma-separated versions to delete, without the v (e.g. 0.1.0-beta.1,0.1.0-beta.3)"
+        required: true
+        type: string
+      confirm:
+        description: 'Type "delete" to delete these releases (their tags are kept)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: remove-old-releases
+  cancel-in-progress: false
+
+jobs:
+  remove:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete the releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSIONS: ${{ inputs.versions }}
+          CONFIRM: ${{ inputs.confirm }}
+        run: |
+          set -euo pipefail
+          [ "$CONFIRM" = "delete" ] || { echo "::error::confirm must be \"delete\"; nothing was deleted"; exit 1; }
+
+          # A stable release (not a draft, not a pre-release) at 1.0.0 or later must exist.
+          stable="$(gh api --paginate "repos/$GH_REPO/releases" \
+            --jq '.[] | select(.draft == false and .prerelease == false) | .tag_name' \
+            | grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+$' \
+            | awk -F. '{ major = $1; sub(/^v/, "", major); if (major + 0 >= 1) print $0 }' || true)"
+          [ -n "$stable" ] || { echo "::error::No stable release 1.0.0 or later yet; nothing was deleted"; exit 1; }
+          echo "Stable releases >= 1.0.0: $(echo "$stable" | tr '\n' ' ')"
+
+          # Check every version first, so a bad one deletes nothing.
+          tags=()
+          IFS=',' read -ra wanted <<< "$VERSIONS"
+          for raw in "${wanted[@]}"; do
+            v="$(echo "$raw" | tr -d '[:space:]')"
+            v="${v#v}"
+            [ -n "$v" ] || continue
+            if ! [[ "$v" =~ ^[0-9]+\.[0-9]+\.[0-9]+-[0-9A-Za-z.-]+$ ]]; then
+              echo "::error::$v is not a pre-release version (x.y.z-something); nothing was deleted"; exit 1
+            fi
+            tag="v$v"
+            if ! pre="$(gh api "repos/$GH_REPO/releases/tags/$tag" --jq '.prerelease')"; then
+              echo "::error::No release $tag; nothing was deleted"; exit 1
+            fi
+            [ "$pre" = "true" ] || { echo "::error::$tag is not a pre-release; nothing was deleted"; exit 1; }
+            tags+=("$tag")
+          done
+          [ "${#tags[@]}" -gt 0 ] || { echo "::error::No versions given"; exit 1; }
+
+          # The release and its files go; the git tag stays.
+          deleted=()
+          for tag in "${tags[@]}"; do
+            gh release delete "$tag" --yes
+            deleted+=("$tag")
+            echo "Deleted release $tag (tag kept)"
+          done
+          {
+            echo "### Deleted releases (tags kept)"
+            for tag in "${deleted[@]}"; do echo "- $tag"; done
+          } >> "$GITHUB_STEP_SUMMARY"
