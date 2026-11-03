@@ -17,7 +17,7 @@ export interface TabItem<T extends string = string> {
   testId?: string;
 }
 
-const MORE_W = 74;
+const MORE_W = 100;
 
 export function Tabs<T extends string>({ items, value, onChange, label, className }: { items: TabItem<T>[]; value: T | undefined; onChange: (id: T) => void; /** for screen readers */ label: string; className?: string }) {
   const row = useRef<HTMLDivElement>(null);

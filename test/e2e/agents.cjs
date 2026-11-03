@@ -202,15 +202,22 @@ async function post(port, token, pathname, body, headers = {}) {
   check(evil === 403, 'requests for another host name are refused (no DNS rebinding)');
 
   // ---- the Agents page, light and dark
+  // A tab that does not fit the row waits under More.
+  const agentsTab = async (text) => {
+    const t = main.locator('.agents-tabs [role="tab"]', { hasText: text });
+    if (await t.count()) return t.first().click();
+    await main.locator('.agents-tabs .tabs-more').click();
+    await main.locator('.menu [role="menuitem"]', { hasText: text }).first().click();
+  };
   for (const [tab, name] of [['connect', 'agents-connect'], ['services', 'agents-services'], ['permissions', 'agents-permissions'], ['skills', 'agents-skills'], ['gateway', 'agents-gateway'], ['learning', 'agents-learning']]) {
     await main.locator('.sidebar [title="Agents"]').click();
-    await main.locator('.agents-tabs button', { hasText: { connect: 'Agents & apps', services: 'AI services', permissions: 'What agents may do', skills: 'Skills', gateway: 'Gateway', learning: 'Learning' }[tab] }).click();
+    await agentsTab({ connect: 'Agents & apps', services: 'AI services', permissions: 'What agents may do', skills: 'Skills', gateway: 'Gateway', learning: 'Learning' }[tab]);
     await main.waitForTimeout(500);
     await main.screenshot({ path: `${SHOTS}/${name}-light.png` });
   }
   await main.evaluate(() => window.keeper.settings.set({ appearance: 'dark' }));
   await main.waitForTimeout(600);
-  await main.locator('.agents-tabs button', { hasText: 'What agents may do' }).click();
+  await agentsTab('What agents may do');
   await main.waitForTimeout(400);
   await main.screenshot({ path: `${SHOTS}/agents-permissions-dark.png` });
   await main.locator('.sidebar [title="Knowledge Graph"]').click();
