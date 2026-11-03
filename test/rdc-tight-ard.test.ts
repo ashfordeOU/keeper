@@ -152,38 +152,94 @@ describe('rdc: Apple’s sign-in (type 30)', () => {
     expect(() => ardResponse(ch, 'x'.repeat(64), 'p')).toThrow(/too long/);
   });
 
-  it('signs in to a stand-in Mac that decrypts the name and password it was sent', async () => {
+  /**
+   * A stand-in Mac: Diffie-Hellman on the 1024-bit group. A Mac sends its public key as exactly
+   * key-length bytes; Node's getPublicKey() drops leading zero bytes (about one key in 256 is
+   * 127 bytes), so it is padded back here, as a Mac pads it.
+   */
+  function standInMac(priv?: Buffer) {
     const dh = crypto.createDiffieHellman(Buffer.from(PRIME, 'hex'), Buffer.from([2]));
-    const serverPub = dh.generateKeys();
+    if (priv) dh.setPrivateKey(priv);
+    dh.generateKeys();
+    const raw = dh.getPublicKey();
+    const pub = Buffer.concat([Buffer.alloc(128 - raw.length), raw]);
+    const challenge = Uint8Array.from([...be16(2), ...be16(128), ...Buffer.from(PRIME, 'hex'), ...pub]);
+    /** decrypts the client's answer back to [user, password] */
+    const open = (answer: Uint8Array) => {
+      const shared = dh.computeSecret(Buffer.from(answer.subarray(128)));
+      const key = crypto.createHash('md5').update(Buffer.concat([Buffer.alloc(128 - shared.length), shared])).digest();
+      const d = crypto.createDecipheriv('aes-128-ecb', key, null).setAutoPadding(false);
+      const creds = Buffer.concat([d.update(Buffer.from(answer.subarray(0, 128))), d.final()]);
+      return [creds.subarray(0, creds.indexOf(0)).toString(), creds.subarray(64, creds.indexOf(0, 64)).toString()];
+    };
+    return { raw, challenge, open };
+  }
+  /** a server private key whose public key starts with a zero byte (Node gives it as 127 bytes) */
+  const SHORT_KEY_PRIV = Buffer.concat([Buffer.alloc(28, 0x11), Buffer.from([0, 0, 0, 175])]);
+
+  /** Runs the type-30 sign-in; `deliver` feeds the server's bytes in whatever order and pieces it likes. */
+  async function ardSignIn(mac: ReturnType<typeof standInMac>, deliver: (c: RfbClient, sent: Uint8Array[]) => Promise<void>) {
     const sent: Uint8Array[] = [];
     const events: RfbEvent[] = [];
     const c = new RfbClient((d) => sent.push(d), (e) => events.push(e), { username: 'ana', password: 'owl-123', ard: ardResponse });
-    let failed: unknown;
-    void c.run().catch((e) => { failed = e; });
-    c.feed(Buffer.from('RFB 003.889\n')); // Apple's version string
-    c.feed(Uint8Array.from([3, 30, 35, 2])); // macOS offers 30, 35 and the VNC password
-    await tick();
+    void c.run();
+    await deliver(c, sent);
+    // The Diffie-Hellman answer is computed in JavaScript: give a busy runner time, and say why if it fails.
+    const failure = () => events.find((e) => e.t === 'error' || e.t === 'closed');
+    await until(() => sent.length > 2 || failure() !== undefined, 20_000);
+    expect(failure(), 'the client gave up instead of answering').toBeUndefined();
+    expect(sent.length, `no sign-in answer after 20 s (sent ${sent.map((s) => s.length).join(', ')} bytes)`).toBeGreaterThan(2);
     expect(Buffer.from(sent[0]).toString()).toBe('RFB 003.008\n');
     expect([...sent[1]]).toEqual([30]);
-    c.feed(Uint8Array.from([...be16(2), ...be16(128), ...Buffer.from(PRIME, 'hex'), ...serverPub]));
-    // The Diffie-Hellman answer is computed in JavaScript: give a busy runner time, and say why if it fails.
-    await until(() => sent.length > 2 || failed !== undefined, 20_000);
-    expect(failed).toBeUndefined();
-    expect(sent.length).toBeGreaterThan(2);
-    const answer = sent[2];
-    expect(answer.length).toBe(256);
-    const shared = dh.computeSecret(Buffer.from(answer.subarray(128)));
-    const key = crypto.createHash('md5').update(Buffer.concat([Buffer.alloc(128 - shared.length), shared])).digest();
-    const d = crypto.createDecipheriv('aes-128-ecb', key, null).setAutoPadding(false);
-    const creds = Buffer.concat([d.update(Buffer.from(answer.subarray(0, 128))), d.final()]);
-    expect(creds.subarray(0, creds.indexOf(0)).toString()).toBe('ana');
-    expect(creds.subarray(64, creds.indexOf(0, 64)).toString()).toBe('owl-123');
+    expect(sent[2].length).toBe(256);
+    expect(mac.open(sent[2])).toEqual(['ana', 'owl-123']);
+    return { c, sent, events };
+  }
+  const hello = () => [...Buffer.from('RFB 003.889\n'), 3, 30, 35, 2]; // Apple's version; macOS offers 30, 35 and the VNC password
+
+  it('signs in to a stand-in Mac that decrypts the name and password it was sent', async () => {
+    const mac = standInMac();
+    const { c, events } = await ardSignIn(mac, async (c, sent) => {
+      c.feed(Buffer.from('RFB 003.889\n')); // Apple's version string
+      c.feed(Uint8Array.from([3, 30, 35, 2])); // macOS offers 30, 35 and the VNC password
+      await tick();
+      expect(Buffer.from(sent[0]).toString()).toBe('RFB 003.008\n');
+      expect([...sent[1]]).toEqual([30]);
+      c.feed(mac.challenge);
+    });
     c.feed(Uint8Array.from(be32(0))); // accepted
     c.feed(Uint8Array.from([...be16(1440), ...be16(900), ...PIXEL_FORMAT, ...be32(3), ...Buffer.from('Mac')]));
     await tick();
     expect(events).toContainEqual({ t: 'security', type: 30, name: 'Apple Remote Desktop' });
     expect(events).toContainEqual({ t: 'init', width: 1440, height: 900, name: 'Mac' });
   }, 30_000);
+
+  it('signs in when the Mac’s public key starts with a zero byte (the CI flake: the stand-in sent 127 bytes)', async () => {
+    const mac = standInMac(SHORT_KEY_PRIV);
+    expect(mac.raw.length).toBe(127); // what Node hands out for this key
+    expect(mac.challenge.length).toBe(4 + 128 + 128); // what goes on the wire, as a Mac sends it
+    await ardSignIn(mac, async (c) => {
+      c.feed(Uint8Array.from(hello()));
+      await tick();
+      c.feed(mac.challenge);
+    });
+  }, 30_000);
+
+  it('takes the server’s bytes in any pieces and at any time', async () => {
+    const mac = standInMac(SHORT_KEY_PRIV);
+    const all = Uint8Array.from([...hello(), ...mac.challenge]);
+    // everything at once, before the client has even chosen
+    await ardSignIn(mac, async (c) => c.feed(all));
+    // a byte at a time, the client reading as they come
+    await ardSignIn(mac, async (c) => { for (const b of all) { c.feed(Uint8Array.of(b)); await Promise.resolve(); } });
+    // pieces that cut across every field, as subarrays of one pooled buffer
+    const pooled = Buffer.from(all);
+    await ardSignIn(mac, async (c) => {
+      let o = 0;
+      for (const n of [5, 8, 1, 3, 2, 81, 100, 30]) { c.feed(pooled.subarray(o, o + n)); o += n; await tick(); }
+      c.feed(pooled.subarray(o));
+    });
+  }, 60_000);
 
   it('without a user name it uses the VNC password if offered, else says what is missing', async () => {
     const sent: Uint8Array[] = [];
