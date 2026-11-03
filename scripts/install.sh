@@ -171,7 +171,8 @@ release_json() { # name of the file this computer needs
     return 0
   fi
   list="$(fetch_text "$API/releases?per_page=50")" || fail "could not read the release information from GitHub"
-  tag="$(printf '%s' "$list" | newest_tag_with "$1")"
+  # The reader stops at the first match, so the writer may meet a closed pipe: that is fine, say nothing.
+  tag="$( { printf '%s' "$list" 2>/dev/null; } | newest_tag_with "$1")"
   if [ -z "$tag" ]; then
     if [ "$BETA" -eq 1 ]; then fail "no release has $1 yet"; fi
     fail "no stable release has $1 yet (for the newest beta add --beta)"
