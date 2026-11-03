@@ -7,7 +7,8 @@
 // Pure: the Island window feeds it the state and draws the result.
 
 import type { IslandState } from './api';
-import { countdownShort } from './pim/agenda';
+import { countdownShort, joinLink } from './pim/agenda';
+import type { CalendarEvent } from './island';
 
 export type ActivityKind =
   | 'dictation' | 'recording' | 'agent-waiting' | 'agent-stuck' | 'meeting' | 'charging' | 'battery-low' | 'timer'
@@ -214,7 +215,7 @@ export function activitiesFrom(s: IslandState, now: number, x: ExtraInputs = {})
     else if (a.state === 'working') add({ id: `agent-${a.id}`, kind: 'agent-working', icon: 'terminal', title: `${a.project} is working`, detail: a.summary, color: '#60a5fa', ref: a.id, since: a.updatedAt });
   }
 
-  const ev = s.events.find((e) => !e.allDay && e.end > now && e.start - now < 15 * 60_000);
+  const ev = meetingNow(s.events, now);
   if (ev) {
     add({ id: `ev-${ev.uid}`, kind: 'meeting', icon: 'calendar', title: ev.title, detail: ev.location, trailing: countdownShort(ev.start, now), color: ev.color ?? '#a78bfa', since: ev.start, ref: ev.url });
   }
@@ -362,4 +363,18 @@ export function cameraUsers(fds: { pid: number; name: string; target: string }[]
   const names = new Set<string>();
   for (const f of fds) if (/^\/dev\/video\d+$/.test(f.target)) names.add(f.name);
   return [...names];
+}
+
+/**
+ * The calendar event worth a live activity, if any: from 15 minutes before it starts
+ * until 10 minutes after, or until it ends when it has a meeting link. All-day events
+ * and anything longer than 4 hours (a trip, a stay, a block of time) never are.
+ */
+export function meetingNow(events: CalendarEvent[], now: number): CalendarEvent | undefined {
+  return events.find((e) => {
+    if (e.allDay || e.end <= now || e.end - e.start > 4 * 3_600_000) return false;
+    if (e.start - now >= 15 * 60_000) return false;
+    if (now - e.start <= 10 * 60_000) return true;
+    return !!joinLink({ location: e.location, url: e.url });
+  });
 }
