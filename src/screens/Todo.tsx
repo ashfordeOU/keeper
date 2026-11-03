@@ -242,7 +242,7 @@ function FixRow({ f, later, selected, onSelect, actions }: { f: FindingView; lat
         )}
       </div>
       {open ? (
-        <div id={id} className="fx-details" role="region" aria-label={`Details: ${f.title}`}>
+        <div id={id} className="fx-details" data-testid="fixit-details" role="region" aria-label={`Details: ${f.title}`}>
           {d === undefined ? <div className="small muted fx-loading"><div className="spinner" /> Looking closer…</div> : d === null ? <div className="small muted">{f.detail ?? 'No more details.'}</div> : <Details d={d} f={f} />}
         </div>
       ) : null}

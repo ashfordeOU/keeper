@@ -82,7 +82,7 @@ export function Security() {
         <button className="btn" onClick={() => void api.security.exportReport()}><Icon name="down" size={14} /> Save report</button>
         <button className="btn" onClick={() => void load(true)} disabled={busy}>{busy ? <div className="spinner" /> : <Icon name="refresh" size={14} />} Check again</button>
       </PageHead>
-      <Tabs label="Privacy and security checks" value={tab} onChange={switchTo} items={TABS.map((t) => ({ id: t.id, text: t.label, label: <><Icon name={t.icon} size={14} /> {t.label}</>, badge: t.area && ov?.counts[t.area] ? ov.counts[t.area] : undefined }))} />
+      <Tabs label="Privacy and security checks" className="sec-checktabs" value={tab} onChange={switchTo} items={TABS.map((t) => ({ id: t.id, testId: `sec-tab-${t.id}`, text: t.label, label: <><Icon name={t.icon} size={14} /> {t.label}</>, badge: t.area && ov?.counts[t.area] ? ov.counts[t.area] : undefined }))} />
       {error ? <Empty icon="warning" title="Could not check">{error}</Empty> : null}
       {!ov && !error ? <Loading label="Looking at your computer…" /> : null}
       {ov ? (
@@ -116,7 +116,7 @@ function FindingRow({ f, reload }: { f: Finding; reload: (refresh?: boolean) => 
     }
   };
   return (
-    <div className={`sec-finding ${f.ignored ? 'ignored' : ''}`}>
+    <div className={`sec-finding ${f.ignored ? 'ignored' : ''}`} data-testid="sec-finding" data-id={f.id}>
       <span className={`sec-sev ${SEV[f.severity].cls}`} title={SEV[f.severity].label} />
       <div className="grow">
         <div className="sec-finding-title">{f.title}{f.ignored ? <span className="badge">Ignored</span> : null}</div>
@@ -128,7 +128,7 @@ function FindingRow({ f, reload }: { f: Finding; reload: (refresh?: boolean) => 
         {f.fix && !f.ignored && (f.fix.action || f.fix.settings) ? <button className="btn sm primary" disabled={busy} onClick={() => void doFix()}>{busy ? <div className="spinner" /> : null}{f.fix.label}</button> : null}
         {/* The step-by-step guide (also in the To do list): the system's protections live under the guide's own ids. */}
         {!f.ignored && f.severity !== 'info' ? <button className="btn sm" onClick={() => openGuide(f.id.startsWith('protection.') ? `protection:${f.id.slice(11)}` : `security:${f.id}`)}>Show me how</button> : null}
-        <button className="btn sm ghost" onClick={() => void api.security.ignore(f.id, !f.ignored).then(() => reload())}>{f.ignored ? 'Stop ignoring' : 'Ignore'}</button>
+        <button className="btn sm ghost" data-testid="sec-ignore" onClick={() => void api.security.ignore(f.id, !f.ignored).then(() => reload())}>{f.ignored ? 'Stop ignoring' : 'Ignore'}</button>
       </div>
     </div>
   );
@@ -148,7 +148,7 @@ function Overview({ ov, onTab, reload }: { ov: SecurityOverview; onTab: (t: Tab)
   }, [ov]);
   return (
     <div className="sec-overview">
-      <div className="sec-hero card pad">
+      <div className="sec-hero card pad" data-testid="sec-score">
         <Ring value={ov.score} color={scoreColor(ov.score)} label={String(ov.score)} sub="of 100" />
         <div className="grow">
           <h2 className="sec-label">{ov.label}</h2>
@@ -163,7 +163,7 @@ function Overview({ ov, onTab, reload }: { ov: SecurityOverview; onTab: (t: Tab)
         {TABS.filter((t) => t.area).map((t) => {
           const n = ov.counts[t.area!];
           return (
-            <button key={t.id} className="card pad sec-area" onClick={() => onTab(t.id)}>
+            <button key={t.id} className="card pad sec-area" data-testid={`sec-area-${t.id}`} onClick={() => onTab(t.id)}>
               <Icon name={t.icon} size={18} />
               <div className="grow">
                 <b>{t.label}</b>
