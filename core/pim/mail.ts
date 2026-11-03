@@ -179,34 +179,9 @@ export function snippetOf(text: string, max = 140): string {
 
 // ---------------------------------------------------------------- local filters
 
-export interface MailRule {
-  id: string;
-  name: string;
-  enabled: boolean;
-  /** every condition must match */
-  when: { field: 'from' | 'to' | 'subject' | 'body' | 'any'; contains: string }[];
-  then: { action: 'move'; folder: string } | { action: 'flag' } | { action: 'read' } | { action: 'label'; label: string } | { action: 'trash' };
-  /** only for this account */
-  account?: string;
-}
-
-export function ruleMatches(rule: MailRule, m: MessageSummary & { text?: string }): boolean {
-  if (!rule.enabled || !rule.when.length) return false;
-  if (rule.account && rule.account !== m.account) return false;
-  const addr = (a?: Address) => (a ? `${a.name ?? ''} ${a.address}` : '');
-  return rule.when.every((c) => {
-    const needle = c.contains.toLowerCase();
-    if (!needle) return true;
-    const hay = {
-      from: addr(m.from),
-      to: [...m.to, ...m.cc].map(addr).join(' '),
-      subject: m.subject,
-      body: m.text ?? m.snippet,
-      any: [addr(m.from), ...m.to.map(addr), m.subject, m.text ?? m.snippet].join(' '),
-    }[c.field];
-    return hay.toLowerCase().includes(needle);
-  });
-}
+export type { Rule as MailRule } from './rules';
+/** Does a rule match a message (every condition, or any when the rule says so)? */
+export { ruleMatchesV2 as ruleMatches } from './rules';
 
 /** Simple local search over cached messages: words in any order, from:, to:, subject:, label:, in:, is:unread, has:attachment. */
 export function matchesQuery(m: MessageSummary & { text?: string }, q: string): boolean {

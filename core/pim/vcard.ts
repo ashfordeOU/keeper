@@ -38,8 +38,26 @@ export function parseVCards(text: string, account = ''): Contact[] {
     else if (name === 'NOTE') cur.note = unescape(value);
     else if (name === 'BDAY') cur.birthday = value;
     else if (name === 'UID') cur.uid = value.replace(/^urn:uuid:/i, '');
+    else if (name === 'PHOTO') cur.photo = photoUrl(head, value);
   }
   return out;
+}
+
+/**
+ * A contact's picture as a data: URL, when it is inside the card (vCard 4
+ * data: URI, or vCard 3 ENCODING=b with TYPE). Pictures at web addresses are
+ * left out: Keeper never fetches them. At most 200 kB.
+ */
+export function photoUrl(head: string, value: string): string | undefined {
+  const v = value.trim();
+  if (/^data:image\/(png|jpe?g|gif|webp);base64,[A-Za-z0-9+/=]+$/i.test(v)) return v.length < 280_000 ? v : undefined;
+  if (/ENCODING=(B|BASE64)/i.test(head) && /^[A-Za-z0-9+/=]+$/.test(v)) {
+    const t = (head.match(/TYPE=([A-Z]+)/i)?.[1] ?? 'JPEG').toLowerCase();
+    const type = t === 'jpg' ? 'jpeg' : t;
+    if (!/^(png|jpeg|gif|webp)$/.test(type) || v.length > 280_000) return undefined;
+    return `data:image/${type};base64,${v}`;
+  }
+  return undefined;
 }
 
 export function serializeVCard(c: Contact): string {

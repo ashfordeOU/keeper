@@ -9,6 +9,10 @@ import { promises as fsp } from 'node:fs';
 import path from 'node:path';
 import type { LogEntry } from '../../../core/pim/insights';
 import type { Draft, MailRule } from '../../../core/pim/mail';
+import type { MailTemplate } from '../../../core/pim/compose-rich';
+import type { SmartMailbox } from '../../../core/pim/prefs';
+import type { NoReplyReminder } from '../../../core/pim/smart';
+import type { SnoozeEntry } from '../../../core/pim/snooze-sync';
 import type { Account, Alarm, CalEvent, CalendarInfo, Contact, CountdownTimer, MessageSummary, Reminder, WorldClock } from '../../../core/pim/types';
 import { KeychainLockedError } from '../../../core/keychain';
 import { getSecret, secretLocked, setSecret } from '../../store';
@@ -59,6 +63,26 @@ export interface PimPrefs {
   shortcutOverrides?: Record<string, string>;
   /** keep the newest inbox messages' text on this computer for reading offline (on unless false) */
   offlineBodies?: boolean;
+  /** the number on the Dock or taskbar icon: unread inbox mail, only Important, or none */
+  dockBadge?: 'all' | 'important' | 'off';
+  /** designed mail (newsletters, receipts) in dark mode: on a light card as made ('card', default) or darkened like the rest ('dark') */
+  darkMail?: 'card' | 'dark';
+  /** reading text size in pixels (⌘+ / ⌘−) */
+  mailTextSize?: number;
+  /** how close together the list's rows are */
+  mailDensity?: 'compact' | 'comfortable' | 'roomy';
+  /** only these senders drop down from the notch (addresses, @domains; empty = everyone) */
+  notchSenders?: string[];
+  /** senders whose mail goes straight to Junk (addresses, @domains) */
+  blockedSenders?: string[];
+  /** facts the person keeps for the AI ("I sign as Ana", "my team is …"); sent with AI requests */
+  aiMemory?: string[];
+  /** saved replies and messages */
+  templates?: MailTemplate[];
+  /** saved searches shown as mailboxes */
+  smartMailboxes?: SmartMailbox[];
+  /** the sign-in code or magic link in new mail: a Copy / Open button on its notification and in the Island (on unless false) */
+  codeActions?: boolean;
 }
 
 export interface QueuedMail {
@@ -109,6 +133,19 @@ export interface PimState {
   waitingDismissed?: string[];
   /** changes made offline, waiting for the server */
   pendingOps?: PendingOp[];
+  /** "Remind me if no reply": sent messages to bring back when nobody answered */
+  noReply?: NoReplyReminder[];
+  /** muted conversations (Message-IDs): new mail in them skips the inbox */
+  muted?: string[];
+  /** messages taken off To Reply */
+  toReplyDismissed?: string[];
+  /** snoozes shared with the person's other computers (core/pim/snooze-sync.ts) */
+  snoozeSync?: SnoozeEntry[];
+  /** Gmail filters Keeper made, per account, and the last result of writing rules to each server */
+  gmailFilters?: Record<string, string[]>;
+  serverRules?: Record<string, { ok: boolean; message: string; at: number }>;
+  /** drafts mirrored to the server: compose id → its Message-ID there */
+  draftIds?: Record<string, string>;
 }
 
 const DEFAULT_PREFS: PimPrefs = { notifyPreviews: true, notifyMail: true, undoSendSec: 10, trustedSenders: [], defaultAlertMin: 10, weekStart: 1, showWeekNumbers: false };

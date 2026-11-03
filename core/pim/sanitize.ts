@@ -6,6 +6,7 @@
 // Runs in the main process (it uses an HTML parser).
 
 import sanitizeHtml from 'sanitize-html';
+import { stripTracking } from './privacy';
 
 export interface SanitizeOptions {
   /** load pictures and styles from the internet */
@@ -20,6 +21,8 @@ export interface SanitizeResult {
   blocked: number;
   /** tracking pixels removed */
   trackers: number;
+  /** links that had tracking parameters taken off */
+  cleanedLinks?: number;
 }
 
 // Hosts that only serve tracking pixels or open-tracking redirects.
@@ -50,6 +53,7 @@ function tinyImage(attribs: Record<string, string>): boolean {
 export function sanitizeMail(html: string, opts: SanitizeOptions = {}): SanitizeResult {
   let blocked = 0;
   let trackers = 0;
+  let cleanedLinks = 0;
   const allowRemote = !!opts.allowRemote;
   const count = () => { blocked++; };
   let out = sanitizeHtml(html, {
@@ -95,8 +99,11 @@ export function sanitizeMail(html: string, opts: SanitizeOptions = {}): Sanitize
         const a: Record<string, string> = { ...attribs, rel: 'noopener noreferrer' };
         if (!/^(https?:|mailto:|tel:|\/\/)/i.test(href)) delete a.href;
         else if (!/^mailto:|^tel:/i.test(href)) {
+          // Tracking parameters come off before the link can be opened.
+          const clean = stripTracking(href);
+          if (clean.removed) { cleanedLinks++; a.href = clean.href; }
           a.target = '_blank';
-          a.title = href;
+          a.title = clean.href;
         }
         if (a.style) a.style = cleanCss(a.style, allowRemote, count);
         return { tagName, attribs: a };
@@ -127,7 +134,7 @@ export function sanitizeMail(html: string, opts: SanitizeOptions = {}): Sanitize
   });
   // CSS inside <style> blocks.
   out = out.replace(/(<style[^>]*>)([\s\S]*?)(<\/style>)/gi, (_m, a: string, css: string, b: string) => a + cleanCss(css, allowRemote, count) + b);
-  return { html: out, blocked, trackers };
+  return { html: out, blocked, trackers, cleanedLinks };
 }
 
 function safeHost(u: string): string {
@@ -141,5 +148,6 @@ function safeHost(u: string): string {
 /** Plain text to safe HTML (links made clickable, quotes kept). */
 export function textToHtml(text: string): string {
   const esc = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  return `<div style="white-space:pre-wrap;font-family:inherit">${esc.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" title="$1">$1</a>')}</div>`;
+  const link = (u: string) => { const h = stripTracking(u.replace(/&amp;/g, '&')).href.replace(/&/g, '&amp;').replace(/"/g, '&quot;'); return `<a href="${h}" target="_blank" rel="noopener noreferrer" title="${h}">${u}</a>`; };
+  return `<div style="white-space:pre-wrap;font-family:inherit">${esc.replace(/(https?:\/\/[^\s<]+)/g, link)}</div>`;
 }

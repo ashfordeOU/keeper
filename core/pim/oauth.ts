@@ -20,7 +20,7 @@ export const ENDPOINTS: Record<OAuthProvider, { auth: string; token: string; sco
     auth: 'https://accounts.google.com/o/oauth2/v2/auth',
     token: 'https://oauth2.googleapis.com/token',
     // Full mail access over IMAP/SMTP, calendars and contacts over CalDAV/CardDAV, and the address.
-    scopes: ['https://mail.google.com/', 'https://www.googleapis.com/auth/calendar', 'https://www.googleapis.com/auth/carddav', 'openid', 'email'],
+    scopes: ['https://mail.google.com/', 'https://www.googleapis.com/auth/gmail.settings.basic', 'https://www.googleapis.com/auth/calendar', 'https://www.googleapis.com/auth/carddav', 'openid', 'email'],
   },
   microsoft: {
     auth: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',

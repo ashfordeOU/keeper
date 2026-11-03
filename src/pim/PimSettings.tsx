@@ -19,6 +19,7 @@ import { Toggle } from '../components/ui';
 import { useStore } from '../state';
 import { AccountDialog } from './AccountDialog';
 import { CalendarSources } from './CalendarSources';
+import { RulesEditor } from './mail-settings';
 import { usePimChanges } from './Mail';
 
 const KIND: Record<string, string> = { imap: 'Mail (IMAP)', google: 'Google', microsoft: 'Microsoft 365', caldav: 'CalDAV', ics: 'Calendar link' };
@@ -154,26 +155,9 @@ export function PimSettings() {
         {prefs.trustedSenders.length ? <button className="btn sm ghost" onClick={() => void set({ trustedSenders: [] })}>Clear</button> : null}
       </Row>
 
-      <div style={{ fontWeight: 600, margin: '18px 0 2px' }}>Filters for new mail</div>
-      <div className="small muted" style={{ marginBottom: 6 }}>Run on this computer for mail arriving in an inbox. The first filter that matches wins.</div>
-      {rules.map((r, i) => (
-        <div key={r.id} className="row" style={{ gap: 6, padding: '4px 0', flexWrap: 'wrap' }}>
-          <input type="checkbox" checked={r.enabled} onChange={(e) => saveRules(rules.map((x, j) => (j === i ? { ...x, enabled: e.target.checked } : x)))} aria-label="On" />
-          <span className="small">If</span>
-          <select className="input" value={r.when[0]?.field ?? 'from'} onChange={(e) => saveRules(rules.map((x, j) => (j === i ? { ...x, when: [{ field: e.target.value as MailRule['when'][number]['field'], contains: x.when[0]?.contains ?? '' }] } : x)))}>
-            <option value="from">sender</option><option value="to">recipients</option><option value="subject">subject</option><option value="body">text</option><option value="any">anything</option>
-          </select>
-          <span className="small">contains</span>
-          <input className="input" style={{ width: 150 }} value={r.when[0]?.contains ?? ''} onChange={(e) => saveRules(rules.map((x, j) => (j === i ? { ...x, name: e.target.value, when: [{ field: x.when[0]?.field ?? 'from', contains: e.target.value }] } : x)))} />
-          <select className="input" value={r.then.action} onChange={(e) => { const a = e.target.value; saveRules(rules.map((x, j) => (j === i ? { ...x, then: a === 'move' ? { action: 'move', folder: 'Archive' } : a === 'label' ? { action: 'label', label: 'Keeper' } : ({ action: a } as MailRule['then']) } : x))); }}>
-            <option value="read">mark as read</option><option value="flag">flag</option><option value="move">move to folder</option><option value="label">add a label</option><option value="trash">delete</option>
-          </select>
-          {r.then.action === 'move' ? <input className="input" style={{ width: 120 }} value={r.then.folder} onChange={(e) => saveRules(rules.map((x, j) => (j === i ? { ...x, then: { action: 'move', folder: e.target.value } } : x)))} aria-label="Folder" /> : null}
-          {r.then.action === 'label' ? <input className="input" style={{ width: 120 }} value={r.then.label} onChange={(e) => saveRules(rules.map((x, j) => (j === i ? { ...x, then: { action: 'label', label: e.target.value } } : x)))} aria-label="Label" /> : null}
-          <button className="btn sm ghost icon" aria-label="Remove filter" onClick={() => saveRules(rules.filter((_, j) => j !== i))}><Icon name="close" size={12} /></button>
-        </div>
-      ))}
-      <button className="btn sm ghost" onClick={() => saveRules([...rules, { id: String(Date.now()), name: '', enabled: true, when: [{ field: 'from', contains: '' }], then: { action: 'read' } }])}><Icon name="plus" size={13} /> Add filter</button>
+      <div style={{ fontWeight: 600, margin: '18px 0 2px' }} id="settings-mail-rules">Rules for new mail</div>
+      <div className="small muted" style={{ marginBottom: 6 }}>Run on this computer as mail arrives in an inbox, in order; a rule can stop the ones after it. Rules marked “Also on the server” are written to the mail server (Sieve) or to Gmail’s filters, so they work while Keeper is closed.</div>
+      <RulesEditor rules={rules} setRules={saveRules} accounts={accounts} />
 
       <div style={{ fontWeight: 600, margin: '18px 0 2px' }} id="settings-calendar">Calendar</div>
       <CalendarSources />

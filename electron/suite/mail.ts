@@ -33,6 +33,7 @@ export function installMailRemote(deps: PimDeps) {
       case 'islandReminders': deps.islandReminders?.(args[0] as never); break;
       case 'islandEvents': deps.islandEvents(args[0] as never); break;
       case 'islandTimers': deps.islandTimers(args[0] as never); break;
+      case 'badge': deps.badge?.(Number(args[0]) || 0); break;
       case 'show': deps.show?.(String(args[0])); break;
       case 'secrets': memorySecrets = (args[0] ?? {}) as Record<string, string>; break;
       case 'keychain': adoptSecretStates('pim.', (args[0] ?? {}) as Parameters<typeof adoptSecretStates>[1]); break;

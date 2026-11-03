@@ -335,10 +335,10 @@ describe('mail for coding assistants (MCP)', () => {
   };
   const mcp = mailMcp(backend);
 
-  it('offers search, read and drafts only', () => {
-    expect(MAIL_TOOLS.map((t) => t.name)).toEqual(['mail_search', 'mail_read', 'mail_thread', 'mail_draft']);
+  it('offers search, read, drafts, tidying with approval and sending through the person', () => {
+    expect(MAIL_TOOLS.map((t) => t.name)).toEqual(['mail_search', 'mail_read', 'mail_thread', 'mail_draft', 'mail_tidy', 'mail_send']);
     expect(MAIL_TOOLS.every((t) => !t.annotations.destructiveHint)).toBe(true);
-    expect(MAIL_TOOLS.filter((t) => !t.annotations.readOnlyHint).map((t) => t.name)).toEqual(['mail_draft']);
+    expect(MAIL_TOOLS.filter((t) => !t.annotations.readOnlyHint).map((t) => t.name)).toEqual(['mail_draft', 'mail_tidy', 'mail_send']);
   });
 
   it('refuses to send, delete or move', async () => {

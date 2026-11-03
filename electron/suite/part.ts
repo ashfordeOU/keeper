@@ -365,6 +365,7 @@ async function startMail() {
     islandReminders: (list) => keep('islandReminders', [list]),
     islandEvents: (evs) => keep('islandEvents', [evs]),
     islandTimers: (t) => keep('islandTimers', [t]),
+    badge: (n) => keep('badge', [n]),
     show: (route) => note('show', [route]),
     islandCalendarUrl: () => settings().island.calendarUrl,
     // Open and save pickers belong to the window the person is using, in the app.

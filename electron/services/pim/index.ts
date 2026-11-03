@@ -5,7 +5,7 @@
 // when), calendars are checked through the governor, and one timer waits for
 // the next alarm, reminder or event alert.
 
-import { app, BrowserWindow, dialog, Notification, powerMonitor, shell } from 'electron';
+import { app, BrowserWindow, clipboard, dialog, Notification, powerMonitor, shell } from 'electron';
 import { randomUUID } from 'node:crypto';
 import { promises as fsp } from 'node:fs';
 import os from 'node:os';
@@ -17,7 +17,7 @@ import { autoconfigUrls, fromSrv, guess, knownProvider, parseAutoconfig, type Ma
 import { WELL_KNOWN_CALDAV, WELL_KNOWN_CARDDAV } from '../../../core/pim/caldav';
 import { occurrences as expandOccurrences, parseEvents, serializeEvents } from '../../../core/pim/ical';
 import { readInvitation, replyTo } from '../../../core/pim/imip';
-import { makeReply, matchesQuery, riskyAttachment, ruleMatches, snippetOf, threadMessages, type Draft, type MailRule } from '../../../core/pim/mail';
+import { makeReply, matchesQuery, riskyAttachment, snippetOf, threadMessages, type Draft, type MailRule } from '../../../core/pim/mail';
 import type { PimPrefsView } from '../../../core/pim/prefs';
 import { classify, dueSnoozes, hasSignInCode, isSecurityAlert, followUpDraft, isOfflineError, isSnoozed, mergeResults, nextSnoozeWake, pickForQuestion, sortTime, splitSuggestions, subscriptions as subscriptionsOf, triageContext, voiceSamples, waitingForReply, type TriageContext } from '../../../core/pim/triage';
 import { parseQuickAdd } from '../../../core/pim/quickadd';
@@ -38,6 +38,17 @@ import { dav, deleteHref, discover, fetchContacts, fetchIcs, graphCalendars, gra
 import { accessToken, cancelSignIn, clientFor, saveTokens, signIn } from './oauth';
 import { assertSecretReadable, dropSecret, emptyState, files, hash, loadAccounts, loadContacts, loadState, putSecret, readJson, readSecret, saveAccounts, writeJson, type EventCache, type FolderCache, type PendingOp, type PimState } from './store';
 import { extendTimer } from '../../../core/widget-timer';
+import { evaluateRules, planActions, SIEVE_SCRIPT, toSieve, type Rule } from '../../../core/pim/rules';
+import { imapCriteria, matchMailQuery, orderResults, parseMailQuery } from '../../../core/pim/search';
+import { badgeCount, extractCode, extractSignInLink, inTab, isBlocked, isDesignedMail, isMuted, notchAllows, sortReminders, tabCounts, toReply, unreadByAccount } from '../../../core/pim/smart';
+import { linksIn, phishingWarnings } from '../../../core/pim/phishing';
+import { adoptRemote, mergeEntries, noteBody, NOTE_SUBJECT, readNote, SNOOZE_FOLDER, snoozeKeyword } from '../../../core/pim/snooze-sync';
+import { cleanMemory, draftPrompt, rememberIn, rewritePrompt } from '../../../core/pim/mail-ai';
+import { assemble, replyIdentity, replyToOf, signatureFor } from '../../../core/pim/compose-rich';
+import { asksForReceipt } from '../../../core/pim/privacy';
+
+/** A mail alert's extras: Copy for a sign-in code, Open for a magic link, Undo for a message about to go. */
+export type MailAlertExtra = { code?: string; link?: string; undoId?: string; sendAt?: number };
 
 export interface PimDeps {
   broadcast: (channel: string, ...args: unknown[]) => void;
@@ -45,7 +56,9 @@ export interface PimDeps {
    * a short alert in the Island ('reminder': a task is due, shown even when other
    * alerts are not; 'mail': new Important mail, with the message id as ref)
    */
-  alert: (title: string, detail?: string, kind?: 'reminder' | 'mail', ref?: string) => void;
+  alert: (title: string, detail?: string, kind?: 'reminder' | 'mail', ref?: string, mail?: MailAlertExtra) => void;
+  /** the number for the Dock or taskbar icon (0 clears it) */
+  badge?: (count: number) => void;
   /** reminders ringing now, for the Island's live activity (Snooze, Done) */
   islandReminders?: (list: DueReminder[]) => void;
   /** today's and tomorrow's events for the Island's "next meeting" */
@@ -379,19 +392,9 @@ async function refreshFolderNow(a: Account, folder: string) {
   firstSync.add(fkey(a.id, folder));
   needsSignIn.delete(a.id);
   let list = r.messages;
-  // Local filters on new inbox mail.
-  if (folder.toUpperCase() === 'INBOX' && r.added.length && state.rules.some((x) => x.enabled)) {
-    for (const m of r.added) {
-      const rule = state.rules.find((x) => ruleMatches(x, m));
-      if (!rule) continue;
-      const t = rule.then;
-      if (t.action === 'move') await mailbox(a).move(folder, [m.uid], t.folder).catch(() => undefined);
-      else if (t.action === 'trash') await mailbox(a).remove(folder, [m.uid], await folderOf(a, 'trash')).catch(() => undefined);
-      else if (t.action === 'read') await mailbox(a).setFlags(folder, [m.uid], '\\Seen', true).catch(() => undefined);
-      else if (t.action === 'flag') await mailbox(a).setFlags(folder, [m.uid], '\\Flagged', true).catch(() => undefined);
-      else if (t.action === 'label') await mailbox(a).setFlags(folder, [m.uid], t.label, true).catch(() => undefined);
-    }
-    list = (await mailbox(a).sync(folder)).messages;
+  // New inbox mail: blocked senders to Junk, muted conversations out of the inbox, then the rules.
+  if (folder.toUpperCase() === 'INBOX' && r.added.length) {
+    if (await arrivalActions(a, folder, r.added)) list = (await mailbox(a).sync(folder)).messages;
   }
   // Keeper-only marks (snooze) survive the server's list.
   const old = folderCache.get(fkey(a.id, folder));
@@ -403,6 +406,7 @@ async function refreshFolderNow(a: Account, folder: string) {
     }
   }
   folderCache.set(fkey(a.id, folder), list);
+  adoptSyncedSnoozes(list);
   if (folder.toUpperCase() !== 'INBOX') ctxCache = null;
   if (!first && folder.toUpperCase() === 'INBOX') void notifyNew(a, r.added.filter((m) => !m.seen)).catch(() => undefined);
   changed('mail', { account: a.id, folder });
@@ -410,26 +414,49 @@ async function refreshFolderNow(a: Account, folder: string) {
   if (state.pendingOps?.some((o) => o.account === a.id)) void replayOps(a.id);
 }
 
-/** New mail: a notification and the Island's drop-down for Important mail (or all, or none, as set). */
+/**
+ * New mail: a notification and the Island's drop-down for Important mail (or
+ * all, or none, as set; only accounts and senders chosen for the notch). A
+ * sign-in code gets Copy and a magic link gets Open, in both.
+ */
 async function notifyNew(a: Account, fresh: MessageSummary[]) {
-  if (!fresh.length || !state.prefs.notifyMail) return;
+  if (!fresh.length) return;
+  const ctx = await triageCtx();
+  const sorted = fresh.map((m) => withTriage(m, ctx)).filter((m) => !isBlocked(m.from, state.prefs.blockedSenders ?? []) && !isMuted(m, state.muted ?? []));
+  void updateBadge();
+  if (!state.prefs.notifyMail) return;
   const how = state.prefs.islandMail ?? 'important';
   if (how === 'off') return;
-  const ctx = await triageCtx();
-  const sorted = fresh.map((m) => withTriage(m, ctx));
-  const shown = how === 'all' ? sorted : sorted.filter((m) => m.category === 'important');
+  const shown = (how === 'all' ? sorted : sorted.filter((m) => m.category === 'important'))
+    .filter((m) => notchAllows(m, { accountOff: a.notch === false, senders: state.prefs.notchSenders }));
   if (!shown.length) return;
   const one = shown.length === 1 ? shown[0] : undefined;
   const sec = shown.some((m) => m.security);
+  // The code or link is read from the message itself (a sign-in mail is short).
+  let extra: MailAlertExtra | undefined;
+  if (one && state.prefs.codeActions !== false && (one.security || hasSignInCode(`${one.subject}\n${one.snippet}`))) {
+    const o = await openMessage(one.id, { markRead: false }).catch(() => null);
+    const text = `${one.subject}\n${o?.text ?? one.snippet}`;
+    const code = extractCode(text);
+    const link = code ? undefined : extractSignInLink(text, o ? (bodyCache.get(one.id)?.body.html ?? undefined) : undefined);
+    if (code || link) extra = { code, link };
+  }
   const who = one ? one.from?.name || one.from?.address || 'New mail' : `${shown.length} new message${shown.length === 1 ? '' : 's'}`;
   const title = state.prefs.notifyPreviews ? (sec && one ? `Security: ${who}` : who) : `${shown.length} new message${shown.length === 1 ? '' : 's'}`;
-  const body = state.prefs.notifyPreviews && one ? one.subject : a.label;
+  const body = extra?.code ? `${state.prefs.notifyPreviews && one ? `${one.subject} · ` : ''}Code ${extra.code} — click to copy` : extra?.link ? `${state.prefs.notifyPreviews && one ? `${one.subject} · ` : ''}Sign-in link — click to open` : state.prefs.notifyPreviews && one ? one.subject : a.label;
   if (Notification.isSupported()) {
-    const n = new Notification({ title, body, silent: false });
-    n.on('click', () => deps?.broadcast('navigate', one ? `mail:${one.id}` : 'mail'));
+    const actions = extra?.code ? [{ type: 'button' as const, text: 'Copy code' }] : extra?.link ? [{ type: 'button' as const, text: 'Open link' }] : [];
+    const n = new Notification({ title, body, silent: false, actions });
+    const act = () => {
+      if (extra?.code) { clipboard.writeText(extra.code); deps?.alert('Code copied', extra.code); }
+      else if (extra?.link) void shell.openExternal(extra.link);
+      else deps?.broadcast('navigate', one ? `mail:${one.id}` : 'mail');
+    };
+    n.on('click', act);
+    n.on('action', act);
     n.show();
   }
-  deps?.alert(title, body, 'mail', one?.id ?? `${a.id}:INBOX`);
+  deps?.alert(title, extra?.code ? `${one?.subject ?? ''}`.trim() || body : body, 'mail', one?.id ?? `${a.id}:INBOX`, extra);
 }
 
 async function refreshAccount(a: Account) {
@@ -590,7 +617,7 @@ async function wakeSnoozed() {
     if (a) void serverOp({ kind: 'flag', account, folder, uids: [uid], flag: '\\Seen', on: false }).catch(() => undefined);
     deps?.alert(`Back from snooze: ${m.from?.name || m.from?.address || ''}`.trim(), m.subject, 'mail', m.id);
   }
-  if (due.length) changed('mail');
+  if (due.length) { changed('mail'); void shareSnooze(due.map((s) => s.id), null); }
   armSnooze();
 }
 
@@ -645,7 +672,25 @@ async function openMessage(id: string, opts: { allowRemote?: boolean; markRead?:
     const me = a.identities.map((x) => x.email.toLowerCase());
     if (inv) invite = { method: inv.method, event: inv.event, mine: inv.event.attendees?.find((x) => me.includes(x.email.toLowerCase()))?.status };
   }
-  return { summary, html: clean.html, text: cached.body.text, blocked: clean.blocked, trackers: clean.trackers, attachments: cached.body.attachments, invite, unsubscribe: cached.body.listUnsubscribe, headers: cached.body.headers };
+  // Warnings for mail pretending to be someone else (contacts and the domains you write to are known).
+  const known = [...new Set([...myAddresses(), ...state.recent.map((r) => r.address)].map((x) => x.toLowerCase().split('@')[1]).filter(Boolean))];
+  const replyToH = cached.body.headers['reply-to'];
+  const { parseAddressList } = await import('../../../core/pim/mail');
+  const mine = sender ? myAddresses().includes(sender) : false;
+  const warnings = mine ? [] : phishingWarnings({
+    from: summary.from, replyTo: replyToH ? parseAddressList(replyToH) : undefined, headers: cached.body.headers,
+    links: cached.body.html ? linksIn(cached.body.html) : [], contacts: contacts.map((c) => ({ name: c.name, emails: c.emails })), knownDomains: known,
+  });
+  const textAll = `${summary.subject}\n${cached.body.text ?? ''}`;
+  const code = extractCode(textAll);
+  const signInLink = code ? undefined : extractSignInLink(textAll, cached.body.html);
+  const remind = (state.noReply ?? []).find((r) => r.messageId === summary.messageId);
+  return {
+    summary, html: clean.html, text: cached.body.text, blocked: clean.blocked, trackers: clean.trackers, attachments: cached.body.attachments, invite, unsubscribe: cached.body.listUnsubscribe, headers: cached.body.headers,
+    warnings: warnings.length ? warnings : undefined, code, signInLink, designed: cached.body.html ? isDesignedMail(cached.body.html) : false,
+    cleanedLinks: (clean as { cleanedLinks?: number }).cleanedLinks, receiptAsked: asksForReceipt(cached.body.headers) || undefined,
+    muted: isMuted(summary, state.muted ?? []) || undefined, blockedSender: isBlocked(summary.from, state.prefs.blockedSenders ?? []) || undefined, remindAt: remind?.at,
+  };
 }
 
 async function rawAttachment(id: string, att: string): Promise<{ filename: string; content: Buffer }> {
@@ -664,27 +709,86 @@ function identityOf(a: Account, from?: string): Address {
   return i ? { name: i.name, address: i.email } : { address: a.email ?? '' };
 }
 
-async function queue(d: Draft & { account: string; sendAt?: number; markdown?: boolean }): Promise<Outbox> {
+type Sendable = Draft & { account: string; sendAt?: number; markdown?: boolean; html?: string; noSignature?: boolean; key?: string; remindAt?: number };
+
+/** The message as it will go: the rich text or Markdown, the signature (or not), the alias's Reply-To. */
+async function build(d: Sendable, a: Account) {
+  const from = identityOf(a, d.from);
+  const ident = a.identities.find((x) => x.email === from.address);
+  const reply = !!(d.inReplyTo || d.forwardOf || /^(re|fwd?):/i.test(d.subject));
+  const sig = signatureFor(ident, { reply, onReplies: a.signatureOnReplies, removed: d.noSignature });
+  let text: string;
+  let html: string | undefined;
+  if (d.html !== undefined) ({ text, html } = assemble({ html: d.html, text: d.body, signature: sig, quoted: d.quoted }));
+  else {
+    text = [d.body, sig ? `-- \n${sig}` : '', d.quoted ?? ''].filter(Boolean).join('\n\n');
+    const { marked } = await import('marked');
+    html = d.markdown !== false ? (marked.parse(text, { async: false, gfm: true, breaks: true }) as string) : undefined;
+  }
+  const atts = (d.attachments ?? []).map((x) => ({ filename: x.name ?? path.basename(x.path), path: x.path }));
+  return { from, text, html, atts, replyTo: replyToOf(ident) };
+}
+
+async function queue(d: Sendable): Promise<Outbox> {
   await load();
   const a = acct(d.account);
   if (!a?.smtp) throw new Error('This account cannot send mail');
-  const from = identityOf(a, d.from);
-  const sig = a.identities.find((x) => x.email === from.address)?.signature;
-  const body = [d.body, sig ? `-- \n${sig}` : '', d.quoted ?? ''].filter(Boolean).join('\n\n');
-  const { marked } = await import('marked');
-  const html = d.markdown !== false ? (marked.parse(body.replace(/^>.*$/gm, (l) => l), { async: false, gfm: true, breaks: true }) as string) : undefined;
-  const atts = (d.attachments ?? []).map((x) => ({ filename: x.name ?? path.basename(x.path), path: x.path }));
-  const { raw, envelope } = await compose({ from, to: d.to, cc: d.cc, bcc: d.bcc, subject: d.subject, text: body, html, inReplyTo: d.inReplyTo, references: d.references, attachments: atts });
+  const { from, text, html, atts, replyTo } = await build(d, a);
+  const { raw, envelope, messageId } = await compose({ from, to: d.to, cc: d.cc, bcc: d.bcc, subject: d.subject, text, html, inReplyTo: d.inReplyTo, references: d.references, attachments: atts, replyTo });
   const now = Date.now();
   const item = { id: randomUUID(), account: a.id, sendAt: d.sendAt ?? now + state.prefs.undoSendSec * 1000, raw: raw.toString('base64'), envelope, subject: d.subject, draft: d, queuedAt: now, scheduled: d.sendAt !== undefined && d.sendAt - now > 60_000 };
   state.outbox.push(item);
   for (const r of [...d.to, ...d.cc, ...d.bcc]) {
     state.recent = [{ ...r, at: Date.now() }, ...state.recent.filter((x) => x.address.toLowerCase() !== r.address.toLowerCase())].slice(0, 300);
   }
+  // "Remind me if no reply", chosen while writing.
+  if (d.remindAt) state.noReply = [...(state.noReply ?? []), { messageId, account: a.id, subject: d.subject, to: d.to, sentAt: item.sendAt, at: d.remindAt }];
+  // The copy in Drafts goes once it is sent.
+  if (d.key) void dropDraftCopy(d.key);
   saveState();
   armOutbox();
+  armNoReply();
   changed('outbox');
+  // The Island counts down with Undo while it waits to go.
+  if (!item.scheduled && item.sendAt - now >= 2000) deps?.alert('Sending', d.subject || '(no subject)', 'mail', undefined, { undoId: item.id, sendAt: item.sendAt });
   return { id: item.id, sendAt: item.sendAt, subject: item.subject, scheduled: item.scheduled };
+}
+
+/** A draft kept on the server under a compose window's key: saved again, the previous copy goes. */
+async function mirrorDraft(d: Sendable) {
+  const a = acct(d.account);
+  if (!a) return;
+  const drafts = await folderOf(a, 'drafts');
+  if (!drafts) return;
+  const { from, text, html, replyTo } = await build({ ...d, noSignature: true }, a);
+  const prevMid = d.key ? state.draftIds?.[d.key] : undefined;
+  const { raw, messageId } = await compose({ from, to: d.to, cc: d.cc, bcc: d.bcc, subject: d.subject, text, html, inReplyTo: d.inReplyTo, references: d.references, replyTo, keepBcc: true });
+  await mailbox(a).append(drafts, raw, ['\\Draft', '\\Seen']);
+  if (d.key) {
+    state.draftIds = { ...state.draftIds, [d.key]: `${a.id}\n${messageId}` };
+    saveState();
+  }
+  if (prevMid) await removeDraftByMid(prevMid);
+}
+
+async function removeDraftByMid(stored: string) {
+  const [account, mid] = stored.split('\n');
+  const a = acct(account);
+  if (!a || !mid) return;
+  const drafts = await folderOf(a, 'drafts');
+  if (!drafts) return;
+  const uids = await mailbox(a).byMessageId(drafts, mid).catch(() => [] as number[]);
+  if (uids.length) await mailbox(a).remove(drafts, uids).catch(() => undefined);
+}
+
+async function dropDraftCopy(key: string) {
+  const stored = state.draftIds?.[key];
+  if (!stored) return;
+  const rest = { ...state.draftIds };
+  delete rest[key];
+  state.draftIds = rest;
+  saveState();
+  await removeDraftByMid(stored).catch(() => undefined);
 }
 
 function armOutbox() {
@@ -1309,6 +1413,385 @@ async function unsubscribeWith(u: NonNullable<OpenMessage['unsubscribe']>, accou
   return { done: false, how: 'Could not unsubscribe automatically' };
 }
 
+// ---------------------------------------------------------------- rules, blocked senders and muted conversations on arrival
+
+/** What happens to new inbox mail; true when something moved (the list is read again). */
+async function arrivalActions(a: Account, folder: string, added: MessageSummary[]): Promise<boolean> {
+  const blocked = state.prefs.blockedSenders ?? [];
+  const muted = state.muted ?? [];
+  const rules = (state.rules as Rule[]).filter((x) => x.enabled && (!x.account || x.account === a.id));
+  if (!blocked.length && !muted.length && !rules.length) return false;
+  let moved = false;
+  const box = mailbox(a);
+  for (const m of added) {
+    try {
+      if (isBlocked(m.from, blocked)) {
+        const junk = await folderOf(a, 'junk');
+        if (junk) { await box.move(folder, [m.uid], junk); moved = true; }
+        continue;
+      }
+      if (isMuted(m, muted)) {
+        // A muted conversation: read, and out of the inbox.
+        await box.setFlags(folder, [m.uid], '\\Seen', true);
+        const arch = (await folderOf(a, 'archive')) ?? (await folderOf(a, 'all'));
+        if (arch) { await box.move(folder, [m.uid], arch); moved = true; }
+        continue;
+      }
+      const hits = evaluateRules(rules, m);
+      if (!hits.length) continue;
+      const plan = planActions(hits.flatMap((h) => h.actions));
+      if (plan.read) await box.setFlags(folder, [m.uid], '\\Seen', true);
+      if (plan.flag) await box.setFlags(folder, [m.uid], '\\Flagged', true);
+      for (const l of plan.labels) await box.setFlags(folder, [m.uid], l, true);
+      if (plan.dest) {
+        const dest = plan.dest.kind === 'move' ? plan.dest.folder : plan.dest.kind === 'archive' ? (await folderOf(a, 'archive')) ?? (await folderOf(a, 'all')) : undefined;
+        if (plan.dest.kind === 'trash') await box.remove(folder, [m.uid], await folderOf(a, 'trash'));
+        else if (dest) await box.move(folder, [m.uid], dest);
+        moved = true;
+      }
+      if (plan.read || plan.flag || plan.labels.length) moved = true;
+    } catch {
+      // One message failing (a folder gone) does not stop the rest.
+    }
+  }
+  return moved;
+}
+
+// ---------------------------------------------------------------- the Dock badge
+
+let badgeTimer: NodeJS.Timeout | undefined;
+let lastBadge = -1;
+async function updateBadge() {
+  clearTimeout(badgeTimer);
+  badgeTimer = setTimeout(async () => {
+    const mode = state.prefs.dockBadge ?? 'all';
+    const ctx = await triageCtx();
+    const inbox = mode === 'off' ? [] : (await cachedOf('inbox')).filter((m) => !isBlocked(m.from, state.prefs.blockedSenders ?? [])).map((m) => withTriage(m, ctx));
+    const n = badgeCount(inbox, mode);
+    if (n !== lastBadge) { lastBadge = n; deps?.badge?.(n); }
+  }, 400);
+}
+
+// ---------------------------------------------------------------- snooze on every computer
+
+/** Messages snoozed on another computer (their keyword) are snoozed here too; ones woken there come back here. */
+function adoptSyncedSnoozes(list: MessageSummary[]) {
+  const now = Date.now();
+  const mine = new Map((state.snoozes ?? []).map((x) => [x.id, x.until]));
+  let touched = false;
+  for (const m of list) {
+    const t = m.syncedSnooze;
+    if (t && t > now && mine.get(m.id) !== t && !(m.returnedAt && m.returnedAt >= t)) {
+      m.snoozedUntil = t;
+      state.snoozes = [...(state.snoozes ?? []).filter((x) => x.id !== m.id), { id: m.id, until: t }];
+      touched = true;
+    } else if (!t && mine.has(m.id) && m.snoozedUntil && (state.snoozeSync ?? []).some((e) => e.messageId === m.messageId && e.done)) {
+      m.snoozedUntil = undefined;
+      state.snoozes = (state.snoozes ?? []).filter((x) => x.id !== m.id);
+      touched = true;
+    }
+  }
+  if (touched) { saveState(); armSnooze(); }
+}
+
+/** Tells the server (and so the person's other computers) about a snooze, or that it ended. */
+async function shareSnooze(ids: string[], until: number | null) {
+  for (const g of byFolder(ids).values()) {
+    const msgs = (await cachedMessages(g.a.id, g.folder)).filter((m) => g.uids.includes(m.uid));
+    const now = Date.now();
+    state.snoozeSync = mergeEntries(state.snoozeSync ?? [], msgs.filter((m) => m.messageId).map((m) => ({ messageId: m.messageId!, until: until ?? 0, at: now, done: until === null || undefined })));
+    try {
+      const box = mailbox(g.a);
+      if (await box.keepsKeywords(g.folder)) {
+        for (const m of msgs) {
+          for (const k of [m.syncedSnooze].filter((x): x is number => !!x)) await box.setFlags(g.folder, [m.uid], snoozeKeyword(k), false);
+          if (until) await box.setFlags(g.folder, [m.uid], snoozeKeyword(until), true);
+          m.syncedSnooze = until ?? undefined;
+        }
+      } else {
+        // No keywords here: a small note in a hidden folder carries the snoozes.
+        await box.ensureFolder(SNOOZE_FOLDER);
+        const prev = await box.newestText(SNOOZE_FOLDER).catch(() => undefined);
+        const all = mergeEntries(prev ? readNote(prev.text) : [], state.snoozeSync ?? []);
+        const { raw } = await compose({ from: identityOf(g.a), to: [identityOf(g.a)], cc: [], bcc: [], subject: NOTE_SUBJECT, text: noteBody(all, now) });
+        await box.append(SNOOZE_FOLDER, raw, ['\\Seen']);
+        if (prev) await box.remove(SNOOZE_FOLDER, [prev.uid]).catch(() => undefined);
+      }
+    } catch {
+      // Offline: the snooze still holds here.
+    }
+  }
+  saveState();
+}
+
+/** Servers without keywords: the hidden folder's note, read when the inbox is checked. */
+async function readSnoozeNote(a: Account) {
+  try {
+    const box = mailbox(a);
+    if (await box.keepsKeywords('INBOX')) return;
+    const note = await box.newestText(SNOOZE_FOLDER);
+    if (!note) return;
+    const remote = readNote(note.text);
+    state.snoozeSync = mergeEntries(state.snoozeSync ?? [], remote);
+    const inbox = await cachedMessages(a.id, 'INBOX');
+    const byMid = new Map(inbox.filter((m) => m.messageId).map((m) => [m.messageId!, m]));
+    const { snooze, wake } = adoptRemote(inbox.map((m) => ({ messageId: m.messageId, until: m.snoozedUntil })), remote, Date.now());
+    for (const x of snooze) { const m = byMid.get(x.messageId); if (m) m.syncedSnooze = x.until; }
+    for (const mid of wake) { const m = byMid.get(mid); if (m) Object.assign(m, { snoozedUntil: undefined }); state.snoozes = (state.snoozes ?? []).filter((s) => s.id !== m?.id); }
+    adoptSyncedSnoozes(inbox);
+  } catch {
+    // No note yet, or offline.
+  }
+}
+
+// ---------------------------------------------------------------- remind me if no reply
+
+let noReplyTimer: NodeJS.Timeout | undefined;
+function armNoReply() {
+  clearTimeout(noReplyTimer);
+  const list = state.noReply ?? [];
+  if (!list.length) return;
+  const next = Math.min(...list.map((r) => r.at));
+  noReplyTimer = setTimeout(() => void checkNoReply(), Math.max(1000, Math.min(next - Date.now(), 2_147_000_000)));
+}
+
+async function checkNoReply() {
+  const list = state.noReply ?? [];
+  if (!list.length) return;
+  const pool = [...(await cachedOf('inbox')), ...(await cachedOf('archive'))];
+  const { due, answered, waiting } = sortReminders(list, pool, myAddresses(), Date.now());
+  state.noReply = waiting;
+  for (const r of due) {
+    const who = r.to.map((x) => x.name || x.address).join(', ');
+    deps?.alert(`No reply yet from ${who}`, r.subject, 'mail', r.id);
+    if (Notification.isSupported()) {
+      const n = new Notification({ title: `No reply yet from ${who}`, body: r.subject });
+      n.on('click', () => deps?.broadcast('navigate', r.id ? `mail:${r.id}` : 'mail'));
+      n.show();
+    }
+  }
+  if (due.length || answered.length) { saveState(); changed('mail'); }
+  armNoReply();
+}
+
+// ---------------------------------------------------------------- undo (⌘Z) for archive, delete and move
+
+type UndoStep = { label: string; moves: { account: string; from: string; to: string; uids: number[]; mids: string[] }[] };
+const undoStack: UndoStep[] = [];
+
+/** A message an app prepared over MCP, waiting for the person in Keeper's compose window. */
+let staged: (Draft & { account: string }) | null = null;
+function stageCompose(d: Draft & { account: string }) {
+  staged = d;
+  deps?.broadcast('pim-changed', 'staged');
+  deps?.show?.('mail:staged');
+}
+
+/** Moves messages and remembers how to bring them back. */
+async function moveRecorded(ids: string[], dest: (a: Account) => Promise<string | undefined>, label: string, opts: { trash?: boolean } = {}) {
+  const step: UndoStep = { label, moves: [] };
+  for (const g of byFolder(ids).values()) {
+    const to = await dest(g.a);
+    const list = await cachedMessages(g.a.id, g.folder);
+    const mids = list.filter((m) => g.uids.includes(m.uid) && m.messageId).map((m) => m.messageId!);
+    applyLocal(g.uids.map((u) => `${g.a.id}:${g.folder}:${u}`), null);
+    if (opts.trash) {
+      await serverOp({ kind: 'remove', account: g.a.id, folder: g.folder, uids: g.uids, trash: to });
+      if (!to || to === g.folder) continue;
+    } else {
+      if (!to) throw new Error(`${g.a.label} has no folder for that`);
+      await serverOp({ kind: 'move', account: g.a.id, folder: g.folder, uids: g.uids, dest: to });
+    }
+    step.moves.push({ account: g.a.id, from: g.folder, to: to!, uids: g.uids, mids });
+  }
+  if (step.moves.length) { undoStack.push(step); if (undoStack.length > 20) undoStack.shift(); }
+}
+
+async function undoLast(): Promise<string | null> {
+  const step = undoStack.pop();
+  if (!step) return null;
+  for (const mv of step.moves) {
+    const a = acct(mv.account);
+    if (!a) continue;
+    const box = mailbox(a);
+    // Find them where they went (by Message-ID: the server gave them new uids).
+    const uids: number[] = [];
+    for (const mid of mv.mids) uids.push(...(await box.byMessageId(mv.to, mid).catch(() => [] as number[])));
+    if (uids.length) await box.move(mv.to, uids, mv.from);
+    await refreshFolder(a, mv.from).catch(() => undefined);
+  }
+  changed('mail');
+  return step.label;
+}
+
+// ---------------------------------------------------------------- search
+
+/** Local results first (this computer's cache), then the servers' older ones, newest first within each. */
+async function searchMail(query: string, opts: { account?: string; limit?: number; server?: boolean } = {}): Promise<{ messages: MessageSummary[]; local: number }> {
+  await load();
+  const q = parseMailQuery(query);
+  const ctx = await triageCtx();
+  const labels = new Map(accounts.map((a) => [a.id, a.label]));
+  const folders = new Map<string, string | undefined>();
+  for (const a of accounts.filter((x) => x.mail)) for (const f of await mailbox(a).cachedFolders()) folders.set(fkey(a.id, f.path), f.special);
+  const pool = (await cachedEverywhere(opts.account, true)).map((m) => withTriage(m, ctx));
+  const local = pool.filter((m) => matchMailQuery(m, q, { special: folders.get(fkey(m.account, m.folder)), accountLabel: labels.get(m.account) }));
+  let server: MessageSummary[] = [];
+  if (opts.server) server = await serverSearch(q, opts.account);
+  const all = orderResults(local, server);
+  const limit = opts.limit ?? 500;
+  const localCount = Math.min(limit, all.filter((m) => !server.includes(m)).length);
+  return { messages: all.slice(0, limit), local: localCount };
+}
+
+async function serverSearch(q: ReturnType<typeof parseMailQuery>, account?: string): Promise<MessageSummary[]> {
+  const crit = imapCriteria(q);
+  if (!crit) return [];
+  const ctx = await triageCtx();
+  const found: MessageSummary[] = [];
+  for (const a of accounts.filter((x) => x.mail && (!account || x.id === account))) {
+    const where = new Set<string>(['INBOX']);
+    for (const sp of ['sent', 'archive', 'all'] as const) { const f = await folderOf(a, sp); if (f) where.add(f); }
+    for (const f of where) {
+      try {
+        const known = new Set((await cachedMessages(a.id, f)).map((m) => m.uid));
+        const uids = (await mailbox(a).searchWith(f, crit)).filter((u) => !known.has(u)).slice(0, 40);
+        found.push(...(await mailbox(a).summaries(f, uids)));
+      } catch {
+        // Offline or refused: the local results stand.
+      }
+    }
+  }
+  return mergeResults([], found.map((m) => withTriage(m, ctx)).filter((m) => matchMailQuery(m, { ...q, words: [], not: [] })));
+}
+
+// ---------------------------------------------------------------- rules on the server
+
+async function writeServerRules(): Promise<{ account: string; label: string; ok: boolean; message: string }[]> {
+  await load();
+  const rules = state.rules as Rule[];
+  const out: { account: string; label: string; ok: boolean; message: string }[] = [];
+  for (const a of accounts.filter((x) => x.mail)) {
+    const mine = rules.filter((r) => r.server && (!r.account || r.account === a.id));
+    const had = (state.gmailFilters?.[a.id]?.length ?? 0) > 0 || !!state.serverRules?.[a.id];
+    if (!mine.length && !had) continue;
+    let res: { ok: boolean; message: string };
+    try {
+      if (a.oauth === 'google') {
+        const client = clientFor('google', state.prefs.clients);
+        if (!client) throw new Error('This copy of Keeper has no Google sign-in');
+        const token = await accessToken(a.id, 'google', client);
+        const { syncGmailFilters } = await import('./gmail-filters');
+        const r = await syncGmailFilters(token, mine, state.gmailFilters?.[a.id] ?? []);
+        state.gmailFilters = { ...state.gmailFilters, [a.id]: r.owned };
+        res = { ok: true, message: `${r.written} Gmail filter${r.written === 1 ? '' : 's'} written${r.skipped ? ` · ${r.skipped} need Keeper (“any of” rules)` : ''}` };
+      } else if (a.imap && !a.oauth) {
+        const auth = await mailAuth(a);
+        if (!('pass' in auth)) throw new Error('needs a password');
+        const { putActiveScript } = await import('./managesieve');
+        const target = { host: a.imap.host, port: Number(process.env.KEEPER_SIEVE_PORT) || 4190, user: auth.user, pass: auth.pass, insecure: a.insecureTls, plain: a.imap.security === 'none' };
+        const [archive, trash] = [await folderOf(a, 'archive'), await folderOf(a, 'trash')];
+        const script = toSieve(mine, { archive, trash });
+        const r = await putActiveScript(target, SIEVE_SCRIPT, script);
+        res = { ok: true, message: `Written to the server as a Sieve script${r.extensions.length ? '' : ''}` };
+      } else {
+        res = { ok: false, message: 'This provider has no way for Keeper to write rules; they run in Keeper.' };
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      res = { ok: false, message: /ECONNREFUSED|ETIMEDOUT|ENOTFOUND|did not answer/.test(msg) ? 'The server does not offer ManageSieve; the rules run in Keeper while it is open.' : msg };
+    }
+    state.serverRules = { ...state.serverRules, [a.id]: { ...res, at: Date.now() } };
+    out.push({ account: a.id, label: a.label, ...res });
+  }
+  saveState();
+  return out;
+}
+
+// ---------------------------------------------------------------- AI writing, with the person's memory
+
+async function aiCompose(r: { req: string; draft: string; tone?: string; instruction?: string; lang?: string; replyTo?: string }): Promise<string> {
+  const { providerForConnection, brainSettings } = await import('../brain');
+  const b = brainSettings();
+  const p = await providerForConnection(b.active);
+  if (b.localOnly && !p.local) throw new Error('You chose to use only AIs on this computer (Settings → AI & Brain)');
+  const clean = (t: string) => (p.local ? t : redact(t).text);
+  const memory = state.prefs.aiMemory ?? [];
+  // A line to remember, written as an instruction ("remember that I sign as Ana").
+  const keep = r.instruction ? rememberIn(r.instruction) : undefined;
+  if (keep) {
+    state.prefs.aiMemory = cleanMemory([...memory, keep]);
+    saveState();
+    return r.draft;
+  }
+  let thread: string | undefined;
+  if (r.replyTo) {
+    const last = (await cachedMessages(splitId(r.replyTo).account, splitId(r.replyTo).folder)).find((m) => m.id === r.replyTo);
+    if (last && (isSecurityAlert(last) || hasSignInCode(`${last.subject}\n${last.snippet}`))) throw new Error('Keeper does not send security mail (sign-in codes, password resets) to an AI');
+    thread = clean((await threadText(r.replyTo)).text).slice(0, 20_000);
+  }
+  const prompt = r.draft.trim() && !r.instruction ? rewritePrompt(clean(r.draft), { tone: r.tone, lang: r.lang }, memory) : draftPrompt(r.instruction ?? 'Write a short reply.', { draft: clean(r.draft), thread, memory });
+  let sofar = '';
+  let last = 0;
+  const res = await p.chat([{ role: 'system', content: `You help write email. Today is ${new Date().toDateString()}.` }, { role: 'user', content: prompt }], [], {
+    maxTokens: 3000,
+    onDelta: (d: string) => {
+      sofar += d;
+      if (Date.now() - last > 60) { last = Date.now(); deps?.broadcast('pim-ai-stream', { req: r.req, text: sofar }); }
+    },
+  });
+  const { cleanWritingReply } = await import('../writing');
+  const text = cleanWritingReply(res.text.trim() || sofar);
+  deps?.broadcast('pim-ai-stream', { req: r.req, text, done: true });
+  return text;
+}
+
+// ---------------------------------------------------------------- printing and Quick Look
+
+async function printableHtml(id: string, allowRemote = false): Promise<string> {
+  const o = await openMessage(id, { markRead: false, allowRemote });
+  const s = o.summary;
+  const esc = (x: string) => x.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const who = (l: Address[]) => esc(l.map((a) => (a.name ? `${a.name} <${a.address}>` : a.address)).join(', '));
+  const head = `<table style="font:12px -apple-system,system-ui,sans-serif;color:#333;margin-bottom:12px">${[['From', s.from ? who([s.from]) : ''], ['To', who(s.to)], s.cc.length ? ['Cc', who(s.cc)] : null, ['Date', esc(new Date(s.date).toLocaleString())], ['Subject', esc(s.subject)]].filter(Boolean).map((r) => `<tr><td style="padding:1px 10px 1px 0;color:#777">${r![0]}</td><td>${r![1]}</td></tr>`).join('')}</table><hr style="border:none;border-top:1px solid #ccc">`;
+  const csp = `default-src 'none'; img-src data:${allowRemote ? ' https: http:' : ''}; style-src 'unsafe-inline'`;
+  return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${csp}"><title>${esc(s.subject)}</title><style>body{font:14px/1.5 -apple-system,system-ui,sans-serif;margin:24px;color:#111}img{max-width:100%}</style></head><body>${head}${o.html}</body></html>`;
+}
+
+async function attachmentPreview(id: string, att: string) {
+  const { filename, content } = await rawAttachment(id, att);
+  const o = await openMessage(id, { markRead: false });
+  const meta = o.attachments.find((x) => x.id === att);
+  const type = meta?.contentType ?? 'application/octet-stream';
+  const out: { filename: string; contentType: string; size: number; data?: string; text?: string } = { filename, contentType: type, size: content.length };
+  if (content.length > 20 * 1024 * 1024) return out;
+  if (/^image\/(png|jpe?g|gif|webp|bmp)$|^application\/pdf$/i.test(type) || /\.(png|jpe?g|gif|webp|pdf)$/i.test(filename)) out.data = content.toString('base64');
+  else if (/^text\/|json|xml|csv|calendar|vcard/i.test(type) || /\.(txt|md|csv|log|json|xml|ics|vcf)$/i.test(filename)) out.text = content.toString('utf8').slice(0, 500_000);
+  return out;
+}
+
+// ---------------------------------------------------------------- catching up after sleep or a network change
+
+let lastNet = '';
+function netSignature(): string {
+  const ifs = os.networkInterfaces();
+  return Object.entries(ifs).flatMap(([n, l]) => (l ?? []).filter((x) => !x.internal).map((x) => `${n}:${x.address}`)).sort().join(',');
+}
+let catchUpTimer: NodeJS.Timeout | undefined;
+function catchUp() {
+  clearTimeout(catchUpTimer);
+  // A few seconds for the network to come up.
+  catchUpTimer = setTimeout(() => {
+    for (const a of accounts.filter((x) => x.mail)) {
+      void refreshFolder(a, 'INBOX').catch(() => undefined);
+      void readSnoozeNote(a);
+    }
+    if (state.pendingOps?.length) for (const a of accounts) void replayOps(a.id);
+    void flushOutbox();
+    void checkNoReply();
+  }, 4000);
+}
+
 // ---------------------------------------------------------------- the API
 
 export const pim: PimApi = {
@@ -1400,26 +1883,39 @@ export const pim: PimApi = {
     await load();
     const now = Date.now();
     let list: MessageSummary[] = [];
-    if (v.folder === 'unified') list = await cachedOf('inbox', v.account);
+    const smart = v.folder.startsWith('smart:') ? (state.prefs.smartMailboxes ?? []).find((x) => x.id === v.folder.slice(6)) : undefined;
+    if (v.folder === 'unified' || v.folder === 'toreply') list = await cachedOf('inbox', v.account);
     else if (v.folder === 'unified:sent') list = await cachedOf('sent', v.account);
     else if (v.folder === 'snoozed') list = (await cachedEverywhere(v.account)).filter((m) => isSnoozed(m, now));
     else if (v.folder === 'search') list = await cachedEverywhere(v.account, true);
+    else if (smart) list = (await searchMail(smart.query, { account: v.account })).messages;
     else if (v.account) list = [...(await cachedMessages(v.account, v.folder))];
     if (v.folder !== 'snoozed') list = list.filter((m) => !isSnoozed(m, now));
     const ctx = await triageCtx();
     list = list.map((m) => withTriage(m, ctx));
-    // An inbox splits into Important and Other (security alerts are always Important).
+    // An inbox splits into Important and Other (security alerts are always Important); Other in two tabs.
     const inbox = v.folder === 'unified' || v.folder.toUpperCase() === 'INBOX';
-    let counts: { important: number; other: number } | undefined;
+    if (inbox) {
+      // Blocked senders and muted conversations never show in an inbox.
+      const blocked = state.prefs.blockedSenders ?? [];
+      list = list.filter((m) => !isBlocked(m.from, blocked) && !isMuted(m, state.muted ?? []));
+    }
+    if (v.folder === 'toreply') {
+      list = toReply(list, myAddresses(), now, { dismissed: state.toReplyDismissed, sent: await cachedOf('sent', v.account) });
+    }
+    let counts: { important: number; other: number; all?: number; updates?: number; promos?: number } | undefined;
     if (inbox && state.prefs.splitInbox !== false) {
-      counts = { important: list.filter((m) => !m.seen && m.category === 'important').length, other: list.filter((m) => !m.seen && m.category === 'other').length };
-      if (v.split) list = list.filter((m) => m.category === v.split);
+      const t = tabCounts(list);
+      counts = { important: t.important, other: t.updates + t.promos, all: t.all, updates: t.updates, promos: t.promos };
+      if (v.tab && v.tab !== 'all') list = list.filter((m) => inTab(m, v.tab));
+      else if (!v.tab && v.split) list = list.filter((m) => inTab(m, v.split === 'important' ? 'important' : 'other'));
     }
     if (v.filter === 'unread') list = list.filter((m) => !m.seen);
     else if (v.filter === 'flagged') list = list.filter((m) => m.flagged);
     else if (v.filter === 'attachments') list = list.filter((m) => m.hasAttachments);
     if (v.query?.trim()) {
-      const exact = list.filter((m) => matchesQuery(m, v.query!));
+      const q = parseMailQuery(v.query);
+      const exact = list.filter((m) => matchMailQuery(m, q) || matchesQuery(m, v.query!));
       // A question in plain words ("when does my flight leave?") matches on its words instead.
       list = exact.length || v.folder !== 'search' ? exact : pickForQuestion(v.query, list.filter((m) => !m.security), 50);
     }
@@ -1515,6 +2011,7 @@ export const pim: PimApi = {
     applyLocal(ids, { snoozedUntil: undefined, returnedAt: Date.now() });
     saveState();
     armSnooze();
+    void shareSnooze(ids, null);
   },
   write: (text, task, lang) => aiWrite(text, task, lang),
   askMail: (q) => askMail(q),
@@ -1542,28 +2039,16 @@ export const pim: PimApi = {
     for (const g of byFolder(ids).values()) await serverOp({ kind: 'flag', account: g.a.id, folder: g.folder, uids: g.uids, flag: '\\Flagged', on: flagged });
   },
   async move(ids, dest) {
-    applyLocal(ids, null);
-    for (const g of byFolder(ids).values()) await serverOp({ kind: 'move', account: g.a.id, folder: g.folder, uids: g.uids, dest });
+    await moveRecorded(ids, async () => dest, 'Move');
   },
   async archive(ids) {
-    for (const g of byFolder(ids).values()) {
-      const dest = (await folderOf(g.a, 'archive')) ?? (await folderOf(g.a, 'all'));
-      if (!dest) throw new Error(`${g.a.label} has no Archive folder`);
-      applyLocal(g.uids.map((u) => `${g.a.id}:${g.folder}:${u}`), null);
-      await serverOp({ kind: 'move', account: g.a.id, folder: g.folder, uids: g.uids, dest });
-    }
+    await moveRecorded(ids, async (a) => (await folderOf(a, 'archive')) ?? (await folderOf(a, 'all')), 'Archive');
   },
   async trash(ids) {
-    applyLocal(ids, null);
-    for (const g of byFolder(ids).values()) await serverOp({ kind: 'remove', account: g.a.id, folder: g.folder, uids: g.uids, trash: await folderOf(g.a, 'trash') });
+    await moveRecorded(ids, (a) => folderOf(a, 'trash'), 'Delete', { trash: true });
   },
   async junk(ids) {
-    for (const g of byFolder(ids).values()) {
-      const dest = await folderOf(g.a, 'junk');
-      if (!dest) throw new Error(`${g.a.label} has no Junk folder`);
-      applyLocal(g.uids.map((u) => `${g.a.id}:${g.folder}:${u}`), null);
-      await serverOp({ kind: 'move', account: g.a.id, folder: g.folder, uids: g.uids, dest });
-    }
+    await moveRecorded(ids, (a) => folderOf(a, 'junk'), 'Move to Junk');
   },
   async snooze(ids, until) {
     await load();
@@ -1573,6 +2058,8 @@ export const pim: PimApi = {
     state.snoozes = [...(state.snoozes ?? []).filter((x) => !ids.includes(x.id)), ...ids.map((id) => ({ id, until }))];
     saveState();
     armSnooze();
+    // The person's other computers hide it too (IMAP keyword, or the hidden note).
+    void shareSnooze(ids, until);
   },
   async saveAttachment(id, att, to) {
     const { filename, content } = await rawAttachment(id, att);
@@ -1615,6 +2102,8 @@ export const pim: PimApi = {
     const { parseAddressList } = await import('../../../core/pim/mail');
     const d = makeReply({ original: { ...o.summary, text: o.text }, me, mode, replyTo: replyToH ? parseAddressList(replyToH) : undefined });
     if (mode === 'forward') d.attachments = [];
+    // A reply goes from the alias the mail was written to.
+    if (a) d.from = replyIdentity(a, o.summary)?.email ?? d.from;
     return d;
   },
   send: (d) => queue(d),
@@ -1632,12 +2121,7 @@ export const pim: PimApi = {
     return state.outbox.map((q) => ({ id: q.id, sendAt: q.sendAt, subject: q.subject, error: q.error, scheduled: q.scheduled }));
   },
   async saveDraft(d) {
-    const a = acct(d.account);
-    if (!a) return;
-    const drafts = await folderOf(a, 'drafts');
-    if (!drafts) return;
-    const { raw } = await compose({ from: identityOf(a, d.from), to: d.to, cc: d.cc, bcc: d.bcc, subject: d.subject, text: [d.body, d.quoted ?? ''].filter(Boolean).join('\n\n'), inReplyTo: d.inReplyTo, references: d.references });
-    await mailbox(a).append(drafts, raw, ['\\Draft', '\\Seen']);
+    await mirrorDraft(d);
   },
   async suggest(q) {
     await load();
@@ -1677,8 +2161,11 @@ export const pim: PimApi = {
     return state.rules;
   },
   async saveRules(r: MailRule[]) {
+    const before = JSON.stringify((state.rules as Rule[]).filter((x) => x.server));
     state.rules = r;
     saveState();
+    // Rules marked "also on the server" are written there when they change.
+    if (JSON.stringify(r.filter((x) => x.server)) !== before) void writeServerRules().then(() => changed('mail'), () => undefined);
   },
   async pickFiles() {
     const r = await openDialog({ properties: ['openFile', 'multiSelections'] }, { canceled: true, filePaths: [] });
@@ -1935,6 +2422,114 @@ export const pim: PimApi = {
     changed('contacts');
   },
 
+  search: (query, opts) => searchMail(query, opts),
+  async unreadCounts() {
+    await load();
+    const ctx = await triageCtx();
+    const inbox = (await cachedOf('inbox')).filter((m) => !isSnoozed(m, Date.now()) && !isBlocked(m.from, state.prefs.blockedSenders ?? [])).map((m) => withTriage(m, ctx));
+    return { byAccount: unreadByAccount(inbox), all: badgeCount(inbox, 'all'), important: badgeCount(inbox, 'important') };
+  },
+  async dismissToReply(id) {
+    const { account, folder } = splitId(id);
+    const m = (await cachedMessages(account, folder)).find((x) => x.id === id);
+    state.toReplyDismissed = [...(state.toReplyDismissed ?? []), m?.messageId ?? id].slice(-500);
+    saveState();
+    changed('mail');
+  },
+  async remindNoReply(id, at) {
+    await load();
+    const { account, folder } = splitId(id);
+    const m = (await cachedMessages(account, folder)).find((x) => x.id === id) ?? (await openMessage(id, { markRead: false }).catch(() => null))?.summary;
+    if (!m?.messageId) throw new Error('This message has no Message-ID, so a reply to it cannot be recognised');
+    state.noReply = (state.noReply ?? []).filter((r) => r.messageId !== m.messageId);
+    if (at !== null) state.noReply.push({ messageId: m.messageId, id, account, subject: m.subject, to: m.to, sentAt: m.date, at });
+    saveState();
+    armNoReply();
+    changed('mail');
+  },
+  async noReplyReminders() {
+    await load();
+    return state.noReply ?? [];
+  },
+  async mute(ids, on) {
+    await load();
+    const keys = new Set(state.muted ?? []);
+    for (const id of ids) {
+      const { account, folder } = splitId(id);
+      const m = (await cachedMessages(account, folder)).find((x) => x.id === id);
+      if (!m) continue;
+      // The conversation's root names it; every message after it refers to the root.
+      const root = m.references?.[0] ?? m.inReplyTo ?? m.messageId;
+      if (!root) continue;
+      if (on) keys.add(root);
+      else for (const k of [root, ...(m.references ?? []), ...(m.messageId ? [m.messageId] : [])]) keys.delete(k);
+    }
+    state.muted = [...keys].slice(-2000);
+    saveState();
+    if (on) await pim.archive(ids.filter((id) => splitId(id).folder.toUpperCase() === 'INBOX')).catch(() => undefined);
+    changed('mail');
+  },
+  async block(address, on) {
+    await load();
+    const x = address.trim().toLowerCase();
+    if (!x) return;
+    const list = (state.prefs.blockedSenders ?? []).filter((b) => b !== x);
+    state.prefs.blockedSenders = on ? [...list, x] : list;
+    saveState();
+    if (on) {
+      // What is already in an inbox from them goes to Junk too.
+      const ids = (await cachedOf('inbox')).filter((m) => isBlocked(m.from, [x])).map((m) => m.id);
+      if (ids.length) await pim.junk(ids).catch(() => undefined);
+    }
+    changed('mail');
+    void updateBadge();
+  },
+  async reportSpam(ids) {
+    await load();
+    const senders = new Set<string>();
+    for (const id of ids) {
+      const { account, folder } = splitId(id);
+      const m = (await cachedMessages(account, folder)).find((x) => x.id === id);
+      if (m?.from?.address) senders.add(m.from.address.toLowerCase());
+    }
+    await pim.junk(ids);
+    state.prefs.blockedSenders = [...new Set([...(state.prefs.blockedSenders ?? []), ...senders])];
+    saveState();
+  },
+  async label(ids, label, on) {
+    const l = label.trim();
+    if (!l) return;
+    for (const id of ids) {
+      const { account, folder } = splitId(id);
+      const m = (await cachedMessages(account, folder)).find((x) => x.id === id);
+      if (m) applyLocal([id], { labels: on ? [...new Set([...(m.labels ?? []), l])] : (m.labels ?? []).filter((x) => x !== l) });
+    }
+    for (const g of byFolder(ids).values()) await serverOp({ kind: 'flag', account: g.a.id, folder: g.folder, uids: g.uids, flag: l, on });
+  },
+  undo: () => undoLast(),
+  previewAttachment: (id, att) => attachmentPreview(id, att),
+  printable: (id, opts) => printableHtml(id, !!opts?.allowRemote),
+  async savePdf() {
+    // Drawn by the app's windows (electron/ipc/pim.ts); here only when no window can.
+    throw new Error('Saving as PDF needs Keeper’s window');
+  },
+  syncServerRules: () => writeServerRules(),
+  async senderPhotos(addresses) {
+    await load();
+    const want = new Set(addresses.map((x) => x.toLowerCase()));
+    const out: Record<string, string> = {};
+    for (const c of contacts) if (c.photo) for (const e of c.emails) if (want.has(e.toLowerCase())) out[e.toLowerCase()] = c.photo;
+    return out;
+  },
+  aiCompose: (r) => aiCompose(r),
+  async stageCompose(d) { stageCompose(d); },
+  async stagedCompose() {
+    const d = staged;
+    staged = null;
+    return d;
+  },
+  dropDraft: (key) => dropDraftCopy(key),
+
   async prefs() {
     await load();
     return state.prefs as PimPrefsView;
@@ -1946,6 +2541,9 @@ export const pim: PimApi = {
     if (p.systemCalendars !== undefined) void syncSystem();
     saveState();
     if (p.undoSendSec !== undefined) armOutbox();
+    if (p.dockBadge !== undefined || p.blockedSenders !== undefined || p.splitInbox !== undefined) void updateBadge();
+    if (p.smartMailboxes !== undefined || p.blockedSenders !== undefined) changed('mail');
+    if (p.aiMemory !== undefined) state.prefs.aiMemory = cleanMemory(p.aiMemory);
     return state.prefs as PimPrefsView;
   },
 };
@@ -1960,11 +2558,26 @@ function startMail() {
   }, { now: false, feature: 'mail' }));
   armOutbox();
   armSnooze();
+  armNoReply();
+  void updateBadge();
+  for (const a of accounts.filter((x) => x.mail)) void readSnoozeNote(a);
+  // After sleep, or when the network changes (another Wi-Fi, a cable, a VPN), catch up at once.
+  powerMonitor.on('resume', catchUp);
+  powerMonitor.on('unlock-screen', catchUp);
+  lastNet = netSignature();
+  const net = setInterval(() => { const n = netSignature(); if (n !== lastNet) { lastNet = n; if (n) catchUp(); } }, 30_000);
+  net.unref?.();
+  mailStops.push(() => { powerMonitor.off('resume', catchUp); powerMonitor.off('unlock-screen', catchUp); clearInterval(net); });
 }
 
+const mailStops: (() => void)[] = [];
+
 async function stopMail() {
+  for (const f of mailStops.splice(0)) f();
   clearTimeout(outboxTimer);
   clearTimeout(snoozeTimer);
+  clearTimeout(noReplyTimer);
+  clearTimeout(catchUpTimer);
   for (const m of mailboxes.values()) await m.stop();
   mailboxes.clear();
 }

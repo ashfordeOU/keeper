@@ -12,6 +12,7 @@ const parseMail = async (source: Buffer | string, opts: import('mailparser').Sim
 const mailer = async () => (await import('nodemailer')).default;
 const mailComposer = async () => (await import('nodemailer/lib/mail-composer')).default;
 import { parseUnsubscribe, snippetOf } from '../../../core/pim/mail';
+import { keepsKeywords, snoozeOfFlags } from '../../../core/pim/snooze-sync';
 import type { Account, Address, Attachment, MailFolder, MessageBody, MessageSummary, ServerSettings, SpecialUse } from '../../../core/pim/types';
 import { files, readJson, writeJson, type FolderCache } from './store';
 
@@ -171,6 +172,7 @@ export class MailAccount {
       hasAttachments: hasAttachments(m.bodyStructure),
       size: m.size,
       labels: [...new Set([...(m.flags ?? []), ...((m as { labels?: Set<string> }).labels ?? [])])].filter((f) => !f.startsWith('\\') && !f.startsWith('$')),
+      syncedSnooze: snoozeOfFlags(m.flags ?? []),
       ...listInfo(m.headers),
     };
   }
@@ -246,7 +248,7 @@ export class MailAccount {
             for await (const m of c.fetch(`${min}:*`, { uid: true, flags: true }, { uid: true })) {
               seen.add(m.uid);
               const s = known.get(m.uid);
-              if (s) Object.assign(s, { seen: !!m.flags?.has('\\Seen'), flagged: !!m.flags?.has('\\Flagged'), answered: !!m.flags?.has('\\Answered') });
+              if (s) Object.assign(s, { seen: !!m.flags?.has('\\Seen'), flagged: !!m.flags?.has('\\Flagged'), answered: !!m.flags?.has('\\Answered'), syncedSnooze: snoozeOfFlags(m.flags ?? []) });
             }
             for (const u of recent) if (!seen.has(u)) known.delete(u);
           }
@@ -304,23 +306,90 @@ export class MailAccount {
     await this.run(async (c) => {
       const lock = await c.getMailboxLock(folder);
       try {
-        if (on) await c.messageFlagsAdd(uids, [flag], { uid: true });
-        else await c.messageFlagsRemove(uids, [flag], { uid: true });
+        // A label on Gmail is a real label (X-GM-LABELS), elsewhere a keyword.
+        const useLabels = !flag.startsWith('\\') && !flag.startsWith('$') && !!c.capabilities?.has('X-GM-EXT-1');
+        if (on) await c.messageFlagsAdd(uids, [flag], { uid: true, useLabels });
+        else await c.messageFlagsRemove(uids, [flag], { uid: true, useLabels });
       } finally {
         lock.release();
       }
     });
   }
 
-  async move(folder: string, uids: number[], dest: string) {
-    if (!uids.length) return;
-    await this.run(async (c) => {
+  /** Moves messages; the answer maps old uids to their new ones where the server says (UIDPLUS), for Undo. */
+  async move(folder: string, uids: number[], dest: string): Promise<Map<number, number> | undefined> {
+    if (!uids.length) return undefined;
+    return this.run(async (c) => {
       const lock = await c.getMailboxLock(folder);
       try {
-        await c.messageMove(uids, dest, { uid: true });
+        const r = await c.messageMove(uids, dest, { uid: true });
+        return r && typeof r === 'object' ? (r as { uidMap?: Map<number, number> }).uidMap : undefined;
       } finally {
         lock.release();
       }
+    });
+  }
+
+  /** Does this folder keep keywords of Keeper's own (snooze times)? */
+  async keepsKeywords(folder: string): Promise<boolean> {
+    return this.run(async (c) => {
+      const lock = await c.getMailboxLock(folder, { readOnly: true });
+      try {
+        return keepsKeywords(c.mailbox ? c.mailbox.permanentFlags : undefined);
+      } finally {
+        lock.release();
+      }
+    });
+  }
+
+  /** uids in a folder with this Message-ID (to find a moved message, or the previous copy of a draft). */
+  async byMessageId(folder: string, messageId: string): Promise<number[]> {
+    return this.run(async (c) => {
+      const lock = await c.getMailboxLock(folder, { readOnly: true });
+      try {
+        const r = await c.search({ header: { 'message-id': `<${messageId.replace(/^<|>$/g, '')}>` } }, { uid: true });
+        return Array.isArray(r) ? r : [];
+      } finally {
+        lock.release();
+      }
+    });
+  }
+
+  /** Search with full criteria (imapflow's form), newest first. */
+  async searchWith(folder: string, criteria: Record<string, unknown>): Promise<number[]> {
+    return this.run(async (c) => {
+      const lock = await c.getMailboxLock(folder, { readOnly: true });
+      try {
+        const r = await c.search(criteria as never, { uid: true });
+        return Array.isArray(r) ? r.sort((a, b) => b - a).slice(0, 100) : [];
+      } finally {
+        lock.release();
+      }
+    });
+  }
+
+  /** The full text of the newest message in a folder (the snooze note), or undefined. */
+  async newestText(folder: string): Promise<{ uid: number; text: string } | undefined> {
+    return this.run(async (c) => {
+      const lock = await c.getMailboxLock(folder, { readOnly: true }).catch(() => null);
+      if (!lock) return undefined;
+      try {
+        if (!c.mailbox || !c.mailbox.exists) return undefined;
+        const m = await c.fetchOne('*', { uid: true, source: true });
+        if (!m || !m.source) return undefined;
+        const p = await parseMail(m.source);
+        return { uid: m.uid, text: p.text ?? '' };
+      } finally {
+        lock.release();
+      }
+    });
+  }
+
+  /** Makes a folder if it is not there (the hidden snooze folder). */
+  async ensureFolder(path: string) {
+    await this.run(async (c) => {
+      const list = await c.list();
+      if (!list.some((f) => f.path === path)) await c.mailboxCreate(path);
     });
   }
 
@@ -337,8 +406,11 @@ export class MailAccount {
     });
   }
 
-  async append(folder: string, raw: Buffer | string, flags: string[] = ['\\Seen']) {
-    await this.run((c) => c.append(folder, raw, flags));
+  async append(folder: string, raw: Buffer | string, flags: string[] = ['\\Seen']): Promise<number | undefined> {
+    return this.run(async (c) => {
+      const r = await c.append(folder, raw, flags);
+      return r && typeof r === 'object' ? (r as { uid?: number }).uid : undefined;
+    });
   }
 
   /** The server's own search (for older mail not in Keeper's list). */
@@ -440,6 +512,12 @@ export interface Outgoing {
   attachments?: { filename: string; path?: string; content?: Buffer | string; contentType?: string; method?: string }[];
   /** a calendar answer or invitation sent along */
   icalEvent?: { method: string; content: string };
+  /** an alias's own Reply-To */
+  replyTo?: Address[];
+  /** keep this Message-ID (a draft saved again replaces its previous copy) */
+  messageId?: string;
+  /** keep Bcc in the message (a saved draft, so it is still there when reopened) */
+  keepBcc?: boolean;
 }
 
 /** The finished message (what is sent and what is saved to Sent). */
@@ -449,10 +527,12 @@ export async function compose(o: Outgoing): Promise<{ raw: Buffer; envelope: { f
     from: fmt(o.from), to: o.to.map(fmt), cc: o.cc.map(fmt), bcc: o.bcc.map(fmt), subject: o.subject,
     text: o.text, html: o.html, inReplyTo: o.inReplyTo ? `<${o.inReplyTo}>` : undefined,
     references: o.references?.map((r) => `<${r}>`), attachments: o.attachments, icalEvent: o.icalEvent,
+    replyTo: o.replyTo?.length ? o.replyTo.map(fmt) : undefined,
+    messageId: o.messageId ? `<${o.messageId.replace(/^<|>$/g, '')}>` : undefined,
     headers: { 'X-Mailer': 'Keeper by Ashforde' },
   });
   const node = mail.compile();
-  node.keepBcc = false;
+  node.keepBcc = !!o.keepBcc;
   const raw = await node.build();
   const env = node.getEnvelope();
   return { raw, envelope: { from: env.from || o.from.address, to: env.to }, messageId: node.messageId().replace(/^<|>$/g, '') };

@@ -16,6 +16,8 @@ export interface Identity {
   name: string;
   email: string;
   signature?: string;
+  /** where answers to mail sent from this address go (an alias's own Reply-To) */
+  replyTo?: string;
 }
 
 export interface Account {
@@ -44,6 +46,14 @@ export interface Account {
   /** coding assistants and other MCP apps may search, read and draft in this account's mail (off unless chosen) */
   mcp?: boolean;
   color?: string;
+  /** a small picture for the account (a data: URL, kept on this computer) */
+  picture?: string;
+  /** how conversations read: bubbles with a reply box under them, or one message after another */
+  readingView?: 'chat' | 'classic';
+  /** put the signature under replies and forwards too (on unless false) */
+  signatureOnReplies?: boolean;
+  /** new mail from this account drops down from the Island (on unless false) */
+  notch?: boolean;
 }
 
 export type SpecialUse = 'inbox' | 'sent' | 'drafts' | 'trash' | 'junk' | 'archive' | 'all' | 'flagged';
@@ -98,6 +108,8 @@ export interface MessageSummary {
   category?: 'important' | 'other';
   /** a sign-in alert, code or password reset (always Important; never shown to agents) */
   security?: boolean;
+  /** snoozed on another computer (the time from the message's IMAP keyword, core/pim/snooze-sync.ts) */
+  syncedSnooze?: number;
 }
 
 export interface Attachment {
@@ -304,4 +316,6 @@ export interface Contact {
   uid?: string;
   etag?: string;
   href?: string;
+  /** the picture inside the card (a data: URL; never fetched from the web) */
+  photo?: string;
 }

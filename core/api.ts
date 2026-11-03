@@ -112,6 +112,8 @@ export interface IslandAlert {
   detail?: string;
   path?: string;
   at: number;
+  /** mail alerts: a sign-in code to copy, a magic link to open, a message waiting to go (Undo until sendAt) */
+  mail?: { code?: string; link?: string; undoId?: string; sendAt?: number };
 }
 
 export interface KeepAwakeOptions {

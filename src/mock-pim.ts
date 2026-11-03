@@ -7,6 +7,9 @@ import { classify, followUpDraft, isSnoozed, pickForQuestion, sortTime, subscrip
 import { dueKey, dueNow, nextAlarmTime } from '../core/pim/alarms';
 import { occurrences } from '../core/pim/ical';
 import { makeReply, matchesQuery, threadMessages, type Draft, type MailRule } from '../core/pim/mail';
+import { badgeCount, extractCode, extractSignInLink, inTab, isBlocked, isDesignedMail, tabCounts, toReply, unreadByAccount, type NoReplyReminder } from '../core/pim/smart';
+import { matchMailQuery, orderResults, parseMailQuery } from '../core/pim/search';
+import { linksIn, phishingWarnings } from '../core/pim/phishing';
 import { parseQuickAdd } from '../core/pim/quickadd';
 import { addLog, insights, type LogEntry } from '../core/pim/insights';
 import { completeTask, moveToDay } from '../core/pim/tasks';
@@ -141,6 +144,7 @@ export function mockPim(emit: Emit): { pim: PimApi } {
     { id: 'c3', account: 'work', name: 'Lena Fischer', emails: ['lena@brightside.example'], phones: [], org: 'Brightside' },
   ];
   let rules: MailRule[] = [{ id: 'r1', name: 'Invoices', enabled: true, when: [{ field: 'subject', contains: 'invoice' }], then: { action: 'label', label: 'Invoices' } }];
+  let noReply: NoReplyReminder[] = [];
   let prefs: PimPrefsView = { notifyPreviews: true, notifyMail: true, undoSendSec: 10, trustedSenders: [], defaultAlertMin: 10, weekStart: 1, showWeekNumbers: false };
   const outbox: (Outbox & { draft: Draft })[] = [];
   const fired = new Set<string>();
@@ -183,12 +187,18 @@ export function mockPim(emit: Emit): { pim: PimApi } {
           : v.folder === 'snoozed' ? messages.filter((m) => isSnoozed(m, t))
             : v.folder === 'search' ? [...messages]
               : messages.filter((m) => m.account === v.account && m.folder === v.folder);
+      const smart = v.folder.startsWith('smart:') ? (prefs.smartMailboxes ?? []).find((x) => x.id === v.folder.slice(6)) : undefined;
+      if (v.folder === 'toreply') list = messages.filter((m) => m.folder === 'INBOX');
+      if (smart) { const q = parseMailQuery(smart.query); list = messages.filter((m) => matchMailQuery(m, q)); }
       if (v.folder !== 'snoozed') list = list.filter((m) => !isSnoozed(m, t));
-      list = triaged(list);
-      let counts: { important: number; other: number } | undefined;
+      list = triaged(list).filter((m) => !isBlocked(m.from, prefs.blockedSenders ?? []));
+      if (v.folder === 'toreply') list = toReply(list, me, t, { sent: messages.filter((m) => sentFolders.has(m.folder)) });
+      let counts: { important: number; other: number; all?: number; updates?: number; promos?: number } | undefined;
       if ((v.folder === 'unified' || v.folder === 'INBOX') && prefs.splitInbox !== false) {
-        counts = { important: list.filter((m) => !m.seen && m.category === 'important').length, other: list.filter((m) => !m.seen && m.category === 'other').length };
-        if (v.split) list = list.filter((m) => m.category === v.split);
+        const c = tabCounts(list);
+        counts = { important: c.important, other: c.updates + c.promos, all: c.all, updates: c.updates, promos: c.promos };
+        if (v.tab && v.tab !== 'all') list = list.filter((m) => inTab(m, v.tab));
+        else if (!v.tab && v.split) list = list.filter((m) => inTab(m, v.split === 'important' ? 'important' : 'other'));
       }
       if (v.filter === 'unread') list = list.filter((m) => !m.seen);
       if (v.filter === 'flagged') list = list.filter((m) => m.flagged);
@@ -228,7 +238,9 @@ export function mockPim(emit: Emit): { pim: PimApi } {
       if (opts?.markRead !== false && !m.seen) { m.seen = true; changed('mail'); }
       const blocked = (b.html?.match(/data-blocked-src/g) ?? []).length;
       const html = (b.html ?? `<div style="white-space:pre-wrap">${b.text.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</div>`).replace(/data-blocked-src="([^"]+)"/g, opts?.allowRemote ? 'src="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22520%22 height=%22200%22%3E%3Crect width=%22100%25%22 height=%22100%25%22 fill=%22%23d9d4ff%22/%3E%3C/svg%3E"' : 'data-blocked-src="$1"');
-      return { summary: m, html, text: b.text, blocked: opts?.allowRemote ? 0 : blocked, trackers: b.unsub ? 2 : 0, attachments: b.attachments ?? [], invite: b.invite ? { method: 'REQUEST', event: b.invite, mine: 'needs-action' } : undefined, unsubscribe: b.unsub ? { url: 'https://designweekly.example/u', oneClick: true } : undefined, headers: {} };
+      const warnings = phishingWarnings({ from: m.from, links: b.html ? linksIn(b.html) : [], contacts: [], knownDomains: ['studio.example', 'gmail.com'] });
+      const code = extractCode(`${m.subject}\n${b.text}`);
+      return { summary: m, html, text: b.text, blocked: opts?.allowRemote ? 0 : blocked, trackers: b.unsub ? 2 : 0, attachments: b.attachments ?? [], invite: b.invite ? { method: 'REQUEST', event: b.invite, mine: 'needs-action' } : undefined, unsubscribe: b.unsub ? { url: 'https://designweekly.example/u', oneClick: true } : undefined, headers: {}, warnings: warnings.length ? warnings : undefined, code, signInLink: code ? undefined : extractSignInLink(b.text, b.html), designed: b.html ? isDesignedMail(b.html) : false, remindAt: noReply.find((r) => r.id === id)?.at };
     },
     setRead: async (ids, read) => { for (const m of messages) if (ids.includes(m.id)) m.seen = read; changed('mail'); },
     setFlagged: async (ids, f) => { for (const m of messages) if (ids.includes(m.id)) m.flagged = f; changed('mail'); },
@@ -337,6 +349,30 @@ export function mockPim(emit: Emit): { pim: PimApi } {
     contacts: async () => contacts,
     saveContact: async (c) => c,
     deleteContact: async () => undefined,
+    search: async (q, o) => {
+      const pq = parseMailQuery(q);
+      const local = triaged(messages).filter((m) => matchMailQuery(m, pq) && (!o?.account || m.account === o.account));
+      const all = orderResults(local, []);
+      return { messages: all.slice(0, o?.limit ?? 500), local: Math.min(all.length, o?.limit ?? 500) };
+    },
+    unreadCounts: async () => { const inbox = triaged(messages.filter((m) => m.folder === 'INBOX')); return { byAccount: unreadByAccount(inbox), all: badgeCount(inbox, 'all'), important: badgeCount(inbox, 'important') }; },
+    dismissToReply: async () => { changed('mail'); },
+    remindNoReply: async (id, at) => { const m = messages.find((x) => x.id === id)!; noReply = noReply.filter((r) => r.id !== id); if (at !== null) noReply.push({ id, messageId: m.messageId ?? id, account: m.account, subject: m.subject, to: m.to, sentAt: m.date, at }); changed('mail'); },
+    noReplyReminders: async () => noReply,
+    mute: async (ids, on) => { if (on) for (const m of messages) if (ids.includes(m.id)) m.folder = 'Archive'; changed('mail'); },
+    block: async (address, on) => { prefs.blockedSenders = on ? [...(prefs.blockedSenders ?? []), address.toLowerCase()] : (prefs.blockedSenders ?? []).filter((x) => x !== address.toLowerCase()); changed('mail'); },
+    reportSpam: async (ids) => { for (const m of messages) if (ids.includes(m.id)) m.folder = 'Junk'; changed('mail'); },
+    label: async (ids, label, on) => { for (const m of messages) if (ids.includes(m.id)) m.labels = on ? [...new Set([...(m.labels ?? []), label])] : (m.labels ?? []).filter((x) => x !== label); changed('mail'); },
+    undo: async () => null,
+    previewAttachment: async (_id, att) => ({ filename: att, contentType: 'text/plain', size: 120, text: 'A preview of the attachment, shown in Keeper.' }),
+    printable: async (id) => `<!doctype html><title>${messages.find((x) => x.id === id)?.subject ?? ''}</title>${bodies.get(id)?.html ?? ''}`,
+    savePdf: async () => '/Users/demo/Downloads/Message.pdf',
+    syncServerRules: async () => accounts.filter((a) => a.mail).map((a) => ({ account: a.id, label: a.label, ok: true, message: 'Written to the server as a Sieve script' })),
+    senderPhotos: async () => ({}),
+    aiCompose: async (r) => { await new Promise((x) => setTimeout(x, 500)); return r.instruction ? `Hi,\n\n${r.instruction.replace(/^write\s+/i, '')}.\n\nBest,\nAlex` : r.draft; },
+    stageCompose: async () => undefined,
+    stagedCompose: async () => null,
+    dropDraft: async () => undefined,
     prefs: async () => prefs,
     setPrefs: async (p) => (prefs = { ...prefs, ...p }),
   };

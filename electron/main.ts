@@ -1427,7 +1427,8 @@ app.whenReady().then(async () => {
   registerSearchIpc({ show: showMain });
   const pimDeps: PimDeps = {
     broadcast,
-    alert: (title, detail, kind, ref) => islandSvc?.alert({ kind: kind ?? 'info', title, detail, ref }),
+    alert: (title, detail, kind, ref, mail) => islandSvc?.alert({ kind: kind ?? 'info', title, detail, ref, mail }),
+    badge: (n) => { try { app.setBadgeCount(n); } catch { /* not on this desktop */ } },
     islandReminders: (list) => islandSvc?.setDueReminders(featureOn('islandTodos') ? list : []),
     islandEvents: (evs) => islandSvc?.setPimEvents(evs),
     islandTimers: (t) => islandSvc?.setCountdowns(t),
