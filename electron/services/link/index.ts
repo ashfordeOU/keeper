@@ -257,7 +257,9 @@ export const link = {
   removeForward: (id: string) => need().removeForward(id),
   async companionInvite(viaTunnel?: boolean): Promise<CompanionInvite> {
     const n = need();
-    const url = viaTunnel && n.tunnelUrl ? n.tunnelUrl : `http://${n.thisDevice().addresses[0] ?? '127.0.0.1'}:${n.port}`;
+    // Open to the network first, so the link names an address the endpoint really listens on.
+    if (!(viaTunnel && n.tunnelUrl)) await n.openLan();
+    const url = viaTunnel && n.tunnelUrl ? n.tunnelUrl : `http://${n.reach().lan?.[0] ?? `127.0.0.1:${n.port}`}`;
     return n.companionInvite(url);
   },
   answerCompanion(id: string, ok: boolean) {

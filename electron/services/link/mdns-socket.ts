@@ -13,6 +13,7 @@ export class MdnsPeer {
   readonly seen = new Map<string, Found & { at: number }>();
   onfound?: (f: Found) => void;
   error?: string;
+  private joined = new Set<string>();
 
   async start(me: () => Announce | null): Promise<boolean> {
     this.me = me;
@@ -26,13 +27,7 @@ export class MdnsPeer {
           resolve();
         });
       });
-      for (const ip of lanIPv4()) {
-        try {
-          sock.addMembership(MDNS_ADDR, ip);
-        } catch {
-          /* that interface does not do multicast */
-        }
-      }
+      this.joinOn(sock);
       try {
         sock.addMembership(MDNS_ADDR);
       } catch {
@@ -57,6 +52,24 @@ export class MdnsPeer {
     if (me && this.sock) this.send(announcement(me, 0)); // goodbye
     this.sock?.close();
     this.sock = null;
+    this.joined.clear();
+  }
+
+  /** Joins the multicast group on network addresses that appeared since start (already joined ones are skipped). */
+  join() {
+    if (this.sock) this.joinOn(this.sock);
+  }
+
+  private joinOn(sock: dgram.Socket) {
+    for (const ip of lanIPv4()) {
+      if (this.joined.has(ip)) continue;
+      try {
+        sock.addMembership(MDNS_ADDR, ip);
+        this.joined.add(ip);
+      } catch {
+        /* that interface does not do multicast */
+      }
+    }
   }
 
   /** Tells the network about this device (after a change: name, pairing, addresses). */

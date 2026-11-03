@@ -383,7 +383,8 @@ setTimeout(() => process.exit(1), 150);
   });
 });
 
-const ping = (port: number) => new Promise<number>((resolve, reject) => http.get({ host: '127.0.0.1', port, path: '/link/ping', agent: false }, (res) => { res.resume(); resolve(res.statusCode ?? 0); }).on('error', reject));
+const pingAt = (host: string, port: number) => new Promise<number>((resolve, reject) => http.get({ host, port, path: '/link/ping', agent: false }, (res) => { res.resume(); resolve(res.statusCode ?? 0); }).on('error', reject));
+const ping = (port: number) => pingAt('127.0.0.1', port);
 
 describe('quiet until paired, and the keychain', () => {
   it('listens only on this computer until pairing is opened, then on the network', async () => {
@@ -397,6 +398,45 @@ describe('quiet until paired, and the keychain', () => {
     expect(a.node.state().me.lanOpen).toBe(true);
     expect(a.node.port).toBe(port);
     expect(await ping(a.node.port)).toBe(200);
+    // and on each network address it now names, on that same port
+    for (const hp of a.node.reach().lan ?? []) {
+      const [host, p] = hp.split(':');
+      expect(Number(p)).toBe(port);
+      expect(await pingAt(host, port)).toBe(200);
+    }
+  });
+
+  it('an invite or address handed out before opening keeps working after', async () => {
+    const a = await makeNode('before');
+    const port = a.node.port;
+    // a keeper command mid-conversation, on a kept-alive connection
+    const agent = new http.Agent({ keepAlive: true, maxSockets: 1 });
+    const seen = new Set<unknown>();
+    const viaAgent = () => new Promise<number>((resolve, reject) => http.get({ host: '127.0.0.1', port, path: '/link/ping', agent }, (res) => { seen.add(res.socket); res.resume(); res.on('end', () => resolve(res.statusCode ?? 0)); }).on('error', reject));
+    expect(await viaAgent()).toBe(200);
+    // the phone's link is made from the address before pairing opens the network
+    const base = `http://127.0.0.1:${port}`;
+    const inv = await a.node.companionInvite(base);
+    expect(inv.url.startsWith(base)).toBe(true);
+    expect(a.node.state().me.lanOpen).toBe(true);
+    expect(a.node.port).toBe(port);
+    expect(await viaAgent()).toBe(200);
+    expect(seen.size).toBe(1); // the same connection, never cut
+    expect(await ping(port)).toBe(200);
+    const page = await new Promise<number>((resolve, reject) => http.get(`${base}/c/`, { agent: false }, (res) => { res.resume(); resolve(res.statusCode ?? 0); }).on('error', reject));
+    expect(page).not.toBe(0);
+    // a pairing invite made now names this port too, and every address in it answers
+    const pair = await a.node.createInvite();
+    const addrs = decodeURIComponent(new URL(pair.link).searchParams.get('a') ?? '').split(',').filter(Boolean);
+    for (const hp of addrs) {
+      expect(hp.endsWith(`:${port}`)).toBe(true);
+      expect(await pingAt(hp.slice(0, hp.lastIndexOf(':')), port)).toBe(200);
+    }
+    agent.destroy();
+    // stopping closes every listener
+    await a.node.stop();
+    await expect(ping(port)).rejects.toThrow();
+    for (const hp of addrs) await expect(pingAt(hp.slice(0, hp.lastIndexOf(':')), port)).rejects.toThrow();
   });
 
   it('"findable" opens it without pairing', async () => {

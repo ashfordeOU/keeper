@@ -34,6 +34,30 @@ import { HelpSessions } from './help';
 import { lanIPv4, MdnsPeer, wireguardInterfaces } from './mdns-socket';
 
 export const DEFAULT_PORT = 47821;
+/** how often the open endpoint looks for new or gone network addresses */
+const LAN_RECHECK_MS = 30_000;
+
+/** Listens on host:port (0 = any free port); resolves with the port. */
+function bindOn(server: http.Server, port: number, host: string) {
+  return new Promise<number>((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(port, host, () => {
+      server.off('error', reject);
+      resolve((server.address() as net.AddressInfo).port);
+    });
+  });
+}
+
+/** Addresses to listen on when open to the network: local IPv4, plus routable IPv6 (link-local needs a scope, so not those). */
+function lanAddresses(): string[] {
+  const out = new Set(lanIPv4());
+  for (const list of Object.values(os.networkInterfaces())) {
+    for (const a of list ?? []) {
+      if ((a.family === 'IPv6' || (a.family as unknown) === 6) && !a.internal && !/^fe80:/i.test(a.address)) out.add(a.address);
+    }
+  }
+  return [...out];
+}
 
 export const DEFAULT_LINK_SETTINGS: LinkSettings = {
   mode: 'lan',
@@ -160,7 +184,13 @@ export class LinkNode {
   data!: LinkData;
   me!: Identity;
   keyProtected = false;
+  /** the endpoint on loopback (the keeper command); never closed while Link runs, so the port never moves */
   private server: http.Server | null = null;
+  /** extra listeners on the same port, one per local-network address, while the network is open (see lanWanted) */
+  private lanServers = new Map<string, http.Server>();
+  private lanFailed = new Set<string>();
+  private lanSync: Promise<boolean> = Promise.resolve(false);
+  private lanTimer?: NodeJS.Timeout;
   private sockets = new Set<import('node:net').Socket>();
   port = 0;
   private mdns = new MdnsPeer();
@@ -171,8 +201,8 @@ export class LinkNode {
   private offers = new Map<string, { resolve: (ok: boolean) => void; device: string; offer: Offer }>();
   private pairWaits = new Map<string, (ok: boolean) => void>();
   private invite: { code: string; secret: string; expires: number; misses: number } | null = null;
-  /** where the endpoint listens now: '127.0.0.1' until something needs the network (see lanWanted) */
-  private boundHost: string | null = null;
+  /** the endpoint also listens on the local network (only once something needs it, see lanWanted) */
+  private lanOpen = false;
   /** the person opened pairing or looked for devices this session */
   private lanOpened = false;
   /** this device's key is in the keychain, which will not open now: wait instead of making a new one */
@@ -300,32 +330,102 @@ export class LinkNode {
     return this.data.devices.length > 0 || this.data.companions.length > 0 || !!this.data.settings.discoverable || this.lanOpened || (!!this.invite && this.invite.expires > Date.now());
   }
 
-  /** Opens the endpoint to the local network (pairing, looking for devices); keeps open connections. */
+  /**
+   * Opens the endpoint to the local network (pairing, looking for devices).
+   * Adds listeners on this computer's network addresses next to the loopback
+   * one, on the same port: nothing is closed, so the keeper command and any
+   * invite or QR code made a moment earlier keep working.
+   */
   async openLan() {
     this.lanOpened = true;
-    if (this.stopped || this.keyWaiting || this.bindHost() !== '0.0.0.0' || this.boundHost === '0.0.0.0') return;
-    const old = this.server;
-    this.server = null;
-    // Stop listening on loopback without cutting what is in flight (a keeper command asking for an invite).
-    // Wait until it has really let go of the port (Windows keeps it while idle keep-alive
-    // connections are open), so the network listener can take the same one.
-    if (old) {
-      await new Promise<void>((r) => {
-        const done = setTimeout(r, 3000);
-        old.close(() => { clearTimeout(done); r(); });
-        old.closeIdleConnections?.();
-      });
-    }
-    await this.listen();
+    if (this.stopped || this.keyWaiting || !this.server || this.lanOpen || !this.lanWanted()) return;
+    await this.startLan();
+    this.scheduleNote(500);
     this.hooks.changed();
   }
 
+  private async startLan() {
+    if (this.lanOpen || !this.server) return;
+    this.lanOpen = true;
+    await this.syncLan();
+    // Addresses come and go (Wi-Fi to Ethernet, VPN, a new DHCP lease): follow them while open.
+    this.lanTimer = setInterval(() => void this.syncLan(), LAN_RECHECK_MS);
+    this.lanTimer.unref?.();
+    if (this.opts.mdns !== false) {
+      this.mdns.onfound = () => this.hooks.changed();
+      await this.mdns.start(() => ({ id: this.id, name: this.data.name, port: this.port, host: `keeper-${this.id.slice(0, 8)}`, addresses: this.lanAddrs(), pairing: !!this.invite && this.invite.expires > Date.now(), os: this.opts.os ?? process.platform, help: this.help.tag() }));
+    }
+  }
+
+  /** Listens on each local-network address that has none yet, and stops on addresses that are gone. True if anything changed. */
+  private syncLan(): Promise<boolean> {
+    const run = async () => {
+      if (!this.lanOpen || this.stopped || !this.port) return false;
+      const port = this.port;
+      const want = new Set(lanAddresses());
+      let changed = false;
+      for (const [addr, srv] of this.lanServers) {
+        if (want.has(addr)) continue;
+        this.lanServers.delete(addr);
+        srv.close();
+        changed = true;
+      }
+      for (const addr of this.lanFailed) if (!want.has(addr)) this.lanFailed.delete(addr);
+      await Promise.all(
+        [...want].filter((addr) => !this.lanServers.has(addr)).map(async (addr) => {
+          const srv = this.makeServer();
+          try {
+            await bindOn(srv, port, addr);
+          } catch (e) {
+            srv.close();
+            // Rare (an address still being set up, another program on that address and port): carry on with the others, try again later.
+            if (!this.lanFailed.has(addr)) console.warn(`[link] could not listen on ${addr}:${port}: ${e instanceof Error ? e.message : String(e)}`);
+            this.lanFailed.add(addr);
+            return;
+          }
+          if (!this.lanOpen || this.stopped || this.port !== port) return void srv.close();
+          this.lanFailed.delete(addr);
+          this.lanServers.set(addr, srv);
+          changed = true;
+        }),
+      );
+      if (changed && this.lanOpen && !this.stopped) {
+        this.mdns.join();
+        this.mdns.announce();
+        this.scheduleNote(500);
+        this.hooks.changed();
+      }
+      return changed;
+    };
+    this.lanSync = this.lanSync.then(run, run);
+    return this.lanSync;
+  }
+
+  /** The local-network IPv4 addresses the endpoint listens on now. */
+  private lanAddrs(): string[] {
+    return this.lanOpen ? lanIPv4().filter((ip) => this.lanServers.has(ip)) : [];
+  }
+
+  private makeServer() {
+    const server = http.createServer((req, res) => void this.http(req, res));
+    server.on('connection', (sock) => {
+      this.sockets.add(sock);
+      sock.on('close', () => this.sockets.delete(sock));
+    });
+    server.on('upgrade', (req, socket, head) => this.upgrade(req, socket, head));
+    return server;
+  }
+
   private closeServer(): Promise<void> {
-    const srv = this.server;
+    const all = [this.server, ...this.lanServers.values()].filter((x): x is http.Server => !!x);
     this.server = null;
+    this.lanServers.clear();
+    this.lanFailed.clear();
+    this.lanOpen = false;
+    clearInterval(this.lanTimer);
     for (const s of this.sockets) s.destroy();
     this.sockets.clear();
-    return new Promise<void>((r) => (srv ? srv.close(() => r()) : r()));
+    return Promise.all(all.map((srv) => new Promise<void>((r) => srv.close(() => r())))).then(() => undefined);
   }
 
   async stop() {
@@ -362,48 +462,18 @@ export class LinkNode {
     this.scheduleNote(500);
   }
 
-  private bindHost(): string | null {
-    const s = this.data.settings;
-    if (s.mode === 'off' || this.keyWaiting) return null;
-    return this.lanWanted() ? '0.0.0.0' : '127.0.0.1';
-  }
-
   private async listen() {
-    const host = this.bindHost();
-    this.boundHost = host;
-    if (!host) {
+    const s = this.data.settings;
+    if (s.mode === 'off' || this.keyWaiting) {
       this.port = 0;
       return;
     }
-    const server = http.createServer((req, res) => void this.http(req, res));
-    server.on('connection', (sock) => {
-      this.sockets.add(sock);
-      sock.on('close', () => this.sockets.delete(sock));
-    });
-    server.on('upgrade', (req, socket, head) => this.upgrade(req, socket, head));
-    const tryPort = (p: number) =>
-      new Promise<number>((resolve, reject) => {
-        server.once('error', reject);
-        server.listen(p, host, () => {
-          server.off('error', reject);
-          resolve((server.address() as net.AddressInfo).port);
-        });
-      });
-    // Opening to the network keeps the port the keeper command already knows (the old one may take a moment to let go).
-    const want = this.port || this.data.settings.port || DEFAULT_PORT;
-    let got = 0;
-    // The loopback listener closes asynchronously (slower on a busy machine, and on Windows), so
-    // keep trying the same port for up to about three seconds before taking a new one.
-    for (let i = 0; i < 30 && !got; i++) {
-      got = await tryPort(want).catch(() => 0);
-      if (!got && i < 29) await new Promise((r) => setTimeout(r, 100));
-    }
-    this.port = got || (await tryPort(0));
+    // Always loopback first: the keeper command's endpoint. The network gets listeners on the same port later (openLan).
+    const server = this.makeServer();
+    const want = this.port || s.port || DEFAULT_PORT;
+    this.port = await bindOn(server, want, '127.0.0.1').catch(() => bindOn(server, 0, '127.0.0.1'));
     this.server = server;
-    if (this.opts.mdns !== false && host === '0.0.0.0') {
-      this.mdns.onfound = () => this.hooks.changed();
-      await this.mdns.start(() => ({ id: this.id, name: this.data.name, port: this.port, host: `keeper-${this.id.slice(0, 8)}`, addresses: lanIPv4(), pairing: !!this.invite && this.invite.expires > Date.now(), os: this.opts.os ?? process.platform, help: this.help.tag() }));
-    }
+    if (this.lanWanted()) await this.startLan();
   }
 
   // ---------------------------------------------------------------- the endpoint
@@ -844,7 +914,7 @@ export class LinkNode {
   reach(): Reach {
     const s = this.data.settings;
     const r: Reach = { at: Date.now() };
-    if (s.mode !== 'off' && this.port && this.boundHost === '0.0.0.0') r.lan = lanIPv4().map((ip) => `${ip}:${this.port}`);
+    if (s.mode !== 'off' && this.port && this.lanOpen) r.lan = this.lanAddrs().map((ip) => `${ip}:${this.port}`);
     if (s.mode === 'internet' && !s.localOnly) {
       if (this.tunnelUrl) r.tunnel = this.tunnelUrl;
       if (s.relayUrl && this.relayState.connected) r.relay = s.relayUrl;
@@ -1429,10 +1499,10 @@ export class LinkNode {
       os: this.opts.os ?? process.platform,
       fingerprint: fingerprint(this.me.publicKey),
       keyProtected: this.keyProtected,
-      addresses: lanIPv4(),
+      addresses: this.lanOpen ? this.lanAddrs() : lanIPv4(),
       port: this.port,
       listening: !!this.server,
-      lanOpen: this.boundHost === '0.0.0.0',
+      lanOpen: this.lanOpen,
       keyWaiting: this.keyWaiting || undefined,
       relay: this.data.settings.relayUrl ? { url: this.data.settings.relayUrl, ...this.relayState } : undefined,
       tunnel: this.hooks.tunnel(),

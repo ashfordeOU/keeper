@@ -28,6 +28,9 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - New setting "Closed-lid mode only while plugged in" (on by default; existing settings get it too). When you unplug, only the lid part turns off and Keep Awake goes on, with a notification. With it off, closed-lid mode runs on battery down to the battery floor (20% by default). Heat, the battery floor and Low Power Mode also turn off only the lid part.
 - Keep Awake's settings show "Set up closed-lid mode (asks for your password once)" on a Mac whenever the permission it needs is missing.
 
+### Fixed — Keeper Link
+- Link keeps its port when it opens to the network (pairing, a paired device, being findable, Get help). It now adds listeners on this computer's network addresses beside the loopback one instead of closing and reopening, so the keeper command and invite links or QR codes made a moment earlier keep working; new or gone network addresses are followed while it is open.
+
 ### Fixed — Keep Awake
 - Keeper never switches off "sleep disabled" that it did not switch on itself; it uses it as it is. On Linux, ending closed-lid mode during a session now really releases the lid switch.
 

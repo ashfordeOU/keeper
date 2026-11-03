@@ -12,7 +12,6 @@ import { deviceId, newIdentity, type Identity } from '../../../core/link/identit
 import { call, Mux } from '../../../core/link/mux';
 import { relayDial, relayListen } from '../../../core/link/relay';
 import { connectWs, type WsClientWire } from '../../../core/link/ws';
-import { lanIPv4 } from './mdns-socket';
 import type { LinkNode } from './node';
 
 export interface HelpOfferView {
@@ -53,7 +52,7 @@ export class HelpSessions {
     if (s.mode !== 'off' && this.node.port) reach.push('lan');
     if (o.relay) reach.push('relay');
     if (this.node.tunnelUrl && s.mode === 'internet' && !s.localOnly) reach.push('tunnel');
-    const base = this.node.tunnelUrl && s.mode === 'internet' && !s.localOnly ? this.node.tunnelUrl : `http://${lanIPv4()[0] ?? '127.0.0.1'}:${this.node.port}`;
+    const base = this.node.tunnelUrl && s.mode === 'internet' && !s.localOnly ? this.node.tunnelUrl : `http://${this.node.reach().lan?.[0] ?? `127.0.0.1:${this.node.port}`}`;
     return { code: o.code, password: o.password, expires: o.expires, link: helpLink(o.code), reach, webUrl: `${base.replace(/\/+$/, '')}/c/#help` };
   }
 
@@ -62,6 +61,8 @@ export class HelpSessions {
     this.clearOffer();
     const s = this.node.data.settings;
     if (s.mode === 'off') throw new Error('Turn Keeper Link on first (Devices → Remote Access)');
+    // A helper nearby reaches this computer on the local network: open it (same port, nothing closes).
+    await this.node.openLan();
     const code = newHelpCode();
     const password = newHelpPassword();
     const expires = Date.now() + HELP_TTL_MS;
@@ -71,7 +72,7 @@ export class HelpSessions {
     this.node.mdnsPeer.announce();
     // Over the internet: listen on the relay under a one-time identity, and leave a sealed note saying where.
     if (s.mode === 'internet' && !s.localOnly) {
-      const reach: HelpReach = { at: Date.now(), lan: lanIPv4().map((ip) => `${ip}:${this.node.port}`) };
+      const reach: HelpReach = { at: Date.now(), lan: this.node.reach().lan ?? [] };
       if (this.node.tunnelUrl) reach.tunnel = this.node.tunnelUrl;
       if (s.relayUrl) {
         const ident = newIdentity();
