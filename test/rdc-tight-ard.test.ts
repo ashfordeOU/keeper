@@ -158,14 +158,18 @@ describe('rdc: Apple’s sign-in (type 30)', () => {
     const sent: Uint8Array[] = [];
     const events: RfbEvent[] = [];
     const c = new RfbClient((d) => sent.push(d), (e) => events.push(e), { username: 'ana', password: 'owl-123', ard: ardResponse });
-    void c.run();
+    let failed: unknown;
+    void c.run().catch((e) => { failed = e; });
     c.feed(Buffer.from('RFB 003.889\n')); // Apple's version string
     c.feed(Uint8Array.from([3, 30, 35, 2])); // macOS offers 30, 35 and the VNC password
     await tick();
     expect(Buffer.from(sent[0]).toString()).toBe('RFB 003.008\n');
     expect([...sent[1]]).toEqual([30]);
     c.feed(Uint8Array.from([...be16(2), ...be16(128), ...Buffer.from(PRIME, 'hex'), ...serverPub]));
-    await until(() => sent.length > 2);
+    // The Diffie-Hellman answer is computed in JavaScript: give a busy runner time, and say why if it fails.
+    await until(() => sent.length > 2 || failed !== undefined, 20_000);
+    expect(failed).toBeUndefined();
+    expect(sent.length).toBeGreaterThan(2);
     const answer = sent[2];
     expect(answer.length).toBe(256);
     const shared = dh.computeSecret(Buffer.from(answer.subarray(128)));
@@ -179,7 +183,7 @@ describe('rdc: Apple’s sign-in (type 30)', () => {
     await tick();
     expect(events).toContainEqual({ t: 'security', type: 30, name: 'Apple Remote Desktop' });
     expect(events).toContainEqual({ t: 'init', width: 1440, height: 900, name: 'Mac' });
-  });
+  }, 30_000);
 
   it('without a user name it uses the VNC password if offered, else says what is missing', async () => {
     const sent: Uint8Array[] = [];

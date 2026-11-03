@@ -113,7 +113,12 @@ function cli(args, timeout = 30_000) {
   await until(async () => fs.existsSync(path.join(dataDir, 'settings.json')) || fs.readdirSync(dataDir).some((f) => /settings/i.test(f)), 5000);
   check(fs.existsSync(dataDir) && fs.readdirSync(dataDir).some((f) => /settings/i.test(f)), `and written to the data folder (${fs.existsSync(dataDir) ? fs.readdirSync(dataDir).filter((f) => /settings/i.test(f)).join(', ') : 'missing'})`);
   await main.locator('.sidebar [title="Settings"]').first().click();
-  const platformSection = await until(async () => (await main.locator('#platform').count()) > 0, 15_000);
+  // Settings is two panes now: "Works with your computer" is an advanced row of Files & search; search finds it.
+  const settingsOpen = await until(async () => (await main.locator('.settings-page .settings-nav').count()) > 0, 15_000);
+  // Its label depends on the system (Finder, Spotlight and Shortcuts on a Mac); "spotlight" and "explorer" are its search words.
+  await main.locator('[data-testid="settings-search"]').fill(OS === 'darwin' ? 'spotlight' : 'explorer').catch(() => undefined);
+  await main.locator('[data-testid="settings-result"]').first().click({ timeout: 10_000 }).catch(() => undefined);
+  const platformSection = settingsOpen && await until(async () => (await main.locator('[data-setting-id="platform"], #platform').count()) > 0, 15_000);
   check(platformSection, 'Settings opens, with "Works with your computer"');
   const integrations = await k('platform', 'list', true);
   check(Array.isArray(integrations) && integrations.length > 0, `system integrations offered here: ${integrations.filter((i) => i.available).map((i) => i.id).join(', ')}`);

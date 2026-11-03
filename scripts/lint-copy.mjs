@@ -7,9 +7,10 @@ import { build } from 'esbuild';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+// fileURLToPath, not URL.pathname: on Windows the pathname is /D:/… and does not resolve.
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const dir = mkdtempSync(path.join(tmpdir(), 'keeper-copy-'));
 const out = path.join(dir, 'copy.mjs');
 try {
