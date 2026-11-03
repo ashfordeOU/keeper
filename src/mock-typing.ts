@@ -13,6 +13,7 @@ export function mockTyping(): Pick<KeeperApi, 'snippets' | 'selection'> {
       status: async () => ({ on: true, how: 'keyboard device (1)', wanted: true, platform: 'linux' }),
       restart: async () => ({ on: true, how: 'keyboard device (1)' }),
       importCsv: async () => ({ added: 2, skipped: 0 }),
+      exportCsv: async () => ({ saved: 2, path: 'snippets.csv' }),
       preview: async (t) => renderSnippet(t, { now: new Date(), clipboard: 'what you copied' }).text,
     },
     selection: {

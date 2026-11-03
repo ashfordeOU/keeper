@@ -5,9 +5,9 @@
 // the app in front (your exclusions, Dictation's excluded apps) and that the
 // field is not a password field, then removes the abbreviation with Backspace
 // and pastes the text (the clipboard is put back), moving the cursor to
-// {cursor} when the snippet has one.
+// {cursor} when the snippet has one, and counts a use.
 
-import { appExcluded, findAbbreviation, needsClipboard, normalizeTyping, renderSnippet, TypedBuffer } from '../../core/typing/expand';
+import { appExcluded, countUse, findAbbreviation, needsClipboard, normalizeTyping, renderSnippet, TypedBuffer } from '../../core/typing/expand';
 import type { TypedEvent } from '../../core/typing/keys';
 import type { Snippet } from '../../core/voice/types';
 import { powershell, run } from '../../core/platform';
@@ -16,7 +16,7 @@ import { frontmostApp } from './devices';
 import { featureOn, onFeature } from './features';
 import { listen, listenStatus, quiet, unlisten, type ListenStatus } from './typing';
 import { focusedIsSecure, insertText } from './voice/insert';
-import { onVoiceSettings, voiceSettings } from './voice/store';
+import { onVoiceSettings, saveVoiceSettings, voiceSettings } from './voice/store';
 import { settings } from '../store';
 
 const OWNER = 'snippets';
@@ -71,6 +71,8 @@ async function expand(s: Snippet) {
       await press('left', r.cursorBack);
     }
     onExpanded(s.abbr!);
+    // A use counted, for the page's "used" count and its order.
+    void saveVoiceSettings({ snippets: countUse(voiceSettings().snippets, s.abbr!) }).catch(() => undefined);
   } finally {
     buffer.clear();
     busy = false;

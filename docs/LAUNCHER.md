@@ -43,7 +43,19 @@ Type an abbreviation (`;addr`, `/sig`, `brb`) in any app and it becomes its text
 - An abbreviation is 2–32 characters without spaces. One that starts with a letter or digit counts only at the start of a word (`brb` in `herbrb` is left alone); one that starts with a mark counts anywhere. The longest match wins (`findAbbreviation`).
 - Placeholders (`renderSnippet`): `{date}`, `{date long|short|full|iso}`, date maths `{date +3d}`, `{date iso -1w}` (`min`, `h`, `d`, `w`, `m`, `y`), `{time}`, `{time 24h}`, `{weekday}`, `{clipboard}`, `{cursor}` (where the cursor ends up), `{snippet ;sig}` (another snippet, three deep at most), `{{` and `}}` for braces. Unknown placeholders stay as typed.
 - Expanding: Keeper checks the app in front against the page's list (password managers by default) and Dictation's excluded apps, and asks whether the focused field is a password field (the same check as Dictation: macOS secure text fields, Windows UI Automation's IsPassword, Linux AT-SPI); then it presses Backspace once per character of the abbreviation, pastes the text (the clipboard is put back, and the paste stays out of clipboard history) and moves the cursor left to `{cursor}`. Its own keys are ignored by the listener for that moment.
-- Import from CSV: abbreviation, text and (optionally) what to say; a first row of column names is skipped, and abbreviations already in the list are left alone.
+- Import from CSV (More → Import from CSV…): abbreviation, text and (optionally) what to say; a first row of column names is skipped, and abbreviations already in the list are left alone.
+- Export to CSV (More → Export to CSV…): the typed snippets as `abbreviation,text,say` (`snippetsToCsv`), which Import reads back. Said-only snippets stay in Dictation.
+- Each expansion counts a use (`countUse`), shown on the page and used for its order.
+
+### The page (`src/screens/TypedSnippets.tsx`)
+
+- The head: the title, one line, a status pill (Listening / Not listening · Fix / Off; hidden until there is something to type), More, and **New snippet**, the one main button.
+- The list is the page: each row has the abbreviation as a chip, the first line of the text (placeholders drawn as small chips) with the rest and what to say under it, and how often it was used. A floating capsule above it holds the search and the order (Most used, A to Z; `findSnippets`). Clicking a row opens it.
+- New and changed snippets open in a sheet down the right edge: Type, Becomes with placeholder chips (Date, Time, Weekday, In a week, Clipboard, Cursor, put where the cursor is: `insertPlaceholder`), a live preview filled in by the main process (`snippets.preview`, so `{clipboard}` shows what was copied), and Or say when Dictation is on. Remove is in the sheet, with Undo in the toast.
+- The pill opens a sheet that says whether it listens, the steps to fix it on this system (Open Input Monitoring on a Mac, Try again everywhere) and the privacy facts.
+- More: Import from CSV…, Export to CSV…, Apps left out (n)… (a sheet; apps Dictation leaves out are skipped too).
+- With no snippets the page shows a picture, one line and three starters (`STARTER_SNIPPETS`: `;date`, `;thx`, `;later`) added in one click, with Write your own and Import from CSV….
+- Keys: N for a new snippet, / to search, ↑/↓ between rows, Enter to open, Delete to remove (with Undo), Esc to clear the search or close a sheet, Ctrl+Enter (⌘Enter) to save.
 
 ### The key listener (`electron/services/typing.ts`)
 
@@ -70,6 +82,6 @@ Translate, Rewrite, Shorter and Define ask the AI chosen in Settings → AI (`br
 
 ## Platforms and what needs a real computer
 
-- Linux (X11, Xvfb) is driven end to end by `test/e2e/launcher.cjs`: apps from `.desktop` files, opening one, ranking, saved links, actions, your commands, sums and conversions, the selection bar with a stand-in AI, and the Typed Snippets page (whose listener says plainly why it cannot listen in the test machine).
+- Linux (X11, Xvfb) is driven end to end by `test/e2e/launcher.cjs`: apps from `.desktop` files, opening one, ranking, saved links, actions, your commands, sums and conversions, the selection bar with a stand-in AI, and the Typed Snippets page (the first run with starters, the editor sheet, search, keys, remove with Undo, More, and a status pill that says plainly why it cannot listen in the test machine).
 - macOS: the `voice.typed` event tap is new helper code, type-checked but not yet run on a Mac; app discovery and opening, `AXSelectedText` and Input Monitoring prompts need a real Mac.
 - Windows: the typed-key hook, Start menu and Store app discovery and the UI Automation selection need a real Windows computer.

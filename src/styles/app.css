@@ -435,6 +435,11 @@ html[data-resizing], html[data-resizing] * { cursor: col-resize !important; user
 .modal { width: min(720px, calc(100vw - 40px)); max-height: calc(100vh - 80px); overflow: auto; background: var(--bg-elev); border-radius: 16px; box-shadow: var(--shadow-pop); padding: 20px; animation: pop .2s var(--ease); }
 @keyframes fade { from { opacity: 0; } }
 @keyframes pop { from { opacity: 0; transform: scale(.97) translateY(6px); } }
+/* A sheet: the same dialog as a panel down the right edge (focused editors). */
+.modal-back.sheet-back { place-items: stretch end; }
+.modal.sheet { width: min(480px, calc(100vw - 48px)); max-height: none; height: 100%; box-sizing: border-box; border-radius: var(--r-lg) 0 0 var(--r-lg); padding: 24px; display: flex; flex-direction: column; animation: sheet-in .18s var(--ease); }
+@keyframes sheet-in { from { opacity: 0; transform: translateX(16px); } }
+@media (prefers-reduced-motion: reduce) { .modal-back, .modal, .modal.sheet { animation: none; } }
 
 .toast-stack { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 8px; z-index: 120; align-items: center; }
 .toast { background: var(--text); color: var(--bg); border-radius: var(--r-lg); padding: 9px 12px 9px 14px; box-shadow: var(--shadow-pop); display: flex; align-items: center; gap: 12px; animation: pop .2s var(--ease); max-width: 560px; }

@@ -737,7 +737,7 @@ export function RenameDialog({ paths, onClose }: { paths: string[]; onClose: () 
 
 let modalSeq = 0;
 
-export function Modal({ title, children, onClose, width, label }: { title?: ReactNode; children: ReactNode; onClose: () => void; width?: number; /** a name for screen readers when there is no title */ label?: string }) {
+export function Modal({ title, children, onClose, width, label, sheet, testId }: { title?: ReactNode; children: ReactNode; onClose: () => void; width?: number; /** a name for screen readers when there is no title */ label?: string; /** a panel down the right edge instead of a box in the middle */ sheet?: boolean; testId?: string }) {
   const box = useRef<HTMLDivElement>(null);
   const [id] = useState(() => `modal-title-${++modalSeq}`);
   // Focus moves into the dialog, Tab stays inside it, and goes back where it was afterwards.
@@ -753,8 +753,8 @@ export function Modal({ title, children, onClose, width, label }: { title?: Reac
     return () => window.removeEventListener('keydown', esc);
   }, [onClose]);
   return createPortal(
-    <div className="modal-back" onMouseDown={onClose}>
-      <div className="modal" ref={box} role="dialog" aria-modal="true" aria-labelledby={title ? id : undefined} aria-label={title ? undefined : label} tabIndex={-1} style={width ? { width } : undefined} onMouseDown={(e) => e.stopPropagation()}>
+    <div className={`modal-back${sheet ? ' sheet-back' : ''}`} onMouseDown={onClose}>
+      <div className={`modal${sheet ? ' sheet' : ''}`} data-testid={testId} ref={box} role="dialog" aria-modal="true" aria-labelledby={title ? id : undefined} aria-label={title ? undefined : label} tabIndex={-1} style={width ? { width } : undefined} onMouseDown={(e) => e.stopPropagation()}>
         {title ? <div className="row" style={{ marginBottom: 14 }}><h2 className="grow" id={id}>{title}</h2><button aria-label="Close" title="Close" className="btn ghost sm icon modal-close" onClick={onClose}><Icon name="close" size={14} /></button></div> : null}
         {children}
       </div>

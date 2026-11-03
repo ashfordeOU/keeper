@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 import { describe, expect, it } from 'vitest';
-import { appExcluded, defaultTyping, findAbbreviation, needsClipboard, normalizeTyping, parseCsv, renderSnippet, shiftDate, snippetsFromCsv, TypedBuffer, validAbbr } from '../core/typing/expand';
+import { appExcluded, countUse, defaultTyping, findAbbreviation, findSnippets, insertPlaceholder, needsClipboard, normalizeTyping, parseCsv, renderSnippet, shiftDate, snippetsFromCsv, snippetsToCsv, STARTER_SNIPPETS, TypedBuffer, validAbbr } from '../core/typing/expand';
 import { keysymChar, LinuxKeyReader, parseTypedLine, parseXmodmap } from '../core/typing/keys';
 import { PasteQueue, queueLabel } from '../core/paste-queue';
 import { actionsFor, cleanReply, defaultSelection, linkIn, mailIn, normalizeSelection, searchLink, selectionPrompt, targetLanguage } from '../core/selection';
@@ -207,5 +207,40 @@ describe('the selection bar', () => {
     expect(n.shortcut).toBe('');
     expect(n.actions).toEqual(['copy']);
     expect(n.searchUrl).toBe(defaultSelection().searchUrl);
+  });
+});
+
+describe('typed snippets: the page', () => {
+  it('exports a CSV file that imports back the same', () => {
+    const list = [snip(';sig', 'Best,\n"Ana"', 'sign off'), snip(';x', 'a, b'), { id: 'said', trigger: 'hello', text: 'Hello' } as Snippet];
+    const csv = snippetsToCsv(list);
+    expect(csv.split('\r\n')[0]).toBe('abbreviation,text,say');
+    const back = snippetsFromCsv(csv, [], () => 'n').added;
+    expect(back.map((s) => [s.abbr, s.text, s.trigger])).toEqual([[';sig', 'Best,\n"Ana"', 'sign off'], [';x', 'a, b', '']]);
+  });
+  it('counts a use of the snippet that was typed', () => {
+    const list = [snip(';a', 'A'), { ...snip(';b', 'B'), uses: 2 }];
+    expect(countUse(list, ';b').map((s) => s.uses)).toEqual([undefined, 3]);
+    expect(countUse(list, ';a')[0].uses).toBe(1);
+    expect(countUse(list, ';zz')).toBe(list);
+  });
+  it('finds snippets by what is typed, said or written, most used first or by name', () => {
+    const list = [{ ...snip(';b', 'Beta'), uses: 1 }, { ...snip('/a', 'Alpha', 'first'), uses: 5 }, snip(';c', 'Gamma')];
+    expect(findSnippets(list, '').map((s) => s.abbr)).toEqual(['/a', ';b', ';c']);
+    expect(findSnippets(list, '', 'name').map((s) => s.abbr)).toEqual(['/a', ';b', ';c']);
+    expect(findSnippets(list, 'gam').map((s) => s.abbr)).toEqual([';c']);
+    expect(findSnippets(list, 'FIRST').map((s) => s.abbr)).toEqual(['/a']);
+  });
+  it('puts a placeholder where the cursor is, replacing a selection', () => {
+    expect(insertPlaceholder('Hi !', 3, 3, '{clipboard}')).toEqual({ text: 'Hi {clipboard}!', at: 14 });
+    expect(insertPlaceholder('Hi there', 3, 8, '{cursor}')).toEqual({ text: 'Hi {cursor}', at: 11 });
+    expect(insertPlaceholder('ab', 9, 9, '{date}')).toEqual({ text: 'ab{date}', at: 8 });
+  });
+  it('offers three starters that are valid and fill in', () => {
+    expect(STARTER_SNIPPETS).toHaveLength(3);
+    for (const s of STARTER_SNIPPETS) {
+      expect(validAbbr(s.abbr)).toBe(true);
+      expect(renderSnippet(s.text, { now: new Date(2026, 10, 3) }).text).not.toMatch(/\{/);
+    }
   });
 });

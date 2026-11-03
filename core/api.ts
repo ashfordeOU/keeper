@@ -475,12 +475,14 @@ export interface KeeperApi extends KeeperApiX {
   awake: import('./api-awake').AwakeApi;
   /** dictation anywhere and meeting recording (core/voice) */
   voice: import('./voice/types').VoiceApi;
-  /** typed snippets: whether the keyboard listener runs, and importing a list */
+  /** typed snippets: whether the keyboard listener runs, and importing or exporting a list */
   snippets: {
     status(): Promise<{ on: boolean; how?: string; note?: string; wanted: boolean; platform: string }>;
     restart(): Promise<{ on: boolean; how?: string; note?: string }>;
     /** asks for a CSV file (abbreviation, text, what to say) and adds its rows */
     importCsv(): Promise<{ added: number; skipped: number } | null>;
+    /** asks where to save, and writes the typed snippets as a CSV file */
+    exportCsv(): Promise<{ saved: number; path: string } | null>;
     /** a snippet's text with its placeholders filled in, for the preview */
     preview(text: string): Promise<string>;
   };

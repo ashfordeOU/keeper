@@ -42,7 +42,7 @@ const api = {
   // The one search box's other sources (mail, events, tasks, contacts, notes, features, settings).
   search: group('search', ['everything', 'open', 'launch']),
   // Typed snippets and the selection bar.
-  snippets: group('snippets', ['status', 'restart', 'importCsv', 'preview']),
+  snippets: group('snippets', ['status', 'restart', 'importCsv', 'exportCsv', 'preview']),
   selection: group('selection', ['show', 'current', 'run', 'replace', 'copy', 'close', 'resize']),
   ai: group('ai', ['ask']),
   monitor: group('monitor', ['history', 'topToday', 'alerts', 'setAlertRules', 'docker', 'dockerAction', 'killTree', 'stopAgent', 'thermals', 'disks', 'speedTest', 'speedHistory']),

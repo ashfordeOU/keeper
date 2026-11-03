@@ -4,8 +4,9 @@
 // from a .desktop file opened and ranked by use, a saved link, a Keeper action,
 // your own command run with its output copied), clipboard sets and pasting one
 // by one (lined up in the picker, collected while copying, the Island's count),
-// Typed Snippets (a snippet saved with placeholders, its preview, the listener's
-// status in plain words) and the selection bar (translated by a stand-in AI),
+// Typed Snippets (the designed first run with starters, the editor sheet with
+// a live preview and placeholder chips, search, keys, remove with Undo, the
+// status pill and its steps, More) and the selection bar (translated by a stand-in AI),
 // in light and dark.
 const { _electron } = require('playwright');
 const fs = require('fs');
@@ -234,17 +235,70 @@ const ai = http.createServer((req, res) => {
     await main.locator('.nav-item[title="Typed Snippets"]').first().click().catch(async () => main.evaluate(() => window.dispatchEvent(new Event('noop'))));
     if (!(await main.locator('[data-testid="snippets-page"]').count())) await app.evaluate(({ BrowserWindow }) => { for (const w of BrowserWindow.getAllWindows()) if (!w.webContents.getURL().includes('view=') || w.webContents.getURL().includes('view=app')) w.webContents.send('event:navigate', 'snippets'); });
     await main.waitForSelector('[data-testid="snippets-page"]', { timeout: 15000 });
+    // The first run: a designed empty page with three starters, added in one click.
+    check(!!(await until(async () => (await main.locator('[data-testid="snippets-empty"]').count()) > 0)), 'with no snippets the page shows a designed start, not a form');
+    check((await main.locator('[data-testid="snippet-starter"]').count()) === 3, 'three snippets to start with');
+    await main.locator('[data-testid="snippet-starter"]').first().click();
+    check(!!(await until(async () => (await main.locator('[data-testid="snippets-table"] code:has-text(";date")').count()) > 0)), 'a starter is added in one click and the list takes over');
+    check((await main.locator('[data-testid="snippet-form"]').count()) === 0, 'no form is open until asked for');
+    // One main action: New snippet opens a focused sheet with a live preview and placeholder chips.
+    await main.locator('[data-testid="snippet-new"]').click();
+    await main.waitForSelector('[data-testid="snippet-form"]', { timeout: 5000 });
     await main.locator('[data-testid="snippet-abbr"]').fill(';sig');
     const now = new Date();
     const iso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     await main.locator('[data-testid="snippet-text"]').fill('Best wishes,\nAna\n{date iso}');
     check(!!(await until(async () => ((await main.locator('[data-testid="snippet-preview"]').textContent()) ?? '').includes(`Ana\n${iso}`))), 'the preview fills in the placeholders (today’s date)');
-    await main.locator('[data-testid="snippet-save"]').click();
-    check(!!(await until(async () => (await main.locator('[data-testid="snippets-table"] code:has-text(";sig")').count()) > 0)), 'the snippet is listed');
+    await main.locator('[data-testid="snippet-text"]').press('End');
+    await main.locator('[data-testid="snippet-form"] .snip-chip:has-text("Cursor")').click();
+    check(/\{cursor\}$/.test(await main.locator('[data-testid="snippet-text"]').inputValue()), 'a chip puts its placeholder where the cursor is');
+    await main.locator('[data-testid="snippet-text"]').press('Control+Enter');
+    check(!!(await until(async () => (await main.locator('[data-testid="snippets-table"] code:has-text(";sig")').count()) > 0)), 'Ctrl+Enter saves and the snippet is listed');
+    check(!!(await until(async () => (await main.locator('[data-testid="snippet-form"]').count()) === 0)), 'the sheet closes after saving');
     const vs = await main.evaluate(() => window.keeper.voice.settings());
     check(vs.snippets.some((s) => s.abbr === ';sig' && /Ana/.test(s.text)), 'it is kept in the same list as Dictation’s snippets');
-    const status = await until(async () => { const t = (await main.locator('[data-testid="snippets-status"]').textContent()) ?? ''; return /Ready in every app|Not listening yet/.test(t) ? t : null; });
-    check(!!status, `the page says plainly whether it can listen here (${status?.slice(0, 120)})`);
+    // Search.
+    await main.keyboard.press('/');
+    check(await main.locator('[data-testid="snippets-search"]').evaluate((el) => el === document.activeElement), '/ jumps to the search');
+    await main.keyboard.type('wishes');
+    check(!!(await until(async () => (await main.locator('[data-testid="snippet-row"]').count()) === 1)), 'search finds a snippet by its text');
+    await main.keyboard.press('Escape');
+    check(!!(await until(async () => (await main.locator('[data-testid="snippet-row"]').count()) === 2)), 'Esc clears the search');
+    // The keyboard: N opens the editor, Esc closes it.
+    await main.locator('.snip-page h1').click();
+    await main.keyboard.press('n');
+    check(!!(await until(async () => (await main.locator('[data-testid="snippet-form"]').count()) > 0)), 'N opens a new snippet');
+    await main.keyboard.press('Escape');
+    check(!!(await until(async () => (await main.locator('[data-testid="snippet-form"]').count()) === 0)), 'Esc closes it');
+    // Remove with Undo.
+    await main.locator('[data-testid="snippet-row"]:has-text(";date")').click();
+    await main.waitForSelector('[data-testid="snippet-form"]', { timeout: 5000 });
+    await main.locator('[data-testid="snippet-form"] button:has-text("Remove")').click();
+    check(!!(await until(async () => (await main.locator('[data-testid="snippet-row"]').count()) === 1)), 'a snippet is removed from its sheet');
+    await main.locator('.toast button:has-text("Undo")').first().click();
+    check(!!(await until(async () => (await main.locator('[data-testid="snippet-row"]').count()) === 2)), 'Undo brings it back');
+    // The status pill and its steps.
+    const status = await until(async () => { const t = (await main.locator('[data-testid="snippets-status"]').textContent()) ?? ''; return /Listening|Not listening/.test(t) ? t : null; });
+    check(!!status, `the head says plainly whether it can listen here (${status})`);
+    await main.locator('[data-testid="snippets-status"]').click();
+    await main.waitForSelector('[data-testid="snippets-status-sheet"]', { timeout: 5000 });
+    const sheetText = (await main.locator('[data-testid="snippets-status-sheet"]').textContent()) ?? '';
+    check(/Ready in every app/.test(sheetText) || (/How to fix it/.test(sheetText) && (await main.locator('[data-testid="snippets-retry"]').count()) > 0), 'the pill opens the details, with steps and Try again when it cannot listen');
+    await theme(false);
+    await wait(300);
+    await main.screenshot({ path: path.join(SHOTS, 'launcher-snippets-status-light.png') });
+    await main.keyboard.press('Escape');
+    // More: import, export and the apps left out.
+    await main.locator('[data-testid="snippets-more"]').click();
+    const items = await main.locator('.menu [role="menuitem"]').allTextContents();
+    check(items.some((t) => /Import from CSV/.test(t)) && items.some((t) => /Export to CSV/.test(t)) && items.some((t) => /Apps left out/.test(t)), `More holds Import, Export and Apps left out (${items.join(' | ')})`);
+    await main.locator('.menu [role="menuitem"]:has-text("Apps left out")').click();
+    await main.waitForSelector('[data-testid="snippets-exclude"]', { timeout: 5000 });
+    await main.locator('[data-testid="snippets-exclude"] input').fill('Lighthouse Notes');
+    await main.locator('[data-testid="snippets-exclude"] input').press('Enter');
+    check(!!(await until(async () => ((await main.evaluate(() => window.keeper.settings.get())).typing.excludeApps ?? []).includes('Lighthouse Notes'))), 'an app can be left out');
+    await main.keyboard.press('Escape');
+    await main.mouse.move(5, 890);
     await wait(3500); // the toast goes
     await theme(false);
     await main.screenshot({ path: path.join(SHOTS, 'launcher-snippets-light.png') });

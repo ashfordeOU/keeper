@@ -4,7 +4,7 @@
 
 import { BrowserWindow, dialog, ipcMain } from 'electron';
 import { promises as fsp } from 'node:fs';
-import { renderSnippet, snippetsFromCsv } from '../../core/typing/expand';
+import { renderSnippet, snippetsFromCsv, snippetsToCsv } from '../../core/typing/expand';
 import type { SelectionActionId } from '../../core/selection';
 import { readText } from '../services/clip';
 import { restartSnippets, snippetsStatus } from '../services/snippets';
@@ -29,6 +29,16 @@ export function registerTypingIpc() {
     const { added, skipped } = snippetsFromCsv(text, cur, newId);
     if (added.length) await saveVoiceSettings({ snippets: [...cur, ...added] });
     return { added: added.length, skipped };
+  });
+  h('snippets.exportCsv', async () => {
+    const list = voiceSettings().snippets.filter((s) => s.abbr);
+    if (!list.length) return null;
+    const opts = { defaultPath: 'snippets.csv', filters: [{ name: 'Snippets (CSV)', extensions: ['csv'] }] };
+    const w = BrowserWindow.getFocusedWindow();
+    const r = w ? await dialog.showSaveDialog(w, opts) : await dialog.showSaveDialog(opts);
+    if (r.canceled || !r.filePath) return null;
+    await fsp.writeFile(r.filePath, snippetsToCsv(list), 'utf8');
+    return { saved: list.length, path: r.filePath };
   });
 
   h('selection.show', () => showSelectionBar());

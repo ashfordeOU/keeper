@@ -231,3 +231,44 @@ export function snippetsFromCsv(text: string, existing: Snippet[], newId: () => 
   }
   return { added, skipped };
 }
+
+// ---------------------------------------------------------------- exporting
+
+const csvCell = (v: string) => (/[",\r\n]/.test(v) || /^\s|\s$/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+
+/** The snippets as a CSV file that snippetsFromCsv reads back: abbreviation, text, what to say. Said-only snippets are left out. */
+export function snippetsToCsv(list: Snippet[]): string {
+  const rows = [['abbreviation', 'text', 'say'], ...list.filter((s) => s.abbr && s.text).map((s) => [s.abbr!, s.text, s.trigger ?? ''])];
+  return rows.map((r) => r.map(csvCell).join(',')).join('\r\n') + '\r\n';
+}
+
+// ---------------------------------------------------------------- the page
+
+/** One more use of the snippet with this abbreviation (the list is unchanged when none has it). */
+export function countUse(list: Snippet[], abbr: string): Snippet[] {
+  return list.some((s) => s.abbr === abbr) ? list.map((s) => (s.abbr === abbr ? { ...s, uses: (s.uses ?? 0) + 1 } : s)) : list;
+}
+
+export type SnippetSort = 'used' | 'name';
+
+/** The snippets that match a search (abbreviation, text or what to say), most used first or by abbreviation. */
+export function findSnippets(list: Snippet[], query: string, sort: SnippetSort = 'used'): Snippet[] {
+  const q = query.trim().toLowerCase();
+  const hit = list.filter((s) => !q || [s.abbr, s.text, s.trigger].some((x) => x?.toLowerCase().includes(q)));
+  const name = (s: Snippet) => (s.abbr ?? s.trigger).replace(/^[^\p{L}\p{N}]+/u, '').toLowerCase();
+  return [...hit].sort((a, b) => (sort === 'used' ? (b.uses ?? 0) - (a.uses ?? 0) : 0) || name(a).localeCompare(name(b)));
+}
+
+/** Three snippets to start with, added in one click from the empty page. */
+export const STARTER_SNIPPETS: { abbr: string; text: string; label: string }[] = [
+  { abbr: ';date', text: '{date}', label: 'Today’s date' },
+  { abbr: ';thx', text: 'Thanks so much, I really appreciate it.', label: 'A quick thank you' },
+  { abbr: ';later', text: 'I’ll get back to you by {weekday +1d}. {cursor}', label: 'A reply for later' },
+];
+
+/** The text with a placeholder put where the cursor is (or the selection was); returns where the cursor goes next. */
+export function insertPlaceholder(text: string, start: number, end: number, token: string): { text: string; at: number } {
+  const a = Math.max(0, Math.min(start, text.length));
+  const b = Math.max(a, Math.min(end, text.length));
+  return { text: text.slice(0, a) + token + text.slice(b), at: a + token.length };
+}

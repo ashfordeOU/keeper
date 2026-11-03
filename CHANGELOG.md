@@ -4,6 +4,14 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 
 ## [Unreleased]
 
+### Changed — Typed Snippets: a calmer page where your snippets come first
+- The page opens on your snippets: each shows its short code, the start of its text and how often you used it. Find one with the search, sort by most used or A to Z.
+- New snippet is one button. It opens a side panel with a live preview and chips that add the date, the time, the clipboard or where the cursor lands.
+- A small pill in the corner says Listening, or Not listening with the steps to fix it.
+- Import, Export to CSV and the apps left out are under More.
+- With no snippets yet, the page shows three ready ones you can add in one click.
+- Remove a snippet and Undo brings it back. Keys: N for new, / to search, Delete to remove.
+
 ### Changed — Menu bar: a calmer, smaller summary under the owl
 - The summary under the owl in the menu bar (the tray on Windows and Linux) is cleaner and never scrolls: its window is as tall as what it shows and fits its width exactly.
 - At the top: Keeper and one line that says "All good", or the one thing that needs you (a nearly full disk, no internet, a low battery, an AI limit running out). Click it to go there.
