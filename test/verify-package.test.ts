@@ -29,6 +29,9 @@ function fakeMac(skip: string[] = []) {
     agentDesktopNotice: path.join(res, 'agent-desktop', 'NOTICE.txt'),
     helper: path.join(app, 'Contents', 'MacOS', 'keeper-helper'),
     intents: path.join(app, 'Contents', 'Library', 'Helpers', 'Keeper Intents.app', 'Contents', 'Info.plist'),
+    launcherMail: path.join(app, 'Contents', 'Library', 'Launchers', 'Keeper Mail.app', 'Contents', 'Info.plist'),
+    launcherCalendar: path.join(app, 'Contents', 'Library', 'Launchers', 'Keeper Calendar.app', 'Contents', 'Info.plist'),
+    launcherNotes: path.join(app, 'Contents', 'Library', 'Launchers', 'Keeper Notes.app', 'Contents', 'Info.plist'),
   };
   for (const [k, f] of Object.entries(files)) if (!skip.includes(k)) { fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, 'x'); }
   return { appDir: app, resources: res, platform: 'darwin', arch: 'arm64' };

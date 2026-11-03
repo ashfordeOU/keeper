@@ -3,6 +3,9 @@
 // keeper-helper: gives Keeper macOS's own abilities (the on-device model,
 // Live Text recognition, Spotlight). Keeper talks to it over stdin/stdout,
 // one JSON message per line. Keeper works without it.
+// keeper-launcher: the program in Keeper Mail, Keeper Calendar and Keeper Notes
+// (separate app icons that open one page of Keeper; build/mac-launchers.cjs
+// puts it in their bundles). Built by the same `swift build`.
 import PackageDescription
 
 let package = Package(
@@ -25,6 +28,11 @@ let package = Package(
                 .linkedFramework("UserNotifications"),
                 .linkedFramework("CoreMediaIO"),
             ]
+        ),
+        .executableTarget(
+            name: "keeper-launcher",
+            path: "Sources/keeper-launcher",
+            linkerSettings: [.linkedFramework("AppKit")]
         ),
     ]
 )

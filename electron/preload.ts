@@ -120,8 +120,9 @@ const api = {
   tools: group('tools', ['networkInfo', 'publicIp', 'tweaks', 'setTweak', 'clearQuarantine', 'resetPermissions', 'pickApp', 'pickFiles', 'saveAs']),
   folders: group('folders', ['tidy']),
   aiActions: group('aiActions', ['provider', 'suggestName', 'summarize', 'receipts', 'altText', 'translateSubtitles']),
-  // Pages in windows of their own.
+  // Pages in windows of their own, and the separate app icons for Mail, Calendar and Notes.
   windows: group('windows', ['openPage', 'list']),
+  launchers: group('launchers', ['list', 'add', 'remove', 'reveal']),
   // Tabs and windows that survive crashes (see electron/resilience.ts).
   session: {
     ...group('session', ['openWindow', 'lastSession', 'log', 'openDumps', 'report', 'relaunch', 'rendererError']),

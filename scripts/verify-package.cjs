@@ -7,6 +7,7 @@
 //                        the terminal, and on a Mac keeper-helper
 //   required for releases rclone (cloud storage), agent-desktop (reading other apps'
 //                        controls, with its Apache-2.0 LICENSE and NOTICE) and, on a Mac, Keeper Intents
+//                        and the separate app icons (Keeper Mail, Calendar, Notes)
 //   (KEEPER_REQUIRE_ALL=1, set by the release workflow; elsewhere they are listed
 //   as missing with how to add them, and the package is still made)
 //
@@ -53,6 +54,7 @@ function checkPackage(o) {
     pieces.push(
       { name: 'keeper-helper (Apple Intelligence, Live Text, Spotlight, the Island’s Mac abilities)', have: fs.existsSync(path.join(appDir, 'Contents', 'MacOS', 'keeper-helper')), fix: 'node scripts/build-mac-native.mjs (needs Swift: xcode-select --install)', required: true },
       { name: 'Keeper Intents (Siri, Spotlight and Shortcuts actions)', have: fs.existsSync(path.join(appDir, 'Contents', 'Library', 'Helpers', 'Keeper Intents.app')), fix: 'install Xcode and XcodeGen (brew install xcodegen), then npm run dist:mac again', required: strict },
+      { name: 'Keeper Mail, Keeper Calendar and Keeper Notes (separate app icons)', have: require('../build/mac-launchers.cjs').launcherBundles(appDir).length === 3, fix: 'node scripts/build-mac-native.mjs (builds keeper-launcher with keeper-helper), then package again', required: strict },
     );
   }
   if (core) {

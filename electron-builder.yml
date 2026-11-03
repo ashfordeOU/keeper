@@ -25,6 +25,9 @@ files:
   - '!node_modules/**/{test,tests,docs,example,examples}/**'
   - build/tray*.png
   - build/icon.png
+  # Icons of the separate app icons (Keeper Mail, Calendar, Notes) that Keeper copies out on request.
+  - build/launchers/*.png
+  - build/launchers/*.ico
   # Licence terms, trademark rules and the third-party notices travel with every copy.
   - LICENSE.md
   - TRADEMARKS.md

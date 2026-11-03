@@ -10,8 +10,8 @@
 // ad-hoc signed.
 //
 // A Developer ID build (KEEPER_MAC_SIGNING=developer-id, packaging/electron-builder.signed.cjs)
-// is signed by electron-builder itself, keeper-helper, Keeper Intents.app and agent-desktop
-// included: here its pieces are checked (Developer ID of the expected team, hardened runtime),
+// is signed by electron-builder itself, keeper-helper, Keeper Intents.app, the separate app icons
+// (Contents/Library/Launchers) and agent-desktop included: here its pieces are checked (Developer ID of the expected team, hardened runtime),
 // the downloadable components are signed with the same Developer ID, the hardened runtime and a
 // secure timestamp, and then the app is notarized and stapled by scripts/notarize-mac.mjs, which
 // keeps Apple's submission ID so a retry or a re-run waits on it instead of sending the app again.
@@ -85,7 +85,7 @@ function appIdentity(app) {
  */
 function checkDeveloperIdApp(app, team) {
   const contents = path.join(app, 'Contents');
-  const pieces = [app, path.join(contents, 'MacOS', 'keeper-helper'), path.join(contents, 'Library', 'Helpers', 'Keeper Intents.app'), ...agentDesktopBinaries(path.join(contents, 'Resources'))]
+  const pieces = [app, path.join(contents, 'MacOS', 'keeper-helper'), path.join(contents, 'Library', 'Helpers', 'Keeper Intents.app'), ...require('./mac-launchers.cjs').launcherBundles(app), ...agentDesktopBinaries(path.join(contents, 'Resources'))]
     .filter((f) => fs.existsSync(f));
   for (const f of pieces) {
     const info = signatureInfo(f);
@@ -173,6 +173,8 @@ async function signApp(context) {
   for (const f of agentDesktopBinaries(path.join(app, 'Contents', 'Resources'))) codesign(['--force', '--sign', identity, f]);
   const intents = path.join(app, 'Contents', 'Library', 'Helpers', 'Keeper Intents.app');
   if (fs.existsSync(intents)) codesign(['--force', '--sign', identity, '--preserve-metadata=entitlements,flags', intents]);
+  // Keeper Mail, Keeper Calendar and Keeper Notes (Contents/Library/Launchers, build/mac-launchers.cjs).
+  for (const b of require('./mac-launchers.cjs').launcherBundles(app)) codesign(['--force', '--sign', identity, b]);
   // --deep reaches Electron's frameworks and helper apps; entitlements and flags each
   // piece already had are kept, the requirement is made fresh from the certificate.
   codesign(['--force', '--deep', '--sign', identity, '--preserve-metadata=entitlements,flags', app]);

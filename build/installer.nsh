@@ -34,3 +34,15 @@
   !insertmacro MUI_PAGE_FINISH
 !macroend
 !endif
+
+; Uninstalling (not updating) removes the separate app icons Keeper added to this person's
+; Start menu from Settings → Features → App icons (core/launchers.ts), and their icons.
+!macro customUnInstall
+  ${ifNot} ${isUpdated}
+    ReadEnvStr $0 APPDATA
+    Delete "$0\Microsoft\Windows\Start Menu\Programs\Keeper Mail.lnk"
+    Delete "$0\Microsoft\Windows\Start Menu\Programs\Keeper Calendar.lnk"
+    Delete "$0\Microsoft\Windows\Start Menu\Programs\Keeper Notes.lnk"
+    RMDir /r "$0\Keeper\launchers"
+  ${endIf}
+!macroend

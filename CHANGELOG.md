@@ -14,6 +14,11 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - In Notes, Ctrl+Alt+N no longer also makes a new note.
 - Keeper opens a page in its own window when started with `--keeper-open=mail` or given the link `keeper://open/mail` (any of Keeper's pages; anything else is ignored). Started this way, Keeper shows only that page's window.
 
+### Added — App icons for Mail, Calendar and Notes
+- Settings → Features → App icons adds Keeper Mail, Keeper Calendar and Keeper Notes to Applications on a Mac, the Start menu on Windows or the app menu on Linux, each with its own icon. Remove takes away only what Keeper added.
+- Opening one shows just its page in a window of its own. When Keeper is not running it starts without the main window. They use Keeper's settings, accounts and updates.
+- Uninstalling Keeper on Windows removes the Start menu icons it added.
+
 ### Added — Mail: Today at the top of the inbox
 - The inbox opens with a greeting for the time of day and your first name (from the name you send mail as; with none, no name), today's date, and today's events as cards from every calendar Keeper reads: time, title, the calendar's colour, "Now · until 6:45 PM" on the one going on, "Next" on the one after, and Join for Zoom, Google Meet, Teams, Webex, FaceTime, Jitsi and Whereby links. Join opens the meeting in your default app. The cards scroll sideways and can be reached with the keyboard; with no events the row is hidden, and a narrow window shows one "Now: …" or "Next: …" line.
 - While Mail is open, the bar at the top of the window shows the meeting going on, or the next one within 15 minutes, with Join.

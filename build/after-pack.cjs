@@ -89,6 +89,18 @@ exports.default = async function afterPack(context) {
     for (const f of require('./after-sign.cjs').agentDesktopBinaries(resources)) require('child_process').execFileSync('/usr/bin/codesign', ['--force', '--sign', '-', f], { stdio: 'inherit' });
   }
 
+  // macOS: Keeper Mail, Keeper Calendar and Keeper Notes (separate app icons, core/launchers.ts) go
+  // inside the app at Contents/Library/Launchers, before it is signed (build/mac-launchers.cjs).
+  // Ad-hoc signed here like keeper-helper; after-sign.cjs or a Developer ID build signs them again.
+  if (platform === 'darwin') {
+    const app = path.join(context.appOutDir, `${context.packager.appInfo.productFilename}.app`);
+    const { makeLaunchers, launcherBundles } = require('./mac-launchers.cjs');
+    const r = makeLaunchers(app, context.packager.appInfo.version);
+    if (r.made) console.log(`  • after-pack: made ${r.made} separate app icons in Contents/Library/Launchers`);
+    else console.warn(`  • after-pack: no separate app icons in this build: ${r.reason}`);
+    if (process.platform === 'darwin') for (const b of launcherBundles(app)) require('child_process').execFileSync('/usr/bin/codesign', ['--force', '--sign', '-', b], { stdio: 'inherit' });
+  }
+
   console.log(`  • after-pack: removed ${(freed / 1024 / 1024).toFixed(0)} MB of files for other systems`);
 
   // The core installer (KEEPER_EDITION=core, the default download) leaves the heavy optional parts

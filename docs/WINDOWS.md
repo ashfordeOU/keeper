@@ -1,7 +1,8 @@
-# Pages in windows of their own
+# Pages in windows of their own, and app icons for Mail, Calendar and Notes
 
 Every page of Keeper (Mail, Calendar, Notes, Clean Up, Privacy & Security, Settings…) is a
-page of the main window. Any of them can also open in a window of its own.
+page of the main window. Any of them can also open in a window of its own, and Mail,
+Calendar and Notes can have icons of their own in the Dock, the Start menu or the app menu.
 
 ## Open in New Window
 
@@ -49,11 +50,55 @@ page of the main window. Any of them can also open in a window of its own.
   Mail's drafts are also saved to the account's Drafts folder, so two windows on Mail see the
   same drafts once they are saved there (a few seconds after typing stops).
 
+## App icons: Keeper Mail, Keeper Calendar, Keeper Notes
+
+Settings → Features → **App icons** adds each one to Applications (Mac), the Start menu
+(Windows) or the app menu (Linux), and removes it again. Launching one opens just its page in
+a window of its own; if Keeper is not running, it starts hidden first (no main window). They
+need Keeper installed and share its settings, accounts and updates. Keeper only removes what it
+made: something else at the same place is left alone.
+
+They all come down to one request that Keeper's single-instance lock passes to the running
+Keeper: `--keeper-open=<page>` on the command line, or the link `keeper://open/<page>`. Any
+page in `core/nav.ts` works (`keeper://open/settings`, `--keeper-open=cleanup`); anything else
+is ignored.
+
+| System | What is made | Where |
+|---|---|---|
+| macOS | a small app, "Keeper Mail.app", copied from inside Keeper.app (`Contents/Library/Launchers`) | `/Applications` when Keeper is there and it can be written, otherwise `~/Applications` |
+| Windows | a shortcut, "Keeper Mail", to Keeper with `--keeper-open=mail` and its own icon | the Start menu (`%APPDATA%\Microsoft\Windows\Start Menu\Programs`) |
+| Linux | `keeper-mail.desktop` with `Exec=<Keeper> --keeper-open=mail` and its own icon | `~/.local/share/applications` (or `$XDG_DATA_HOME/applications`) |
+
+- **Icons:** `scripts/launcher-icons.mjs` makes them from `build/icon.svg` (Keeper's owl with
+  a round badge in the part's colour and its sidebar symbol) into `build/launchers/` as `.png`,
+  `.ico` and `.icns`. The files are kept in the repository; run the script again after changing
+  the icon. On Windows and Linux Keeper copies the icon into its data folder (`launchers/`) when
+  it adds the shortcut, so a shortcut never points inside the app's archive.
+- **macOS apps:** `keeper-launcher` (`native/macos/KeeperHelper/Sources/keeper-launcher`) is a
+  small Swift program built with keeper-helper by the same `swift build` (the release
+  workflow's "macOS helper" step, `scripts/build-mac-native.mjs` locally). It finds Keeper (the
+  Keeper.app it ships in, or by its bundle identifier) and opens `keeper://open/<page>` with
+  it, then quits; it has no Dock icon of its own. `build/after-pack.cjs` makes the three bundles
+  (`build/mac-launchers.cjs`: Info.plist with `KeeperPage`, the program, the icon) inside
+  Keeper.app before it is signed. They are signed like the rest of the app: by electron-builder
+  for a Developer ID build (hardened runtime; `build/after-sign.cjs` stops the build if one is not
+  Developer ID signed, and they are notarized with the app), or with the self-signed
+  certificate by `build/after-sign.cjs` (each launcher, then the app). Copies in Applications
+  are copied with `ditto`, so their signature stays whole, and are replaced when Keeper updates.
+  `scripts/verify-package.cjs` lists them as missing when they were not built (required for
+  releases).
+- **Uninstalling:** the Windows uninstaller removes the three Start menu shortcuts and their
+  icons (not when updating). On a Mac and Linux they stay until removed in Settings (a Mac
+  launcher whose Keeper is gone says so and offers nothing else).
+
 ## Checking it
 
-- `npx vitest run test/page-window.test.ts`
+- `npx vitest run test/page-window.test.ts test/launchers.test.ts`
 - `KEEPER_SKIP_TOUR=1 xvfb-run -a -s "-screen 0 1440x900x24" node test/e2e/page-windows.cjs /tmp/kp-pw /tmp/kp-pw-shots`
   (Linux): Mail in a window of its own from the sidebar, no sidebar in it, a second request
   bringing it forward, `--keeper-open=calendar` and `keeper://open/notes` from a second start,
-  the kept size, closing without quitting, and a Keeper started with `--keeper-open` showing
-  only that page.
+  the kept size, closing without quitting, Keeper Mail in the app menu and removed again, and a
+  Keeper started with `--keeper-open` showing only that page.
+- On a Mac and on Windows, by hand: add Keeper Mail in Settings → Features → App icons, pin it,
+  quit Keeper, open Keeper Mail (only the Mail window appears), open it again (the same window
+  comes forward), then remove it.

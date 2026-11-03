@@ -43,9 +43,10 @@ of them. The parts take nothing of their own from the system.
 Every page is a page of the main window, and any page can also open in a window of its own
 (Open in New Window, ⌥⌘N / Ctrl+Alt+N). Those windows belong to the app process, like the
 main window: they load the same interface and preload, so every IPC handler answers them and
-`broadcast()` reaches them. `--keeper-open=<page>` and `keeper://open/<page>` open a page's
-window through the single-instance lock, starting Keeper hidden first when needed. Page
-windows are not parts: no process of their own, and nothing to restart.
+`broadcast()` reaches them. Mail, Calendar and Notes can also have app icons of their own
+(Keeper Mail, Keeper Calendar, Keeper Notes) that open just their page's window, starting Keeper
+hidden first when needed, with `--keeper-open=<page>` or `keeper://open/<page>` through the
+single-instance lock. They are not parts: no process of their own, and nothing to restart.
 See [Pages in windows of their own](WINDOWS.md).
 
 ## The channel

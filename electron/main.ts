@@ -154,6 +154,7 @@ import { setNudgeElsewhere } from './services/permission-nudge';
 import { catalogueFor } from '../core/permissions';
 import { nativeApps, nativeOpen } from './services/native-apps';
 import { anyPageWindowShown, lastPageWindowClosedAt, openPageWindow, pageOfWindow, registerPageWindows } from './services/page-windows';
+import { registerLaunchersIpc } from './services/launchers';
 import { pageFromArgv, pageFromUrl, routeOfPage } from '../core/page-window';
 
 void squarify; // the interface lays out the Space Map; kept for the CLI's future text treemap
@@ -1612,13 +1613,14 @@ let studioSince: number | undefined;
   initResilience({ preload, lockDown, restore: () => settings().restorePlace !== false, main: () => main });
   // What Keeper was doing, kept where a crash cannot erase it (session/breadcrumbs.json).
   startBreadcrumbs({ polls: pollerSnapshot, crashedLastTime: lastRun.unclean });
-  // Pages in windows of their own (core/page-window.ts).
+  // Pages in windows of their own, and the separate app icons that open them (core/page-window.ts, core/launchers.ts).
   registerPageWindows({ preload, lockDown, load, changed: () => {
     // macOS: the Dock icon stays while a page window or the main window is open; with only the tray left, it goes as before.
     if (!isMac) return;
     if (anyPageWindowShown() || main?.isVisible()) void app.dock?.show();
     else if (settings().trayEnabled) app.dock?.hide();
   } });
+  registerLaunchersIpc();
   if (!(process.argv.includes('--hidden') || startedForPage) || settings().resourceMode === 'performance') createMain();
   restoreExtraWindows();
   await index.load();

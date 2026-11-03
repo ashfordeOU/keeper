@@ -9,6 +9,7 @@ import { useFeatureStates } from '../features';
 import { useStore } from '../state';
 import { Icon } from './Icon';
 import { SuitePanel } from './SuitePanel';
+import { LaunchersPanel } from './LaunchersPanel';
 import { SECTION_COLOR, SECTION_IDS, SECTION_NAMES } from './NavSection';
 import { Toggle } from './ui';
 import { ComponentNeeds, ComponentsSection } from './ComponentsPanel';
@@ -101,6 +102,8 @@ export function FeaturesPanel() {
         </div>
       </div>
       <SuitePanel />
+      {/* Keeper Mail, Keeper Calendar and Keeper Notes as icons of their own. */}
+      <LaunchersPanel />
       <div className="feature-search">
         <Icon name="search" size={14} />
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a feature" aria-label="Find a feature" />

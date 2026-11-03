@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Usage (Linux): KEEPER_SKIP_TOUR=1 xvfb-run -a -s "-screen 0 1440x900x24" node test/e2e/page-windows.cjs /tmp/kp-pw /tmp/kp-pw-shots
-// Pages in windows of their own (core/page-window.ts):
+// Pages in windows of their own and the separate app icons (core/page-window.ts, core/launchers.ts):
 // Mail opens in a window of its own from the sidebar's right-click menu, shows the Mail page and no
 // sidebar, and is named "Mail — Keeper"; asking again brings that window forward instead of making a
 // second one; a second start with --keeper-open=calendar (Keeper Calendar on Windows and Linux) and
@@ -131,6 +131,35 @@ async function secondStart(args) {
   await wait(1500);
   const [back] = await pageWins(app, 'mail');
   check(back && back.bounds.width === 820 && back.bounds.height === 640, `Mail opens again at its kept size (${back?.bounds.width}×${back?.bounds.height})`);
+
+  // 6. Keeper Mail in the app menu (Linux: a desktop entry), and removed again.
+  const before = await main.evaluate(() => window.keeper.launchers.list());
+  check(before.length === 3 && before.every((l) => !l.installed), 'three app icons offered, none added yet');
+  const after = await main.evaluate(() => window.keeper.launchers.add('mail'));
+  const entry = path.join(HOME, '.local/share/applications/keeper-mail.desktop');
+  const text = fs.existsSync(entry) ? fs.readFileSync(entry, 'utf8') : '';
+  check(after.find((l) => l.page === 'mail')?.installed === true && /^Exec=.*--keeper-open=mail$/m.test(text) && /^Name=Keeper Mail$/m.test(text), 'Keeper Mail is added to the app menu with --keeper-open=mail');
+  const icon = /^Icon=(.*)$/m.exec(text)?.[1];
+  check(!!icon && fs.existsSync(icon), 'with an icon of its own');
+  // Settings → Features in a window of its own lists them, Keeper Mail as added.
+  await main.evaluate(() => window.keeper.windows.openPage({ name: 'settings', arg: 'features' }));
+  const sw = await pageOf(app, 'settings');
+  const listed = sw && await until(async () => (await sw.locator('[data-testid="launchers"] [data-launcher]').count()) === 3, 20_000);
+  check(!!listed, 'Settings → Features lists the three app icons');
+  if (listed) {
+    check((await sw.locator('[data-launcher="mail"]').textContent())?.includes('Added'), 'with Keeper Mail marked as added');
+    await sw.locator('[data-testid="launchers"]').scrollIntoViewIfNeeded();
+    await sw.screenshot({ path: path.join(SHOTS, 'app-icons-settings.png') });
+  }
+  await main.evaluate(() => window.keeper.launchers.remove('mail'));
+  check(!fs.existsSync(entry) && !(icon && fs.existsSync(icon)), 'removing Keeper Mail deletes what Keeper made');
+  // Something else at that place is left alone.
+  fs.writeFileSync(entry, '[Desktop Entry]\nName=Keeper Mail\nExec=someone-elses\n');
+  const foreign = await main.evaluate(() => window.keeper.launchers.list());
+  check(foreign.find((l) => l.page === 'mail')?.foreign === true, 'a file Keeper did not make is reported, not taken over');
+  const refused = await main.evaluate(() => window.keeper.launchers.remove('mail').then(() => 'removed', (e) => String(e.message || e)));
+  check(refused !== 'removed' && fs.existsSync(entry), 'and is never deleted');
+  fs.rmSync(entry, { force: true });
 
   await app.close();
   await wait(1500);

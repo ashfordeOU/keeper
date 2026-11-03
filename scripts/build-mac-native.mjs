@@ -7,6 +7,9 @@
 //   keeper-helper         native/macos/KeeperHelper, universal (arm64 + x86_64):
 //                         swift build -c release --arch arm64 --arch x86_64
 //                         → .build/apple/Products/Release/keeper-helper
+//                         (and keeper-launcher, the program in Keeper Mail, Keeper
+//                         Calendar and Keeper Notes; build/after-pack.cjs puts it
+//                         in their bundles inside Keeper.app)
 //   Keeper Intents.app    native/macos/KeeperIntents/build.sh (needs full Xcode
 //                         and XcodeGen); Siri and Shortcuts actions, optional
 //
