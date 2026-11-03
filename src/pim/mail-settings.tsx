@@ -221,7 +221,7 @@ export function SmartMailboxesEditor({ prefs, set }: { prefs: PimPrefsView; set:
         </div>
       ))}
       <button className="btn sm ghost" style={{ alignSelf: 'flex-start' }} onClick={() => put([...list, { id: uid(), name: 'Unread with attachments', query: 'is:unread has:attachment' }])}><Icon name="plus" size={12} /> Add smart mailbox</button>
-      <div className="small muted">A saved search, listed with the folders. Searches can use from: to: subject: has:attachment is:unread in: label: before: after:. Save one from the search box with the bookmark button.</div>
+      <div className="small muted">A saved search, listed with the folders. Searches can use from: to: subject: has:attachment is:unread in: label: before: after:. Save one from the search box with Save.</div>
     </div>
   );
 }
