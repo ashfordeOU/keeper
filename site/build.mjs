@@ -170,7 +170,9 @@ function builderHtml() {
   const first = PARTS.find((p) => p.on);
   const [light, dark] = useShot(first.shot);
   const [w, h] = sizeOf(first.shot);
-  const sw = PARTS.map((p) => `<li><button type="button" class="sw" role="switch" aria-checked="${p.on}" data-part="${p.id}" data-shot="${p.shot}"><span>${escapeHtml(p.name)}</span><span class="switch" aria-hidden="true"></span></button></li>`).join('');
+  // What switching a part on adds to the download: most parts are in the core.
+  const costOf = (p) => (p.needs.length ? `+${p.needs.reduce((n, k) => n + PIECES[k].mb, 0)} MB` : '');
+  const sw = PARTS.map((p) => `<li><button type="button" class="sw" role="switch" aria-checked="${p.on}" data-part="${p.id}" data-shot="${p.shot}"><span>${escapeHtml(p.name)}</span>${p.needs.length ? `<span class="cost">${costOf(p)}</span>` : ''}<span class="switch" aria-hidden="true"></span></button></li>`).join('');
   const bar = [`<i style="width:${pct(est.core)}"></i>`, ...Object.keys(PIECES).map((k) => `<i data-piece="${k}" style="width:${has(k) ? pct(PIECES[k].mb) : '0%'}"></i>`)].join('');
   const legend = [`<li>Core ${est.core} MB</li>`, ...Object.entries(PIECES).map(([k, v]) => `<li data-piece="${k}"${has(k) ? '' : ' hidden'}>${escapeHtml(v.name)} ${v.mb} MB</li>`)].join('');
   const runs = PARTS.map((p) => `<li data-runs="${p.id}"${on.includes(p.id) ? '' : ' hidden'}><b>${escapeHtml(p.name)}</b><span>${escapeHtml(p.runs)}</span></li>`).join('');
@@ -191,6 +193,7 @@ function builderHtml() {
       <div class="num"><b data-total>About ${est.total} MB</b><small data-count>${est.count} of ${PARTS.length} parts on</small></div>
       <div class="bar" aria-hidden="true">${bar}</div>
       <ul class="legend">${legend}</ul>
+      <p class="meter-note">Most parts are in the core. Studio, AI and Sync add extras.</p>
       <p class="pnl-title">What runs</p>
       <ul class="runs" aria-label="What runs"><li class="none" data-runs-none${on.length ? ' hidden' : ''}>Nothing runs. Switch a part on.</li>${runs}</ul>
     </div>

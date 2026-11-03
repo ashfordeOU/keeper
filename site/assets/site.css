@@ -310,6 +310,10 @@ footer .legal { margin-top:30px; font-size:13px; }
 /* Build your Keeper */
 .switches { list-style:none; margin:0; padding:0; display:grid; grid-template-columns:minmax(0, 1fr); gap:8px; }
 .sw { width:100%; display:flex; align-items:center; justify-content:space-between; gap:10px; padding:13px 14px 13px 16px; border-radius:var(--r-sm); border:1px solid var(--line); background:var(--card); color:var(--ink); font:inherit; font-size:15px; font-weight:650; text-align:left; cursor:pointer; transition:border-color .2s, box-shadow .2s, transform .2s var(--ease); }
+.sw > span:first-child { white-space:nowrap; flex:none; }
+.pnl-parts .sw { gap:6px; padding-left:12px; padding-right:10px; font-size:14px; }
+.sw .cost { margin-left:auto; margin-right:-4px; font-size:11px; font-weight:600; letter-spacing:-.01em; color:var(--muted); white-space:nowrap; }
+.meter-note { margin:10px 0 18px; font-size:13px; color:var(--muted); }
 .sw:hover { border-color:var(--violet); }
 .sw:active { transform:scale(.98); }
 .sw[aria-checked="true"] { box-shadow:0 0 0 1px var(--violet), 0 8px 22px rgba(107,61,255,.14); border-color:var(--violet); }
