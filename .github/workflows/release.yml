@@ -354,7 +354,18 @@ jobs:
           fi
           if [ -z "${CSC_LINK:-}" ] && [ -z "${WIN_CSC_LINK:-}" ]; then export CSC_IDENTITY_AUTO_DISCOVERY=false; fi
           echo "Packaging with $config"
-          npx electron-builder --config "$config" ${{ matrix.target }} --${{ matrix.arch }} --publish never
+          # Notarization waits on Apple over the network; a dropped connection on the runner is not a rejection.
+          # Package again (up to three tries) only when the failure was the network, never when Apple said no.
+          build() {
+            for try in 1 2 3; do
+              if "$@" 2>&1 | tee pkg.log; then return 0; fi
+              if grep -Eq 'NSURLErrorDomain|Internet connection appears to be offline|timed out|ECONNRESET|ETIMEDOUT|statusCode: nil' pkg.log && [ "$try" -lt 3 ]; then
+                echo "::warning title=Notarization::the network dropped while waiting for Apple (try $try); packaging again"; sleep 30; continue
+              fi
+              return 1
+            done
+          }
+          build npx electron-builder --config "$config" ${{ matrix.target }} --${{ matrix.arch }} --publish never
       # ---- Downloadable components (docs/COMPONENTS.md): from this very build, signed like the app on
       # macOS by build/after-sign.cjs, as keeper-component-<name>-<platform>-<arch>.tar.gz plus
       # components-<platform>-<arch>.json. SHA256SUMS.txt (and its Sigstore signature) covers them.
@@ -414,7 +425,19 @@ jobs:
             *) targets="--linux AppImage tar.gz" ;;
           esac
           # shellcheck disable=SC2086 # $targets is a list of words
-          npx electron-builder --config "$config" $targets --${{ matrix.arch }} --publish never -c.directories.output=release-full
+          # Notarization waits on Apple over the network; a dropped connection on the runner is not a rejection.
+          # Package again (up to three tries) only when the failure was the network, never when Apple said no.
+          build() {
+            for try in 1 2 3; do
+              if "$@" 2>&1 | tee pkg.log; then return 0; fi
+              if grep -Eq 'NSURLErrorDomain|Internet connection appears to be offline|timed out|ECONNRESET|ETIMEDOUT|statusCode: nil' pkg.log && [ "$try" -lt 3 ]; then
+                echo "::warning title=Notarization::the network dropped while waiting for Apple (try $try); packaging again"; sleep 30; continue
+              fi
+              return 1
+            done
+          }
+          # shellcheck disable=SC2086 # $targets is a list of words
+          build npx electron-builder --config "$config" $targets --${{ matrix.arch }} --publish never -c.directories.output=release-full
           shopt -s nullglob
           for f in release-full/*.dmg release-full/*.exe release-full/*.AppImage release-full/*.tar.gz; do
             base="$(basename "$f")"
