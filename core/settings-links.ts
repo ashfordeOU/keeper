@@ -11,6 +11,16 @@ export interface SettingsLink {
 }
 
 export const SETTINGS_LINKS: SettingsLink[] = [
+  // The sections of Settings (core/settings-schema.ts), then older names that still lead there.
+  { label: 'Settings → General', route: 'settings:general' },
+  { label: 'Settings → Shortcuts', route: 'settings:general#shortcuts' },
+  { label: 'Settings → Files & search', route: 'settings:files' },
+  { label: 'Settings → The Island', route: 'settings:island' },
+  { label: 'Settings → Privacy & permissions', route: 'settings:privacy' },
+  { label: 'Settings → Battery and speed', route: 'settings:battery' },
+  { label: 'Settings → Devices', route: 'settings:devices' },
+  { label: 'Settings → About', route: 'settings:about' },
+  { label: 'Settings → Changed', route: 'settings:changed' },
   { label: 'Settings → Appearance', route: 'settings:appearance' },
   { label: 'Settings → Accessibility', route: 'settings:accessibility' },
   { label: 'Settings → Features', route: 'settings:features' },

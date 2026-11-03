@@ -239,7 +239,7 @@ function AppsTab({ ov, reload }: { ov: NotesOverview; reload: () => void }) {
   return (
     <div className="col nh-apps">
       {!ov.autoSync ? (
-        <div className="card nh-note-bar small"><Icon name="info" size={14} /> Apps sync when you press Sync. To sync on their own every so often, turn on “Notes Everywhere: sync in the background” in Settings → Features.</div>
+        <div className="card nh-note-bar small"><Icon name="info" size={14} /> Apps sync when you press Sync. To sync on their own every so often, turn on “Keep notes apps in sync” in Settings → Features.</div>
       ) : null}
       {live.length === 0 && !adding ? <Empty icon="note" title="No apps connected yet">Pick an app below. Every connection starts read-only, and shows a dry run before anything is copied.</Empty> : null}
       {live.map((c) => <ConnectorCard key={c.id} c={c} plan={plans[c.id]} setPlan={(p) => setPlans((x) => { const n = { ...x }; if (p) n[c.id] = p; else delete n[c.id]; return n; })} reload={reload} />)}

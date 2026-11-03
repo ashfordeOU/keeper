@@ -60,6 +60,11 @@ describe('one taxonomy', () => {
     const groups = new Set(NAV_GROUPS.map((g) => g.id));
     expect(FEATURES.filter((f) => !f.navGroup || !groups.has(f.navGroup)).map((f) => f.id)).toEqual([]);
   });
+  it('agrees with the setup groups (core/feature-tiers.ts) wherever both name one', () => {
+    const SAME: Record<string, string> = { privacy: 'security', mail: 'pim' };
+    const differ = FEATURES.filter((f) => f.setup && (SAME[f.setup] ?? f.setup) !== f.navGroup).map((f) => `${f.id}: setup ${f.setup}, sidebar ${f.navGroup}`);
+    expect(differ).toEqual([]);
+  });
   it('the sidebar sections follow the Features groups, in their order', () => {
     const order = NAV_GROUPS.map((g) => g.id);
     const ids = navSections().map((s) => s.id);

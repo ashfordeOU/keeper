@@ -122,12 +122,12 @@ describe('export and import', () => {
   });
   it('previews what an import changes, skips what it does not know, and keeps secrets out', () => {
     const cur = base();
-    const file = { keeper: '1.0.1', format: 1, exported: '', settings: { appearance: 'dark', oldDownloadDays: 45, island: { hoverOpen: false, calendarUrl: 'https://evil' }, futureThing: 1, density: 'gigantic' }, features: { keeperMesh: true } };
+    const file = { keeper: '1.0.1', format: 1, exported: '', settings: { appearance: 'dark', oldDownloadDays: 45, island: { hoverOpen: false, calendarUrl: 'https://evil' }, futureThing: 1, density: 'gigantic' }, features: { link: true, keeperMesh: true } };
     const p = previewImport(cur, JSON.stringify(file), 'linux');
     expect(p.changes.map((c) => c.id).sort()).toEqual(['appearance', 'island.hoverOpen', 'oldDownloadDays']);
     expect(p.changes.find((c) => c.id === 'appearance')).toMatchObject({ from: 'Automatic', to: 'Dark' });
     expect(p.skipped).toBe(1);
-    expect(p.partsOn).toContain('Keeper Mesh');
+    expect(p.partsOn).toContain('Private network for your devices');
     // A bad value falls back to what is there now.
     expect(p.patch.density).toBeUndefined();
     expect((p.patch.island as AllSettings['island']).calendarUrl).toBe(cur.island.calendarUrl);

@@ -689,11 +689,11 @@ const hostDeps = () => ({
 
 export const hosting = {
   status: () => {
-    if (!featureOn('rdcHosting')) throw new Error('Turn on “Let others reach this computer” in Settings → Features first');
+    if (!featureOn('rdcHosting')) throw new Error('Turn on “Remote Desktop into this computer” in Settings → Features first');
     return hostLib().then((h) => h.hostStatus(hostDeps()));
   },
   set: (id: HostId, on: boolean, o?: { password?: string; localOnly?: boolean }) => {
-    if (!featureOn('rdcHosting')) throw new Error('Turn on “Let others reach this computer” in Settings → Features first');
+    if (!featureOn('rdcHosting')) throw new Error('Turn on “Remote Desktop into this computer” in Settings → Features first');
     return hostLib().then((h) => h.hostSet(hostDeps(), id, on, o));
   },
   fix: (check: 'nla' | 'lockout') => hostLib().then((h) => h.hostFix(check)),

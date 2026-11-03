@@ -41,7 +41,7 @@ export function DisplayExtras({ cfg, save }: { cfg: StageSettings; save: (p: Par
   const [displays, setDisplays] = useState<{ displays: DisplayInfo[]; note?: string } | null>(null);
   const k = cfg.displayKeys;
   const setK = (patch: Partial<StageSettings['displayKeys']>) => save({ displayKeys: { ...k, ...patch } });
-  if (!ddc) return <div className="card settings-section muted small" style={{ padding: 14 }}>External display controls are switched off in Settings → Features.</div>;
+  if (!ddc) return <div className="card settings-section muted small" style={{ padding: 14 }}>Monitor controls are turned off in Settings → Features.</div>;
   return (
     <div className="card settings-section" data-testid="stage-displays">
       <div className="setting">

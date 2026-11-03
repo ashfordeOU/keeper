@@ -9,6 +9,7 @@ import { ACTION_INFO, CARD_INFO, GLANCE_ACTIONS, GLANCE_CARDS, type GlanceSettin
 import { accelLabel, type ShortcutStatus } from '../../../core/shortcuts';
 import { changedSettings, exportSettings, getPath, labelOf, previewImport, resetPatch, settingDefaults as defaultsFor, valueText, type ImportPreview } from '../../../core/settings-schema';
 import { api } from '../../api';
+import { openSetupAgain } from '../../setup/FirstRun';
 import { errorText } from '../../../core/ipc-error';
 import { Icon } from '../../components/Icon';
 import { Check, Modal, Toggle } from '../../components/ui';
@@ -239,6 +240,7 @@ function OcrLanguagesPanel() {
 }
 
 export const PANELS: Record<string, PanelDef> = {
+  setupAgain: { render: () => <button className="btn" data-testid="settings-setup-again" onClick={() => openSetupAgain()}><Icon name="sparkle" size={13} /> Set up again…</button> },
   login: { render: () => <LoginRow />, own: true },
   language: { render: () => <LanguageRow />, own: true },
   shortcuts: { render: () => <ShortcutsPanel />, wide: true },

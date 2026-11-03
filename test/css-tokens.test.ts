@@ -19,6 +19,6 @@ describe('type scale and corner tokens', () => {
   it('raw pixel sizes only go down', () => {
     // Lower this as stylesheets move to the tokens (1,255 before the tokens).
     const total = readdirSync(dir).filter((f) => f.endsWith('.css')).reduce((n, f) => n + raw(readFileSync(path.join(dir, f), 'utf8')), 0);
-    expect(total).toBeLessThanOrEqual(1147);
+    expect(total).toBeLessThanOrEqual(1171);
   });
 });

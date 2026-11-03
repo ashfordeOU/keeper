@@ -359,7 +359,7 @@ export function UnattendedCard({ s }: { s: LinkState }) {
           <h3 style={{ margin: 0 }}>Unattended access</h3>
           <div className="small muted">Keep this computer reachable by your own devices after a restart and before anyone logs in. Installs a small system service (asks for an administrator once).</div>
         </div>
-        <Toggle on={u.installed} onChange={(v) => (on ? void flip(v) : toast('Turn on “Unattended access” in Settings → Features first'))} />
+        <Toggle on={u.installed} onChange={(v) => (on ? void flip(v) : toast('Turn on “Reach this computer before login” in Settings → Features first'))} />
       </div>
       {!u.can.ok && !u.installed ? <div className="small muted" style={{ marginTop: 6 }}>{u.can.reason}</div> : null}
       <ul className="small muted" style={{ margin: '8px 0 0', paddingLeft: 18 }}>{u.limits.map((l) => <li key={l}>{l}</li>)}</ul>

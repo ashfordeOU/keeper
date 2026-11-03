@@ -631,7 +631,7 @@ export class ScreenService {
 
   /** Accept an invitation to watch (view-only). */
   async joinInvite(id: string, tab = false): Promise<string> {
-    if (!featureOn('screenExtras')) throw new Error('Watching as a second viewer is one of the Remote screen extras, switched off in Settings → Features');
+    if (!featureOn('screenExtras')) throw new Error('Watching as a second viewer is part of “More while sharing a screen”, turned off in Settings → Features');
     const inv = this.pendingInvites.get(id);
     if (!inv) throw new Error('That invitation has expired');
     this.pendingInvites.delete(id);
@@ -759,7 +759,7 @@ export class ScreenService {
 
   /** Viewer: print a file on the other computer's default printer. */
   async print(sid: string, file: string) {
-    if (!featureOn('screenExtras')) throw new Error('Printing on the other computer is one of the Remote screen extras, switched off in Settings → Features');
+    if (!featureOn('screenExtras')) throw new Error('Printing on the other computer is part of “More while sharing a screen”, turned off in Settings → Features');
     const s = this.sessions.get(sid);
     const node = this.d.node();
     if (!s || !node || s.help) throw new Error('No such session');
