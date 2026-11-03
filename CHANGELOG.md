@@ -11,6 +11,7 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - A column of accounts beside the folders: All inboxes, each account's picture or initials (a colour that stays the same for its address) with its unread number, and + to add an account.
 - Labels in the folder list, each with its own colour and count; a label shows its mail from every folder.
 - The message list is grouped under Today, Yesterday, Past week and Older, with "12 min" and "3 h" for the last day, then clock times, then dates.
+- In lists that mix accounts, a row's account is a short bar in its colour on the right edge, named for screen readers and shown only when you have more than one account, so it is not mistaken for the unread dot on the left.
 - "Updated 2 minutes ago" at the foot of the list, from when mail was last checked; click it to check now.
 - New message shows its key: ⌘N on a Mac, Ctrl+N elsewhere (now in every shortcut set), or your own.
 - Settings → Mail & Calendar → Show today at the top of the inbox turns the greeting, the events and the meeting chip off.

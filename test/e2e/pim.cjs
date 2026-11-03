@@ -381,6 +381,16 @@ const MSG = (subject, extra = '') => [
   await foot.click();
   check(!!(await waitFor(async () => /Updated just now/.test(await foot.innerText()), 30)), 'clicking it checks for new mail');
   // Screenshots of the layout in light and dark.
+  // One unread mark per row: the account bar shows only when there is more than one account, and is named.
+  check(await main.locator('.mail-row.unread').count() > 0 && await main.locator('.mail-acc-dot').count() === 0, 'with one account, unread rows carry only the unread dot');
+  // The cards share the row evenly, from the list column's left edge.
+  const geo = await main.evaluate(() => {
+    const cards = [...document.querySelectorAll('.today-card')].map((c) => c.getBoundingClientRect());
+    const strip = document.querySelector('.today-strip').getBoundingClientRect();
+    const chips = document.querySelector('.mail-chips .mail-chip').getBoundingClientRect();
+    return { widths: cards.map((r) => Math.round(r.width)), gaps: cards.slice(1).map((r, i) => Math.round(r.left - cards[i].right)), left: Math.round(cards[0].left), chipsLeft: Math.round(chips.left), used: Math.round(cards[cards.length - 1].right - cards[0].left), room: Math.round(strip.width) };
+  });
+  check(geo.widths.every((w) => Math.abs(w - geo.widths[0]) <= 1 && w >= 200 && w <= 320) && new Set(geo.gaps).size === 1 && Math.abs(geo.left - geo.chipsLeft) <= 1 && (geo.used >= geo.room - 8 || geo.widths[0] >= 319), `the event cards share the row evenly from the list's left edge (${JSON.stringify(geo)})`);
   for (const look of ['light', 'dark']) {
     await main.evaluate((a) => window.keeper.settings.set({ appearance: a }), look);
     await inboxChip.click();

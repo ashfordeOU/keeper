@@ -49,7 +49,8 @@
 .mail-subject { font-size: 13px; color: var(--text); display: flex; align-items: center; gap: 4px; }
 .mail-subject .flag { color: var(--warn); flex: none; }
 .mail-snippet { font-size: 12.5px; color: var(--text-3); display: flex; align-items: center; gap: 4px; }
-.mail-acc-dot { position: absolute; right: 8px; bottom: 10px; width: 6px; height: 6px; border-radius: 2px; }
+/* The account's colour as a short bar on the right edge, so it never reads as a second unread dot. */
+.mail-acc-dot { position: absolute; right: 0; top: 10px; bottom: 10px; width: 3px; border-radius: var(--r-sm) 0 0 var(--r-sm); opacity: .85; }
 
 .mail-reader { overflow-y: auto; min-width: 0; }
 .mail-reader-empty { height: 100%; display: grid; place-content: center; justify-items: center; gap: 8px; color: var(--text-3); text-align: center; }
@@ -401,12 +402,13 @@
 .rail-badge { position: absolute; top: -4px; right: -7px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: var(--r-pill); background: var(--danger); color: #fff; font-size: var(--fs-xs); font-weight: 700; line-height: 17px; text-align: center; font-variant-numeric: tabular-nums; box-shadow: 0 0 0 2px var(--bg-sunk); }
 .compose-btn kbd { margin-left: auto; font: 11px var(--mono); padding: 1px 6px; border-radius: var(--r-sm); background: color-mix(in srgb, var(--accent-text, #fff) 20%, transparent); }
 
-.mail-today { grid-column: 2 / -1; grid-row: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px 16px 12px; border-bottom: 1px solid var(--line); background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 7%, transparent), transparent 85%); }
+.mail-today { grid-column: 2 / -1; grid-row: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px 10px 12px; border-bottom: 1px solid var(--line); background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 7%, transparent), transparent 85%); }
 .today-hello { display: flex; align-items: baseline; gap: 4px 14px; flex-wrap: wrap; }
 .today-greeting { margin: 0; font-size: var(--fs-2xl); font-weight: 700; letter-spacing: -.02em; line-height: 1.15; color: var(--text); }
 .today-date { font-size: var(--fs-md); color: var(--text-2); }
-.today-strip { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 6px; scroll-snap-type: x proximity; scrollbar-width: thin; }
-.today-card { position: relative; flex: 0 0 auto; width: 212px; min-height: 74px; display: flex; flex-direction: column; justify-content: space-between; gap: 6px; padding: 8px 10px 8px 14px; border: 1px solid var(--line); border-radius: var(--r-lg); background: color-mix(in srgb, var(--bg-elev) 90%, transparent); scroll-snap-align: start; }
+.today-strip { display: flex; gap: 8px; overflow-x: auto; margin: 0 -2px; padding: 2px 2px 6px; scroll-snap-type: x proximity; scrollbar-width: thin; }
+/* Cards share the row evenly (200–320 px each) and scroll sideways when they do not fit. */
+.today-card { position: relative; flex: 1 1 0; min-width: 200px; max-width: 320px; min-height: 74px; display: flex; flex-direction: column; justify-content: space-between; gap: 6px; padding: 8px 10px 8px 14px; border: 1px solid var(--line); border-radius: var(--r-lg); background: color-mix(in srgb, var(--bg-elev) 90%, transparent); scroll-snap-align: start; }
 .today-card::before { content: ''; position: absolute; left: 5px; top: 9px; bottom: 9px; width: 3px; border-radius: var(--r-sm); background: var(--cal, var(--accent)); }
 .today-card.now { border-color: color-mix(in srgb, var(--cal, var(--accent)) 55%, var(--line)); background: color-mix(in srgb, var(--cal, var(--accent)) 12%, var(--bg-elev)); box-shadow: var(--shadow); }
 .today-card.past { opacity: .62; }

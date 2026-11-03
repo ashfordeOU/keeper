@@ -340,6 +340,7 @@ export function Mail() {
 
   const toggleCheck = (id: string) => { const next = new Set(checked); if (next.has(id)) next.delete(id); else next.add(id); setChecked(next); };
   const acctColor = (id: string) => accounts.find((a) => a.id === id)?.color ?? 'var(--accent)';
+  const acctLabel = (id: string) => accounts.find((a) => a.id === id)?.label ?? id;
   const cross = view.folder === 'unified' || view.folder === 'unified:sent' || view.folder === 'snoozed' || searching;
 
   // Today, Yesterday, the past week, older: a heading where the day changes (not in search, which ranks by place).
@@ -393,7 +394,8 @@ export function Mail() {
                   <div className="mail-snippet ellipsis">{m.hasAttachments ? <Icon name="paperclip" size={11} /> : null}{(m.labels ?? []).slice(0, 2).map((l) => <span key={l} className="label-chip">{l}</span>)}{searching ? <span className="label-chip">{m.folder.toUpperCase() === 'INBOX' ? 'Inbox' : m.folder.split(/[/.]/).pop()}</span> : null}{m.snippet}</div>
                 </div>
               )}
-              {cross ? <i className="mail-acc-dot" style={{ background: acctColor(m.account) }} /> : null}
+              {/* Which account, in lists that mix accounts (only when there is more than one). The dot at the left is unread. */}
+              {cross && mailAccounts.length > 1 ? <i className="mail-acc-dot" role="img" aria-label={`Account: ${acctLabel(m.account)}`} title={`Account: ${acctLabel(m.account)}`} style={{ background: acctColor(m.account) }} /> : null}
             </div>
           </div>
         );
