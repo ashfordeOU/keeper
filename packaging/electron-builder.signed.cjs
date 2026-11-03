@@ -6,7 +6,8 @@
 // .github/release.json's "macSigning"; see RELEASING.md → Moving to the Developer ID):
 //   CSC_LINK + CSC_KEY_PASSWORD (the "Developer ID Application" certificate as base64 .p12),
 //   signed with the hardened runtime and build/entitlements.mac.plist, then notarized and
-//   stapled with APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD and APPLE_TEAM_ID. Every one of them is
+//   stapled with APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD and APPLE_TEAM_ID by scripts/notarize-mac.mjs
+//   (run from build/after-sign.cjs, so the submission ID is kept). Every one of them is
 //   required: a missing one stops the build instead of making a self-signed or un-notarized one.
 //   APPLE_TEAM_ID must be the team in core/update-verify.ts, the one the updater's bridge accepts.
 //   A CSC_LINK without KEEPER_MAC_SIGNING=developer-id is refused too, so a certificate in the
@@ -47,9 +48,11 @@ function developerIdMac(base, e = env) {
     gatekeeperAssess: false,
     entitlements: 'build/entitlements.mac.plist',
     entitlementsInherit: 'build/entitlements.mac.plist',
-    // Notarized with APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID (read from the environment
-    // by electron-builder 26), then the ticket is stapled to the app before the dmg and zip are made.
-    notarize: true,
+    // Not notarized by electron-builder: its notarization sends the app again whenever it is run
+    // again. build/after-sign.cjs runs scripts/notarize-mac.mjs instead (APPLE_ID /
+    // APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID), which keeps the submission ID, waits on it, and
+    // staples the ticket to the app before electron-builder makes the dmg and zip.
+    notarize: false,
     // Programs placed next to Keeper's own executable are signed with the same Developer ID first.
     // agent-desktop (Contents/Resources/agent-desktop) too, when it was fetched: it reads other apps
     // through Keeper's Accessibility permission.

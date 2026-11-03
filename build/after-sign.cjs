@@ -10,10 +10,12 @@
 // ad-hoc signed.
 //
 // A Developer ID build (KEEPER_MAC_SIGNING=developer-id, packaging/electron-builder.signed.cjs)
-// is signed, notarized and stapled by electron-builder itself, keeper-helper, Keeper Intents.app
-// and agent-desktop included: here the app is left alone, its pieces are checked (Developer ID
-// of the expected team, hardened runtime), and the downloadable components are signed with the
-// same Developer ID, the hardened runtime and a secure timestamp.
+// is signed by electron-builder itself, keeper-helper, Keeper Intents.app and agent-desktop
+// included: here its pieces are checked (Developer ID of the expected team, hardened runtime),
+// the downloadable components are signed with the same Developer ID, the hardened runtime and a
+// secure timestamp, and then the app is notarized and stapled by scripts/notarize-mac.mjs, which
+// keeps Apple's submission ID so a retry or a re-run waits on it instead of sending the app again.
+// electron-builder makes the dmg and zip (and latest-mac.yml) from the stapled app afterwards.
 //
 // The requirements are deliberately not preserved: an ad-hoc requirement pins
 // one build's cdhash, which is exactly what this replaces.
@@ -133,7 +135,25 @@ exports.default = async function afterSign(context) {
   } finally {
     context.__signComponents?.();
   }
+  if (context.electronPlatformName === 'darwin' && process.platform === 'darwin' && developerIdBuild()) notarize(context);
 };
+
+/** The notarize-mac.mjs command line for this app (edition as build/after-pack.cjs reads it). */
+function notarizeArgs(context, env = process.env) {
+  const { ARCH } = require('./after-pack.cjs');
+  const app = path.join(context.appOutDir, `${context.packager.appInfo.productFilename}.app`);
+  const args = [path.join(__dirname, '..', 'scripts', 'notarize-mac.mjs'), '--app', app, '--version', context.packager.appInfo.version,
+    '--arch', ARCH[context.arch] ?? 'x64', '--edition', env.KEEPER_EDITION === 'core' ? 'core' : 'full'];
+  if (env.KEEPER_NOTARY_COMMIT) args.push('--commit', env.KEEPER_NOTARY_COMMIT);
+  return args;
+}
+exports.notarizeArgs = notarizeArgs;
+
+/** Notarizes and staples the app before electron-builder makes the dmg and zip from it. */
+function notarize(context) {
+  const r = spawnSync(process.execPath, notarizeArgs(context), { stdio: 'inherit' });
+  if (r.status !== 0) throw new Error('after-sign: notarization did not finish (see the notarize-mac lines above)');
+}
 
 async function signApp(context) {
   const identity = process.env.KEEPER_SIGN_IDENTITY;

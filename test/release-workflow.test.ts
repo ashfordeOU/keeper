@@ -2,7 +2,7 @@
 // The release workflow's promises: betas (tags with a hyphen) become GitHub pre-releases and
 // never reach a package manager; the Store package stays a workflow artifact. See docs/BETA.md.
 
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -12,7 +12,7 @@ const yaml = createRequire(import.meta.url)('js-yaml') as { load(text: string): 
 
 const ROOT = path.resolve(__dirname, '..');
 type Step = { id?: string; name?: string; uses?: string; with?: Record<string, unknown>; run?: string; env?: Record<string, string>; if?: string };
-type Job = { if?: string; needs?: string | string[]; permissions?: Record<string, string>; strategy?: { matrix?: unknown }; steps?: Step[] };
+type Job = { if?: string; 'timeout-minutes'?: number | string; needs?: string | string[]; permissions?: Record<string, string>; strategy?: { matrix?: unknown }; steps?: Step[] };
 const wf = yaml.load(readFileSync(path.join(ROOT, '.github/workflows/release.yml'), 'utf8')) as { jobs: Record<string, Job> };
 
 /** Jobs that publish somewhere other than the GitHub release itself. */
@@ -189,6 +189,68 @@ describe('release workflow', () => {
     // The build flag and the release notes follow the same choice.
     expect(JSON.stringify(steps)).toContain("KEEPER_DEVELOPER_ID\":\"${{ matrix.platform == 'darwin' && needs.tag.outputs.mac_signing == 'developer-id'");
     expect(wf.jobs.release.steps?.find((s) => s.name === 'Release notes')?.run).toContain('--mac-signing "$MAC_SIGNING"');
+  });
+});
+
+describe('release workflow: notarization by submission ID', () => {
+  const steps = wf.jobs.build.steps ?? [];
+  const at = (name: string) => steps.findIndex((s) => s.name === name);
+  const workflows = path.join(ROOT, '.github', 'workflows');
+
+  it('nothing but scripts/notarize-mac.mjs sends an app to Apple', () => {
+    for (const f of readdirSync(workflows)) {
+      const raw = readFileSync(path.join(workflows, f), 'utf8');
+      expect(raw, f).not.toMatch(/notarytool\s+submit|@electron\/notarize|altool/);
+    }
+    // electron-builder's own notarization is off; after-sign runs the script.
+    expect(readFileSync(path.join(ROOT, 'packaging', 'electron-builder.signed.cjs'), 'utf8')).toMatch(/^\s*notarize: false,/m);
+    expect(readFileSync(path.join(ROOT, 'build', 'after-sign.cjs'), 'utf8')).toContain("'scripts', 'notarize-mac.mjs'");
+    expect(readFileSync(path.join(ROOT, 'scripts', 'notarize-mac.mjs'), 'utf8').match(/notarytool\(\['submit'/g)).toHaveLength(1);
+  });
+
+  it('packaging is never repeated: the build() retry that sent the app again is gone', () => {
+    for (const name of ['Package', 'Offline installer (everything inside)']) {
+      const run = steps[at(name)].run ?? '';
+      expect(run, name).not.toMatch(/build\(\)|packaging again|for try in|pkg\.log/);
+      expect(run.match(/npx electron-builder/g), name).toHaveLength(1);
+    }
+  });
+
+  it('the Mac jobs stop at 350 minutes and the notarization budget (300 by default, at most 330) ends before', () => {
+    expect(String(wf.jobs.build['timeout-minutes'])).toBe("${{ matrix.platform == 'darwin' && 350 || 360 }}");
+    const raw = readFileSync(path.join(workflows, 'release.yml'), 'utf8');
+    const on = (yaml.load(raw) as { on: Record<string, { inputs: Record<string, { default?: unknown }> }> }).on;
+    expect(on.workflow_dispatch.inputs.notary_budget_minutes.default).toBe(300);
+    expect(on.workflow_call.inputs.notary_budget_minutes.default).toBe(300);
+    const budget = steps[at('Notarization budget')];
+    expect(budget.if).toContain("needs.tag.outputs.mac_signing == 'developer-id'");
+    expect(budget.run).toContain('budget="${BUDGET:-300}"');
+    expect(budget.run).toContain('[ "$budget" -gt 330 ]');
+    expect(budget.run).toContain('KEEPER_NOTARY_DEADLINE=');
+    expect(budget.run).toContain('KEEPER_NOTARY_COMMIT=$GITHUB_SHA');
+    // Counted from the start of the job: right after the checkout.
+    expect(at('Notarization budget')).toBe(1);
+  });
+
+  it('records are restored before packaging and kept (cache and artifact) even when the job fails', () => {
+    const restore = steps.findIndex((s) => s.uses?.startsWith('actions/cache/restore@') === true);
+    expect(restore).toBeGreaterThan(-1);
+    expect(restore).toBeLessThan(at('Package'));
+    expect(steps[restore].with?.path).toBe('.notary');
+    expect(steps[restore].with?.['restore-keys']).toBe('notary-${{ needs.tag.outputs.version }}-${{ matrix.arch }}-');
+    const ids = at('Notarization IDs');
+    expect(ids).toBeGreaterThan(at('Offline installer (everything inside)'));
+    expect(steps[ids].if).toMatch(/^always\(\) && /);
+    expect(steps[ids].run).toContain('key=notary-$VERSION-$ARCH-$shas');
+    const save = steps.findIndex((s) => s.uses?.startsWith('actions/cache/save@') === true);
+    expect(save).toBeGreaterThan(ids);
+    expect(steps[save].if).toMatch(/^always\(\) && /);
+    expect(steps[save].with).toEqual({ path: '.notary', key: '${{ steps.notary.outputs.key }}' });
+    const upload = steps.findIndex((s, i) => i > ids && s.uses?.startsWith('actions/upload-artifact') === true);
+    expect(steps[upload].if).toMatch(/^always\(\) && /);
+    expect(steps[upload].with?.path).toBe('.notary/*.json');
+    // Never picked up by the release job (it downloads keeper-*).
+    expect(String(steps[upload].with?.name)).not.toMatch(/^keeper-/);
   });
 });
 

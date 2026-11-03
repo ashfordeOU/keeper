@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // packaging/electron-builder.signed.cjs: a Developer ID Mac build is complete (hardened runtime,
 // entitlements, notarization for the team the updater accepts) or it does not build at all.
+// Notarization is build/after-sign.cjs running scripts/notarize-mac.mjs (submission ID kept),
+// never electron-builder's own, which would send the app again on every retry.
 
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -34,11 +36,11 @@ afterEach(() => {
 });
 
 describe('Developer ID build configuration', () => {
-  it('signs with the hardened runtime and the entitlements, and notarizes', () => {
+  it('signs with the hardened runtime and the entitlements; notarization is left to notarize-mac.mjs', () => {
     const { mac } = load(ALL);
     expect(mac.identity).toBeUndefined();
     expect(mac.hardenedRuntime).toBe(true);
-    expect(mac.notarize).toBe(true);
+    expect(mac.notarize).toBe(false);
     expect(mac.entitlements).toBe('build/entitlements.mac.plist');
     expect(mac.entitlementsInherit).toBe('build/entitlements.mac.plist');
     expect(mac.binaries).toContain('Contents/MacOS/keeper-helper');
@@ -71,6 +73,17 @@ describe('Developer ID build configuration', () => {
     ]) expect(plist).toMatch(new RegExp(`<key>${k.replace(/\./g, '\\.')}</key>\\s*<true/>`));
     // No sandbox: Keeper is a file library for the whole disk (the App Store edition is separate).
     expect(plist).not.toContain('com.apple.security.app-sandbox');
+  });
+
+  it('after-sign notarizes a Developer ID app with notarize-mac.mjs, before the dmg and zip are made', () => {
+    const hook = readFileSync(path.join(ROOT, 'build', 'after-sign.cjs'), 'utf8');
+    expect(hook).toMatch(/developerIdBuild\(\)\) notarize\(context\)/);
+    const { notarizeArgs } = require(path.join(ROOT, 'build', 'after-sign.cjs')) as { notarizeArgs(c: unknown, env: Record<string, string>): string[] };
+    const context = { appOutDir: '/out/mac-arm64', arch: 3, packager: { appInfo: { productFilename: 'Keeper', version: '1.0.1' } } };
+    expect(notarizeArgs(context, { KEEPER_EDITION: 'core', KEEPER_NOTARY_COMMIT: 'abc' })).toEqual([
+      path.join(ROOT, 'scripts', 'notarize-mac.mjs'), '--app', path.join('/out/mac-arm64', 'Keeper.app'), '--version', '1.0.1', '--arch', 'arm64', '--edition', 'core', '--commit', 'abc',
+    ]);
+    expect(notarizeArgs(context, {})).toContain('full');
   });
 
   it('the release check reads the team and the bridge requirement from core/update-verify.ts', async () => {

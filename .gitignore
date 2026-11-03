@@ -13,3 +13,5 @@ Thumbs.db
 *.traineddata
 native/macos/KeeperIntents/build/
 native/macos/KeeperIntents/KeeperIntents.xcodeproj/
+# Notarization records and the zips sent to Apple (scripts/notarize-mac.mjs)
+.notary/

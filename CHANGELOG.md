@@ -19,6 +19,13 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 ### Fixed — Mail
 - With Appearance set to Dark on a computer in light mode (or the other way round), plain-text mail was drawn in the wrong colour and could not be read; it now follows Keeper's own choice.
 
+### Changed — Release: each Mac app is sent to Apple for notarization once
+- A Developer ID build sends each app to Apple once and keeps the submission ID. A dropped connection while waiting is retried without sending the app again, and packaging is no longer repeated when the network drops (that sent another copy to Apple each time).
+- A re-run of a Mac job, after Apple took longer than the job may wait, waits on the same submission with the app that was sent, instead of sending a new one. The IDs are in each job's log and summary, kept in the actions cache and attached to the run.
+- The Mac jobs wait up to 300 minutes for Apple by default (*notary_budget_minutes*, at most 330) and stop at 350. An app Apple finds Invalid fails the job with Apple's log and is never sent again.
+- The offline installer gets its own single submission, or reuses the standard one when its app is byte for byte the same.
+- RELEASING.md → Notarization explains how the IDs are kept, what a re-run does, and how to look them up with `xcrun notarytool history` and `info`.
+
 ## [1.0.0] - 2026-11-03
 
 The first stable release of Keeper by Ashforde®, and the first signed with Ashforde's Apple Developer ID and notarized by Apple: it opens like any other Mac app, with no Open Anyway and no keychain question after updates. On top of 0.1.0-beta.8 it brings a Fix-it List that explains each finding and lets you trust, snooze or undo, and an Island that shows power as one battery glyph and always opens in full.

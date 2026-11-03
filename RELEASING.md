@@ -10,6 +10,7 @@ published by GitHub Actions from `main`. A release is started by changing `"vers
 - [macOS only, or all three](#macos-only-or-all-three)
 - [Checking a release](#checking-a-release)
 - [Moving to the Developer ID](#moving-to-the-developer-id)
+- [Notarization](#notarization)
 - [Keeper 1.0.0](#keeper-100)
 - [When something goes wrong](#when-something-goes-wrong)
 
@@ -146,8 +147,8 @@ The signer change has to reach copies in two steps, **bridge first, then flip**:
    `KEEPER_DEVELOPER_ID_PASSWORD` → `CSC_KEY_PASSWORD`, `APPLE_APP_PASSWORD` →
    `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_ID` and `APPLE_TEAM_ID` as they are.
 3. **Try it without publishing.** **Actions → Release → Run workflow** on `main` with *Build only*
-   and *mac_signing* `developer-id`. The Mac jobs sign, notarize (a few minutes per edition and
-   processor), staple, and run [`scripts/check-mac-signing.mjs`](scripts/check-mac-signing.mjs)
+   and *mac_signing* `developer-id`. The Mac jobs sign, notarize (minutes to hours per edition
+   and processor, see [Notarization](#notarization)), staple, and run [`scripts/check-mac-signing.mjs`](scripts/check-mac-signing.mjs)
    on every dmg: Developer ID of team `D69G45342Y` on the app, keeper-helper, Keeper Intents.app
    and agent-desktop, hardened runtime, a stapled ticket, Gatekeeper's "Notarized Developer ID",
    and the requirement self-signed copies accept. A missing secret fails here, by name.
@@ -167,6 +168,69 @@ The signer change has to reach copies in two steps, **bridge first, then flip**:
 
 Never flip back: a Developer ID copy pins the Developer ID (its own requirement) and refuses a
 self-signed build. Keep `KEEPER_SIGNING_CERT` until no self-signed release is being made.
+
+## Notarization
+
+A Developer ID build sends each app to Apple **once** and keeps the submission ID; nothing ever
+sends the same app again because a wait was long or the network dropped. Apple reviews a new
+team's submissions at length, and every extra submission joins the same queue.
+
+**How it works.** electron-builder signs the app but does not notarize it (`notarize: false` in
+[`packaging/electron-builder.signed.cjs`](packaging/electron-builder.signed.cjs)).
+[`build/after-sign.cjs`](build/after-sign.cjs) then runs
+[`scripts/notarize-mac.mjs`](scripts/notarize-mac.mjs) on the signed app, before electron-builder
+makes the dmg and zip, so the file names, `latest-mac.yml` and the blockmaps are made exactly as
+before, from the stapled app. The script:
+
+1. zips the app (`ditto -c -k --keepParent`) and computes the zip's SHA-256;
+2. looks in `.notary/` for a record of a submission: for this exact zip (the offline edition
+   reuses the core one when its app is byte for byte the same), or, on a re-run of the same
+   commit, for the app that was sent before. A re-run signs again, which changes the bytes (the
+   signature's timestamp), so the zip that was sent is kept in `.notary/zips/` and put back in
+   place of the newly signed app;
+3. only when there is none, asks `notarytool history` whether a zip of that name was already
+   sent (a submit whose answer was lost), and otherwise runs
+   `xcrun notarytool submit <zip> --no-wait` once. The record
+   (`{ id, sha256, version, arch, edition, commit, submittedAt, status }`) is written straight
+   away, before any waiting, and the ID is printed in the log, as a notice and in the job summary;
+4. waits on that ID (`notarytool wait` in steps of up to an hour, then `notarytool info`). A
+   network error while waiting is retried with backoff (30 seconds up to 10 minutes) and never
+   sends anything;
+5. **Accepted:** staples the ticket to the app (`xcrun stapler staple`), and packaging goes on.
+   **Invalid** or **Rejected:** prints `notarytool log <id>` and fails; it is never retried,
+   and a re-run of the same commit fails the same way (fix what the log names and release a new
+   commit). The dmg itself is not notarized; the app inside it carries the ticket.
+
+**Where the IDs are kept.** In `.notary/`, which the release saves in the actions cache under
+`notary-<version>-<arch>-<zip hashes>` (restored by `notary-<version>-<arch>-`), also when the job
+failed, and uploads as the `notarization-darwin-<arch>` artifact (the records only). The step
+**Notarization IDs** lists them in every Mac job's log.
+
+**The budget.** A Mac job may wait until *notary_budget_minutes* (input of a manual run, 300 by
+default, at most 330) after it started; the job itself stops at 350 minutes, so the records are
+always saved. When the budget runs out the job fails with *Apple has not finished submission
+&lt;id&gt; within the notarization budget*.
+
+**What a re-run does.** **Re-run failed jobs** on that run (or a new run of the same commit): the
+job builds and signs again, restores `.notary/` from the cache, finds the record for that
+commit, edition and processor, puts the app that was sent back, and waits on the **same** ID,
+with a fresh budget. Nothing new is sent. If Apple has decided in the meantime, it staples at
+once and the release goes on. (If the cache entry is gone, a newly signed app gets its own
+submission, and the log names the one it replaces.)
+
+**Checking by hand** (on any Mac, with the team's Apple ID and an app-specific password):
+
+```sh
+xcrun notarytool history --apple-id "$APPLE_ID" --team-id D69G45342Y --password "$APP_PASSWORD"
+xcrun notarytool info <id> --apple-id "$APPLE_ID" --team-id D69G45342Y --password "$APP_PASSWORD"
+xcrun notarytool log <id> --apple-id "$APPLE_ID" --team-id D69G45342Y --password "$APP_PASSWORD"
+```
+
+`history` lists every submission of the team (names like `Keeper-1.0.1-arm64-core-<hash>.zip`)
+with its status; `info` shows one; `log` gives Apple's findings once it is decided. Never submit
+by hand while a release waits: it only adds to the queue. A local Developer ID build
+(`KEEPER_MAC_SIGNING=developer-id` with the same variables as the release) goes through the same
+script and keeps its records in `.notary/` in the checkout.
 
 ## Keeper 1.0.0
 
@@ -221,6 +285,8 @@ on a deleted beta keep working and update to the newest release as usual.
 
 - **A build fails:** nothing is published (the release job needs every build). Fix it, then
   re-run the failed jobs, or push the fix and run **Release** by hand.
+- **A Mac job ran out of notarization budget:** re-run the failed jobs. They wait on the same
+  submission ID and send nothing new ([Notarization](#notarization)).
 - **A channel fails after publishing:** the GitHub Release is out and updates work; re-run that
   job, or update the channel by hand ([docs/INSTALL.md](docs/INSTALL.md#maintainers-channels-secrets-and-signing)).
 - **A bad release:** mark it as a draft on GitHub (the updater and the install scripts skip

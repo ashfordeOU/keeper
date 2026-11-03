@@ -26,7 +26,11 @@
 #                 CSC_KEY_PASSWORD, APPLE_APP_PASSWORD -> APPLE_APP_SPECIFIC_PASSWORD, plus
 #                 APPLE_ID and APPLE_TEAM_ID (a raw CSC_LINK / CSC_KEY_PASSWORD /
 #                 APPLE_APP_SPECIFIC_PASSWORD is accepted in their place). A missing one fails
-#                 the build; it never falls back to self-signed.
+#                 the build; it never falls back to self-signed. Notarization is tracked by
+#                 Apple's submission ID (scripts/notarize-mac.mjs, kept in the actions cache):
+#                 a re-run waits on the same submission and never sends the app again. The wait
+#                 is bounded by notary_budget_minutes (300) from the start of the Mac job,
+#                 below its timeout-minutes (350). See RELEASING.md → Notarization.
 # See RELEASING.md → Moving to the Developer ID for the order (the updater bridge ships first).
 #
 # Pre-releases are published on GitHub only (with their update information, for testers
@@ -71,6 +75,10 @@ on:
         type: choice
         options: [release.json, self-signed, developer-id]
         default: release.json
+      notary_budget_minutes:
+        description: 'Developer ID: minutes a Mac job may wait for Apple to notarize (from the start of the job, at most 330)'
+        type: number
+        default: 300
   # release-check.yml builds everything this way, without publishing.
   workflow_call:
     inputs:
@@ -83,6 +91,9 @@ on:
       mac_signing:
         type: string
         default: ''
+      notary_budget_minutes:
+        type: number
+        default: 300
 
 permissions:
   contents: write
@@ -231,12 +242,34 @@ jobs:
     needs: tag
     if: needs.tag.outputs.build == 'true'
     runs-on: ${{ matrix.runner }}
+    # macOS: notarization may wait hours in Apple's queue; the wait stops at notary_budget_minutes
+    # (300) from the job's start, which leaves time to make the dmg, keep the submission IDs and upload.
+    timeout-minutes: ${{ matrix.platform == 'darwin' && 350 || 360 }}
     strategy:
       fail-fast: false
       # Built by the tag job from .github/release.json (or the platforms input): only the systems released.
       matrix: ${{ fromJSON(needs.tag.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v5
+      # developer-id: the notarization wait ends at this deadline (the budget counts from the job's
+      # start, so the job's timeout-minutes is never reached), and records belong to this commit.
+      - name: Notarization budget
+        if: matrix.platform == 'darwin' && needs.tag.outputs.mac_signing == 'developer-id'
+        shell: bash
+        env:
+          BUDGET: ${{ inputs.notary_budget_minutes }}
+        run: |
+          set -euo pipefail
+          budget="${BUDGET:-300}"
+          if ! [[ "$budget" =~ ^[0-9]+$ ]] || [ "$budget" -lt 1 ] || [ "$budget" -gt 330 ]; then
+            echo "::error title=Notarization::notary_budget_minutes must be 1 to 330 (the Mac job stops at 350 minutes), not $budget"; exit 1
+          fi
+          deadline=$(( $(date +%s) + budget * 60 ))
+          {
+            echo "KEEPER_NOTARY_DEADLINE=$deadline"
+            echo "KEEPER_NOTARY_COMMIT=$GITHUB_SHA"
+          } >> "$GITHUB_ENV"
+          echo "Notarization may wait until $(date -u -r "$deadline" '+%H:%M UTC') ($budget minutes from now)."
       - uses: actions/setup-node@v5
         with:
           node-version: 22
@@ -314,6 +347,15 @@ jobs:
           else
             echo "::warning::KEEPER_SIGNING_CERT is not set; this release is signed ad hoc, so macOS permissions (Accessibility, Screen Recording and the rest) must be re-granted after each update until KEEPER_SIGNING_CERT is set. Run scripts/make-signing-cert.sh once."
           fi
+      # developer-id: the submissions an earlier attempt of this version made (records, and the zips
+      # that were sent), so scripts/notarize-mac.mjs waits on them instead of sending the app again.
+      - name: Notarization records from an earlier attempt
+        if: matrix.platform == 'darwin' && needs.tag.outputs.mac_signing == 'developer-id'
+        uses: actions/cache/restore@v4
+        with:
+          path: .notary
+          key: notary-${{ needs.tag.outputs.version }}-${{ matrix.arch }}-${{ github.sha }}
+          restore-keys: notary-${{ needs.tag.outputs.version }}-${{ matrix.arch }}-
       - name: Package
         shell: bash
         env:
@@ -354,18 +396,10 @@ jobs:
           fi
           if [ -z "${CSC_LINK:-}" ] && [ -z "${WIN_CSC_LINK:-}" ]; then export CSC_IDENTITY_AUTO_DISCOVERY=false; fi
           echo "Packaging with $config"
-          # Notarization waits on Apple over the network; a dropped connection on the runner is not a rejection.
-          # Package again (up to three tries) only when the failure was the network, never when Apple said no.
-          build() {
-            for try in 1 2 3; do
-              if "$@" 2>&1 | tee pkg.log; then return 0; fi
-              if grep -Eq 'NSURLErrorDomain|Internet connection appears to be offline|timed out|ECONNRESET|ETIMEDOUT|statusCode: nil' pkg.log && [ "$try" -lt 3 ]; then
-                echo "::warning title=Notarization::the network dropped while waiting for Apple (try $try); packaging again"; sleep 30; continue
-              fi
-              return 1
-            done
-          }
-          build npx electron-builder --config "$config" ${{ matrix.target }} --${{ matrix.arch }} --publish never
+          # developer-id: build/after-sign.cjs notarizes the signed app with scripts/notarize-mac.mjs, which
+          # sends it once, keeps the submission ID and retries only the waiting. Packaging is never repeated
+          # here: a second electron-builder run would sign anew and send another app to Apple.
+          npx electron-builder --config "$config" ${{ matrix.target }} --${{ matrix.arch }} --publish never
       # ---- Downloadable components (docs/COMPONENTS.md): from this very build, signed like the app on
       # macOS by build/after-sign.cjs, as keeper-component-<name>-<platform>-<arch>.tar.gz plus
       # components-<platform>-<arch>.json. SHA256SUMS.txt (and its Sigstore signature) covers them.
@@ -387,7 +421,8 @@ jobs:
         env:
           KEEPER_REQUIRE_ALL: '1'
           KEEPER_EDITION: full
-          # The same signing as the core build: notarized too.
+          # The same signing as the core build: notarized too, as its own submission (its app holds the
+          # components), unless its app is byte for byte one Apple already has.
           # macOS, developer-id only (self-signed never sees them, a CSC_LINK secret included):
           # KEEPER_DEVELOPER_ID_CERT -> CSC_LINK, KEEPER_DEVELOPER_ID_PASSWORD -> CSC_KEY_PASSWORD,
           # APPLE_APP_PASSWORD -> APPLE_APP_SPECIFIC_PASSWORD, APPLE_ID, APPLE_TEAM_ID.
@@ -424,20 +459,9 @@ jobs:
             win32) targets="--win nsis" ;;
             *) targets="--linux AppImage tar.gz" ;;
           esac
+          # Notarized by build/after-sign.cjs (scripts/notarize-mac.mjs), never packaged twice.
           # shellcheck disable=SC2086 # $targets is a list of words
-          # Notarization waits on Apple over the network; a dropped connection on the runner is not a rejection.
-          # Package again (up to three tries) only when the failure was the network, never when Apple said no.
-          build() {
-            for try in 1 2 3; do
-              if "$@" 2>&1 | tee pkg.log; then return 0; fi
-              if grep -Eq 'NSURLErrorDomain|Internet connection appears to be offline|timed out|ECONNRESET|ETIMEDOUT|statusCode: nil' pkg.log && [ "$try" -lt 3 ]; then
-                echo "::warning title=Notarization::the network dropped while waiting for Apple (try $try); packaging again"; sleep 30; continue
-              fi
-              return 1
-            done
-          }
-          # shellcheck disable=SC2086 # $targets is a list of words
-          build npx electron-builder --config "$config" $targets --${{ matrix.arch }} --publish never -c.directories.output=release-full
+          npx electron-builder --config "$config" $targets --${{ matrix.arch }} --publish never -c.directories.output=release-full
           shopt -s nullglob
           for f in release-full/*.dmg release-full/*.exe release-full/*.AppImage release-full/*.tar.gz; do
             base="$(basename "$f")"
@@ -455,6 +479,37 @@ jobs:
       - name: Check the Developer ID signature
         if: runner.os == 'macOS' && needs.tag.outputs.mac_signing == 'developer-id'
         run: node scripts/check-mac-signing.mjs release/*.dmg
+      # developer-id, also when a step above failed or the wait ran out: the submission IDs in the log,
+      # then kept for a re-run (the cache: records and the zips sent, so the same app is put back and
+      # its ID waited on) and as an artifact (the records).
+      - name: Notarization IDs
+        id: notary
+        if: always() && matrix.platform == 'darwin' && needs.tag.outputs.mac_signing == 'developer-id'
+        shell: bash
+        env:
+          VERSION: ${{ needs.tag.outputs.version }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          records=(.notary/*.json)
+          if [ "${#records[@]}" -eq 0 ]; then echo "Nothing was sent to Apple in this job."; exit 0; fi
+          jq -r '"\(.edition) \(.arch) \(.version): submission \(.id), \(.status // "In Progress"), sent \(.submittedAt)"' "${records[@]}"
+          shas="$(jq -r --arg v "$VERSION" --arg a "$ARCH" 'select(.version == $v and .arch == $a) | .sha256[0:12]' "${records[@]}" | sort -u | paste -sd- -)"
+          [ -z "$shas" ] || echo "key=notary-$VERSION-$ARCH-$shas" >> "$GITHUB_OUTPUT"
+      - name: Keep the notarization records for a re-run
+        if: always() && steps.notary.outputs.key != ''
+        uses: actions/cache/save@v4
+        with:
+          path: .notary
+          key: ${{ steps.notary.outputs.key }}
+      - if: always() && steps.notary.outputs.key != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: notarization-${{ matrix.platform }}-${{ matrix.arch }}
+          path: .notary/*.json
+          overwrite: true
+          if-no-files-found: ignore
       # Both Mac builds write latest-mac.yml; Keeper updates Mac copies from the dmg itself,
       # so the per-processor file is kept under its own name instead of clashing.
       - if: runner.os == 'macOS'
