@@ -380,3 +380,5 @@
   .mail, .mail.layout-wide, .mail.with-side { grid-template-columns: 1fr; }
   .mail-folders { display: none; }
 }
+.message-card .banner > span.grow { min-width: 180px; }
+.message-card .banner { flex-wrap: wrap; }

@@ -66,7 +66,7 @@ export const GUIDES: ProviderGuide[] = [
     id: 'imap', name: 'Any other provider (IMAP)',
     steps: [
       'Type your address and Continue: Keeper looks up the servers (autoconfiguration and DNS).',
-      'If it cannot, choose Change servers and enter what your provider lists for IMAP (incoming, usually port 993) and SMTP (outgoing, usually 465 or 587).',
+      'If it cannot, open the server settings below and enter what your provider lists for IMAP (incoming, usually port 993) and SMTP (outgoing, usually 465 or 587).',
       'Use an app password if your provider has them; your usual password otherwise.',
     ],
   },

@@ -333,7 +333,8 @@ export class MailAccount {
   /** Does this folder keep keywords of Keeper's own (snooze times)? */
   async keepsKeywords(folder: string): Promise<boolean> {
     return this.run(async (c) => {
-      const lock = await c.getMailboxLock(folder, { readOnly: true });
+      // Read-write (SELECT): a read-only EXAMINE always reports no permanent flags.
+      const lock = await c.getMailboxLock(folder);
       try {
         return keepsKeywords(c.mailbox ? c.mailbox.permanentFlags : undefined);
       } finally {

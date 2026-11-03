@@ -436,10 +436,7 @@ async function notifyNew(a: Account, fresh: MessageSummary[]) {
   let extra: MailAlertExtra | undefined;
   if (one && state.prefs.codeActions !== false && (one.security || hasSignInCode(`${one.subject}\n${one.snippet}`))) {
     const o = await openMessage(one.id, { markRead: false }).catch(() => null);
-    const text = `${one.subject}\n${o?.text ?? one.snippet}`;
-    const code = extractCode(text);
-    const link = code ? undefined : extractSignInLink(text, o ? (bodyCache.get(one.id)?.body.html ?? undefined) : undefined);
-    if (code || link) extra = { code, link };
+    if (o && (o.code || o.signInLink)) extra = { code: o.code, link: o.signInLink };
   }
   const who = one ? one.from?.name || one.from?.address || 'New mail' : `${shown.length} new message${shown.length === 1 ? '' : 's'}`;
   const title = state.prefs.notifyPreviews ? (sec && one ? `Security: ${who}` : who) : `${shown.length} new message${shown.length === 1 ? '' : 's'}`;
@@ -681,9 +678,11 @@ async function openMessage(id: string, opts: { allowRemote?: boolean; markRead?:
     from: summary.from, replyTo: replyToH ? parseAddressList(replyToH) : undefined, headers: cached.body.headers,
     links: cached.body.html ? linksIn(cached.body.html) : [], contacts: contacts.map((c) => ({ name: c.name, emails: c.emails })), knownDomains: known,
   });
+  // A message that looks like an impersonation never gets a one-click Copy or Open.
   const textAll = `${summary.subject}\n${cached.body.text ?? ''}`;
-  const code = extractCode(textAll);
-  const signInLink = code ? undefined : extractSignInLink(textAll, cached.body.html);
+  const suspicious = warnings.some((w) => w.level === 2);
+  const code = suspicious ? undefined : extractCode(textAll);
+  const signInLink = code || suspicious ? undefined : extractSignInLink(textAll, cached.body.html);
   const remind = (state.noReply ?? []).find((r) => r.messageId === summary.messageId);
   return {
     summary, html: clean.html, text: cached.body.text, blocked: clean.blocked, trackers: clean.trackers, attachments: cached.body.attachments, invite, unsubscribe: cached.body.listUnsubscribe, headers: cached.body.headers,

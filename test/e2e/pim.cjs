@@ -5,6 +5,9 @@
 // message with its remote picture held back, replies (with undo send) and
 // finds the reply in Sent; adds a CalDAV account, writes a repeating event and
 // changes one occurrence; an event alert reaches the Island; a timer rings.
+// Mail's second round: rules on arrival, search with filters, phishing and
+// tracking, invitations (iMIP), aliases, remind if no reply, drafts on the
+// server, undo, inbox tabs and the narrow layout.
 const { _electron } = require('playwright');
 const fs = require('fs');
 const path = require('path');
@@ -105,8 +108,8 @@ const MSG = (subject, extra = '') => [
 
   // Reply with Markdown; Undo send window, then it goes and lands in Sent.
   await main.keyboard.press('r');
-  await main.waitForSelector('.compose textarea');
-  await main.locator('.compose textarea').first().fill('Thanks Ana, **looks great**!');
+  await main.waitForSelector('.compose .compose-editor');
+  await main.locator('.compose .compose-editor').fill('Thanks Ana, **looks great**!');
   await main.screenshot({ path: `${SHOTS}/app-compose.png` });
   await main.keyboard.press('Control+Enter');
   await main.waitForSelector('.mail-outbox', { timeout: 5000 }).catch(() => {});
@@ -147,7 +150,7 @@ const MSG = (subject, extra = '') => [
   const oth = await main.evaluate(() => window.keeper.pim.messages({ folder: 'unified', split: 'other' }));
   check(imp.messages.some((m) => /New sign-in/.test(m.subject) && m.security) && !imp.messages.some((m) => m.subject === 'Weekly picks'), 'the sign-in alert is Important (Security); the newsletter is not');
   check(oth.messages.some((m) => m.subject === 'Weekly picks' && m.bulk && m.unsub), 'the newsletter is in Other, with its list headers');
-  await main.locator('.mail-tabs button', { hasText: 'Important' }).click();
+  await main.locator('.mail-tabs button', { hasText: 'Primary' }).click();
   await main.waitForTimeout(600);
   await main.screenshot({ path: `${SHOTS}/app-mail-important.png` });
 
@@ -194,6 +197,136 @@ const MSG = (subject, extra = '') => [
   check(later.scheduled === true && (await main.evaluate(() => window.keeper.pim.outbox())).some((o) => o.id === later.id && o.scheduled), 'Send later is scheduled');
   const undone = await main.evaluate((id) => window.keeper.pim.undoSend(id), later.id);
   check(undone?.subject === 'Tomorrow morning' && sent.length === 2, 'a scheduled message can be taken back before it goes');
+
+  // ---------------------------------------------------------------- Mail, second round
+  const imapOf = () => new ImapFlow({ host: '127.0.0.1', port: dovecot.port, secure: false, doSTARTTLS: false, auth: { user: 'ana', pass: 'secret' }, logger: false });
+  const waitFor = async (fn, tries = 40) => { for (let i = 0; i < tries; i++) { const v = await fn(); if (v) return v; await main.waitForTimeout(500); } return null; };
+  const inFolder = async (folder) => {
+    const c = imapOf();
+    await c.connect();
+    const out = [];
+    const lock = await c.getMailboxLock(folder);
+    try { if (c.mailbox.exists) for await (const m of c.fetch('1:*', { envelope: true, flags: true, source: true })) out.push({ subject: m.envelope.subject, flags: [...m.flags], raw: m.source.toString() }); } finally { lock.release(); }
+    await c.logout();
+    return out;
+  };
+
+  // Rules: run here as mail arrives (label, mark read, archive).
+  await main.evaluate(() => window.keeper.pim.saveRules([{ id: 'r1', name: 'Bills', enabled: true, when: [{ field: 'from', contains: 'billing@' }, { field: 'subject', contains: 'invoice' }], then: { action: 'label', label: 'Bills' }, also: [{ action: 'read' }, { action: 'archive' }] }]));
+  { const c = imapOf(); await c.connect(); await c.append('INBOX', RAW2('Utility Co <billing@utility.example>', 'Your invoice for October'), []); await c.append('INBOX', RAW2('Utility Co <billing@utility.example>', 'Planned works on your street'), []); await c.logout(); }
+  await main.evaluate(() => window.keeper.pim.refresh(undefined, 'INBOX'));
+  const archived = await waitFor(async () => (await inFolder('Archive')).find((m) => m.subject === 'Your invoice for October'));
+  check(!!archived && archived.flags.includes('\\Seen') && archived.flags.includes('Bills'), 'a rule labelled, marked read and archived the matching mail on arrival');
+  check((await inFolder('INBOX')).some((m) => m.subject === 'Planned works on your street'), 'mail that does not match every condition stays in the inbox');
+
+  // Search with filters, this computer first.
+  const found = await main.evaluate(() => window.keeper.pim.search('from:billing subject:works is:unread'));
+  check(found.messages.length === 1 && found.messages[0].subject === 'Planned works on your street' && found.local === 1, 'search with from:, subject: and is:unread finds the message on this computer');
+
+  // Remote images, tracking pixels and tracking links; a look-alike sender gets a warning.
+  { const c = imapOf(); await c.connect(); await c.append('INBOX', ['From: PayPal Support <help@paypa1-secure.example>', 'To: Ana <ana@example.org>', 'Subject: Confirm your account', `Message-ID: <phish.${Date.now()}@paypa1-secure.example>`, `Date: ${new Date().toUTCString()}`, 'MIME-Version: 1.0', 'Content-Type: text/html; charset=utf-8', '', '<p>Please <a href="https://evil.example/login?utm_source=mail&amp;id=7">https://www.paypal.com/login</a> now.</p><img src="https://cdn.example.org/logo.png">'].join('\r\n'), []); await c.logout(); }
+  await main.evaluate(() => window.keeper.pim.refresh(undefined, 'INBOX'));
+  const phish = await waitFor(async () => (await main.evaluate(() => window.keeper.pim.messages({ folder: 'unified' }))).messages.find((m) => m.subject === 'Confirm your account'));
+  const opened = phish ? await main.evaluate((id) => window.keeper.pim.open(id, { markRead: false }), phish.id) : null;
+  check(!!opened && opened.warnings?.some((w) => w.kind === 'link-mismatch') && opened.warnings?.some((w) => w.kind === 'lookalike' || w.kind === 'brand-name'), 'a look-alike sender and a link that lies are warned about');
+  check(!!opened && !opened.signInLink && !opened.code, 'a message that looks like an impersonation gets no one-click Open or Copy');
+  check(!!opened && opened.blocked === 1 && opened.cleanedLinks === 1 && /href="https:\/\/evil\.example\/login\?id=7"/.test(opened.html), 'the remote picture is held back and the tracking part of the link is taken off');
+  await main.locator('.mail-folder', { hasText: 'All inboxes' }).click();
+  await main.locator('.mail-tabs button', { hasText: 'All' }).first().click();
+  await main.waitForTimeout(400);
+  await main.locator('.mail-row', { hasText: 'Confirm your account' }).first().click();
+  await main.waitForSelector('[data-testid="mail-phish"]', { timeout: 10_000 }).catch(() => {});
+  check(await main.locator('[data-testid="mail-phish"] button', { hasText: 'Report spam' }).count() === 1, 'the warning banner offers Report spam and Block');
+  await main.screenshot({ path: `${SHOTS}/app-mail-phish.png` });
+  await main.locator('[data-testid="mail-privacy-banner"] button', { hasText: 'Load images' }).click();
+  await main.waitForTimeout(800);
+  check(/src="https:\/\/cdn\.example\.org\/logo\.png"/.test(await main.locator('.message-frame').first().getAttribute('srcdoc')), 'Load images shows the picture');
+
+  // A sign-in code drops from the Island with Copy.
+  { const c = imapOf(); await c.connect(); await c.append('INBOX', RAW2('Cloudbox <no-reply@accounts.example.net>', 'Your Cloudbox sign-in code', []).replace('Your Cloudbox sign-in code.', 'Your verification code is 482913. It expires in 10 minutes.'), []); await c.logout(); }
+  const codeAlert = await waitFor(async () => (await main.evaluate(() => window.keeper.island.state())).alerts.find((a) => a.kind === 'mail' && a.mail && a.mail.code === '482913'), 60);
+  check(!!codeAlert, 'a sign-in code reaches the Island with Copy');
+
+  // An invitation: Accept answers the organiser (iMIP REPLY); Add to Calendar only adds it.
+  const start = new Date(Date.now() + 3 * 86_400_000); start.setHours(15, 0, 0, 0);
+  const ymd = (d) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, 'Z');
+  const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Test//EN', 'METHOD:REQUEST', 'BEGIN:VEVENT', `UID:plan-${Date.now()}@example.net`, `DTSTAMP:${ymd(new Date())}`, `DTSTART:${ymd(start)}`, `DTEND:${ymd(new Date(start.getTime() + 3_600_000))}`, 'SUMMARY:Garden planning', 'ORGANIZER;CN=Bob:mailto:bob@example.net', 'ATTENDEE;CN=Ana;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:ana@example.org', 'END:VEVENT', 'END:VCALENDAR'].join('\r\n');
+  { const c = imapOf(); await c.connect(); await c.append('INBOX', ['From: Bob <bob@example.net>', 'To: Ana <ana@example.org>', 'Subject: Invitation: Garden planning', `Message-ID: <inv.${Date.now()}@example.net>`, `Date: ${new Date().toUTCString()}`, 'MIME-Version: 1.0', 'Content-Type: multipart/alternative; boundary="b1"', '', '--b1', 'Content-Type: text/plain; charset=utf-8', '', 'You are invited.', '--b1', 'Content-Type: text/calendar; charset=utf-8; method=REQUEST', '', ics, '--b1--', ''].join('\r\n'), []); await c.logout(); }
+  await main.evaluate(() => window.keeper.pim.refresh(undefined, 'INBOX'));
+  await waitFor(async () => main.locator('.mail-row', { hasText: 'Garden planning' }).count());
+  await main.locator('.mail-row', { hasText: 'Garden planning' }).first().click();
+  await main.waitForSelector('[data-testid="mail-invite"]', { timeout: 15_000 }).catch(() => {});
+  check(await main.locator('[data-testid="mail-invite"] button', { hasText: 'Add to Calendar' }).count() === 1, 'the invitation card has Accept, Maybe, Decline and Add to Calendar');
+  await main.screenshot({ path: `${SHOTS}/app-mail-invite.png` });
+  const before = sent.length;
+  await main.locator('[data-testid="mail-invite"] button', { hasText: 'Accept' }).click();
+  const replyMail = await waitFor(async () => sent.slice(before).find((x) => /METHOD:REPLY/.test(x.raw.replace(/=\r\n/g, ''))));
+  check(!!replyMail && replyMail.to.includes('bob@example.net') && /PARTSTAT=ACCEPTED/.test(replyMail.raw.replace(/=\r\n/g, '').replace(/\r\n /g, '')), 'Accept sent an iMIP reply to the organiser');
+  const inCal = await waitFor(async () => (await main.evaluate(([a, b]) => window.keeper.pim.occurrences(a, b), [start.getTime() - 1, start.getTime() + 2 * 3_600_000])).some((o) => o.event.title === 'Garden planning'));
+  check(!!inCal, 'the accepted event is in the calendar');
+
+  // Send-from aliases with their own Reply-To and signature.
+  const accNow = (await main.evaluate(() => window.keeper.pim.accounts())).find((a) => a.mail);
+  await main.evaluate(([id, ids]) => window.keeper.pim.updateAccount(id, { identities: ids }), [accNow.id, [...accNow.identities, { name: 'Garden Club', email: 'club@example.org', replyTo: 'team@example.org', signature: 'The Garden Club' }]]);
+  const sBefore = sent.length;
+  await main.evaluate((acc) => window.keeper.pim.send({ account: acc, from: 'club@example.org', to: [{ address: 'bob@example.org' }], cc: [], bcc: [], subject: 'Club news', body: '', html: '<div><b>Big</b> news</div>', sendAt: Date.now() }), accNow.id);
+  const club = await waitFor(async () => sent.slice(sBefore).find((x) => /Subject: Club news/.test(x.raw)));
+  const clubRaw = (club?.raw ?? '').replace(/=\r\n/g, '');
+  check(/^From: Garden Club <club@example\.org>/m.test(clubRaw) && /^Reply-To: team@example\.org/m.test(clubRaw), 'an alias sends with its own From and Reply-To');
+  check(/<b>Big<\/b> news/.test(clubRaw) && /The Garden Club/.test(clubRaw) && /\*?Big\*? news/.test(clubRaw), 'rich text goes as HTML with a plain-text copy, and the alias’s signature');
+
+  // Remind me if no reply: no answer comes, so the Island says so.
+  await main.evaluate(() => window.keeper.pim.refresh());
+  const clubSent = await waitFor(async () => (await main.evaluate(() => window.keeper.pim.messages({ folder: 'unified:sent' }))).messages.find((m) => m.subject === 'Club news'));
+  if (clubSent) await main.evaluate((id) => window.keeper.pim.remindNoReply(id, Date.now() + 2500), clubSent.id);
+  check((await main.evaluate(() => window.keeper.pim.noReplyReminders())).some((r) => r.subject === 'Club news'), 'Remind me if no reply is set on the sent message');
+  const nudge = await waitFor(async () => (await main.evaluate(() => window.keeper.island.state())).alerts.find((a) => /No reply yet/.test(a.title) && a.detail === 'Club news'));
+  check(!!nudge, 'with no reply by then, the Island reminds');
+
+  // Drafts are mirrored to the server's Drafts folder (one copy), and go when sent.
+  const draft = { account: accNow.id, to: [{ address: 'bob@example.org' }], cc: [], bcc: [], subject: 'Draft one', body: 'first', key: 'k-e2e' };
+  await main.evaluate((d) => window.keeper.pim.saveDraft(d), draft);
+  await main.evaluate((d) => window.keeper.pim.saveDraft({ ...d, subject: 'Draft two', body: 'second' }), draft);
+  const drafts = await inFolder('Drafts');
+  check(drafts.length === 1 && drafts[0].subject === 'Draft two' && drafts[0].flags.includes('\\Draft'), 'a draft saved twice is one copy in Drafts on the server, the newest');
+  await main.evaluate((d) => window.keeper.pim.send({ ...d, subject: 'Draft two', body: 'second', sendAt: Date.now() }), draft);
+  check(!!(await waitFor(async () => (await inFolder('Drafts')).length === 0)), 'sending it removes the copy from Drafts');
+
+  // Undo (⌘Z) brings an archived message back.
+  const works = (await main.evaluate(() => window.keeper.pim.messages({ folder: 'unified' }))).messages.find((m) => m.subject === 'Planned works on your street');
+  if (works) await main.evaluate((id) => window.keeper.pim.archive([id]), works.id);
+  await waitFor(async () => (await inFolder('Archive')).some((m) => m.subject === 'Planned works on your street'));
+  const undoneMove = await main.evaluate(() => window.keeper.pim.undo());
+  check(undoneMove === 'Archive' && !!(await waitFor(async () => (await inFolder('INBOX')).some((m) => m.subject === 'Planned works on your street'))), 'Undo moves the archived message back to the inbox');
+
+  // Snooze is shared with the person's other computers through an IMAP keyword.
+  const works2 = await waitFor(async () => (await main.evaluate(() => window.keeper.pim.messages({ folder: 'unified', tab: 'all' }))).messages.find((m) => m.subject === 'Planned works on your street'));
+  if (works2) await main.evaluate((id) => window.keeper.pim.snooze([id], Date.now() + 3_600_000), works2.id);
+  const kw = await waitFor(async () => (await inFolder('INBOX')).find((m) => m.subject === 'Planned works on your street' && m.flags.some((f) => f.startsWith('$KSnooze-'))));
+  check(!!kw, 'a snooze is written to the server as a keyword, for the person’s other computers');
+  if (works2) await main.evaluate((id) => window.keeper.pim.unsnooze([id]), works2.id);
+  check(!!(await waitFor(async () => (await inFolder('INBOX')).some((m) => m.subject === 'Planned works on your street' && !m.flags.some((f) => f.startsWith('$KSnooze-'))))), 'unsnoozing takes the keyword off');
+
+  // Tabs: Primary (Important), Updates and Promos, with counts.
+  const tabs = await main.evaluate(() => window.keeper.pim.messages({ folder: 'unified', tab: 'all' }));
+  check(tabs.counts && typeof tabs.counts.updates === 'number' && typeof tabs.counts.promos === 'number' && tabs.counts.important + tabs.counts.updates + tabs.counts.promos === tabs.counts.all, 'the inbox tabs have unread counts that add up');
+
+  // A narrow window: the list, then the message with Back.
+  await main.setViewportSize({ width: 820, height: 760 });
+  await main.locator('.mail-folder', { hasText: 'All inboxes' }).click();
+  await main.locator('.mail-tabs button', { hasText: 'All' }).first().click();
+  await main.waitForTimeout(500);
+  await main.locator('.mail-row').first().click();
+  await main.waitForTimeout(800);
+  const frameShown = await main.locator('.mail-reader .message-card').first().isVisible().catch(() => false);
+  const listHidden = !(await main.locator('.mail-list').isVisible());
+  check(frameShown && listHidden, 'below 900 px a clicked message shows in place of the list');
+  await main.screenshot({ path: `${SHOTS}/app-mail-narrow.png` });
+  await main.locator('[data-testid="mail-back"]').click();
+  await main.waitForTimeout(400);
+  check(await main.locator('.mail-list').isVisible(), 'Back returns to the list');
+  await main.setViewportSize({ width: 1440, height: 900 });
+  await main.waitForTimeout(300);
 
   // ---------------------------------------------------------------- calendar (CalDAV)
   await main.evaluate((u) => window.keeper.pim.addAccount({ kind: 'caldav', caldav: u, davUser: 'ana', password: 'secret', label: 'Home server' }), dav.url);
