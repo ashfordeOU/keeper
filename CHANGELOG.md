@@ -42,6 +42,12 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - On a Mac, Keeper watches every app without asking for anything; blocking single apps waits for Apple's approval of Keeper's network filter, and the page says so instead of showing buttons that would do nothing. The DNS filter can still block a site for every app.
 - The menu bar's summary has a Network part: "3 apps online" with the speeds and a small chart, the three busiest apps with a quick Block (and Allow to undo), "2 waiting" when prompts wait, and Open Network. Settings → Menu bar → Show network turns it off. On a short screen the summary folds the downloads, then the app list, so it still never scrolls.
 
+### Added — Capture: a whole web page
+- Capture → Capture a web page: paste an address and get the whole page, top to bottom, as one picture or a PDF, without opening your browser.
+- See it as a desktop or a phone shows it, or make a 1200 × 630 social image for link previews.
+- Keeper closes simple cookie banners for you (choosing "only necessary" where it can) and scrolls through first so pictures that load late are there.
+- It opens in a private window that keeps nothing; the file goes to your Screenshots folder and Capture's history.
+
 ### Added — Monitors: your sites and servers
 - A Monitors page in the Computer section (switch it on in Settings → Features) checks your websites, ports, servers (ping) and DNS names on a schedule you choose for each.
 - For websites it can also look for a word on the page and warn you before the certificate expires.

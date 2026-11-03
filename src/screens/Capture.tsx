@@ -12,6 +12,7 @@ import { Icon } from '../components/Icon';
 import { Empty, Modal, PageHead, Toggle } from '../components/ui';
 import { useStore } from '../state';
 import '../styles/capture.css';
+import { WebCaptureSheet } from './capture/WebCapture';
 
 type Tab = 'all' | 'text' | 'links' | 'codes' | 'media';
 
@@ -24,7 +25,7 @@ const TABS: { id: Tab; label: string }[] = [
 ];
 
 const KIND_LABEL: Record<CaptureEntry['kind'], string> = {
-  text: 'Text', link: 'Link', qr: 'QR code', barcode: 'Barcode', screenshot: 'Screenshot', recording: 'Recording', color: 'Colour',
+  text: 'Text', link: 'Link', qr: 'QR code', barcode: 'Barcode', screenshot: 'Screenshot', recording: 'Recording', color: 'Colour', webpage: 'Web page',
 };
 
 function inTab(e: CaptureEntry, tab: Tab): boolean {
@@ -32,7 +33,7 @@ function inTab(e: CaptureEntry, tab: Tab): boolean {
     case 'text': return e.kind === 'text';
     case 'links': return e.kind === 'link' || ((e.kind === 'qr' || e.kind === 'barcode') && isHttpUrl(e.value));
     case 'codes': return e.kind === 'qr' || e.kind === 'barcode';
-    case 'media': return e.kind === 'screenshot' || e.kind === 'recording' || e.kind === 'color';
+    case 'media': return e.kind === 'screenshot' || e.kind === 'recording' || e.kind === 'color' || e.kind === 'webpage';
     default: return true;
   }
 }
@@ -56,6 +57,7 @@ export function Capture() {
   const [result, setResult] = useState<CaptureResult | null>(null);
   const [pins, setPins] = useState<{ id: string; through: boolean }[]>([]);
   const [canUpload, setCanUpload] = useState(false);
+  const [webSheet, setWebSheet] = useState(false);
 
   const reload = () => { void api.capture.history().then(setItems); void api.capture.pins().then(setPins).catch(() => undefined); };
   useEffect(() => { setCanUpload(!!settings && settings.island.upload.kind !== 'none'); }, [settings]);
@@ -152,6 +154,9 @@ export function Capture() {
           )}
           {opts ? <kbd>{key(opts.recordShortcut)}</kbd> : null}
         </div>
+        <button className="capture-action" disabled={!!busy} onClick={() => setWebSheet(true)} data-testid="capture-webpage">
+          <Icon name="webpage" size={20} /><b>Capture a web page</b><span>The whole page as a picture or PDF, as a desktop or phone sees it</span>
+        </button>
         <button className="capture-action" disabled={!!busy} onClick={() => void run('color', () => api.capture.color())}>
           <Icon name="drop" size={20} /><b>Pick a colour</b><span>From anywhere on screen; copied as hex</span>{opts ? <kbd>{key(opts.colorShortcut)}</kbd> : null}
         </button>
@@ -203,7 +208,7 @@ export function Capture() {
           {shown.map((e) => (
             <div key={e.id} className="card capture-item">
               <div className="capture-thumb">
-                {e.kind === 'color' ? <span style={{ background: e.value }} className="swatch" /> : e.thumb ? <img src={e.thumb} alt="" /> : <Icon name={e.kind === 'recording' ? 'video' : e.kind === 'link' ? 'globe' : e.kind === 'text' ? 'text' : 'grid'} size={22} />}
+                {e.kind === 'color' ? <span style={{ background: e.value }} className="swatch" /> : e.thumb ? <img src={e.thumb} alt="" /> : <Icon name={e.kind === 'recording' ? 'video' : e.kind === 'link' ? 'globe' : e.kind === 'text' ? 'text' : e.kind === 'webpage' ? 'webpage' : 'grid'} size={22} />}
               </div>
               <div className="grow" style={{ minWidth: 0 }}>
                 <div className="row small" style={{ gap: 6 }}>
@@ -233,6 +238,8 @@ export function Capture() {
           ))}
         </div>
       )}
+
+      {webSheet ? <WebCaptureSheet onClose={() => setWebSheet(false)} onDone={reload} /> : null}
 
       {showOptions && opts ? (
         <Modal title="Capture options" onClose={() => setShowOptions(false)}>

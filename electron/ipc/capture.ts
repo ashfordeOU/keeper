@@ -169,6 +169,14 @@ export function registerCaptureIpc(ctx: CaptureContext) {
   handle('capture.clipboardImage', () => clipboardImage(ctx.langs()));
   handle('capture.readFile', (p: string) => readFile(p, ctx.langs()));
   handle('capture.screenshot', (mode: ScreenshotMode = 'full', o?: { timer?: number }) => screenshot(mode, { timer: typeof o?.timer === 'number' ? o.timer : undefined }));
+  // Capture a web page: the whole page as a PNG or a PDF through Keeper's browser; its steps go to the asking window.
+  ipcMain.removeHandler('capture.webPage');
+  ipcMain.handle('capture.webPage', async (e, o: import('../../core/web-capture').WebCaptureOptions) => {
+    const { captureWebPage } = await import('../services/web-capture');
+    const r = await captureWebPage(o, (text) => { if (!e.sender.isDestroyed()) e.sender.send('event:webcapture-phase', text); });
+    void ctx.added(r.path, false).catch(() => undefined);
+    return r;
+  });
   handle('capture.stopScroll', async () => (await more()).stopScrolling());
   handle('capture.pin', async (p: string) => {
     if (!(await allowed(ctx, p))) throw new Error('Keeper can only pin pictures from your library folders and screenshots.');

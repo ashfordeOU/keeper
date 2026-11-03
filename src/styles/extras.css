@@ -85,3 +85,14 @@
 .xcheck[aria-pressed='true'] { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 45%, transparent); color: var(--text); font-weight: 600; }
 .xcheck:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .xmore summary { font-size: var(--fs-sm); color: var(--text-2); cursor: default; margin-bottom: 8px; }
+
+/* ------------------------------------------------------------ web page capture */
+.wc-row { display: grid; grid-template-columns: 96px auto; align-items: center; gap: 12px; }
+.wc-row .seg { justify-self: start; }
+.wc-busy { display: flex; flex-direction: column; gap: 8px; font-size: var(--fs-sm); color: var(--text-2); }
+.wc-result { display: flex; gap: 16px; align-items: flex-start; }
+.wc-thumb { width: 140px; max-height: 180px; object-fit: cover; object-position: top; border-radius: var(--r-md); box-shadow: var(--shadow); background: var(--bg-sunk); flex: none; }
+.wc-pdf { height: 120px; display: grid; place-items: center; color: var(--text-3); }
+.wc-result-text { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.wc-result-text b { font-size: var(--fs-lg); }
+.mo-inline { flex-direction: row !important; align-items: center; gap: 10px !important; font-weight: 500 !important; }

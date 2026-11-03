@@ -65,9 +65,47 @@ With a timer chosen, a 3-2-1 countdown (Stage's overlay) shows on every screen, 
 
 A window screenshot gets a soft shadow on a see-through background (PNG with transparency), sized for the screen's scale. On macOS and Windows the corners are rounded as those systems draw windows; on Linux they stay square. Turn it off in Capture → Options for the plain window.
 
+## Capture a web page
+
+Capture → *Capture a web page* takes a whole page from its address, without opening it in a
+browser of yours:
+
+- **Looks like:** *Desktop* (1440 wide), *Phone* (390 wide at twice the pixels, a phone's
+  browser name, touch) or *Social image* (the top of the page at 1200 × 630, the size link
+  previews use; always a picture).
+- **Save as:** *Picture (PNG)*, the page top to bottom as one picture, or *PDF*: one tall
+  page when the page is under 200 inches, otherwise A4 pages; drawn as on screen, not the
+  page's print style.
+- **More settings:** *Close cookie banners* (on), *Load the whole page first* (on), *Sharper
+  picture* (desktop, twice the pixels).
+
+How (`electron/services/web-capture.ts`, `core/web-capture.ts`):
+
+1. A window of Keeper's browser (`openPageWindow` in `electron/services/kbrowser.ts`) opens off
+   screen in a **private session** (`keeper-browser-pages`, in memory only: cookies and storage go
+   when Keeper quits), with no camera, microphone, location or notifications, no downloads and no
+   pop-ups, and is not listed with the AI's tabs. Keeper's firewall rules apply to the address.
+2. The size, scale and (for Phone) the browser name are set through the DevTools protocol; the
+   page loads (at most 30 seconds; a slow page is captured as far as it got).
+3. **Cookie banners, where simple:** fixed boxes whose name or text says cookie or consent are
+   looked for; the button that refuses what is not needed ("Reject all", "Only necessary", and
+   the same in German, French, Spanish, Italian, Dutch, Swedish, Finnish, Czech, Polish and
+   Estonian) is pressed in preference to the one that accepts, and whatever still covers the page
+   is hidden from the picture (`pickConsentButton`, `bannerScript`). Banners inside frames from
+   another site are not reached.
+4. **Late pictures:** the page is scrolled through in steps (at most 40), back to the top, and
+   pictures that started loading get up to 3 seconds (`scrollScript`).
+5. **The picture:** the window is made as tall as the page, so fixed headers are drawn once, and
+   one PNG is taken (`Page.captureScreenshot`). Chromium draws at most about 16,000 pixels in one
+   picture: a taller page is cut there and the result says so (`fitHeight`).
+6. The file goes to the screenshot folder as `Web page <site> <date> at <time>.png|pdf` and into
+   Capture's history as a *Web page* with its title.
+
+Off screen drawing is used because a hidden window draws nothing to capture.
+
 ## Platforms
 
-All three, with the notes above. Verified on Linux (Xvfb with openbox): the preview stack and its Upload and Pin, pin opacity and click-through, Esc, the self-timer, the window shadow and a scrolling capture with xdotool (`test/e2e/capture-extras.cjs`). Not verified here: macOS (the helper's wheel events, panel windows taking clicks without focus, drag-out to Finder) and Windows (`SendInput` wheel, layered-window opacity).
+All three, with the notes above. Capturing a web page uses Keeper's own Chromium the same way everywhere (verified on Linux; macOS and Windows not run here). Verified on Linux (Xvfb with openbox): the preview stack and its Upload and Pin, pin opacity and click-through, Esc, the self-timer, the window shadow and a scrolling capture with xdotool (`test/e2e/capture-extras.cjs`). Not verified here: macOS (the helper's wheel events, panel windows taking clicks without focus, drag-out to Finder) and Windows (`SendInput` wheel, layered-window opacity).
 
 ## Files
 
@@ -79,3 +117,4 @@ All three, with the notes above. Verified on Linux (Xvfb with openbox): the prev
 | Messages from these small windows | `electron/services/floats.ts`, `electron/capture-preload.ts` (`keeperFloat`) |
 | IPC and shortcuts | `electron/ipc/capture.ts` |
 | Page | `src/screens/Capture.tsx`, `src/styles/capture.css` |
+| Capture a web page | `core/web-capture.ts` (`test/web-capture.test.ts`), `electron/services/web-capture.ts`, `src/screens/capture/WebCapture.tsx`; end to end `test/e2e/web-capture.cjs` |

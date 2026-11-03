@@ -127,6 +127,33 @@ function setUpSession(profile: string) {
   return partition;
 }
 
+/**
+ * A window of Keeper's browser for a one-off job that no AI drives (capturing
+ * a web page): its own private session that keeps nothing after Keeper quits,
+ * no camera, microphone, location or notifications, no downloads, no pop-ups,
+ * and not listed with the AI's tabs. It is drawn off screen, so it never
+ * shows and can still be captured.
+ */
+export function openPageWindow(o: { width: number; height: number; show?: boolean }): BrowserWindow {
+  const partition = 'keeper-browser-pages';
+  if (!sessionsSetUp.has(partition)) {
+    sessionsSetUp.add(partition);
+    const ses = electronSession.fromPartition(partition);
+    ses.setPermissionRequestHandler((_wc, _perm, cb) => cb(false));
+    ses.on('will-download', (e) => e.preventDefault());
+  }
+  const win = new BrowserWindow({
+    width: o.width, height: o.height, useContentSize: true, show: !!o.show, title: 'Keeper Browser', paintWhenInitiallyHidden: true,
+    webPreferences: { partition, sandbox: true, contextIsolation: true, nodeIntegration: false, backgroundThrottling: false, offscreen: true },
+  });
+  win.setMenuBarVisibility(false);
+  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  win.webContents.setAudioMuted(true);
+  // Drawn off screen (a hidden window draws nothing to capture), at a calm frame rate.
+  win.webContents.setFrameRate(15);
+  return win;
+}
+
 export function openTab(client: string, o: { url?: string; visible?: boolean; profile?: string } = {}): BrowserTab {
   const profile = o.profile ?? 'default';
   const partition = setUpSession(profile);

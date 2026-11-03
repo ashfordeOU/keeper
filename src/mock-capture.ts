@@ -37,6 +37,11 @@ export function createMockCapture(): KeeperApi['capture'] {
       history.add({ kind: 'screenshot', value: p.split('/').pop()!, path: p, thumb: DEMO_SHOT });
       return later(p);
     },
+    webPage: async (o) => {
+      const p = `/Users/demo/Pictures/Screenshots/Web page ${o.url.replace(/^https?:\/\//, '').split('/')[0]}.${o.format}`;
+      history.add({ kind: 'webpage', value: `Example page · ${o.url}`, path: p, thumb: DEMO_SHOT });
+      return later({ path: p, format: o.format, width: 1440, height: 4200, cut: false, banner: true, title: 'Example page', thumb: DEMO_SHOT }, 900);
+    },
     record: async (mode = 'full') => (rec = { recording: true, since: Date.now(), mode }),
     stopRecording: async () => {
       const p = '/Users/demo/Movies/Screen Recording.mp4';

@@ -2,7 +2,7 @@
 // Pure helpers behind the screen tools: capture history, text clean-up,
 // colour formats, the annotate editor's geometry and the beautify layout.
 
-export type CaptureKind = 'text' | 'link' | 'qr' | 'barcode' | 'screenshot' | 'recording' | 'color';
+export type CaptureKind = 'text' | 'link' | 'qr' | 'barcode' | 'screenshot' | 'recording' | 'color' | 'webpage';
 
 export interface CaptureEntry {
   id: string;
@@ -131,7 +131,7 @@ export class CaptureHistory {
       case 'text': return this.items.filter((x) => x.kind === 'text');
       case 'links': return this.items.filter((x) => x.kind === 'link' || ((x.kind === 'qr' || x.kind === 'barcode') && isHttpUrl(x.value)));
       case 'codes': return this.items.filter((x) => x.kind === 'qr' || x.kind === 'barcode');
-      case 'media': return this.items.filter((x) => x.kind === 'screenshot' || x.kind === 'recording' || x.kind === 'color');
+      case 'media': return this.items.filter((x) => x.kind === 'screenshot' || x.kind === 'recording' || x.kind === 'color' || x.kind === 'webpage');
       default: return this.items;
     }
   }

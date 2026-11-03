@@ -635,6 +635,8 @@ export interface KeeperApi extends KeeperApiX {
     screenshot(mode?: 'full' | 'window' | 'area' | 'scroll', o?: { timer?: number }): Promise<string | null>;
     /** stops a scrolling capture (what was taken so far is kept) */
     stopScroll(): Promise<boolean>;
+    /** a whole web page as one PNG or a PDF, through Keeper's browser (core/web-capture.ts); steps arrive as 'webcapture-phase' */
+    webPage(o: import('./web-capture').WebCaptureOptions): Promise<import('./api-webcapture').WebCaptureResult>;
     /** pins a picture on top of every app; returns the pin's id */
     pin(path: string): Promise<string>;
     pins(): Promise<{ id: string; path: string; opacity: number; through: boolean; bounds: { x: number; y: number; width: number; height: number } }[]>;
@@ -908,6 +910,8 @@ export interface KeeperApi extends KeeperApiX {
   on(channel: 'alerts-changed', cb: () => void): () => void;
   /** a monitor was checked, added or changed */
   on(channel: 'monitors-changed', cb: () => void): () => void;
+  /** what a web page capture is doing now ("Loading the whole page") */
+  on(channel: 'webcapture-phase', cb: (text: string) => void): () => void;
   on(channel: 'widgets-arrange', cb: (on: boolean) => void): () => void;
   on(channel: 'ambience-changed', cb: () => void): () => void;
   on(channel: 'wallpaper-policy', cb: (p: import('./scenes/policy').RenderPolicy) => void): () => void;
