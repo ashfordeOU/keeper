@@ -10,10 +10,13 @@
 //   - adds clicks to the event log (as the xinput reader would) and makes the
 //     automatic zooms from the editor, picks a background, checks undo and redo
 //   - exports a 720p MP4 and a GIF and checks size, length and streams with ffmpeg
+//   - exports with "Upload and copy link" to a small WebDAV server standing in for the
+//     person's own storage: the video and its page (chapters, captions) arrive, the link is copied
 //   - screenshots of the recorder page and the editor in light and dark
 const { _electron } = require('playwright');
 const { execFileSync, spawnSync } = require('child_process');
 const fs = require('fs');
+const http = require('http');
 const path = require('path');
 
 const HOME = path.resolve(process.argv[2] || '/tmp/kstudio');
@@ -181,6 +184,39 @@ fs.mkdirSync(SHOTS, { recursive: true });
     check(p.codec === 'vp9' && p.height === 1080 && p.audio, `the WebM is VP9 at 1080 lines with sound (${p.codec} ${p.width}x${p.height})`);
     check(Math.abs(p.duration - expected) < 250, `the WebM is as long as the timeline (${Math.round(p.duration)} ms)`);
   } else check(false, 'the WebM export finished');
+
+  // ------------------------------------------------ Upload and copy link (the person's own storage: a WebDAV server here)
+  const stored = new Map();
+  const dav = http.createServer((req, res) => {
+    const p = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+    if (req.method === 'PUT') { const parts = []; req.on('data', (c) => parts.push(c)); req.on('end', () => { stored.set(p, Buffer.concat(parts)); res.writeHead(201).end(); }); return; }
+    res.writeHead(req.method === 'MKCOL' ? 201 : 404).end();
+  });
+  await new Promise((r) => dav.listen(0, '127.0.0.1', r));
+  await w.evaluate((url) => window.keeper.settings.get().then((s) => window.keeper.settings.set({ island: { ...s.island, upload: { ...s.island.upload, kind: 'webdav', url, prefix: 'keeper' } } })), `http://127.0.0.1:${dav.address().port}/dav`);
+  // chapters and captions in the project, as the editor makes them
+  await w.evaluate(async (dir) => { const o = await window.keeper.studio.open(dir); const p = o.project; const c0 = p.timeline.clips[0].start; p.timeline.chapters = [{ t: c0, title: 'Start' }, { t: c0 + 1500, title: 'The middle' }]; p.timeline.captions = [{ start: c0 + 100, end: c0 + 1400, text: 'Hello from the test' }]; await window.keeper.studio.save(dir, p); }, dir);
+  await nav('studio');
+  await w.waitForTimeout(400);
+  await nav(`studio:${dir}`);
+  await w.waitForSelector('[data-testid="studio-editor"]', { timeout: 20000 });
+  await w.waitForFunction(() => !document.querySelector('.studio-loading'), null, { timeout: 20000 }).catch(() => undefined);
+  await w.click('[data-testid="studio-export"]');
+  await w.waitForSelector('.st-presets', { timeout: 5000 });
+  await w.click('.st-preset:has-text("Quick share")');
+  await w.click('[data-testid="studio-dest-link"]');
+  await w.waitForSelector('[data-testid="studio-share-expiry"]', { timeout: 5000 });
+  await w.screenshot({ path: path.join(SHOTS, 'studio-export-link-dark.png') });
+  await w.click('[data-testid="studio-export-start"]');
+  const linkShown = await until(() => w.evaluate(() => document.querySelector('[data-testid="studio-share-link"] input')?.value || (document.querySelector('.modal .st-error')?.textContent ? `error: ${document.querySelector('.modal .st-error').textContent}` : null)), 240000, 500);
+  check(/^http:\/\/127\.0\.0\.1:\d+\/dav\/keeper\/[a-z0-9]+\/index\.html$/.test(linkShown ?? ''), `the export ends with a link to the page (${linkShown})`);
+  await w.screenshot({ path: path.join(SHOTS, 'studio-export-linked-dark.png') });
+  const page = [...stored.entries()].find(([k]) => k.endsWith('/index.html'))?.[1]?.toString('utf8') ?? '';
+  check([...stored.keys()].some((k) => k.endsWith('.mp4')), 'the video went to the storage');
+  check(page.includes('"title":"The middle"') && page.includes('Hello from the test') && page.includes('WEBVTT'), 'its page has the chapters and the captions');
+  check((await app.evaluate(({ clipboard }) => clipboard.readText())) === linkShown, 'the link was copied');
+  await w.click('.modal button:has-text("Done")').catch(() => undefined);
+  dav.close();
 
   check(!errors.length, `no page errors (${errors.slice(0, 3).join(' | ')})`);
   await setTheme('light');

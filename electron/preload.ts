@@ -62,7 +62,7 @@ const api = {
   // Downloadable parts (ffmpeg, ONNX Runtime, rclone) and add-on apps (docs/COMPONENTS.md).
   components: group('components', ['list', 'sizes', 'download', 'cancel', 'remove', 'removeAll', 'downloadAll', 'ensureFor', 'switchedOn', 'check', 'addons', 'addonAction']),
   // Studio: recordings with their parts kept apart, the editor and exports.
-  studio: group('studio', ['support', 'options', 'setOptions', 'state', 'record', 'pause', 'resume', 'stop', 'discard', 'projects', 'open', 'save', 'remove', 'reveal', 'pick', 'levels', 'transcribe', 'privacyScan', 'export', 'exportState', 'cancelExport', 'copyFile', 'revealFile', 'work', 'workChunk', 'workProgress', 'workDone']),
+  studio: group('studio', ['support', 'options', 'setOptions', 'state', 'record', 'pause', 'resume', 'stop', 'discard', 'projects', 'open', 'save', 'remove', 'reveal', 'pick', 'levels', 'transcribe', 'privacyScan', 'export', 'shareTarget', 'share', 'exportState', 'cancelExport', 'copyFile', 'revealFile', 'work', 'workChunk', 'workProgress', 'workDone']),
   stage: group('stage', ['status', 'start', 'stop', 'toggle', 'extend', 'settings', 'setSettings', 'savePreset', 'removePreset', 'support', 'journal', 'detect', 'modes', 'apps', 'preview', 'displayInputs', 'setDisplayInput', 'overlays', 'tray']),
   awake: group('awake', ['status', 'start', 'stop', 'toggle', 'extend', 'parse', 'settings', 'setSettings', 'saveTrigger', 'removeTrigger', 'reorderTriggers', 'testTrigger', 'blockers', 'stats', 'resetStats', 'apps', 'setupClosedDisplay']),
   places: {

@@ -92,7 +92,7 @@ export interface StudioSupport {
 export interface ExportJob {
   id: string;
   dir: string;
-  phase: 'preparing' | 'rendering' | 'finishing' | 'done' | 'error' | 'cancelled';
+  phase: 'preparing' | 'rendering' | 'finishing' | 'uploading' | 'done' | 'error' | 'cancelled';
   progress: number;
   frames: number;
   done: number;
@@ -101,6 +101,14 @@ export interface ExportJob {
   path?: string;
   /** the .srt written beside it */
   srt?: string;
+  /** "Upload and copy link": the link to the page in the person's own storage (copied) */
+  link?: string;
+  /** when that link stops working */
+  linkUntil?: number;
+  /** the video was saved, but the upload did not finish */
+  linkError?: string;
+  /** asked to upload and copy a link when the file is finished */
+  share?: boolean;
   error?: string;
   startedAt: number;
 }
@@ -115,6 +123,9 @@ export interface ExportWork {
   screen: { index: PacketIndex; url: string };
   webcam?: { index: PacketIndex; url: string; offset: number };
 }
+
+/** "Upload and copy link": how long the link works (hours; 0 = no end, where the storage allows it). */
+export interface ShareChoice { hours: number }
 
 export interface OpenedProject {
   dir: string;
@@ -150,7 +161,11 @@ export interface StudioApi {
   /** looks for email addresses, keys and tokens on screen */
   privacyScan(dir: string, clips: Clip[]): Promise<BlurBox[]>;
   /** `can`: what the page's video encoder can make (H.264, VP9) at this size */
-  export(dir: string, project: StudioProject, settings: Partial<ExportSettings>, can?: { h264: boolean; vp9: boolean }): Promise<ExportJob>;
+  export(dir: string, project: StudioProject, settings: Partial<ExportSettings>, can?: { h264: boolean; vp9: boolean }, share?: ShareChoice): Promise<ExportJob>;
+  /** where "Upload and copy link" sends videos (the Island's Upload & share settings) */
+  shareTarget(): Promise<{ kind: 'none' | 'webdav' | 's3'; where: string; hours: number }>;
+  /** uploads a finished video with its page and copies the link; `dir` adds the project's chapters and captions */
+  share(path: string, dir: string | null, share: ShareChoice): Promise<{ link: string; expiresAt?: number }>;
   exportState(id: string): Promise<ExportJob | null>;
   cancelExport(id: string): Promise<void>;
   copyFile(p: string): Promise<void>;

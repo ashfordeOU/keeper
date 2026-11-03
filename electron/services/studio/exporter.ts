@@ -8,7 +8,7 @@
 import { BrowserWindow } from 'electron';
 import { createWriteStream, existsSync, promises as fsp, type WriteStream } from 'node:fs';
 import path from 'node:path';
-import type { ExportJob, ExportWork } from '../../../core/studio/api';
+import type { ExportJob, ExportWork, ShareChoice } from '../../../core/studio/api';
 import { exportPlan, extensionFor, finishArgs, type AudioInput, type ExportPlan, type ExportSettings } from '../../../core/studio/export';
 import { captionsOnOutput, chaptersOnOutput, ffmetadata, toSrt } from '../../../core/studio/overlays';
 import type { StudioProject } from '../../../core/studio/types';
@@ -25,6 +25,8 @@ export interface ExporterCtx {
   changed(job: ExportJob): void;
   /** a finished file: index it and put it on the shelf */
   added(p: string): void;
+  /** "Upload and copy link": uploads the finished video with its page */
+  share(file: string, project: StudioProject, hours: number): Promise<{ link: string; expiresAt?: number }>;
 }
 
 interface Running {
@@ -38,6 +40,7 @@ interface Running {
   abort: AbortController;
   cancelled: boolean;
   lastTick: { at: number; done: number };
+  share?: ShareChoice;
 }
 
 let hevcHw: string | null | undefined;
@@ -63,15 +66,15 @@ export class Exporter {
     this.ctx.changed(r.job);
   }
 
-  async start(dir: string, project: StudioProject, raw: Partial<ExportSettings>, can: { h264: boolean; vp9: boolean }): Promise<ExportJob> {
+  async start(dir: string, project: StudioProject, raw: Partial<ExportSettings>, can: { h264: boolean; vp9: boolean }, share?: ShareChoice): Promise<ExportJob> {
     const plan = exportPlan({ width: project.meta.width, height: project.meta.height }, project.style.frame.aspect, project.timeline.clips, raw, can);
     const id = `x${Date.now().toString(36)}`;
     const work = path.join(dir, 'cache', `export-${id}`);
     await fsp.mkdir(work, { recursive: true });
     const video = path.join(work, plan.intermediate === 'h264' ? 'video.h264' : 'video.ivf');
     const r: Running = {
-      job: { id, dir, phase: 'preparing', progress: 0, frames: plan.frames, done: 0, startedAt: Date.now() },
-      project, plan, win: null, out: null, video, work: null, abort: new AbortController(), cancelled: false, lastTick: { at: Date.now(), done: 0 },
+      job: { id, dir, phase: 'preparing', progress: 0, frames: plan.frames, done: 0, startedAt: Date.now(), share: !!share },
+      project, plan, win: null, out: null, video, work: null, abort: new AbortController(), cancelled: false, lastTick: { at: Date.now(), done: 0 }, share,
     };
     this.jobs.set(id, r);
     this.ctx.changed(r.job);
@@ -175,8 +178,19 @@ export class Exporter {
       await fsp.writeFile(srt, toSrt(captionsOnOutput(p.timeline.captions, p.timeline.clips)));
     }
     await fsp.rm(work, { recursive: true, force: true }).catch(() => undefined);
-    this.update(r, { phase: 'done', progress: 1, path: out, srt });
     this.ctx.added(out);
+    if (r.share && !r.cancelled) {
+      // The video is saved either way; the link is a second step that may fail on its own.
+      this.update(r, { phase: 'uploading', progress: 1, path: out, srt });
+      try {
+        const s = await this.ctx.share(out, p, r.share.hours);
+        this.update(r, { phase: 'done', link: s.link, linkUntil: s.expiresAt });
+      } catch (e) {
+        this.update(r, { phase: 'done', linkError: e instanceof Error ? e.message : String(e) });
+      }
+      return;
+    }
+    this.update(r, { phase: 'done', progress: 1, path: out, srt });
   }
 
   private fail(r: Running, e: unknown) {

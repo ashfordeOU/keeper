@@ -7,11 +7,12 @@ import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
 import { writePaths } from '../services/clip';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
-import type { ExportJob, StudioOptions, StudioRecordState, StudioSupport } from '../../core/studio/api';
+import type { ExportJob, ShareChoice, StudioOptions, StudioRecordState, StudioSupport } from '../../core/studio/api';
 import type { ExportSettings } from '../../core/studio/export';
-import { captionsFrom, sampleTimes, sensitiveBoxes, blursFromSamples } from '../../core/studio/overlays';
+import { captionsFrom, captionsOnOutput, chaptersOnOutput, sampleTimes, sensitiveBoxes, blursFromSamples } from '../../core/studio/overlays';
 import { PROJECT_EXT, type Clip, type StudioProject } from '../../core/studio/types';
 import { featureOn } from '../services/features';
+import { settings } from '../store';
 import { startJob, type JobHandle } from '../services/governor';
 import { allowRoot, fileUrl } from '../services/preview';
 import { ffmpegPath } from '../services/recorder';
@@ -129,6 +130,18 @@ export function handleStudioLink(u: URL) {
   else ctx?.show('studio');
 }
 
+function assertCanShare() {
+  if (settings().island.upload.kind === 'none') throw new Error('Choose where links go first: Island settings → Upload & share (your own WebDAV server or storage bucket).');
+}
+
+/** Uploads an exported video with its page (chapters and captions from the project, on the finished video's time). */
+async function shareProjectVideo(file: string, p: StudioProject | null, hours: number) {
+  const { shareVideo } = await import('../services/share-link');
+  const caps = p ? captionsOnOutput(p.timeline.captions, p.timeline.clips) : [];
+  const chapters = p ? chaptersOnOutput(p.timeline.chapters, p.timeline.clips) : [];
+  return shareVideo(file, { title: p?.name ?? path.basename(file).replace(/\.[^.]+$/, ''), captions: caps, chapters: chapters.length > 1 ? chapters : [], hours });
+}
+
 export function stopStudio() {
   exporter?.cancelAll();
   if (session?.active) void session.stop();
@@ -167,7 +180,7 @@ export function registerStudioIpc(c: StudioCtx) {
     alert: c.alert,
     stage: c.stage,
   });
-  exporter = new Exporter({ preload: c.preload, load: c.load, changed: (j: ExportJob) => { trackExport(j); c.broadcast('studio-export', j); }, added: c.added });
+  exporter = new Exporter({ preload: c.preload, load: c.load, changed: (j: ExportJob) => { trackExport(j); c.broadcast('studio-export', j); }, added: c.added, share: (file, p, hours) => shareProjectVideo(file, p, hours) });
 
   handle('studio.support', () => support());
   handle('studio.options', () => studioOptions());
@@ -240,11 +253,20 @@ export function registerStudioIpc(c: StudioCtx) {
     }
     return blursFromSamples(samples, step, p.meta.duration);
   });
-  handle('studio.export', async (dir: string, p: StudioProject, settings: Partial<ExportSettings>, can?: { h264: boolean; vp9: boolean }) => {
+  handle('studio.export', async (dir: string, p: StudioProject, settings: Partial<ExportSettings>, can?: { h264: boolean; vp9: boolean }, share?: ShareChoice) => {
     const d = await checkedDir(dir);
     await saveProject(d, p);
     await setStudioOptions({ lastExport: settings });
-    return exporter!.start(d, p, settings, can ?? { h264: false, vp9: true });
+    if (share) assertCanShare();
+    return exporter!.start(d, p, settings, can ?? { h264: false, vp9: true }, share ? { hours: Math.max(0, Number(share.hours) || 0) } : undefined);
+  });
+  handle('studio.shareTarget', async () => (await import('../services/share-link')).shareTarget());
+  handle('studio.share', async (file: string, dir: string | null, share: ShareChoice) => {
+    // Only a video Studio exported: its project folder's neighbour, or any exported video the page names.
+    if (!existsSync(file) || !/\.(mp4|webm|gif|mov)$/i.test(file)) throw new Error('Only an exported video can be shared.');
+    assertCanShare();
+    const project = dir ? await readProject(await checkedDir(dir)).catch(() => null) : null;
+    return shareProjectVideo(file, project, Math.max(0, Number(share?.hours) || 0));
   });
   handle('studio.exportState', (id: string) => exporter!.state(id));
   handle('studio.cancelExport', (id: string) => exporter!.cancel(id));

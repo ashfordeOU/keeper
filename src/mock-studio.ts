@@ -28,6 +28,8 @@ export function mockStudio(emit: (ch: string, ...a: unknown[]) => void): { studi
     transcribe: no,
     privacyScan: no,
     export: no,
+    shareTarget: async () => ({ kind: 'none' as const, where: '', hours: 72 }),
+    share: no,
     exportState: async () => null,
     cancelExport: async () => undefined,
     copyFile: async () => undefined,

@@ -83,6 +83,12 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - Strict mode (in Settings, or for one block) takes away short visits and Stop until the block ends; it says plainly that quitting Keeper or an administrator can still end it.
 - The page shows why something is blocked, until when, and how many times today a site or app was stopped; the Island says when blocking starts and ends. The palette has Block Distractions for an Hour.
 
+### Added — Studio: Upload and copy link
+- Export has a second destination, **Upload and copy link**: the video is saved as always, then uploaded to your own storage (the WebDAV server or storage bucket set in Island settings → Upload & share) with a small page to watch it, and the page's link is copied. Nothing goes to a Keeper or Ashforde server.
+- The page has the player, the project's chapters and captions, a transcript that jumps to each moment, and a Download button; it follows light and dark and loads nothing from elsewhere.
+- Choose how long the link works: 1, 3 or 7 days on a storage bucket (the links stop working), or no end, 1, 7 or 30 days on WebDAV (the page then says the link has ended).
+- The Island shows "Uploading" with progress, then "Link copied". A finished export can be uploaded later with **Upload and copy link**.
+
 ### Added — Mail: Today at the top of the inbox
 - The inbox opens with a greeting for the time of day and your first name (from the name you send mail as; with none, no name), today's date, and today's events as cards from every calendar Keeper reads: time, title, the calendar's colour, "Now · until 6:45 PM" on the one going on, "Next" on the one after, and Join for Zoom, Google Meet, Teams, Webex, FaceTime, Jitsi and Whereby links. Join opens the meeting in your default app. The cards scroll sideways and can be reached with the keyboard; with no events the row is hidden, and a narrow window shows one "Now: …" or "Next: …" line.
 - While Mail is open, the bar at the top of the window shows the meeting going on, or the next one within 15 minutes, with Join.

@@ -49,6 +49,7 @@ import { walk } from '../core/walk';
 import { searchPlaces } from '../core/weather';
 import { listApps, uninstall } from './services/apps';
 import { captureText } from './services/capture';
+import { setShareHooks } from './services/share-link';
 import { colorPick, quietly, recordingState, registerCaptureIpc, registerCaptureShortcuts, screenshot, setStudioRecorder, toggleRecording } from './ipc/capture';
 import { handleStudioLink, registerStudioIpc, registerStudioShortcuts, stopStudio, studioRecording, studioStop, studioTrayItems } from './ipc/studio';
 import { FileService } from './services/files';
@@ -1614,6 +1615,8 @@ app.whenReady().then(async () => {
     getSecret,
     setSecret,
   });
+  // Share links in the person's own storage (Studio, Capture): "Uploading…" and "Link copied" in the Island.
+  setShareHooks({ progress, alert: (title, detail) => islandSvc.alert({ kind: 'info', title, detail }) });
   registerCaptureIpc({
     preload: capturePreload(),
     langs: () => settings().ocrLanguages,

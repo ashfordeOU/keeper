@@ -159,3 +159,11 @@
   .studio-main { grid-template-columns: minmax(0, 1fr) 280px; }
   .studio-keys { display: none; }
 }
+/* Export: where the video goes (this computer, or a link in the person's own storage). */
+.st-dest { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 4px 0 8px; }
+.st-dest-opt { display: flex; gap: 8px; align-items: center; padding: 9px 11px; border-radius: var(--r-md); border: 1px solid var(--line); background: var(--bg-elev); color: var(--text); text-align: left; }
+.st-dest-opt.on { border-color: var(--accent); background: var(--accent-soft); }
+.st-dest-opt:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.st-share-note { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; padding: 8px 10px; margin-bottom: 8px; border-radius: var(--r-md); background: var(--bg-sunken, var(--bg-elev)); color: var(--text-2); }
+.st-link { display: flex; gap: 6px; align-items: center; margin: 6px 0; }
+.st-link .input { flex: 1; min-width: 0; }
