@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // search.everything: the one search box's other sources besides files (which
 // the library answers): mail on this computer, events, tasks, contacts, notes
-// in Keeper's Notes vaults, Keeper's own features and pages, and system
+// in Keeper's Notes vaults, Keeper's own features, pages and settings, and system
 // settings. Each source has a time limit and is skipped while its feature is
 // off; nothing here reaches a server.
 
@@ -11,6 +11,8 @@ import { hiddenFolder } from '../../core/pim/mail-mcp';
 import { searchCatalog, type Os } from '../../core/settings-catalog';
 import { best, groupHits, queryWords, withTimeout, type EverythingHit, type EverythingKind, type EverythingResult } from '../../core/search-everything';
 import { featureOn } from '../services/features';
+import { searchSettings } from '../../core/settings-schema';
+import { settings } from '../store';
 import * as notes from '../services/notes';
 // Answered here, or by Mail and calendars in a process of its own (services/pim/route.ts).
 import { pimCalls as pim } from '../services/pim/route';
@@ -81,14 +83,17 @@ const sources: Record<EverythingKind, { feature?: string; run: Source }> = {
     },
   },
   feature: {
-    run: async (words, _q, limit) => {
+    run: async (words, q, limit) => {
       const list = FEATURES.filter((f) => !f.platforms || f.platforms.includes(process.platform)).filter((f) => !['everything', 'balanced', 'minimal', 'files'].includes(f.id));
-      return best(list, words, (f) => [f.name, f.description], limit).map((f) => {
+      const pages: EverythingHit[] = best(list, words, (f) => [f.name, f.description], limit).map((f) => {
         const on = featureOn(f.id);
         // A feature that is on opens its page; one that is off (or has no page) opens its switch.
         const page = on ? f.routes?.[0] : undefined;
-        return { kind: 'feature', id: f.id, title: f.name, detail: `${on ? 'On' : 'Off'} · ${f.description}`, route: page ?? 'settings:features' };
+        return { kind: 'feature', id: f.id, title: f.name, detail: `${on ? 'On' : 'Off'} · ${f.description}`, route: page ?? `settings:features#feature:${f.id}` };
       });
+      // Keeper's own settings, by their words or what people call them (the Settings registry): each opens on its row.
+      const own = words.length ? searchSettings(q, settings(), process.platform).filter((h) => h.kind === 'setting').slice(0, Math.max(2, Math.ceil(limit / 2))) : [];
+      return [...pages, ...own.map((h) => ({ kind: 'feature' as const, id: `setting:${h.id}`, title: h.label, detail: `Settings › ${h.crumbs.slice(0, -1).join(' › ')}`, route: `settings:${h.section}#${h.id}` }))].slice(0, limit);
     },
   },
   setting: {
