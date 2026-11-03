@@ -7,6 +7,7 @@
 import { useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react';
 import type { GuideList } from '../core/api-guide';
 import { progress, startFlow, stepFlow, type FlowState } from '../core/guide/flow';
+import { severityWord } from '../core/guide/group';
 import { fillTerms, gt, guideLang, osTerm, type GuideLang } from '../core/guide/strings';
 import type { Area, AutoFixPreview, DiagramId, FindingView, GuideStep, Severity } from '../core/guide/types';
 import { formatBytes } from '../core/format';
@@ -167,7 +168,7 @@ export function GuideBody({ id, compact, onClose }: { id: string; compact?: bool
               <p className="small">{preview.summary}</p>
               {preview.items.length ? <ul className="guide-preview">{preview.items.slice(0, compact ? 5 : 20).map((it, i) => <li key={i}><span className="ellipsis">{it.label}</span>{it.detail ? <span className="muted"> · {it.detail}</span> : null}</li>)}</ul> : null}
               {preview.warning ? <p className="small warn-text">{preview.warning}</p> : null}
-              {!preview.undoable ? <p className="small muted">{gt('cantUndo', lang)}</p> : null}
+              {!preview.undoable && !preview.opensOnly ? <p className="small muted">{gt('cantUndo', lang)}</p> : null}
               {preview.needsAdmin || fix.needsAdmin ? <p className="small muted">{gt('needsAdmin', lang)}</p> : null}
             </>
           ) : <p className="small muted">{gt('checking', lang)}</p>}
@@ -281,7 +282,7 @@ export function FindingCard({ f, compact }: { f: FindingView; compact?: boolean 
         <div className="finding-title">{f.title}{f.impact ? <span className="muted small"> · {f.impact}</span> : null}</div>
         {!compact ? <div className="small muted">{f.why}</div> : null}
       </div>
-      <span className={`badge ${SEV_CLASS[f.severity]}`}>{f.severity === 'critical' ? 'urgent' : f.severity}</span>
+      <span className={`badge ${SEV_CLASS[f.severity]}`}>{severityWord(f.severity)}</span>
       <button className="btn sm primary" onClick={() => openGuide(f.id)}>{f.fix.kind === 'auto' ? f.fix.label : 'Fix'}</button>
     </div>
   );

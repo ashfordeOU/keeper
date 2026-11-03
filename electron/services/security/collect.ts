@@ -4,7 +4,8 @@
 // places programs register to start automatically. Each reader fails soft: a
 // missing tool or permission becomes "not available here", never an error.
 
-import { existsSync, promises as fsp } from 'node:fs';
+import { createHash, X509Certificate } from 'node:crypto';
+import { existsSync, promises as fsp, readFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { powershell, run } from '../../../core/platform';
@@ -13,6 +14,25 @@ import { persistenceCommand, persistenceLocations } from '../../../core/security
 import { parseConsentStoreGrants, parseFlatpakPermissions, parseFlatpakStatic, parsePwDump, parseTcc } from '../../../core/security/permissions';
 import { linuxPosture, macAddedRoots, macAnalytics, macAutoLogin, macKexts, macScreenLock, macSharing, macWifi, windowsPosture, type LinuxPosture, type WinPosture } from '../../../core/security/posture';
 import type { BrowserProfile, Finding, PermissionGrant, PersistenceItem } from '../../../core/security/types';
+
+/** The program a command runs, without its arguments. */
+export function programOf(command?: string): string | undefined {
+  if (!command) return undefined;
+  return command.match(/^"([^"]+)"/)?.[1] ?? command.match(/^(\S+)/)?.[1];
+}
+
+/** A program's size and modification time: notices a new program without reading it. */
+export async function stampOf(file?: string): Promise<string | undefined> {
+  const st = file ? await fsp.stat(file).catch(() => undefined) : undefined;
+  return st ? `${st.size}:${Math.round(st.mtimeMs)}` : undefined;
+}
+
+/** SHA-256 of a program up to 64 MB (for unsigned programs, so a new one asks again). */
+export async function hashOf(file?: string): Promise<string | undefined> {
+  const st = file ? await fsp.stat(file).catch(() => undefined) : undefined;
+  if (!file || !st?.isFile() || st.size > 64 * 1024 * 1024) return undefined;
+  return createHash('sha256').update(await fsp.readFile(file)).digest('hex');
+}
 
 const home = () => os.homedir();
 const read = (p: string) => fsp.readFile(p, 'utf8').catch(() => undefined);
@@ -59,6 +79,12 @@ export async function readPermissions(): Promise<PermissionsResult> {
 
 // ---------------------------------------------------------------- browsers
 
+/** The person's language as extension locale folders: en_GB, en. */
+function preferredLocales(): string[] {
+  const loc = (() => { try { return Intl.DateTimeFormat().resolvedOptions().locale; } catch { return 'en'; } })().replace('-', '_');
+  return [...new Set([loc, loc.split('_')[0]])];
+}
+
 async function chromiumProfiles(name: string, root: string, known: KnownBad): Promise<BrowserProfile[]> {
   const ls = await read(path.join(root, 'Local State'));
   if (ls === undefined) return [];
@@ -77,7 +103,9 @@ async function chromiumProfiles(name: string, root: string, known: KnownBad): Pr
       const versions = await fsp.readdir(path.join(extDir, id)).catch(() => [] as string[]);
       const v = versions.sort().pop();
       const manifest = v ? await read(path.join(extDir, id, v, 'manifest.json')) : undefined;
-      const e = chromiumExtension(id, manifest, settings[id], known);
+      // "__MSG_appName__" names come from the extension's _locales folder.
+      const messages = v ? (loc: string) => { try { return readFileSync(path.join(extDir, id, v, '_locales', loc, 'messages.json'), 'utf8'); } catch { return undefined; } } : undefined;
+      const e = chromiumExtension(id, manifest, settings[id], known, messages, preferredLocales());
       if (e) extensions.push(e);
     }
     const login = await fsp.stat(path.join(dir, 'Login Data')).catch(() => undefined);
@@ -126,7 +154,7 @@ export async function readPosture(): Promise<Finding[]> {
       run('/usr/sbin/sysadminctl', ['-screenLock', 'status']),
       run('/bin/launchctl', ['list']),
       run('/usr/sbin/system_profiler', ['SPAirPortDataType', '-json'], 20_000),
-      run('/usr/bin/security', ['find-certificate', '-a', '/Library/Keychains/System.keychain']),
+      run('/usr/bin/security', ['find-certificate', '-a', '-Z', '/Library/Keychains/System.keychain']),
       run('/usr/bin/kmutil', ['showloaded', '--list-only'], 20_000),
       run('/usr/bin/defaults', ['read', '/Library/Application Support/CrashReporter/DiagnosticMessagesHistory.plist', 'AutoSubmit']),
     ]);
@@ -142,7 +170,7 @@ try { $o.screenSaverSecure=(Get-ItemProperty 'HKCU:\\Control Panel\\Desktop' -Er
 try { $o.inactivity=(Get-ItemProperty 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System' -ErrorAction Stop).InactivityTimeoutSecs } catch {}
 try { $o.shares=@(Get-SmbShare -ErrorAction Stop | ForEach-Object { $_.Name }) } catch {}
 try { $w=netsh wlan show interfaces; $o.wifiAuth=(($w | Select-String '^\\s*Authentication\\s*:\\s*(.+)$').Matches | Select-Object -First 1).Groups[1].Value; $o.wifiName=(($w | Select-String '^\\s*SSID\\s*:\\s*(.+)$').Matches | Select-Object -First 1).Groups[1].Value } catch {}
-try { $o.recentRoots=@(Get-ChildItem Cert:\\LocalMachine\\Root | Where-Object { $_.NotBefore -gt (Get-Date).AddDays(-120) } | ForEach-Object { $_.Subject }) } catch {}
+try { $o.recentRoots=@(Get-ChildItem Cert:\\LocalMachine\\Root | Where-Object { $_.NotBefore -gt (Get-Date).AddDays(-120) } | ForEach-Object { @{s=$_.Subject;t=$_.Thumbprint} }) } catch {}
 $o | ConvertTo-Json -Compress`, 45_000);
     let o: WinPosture = {};
     try {
@@ -161,7 +189,15 @@ $o | ConvertTo-Json -Compress`, 45_000);
   const gdm = (await read('/etc/gdm3/custom.conf')) ?? (await read('/etc/gdm/custom.conf')) ?? '';
   const lightdm = (await read('/etc/lightdm/lightdm.conf')) ?? '';
   const active = wifi.ok ? wifi.stdout.split('\n').find((l) => l.startsWith('yes:')) : undefined;
-  const localCerts = await fsp.readdir('/usr/local/share/ca-certificates').catch(() => [] as string[]);
+  const localCerts = (await fsp.readdir('/usr/local/share/ca-certificates').catch(() => [] as string[])).filter((n) => /\.(crt|pem)$/.test(n));
+  const localCertHashes: Record<string, string> = {};
+  for (const n of localCerts.slice(0, 50)) {
+    try {
+      localCertHashes[n] = new X509Certificate(await fsp.readFile(path.join('/usr/local/share/ca-certificates', n))).fingerprint256.replace(/:/g, '');
+    } catch {
+      /* not a certificate Keeper can read */
+    }
+  }
   const o: LinuxPosture = {
     sshActive: /^active/.test(ssh.stdout) || /^active/.test(sshd.stdout),
     sambaActive: /^active/.test(smb.stdout),
@@ -171,7 +207,8 @@ $o | ConvertTo-Json -Compress`, 45_000);
     lockEnabled: lock.ok ? lock.stdout : undefined,
     crashReports: /^active/.test(whoopsie.stdout) || /^active/.test(apport.stdout),
     wifi: active ? { ssid: active.split(':')[1] ?? '', security: active.split(':').slice(2).join(':') } : undefined,
-    localCerts: localCerts.filter((n) => /\.(crt|pem)$/.test(n)),
+    localCerts,
+    localCertHashes,
     tainted: tainted ? Number(tainted.trim()) : undefined,
   };
   return linuxPosture(o);
@@ -191,7 +228,7 @@ export async function readPersistence(): Promise<Omit<PersistenceItem, 'firstSee
       // Default systemd units shipped by packages are symlinks into /usr/lib; only real files are local changes.
       if (loc.kind === 'systemd-system' && st.isSymbolicLink()) continue;
       const text = st.size < 256 * 1024 ? (await read(full)) ?? '' : '';
-      out.push({ id: `${loc.kind}:${full}`, kind: loc.kind, name, command: persistenceCommand(name, text), location: full });
+      out.push({ id: `${loc.kind}:${full}`, kind: loc.kind, name, command: persistenceCommand(name, text), location: full, contentHash: createHash('sha256').update(text || `${st.size}:${st.mtimeMs}`).digest('hex') });
     }
   }
   if (process.platform === 'win32') {
@@ -201,7 +238,7 @@ try { Get-ScheduledTask -ErrorAction Stop | Where-Object { $_.TaskPath -notlike 
 $o | ConvertTo-Json -Compress`, 45_000);
     try {
       const rows = JSON.parse(r.stdout || '[]');
-      for (const x of Array.isArray(rows) ? rows : [rows]) if (x?.n) out.push({ id: `${x.k}:${x.l}\\${x.n}`, kind: x.k, name: x.n, command: x.c, location: x.l });
+      for (const x of Array.isArray(rows) ? rows : [rows]) if (x?.n) out.push({ id: `${x.k}:${x.l}\\${x.n}`, kind: x.k, name: x.n, command: x.c, location: x.l, contentHash: createHash('sha256').update(String(x.c ?? '')).digest('hex') });
     } catch {
       /* none readable */
     }
@@ -212,14 +249,15 @@ $o | ConvertTo-Json -Compress`, 45_000);
   return out;
 }
 
-/** Who signed a program (macOS codesign / Windows Authenticode); undefined when unknown. */
-export async function signerOf(file: string): Promise<{ signed: boolean; signer?: string } | undefined> {
+/** Who signed a program (macOS codesign / Windows Authenticode) and its code hash; undefined when unknown. */
+export async function signerOf(file: string): Promise<{ signed: boolean; signer?: string; team?: string; codeHash?: string } | undefined> {
   if (!file || !existsSync(file)) return undefined;
   if (process.platform === 'darwin') {
     const r = await run('/usr/bin/codesign', ['-dv', '--verbose=2', file], 10_000);
     if (/not signed/i.test(r.stderr)) return { signed: false };
     const auth = r.stderr.match(/^Authority=(.+)$/m)?.[1];
-    return { signed: r.ok, signer: auth };
+    const team = r.stderr.match(/^TeamIdentifier=(.+)$/m)?.[1];
+    return { signed: r.ok, signer: auth, team: team && team !== 'not set' ? team : undefined, codeHash: r.stderr.match(/^CDHash=(.+)$/m)?.[1] };
   }
   if (process.platform === 'win32') {
     const r = await powershell(`$s=Get-AuthenticodeSignature -LiteralPath '${file.replace(/['‘’‚‛]/g, '$&$&')}'; @{status=[string]$s.Status;signer=[string]$s.SignerCertificate.Subject} | ConvertTo-Json -Compress`, 15_000);

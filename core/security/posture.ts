@@ -57,9 +57,28 @@ export function macWifi(json: string): Finding[] {
 }
 
 /** `security find-certificate -a -c "" -Z /Library/Keychains/System.keychain`: certificates someone added to the system keychain. */
-export function macAddedRoots(text: string): Finding[] {
-  const names = [...text.matchAll(/"labl"<blob>="([^"]+)"/g)].map((m) => m[1]).filter((n) => !/^com\.apple\.|Apple /.test(n));
-  return names.length ? [addedRootsFinding(names)] : [];
+export function macAddedRoots(text: string, keychain = '/Library/Keychains/System.keychain'): Finding[] {
+  return addedRootsFindings(macRootList(text).map((c) => ({ ...c, store: keychain })));
+}
+
+/** Each certificate in `security find-certificate -a -Z` output: its label and hashes (Apple's own left out). */
+export function macRootList(text: string): { name: string; sha1?: string; sha256?: string }[] {
+  const out: { name: string; sha1?: string; sha256?: string }[] = [];
+  // Each certificate starts with its hashes (-Z: SHA-256 then SHA-1 on newer systems, SHA-1 alone on older) or, without -Z, with "keychain:".
+  const blocks: string[] = [];
+  let cur = '';
+  for (const line of text.split('\n')) {
+    const starts = /^SHA-256 hash:/.test(line) || (/^SHA-1 hash:/.test(line) && /SHA-1 hash:|keychain:/.test(cur)) || (/^keychain:/.test(line) && /keychain:/.test(cur));
+    if (starts && cur) { blocks.push(cur); cur = ''; }
+    cur += `${line}\n`;
+  }
+  if (cur) blocks.push(cur);
+  for (const b of blocks) {
+    const name = b.match(/"labl"<blob>="([^"]+)"/)?.[1] ?? b.match(/"alis"<blob>="([^"]+)"/)?.[1];
+    if (!name || /^com\.apple\.|^Apple /.test(name)) continue;
+    out.push({ name, sha1: b.match(/SHA-1 hash:\s*([0-9A-F]+)/i)?.[1]?.toUpperCase(), sha256: b.match(/SHA-256 hash:\s*([0-9A-F]+)/i)?.[1]?.toUpperCase() });
+  }
+  return out;
 }
 
 /** `kmutil showloaded --list-only` (or kextstat): kernel extensions that are not Apple's. */
@@ -85,7 +104,8 @@ export interface WinPosture {
   shares?: string[];
   wifiAuth?: string;
   wifiName?: string;
-  recentRoots?: string[];
+  /** subjects, or subject and thumbprint */
+  recentRoots?: (string | { s: string; t?: string })[];
 }
 
 export function windowsPosture(o: WinPosture): Finding[] {
@@ -98,7 +118,7 @@ export function windowsPosture(o: WinPosture): Finding[] {
   const shares = (o.shares ?? []).filter((s) => !/^(ADMIN|IPC|[A-Z])\$$/i.test(s));
   if (shares.length) out.push(f({ id: 'posture.sharing.smb', severity: 'low', title: `${shares.length} folder${shares.length > 1 ? 's are' : ' is'} shared on the network`, why: 'Other computers on the network can reach them.', detail: shares.join(', ') }));
   if (o.wifiAuth) out.push(...wifiFinding(o.wifiName ?? 'this network', o.wifiAuth));
-  if (o.recentRoots?.length) out.push(addedRootsFinding(o.recentRoots));
+  if (o.recentRoots?.length) out.push(...addedRootsFindings(o.recentRoots.map((r) => (typeof r === 'string' ? { name: r } : { name: r.s, sha1: r.t })).map((c) => ({ ...c, name: c.name.match(/CN=([^,]+)/)?.[1] ?? c.name, store: 'Trusted Root Certification Authorities (this computer)' }))));
   return out;
 }
 
@@ -114,6 +134,8 @@ export interface LinuxPosture {
   crashReports?: boolean;
   wifi?: { ssid: string; security: string };
   localCerts?: string[];
+  /** each local certificate's SHA-256, by file name */
+  localCertHashes?: Record<string, string>;
   tainted?: number;
 }
 
@@ -126,7 +148,7 @@ export function linuxPosture(o: LinuxPosture): Finding[] {
   if (o.lockEnabled?.trim() === 'false') out.push(f({ id: 'posture.screenlock', severity: 'medium', title: 'The screen does not lock when you step away', why: 'Someone walking past an unattended computer can use it.', fix: { label: 'Turn on screen lock', action: 'run', arg: 'gsettings set org.gnome.desktop.screensaver lock-enabled true' } }));
   if (o.crashReports) out.push(f({ id: 'posture.telemetry', severity: 'info', title: 'Crash reports are sent to your distribution', why: 'They can include parts of what was in memory. Your choice.' }));
   if (o.wifi) out.push(...wifiFinding(o.wifi.ssid, o.wifi.security || 'none'));
-  if (o.localCerts?.length) out.push(addedRootsFinding(o.localCerts));
+  if (o.localCerts?.length) out.push(...addedRootsFindings(o.localCerts.map((n) => ({ name: n, sha256: o.localCertHashes?.[n], file: `/usr/local/share/ca-certificates/${n}`, store: '/usr/local/share/ca-certificates' }))));
   if (o.tainted && (o.tainted & (1 << 12))) out.push(f({ id: 'posture.kext', severity: 'info', title: 'Kernel modules from outside your distribution are loaded', why: 'They run with full control of the system (common for graphics and VPN drivers). Remove any you do not recognise.' }));
   return out;
 }
@@ -140,8 +162,19 @@ export function wifiFinding(name: string, security: string): Finding[] {
   return [];
 }
 
-function addedRootsFinding(names: string[]): Finding {
-  return f({ id: 'posture.roots', severity: 'medium', title: `${names.length} certificate${names.length > 1 ? 's were' : ' was'} added to the system’s trusted list`, why: 'A trusted certificate lets whoever holds it read encrypted traffic. Workplaces and some security tools add them on purpose; remove any you do not recognise.', detail: names.slice(0, 10).join(', ') });
+/** One finding per added certificate, shown together when there are several. */
+export function addedRootsFindings(certs: { name: string; sha1?: string; sha256?: string; file?: string; store: string }[]): Finding[] {
+  return certs.map((c) => f({
+    id: `posture.roots.${(c.sha1 ?? c.sha256 ?? c.name).replace(/[^\w.-]+/g, '_').slice(0, 80)}`,
+    severity: 'medium',
+    title: `The certificate “${c.name}” was added to the system’s trusted list`,
+    why: 'A trusted certificate lets whoever holds it read encrypted traffic. Workplaces, VPNs and some developer and security tools add them on purpose; remove any you do not recognise.',
+    detail: [c.name, c.store].join(' · '),
+    subject: { kind: 'certificate', store: c.store, name: c.name, sha1: c.sha1, sha256: c.sha256, file: c.file },
+    group: { key: 'certs', one: '1 certificate was added to the system’s trusted list', many: '{n} certificates were added to the system’s trusted list' },
+    confidence: 'unsure',
+    learnMore: 'GUIDE#certificates',
+  }));
 }
 
 /** The basic protections (from the existing Protection check) as findings. */

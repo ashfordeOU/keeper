@@ -28,7 +28,7 @@ import type { BrowserProfile, Detection, Finding, PermissionGrant, PersistenceIt
 import { getSecret, setSecret } from '../../store';
 import { checkProtection } from '../protection';
 import { lowerPriority, pace, poll } from '../governor';
-import { readBrowsers, readPermissions, readPersistence, readPosture, signerOf } from './collect';
+import { hashOf, programOf, readBrowsers, readPermissions, readPersistence, readPosture, signerOf, stampOf } from './collect';
 
 const dir = () => path.join(app.getPath('userData'), 'security');
 const file = (n: string) => path.join(dir(), n);
@@ -548,17 +548,23 @@ export async function checkPersistence(alert = true): Promise<PersistenceItem[]>
   const now = Date.now();
   const items = await readPersistence();
   const fresh: PersistenceItem[] = [];
+  const first = !state.baselined;
   for (const i of items) {
-    if (state.knownPersistence[i.id]) continue;
-    const exe = i.command?.match(/^"([^"]+)"|^(\S+)/)?.slice(1).find(Boolean);
+    const prev = state.knownPersistence[i.id];
+    const exe = programOf(i.command);
+    const stamp = await stampOf(exe);
+    // Known and unchanged: nothing to do. Changed (what it runs, or a new program): looked at again, as new.
+    if (prev && (prev.contentHash === undefined || prev.contentHash === i.contentHash) && prev.programStamp === stamp) continue;
+    if (prev && prev.contentHash === undefined && i.contentHash) { state.knownPersistence[i.id] = { ...prev, contentHash: i.contentHash, programStamp: stamp }; continue; }
     const sig = exe ? await signerOf(exe).catch(() => undefined) : undefined;
-    const full: PersistenceItem = { ...i, firstSeen: now, signed: sig?.signed, signer: sig?.signer };
+    const codeHash = sig?.codeHash ?? (sig?.signed ? undefined : await hashOf(exe).catch(() => undefined));
+    const full: PersistenceItem = { ...i, firstSeen: now, signed: sig?.signed, signer: sig?.signer, team: sig?.team, codeHash, programStamp: stamp, ...(first ? { baseline: true } : {}) };
     state.knownPersistence[i.id] = full;
     fresh.push(full);
   }
   for (const id of Object.keys(state.knownPersistence)) if (!items.some((i) => i.id === id)) delete state.knownPersistence[id];
   if (!state.baselined) state.baselined = true;
-  else if (alert && state.settings.persistenceAlerts) for (const f of fresh) await event({ kind: 'persistence', severity: f.signed === false ? 'high' : 'medium', title: `New item set to start automatically: ${f.name}`, detail: [f.command, f.location].filter(Boolean).join(' · '), path: f.location });
+  else if (alert && state.settings.persistenceAlerts) for (const f of fresh) await event({ kind: 'persistence', severity: f.signed === false ? 'high' : 'medium', title: `Something new runs at login: ${f.name}`, detail: [f.command, f.location].filter(Boolean).join(' · '), path: f.location });
   save();
   return Object.values(state.knownPersistence);
 }
@@ -640,7 +646,8 @@ export async function overview(refresh = false): Promise<SecurityOverview> {
   const c = await clam();
   const signatureAgeDays = c.version?.date ? Math.round((Date.now() - c.version.date) / 86_400_000) : undefined;
   const persisted = await persistence();
-  const recent = persisted.filter((p) => Date.now() - p.firstSeen < 7 * 86_400_000 && state.baselined);
+  // What was already there when Keeper first looked is not new; what appeared or changed since is, for a week.
+  const recent = persisted.filter((p) => Date.now() - p.firstSeen < 7 * 86_400_000 && state.baselined && !p.baseline);
   let findings: Finding[] = [
     ...(cache.posture ?? []),
     ...permissionFindings(cache.perms ?? []),

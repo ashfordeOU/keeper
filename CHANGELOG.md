@@ -4,6 +4,20 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 
 ## [Unreleased]
 
+### Changed — Fix-it List: details, Trust and fewer false alarms
+- Each row opens (click it, its arrow, or Enter) to show exactly what was found, gathered only then: for things that start at login the file, its label, the program and arguments, RunAtLoad/KeepAlive, the file's contents, who signed the program (Developer ID name, team, notarized; Authenticode publisher on Windows; owning package on Linux), its hash and when it appeared; for extensions the name, version, ID, profile, store link and each permission in plain words; for certificates the subject, issuer, validity, fingerprints and keychain or store. Each says why it is listed, how sure Keeper is, and links to more.
+- Every row has Trust, Snooze (1 day, 1 week, 1 month), More (Ignore, Show in Finder/Explorer, open the browser's page for an extension) and Fix. Trust remembers the exact item by a fingerprint (path, what it runs and its signer or hash; extension ID, version and permissions; certificate fingerprint): it stays hidden across restarts and comes back, marked "changed", when the item changes. Home's Trust is the same Trust.
+- "Snoozed, ignored and trusted" lists trusted items too, with Stop trusting and Undo. Select several rows to Trust or Snooze them together. Similar findings are shown together ("4 browser extensions with broad access", "3 certificates were added…").
+- Fix says exactly what it will do and can be undone: Turn it off stops a login item and moves its file to the Trash, keeping a copy that Undo puts back; Remove it deletes an added certificate after keeping a copy; for extensions Keeper opens the browser at the extension, where you press Remove.
+- Things that start at login are recognised from a table of common tools (a GitHub Actions runner such as "GitHub Actions runner for ashfordeOU/arksa", Docker, Homebrew services, Tailscale, 1Password, Google and Microsoft updaters and more). Ones signed by their maker, or by any developer, are Low and say who made them; unknown ones read "Something new runs at login", never "malware".
+- Severity badges say Low, Worth a look or Important (same colours).
+
+### Fixed — Fix-it List
+- Extensions named through `__MSG_…__` showed their ID; their real name is now read from the extension's `_locales`.
+- Everything already set to start at login when Keeper first looked was listed as new for a week; only what appears or changes afterwards is.
+- Undo after a fix that made its finding go away said "This has no automatic fix".
+- Each added certificate is its own row (with its SHA-1/SHA-256), so one can be trusted or removed without the others.
+
 ## [0.1.0-beta.8] - 2026-11-03
 
 The release candidate for 1.0: Keeper as a suite (the Island, widgets and Mail in their own processes), a new first run with fewer parts on, a redesigned Island, Home, sidebar and two-pane Settings, Studio, Mail on a par with the best Mac mail apps, copy and move in the file manager, one search for everything, smaller downloads with parts fetched when switched on, and the bridge to the Developer ID: this version also accepts updates signed with Ashforde's Apple Developer ID (team D69G45342Y), which 1.0.0 will be.

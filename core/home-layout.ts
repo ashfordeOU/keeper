@@ -130,16 +130,16 @@ export interface Attention {
   detail: string;
   action: { label: string; route?: string; finding?: string };
   /**
-   * The quiet second choice: Trust a security or privacy finding (it is
-   * ignored from then on: the person knows about it and it is fine), or put
-   * any other finding off for a week.
+   * The quiet second choice: Trust a security or privacy finding (the same
+   * Trust as on the Fix-it List: this exact item is known and fine, and it
+   * comes back if it changes), or put any other finding off for a week.
    */
-  dismiss?: { label: 'Trust' | 'Not now'; finding: string; how: 'ignore' | 'snooze' };
+  dismiss?: { label: 'Trust' | 'Not now'; finding: string; how: 'trust' | 'snooze' };
   /** how many other things are on To do */
   more: number;
 }
 
-/** Areas whose findings the person may Trust (ignore for good) rather than fix. */
+/** Areas whose findings the person may Trust rather than fix. */
 const TRUSTABLE = new Set(['security', 'privacy']);
 /** "Not now" puts a finding off for this long. */
 export const SNOOZE_MS = 7 * 86_400_000;
@@ -170,7 +170,7 @@ export function attention(i: AttentionInput, fmt: (bytes: number) => string): At
   const trust = TRUSTABLE.has(f.area ?? '');
   return {
     kind: 'finding', title: f.title, detail: f.why ?? '', action: { label: 'Fix', finding: f.id },
-    dismiss: { label: trust ? 'Trust' : 'Not now', finding: f.id, how: trust ? 'ignore' : 'snooze' },
+    dismiss: { label: trust ? 'Trust' : 'Not now', finding: f.id, how: trust ? 'trust' : 'snooze' },
     more: serious.length - 1,
   };
 }

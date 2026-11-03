@@ -47,6 +47,79 @@ export interface Finding {
   /** bytes it frees, for sorting space findings by what they are worth */
   impactBytes?: number;
   fix: Fix;
+  /** what exactly was found, in a line (a path, a name, an id) */
+  detail?: string;
+  /** the exact thing the finding is about: what details are gathered for and what Trust remembers */
+  subject?: Subject;
+  /** similar findings shown together when there are several ("4 browser extensions with broad access") */
+  group?: { key: string; one: string; many: string };
+  /** how sure Keeper is that this needs doing */
+  confidence?: 'sure' | 'likely' | 'unsure';
+  /** a page of Keeper's documentation (doc#anchor) or a web address that explains it */
+  learnMore?: string;
+}
+
+/** Something a finding is about, for its details, its actions and Trust. */
+export type Subject =
+  | {
+    kind: 'login-item';
+    /** the file that registers it (a plist, a .desktop file, a unit, a registry key) */
+    path: string;
+    /** launch-agent, launch-daemon, autostart, systemd-user, run-key… */
+    where: string;
+    name: string;
+    /** the launchd label or unit name */
+    label?: string;
+    /** the program it runs, with its arguments */
+    program?: string;
+    signed?: boolean;
+    /** who signed it: "Developer ID Application: Docker Inc (9BNSXJN65R)", an Authenticode publisher */
+    signer?: string;
+    team?: string;
+    notarized?: boolean;
+    /** the program's code hash (codesign CDHash) or file hash; changes with a new program */
+    codeHash?: string;
+    /** a hash of the registering file; changes when what it runs changes */
+    contentHash?: string;
+    firstSeen?: number;
+    /** recognised from the table of common tools (core/security/known-tools.ts) */
+    tool?: { id: string; name: string; maker: string; detail?: string; verified?: boolean };
+  }
+  | {
+    kind: 'extension';
+    browser: string;
+    profile: string;
+    /** the profile's folder */
+    profileDir?: string;
+    id: string;
+    name: string;
+    version?: string;
+    permissions: string[];
+    hostPermissions: string[];
+    fromStore?: boolean;
+    engine?: 'chromium' | 'firefox' | 'webkit';
+  }
+  | {
+    kind: 'certificate';
+    /** where it is: a keychain, a certificate store or a folder */
+    store: string;
+    name: string;
+    sha1?: string;
+    sha256?: string;
+    /** the file it came from (Linux) */
+    file?: string;
+  };
+
+/** Details gathered when a row is opened: plain sections of label and value. */
+export interface FindingDetails {
+  sections: { title: string; rows: { label: string; value: string; mono?: boolean; url?: string }[]; text?: string; mono?: boolean }[];
+  /** why it is on the list, in a sentence or two */
+  why: string;
+  /** how sure Keeper is, in words */
+  confidence?: string;
+  learnMore?: { label: string; url: string };
+  /** which extra actions make sense for it */
+  actions: { reveal?: boolean; extensionPage?: string };
 }
 
 /** What the person did with a finding; kept on disk. */
@@ -57,6 +130,8 @@ export interface FindingState {
   doneAt?: number;
   /** the fix was started; checked again when the person comes back */
   startedAt?: number;
+  /** the person said it is theirs and fine: remembered for this exact item (its fingerprint) */
+  trusted?: { fp: string; at: number; title?: string };
 }
 
 export interface AutoFixPreview {
@@ -66,6 +141,8 @@ export interface AutoFixPreview {
   needsAdmin?: boolean;
   undoable: boolean;
   warning?: string;
+  /** the fix only opens something (nothing to undo) */
+  opensOnly?: boolean;
 }
 
 export interface AutoFixResult {
@@ -73,12 +150,18 @@ export interface AutoFixResult {
   message: string;
   /** set when the change can be undone */
   undoable?: boolean;
+  /** started, not finished (the person does the last step, e.g. Remove in the browser): checked again when they come back */
+  pending?: boolean;
 }
 
 /** A finding as the interface shows it: with what the person did, and whether it is still needed. */
 export interface FindingView extends Finding {
   state: FindingState;
-  status: 'open' | 'snoozed' | 'ignored' | 'done';
+  status: 'open' | 'snoozed' | 'ignored' | 'done' | 'trusted';
+  /** the item's fingerprint (what Trust remembers) */
+  fp?: string;
+  /** trusted before, but the item has changed since (a new program, new permissions, another signer) */
+  changed?: boolean;
 }
 
 /** A guided flow that is not tied to a problem ("encrypt my disk", "back up my photos"). */

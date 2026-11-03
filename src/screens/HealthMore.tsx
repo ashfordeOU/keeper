@@ -124,10 +124,10 @@ export function HealthMore({ processes, onQuit }: { processes: { pid: number; na
               <Toggle on={r.enabled} onChange={(v) => void saveRule({ ...r, enabled: v })} />
               <span>{r.kind === 'cpu' ? 'Uses more than' : 'Uses more than'}</span>
               {r.kind === 'cpu'
-                ? <><input className="input" type="number" style={{ width: 64 }} value={r.threshold} min={10} max={1000} onChange={(e) => void saveRule({ ...r, threshold: Math.max(10, +e.target.value) })} /> <span>% of a core</span></>
-                : <><input className="input" type="number" style={{ width: 64 }} value={Math.round(r.threshold / 1024 ** 3)} min={1} onChange={(e) => void saveRule({ ...r, threshold: Math.max(1, +e.target.value) * 1024 ** 3 })} /> <span>GB of memory</span></>}
+                ? <><input className="input" type="number" aria-label="Percent of a core" style={{ width: 64 }} value={r.threshold} min={10} max={1000} onChange={(e) => void saveRule({ ...r, threshold: Math.max(10, +e.target.value) })} /> <span>% of a core</span></>
+                : <><input className="input" type="number" aria-label="Gigabytes of memory" style={{ width: 64 }} value={Math.round(r.threshold / 1024 ** 3)} min={1} onChange={(e) => void saveRule({ ...r, threshold: Math.max(1, +e.target.value) * 1024 ** 3 })} /> <span>GB of memory</span></>}
               <span>for</span>
-              <input className="input" type="number" style={{ width: 56 }} value={r.minutes} min={1} max={120} onChange={(e) => void saveRule({ ...r, minutes: Math.max(1, +e.target.value) })} />
+              <input className="input" type="number" aria-label="Minutes" style={{ width: 56 }} value={r.minutes} min={1} max={120} onChange={(e) => void saveRule({ ...r, minutes: Math.max(1, +e.target.value) })} />
               <span>minutes</span>
             </div>
           ))}

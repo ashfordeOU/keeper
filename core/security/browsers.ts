@@ -57,6 +57,59 @@ const PERM: Record<string, [number, string]> = {
   identity: [5, 'can sign in to services on your behalf'],
 };
 
+/** What one permission lets an extension do, in plain words. */
+export function permissionMeaning(p: string): string {
+  if (ALL_SITES.test(p)) return 'read and change every website you visit';
+  if (/:\/\//.test(p)) return `read and change ${p.replace(/^\*:\/\//, '').replace(/\/\*$/, '')}`;
+  const known = PERM[p]?.[1];
+  if (known) return known.replace(/^can /, '');
+  const plain: Record<string, string> = { storage: 'keep its own settings and data', alarms: 'run on a schedule', notifications: 'show notifications', contextMenus: 'add items to the right-click menu', activeTab: 'see the page you are on when you press its button', offscreen: 'work in the background', sidePanel: 'show a side panel', unlimitedStorage: 'store any amount of data', declarativeNetRequest: 'block or change requests by rules', bookmarks: 'read and change bookmarks', topSites: 'see your most visited sites', idle: 'know when you are away', power: 'keep the computer awake', webNavigation: 'see every page you go to' };
+  return plain[p] ?? 'a browser permission';
+}
+
+/** Store pages, where the browser has one. */
+export function extensionStoreUrl(browser: string, id: string, fromStore?: boolean): string | undefined {
+  if (fromStore === false) return undefined;
+  if (browser === 'Firefox') return `https://addons.mozilla.org/firefox/addon/${encodeURIComponent(id)}/`;
+  if (browser === 'Edge') return `https://microsoftedge.microsoft.com/addons/detail/${id}`;
+  if (browser === 'Safari') return undefined;
+  return /^[a-p]{32}$/.test(id) ? `https://chromewebstore.google.com/detail/${id}` : undefined;
+}
+
+/** The browser's own page for an extension (opened in that browser). */
+export function extensionPageUrl(browser: string, id: string): string {
+  if (browser === 'Firefox') return 'about:addons';
+  return `chrome://extensions/?id=${id}`;
+}
+
+/**
+ * A manifest's "__MSG_appName__" name from its _locales/<locale>/messages.json.
+ * `messages` returns a locale's messages.json text (or undefined). Keys match
+ * without regard to case, as browsers do.
+ */
+export function localizedName(raw: string | undefined, messages: ((locale: string) => string | undefined) | undefined, defaultLocale?: string, prefer: string[] = []): string | undefined {
+  if (!raw) return undefined;
+  const m = raw.match(/^__MSG_(\w+?)__$/);
+  if (!m) return raw;
+  if (!messages) return undefined;
+  const key = m[1].toLowerCase();
+  const tried = new Set<string>();
+  for (const loc of [...prefer, defaultLocale, 'en', 'en_US', 'en_GB'].filter((x): x is string => !!x)) {
+    if (tried.has(loc)) continue;
+    tried.add(loc);
+    const text = messages(loc);
+    if (!text) continue;
+    try {
+      const json = JSON.parse(text.replace(/^\uFEFF/, '')) as Record<string, { message?: string }>;
+      const hit = Object.entries(json).find(([k]) => k.toLowerCase() === key)?.[1]?.message;
+      if (hit && !/^__MSG_/.test(hit)) return hit.trim();
+    } catch {
+      /* a broken messages file: try the next locale */
+    }
+  }
+  return undefined;
+}
+
 /** Extension ids known to be malicious: updated from a list the person subscribes to; empty until then. */
 export type KnownBad = Record<string, string>;
 
@@ -103,7 +156,7 @@ export function parseChromiumLocalState(json: string): { profiles: { dir: string
 }
 
 interface ChromiumSetting {
-  manifest?: { name?: string; version?: string; permissions?: string[]; host_permissions?: string[]; optional_permissions?: string[] };
+  manifest?: { name?: string; version?: string; permissions?: string[]; host_permissions?: string[]; optional_permissions?: string[]; default_locale?: string };
   state?: number;
   disable_reasons?: number | number[];
   from_webstore?: boolean;
@@ -123,7 +176,8 @@ export function parseChromiumPreferences(json: string): { settings: Record<strin
 }
 
 /** One extension from its manifest.json (newer Chromium keeps the manifest only on disk). */
-export function chromiumExtension(id: string, manifestJson: string | undefined, setting: ChromiumSetting | undefined, known: KnownBad = {}): BrowserExtension | null {
+export function chromiumExtension(id: string, manifestJson: string | undefined, setting: ChromiumSetting | undefined, known: KnownBad = {}, messages?: (locale: string) => string | undefined, prefer: string[] = []): BrowserExtension | null {
+  const fromPrefs = setting?.manifest?.name;
   let m: ChromiumSetting['manifest'] & { manifest_version?: number } = setting?.manifest ?? {};
   if (manifestJson) {
     try {
@@ -141,7 +195,9 @@ export function chromiumExtension(id: string, manifestJson: string | undefined, 
   const disabled = setting ? (setting.state === 0 || (Array.isArray(setting.disable_reasons) ? setting.disable_reasons.length > 0 : !!setting.disable_reasons)) : false;
   const fromStore = setting?.from_webstore ?? undefined;
   const s = scoreExtension({ id, permissions, hostPermissions: hosts, fromStore }, known);
-  return { id, name: m.name.startsWith('__MSG_') ? id : m.name, version: m.version, enabled: !disabled, permissions, hostPermissions: hosts, fromStore, ...s };
+  // "__MSG_appName__": the real name is in the extension's _locales; the id only when there is no name at all.
+  const name = localizedName(m.name, messages, m.default_locale, prefer) ?? (fromPrefs && !fromPrefs.startsWith('__MSG_') ? fromPrefs : undefined) ?? id;
+  return { id, name, version: m.version, enabled: !disabled, permissions, hostPermissions: hosts, fromStore, ...s };
 }
 
 // ---------------------------------------------------------------- Firefox

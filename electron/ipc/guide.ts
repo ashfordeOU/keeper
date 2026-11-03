@@ -5,7 +5,7 @@ import { ipcMain } from 'electron';
 import { desktopFrom, resolveLink } from '../../core/guide/links';
 import { FLOWS } from '../../core/guide/builtin';
 import type { FindingState } from '../../core/guide/types';
-import { apply, get, howTo, initGuide, list, open, PLATFORM_OF_GUIDE, preview, refresh, setState, showMini, undo, verify, verifyStarted } from '../services/guide';
+import { apply, details, get, howTo, initGuide, list, open, PLATFORM_OF_GUIDE, preview, refresh, reveal, setState, setStates, showMini, trust, undo, untrust, verify, verifyStarted } from '../services/guide';
 
 function handle(name: string, fn: (...args: never[]) => unknown) {
   ipcMain.handle(name, async (_e, ...args) => fn(...(args as never[])));
@@ -17,6 +17,11 @@ export function registerGuideIpc(d: { broadcast: (channel: string, ...args: unkn
   handle('guide.refresh', async (source?: string) => { await refresh(source); return list(); });
   handle('guide.summary', () => list().summary);
   handle('guide.setState', (id: string, patch: Partial<FindingState> | null) => setState(id, patch));
+  handle('guide.setStates', (ids: string[], patch: Partial<FindingState> | null) => setStates(Array.isArray(ids) ? ids.map(String) : [], patch));
+  handle('guide.trust', (ids: string[]) => trust(Array.isArray(ids) ? ids.map(String) : []));
+  handle('guide.untrust', (id: string) => untrust(String(id)));
+  handle('guide.details', (id: string) => details(String(id)));
+  handle('guide.reveal', (id: string, how: 'file' | 'extension') => reveal(String(id), how === 'extension' ? 'extension' : 'file'));
   handle('guide.preview', (id: string) => preview(id));
   handle('guide.apply', (id: string) => apply(id));
   handle('guide.undo', (id: string) => undo(id));

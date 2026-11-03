@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Privacy & Security: the shapes shared by the checks, the scanner and the page.
 
+import type { Finding as GuideFinding } from '../guide/types';
+
 export type Severity = 'info' | 'low' | 'medium' | 'high' | 'critical';
 export type Area = 'permissions' | 'connections' | 'browsers' | 'posture' | 'malware' | 'persistence';
 
@@ -26,6 +28,12 @@ export interface Finding {
   /** a finding the person chose to ignore stays listed but no longer counts */
   ignored?: boolean;
   at?: number;
+  /** the exact thing it is about (for details, Trust and the Fix-it List's actions) */
+  subject?: GuideFinding['subject'];
+  /** shown together with similar findings when there are several */
+  group?: GuideFinding['group'];
+  confidence?: GuideFinding['confidence'];
+  learnMore?: string;
 }
 
 // ---------------------------------------------------------------- who can watch what
@@ -148,7 +156,17 @@ export interface PersistenceItem {
   location: string;
   signer?: string;
   signed?: boolean;
+  /** the signing team (macOS) */
+  team?: string;
+  /** the program's code hash (codesign CDHash) or SHA-256: changes with a new program */
+  codeHash?: string;
+  /** SHA-256 of the registering file: changes when what it runs changes */
+  contentHash?: string;
+  /** the program's size and modification time, to notice a new program cheaply */
+  programStamp?: string;
   firstSeen: number;
+  /** already there when Keeper first looked: not new */
+  baseline?: boolean;
 }
 
 // ---------------------------------------------------------------- timeline

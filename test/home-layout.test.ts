@@ -85,7 +85,7 @@ describe('the suggestion line', () => {
   });
   it('offers Trust for a security or privacy finding', () => {
     const a = attention({ findings: [{ id: 'security:perm.screen', title: 'Zoom can record the screen', severity: 'medium', area: 'privacy' }] }, fmt)!;
-    expect(a.dismiss).toEqual({ label: 'Trust', finding: 'security:perm.screen', how: 'ignore' });
+    expect(a.dismiss).toEqual({ label: 'Trust', finding: 'security:perm.screen', how: 'trust' });
     expect(attention({ disk: { free: 1 * GB, total: 256 * GB } }, fmt)!.dismiss).toBeUndefined();
   });
 });

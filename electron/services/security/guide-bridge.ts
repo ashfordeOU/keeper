@@ -8,6 +8,7 @@
 import type { Finding as GuideFinding, Fix } from '../../../core/guide/types';
 import type { Finding } from '../../../core/security/types';
 import { registerAutoFix, registerFindings } from '../guide';
+import * as fixit from './fixit';
 import * as sec from './index';
 
 /** Catalogue topics (core/guide/links.ts) for findings whose fix is a settings page. */
@@ -38,7 +39,10 @@ export function toGuide(f: Finding): GuideFinding | null {
   else if (topicFor(f.id)) fix = { kind: 'open', link: topicFor(f.id)!, label: f.fix?.label, steps: steps.length ? steps : [{ text: f.why }] };
   else if (steps.length) fix = { kind: 'manual', steps };
   else fix = { kind: 'page', route: { name: 'protection', arg: f.area === 'posture' ? 'checks' : f.area === 'permissions' ? 'watch' : f.area }, highlight: f.id };
-  return { id: `security:${f.id}`, source: 'security', area, severity: f.severity, title: f.title, why: f.why, impact: f.impact, fix };
+  // What Keeper can do itself about the exact item: turn off a login item, remove a certificate, open an extension's page.
+  const own = f.subject ? fixit.fixFor(f.subject) : undefined;
+  if (own) fix = own;
+  return { id: `security:${f.id}`, source: 'security', area, severity: f.severity, title: f.title, why: f.why, impact: f.impact, fix, detail: f.detail, subject: f.subject, group: f.group, confidence: f.confidence, learnMore: f.learnMore };
 }
 
 export function registerSecurityGuide() {
@@ -57,4 +61,5 @@ export function registerSecurityGuide() {
       },
     });
   }
+  fixit.registerSubjectFixes(registerAutoFix);
 }

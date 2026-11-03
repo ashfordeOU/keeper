@@ -2,13 +2,15 @@
 // The To do list: findings from every checker, with what the person decided
 // (snoozed, ignored, done), the most important first.
 
+import { fingerprint } from './trust';
 import type { Area, Finding, FindingState, FindingView, GuideSummary, Severity } from './types';
 
 const RANK: Record<Severity, number> = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
 
-export function statusOf(state: FindingState | undefined, now: number): FindingView['status'] {
+export function statusOf(state: FindingState | undefined, now: number, fp?: string): FindingView['status'] {
   if (!state) return 'open';
   if (state.ignored) return 'ignored';
+  if (state.trusted && fp !== undefined && state.trusted.fp === fp) return 'trusted';
   if (state.doneAt) return 'done';
   if (state.snoozedUntil && state.snoozedUntil > now) return 'snoozed';
   return 'open';
@@ -32,7 +34,10 @@ export function mergeFindings(found: Finding[], states: Record<string, FindingSt
     seen.add(f.id);
     let state = states[f.id] ?? {};
     if (state.doneAt && now - state.doneAt > 60_000) state = { ...state, doneAt: undefined };
-    out.push({ ...f, state, status: statusOf(state, now) });
+    const fp = fingerprint(f);
+    // Trusted, but the item changed since (a new program, new permissions, another signer): ask again.
+    const changed = !!state.trusted && state.trusted.fp !== fp;
+    out.push({ ...f, state, status: statusOf(state, now, fp), fp, ...(changed ? { changed } : {}) });
   }
   return sortFindings(out);
 }
@@ -50,7 +55,15 @@ export function verifyResult(id: string, found: Finding[]): 'done' | 'still-need
   return found.some((f) => f.id === id) ? 'still-needed' : 'done';
 }
 
-export const WEEK = 7 * 24 * 3600_000;
+export const DAY = 24 * 3600_000;
+export const WEEK = 7 * DAY;
+/** Snooze choices on the Fix-it List. */
+export const SNOOZE_CHOICES: { label: string; ms: number }[] = [{ label: '1 day', ms: DAY }, { label: '1 week', ms: WEEK }, { label: '1 month', ms: 30 * DAY }];
+
+/** Trust: remembered for this exact item; it comes back if the item changes. */
+export function trustState(f: Pick<Finding, 'id' | 'title' | 'subject'>, state?: FindingState, now = Date.now()): FindingState {
+  return { ...state, ignored: undefined, snoozedUntil: undefined, trusted: { fp: fingerprint(f), at: now, title: f.title } };
+}
 
 export function snooze(state: FindingState | undefined, now = Date.now(), ms = WEEK): FindingState {
   return { ...state, snoozedUntil: now + ms };

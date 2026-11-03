@@ -11,10 +11,10 @@ import { spawn } from 'node:child_process';
 import { promises as fsp, readFileSync } from 'node:fs';
 import path from 'node:path';
 import type { GuideList } from '../../core/api-guide';
-import { mergeFindings, summarize, verifyResult } from '../../core/guide/aggregate';
+import { mergeFindings, summarize, trustState, verifyResult } from '../../core/guide/aggregate';
 import { flowAsFinding, FLOWS, searchHowTo, type Platform } from '../../core/guide/builtin';
 import { desktopFrom, resolveLink } from '../../core/guide/links';
-import type { AutoFixPreview, AutoFixResult, Finding, FindingState, FindingView } from '../../core/guide/types';
+import type { AutoFixPreview, AutoFixResult, Finding, FindingDetails, FindingState, FindingView } from '../../core/guide/types';
 import { keepUnmanaged, overlayOptions } from './unmanaged';
 
 export type FindingsProducer = () => Promise<Finding[]> | Finding[];
@@ -118,6 +118,55 @@ export function setState(id: string, patch: Partial<FindingState> | null): Guide
   return list();
 }
 
+/** The same change to several findings at once (Snooze selected, Bring back). */
+export function setStates(ids: string[], patch: Partial<FindingState> | null): GuideList {
+  for (const id of ids) {
+    if (patch === null) delete states[id];
+    else states[id] = { ...states[id], ...patch };
+  }
+  saveStates();
+  changed();
+  return list();
+}
+
+/** Trust: this exact item is the person's and fine. Remembered by its fingerprint; it comes back if the item changes. */
+export function trust(ids: string[]): GuideList {
+  const all = list().findings;
+  for (const id of ids) {
+    const f = all.find((x) => x.id === id);
+    if (f) states[id] = trustState(f, states[id]);
+  }
+  saveStates();
+  changed();
+  return list();
+}
+
+/** Stop trusting: the item is on the list again. */
+export function untrust(id: string): GuideList {
+  const { trusted: _t, ...rest } = states[id] ?? {};
+  states[id] = rest;
+  saveStates();
+  changed();
+  return list();
+}
+
+/** What exactly was found, gathered only when its row is opened. */
+export async function details(id: string): Promise<FindingDetails | null> {
+  const f = get(id);
+  if (!f) return null;
+  const { details: gather } = await import('./security/fixit');
+  return gather(f);
+}
+
+/** Show in Finder / Explorer, or the browser's page for an extension. */
+export async function reveal(id: string, how: 'file' | 'extension'): Promise<{ ok: boolean; message?: string }> {
+  const f = get(id);
+  if (!f?.subject) return { ok: false, message: 'Nothing to show for this one.' };
+  const m = await import('./security/fixit');
+  if (how === 'extension') return f.subject.kind === 'extension' ? m.openExtensionPage(f.subject) : { ok: false, message: 'Not an extension.' };
+  return m.reveal(f.subject);
+}
+
 /** A finding, or a guided flow as flow:<id>. */
 export function get(id: string): FindingView | null {
   if (id.startsWith('flow:')) {
@@ -128,8 +177,11 @@ export function get(id: string): FindingView | null {
   return list().findings.find((f) => f.id === id) ?? null;
 }
 
-function autoFor(id: string): { f: Finding; fix: AutoFix } {
-  const f = get(id);
+/** Findings whose fix was just done: a fix usually makes the finding go away, and Undo still needs it. */
+const applied = new Map<string, Finding>();
+
+function autoFor(id: string, forUndo = false): { f: Finding; fix: AutoFix } {
+  const f = get(id) ?? (forUndo ? applied.get(id) ?? null : null);
   if (!f || f.fix.kind !== 'auto') throw new Error('This has no automatic fix');
   const fix = fixes.get(f.fix.action);
   if (!fix) throw new Error('Keeper cannot do this one by itself here');
@@ -144,7 +196,13 @@ export async function preview(id: string): Promise<AutoFixPreview> {
 export async function apply(id: string): Promise<AutoFixResult> {
   const { f, fix } = autoFor(id);
   const r = await fix.apply(f);
+  if (r.ok && r.pending) {
+    // The person does the last step themselves (Remove in the browser); checked again when they come back.
+    setState(id, { startedAt: Date.now() });
+    return { ...r, undoable: false };
+  }
   if (r.ok) {
+    applied.set(id, f);
     setState(id, { doneAt: Date.now(), startedAt: undefined });
     await refresh(f.source);
   }
@@ -152,10 +210,11 @@ export async function apply(id: string): Promise<AutoFixResult> {
 }
 
 export async function undo(id: string): Promise<AutoFixResult> {
-  const { f, fix } = autoFor(id);
+  const { f, fix } = autoFor(id, true);
   if (!fix.undo) return { ok: false, message: 'This cannot be undone.' };
   const r = await fix.undo(f);
   if (r.ok) {
+    applied.delete(id);
     setState(id, { doneAt: undefined });
     await refresh(f.source);
   }

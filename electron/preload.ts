@@ -70,7 +70,7 @@ const api = {
   catalog: group('catalog', ['list', 'search', 'read', 'preview', 'apply', 'reset', 'log', 'undo', 'backups', 'restoreBackup', 'favourites', 'setFavourite', 'exportProfile', 'previewProfile', 'applyProfile']),
   appctl: group('appctl', ['controls', 'list', 'get', 'preview', 'set', 'clear', 'running']),
   browserTabs: group('browserTabs', ['sessions', 'tab', 'info', 'siteSettings', 'setSite', 'clearSite', 'blockThirdPartyCookies', 'syncBlocking', 'siteBlocking', 'siteProxy', 'installHost', 'setup', 'addExtension', 'revealExtension']),
-  guide: { ...group('guide', ['list', 'refresh', 'summary', 'setState', 'preview', 'apply', 'undo', 'open', 'verify', 'mini', 'flows', 'get', 'howTo', 'explain']), focus: () => ipcRenderer.send('guide.focus') },
+  guide: { ...group('guide', ['list', 'refresh', 'summary', 'setState', 'setStates', 'trust', 'untrust', 'details', 'reveal', 'preview', 'apply', 'undo', 'open', 'verify', 'mini', 'flows', 'get', 'howTo', 'explain']), focus: () => ipcRenderer.send('guide.focus') },
   agentterm: group('agentterm', ['state', 'messages', 'post', 'send', 'postTask', 'handoff', 'takeOver', 'show', 'close', 'stopAll', 'pause', 'approve', 'setPerms', 'setPolicy', 'addAgent', 'transcript', 'runRecipe']),
   terminal: {
     ...group('terminal', ['settings', 'setSettings', 'shells', 'sshHosts', 'sessions', 'create', 'attach', 'kill', 'rename', 'setGroup', 'clear', 'notes', 'setNotes', 'saveWorkspace', 'webTools', 'webToolCommand', 'openWith', 'openAt', 'openWindow', 'toggleQuick', 'shellKind', 'integrationScript', 'remoteList', 'remoteDownload', 'remoteUpload', 'remoteMkdir', 'remoteRemove', 'remoteRename', 'remoteSavePassword', 'remoteDisconnect', 'hostPid']),

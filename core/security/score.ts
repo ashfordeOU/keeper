@@ -6,6 +6,7 @@
 import type { AppPrivacy } from './trackers';
 import type { BrowserProfile, Detection, Finding, PermissionGrant, PersistenceItem, Severity } from './types';
 import { SERVICE_LABEL } from './permissions';
+import { labelOf, startupVerdict } from './known-tools';
 
 export const SEVERITY_RANK: Record<Severity, number> = { info: 0, low: 1, medium: 2, high: 3, critical: 4 };
 const COST: Record<Severity, number> = { info: 0, low: 2, medium: 6, high: 14, critical: 30 };
@@ -47,7 +48,17 @@ export function browserFindings(profiles: BrowserProfile[]): Finding[] {
   const out: Finding[] = [];
   for (const p of profiles) {
     for (const e of p.extensions.filter((x) => x.enabled && x.risk >= 35)) {
-      out.push({ id: `browser.ext.${p.browser}.${e.id}`, area: 'browsers', severity: e.knownBad ? 'critical' : e.risk >= 60 ? 'high' : 'medium', title: `${p.browser}: the extension “${e.name}” ${e.knownBad ? 'is known to be malicious' : 'has broad access'}`, why: `It ${e.reasons.slice(0, 3).join(', ')}. Remove it unless you rely on it and trust its maker.`, detail: `${p.profile} · ${e.id}`, fix: { label: 'Open the extensions page', action: 'open-extensions', arg: p.browser } });
+      out.push({
+        id: `browser.ext.${p.browser}.${e.id}`, area: 'browsers', severity: e.knownBad ? 'critical' : e.risk >= 60 ? 'high' : 'medium',
+        title: `${p.browser}: the extension “${e.name}” ${e.knownBad ? 'is known to be malicious' : 'has broad access'}`,
+        why: `It ${e.reasons.slice(0, 3).join(', ')}. Fine if you rely on it and trust its maker; otherwise remove it.`,
+        detail: `${p.profile} · ${e.name === e.id ? e.id : `${e.id}${e.version ? ` · version ${e.version}` : ''}`}`,
+        fix: { label: 'Open the extensions page', action: 'open-extensions', arg: p.browser },
+        subject: { kind: 'extension', browser: p.browser, engine: p.engine, profile: p.profile, profileDir: p.path, id: e.id, name: e.name, version: e.version, permissions: e.permissions, hostPermissions: e.hostPermissions, fromStore: e.fromStore },
+        ...(e.knownBad ? {} : { group: { key: 'ext-broad', one: '1 browser extension with broad access', many: '{n} browser extensions with broad access' } }),
+        confidence: e.knownBad ? 'sure' : 'unsure',
+        learnMore: 'GUIDE#extensions',
+      });
     }
     if (p.doh === 'off') out.push({ id: `browser.doh.${p.browser}.${p.profile}`, area: 'browsers', severity: 'info', title: `${p.browser} looks up addresses without encryption`, why: 'Your network and internet provider can see every site name you visit. Secure DNS hides it.' });
   }
@@ -77,15 +88,26 @@ export function malwareFindings(o: { active: Detection[]; realtime: boolean; eng
 }
 
 export function persistenceFindings(items: PersistenceItem[], known: Set<string>): Finding[] {
-  return items.filter((i) => !known.has(i.id)).map((i) => ({
-    id: `persist.${i.id}`,
-    area: 'persistence' as const,
-    severity: (i.signed === false ? 'medium' : 'low') as Severity,
-    title: `New item set to start automatically: ${i.name}`,
-    why: 'Malware often installs itself to run at every start. If you just installed something, this is probably it.',
-    detail: [i.command, i.location, i.signer ? `signed by ${i.signer}` : i.signed === false ? 'not signed' : undefined].filter(Boolean).join(' · '),
-    fix: { label: 'Review startup items', action: 'open-startup' },
-  }));
+  return items.filter((i) => !known.has(i.id)).map((i) => {
+    const v = startupVerdict({ name: i.name, program: i.command, signed: i.signed, signer: i.signer });
+    return {
+      id: `persist.${i.id}`,
+      area: 'persistence' as const,
+      severity: v.severity,
+      title: v.title,
+      why: v.why,
+      detail: [v.tool?.detail ? `${labelOf(i)} · ${v.tool.detail}` : undefined, i.command, i.location, i.signer ? `signed by ${i.signer}` : i.signed === false ? 'not signed' : undefined].filter(Boolean).join(' · '),
+      fix: { label: 'Review startup items', action: 'open-startup' },
+      subject: {
+        kind: 'login-item', path: i.location, where: i.kind, name: i.name, label: labelOf(i), program: i.command,
+        signed: i.signed, signer: i.signer, team: i.team, codeHash: i.codeHash, contentHash: i.contentHash, firstSeen: i.firstSeen,
+        tool: v.tool ? { id: v.tool.id, name: v.tool.name, maker: v.tool.maker, detail: v.tool.detail, verified: v.tool.verified } : undefined,
+      },
+      group: { key: 'login-items', one: '1 new thing runs at login', many: '{n} new things run at login' },
+      confidence: v.confidence,
+      learnMore: v.tool?.learnMore ?? 'GUIDE#login-items',
+    };
+  });
 }
 
 /** A plain report to save or share. */

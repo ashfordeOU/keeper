@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Guided fixes between the main process and the window.
 
-import type { AutoFixPreview, AutoFixResult, FindingState, FindingView, GuideFlow, GuideSummary } from './guide/types';
+import type { AutoFixPreview, AutoFixResult, FindingDetails, FindingState, FindingView, GuideFlow, GuideSummary } from './guide/types';
 
 export interface GuideList {
   findings: FindingView[];
@@ -17,6 +17,15 @@ export interface GuideApi {
   refresh(source?: string): Promise<GuideList>;
   summary(): Promise<GuideSummary>;
   setState(id: string, patch: Partial<FindingState> | null): Promise<GuideList>;
+  /** the same change to several findings (Snooze selected; null brings them back) */
+  setStates(ids: string[], patch: Partial<FindingState> | null): Promise<GuideList>;
+  /** Trust: these exact items are known and fine; each comes back if it changes */
+  trust(ids: string[]): Promise<GuideList>;
+  untrust(id: string): Promise<GuideList>;
+  /** what exactly was found (gathered when a row is opened) */
+  details(id: string): Promise<FindingDetails | null>;
+  /** Show in Finder / Explorer ('file'), or the browser's page for an extension */
+  reveal(id: string, how: 'file' | 'extension'): Promise<{ ok: boolean; message?: string }>;
   /** what an automatic fix will change, before it runs */
   preview(id: string): Promise<AutoFixPreview>;
   apply(id: string): Promise<AutoFixResult>;

@@ -131,11 +131,9 @@ function SuggestionLine() {
   const dismiss = async () => {
     const d = a.dismiss;
     if (!d) return;
-    if (d.how === 'ignore') {
-      // Trusted: ignored on To do, and on Privacy & Security for the security checks' own findings.
-      await api.guide?.setState(d.finding, { ignored: true }).catch(() => undefined);
-      if (d.finding.startsWith('security:')) await api.security?.ignore(d.finding.slice(9), true).catch(() => undefined);
-    } else await api.guide?.setState(d.finding, { snoozedUntil: Date.now() + SNOOZE_MS }).catch(() => undefined);
+    // The same Trust as the Fix-it List's: this exact item, back if it changes (listed there under trusted).
+    if (d.how === 'trust') await api.guide?.trust([d.finding]).catch(() => undefined);
+    else await api.guide?.setState(d.finding, { snoozedUntil: Date.now() + SNOOZE_MS }).catch(() => undefined);
     reload();
   };
   return (
@@ -144,7 +142,7 @@ function SuggestionLine() {
       <button className="home-suggest-title ellipsis" title={a.detail || a.title} onClick={act}>{a.title}</button>
       {a.more > 0 ? <button className="home-link quiet" onClick={() => go({ name: 'todo' })}>{a.more} more suggestion{a.more === 1 ? '' : 's'}</button> : null}
       <span className="grow" />
-      {a.dismiss ? <button className="home-link" data-testid="home-suggestion-dismiss" title={a.dismiss.how === 'ignore' ? 'Trust this: it stops being suggested (To do can show it again)' : 'Ask again in a week'} onClick={() => void dismiss()}>{a.dismiss.label}</button> : null}
+      {a.dismiss ? <button className="home-link" data-testid="home-suggestion-dismiss" title={a.dismiss.how === 'trust' ? 'Trust this: it stops being suggested until it changes (the Fix-it List can show it again)' : 'Ask again in a week'} onClick={() => void dismiss()}>{a.dismiss.label}</button> : null}
       <button className="btn sm" data-testid="home-suggestion-action" onClick={act}>{a.action.label}</button>
     </section>
   );

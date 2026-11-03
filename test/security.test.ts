@@ -273,13 +273,13 @@ describe('posture checks', () => {
     expect(macScreenLock('screenLock delay is immediate')).toEqual([]);
     expect(macSharing('-\t0\tcom.openssh.sshd\n123\t0\tcom.apple.screensharing\n').map((f) => f.title)).toEqual(['Remote Login (SSH) is on', 'Screen Sharing is on']);
     expect(macWifi(JSON.stringify({ SPAirPortDataType: [{ spairport_airport_interfaces: [{ spairport_current_network_information: { _name: 'Cafe', spairport_security_mode: 'spairport_security_mode_none' } }] }] }))[0].title).toMatch(/open Wi-Fi/);
-    expect(macAddedRoots('    "labl"<blob>="Corp Inspection CA"\n    "labl"<blob>="com.apple.systemdefault"\n')[0].detail).toBe('Corp Inspection CA');
+    expect(macAddedRoots('keychain: "/Library/Keychains/System.keychain"\n    "labl"<blob>="Corp Inspection CA"\nkeychain: "/Library/Keychains/System.keychain"\n    "labl"<blob>="com.apple.systemdefault"\n')[0].detail).toBe('Corp Inspection CA · /Library/Keychains/System.keychain');
   });
   it('Windows and Linux posture from collected values', () => {
     const w = windowsPosture({ autoLogon: '1', rdp: 0, admin: true, telemetry: 3, screenSaverSecure: 0, shares: ['ADMIN$', 'C$', 'IPC$', 'Photos'], wifiAuth: 'WPA2-Personal', recentRoots: ['Fiddler Root'] });
-    expect(w.map((f) => f.id)).toEqual(['posture.autologin', 'posture.sharing.rdp', 'posture.admin', 'posture.telemetry', 'posture.screenlock', 'posture.sharing.smb', 'posture.roots']);
+    expect(w.map((f) => f.id)).toEqual(['posture.autologin', 'posture.sharing.rdp', 'posture.admin', 'posture.telemetry', 'posture.screenlock', 'posture.sharing.smb', 'posture.roots.Fiddler_Root']);
     const l = linuxPosture({ sshActive: true, lockEnabled: 'false\n', wifi: { ssid: 'Hotel', security: '' }, tainted: 4096, localCerts: ['mitm.crt'] });
-    expect(l.map((f) => f.id)).toEqual(['posture.sharing.ssh', 'posture.screenlock', 'posture.wifi', 'posture.roots', 'posture.kext']);
+    expect(l.map((f) => f.id)).toEqual(['posture.sharing.ssh', 'posture.screenlock', 'posture.wifi', 'posture.roots.mitm.crt', 'posture.kext']);
     expect(wifiFinding('Old', 'WEP')[0].severity).toBe('high');
     expect(wifiFinding('Home', 'WPA3')).toEqual([]);
     expect(protectionFindings([{ id: 'firewall', name: 'Firewall', description: 'Blocks.', status: 'off', weight: 2, fix: 'Turn on' }, { id: 'sip', name: 'SIP', description: 'x', status: 'ok', weight: 3 }])).toEqual([expect.objectContaining({ id: 'protection.firewall', severity: 'medium' })]);
