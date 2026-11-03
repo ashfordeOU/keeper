@@ -87,7 +87,13 @@ const navigate = (app, r) => app.evaluate(({ BrowserWindow }, route) => { const 
   // Tiles: equal size, in a tidy grid.
   const tiles = await g.$$eval('.gl-tile:not(.gl-ghost)', (els) => els.map((e) => { const r = e.getBoundingClientRect(); return { id: e.dataset.testid.replace('glance-card-', ''), w: Math.round(r.width), h: Math.round(r.height), v: e.querySelector('.gl-value').textContent }; }));
   check(tiles.length >= 3 && tiles.every((t) => ['weather', 'storage', 'system', 'network'].includes(t.id)), `reading tiles: ${tiles.map((t) => `${t.id} "${t.v}"`).join(', ')}`);
-  check(new Set(tiles.map((t) => t.w)).size === 1 && new Set(tiles.map((t) => t.h)).size === 1, `the tiles are the same size (${[...new Set(tiles.map((t) => `${t.w}×${t.h}`))].join(', ')})`);
+  // An odd last tile spans the whole row (no empty slot); the rest are equal.
+  const paired = tiles.length % 2 ? tiles.slice(0, -1) : tiles;
+  check(new Set(paired.map((t) => t.w)).size <= 1 && new Set(tiles.map((t) => t.h)).size === 1, `the tiles are the same size (${[...new Set(tiles.map((t) => `${t.w}×${t.h}`))].join(', ')})`);
+  if (tiles.length % 2) {
+    const row = await g.$eval('.gl-tiles', (e) => Math.round(e.getBoundingClientRect().width));
+    check(Math.abs(tiles[tiles.length - 1].w - row) <= 1, `an odd last tile spans the row (${tiles[tiles.length - 1].w} of ${row})`);
+  }
   const storage = tiles.find((t) => t.id === 'storage');
   check(!!storage && /^\d+(\.\d)? (KB|MB|GB|TB) free$/.test(storage.v), `disk in a short form ("${storage?.v}")`);
   const net = tiles.find((t) => t.id === 'network');

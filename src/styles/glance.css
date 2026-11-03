@@ -22,6 +22,8 @@ button.gl-status:hover { text-decoration: underline; }
 
 /* four equal reading tiles */
 .gl-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+/* An odd count (weather off): the last tile spans the row, so no gap is left. */
+.gl-tiles > :last-child:nth-child(odd) { grid-column: 1 / -1; }
 .gl-tiles > div { min-width: 0; }
 .gl-tile { width: 100%; height: 68px; display: flex; flex-direction: column; justify-content: space-between; padding: 8px 12px; border-radius: var(--r-md); background: var(--bg-sunk); min-width: 0; }
 .glance .gl-tile { padding: 8px 12px; }
