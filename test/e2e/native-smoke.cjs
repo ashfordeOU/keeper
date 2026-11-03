@@ -117,7 +117,8 @@ function cli(args, timeout = 30_000) {
   const settingsOpen = await until(async () => (await main.locator('.settings-page .settings-nav').count()) > 0, 15_000);
   // Its label depends on the system (Finder, Spotlight and Shortcuts on a Mac); "spotlight" and "explorer" are its search words.
   await main.locator('[data-testid="settings-search"]').fill(OS === 'darwin' ? 'spotlight' : 'explorer').catch(() => undefined);
-  await main.locator('[data-testid="settings-result"]').first().click({ timeout: 10_000 }).catch(() => undefined);
+  // Several settings mention Spotlight: open this one by its system-specific name.
+  await main.locator('[data-testid="settings-result"]', { hasText: /Finder, Spotlight|File Explorer and Windows Search|File manager and desktop search|Works with your computer/ }).first().click({ timeout: 10_000 }).catch(() => undefined);
   const platformSection = settingsOpen && await until(async () => (await main.locator('[data-setting-id="platform"], #platform').count()) > 0, 15_000);
   check(platformSection, 'Settings opens, with "Works with your computer"');
   const integrations = await k('platform', 'list', true);
