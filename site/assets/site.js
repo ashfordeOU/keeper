@@ -125,6 +125,9 @@
   const ver = (tag) => tag.replace(/^v/, '');
   const assetUrl = (rel, name) => { const a = rel.assets.find((x) => x.n === name); return a ? a.u : null; };
 
+  // A stable Mac release from 1.0.0 on (tags like v1.2.3) is signed and notarized.
+  const notarized = (rel) => !rel.pre && /^v?([1-9]\d*)\.\d+\.\d+$/.test(rel.tag);
+
   // The big button on the home page.
   async function heroButton() {
     const btn = document.querySelector('[data-download]');
@@ -151,6 +154,8 @@
       btn.href = hit.url;
       sub.textContent = [ARCH[os][arch], `version ${ver(hit.rel.tag)}`, mb(hit.size)].filter(Boolean).join(' · ');
       const bits = [];
+      // Mac builds are signed with Ashforde's Developer ID and notarized from 1.0.0; betas before it were not.
+      if (os === 'mac' && notarized(hit.rel)) bits.push('Signed and notarized by Apple');
       if (os === 'mac') {
         const otherArch = arch === 'arm64' ? 'x64' : 'arm64';
         const alt = newestWith(list, FILE.mac[otherArch]);
