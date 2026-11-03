@@ -9,11 +9,12 @@
 // takes the height of what is drawn here, so nothing scrolls.
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { ACTION_INFO, middleTruncate, shortBytes, type GlanceActionId, type GlanceCard, type GlanceTile, type GlanceView } from '../../core/glance';
+import { ACTION_INFO, middleTruncate, shortBytes, type GlanceActionId, type GlanceCard, type GlanceNetView, type GlanceTile, type GlanceView } from '../../core/glance';
 import { kindOf } from '../../core/classify';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
 import { OwlMark } from '../components/OwlMark';
+import { AppIcon, Spark, useAppIcons } from '../components/NetBits';
 import '../styles/glance.css';
 
 const TILE_ICON: Record<GlanceTile['id'], string> = { weather: 'sun', storage: 'disk', system: 'cpu', network: 'globe' };
@@ -54,6 +55,44 @@ function Action({ id, onRun }: { id: GlanceActionId; onRun: (id: GlanceActionId)
   );
 }
 
+/** The network part: a line with a small chart, the busiest three apps with a quick Block, and prompts waiting. */
+function NetPart({ n, onChange, short }: { n: GlanceNetView; onChange: () => void; /** a short screen: only the line */ short?: boolean }) {
+  const icons = useAppIcons(n.top.map((t) => t.path));
+  // A press shows its answer at once; the next reading confirms it.
+  const [pending, setPending] = useState<Record<string, boolean>>({});
+  const flip = (t: GlanceNetView['top'][number]) => {
+    const blocked = !(pending[t.app] ?? t.blocked);
+    setPending((p) => ({ ...p, [t.app]: blocked }));
+    void api.glance.netRule(t.app, t.path, blocked ? 'deny' : null).catch(() => undefined).finally(onChange);
+  };
+  return (
+    <section className="gl-sec" aria-labelledby="gl-net-title" data-testid="glance-network">
+      <div className="gl-head">
+        <h2 id="gl-net-title">Network</h2>
+        <button className="gl-link" data-testid="glance-open-network" onClick={() => void api.glance.open('firewall')}>Open Network<Icon name="chevronRight" size={12} /></button>
+      </div>
+      <div className="gl-net">
+        <div className="gl-net-line">
+          <span className="gl-net-txt" data-testid="glance-net-line">{n.line} <span className="gl-net-rates">· {n.rates}</span></span>
+          {n.waiting ? <button className="gl-net-pill" data-testid="glance-net-waiting" onClick={() => void api.glance.netAsk()} title="Decide about the new connections">{n.waiting}</button> : <Spark values={n.spark} w={56} h={16} />}
+        </div>
+        {(short ? [] : n.top).map((t) => {
+          const blocked = pending[t.app] ?? t.blocked;
+          return (
+            <div className="gl-net-app" key={t.app} data-testid="glance-net-app" title={t.hint}>
+              <AppIcon name={t.app} src={icons[t.path ?? '']} size={16} />
+              <span className="gl-net-name">{t.app}</span>
+              <span className="gl-net-rate">{t.rate}</span>
+              {n.canBlock ? <button className={`gl-net-btn${blocked ? ' blocked' : ''}`} data-testid="glance-net-block" aria-pressed={blocked} aria-label={blocked ? `Allow ${t.app} again` : `Block ${t.app}`} title={blocked ? `Allow ${t.app} again` : `Block ${t.app} from the network`} onClick={() => flip(t)}>{blocked ? 'Allow' : 'Block'}</button> : null}
+            </div>
+          );
+        })}
+        {!n.top.length && !short ? <div className="gl-net-quiet">Quiet: no app is online right now.</div> : null}
+      </div>
+    </section>
+  );
+}
+
 /** Before the first reading arrives: the same shapes, quietly. */
 function Placeholder() {
   return (
@@ -66,6 +105,8 @@ function Placeholder() {
 export function Glance() {
   const [v, setV] = useState<GlanceView | null>(null);
   const [more, setMore] = useState(false);
+  // On a short screen the summary still never scrolls: first the downloads fold to their heading, then the network part to its line.
+  const [squeeze, setSqueeze] = useState(0);
   const root = useRef<HTMLDivElement>(null);
   const fit = useRef<HTMLDivElement>(null);
   const refresh = () => void api.glance.view().then(setV).catch(() => undefined);
@@ -74,7 +115,7 @@ export function Glance() {
     refresh();
     const off = api.on('glance', (x) => setV(x));
     // Opened again later: fresh numbers at once, More folded away.
-    const vis = () => { if (document.visibilityState === 'visible') { setMore(false); refresh(); } };
+    const vis = () => { if (document.visibilityState === 'visible') { setMore(false); setSqueeze(0); refresh(); } };
     document.addEventListener('visibilitychange', vis);
     return () => { off(); document.removeEventListener('visibilitychange', vis); };
   }, []);
@@ -89,6 +130,13 @@ export function Glance() {
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+
+  useLayoutEffect(() => {
+    const el = fit.current;
+    if (!el || squeeze >= 2) return;
+    const avail = (window.screen?.availHeight || 10_000) - 24;
+    if (el.getBoundingClientRect().height > avail) setSqueeze(squeeze + 1);
+  });
 
   // Keyboard: arrows move through everything that can be pressed, Escape folds More, then closes.
   useEffect(() => {
@@ -155,6 +203,8 @@ export function Glance() {
           </div>
         ) : null}
 
+        {v?.net ? <NetPart n={v.net} onChange={refresh} short={squeeze >= 2} /> : null}
+
         {v && s?.actions && (v.actions.length || v.more.length) ? (
           <section className="gl-sec" aria-labelledby="gl-actions-title">
             <div className="gl-head">
@@ -184,7 +234,7 @@ export function Glance() {
               <h2 id="gl-dl-title">Recent downloads</h2>
               <button className="gl-link" data-testid="glance-see-all" onClick={() => void api.glance.open('downloads')}>See all<Icon name="chevronRight" size={12} /></button>
             </div>
-            {v.recent.length ? (
+            {squeeze >= 1 ? null : v.recent.length ? (
               <div className="gl-files" role="list">
                 {v.recent.map((f) => {
                   const kind = kindOf(f.name);

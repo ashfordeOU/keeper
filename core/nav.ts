@@ -45,7 +45,7 @@ export const HUB_TABS: Record<string, NavTab[]> = {
   security: [
     { route: { name: 'security' }, label: 'Overview', feature: 'protection', keywords: 'camera microphone screen trackers browser extensions score privacy' },
     { route: { name: 'protection' }, label: 'Protection', keywords: 'antivirus malware defender gatekeeper xprotect updates' },
-    { route: { name: 'firewall' }, label: 'Firewall', keywords: 'network block allow rules connections outgoing incoming dns' },
+    { route: { name: 'firewall' }, label: 'Network & firewall', keywords: 'network monitor firewall block allow ask rules connections apps traffic outgoing incoming dns where data goes' },
     { route: { name: 'netactivity' }, label: 'Network activity', keywords: 'connections traffic bandwidth apps where' },
     { route: { name: 'vpn' }, label: 'VPN', keywords: 'wireguard tunnel leak' },
   ],

@@ -1,27 +1,31 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
-// Firewall: who may connect where. Overview with alerts and quiet modes,
-// live connections on a list and a map, rules and groups, profiles, the DNS
-// filter with blocklists, and traffic history. Everything is free.
+// Network & firewall: who may connect where. Live connections per app with an
+// inspector (src/screens/NetLive.tsx), rules and groups, history, where your
+// data goes, and settings (switches, profiles, the DNS filter with
+// blocklists). Everything is free.
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { FwAlert, FwConnection, FwEvent, FwStatus } from '../../core/api-fw';
+import { useCallback, useEffect, useState } from 'react';
+import type { FwAlert, FwEvent, FwStatus } from '../../core/api-fw';
 import type { QueryLogEntry } from '../../core/fw/dns';
-import { countryName, matchesSearch, parseSearch } from '../../core/fw/monitor';
+import { countryName } from '../../core/fw/monitor';
 import { describeRuleTarget } from '../fw-text';
 import type { AlertScope, FwRule, Mode, Profile, TidyNote } from '../../core/fw/rules';
-import { formatBytes, relativeTime } from '../../core/format';
+import { relativeTime } from '../../core/format';
 import { flag } from '../../core/net/geo';
 import { api, isDemo } from '../api';
 import { KeeperOwnConnections } from '../components/UsageStatsPanel';
 import { Icon } from '../components/Icon';
-import { homePoint, WorldMap, type MapPoint } from '../components/WorldMap';
-import { Empty, Loading, Modal, PageHead, Toggle } from '../components/ui';
+import { Loading, Modal, PageHead, Toggle } from '../components/ui';
 import { useStore } from '../state';
 import '../styles/fw.css';
-import { MeshTag } from './MeshParts';
 import { Tabs } from '../components/Tabs';
+import { AskSheet, HistoryTab, LiveTab, MonitorSwitches, WhereTab } from './NetLive';
+import { batchAlerts } from '../../core/fw/live';
 
-type Tab = 'overview' | 'connections' | 'rules' | 'profiles' | 'dns' | 'history';
+type Tab = 'live' | 'rules' | 'history' | 'where' | 'settings';
+type SettingsPart = 'switches' | 'profiles' | 'dns';
+/** Older links (firewall:connections, firewall:dns…) land on the part that has it now. */
+const OLD_TABS: Record<string, [Tab, SettingsPart?]> = { overview: ['live'], connections: ['live'], profiles: ['settings', 'profiles'], dns: ['settings', 'dns'] };
 
 const MODE_TEXT: Record<Mode, [string, string]> = {
   alert: ['Ask me', 'New connections without a rule ask first.'],
@@ -30,8 +34,11 @@ const MODE_TEXT: Record<Mode, [string, string]> = {
 };
 
 export function Firewall() {
-  const { route, go, toast } = useStore();
-  const [tab, setTab] = useState<Tab>((route.arg as Tab) || 'overview');
+  const { route, toast } = useStore();
+  const start = OLD_TABS[route.arg ?? ''] ?? [(route.arg as Tab) || 'live'];
+  const [tab, setTab] = useState<Tab>(start[0]);
+  const [part, setPart] = useState<SettingsPart>(start[1] ?? 'switches');
+  const [asking, setAsking] = useState(false);
   const [s, setS] = useState<FwStatus | null>(null);
   const load = useCallback(() => void api.fw.status().then(setS), []);
   useEffect(() => {
@@ -41,27 +48,45 @@ export function Firewall() {
   }, [load]);
   const act = async (p: Promise<FwStatus>) => { try { setS(await p); } catch (e) { toast((e as Error).message); } };
   if (!s) return <Loading label="Reading the firewall…" />;
+  const waiting = batchAlerts(s.pending).length;
+  const profile = s.state.profiles.find((p) => p.id === s.state.activeProfile);
+  const facts = [
+    s.enforcement.active ? `Rules in ${s.enforcement.backend}` : s.settings.enforce ? 'Rules not in place yet' : 'Watching only',
+    `${profile?.name ?? 'Home'}${s.state.autoSwitch ? ' (by network)' : ''}`,
+    'On this computer',
+  ];
 
   return (
-    <div className="fw">
-      <PageHead title="Firewall" sub="Which app may connect where — on this computer, for free." />
-      <div className="fw-status">
-        <div className={`fw-shield ${s.enforcement.active ? 'on' : s.settings.alerts || s.settings.dnsFilter ? 'part' : 'off'}`}><Icon name="shield" size={22} /></div>
-        <div className="grow">
-          <b>{s.enforcement.active ? `Rules enforced through ${s.enforcement.backend}` : s.settings.enforce ? 'Rules not in place yet' : 'Watching only — nothing is blocked by rules'}</b>
-          <div className="small muted">{s.enforcement.message ?? (s.settings.enforce ? '' : 'Turn on “Enforce rules” below; the system asks for the administrator once per change.')}</div>
+    <div className="fw nm-page">
+      <PageHead title="Network & firewall" sub="Every app’s connections, and what each may do." />
+      <div className="nm-status" data-testid="nm-status">
+        <span className={`nm-dot ${s.enforcement.active ? 'on' : s.settings.monitor || s.settings.alerts || s.settings.dnsFilter ? 'part' : 'off'}`} aria-hidden />
+        <span className="nm-status-txt" title={s.enforcement.message}>{facts.join(' · ')}</span>
+        <span className="grow" />
+        {waiting ? <button className="nm-pill accent" data-testid="nm-waiting-pill" onClick={() => setAsking(true)}>{waiting} waiting</button> : null}
+        <div className="nm-seg nm-seg-sm" role="radiogroup" aria-label="When no rule fits">
+          {(Object.keys(MODE_TEXT) as Mode[]).map((m) => <button key={m} role="radio" aria-checked={s.state.mode === m} className={s.state.mode === m ? 'on' : ''} title={MODE_TEXT[m][1]} onClick={() => void act(api.fw.setMode(m))}>{MODE_TEXT[m][0]}</button>)}
         </div>
-        <div className="seg">
-          {(Object.keys(MODE_TEXT) as Mode[]).map((m) => <button key={m} className={s.state.mode === m ? 'on' : ''} title={MODE_TEXT[m][1]} onClick={() => void act(api.fw.setMode(m))}>{MODE_TEXT[m][0]}</button>)}
-        </div>
-        <select className="input sm" value={s.state.activeProfile} onChange={(e) => void act(api.fw.setProfile(e.target.value))} title="Profile">
+        <select className="input sm" aria-label="Profile" value={s.state.activeProfile} onChange={(e) => void act(api.fw.setProfile(e.target.value))} title="Profile">
           {s.state.profiles.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
       </div>
 
-      <Tabs label="Firewall" value={tab} onChange={setTab} items={([['overview', 'Overview'], ['connections', 'Connections'], ['rules', 'Rules'], ['profiles', 'Profiles'], ['dns', 'Blocklists & DNS'], ['history', 'History']] as const).map(([k, l]) => ({ id: k, label: l, badge: k === 'overview' && s.pending.length ? s.pending.length : undefined }))} />
+      <Tabs label="Network and firewall" className="fw-tabs" value={tab} onChange={setTab} items={([['live', 'Live'], ['rules', 'Rules'], ['history', 'History'], ['where', 'Where data goes'], ['settings', 'Settings']] as const).map(([k, l]) => ({ id: k, label: l, testId: `nm-tab-${k}`, badge: k === 'live' && waiting ? waiting : undefined }))} />
 
-      {tab === 'overview' ? <Overview s={s} act={act} go={go} /> : tab === 'connections' ? <Connections s={s} act={act} /> : tab === 'rules' ? <Rules s={s} act={act} /> : tab === 'profiles' ? <Profiles s={s} act={act} /> : tab === 'dns' ? <Dns s={s} act={act} /> : <HistoryTab />}
+      {tab === 'live' ? <LiveTab s={s} act={act} onAsk={() => setAsking(true)} />
+        : tab === 'rules' ? <Rules s={s} act={act} />
+          : tab === 'history' ? <HistoryTab s={s} act={act} />
+            : tab === 'where' ? <WhereTab s={s} act={act} />
+              : (
+                <div className="nm-settings">
+                  <div className="nm-seg" role="radiogroup" aria-label="Settings">
+                    {([['switches', 'Switches'], ['profiles', 'Profiles'], ['dns', 'Blocklists & DNS']] as const).map(([k, l]) => <button key={k} role="radio" aria-checked={part === k} data-testid={`nm-part-${k}`} className={part === k ? 'on' : ''} onClick={() => setPart(k)}>{l}</button>)}
+                  </div>
+                  {part === 'switches' ? <Overview s={s} act={act} /> : part === 'profiles' ? <Profiles s={s} act={act} /> : <Dns s={s} act={act} />}
+                </div>
+              )}
+      {asking && waiting ? <AskSheet s={s} onClose={() => setAsking(false)} /> : null}
     </div>
   );
 }
@@ -70,16 +95,13 @@ type Act = (p: Promise<FwStatus>) => Promise<void>;
 
 // ---------------------------------------------------------------- overview
 
-function Overview({ s, act, go }: { s: FwStatus; act: Act; go: ReturnType<typeof useStore>['go'] }) {
+function Overview({ s, act }: { s: FwStatus; act: Act }) {
   const set = (p: Partial<FwStatus['settings']>) => act(api.fw.setSettings(p));
   return (
     <div className="fw-grid">
       <section className="card pad">
-        <h3>Waiting for you {s.pending.length ? <span className="fw-count">{s.pending.length}</span> : null}</h3>
-        {!s.pending.length ? <div className="muted small">No new connections to decide.</div> : s.pending.map((a) => <AlertCard key={a.id} a={a} act={act} go={go} />)}
-      </section>
-      <section className="card pad">
         <h3>Switches</h3>
+        <MonitorSwitches s={s} act={act} />
         <label className="row fw-switch"><div className="grow"><b>Enforce rules</b><div className="small muted">Put the rules into {s.platform === 'win32' ? 'Windows Firewall' : s.platform === 'darwin' ? 'the system packet filter' : 'nftables'} so they hold even while Keeper is closed.</div></div><Toggle on={s.settings.enforce} onChange={(v) => void set({ enforce: v })} /></label>
         {s.platform !== 'darwin' ? <label className="row fw-switch"><div className="grow"><b>Block what no rule allows</b><div className="small muted">Outbound connections need a rule. Windows’ own essentials stay allowed.</div></div><Toggle on={s.settings.defaultBlock} onChange={(v) => void set({ defaultBlock: v })} /></label> : null}
         <label className="row fw-switch"><div className="grow"><b>Ask about new connections</b><div className="small muted">An alert when an app connects somewhere without a rule.</div></div><Toggle on={s.settings.alerts} onChange={(v) => void set({ alerts: v })} /></label>
@@ -157,62 +179,6 @@ function EventList({ events }: { events: FwEvent[] }) {
           <span className="muted small">{relativeTime(e.t)}</span>
         </div>
       ))}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------- connections
-
-function Connections({ act }: { s: FwStatus; act: Act }) {
-  const { settings } = useStore();
-  const [rows, setRows] = useState<FwConnection[] | null>(null);
-  const [q, setQ] = useState('');
-  const [view, setView] = useState<'app' | 'host' | 'country' | 'map'>('app');
-  useEffect(() => {
-    let alive = true;
-    let t: number | undefined;
-    const tick = async () => {
-      if (document.visibilityState === 'visible') { try { const r = await api.fw.connections(); if (alive) setRows(r); } catch { /* next time */ } }
-      if (alive) t = window.setTimeout(tick, 3000);
-    };
-    void tick();
-    return () => { alive = false; clearTimeout(t); };
-  }, []);
-  const tokens = useMemo(() => parseSearch(q), [q]);
-  const shown = useMemo(() => (rows ?? []).filter((r) => matchesSearch({ app: r.app, path: r.appPath, host: r.host, ip: r.ip, country: r.country, port: r.port, proto: r.proto, rule: r.ruleId }, tokens)), [rows, tokens]);
-  const groups = useMemo(() => {
-    const m = new Map<string, FwConnection[]>();
-    for (const r of shown) { const k = view === 'app' ? r.app : view === 'host' ? r.host ?? r.ip ?? '?' : r.country ?? '—'; m.set(k, [...(m.get(k) ?? []), r]); }
-    return [...m].sort((a, b) => b[1].reduce((x, r) => x + r.rateIn + r.rateOut, 0) - a[1].reduce((x, r) => x + r.rateIn + r.rateOut, 0));
-  }, [shown, view]);
-  const points: MapPoint[] = useMemo(() => shown.filter((r) => r.country).map((r) => ({ country: r.country, label: r.host ?? r.ip, weight: r.rateIn + r.rateOut + 1, kind: r.decision === 'deny' ? 'blocked' : r.path === 'vpn' ? 'vpn' : 'direct', ref: r })), [shown]);
-  const quick = (r: FwConnection, verdict: 'allow' | 'deny') => act(api.fw.saveRule('mine', { id: `q-${Date.now().toString(36)}`, app: r.appPath ? { path: r.appPath } : 'any', direction: 'out', host: r.host ? `=${r.host}` : undefined, ip: r.host ? undefined : r.ip, verdict, enabled: true, created: Date.now(), note: `${r.app} → ${r.host ?? r.ip}` }));
-  if (!rows) return <Loading label="Reading connections…" />;
-  return (
-    <div>
-      <div className="row" style={{ gap: 8, marginBottom: 10 }}>
-        <label className="search-box grow"><Icon name="search" size={13} /><input placeholder="app:firefox host:google country:us port:443 proto:udp rule:… — or any words" value={q} onChange={(e) => setQ(e.target.value)} /></label>
-        <div className="seg">{([['app', 'By app'], ['host', 'By host'], ['country', 'By country'], ['map', 'Map']] as const).map(([k, l]) => <button key={k} className={view === k ? 'on' : ''} onClick={() => setView(k)}>{l}</button>)}</div>
-      </div>
-      {view === 'map' ? <WorldMap points={points} home={homePoint(settings?.island?.place as never)} onPick={(ps) => setQ(`country:${(ps[0]?.ref as FwConnection)?.country ?? ''}`)} /> : !groups.length ? <Empty icon="globe" title="Nothing matches">No connection like that right now.</Empty> : (
-        <div className="fw-conns">
-          {groups.map(([k, list]) => (
-            <details key={k} open={groups.length < 8}>
-              <summary><b>{view === 'country' ? `${flag(k)} ${countryName(k) ?? k}` : k}</b> <span className="muted small">{list.length} · ↓ {formatBytes(list.reduce((a, r) => a + r.rateIn, 0))}/s ↑ {formatBytes(list.reduce((a, r) => a + r.rateOut, 0))}/s</span></summary>
-              {list.map((r) => (
-                <div key={r.key} className={`fw-conn ${r.decision}`}>
-                  <span className={`fw-dot ${r.decision}`} title={r.reason} />
-                  <span className="ellipsis grow">{view !== 'app' ? <b>{r.app} </b> : null}{r.host ?? r.ip}<span className="muted">:{r.port}</span><MeshTag ip={r.ip} /> {r.country ? <span title={countryName(r.country)}>{flag(r.country)}</span> : null} <span className="muted small">{r.asn ?? ''}</span></span>
-                  <span className="muted small" title={r.reason}>{r.decision === 'deny' ? 'Blocked' : r.ruleId ? 'Rule' : 'No rule'}</span>
-                  <span className="num small">↓ {formatBytes(r.rateIn)}/s</span>
-                  <button className="btn xs" onClick={() => void quick(r, 'allow')} title="Always allow this app to this host">Allow</button>
-                  <button className="btn xs danger" onClick={() => void quick(r, 'deny')} title="Always deny this app to this host">Deny</button>
-                </div>
-              ))}
-            </details>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
@@ -347,6 +313,7 @@ function Profiles({ s, act }: { s: FwStatus; act: Act }) {
             </div>
             <label>Wi-Fi names (comma-separated)<input className="input" value={(edit.auto?.ssids ?? []).join(', ')} onChange={(e) => setEdit({ ...edit, auto: { ...edit.auto, ssids: e.target.value.split(',').map((x) => x.trim()).filter(Boolean) } })} /></label>
             <label>Router addresses (comma-separated)<input className="input" value={(edit.auto?.gateways ?? []).join(', ')} onChange={(e) => setEdit({ ...edit, auto: { ...edit.auto, gateways: e.target.value.split(',').map((x) => x.trim()).filter(Boolean) } })} /></label>
+            <button className="btn sm" data-testid="nm-use-network" onClick={() => void api.fw.currentNetwork().then((n) => setEdit({ ...edit, auto: { ssids: [...new Set([...(edit.auto?.ssids ?? []), ...(n.ssid ? [n.ssid] : [])])], gateways: [...new Set([...(edit.auto?.gateways ?? []), ...(!n.ssid && n.gateway ? [n.gateway] : [])])] } }))}><Icon name="globe" size={12} /> Use the network I’m on</button>
           </div>
           <div className="btn-row" style={{ justifyContent: 'space-between', marginTop: 12 }}>
             <button className="btn danger" onClick={() => void act(api.fw.removeProfile(edit.id)).then(() => setEdit(null))}>Delete</button>
@@ -416,51 +383,6 @@ function Dns({ s, act }: { s: FwStatus; act: Act }) {
   );
 }
 
-// ---------------------------------------------------------------- history
-
-const SPANS: [string, number][] = [['Hour', 3600_000], ['Day', 86_400_000], ['Week', 7 * 86_400_000], ['Month', 30 * 86_400_000], ['3 months', 90 * 86_400_000], ['Year', 365 * 86_400_000]];
-
-function HistoryTab() {
-  const [span, setSpan] = useState(86_400_000);
-  const [app, setApp] = useState<string | undefined>();
-  const [data, setData] = useState<Awaited<ReturnType<typeof api.fw.history>> | null>(null);
-  useEffect(() => { const to = Date.now(); void api.fw.history(to - span, to, app).then(setData); }, [span, app]);
-  if (!data) return <Loading label="Reading history…" />;
-  const max = Math.max(1, ...data.points.map((p) => p.inB + p.outB));
-  const total = data.points.reduce((a, p) => a + p.inB + p.outB, 0);
-  return (
-    <div>
-      <div className="row" style={{ gap: 8, marginBottom: 10 }}>
-        <div className="seg">{SPANS.map(([l, ms]) => <button key={l} className={span === ms ? 'on' : ''} onClick={() => setSpan(ms)}>{l}</button>)}</div>
-        {app ? <button className="btn sm" onClick={() => setApp(undefined)}><Icon name="close" size={11} /> {app}</button> : null}
-        <span className="grow" />
-        <span className="small muted">{formatBytes(total)} in this time</span>
-      </div>
-      <div className="fw-chart card" role="img" aria-label={`Traffic chart, ${formatBytes(total)}`}>
-        {data.points.map((p) => (
-          <div key={p.t} className="fw-bar" title={`${new Date(p.t).toLocaleString()} · ↓ ${formatBytes(p.inB)} ↑ ${formatBytes(p.outB)}`}>
-            <i className="in" style={{ height: `${(p.inB / max) * 100}%` }} />
-            <i className="out" style={{ height: `${(p.outB / max) * 100}%` }} />
-          </div>
-        ))}
-      </div>
-      <div className="small muted" style={{ margin: '4px 0 12px' }}><span className="fw-key in" /> Received <span className="fw-key out" /> Sent · minutes for a day, hours for 90 days, days for a year</div>
-      {!data.apps.length ? <Empty icon="chart" title="No history yet">Keeper adds to it while it watches the network.</Empty> : (
-        <div className="fw-apps">
-          {data.apps.map((a) => (
-            <button key={a.app} className={`fw-app-row ${app === a.app ? 'on' : ''}`} onClick={() => setApp(app === a.app ? undefined : a.app)}>
-              <b className="grow ellipsis">{a.app}</b>
-              <span className="num small">↓ {formatBytes(a.inB)}</span>
-              <span className="num small">↑ {formatBytes(a.outB)}</span>
-              <span className="fw-share"><i style={{ width: `${((a.inB + a.outB) / (data.apps[0].inB + data.apps[0].outB)) * 100}%` }} /></span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ---------------------------------------------------------------- alerts anywhere in Keeper
 
 /** New connection alerts as a small card on any page (the Island also tells), and the sounds of rules that have one. */
@@ -478,7 +400,8 @@ export function FirewallAlerts() {
   const [later, setLater] = useState<string | null>(null);
   const a = s?.pending[0];
   // The demo's sample alerts show on the Firewall page itself, not over every other page.
-  if (!a || route.name === 'firewall' || later === a.id || isDemo) return null;
+  // With the small Ask window on, that window is the prompt: no second one over the page.
+  if (!a || route.name === 'firewall' || later === a.id || isDemo || s?.settings.askWindow) return null;
   const act: Act = (p) => p.then(setS).then(() => undefined);
   return (
     <div className="fw-popup" role="alertdialog" aria-label="New connection">

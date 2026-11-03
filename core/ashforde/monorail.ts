@@ -280,6 +280,7 @@ export const OVERLAY_TITLES = {
   guide: 'Keeper guide',
   sharing: 'Keeper — sharing this screen',
   blocked: 'Keeper — paused while you focus',
+  ask: 'Keeper — new connection',
   pin: 'Keeper pinned picture',
   preview: 'Keeper capture preview',
   scrollBar: 'Keeper scrolling capture',

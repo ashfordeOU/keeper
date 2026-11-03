@@ -96,6 +96,29 @@ button.gl-status:hover { text-decoration: underline; }
 .glance .gl-quiet { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 8px; border-radius: var(--r-md); color: var(--text-2); }
 .glance .gl-quiet:hover { background: var(--bg-hover); color: var(--text); }
 
+/* the menu bar's network part (src/glance/Glance.tsx) */
+.gl-net { display: flex; flex-direction: column; border-radius: var(--r-md); background: var(--bg-sunk); overflow: hidden; }
+.glance .gl-net-line { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 4px 12px; width: 100%; min-width: 0; }
+.gl-net-line .gl-net-txt { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); font-weight: 600; }
+.gl-net-line .gl-net-rates { color: var(--text-2); font-weight: 400; font-variant-numeric: tabular-nums; }
+.gl-net-line .nm-spark { color: var(--accent); flex: none; }
+.glance .gl-net-pill { flex: none; padding: 1px 8px; border-radius: var(--r-pill); background: var(--accent-soft); color: var(--accent); font-size: var(--fs-xs); font-weight: 600; }
+.gl-net-app { display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 8px 0 12px; border-top: 1px solid var(--line); min-width: 0; }
+.gl-net-app .nm-appicon { width: 16px; height: 16px; border-radius: var(--r-sm); }
+.gl-net-app .nm-letter { font-size: var(--fs-xs); }
+.gl-net-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gl-net-rate { flex: none; color: var(--text-3); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }
+.glance .gl-net-btn { flex: none; width: 52px; height: 22px; border-radius: var(--r-pill); font-size: var(--fs-xs); color: var(--text-2); text-align: center; border: 1px solid var(--line-strong); }
+.glance .gl-net-btn:hover { color: var(--danger); border-color: var(--danger); }
+.glance .gl-net-btn.blocked { color: var(--danger); border-color: transparent; background: color-mix(in srgb, var(--danger) 12%, transparent); }
+.glance .gl-net-btn.blocked:hover { color: var(--text); background: var(--bg-hover); }
+.gl-net-quiet { padding: 8px 12px; font-size: var(--fs-xs); color: var(--text-2); border-top: 1px solid var(--line); }
+
+/* shared with the network page (src/components/NetBits.tsx) */
+.glance .nm-spark { display: block; }
+.glance .nm-appicon { flex: none; object-fit: contain; }
+.glance .nm-letter { display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); font-weight: 700; }
+
 /* only quick hover colours move; nothing at all with reduced motion */
 .gl-tile, .gl-row, .gl-act, .gl-file, .gl-quiet, .gl-link { transition: background-color .12s ease, color .12s ease; }
 @media (prefers-reduced-motion: reduce) { .glance *, .glance .toggle::after { transition: none !important; } }

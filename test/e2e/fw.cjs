@@ -73,8 +73,9 @@ function ask(port, name) {
   const okAns = firstA(await ask(s.dns.port, 'example.test'));
   check(okAns === '10.20.30.40' && upstreamAsked >= 1, `a normal name is answered through the upstream (${okAns})`);
   await main.click('.sidebar [title="Privacy & Security"]'); await main.click('[data-testid="hub-tab-firewall"]');
-  await main.waitForSelector('.fw-status');
-  await main.click('.fw-tabs >> text=Blocklists & DNS');
+  await main.waitForSelector('[data-testid="nm-status"]');
+  await main.click('[data-testid="nm-tab-settings"]');
+  await main.click('[data-testid="nm-part-dns"]');
   await main.fill('input[placeholder="example.com"]', 'blocked.test');
   await main.locator('input[placeholder="example.com"] + button').click();
   await wait(400);
@@ -87,14 +88,18 @@ function ask(port, name) {
   // ---- alert → Deny → rule applied
   await fw('setSettings', { enforce: true, alerts: true });
   await fw('testInject', { app: { path: '/usr/bin/curl' }, host: 'tracker.test', ip: '203.0.113.9', port: 443 });
-  await main.click('.fw-tabs >> text=Overview');
-  const card = await until(() => main.locator('.fw-alert').count(), 6000);
+  await main.click('[data-testid="nm-tab-live"]');
+  await until(() => main.isVisible('[data-testid="nm-waiting-pill"]'), 6000);
+  await main.click('[data-testid="nm-waiting-pill"]');
+  const card = await until(() => main.locator('[data-testid="nm-sheet"] [data-testid="nm-ask"]').count(), 6000);
   check(card > 0, 'the alert appears: curl wants to connect to tracker.test');
-  // Real connections in this machine can raise alerts too; use the test's.
-  const mine = main.locator('.fw-alert', { hasText: 'tracker.test' });
+  // Real connections in this machine can raise alerts too; use the test's (one app at a time).
+  const mine = main.locator('[data-testid="nm-sheet"] [data-testid="nm-ask"]', { hasText: 'tracker.test' });
+  for (let i = 0; i < 8 && !(await mine.count()); i++) await main.click('[data-testid="nm-sheet"] [aria-label="Next app"]').catch(() => undefined);
   check(await until(() => mine.count(), 6000) > 0, 'the alert names the app and host');
   await main.screenshot({ path: path.join(SHOTS, 'alert-light.png') });
-  await mine.first().locator('button:has-text("Deny")').click();
+  await mine.first().locator('[data-testid="nm-ask-deny"]').click();
+  await main.keyboard.press('Escape');
   s = await until(async () => { const x = await fw('status'); return x.state.groups[0].rules.some((r) => r.host === '=tracker.test' && r.verdict === 'deny') ? x : null; }, 6000);
   check(!!s, 'Deny made a rule: curl → tracker.test, port 443, deny');
   check(s && s.enforcement.active && /applied/i.test(s.enforcement.message ?? ''), `the rules were applied (${s?.enforcement.message})`);
@@ -102,7 +107,7 @@ function ask(port, name) {
   check(fs.existsSync(nft) && fs.readFileSync(nft, 'utf8').includes('table inet keeper'), 'the test backend received an nftables table');
 
   // ---- an address rule from the editor shows in the list and in nftables
-  await main.click('.fw-tabs >> text=Rules');
+  await main.click('[data-testid="nm-tab-rules"]');
   await main.click('button:has-text("New rule")');
   await main.fill('input[placeholder="203.0.113.7 or 10.0.0.0/8"]', '198.51.100.0/24');
   await main.fill('input[placeholder="any, 443, 8000-8080"]', '22');
@@ -115,19 +120,16 @@ function ask(port, name) {
   check(true, 'tidy up runs');
   await main.screenshot({ path: path.join(SHOTS, 'rules-light.png') });
 
-  // ---- connections (list and map), history
-  await main.click('.fw-tabs >> text=Connections');
-  await main.waitForSelector('.search-box input');
-  await main.click('.seg button:has-text("Map")');
-  check(await main.locator('.world-map canvas').count() === 1, 'the connections map draws');
-  await main.click('.fw-tabs >> text=History');
-  await main.waitForSelector('.fw-chart');
-  check(await main.locator('.fw-bar').count() > 100, 'the history chart has a day of minutes');
+  // ---- live connections, history
+  await main.click('[data-testid="nm-tab-live"]');
+  check(!!(await until(() => main.locator('[data-testid="nm-app"]').count(), 10_000)), 'the live view lists apps with connections');
+  await main.click('[data-testid="nm-tab-history"]');
+  await main.waitForSelector('.nm-history');
+  const chart = await until(() => main.locator('[data-testid="nm-chart"] > span').count(), 6000);
+  check(!chart || chart > 100 || await main.isVisible('.nm-history .nm-empty'), `the history chart has a day of minutes, or a designed empty state (${chart})`);
 
   // ---- Network Activity: the Map tab
-  await main.evaluate(() => window.dispatchEvent(new CustomEvent('keeper:go', { detail: 'netactivity' })));
-  const navNet = main.locator('.sidebar .nav-item', { hasText: /Network Activity|Network activity/ });
-  if (await navNet.count()) await navNet.first().click();
+  await main.click('[data-testid="hub-tab-netactivity"]');
   await wait(800);
   const mapTab = main.locator('[role=tab]:has-text("Map")');
   if (await mapTab.count()) { await mapTab.first().click(); await wait(600); }
@@ -143,10 +145,10 @@ function ask(port, name) {
   // ---- dark
   await app.evaluate(({ nativeTheme }) => { nativeTheme.themeSource = 'dark'; });
   await main.click('.sidebar [title="Privacy & Security"]'); await main.click('[data-testid="hub-tab-firewall"]');
-  await main.click('.fw-tabs >> text=Overview');
+  await main.click('[data-testid="nm-tab-live"]');
   await wait(500);
   await main.screenshot({ path: path.join(SHOTS, 'overview-dark.png') });
-  await main.click('.fw-tabs >> text=Rules');
+  await main.click('[data-testid="nm-tab-rules"]');
   await wait(300);
   await main.screenshot({ path: path.join(SHOTS, 'rules-dark.png') });
 

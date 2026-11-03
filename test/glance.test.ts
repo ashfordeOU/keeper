@@ -49,12 +49,12 @@ describe('glance settings', () => {
     expect(defaultGlanceSettings('darwin').hover).toBe(true);
     expect(defaultGlanceSettings('win32').hover).toBe(false);
     expect(defaultGlanceSettings('linux').actions).toEqual(['quickSearch', 'screenshot', 'captureText', 'clipboard']);
-    expect(defaultGlanceSettings('linux').sections).toEqual({ stats: true, actions: true, downloads: true });
+    expect(defaultGlanceSettings('linux').sections).toEqual({ stats: true, network: true, actions: true, downloads: true });
     expect(defaultGlanceSettings('linux').cards).not.toContain('tip');
   });
   it('drops unknown cards and actions and duplicates', () => {
     const s = normalizeGlanceSettings({ cards: ['weather', 'bogus' as never, 'weather', 'tip'], actions: ['terminal', 'nope' as never], hover: 'yes' as never }, 'darwin');
-    expect(s).toEqual({ cards: ['weather', 'tip'], actions: ['terminal'], sections: { stats: true, actions: true, downloads: true }, hover: true });
+    expect(s).toEqual({ cards: ['weather', 'tip'], actions: ['terminal'], sections: { stats: true, network: true, actions: true, downloads: true }, hover: true });
   });
   it('keeps the first four of an older, longer list of buttons; the rest go under More', () => {
     const s = normalizeGlanceSettings({ actions: ['quickSearch', 'screenshot', 'captureText', 'keepAwake', 'dictation', 'stage', 'cleanup', 'terminal'] }, 'linux');
@@ -71,7 +71,7 @@ describe('glance settings', () => {
   });
   it('parts can be switched off; a part that is off is left out of the view', () => {
     const s = normalizeGlanceSettings({ sections: { stats: false, downloads: false } as never }, 'linux');
-    expect(s.sections).toEqual({ stats: false, actions: true, downloads: false });
+    expect(s.sections).toEqual({ stats: false, network: true, actions: true, downloads: false });
     const v = glanceLayout(full, s, { list: [{ name: 'a.pdf', path: '/a.pdf', size: 1 }], total: 1 });
     expect(v.tiles).toEqual([]);
     expect(v.recent).toEqual([]);

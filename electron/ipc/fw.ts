@@ -5,8 +5,9 @@ import { ipcMain } from 'electron';
 import { fwApi, initFirewall, stopFirewall } from '../services/fw';
 import { health, sample } from '../services/net';
 import { registerKeeperMethod } from '../services/brain';
+import type { AskWindowDeps } from '../services/fw/ask-window';
 
-export function registerFirewallIpc(deps: { alert: (title: string, detail: string) => void; broadcast: (ch: string, ...a: unknown[]) => void }) {
+export function registerFirewallIpc(deps: { alert: (title: string, detail: string) => void; broadcast: (ch: string, ...a: unknown[]) => void; window?: AskWindowDeps }) {
   for (const [k, fn] of Object.entries(fwApi)) ipcMain.handle(`fw.${k}`, async (_e, ...args) => (fn as (...a: unknown[]) => unknown)(...args));
   // The keeper command: keeper fw rules|allow|deny|alerts|log|profile|silent|status
   registerKeeperMethod('keeper/fw', async (p) => {

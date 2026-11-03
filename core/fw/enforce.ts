@@ -69,6 +69,7 @@ const ruleName = (r: FwRule) => `Keeper ${r.id}`;
 
 /** PowerShell for one rule (addresses already resolved for host rules). Returns null when Windows cannot express it. */
 export function windowsRuleScript(r: FwRule, resolved: string[] = []): string | null {
+  if (r.verdict === 'ask') return null; // Keeper asks; the system only allows or blocks
   if (r.app !== 'any' && r.app.group && r.app.group !== 'any') return null;
   const dirs = r.direction === 'both' ? ['Outbound', 'Inbound'] : [r.direction === 'out' ? 'Outbound' : 'Inbound'];
   const remote = r.ip ? [r.ip] : r.host && r.host !== 'any' ? resolved : [];
@@ -187,7 +188,7 @@ const nftStr = (s: string) => `"${s.replace(/["\\]/g, '')}"`;
 
 /** One nftables rule line for the "keeper" table, or null when nftables cannot express it (per-app without cgroup, host names). */
 export function nftRule(r: FwRule, opts: { cgroupOf?: (app: FwRule['app']) => string | undefined; uidOf?: (app: FwRule['app']) => number | undefined } = {}): string | null {
-  if (!r.enabled) return null;
+  if (!r.enabled || r.verdict === 'ask') return null;
   if (r.host && r.host !== 'any') return null; // names are handled by the DNS filter
   const m: string[] = [];
   if (r.app !== 'any' && !(r.app.group === 'any')) {
@@ -249,6 +250,7 @@ export function nftTable(groups: RuleGroup[], opts: Parameters<typeof nftRule>[1
 /** An OpenSnitch rule file for one Keeper rule (its daemon then enforces it for every app). */
 export function opensnitchRule(r: FwRule): { file: string; json: string } | null {
   const ops: { type: string; operand: string; sensitive: boolean; data: string }[] = [];
+  if (r.verdict === 'ask') return null;
   if (r.app !== 'any') {
     if (r.app.group) return null;
     if (!r.app.path) return null;

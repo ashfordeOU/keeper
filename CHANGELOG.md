@@ -15,6 +15,17 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - With no snippets yet, the page shows three ready ones you can add in one click.
 - Remove a snippet and Undo brings it back. Keys: N for new, / to search, Delete to remove.
 
+### Added — Network & firewall: every app's connections live, and a network part in the menu bar
+- Privacy & Security → Network & firewall opens on Live: every app with the places it is talking to right now, grouped by app and then by site, with the site's name, its country flag (when the country table is downloaded), the port, how fast it is receiving and sending, and a small line of the last minute.
+- Search by app, site, country or port (press /), and show All, Active, Blocked or New today, each with a count.
+- Pick an app to see it on the right: what it receives and sends, and what it may do: Follow rules, Allow, Ask or Block, for an hour, until Keeper quits or always, on every network or only at Home, Work or on Public Wi-Fi. Each site it reaches has its own Allow and Block. Follow rules undoes an answer.
+- New profiles: Home, Work and Public Wi-Fi, and "Use the network I'm on" ties one to your Wi-Fi so it switches by itself.
+- A calm prompt when an app connects somewhere new: one per app with every place it wants to reach, who signed it and why it may be connecting, with Deny, Allow once and Allow, and how long and how widely to remember. It waits a moment to gather prompts, waits while you type, and opens in a small window in the corner without taking the keyboard. Later puts it away; it waits on the page.
+- History shows a day, a week or a month per app: data used, received and sent, the apps and the top places, and saves as CSV.
+- Where data goes: how many places your data went to today, in 7 or 30 days, and for each app its top sites and how often it reached them. No map, just the facts.
+- On a Mac, Keeper watches every app without asking for anything; blocking single apps waits for Apple's approval of Keeper's network filter, and the page says so instead of showing buttons that would do nothing. The DNS filter can still block a site for every app.
+- The menu bar's summary has a Network part: "3 apps online" with the speeds and a small chart, the three busiest apps with a quick Block (and Allow to undo), "2 waiting" when prompts wait, and Open Network. Settings → Menu bar → Show network turns it off. On a short screen the summary folds the downloads, then the app list, so it still never scrolls.
+
 ### Changed — Menu bar: a calmer, smaller summary under the owl
 - The summary under the owl in the menu bar (the tray on Windows and Linux) is cleaner and never scrolls: its window is as tall as what it shows and fits its width exactly.
 - At the top: Keeper and one line that says "All good", or the one thing that needs you (a nearly full disk, no internet, a low battery, an AI limit running out). Click it to go there.

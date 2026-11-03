@@ -12,6 +12,9 @@ import { liveState, unwatchLive, watchLive } from '../services/monitor-live';
 import { lastMemory, readMemory } from '../services/memory';
 import { memoryDetail } from '../../core/memory';
 import { settings, updateSettings } from '../store';
+import { featureOn } from '../services/features';
+
+const glanceSettingsNow = () => glanceSettings();
 
 export interface GlanceIpcDeps {
   preload: string;
@@ -73,6 +76,15 @@ async function inputs(d: GlanceIpcDeps, light: boolean): Promise<GlanceInputs> {
   } catch {
     /* no AI tools here */
   }
+  // The network part: apps online and the busiest three, only while the summary is open and the firewall is on.
+  if (!light && glanceSettingsNow().sections.network && featureOn('firewall')) {
+    try {
+      const { glanceNetwork } = await import('../services/fw');
+      out.net = await glanceNetwork();
+    } catch {
+      /* no readings this time */
+    }
+  }
   const next = (st?.events ?? []).filter((e) => !e.allDay && e.end > now).sort((a, b) => a.start - b.start)[0];
   if (next) out.next = { title: next.title, start: next.start, link: (next as { url?: string }).url };
   return out;
@@ -90,6 +102,16 @@ export function registerGlanceIpc(d: GlanceIpcDeps) {
     return next;
   });
   ipcMain.handle('glance.close', () => { hideGlance(); unwatchLive('glance'); });
+  // The network part's quick answers: block or allow one app (the firewall's own rule, undone the same way).
+  ipcMain.handle('glance.netRule', async (_e, app: string, appPath: string | undefined, verdict: 'deny' | null) => {
+    const { fwApi } = await import('../services/fw');
+    await fwApi.quickRule({ app, path: appPath }, verdict, 'forever');
+  });
+  ipcMain.handle('glance.netAsk', async () => {
+    hideGlance();
+    const { fwApi } = await import('../services/fw');
+    await fwApi.askShow();
+  });
   ipcMain.handle('glance.fit', (_e, height: number) => fitGlance(Number(height)));
   ipcMain.handle('glance.run', (_e, id: GlanceActionId) => { hideGlance(); d.run(id); });
   // A card or "See all": a page in the main window, a meeting link, or a quick action.

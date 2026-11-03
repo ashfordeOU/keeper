@@ -14,7 +14,9 @@
 //           domain first) > an address range (narrower first) > anywhere
 //        d. port: one port > a range (narrower first) > any port
 //        e. protocol: TCP/UDP/ICMP > any
-//   3. When two equally specific rules disagree, "deny" wins.
+//   3. When two equally specific rules disagree, "deny" wins, then "ask".
+//      A rule can be limited to some profiles (Home, Work, Public Wi-Fi); in
+//      other profiles it is ignored.
 //   4. No rule: the mode decides — ask (alert), allow quietly (silent allow,
 //      remembered for later), or deny quietly (silent deny).
 
@@ -22,7 +24,8 @@ import { familyOf, inPrefix, parseCidr, unmapV4 } from '../net/addr';
 
 export type Direction = 'out' | 'in' | 'both';
 export type Proto = 'tcp' | 'udp' | 'icmp' | 'any';
-export type RuleVerdict = 'allow' | 'deny';
+/** "ask" holds (or flags) the connection and asks, even in a quiet mode; systems only ever get allow and deny. */
+export type RuleVerdict = 'allow' | 'deny' | 'ask';
 export type Mode = 'alert' | 'silent-allow' | 'silent-deny';
 
 /** Groups of apps a rule can name instead of one app. */
@@ -58,6 +61,8 @@ export interface FwRule {
   enabled: boolean;
   /** temporary: a time (ms) or "until Keeper quits" */
   until?: number | 'quit';
+  /** only in these profiles (ids); none = every profile */
+  profiles?: string[];
   note?: string;
   created: number;
   /** how often it decided a connection, and when last */
@@ -201,8 +206,9 @@ function compare(a: number[], b: number[]): number {
   return 0;
 }
 
-export function isLive(r: FwRule, now: number, quitAt?: number): boolean {
+export function isLive(r: FwRule, now: number, quitAt?: number, profile?: string): boolean {
   if (!r.enabled) return false;
+  if (profile && r.profiles?.length && !r.profiles.includes(profile)) return false;
   if (typeof r.until === 'number' && r.until <= now) return false;
   if (r.until === 'quit' && quitAt !== undefined && r.created < quitAt) return false;
   return true;
@@ -217,18 +223,22 @@ export function liveGroups(s: FwState): RuleGroup[] {
   return s.groups.filter((g) => g.enabled && !off.has(g.id));
 }
 
+/** Equally specific rules that disagree: deny before ask before allow. */
+const VERDICT_WEIGHT: Record<RuleVerdict, number> = { deny: 2, ask: 1, allow: 0 };
+
 /** Decides one connection. `quitAt` = when Keeper last started (rules "until quit" from before are gone). */
 export function decide(s: FwState, c: Conn, now = Date.now(), quitAt?: number): Decision {
   let best: { r: FwRule; g: RuleGroup; spec: number[] } | undefined;
+  const profile = activeProfile(s)?.id;
   for (const g of liveGroups(s)) {
     for (const r of g.rules) {
-      if (!isLive(r, now, quitAt) || !ruleMatches(r, c)) continue;
+      if (!isLive(r, now, quitAt, profile) || !ruleMatches(r, c)) continue;
       const spec = specificity(r);
       const d = best ? compare(spec, best.spec) : 1;
-      if (d > 0 || (d === 0 && r.verdict === 'deny' && best!.r.verdict === 'allow')) best = { r, g, spec };
+      if (d > 0 || (d === 0 && VERDICT_WEIGHT[r.verdict] > VERDICT_WEIGHT[best!.r.verdict])) best = { r, g, spec };
     }
   }
-  if (best) return { verdict: best.r.verdict, rule: best.r, group: best.g, reason: `${best.r.verdict === 'allow' ? 'Allowed' : 'Denied'} by a rule in “${best.g.name}”` };
+  if (best) return { verdict: best.r.verdict, rule: best.r, group: best.g, reason: `${best.r.verdict === 'allow' ? 'Allowed' : best.r.verdict === 'deny' ? 'Denied' : 'Asks first,'} by a rule in “${best.g.name}”` };
   const mode = activeProfile(s)?.mode ?? s.mode;
   if (mode === 'silent-allow') return { verdict: 'allow', reason: 'No rule; quiet mode allows it and remembers it for later' };
   if (mode === 'silent-deny') return { verdict: 'deny', reason: 'No rule; quiet mode denies it' };
@@ -257,6 +267,56 @@ export function profileForNetwork(s: FwState, net: { ssid?: string; gateway?: st
 // ---------------------------------------------------------------- rules from an alert
 
 export type AlertScope = 'once' | 'quit' | 'hour' | 'forever';
+
+/** When a rule made for a while ends: an hour from now, when Keeper quits, or never. */
+export function untilFor(scope: Exclude<AlertScope, 'once'>, now = Date.now()): FwRule['until'] {
+  return scope === 'forever' ? undefined : scope === 'quit' ? 'quit' : now + 3600_000;
+}
+
+/** Which of the four lengths a rule has (an hour-long rule stays "hour" until it ends). */
+export function scopeOf(r: Pick<FwRule, 'until'>): Exclude<AlertScope, 'once'> {
+  return r.until === undefined ? 'forever' : r.until === 'quit' ? 'quit' : 'hour';
+}
+
+/** The rule behind a quick answer on an app (any host) or on one host of an app, from the live view or the menu bar. */
+export function ruleForApp(target: { app: string; path?: string; signer?: string; host?: string; ip?: string }, verdict: RuleVerdict, scope: Exclude<AlertScope, 'once'>, opts: { profiles?: string[]; now?: number } = {}): FwRule {
+  const now = opts.now ?? Date.now();
+  const app: AppIdentity = target.signer ? { signer: target.signer, path: target.path } : { path: target.path ?? target.app };
+  const host = target.host ? `=${target.host}` : undefined;
+  return {
+    id: `${appRuleId(target.path ?? target.app, target.host ?? target.ip)}-${now.toString(36)}`,
+    app,
+    direction: 'out',
+    host,
+    ip: host ? undefined : target.ip,
+    verdict,
+    enabled: true,
+    until: untilFor(scope, now),
+    profiles: opts.profiles?.length ? opts.profiles : undefined,
+    created: now,
+    note: `${target.app} → ${target.host ?? target.ip ?? 'anywhere'}`,
+  };
+}
+
+/** A stable prefix for the quick rules of one app (and host), so a new answer replaces the old one. */
+export function appRuleId(appPath: string, where?: string): string {
+  let h = 0;
+  for (const ch of `${appPath.toLowerCase()}|${(where ?? '*').toLowerCase()}`) h = (h * 31 + ch.charCodeAt(0)) | 0;
+  return `q-${(h >>> 0).toString(36)}`;
+}
+
+/** The quick rule set for an app (or one of its hosts), if there is one, so the live view can show its answer. */
+export function quickRuleFor(s: FwState, appPath: string, where?: string): FwRule | undefined {
+  const prefix = `${appRuleId(appPath, where)}-`;
+  for (const g of s.groups) for (const r of g.rules) if (r.id.startsWith(prefix)) return r;
+  return undefined;
+}
+
+/** The rules a system can enforce right now: allow and deny only, live, and in the active profile. */
+export function enforceableGroups(s: FwState, now = Date.now(), quitAt?: number): RuleGroup[] {
+  const profile = activeProfile(s)?.id;
+  return s.groups.map((g) => ({ ...g, rules: g.rules.filter((r) => r.verdict !== 'ask' && isLive(r, now, quitAt, profile)) }));
+}
 
 /** The rule an answer to an alert creates: this app, this host (or address) and port. */
 export function ruleFromAlert(c: Conn, verdict: RuleVerdict, scope: Exclude<AlertScope, 'once'>, opts: { anyPort?: boolean; wholeDomain?: boolean; anyHost?: boolean } = {}, now = Date.now()): FwRule {
@@ -414,7 +474,7 @@ export function importRules(text: string): { groups: RuleGroup[]; profiles: Prof
     const rules: FwRule[] = [];
     for (const r of raw.rules) {
       try {
-        if (r.verdict !== 'allow' && r.verdict !== 'deny') throw new Error('no allow/deny');
+        if (r.verdict !== 'allow' && r.verdict !== 'deny' && r.verdict !== 'ask') throw new Error('no allow/deny/ask');
         if (!['in', 'out', 'both'].includes(r.direction)) throw new Error('no direction');
         parsePorts(r.port);
         if (r.ip && !parseCidr(r.ip.includes('/') ? r.ip : `${r.ip}/${familyOf(r.ip) === 6 ? 128 : 32}`)) throw new Error('bad address');
@@ -435,6 +495,7 @@ export function defaultFwState(): FwState {
     groups: [{ id: 'mine', name: 'My rules', enabled: true, source: { kind: 'local' }, rules: [] }],
     profiles: [
       { id: 'home', name: 'Home', groupsOff: [] },
+      { id: 'work', name: 'Work', groupsOff: [] },
       { id: 'public', name: 'Public Wi-Fi', groupsOff: [], mode: 'alert' },
     ],
     activeProfile: 'home',

@@ -10,17 +10,20 @@ import { createHash, createPublicKey, verify as edVerify } from 'node:crypto';
 import dns from 'node:dns';
 import { existsSync, promises as fsp } from 'node:fs';
 import path from 'node:path';
-import type { FwAlert, FwConnection, FwEvent, FwSettings, FwStatus } from '../../../core/api-fw';
+import type { FwAlert, FwConnection, FwEvent, FwSettings, FwStatus, GlanceNet, QuickTarget } from '../../../core/api-fw';
+import { batchAlerts, groupLive, historyCsv, tally, topApps, topDestinations, whereSummary, type DestTally } from '../../../core/fw/live';
 import { CURATED_LISTS, DomainSet, IpSet, parseList, type ListInfo } from '../../../core/fw/blocklist';
 import { UPSTREAMS, type QueryLogEntry, type Upstream } from '../../../core/fw/dns';
 import { emptyHistory, isUnusual, prune, record, series, updateBaseline, type Baseline, type History } from '../../../core/fw/monitor';
-import { decide, defaultFwState, exportRules, importRules, profileForNetwork, recordHit, ruleFromAlert, tidy, type AlertScope, type Conn, type FwRule, type FwState, type Mode, type Profile, type RuleGroup } from '../../../core/fw/rules';
+import { appRuleId, decide, defaultFwState, enforceableGroups, exportRules, importRules, profileForNetwork, recordHit, ruleForApp, ruleFromAlert, tidy, type AlertScope, type Conn, type FwRule, type FwState, type Mode, type Profile, type RuleGroup, type RuleVerdict } from '../../../core/fw/rules';
 import type { NetSample } from '../../../core/net/flows';
 import { run } from '../../../core/platform';
 import { poll } from '../governor';
+import { featureOn } from '../features';
 import { backendFor, FW_TESTABLE, type Backend } from './backends';
 import { siteFor } from '../../../core/focus-block';
 import { Resolver } from './resolver';
+import { askChanged, askFit, askLater, askShowNow, initAskWindow, stopAskWindow, type AskWindowDeps } from './ask-window';
 
 const dir = () => path.join(app.getPath('userData'), 'firewall');
 const file = (n: string) => path.join(dir(), n);
@@ -29,6 +32,7 @@ const STARTED = Date.now();
 const DEFAULT_SETTINGS: FwSettings = {
   enforce: false, defaultBlock: false, alerts: false, dnsFilter: false, dnsPort: 5353, upstream: 'quad9-doh', customUpstreams: [],
   lists: CURATED_LISTS.map((l) => ({ ...l, enabled: false })), history: true, unusual: true, sounds: {}, soundByData: false,
+  monitor: false, askWindow: true,
 };
 
 let state: FwState = defaultFwState();
@@ -50,7 +54,12 @@ let history: History = emptyHistory();
 let baselines: Record<string, Baseline> = {};
 let minuteBytes = new Map<string, number>();
 let minuteAt = 0;
-let deps: { alert: (title: string, detail: string) => void; broadcast: (ch: string, ...a: unknown[]) => void; sample: () => Promise<NetSample>; network?: () => Promise<{ ssid?: string; gateway?: string }> };
+let lastWatchAt = 0;
+/** app|host → when Keeper first saw that app reach that host (for "new today"), since `seenSince` */
+let seen: Record<string, number> = {};
+let seenSince: number | undefined;
+let dests: DestTally = {};
+let deps: { alert: (title: string, detail: string) => void; broadcast: (ch: string, ...a: unknown[]) => void; sample: () => Promise<NetSample>; network?: () => Promise<{ ssid?: string; gateway?: string }>; window?: AskWindowDeps };
 let stopWatch: (() => void) | undefined;
 let stopBlocked: (() => void) | undefined;
 
@@ -77,6 +86,7 @@ async function load() {
   } catch { /* first run */ }
   try { history = JSON.parse(await fsp.readFile(file('history.json'), 'utf8')); prune(history, Date.now()); } catch { /* none yet */ }
   try { baselines = JSON.parse(await fsp.readFile(file('baselines.json'), 'utf8')); } catch { /* none yet */ }
+  try { const x = JSON.parse(await fsp.readFile(file('seen.json'), 'utf8')); seen = x.seen ?? {}; seenSince = x.since; dests = x.dests ?? {}; } catch { /* none yet */ }
   // Rules "until Keeper quits" from an earlier run are over.
   for (const g of state.groups) g.rules = g.rules.filter((r) => r.until !== 'quit' || r.created >= STARTED);
 }
@@ -89,6 +99,18 @@ function save() {
 async function saveHistory() {
   await writeAtomic(file('history.json'), JSON.stringify(history));
   await writeAtomic(file('baselines.json'), JSON.stringify(baselines));
+  if (seenSince) await writeAtomic(file('seen.json'), JSON.stringify({ since: seenSince, seen, dests }));
+}
+
+/** Remembers when an app first reached a host; keeps the newest 20,000. */
+function markSeen(appKey: string, where: string, now: number): number {
+  const k = `${appKey}|${where}`;
+  const have = seen[k];
+  if (have) return have;
+  seen[k] = now;
+  const keys = Object.keys(seen);
+  if (keys.length > 20_000) for (const x of keys.sort((a, b) => seen[a] - seen[b]).slice(0, keys.length - 20_000)) delete seen[x];
+  return now;
 }
 
 function event(e: Omit<FwEvent, 't'>) {
@@ -280,7 +302,8 @@ async function resolveHosts(): Promise<Map<string, string[]>> {
 async function applyNow() {
   if (!settings.enforce) return;
   backend ??= backendFor();
-  const r = await backend.apply(state.groups, { defaultBlock: settings.defaultBlock, resolved: await resolveHosts() });
+  // Ask rules, other profiles' rules and rules whose time ran out never reach the system.
+  const r = await backend.apply(enforceableGroups(state, Date.now(), STARTED), { defaultBlock: settings.defaultBlock, resolved: await resolveHosts() });
   enforcement = { active: r.ok, backend: backend.name, message: r.message, appliedAt: r.ok ? Date.now() : enforcement.appliedAt };
   event({ kind: r.ok ? 'applied' : 'error', message: r.message });
   watchBlocked();
@@ -314,8 +337,29 @@ function raise(c: Conn, monitorOnly: boolean) {
   pending.set(key, alert);
   void signerOf(c.app.path).then((s) => { if (s) { alert.conn.app.signer = s; deps?.broadcast('fw-changed'); } });
   event({ kind: 'asked', app: c.app.name, host: c.host, ip: c.ip, port: c.port, message: `${c.app.name} wants to connect to ${c.host ?? c.ip}:${c.port}` });
-  deps?.alert(`${c.app.name} wants to connect`, `${c.host ?? c.ip}:${c.port}${monitorOnly ? ' (seen, not held)' : ''}`);
   deps?.broadcast('fw-alert', alert);
+  promptsChanged();
+}
+
+// Prompts are batched: one per app, shown after a short gathering moment and never while you type.
+let islandTimer: NodeJS.Timeout | undefined;
+let islandToldAt = 0;
+function promptsChanged() {
+  if (deps?.window && settings.askWindow) { askChanged(); return; }
+  // Without the small window: one Island note for a batch, at most every half minute.
+  clearTimeout(islandTimer);
+  islandTimer = setTimeout(() => {
+    const b = batchAlerts([...pending.values()]).filter((x) => x.first > islandToldAt);
+    if (!b.length) return;
+    islandToldAt = Date.now();
+    deps?.alert(b.length === 1 ? `${b[0].app} wants to connect` : `${b.length} apps want to connect`, b.length === 1 ? `${b[0].hosts[0]}${b[0].hosts.length > 1 ? ` and ${b[0].hosts.length - 1} more` : ''}` : b.map((x) => x.app).slice(0, 3).join(', '));
+  }, Math.max(3000, 30_000 - (Date.now() - islandToldAt)));
+}
+
+function oldestPending(): number | undefined {
+  let t: number | undefined;
+  for (const a of pending.values()) if (t === undefined || a.t < t) t = a.t;
+  return t;
 }
 
 // ---------------------------------------------------------------- watching
@@ -326,9 +370,20 @@ async function watchOnce() {
   let s: NetSample;
   try { s = await deps.sample(); } catch { return; }
   const now = Date.now();
+  // Seconds since the last look (the governor slows down when you are away), within reason.
+  const dt = lastWatchAt ? Math.min(120, Math.max(1, (now - lastWatchAt) / 1000)) : 10;
+  lastWatchAt = now;
+  seenSince ??= now;
+  // Where the data goes: per app and host, and when each app first reached each host.
+  for (const f of s.flows) {
+    if (!f.remote || f.state === 'LISTEN' || f.scope === 'loopback' || f.path === 'local') continue;
+    const where = f.host ?? ipNames.get(f.remote) ?? f.remote;
+    const appKey = f.appPath ?? f.app;
+    const first = markSeen(appKey, where, now);
+    if (settings.history) tally(dests, now, f.app, where, Math.round((f.rateIn ?? 0) * dt), Math.round((f.rateOut ?? 0) * dt), first === now ? 1 : 0);
+  }
   // History: bytes per app since the last reading (rates × time).
   if (settings.history || settings.unusual) {
-    const dt = 10;
     for (const a of s.apps) {
       const inB = Math.round((a.rateIn ?? 0) * dt);
       const outB = Math.round((a.rateOut ?? 0) * dt);
@@ -349,7 +404,8 @@ async function watchOnce() {
   if (settings.alerts) {
     const keys = new Set<string>();
     for (const f of s.flows) {
-      if (!f.remote || f.scope !== 'internet' || f.state === 'LISTEN') continue;
+      // Only programs Keeper can name by path can get a rule; the computer's own addresses never leave it.
+      if (!f.remote || f.scope !== 'internet' || f.state === 'LISTEN' || f.path === 'local' || !f.appPath) continue;
       const host = f.host ?? ipNames.get(f.remote);
       const k = `${f.appPath ?? f.app}|${host ?? f.remote}|${f.remotePort}`;
       keys.add(k);
@@ -370,8 +426,8 @@ function restartWatch() {
   stopWatch = undefined;
   // History and unusual-transfer warnings only run once the firewall is in use (enforcing rules,
   // asking about connections, filtering DNS or following networks): until then it costs nothing.
-  const inUse = settings.enforce || settings.alerts || settings.dnsFilter || state.autoSwitch;
-  if (inUse && (settings.alerts || settings.history || settings.unusual || state.autoSwitch)) {
+  const inUse = settings.monitor || settings.enforce || settings.alerts || settings.dnsFilter || state.autoSwitch;
+  if (inUse && (settings.monitor || settings.alerts || settings.history || settings.unusual || state.autoSwitch)) {
     stopWatch = poll('fw.watch', { baseMs: 10_000, idleFactor: 3, maxMs: 60_000 }, () => watchOnce(), { feature: 'firewall' });
   }
 }
@@ -390,6 +446,7 @@ async function status(): Promise<FwStatus> {
     dns: { running: !!resolver, port: resolver ? settings.dnsPort : undefined, upstream: settings.upstream, queries: resolver?.stats.queries ?? 0, blocked: resolver?.stats.blocked ?? 0, listsEntries: listEntries, error: dnsError, doqAvailable: false },
     pending: [...pending.values()].sort((a, b) => b.t - a.t),
     recent: recent.slice(0, 100),
+    watchingSince: seenSince,
     upstreams: [...UPSTREAMS, ...settings.customUpstreams, { id: 'doq-quad9', name: 'Quad9 over QUIC (not available yet)', kind: 'doq', address: 'dns.quad9.net:853' }],
   };
 }
@@ -493,17 +550,80 @@ export const fwApi = {
       await applyNow();
     }
     event({ kind: verdict === 'allow' ? 'allowed' : 'denied', app: a.conn.app.name, host: a.conn.host, ip: a.conn.ip, port: a.conn.port, message: `${verdict === 'allow' ? 'Allowed' : 'Denied'} ${a.conn.app.name} → ${a.conn.host ?? a.conn.ip}:${a.conn.port} ${scope === 'once' ? 'once' : scope === 'forever' ? 'always' : scope === 'quit' ? 'until Keeper quits' : 'for an hour'}` });
+    promptsChanged();
     return status();
   },
+  async answerApp(appId: string, verdict: 'allow' | 'deny', scope: AlertScope, opts: { wholeDomain?: boolean; anyHost?: boolean } = {}) {
+    await load();
+    const mine = [...pending.values()].filter((a) => (a.conn.app.path ?? a.conn.app.name) === appId);
+    if (!mine.length) return status();
+    // "Everywhere": one rule for the app instead of one per host.
+    if (opts.anyHost && scope !== 'once') {
+      for (const a of mine) pending.delete(a.id);
+      const a = mine[0];
+      a.conn.app.signer ??= await signerOf(a.conn.app.path);
+      await fwApi.quickRule({ app: a.conn.app.name ?? appId, path: a.conn.app.path, signer: a.conn.app.signer }, verdict, scope);
+      event({ kind: verdict === 'allow' ? 'allowed' : 'denied', app: a.conn.app.name, message: `${verdict === 'allow' ? 'Allowed' : 'Denied'} ${a.conn.app.name} everywhere` });
+      promptsChanged();
+      return status();
+    }
+    // One rule per place, put in place together (one administrator prompt, not one per place).
+    const made = new Set<string>();
+    for (const a of mine) {
+      pending.delete(a.id);
+      a.conn.app.signer ??= await signerOf(a.conn.app.path);
+      if (scope === 'once') continue;
+      const r = ruleFromAlert(a.conn, verdict, scope, { wholeDomain: opts.wholeDomain, anyPort: true });
+      const k = `${r.host ?? r.ip}`;
+      if (made.has(k)) continue;
+      made.add(k);
+      r.note = `${a.conn.app.name} → ${r.host?.replace(/^=/, '') ?? r.ip}`;
+      group('mine').rules.push(r);
+    }
+    event({ kind: verdict === 'allow' ? 'allowed' : 'denied', app: mine[0].conn.app.name, message: `${verdict === 'allow' ? 'Allowed' : 'Denied'} ${mine[0].conn.app.name} → ${mine.length === 1 ? mine[0].conn.host ?? mine[0].conn.ip : `${mine.length} places`} ${scope === 'once' ? 'once' : scope === 'forever' ? 'always' : scope === 'quit' ? 'until Keeper quits' : 'for an hour'}` });
+    if (made.size) { changed(); await applyNow(); }
+    promptsChanged();
+    return status();
+  },
+  async quickRule(target: QuickTarget, verdict: RuleVerdict | null, scope: Exclude<AlertScope, 'once'> = 'forever', profiles?: string[]) {
+    await load();
+    const g = group('mine');
+    const prefix = `${appRuleId(target.path ?? target.app, target.host ?? target.ip)}-`;
+    g.rules = g.rules.filter((r) => !r.id.startsWith(prefix));
+    if (verdict) {
+      target.signer ??= await signerOf(target.path);
+      g.rules.push(ruleForApp(target, verdict, scope, { profiles }));
+    }
+    event({ kind: verdict === 'deny' ? 'denied' : 'allowed', app: target.app, host: target.host, message: verdict ? `${verdict === 'allow' ? 'Allowed' : verdict === 'deny' ? 'Blocked' : 'Asking for'} ${target.app}${target.host ? ` → ${target.host}` : ' everywhere'}` : `${target.app}${target.host ? ` → ${target.host}` : ''} follows the other rules again` });
+    changed();
+    await applyNow();
+    return status();
+  },
+  async askLater(minutes = 10) { askLater(minutes); },
+  async askShow() { askShowNow(); },
+  async askFit(height: number) { askFit(height); },
+  async destinations(from: number, to: number, appName?: string) { await load(); return topDestinations(dests, from, to, { app: appName, n: 12 }); },
+  async where(from: number, to: number) { await load(); return whereSummary(dests, from, to, { apps: 8, hosts: 3 }); },
+  async exportHistory(from: number, to: number, appName?: string) {
+    await load();
+    const h = await fwApi.history(from, to, appName);
+    const r = await dialog.showSaveDialog({ defaultPath: `Keeper network ${appName ? `${appName} ` : ''}${new Date(to).toISOString().slice(0, 10)}.csv`, filters: [{ name: 'CSV', extensions: ['csv'] }] });
+    if (r.canceled || !r.filePath) return null;
+    await fsp.writeFile(r.filePath, historyCsv(h.points, h.apps, topDestinations(dests, from, to, { app: appName, n: 200 })));
+    return r.filePath;
+  },
+  async currentNetwork() { return deps?.network ? deps.network().catch(() => ({})) : {}; },
   async connections(): Promise<FwConnection[]> {
     await load();
     const s = await deps.sample();
+    const counted = s.amounts === 'connection' || s.amounts === 'process' ? undefined : false;
     return s.flows.filter((f) => f.remote && f.state !== 'LISTEN').map((f) => {
       const host = f.host ?? ipNames.get(f.remote!);
       const c: Conn = { app: appInfo(f.app, f.appPath), direction: 'out', host, ip: f.remote!, port: f.remotePort ?? 0, proto: f.proto === 'UDP' ? 'udp' : 'tcp' };
       const d = decide(state, c, Date.now(), STARTED);
       const listed = (host && nameBlockedBy(host)) || ips.match(f.remote!);
-      return { key: f.key, app: f.app, appPath: f.appPath, host, ip: f.remote, port: f.remotePort, proto: f.proto, country: f.country, asn: f.asn, service: f.service, rateIn: f.rateIn ?? 0, rateOut: f.rateOut ?? 0, bytesIn: f.bytesIn, bytesOut: f.bytesOut, decision: listed ? 'deny' : d.verdict, ruleId: d.rule?.id, reason: listed ? `On a blocklist (${listed})` : d.reason, path: f.path };
+      const firstSeen = seenSince ? markSeen(f.appPath ?? f.app, host ?? f.remote!, Date.now()) : undefined;
+      return { key: f.key, app: f.app, appPath: f.appPath, host, ip: f.remote, port: f.remotePort, proto: f.proto, country: f.country, asn: f.asn, service: f.service, rateIn: f.rateIn ?? 0, rateOut: f.rateOut ?? 0, bytesIn: f.bytesIn, bytesOut: f.bytesOut, decision: listed ? 'deny' : d.verdict, ruleId: d.rule?.id, reason: listed ? `On a blocklist (${listed})` : d.reason, path: f.path, firstSeen, counted };
     });
   },
   async history(from: number, to: number, appName?: string) {
@@ -567,6 +687,7 @@ async function refreshSubscription(g: RuleGroup) {
 
 export async function initFirewall(d: typeof deps) {
   deps = d;
+  if (d.window) initAskWindow(d.window, () => ({ since: oldestPending(), count: pending.size, enabled: settings.askWindow && featureOn('firewall') }));
   await load();
   await loadLists();
   if (settings.dnsFilter) await startResolver();
@@ -582,10 +703,38 @@ export async function initFirewall(d: typeof deps) {
 }
 
 export async function stopFirewall() {
+  stopAskWindow();
   stopWatch?.();
   stopBlocked?.();
   await resolver?.stop().catch(() => undefined);
   await saveHistory().catch(() => undefined);
+}
+
+// ---------------------------------------------------------------- the menu bar
+
+let glanceSpark: number[] = [];
+let glanceAt = 0;
+/** The menu bar's network part: read only while the summary is open (every 2 s); its small chart starts again each time it opens. */
+export async function glanceNetwork(): Promise<GlanceNet | undefined> {
+  if (!deps) return undefined;
+  await load();
+  if (Date.now() - glanceAt > 10_000) glanceSpark = [];
+  glanceAt = Date.now();
+  const rows = await fwApi.connections().catch(() => [] as FwConnection[]);
+  // Internet traffic only: the computer's own and the local network's chatter is not "online".
+  const internet = rows.filter((r) => r.path !== 'local' && r.path !== 'lan');
+  const apps = groupLive(internet);
+  const down = apps.reduce((n, a) => n + a.rateIn, 0);
+  const up = apps.reduce((n, a) => n + a.rateOut, 0);
+  glanceSpark = [...glanceSpark, down + up].slice(-24);
+  const s = state;
+  const top = topApps(apps, 3).map((a) => {
+    const quick = s.groups.find((g) => g.id === 'mine')?.rules.find((r) => r.id.startsWith(`${appRuleId(a.appPath ?? a.app)}-`));
+    return { app: a.app, path: a.appPath, down: a.rateIn, up: a.rateOut, blocked: quick?.verdict === 'deny', places: a.hosts.length };
+  });
+  const counted = !rows.some((r) => r.counted === false);
+  backend ??= backendFor();
+  return { apps: apps.length, down, up, spark: glanceSpark, top, waiting: batchAlerts([...pending.values()]).length, canBlock: backend.caps().perAppBlocking, counted };
 }
 
 // ---------------------------------------------------------------- Keeper's own connections

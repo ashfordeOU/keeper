@@ -92,8 +92,9 @@ export const TIERS: Record<string, FeatureTier> = {
   displayKeys: { plain: 'Monitor brightness keys', setup: 'computer', normal: 'off', shown: 'advanced' },
   protection: { plain: 'Privacy and security check', setup: 'privacy', normal: 'on', shown: 'basic' },
   security: { plain: 'Scan downloads for malware', setup: 'privacy', normal: 'notWindows', shown: 'basic' },
-  netwatch: { plain: 'Network activity and VPN', setup: 'privacy', normal: 'off', shown: 'basic' },
-  firewall: { plain: 'Firewall', setup: 'privacy', normal: 'off', shown: 'advanced' },
+  netwatch: { plain: 'Network activity and VPN', setup: 'privacy', normal: 'on', shown: 'basic' },
+  // On costs nothing: it only watches once you turn watching, asking or rules on.
+  firewall: { plain: 'Network & firewall', setup: 'privacy', normal: 'on', shown: 'basic' },
   mail: { plain: 'Mail', setup: 'mail', normal: 'off', shown: 'basic' },
   calendars: { plain: 'Calendar and reminders', setup: 'mail', normal: 'on', shown: 'basic' },
   planner: { plain: 'Planner', setup: 'mail', normal: 'off', shown: 'basic' },

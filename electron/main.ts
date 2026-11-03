@@ -1585,7 +1585,7 @@ app.whenReady().then(async () => {
   registerReaderIpc({ broadcast, alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }) });
   onControlsChanged(() => void updateTray());
   // Firewall: rules, alerts, the DNS filter and traffic history (nothing runs until switched on).
-  registerFirewallIpc({ alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }), broadcast });
+  registerFirewallIpc({ alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }), broadcast, window: { preload: preload(), load, lockDown } });
   // Anonymous usage stats: asked in setup (unticked), off with one switch; at most one small report a day (Settings → Privacy).
   registerUsageStatsIpc();
   // Keeper Pro: handlers in every build; the service itself runs only in builds with Pro switched on.

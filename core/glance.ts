@@ -8,6 +8,8 @@
 // rows with short values that never wrap; electron/services/glance.ts gathers
 // the readings (only while the glance is open) and src/glance/Glance.tsx draws it.
 
+import type { GlanceNet } from './api-fw';
+import { onlineLine, rateText } from './fw/live';
 import { memoryTone, type MemoryPressure } from './memory';
 
 export const GLANCE_CARDS = ['weather', 'storage', 'system', 'network', 'awake', 'usage', 'calendar', 'tip'] as const;
@@ -38,10 +40,11 @@ export const PINNED_ACTIONS = 4;
 /** The four reading tiles; the other cards are rows under them. */
 export const TILE_CARDS = ['weather', 'storage', 'system', 'network'] as const satisfies readonly GlanceCardId[];
 
-export const GLANCE_SECTIONS = ['stats', 'actions', 'downloads'] as const;
+export const GLANCE_SECTIONS = ['stats', 'network', 'actions', 'downloads'] as const;
 export type GlanceSectionId = (typeof GLANCE_SECTIONS)[number];
 export const SECTION_INFO: Record<GlanceSectionId, { label: string; help: string }> = {
   stats: { label: 'Readings', help: 'Weather, disk, this computer and the network.' },
+  network: { label: 'Network', help: 'Apps online now, the busiest three and prompts waiting.' },
   actions: { label: 'Quick actions', help: 'Four buttons; the rest are under More.' },
   downloads: { label: 'Recent downloads', help: 'The three newest files in Downloads.' },
 };
@@ -66,7 +69,7 @@ export function defaultGlanceSettings(platform: string = process.platform): Glan
     // The tip is one click away in Settings: less to read by default.
     cards: GLANCE_CARDS.filter((c) => c !== 'tip'),
     actions: ['quickSearch', 'screenshot', 'captureText', 'clipboard'],
-    sections: { stats: true, actions: true, downloads: true },
+    sections: { stats: true, network: true, actions: true, downloads: true },
     hover: platform === 'darwin',
   };
 }
@@ -106,6 +109,8 @@ export interface GlanceInputs {
   aiUsage?: { value: string; detail: string; usedPercent?: number; tone: 'ok' | 'warn' | 'bad' };
   next?: { title: string; start: number; link?: string };
   tipIndex?: number;
+  /** apps online and the busiest ones (the firewall's monitor), only while the summary is open */
+  net?: GlanceNet;
 }
 
 export interface GlanceCard {
@@ -303,6 +308,34 @@ export function glanceStatus(i: GlanceInputs): GlanceStatus {
 }
 
 export interface GlanceRecentFile { name: string; path: string; size: number; source?: string }
+
+/** The network part, in short words that fit one line each. */
+export interface GlanceNetView {
+  /** "3 apps online" */
+  line: string;
+  /** "↓34 ↑2 KB/s" */
+  rates: string;
+  spark: number[];
+  top: { app: string; path?: string; rate: string; hint: string; blocked: boolean }[];
+  /** "2 waiting", when prompts wait */
+  waiting?: string;
+  canBlock: boolean;
+}
+
+export function glanceNetView(n: GlanceNet): GlanceNetView {
+  return {
+    line: onlineLine(n.apps),
+    // Where speeds per app are not counted, the line keeps the computer's own speed out and each app says how many places it reaches.
+    rates: n.counted === false ? 'speeds not counted' : shortRates(n.down, n.up),
+    spark: n.counted === false ? [] : n.spark,
+    top: n.top.map((t) => {
+      const places = `${t.places ?? 0} ${t.places === 1 ? 'place' : 'places'}`;
+      return { app: t.app, path: t.path, rate: n.counted === false ? places : rateText(t.down + t.up), hint: n.counted === false ? `${t.app}: ${places}${t.blocked ? ' · blocked' : ''}` : `${t.app}: ↓ ${rateText(t.down)} ↑ ${rateText(t.up)}${t.blocked ? ' · blocked' : ''}`, blocked: t.blocked };
+    }),
+    waiting: n.waiting ? `${n.waiting} waiting` : undefined,
+    canBlock: n.canBlock,
+  };
+}
 export interface GlanceView {
   /** every chosen card in full (the tray's tooltip) */
   cards: GlanceCard[];
@@ -315,6 +348,8 @@ export interface GlanceView {
   more: GlanceActionId[];
   recent: GlanceRecentFile[];
   moreRecent: number;
+  /** the network part, when it is on and the firewall is in use */
+  net?: GlanceNetView;
   settings: GlanceSettings;
 }
 
@@ -331,6 +366,7 @@ export function glanceLayout(i: GlanceInputs, s: GlanceSettings, recent: { list:
     more: s.sections.actions ? moreActions(s) : [],
     recent: s.sections.downloads ? recent.list : [],
     moreRecent: Math.max(0, recent.total - recent.list.length),
+    net: s.sections.network && i.net ? glanceNetView(i.net) : undefined,
     settings: s,
   };
 }
@@ -348,6 +384,10 @@ export interface GlanceApi {
   /** a route in the main window, "action:<id>" or "link:<url>" */
   open(target: string): Promise<void>;
   openFile(path: string, how: 'open' | 'show'): Promise<void>;
+  /** blocks one app everywhere (`deny`) or takes that block away again (`null`) */
+  netRule(app: string, path: string | undefined, verdict: 'deny' | null): Promise<void>;
+  /** opens the waiting prompts */
+  netAsk(): Promise<void>;
 }
 
 /** A one-line summary for the tray's tooltip where there is no hover (Windows, Linux). */

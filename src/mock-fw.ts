@@ -6,7 +6,8 @@ import type { FwAlert, FwApi, FwConnection, FwEvent, FwSettings, FwStatus } from
 import { CURATED_LISTS } from '../core/fw/blocklist';
 import { UPSTREAMS, type QueryLogEntry } from '../core/fw/dns';
 import { capabilities } from '../core/fw/enforce';
-import { decide, defaultFwState, ruleFromAlert, tidy, type Conn, type FwRule, type FwState } from '../core/fw/rules';
+import { tally, topDestinations, whereSummary, type DestTally } from '../core/fw/live';
+import { appRuleId, decide, defaultFwState, ruleForApp, ruleFromAlert, tidy, type Conn, type FwRule, type FwState } from '../core/fw/rules';
 
 export function mockFw(emit: (ch: string, ...a: unknown[]) => void): { fw: FwApi } {
   const now = Date.now();
@@ -32,7 +33,7 @@ export function mockFw(emit: (ch: string, ...a: unknown[]) => void): { fw: FwApi
     activeProfile: 'home',
     autoSwitch: true,
   };
-  const settings: FwSettings = { enforce: true, defaultBlock: false, alerts: true, dnsFilter: true, dnsPort: 53, upstream: 'quad9-doh', customUpstreams: [], lists: CURATED_LISTS.map((l, i) => ({ ...l, enabled: i < 3, entries: i < 3 ? [121_000, 168_000, 312_000][i] : undefined, updated: i < 3 ? now - 5 * 3600_000 : undefined })), history: true, unusual: true, sounds: {}, soundByData: false };
+  const settings: FwSettings = { enforce: true, defaultBlock: false, alerts: true, dnsFilter: true, dnsPort: 53, upstream: 'quad9-doh', customUpstreams: [], lists: CURATED_LISTS.map((l, i) => ({ ...l, enabled: i < 3, entries: i < 3 ? [121_000, 168_000, 312_000][i] : undefined, updated: i < 3 ? now - 5 * 3600_000 : undefined })), history: true, unusual: true, sounds: {}, soundByData: false, monitor: true, askWindow: true };
   const conn = (app: string, path: string, host: string, ip: string, port = 443): Conn => ({ app: { name: app, path, browser: /Chrome|Firefox/.test(app) }, direction: 'out', host, ip, port, proto: 'tcp' });
   const alerts: FwAlert[] = [
     { id: 'a1', t: now - 40_000, conn: conn('Notion', '/Applications/Notion.app/Contents/MacOS/Notion', 'api.segment.io', '52.34.12.8'), service: 'Segment (analytics)', country: 'US', asn: 'AS16509 Amazon', reverse: 'ec2-52-34-12-8.us-west-2.compute.amazonaws.com', monitorOnly: true, attempts: 3 },
@@ -52,14 +53,17 @@ export function mockFw(emit: (ch: string, ...a: unknown[]) => void): { fw: FwApi
   ].map(([app, host, ip, country, asn], i) => {
     const c = conn(app, `/Applications/${app}.app`, host, ip);
     const d = decide(state, c);
-    return { key: `k${i}`, app, appPath: c.app.path, host, ip, port: 443, proto: 'TCP', country, asn, rateIn: Math.random() * 400_000, rateOut: Math.random() * 40_000, decision: host.includes('logfiles') ? 'deny' : d.verdict === 'ask' ? 'allow' : d.verdict, ruleId: d.rule?.id, reason: d.reason, path: i % 4 === 0 ? 'vpn' : 'direct' };
+    return { key: `k${i}`, app, appPath: c.app.path, host, ip, port: 443, proto: 'TCP', country, asn, rateIn: Math.random() * 400_000, rateOut: Math.random() * 40_000, decision: host.includes('logfiles') ? 'deny' : d.verdict === 'ask' ? 'allow' : d.verdict, ruleId: d.rule?.id, reason: d.reason, path: i % 4 === 0 ? 'vpn' : 'direct', firstSeen: i === 7 || i === 11 ? now - 3600_000 : now - 9 * 86_400_000 };
   });
+  // A month of "where your data goes".
+  const dests: DestTally = {};
+  for (let d = 0; d < 30; d++) for (const [i, c] of conns.entries()) tally(dests, now - d * 86_400_000, c.app, c.host!, (12 - i) * 2e7 * (0.5 + ((d * 7 + i) % 5) / 5), (12 - i) * 1.5e6, 3 + ((d + i) % 6));
   const log: QueryLogEntry[] = ['apple.com', 'ad.doubleclick.net', 'www.bbc.co.uk', 'telemetry.example.net', 'imap.fastmail.com', 'cdn.segment.com', 'api.github.com'].map((n, i) => ({ t: now - i * 41_000, name: n, type: 'A', ms: 4 + i * 3, blockedBy: /doubleclick|telemetry|segment/.test(n) ? (n.includes('doubleclick') ? 'your rule' : 'Multi PRO (ads, trackers, telemetry)') : undefined, answer: /doubleclick|telemetry|segment/.test(n) ? undefined : ['17.253.144.10'], cached: i % 3 === 0 }));
   const status = async (): Promise<FwStatus> => ({
     platform: 'darwin', caps: capabilities('darwin'), state, settings,
     enforcement: { active: true, backend: 'Packet filter (pf)', message: 'Rules are in the system packet filter', appliedAt: now - 3600_000 },
     dns: { running: true, port: 53, upstream: settings.upstream, queries: 18_412, blocked: 3_207, listsEntries: 601_000, doqAvailable: false },
-    pending: alerts, recent: events, upstreams: UPSTREAMS,
+    pending: alerts, recent: events, upstreams: UPSTREAMS, watchingSince: now - 20 * 86_400_000,
   });
   const changed = async () => { emit('fw-changed'); return status(); };
   const fw: FwApi = {
@@ -101,6 +105,24 @@ export function mockFw(emit: (ch: string, ...a: unknown[]) => void): { fw: FwApi
     async addList(url, name) { settings.lists.push({ id: `c${settings.lists.length}`, name: name ?? url, topic: 'custom', url, format: 'auto', description: 'Added by you', licence: 'See source', enabled: true }); return changed(); },
     apply: changed,
     async uninstall() { settings.enforce = false; return changed(); },
+    async quickRule(target, verdict, scope = 'forever', profiles) {
+      const g = state.groups[0];
+      const prefix = `${appRuleId(target.path ?? target.app, target.host ?? target.ip)}-`;
+      g.rules = g.rules.filter((r) => !r.id.startsWith(prefix));
+      if (verdict) g.rules.push(ruleForApp(target, verdict, scope, { profiles }));
+      return changed();
+    },
+    async answerApp(appId, verdict, scope) {
+      for (const a of alerts.filter((x) => (x.conn.app.path ?? x.conn.app.name) === appId)) await fw.answer(a.id, verdict, scope);
+      return changed();
+    },
+    async askLater() { /* the demo has no prompt window */ },
+    async askShow() { /* the demo has no prompt window */ },
+    async askFit() { /* the demo has no prompt window */ },
+    async destinations(from, to, app) { return topDestinations(dests, from, to, { app, n: 12 }); },
+    async where(from, to) { return whereSummary(dests, from, to, { apps: 8, hosts: 3 }); },
+    async exportHistory() { return '/Users/demo/Downloads/Keeper network.csv'; },
+    async currentNetwork() { return { ssid: 'Home-5G', gateway: '192.168.1.1' }; },
   };
   return { fw };
 }
