@@ -1,0 +1,14 @@
+{
+  "name": "keeper-license",
+  "private": true,
+  "description": "Keeper Pro's license server (Cloudflare Worker + KV). Not deployed; see README.md.",
+  "license": "SEE LICENSE IN ../../LICENSE.md",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.40.0"
+  }
+}

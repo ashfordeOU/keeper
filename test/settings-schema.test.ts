@@ -23,10 +23,12 @@ describe('the registry', () => {
     expect(defaultValue(settingDef('appearance')!)).toBe(d.appearance);
     expect(defaultValue(settingDef('island.hoverOpen')!)).toBe(d.island.hoverOpen);
   });
-  it('has 13 sections, General first, each with Basic rows before its Advanced ones', () => {
-    expect(SECTIONS).toHaveLength(13);
+  it('has 14 sections, General first, each with Basic rows before its Advanced ones', () => {
+    expect(SECTIONS).toHaveLength(14);
     expect(SECTIONS[0].id).toBe('general');
-    for (const s of SECTIONS) expect(sectionRows(s.id, 'linux').basic.length, s.id).toBeGreaterThan(0);
+    // Account & Pro exists only in builds with Keeper Pro switched on: without it, it has no rows at all.
+    expect(sectionRows('account', 'linux')).toEqual({ basic: [], advanced: [] });
+    for (const s of SECTIONS.filter((x) => x.id !== 'account')) expect(sectionRows(s.id, 'linux').basic.length, s.id).toBeGreaterThan(0);
     expect(sectionRows('files', 'linux').advanced.map((d) => d.id)).toContain('includeRemote');
     expect(sectionRows('island', 'darwin').advanced.map((d) => d.id)).not.toContain('island.x11OnWayland');
   });

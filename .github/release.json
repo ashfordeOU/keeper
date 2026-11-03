@@ -2,5 +2,8 @@
   "_about": "Which systems a version bump publishes. Any of \"mac\", \"windows\", \"linux\". Read by the tag job of .github/workflows/release.yml (a manual run's \"platforms\" input overrides it). A system left out keeps its current version: its installed copies are offered nothing, and the install scripts keep giving the newest release that has its files. See RELEASING.md.",
   "platforms": ["mac", "windows", "linux"],
   "_aboutMacSigning": "Who signs the Mac build: \"self-signed\" (the \"Keeper Self-Signed\" certificate, KEEPER_SIGNING_CERT) or \"developer-id\" (Ashforde's Apple Developer ID, notarized; needs KEEPER_DEVELOPER_ID_CERT, KEEPER_DEVELOPER_ID_PASSWORD, APPLE_ID, APPLE_TEAM_ID and APPLE_APP_PASSWORD, and fails without them). Read by the tag job of .github/workflows/release.yml (a manual run's \"mac_signing\" input overrides it); adding a secret never changes it. Switch only after a release with the updater bridge is out: RELEASING.md → Moving to the Developer ID.",
-  "macSigning": "developer-id"
+  "macSigning": "developer-id",
+  "_aboutPro": "Keeper Pro (docs/PRO.md). \"proEnabled\": false leaves Pro out of the build entirely: no page, no badge, no network. Switch it on only with `node scripts/pro.mjs on`, which also records \"freeThrough\": the version in which payments were first switched on. Every feature up to that version stays free for everyone, forever; \"freeThrough\" is never changed or removed once set. Read by scripts/pro-flags.mjs (the app, the interface and the command line).",
+  "proEnabled": false,
+  "freeThrough": null
 }

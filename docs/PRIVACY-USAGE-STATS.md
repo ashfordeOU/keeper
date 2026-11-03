@@ -70,6 +70,14 @@ One report describes one day. Every field, with an example:
 | `cpu` | `<1%` | Keeper's own average processor use: `<1%`, `1-5%`, `5-20%` or `20%+` |
 | `startup` | `<2s` | How long Keeper took to open: `<2s`, `2-5s`, `5-10s`, `10s+` or `unknown` |
 
+**Only in versions with Keeper Pro switched on** ([PRO.md](PRO.md)). Keeper 1.0.0 has no Pro and
+never sends or shows this field:
+
+| Field | Example | What it is |
+| --- | --- | --- |
+| **usage** | | |
+| `plan` | `free` | Your Keeper plan: `free`, `pro` or `team`. Nothing else about a license (no id, no address, no dates) |
+
 A whole request looks like this:
 
 ```json

@@ -7,7 +7,7 @@
 import { useEffect, useMemo, useState, type ReactElement } from 'react';
 import type { SetupContext } from '../../core/api-setup';
 import { DEV_BUNDLE, SETUP_GROUPS, type SetupGroupId } from '../../core/feature-tiers';
-import { choicePatch, FEATURES, featureStates, type ComputerContext, type FeatureDef } from '../../core/features';
+import { choicePatch, FEATURES, featureOffered, featureStates, type ComputerContext, type FeatureDef } from '../../core/features';
 import { formatBytes } from '../../core/format';
 import { approvalsFor, approvalsLine, type PermPlatform, type SetupApprovals } from '../../core/permissions';
 import { errorText } from '../../core/ipc-error';
@@ -41,7 +41,7 @@ const isMacUi = () => navigator.platform.startsWith('Mac');
 
 /** Parts this system can run, shown in setup. */
 function partsFor(platform: string): FeatureDef[] {
-  return FEATURES.filter((f) => !f.platforms || f.platforms.includes(platform as NodeJS.Platform));
+  return FEATURES.filter((f) => featureOffered(f, platform));
 }
 
 // ---------------------------------------------------------------- the host

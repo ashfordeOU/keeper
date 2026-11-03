@@ -4,7 +4,8 @@
 // connection. Used in Settings → Privacy, the welcome tour and the firewall.
 
 import { useEffect, useState } from 'react';
-import { NEVER_SENT, SCHEMA_GROUPS, USAGE_SCHEMA, type PingBody, type UsagePayload, type UsageStatsStatus } from '../../core/telemetry';
+import { proEnabled } from '../../core/pro-switch';
+import { NEVER_SENT, SCHEMA_GROUPS, usageSchema, type PingBody, type UsagePayload, type UsageStatsStatus } from '../../core/telemetry';
 import { api } from '../api';
 import { useStore } from '../state';
 import { Icon } from './Icon';
@@ -38,7 +39,7 @@ function PayloadView({ body, testid }: { body: PingBody; testid: string }) {
   const [raw, setRaw] = useState(false);
   const p: UsagePayload | undefined = body.pings[body.pings.length - 1];
   if (!p) return <div className="small muted">Nothing.</div>;
-  const rows = Object.entries(USAGE_SCHEMA).map(([path, spec]) => {
+  const rows = Object.entries(usageSchema(proEnabled())).map(([path, spec]) => {
     const [a, b] = path.split('.');
     const v = b ? (p as unknown as Record<string, Record<string, unknown>>)[a][b] : (p as unknown as Record<string, unknown>)[a];
     return { path, a: b ? a : '', v, about: spec.about };

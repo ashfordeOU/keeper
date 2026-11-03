@@ -14,6 +14,7 @@ import { existsSync, promises as fsp, readdirSync, readFileSync } from 'node:fs'
 import os from 'node:os';
 import path from 'node:path';
 import { FEATURES } from '../../core/features';
+import { proEnabled } from '../../core/pro-switch';
 import { detectInstallSource } from '../../core/install-source';
 import { run } from '../../core/platform';
 import {
@@ -228,6 +229,8 @@ async function inputs(): Promise<TelemetryInputs> {
     avgMemoryBytes: h.samples ? h.memSum / h.samples : u!.memory,
     avgCpuPct: h.samples ? h.cpuSum / h.samples : u!.cpu,
     startupMs: d.startupMs,
+    // The plan is sent only by builds with Keeper Pro switched on (docs/PRIVACY-USAGE-STATS.md).
+    plan: proEnabled() ? await (await import('./pro')).currentPlan() : undefined,
   };
 }
 

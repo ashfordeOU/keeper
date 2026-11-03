@@ -10,9 +10,9 @@
 // Changed.
 
 import { defaultSettings, mergeSettings, type AllSettings } from './settings';
-import { FEATURES, featureStates } from './features';
+import { FEATURES, featureOffered, featureStates } from './features';
 
-export type SectionId = 'general' | 'appearance' | 'features' | 'files' | 'island' | 'menubar' | 'ai' | 'pim' | 'privacy' | 'accessibility' | 'battery' | 'devices' | 'about';
+export type SectionId = 'general' | 'appearance' | 'features' | 'files' | 'island' | 'menubar' | 'ai' | 'pim' | 'privacy' | 'accessibility' | 'battery' | 'devices' | 'account' | 'about';
 
 export interface SectionDef {
   id: SectionId;
@@ -38,6 +38,8 @@ export const SECTIONS: SectionDef[] = [
   { id: 'accessibility', label: 'Accessibility', icon: 'eye', keywords: ['motion', 'text size', 'focus'] },
   { id: 'battery', label: 'Battery and speed', icon: 'bolt', keywords: ['performance', 'power', 'memory', 'resources'] },
   { id: 'devices', label: 'Devices', icon: 'link', feature: 'link', keywords: ['mesh', 'phone', 'pair'] },
+  // Only in builds with Keeper Pro switched on (core/pro-switch.ts): otherwise its part is left out and so is the section.
+  { id: 'account', label: 'Account & Pro', icon: 'key', feature: 'proAccount', keywords: ['plan', 'license', 'subscription', 'upgrade', 'restore purchase', 'team'] },
   { id: 'about', label: 'About', icon: 'info', keywords: ['version', 'license', 'report a problem'] },
 ];
 
@@ -230,6 +232,10 @@ export const SETTINGS: SettingDef[] = [
 
   // ---------------------------------------------------------------- About
   { id: 'about', section: 'about', label: 'Version and what’s new', level: 'basic', kind: 'panel', panel: 'about', keywords: ['version', 'release notes', 'changelog', 'source code', 'license', 'report a problem', 'bug'] },
+
+  // ---------------------------------------------------------------- Account & Pro (builds with Pro switched on only)
+  { id: 'proAccount', section: 'account', label: 'Your plan', help: 'Your plan and license on this computer.', level: 'basic', kind: 'panel', panel: 'proAccount', feature: 'proAccount', exportable: false, resettable: false, keywords: ['pro', 'license', 'subscription', 'restore purchase', 'manage subscription', 'remove license'] },
+  { id: 'proCatalog', section: 'account', label: 'What Pro adds', help: 'Planned extras that cost money to run, or are for teams.', level: 'basic', kind: 'panel', panel: 'proCatalog', feature: 'proAccount', keywords: ['pro', 'upgrade', 'cloud', 'team', 'price'] },
 ];
 
 // ---------------------------------------------------------------- search words
@@ -341,6 +347,9 @@ export function labelOf(def: SettingDef | SectionDef, platform = ''): string {
 }
 
 export function visibleOn(def: SettingDef, platform: string): boolean {
+  // A row of a part this build leaves out (Pro's, in a build without Pro) never shows, even in search.
+  const part = def.feature ? FEATURES.find((f) => f.id === def.feature) : undefined;
+  if (part && !featureOffered(part, platform)) return false;
   return !def.platforms || !platform || def.platforms.includes(platform);
 }
 
@@ -457,7 +466,7 @@ export function searchSettings(q: string, s: AllSettings | null, platform = '', 
     hits.push({ kind: 'setting', id: d.id, section: d.section, label, crumbs: [labelOf(sec, platform), ...(d.group ? [d.group] : parent ? [labelOf(parent, platform)] : []), label], advanced: d.level === 'advanced', off: offOf(d.feature) ?? offOf(sec.feature), score });
   }
   for (const f of FEATURES) {
-    if (f.platforms && platform && !f.platforms.includes(platform as NodeJS.Platform)) continue;
+    if (!featureOffered(f, platform)) continue;
     const score = Math.max(scoreText(f.name, terms) - 5, scoreText(f.description, terms) - 30);
     if (score <= 0) continue;
     hits.push({ kind: 'feature', id: f.id, section: 'features', label: f.name, crumbs: ['Features', f.name], score });

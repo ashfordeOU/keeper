@@ -19,6 +19,7 @@ import { LanguageRow, LoginRow } from '../SettingsMore';
 import { UpdatesPanel, WhatsNewHover } from '../../components/Updates';
 import { UsagePanel } from '../../components/UsagePanel';
 import { UsageStatsPanel } from '../../components/UsageStatsPanel';
+import { ProAccountPanel, ProCatalogPanel } from '../../components/ProAccount';
 import { FeaturesPanel, SidebarPanel } from '../../components/FeaturesPanel';
 import { LockedFoldersPanel } from '../../components/LockDialog';
 import { BrainSettingsPanel } from '../../components/BrainPanel';
@@ -282,6 +283,9 @@ export const PANELS: Record<string, PanelDef> = {
   mailApps: { render: () => <MailPanel part="apps" />, wide: true },
   permissions: { render: () => <PermissionsPanel />, own: true, wide: true },
   usageStats: { render: () => <UsageStatsPanel />, wide: true },
+  // Keeper Pro (builds with Pro switched on only; the rows are left out otherwise).
+  proAccount: { render: () => <ProAccountPanel />, own: true, wide: true },
+  proCatalog: { render: () => <ProCatalogPanel />, wide: true },
   a11y: { render: () => <AccessibilityPanel />, own: true, wide: true },
   resources: { render: () => <UsagePanel />, own: true, wide: true },
   meshPlaces: { render: () => <MeshPlaces />, wide: true },

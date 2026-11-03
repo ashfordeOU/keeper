@@ -3,7 +3,7 @@
 // costs, presets, and Customize sidebar.
 
 import { useEffect, useMemo, useState } from 'react';
-import { currentPreset, currentSet, FEATURES, featureDef, NAV_GROUPS, PRESETS, type ComputerContext, type CostLevel, type FeatureSet } from '../../core/features';
+import { currentPreset, currentSet, FEATURES, featureDef, featureOffered, NAV_GROUPS, PRESETS, type ComputerContext, type CostLevel, type FeatureSet } from '../../core/features';
 import { api } from '../api';
 import { useFeatureStates } from '../features';
 import { useStore } from '../state';
@@ -40,7 +40,7 @@ export function FeaturesPanel() {
   const choices = [...PRESETS.map((p) => ({ ref: `preset:${p.id}`, name: p.name })), ...(sets?.sets ?? []).map((x) => ({ ref: x.id, name: x.name }))];
   const list = useMemo(() => {
     const t = q.trim().toLowerCase();
-    return FEATURES.filter((f) => !f.platforms || f.platforms.includes((info?.platform ?? '') as NodeJS.Platform))
+    return FEATURES.filter((f) => featureOffered(f, info?.platform ?? ''))
       .filter((f) => !t || `${f.name} ${f.description} ${NAV_GROUPS.find((g) => g.id === f.navGroup)?.title ?? f.group} ${f.cost.background ?? ''}`.toLowerCase().includes(t));
   }, [q, info?.platform]);
   if (!settings || !states) return null;

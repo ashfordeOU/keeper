@@ -5,8 +5,12 @@
 // is LGPL-3.0, so it ships as its own module that people can swap for another build).
 import { copyFileSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { build, context } from 'esbuild';
+import { proFlags } from './pro-flags.mjs';
 
 const { version } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+
+// Keeper Pro: in the build or not at all (.github/release.json, docs/PRO.md).
+const PRO = proFlags();
 
 const watch = process.argv.includes('--watch');
 const cliOnly = process.argv.includes('--cli-only');
@@ -28,6 +32,8 @@ const common = {
     __KEEPER_GOOGLE_CLIENT_SECRET__: JSON.stringify(process.env.KEEPER_GOOGLE_CLIENT_SECRET ?? ''),
     __KEEPER_MS_CLIENT_ID__: JSON.stringify(process.env.KEEPER_MS_CLIENT_ID ?? ''),
     __KEEPER_DEVELOPER_ID__: JSON.stringify(process.env.KEEPER_DEVELOPER_ID === '1'),
+    __KEEPER_PRO__: JSON.stringify(PRO.pro),
+    __KEEPER_FREE_THROUGH__: JSON.stringify(PRO.freeThrough ?? ''),
   },
   // libheif-js (LGPL-3.0) stays a separate module under node_modules so it can be replaced; see THIRD-PARTY-NOTICES.md.
   // usocket and x11 are optional extras of the D-Bus client (abstract sockets, X11 bus lookup); it works without them.

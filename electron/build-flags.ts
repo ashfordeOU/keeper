@@ -13,3 +13,6 @@ export const BUILT_GOOGLE_CLIENT_SECRET = typeof __KEEPER_GOOGLE_CLIENT_SECRET__
 export const BUILT_MS_CLIENT_ID = typeof __KEEPER_MS_CLIENT_ID__ === 'string' ? __KEEPER_MS_CLIENT_ID__ : '';
 /** signed with an Apple Developer ID: macOS keeps the keychain approval across updates */
 export const DEVELOPER_ID = typeof __KEEPER_DEVELOPER_ID__ === 'boolean' && __KEEPER_DEVELOPER_ID__;
+
+// Keeper Pro's switch ("proEnabled", "freeThrough" in .github/release.json) is read in
+// core/pro-switch.ts instead, because the interface and the command line need it too.

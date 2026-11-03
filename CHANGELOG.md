@@ -35,6 +35,10 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - Every page shares one width, one spacing scale, one set of corners, and evenly balanced rows of cards, checked at four screen widths in light and dark.
 - None of it moves for people who ask for less motion.
 
+### Added — Keeper Pro: built in and switched off
+- Nothing changes for anyone: Keeper stays free, with no new page, badge, upgrade message or connection.
+- Everything Keeper has, and everything added up to the version in which Pro is ever switched on, stays free for everyone, forever.
+
 ### Added — Website: a new home page, features page and Keeper + Monorail page
 - The home page tells Keeper's story in pictures: Keeper in a laptop with the Island dropping from the notch, then short sections with real screenshots in light and dark.
 - Build your Keeper: switch parts on and off and see a preview, the rough download size and what keeps running.

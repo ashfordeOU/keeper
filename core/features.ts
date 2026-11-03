@@ -9,6 +9,7 @@
 // anything (electron/services/features.ts).
 
 import { TIERS, type FeatureTier, type Normal, type SetupGroupId } from './feature-tiers';
+import { proEnabled } from './pro-switch';
 import type { AllSettings } from './settings';
 
 export type FeatureGroup = 'Library' | 'Tidy' | 'Island' | 'Desktop' | 'AI' | 'Connections' | 'System';
@@ -71,6 +72,11 @@ export interface FeatureDef {
   commands?: string[];
   /** only on these systems */
   platforms?: NodeJS.Platform[];
+  /**
+   * exists only in builds with Keeper Pro switched on (core/pro-switch.ts): otherwise it is
+   * left out everywhere, like a part for another system. Every part here is free (core/entitlements.ts).
+   */
+  pro?: boolean;
   /** an older setting already switches this: read and write through it */
   bridge?: { get(s: AllSettings): boolean; set(on: boolean, s: AllSettings): Partial<AllSettings> };
   /**
@@ -255,6 +261,7 @@ export const FEATURES: FeatureDef[] = [
   { id: 'tools', name: 'Toolbox', description: 'Developer tools, system tweaks and handy utilities.', group: 'System', defaultOn: true, routes: ['tools'], commands: ['tool*'], cost: { level: 'none' } },
   { id: 'updates', name: 'Automatic update checks', description: 'Looks for a new Keeper on GitHub every six hours (you can always check by hand).', group: 'System', defaultOn: true, bridge: { get: (s) => s.updateMode !== 'off', set: (on, s) => ({ updateMode: on ? (s.updateMode === 'off' ? 'auto' : s.updateMode) : 'off' }) }, cost: { level: 'none', background: 'One small request every six hours' } },
   { id: 'usageStats', name: 'Anonymous usage stats', description: 'Once a day, a small anonymous report (version, kind of computer, which features and pages are used, crash counts) to help Ashforde improve Keeper. Never files, searches or names. Settings → Privacy shows exactly what is sent.', group: 'System', defaultOn: true, ownChoice: true, cost: { level: 'none', background: 'One look an hour; sends at most once a day when the computer is idle' } },
+  { id: 'proAccount', name: 'Account & Pro', description: 'Your plan and license. Everything that is free stays free.', group: 'System', defaultOn: true, pro: true, ownChoice: true, cost: { level: 'none', background: 'One small check a day for license changes' } },
 ];
 
 // New installs get the 1.0 defaults (Recommended for a typical computer: core/feature-tiers.ts);
@@ -291,7 +298,7 @@ const NAV_GROUP: Record<NavGroup, string[]> = {
   screen: ['capture', 'studio', 'stage', 'drawOnScreen', 'stageAuto', 'tools', 'videoDownload'],
   desktop: ['textSnippets', 'widgets', 'wallpaper', 'vibes', 'ambientSound', 'folderIcons', 'weather', 'tracks', 'tracksLive', 'tracksServices', 'monorail'],
   island: ['island', 'clipboard', 'media', 'agents', 'focus', 'islandWeather', 'islandAsk', 'islandUsage', 'islandSales', 'islandStocks', 'islandNotes', 'islandTodos', 'islandPlanner', 'islandInsights', 'islandPrompter', 'calendar', 'micIndicator', 'notifyMirror', 'hideInFullscreen', 'islandCalls', 'islandHud'],
-  general: ['toolLauncher', 'quickSearch', 'launcher', 'tray', 'login', 'platform', 'updates', 'usageStats'],
+  general: ['toolLauncher', 'quickSearch', 'launcher', 'tray', 'login', 'platform', 'updates', 'usageStats', 'proAccount'],
 };
 const FALLBACK_NAV: Record<FeatureGroup, NavGroup> = { Library: 'files', Tidy: 'tidy', Island: 'island', Desktop: 'desktop', AI: 'ai', Connections: 'devices', System: 'computer' };
 for (const [g, ids] of Object.entries(NAV_GROUP) as [NavGroup, string[]][]) for (const f of FEATURES) if (!f.navGroup && ids.includes(f.id)) f.navGroup = g;
@@ -309,6 +316,12 @@ export const CORE = {
 const byId = new Map(FEATURES.map((f) => [f.id, f]));
 // The renderer has no `process`; it passes the platform from system info.
 const HOST = typeof process !== 'undefined' ? process.platform : '';
+
+/** Does this build offer the part on this system? (Other systems' parts, and Pro's parts in builds without Pro, are left out everywhere.) */
+export function featureOffered(f: Pick<FeatureDef, 'platforms' | 'pro'>, platform: string = HOST): boolean {
+  if (f.pro && !proEnabled()) return false;
+  return !f.platforms || !platform || f.platforms.includes(platform as NodeJS.Platform);
+}
 export const featureDef = (id: string) => byId.get(id);
 
 export type FeatureMap = Record<string, boolean>;
@@ -344,6 +357,7 @@ export function wanted(s: AllSettings, id: string, platform: string = HOST): boo
   if (!f) return true; // unknown ids (a newer feature in an older registry) stay on
   if (f.always) return true;
   if (f.platforms && !f.platforms.includes(platform as NodeJS.Platform)) return false;
+  if (f.pro && !proEnabled()) return false;
   if (f.bridge) return f.bridge.get(s);
   return s.features?.[id] ?? f.defaultOn;
 }
@@ -490,7 +504,7 @@ export function presetPatch(s: AllSettings, preset: PresetId, ctx?: ComputerCont
  * so starting from this list never switches the parent on.
  */
 export function recommendedIds(ctx: ComputerContext | undefined, platform: string = HOST): string[] {
-  const parts = FEATURES.filter((f) => (!f.platforms || f.platforms.includes(platform as NodeJS.Platform)) && !f.ownChoice && recommend(f, ctx));
+  const parts = FEATURES.filter((f) => (!f.platforms || f.platforms.includes(platform as NodeJS.Platform)) && featureOffered(f, platform) && !f.ownChoice && recommend(f, ctx));
   const on = new Set(parts.map((f) => f.id));
   for (let changed = true; changed;) {
     changed = false;
@@ -560,7 +574,7 @@ export function setForPower(s: Pick<AllSettings, 'featureSetOnBattery' | 'featur
 /** Which preset the current choices match, if any. */
 export function currentPreset(s: AllSettings, ctx?: ComputerContext): PresetId | undefined {
   // Features this system cannot run never count against a preset.
-  return PRESETS.find((p) => FEATURES.every((f) => f.always || f.ownChoice || (f.platforms && !f.platforms.includes(HOST as NodeJS.Platform)) || wanted(s, f.id) === p.on(f, ctx)))?.id;
+  return PRESETS.find((p) => FEATURES.every((f) => f.always || f.ownChoice || !featureOffered(f) || wanted(s, f.id) === p.on(f, ctx)))?.id;
 }
 
 function diff(prev: AllSettings, next: AllSettings): Partial<AllSettings> {

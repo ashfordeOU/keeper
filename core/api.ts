@@ -462,6 +462,8 @@ export interface KeeperApi extends KeeperApiX {
   components: import('./api-components').ComponentsApi;
   /** anonymous usage stats: the switch, exactly what is sent, and the install ID */
   usageStats: import('./telemetry').UsageStatsApi;
+  /** Keeper Pro: plan and license (only in builds with Pro switched on; otherwise status() says it is off) */
+  pro: import('./api-pro').ProApi;
   permissions: import('./permissions').PermissionsApi;
   /** the first-run setup (absent in the browser demo) */
   setup?: import('./api-setup').SetupApi;
@@ -870,6 +872,7 @@ export interface KeeperApi extends KeeperApiX {
   /** a feature needs a system permission now (the window points to Settings → Permissions) */
   on(channel: 'permission-needed', cb: (p: { id: string; feature?: string }) => void): () => void;
   /** the keychain started or stopped refusing Keeper's saved sign-ins */
+  on(channel: 'pro-changed', cb: () => void): () => void;
   on(channel: 'keychain-changed', cb: (s: import('./keychain').KeychainStatus) => void): () => void;
   /** Help → Set Up Keeper Again */
   on(channel: 'setup-again', cb: () => void): () => void;

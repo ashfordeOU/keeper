@@ -54,6 +54,8 @@ const api = {
   ashforde: group('ashforde', ['overview', 'monorail', 'install', 'update', 'checkUpdate', 'uninstall', 'launch', 'quit', 'connect', 'openPermission', 'action', 'prefs', 'setPrefs', 'useShortcut', 'coexist']),
   aiUsage: group('aiUsage', ['overview', 'refresh', 'saveAccount', 'removeAccount', 'reorder', 'setSettings', 'history', 'exportCsv', 'detect', 'signIn', 'setStatusLine', 'scanReceipts', 'openPage', 'glanceState']),
   usageStats: group('usageStats', ['status', 'setOn', 'resetId', 'setBlocked', 'page']),
+  // Keeper Pro (Settings → Account & Pro); off in builds without Pro.
+  pro: group('pro', ['status', 'activate', 'deactivate', 'checkout', 'manage', 'restore']),
   // The system permissions Keeper's features use (first run, Settings → Permissions).
   permissions: group('permissions', ['list', 'request', 'openSettings', 'test', 'restart']),
   setup: group('setup', ['context', 'recommended', 'apply', 'approvals', 'finish', 'useAI']),

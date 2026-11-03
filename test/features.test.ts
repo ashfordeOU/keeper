@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs';
 import { featureOfRoute, HUB_TABS, NAV_PAGES } from '../core/nav';
 import { describe, expect, it } from 'vitest';
-import { commandHidden, CORE, currentPreset, currentSet, FEATURES, featurePatch, featureStates, hiddenRoutes, isOn, presetPatch, setForPower, setPatch, snapshotSet } from '../core/features';
+import { commandHidden, CORE, currentPreset, currentSet, FEATURES, featureOffered, featurePatch, featureStates, hiddenRoutes, isOn, presetPatch, setForPower, setPatch, snapshotSet } from '../core/features';
 import { defaultSettings, type AllSettings } from '../core/settings';
 
 const base = (): AllSettings => defaultSettings(['/home/a/Documents'], []);
@@ -23,7 +23,8 @@ describe('features', () => {
 
   it('starts with the defaults, through older settings where they exist', () => {
     const s = base();
-    for (const f of FEATURES) if (!f.requires?.length) expect(isOn(s, f.id, 'linux'), f.id).toBe(f.always || f.defaultOn || (f.bridge ? f.bridge.get(s) : false));
+    // Parts this build leaves out (Keeper Pro's, in a build without Pro) are off everywhere.
+    for (const f of FEATURES) if (!f.requires?.length && featureOffered(f, 'linux')) expect(isOn(s, f.id, 'linux'), f.id).toBe(f.always || f.defaultOn || (f.bridge ? f.bridge.get(s) : false));
     expect(isOn(s, 'library', 'linux')).toBe(true);
   });
 

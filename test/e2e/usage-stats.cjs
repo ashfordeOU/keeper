@@ -34,7 +34,8 @@ async function until(fn, ms = 10_000, step = 250) {
 
 // The allowlist, read from the one schema the app and the server share.
 const SCHEMA_SRC = fs.readFileSync(path.join(APP, 'core/telemetry.ts'), 'utf8');
-const ALLOWED = new Set([...SCHEMA_SRC.slice(SCHEMA_SRC.indexOf('export const USAGE_SCHEMA')).matchAll(/^ {2}'?([a-zA-Z0-9.]+)'?: \{ rule:/gm)].map((m) => m[1]));
+// Keeper Pro's fields (PRO_USAGE_SCHEMA) come after it and are sent only by builds with Pro switched on.
+const ALLOWED = new Set([...SCHEMA_SRC.slice(SCHEMA_SRC.indexOf('export const USAGE_SCHEMA'), SCHEMA_SRC.indexOf('export const PRO_USAGE_SCHEMA')).matchAll(/^ {2}'?([a-zA-Z0-9.]+)'?: \{ rule:/gm)].map((m) => m[1]));
 const PRIVATE = [/[\\/]/, /[^\s@]+@[^\s@]+/, /\b\d{1,3}(\.\d{1,3}){3}\b/, /[a-z][a-z0-9-]*\.[a-z][a-z0-9-]*/i];
 function problems(p) {
   const out = [];

@@ -9,7 +9,7 @@
 // server (currency rates only when the person turned them on).
 
 import { app, ipcMain } from 'electron';
-import { FEATURES } from '../../core/features';
+import { FEATURES, featureOffered } from '../../core/features';
 import { hiddenFolder } from '../../core/pim/mail-mcp';
 import { searchCatalog, type Os } from '../../core/settings-catalog';
 import { best, groupHits, LAUNCH_KINDS, queryWords, scoreText, withTimeout, type EverythingHit, type EverythingKind, type EverythingResult } from '../../core/search-everything';
@@ -177,7 +177,7 @@ const sources: Record<EverythingKind, { feature?: string; run: Source }> = {
   },
   feature: {
     run: async (words, q, limit) => {
-      const list = FEATURES.filter((f) => !f.platforms || f.platforms.includes(process.platform)).filter((f) => !['everything', 'balanced', 'minimal', 'files'].includes(f.id));
+      const list = FEATURES.filter((f) => featureOffered(f, process.platform)).filter((f) => !['everything', 'balanced', 'minimal', 'files'].includes(f.id));
       const pages: EverythingHit[] = best(list, words, (f) => [f.name, f.description], limit).map((f) => {
         const on = featureOn(f.id);
         // A feature that is on opens its page; one that is off (or has no page) opens its switch.

@@ -1,0 +1,29 @@
+# SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
+# Keeper's license server (Keeper Pro). Not deployed: README.md in this folder says how.
+name = "keeper-license"
+main = "src/worker.ts"
+compatibility_date = "2025-09-01"
+workers_dev = true
+logpush = false
+
+[observability]
+enabled = false
+
+[[kv_namespaces]]
+binding = "LICENSES"
+# Replace with the id that `npx wrangler kv namespace create LICENSES` prints.
+id = "00000000000000000000000000000000"
+
+[vars]
+# The public half of the signing key (the same one in core/pro/keys.ts).
+LICENSE_PUBLIC_KEY = ""
+# Provider product, variant or price ids → plan, e.g. {"123456":"pro","pri_01abc":"team"}
+PLANS = "{}"
+EMAIL_API_URL = "https://api.resend.com/emails"
+EMAIL_FROM = "Keeper <keeper@ashforde.org>"
+
+# Secrets (never in this file): npx wrangler secret put LICENSE_PRIVATE_KEY
+#   LICENSE_PRIVATE_KEY, LEMONSQUEEZY_WEBHOOK_SECRET or PADDLE_WEBHOOK_SECRET (+ PADDLE_API_KEY), EMAIL_API_KEY
+
+# After the first deploy, attach the address the app uses:
+# routes = [{ pattern = "license.ashforde.org", custom_domain = true }]

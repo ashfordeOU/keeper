@@ -12,6 +12,7 @@ import { mockJournal } from './mock-journal';
 import { mockReader } from './mock-reader';
 import { mockFeatures } from './mock-features';
 import { mockUsageStats } from './mock-usage-stats';
+import { mockPro } from './mock-pro';
 import { mockPermissions } from './mock-permissions';
 import { mockAwake } from './mock-awake';
 import { mockStage } from './mock-stage';
@@ -364,6 +365,7 @@ export function createMockApi(): KeeperApi {
       Object.assign(settings, patch);
       listeners.get('settings-changed')?.forEach((cb) => (cb as (v: unknown) => void)(structuredClone(settings)));
     }, (ch) => listeners.get(ch)?.forEach((cb) => (cb as () => void)())),
+    ...mockPro((ch) => listeners.get(ch)?.forEach((cb) => (cb as () => void)())),
     ...mockAbilities((ch, v) => listeners.get(ch)?.forEach((cb) => cb(v))),
     ...mockPermissions(() => settings),
     preview: mockPreview(() => files, thumb),

@@ -333,6 +333,22 @@ Paste these into App Store Connect → App Review Information → Notes, and ada
 >
 > Keeper has no in-app purchases. Updates come only from the App Store.
 
+## Paying for Keeper Pro in this edition
+
+Keeper Pro is switched off ([PRO.md](PRO.md)). If it is switched on, Guideline 3.1.1 requires
+Apple's in-app purchase here: this edition never shows a web checkout, a license field that
+leads to one, or a link to buying elsewhere.
+
+- `core/pro/payments.ts` defines `StoreKitBridge` (products, purchase, restore) and
+  `VerifiedReceipt`; `noStoreKit` is the stand-in until the native side exists.
+  `providerFor('mas', …)` always returns the StoreKit provider.
+- `core/entitlements.ts` accepts an App Store purchase as a source (`receiptSource`), next to
+  licenses, so the plan comes out the same way.
+- Native work, later: StoreKit 2 in keeper-helper (Swift), `Transaction.currentEntitlements`
+  and `Transaction.updates`, products `io.github.ashfordeou.keeper.pro.month`/`.year`,
+  Restore Purchases in Settings → Account & Pro.
+- What is free stays free here too: the same `freeThrough` rule applies.
+
 ## 6. Open questions for the owner ⚑
 
 - **The name.** "Keeper" is taken on the App Store by another publisher's well-known app. Use

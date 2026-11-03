@@ -32,6 +32,7 @@ export const COUNT_BUCKETS = ['1-4', '5-19', '20-99', '100+'] as const;
 export const MEMORY_BUCKETS = ['<250MB', '250-500MB', '500MB-1GB', '1GB+'] as const;
 export const CPU_BUCKETS = ['<1%', '1-5%', '5-20%', '20%+'] as const;
 export const STARTUP_BUCKETS = ['<2s', '2-5s', '5-10s', '10s+', 'unknown'] as const;
+export const PLAN_VALUES = ['free', 'pro', 'team'] as const;
 
 export interface UsagePayload {
   /** payload format */
@@ -80,6 +81,8 @@ export interface UsagePayload {
     aiProviders: number;
     /** number of paired devices */
     devices: number;
+    /** Free, Pro or Team: only from versions with Keeper Pro switched on (PRO_USAGE_SCHEMA) */
+    plan?: (typeof PLAN_VALUES)[number];
   };
   health: {
     crashes: number;
@@ -154,6 +157,17 @@ export const USAGE_SCHEMA: Record<string, FieldSpec> = {
   'health.startup': { rule: { t: 'enum', values: STARTUP_BUCKETS }, about: 'How long Keeper took to open, as a range', example: '<2s' },
 };
 
+/**
+ * Fields sent only by versions with Keeper Pro switched on (core/pro-switch.ts).
+ * Versions without Pro never send them and never show them in the viewer.
+ */
+export const PRO_USAGE_SCHEMA: Record<string, FieldSpec> = {
+  'usage.plan': { rule: { t: 'enum', values: PLAN_VALUES }, about: 'Your Keeper plan: Free, Pro or Team (no license details)', example: 'free' },
+};
+
+/** Every field this build may send: the schema, plus the Pro fields when Pro is on. */
+export const usageSchema = (pro: boolean): Record<string, FieldSpec> => (pro ? { ...USAGE_SCHEMA, ...PRO_USAGE_SCHEMA } : USAGE_SCHEMA);
+
 /** Groups of fields, in the order the viewer and the docs show them. */
 export const SCHEMA_GROUPS = ['build', 'system', 'usage', 'health'] as const;
 
@@ -215,8 +229,14 @@ export function validatePayload(x: unknown): Validation {
     if (groups.has(k)) {
       const g = obj[k];
       if (!g || typeof g !== 'object' || Array.isArray(g)) { errors.push(`${k}: not an object`); continue; }
-      for (const kk of Object.keys(g)) if (!USAGE_SCHEMA[`${k}.${kk}`]) errors.push(`${k}.${kk}: unknown field`);
+      for (const kk of Object.keys(g)) if (!USAGE_SCHEMA[`${k}.${kk}`] && !PRO_USAGE_SCHEMA[`${k}.${kk}`]) errors.push(`${k}.${kk}: unknown field`);
     } else if (!USAGE_SCHEMA[k]) errors.push(`${k}: unknown field`);
+  }
+  // Pro's fields are optional (versions without Pro never send them), and checked when present.
+  for (const [path, spec] of Object.entries(PRO_USAGE_SCHEMA)) {
+    const [a, b] = path.split('.');
+    const v = (obj[a] as Record<string, unknown> | undefined)?.[b];
+    if (v !== undefined) checkField(path, spec.rule, v, errors);
   }
   for (const [path, spec] of Object.entries(USAGE_SCHEMA)) {
     const [a, b] = path.split('.');
@@ -434,6 +454,8 @@ export interface TelemetryInputs {
   avgMemoryBytes: number;
   avgCpuPct: number;
   startupMs?: number;
+  /** the plan, passed only by builds with Keeper Pro switched on; absent means the field is not sent */
+  plan?: (typeof PLAN_VALUES)[number];
 }
 
 /** The one place the report is made. Pure: same inputs, same report. */
@@ -482,6 +504,7 @@ export function buildPayload(i: TelemetryInputs): UsagePayload {
       pages,
       aiProviders: clampInt(i.aiProviders, 0, 20),
       devices: clampInt(i.devices, 0, 50),
+      ...(i.plan && (PLAN_VALUES as readonly string[]).includes(i.plan) ? { plan: i.plan } : {}),
     },
     health: {
       crashes: clampInt(i.crashes, 0, 99),

@@ -179,4 +179,5 @@ export const TIERS: Record<string, FeatureTier> = {
   platform: { plain: 'In Finder, Spotlight and Shortcuts', setup: 'general', normal: 'on', shown: 'basic' },
   updates: { plain: 'Check for updates automatically', setup: 'general', normal: 'on', shown: 'basic' },
   usageStats: { plain: 'Anonymous usage stats', setup: 'general', normal: 'off', shown: 'basic' },
+  proAccount: { plain: 'Account and Pro', setup: 'general', normal: 'on', shown: 'advanced' },
 };

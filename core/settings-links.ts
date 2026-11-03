@@ -20,6 +20,8 @@ export const SETTINGS_LINKS: SettingsLink[] = [
   { label: 'Settings → Battery and speed', route: 'settings:battery' },
   { label: 'Settings → Devices', route: 'settings:devices' },
   { label: 'Settings → About', route: 'settings:about' },
+  // Only in builds with Keeper Pro switched on.
+  { label: 'Settings → Account & Pro', route: 'settings:account' },
   { label: 'Settings → Changed', route: 'settings:changed' },
   { label: 'Settings → Appearance', route: 'settings:appearance' },
   { label: 'Settings → Accessibility', route: 'settings:accessibility' },

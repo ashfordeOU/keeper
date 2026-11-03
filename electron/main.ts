@@ -160,6 +160,8 @@ import { useMemoryHelper } from './services/memory';
 import { applyFeatureSet, applyPreset, featureOn, featureSets, listFeatures, liveCosts, onFeature, onFeaturesChanged, removeFeatureSet, saveFeatureSet, setFeature, setPowerSets, startPowerSets } from './services/features';
 import { getSecret, hasSecret, onSettings, setSecret, settings, updateSettings } from './store';
 import { registerUsageStatsIpc } from './ipc/usage-stats';
+import { registerProIpc } from './ipc/pro';
+import { activateFromLink } from './services/pro';
 import { registerPermissionsIpc } from './ipc/permissions';
 import { registerSetupIpc } from './services/setup';
 import { setNudgeElsewhere } from './services/permission-nudge';
@@ -721,6 +723,12 @@ function handleDeepLink(url: string) {
     else if (action === 'studio') handleStudioLink(u);
     // keeper://mail/<message id> (a task or event made from an email links back to it)
     else if (action === 'mail' && u.pathname.length > 1) showMain(`mail:${decodeURIComponent(u.pathname.slice(1))}`);
+    // keeper://license?token=… (Keeper Pro's e-mail and thank-you page); builds without Pro just open Keeper.
+    else if (action === 'license') void activateFromLink(url).then((r) => {
+      if (!r) return showMain();
+      showMain('settings:account');
+      if (!r.ok) broadcast('app-error', r.message);
+    });
     else if (action === 'help') showMain(`devices:help=${u.searchParams.get('code') ?? ''}${u.searchParams.get('pw') ? `.${u.searchParams.get('pw')}` : ''}`);
     else showMain(action || undefined);
   } catch {
@@ -1580,6 +1588,8 @@ app.whenReady().then(async () => {
   registerFirewallIpc({ alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }), broadcast });
   // Anonymous usage stats: asked in setup (unticked), off with one switch; at most one small report a day (Settings → Privacy).
   registerUsageStatsIpc();
+  // Keeper Pro: handlers in every build; the service itself runs only in builds with Pro switched on.
+  registerProIpc({ broadcast });
   registerPermissionsIpc();
   // A feature needs a permission while no Keeper window is open: the Island says so, else a notification that opens Permissions.
   setNudgeElsewhere((id) => {
