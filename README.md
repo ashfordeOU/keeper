@@ -142,7 +142,7 @@ The script picks the right disk image for your Mac (Apple silicon or Intel), che
   brew install --cask keeper
   ```
 
-From 1.0.0, Keeper for macOS is **signed with Ashforde's Apple Developer ID and notarized by Apple**. It opens like any other app: no **Open Anyway** step, and no keychain question after every update. A copy moving up from a beta may ask once more for your login password (choose **Always Allow**) and for some permissions; after that, updates don't ask.
+Keeper for macOS is **signed and notarized by Apple**. It opens like any other app.
 
 Keeper asks for system permissions only for the parts that need them. [docs/PERMISSIONS.md](docs/PERMISSIONS.md) says what each one is for.
 
@@ -178,15 +178,6 @@ Keeper updates itself. Choose how in **Settings → General → Updates**: **Ins
 
 Every update is checked before it is installed: it must match the release's `SHA256SUMS.txt`, and on a Mac it must be signed with Ashforde's Developer ID. Parts downloaded when you turn them on are checked the same way.
 
-### Beta versions
-
-Betas come out on [Releases](https://github.com/ashfordeOU/keeper/releases) as pre-releases before a version is final. To get them, turn on **Include beta versions** in **Settings → General → Updates**, or install the newest beta with the script:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/ashfordeOU/keeper/main/scripts/install.sh | sh -s -- --beta
-```
-
-Package managers only ever get stable versions. For testers: [docs/BETA.md](docs/BETA.md).
 
 ---
 
@@ -206,7 +197,7 @@ Package managers only ever get stable versions. For testers: [docs/BETA.md](docs
 
 | Area | Documents |
 |---|---|
-| Getting started | [Install](docs/INSTALL.md) · [Betas](docs/BETA.md) · [Permissions](docs/PERMISSIONS.md) · [Themes](docs/THEMES.md) · [Accessibility](docs/ACCESSIBILITY.md) |
+| Getting started | [Install](docs/INSTALL.md) · [Permissions](docs/PERMISSIONS.md) · [Themes](docs/THEMES.md) · [Accessibility](docs/ACCESSIBILITY.md) |
 | The suite | [Keeper as a suite](docs/SUITE.md) · [Parts downloaded when switched on](docs/COMPONENTS.md) · [Staying up after a crash](docs/RESILIENCE.md) · [Works with your computer](docs/PLATFORM.md) |
 | Files | [Cloud and servers](docs/CONNECT.md) · [PDF tools and Convert](docs/FILEKIT.md) |
 | Mail & Calendar | [Mail, calendars, reminders and the clock](docs/PIM.md) · [Planner](docs/PLANNER.md) |

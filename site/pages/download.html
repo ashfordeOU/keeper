@@ -1,7 +1,7 @@
 <!--
 path: download/
 title: Download
-description: Download Keeper for macOS, Windows and Linux: the standard and offline installers, package managers, checksums and how to check a download, and betas.
+description: Download Keeper for macOS, Windows and Linux: the standard and offline installers, package managers, checksums and how to check a download.
 -->
 <div class="wrap page-head">
   <p class="kicker">Download</p>
@@ -121,19 +121,11 @@ description: Download Keeper for macOS, Windows and Linux: the standard and offl
   <p style="margin-top:18px">If a file does not check out, don't run it, and please <a href="{{root}}support/#security">tell us</a>. More in the <a href="https://github.com/ashfordeOU/keeper/blob/main/docs/INSTALL.md#verifying-a-download">install guide</a>.</p>
 </section>
 
-<section class="wrap" id="beta">
-  <p class="kicker">Betas</p>
-  <h2>Try the next version early.</h2>
+<section class="wrap" id="updates">
   <div class="install">
-    <div>
-      <p class="sub">Betas come out on GitHub as pre-releases before a version is final. Turn on <b>Settings → Updates → Include beta versions</b>, or install the newest beta with the script:</p>
-      <div class="cmd"><pre>curl -fsSL https://raw.githubusercontent.com/ashfordeOU/keeper/main/scripts/install.sh | bash -s -- --beta</pre></div>
-      <p style="color:var(--muted);font-size:15px">Package managers only ever get stable versions. A copy on betas follows betas until a newer stable version is out. Testers: see the <a href="https://github.com/ashfordeOU/keeper/blob/main/docs/BETA.md">beta guide</a>.</p>
-    </div>
     <div class="card">
       <h3>Updates</h3>
-      <p>Keeper updates itself. In <b>Settings → Updates</b>, choose automatically, ask first, or only when you check.</p>
-      <p>Every update must match the release's <code>SHA256SUMS.txt</code> before it is installed, and on a Mac it must be signed with Ashforde's Developer ID.</p>
+      <p>Keeper updates itself, and checks every update before installing it.</p>
     </div>
   </div>
 </section>

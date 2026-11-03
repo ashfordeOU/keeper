@@ -154,14 +154,13 @@
       btn.href = hit.url;
       sub.textContent = [ARCH[os][arch], `version ${ver(hit.rel.tag)}`, mb(hit.size)].filter(Boolean).join(' · ');
       const bits = [];
-      // Mac builds are signed with Ashforde's Developer ID and notarized from 1.0.0; betas before it were not.
+      // Mac builds are signed with Ashforde's Developer ID and notarized from 1.0.0.
       if (os === 'mac' && notarized(hit.rel)) bits.push('Signed and notarized by Apple');
       if (os === 'mac') {
         const otherArch = arch === 'arm64' ? 'x64' : 'arm64';
         const alt = newestWith(list, FILE.mac[otherArch]);
         if (alt) bits.push(`${sure ? 'Not this Mac?' : 'Intel Mac?'} <a href="${esc(alt.url)}">Download for ${ARCH.mac[otherArch]}</a>`);
       }
-      if (hit.rel.pre) bits.push('No stable version has this file yet, so this is the newest beta');
       bits.push(`<a href="${allLink}">Other systems and formats</a>`);
       other(bits.join(' · '));
     } catch (e) {
@@ -198,7 +197,7 @@
           const sums = assetUrl(rel, 'SHA256SUMS.txt');
           const sig = assetUrl(rel, 'SHA256SUMS.txt.sigstore.json');
           const day = rel.date ? new Date(rel.date).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' }) : '';
-          line.innerHTML = `<b>Keeper ${esc(ver(rel.tag))}</b>${rel.pre ? ' <span class="pill">beta</span>' : ''}${day ? ` · ${day}` : ''} · <a href="${esc(rel.page)}">Release notes and every file</a>${sums ? ` · <a href="${esc(sums)}">SHA256SUMS.txt</a>` : ''}${sig ? ` · <a href="${esc(sig)}">Sigstore bundle</a>` : ''}`;
+          line.innerHTML = `<b>Keeper ${esc(ver(rel.tag))}</b>${day ? ` · ${day}` : ''} · <a href="${esc(rel.page)}">Release notes and every file</a>${sums ? ` · <a href="${esc(sums)}">SHA256SUMS.txt</a>` : ''}${sig ? ` · <a href="${esc(sig)}">Sigstore bundle</a>` : ''}`;
           line.hidden = false;
         }
       }
