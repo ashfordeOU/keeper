@@ -136,7 +136,7 @@ async function until(fn, ms = 10000, step = 150) {
   await w.keyboard.press('Control+Alt+I');
 
   // 5. Leave the page and come back: same tabs and panes, output still there.
-  await w.click('.sidebar [title="Home"]');
+  await w.click('.sidebar [title="Hello"]');
   await sleep(800);
   ok((await sessions()).length >= 3, 'terminals keep running with no pane showing them');
   await w.click('.sidebar [title="Terminal"]');
@@ -190,7 +190,7 @@ async function until(fn, ms = 10000, step = 150) {
   // 9. Notebooks (if the notebook server is installed): starts in a terminal, then shows inside Keeper.
   const hasNotebook = spawnSync('/bin/sh', ['-lc', 'command -v jupyter'], { env }).status === 0;
   if (hasNotebook) {
-    await w.click('.sidebar [title="Home"]');
+    await w.click('.sidebar [title="Hello"]');
     await sleep(300);
     await w.click('.sidebar [title="Terminal"]');
     await w.waitForSelector('.term-bar', { timeout: 15000 });

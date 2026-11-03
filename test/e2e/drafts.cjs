@@ -25,7 +25,7 @@ const check = (ok, label) => { console.log(`${ok ? 'PASS' : 'FAIL'} ${label}`); 
   await ta.click();
   await p.keyboard.type('hello there', { delay: 20 });
   check((await ta.inputValue()) === 'hello there', 'the assistant box shows each letter as it is typed');
-  await p.click('.sidebar [title="Home"]');
+  await p.click('.sidebar [title="Hello"]');
   await p.waitForTimeout(400);
   await p.click('.sidebar [title="Assistant"]');
   check((await p.locator('.composer textarea').inputValue()) === 'hello there', 'the question is still there after leaving the page');

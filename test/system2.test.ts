@@ -197,7 +197,7 @@ describe('translations', () => {
     expect(resolveLanguage('system', 'zh-TW')).toBe('zh-CN');
     expect(resolveLanguage('system', 'sw-KE')).toBe('en');
     expect(resolveLanguage('de')).toBe('de');
-    expect(translate('es', 'nav.home')).toBe('Inicio');
+    expect(translate('es', 'nav.home')).toBe('Hola');
     expect(translate('ja', 'no.such.key')).toBe('no.such.key');
   });
 });

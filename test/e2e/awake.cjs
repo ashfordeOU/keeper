@@ -151,7 +151,7 @@ const inhibitors = () => { try { return execFileSync('systemd-inhibit', ['--list
 
   // ---- switching the feature off removes the page, the Island controls, the holds and the checks
   // (the page you are on stays in the sidebar, so go elsewhere first)
-  await main.locator('.sidebar >> text=Home').first().click().catch(() => undefined);
+  await main.locator('.sidebar >> text=Hello').first().click().catch(() => undefined);
   await wait(300);
   await main.evaluate(() => window.keeper.features.set('keepAwake', false));
   st = await until(async () => { const s = await aw('status'); return !s.on && s.holds.length === 0 ? s : null; }, 6000);

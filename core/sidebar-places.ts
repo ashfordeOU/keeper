@@ -106,7 +106,7 @@ function mac(i: SidebarInput): SidebarGroup[] {
   const apps = m.favorites.find((f) => f.kind === 'apps');
   const icloud = m.cloud.find((c) => c.provider === 'iCloud Drive');
   return [
-    { id: 'top', rows: [page('home', 'Home', 'home', { name: 'home' }), page('recents', 'Recents', 'clock', { name: 'recents' }), ...(m.shared ? [at(m.shared, 'Shared', 'island')] : [])] },
+    { id: 'top', rows: [page('home', 'Hello', 'home', { name: 'home' }), page('recents', 'Recents', 'clock', { name: 'recents' }), ...(m.shared ? [at(m.shared, 'Shared', 'island')] : [])] },
     {
       id: 'favorites', title: 'Favorites',
       rows: [...(apps ? [at(apps, 'Applications', 'app')] : []), ...pick(m, ['Downloads', 'Movies', 'Music', 'Pictures', 'Desktop', 'Documents']).map((p) => at(p)), trashRow('darwin'), ...pins(m).map((p) => at(p))],
@@ -133,7 +133,7 @@ function windows(i: SidebarInput): SidebarGroup[] {
   const onedrive = m.cloud.find((c) => c.provider === 'OneDrive');
   return [
     // OneDrive, then other cloud drives (Dropbox, iCloud…), at the top level as File Explorer shows them.
-    { id: 'top', rows: [page('home', 'Home', 'home', { name: 'home' }), page('gallery', 'Gallery', 'image', { name: 'library', arg: 'image' }), ...(onedrive ? [at(onedrive, onedrive.name, 'cloud')] : []), ...m.cloud.filter((c) => c !== onedrive).map((c) => at(c, c.name, 'cloud'))] },
+    { id: 'top', rows: [page('home', 'Hello', 'home', { name: 'home' }), page('gallery', 'Gallery', 'image', { name: 'library', arg: 'image' }), ...(onedrive ? [at(onedrive, onedrive.name, 'cloud')] : []), ...m.cloud.filter((c) => c !== onedrive).map((c) => at(c, c.name, 'cloud'))] },
     { id: 'quick', title: 'Quick access', rows: [...pick(m, ['Desktop', 'Downloads', 'Documents', 'Pictures', 'Music', 'Videos']).map((p) => at(p)), ...pins(m).map((p) => at(p))] },
     {
       id: 'locations', title: 'This PC',
@@ -144,14 +144,14 @@ function windows(i: SidebarInput): SidebarGroup[] {
 
 function linux(i: SidebarInput): SidebarGroup[] {
   const m = i.model;
-  const home = at(homeOf(m), 'Home Folder', 'home');
+  const home = at(homeOf(m), 'Home', 'home');
   const folders = pick(m, ['Desktop', 'Documents', 'Downloads', 'Music', 'Pictures', 'Videos']).map((p) => at(p));
   const marks = [...(m.bookmarks ?? []), ...pins(m)].filter((p, n, all) => all.findIndex((x) => x.path === p.path) === n).map((p) => at(p, p.name, 'folder'));
   const drives = [computerRow('linux', m), ...otherDisks('linux', m)];
   const clouds = m.cloud.map((c) => at(c, c.name, 'cloud'));
   if (i.desktop === 'kde') {
     return [
-      { id: 'top', rows: [page('home', 'Home', 'home', { name: 'home' }), page('recents', 'Recent Files', 'clock', { name: 'recents' })] },
+      { id: 'top', rows: [page('home', 'Hello', 'home', { name: 'home' }), page('recents', 'Recent Files', 'clock', { name: 'recents' })] },
       { id: 'favorites', title: 'Places', rows: [home, ...folders, trashRow('linux'), ...marks] },
       { id: 'remote', title: 'Remote', rows: [networkRow(), ...clouds, ...servers(m, i.offline)] },
       { id: 'locations', title: 'Devices', rows: drives },
@@ -161,7 +161,7 @@ function linux(i: SidebarInput): SidebarGroup[] {
   return [
     {
       id: 'top',
-      rows: [page('home', 'Home', 'home', { name: 'home' }), page('recents', 'Recent', 'clock', { name: 'recents' }), page('starred', 'Starred', 'star', { name: 'tag', arg: 'Starred' }), home, ...folders.filter((r) => base(r.place!.path) !== 'Desktop'), trashRow('linux'), ...marks],
+      rows: [page('home', 'Hello', 'home', { name: 'home' }), page('recents', 'Recent', 'clock', { name: 'recents' }), page('starred', 'Starred', 'star', { name: 'tag', arg: 'Starred' }), home, ...folders.filter((r) => base(r.place!.path) !== 'Desktop'), trashRow('linux'), ...marks],
     },
     { id: 'locations', title: 'Other Locations', rows: [...clouds, ...drives, ...servers(m, i.offline), networkRow()] },
   ];

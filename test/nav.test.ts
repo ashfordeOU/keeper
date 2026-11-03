@@ -85,7 +85,7 @@ describe('one taxonomy', () => {
     expect(wrong).toEqual([]);
   });
   it('Weather and Places & Tracks are out of the top block, which holds Home and Recents only', () => {
-    expect(NAV_PAGES.filter((p) => p.group === 'top').map((p) => p.label)).toEqual(['Home', 'Recents']);
+    expect(NAV_PAGES.filter((p) => p.group === 'top').map((p) => p.label)).toEqual(['Hello', 'Recents']);
     expect(pageOf({ name: 'weather' })?.group).toBe('desktop');
     expect(pageOf({ name: 'tracks' })?.group).toBe('desktop');
   });

@@ -4,6 +4,9 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 
 ## [Unreleased]
 
+### Changed — Hello
+- Keeper's start page is called **Hello** (it was Home), so it is never mixed up with your home folder, which is now simply Home again on Linux.
+
 ### Changed — Typed Snippets: a calmer page where your snippets come first
 - The page opens on your snippets: each shows its short code, the start of its text and how often you used it. Find one with the search, sort by most used or A to Z.
 - New snippet is one button. It opens a side panel with a live preview and chips that add the date, the time, the clipboard or where the cursor lands.

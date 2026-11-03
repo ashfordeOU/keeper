@@ -68,7 +68,7 @@ export const HUB_TABS: Record<string, NavTab[]> = {
 
 /** Every page in the sidebar and the palette, in sidebar order. */
 export const NAV_PAGES: NavPage[] = [
-  { id: 'home', route: { name: 'home' }, label: 'Home', i18n: 'nav.home', icon: 'home', group: 'top' },
+  { id: 'home', route: { name: 'home' }, label: 'Hello', i18n: 'nav.home', icon: 'home', group: 'top' },
   { id: 'recents', route: { name: 'recents' }, label: 'Recents', i18n: 'nav.recents', icon: 'clock', group: 'top' },
   // The sidebar lists real places only (the folders come from Places). Your home folder and the
   // file types are reached from Home, the palette and the chips on every file list.

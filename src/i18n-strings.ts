@@ -20,7 +20,7 @@ type Dict = Record<string, string>;
 
 const en: Dict = {
   'nav.convert': 'Convert', 'nav.capture': 'Capture', 'nav.widgets': 'Widgets',
-  'nav.home': 'Home', 'nav.recents': 'Recents', 'nav.browse': 'Browse', 'nav.downloads': 'Download Sources', 'nav.weather': 'Weather',
+  'nav.home': 'Hello', 'nav.recents': 'Recents', 'nav.browse': 'Browse', 'nav.downloads': 'Download Sources', 'nav.weather': 'Weather',
   'section.library': 'Library', 'section.saved': 'Saved searches', 'section.pinned': 'Pinned', 'section.tags': 'Tags', 'section.tidy': 'Tidy', 'section.system': 'System', 'section.more': 'More',
   'kind.image': 'Images', 'kind.video': 'Videos', 'kind.audio': 'Music', 'kind.document': 'Documents', 'kind.archive': 'Archives', 'kind.installer': 'Installers', 'kind.app': 'Apps', 'kind.code': 'Code', 'kind.other': 'Other', 'kind.screenshot': 'Screenshots',
   'kindAll.image': 'All Images', 'kindAll.video': 'All Videos', 'kindAll.audio': 'All Music', 'kindAll.document': 'All Documents', 'kindAll.archive': 'All Archives', 'kindAll.installer': 'All Installers', 'kindAll.app': 'All Apps', 'kindAll.code': 'All Code', 'kindAll.other': 'All Other Files', 'kindAll.screenshot': 'All Screenshots',
@@ -40,7 +40,7 @@ const en: Dict = {
 
 const es: Dict = {
   'nav.convert': 'Convertir', 'nav.capture': 'Capturar', 'nav.widgets': 'Widgets',
-  'nav.home': 'Inicio', 'nav.recents': 'Recientes', 'nav.browse': 'Explorar', 'nav.downloads': 'Origen de descargas', 'nav.weather': 'Tiempo',
+  'nav.home': 'Hola', 'nav.recents': 'Recientes', 'nav.browse': 'Explorar', 'nav.downloads': 'Origen de descargas', 'nav.weather': 'Tiempo',
   'section.library': 'Biblioteca', 'section.saved': 'Búsquedas guardadas', 'section.pinned': 'Fijados', 'section.tags': 'Etiquetas', 'section.tidy': 'Ordenar', 'section.system': 'Sistema', 'section.more': 'Más',
   'kind.image': 'Imágenes', 'kind.video': 'Vídeos', 'kind.audio': 'Música', 'kind.document': 'Documentos', 'kind.archive': 'Archivos comprimidos', 'kind.installer': 'Instaladores', 'kind.app': 'Apps', 'kind.code': 'Código', 'kind.other': 'Otros', 'kind.screenshot': 'Capturas de pantalla',
   'kindAll.image': 'Todas las imágenes', 'kindAll.video': 'Todos los vídeos', 'kindAll.audio': 'Toda la música', 'kindAll.document': 'Todos los documentos', 'kindAll.archive': 'Todos los archivos comprimidos', 'kindAll.installer': 'Todos los instaladores', 'kindAll.app': 'Todas las apps', 'kindAll.code': 'Todo el código', 'kindAll.other': 'Todos los demás archivos', 'kindAll.screenshot': 'Todas las capturas de pantalla',
@@ -60,7 +60,7 @@ const es: Dict = {
 
 const de: Dict = {
   'nav.convert': 'Konvertieren', 'nav.capture': 'Aufnehmen', 'nav.widgets': 'Widgets',
-  'nav.home': 'Start', 'nav.recents': 'Zuletzt', 'nav.browse': 'Durchsuchen', 'nav.downloads': 'Herkunft der Downloads', 'nav.weather': 'Wetter',
+  'nav.home': 'Hallo', 'nav.recents': 'Zuletzt', 'nav.browse': 'Durchsuchen', 'nav.downloads': 'Herkunft der Downloads', 'nav.weather': 'Wetter',
   'section.library': 'Mediathek', 'section.saved': 'Gespeicherte Suchen', 'section.pinned': 'Angeheftet', 'section.tags': 'Tags', 'section.tidy': 'Aufräumen', 'section.system': 'System', 'section.more': 'Mehr',
   'kind.image': 'Bilder', 'kind.video': 'Videos', 'kind.audio': 'Musik', 'kind.document': 'Dokumente', 'kind.archive': 'Archive', 'kind.installer': 'Installer', 'kind.app': 'Apps', 'kind.code': 'Code', 'kind.other': 'Sonstiges', 'kind.screenshot': 'Bildschirmfotos',
   'kindAll.image': 'Alle Bilder', 'kindAll.video': 'Alle Videos', 'kindAll.audio': 'Alle Musik', 'kindAll.document': 'Alle Dokumente', 'kindAll.archive': 'Alle Archive', 'kindAll.installer': 'Alle Installer', 'kindAll.app': 'Alle Apps', 'kindAll.code': 'Aller Code', 'kindAll.other': 'Alle sonstigen Dateien', 'kindAll.screenshot': 'Alle Bildschirmfotos',
@@ -80,7 +80,7 @@ const de: Dict = {
 
 const fr: Dict = {
   'nav.convert': 'Convertir', 'nav.capture': 'Capturer', 'nav.widgets': 'Widgets',
-  'nav.home': 'Accueil', 'nav.recents': 'Récents', 'nav.browse': 'Parcourir', 'nav.downloads': 'Provenance des téléchargements', 'nav.weather': 'Météo',
+  'nav.home': 'Bonjour', 'nav.recents': 'Récents', 'nav.browse': 'Parcourir', 'nav.downloads': 'Provenance des téléchargements', 'nav.weather': 'Météo',
   'section.library': 'Bibliothèque', 'section.saved': 'Recherches enregistrées', 'section.pinned': 'Épinglés', 'section.tags': 'Étiquettes', 'section.tidy': 'Ranger', 'section.system': 'Système', 'section.more': 'Plus',
   'kind.image': 'Images', 'kind.video': 'Vidéos', 'kind.audio': 'Musique', 'kind.document': 'Documents', 'kind.archive': 'Archives', 'kind.installer': 'Installateurs', 'kind.app': 'Apps', 'kind.code': 'Code', 'kind.other': 'Autres', 'kind.screenshot': 'Captures d’écran',
   'kindAll.image': 'Toutes les images', 'kindAll.video': 'Toutes les vidéos', 'kindAll.audio': 'Toute la musique', 'kindAll.document': 'Tous les documents', 'kindAll.archive': 'Toutes les archives', 'kindAll.installer': 'Tous les installateurs', 'kindAll.app': 'Toutes les apps', 'kindAll.code': 'Tout le code', 'kindAll.other': 'Tous les autres fichiers', 'kindAll.screenshot': 'Toutes les captures d’écran',
@@ -100,7 +100,7 @@ const fr: Dict = {
 
 const ptBR: Dict = {
   'nav.convert': 'Converter', 'nav.capture': 'Capturar', 'nav.widgets': 'Widgets',
-  'nav.home': 'Início', 'nav.recents': 'Recentes', 'nav.browse': 'Navegar', 'nav.downloads': 'Origem dos downloads', 'nav.weather': 'Clima',
+  'nav.home': 'Olá', 'nav.recents': 'Recentes', 'nav.browse': 'Navegar', 'nav.downloads': 'Origem dos downloads', 'nav.weather': 'Clima',
   'section.library': 'Biblioteca', 'section.saved': 'Buscas salvas', 'section.pinned': 'Fixados', 'section.tags': 'Etiquetas', 'section.tidy': 'Organizar', 'section.system': 'Sistema', 'section.more': 'Mais',
   'kind.image': 'Imagens', 'kind.video': 'Vídeos', 'kind.audio': 'Músicas', 'kind.document': 'Documentos', 'kind.archive': 'Arquivos compactados', 'kind.installer': 'Instaladores', 'kind.app': 'Apps', 'kind.code': 'Código', 'kind.other': 'Outros', 'kind.screenshot': 'Capturas de tela',
   'kindAll.image': 'Todas as imagens', 'kindAll.video': 'Todos os vídeos', 'kindAll.audio': 'Todas as músicas', 'kindAll.document': 'Todos os documentos', 'kindAll.archive': 'Todos os arquivos compactados', 'kindAll.installer': 'Todos os instaladores', 'kindAll.app': 'Todos os apps', 'kindAll.code': 'Todo o código', 'kindAll.other': 'Todos os outros arquivos', 'kindAll.screenshot': 'Todas as capturas de tela',
@@ -120,7 +120,7 @@ const ptBR: Dict = {
 
 const it: Dict = {
   'nav.convert': 'Converti', 'nav.capture': 'Cattura', 'nav.widgets': 'Widget',
-  'nav.home': 'Home', 'nav.recents': 'Recenti', 'nav.browse': 'Sfoglia', 'nav.downloads': 'Provenienza dei download', 'nav.weather': 'Meteo',
+  'nav.home': 'Ciao', 'nav.recents': 'Recenti', 'nav.browse': 'Sfoglia', 'nav.downloads': 'Provenienza dei download', 'nav.weather': 'Meteo',
   'section.library': 'Libreria', 'section.saved': 'Ricerche salvate', 'section.pinned': 'Fissati', 'section.tags': 'Tag', 'section.tidy': 'Riordina', 'section.system': 'Sistema', 'section.more': 'Altro',
   'kind.image': 'Immagini', 'kind.video': 'Video', 'kind.audio': 'Musica', 'kind.document': 'Documenti', 'kind.archive': 'Archivi', 'kind.installer': 'Installer', 'kind.app': 'App', 'kind.code': 'Codice', 'kind.other': 'Altro', 'kind.screenshot': 'Istantanee schermo',
   'kindAll.image': 'Tutte le immagini', 'kindAll.video': 'Tutti i video', 'kindAll.audio': 'Tutta la musica', 'kindAll.document': 'Tutti i documenti', 'kindAll.archive': 'Tutti gli archivi', 'kindAll.installer': 'Tutti gli installer', 'kindAll.app': 'Tutte le app', 'kindAll.code': 'Tutto il codice', 'kindAll.other': 'Tutti gli altri file', 'kindAll.screenshot': 'Tutte le istantanee schermo',
@@ -140,7 +140,7 @@ const it: Dict = {
 
 const ru: Dict = {
   'nav.convert': 'Конвертер', 'nav.capture': 'Захват экрана', 'nav.widgets': 'Виджеты',
-  'nav.home': 'Главная', 'nav.recents': 'Недавние', 'nav.browse': 'Обзор', 'nav.downloads': 'Откуда загрузки', 'nav.weather': 'Погода',
+  'nav.home': 'Привет', 'nav.recents': 'Недавние', 'nav.browse': 'Обзор', 'nav.downloads': 'Откуда загрузки', 'nav.weather': 'Погода',
   'section.library': 'Медиатека', 'section.saved': 'Сохранённые поиски', 'section.pinned': 'Закреплённые', 'section.tags': 'Теги', 'section.tidy': 'Порядок', 'section.system': 'Система', 'section.more': 'Ещё',
   'kind.image': 'Изображения', 'kind.video': 'Видео', 'kind.audio': 'Музыка', 'kind.document': 'Документы', 'kind.archive': 'Архивы', 'kind.installer': 'Установщики', 'kind.app': 'Приложения', 'kind.code': 'Код', 'kind.other': 'Другое', 'kind.screenshot': 'Снимки экрана',
   'kindAll.image': 'Все изображения', 'kindAll.video': 'Все видео', 'kindAll.audio': 'Вся музыка', 'kindAll.document': 'Все документы', 'kindAll.archive': 'Все архивы', 'kindAll.installer': 'Все установщики', 'kindAll.app': 'Все приложения', 'kindAll.code': 'Весь код', 'kindAll.other': 'Все другие файлы', 'kindAll.screenshot': 'Все снимки экрана',
@@ -160,7 +160,7 @@ const ru: Dict = {
 
 const hi: Dict = {
   'nav.convert': 'बदलें', 'nav.capture': 'कैप्चर', 'nav.widgets': 'विजेट',
-  'nav.home': 'होम', 'nav.recents': 'हाल की फ़ाइलें', 'nav.browse': 'ब्राउज़ करें', 'nav.downloads': 'डाउनलोड कहाँ से', 'nav.weather': 'मौसम',
+  'nav.home': 'नमस्ते', 'nav.recents': 'हाल की फ़ाइलें', 'nav.browse': 'ब्राउज़ करें', 'nav.downloads': 'डाउनलोड कहाँ से', 'nav.weather': 'मौसम',
   'section.library': 'लाइब्रेरी', 'section.saved': 'सहेजी गई खोजें', 'section.pinned': 'पिन किए गए', 'section.tags': 'टैग', 'section.tidy': 'साफ़-सफ़ाई', 'section.system': 'सिस्टम', 'section.more': 'और',
   'kind.image': 'तस्वीरें', 'kind.video': 'वीडियो', 'kind.audio': 'संगीत', 'kind.document': 'दस्तावेज़', 'kind.archive': 'आर्काइव', 'kind.installer': 'इंस्टॉलर', 'kind.app': 'ऐप्स', 'kind.code': 'कोड', 'kind.other': 'अन्य', 'kind.screenshot': 'स्क्रीनशॉट',
   'kindAll.image': 'सभी तस्वीरें', 'kindAll.video': 'सभी वीडियो', 'kindAll.audio': 'सारा संगीत', 'kindAll.document': 'सभी दस्तावेज़', 'kindAll.archive': 'सभी आर्काइव', 'kindAll.installer': 'सभी इंस्टॉलर', 'kindAll.app': 'सभी ऐप्स', 'kindAll.code': 'सारा कोड', 'kindAll.other': 'सभी अन्य फ़ाइलें', 'kindAll.screenshot': 'सभी स्क्रीनशॉट',
@@ -180,7 +180,7 @@ const hi: Dict = {
 
 const ja: Dict = {
   'nav.convert': '変換', 'nav.capture': 'キャプチャ', 'nav.widgets': 'ウィジェット',
-  'nav.home': 'ホーム', 'nav.recents': '最近使った項目', 'nav.browse': 'ブラウズ', 'nav.downloads': 'ダウンロード元', 'nav.weather': '天気',
+  'nav.home': 'こんにちは', 'nav.recents': '最近使った項目', 'nav.browse': 'ブラウズ', 'nav.downloads': 'ダウンロード元', 'nav.weather': '天気',
   'section.library': 'ライブラリ', 'section.saved': '保存した検索', 'section.pinned': 'ピン留め', 'section.tags': 'タグ', 'section.tidy': '整理', 'section.system': 'システム', 'section.more': 'その他',
   'kind.image': '画像', 'kind.video': 'ビデオ', 'kind.audio': 'ミュージック', 'kind.document': '書類', 'kind.archive': 'アーカイブ', 'kind.installer': 'インストーラ', 'kind.app': 'アプリ', 'kind.code': 'コード', 'kind.other': 'その他', 'kind.screenshot': 'スクリーンショット',
   'kindAll.image': 'すべての画像', 'kindAll.video': 'すべてのビデオ', 'kindAll.audio': 'すべてのミュージック', 'kindAll.document': 'すべての書類', 'kindAll.archive': 'すべてのアーカイブ', 'kindAll.installer': 'すべてのインストーラ', 'kindAll.app': 'すべてのアプリ', 'kindAll.code': 'すべてのコード', 'kindAll.other': 'その他すべて', 'kindAll.screenshot': 'すべてのスクリーンショット',
@@ -200,7 +200,7 @@ const ja: Dict = {
 
 const zh: Dict = {
   'nav.convert': '转换', 'nav.capture': '截取', 'nav.widgets': '小组件',
-  'nav.home': '主页', 'nav.recents': '最近使用', 'nav.browse': '浏览', 'nav.downloads': '下载来源', 'nav.weather': '天气',
+  'nav.home': '你好', 'nav.recents': '最近使用', 'nav.browse': '浏览', 'nav.downloads': '下载来源', 'nav.weather': '天气',
   'section.library': '资料库', 'section.saved': '已存搜索', 'section.pinned': '已固定', 'section.tags': '标签', 'section.tidy': '整理', 'section.system': '系统', 'section.more': '更多',
   'kind.image': '图片', 'kind.video': '视频', 'kind.audio': '音乐', 'kind.document': '文稿', 'kind.archive': '压缩包', 'kind.installer': '安装包', 'kind.app': '应用', 'kind.code': '代码', 'kind.other': '其他', 'kind.screenshot': '截图',
   'kindAll.image': '所有图片', 'kindAll.video': '所有视频', 'kindAll.audio': '所有音乐', 'kindAll.document': '所有文稿', 'kindAll.archive': '所有压缩包', 'kindAll.installer': '所有安装包', 'kindAll.app': '所有应用', 'kindAll.code': '所有代码', 'kindAll.other': '所有其他文件', 'kindAll.screenshot': '所有截图',

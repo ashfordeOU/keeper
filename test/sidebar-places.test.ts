@@ -32,7 +32,7 @@ describe('on a Mac: Finder’s sidebar', () => {
   it('Recents and Shared; Favorites; Locations; Tags, in Finder’s order', () => {
     expect(titles(g)).toEqual(['', 'Favorites', 'Locations', 'Tags']);
     const l = labels(g);
-    expect(l.top).toEqual(['Home', 'Recents', 'Shared']);
+    expect(l.top).toEqual(['Hello', 'Recents', 'Shared']);
     expect(l.favorites).toEqual(['Applications', 'Downloads', 'Movies', 'Music', 'Pictures', 'Desktop', 'Documents', 'Trash', 'Work']);
     expect(l.locations).toEqual(['iCloud Drive', 'Dropbox', 'Google Drive (ana@gmail.com)', 'Proton Drive (ana@proton.me)', 'ana', 'Ana’s MacBook Air', 'Backup', 'STICK', 'AirDrop', 'Media on 192.168.0.252', 'Network']);
     expect(l.tags).toEqual(['Red', 'Work', 'Blue']);
@@ -55,7 +55,7 @@ describe('on a Mac: Finder’s sidebar', () => {
   it('no Tags section without tags, no Shared without iCloud Drive', () => {
     const plain = buildSidebarPlaces({ platform: 'darwin', model: { ...mac, shared: undefined } });
     expect(titles(plain)).toEqual(['', 'Favorites', 'Locations']);
-    expect(labels(plain).top).toEqual(['Home', 'Recents']);
+    expect(labels(plain).top).toEqual(['Hello', 'Recents']);
   });
 });
 
@@ -78,7 +78,7 @@ describe('on Windows: File Explorer’s navigation pane', () => {
   it('Home, Gallery, OneDrive and other clouds; Quick access; This PC with every drive; Network; Recycle Bin', () => {
     expect(titles(g)).toEqual(['', 'Quick access', 'This PC']);
     const l = labels(g);
-    expect(l.top).toEqual(['Home', 'Gallery', 'OneDrive', 'Dropbox']);
+    expect(l.top).toEqual(['Hello', 'Gallery', 'OneDrive', 'Dropbox']);
     expect(l.quick).toEqual(['Desktop', 'Downloads', 'Documents', 'Pictures', 'Music', 'Videos']);
     expect(l.locations).toEqual(['This PC', 'Windows (C:)', 'USB (E:)', 'Media on nas (Z:)', 'Network', 'Recycle Bin']);
   });
@@ -109,7 +109,7 @@ describe('on Linux: GNOME Files and Dolphin', () => {
     const g = buildSidebarPlaces({ platform: 'linux', model: linux, desktop: 'gnome' });
     expect(titles(g)).toEqual(['', 'Other Locations']);
     const l = labels(g);
-    expect(l.top).toEqual(['Home', 'Recent', 'Starred', 'Home Folder', 'Documents', 'Downloads', 'Music', 'Pictures', 'Videos', 'Trash', 'Projects', 'My Books']);
+    expect(l.top).toEqual(['Hello', 'Recent', 'Starred', 'Home', 'Documents', 'Downloads', 'Music', 'Pictures', 'Videos', 'Trash', 'Projects', 'My Books']);
     expect(l.locations).toEqual(['thinkpad', 'STICK', 'media on nas', 'Network']);
     expect(g[0].rows.find((r) => r.label === 'Starred')?.route).toEqual({ name: 'tag', arg: 'Starred' });
   });
@@ -117,8 +117,8 @@ describe('on Linux: GNOME Files and Dolphin', () => {
     const g = buildSidebarPlaces({ platform: 'linux', model: linux, desktop: 'kde' });
     expect(titles(g)).toEqual(['', 'Places', 'Remote', 'Devices']);
     const l = labels(g);
-    expect(l.top).toEqual(['Home', 'Recent Files']);
-    expect(l.favorites).toEqual(['Home Folder', 'Desktop', 'Documents', 'Downloads', 'Music', 'Pictures', 'Videos', 'Trash', 'Projects', 'My Books']);
+    expect(l.top).toEqual(['Hello', 'Recent Files']);
+    expect(l.favorites).toEqual(['Home', 'Desktop', 'Documents', 'Downloads', 'Music', 'Pictures', 'Videos', 'Trash', 'Projects', 'My Books']);
     expect(l.remote).toEqual(['Network', 'media on nas']);
     expect(l.locations).toEqual(['thinkpad', 'STICK']);
   });

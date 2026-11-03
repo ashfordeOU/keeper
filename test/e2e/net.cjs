@@ -160,7 +160,7 @@ function outsideAddress() {
   await main.locator('.sidebar [title="Privacy & Security"]').click(); await main.locator('[data-testid="hub-tab-netactivity"]').click();
   await main.waitForTimeout(3000);
   const open = await measure(20_000);
-  await main.locator('.sidebar [title="Home"]').click();
+  await main.locator('.sidebar [title="Hello"]').click();
   await main.waitForTimeout(3000);
   const idle = await measure(20_000);
   const f = (x) => x.toFixed(2);

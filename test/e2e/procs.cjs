@@ -124,7 +124,7 @@ function tree(root) {
   };
   const at = async (interval) => {
     await main.evaluate((v) => localStorage.setItem('procs.interval', String(v)), interval);
-    await main.locator('.sidebar [title="Home"]').click();
+    await main.locator('.sidebar [title="Hello"]').click();
     await main.locator('.sidebar [title="Health"]').click();
     await main.locator('button[role=tab]', { hasText: 'Processes' }).click();
     await main.waitForTimeout(3000);
@@ -132,7 +132,7 @@ function tree(root) {
   };
   const one = await at(1000);
   const two = await at(2000);
-  await main.locator('.sidebar [title="Home"]').click();
+  await main.locator('.sidebar [title="Hello"]').click();
   await main.waitForTimeout(3000);
   const idle = await measure(20_000);
   const n = fs.readdirSync('/proc').filter((x) => /^\d+$/.test(x)).length;

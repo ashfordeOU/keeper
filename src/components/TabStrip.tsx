@@ -17,7 +17,7 @@ import '../styles/tabs.css';
 export const rdcTabNames = new Map<string, string>();
 
 const TITLES: Record<string, [string, string]> = {
-  home: ['Home', 'home'], recents: ['Recents', 'clock'], library: ['Everywhere', 'search'], screenshots: ['Screenshots', 'screenshot'], search: ['Search', 'search'],
+  home: ['Hello', 'home'], recents: ['Recents', 'clock'], library: ['Everywhere', 'search'], screenshots: ['Screenshots', 'screenshot'], search: ['Search', 'search'],
   saved: ['Saved search', 'search'], browse: ['Home Folder', 'folder'], downloads: ['From the Web', 'down'], source: ['Downloads', 'down'], tag: ['Tag', 'tag'],
   duplicates: ['Duplicates', 'dupes'], cleanup: ['Clean Up', 'broom'], space: ['Space Map', 'map'], large: ['Large Files', 'weight'], startup: ['Startup Items', 'power'],
   apps: ['Applications', 'app'], protection: ['Protection', 'shield'], rules: ['Automations', 'rules'], history: ['History', 'history'], assistant: ['Assistant', 'assistant'],

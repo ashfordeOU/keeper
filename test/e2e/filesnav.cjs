@@ -2,7 +2,7 @@
 // Usage (Linux): KEEPER_SKIP_TOUR=1 xvfb-run -a -s "-screen 0 1440x900x24" node test/e2e/filesnav.cjs /tmp/kfn /tmp/kfn-shots
 // One obvious place for your files, in the real app on a throwaway home:
 //   • the sidebar lists real places only, laid out like GNOME Files (Recent,
-//     Starred, Home Folder, the folders, Trash, a GTK bookmark; Other
+//     Starred, Home, the folders, Trash, a GTK bookmark; Other
 //     Locations): no Library, no "All Documents", Weather out of the files;
 //   • Home's first row is Desktop, Documents and Downloads with counts, then
 //     Jump back in, then Find a file with the types under it;
@@ -74,7 +74,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   // ---------------------------------------------------------------- the sidebar
   const top = (await main.locator('[data-testid="sidebar-places-top"] .nav-item .label').allTextContents()).map((s) => s.trim());
-  check(top.slice(0, 10).join(',') === 'Home,Recent,Starred,Home Folder,Documents,Downloads,Music,Pictures,Videos,Trash', `the places are GNOME Files' (${top.join(', ')})`);
+  check(top.slice(0, 10).join(',') === 'Hello,Recent,Starred,Home,Documents,Downloads,Music,Pictures,Videos,Trash', `the places are GNOME Files' (${top.join(', ')})`);
   check(top.includes('Projects'), 'a GTK bookmark is in the sidebar');
   const side = await main.locator('nav.sidebar').innerText();
   check(!/All Documents|All Images|Download Sources|\bLIBRARY\b|^Browse$/m.test(side), 'no Library, no "All …" and no Browse in the sidebar');

@@ -29,7 +29,7 @@ function Preview({ t, mode }: { t: Theme; mode: 'light' | 'dark' }) {
         <div className="tg-nav" style={{ width: '52%' }} />
       </div>
       <div className="tg-main">
-        <div className="tg-h">Home</div>
+        <div className="tg-h">Hello</div>
         <div className="tg-sub">12 files tidied today</div>
         <div className="tg-tiles">
           {(['c-image', 'c-video', 'c-audio', 'c-document'] as const).map((k) => <i key={k} style={{ background: `var(--${k})` }} />)}
