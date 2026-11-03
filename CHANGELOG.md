@@ -4,6 +4,13 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 
 ## [Unreleased]
 
+### Added — Island: colours that follow your theme
+- The Island is no longer only black. Open, it shows a soft gradient made from your theme's colours, with matching text, buttons and cards. Light themes get a light Island; every theme gets its own.
+- What is going on tints it: the colours of the album art while music plays, the calendar's colour before a meeting, orange for a timer, green while charging. It glides to the new colour (at once with less motion).
+- On a Mac with a notch, the closed Island stays the notch's black so it blends in, with a thin glowing edge and coloured icons; it opens into the colours. Elsewhere the closed pill is in the colours too.
+- Settings → Island → Look: Match theme (the default), Dark, or Colourful with six bright gradients; Subtle or Bold; and an accent colour. A preview shows how it looks, also while music plays, a meeting is next, a timer runs or it charges.
+- Text stays easy to read in every theme and look: Keeper checks it on every part of the Island's background.
+
 ### Changed — Hello
 - Keeper's start page is called **Hello** (it was Home), so it is never mixed up with your home folder, which is now simply Home again on Linux.
 

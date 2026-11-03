@@ -210,7 +210,7 @@ Every update is checked before it is installed: it must match the release's `SHA
 | AI | [Your files and AI](docs/BRAIN.md) · [AI agents](docs/AGENTS.md) · [AI skills](docs/ABILITIES.md) · [Computer use](docs/COMPUTER-USE.md) · [AI usage](docs/USAGE-TRACKER.md) · [Dictation and meetings](docs/VOICE.md) |
 | Screen | [Stage](docs/STAGE.md) · [Toolbox](docs/TOOLS.md) |
 | Desktop | [Quick Search, typed snippets and selected text](docs/LAUNCHER.md) · [Wallpaper & Vibes](docs/AMBIENCE.md) · [Places & Tracks](docs/TRACKS.md) · [Keeper and Monorail](docs/KEEPER-MONORAIL.md) |
-| Island | [Island tools](docs/ISLAND-TOOLS.md) · [Island+ and Cues](docs/ISLAND-CUES.md) |
+| Island | [Island tools](docs/ISLAND-TOOLS.md) · [Island+ and Cues](docs/ISLAND-CUES.md) · [The Island's colours](docs/ISLAND-LOOK.md) |
 | Project | [Changelog](CHANGELOG.md) · [How Keeper is built](docs/ARCHITECTURE.md) · [Contributing](CONTRIBUTING.md) · [Security policy](SECURITY.md) · [Releasing](RELEASING.md) |
 
 ## Building from source

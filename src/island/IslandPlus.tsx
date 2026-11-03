@@ -24,7 +24,7 @@ export function CallCard({ call, now }: { call: NonNullable<IslandState['call']>
   };
   return (
     <div className="isl-call" data-testid="island-call">
-      <div className="live-big num" style={{ color: call.muted ? '#ff453a' : '#30d158' }}>{callTimer(now - call.since)}</div>
+      <div className="live-big num" style={{ color: call.muted ? 'var(--isl-danger)' : 'var(--isl-ok)' }}>{callTimer(now - call.since)}</div>
       <div className="muted small">{call.muted ? 'Your microphone is muted' : 'Your microphone is on'}{call.video ? ' · camera on' : ''}</div>
       <div className="btn-row live-actions">
         <button className={`btn sm ${call.muted ? 'primary' : 'danger'}`} disabled={busy} data-testid="island-call-mute" onClick={() => void toggle()}>
@@ -100,7 +100,7 @@ export function UsagePin({ pin }: { pin: NonNullable<IslandState['usagePin']> })
   return (
     <span className="isl-usage-pin" title={`${pin.label}: ${pin.percent}% used`} data-testid="island-usage-pin">
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden>
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,.18)" strokeWidth={3} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="currentColor" strokeOpacity={0.2} strokeWidth={3} />
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={3} strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - Math.min(1, pin.percent / 100))} transform={`rotate(-90 ${size / 2} ${size / 2})`} />
       </svg>
       <span className="num">{pin.percent}</span>

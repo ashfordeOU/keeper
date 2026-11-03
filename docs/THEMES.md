@@ -27,6 +27,8 @@ A theme without a `light` or `dark` mode shows its only mode whatever the appear
 | the accent on panels | 3 : 1 |
 | Island text, and text on the Island's accent | 4.5 : 1 |
 
+The Island builds its own palette from these tokens (Settings → Island → Look: Match theme, Dark or Colourful), with its own, stricter checks in `test/island-look.test.ts`: see [ISLAND-LOOK.md](ISLAND-LOOK.md).
+
 It also checks that every token is set and every colour parses. A custom accent chosen in Settings gets a warning when it is hard to see on the theme's panels.
 
 ## Terminal colours

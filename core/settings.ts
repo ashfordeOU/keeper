@@ -12,6 +12,7 @@ import type { IslandSettings } from './api';
 import { cleanPanelSizes, isPanelSize, islandWindowType } from './island-size';
 import { DEFAULT_DECK, cleanDeck, migrateDeck } from './island-tools/tools';
 import { HOVER_DWELL_MS, migrateHoverDelay } from './island-open';
+import { DEFAULT_INTENSITY, DEFAULT_LOOK, DEFAULT_PRESET, cleanLook } from './island-look';
 import { defaultBrainSettings, normalizeBrainSettings } from './brain/config';
 import { defaultAgentSettings, normalizeAgentSettings } from './agents-config';
 import { defaultSyncSettings, normalizeSyncSettings } from './sync/config';
@@ -96,6 +97,10 @@ export function defaultIsland(): IslandSettings {
     panelSizes: {},
     deck: [...DEFAULT_DECK],
     windowType: 'standard',
+    look: DEFAULT_LOOK,
+    lookIntensity: DEFAULT_INTENSITY,
+    lookPreset: DEFAULT_PRESET,
+    lookAccent: '',
   };
 }
 
@@ -241,7 +246,7 @@ export function mergeSettings(base: AllSettings, raw: unknown): AllSettings {
   // The open model's shorter hover delay: settings from before it that still have the old default get the new one, once.
   out.island.hoverDelayMs = migrateHoverDelay(out.island.hoverDelayMs, Object.keys(rawIsland).length > 0 && rawIsland.openModel !== 1);
   out.island.openModel = 1;
-  out.island = { ...out.island, panelSize: isPanelSize(out.island.panelSize) ? out.island.panelSize : 'regular', panelSizes: cleanPanelSizes(out.island.panelSizes) as IslandSettings['panelSizes'], windowType: islandWindowType(out.island.windowType) };
+  out.island = { ...out.island, panelSize: isPanelSize(out.island.panelSize) ? out.island.panelSize : 'regular', panelSizes: cleanPanelSizes(out.island.panelSizes) as IslandSettings['panelSizes'], windowType: islandWindowType(out.island.windowType), ...cleanLook(out.island) };
   // The Library and Cloud & Servers sections are gone (types are chips on the file list; connections are in Locations).
   Object.assign(out, migrateSidebarLists(out));
   out.sidebarSectionLimit = Number.isFinite(out.sidebarSectionLimit) ? Math.max(0, Math.min(50, Math.round(out.sidebarSectionLimit))) : 5;

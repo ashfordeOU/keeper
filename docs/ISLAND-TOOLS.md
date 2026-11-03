@@ -15,6 +15,7 @@ has and has not been checked on each system.
 - Tools that belong to a Keeper feature (Settings → Features → Island) disappear when that feature is off: `islandAsk`, `islandUsage`, `islandSales`, `islandStocks`, `islandNotes`, `islandTodos`, `islandPlanner`, `islandInsights`, `islandPrompter`.
 - **New task** (default <kbd>Ctrl Alt N</kbd>, <kbd>⌘⌥N</kbd> on a Mac) opens the Tasks tab with the new-task field focused, from anywhere.
 - **Black and white** (Settings → Island) shows the whole Island in greys.
+- **Colours** (Settings → Island → Look): the Island follows the theme, stays dark, or uses a colourful gradient, tinted by what is going on. See [ISLAND-LOOK.md](ISLAND-LOOK.md).
 
 ## Idle cost
 

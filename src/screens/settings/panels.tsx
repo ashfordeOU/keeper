@@ -33,6 +33,7 @@ import { PermissionsPanel } from '../../components/PermissionsPanel';
 import { NativeAppsPanel } from '../../components/NativeAppsPanel';
 import { AccessibilityPanel } from '../../components/AccessibilityPanel';
 import { ClipIgnorePanel, LauncherCommandsPanel, LauncherLinksPanel, SelectionBarPanel } from '../../components/LauncherPanels';
+import { IslandAccentPanel } from '../../island/LookSettings';
 import '../../styles/glance.css';
 
 const UsageSettings = lazy(() => import('../usage/UsageSettings').then((m) => ({ default: m.UsageSettings })));
@@ -294,4 +295,5 @@ export const PANELS: Record<string, PanelDef> = {
   launcherCommands: { render: () => <LauncherCommandsPanel />, wide: true },
   selectionBar: { render: () => <SelectionBarPanel />, wide: true },
   clipIgnore: { render: () => <ClipIgnorePanel />, wide: true },
+  islandAccent: { render: () => <IslandAccentPanel />, own: true, wide: true },
 };

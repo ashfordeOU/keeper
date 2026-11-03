@@ -4,7 +4,7 @@
 
 import { OwlMark, type OwlMood } from '../components/OwlMark';
 import { resolveLanguage, translate } from '../i18n';
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { IslandAlert, IslandState } from '../../core/api';
 import { formatDuration } from '../../core/format';
 import { focusLeft as focusShown, type LyricLine } from '../../core/island';
@@ -28,10 +28,12 @@ import { Deck, type DeckItem, type DeckView } from './Deck';
 import { MoreGrid, readRecentTools, writeRecentTools } from './MoreGrid';
 import { SpringSet, SPRINGS } from './spring';
 import { BREATH, CLOSE_GRACE_MS, CONTENT_FADE_IN_MS, CONTENT_FADE_OUT_MS, CONTENT_REVEAL_AT, HOVER_DWELL_MS, addSample, isSweep, mayClose, motionFor, progressOf, showBanner, viewToOpen, type IslandView, type PointerSample } from '../../core/island-open';
-import { chime, FitText, isPower, Leading, LiveBanner, LiveCard, PowerLead, PrivacyDots, Trailing, useActivities, useGestures, useLayout } from './Activities';
+import { chime, FitText, isPower, Leading, LiveBanner, LiveCard, PowerLead, PrivacyDots, TintFit, Trailing, useActivities, useGestures, useLayout } from './Activities';
 import { useFeatureStates } from '../features';
 import { PANEL_SIZES, PANEL_SIZE_LABEL, largestBox, panelBox, roomIn, snapSize, stepSize, tabPanel, withTabSize, type PanelSize } from '../../core/island-size';
 import { useStore } from '../state';
+import { islandVars, readableTint, surfaceSamples } from '../../core/island-look';
+import { useIslandPalette } from './look';
 import '../styles/island.css';
 
 // Shown in the Island's own toast.
@@ -89,6 +91,11 @@ function clipFor(g: ShapeGeo, w: number, h: number, r: number): string {
   const top = g.floating ? r : 0;
   return `inset(0px ${dx}px ${g.full.h - h}px ${dx}px round ${top}px ${top}px ${r}px ${r}px)`;
 }
+/** Kinds that come and go in a moment: they never tint the Island. */
+const NO_TINT = new Set(['alert', 'copied', 'level', 'workspace', 'shelf-idle', 'paused-music']);
+/** An rgba() colour made opaque. */
+const opaque = (c: string | undefined) => c?.replace(/rgba\(([^,]+),([^,]+),([^,]+),[^)]+\)/, 'rgb($1,$2,$3)');
+
 /** room around the open Island for its shadow or glow (`.isl-shadow` in island.css) */
 const HALO = 28;
 /** the size button's short name for each size */
@@ -409,6 +416,15 @@ export function Island() {
   const compact = { w: idleNotch ? gap : pillW, h: idleNotch ? pillH : pillH + hang };
   const bubble = secondary && !idleNotch ? pillH : 0;
   const ears = notch ? 10 : 0;
+  // The Island's colours (core/island-look.ts): the theme's (or Dark, or Colourful), tinted by what is going on:
+  // the artwork's colour for music, the calendar's for a meeting, the timer's, the charge's.
+  const tintAct = primary && !NO_TINT.has(primary.kind) ? primary : undefined;
+  const artwork = tintAct?.kind === 'music' ? tintAct.art : undefined;
+  const artTint = opaque(useGlow(artwork, !!artwork));
+  const liveColor = isl?.monochrome || !tintAct ? undefined : (artwork && artTint) || tintAct.color;
+  const palette = useIslandPalette(settings, isl, liveColor);
+  const paletteVars = useMemo(() => islandVars(palette), [palette]);
+  const islandBgs = useMemo(() => surfaceSamples(palette), [palette]);
   // The window is never bigger than what is showing: the pill (kept centred) and its bubble when closed,
   // the card or panel when open, plus room for a shadow or glow. Nothing else of the window is ever seen,
   // so the system can never show it as a frame around the Island. It grows at once and shrinks only
@@ -474,6 +490,11 @@ export function Island() {
   // The small card drops down only by itself, for an alert when the person chose banners; anything the
   // person opens is the full Island.
   const view: 'compact' | 'alert' | 'panel' = mode === 'panel' ? 'panel' : alert && alertPresentation(alert, alertRules.current) === 'banner' ? 'alert' : 'compact';
+  // Colours of what is going on, made readable where they sit: on the notch's black, or on the Island's colours.
+  const fitOn = (bgs: string[]) => <T extends Activity | undefined>(x: T): T => (x ? ({ ...x, color: readableTint(x.color, bgs) } as T) : x);
+  const fitBgs = notch && view === 'compact' ? ['#000000'] : islandBgs;
+  const fit = fitOn(fitBgs);
+  const fitColor = (c: string) => readableTint(c, fitBgs);
   // What the open Island was opened for: the alert, or the activity (the one asked for, else the main one).
   // Things only shown when nothing else is going on (the battery glyph, the shelf count) get no banner.
   // (A shortcut or the tray opening a chosen view shows that view alone.)
@@ -595,7 +616,7 @@ export function Island() {
       </div>
     );
   } else if (view === 'compact') {
-    const a = primary;
+    const a = fit(primary);
     const power = isPower(a);
     const trailing = a ? (a.kind === 'dictation' && listening === 'on' ? <span className="level">{level.map((h, i) => <i key={i} style={{ height: h }} />)}</span> : <Trailing a={a} />) : null;
     const lead = a ? (power ? <PowerLead a={a} /> : <Leading a={a} />) : null;
@@ -726,11 +747,11 @@ export function Island() {
           </div>
         ) : bannerOn && headAct ? (
           <div style={{ height: bannerH, flex: 'none' }}>
-            <LiveBanner a={headAct} state={state} now={now} unlocked={acts.unlocked} reload={load} onOpen={isPower(headAct) ? undefined : () => { setLiveId(headAct.id); setTab('live'); }} onHide={() => setBannerHidden(true)} />
+            <LiveBanner a={fit(headAct)!} state={state} now={now} unlocked={acts.unlocked} reload={load} onOpen={isPower(headAct) ? undefined : () => { setLiveId(headAct.id); setTab('live'); }} onHide={() => setBannerHidden(true)} />
           </div>
         ) : null}
         <div className="body">
-          {tab === 'live' && liveAct ? <LiveCard a={liveAct} state={state} now={now} unlocked={acts.unlocked} reload={load} /> : null}
+          {tab === 'live' && liveAct ? <LiveCard a={fit(liveAct)!} state={state} now={now} unlocked={acts.unlocked} reload={load} /> : null}
           {tab === 'home' ? (
             <div className="grid2 home">
               <div className="tile" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
@@ -773,7 +794,7 @@ export function Island() {
                   <div className="tile" role="button" tabIndex={0} title="Open in Weather" style={{ cursor: 'pointer' }} onClick={openWeather} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') openWeather(); }}>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}><span className="isl-temp">{Math.round(state.weather.current.temp)}°</span><span>{describeCode(state.weather.current.code).label}</span></div>
                     <div className="muted small">{state.weather.place.name} · H {Math.round(state.weather.daily[0]?.max ?? 0)}° L {Math.round(state.weather.daily[0]?.min ?? 0)}°{state.weather.current.aqi !== undefined ? ` · AQI ${Math.round(state.weather.current.aqi)}` : ''}</div>
-                    {state.weather.nowcast ? <div className="small" style={{ color: '#93c5fd', marginTop: 4 }}>{state.weather.nowcast}</div> : null}
+                    {state.weather.nowcast ? <div className="small" style={{ color: 'var(--isl-info)', marginTop: 4 }}>{state.weather.nowcast}</div> : null}
                   </div>
                 ) : null}
                 <div className="tile" role={nextEv ? 'button' : undefined} tabIndex={nextEv ? 0 : undefined} title={nextEv ? 'Open in Calendar' : undefined} style={nextEv ? { cursor: 'pointer' } : undefined} onClick={nextEv ? () => void openNative('calendar', { date: nextEv.start }, islandSay) : undefined}>
@@ -781,8 +802,8 @@ export function Island() {
                 </div>
                 <div className="tile" style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                   {state.battery ? <span><Icon name={state.battery.charging ? 'bolt' : 'battery'} size={13} /> {Math.round(state.battery.percent)}%</span> : null}
-                  {state.micInUse?.length ? <span style={{ color: '#fbbf24' }}><Icon name="mic" size={13} /> {state.micInUse[0]}</span> : null}
-                  {state.recording ? <span style={{ color: '#ff453a' }}><span className="rec-dot" /> {mmss(now - state.recording.since)}</span> : null}
+                  {state.micInUse?.length ? <span style={{ color: 'var(--isl-warn)' }}><Icon name="mic" size={13} /> {state.micInUse[0]}</span> : null}
+                  {state.recording ? <span style={{ color: 'var(--isl-danger)' }}><span className="rec-dot" /> {mmss(now - state.recording.since)}</span> : null}
                   {focusLeft ? <span><Icon name="timer" size={13} /> {mmss(focusLeft)}</span> : null}
                   {/* Keep awake and Stage: one tap from Home (they were buttons on the tab bar). */}
                   {state.awakeAvailable === false ? null : <button className={`status-chip ${state.keepAwake.on ? 'on' : ''}`} title={state.keepAwake.on ? 'Stop keeping awake' : 'Keep awake'} aria-pressed={state.keepAwake.on} data-testid="island-awake-chip" onClick={() => void api.island.keepAwake(!state.keepAwake.on).then(load)}><Icon name="coffee" size={13} />{state.keepAwake.on ? <> Awake{state.keepAwake.until ? ` · ${mmss(state.keepAwake.until - now)}` : ''}</> : null}</button>}
@@ -889,10 +910,12 @@ export function Island() {
   );
 
   const vars = {
+    ...paletteVars, colorScheme: palette.scheme, '--shape-r': `${target.current?.r ?? 10}px`,
     '--notch-h': `${notchH}px`, '--gap': `${gap}px`, '--box-w': `${box.w}px`, '--box-h': `${box.h}px`, '--full-w': `${full.w}px`, '--full-h': `${full.h}px`, '--bubble': `${bubble}px`, '--wing': `${layout?.wing || 120}px`,
   } as React.CSSProperties;
   return (
-    <div className={`isl-root edge-${edge} anchor-${layout?.anchor ?? 'edge'} view-${view} size-${panelSize} ${floating ? 'floating' : ''} ${isl?.monochrome ? 'mono' : ''} ${breathing ? 'breath' : ''}`} style={vars} role="region" aria-label="Island">
+    <TintFit.Provider value={fitColor}>
+    <div className={`isl-root edge-${edge} anchor-${layout?.anchor ?? 'edge'} view-${view} size-${panelSize} ${floating ? 'floating' : ''} ${isl?.monochrome ? 'mono' : ''} ${breathing ? 'breath' : ''} ${idleNotch ? 'idle' : ''} scheme-${palette.scheme}`} data-look={isl?.look ?? 'theme'} style={vars} role="region" aria-label="Island">
       {/* Alerts are read out by screen readers as they arrive, without taking focus. */}
       <div className="sr-only" role="status" aria-live="assertive" aria-atomic="true">{alert ? [alert.app, alert.title, alert.detail].filter(Boolean).join('. ') : ''}</div>
       <div aria-hidden className={`isl-shadow ${plusSetting(isl, 'shadow') ? '' : 'no-shadow'} ${glow && !notch ? 'glowing' : ''}`} style={glow && !notch ? ({ '--glow': glow } as React.CSSProperties) : undefined}>
@@ -941,9 +964,10 @@ export function Island() {
       {view === 'compact' && state.usagePin && !idleNotch ? <UsagePin pin={state.usagePin} /> : null}
       {bubble && view === 'compact' && secondary ? (
         <button className="isl-bubble" title={secondary.title} aria-label={secondary.title} onClick={() => openNow(true, secondary.id)} onMouseEnter={() => hover && openNow(false, secondary.id)}>
-          <Leading a={secondary} />
+          <Leading a={fitOn(notch ? ['#000000'] : islandBgs)(secondary)!} />
         </button>
       ) : null}
     </div>
+    </TintFit.Provider>
   );
 }

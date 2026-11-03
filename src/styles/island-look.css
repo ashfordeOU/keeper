@@ -1,0 +1,41 @@
+/* SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 */
+/* Settings → Island → Look (src/island/LookSettings.tsx): a preview of the Island in its colours, drawn from the
+   same --isl-* variables the Island uses (core/island-look.ts), and the swatches. */
+
+@property --isl-s0 { syntax: '<color>'; inherits: true; initial-value: #0a0a0c; }
+@property --isl-s1 { syntax: '<color>'; inherits: true; initial-value: #0a0a0c; }
+@property --isl-s2 { syntax: '<color>'; inherits: true; initial-value: #0a0a0c; }
+.ilp-wrap { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 20px 16px 16px; border-radius: var(--r-lg); background: var(--bg-sunk); }
+.ilp {
+  --isl-surface: radial-gradient(120% 160% at 0% 0%, var(--isl-sheen), transparent 55%), linear-gradient(135deg, var(--isl-s0), var(--isl-s1) 55%, var(--isl-s2));
+  display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%; max-width: 440px; color: var(--isl-fg);
+  transition: --isl-s0 .6s ease, --isl-s1 .6s ease, --isl-s2 .6s ease;
+}
+.ilp.mono { filter: grayscale(1); }
+.ilp-pill { display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 14px; min-width: 220px; max-width: 100%; border-radius: var(--r-pill); background: var(--isl-surface); box-shadow: 0 0 0 .5px color-mix(in srgb, var(--isl-ink) 22%, transparent), 0 6px 18px color-mix(in srgb, var(--isl-glow) 40%, rgba(0, 0, 0, .2)); font-size: var(--fs-sm); }
+.ilp-glyph { display: inline-grid; place-items: center; color: var(--isl-accent); }
+.ilp-line { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ilp-trail { font-variant-numeric: tabular-nums; }
+.ilp-panel { width: 100%; border-radius: var(--r-lg); background: var(--isl-surface); box-shadow: 0 0 0 .5px color-mix(in srgb, var(--isl-ink) 22%, transparent), 0 12px 32px color-mix(in srgb, var(--isl-glow) 40%, rgba(0, 0, 0, .25)); padding: 10px 16px 16px; }
+.ilp-tabs { display: flex; gap: 4px; font-size: var(--fs-sm); color: var(--isl-fg-2); }
+.ilp-tabs span { padding: 4px 10px; border-radius: var(--r-pill); }
+.ilp-tabs span.on { color: var(--isl-fg); background: color-mix(in srgb, var(--isl-ink) 12%, transparent); font-weight: 600; }
+.ilp-body { display: flex; flex-direction: column; gap: 2px; margin-top: 12px; }
+.ilp-kicker { font-size: var(--fs-xs); font-weight: 500; color: var(--isl-fg-3); text-transform: uppercase; letter-spacing: .04em; }
+.ilp-title { font-size: var(--fs-lg); font-weight: 650; letter-spacing: -.01em; }
+.ilp-sub { font-size: var(--fs-sm); color: var(--isl-fg-2); }
+.ilp-actions { display: flex; gap: 6px; margin-top: 10px; }
+.ilp-btn { display: inline-flex; align-items: center; height: 26px; padding: 0 12px; border-radius: var(--r-pill); font-size: var(--fs-sm); font-weight: 600; background: color-mix(in srgb, var(--isl-ink) 10%, transparent); }
+.ilp-btn.primary { background: var(--isl-accent); color: var(--isl-accent-text); }
+.ilp-samples { flex-wrap: wrap; justify-content: center; }
+
+.ilp-swatches { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.ilp-swatch { position: relative; width: 24px; height: 24px; padding: 0; border: 0; border-radius: var(--r-pill); display: inline-grid; place-items: center; cursor: default; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 14%, transparent); }
+.ilp-swatch.wide { width: 40px; }
+.ilp-swatch.theme { background: var(--bg-sunk); color: var(--text-2); }
+.ilp-swatch.any { background: conic-gradient(#ff375f, #ffd60a, #30d158, #40c8e0, #0a84ff, #bf5af2, #ff375f); overflow: hidden; }
+.ilp-swatch.any input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: default; }
+.ilp-swatch.on { box-shadow: 0 0 0 2px var(--bg-elev), 0 0 0 4px var(--accent); }
+.ilp-swatch:focus-visible, .ilp-swatch.any:focus-within { outline: 2px solid var(--focus-ring, var(--accent)); outline-offset: 2px; }
+@media (prefers-reduced-transparency: reduce) { .ilp { --isl-sheen: transparent !important; } }
+html[data-motion='reduce'] .ilp { transition: none; }

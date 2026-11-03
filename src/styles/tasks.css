@@ -13,8 +13,8 @@
   --tk-danger: var(--danger, #ff453a);
 }
 .isl .tk-composer, .isl .tk-list, .isl .tk-detail, .isl .tk-week, .isl .tk-undo, .isl .tk-insights, .isl .tk-scope {
-  --tk-line: rgba(255, 255, 255, .1); --tk-line-strong: rgba(255, 255, 255, .22); --tk-hover: rgba(255, 255, 255, .07);
-  --tk-sunk: rgba(255, 255, 255, .05); --tk-text3: #a1a1aa; --tk-accent: #0a84ff; --tk-warn: #fbbf24; --tk-danger: #ff6961;
+  --tk-line: color-mix(in srgb, var(--isl-ink) 10%, transparent); --tk-line-strong: color-mix(in srgb, var(--isl-ink) 22%, transparent); --tk-hover: color-mix(in srgb, var(--isl-ink) 7%, transparent);
+  --tk-sunk: color-mix(in srgb, var(--isl-ink) 5%, transparent); --tk-text3: var(--isl-fg-2); --tk-accent: var(--isl-accent); --tk-warn: var(--isl-warn); --tk-danger: var(--isl-danger);
 }
 
 .tk-composer { display: flex; flex-direction: column; gap: 4px; }
@@ -48,7 +48,7 @@
 .tk-empty { padding: 14px; text-align: center; }
 
 .tk-undo { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); display: flex; gap: 10px; align-items: center; max-width: 80%; padding: 6px 8px 6px 14px; border-radius: 12px; background: #1c1c1e; color: #fff; box-shadow: 0 6px 24px rgba(0, 0, 0, .3); z-index: 50; font-size: 13px; }
-.isl .tk-undo { position: absolute; bottom: 10px; font-size: 12px; background: #fff; color: #000; }
+.isl .tk-undo { position: absolute; bottom: 10px; font-size: 12px; background: var(--isl-fg); color: var(--isl-base); }
 
 .tk-detail { display: flex; flex-direction: column; gap: 8px; padding: 12px; }
 .tk-detail.compact { padding: 4px; gap: 6px; }

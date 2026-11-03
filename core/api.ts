@@ -330,6 +330,14 @@ export interface IslandSettings {
   taskShortcut?: string;
   /** black and white: no colours in the Island (artwork, accents and activities in greys) */
   monochrome?: boolean;
+  /** Settings → Island → Look: the theme's colours, dark, or a colourful gradient (core/island-look.ts) */
+  look?: import('./island-look').IslandLook;
+  /** how strong the colours are */
+  lookIntensity?: import('./island-look').IslandIntensity;
+  /** the Colourful look's gradient */
+  lookPreset?: string;
+  /** the Island's own accent ('' for the theme's) */
+  lookAccent?: string;
   hideShortcut: string;
   awakeShortcut: string;
   /** open the shelf when a file is dragged to the top edge of the screen */

@@ -218,7 +218,7 @@ export function ControlsTab({ state, reload }: { state: IslandState; reload: () 
         <div className="tile">
           <div className="ctl-head"><Icon name="battery" size={13} /> Batteries</div>
           {state.battery ? <div className="ctl-dev"><span>This computer{state.battery.charging ? ' (charging)' : ''}</span><b>{Math.round(state.battery.percent)}%</b></div> : null}
-          {d?.bluetooth.map((b) => <div key={b.name} className="ctl-dev"><span className="ellipsis">{b.name}</span><b style={{ color: b.percent <= 20 ? '#f87171' : undefined }}>{b.percent}%</b></div>)}
+          {d?.bluetooth.map((b) => <div key={b.name} className="ctl-dev"><span className="ellipsis">{b.name}</span><b style={{ color: b.percent <= 20 ? 'var(--isl-danger)' : undefined }}>{b.percent}%</b></div>)}
           {!state.battery && !d?.bluetooth.length ? <div className="muted small">{busy ? 'Checking…' : 'No batteries reported.'}</div> : null}
         </div>
         {state.awakeAvailable === false ? null : <div className="tile">

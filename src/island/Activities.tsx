@@ -4,9 +4,9 @@
 // controls. Everything here reacts to events; nothing polls.
 
 import { RemoteActivityActions, useRemoteActivities } from '../screen/island-remote';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { IslandState } from '../../core/api';
-import { activitiesFrom, batteryColor, kindOff, present, transientsFrom, type Activity, type BatteryLook, type ExtraInputs, type Presentation } from '../../core/island-activities';
+import { activitiesFrom, BATTERY_LOW, batteryColor, kindOff, present, transientsFrom, type Activity, type BatteryLook, type ExtraInputs, type Presentation } from '../../core/island-activities';
 import type { Placement } from '../../core/island-place';
 import type { Progress } from '../../core/types';
 import { formatDuration } from '../../core/format';
@@ -214,7 +214,7 @@ function Ring({ value, color, size = 18, children }: { value: number; color: str
   return (
     <span className="act-ring" style={{ width: size, height: size }} role="progressbar" aria-label="Progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(Math.max(0, Math.min(1, value)) * 100)}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden>
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,.18)" strokeWidth={2.4} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="currentColor" strokeOpacity={0.2} strokeWidth={2.4} />
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={2.4} strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - Math.max(0, Math.min(1, value)))} transform={`rotate(-90 ${size / 2} ${size / 2})`} />
       </svg>
       {children ? <span className="act-ring-in">{children}</span> : null}
@@ -233,10 +233,17 @@ function useArtTint(art: string | undefined, on: boolean): string | undefined {
   return glow?.replace(/rgba\(([^,]+),([^,]+),([^,]+),[^)]+\)/, 'rgb($1,$2,$3)');
 }
 
+/**
+ * Makes a colour readable where the glyph sits (the notch's black or the Island's own colours); the Island
+ * provides it (src/island/Island.tsx), anywhere else colours are left as they are.
+ */
+export const TintFit = createContext<(c: string) => string>((c) => c);
+
 /** The music's waveform, in the colour of its artwork (pink when the artwork has none or cannot be read). */
 function MusicWave({ a }: { a: Activity }) {
   const tint = useArtTint(a.art, a.kind === 'music');
-  return <Wave color={tint ?? a.color} />;
+  const fit = useContext(TintFit);
+  return <Wave color={fit(tint ?? a.color)} />;
 }
 
 /** True once the element's content is wider than the element (measured again whenever it resizes). */
@@ -271,7 +278,9 @@ export function FitText({ text, className = '', testId }: { text: string; classN
  */
 export function BatteryMeter({ b, inside: forceInside }: { b: BatteryLook; inside?: boolean }) {
   const pct = Math.max(0, Math.min(100, Math.round(b.percent)));
-  const color = batteryColor(b);
+  // Charging, low and Low Power Mode have their colours; otherwise the charge is drawn in the text's colour.
+  const plain = !b.charging && pct > BATTERY_LOW && !b.lowPower;
+  const color = plain ? 'currentColor' : batteryColor(b);
   const [ref, over] = useOverflows<HTMLSpanElement>(pct);
   const [inside, setInside] = useState(!!forceInside);
   // Beside it first; when the wing has no room for that, the number moves into the glyph.
@@ -285,9 +294,9 @@ export function BatteryMeter({ b, inside: forceInside }: { b: BatteryLook; insid
   return (
     <span ref={ref} className={`batt ${inside ? 'inside' : ''}`} role="img" aria-label={label} title={label} data-testid="island-battery" style={{ ['--batt' as string]: color }}>
       <svg className="batt-glyph" width={W} height={H} viewBox={`0 0 ${W} ${H}`} aria-hidden>
-        <rect x={0.6} y={0.6} width={W - 3.8} height={H - 1.2} rx={inside ? 3.5 : 3} fill="none" stroke="rgba(255,255,255,.5)" strokeWidth={1.2} />
+        <rect x={0.6} y={0.6} width={W - 3.8} height={H - 1.2} rx={inside ? 3.5 : 3} fill="none" stroke="currentColor" strokeOpacity={0.5} strokeWidth={1.2} />
         <rect x={2} y={2} width={Math.max(1, (inner * pct) / 100)} height={H - 4} rx={1.5} fill={color} />
-        <rect x={W - 2.4} y={H / 2 - 2} width={1.8} height={4} rx={0.9} fill="rgba(255,255,255,.5)" />
+        <rect x={W - 2.4} y={H / 2 - 2} width={1.8} height={4} rx={0.9} fill="currentColor" fillOpacity={0.5} />
         {inside
           ? <text x={(W - 3.2) / 2} y={H / 2 + 0.5} textAnchor="middle" dominantBaseline="middle" fontSize={8.5} fontWeight={700} fill="#fff" stroke="#000" strokeWidth={1.6} paintOrder="stroke" style={{ fontVariantNumeric: 'tabular-nums' }}>{pct}</text>
           : b.charging ? <path d={`M${W / 2 - 0.4} 1.6 l-3.4 4.6 h2.6 l-0.8 3.4 l3.6 -4.8 h-2.6 z`} fill="#fff" stroke="#000" strokeWidth={0.6} /> : null}

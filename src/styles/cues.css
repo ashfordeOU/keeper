@@ -98,16 +98,14 @@ html[data-view='cue'], html[data-view='cue'] body { background: transparent !imp
 @keyframes cue-in { from { opacity: 0; transform: translateY(-6px) scale(.98); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .cue-pop { animation: none; } }
 
-/* inside the Island (always dark) */
+/* inside the Island: its own colours (src/styles/island.css) */
 .isl .cues-island {
-  --bg-elev: rgba(255, 255, 255, .06); --bg-sunk: rgba(255, 255, 255, .08); --bg-hover: rgba(255, 255, 255, .08); --bg-active: rgba(255, 255, 255, .14);
-  --line: rgba(255, 255, 255, .1); --line-strong: rgba(255, 255, 255, .2); --text: #f4f4f5; --text-2: #c9c9d0; --text-3: #8b8b94;
-  --accent: #fff; --accent-soft: rgba(255, 255, 255, .14); --accent-text: #000; --shadow-pop: 0 10px 30px rgba(0, 0, 0, .5);
+  --bg-elev: color-mix(in srgb, var(--isl-ink) 6%, transparent); --shadow-pop: 0 10px 30px rgba(0, 0, 0, .35);
   display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; height: 100%;
 }
 .isl .cues-island .col { display: flex; flex-direction: column; gap: 8px; min-height: 0; overflow: auto; }
 .isl .cues-island .cue-card { border-radius: 12px; }
-.isl .cues-island .cue-menu { background: #1c1c20; }
-.isl .cues-island .cue-input { background: rgba(255, 255, 255, .08); color: #fff; border-color: transparent; }
+.isl .cues-island .cue-menu { background: var(--isl-menu); }
+.isl .cues-island .cue-input { background: color-mix(in srgb, var(--isl-ink) 8%, transparent); color: var(--isl-fg); border-color: transparent; }
 .cue-card.flash { animation: cue-flash 1.4s var(--ease); }
 @keyframes cue-flash { 0%, 40% { box-shadow: 0 0 0 3px var(--accent-soft); border-color: var(--accent); } }

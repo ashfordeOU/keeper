@@ -181,7 +181,7 @@ export function SalesTool() {
             <svg className="spark" viewBox="0 0 160 40" preserveAspectRatio="none"><path d={sparkPath(s.daily, 160, 38)} /></svg>
           </div>
           <div className="small muted">{s.byProvider.map((p) => `${conf.providers.find((x) => x.id === p.provider)?.label}: ${fmt(p.month)}`).join(' · ')}{s.unconverted.length ? ` · not converted: ${s.unconverted.map((u) => `${u.amount.toFixed(2)} ${u.currency}`).join(', ')}` : ''}</div>
-          {s.errors.map((e) => <div key={e.provider} className="small" style={{ color: '#fca5a5' }}>{conf.providers.find((x) => x.id === e.provider)?.label}: {e.message}</div>)}
+          {s.errors.map((e) => <div key={e.provider} className="small" style={{ color: 'var(--isl-danger)' }}>{conf.providers.find((x) => x.id === e.provider)?.label}: {e.message}</div>)}
         </>
       ) : <div className="muted small">Connect a store or payment service with a read-only key. Keys stay in this computer's keychain; Keeper only reads your sales.</div>}
       <div className="chips">
@@ -459,7 +459,7 @@ export function WeatherTool({ state }: { state: IslandState }) {
     <div className="itool weather">
       <div className="tile wnow">
         <span className="big num">{Math.round(w.current.temp)}°</span>
-        <div><b>{describeCode(w.current.code).label}</b><div className="muted small">{w.place.name} · feels {Math.round(w.current.feels ?? w.current.temp)}°{w.current.aqi !== undefined ? ` · AQI ${Math.round(w.current.aqi)}` : ''}</div>{w.nowcast ? <div className="small" style={{ color: '#93c5fd' }}>{w.nowcast}</div> : null}</div>
+        <div><b>{describeCode(w.current.code).label}</b><div className="muted small">{w.place.name} · feels {Math.round(w.current.feels ?? w.current.temp)}°{w.current.aqi !== undefined ? ` · AQI ${Math.round(w.current.aqi)}` : ''}</div>{w.nowcast ? <div className="small" style={{ color: 'var(--isl-info)' }}>{w.nowcast}</div> : null}</div>
         <button className="btn sm" style={{ marginLeft: 'auto' }} onClick={() => void openNative('weather', { lat: w.place.lat, lon: w.place.lon, label: w.place.name }, say)}><Icon name="external" size={12} /> Open in Weather</button>
       </div>
       <div className="wdays">
@@ -469,7 +469,7 @@ export function WeatherTool({ state }: { state: IslandState }) {
             <span className="wicon">{WX[describeCode(d.code).icon]}</span>
             <span className="num small">{Math.round(d.max)}°</span>
             <span className="num small muted">{Math.round(d.min)}°</span>
-            {d.rainChance >= 30 ? <span className="small" style={{ color: '#93c5fd' }}>{Math.round(d.rainChance)}%</span> : <span className="small"> </span>}
+            {d.rainChance >= 30 ? <span className="small" style={{ color: 'var(--isl-info)' }}>{Math.round(d.rainChance)}%</span> : <span className="small"> </span>}
           </div>
         ))}
       </div>
@@ -898,7 +898,7 @@ export function MirrorTool() {
         <button className={`chip ${flip ? 'on' : ''}`} onClick={() => setFlip(!flip)}>Mirror</button>
         <button className={`chip ${guides ? 'on' : ''}`} onClick={() => setGuides(!guides)}>Framing guides</button>
         <span className="small muted">Mic</span><div className="ubar ok" style={{ width: 80 }}><i style={{ width: `${Math.round(mic * 100)}%` }} /></div>
-        {light !== null ? <span className="small" style={{ color: light < 0.25 ? '#fbbf24' : '#86efac' }}>{light < 0.25 ? 'A little dark — face a window or a lamp' : light > 0.85 ? 'Very bright' : 'Lighting looks good'}</span> : null}
+        {light !== null ? <span className="small" style={{ color: light < 0.25 ? 'var(--isl-warn)' : 'var(--isl-ok)' }}>{light < 0.25 ? 'A little dark — face a window or a lamp' : light > 0.85 ? 'Very bright' : 'Lighting looks good'}</span> : null}
       </div>
     </div>
   );

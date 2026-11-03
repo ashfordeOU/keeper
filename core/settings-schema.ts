@@ -11,6 +11,7 @@
 
 import { defaultSettings, mergeSettings, type AllSettings } from './settings';
 import { FEATURES, featureOffered, featureStates } from './features';
+import { ISLAND_INTENSITIES, ISLAND_LOOKS, ISLAND_PRESETS } from './island-look';
 
 export type SectionId = 'general' | 'appearance' | 'features' | 'files' | 'island' | 'menubar' | 'ai' | 'pim' | 'privacy' | 'accessibility' | 'battery' | 'devices' | 'account' | 'about';
 
@@ -168,6 +169,10 @@ export const SETTINGS: SettingDef[] = [
 
   // ---------------------------------------------------------------- The Island
   { id: 'island.enabled', path: 'island.enabled', section: 'island', label: 'Show the Island', help: 'The bar at the top of the screen: drop shelf, now playing, timers and alerts.', level: 'basic', kind: 'toggle', keywords: ['notch', 'dynamic island', 'top bar'] },
+  { id: 'island.look', path: 'island.look', section: 'island', group: 'Look', label: 'Island colours', help: 'Match your theme, stay dark, or use a bright gradient.', level: 'basic', kind: 'choice', choices: ISLAND_LOOKS.map((l) => ({ value: l.id, label: l.label })), feature: 'island', keywords: ['color', 'colour', 'theme', 'gradient', 'black', 'dark', 'colourful', 'colorful', 'look'] },
+  { id: 'island.lookIntensity', path: 'island.lookIntensity', section: 'island', group: 'Look', label: 'Colour strength', help: 'Subtle or bold colours in the Island.', level: 'basic', kind: 'choice', choices: ISLAND_INTENSITIES.map((l) => ({ value: l.id, label: l.label })), feature: 'island', keywords: ['intensity', 'vivid', 'subtle', 'bold', 'color'] },
+  { id: 'island.lookPreset', path: 'island.lookPreset', section: 'island', group: 'Look', label: 'Colourful gradient', help: 'The gradient for the Colourful look.', level: 'advanced', kind: 'choice', choices: ISLAND_PRESETS.map((p) => ({ value: p.id, label: p.name })), feature: 'island', keywords: ['gradient', 'preset', 'color'] },
+  { id: 'island.lookAccent', path: 'island.lookAccent', section: 'island', group: 'Look', label: 'Island accent', help: 'Buttons, highlights and the glow. Text stays easy to read.', level: 'advanced', kind: 'panel', panel: 'islandAccent', feature: 'island', keywords: ['accent', 'color', 'colour', 'highlight', 'glow'] },
   { id: 'island.hoverOpen', path: 'island.hoverOpen', section: 'island', label: 'Open when I point at it', level: 'basic', kind: 'toggle', feature: 'island', keywords: ['hover'] },
   { id: 'island.hideInFullscreen', path: 'island.hideInFullscreen', section: 'island', label: 'Hide in full screen', help: 'Steps aside for full-screen video and slides.', level: 'basic', kind: 'toggle', feature: 'island', keywords: ['fullscreen', 'video', 'presentation'] },
   { id: 'island.clipboard', path: 'island.clipboard', section: 'island', label: 'Clipboard history', help: 'Keeps what you copy. Text that looks like a password is never saved.', level: 'basic', kind: 'toggle', feature: 'island', keywords: ['copy', 'paste', 'clipboard manager'] },

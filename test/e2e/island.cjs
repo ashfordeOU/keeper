@@ -8,7 +8,8 @@
 // the open model (the breath at once, the window grown while it waits, open after the rest, content out
 // before the shape shrinks) and no animation frames at rest; power (a 3-second notice on unplug and plug-in,
 // one battery glyph with its percentage, no cut-off words) and that opening always gives the full Island with
-// its deck, also from a notice, an activity or a notice that dropped down by itself.
+// its deck, also from a notice, an activity or a notice that dropped down by itself; and its colours (the open
+// Island follows the theme, light themes get a light Island, text keeps AA contrast, Dark is still there).
 // The Island's window runs in Keeper's own process here (KEEPER_SUITE=shared), where this test
 // reaches it; test/e2e/suite.cjs checks the Island in a process of its own.
 const { _electron } = require('playwright');
@@ -450,6 +451,89 @@ const SHARED = ics([['BEGIN:VEVENT', 'UID:holiday@island', `DTSTART:${local(tomo
   await closeIsland();
   await setIsl({ alertStyle: 'notch' });
   await wait(6500);
+
+  // ---------------------------------------------------------------- colours: the Island wears the theme
+  // (core/island-look.ts). The open Island's background follows the theme and the Look setting, and its text
+  // keeps AA contrast on every part of the gradient. Pictures in four themes go to KEEPER_COLOR_SHOTS (or SHOTS).
+  const COLOR_SHOTS = process.env.KEEPER_COLOR_SHOTS || SHOTS;
+  fs.mkdirSync(COLOR_SHOTS, { recursive: true });
+  const rgb = (c) => {
+    const m = c.match(/rgba?\(([\d.]+)[ ,]+([\d.]+)[ ,]+([\d.]+)/);
+    if (m) return [+m[1], +m[2], +m[3]];
+    const h = c.replace('#', '');
+    return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16));
+  };
+  const lumOf = (c) => { const [r, g, b] = rgb(c).map((v) => { const x = v / 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+  const ratio = (a, b) => { const x = lumOf(a), y = lumOf(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+  const colours = () => isl.evaluate(() => {
+    const root = document.querySelector('.isl-root');
+    const st = getComputedStyle(root);
+    const v = (k) => st.getPropertyValue(k).trim();
+    const title = document.querySelector('.isl-panel .tabs.deck button.on, .isl-panel .tabs.deck button[aria-selected="true"]');
+    return { s0: v('--isl-s0'), s1: v('--isl-s1'), s2: v('--isl-s2'), fg: v('--isl-fg'), fg2: v('--isl-fg-2'), fg3: v('--isl-fg-3'), shape: getComputedStyle(document.querySelector('.isl-shape')).backgroundImage, scheme: [...root.classList].find((c) => c.startsWith('scheme-')), text: title ? getComputedStyle(title).color : '' };
+  });
+  const setTheme = (p) => main.evaluate((x) => window.keeper.settings.set(x), p);
+  const looks = [
+    { name: 'playful-light', theme: { theme: 'playful', appearance: 'light' }, look: { look: 'theme', lookIntensity: 'bold' }, scheme: 'scheme-light' },
+    { name: 'ocean-dark', theme: { theme: 'ocean', appearance: 'dark' }, look: { look: 'theme', lookIntensity: 'bold' }, scheme: 'scheme-dark' },
+    { name: 'sunset-dark', theme: { theme: 'sunset', appearance: 'dark' }, look: { look: 'theme', lookIntensity: 'bold' }, scheme: 'scheme-dark' },
+    { name: 'colourful-berry', theme: { theme: 'playful', appearance: 'light' }, look: { look: 'colorful', lookPreset: 'berry', lookIntensity: 'bold' }, scheme: 'scheme-dark' },
+  ];
+  const seen = {};
+  parkPointer();
+  for (const l of looks) {
+    await setTheme(l.theme);
+    await setIsl(l.look);
+    await wait(700);
+    await openTab('home');
+    await wait(900);
+    const c = await colours();
+    seen[l.name] = c;
+    check(c.scheme === l.scheme, `${l.name}: the Island is ${l.scheme.slice(7)} (${c.scheme})`);
+    check(/gradient/.test(c.shape) && new Set([c.s0, c.s1, c.s2]).size >= 2, `${l.name}: the open Island is a gradient, not flat black (${c.s0} → ${c.s1} → ${c.s2})`);
+    const worst = Math.min(...[c.fg, c.fg2, c.fg3].flatMap((f) => [c.s0, c.s1, c.s2].map((b) => ratio(f, b))));
+    check(worst >= 4.5, `${l.name}: text keeps AA contrast on the whole gradient (worst ${worst.toFixed(2)} : 1)`);
+    await isl.screenshot({ path: path.join(COLOR_SHOTS, `islandcolor-${l.name}.png`) }).catch(() => undefined);
+    await closeIsland();
+  }
+  check(seen['ocean-dark'].s0 !== seen['sunset-dark'].s0 && seen['playful-light'].s0 !== seen['ocean-dark'].s0, `the open Island's background changes with the theme (ocean ${seen['ocean-dark'].s0}, sunset ${seen['sunset-dark'].s0}, playful ${seen['playful-light'].s0})`);
+  // A light theme's Island is light, a dark one's dark.
+  check(lumOf(seen['playful-light'].s1) > 0.4 && lumOf(seen['ocean-dark'].s1) < 0.2, 'a light theme gives a light Island and a dark theme a dark one');
+  // Dark: the old look, still there for whoever wants it.
+  await setIsl({ look: 'dark' });
+  await wait(600);
+  await openTab('home');
+  const dk = await colours();
+  check(dk.s0 === dk.s1 && dk.s1 === dk.s2 && lumOf(dk.s0) < 0.03, `Dark is one deep colour (${dk.s0})`);
+  await closeIsland();
+  // Settings → Island → Look: the preview and the choices; picking Colourful changes the Island itself.
+  await app.evaluate(({ BrowserWindow }) => { for (const w of BrowserWindow.getAllWindows()) if (w.webContents.getURL().includes('view=app')) { w.restore(); w.setSize(1440, 900); w.center(); w.webContents.send('event:navigate', 'island'); } });
+  await wait(1500);
+  await setIsl({ look: 'theme' });
+  await wait(500);
+  const lookRow = main.locator('[data-testid="island-look"]');
+  check(await lookRow.count() === 1 && await main.locator('[data-testid="island-look-preview"]').count() === 1, 'Settings → Island shows the Look choices and a preview');
+  check((await lookRow.innerText()).replace(/\s+/g, ' ').trim() === 'Match theme Dark Colourful', `the Look choices are in plain words (${(await lookRow.innerText()).replace(/\s+/g, ' ').trim()})`);
+  const before = (await colours()).s0;
+  await lookRow.locator('button', { hasText: 'Colourful' }).click();
+  await wait(1200);
+  const after = (await colours()).s0;
+  check(before !== after, `choosing Colourful in Settings recolours the Island (${before} → ${after})`);
+  check(await main.locator('[aria-label="Gradient"] button').count() >= 4, 'Colourful offers its gradients');
+  for (const mode of ['light', 'dark']) {
+    await setTheme({ theme: 'playful', appearance: mode });
+    await wait(900);
+    await main.evaluate(() => document.querySelector('[data-testid="island-settings-look"]')?.previousElementSibling?.scrollIntoView({ block: 'start' }));
+    await wait(300);
+    await main.screenshot({ path: path.join(COLOR_SHOTS, `islandcolor-look-${mode}.png`) }).catch(() => undefined);
+  }
+  await app.evaluate(({ BrowserWindow }) => { for (const w of BrowserWindow.getAllWindows()) if (w.webContents.getURL().includes('view=app')) w.setSize(1024, 768); });
+  await wait(700);
+  await main.screenshot({ path: path.join(COLOR_SHOTS, 'islandcolor-look-1024.png') }).catch(() => undefined);
+  await app.evaluate(({ BrowserWindow }) => { for (const w of BrowserWindow.getAllWindows()) if (w.webContents.getURL().includes('view=app')) w.minimize(); });
+  await setIsl({ look: 'theme' });
+  await setTheme({ theme: 'playful', appearance: 'system' });
+  await wait(600);
 
   const prev = await main.evaluate(() => window.keeper.island.placementPreview());
   check(prev.displays.length >= 1 && prev.wanted.length >= 1, `Settings preview sees ${prev.displays.length} screen(s): ${prev.displays.map((d) => `${d.info.bounds.width}×${d.info.bounds.height} ${d.placement.anchor}`).join(', ')}`);

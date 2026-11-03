@@ -10,6 +10,7 @@ import { Icon } from '../components/Icon';
 import { PageHead, Toggle } from '../components/ui';
 import { useAsync, useStore } from '../state';
 import { PlacementSettings } from '../island/PlacementSettings';
+import { IslandLookControls, IslandLookPreview } from '../island/LookSettings';
 import { IslandToolsSettings } from '../island/tools/ToolsSettings';
 import { PlusSettings } from '../island/PlusSettings';
 import { CalendarPicker, useIslandCalendars } from '../island/CalendarPicker';
@@ -77,13 +78,14 @@ export function IslandSettings() {
         <Toggle on={isl.enabled} onChange={(v) => set({ enabled: v })} label="Show the Island" />
       </PageHead>
 
-      <div className="island-preview" style={{ marginBottom: 20 }}>
-        <span style={{ fontSize: 18 }}>{isl.buddy ? '◕‿◕' : '●'}</span>
-        <span className="grow small" style={{ opacity: 0.85 }}>{state.data?.nowPlaying ? `${state.data.nowPlaying.title} — ${state.data.nowPlaying.artist}` : state.data?.events[0] ? `Next: ${state.data.events[0].title}` : 'All quiet'}</span>
-        {state.data?.weather ? <span className="small">{Math.round(state.data.weather.current.temp)}°</span> : null}
+      <h2 style={{ margin: '8px 0' }}>Look</h2>
+      <div className="card settings-section" data-testid="island-settings-look">
+        <IslandLookPreview isl={isl} line={state.data?.nowPlaying ? `${state.data.nowPlaying.title} — ${state.data.nowPlaying.artist}` : state.data?.events[0] ? `Next: ${state.data.events[0].title}` : undefined} />
+        <IslandLookControls isl={isl} set={set} />
       </div>
 
-      <h2 style={{ margin: '8px 0' }}>Placement</h2>
+
+      <h2 style={{ margin: '18px 0 8px' }}>Placement</h2>
       <PlacementSettings isl={isl} set={set} />
 
       <h2 style={{ margin: '18px 0 8px' }}>Deck and tools</h2>
