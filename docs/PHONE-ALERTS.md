@@ -24,7 +24,7 @@ It returns straight away and does nothing while the part is off or no way is set
 
 | Source | When |
 |---|---|
-| `monitors` | a monitor goes down, comes back, or a certificate is about to expire (docs/MONITORS.md) |
+| `monitors` | a monitor goes down, comes back, or a certificate is about to expire (docs/SITE-MONITORS.md) |
 | `backups` | a backup fails (not for a missing password, which waits for the person), and when it works again |
 | `automations` | an automation ran by itself and moved, trashed or tagged files (or some could not be) |
 | `focus` | everything the Island says about focus: a session done, a break over, strict mode, blocking |

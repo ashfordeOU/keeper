@@ -143,6 +143,7 @@ import { registerTimeTrackIpc } from './ipc/time-track';
 import { registerJournalIpc } from './ipc/journal';
 import { registerReaderIpc } from './ipc/reader';
 import { registerPhoneAlertsIpc } from './ipc/phone-alerts';
+import { registerMonitorsIpc } from './ipc/site-monitor';
 import { phoneAlert } from './services/phone-alerts';
 import { stopTimeTracking } from './services/time-track';
 import { focusChanged as focusBlockFocusChanged, focusStopRefusal, stopFocusBlock } from './services/focus-block';
@@ -1493,6 +1494,14 @@ app.whenReady().then(async () => {
   registerReaderIpc({ broadcast, alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }) });
   // Alerts to your phone: nothing is sent until a channel is set up and an alert it is for happens.
   registerPhoneAlertsIpc({ broadcast });
+  // Site and server monitors: no timer until one is added; alerts go to the Island (or the system) and the phone.
+  registerMonitorsIpc({
+    broadcast,
+    alert: (title, detail) => {
+      if (islandSvc && featureOn('island')) islandSvc.alert({ kind: 'info', title, detail });
+      else if (Notification.isSupported()) new Notification({ title, body: detail }).show();
+    },
+  });
   onControlsChanged(() => void updateTray());
   // Firewall: rules, alerts, the DNS filter and traffic history (nothing runs until switched on).
   registerFirewallIpc({ alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }), broadcast, window: { preload: preload(), load, lockDown } });

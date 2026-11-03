@@ -42,6 +42,13 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - On a Mac, Keeper watches every app without asking for anything; blocking single apps waits for Apple's approval of Keeper's network filter, and the page says so instead of showing buttons that would do nothing. The DNS filter can still block a site for every app.
 - The menu bar's summary has a Network part: "3 apps online" with the speeds and a small chart, the three busiest apps with a quick Block (and Allow to undo), "2 waiting" when prompts wait, and Open Network. Settings → Menu bar → Show network turns it off. On a short screen the summary folds the downloads, then the app list, so it still never scrolls.
 
+### Added — Monitors: your sites and servers
+- A Monitors page in the Computer section (switch it on in Settings → Features) checks your websites, ports, servers (ping) and DNS names on a schedule you choose for each.
+- For websites it can also look for a word on the page and warn you before the certificate expires.
+- See each one's uptime for today, the week and the month, its response times over the last day and its last checks.
+- When one goes down (two failed checks in a row) or comes back, the Island tells you, and Phone Alerts can tell your phone.
+- Add them one by one or import a plain list; copy your list back out the same way. Nothing runs until you add one.
+
 ### Added — Phone Alerts
 - A Phone Alerts page in the Devices section (switch it on in Settings → Features) sends Keeper's alerts to your phone: through the free ntfy app, your own Telegram bot, an e-mail from one of your Mail accounts, or a web address of yours.
 - Choose for each one what it gets: site and server checks, backups, automations, focus and time, the Fix-it List. Send a test from its card and see when the last alert arrived.

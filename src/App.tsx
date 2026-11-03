@@ -85,6 +85,8 @@ const CuesPage = lazy(() => import('./screens/Cues').then((m) => ({ default: m.C
 // The reader (feeds and read later) loads the first time its page opens.
 const ReaderPage = lazy(() => import('./screens/Reader').then((m) => ({ default: m.Reader })));
 // Alerts to your phone load the first time their page opens.
+// Site and server monitors load the first time their page opens.
+const MonitorsPage = lazy(() => import('./screens/Monitors').then((m) => ({ default: m.Monitors })));
 const PhoneAlertsPage = lazy(() => import('./screens/PhoneAlerts').then((m) => ({ default: m.PhoneAlerts })));
 // Journal mode in Notes loads the first time its page opens.
 const JournalPage = lazy(() => import('./screens/Journal').then((m) => ({ default: m.Journal })));
@@ -436,6 +438,7 @@ function Page() {
     time: () => <Suspense fallback={null}><TimePage /></Suspense>,
     reader: () => <Suspense fallback={null}><ReaderPage /></Suspense>,
     alerts: () => <Suspense fallback={null}><PhoneAlertsPage /></Suspense>,
+    monitors: () => <Suspense fallback={null}><MonitorsPage /></Suspense>,
     journal: () => <Suspense fallback={null}><JournalPage key={route.arg ?? ''} initialDay={route.arg} /></Suspense>,
     terminal: () => <TerminalApp mode="page" startCwd={route.arg} openSession={route.q?.startsWith('session:') ? route.q.slice(8) : undefined} />,
     rdc: () => <Suspense fallback={null}><RemoteDesktops /></Suspense>,

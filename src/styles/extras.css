@@ -84,3 +84,4 @@
 .xcheck { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: var(--r-pill); border: 1px solid var(--line-strong); background: transparent; color: var(--text-2); font-size: var(--fs-sm); cursor: default; }
 .xcheck[aria-pressed='true'] { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 45%, transparent); color: var(--text); font-weight: 600; }
 .xcheck:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.xmore summary { font-size: var(--fs-sm); color: var(--text-2); cursor: default; margin-bottom: 8px; }
