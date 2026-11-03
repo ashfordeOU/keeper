@@ -633,7 +633,8 @@ function MessageCard({ summary, accounts, prefs, onCollapse, act, onGone }: { su
   const [height, setHeight] = useState(240);
   const [look, setLook] = useState<string | null>(null);
   const frame = useRef<HTMLIFrameElement>(null);
-  const dark = document.documentElement.dataset.appearance === 'dark' || matchMedia('(prefers-color-scheme: dark)').matches;
+  // The appearance Keeper resolved (Light, Dark, or the system's), not only the system's.
+  const dark = document.documentElement.dataset.theme === 'dark';
 
   useEffect(() => {
     let alive = true;
