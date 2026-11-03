@@ -2,7 +2,6 @@
 // The Island's windows (one per display when asked), the clipboard picker,
 // their shortcuts and IPC. Desktop widgets live in ./widgets.ts.
 
-import { awakeItemShown } from './awake';
 import { app, BrowserWindow, dialog, globalShortcut, ipcMain, powerMonitor, screen, type WebContents } from 'electron';
 import { promises as fsp } from 'node:fs';
 import path from 'node:path';
@@ -434,7 +433,15 @@ export function toggleClips() {
 
 // ---------------------------------------------------------------- IPC & shortcuts
 
+/**
+ * Keep Awake's own menu-bar item is showing (./awake). Looked up when the app registers the Island:
+ * the Island's own process (electron/suite/part.ts) loads this file for its windows and must not
+ * load Keep Awake (and the services behind it) with it.
+ */
+let awakeItemShown = () => false;
+
 export function registerIslandIpc(c: IslandContext) {
+  void import('./awake').then((m) => { awakeItemShown = m.awakeItemShown; });
   ctx = c;
   winCtx = c;
   const svc = c.islandSvc;
