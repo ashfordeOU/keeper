@@ -5,7 +5,7 @@
 //   if (featureOn('widgets')) …
 //   onFeature('widgets', (on) => (on ? startWidgets() : stopWidgets()), { now: true })
 
-import { powerMonitor } from 'electron';
+import { app, powerMonitor } from 'electron';
 import { featureDef, featurePatch, FEATURES, featureStates, PRESETS, presetName, presetPatch, setForPower, setPatch, snapshotSet, type FeatureSet, type FeatureState, type PresetId } from '../../core/features';
 import { onSettings, settings, updateSettings } from '../store';
 import { loginItemOn, setLoginItem } from './login-item';
