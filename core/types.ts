@@ -507,4 +507,6 @@ export interface Settings {
   timeTrack: import('./time-track').TimeTrackOptions;
   /** Journal mode in Notes: which vault and folder, and what is added to an entry (core/notes/journal.ts) */
   journal: import('./notes/journal').JournalSettings;
+  /** the reader: how often feeds are read, how long articles stay, full text and pictures (core/reader.ts) */
+  reader: import('./reader').ReaderSettings;
 }

@@ -158,6 +158,8 @@ const api = {
   timeTrack: group('timeTrack', ['status', 'day', 'week', 'setPaused', 'saveRules', 'exportCsv', 'removeDay', 'wipe', 'testFront']),
   // Journal mode in Notes: a journal vault and photos for an entry.
   journal: group('journal', ['makeVault', 'addPhotos']),
+  // The reader: feeds, read later, OPML.
+  reader: group('reader', ['overview', 'items', 'article', 'addFeed', 'removeFeed', 'editFeed', 'refresh', 'setRead', 'markAllRead', 'setStarred', 'saveForLater', 'removeLater', 'importOpml', 'exportOpml']),
   islandx: group('islandx', ['status', 'callMute', 'callDismiss', 'hideFor', 'installAgentHooks', 'removeAgentHooks', 'openNotifyPermission', 'testNotification', 'startBreak', 'focusFor', 'mediaMode', 'openLauncher', 'showPage']),
   widgets: group('widgets', ['list', 'save', 'remove', 'photos', 'current', 'arrange', 'arranging', 'tint', 'focus']),
   // Dictation anywhere and meeting recording; the listening pill streams its microphone samples here.

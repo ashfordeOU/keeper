@@ -87,7 +87,7 @@ const brandName = () => {
   return named ? `${named[1]} ${ver}` : null;
 };
 const browserName = () => brandName() ?? navigator.userAgent.match(/(Firefox|Edg|OPR|Brave|Vivaldi|Chrome)\/(\d+)/)?.slice(1).join(' ').replace('Edg', 'Edge').replace('OPR', 'Opera') ?? 'Browser';
-const caps = () => ['tabs', 'mute', 'discard', ...(api.contentSettings ? ['contentSettings'] : []), ...(api.declarativeNetRequest ? ['dnr'] : []), ...(api.browsingData ? ['cookies'] : []), ...(api.proxy ? ['proxy'] : []), ...(api.declarativeNetRequest ? ['focus'] : [])];
+const caps = () => ['tabs', 'mute', 'discard', ...(api.contentSettings ? ['contentSettings'] : []), ...(api.declarativeNetRequest ? ['dnr'] : []), ...(api.browsingData ? ['cookies'] : []), ...(api.proxy ? ['proxy'] : []), ...(api.declarativeNetRequest ? ['focus'] : []), 'readLater'];
 
 /** tabId → { bytes, requests, parties: Map<host, {requests, blocked}> } since the page loaded */
 const usage = new Map();
@@ -385,9 +385,17 @@ if (api.contextMenus) {
     try {
       api.contextMenus.create({ id: 'keeper-cue-page', title: 'Leave a Keeper cue for this page', contexts: ['page', 'link', 'selection'] });
       api.contextMenus.create({ id: 'keeper-cue-site', title: 'Leave a Keeper cue for this site', contexts: ['page'] });
+      api.contextMenus.create({ id: 'keeper-read-later', title: 'Save for later in Keeper', contexts: ['page', 'link'] });
     } catch { /* already there */ }
   });
   api.contextMenus.onClicked.addListener((info, tab) => {
+    if (info.menuItemId === 'keeper-read-later') {
+      // Keeper fetches the page itself and keeps a clean copy; only the address and title are sent.
+      const url = info.linkUrl || tab?.url;
+      if (!url || !/^https?:/.test(url)) return;
+      try { linkToKeeper()?.postMessage({ kind: 'readLater', url, title: info.linkUrl ? (info.selectionText || '') : (tab?.title ?? '') }); } catch { /* Keeper is not running */ }
+      return;
+    }
     const target = info.linkUrl ? { ...tab, url: info.linkUrl, title: info.selectionText || info.linkUrl } : tab;
     leaveCue(target, info.menuItemId === 'keeper-cue-site', info.selectionText);
   });

@@ -540,6 +540,8 @@ export interface KeeperApi extends KeeperApiX {
   timeTrack: import('./api-time').TimeTrackApi;
   /** Journal mode in Notes */
   journal: import('./api-journal').JournalApi;
+  /** the reader: feeds and pages saved for later */
+  reader: import('./api-reader').ReaderApi;
   /** Island+: calls, levels, other apps' notifications, more agents */
   islandx: import('./island-plus').IslandPlusApi;
   /** Mail, calendars, reminders, alarms and contacts */
@@ -863,6 +865,8 @@ export interface KeeperApi extends KeeperApiX {
   on(channel: 'focusblock-changed', cb: () => void): () => void;
   /** time tracking recorded something or its settings changed */
   on(channel: 'time-changed', cb: () => void): () => void;
+  /** the reader's feeds or articles changed */
+  on(channel: 'reader-changed', cb: () => void): () => void;
   on(channel: 'widgets-arrange', cb: (on: boolean) => void): () => void;
   on(channel: 'ambience-changed', cb: () => void): () => void;
   on(channel: 'wallpaper-policy', cb: (p: import('./scenes/policy').RenderPolicy) => void): () => void;

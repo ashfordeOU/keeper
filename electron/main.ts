@@ -140,6 +140,7 @@ import { registerFirewallIpc, stopFirewall } from './ipc/fw';
 import { registerFocusBlockIpc } from './ipc/focus-block';
 import { registerTimeTrackIpc } from './ipc/time-track';
 import { registerJournalIpc } from './ipc/journal';
+import { registerReaderIpc } from './ipc/reader';
 import { stopTimeTracking } from './services/time-track';
 import { focusChanged as focusBlockFocusChanged, focusStopRefusal, stopFocusBlock } from './services/focus-block';
 import { act as procAct, apps as procApps } from './services/procs';
@@ -1568,6 +1569,8 @@ app.whenReady().then(async () => {
   if (islandSvc) islandSvc.stopGuard = focusStopRefusal;
   // Automatic time tracking: off until switched on; only on this computer, encrypted.
   registerTimeTrackIpc({ broadcast });
+  // The reader: feeds and pages saved for later (network only for what the person adds).
+  registerReaderIpc({ broadcast, alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }) });
   onControlsChanged(() => void updateTray());
   // Firewall: rules, alerts, the DNS filter and traffic history (nothing runs until switched on).
   registerFirewallIpc({ alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }), broadcast });

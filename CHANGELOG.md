@@ -56,6 +56,13 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - Select text in any app and press ⌘⇧1 / Ctrl+Shift+1: a small bar beside the pointer offers Copy, Search, Translate, Rewrite, Define, Open link and Write to. Translate, Rewrite and Define use the AI you chose in Keeper (which can run on this computer) and only when you press them; results come with Copy and Replace.
 - Choose the buttons, the language to translate into and the search address in Settings → AI → Actions for selected text. Off until you turn it on.
 
+### Added — Reader
+- A Reader page in the Notes section (switch it on in Settings → Features): follow a site by pasting its address (Keeper finds its feed; RSS, Atom and JSON Feed), see unread counts per feed and folder, star articles, and mark all read.
+- Articles open in a calm, clean view; when a feed gives only a summary, Keeper reads the article's page and keeps just the article, without menus, sidebars or comments.
+- Save any web page for later, from the Reader or from your browser's right-click menu with Keeper's extension; saved and opened articles read offline.
+- Import and export your feeds as OPML, with their folders.
+- Only the feeds and pages you add are fetched, every hour by default (slower when you are away, never while the screen is locked), and Keeper's firewall rules apply to them.
+
 ### Added — Notes: Journal
 - A Journal page in the Notes section (switch it on in Settings → Features) keeps one entry a day as an ordinary Markdown note: Start makes a Journal vault in Documents, or you choose one of your vaults.
 - Each entry has a mood, your words (saved as you type), photos you add or pick from the ones you took that day, and, if you switch them on, the weather and where you were from Weather and Places & Tracks.

@@ -23,6 +23,10 @@ Safari is not supported yet.
 
 Version 0.4.0 shows Keeper's block page while Keeper blocks sites for Focus (Keeper's Focus Blocking page). Keeper sends the list of sites; the extension sends pages on them to its own `blocked.html` (a page inside the extension, listed in `web_accessible_resources`) and moves tabs already open there. "Let me in" asks Keeper, which decides; in strict mode there is no such button. The block is kept in the extension's storage and ends at its time even when Keeper is not running. Nothing about the pages you visit is sent for this.
 
+## Save for later
+
+The page's right-click menu (and a link's) has **Save for later in Keeper**: the extension sends the page's address and title to Keeper, which fetches the page itself and keeps a clean copy in its Reader (Read later).
+
 ## Cues
 
 Version 0.3.0 adds Keeper's cues: notes and checklists tied to a page or a site that pop up when you come back to it. The toolbar button (or Alt+Shift+K, or the page's right-click menu) leaves a cue for the page or the whole site, and the extension tells Keeper which page is in front when it changes so cues can show beside it. Only the page's address and title go to Keeper on this computer. It needs the `contextMenus` permission for the right-click entries.

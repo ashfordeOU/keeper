@@ -75,6 +75,7 @@ export const NAV_PAGES: NavPage[] = [
   { id: 'remote', route: { name: 'remote' }, label: 'Cloud & Servers', icon: 'cloud', group: 'none', keywords: 'cloud drive dropbox onedrive google sftp webdav s3 nas server' },
 
   { id: 'notes', route: { name: 'notes' }, label: 'Notes', icon: 'document', group: 'notes', keywords: 'markdown vault obsidian' },
+  { id: 'reader', route: { name: 'reader' }, label: 'Reader', icon: 'rss', group: 'notes', keywords: 'rss atom feeds news blogs read later pocket articles opml' },
   { id: 'journal', route: { name: 'journal' }, label: 'Journal', icon: 'book', group: 'notes', keywords: 'diary daily entry mood photos on this day streak' },
   { id: 'cues', route: { name: 'cues' }, label: 'Cues', icon: 'pin', group: 'notes', keywords: 'checklist reminder app site' },
   { id: 'noteshub', route: { name: 'noteshub' }, label: 'Notes from Other Apps', icon: 'note', group: 'notes', keywords: 'notes everywhere apple notes onenote evernote obsidian sync' },

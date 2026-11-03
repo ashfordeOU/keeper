@@ -5,6 +5,7 @@ import { defaultA11y, normalizeA11y } from './a11y';
 import { defaultFocusBlockOptions, normalizeFocusBlockOptions } from './focus-block';
 import { defaultTimeTrackOptions, normalizeTimeTrackOptions } from './time-track';
 import { defaultJournalSettings, normalizeJournalSettings } from './notes/journal';
+import { defaultReaderSettings, normalizeReaderSettings } from './reader';
 import { defaultAwakeSettings, normalizeAwakeSettings } from './awake-engine';
 import { defaultAbilities } from './abilities/config';
 import type { IslandSettings } from './api';
@@ -170,6 +171,7 @@ export function defaultSettings(folders: string[], rules: Rule[]): AllSettings {
     focusBlock: defaultFocusBlockOptions(),
     timeTrack: defaultTimeTrackOptions(),
     journal: defaultJournalSettings(),
+    reader: defaultReaderSettings(),
     island: defaultIsland(),
   };
 }
@@ -206,6 +208,7 @@ export function mergeSettings(base: AllSettings, raw: unknown): AllSettings {
   out.focusBlock = normalizeFocusBlockOptions(out.focusBlock);
   out.timeTrack = normalizeTimeTrackOptions(out.timeTrack);
   out.journal = normalizeJournalSettings(out.journal);
+  out.reader = normalizeReaderSettings(out.reader);
   // Settings from before the brain had one AI choice; it becomes the active connection.
   out.brain = normalizeBrainSettings(r.brain && typeof r.brain === 'object' ? out.brain : undefined, out.ai);
   out.sync = normalizeSyncSettings(out.sync, base.sync);
