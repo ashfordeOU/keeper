@@ -198,15 +198,30 @@ describe('remove-old-releases workflow', () => {
     expect(raw).toContain('[ "$CONFIRM" = "delete" ]');
   });
 
-  it('deletes only pre-releases, only after a stable 1.0.0 or later, and keeps the tags', () => {
+  it('deletes only pre-releases, only after a stable 1.0.0 or later', () => {
     const run = rm.jobs.remove.steps?.map((s) => s.run ?? '').join('\n') ?? '';
     expect(run).toContain('select(.draft == false and .prerelease == false)');
     expect(run).toContain('No stable release 1.0.0 or later yet');
     expect(run).toContain('is not a pre-release');
+    // Only x.y.z-something versions are accepted, so a stable tag can never be named.
+    expect(run).toContain('^[0-9]+\\.[0-9]+\\.[0-9]+-[0-9A-Za-z.-]+$');
     expect(run).toContain('gh release delete "$tag" --yes');
     expect(run).not.toContain('--cleanup-tag');
-    expect(run).not.toMatch(/git push|git tag -d|gh api -X DELETE/);
+    expect(run).not.toMatch(/git push|git tag -d/);
     // Every version is checked before the first deletion.
     expect(run.indexOf('is not a pre-release')).toBeLessThan(run.indexOf('gh release delete'));
+  });
+
+  it('deletes tags only when delete_tags is on, and only the checked pre-release tags', () => {
+    const input = rm.on.workflow_dispatch.inputs?.delete_tags as { required?: boolean; default?: boolean; type?: string } | undefined;
+    expect(input?.type).toBe('boolean');
+    expect(input?.default).toBe(false);
+    const run = rm.jobs.remove.steps?.map((s) => s.run ?? '').join('\n') ?? '';
+    const deletes = run.match(/gh api -X DELETE [^\n]*/g) ?? [];
+    expect(deletes).toEqual(['gh api -X DELETE "repos/$GH_REPO/git/refs/tags/$tag" >/dev/null']);
+    const at = run.indexOf('gh api -X DELETE');
+    expect(run.lastIndexOf('if [ "$DELETE_TAGS" = "true" ]', at)).toBeGreaterThan(run.indexOf('# The release and its files go'));
+    expect(run.indexOf('is not a pre-release')).toBeLessThan(at);
+    expect(run).toContain('(tag kept)');
   });
 });
