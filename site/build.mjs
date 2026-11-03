@@ -92,7 +92,7 @@ const NAV = [
 ];
 
 // hero.webp is the home page's large picture and every page's preview image.
-const shotsUsed = new Set(['hero.webp']);
+const shotsUsed = new Set(['hero.webp', 'home-light.webp', 'home-dark.webp']);
 
 /** A screenshot in light and dark: CSS shows the one that matches the page's theme. */
 function shot(name, alt, cls = '') {

@@ -1,5 +1,8 @@
 <p align="center">
-  <img src="docs/screenshots/hero.webp" width="100%" alt="Keeper by Ashforde®: the Home window in dark mode, with the Island open above it">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/home-dark.webp">
+    <img src="docs/screenshots/home-light.webp" width="100%" alt="Keeper's Home: free space, the library by kind, recent downloads and the details of the selected file">
+  </picture>
 </p>
 
 <h1 align="center">Keeper <sub><sup>by Ashforde®</sup></sub></h1>
