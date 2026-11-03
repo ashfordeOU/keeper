@@ -12,6 +12,7 @@ import { api } from '../api';
 import { Icon } from '../components/Icon';
 import { Empty } from '../components/ui';
 import { useStore } from '../state';
+import { CitedAnswer } from './mail-parts';
 
 const errText = (e: unknown) => (e instanceof Error ? e.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '') : String(e));
 const names = (list: { name?: string; address: string }[]) => list.map((a) => a.name || a.address).join(', ');
@@ -127,7 +128,7 @@ export function AskCard({ answer, sources, onOpen, onClose }: { answer: string; 
   return (
     <div className="ai-card ask-card" data-testid="mail-ask">
       <div className="row" style={{ gap: 6 }}><Icon name="sparkle" size={13} /><b>From your mail</b><span className="grow" /><button aria-label="Close" title="Close" className="btn sm ghost icon" onClick={onClose}><Icon name="close" size={12} /></button></div>
-      <div className="ai-text">{answer}</div>
+      <CitedAnswer answer={answer} sources={sources} onOpen={onOpen} />
       {sources.length ? (
         <div className="ask-sources">
           {sources.map((m, i) => <button key={m.id} className="link-like small" onClick={() => onOpen(m.id)}>[{i + 1}] {m.subject}</button>)}

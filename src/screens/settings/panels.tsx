@@ -27,6 +27,7 @@ import { AshfordeAppsPanel } from '../../components/AshfordeApps';
 import { ThemeGallery, ThemeTweaks } from '../../components/ThemeGallery';
 import { MeshPlaces } from '../MeshParts';
 import { PimSettings } from '../../pim/PimSettings';
+import { MailPanel } from '../../pim/mail-settings';
 import { PermissionsPanel } from '../../components/PermissionsPanel';
 import { NativeAppsPanel } from '../../components/NativeAppsPanel';
 import { AccessibilityPanel } from '../../components/AccessibilityPanel';
@@ -261,6 +262,14 @@ export const PANELS: Record<string, PanelDef> = {
   usageLabel: { render: () => <Suspense fallback={null}><UsageSettings /></Suspense>, own: true, wide: true },
   brain: { render: () => <BrainSettingsPanel />, own: true, wide: true },
   pim: { render: () => <PimSettings />, own: true, wide: true },
+  mailReading: { render: () => <MailPanel part="reading" />, wide: true },
+  mailRules: { render: () => <MailPanel part="rules" />, wide: true },
+  mailSmart: { render: () => <MailPanel part="smart" />, wide: true },
+  mailTemplates: { render: () => <MailPanel part="templates" />, wide: true },
+  mailAi: { render: () => <MailPanel part="ai" />, wide: true },
+  mailNotch: { render: () => <MailPanel part="notch" />, wide: true },
+  mailPrivacy: { render: () => <MailPanel part="privacy" />, wide: true },
+  mailApps: { render: () => <MailPanel part="apps" />, wide: true },
   permissions: { render: () => <PermissionsPanel />, own: true, wide: true },
   usageStats: { render: () => <UsageStatsPanel />, wide: true },
   a11y: { render: () => <AccessibilityPanel />, own: true, wide: true },

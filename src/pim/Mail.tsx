@@ -23,6 +23,8 @@ import { useStore } from '../state';
 import { Compose } from './Compose';
 import { AccountDialog } from './AccountDialog';
 import { AskCard, CleanupView, ScheduledView, WaitingView } from './mail-views';
+import { AccountMark, ChatThread, CodeBanner, PhishBanner, QuickLook, remindMenu, SearchChips, SenderAvatar } from './mail-parts';
+import { accountForDigit, nextTextSize, type InboxTab } from '../../core/pim/smart';
 import '../styles/pim.css';
 
 const FOLDER_ICON: Record<string, string> = { inbox: 'inbox', sent: 'send', drafts: 'rename', trash: 'trash', junk: 'warning', archive: 'archive', all: 'mail', flagged: 'flag' };
@@ -73,10 +75,12 @@ export function Mail() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [folders, setFolders] = useState<MailFolder[]>([]);
   const [prefs, setPrefs] = useState<PimPrefsView | null>(null);
-  const [view, setView] = useState<MailView>({ folder: 'unified', threaded: true, filter: 'all', split: 'important' });
+  const [view, setView] = useState<MailView>({ folder: 'unified', threaded: true, filter: 'all', tab: 'important' });
+  const [unread, setUnread] = useState<Record<string, number>>({});
+  const [narrowBack, setNarrowBack] = useState(0);
   const [side, setSide] = useState<Side>(null);
   const [query, setQuery] = useState('');
-  const [list, setList] = useState<{ messages: MessageSummary[]; threads?: Thread[]; counts?: { important: number; other: number } }>({ messages: [] });
+  const [list, setList] = useState<{ messages: MessageSummary[]; threads?: Thread[]; counts?: { important: number; other: number; all?: number; updates?: number; promos?: number } }>({ messages: [] });
   const [server, setServer] = useState<{ q: string; busy: boolean; messages: MessageSummary[] } | null>(null);
   const [ask, setAsk] = useState<{ busy: boolean; answer?: string; sources?: MessageSummary[] } | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
@@ -106,8 +110,9 @@ export function Mail() {
   const loadList = useCallback(() => {
     const q = query.trim();
     // Searching looks in every account and folder kept on this computer first.
-    const v: MailView = q ? { ...view, folder: 'search', account: undefined, split: undefined, query: q } : { ...view, split: splitOn ? view.split : undefined };
+    const v: MailView = q ? { ...view, folder: 'search', account: undefined, split: undefined, tab: undefined, query: q } : { ...view, split: undefined, tab: splitOn ? view.tab : undefined };
     void api.pim.messages(v).then(setList);
+    void api.pim.unreadCounts().then((u) => setUnread(u.byAccount));
     void api.pim.waiting().then((w) => setWaitingCount(w.filter((x) => x.overdue).length));
   }, [view, query, splitOn]);
   const loadOutbox = useCallback(() => void api.pim.outbox().then(setOutbox), []);
@@ -116,15 +121,20 @@ export function Mail() {
   // "New Mail Message" from the command palette or a keeper:// link; a message id from the Island's drop-down.
   useEffect(() => {
     if (route.arg === 'compose') setCompose({ to: [], cc: [], bcc: [], subject: '', body: '' });
+    // A message an app prepared (over MCP): it opens here and goes only if the person presses Send.
+    else if (route.arg === 'staged') void api.pim.stagedCompose().then((d) => { if (d) setCompose(d); });
+    // Files dropped on the notch: a new message with them attached.
+    else if (route.arg?.startsWith('attach:')) { try { setCompose({ to: [], cc: [], bcc: [], subject: '', body: '', attachments: (JSON.parse(decodeURIComponent(route.arg.slice(7))) as string[]).map((path) => ({ path })) }); } catch { /* a bad link */ } }
     // A contact from the search box: the mail from them.
     else if (route.arg?.startsWith('search:')) { setSide(null); setQuery(route.arg.slice(7)); }
-    else if (route.arg && route.arg.split(':').length > 2) { setSide(null); setQuery(''); setView((v) => ({ ...v, folder: 'unified', account: undefined, split: undefined })); setSelected(route.arg); }
+    else if (route.arg && route.arg.split(':').length > 2) { setSide(null); setQuery(''); setView((v) => ({ ...v, folder: 'unified', account: undefined, split: undefined, tab: 'all' })); setSelected(route.arg); }
   }, [route.arg]);
   useEffect(loadList, [loadList]);
   useEffect(loadOutbox, [loadOutbox]);
   usePimChanges(['accounts'], loadAccounts);
   usePimChanges(['mail'], () => { loadList(); void api.pim.folders().then(setFolders); setReloadKey((k) => k + 1); });
   usePimChanges(['outbox'], loadOutbox);
+  usePimChanges(['staged'], () => void api.pim.stagedCompose().then((d) => { if (d) setCompose(d); }));
 
   // Then the servers, for older mail not kept here.
   useEffect(() => {
@@ -133,7 +143,7 @@ export function Mail() {
     if (q.length < 3) { setServer(null); return; }
     const h = setTimeout(() => {
       setServer({ q, busy: true, messages: [] });
-      void api.pim.searchServer(q).then((m) => setServer((s) => (s?.q === q ? { q, busy: false, messages: m } : s)), () => setServer((s) => (s?.q === q ? { q, busy: false, messages: [] } : s)));
+      void api.pim.search(q, { server: true }).then((r) => setServer((s) => (s?.q === q ? { q, busy: false, messages: r.messages.slice(r.local) } : s)), () => setServer((s) => (s?.q === q ? { q, busy: false, messages: [] } : s)));
     }, 700);
     return () => clearTimeout(h);
   }, [query]);
@@ -170,7 +180,7 @@ export function Mail() {
   const act = async (fn: () => Promise<unknown>, done?: string) => {
     try {
       await fn();
-      if (done) toast(done);
+      if (done) toast(/^(Archived|Moved|Moved to Trash|Moved to Junk)/.test(done) ? `${done} · ${mac ? '⌘Z' : 'Ctrl+Z'} to undo` : done);
       setChecked(new Set());
     } catch (e) {
       toast(errText(e));
@@ -186,11 +196,15 @@ export function Mail() {
   const reply = useCallback(async (mode: 'reply' | 'replyAll' | 'forward', id = current?.last.id, body?: string) => {
     if (!id) return;
     const d = await api.pim.draftFor(id, mode);
-    setCompose({ ...d, body: body ?? d.body, account: id.split(':')[0] });
+    setCompose({ ...d, body: body ?? d.body, account: id.split(':')[0], replyOf: id } as Draft & { account?: string });
   }, [current]);
 
   const snoozeMenu = (x: number, y: number, target: string[]) => setMenu({ x, y, items: snoozeChoices(Date.now()).map((s) => ({ label: s.label, icon: 'clock', run: () => void act(() => api.pim.snooze(target, s.at), `Snoozed until ${new Date(s.at).toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' })}`) })) });
-  const showSplit = (split: 'important' | 'other' | undefined) => { setSide(null); setQuery(''); setView({ ...view, split }); setSelected(null); };
+  const showTab = (tab: InboxTab) => { setSide(null); setQuery(''); setView({ ...view, tab, split: undefined }); setSelected(null); };
+  const showSplit = (split: 'important' | 'other' | undefined) => showTab(split === 'important' ? 'important' : split === 'other' ? 'updates' : 'all');
+  const undoLast = () => void api.pim.undo().then((what) => toast(what ? `Undone: ${what}` : 'Nothing to undo'), (e) => toast(errText(e)));
+  const mailAccountsOrdered = accounts.filter((a) => a.mail);
+  const textSize = prefs?.mailTextSize ?? 14;
 
   // Keyboard shortcuts: the chosen set, with the person's own changes.
   const resolve = useMemo(() => makeResolver(bindings(prefs?.shortcutScheme ?? 'gmail', prefs?.shortcutOverrides as Partial<Record<MailAction, string>>)), [prefs?.shortcutScheme, prefs?.shortcutOverrides]);
@@ -206,11 +220,24 @@ export function Mail() {
       snooze: () => { if (ids.length) snoozeMenu(window.innerWidth / 2 - 100, 140, ids); },
       search: () => searchRef.current?.focus(),
       select: () => { if (current) { const n = new Set(checked); if (n.has(current.last.id)) n.delete(current.last.id); else n.add(current.last.id); setChecked(n); } },
-      back: () => { if (checked.size) setChecked(new Set()); else setSelected(null); },
+      back: () => { if (checked.size) setChecked(new Set()); else { setSelected(null); setNarrowBack((x) => x + 1); } },
       important: () => showSplit('important'), other: () => showSplit('other'),
       followUp: () => { if (current) void api.pim.followUp(current.last.id).then(setCompose, (e) => toast(errText(e))); },
     };
     const onKey = (e: KeyboardEvent) => {
+      const mod = mac ? e.metaKey : e.ctrlKey;
+      if (mod && !compose && !document.querySelector('.modal, .palette')) {
+        // ⌘1…⌘9 one account's inbox, ⌘0 every inbox; ⌘K search; ⌘Z undo; ⌘+ / ⌘− text size.
+        if (/^[0-9]$/.test(e.key) && !e.shiftKey && !e.altKey) {
+          const t = accountForDigit(Number(e.key), mailAccountsOrdered);
+          if (t) { e.preventDefault(); if (t === 'all') openView({ folder: 'unified', account: undefined, tab: splitOn ? 'important' : undefined }); else openView({ account: t.id, folder: 'INBOX', tab: splitOn ? 'important' : undefined }); }
+          return;
+        }
+        if (e.key.toLowerCase() === 'k' && !e.shiftKey) { e.preventDefault(); searchRef.current?.focus(); searchRef.current?.select(); return; }
+        if (e.key.toLowerCase() === 'z' && !e.shiftKey && !typing(e)) { e.preventDefault(); undoLast(); return; }
+        if ((e.key === '=' || e.key === '+' || e.key === '-') && !typing(e)) { e.preventDefault(); void api.pim.setPrefs({ mailTextSize: nextTextSize(textSize, e.key === '-' ? -1 : 1) }).then(setPrefs); return; }
+        if (e.key.toLowerCase() === 'i' && e.shiftKey && !typing(e)) { e.preventDefault(); window.dispatchEvent(new CustomEvent('mail-load-images')); return; }
+      }
       if (typing(e) || compose || document.querySelector('.modal, .menu, .palette')) return;
       const a = resolve(comboOf(e, mac));
       if (!a) return;
@@ -279,8 +306,11 @@ export function Mail() {
         : { label: 'Move this sender to Other', icon: 'inbox', run: () => void act(() => api.pim.setCategory(sender, 'other'), 'Mail from this sender goes to Other') }] : []),
       { sep: true, label: '' },
       { label: 'Add to Tasks', icon: 'listCheck', run: () => void act(() => addToTasks([m]), 'Added to Tasks') },
+      { label: 'Mute conversation', icon: 'eyeOff', run: () => void act(() => api.pim.mute([m.id], true), 'Muted: new mail in it skips the inbox') },
+      ...(sender ? [{ label: `Block ${sender}`, icon: 'lock', run: () => void act(() => api.pim.block(sender, true), `Blocked ${sender}`) }] : []),
+      ...(m.from && mine.has(m.from.address.toLowerCase()) ? remindMenu(Date.now(), (at) => void act(() => api.pim.remindNoReply(m.id, at), at ? `I’ll remind you ${new Date(at).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })} if nobody answers` : 'Reminder cancelled')).slice(0, 1) : []),
       { label: 'Archive', icon: 'archive', run: () => void act(() => api.pim.archive([m.id]), 'Archived') },
-      { label: 'Move to Junk', icon: 'warning', run: () => void act(() => api.pim.junk([m.id]), 'Moved to Junk') },
+      { label: 'Report spam', icon: 'warning', run: () => void act(() => api.pim.reportSpam([m.id]), 'Moved to Junk; the sender is blocked') },
       { label: 'Delete', icon: 'trash', danger: true, run: () => void act(() => api.pim.trash([m.id]), 'Moved to Trash') },
     ] });
   };
@@ -290,8 +320,9 @@ export function Mail() {
   const cross = view.folder === 'unified' || view.folder === 'unified:sent' || view.folder === 'snoozed' || searching;
 
   const rowsEl = (
-    <div className={`mail-rows ${layout === 'wide' ? 'wide' : ''}`} role="listbox" aria-label="Messages" aria-multiselectable>
+    <div className={`mail-rows ${layout === 'wide' ? 'wide' : ''} density-${prefs?.mailDensity ?? 'comfortable'}`} role="listbox" aria-label="Messages" aria-multiselectable>
       {ask ? (ask.busy ? <div className="ai-card"><div className="row" style={{ gap: 8 }}><div className="spinner" /> Reading your mail…</div></div> : <AskCard answer={ask.answer ?? ''} sources={ask.sources ?? []} onOpen={(id) => setSelected(id)} onClose={() => setAsk(null)} />) : null}
+      {searching ? <SearchChips query={query} onSave={() => { const name = window.prompt('Name for this smart mailbox', query.trim()); if (name) void api.pim.setPrefs({ smartMailboxes: [...(prefs?.smartMailboxes ?? []), { id: Math.random().toString(36).slice(2, 10), name, query: query.trim() }] }).then((p) => { setPrefs(p); toast('Saved as a smart mailbox'); }); }} /> : null}
       {searching && localCount ? <div className="mail-section">On this computer · {localCount}</div> : null}
       {rows.length ? rows.map((r, i) => {
         const m = r.last;
@@ -307,6 +338,7 @@ export function Mail() {
               draggable onDragStart={(e) => e.dataTransfer.setData('text/keeper-mail', JSON.stringify(r.thread ? r.thread.messages.map((x) => x.id) : [m.id]))}
               onContextMenu={(e) => rowMenu(e, m)}>
               <span className={`check ${checked.has(m.id) ? 'on' : ''}`} role="checkbox" aria-checked={checked.has(m.id)} aria-label="Select" onClick={(e) => { e.stopPropagation(); toggleCheck(m.id); }}>{checked.has(m.id) ? <Icon name="check" size={11} /> : null}</span>
+              {layout !== 'wide' && prefs?.mailDensity !== 'compact' ? <SenderAvatar from={m.from && mine.has(m.from.address.toLowerCase()) ? m.to[0] : m.from} size={30} /> : null}
               {layout === 'wide' ? (
                 <>
                   <span className="mail-from ellipsis">{people}{r.count > 1 ? <span className="mail-count">{r.count}</span> : null}</span>
@@ -333,24 +365,25 @@ export function Mail() {
             </div>
           </div>
         );
-      }) : <div className="empty small muted" style={{ padding: 30 }}>{searching ? (server?.busy ? 'Nothing on this computer; asking the servers…' : 'No messages match') : view.split === 'important' ? 'Nothing important waiting. Nice.' : 'Nothing here'}</div>}
+      }) : <div className="empty small muted" style={{ padding: 30 }}>{searching ? (server?.busy ? 'Nothing on this computer; asking the servers…' : 'No messages match') : view.folder === 'toreply' ? 'Nobody is waiting for an answer from you.' : view.tab === 'important' ? 'Nothing important waiting. Nice.' : 'Nothing here'}</div>}
       {searching && server?.busy && rows.length ? <div className="mail-section"><div className="spinner" /> Searching the servers…</div> : null}
       {!searching && view.account && !cross && rows.length >= 100 ? <button className="btn ghost sm" style={{ margin: 12 }} onClick={() => void api.pim.older(view.account!, view.folder)}>Load older messages</button> : null}
     </div>
   );
 
-  const reader = current ? <Conversation key={current.key} row={current} accounts={accounts} onReply={(m, id, body) => void reply(m, id, body)} act={act} onBack={layout === 'wide' ? () => setSelected(null) : undefined} onSnooze={(x, y) => snoozeMenu(x, y, ids)} /> : null;
+  const reader = current ? <Conversation key={current.key} row={current} accounts={accounts} mine={mine} prefs={prefs} onReply={(m, id, body) => void reply(m, id, body)} act={act} onBack={() => setSelected(null)} wide={layout === 'wide'} onSnooze={(x, y) => snoozeMenu(x, y, ids)} onMenu={(x, y, items) => setMenu({ x, y, items })} /> : null;
   const sideView = side === 'waiting' ? <WaitingView reloadKey={reloadKey} onOpen={(id) => { setSide(null); setView({ ...view, folder: 'unified:sent', account: undefined, split: undefined }); setSelected(id); }} onCompose={(d) => setCompose(d)} />
     : side === 'cleanup' ? <CleanupView reloadKey={reloadKey} />
       : side === 'scheduled' ? <ScheduledView outbox={outbox} onEdit={(d) => setCompose(d)} /> : null;
 
   return (
-    <div className={`mail layout-${layout} ${side ? 'with-side' : ''} ${layout === 'wide' && current ? 'reading' : ''}`}>
+    <div className={`mail layout-${layout} ${side ? 'with-side' : ''} ${current ? 'reading' : ''}`} data-narrow-back={narrowBack} style={{ ['--mail-text' as string]: `${textSize}px` }}>
       <aside className="mail-folders">
         <button className="btn primary compose-btn" onClick={() => setCompose({ to: [], cc: [], bcc: [], subject: '', body: '' })}><Icon name="rename" size={14} /> New message</button>
         <button className={`mail-folder ${isOn('unified') ? 'on' : ''}`} onClick={() => openView({ folder: 'unified', account: undefined, split: splitOn ? 'important' : undefined })}>
           <Icon name="inbox" size={15} /><span className="grow ellipsis">All inboxes</span>{totalUnread ? <span className="count">{totalUnread}</span> : null}
         </button>
+        <button className={`mail-folder ${isOn('toreply') ? 'on' : ''}`} onClick={() => openView({ folder: 'toreply', account: undefined, split: undefined, tab: undefined })} data-testid="mail-nav-toreply"><Icon name="reply" size={15} /><span className="grow ellipsis">To Reply</span></button>
         <button className={`mail-folder ${side === 'waiting' ? 'on' : ''}`} onClick={() => openSide('waiting')} data-testid="mail-nav-waiting">
           <Icon name="history" size={15} /><span className="grow ellipsis">Waiting for reply</span>{waitingCount ? <span className="count warn">{waitingCount}</span> : null}
         </button>
@@ -358,9 +391,15 @@ export function Mail() {
         {scheduled.length ? <button className={`mail-folder ${side === 'scheduled' ? 'on' : ''}`} onClick={() => openSide('scheduled')}><Icon name="send" size={15} /><span className="grow ellipsis">Scheduled</span><span className="count">{scheduled.length}</span></button> : null}
         <button className={`mail-folder ${isOn('unified:sent') ? 'on' : ''}`} onClick={() => openView({ folder: 'unified:sent', account: undefined, split: undefined })}><Icon name="send" size={15} /><span className="grow ellipsis">All sent</span></button>
         <button className={`mail-folder ${side === 'cleanup' ? 'on' : ''}`} onClick={() => openSide('cleanup')} data-testid="mail-nav-cleanup"><Icon name="broom" size={15} /><span className="grow ellipsis">Subscriptions</span></button>
-        {mailAccounts.map((a) => (
+        {(prefs?.smartMailboxes ?? []).length ? (
+          <div className="mail-account">
+            <div className="mail-account-name">Smart mailboxes</div>
+            {(prefs?.smartMailboxes ?? []).map((sm) => <button key={sm.id} className={`mail-folder ${isOn(`smart:${sm.id}`) ? 'on' : ''}`} title={sm.query} onClick={() => openView({ folder: `smart:${sm.id}`, account: undefined, split: undefined, tab: undefined })}><Icon name="search" size={15} /><span className="grow ellipsis">{sm.name}</span></button>)}
+          </div>
+        ) : null}
+        {mailAccounts.map((a, ai) => (
           <div key={a.id} className="mail-account">
-            <div className="mail-account-name" title={a.email}><i style={{ background: a.color ?? 'var(--accent)' }} />{a.label}{(a as Account & { needsSignIn?: boolean }).needsSignIn ? <span className="badge warn" title="Sign in again">!</span> : (a as Account & { lastError?: string }).lastError ? <span className="badge warn" title={`Couldn’t check it: ${(a as Account & { lastError?: string }).lastError}. Settings → Mail & Calendar has Retry.`}>!</span> : null}</div>
+            <div className="mail-account-name" title={`${a.email ?? ''}${ai < 9 ? ` · ${mac ? '⌘' : 'Ctrl+'}${ai + 1}` : ''}`}><AccountMark a={a} />{a.label}{unread[a.id] ? <span className="acct-unread" data-testid="mail-account-unread">{unread[a.id]}</span> : null}{(a as Account & { needsSignIn?: boolean }).needsSignIn ? <span className="badge warn" title="Sign in again">!</span> : (a as Account & { lastError?: string }).lastError ? <span className="badge warn" title={`Couldn’t check it: ${(a as Account & { lastError?: string }).lastError}. Settings → Mail & Calendar has Retry.`}>!</span> : null}</div>
             {folders.filter((f) => f.account === a.id).map((f) => (
               <button key={f.path} className={`mail-folder ${isOn(f.path, a.id) ? 'on' : ''}`} style={{ paddingLeft: 8 + depth(f) * 14 }} title={f.path} onClick={() => openView({ account: a.id, folder: f.path, split: f.special === 'inbox' && splitOn ? 'important' : undefined })}
                 onDragOver={(e) => e.preventDefault()} onDrop={(e) => { const raw = e.dataTransfer.getData('text/keeper-mail'); if (raw) void act(() => api.pim.move(JSON.parse(raw), f.path), `Moved to ${f.name}`); }}>
@@ -380,7 +419,7 @@ export function Mail() {
           <div className="mail-list-head">
             <div className="input-wrap grow">
               <Icon name="search" size={14} />
-              <input ref={searchRef} className="input" placeholder="Search all mail, or ask a question" value={query} onChange={(e) => setQuery(e.target.value)}
+              <input ref={searchRef} className="input" placeholder={`Search all mail or ask (${mac ? '⌘K' : 'Ctrl+K'})`} title="Filters: from: to: subject: has:attachment is:unread in: label: before: after:" value={query} onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Escape') setQuery(''); else if (e.key === 'Enter' && /\?\s*$/.test(query)) void askMail(); }} aria-label="Search mail" />
             </div>
             {searching ? <button className="btn sm ghost" title="Ask your mail (answers from the messages that fit, with sources)" onClick={() => void askMail()} data-testid="mail-ask-btn"><Icon name="sparkle" size={13} /> Ask</button> : null}
@@ -388,10 +427,12 @@ export function Mail() {
             <button className="btn icon sm" title={layout === 'wide' ? 'List beside the message' : 'Wide list with bulk actions'} aria-label="Change layout" onClick={() => void api.pim.setPrefs({ mailLayout: layout === 'wide' ? 'split' : 'wide' }).then(setPrefs)}><Icon name={layout === 'wide' ? 'columns' : 'list'} size={14} /></button>
           </div>
           {inboxView && splitOn ? (
-            <div className="mail-tabs" role="tablist">
-              <button role="tab" aria-selected={view.split === 'important'} className={view.split === 'important' ? 'on' : ''} onClick={() => showSplit('important')}>Important{list.counts?.important ? <span className="count">{list.counts.important}</span> : null}</button>
-              <button role="tab" aria-selected={view.split === 'other'} className={view.split === 'other' ? 'on' : ''} onClick={() => showSplit('other')}>Other{list.counts?.other ? <span className="count">{list.counts.other}</span> : null}</button>
-              <button role="tab" aria-selected={!view.split} className={!view.split ? 'on' : ''} onClick={() => showSplit(undefined)}>All</button>
+            <div className="mail-tabs" role="tablist" data-testid="mail-tabs">
+              {([['all', 'All', list.counts?.all], ['important', 'Primary', list.counts?.important], ['updates', 'Updates', list.counts?.updates], ['promos', 'Promos', list.counts?.promos]] as const).map(([t, label, n]) => (
+                <button key={t} role="tab" aria-selected={(view.tab ?? 'all') === t} className={(view.tab ?? 'all') === t ? 'on' : ''} onClick={() => showTab(t)}>{label}{n ? <span className="count">{n}</span> : null}</button>
+              ))}
+              <span className="grow" />
+              <button className={`btn sm ghost ${view.filter === 'unread' ? 'on' : ''}`} aria-pressed={view.filter === 'unread'} title="Only unread" data-testid="mail-unread-only" onClick={() => setView({ ...view, filter: view.filter === 'unread' ? 'all' : 'unread' })}><Icon name="mail" size={12} /> Unread</button>
             </div>
           ) : null}
           {!searching ? (
@@ -454,13 +495,17 @@ async function addToTasks(ms: MessageSummary[]) {
   for (const m of ms) await api.pim.saveReminder({ id: '', list: '', title: m.subject || '(no subject)', notes: notesFromMessage(m), url: mailLink(m.id), done: false });
 }
 
-function Conversation({ row, accounts, onReply, act, onBack, onSnooze }: {
+function Conversation({ row, accounts, mine, prefs, onReply, act, onBack, wide, onSnooze, onMenu }: {
   row: { last: MessageSummary; thread?: Thread };
   accounts: Account[];
+  mine: Set<string>;
+  prefs: PimPrefsView | null;
   onReply: (mode: 'reply' | 'replyAll' | 'forward', id: string, body?: string) => void;
   act: (fn: () => Promise<unknown>, done?: string) => Promise<void>;
-  onBack?: () => void;
+  onBack: () => void;
+  wide: boolean;
   onSnooze: (x: number, y: number) => void;
+  onMenu: (x: number, y: number, items: MenuItem[]) => void;
 }) {
   const { toast } = useStore();
   const msgs = row.thread ? row.thread.messages : [row.last];
@@ -469,6 +514,11 @@ function Conversation({ row, accounts, onReply, act, onBack, onSnooze }: {
   const [busy, setBusy] = useState<string | null>(null);
   const last = msgs[msgs.length - 1];
   const ids = msgs.map((m) => m.id);
+  const acct = accounts.find((a) => a.id === last.account);
+  const [chat, setChat] = useState(acct?.readingView === 'chat');
+  const sentByMe = !!last.from && mine.has(last.from.address.toLowerCase());
+  const [remindAt, setRemindAt] = useState<number | undefined>();
+  useEffect(() => { if (sentByMe) void api.pim.noReplyReminders().then((l) => setRemindAt(l.find((r) => r.messageId === last.messageId)?.at)); }, [last.id, sentByMe]);
 
   const runAi = async (task: 'summarize' | 'replies' | 'extract' | 'translate') => {
     setBusy(task);
@@ -482,11 +532,20 @@ function Conversation({ row, accounts, onReply, act, onBack, onSnooze }: {
     }
   };
   const aiBtn = (task: 'summarize' | 'replies' | 'extract' | 'translate', icon: string, label: string) => <button className="btn sm ghost" disabled={!!busy} onClick={() => void runAi(task)}>{busy === task ? <div className="spinner" /> : <Icon name={icon} size={13} />} {label}</button>;
+  const more = (e: React.MouseEvent) => onMenu(e.clientX - 180, e.clientY + 12, [
+    { label: chat ? 'Show as messages' : 'Show as chat', icon: 'list', run: () => setChat(!chat) },
+    { label: 'Print…', icon: 'document', run: () => void printMessage(last.id).catch((x) => toast(errText(x))) },
+    { label: 'Save as PDF…', icon: 'down', run: () => void api.pim.savePdf(last.id).then((p) => p && toast(`Saved ${p.split(/[\\/]/).pop()}`), (x) => toast(errText(x))) },
+    { sep: true, label: '' },
+    { label: 'Mute conversation', icon: 'eyeOff', run: () => void act(() => api.pim.mute(ids, true), 'Muted: new mail in it skips the inbox') },
+    ...(last.from && !sentByMe ? [{ label: `Block ${last.from.address}`, icon: 'lock', run: () => void act(() => api.pim.block(last.from!.address, true), `Blocked ${last.from!.address}`) }] : []),
+    { label: 'Report spam', icon: 'warning', danger: true, run: () => void act(() => api.pim.reportSpam([last.id]), 'Moved to Junk; the sender is blocked') },
+  ]);
 
   return (
     <div className="conversation">
       <div className="reader-toolbar">
-        {onBack ? <button className="btn sm ghost" title="Back to the list (Esc)" onClick={onBack}><Icon name="chevronLeft" size={14} /> Back</button> : null}
+        <button className={`btn sm ghost back-btn ${wide ? 'always' : ''}`} title="Back to the list (Esc)" data-testid="mail-back" onClick={onBack}><Icon name="chevronLeft" size={14} /> Back</button>
         <button className="btn sm ghost" title="Reply" onClick={() => onReply('reply', last.id)}><Icon name="reply" size={14} /> Reply</button>
         <button className="btn sm ghost" title="Reply all" aria-label="Reply all" onClick={() => onReply('replyAll', last.id)}><Icon name="replyAll" size={14} /></button>
         <button className="btn sm ghost" title="Forward" aria-label="Forward" onClick={() => onReply('forward', last.id)}><Icon name="forward" size={14} /></button>
@@ -497,6 +556,8 @@ function Conversation({ row, accounts, onReply, act, onBack, onSnooze }: {
         <button className="btn sm ghost" title="Flag" aria-label="Flag" onClick={() => void act(() => api.pim.setFlagged([last.id], !last.flagged))}><Icon name="flag" size={14} style={last.flagged ? { color: 'var(--warn)' } : undefined} /></button>
         <button className="btn sm ghost" title="Mark as unread" aria-label="Mark as unread" onClick={() => void act(() => api.pim.setRead([last.id], false))}><Icon name="mail" size={14} /></button>
         <button className="btn sm ghost" title="Add to Tasks (the task links back to this email)" aria-label="Add to Tasks" data-testid="mail-add-task" onClick={() => void act(() => addToTasks([last]), 'Added to Tasks')}><Icon name="listCheck" size={14} /></button>
+        {sentByMe ? <button className={`btn sm ghost ${remindAt ? 'on' : ''}`} title={remindAt ? `Reminder ${new Date(remindAt).toLocaleString()} if no reply` : 'Remind me if no reply'} aria-label="Remind me if no reply" data-testid="mail-remind" onClick={(e) => onMenu(e.clientX, e.clientY + 12, remindMenu(Date.now(), (at) => void act(async () => { await api.pim.remindNoReply(last.id, at); setRemindAt(at ?? undefined); }, at ? `I’ll remind you ${new Date(at).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })} if nobody answers` : 'Reminder cancelled'), remindAt))}><Icon name="alarm" size={14} /></button> : null}
+        <button className="btn sm ghost" title="More" aria-label="More" data-testid="mail-more" onClick={more}><Icon name="chevronDown" size={14} /></button>
         <span className="grow" />
         {aiBtn('summarize', 'sparkle', 'Summarize')}
         {aiBtn('replies', 'sparkle', 'Reply ideas')}
@@ -527,8 +588,8 @@ function Conversation({ row, accounts, onReply, act, onBack, onSnooze }: {
           {ai.task === 'reply' ? <button className="btn sm primary" style={{ marginTop: 8 }} onClick={() => onReply('reply', last.id, ai.text)}>Use this reply</button> : null}
         </div>
       ) : null}
-      {msgs.map((m) => open.has(m.id)
-        ? <MessageCard key={m.id} summary={m} accounts={accounts} onCollapse={msgs.length > 1 ? () => setOpen(new Set([...open].filter((x) => x !== m.id))) : undefined} act={act} />
+      {chat ? <ChatThread msgs={msgs} mine={mine} onSent={() => toast('Sending…')} onFull={(id, body) => onReply('reply', id, body)} /> : msgs.map((m) => open.has(m.id)
+        ? <MessageCard key={m.id} summary={m} accounts={accounts} prefs={prefs} onCollapse={msgs.length > 1 ? () => setOpen(new Set([...open].filter((x) => x !== m.id))) : undefined} act={act} onGone={onBack} />
         : (
           <button key={m.id} className="message-collapsed" onClick={() => setOpen(new Set([...open, m.id]))}>
             <b>{m.from?.name || m.from?.address}</b><span className="grow ellipsis muted">{m.snippet}</span><span className="small muted">{when(m.date)}</span>
@@ -538,21 +599,39 @@ function Conversation({ row, accounts, onReply, act, onBack, onSnooze }: {
   );
 }
 
-function iframeDoc(html: string, allowRemote: boolean, dark: boolean, plain: boolean): string {
+/** Prints the message (the system's print window; Save as PDF is there too on a Mac). */
+async function printMessage(id: string) {
+  const html = await api.pim.printable(id);
+  const f = document.createElement('iframe');
+  f.style.position = 'fixed';
+  f.style.width = '0';
+  f.style.height = '0';
+  f.style.border = '0';
+  f.setAttribute('sandbox', 'allow-modals allow-same-origin');
+  f.srcdoc = html;
+  document.body.appendChild(f);
+  await new Promise((r) => f.addEventListener('load', r, { once: true }));
+  f.contentWindow?.print();
+  setTimeout(() => f.remove(), 1000);
+}
+
+function iframeDoc(html: string, o: { allowRemote: boolean; dark: boolean; plain: boolean; size: number; darken: boolean }): string {
+  const { allowRemote, dark, plain, size } = o;
   const csp = `default-src 'none'; img-src data: cid:${allowRemote ? ' https: http:' : ''}; style-src 'unsafe-inline'${allowRemote ? ' https:' : ''}; font-src data:${allowRemote ? ' https:' : ''}; media-src 'none'; form-action 'none'`;
-  // Plain-text mail follows Keeper's theme; designed HTML mail gets the white page it was made for.
+  // Plain mail follows Keeper's theme; designed mail keeps its white page (a light card), or is darkened when chosen.
   const base = plain
-    ? `body{margin:0;padding:4px 2px;font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;color:${dark ? '#e8e8ea' : '#1c1c1e'};background:transparent}a{color:${dark ? '#7ab8ff' : '#0a66d0'}}`
-    : 'body{margin:0;padding:12px;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;color:#1c1c1e;background:#fff;border-radius:10px}img{max-width:100%;height:auto}img[data-blocked-src]{display:inline-block;min-width:60px;min-height:40px;background:#eee repeating-linear-gradient(45deg,#e8e8e8 0 8px,#f2f2f2 8px 16px);border-radius:6px}blockquote{border-left:3px solid #ccc;margin:0 0 0 4px;padding-left:10px;color:#555}pre{white-space:pre-wrap}table{max-width:100%}';
+    ? `body{margin:0;padding:4px 2px;font:${size}px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;color:${dark ? '#e8e8ea' : '#1c1c1e'};background:transparent}a{color:${dark ? '#7ab8ff' : '#0a66d0'}}`
+    : `body{margin:0;padding:12px;font:${size}px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;color:#1c1c1e;background:#fff;border-radius:10px}img{max-width:100%;height:auto}img[data-blocked-src]{display:inline-block;min-width:60px;min-height:40px;background:#eee repeating-linear-gradient(45deg,#e8e8e8 0 8px,#f2f2f2 8px 16px);border-radius:6px}blockquote{border-left:3px solid #ccc;margin:0 0 0 4px;padding-left:10px;color:#555}pre{white-space:pre-wrap}table{max-width:100%}${o.darken ? 'html{filter:invert(.9) hue-rotate(180deg)}img,video,[style*="background-image"]{filter:invert(1) hue-rotate(180deg)}' : ''}`;
   return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${csp}"><base target="_blank"><style>${base}</style></head><body>${html}</body></html>`;
 }
 
-function MessageCard({ summary, accounts, onCollapse, act }: { summary: MessageSummary; accounts: Account[]; onCollapse?: () => void; act: (fn: () => Promise<unknown>, done?: string) => Promise<void> }) {
+function MessageCard({ summary, accounts, prefs, onCollapse, act, onGone }: { summary: MessageSummary; accounts: Account[]; prefs: PimPrefsView | null; onCollapse?: () => void; act: (fn: () => Promise<unknown>, done?: string) => Promise<void>; onGone: () => void }) {
   const { toast, info } = useStore();
   const [msg, setMsg] = useState<OpenMessage | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [remote, setRemote] = useState(false);
   const [height, setHeight] = useState(240);
+  const [look, setLook] = useState<string | null>(null);
   const frame = useRef<HTMLIFrameElement>(null);
   const dark = document.documentElement.dataset.appearance === 'dark' || matchMedia('(prefers-color-scheme: dark)').matches;
 
@@ -562,22 +641,30 @@ function MessageCard({ summary, accounts, onCollapse, act }: { summary: MessageS
     api.pim.open(summary.id, { allowRemote: remote }).then((m) => alive && setMsg(m)).catch((e) => alive && setError(e instanceof Error ? e.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '') : String(e)));
     return () => { alive = false; };
   }, [summary.id, remote]);
+  // ⇧⌘I: Load images.
+  useEffect(() => {
+    const on = () => setRemote(true);
+    window.addEventListener('mail-load-images', on);
+    return () => window.removeEventListener('mail-load-images', on);
+  }, []);
 
   // The frame cannot run scripts, so its height is estimated from the content and adjusted on load.
+  const size = prefs?.mailTextSize ?? 14;
   useEffect(() => {
     if (!msg) return;
     const text = msg.html.replace(/<[^>]+>/g, ' ');
-    const est = Math.min(4000, Math.max(160, Math.ceil(text.length / 90) * 22 + (msg.html.match(/<img/g)?.length ?? 0) * 180 + 60));
+    const est = Math.min(4000, Math.max(160, Math.ceil(text.length / 90) * Math.round(size * 1.6) + (msg.html.match(/<img/g)?.length ?? 0) * 180 + 60));
     setHeight(est);
-  }, [msg]);
+  }, [msg, size]);
 
   const plain = !!msg && !/<(table|div|p|img|h\d|span)\b/i.test(msg.html.replace(/^<div style="white-space:pre-wrap[^>]*>/, ''));
   const acct = accounts.find((a) => a.id === summary.account);
+  const darken = dark && !plain && prefs?.darkMail === 'dark';
 
   return (
-    <article className="message-card">
+    <article className={`message-card ${dark && !plain && !darken && msg?.designed ? 'light-card' : ''}`}>
       <header className="message-head" onClick={onCollapse}>
-        <div className="avatar" style={{ background: `hsl(${[...(summary.from?.address ?? '?')].reduce((h, c) => h + c.charCodeAt(0), 0) % 360} 55% 55%)` }}>{(summary.from?.name || summary.from?.address || '?').slice(0, 1).toUpperCase()}</div>
+        <SenderAvatar from={summary.from} />
         <div className="grow" style={{ minWidth: 0 }}>
           <div className="row" style={{ gap: 8 }}><b className="ellipsis">{summary.from?.name || summary.from?.address}</b><span className="small muted ellipsis">{summary.from?.name ? summary.from.address : ''}</span></div>
           <div className="small muted ellipsis">To {summary.to.map((a) => a.name || a.address).join(', ')}{summary.cc.length ? ` · Cc ${summary.cc.map((a) => a.name || a.address).join(', ')}` : ''}{acct ? ` · ${acct.label}` : ''}</div>
@@ -588,34 +675,39 @@ function MessageCard({ summary, accounts, onCollapse, act }: { summary: MessageS
       {!msg && !error ? <div className="message-loading"><div className="spinner" /></div> : null}
       {msg ? (
         <>
+          <PhishBanner msg={msg} onDone={onGone} />
+          <CodeBanner msg={msg} />
           {msg.invite ? <InviteCard msg={msg} act={act} /> : null}
-          {msg.blocked > 0 || msg.trackers > 0 ? (
-            <div className="banner">
+          {msg.blocked > 0 || msg.trackers > 0 || msg.cleanedLinks ? (
+            <div className="banner" data-testid="mail-privacy-banner">
               <Icon name="eyeOff" size={14} />
-              <span className="grow">{msg.blocked ? `${msg.blocked} picture${msg.blocked === 1 ? '' : 's'} from the internet held back.` : ''}{msg.trackers ? ` ${msg.trackers} tracking pixel${msg.trackers === 1 ? '' : 's'} removed.` : ''}</span>
-              {msg.blocked ? <button className="btn sm" onClick={() => setRemote(true)}>Show pictures</button> : null}
+              <span className="grow">{[msg.blocked ? `${msg.blocked} picture${msg.blocked === 1 ? '' : 's'} from the internet held back.` : '', msg.trackers ? `${msg.trackers} tracking pixel${msg.trackers === 1 ? '' : 's'} removed.` : '', msg.cleanedLinks ? `Tracking taken off ${msg.cleanedLinks} link${msg.cleanedLinks === 1 ? '' : 's'}.` : ''].filter(Boolean).join(' ')}</span>
+              {msg.blocked ? <button className="btn sm" title={info?.platform === 'darwin' ? '⇧⌘I' : 'Ctrl+Shift+I'} onClick={() => setRemote(true)}>Load images</button> : null}
               {msg.blocked && summary.from ? <button className="btn sm ghost" onClick={() => { void api.pim.trustSender(summary.from!.address); setRemote(true); }}>Always from this sender</button> : null}
             </div>
           ) : null}
+          {msg.receiptAsked ? <div className="banner subtle small"><Icon name="info" size={13} /> The sender asked to be told when you read this. Keeper never tells them.</div> : null}
           {msg.unsubscribe ? (
             <div className="banner subtle">
               <Icon name="mail" size={14} /><span className="grow">This is from a mailing list.</span>
               <button className="btn sm ghost" onClick={async () => { const r = await api.pim.unsubscribe(summary.id); toast(r.how); }}>Unsubscribe</button>
             </div>
           ) : null}
-          <iframe ref={frame} className="message-frame" title={`Message: ${summary.subject}`} sandbox="allow-popups allow-popups-to-escape-sandbox" srcDoc={iframeDoc(msg.html, remote, dark, plain)} style={{ height }} />
+          <iframe ref={frame} className="message-frame" title={`Message: ${summary.subject}`} sandbox="allow-popups allow-popups-to-escape-sandbox" srcDoc={iframeDoc(msg.html, { allowRemote: remote, dark, plain, size, darken })} style={{ height }} />
           {msg.attachments.filter((a) => !a.inline).length ? (
             <div className="attachments">
               {msg.attachments.filter((a) => !a.inline).map((a) => (
                 <div key={a.id} className="attachment" title={a.filename}>
                   <Icon name={/pdf|text|word|sheet|presentation/.test(a.contentType) ? 'document' : /image/.test(a.contentType) ? 'image' : /calendar/.test(a.contentType) ? 'calendar' : 'paperclip'} size={18} />
                   <div className="grow" style={{ minWidth: 0 }}><div className="ellipsis">{a.filename}</div><div className="small muted">{formatBytes(a.size)}</div></div>
+                  <button className="btn sm ghost icon" title="Quick Look" aria-label="Quick Look" data-testid="mail-quicklook-btn" onClick={() => setLook(a.id)}><Icon name="eye" size={13} /></button>
                   <button className="btn sm ghost icon" title="Open" aria-label="Open" onClick={() => void act(() => api.pim.openAttachment(summary.id, a.id))}><Icon name="external" size={13} /></button>
                   <button className="btn sm ghost icon" title={`Save to ${info?.platform === 'win32' ? 'a folder' : 'Downloads'}`} aria-label={`Save to ${info?.platform === 'win32' ? 'a folder' : 'Downloads'}`} onClick={async () => { const p = await api.pim.saveAttachment(summary.id, a.id); if (p) toast(`Saved ${p.split(/[\\/]/).pop()}`); }}><Icon name="down" size={13} /></button>
                 </div>
               ))}
             </div>
           ) : null}
+          {look ? <QuickLook id={summary.id} att={look} onClose={() => setLook(null)} /> : null}
         </>
       ) : null}
     </article>
@@ -630,17 +722,20 @@ function InviteCard({ msg, act }: { msg: OpenMessage; act: (fn: () => Promise<un
   if (msg.invite!.method === 'CANCEL') return <div className="banner warn"><Icon name="calendar" size={14} /> This event was cancelled: {e.title}</div>;
   if (msg.invite!.method === 'REPLY') return <div className="banner subtle"><Icon name="calendar" size={14} /> {e.attendees?.[0]?.name ?? e.attendees?.[0]?.email} answered {e.attendees?.[0]?.status ?? ''} for {e.title}</div>;
   return (
-    <div className="invite-card">
+    <div className="invite-card" data-testid="mail-invite">
       <div className="invite-date"><div className="small">{new Date(e.start).toLocaleDateString(undefined, { month: 'short' }).toUpperCase()}</div><div className="big">{new Date(e.start).getDate()}</div></div>
       <div className="grow" style={{ minWidth: 0 }}>
         <b>{e.title}</b>
         <div className="small muted">{new Date(e.start).toLocaleString(undefined, { weekday: 'long', hour: 'numeric', minute: '2-digit' })} – {new Date(e.end).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}{e.location ? ` · ${e.location}` : ''}</div>
         {e.organizer ? <div className="small muted">From {e.organizer.name ?? e.organizer.email}{e.attendees?.length ? ` · ${e.attendees.length} invited` : ''}</div> : null}
       </div>
-      <div className="seg">
-        <button className={mine === 'accepted' ? 'on' : ''} onClick={() => answer('accepted')}>Accept</button>
-        <button className={mine === 'tentative' ? 'on' : ''} onClick={() => answer('tentative')}>Maybe</button>
-        <button className={mine === 'declined' ? 'on' : ''} onClick={() => answer('declined')}>Decline</button>
+      <div className="col" style={{ gap: 4, alignItems: 'flex-end' }}>
+        <div className="seg">
+          <button className={mine === 'accepted' ? 'on' : ''} onClick={() => answer('accepted')}>Accept</button>
+          <button className={mine === 'tentative' ? 'on' : ''} onClick={() => answer('tentative')}>Maybe</button>
+          <button className={mine === 'declined' ? 'on' : ''} onClick={() => answer('declined')}>Decline</button>
+        </div>
+        <button className="link-like small" data-testid="mail-invite-add" title="Into your calendar without answering the organiser" onClick={() => void act(() => api.pim.saveEvent({ ...e, id: '', calendar: '', description: [e.description, notesFromMessage(msg.summary)].filter(Boolean).join('\n\n'), url: e.url ?? mailLink(msg.summary.id) }), 'Added to your calendar; no answer was sent')}>Add to Calendar</button>
       </div>
     </div>
   );

@@ -6,7 +6,6 @@
 // for Google and Microsoft.
 
 import { useCallback, useEffect, useState } from 'react';
-import type { MailRule } from '../../core/pim/mail';
 import type { PimPrefsView } from '../../core/pim/prefs';
 import { ACTION_LABELS, SCHEMES, showCombo, type MailAction, type SchemeId } from '../../core/pim/shortcuts';
 import type { Account } from '../../core/pim/types';
@@ -19,7 +18,7 @@ import { Toggle } from '../components/ui';
 import { useStore } from '../state';
 import { AccountDialog } from './AccountDialog';
 import { CalendarSources } from './CalendarSources';
-import { RulesEditor } from './mail-settings';
+import { AccountLook, IdentitiesEditor } from './mail-settings';
 import { usePimChanges } from './Mail';
 
 const KIND: Record<string, string> = { imap: 'Mail (IMAP)', google: 'Google', microsoft: 'Microsoft 365', caldav: 'CalDAV', ics: 'Calendar link' };
@@ -35,27 +34,17 @@ function Row({ title, desc, children }: { title: string; desc?: string; children
 
 function AccountMailRow({ a }: { a: Account }) {
   const { toast } = useStore();
-  const [sig, setSig] = useState<string | null>(null);
-  const id0 = a.identities[0];
   return (
     <div className="pim-account-extra">
       <label className="row small" style={{ gap: 8 }} title="Coding assistants and other apps connected to Keeper over MCP may search and read this account's mail and write drafts. They can never send, delete or move mail, and never see Spam, Trash or security mail such as sign-in codes.">
         <Toggle on={!!a.mcp} onChange={(v) => void api.pim.updateAccount(a.id, { mcp: v }).then(() => toast(v ? 'Coding assistants can now search, read and draft in this account' : 'This account is no longer shared'))} />
         Share with coding assistants (MCP): search, read and draft only
       </label>
-      {id0 ? (
-        sig === null
-          ? <button className="btn sm ghost" onClick={() => setSig(id0.signature ?? '')}><Icon name="rename" size={12} /> {id0.signature ? 'Edit signature' : 'Add a signature'}</button>
-          : (
-            <div className="col" style={{ gap: 6, width: '100%' }}>
-              <textarea className="input" rows={3} autoFocus value={sig} placeholder={`${id0.name}\n…`} onChange={(e) => setSig(e.target.value)} aria-label="Signature" />
-              <div className="row" style={{ gap: 6 }}>
-                <button className="btn sm primary" onClick={() => void api.pim.updateAccount(a.id, { identities: a.identities.map((x, i) => (i === 0 ? { ...x, signature: sig.trim() || undefined } : x)) }).then(() => { setSig(null); toast('Signature saved'); })}>Save</button>
-                <button className="btn sm ghost" onClick={() => setSig(null)}>Cancel</button>
-              </div>
-            </div>
-          )
-      ) : null}
+      <AccountLook a={a} />
+      <details className="identities-details">
+        <summary className="small">Send-from addresses and signatures{a.identities.length > 1 ? ` (${a.identities.length})` : ''}</summary>
+        <IdentitiesEditor a={a} />
+      </details>
     </div>
   );
 }
@@ -87,18 +76,15 @@ export function PimSettings() {
   const { toast, info } = useStore();
   const [accounts, setAccounts] = useState<(Account & { needsSignIn?: boolean; secretIn?: string; lastChecked?: number; lastError?: string })[]>([]);
   const [prefs, setPrefs] = useState<PimPrefsView | null>(null);
-  const [rules, setRules] = useState<MailRule[]>([]);
   const [adding, setAdding] = useState(false);
   const [pw, setPw] = useState<{ id: string; value: string } | null>(null);
   const load = useCallback(() => {
     void api.pim.accounts().then(setAccounts);
     void api.pim.prefs().then(setPrefs);
-    void api.pim.rules().then(setRules);
   }, []);
   useEffect(load, [load]);
   usePimChanges(['accounts'], load);
   const set = async (p: Partial<PimPrefsView>) => setPrefs(await api.pim.setPrefs(p));
-  const saveRules = (r: MailRule[]) => { setRules(r); void api.pim.saveRules(r); };
   if (!prefs) return null;
 
   return (
@@ -151,13 +137,6 @@ export function PimSettings() {
       <Row title="Undo send" desc="How long a message waits before it goes, so you can take it back.">
         <select className="input" value={prefs.undoSendSec} onChange={(e) => void set({ undoSendSec: Number(e.target.value) })}>{[0, 5, 10, 20, 30].map((s) => <option key={s} value={s}>{s ? `${s} seconds` : 'Off'}</option>)}</select>
       </Row>
-      <Row title="Pictures from these senders load straight away" desc={prefs.trustedSenders.length ? prefs.trustedSenders.join(', ') : 'Nobody yet: remote pictures are held back for everyone.'}>
-        {prefs.trustedSenders.length ? <button className="btn sm ghost" onClick={() => void set({ trustedSenders: [] })}>Clear</button> : null}
-      </Row>
-
-      <div style={{ fontWeight: 600, margin: '18px 0 2px' }} id="settings-mail-rules">Rules for new mail</div>
-      <div className="small muted" style={{ marginBottom: 6 }}>Run on this computer as mail arrives in an inbox, in order; a rule can stop the ones after it. Rules marked “Also on the server” are written to the mail server (Sieve) or to Gmail’s filters, so they work while Keeper is closed.</div>
-      <RulesEditor rules={rules} setRules={saveRules} accounts={accounts} />
 
       <div style={{ fontWeight: 600, margin: '18px 0 2px' }} id="settings-calendar">Calendar</div>
       <CalendarSources />

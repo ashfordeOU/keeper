@@ -9,7 +9,8 @@ export type WidgetKind =
   | 'clock' | 'date' | 'events' | 'weather' | 'countdown' | 'battery' | 'disk' | 'sun-moon'
   | 'photo' | 'text' | 'clipboard' | 'focus' | 'system'
   | 'day' | 'year' | 'season' | 'world' | 'quote'
-  | 'week' | 'timer' | 'forecast';
+  | 'week' | 'timer' | 'forecast'
+  | 'mail-unread' | 'mail-inbox' | 'mail-accounts';
 
 export type WidgetShape = 'card' | 'circle' | 'pill' | 'none';
 export type WidgetSizePreset = 'S' | 'M' | 'L';
@@ -84,6 +85,9 @@ export const WIDGET_KINDS: { kind: WidgetKind; name: string; description: string
   { kind: 'quote', name: 'Quote', description: 'A new line to think about every day', size: [300, 150] },
   { kind: 'week', name: 'Week', description: 'Seven days of events and tasks; add one in a click', size: [780, 320], presets: { S: [620, 260], M: [780, 320], L: [980, 420] } },
   { kind: 'timer', name: 'Timer', description: 'A countdown ring with 5, 10, 15 and 25 minutes', size: [230, 280], presets: { S: [190, 240], M: [230, 280], L: [290, 350] } },
+  { kind: 'mail-unread', name: 'Unread mail', description: 'How much unread mail is waiting', size: [170, 150] },
+  { kind: 'mail-inbox', name: 'Inbox', description: 'Your newest Important mail; click one to read it', size: [340, 230], presets: { S: [300, 200], M: [340, 230], L: [380, 380] } },
+  { kind: 'mail-accounts', name: 'Mail accounts', description: 'Each account and its unread mail', size: [280, 190], presets: { S: [200, 170], M: [280, 190], L: [320, 260] } },
   { kind: 'forecast', name: '7-day forecast', description: 'Highs, lows and rain by part of the day', size: [780, 300], presets: { S: [620, 270], M: [780, 300], L: [960, 370] } },
 ];
 

@@ -15,7 +15,7 @@ const KIND_ICON: Record<WidgetKind, string> = {
   clock: 'clock', date: 'calendar', events: 'calendar', weather: 'sun', countdown: 'timer', 'sun-moon': 'moon', photo: 'image',
   text: 'text', battery: 'battery', disk: 'weight', system: 'bolt', focus: 'timer', clipboard: 'clipboard',
   day: 'calendar', year: 'chart', season: 'sun', world: 'globe', quote: 'note',
-  week: 'calendar', timer: 'timer', forecast: 'sun',
+  week: 'calendar', timer: 'timer', forecast: 'sun', 'mail-unread': 'mail', 'mail-inbox': 'inbox', 'mail-accounts': 'mail',
 };
 
 /** Wide widgets get a wider card on this page, so their preview stays readable. */

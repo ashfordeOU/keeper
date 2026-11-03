@@ -108,6 +108,7 @@ export function ShelfTab({ state, settings, reload }: { state: IslandState; sett
           <button className="btn sm" onClick={() => run('zip')}><Icon name="zip" size={12} /> Zip</button>
           <button className="btn sm" onClick={() => run('copyText')} title="Copy the text in these images and documents"><Icon name="text" size={12} /> Text</button>
           <button className="btn sm" onClick={() => run('copyPaths')}><Icon name="copy" size={12} /> Copy</button>
+          <button className="btn sm" data-testid="shelf-email" title="A new email with these attached" onClick={() => void api.islandx.showPage(`mail:attach:${encodeURIComponent(JSON.stringify(paths))}`)}><Icon name="mail" size={12} /> Email</button>
           <ShareButton paths={paths} />
           <button className="btn sm" onClick={() => run('moveTo')}><Icon name="folder" size={12} /> Move to…</button>
           {items.some((f) => f.kind === 'image') ? <button className="btn sm" onClick={() => run('resize', '1600')} title="Make smaller copies (1600 px)"><Icon name="image" size={12} /> Resize</button> : null}

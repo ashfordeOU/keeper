@@ -1927,24 +1927,8 @@ export const pim: PimApi = {
   },
   async searchServer(query, account) {
     await load();
-    const q = query.replace(/\b\w+:("[^"]*"|\S+)/g, '').trim();
-    if (!q) return [];
-    const ctx = await triageCtx();
-    const found: MessageSummary[] = [];
-    for (const a of accounts.filter((x) => x.mail && (!account || x.id === account))) {
-      const where = new Set<string>(['INBOX']);
-      for (const sp of ['sent', 'archive', 'all'] as const) { const f = await folderOf(a, sp); if (f) where.add(f); }
-      for (const f of where) {
-        try {
-          const known = new Set((await cachedMessages(a.id, f)).map((m) => m.uid));
-          const uids = (await mailbox(a).search(f, q)).filter((u) => !known.has(u)).slice(0, 40);
-          found.push(...(await mailbox(a).summaries(f, uids)));
-        } catch {
-          // Offline or the server refused: the local results stand.
-        }
-      }
-    }
-    return mergeResults([], found.map((m) => withTriage(m, ctx))).sort((x, y) => y.date - x.date);
+    // The same filters as on this computer (from:, subject:, is:unread, after: …), sent to the servers.
+    return (await serverSearch(parseMailQuery(query), account)).sort((x, y) => y.date - x.date);
   },
   async waiting() {
     await load();

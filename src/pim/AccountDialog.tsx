@@ -8,6 +8,7 @@ import type { NewAccount } from '../../core/api-pim';
 import type { MailConfig } from '../../core/pim/autoconfig';
 import type { ServerSettings } from '../../core/pim/types';
 import { api } from '../api';
+import { appPasswordLink, GUIDES, guideFor, type GuideId } from '../../core/pim/provider-guides';
 import { Icon } from '../components/Icon';
 import { Modal } from '../components/ui';
 import { useAsync } from '../state';
@@ -119,6 +120,7 @@ export function AccountDialog({ onClose, onAdded, initialTab = 'mail' }: { onClo
             </div>
           ) : null}
           {oauth.data && (!oauth.data.google || !oauth.data.microsoft) ? <div className="small muted">Enter your address and Keeper finds the servers. Most providers want an <b>app password</b> here rather than your usual one; Keeper links to the page that makes it.</div> : null}
+          <SetupGuides email={email} />
           <label className="field"><span>Email address</span><input className="input" autoFocus value={email} onChange={(e) => { setEmail(e.target.value); setCfg(null); }} onKeyDown={(e) => e.key === 'Enter' && !cfg && void find()} placeholder="you@example.com" /></label>
           {!cfg ? <div className="btn-row" style={{ justifyContent: 'flex-end' }}><button className="btn primary" disabled={!!busy} onClick={() => void find()}>{busy === 'find' ? <div className="spinner" /> : null} Continue</button></div> : (
             <>
@@ -166,5 +168,31 @@ export function AccountDialog({ onClose, onAdded, initialTab = 'mail' }: { onClo
         {tab !== 'mail' || cfg ? <button className="btn primary" disabled={!!busy || (tab === 'mail' ? !password : !url)} onClick={() => void add()}>{busy === 'add' ? <div className="spinner" /> : null} Add</button> : null}
       </div>
     </Modal>
+  );
+}
+
+/** Step-by-step setup per provider, with the page that makes an app password. */
+function SetupGuides({ email }: { email: string }) {
+  const [open, setOpen] = useState<GuideId | null>(null);
+  const typed = email.includes('@') ? guideFor(email) : null;
+  const g = GUIDES.find((x) => x.id === (open ?? typed?.id));
+  const link = g ? appPasswordLink(g) : undefined;
+  return (
+    <div className="setup-guides" data-testid="setup-guides">
+      <div className="row small" style={{ gap: 6, flexWrap: 'wrap' }}>
+        <span className="muted">How to set up:</span>
+        {GUIDES.map((x) => <button key={x.id} className={`chip ${g?.id === x.id ? 'on' : ''}`} onClick={() => setOpen(open === x.id ? null : x.id)}>{x.name.replace(' and Microsoft 365', '').replace('Any other provider (IMAP)', 'Other')}</button>)}
+      </div>
+      {g && (open || typed) ? (
+        <div className="guide-card" data-testid={`guide-${g.id}`}>
+          <b>{g.name}</b>
+          <ol className="small">{g.steps.map((st) => <li key={st}>{st}</li>)}</ol>
+          <div className="btn-row">
+            {link ? <button className="btn sm" onClick={() => void api.system.openExternal(link.url)}><Icon name="external" size={12} /> Make an app password at {link.provider}</button> : null}
+            {g.help ? <button className="btn sm ghost" onClick={() => void api.system.openExternal(g.help!.url)}><Icon name="external" size={12} /> {g.help.label}</button> : null}
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }

@@ -56,11 +56,11 @@ export const GUIDES: ProviderGuide[] = [
   },
   {
     id: 'fastmail', name: 'Fastmail', sample: 'x@fastmail.com',
-    steps: ['In Fastmail: Settings → Privacy & Security → Manage app passwords → New app password.', 'Give it access to mail (and calendars and contacts if you want them), copy it.', 'Type your Fastmail address here, Continue, and paste it.'],
+    steps: ['In Fastmail, open its settings, then Privacy & Security, Manage app passwords, New app password.', 'Give it access to mail (and calendars and contacts if you want them), copy it.', 'Type your Fastmail address here, Continue, and paste it.'],
   },
   {
     id: 'zoho', name: 'Zoho Mail', sample: 'x@zoho.com',
-    steps: ['In Zoho Mail: Settings → Mail Accounts → turn on IMAP access.', 'With two-factor sign-in on, make an app-specific password in Zoho Accounts → Security.', 'Type your Zoho address here, Continue, and paste it.'],
+    steps: ['In Zoho Mail, open its settings, then Mail Accounts, and turn on IMAP access.', 'With two-factor sign-in on, make an app-specific password in Zoho Accounts → Security.', 'Type your Zoho address here, Continue, and paste it.'],
   },
   {
     id: 'imap', name: 'Any other provider (IMAP)',

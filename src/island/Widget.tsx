@@ -2,6 +2,7 @@
 // A desktop widget. The same body draws inside its own small window and as a
 // live preview on the Widgets page.
 
+import { MailAccountsWidget, MailInboxWidget, MailUnreadWidget } from './MailWidgets';
 import { useEffect, useState } from 'react';
 import type { HealthReport, IslandState } from '../../core/api';
 import { moonPath, moonPhase, sunTimes } from '../../core/astro';
@@ -42,7 +43,7 @@ export function widgetSurface(w: WidgetConfig, tint?: string | null): React.CSSP
 }
 
 /** Kinds that keep their own time (or none): no shared ticking timer for them. */
-const OWN_CLOCK = new Set<WidgetKind>(['week', 'world', 'timer', 'forecast', 'photo', 'text', 'disk', 'system']);
+const OWN_CLOCK = new Set<WidgetKind>(['week', 'world', 'timer', 'forecast', 'photo', 'text', 'disk', 'system', 'mail-unread', 'mail-inbox', 'mail-accounts']);
 /** Kinds that show something from the Island's state. */
 const NEEDS_ISLAND = new Set<WidgetKind>(['events', 'weather', 'sun-moon', 'battery', 'focus', 'season', 'clipboard']);
 
@@ -310,6 +311,12 @@ export function WidgetBody({ w }: { w: WidgetConfig }) {
       return <TimerWidget w={w} />;
     case 'forecast':
       return <ForecastWidget w={w} />;
+    case 'mail-unread':
+      return <MailUnreadWidget />;
+    case 'mail-inbox':
+      return <MailInboxWidget w={w} />;
+    case 'mail-accounts':
+      return <MailAccountsWidget w={w} />;
     case 'quote':
       return <div className="wg-quote">“{quoteOfDay(now, w.options.quotes)}”</div>;
     case 'clipboard': {

@@ -74,6 +74,7 @@ export function PlusAlertActions({ alert, onDone }: { alert: IslandAlert; onDone
       </div>
     );
   }
+  if (alert.kind === 'mail' && alert.mail) return <MailExtraActions alert={alert} onDone={onDone} />;
   if (alert.kind === 'mail' && alert.ref) {
     // New Important mail dropped down from the notch: read it, or deal with it from here.
     const id = alert.ref;
@@ -146,4 +147,23 @@ export function MediaModes({ np, reload }: { np: NowPlaying; reload: () => void 
       <button className={`btn sm icon ${np.repeat ? 'on' : ''}`} title={np.repeat ? 'Repeat is on' : 'Repeat'} aria-label={np.repeat ? 'Repeat is on' : 'Repeat'} aria-pressed={!!np.repeat} onClick={() => void api.islandx.mediaMode('repeat').then(reload)}><Icon name="repeat" size={12} /></button>
     </>
   );
+}
+
+/** A sign-in code (Copy), a magic link (Open), or a message about to go (Undo, with the seconds left). */
+function MailExtraActions({ alert, onDone }: { alert: IslandAlert; onDone: () => void }) {
+  const x = alert.mail!;
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    if (!x.sendAt) return;
+    const h = setInterval(() => setNow(Date.now()), 250);
+    return () => clearInterval(h);
+  }, [x.sendAt]);
+  if (x.code) return <div className="btn-row" data-testid="island-mail-code"><b className="num" style={{ letterSpacing: '.12em' }}>{x.code}</b><button className="btn sm primary" onClick={() => { void navigator.clipboard.writeText(x.code!).then(() => say('Code copied'), () => say('Couldn’t copy it')); onDone(); }}>Copy</button></div>;
+  if (x.link) return <div className="btn-row"><button className="btn sm primary" onClick={() => { void api.system.openExternal(x.link!); onDone(); }}>Open link</button></div>;
+  if (x.undoId && x.sendAt) {
+    const left = Math.ceil((x.sendAt - now) / 1000);
+    if (left <= 0) return <div className="small muted">Sent</div>;
+    return <div className="btn-row" data-testid="island-mail-undo"><span className="small num">Sending in {left} s</span><button className="btn sm" onClick={() => { void api.pim.undoSend(x.undoId!).then((d) => { say(d ? 'Not sent: the message is back in Mail' : 'Too late, it went'); if (d) void api.pim.stageCompose(d as typeof d & { account: string }); }); onDone(); }}>Undo</button></div>;
+  }
+  return null;
 }

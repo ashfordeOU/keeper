@@ -286,3 +286,83 @@ export function McpConnect() {
     </div>
   );
 }
+
+function useMailSettings() {
+  const [prefs, setPrefs] = useState<PimPrefsView | null>(null);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [rules, setRulesState] = useState<Rule[]>([]);
+  useEffect(() => {
+    void api.pim.prefs().then(setPrefs);
+    void api.pim.accounts().then(setAccounts);
+    void api.pim.rules().then((r) => setRulesState(r as Rule[]));
+    return api.on('pim-changed', (k: string) => { if (k === 'accounts') void api.pim.accounts().then(setAccounts); });
+  }, []);
+  const set = (p: Partial<PimPrefsView>) => { setPrefs((x) => (x ? { ...x, ...p } : x)); void api.pim.setPrefs(p).then(setPrefs); };
+  const setRules = (r: Rule[]) => { setRulesState(r); void api.pim.saveRules(r); };
+  return { prefs, accounts, rules, set, setRules };
+}
+
+function Line({ title, desc, children }: { title: string; desc?: string; children: React.ReactNode }) {
+  return (
+    <div className="row" style={{ justifyContent: 'space-between', gap: 16, padding: '8px 0', borderBottom: '1px solid var(--line)' }}>
+      <div><div style={{ fontWeight: 600 }}>{title}</div>{desc ? <div className="small muted">{desc}</div> : null}</div>
+      <div className="row" style={{ gap: 8, flex: 'none' }}>{children}</div>
+    </div>
+  );
+}
+
+/** The Mail rows of Settings → Mail & Calendar (core/settings-schema.ts names them). */
+export function MailPanel({ part }: { part: 'reading' | 'rules' | 'templates' | 'smart' | 'ai' | 'notch' | 'privacy' | 'apps' }) {
+  const { prefs, accounts, rules, set, setRules } = useMailSettings();
+  if (!prefs) return null;
+  const mail = accounts.filter((a) => a.mail);
+  if (part === 'rules') return <RulesEditor rules={rules} setRules={setRules} accounts={mail} />;
+  if (part === 'templates') return <TemplatesEditor prefs={prefs} set={set} />;
+  if (part === 'smart') return <SmartMailboxesEditor prefs={prefs} set={set} />;
+  if (part === 'ai') return <AiMemoryEditor prefs={prefs} set={set} />;
+  if (part === 'apps') return <McpConnect />;
+  if (part === 'privacy') {
+    return (
+      <div className="col" style={{ gap: 4 }} data-testid="mail-privacy">
+        <Line title="Pictures from these senders load straight away" desc={prefs.trustedSenders.length ? prefs.trustedSenders.join(', ') : 'Nobody yet: pictures from the internet are held back for everyone (Load images, ⇧⌘I).'}>
+          {prefs.trustedSenders.length ? <button className="btn sm ghost" onClick={() => set({ trustedSenders: [] })}>Clear</button> : null}
+        </Line>
+        <Line title="Blocked senders" desc={(prefs.blockedSenders ?? []).length ? (prefs.blockedSenders ?? []).join(', ') : 'Nobody. Block a sender from a message; their mail goes to Junk.'}>
+          {(prefs.blockedSenders ?? []).length ? <button className="btn sm ghost" onClick={() => set({ blockedSenders: [] })}>Unblock all</button> : null}
+        </Line>
+        <Line title="Copy and Open for sign-in mail" desc="A sign-in code gets Copy and a sign-in link gets Open, in the notification and the Island.">
+          <Toggle on={prefs.codeActions !== false} onChange={(v) => set({ codeActions: v })} />
+        </Line>
+        <div className="small muted" style={{ margin: '6px 0' }}>Keeper never sends read receipts. Tracking pixels are removed and tracking parts of links are taken off before a link opens.</div>
+        <ConnectionsNote />
+      </div>
+    );
+  }
+  if (part === 'notch') {
+    return (
+      <div className="col" style={{ gap: 4 }}>
+        <Line title="Number on the app icon" desc="Unread mail in your inboxes, only Important mail, or nothing.">
+          <select className="input" aria-label="Number on the app icon" value={prefs.dockBadge ?? 'all'} onChange={(e) => set({ dockBadge: e.target.value as PimPrefsView['dockBadge'] })}><option value="all">All unread</option><option value="important">Important only</option><option value="off">None</option></select>
+        </Line>
+        <Line title="Only these senders in the notch" desc="Addresses or @domains, separated by commas. Empty: everyone (as chosen above). Sign-in codes always show.">
+          <input className="input" style={{ width: 260 }} aria-label="Senders shown in the notch" defaultValue={(prefs.notchSenders ?? []).join(', ')} onBlur={(e) => set({ notchSenders: e.target.value.split(/[,\s]+/).map((x) => x.trim()).filter(Boolean) })} />
+        </Line>
+        <div className="small muted">Each account can be left out of the notch under Accounts.</div>
+      </div>
+    );
+  }
+  // Reading
+  return (
+    <div className="col" style={{ gap: 4 }}>
+      <Line title="Designed mail in dark mode" desc="Newsletters and receipts with their own colours: on a light card as they were made, or darkened like the rest.">
+        <select className="input" aria-label="Designed mail in dark mode" value={prefs.darkMail ?? 'card'} onChange={(e) => set({ darkMail: e.target.value as 'card' | 'dark' })}><option value="card">Light card</option><option value="dark">Darken</option></select>
+      </Line>
+      <Line title="Text size" desc="⌘+ and ⌘− while reading change it too.">
+        <select className="input" aria-label="Text size" value={prefs.mailTextSize ?? 14} onChange={(e) => set({ mailTextSize: Number(e.target.value) })}>{[12, 13, 14, 15, 16, 18, 20, 22].map((s) => <option key={s} value={s}>{s} px</option>)}</select>
+      </Line>
+      <Line title="List density" desc="How close together the messages in the list are.">
+        <div className="seg">{(['compact', 'comfortable', 'roomy'] as const).map((d) => <button key={d} className={(prefs.mailDensity ?? 'comfortable') === d ? 'on' : ''} onClick={() => set({ mailDensity: d })}>{d[0].toUpperCase() + d.slice(1)}</button>)}</div>
+      </Line>
+    </div>
+  );
+}

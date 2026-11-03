@@ -842,6 +842,8 @@ export interface KeeperApi extends KeeperApiX {
   on(channel: 'notes-changed', cb: (e: { vault: string; paths: string[] }) => void): () => void;
   on(channel: 'guide-mini', cb: (id: string) => void): () => void;
   on(channel: 'pim-changed', cb: (kind: string, extra?: unknown) => void): () => void;
+  /** AI writing in the compose window, as it arrives (the whole text so far) */
+  on(channel: 'pim-ai-stream', cb: (p: { req: string; text: string; done?: boolean }) => void): () => void;
   on(channel: 'pim-ring', cb: (r: import('./api-pim').Ring) => void): () => void;
   on(channel: 'pim-ring-stop', cb: (id: string) => void): () => void;
   on(channel: 'remote-status', cb: (s: import('./remote/types').ConnStatus) => void): () => void;

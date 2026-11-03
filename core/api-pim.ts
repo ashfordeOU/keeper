@@ -219,8 +219,8 @@ export interface PimApi {
   trustSender(address: string): Promise<void>;
   /** the reply or forward, filled in */
   draftFor(id: string, mode: 'reply' | 'replyAll' | 'forward'): Promise<Draft>;
-  /** html: the rich editor's text (else body is Markdown); noSignature: taken off this message; key: its mirrored draft goes */
-  send(d: Draft & { account: string; sendAt?: number; markdown?: boolean; html?: string; noSignature?: boolean; key?: string }): Promise<Outbox>;
+  /** html: the rich editor's text (else body is Markdown); noSignature: taken off this message; key: its mirrored draft goes; remindAt: remind me if no reply by then */
+  send(d: Draft & { account: string; sendAt?: number; markdown?: boolean; html?: string; noSignature?: boolean; key?: string; remindAt?: number }): Promise<Outbox>;
   undoSend(id: string): Promise<Draft | null>;
   outbox(): Promise<Outbox[]>;
   /** saves to the account's Drafts folder; with a key, the previous copy saved with that key is replaced */
