@@ -4,6 +4,10 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-03
+
+The first stable release of Keeper by Ashforde®, and the first signed with Ashforde's Apple Developer ID and notarized by Apple: it opens like any other Mac app, with no Open Anyway and no keychain question after updates. On top of 0.1.0-beta.8 it brings a Fix-it List that explains each finding and lets you trust, snooze or undo, and an Island that shows power as one battery glyph and always opens in full.
+
 ### Changed — Fix-it List: details, Trust and fewer false alarms
 - Each row opens (click it, its arrow, or Enter) to show exactly what was found, gathered only then: for things that start at login the file, its label, the program and arguments, RunAtLoad/KeepAlive, the file's contents, who signed the program (Developer ID name, team, notarized; Authenticode publisher on Windows; owning package on Linux), its hash and when it appeared; for extensions the name, version, ID, profile, store link and each permission in plain words; for certificates the subject, issuer, validity, fingerprints and keychain or store. Each says why it is listed, how sure Keeper is, and links to more.
 - Every row has Trust, Snooze (1 day, 1 week, 1 month), More (Ignore, Show in Finder/Explorer, open the browser's page for an extension) and Fix. Trust remembers the exact item by a fingerprint (path, what it runs and its signer or hash; extension ID, version and permissions; certificate fingerprint): it stays hidden across restarts and comes back, marked "changed", when the item changes. Home's Trust is the same Trust.
