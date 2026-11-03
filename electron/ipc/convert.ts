@@ -101,7 +101,7 @@ async function renderPdf(file: string, scale: number): Promise<Buffer[]> {
  * session. `onePage` measures the page and prints it as one long page, so
  * nothing is split across pages.
  */
-async function printToPdf(source: { html?: string; url?: string }, o: { pageSize: 'a4' | 'letter'; onePage: boolean }): Promise<Buffer> {
+export async function printToPdf(source: { html?: string; url?: string }, o: { pageSize: 'a4' | 'letter'; onePage: boolean }): Promise<Buffer> {
   const size = o.pageSize === 'letter' ? { width: 8.5, height: 11 } : { width: 8.27, height: 11.69 };
   const margin = 0.4;
   // Laid out at the printable width (CSS pixels are 1/96 inch), so measuring the page matches what prints.

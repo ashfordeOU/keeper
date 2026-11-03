@@ -5,6 +5,10 @@
 import { ipcMain } from 'electron';
 import * as svc from '../services/notes';
 import { registerKeeperMethod } from '../services/keeper-methods';
+import * as io from '../services/notes-io';
+import { dialog } from 'electron';
+import { importSource } from '../../core/notes/import-sources';
+import { printToPdf } from './convert';
 import { featureOn } from '../services/features';
 import { linkKeeperVaults } from '../services/notes-sync';
 
@@ -21,6 +25,7 @@ function handle(name: string, fn: (...args: never[]) => unknown) {
 
 export function registerNotesIpc(d: { broadcast: (channel: string, ...args: unknown[]) => void; allowRoot?: (dir: string) => void }) {
   svc.initNotes(d);
+  io.initNotesIo({ broadcast: d.broadcast, printPdf: (html) => printToPdf({ html }, { pageSize: 'a4', onePage: false }) });
   const m: Record<string, (...a: never[]) => unknown> = {
     vaults: svc.vaults, addVault: vaultsChanged(svc.addVault), createVault: vaultsChanged(svc.createVault), removeVault: vaultsChanged(svc.removeVault),
     open: svc.openVault, close: svc.close, vaultPath: svc.vaultPath,
@@ -34,6 +39,15 @@ export function registerNotesIpc(d: { broadcast: (channel: string, ...args: unkn
     snapshots: svc.snapshots, snapshot: svc.snapshot, bookmarks: svc.bookmarks, setBookmarks: svc.setBookmarks, capture: svc.capture,
     render: svc.render, preview: svc.preview, settings: svc.getSettings, setSettings: svc.setSettings, ask: svc.ask, assist: svc.assist,
     plugins: svc.plugins, pluginCode: svc.pluginCode, setPlugin: svc.setPlugin,
+    importPick: async (source: string, want?: 'file' | 'folder') => {
+      const s = importSource(source);
+      if (!s) return null;
+      const folder = want ? want === 'folder' : s.pick === 'folder';
+      const r = await dialog.showOpenDialog({ title: `Choose your ${s.name} notes`, properties: folder ? ['openDirectory'] : ['openFile'], filters: !folder && s.accept?.length ? [{ name: s.name, extensions: s.accept }, { name: 'All files', extensions: ['*'] }] : [] });
+      return r.canceled ? null : r.filePaths[0] ?? null;
+    },
+    importPreview: io.importPreview, importRun: io.importRun, importCancel: io.importCancel, imports: io.importsList, importUndo: io.importUndo,
+    exportNotes: io.exportNotes,
   };
   for (const [k, fn] of Object.entries(m)) handle(`notes.${k}`, fn);
 

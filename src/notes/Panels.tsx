@@ -14,7 +14,7 @@ import type { NotesAnswer } from '../../core/api-notes';
 import { kindOf, recentFiles, useNotes } from './ctx';
 import { VaultGraph } from './VaultGraph';
 
-const ROW = 26;
+const ROW = 30;
 
 /** Draws only the rows in view. */
 function Virtual<T>({ items, row, height = ROW, className, role, label, onKeyDown }: { items: T[]; row: (t: T, i: number) => React.ReactNode; height?: number; className?: string; role?: string; label?: string; onKeyDown?: React.KeyboardEventHandler<HTMLDivElement> }) {

@@ -950,6 +950,7 @@ export interface KeeperApi extends KeeperApiX {
   on(channel: 'browsers-changed', cb: () => void): () => void;
   on(channel: 'guide-changed', cb: (s: import('./guide/types').GuideSummary) => void): () => void;
   on(channel: 'notes-changed', cb: (e: { vault: string; paths: string[] }) => void): () => void;
+  on(channel: 'notes-import', cb: (e: import('./notes/import-sources').ImportProgress) => void): () => void;
   on(channel: 'guide-mini', cb: (id: string) => void): () => void;
   on(channel: 'pim-changed', cb: (kind: string, extra?: unknown) => void): () => void;
   /** AI writing in the compose window, as it arrives (the whole text so far) */

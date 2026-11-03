@@ -8,6 +8,7 @@ import type { SearchHit } from './notes/search';
 import type { Period } from './notes/templates';
 import type { VaultFile } from './notes/vault';
 import type { PluginManifest, PluginPermission } from './notes/plugins';
+import type { ExportFormat, ImportSourceId, ImportSummary } from './notes/import-sources';
 
 export interface VaultInfo {
   id: string;
@@ -121,4 +122,18 @@ export interface NotesApi {
   plugins(id: string): Promise<{ keeper: (PluginManifest & { enabled: boolean; granted: PluginPermission[] })[]; foreign: { id: string; name: string }[] }>;
   pluginCode(pluginId: string): Promise<string>;
   setPlugin(pluginId: string, enabled: boolean, granted: PluginPermission[]): Promise<void>;
+
+  /** asks for the export to import (a file or folder, as the app makes it) */
+  importPick(source: ImportSourceId, want?: 'file' | 'folder'): Promise<string | null>;
+  /** reads the source and says what would come in; nothing is written yet */
+  importPreview(id: string, source: ImportSourceId, input: { path?: string; fields?: Record<string, string>; folder?: string }): Promise<{ job: string; folder: string; notes: number; attachments: number; skipped: ImportSummary['skipped']; needsPassword?: boolean; sample: string[] }>;
+  /** writes it; progress arrives as 'notes-import' events */
+  importRun(job: string, opts?: { folder?: string }): Promise<ImportSummary>;
+  importCancel(job: string): Promise<void>;
+  /** earlier imports into this vault, newest first */
+  imports(id: string): Promise<ImportSummary[]>;
+  /** removes what an import wrote (files changed since are kept) */
+  importUndo(id: string, job: string): Promise<{ removed: number; kept: string[] }>;
+  /** exports notes (all when paths is empty); asks where unless out is given */
+  exportNotes(id: string, format: ExportFormat, opts?: { paths?: string[]; out?: string; plain?: boolean }): Promise<{ out: string; files: number } | null>;
 }

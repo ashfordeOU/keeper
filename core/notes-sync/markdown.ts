@@ -166,7 +166,9 @@ function block(n: HNode, o: ToMdOptions, depth: number): string {
     switch (c.name) {
       case 'div': {
         if (out && !out.endsWith('\n')) out += '\n';
-        out += `${block(c, o, depth)}\n`;
+        // A line that starts with a checkbox (Evernote's <en-todo>, an <input>) is a checklist item.
+        const line = block(c, o, depth);
+        out += `${/^\[[ x]\] /.test(line) ? `- ${line}` : line}\n`;
         break;
       }
       case 'p': out += `\n\n${block(c, o, depth).trim()}\n\n`; break;

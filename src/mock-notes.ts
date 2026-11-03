@@ -196,6 +196,13 @@ export function mockNotes(emit: (channel: string, ...args: unknown[]) => void): 
     plugins: async () => ({ keeper: [], foreign: [{ id: 'dataview', name: 'Dataview' }] }),
     pluginCode: async () => '',
     setPlugin: async () => undefined,
+    importPick: async () => null,
+    importPreview: async () => { throw new Error('Importing works in the Keeper app.'); },
+    importRun: async () => { throw new Error('Importing works in the Keeper app.'); },
+    importCancel: async () => undefined,
+    imports: async () => [],
+    importUndo: async () => ({ removed: 0, kept: [] }),
+    exportNotes: async () => null,
   };
   return { notes };
 }

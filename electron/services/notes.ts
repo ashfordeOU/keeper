@@ -39,6 +39,8 @@ interface Open {
   /** paths Keeper itself just wrote (their change events are expected) */
   ours: Map<string, number>;
   lastSnap: Map<string, number>;
+  /** many files are being written at once (an import): changes are announced once at the end */
+  quiet?: boolean;
 }
 
 const open = new Map<string, Open>();
@@ -60,7 +62,8 @@ async function readJson<T>(file: string, fallback: T): Promise<T> {
 
 async function writeJson(file: string, v: unknown) {
   await fsp.mkdir(path.dirname(file), { recursive: true });
-  const tmp = `${file}.${process.pid}.tmp`;
+  // A name of its own per write: two writes at once never rename each other's file.
+  const tmp = `${file}.${process.pid}.${randomBytes(4).toString('hex')}.tmp`;
   await fsp.writeFile(tmp, JSON.stringify(v, null, 2));
   await fsp.rename(tmp, file);
 }
@@ -241,7 +244,7 @@ function watchVault(o: Open) {
       const ours = o.ours.get(rel);
       if (!ours || Date.now() - ours > 3000) changed.push(rel);
     }
-    if (changed.length) broadcast('notes-changed', { vault: o.info.id, paths: changed });
+    if (changed.length && !o.quiet) broadcast('notes-changed', { vault: o.info.id, paths: changed });
   };
   try {
     o.watcher = watch(o.info.path, { recursive: true }, (_ev, name) => {
@@ -330,6 +333,100 @@ export async function remove(id: string, rel: string) {
   const p = normPath(rel);
   for (const f of o.index.allFiles()) if (f.path === p || f.path.startsWith(`${p}/`)) o.index.remove(f.path);
   if (isDir) for (const f of [...o.folders]) if (f === p || f.startsWith(`${p}/`)) o.folders.delete(f);
+}
+
+// ---------------------------------------------------------------- many files at once (imports)
+
+/** Is this vault path taken (by a file or a folder)? */
+export async function taken(id: string): Promise<(rel: string) => boolean> {
+  const o = await getOpen(id);
+  // Case never decides: "Plan.md" and "plan.md" are the same file on most Macs and PCs.
+  const lower = new Set([...o.index.allFiles().map((f) => f.path.toLowerCase()), ...[...o.folders].map((f) => f.toLowerCase())]);
+  return (rel: string) => lower.has(rel.toLowerCase()) || existsSync(safeAbs(o, rel));
+}
+
+/**
+ * Writes many new files (never over an existing one), in small batches so the
+ * app keeps responding; tells `progress` how far it got and stops when
+ * `cancelled` says so. The vault is announced as changed once, at the end.
+ */
+export async function writeMany(id: string, files: { path: string; data: Uint8Array; note: boolean; mtime?: number }[], progress: (done: number) => void, cancelled: () => boolean): Promise<{ path: string; size: number; mtime: number }[]> {
+  const o = await getOpen(id);
+  o.quiet = true;
+  // Following thousands of new files one event at a time is slow (on Linux each new folder is
+  // walked again): stop following while writing, and look at the whole vault once afterwards.
+  const following = !!o.watcher;
+  o.watcher?.close();
+  o.watcher = undefined;
+  const written: { path: string; size: number; mtime: number }[] = [];
+  try {
+    for (let i = 0; i < files.length; i += 32) {
+      if (cancelled()) break;
+      await Promise.all(files.slice(i, i + 32).map(async (f) => {
+        const rel = normPath(f.path);
+        const abs = safeAbs(o, rel);
+        await fsp.mkdir(path.dirname(abs), { recursive: true });
+        o.ours.set(rel, Date.now());
+        await fsp.writeFile(abs, f.data, { flag: 'wx' });
+        if (f.mtime && Number.isFinite(f.mtime)) { const t = new Date(f.mtime); await fsp.utimes(abs, t, t).catch(() => undefined); }
+        const st = await fsp.stat(abs);
+        o.index.set({ path: rel, mtime: st.mtimeMs, ctime: st.birthtimeMs || st.ctimeMs, size: st.size }, f.note ? Buffer.from(f.data).toString('utf8') : undefined);
+        for (let d = path.posix.dirname(rel); d && d !== '.'; d = path.posix.dirname(d)) o.folders.add(d);
+        written.push({ path: rel, size: st.size, mtime: st.mtimeMs });
+      }));
+      progress(written.length);
+      // Let other work (the window's requests) in between batches.
+      await new Promise((r) => setImmediate(r));
+    }
+  } finally {
+    o.quiet = false;
+    if (following) watchVault(o);
+    broadcast('notes-changed', { vault: o.info.id, paths: written.map((w) => w.path).slice(0, 200) });
+  }
+  return written;
+}
+
+/**
+ * Takes back files an import wrote: each one only if it is unchanged since
+ * (same size and time), then the folders it leaves empty. Changed files stay.
+ */
+export async function removeMany(id: string, files: { path: string; size: number; mtime: number }[], folder?: string): Promise<{ removed: number; kept: string[] }> {
+  const o = await getOpen(id);
+  o.quiet = true;
+  const following = !!o.watcher;
+  o.watcher?.close();
+  o.watcher = undefined;
+  let removed = 0;
+  const kept: string[] = [];
+  try {
+    for (const f of files) {
+      const abs = safeAbs(o, f.path);
+      const st = await fsp.stat(abs).catch(() => null);
+      if (!st) continue;
+      if (st.size !== f.size || Math.abs(st.mtimeMs - f.mtime) > 2) { kept.push(f.path); continue; }
+      await fsp.rm(abs, { force: true });
+      o.index.remove(f.path);
+      removed++;
+    }
+    // Folders left empty, deepest first.
+    const dirs = new Set<string>();
+    for (const f of files) for (let d = path.posix.dirname(f.path); d && d !== '.'; d = path.posix.dirname(d)) if (!folder || d === folder || d.startsWith(`${folder}/`)) dirs.add(d);
+    for (const d of [...dirs].sort((a, b) => b.length - a.length)) {
+      const abs = safeAbs(o, d);
+      if ((await fsp.readdir(abs).catch(() => ['x'])).length === 0) { await fsp.rmdir(abs).catch(() => undefined); o.folders.delete(d); }
+    }
+  } finally {
+    o.quiet = false;
+    if (following) watchVault(o);
+    broadcast('notes-changed', { vault: o.info.id, paths: [] });
+  }
+  return { removed, kept };
+}
+
+/** The vault's index and folder, for exports. */
+export async function vaultFor(id: string) {
+  const o = await getOpen(id);
+  return { index: o.index, root: o.info.path, name: o.info.name, abs: (rel: string) => safeAbs(o, rel), math: await mathFn() };
 }
 
 /** Renames a file or folder, and (when the vault says so, the default) updates every link to it. */

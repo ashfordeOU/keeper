@@ -11,6 +11,14 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - Settings → Island → Look: Match theme (the default), Dark, or Colourful with six bright gradients; Subtle or Bold; and an accent colour. A preview shows how it looks, also while music plays, a meeting is next, a timer runs or it charges.
 - Text stays easy to read in every theme and look: Keeper checks it on every part of the Island's background.
 
+### Added — Notes: import from other apps, and export
+- **Import notes** (in the vault menu, and on an empty page): pick the app, follow two or three plain steps, see how many notes will come in, then watch the progress. At the end you see what came in and what was left out, and why. **Undo** takes it back, and leaves alone any note you changed since.
+- Reads Evernote (.enex), Joplin (.jex, a sync folder, or Joplin while it runs), Standard Notes backups (encrypted ones are opened on this computer), Notesnook, Google Keep (Takeout folder or .zip), Simplenote, Bear exports, Apple Notes saved as files, Samsung Notes, Notion, OneNote, Markdown vaults from other notes apps, and on a Mac, Apple Notes and Bear directly.
+- Notebooks become folders. Tags, dates, checklists, tables, pictures and files come along, and links between the imported notes become [[links]]. Nothing is ever overwritten; each import gets its own folder.
+- Thousands of notes import in seconds with a progress bar and Cancel, and the page keeps working meanwhile.
+- **Export**: the notes as a Markdown folder with their pictures (with plain links for apps that need them), the whole vault as a .zip, an Evernote .enex, or one note as a web page or a PDF.
+- Fixed: checklists in Evernote notes came in as plain lines; they are checklists again.
+
 ### Changed — Notes: a calmer page
 - Notes is now three rounded panels with the same gap between them: your notes, the open note, and links and outline.
 - The notes list has one header: the vault, a search box, New, and More for folders, canvases, bases and sorting. The separate strip of icons is gone. Files, Tags, Bookmarks and Recent are labelled.

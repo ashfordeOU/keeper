@@ -239,7 +239,7 @@ describe('Evernote', () => {
   it('reads an .enex (ENML → Markdown, attachments by hash)', () => {
     const [n] = parseEnex(fx('sample.enex'), 'Recipes');
     expect(n).toMatchObject({ title: 'Recipe & notes', tags: ['cooking', 'family'], created: Date.UTC(2026, 9, 1, 9), folder: 'Recipes' });
-    expect(n.body).toBe('**Shakshuka**\n[x] Buy peppers\n[ ] Buy feta\n\n- Onion\n- Tomatoes\n\n![pan.png](attachment:5d41402abc4b2a76b9719d911017c592)');
+    expect(n.body).toBe('**Shakshuka**\n- [x] Buy peppers\n- [ ] Buy feta\n\n- Onion\n- Tomatoes\n\n![pan.png](attachment:5d41402abc4b2a76b9719d911017c592)');
     expect(n.attachments?.[0]).toMatchObject({ name: 'pan.png', mime: 'image/png', sourceRef: '5d41402abc4b2a76b9719d911017c592' });
     expect(new TextDecoder().decode(n.attachments![0].data)).toBe('hello');
   });

@@ -351,3 +351,44 @@
 }
 .markdown-rendered .nt-inline-base { border: 1px solid var(--line); border-radius: 10px; margin: 1em 0; max-height: 420px; display: flex; flex-direction: column; overflow: hidden; }
 .nt-search-field input:focus, .nt-search-field input:focus-visible { outline: none; box-shadow: none; }
+
+/* import and export */
+[data-testid=notes-import], [data-testid=notes-export] { --nt-s1: 4px; --nt-s2: 8px; --nt-s3: 12px; --nt-s4: 16px; --nt-s5: 24px; }
+.ni-pick, .ni-steps, .ni-ready, .ni-writing, .ni-done { display: flex; flex-direction: column; gap: var(--nt-s3); }
+.ni-apps { display: grid; grid-template-columns: repeat(auto-fill, minmax(176px, 1fr)); gap: var(--nt-s2); }
+.ni-app { display: flex; align-items: center; gap: var(--nt-s2); min-height: 44px; padding: var(--nt-s2) var(--nt-s3); border: 0; border-radius: var(--r-md); background: var(--bg-sunk); color: var(--text); font: inherit; font-size: var(--fs-md); text-align: left; cursor: pointer; }
+.ni-app:hover:not(:disabled) { background: var(--bg-active); }
+.ni-app:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.ni-app:disabled { opacity: .55; cursor: default; }
+.ni-app-mark { width: 26px; height: 26px; flex: none; display: grid; place-items: center; border-radius: var(--r-sm); background: var(--accent-soft); color: var(--accent); font-weight: 750; font-size: var(--fs-sm); }
+.ni-app-name { flex: 1; min-width: 0; }
+.ni-badge { font-size: var(--fs-xs); color: var(--text-3); white-space: nowrap; }
+.ni-earlier { display: flex; flex-direction: column; gap: var(--nt-s1); }
+.ni-earlier .nt-sec-title { padding: var(--nt-s2) 0 0; }
+.ni-earlier-row { display: flex; align-items: center; justify-content: space-between; gap: var(--nt-s2); font-size: var(--fs-md); }
+.ni-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--nt-s2); }
+.ni-list li { display: flex; gap: var(--nt-s3); align-items: baseline; font-size: var(--fs-md); line-height: 1.5; }
+.ni-num { flex: none; width: 22px; height: 22px; border-radius: var(--r-pill); display: inline-grid; place-items: center; background: var(--accent-soft); color: var(--accent); font-size: var(--fs-xs); font-weight: 700; }
+.ni-note { margin: 0; }
+.ni-choose { display: flex; align-items: center; gap: var(--nt-s2); flex-wrap: wrap; }
+.ni-path { color: var(--text-2); font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 260px; }
+.ni-field { display: flex; flex-direction: column; gap: var(--nt-s1); font-size: var(--fs-sm); color: var(--text-2); }
+.ni-progress { display: flex; flex-direction: column; gap: var(--nt-s2); font-size: var(--fs-sm); color: var(--text-2); }
+.ni-big { font-size: var(--fs-xl); letter-spacing: -.01em; }
+.ni-sample { list-style: none; margin: 0; padding: var(--nt-s2) var(--nt-s3); background: var(--bg-sunk); border-radius: var(--r-md); display: flex; flex-direction: column; gap: var(--nt-s1); font-size: var(--fs-md); }
+.ni-sample li { display: flex; align-items: center; gap: var(--nt-s2); }
+.ni-count { font-size: var(--fs-lg); font-weight: 650; font-variant-numeric: tabular-nums; }
+.ni-writing .nt-modal-actions { justify-content: flex-start; }
+.ni-done { align-items: center; text-align: center; }
+.ni-done h2 { margin: 0; font-size: var(--fs-2xl); letter-spacing: -.02em; }
+.ni-done h2 em { font-style: normal; color: var(--accent); }
+.ni-done .nt-modal-actions { align-self: stretch; }
+.ni-skipped { align-self: stretch; text-align: left; font-size: var(--fs-sm); }
+.ni-skipped ul { margin: var(--nt-s2) 0 0; padding-left: var(--nt-s5); display: flex; flex-direction: column; gap: var(--nt-s1); max-height: 160px; overflow: auto; }
+.ni-scope { margin-bottom: var(--nt-s3); }
+.ni-formats { display: flex; flex-direction: column; gap: var(--nt-s2); }
+.ni-format { display: flex; align-items: flex-start; gap: var(--nt-s3); padding: var(--nt-s3); border-radius: var(--r-md); background: var(--bg-sunk); cursor: pointer; font-size: var(--fs-md); }
+.ni-format.on { background: var(--accent-soft); }
+.ni-format > span { display: flex; flex-direction: column; gap: 2px; }
+.ni-format input { accent-color: var(--accent); margin-top: 3px; }
+.ni-check { display: flex; align-items: center; gap: var(--nt-s2); margin-top: var(--nt-s3); font-size: var(--fs-md); }

@@ -38,6 +38,38 @@ Keeper is not affiliated with any other notes app. Folder names are mentioned on
 - **Links and outline** are closed at first on windows narrower than about 1360 pixels. Wide and narrow windows remember the choice separately. Below 1180 pixels the panel floats over the note (Esc closes it).
 - Spacing comes from one scale (`--nt-s1` … `--nt-s7` in `src/styles/notes.css`); text sizes and corners come from Keeper's tokens.
 
+## Import and export
+
+**Import notes** is in the vault menu (and on an empty page). Pick the app, follow its steps, check what will come in, then import. Each import goes into a folder of its own (`From Evernote`, then `From Evernote 2`…, or a name you type); nothing in the vault is ever overwritten.
+
+| App | What you choose | Notes |
+| --- | --- | --- |
+| Markdown folder or vault | the folder | copied exactly as it is (notes, pictures, sub-folders), so its links keep working; `.obsidian` and `.trash` stay behind |
+| Evernote | an `.enex` file or a folder of them | each file is a notebook (folder); checklists, tables, pictures and files; links between notes when the link text is a note's title |
+| Joplin export | a `.jex` file or a sync folder | notebooks, tags, pictures (`resources/`), `:/id` links become [[links]]; encrypted notes are skipped |
+| Joplin (running) | the Web Clipper token | through Joplin's own service on this computer |
+| Standard Notes backup | the backup file | an encrypted backup is opened here with its password (never sent) |
+| Notesnook | a Markdown or HTML export, or an unencrypted backup | |
+| Google Keep | the Takeout Keep folder or `.zip` | checklists, labels, pictures, links; archived notes go in `Archive`; trashed ones are skipped |
+| Simplenote | the export `.zip` or `notes.json` | the first line is the title; pinned notes keep `pinned: true` |
+| Bear export | the folder of Markdown or TextBundle notes | `#tags`, `#nested/tags`, `#multi word tags#`, `::highlights::` |
+| Apple Notes export, Samsung Notes | a folder of `.md`, `.txt` or `.html` notes | pictures next to the notes come along |
+| Notion, OneNote | a token | read through their official services |
+| Apple Notes, Bear (Mac) | nothing | read from the apps on this Mac |
+
+- Each note becomes `<folder>/<notebook>/<title>.md` with properties on top: `tags`, `created`, `modified`, `source`, and `aliases` when the title has characters a file name cannot hold. The file's date is the note's last change.
+- Pictures and files go in `<folder>/attachments/` (the same file is stored once) and are embedded with `![[name]]`.
+- Locked and trashed notes are left out and listed with the reason.
+- **Undo** (at the end, or later from **Import notes → Earlier imports**) removes exactly the files that import wrote, except notes changed since, and the folders it leaves empty. The list lives in `<userData>/notes/imports/<vault>/`.
+- Large imports write in batches of 32 files; the vault watcher pauses while writing and the vault is read once at the end (5,000 notes take about two seconds on a laptop).
+- Tokens typed for an import are used once and never stored.
+
+**Export** (vault menu, or More for this note): a Markdown folder (optionally with plain Markdown links instead of [[links]]), the whole vault as a `.zip` (with its `.obsidian` settings), an Evernote `.enex`, or one note as a self-contained web page or a PDF.
+
+Code: `core/notes/import-sources.ts` (the apps and their steps), `core/notes/importer.ts` (readers and the plan), `core/notes/exporter.ts`, `electron/services/notes-io.ts` (disk, dialogs, jobs, Undo), `src/notes/ImportExport.tsx`. Tests: `test/notes-import.test.ts` on made-up exports from `test/fixtures/notes-import/make.mjs`, and `test/e2e/notes-import.cjs`.
+
+What still needs a real account or a Mac to check: Notion, OneNote and Joplin's running service are tested against recorded answers only; Apple Notes and Bear direct reading need a Mac.
+
 ## Code map
 
 - `core/notes/*` holds pure logic with no Electron or DOM, tested in `test/notes.test.ts`:

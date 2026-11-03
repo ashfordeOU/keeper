@@ -18,6 +18,8 @@ import type { Bookmark } from '../../core/notes/config';
 import { validateManifest } from '../../core/notes/plugins';
 import { Ctx, kindOf, pushRecent, recentFiles, type NotesCtx } from './ctx';
 import { NoteView, type NoteHandle, type ViewMode } from './NoteView';
+import { NotesArt } from './art';
+import { ExportDialog, ImportDialog } from './ImportExport';
 import { CanvasView } from './CanvasView';
 import { BaseView } from './BaseView';
 import { VaultGraph } from './VaultGraph';
@@ -119,23 +121,6 @@ function Prompt({ title, initial, onOk, onClose, okLabel = 'OK' }: { title: stri
 
 // ---------------------------------------------------------------- pictures and empty states
 
-/** Three note cards, one with a link to another, in the theme's own colours. */
-export function NotesArt({ kind = 'notes' }: { kind?: 'notes' | 'import' }) {
-  return (
-    <svg className="nt-art" viewBox="0 0 220 104" role="img" aria-label={kind === 'import' ? 'Notes from other apps arriving as files' : 'Notes linked to each other'}>
-      <rect x="18" y="22" width="70" height="68" rx="12" className="art-card back" />
-      <rect x="132" y="14" width="70" height="68" rx="12" className="art-card back" />
-      <path d="M78 58 C 100 40, 116 40, 142 46" className="art-link" />
-      <rect x="70" y="8" width="80" height="88" rx="14" className="art-card" />
-      <rect x="84" y="24" width="44" height="8" rx="4" className="art-line strong" />
-      <rect x="84" y="40" width="52" height="6" rx="3" className="art-line" />
-      <rect x="84" y="52" width="38" height="6" rx="3" className="art-line accent" />
-      <rect x="84" y="64" width="48" height="6" rx="3" className="art-line" />
-      {kind === 'import' ? <path d="M110 74 v12 M104 81 l6 6 l6 -6" className="art-arrow" /> : <circle cx="128" cy="80" r="5" className="art-dot" />}
-    </svg>
-  );
-}
-
 function VaultChooser({ onOpen, error }: { onOpen: (v: VaultInfo) => void; error: string | null }) {
   const [list, setList] = useState<VaultInfo[] | null>(null);
   const [creating, setCreating] = useState(false);
@@ -196,7 +181,7 @@ function EmptyPane({ count, onNew, onOpen, onToday, onImport }: { count: number;
 function Gone({ path, onClose }: { path: string; onClose: () => void }) {
   return (
     <section className="nt-empty-pane is-small" role="status">
-      <h2>This note moved</h2>
+      <h2>Not here any more</h2>
       <p className="nt-lead">“{path.replace(/\.md$/, '')}” is not in the vault any more.</p>
       <div className="nt-empty-actions"><button className="btn" onClick={onClose}>Close tab</button></div>
     </section>
@@ -283,7 +268,7 @@ export function NotesApp() {
   useEffect(() => {
     if (!vault || !activePath || kindOf(activePath) !== 'note') { setActiveText(null); return; }
     let alive = true;
-    void api.notes.read(vault.id, activePath).then((t) => alive && setActiveText(t));
+    void api.notes.read(vault.id, activePath).then((t) => alive && setActiveText(t)).catch(() => alive && setActiveText(null));
     return () => { alive = false; };
   }, [vault, activePath, rev]);
 
@@ -495,6 +480,8 @@ export function NotesApp() {
       { id: 'panel', name: 'Show or hide links and outline', run: () => setInspector(!inspector) },
       { id: 'collapse', name: 'Close all folders', run: () => setCollapse((c) => c + 1) },
       { id: 'settings', name: 'Notes settings', run: () => setModal({ kind: 'settings' }) },
+      { id: 'import', name: 'Import notes from another app…', run: () => setModal({ kind: 'import' }) },
+      { id: 'export', name: 'Export notes…', run: () => setModal({ kind: 'export', arg: activePath ?? undefined }) },
       { id: 'vaults', name: 'Open another vault…', run: () => { setVault(null); setVaultId(null); try { localStorage.removeItem('notes.vault'); } catch { /* ignore */ } } },
       { id: 'workspace-save', name: 'Save this layout as a workspace…', run: () => setModal({ kind: 'saveWs' }) },
       { id: 'workspace-load', name: 'Load a workspace…', run: () => setModal({ kind: 'loadWs' }) },
@@ -568,6 +555,9 @@ export function NotesApp() {
     { label: 'All commands', icon: 'terminal', kbd: 'Ctrl P', run: () => setModal({ kind: 'palette' }) },
   ];
   const vaultMenu: MenuItem[] = [
+    { label: 'Import notes…', icon: 'importIn', run: () => setModal({ kind: 'import' }) },
+    { label: 'Export notes…', icon: 'exportOut', run: () => setModal({ kind: 'export' }) },
+    { sep: true, label: '' },
     { label: 'Switch vault…', icon: 'folder', run: switchVault },
     { label: 'Show in folder', icon: 'reveal', run: () => void api.notes.reveal(vault.id, '') },
     { sep: true, label: '' },
@@ -581,6 +571,7 @@ export function NotesApp() {
         { label: recording ? 'Stop recording' : 'Record audio', icon: 'mic', run: () => h?.record() },
         { label: 'Present as slides', icon: 'play', run: () => setModal({ kind: 'slides', arg: p }) },
         { label: 'Earlier versions…', icon: 'history', run: () => setModal({ kind: 'snapshots', arg: p }) },
+        { label: 'Export this note…', icon: 'exportOut', run: () => setModal({ kind: 'export', arg: p }) },
         { label: 'Publish as a website…', icon: 'globe', run: () => setModal({ kind: 'publish', arg: p }) },
         { sep: true, label: '' },
       ] : []),
@@ -664,7 +655,7 @@ export function NotesApp() {
                     ))}
                     <button className="nt-icon-btn nt-tab-new" title="New note (Ctrl+N)" aria-label="New tab" onClick={() => void newFile('note')}><Icon name="plus" size={14} /></button>
                   </div>
-                  {at && kindOf(at.path) === 'note' && at.path !== GRAPH ? (
+                  {at && kindOf(at.path) === 'note' && vault.files.some((f) => f.path === at.path) ? (
                     <div className="nt-seg" role="group" aria-label="View">
                       <button className={at.mode === 'live' ? 'on' : ''} aria-pressed={at.mode === 'live'} onClick={() => setMode(at.id, 'live')} title="Write with formatting shown">Live</button>
                       <button className={at.mode === 'source' ? 'on' : ''} aria-pressed={at.mode === 'source'} onClick={() => setMode(at.id, 'source')} title="Plain Markdown">Source</button>
@@ -728,6 +719,8 @@ export function NotesApp() {
         }} /> : null}
         {modal?.kind === 'snapshots' ? <Snapshots vault={vault} path={modal.arg!} toast={toast} bump={() => setRev((r) => r + 1)} onClose={() => setModal(null)} /> : null}
         {modal?.kind === 'publish' ? <Publish vault={vault} toast={toast} initial={modal.arg ? [modal.arg] : []} onClose={() => setModal(null)} /> : null}
+        {modal?.kind === 'import' ? <ImportDialog vault={vault} onClose={() => setModal(null)} onDone={() => void refresh()} onOpenFolder={(folder) => void api.notes.open(vault.id).then((v) => { setVault(v); const first = v.files.filter((f) => f.path.startsWith(`${folder}/`) && f.path.endsWith('.md')).sort((x, y) => x.path.localeCompare(y.path))[0]; if (first) open(first.path); })} /> : null}
+        {modal?.kind === 'export' ? <ExportDialog vault={vault} path={modal.arg ?? null} toast={toast} onClose={() => setModal(null)} /> : null}
         {modal?.kind === 'slides' ? <Slides vault={vault} path={modal.arg!} onClose={() => setModal(null)} /> : null}
         {modal?.kind === 'settings' && settings ? <NotesSettingsModal settings={settings} onChange={(s) => void api.notes.setSettings(s).then(setSettings)} onClose={() => setModal(null)} /> : null}
       </div>
