@@ -4,6 +4,25 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 
 ## [Unreleased]
 
+### Changed — Navigation and Settings
+- The sidebar has the same sections as Settings → Features: Library, Favorites, Locations, Cloud & Servers and Tags, then Mail & Calendar, Notes, Tidy, Sync & Backup, Computer, Privacy & Security, Devices, AI, Screen and Desktop. Settings stays at the foot. A section whose parts are all off disappears; the everyday ones start open and the rest show only their titles. The top block is Home, Recents and Browse; Weather and Places & Tracks moved to Desktop. Library kinds with nothing in them stay out.
+- One page each, with tabs: System Controls (Quick switches, Hidden system settings, Per app), Privacy & Security (Overview, Protection, Firewall, Network activity, VPN) and Startup & Apps (Startup items, Installed apps). Keeper's processes is Health → Keeper itself; Browser tabs is part of Health → Apps & tabs; Keeper Mesh is Devices → Private network. Every old link still works.
+- Renamed so a page has one name in the sidebar, its title and the palette: Download Sources (was Downloaded From), Undo History, Fix-it List (was To do), AI Usage, Devices (was Devices & Remote; its Remote Access tab is Access from anywhere), Notes from Other Apps, Synced Folders, Cloud Mirrors, Older Versions. Sync & Backup's title names the part you are in.
+- Settings has two panes: sections and search on the left, one section on the right. Each section shows its everyday settings, then More settings (n); General → Always show all settings opens them all. Search understands what people call things (dark mode, hotkey, telemetry, notch), shows where each result lives, and scrolls to it and flashes it; results for a part that is off offer Turn on.
+- Changed (n) lists every setting that differs from how Keeper came, old → new, each with Reset. A changed setting has a mark on its left and a reset button (also on right-click), with Undo; each section can be reset, and General can reset everything (after an export, if you like). Accounts, folders, locked folders and keys are never reset.
+- Export and import settings (General): never passwords, keys, tokens, private calendar links or device ids, and folders only when you ask. An import shows what it changes before it does.
+- One Privacy & permissions section; About keeps a one-line privacy note and one License row. Settings → Performance is Battery and speed (Save battery, Balanced, Fastest).
+- Search everywhere also finds Keeper's own settings.
+- Plainer words across Settings (Folders to search, Folders to skip, Find text in pictures and scans, Search everything again, Keeper in the menu bar, Details panel…), US spelling, and a check that fails the build on technical words in everyday settings.
+- The palette lists pages under the same names, shows each kind of result once (Recent, Go to, Actions), and opens on the pages you were just on.
+
+### Fixed — Navigation and Settings
+- Studio and Copy text from screen both used ⌘⇧2 / Ctrl+Shift+2, so one of them never worked. Studio now records with ⌘⇧9 / Ctrl+Shift+9 and pauses with ⌘⇧0 / Ctrl+Shift+0 (it took the Mac's own ⌘⇧3 before); Remote Desktops quick connect moves to ⌘⌥E / Ctrl+Alt+E, off Record the screen's keys. Settings → General → Shortcuts from any app lists every shortcut and says "Taken by …" when one doesn't work, instead of failing without a word. Quick Search's shortcut is recorded by pressing the keys.
+- Links into Settings (from the sidebar, the palette, a feature that needs a permission) land on the right row even while the parts above it are still loading.
+- Cloud & Servers with no connection chosen shows every connection (state, space, Browse, Remove) and Add…, instead of a lone icon.
+- Hint cards show under the page title instead of above it; a page whose part is off keeps its title.
+- One tab bar everywhere: tabs that do not fit go under More instead of wrapping to a second row (Agents, Health, Firewall…). Selects and fields without their own style look like Keeper's; Vibes' Active badge reads in light mode; text sizes and corners come from one set of values.
+
 ### Added — Keep Awake with the lid closed, with Monorail
 - Monorail can hand a closed-lid session to Keeper (`keeper://awake?for=2h&closedLid=1&handoff=<id>&from=monorail`, or `until=<epoch ms>`). Keeper keeps the Mac awake with the lid closed and answers in its hello (`state.awakeHandoff`, kept for 60 seconds); if it cannot (setup missing, permission refused, anything else) it starts nothing and says why, and Monorail keeps the Mac awake itself. Keeper's hello now says whether it can do this without a password prompt (`caps.closedLid`, `caps.closedLidReady`).
 - New setting "Closed-lid mode only while plugged in" (on by default; existing settings get it too). When you unplug, only the lid part turns off and Keep Awake goes on, with a notification. With it off, closed-lid mode runs on battery down to the battery floor (20% by default). Heat, the battery floor and Low Power Mode also turn off only the lid part.

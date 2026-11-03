@@ -98,7 +98,7 @@ export function ProcessesPanel() {
       ) : null}
 
       <div className="kproc-foot">
-        <button className="btn" onClick={() => void api.session.relaunch(true)} title="Starts Keeper with only the library on; nothing is changed or deleted"><Icon name="shield" size={13} /> Restart in safe mode</button>
+        <button className="btn" onClick={() => void api.session.relaunch(true)} title="Restart with only files and search on. Nothing is deleted."><Icon name="shield" size={13} /> Restart in safe mode</button>
         <button className="btn ghost" onClick={() => void api.session.report().then((r) => { void navigator.clipboard.writeText(r); toast('Report copied'); })}><Icon name="copy" size={13} /> Copy report</button>
         {log?.dumps.length ? <button className="btn ghost" onClick={() => void api.session.openDumps()}><Icon name="reveal" size={13} /> Crash reports ({log.dumps.length})</button> : null}
       </div>

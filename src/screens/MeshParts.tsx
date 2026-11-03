@@ -43,7 +43,7 @@ export function MeshTag({ ip, iface }: { ip?: string; iface?: string }) {
   const byIface = iface && names.includes(iface);
   if (!byIface && !(ip && looksLikeMeshAddr(ip, prefixes))) return null;
   const peer = ip ? s.networks.flatMap((n) => n.peers).find((p) => p.a4 === ip || p.a6 === ip) : undefined;
-  return <span className="badge mesh-tag" title="Keeper Mesh (WireGuard, between your devices)"><Icon name="graph" size={9} />mesh{peer ? ` · ${peer.name}` : ''}</span>;
+  return <span className="badge mesh-tag" title="Private network for your devices (WireGuard)"><Icon name="graph" size={9} />mesh{peer ? ` · ${peer.name}` : ''}</span>;
 }
 
 /** Settings → Keeper Mesh: which places show which control. */

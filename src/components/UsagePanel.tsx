@@ -65,7 +65,7 @@ export function UsagePanel() {
   return (
     <div className="usage">
       <div className="usage-stats">
-        <div className="usage-stat"><Icon name="bolt" size={16} /><div><b>{u ? `${u.cpu.toFixed(1)}%` : '…'}</b><span className="small muted">processor (of one core)</span></div></div>
+        <div className="usage-stat"><Icon name="bolt" size={16} /><div><b>{u ? `${u.cpu.toFixed(1)}%` : '…'}</b><span className="small muted" title="% of one core">processor</span></div></div>
         <div className="usage-stat"><Icon name="weight" size={16} /><div><b>{u ? formatBytes(u.memory) : '…'}</b><span className="small muted">memory</span></div></div>
         <div className="usage-stat"><Icon name="grid" size={16} /><div><b>{u?.processes ?? '…'}</b><span className="small muted">processes</span></div></div>
       </div>

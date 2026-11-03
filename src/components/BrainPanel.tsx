@@ -112,7 +112,7 @@ function ConnectionRow({ c, active, onUse, onChange, onRemove }: { c: Connection
             </label>
           ) : null}
           {c.kind === 'openai-compatible' || c.kind === 'ollama' ? (
-            <label className="field inline"><Toggle on={c.tools !== false} onChange={(v) => onChange({ ...c, tools: v })} /> <span>Model can use tools (turn off for small local models; Keeper then looks things up first)</span></label>
+            <label className="field inline"><Toggle on={c.tools !== false} onChange={(v) => onChange({ ...c, tools: v })} /> <span>Let the AI look things up itself (turn off for small AIs on this computer)</span></label>
           ) : null}
           <div className="row" style={{ gap: 8 }}>
             <button className="btn sm" disabled={test === 'busy'} onClick={async () => { setTest('busy'); setTest(await api.brain.testConnection(c.id)); }}>{test === 'busy' ? <div className="spinner" /> : <Icon name="bolt" size={12} />} Test</button>
@@ -177,7 +177,7 @@ function AppsCard() {
       </div>
       {info ? (
         <div className="snippets">
-          <div className="small muted" style={{ margin: '4px 0 6px' }}>For other AI apps, editors and agents (the operating system's agent hosts included), use Keeper's MCP server:</div>
+          <div className="small muted" style={{ margin: '4px 0 6px' }}>Let other AI apps search your files through Keeper (Claude, ChatGPT, Cursor…), with Keeper's MCP server:</div>
           {info.snippets.map((s) => (
             <div key={s.id} className="snippet">
               <div className="row" style={{ justifyContent: 'space-between' }}><span className="small" style={{ fontWeight: 600 }}>{s.label}</span><button className="btn ghost sm" onClick={() => copy(s.text, s.label)}><Icon name="copy" size={12} /> Copy</button></div>
@@ -225,7 +225,7 @@ export function BrainSettingsPanel() {
       </div>
       <StatusCard st={st} />
 
-      <Row title="Read text inside files" desc="Builds the passage index. Excluded folders are never read.">
+      <Row title="Read your files' text for AI" desc="So answers can quote your documents. Skipped folders are never read.">
         <Toggle on={b.enabled} onChange={(v) => set({ enabled: v })} />
       </Row>
       <Row
@@ -280,7 +280,7 @@ export function BrainSettingsPanel() {
       <Row title="Blank out secrets for connected apps" desc="Recommended: most AI apps send what they read to the internet.">
         <Toggle on={b.mcpRedact} onChange={(v) => set({ mcpRedact: v })} />
       </Row>
-      <Row title="Local API" desc="Serves search, read and ask (and MCP over HTTP) on 127.0.0.1 only, with your access token. Off unless you need it.">
+      <Row title="Programs on this computer can use Keeper" desc="For your own scripts. Only this computer can connect, with your code (local API).">
         <Toggle on={b.http} onChange={(v) => set({ http: v })} />
       </Row>
     </div>
