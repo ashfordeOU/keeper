@@ -23,7 +23,7 @@ import path from 'node:path';
 import { EXIT_ALREADY_RUNNING, ORPHAN_GRACE_MS, roleOf, type PartRole, type SenderInfo, type SuiteMessage } from '../../core/suite';
 import type { AllSettings } from '../../core/settings';
 import { installNavGuard } from '../nav-guard';
-import { adoptSettings, setSettingsWriter, settings } from '../store';
+import { adoptSettings, onKeychain, secretStates, setSettingsWriter, settings } from '../store';
 import { ownUsage } from './metrics';
 import { connect, readCoreInfo, suiteDir, takeRoleLock, type CoreInfo, type Peer } from './channel';
 
@@ -290,6 +290,27 @@ function wakeKeeper() {
   }
 }
 
+/**
+ * macOS hands a keeper:// link (Monorail's Keep Awake hand-over, Shortcuts) to any running copy of
+ * Keeper's bundle, and that may be a part: the app gets it, and when the app is away it is started
+ * with the link (Keep Awake and every other link live in the app).
+ */
+app.on('open-url', (e, url) => {
+  e.preventDefault();
+  if (!/^keeper:\/\//i.test(url)) return;
+  if (peer && welcomed) return peer.send({ t: 'note', name: 'open-url', args: [url] });
+  const cmd = (lastCore ?? readCoreInfo(userData))?.cmd;
+  if (!cmd?.length) return;
+  const env: NodeJS.ProcessEnv = { ...process.env };
+  delete env.ELECTRON_RUN_AS_NODE;
+  delete env.KEEPER_PART_OF;
+  try {
+    spawn(cmd[0], [...cmd.slice(1), url], { detached: true, stdio: 'ignore', env }).unref();
+  } catch (err) {
+    console.error('[suite] could not start Keeper for a link', (err as Error).message);
+  }
+});
+
 // ---------------------------------------------------------------- the part itself
 
 async function startIsland() {
@@ -336,6 +357,8 @@ async function startMail() {
   const secrets = await import('../services/pim/store');
   secrets.restoreMemorySecrets(await call('suite:mail.secrets', []).catch(() => null) as Record<string, string> | null);
   secrets.onMemorySecrets((all) => keep('secrets', [all]));
+  // A keychain that refuses a mail password here shows the app's keychain banner (and clears it once it opens).
+  onKeychain(() => keep('keychain', [secretStates('pim.')]));
   await m.startPim({
     broadcast: (channel, ...args) => note('broadcast', [channel, ...args]),
     alert: (...args) => note('alert', args),

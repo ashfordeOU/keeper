@@ -5,7 +5,7 @@
 // Must stay the first import: test runs move every folder before anything reads one.
 import './test-home';
 // Next: it notes every IPC handler as it is registered, so the suite's parts can call them too.
-import { partBroadcast, startHub } from './suite/hub';
+import { onPartOpenUrl, partBroadcast, startHub } from './suite/hub';
 import { registerSuiteIpc, separateAtStart, startSuite } from './suite/supervisor';
 import { installRemotes, uninstallRemotes } from './suite/remote';
 import { installMailRemote, uninstallMailRemote } from './suite/mail';
@@ -675,6 +675,8 @@ app.on('open-url', (e, url) => {
   else app.once('ready', () => handleDeepLink(url));
 });
 app.on('second-instance', (_e, argv) => onSecondInstance(argv));
+// macOS may hand a keeper:// link (Monorail's Keep Awake hand-over, Shortcuts) to a part of the suite: it passes it on.
+onPartOpenUrl((url) => handleDeepLink(url));
 
 /** Another start of Keeper (this copy or any other) handed over its command line. */
 function onSecondInstance(argv: string[]) {

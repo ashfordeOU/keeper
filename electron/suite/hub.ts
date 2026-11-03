@@ -51,6 +51,10 @@ const windowless = (role: PartRole) => role === 'mail';
 const notes = new Map<PartRole, (name: string, args: unknown[]) => void>();
 export function onPartNote(role: PartRole, fn: (name: string, args: unknown[]) => void) { notes.set(role, fn); }
 
+/** Where a keeper:// link a part received goes (main.ts: the same place as the app's own open-url). */
+let openUrl: ((url: string) => void) | null = null;
+export function onPartOpenUrl(fn: (url: string) => void) { openUrl = fn; }
+
 /** The app's answers for parts only (`suite:<name>`): never reachable from a window. */
 const partHandlers = new Map<string, { roles: PartRole[]; fn: (...args: unknown[]) => unknown }>();
 export function handleForParts(name: string, roles: PartRole[], fn: (...args: never[]) => unknown) { partHandlers.set(`suite:${name}`, { roles, fn: fn as (...args: unknown[]) => unknown }); }
@@ -151,6 +155,8 @@ function onPeer(peer: Peer) {
     switch (m.t) {
       case 'call': void onCall(c, m); break;
       case 'note': {
+        // A keeper:// link macOS handed to a part instead of the app (any copy of the bundle can get it).
+        if (m.name === 'open-url') { if (typeof m.args[0] === 'string' && /^keeper:\/\//i.test(m.args[0])) openUrl?.(m.args[0]); break; }
         try { notes.get(c.role)?.(m.name, m.args); } catch (e) { console.error(`[suite] ${c.role} note ${m.name}`, e); }
         break;
       }

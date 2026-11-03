@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react';
 import type { SuitePart } from '../../core/api-suite';
 import type { KeeperProcess } from '../../core/api-session';
+import { usable, type ComponentInfo } from '../../core/components';
 import { featureDef } from '../../core/features';
 import { separateByDefault } from '../../core/suite';
 import { formatBytes, relativeTime } from '../../core/format';
@@ -16,16 +17,9 @@ import { useStore } from '../state';
 import { Toggle } from './ui';
 import '../styles/processes.css';
 
-/**
- * Downloadable components (ffmpeg, models…), when this build has them (window.keeper.components):
- * a part shows what its features still need to download, and the progress.
- */
-interface ComponentRow { id: string; name: string; state: string; progress?: number; error?: string; neededBy: string[] }
-const componentsApi = () => (api as unknown as { components?: { list(): Promise<ComponentRow[]> } }).components;
-const ready = (c: ComponentRow) => c.state === 'bundled' || c.state === 'installed' || c.state === 'dev';
-
-function downloads(list: ComponentRow[], features: string[]): string | null {
-  const mine = list.filter((c) => !ready(c) && c.neededBy.some((f) => features.includes(f)));
+/** What a part's features still need to download (core/components.ts), and the progress. */
+function downloads(list: ComponentInfo[], features: string[]): string | null {
+  const mine = list.filter((c) => !usable(c.state) && c.state !== 'unavailable' && c.neededBy.some((f) => features.includes(f)));
   if (!mine.length) return null;
   return mine.map((c) => (c.state === 'downloading' ? `${c.name}: downloading${c.progress != null ? ` ${Math.round(c.progress * 100)}%` : ''}` : c.error ? `${c.name}: ${c.error}` : `${c.name}: to download`)).join(' · ');
 }
@@ -42,7 +36,7 @@ export function SuitePanel() {
   const [main, setMain] = useState<{ memory: number; cpu: number; processes: number; startedAt: number } | null>(null);
   const [separate, setSeparate] = useState<{ now: boolean; next: boolean; env: string | null } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
-  const [components, setComponents] = useState<ComponentRow[]>([]);
+  const [components, setComponents] = useState<ComponentInfo[]>([]);
 
   useEffect(() => {
     if (!api.suite) return;
@@ -51,7 +45,7 @@ export function SuitePanel() {
       if (document.visibilityState !== 'visible') return;
       void api.suite?.parts().then((p) => alive && setParts(p)).catch(() => undefined);
       void api.suite?.app().then((m) => alive && setMain(m)).catch(() => undefined);
-      void componentsApi()?.list().then((l) => alive && setComponents(l)).catch(() => undefined);
+      void api.components?.list().then((l) => alive && setComponents(l)).catch(() => undefined);
       void api.svc.list().then((l) => alive && setServices(l.filter((p) => p.kind === 'service' && !p.id.startsWith('part:')))).catch(() => undefined);
     };
     load();
@@ -115,7 +109,14 @@ export function SuitePanel() {
               {pending ? <div className="small muted" data-testid={`suite-downloads-${p.id}`}>{pending}</div> : null}
             </div>
             {p.separate && p.wanted ? <button className="btn sm" disabled={busy === p.id} onClick={() => void restart(p.id)}>{p.state === 'failed' ? 'Try again' : 'Restart'}</button> : null}
-            <Toggle label={p.name} on={wanted} onChange={(v) => void (async () => { for (const f of features) await api.features.set(f, v); toast(`${p.name} ${v ? 'on' : 'off'}`); })()} />
+            <Toggle label={p.name} on={wanted} onChange={(v) => void (async () => {
+              for (const f of features) {
+                await api.features.set(f, v);
+                // As with a switch in the list below: what the part needs starts downloading.
+                if (v) void api.components?.switchedOn(f).catch(() => undefined);
+              }
+              toast(`${p.name} ${v ? 'on' : 'off'}`);
+            })()} />
           </div>
         );
       })}
@@ -132,13 +133,13 @@ export function SuitePanel() {
             {s.feature && downloads(components, [s.feature]) ? <div className="small muted">{downloads(components, [s.feature])}</div> : null}
           </div>
           {s.canRestart ? <button className="btn sm" disabled={busy === s.id} onClick={() => void restartService(s.id)}>Restart</button> : null}
-          {s.feature && featureDef(s.feature) ? <Toggle label={s.label} on={states?.get(s.feature)?.wanted ?? true} onChange={(v) => void api.features.set(s.feature!, v)} /> : null}
+          {s.feature && featureDef(s.feature) ? <Toggle label={s.label} on={states?.get(s.feature)?.wanted ?? true} onChange={(v) => void api.features.set(s.feature!, v).then(() => { if (v) void api.components?.switchedOn(s.feature!).catch(() => undefined); })} /> : null}
         </div>
       ))}
       <div className="feature-row suite-row">
         <div className="grow">
           <div className="feature-name">Run parts in processes of their own</div>
-          <div className="small muted">On: the Island, widgets and Mail keep running if the main window stops, at the cost of some memory for each. Off: everything runs in one process, the lightest choice (the default in the Minimal resource mode). Applies when Keeper starts again.</div>
+          <div className="small muted">On: the Island, widgets and Mail keep running if the main window stops, at the cost of some memory for each. Off: everything runs in one process, the lightest choice (the default with Save battery in Settings → Performance). Applies when Keeper starts again.</div>
           {separate?.env ? <div className="small warn-text">Set to “{separate.env}” for this run by KEEPER_SUITE.</div> : null}
           {changePending ? (
             <div className="small warn-text">Applies at the next start. <button className="btn sm" onClick={() => void api.session.relaunch(false)}>Restart Keeper now</button></div>

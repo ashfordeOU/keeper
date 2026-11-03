@@ -11,7 +11,7 @@ import { BrowserWindow, dialog } from 'electron';
 import type { PimDeps } from '../services/pim';
 import { setPimRemote } from '../services/pim/route';
 import type { AllSettings } from '../../core/settings';
-import { updateSettings } from '../store';
+import { adoptSecretStates, updateSettings } from '../store';
 import { handleForParts, onPartNote, partCommand, whenPart } from './hub';
 import { partWanted } from './supervisor';
 
@@ -35,6 +35,7 @@ export function installMailRemote(deps: PimDeps) {
       case 'islandTimers': deps.islandTimers(args[0] as never); break;
       case 'show': deps.show?.(String(args[0])); break;
       case 'secrets': memorySecrets = (args[0] ?? {}) as Record<string, string>; break;
+      case 'keychain': adoptSecretStates('pim.', (args[0] ?? {}) as Parameters<typeof adoptSecretStates>[1]); break;
       default: break;
     }
   });

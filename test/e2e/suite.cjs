@@ -3,6 +3,8 @@
 // Keeper as a suite (docs/SUITE.md): the Island, desktop widgets and Mail and
 // calendars run in processes of their own. Drives the real app and checks that
 //   • the parts start, and their windows work (calls answered by the app);
+//   • the Island's open model works in its own process (the window grown while the pointer
+//     rests, then open; the trackpad tap reaches the app; a field takes the keyboard);
 //   • killing the Island's process (SIGKILL) brings it back, and the app does not notice;
 //   • killing the Mail process brings it back, and a message scheduled with Send later
 //     still goes (against a local Dovecot and SMTP server, when Dovecot is installed);
@@ -73,7 +75,7 @@ async function partPage(port, view) {
 }
 
 const env = {
-  ...process.env, HOME, NODE_OPTIONS: '', XDG_CONFIG_HOME: HOME + '/.config', XDG_DATA_HOME: HOME + '/.local/share', KEEPER_SKIP_TOUR: '1',
+  ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME, NODE_OPTIONS: '', XDG_CONFIG_HOME: HOME + '/.config', XDG_DATA_HOME: HOME + '/.local/share', KEEPER_SKIP_TOUR: '1',
   KEEPER_WATCHDOG: '1', KEEPER_WATCHDOG_EXTRA: `--remote-debugging-port=${APP_PORT} --no-sandbox`, KEEPER_PART_CDP_PORT_BASE: String(PART_PORT), KEEPER_SUITE: 'separate',
 };
 
@@ -118,6 +120,27 @@ const env = {
     await isl.page.evaluate(() => window.keeper.island.focus('start', 25));
     const pill = await until(() => isl.page.locator('.cmp').innerText().then((t) => (/2[45]:\d\d/.test(t) ? t : null)), 8000);
     check(!!pill, `the Island's calls reach the app and its state comes back (pill "${(pill ?? '').replace(/\s+/g, ' ').trim()}")`);
+    // The open model, in the Island's own process: the pointer resting on the pill grows the window
+    // to the open size at once (island.prepare, answered in the part), it opens after the rest, and the
+    // trackpad tap (island.haptic) goes over the channel to the app.
+    await app.evaluate(({ ipcMain }) => { globalThis.__haptics = 0; ipcMain.on('island.haptic', () => { globalThis.__haptics++; }); });
+    await main.evaluate(async () => { const s = await window.keeper.settings.get(); await window.keeper.settings.set({ island: { ...s.island, hoverOpen: true, hoverDelayMs: 450 } }); });
+    await sleep(1200);
+    const islBounds = () => isl.page.evaluate(() => ({ width: window.outerWidth, height: window.outerHeight }));
+    const closedW = (await islBounds()).width;
+    const pillAt = await isl.page.evaluate(() => { const r = document.querySelector('.isl-content').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
+    await isl.page.mouse.move(pillAt.x, pillAt.y);
+    await sleep(200);
+    const waitingW = (await islBounds()).width;
+    const openNow = () => isl.page.locator('.live-card, .isl-panel').count();
+    check(waitingW > closedW && !(await openNow()), `the pointer resting on the pill grows the Island's window before it opens (${closedW} → ${waitingW})`);
+    check(!!(await until(async () => (await openNow()) === 1, 4000, 50)), 'then the Island opens, in its own process');
+    check(!!(await until(() => app.evaluate(() => globalThis.__haptics > 0), 4000, 100)), 'and its trackpad tap reached the app over the channel');
+    const focusable = await isl.page.evaluate(() => { window.keeper.island.takeFocus(); return new Promise((r) => setTimeout(() => r(document.hasFocus()), 600)); });
+    check(focusable, 'the open Island takes the keyboard when asked (takeFocus, in its own process)');
+    await isl.page.mouse.move(-50, 2000);
+    await isl.page.locator('.isl-content').dispatchEvent('mouseleave');
+    check(!!(await until(async () => (await openNow()) === 0 && (await isl.page.locator('.cmp').count()) === 1, 6000, 100)), 'and closes again to the pill when the pointer leaves');
     const wid = await partPage(PART_PORT + 1, 'widget');
     browsers.push(wid.browser);
     check(!!wid.page, 'the clock widget’s window is in the widgets’ process');

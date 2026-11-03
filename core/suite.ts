@@ -36,7 +36,7 @@ export const ROLE_FLAG = '--keeper-role=';
 
 /**
  * Do the parts run in processes of their own? The person's choice when they made one;
- * otherwise yes, except in the Minimal resource mode, where one process is lighter
+ * otherwise yes, except in the Minimal resource mode (Save battery), where one process is lighter
  * (each part's own process costs about 30–35 MB).
  */
 export function separateByDefault(s: { suiteSeparate?: boolean; resourceMode?: string }): boolean {

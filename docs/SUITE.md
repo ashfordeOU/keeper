@@ -55,8 +55,10 @@ of them. The parts take nothing of their own from the system.
   window would (every `ipcMain.handle` is noted as it is registered, in `hub.ts`),
   with a stand-in `event.sender` whose `send` reaches the calling window. A few
   calls are answered in the part itself because they are about its own windows
-  (`island.layout`, `island.setSize`, `island.setExpanded`, `widgets.current`,
-  `files.startDrag`…).
+  (`island.layout`, `island.setSize`, `island.setExpanded`, `island.prepare` (the
+  window grown to the open size while the pointer rests on the pill),
+  `island.takeFocus`, `widgets.current`, `files.startDrag`…). `island.haptic` (the
+  trackpad tap as the Island opens) goes to the app, which runs the macOS helper.
 - The app's events for windows (`broadcast()` in main.ts: `island-changed`,
   `settings-changed`, `progress`…) go to every part's windows too. A part keeps a
   copy of the settings and follows `settings-changed`; a part that changes a
@@ -75,6 +77,15 @@ of them. The parts take nothing of their own from the system.
   only in memory. Mail's are mirrored to the app's memory over the channel and
   handed back when Mail starts again, so a crash of Mail does not ask for them
   again; they are never written to disk.
+- Where the keychain refuses (Deny on a Mac, a locked keyring), Mail tells the app
+  which of its saved sign-ins it could not read (`keychain` note), so the app's
+  keychain banner covers Mail too, and goes when Mail reads them again.
+- macOS may hand a `keeper://` link (Monorail's Keep Awake hand-over, Shortcuts) to
+  any running copy of Keeper's bundle. A part passes it to the app (`open-url`
+  note); with the app away it starts Keeper with the link. Keep Awake stays in the
+  app, so its closed-lid hand-over and Keeper's hello to Monorail are unchanged.
+- Only the app writes `settings.json`; a part never does, even the first time a new
+  version reads an upgrader's settings (the app writes the kept choices down).
 
 ## Starting, stopping, restarting
 
@@ -140,7 +151,7 @@ running; the updated app starts the parts again. No part checks for updates.
 ## Placement: separate or shared
 
 Settings → Features → "Run parts in processes of their own" (`suiteSeparate`;
-unset: on, except in the Minimal resource mode) applies at the next start. Off, the Island and widgets
+unset: on, except with Save battery in Settings → Performance, `resourceMode: 'minimal'`) applies at the next start. Off, the Island and widgets
 run in the app's process as they did before the suite: the lightest choice,
 but they stop with the app. `KEEPER_SUITE=shared|separate` overrides the
 setting for one run (diagnostics and tests).
@@ -170,7 +181,7 @@ small windows that change little) or a network process (the network service
 runs inside its main process).
 
 A part that is off costs nothing: no process. Widgets with no widget on the
-desktop do not run. The Minimal resource mode keeps everything in one process
+desktop do not run. Save battery (the Minimal resource mode) keeps everything in one process
 unless the person chose otherwise (`separateByDefault` in core/suite.ts), and
 its budgets are those of one process; the default budgets in perf-budget.cjs
 rose by what the parts cost, with these measurements beside them.

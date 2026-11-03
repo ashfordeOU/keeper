@@ -518,6 +518,14 @@ export function registerIslandIpc(c: IslandContext) {
     }, 15_000);
   }
 
+  // A light trackpad tap as the Island opens: macOS through keeper-helper; without the helper (or elsewhere) nothing.
+  // Always answered here, in the app, which runs the helper already: an Island in a process of its own
+  // sends it over the suite channel rather than starting a second helper.
+  ipcMain.on('island.haptic', () => {
+    if (process.platform !== 'darwin' || settings().island.haptics === false) return;
+    void import('../services/platform/mac').then((m) => m.macHelperCall('haptic.tap', {}, 2000)).catch(() => undefined);
+  });
+
   // The windows: here, or in the Island's own process (electron/suite/part.ts).
   if (!remote) registerIslandWindowIpc(c);
   else h('island.placementPreview', async () => { await refreshPlaceEnv(); return placementPreview(); });
@@ -557,11 +565,6 @@ export function registerIslandWindowIpc(c: Pick<IslandContext, 'preload' | 'lock
   ipcMain.handle('island.layout', (e) => islandWindows.layoutFor(e.sender));
   ipcMain.on('island.takeFocus', (e) => islandWindows.takeFocus(e.sender));
   ipcMain.on('island.prepare', (e, on: unknown) => islandWindows.prepare(e.sender, on === true));
-  // A light trackpad tap as the Island opens: macOS through keeper-helper; without the helper (or elsewhere) nothing.
-  ipcMain.on('island.haptic', () => {
-    if (process.platform !== 'darwin' || settings().island.haptics === false) return;
-    void import('../services/platform/mac').then((m) => m.macHelperCall('haptic.tap', {}, 2000)).catch(() => undefined);
-  });
   // Window type changed in Settings → Island → Advanced: the Island's windows are made again.
   onSettings((next, prev) => { if (next.island.windowType !== prev.island.windowType && next.island.enabled) islandWindows.ensure(true); });
   ipcMain.on('island.setSize', (e, w: number, hgt: number) => { if (Number.isFinite(w) && Number.isFinite(hgt)) islandWindows.setShownSize(e.sender, w, hgt); });

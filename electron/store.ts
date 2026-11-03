@@ -19,6 +19,8 @@ const file = () => path.join(app.getPath('userData'), 'settings.json');
 const secretsFile = () => path.join(app.getPath('userData'), 'secrets.json');
 
 let current: AllSettings | null = null;
+/** A part of the suite (`--keeper-role=island|widgets|mail`), not the app. */
+const IN_PART = process.argv.some((a) => a.startsWith('--keeper-role=') && a !== '--keeper-role=app');
 const listeners = new Set<(s: AllSettings, prev: AllSettings) => void>();
 
 export function settings(): AllSettings {
@@ -46,7 +48,8 @@ export function settings(): AllSettings {
     // Someone upgrading: write down what is on and off for them now, before any newer
     // default can change it, and do not show them the first-run setup again.
     current = { ...current, ...keepChoices(current), featuresPinned: true, setupDone: raw.setupDone === false ? false : true };
-    void persist();
+    // Only the app writes settings.json; a part of the suite (docs/SUITE.md) adopts the app's settings once connected.
+    if (!IN_PART) void persist();
   }
   return current;
 }
@@ -161,6 +164,26 @@ export function onKeychain(fn: (s: KeychainStatus) => void): () => void {
 function noteRead(name: string, state: SecretState) {
   if (state === 'missing') lastRead.delete(name);
   else lastRead.set(name, state);
+  announceKeychain();
+}
+
+/** What the last reads of the secrets under a prefix found, except "ok" (for another Keeper process). */
+export function secretStates(prefix: string): Record<string, SecretState> {
+  return Object.fromEntries([...lastRead].filter(([n, s]) => n.startsWith(prefix) && s !== 'ok'));
+}
+
+/**
+ * What another Keeper process found reading its own secrets (Mail and calendars in a
+ * process of its own reads `pim.*`): kept with this process's own reads, so the
+ * keychain banner covers them too. Replaces everything earlier under that prefix.
+ */
+export function adoptSecretStates(prefix: string, states: Record<string, SecretState>) {
+  for (const n of [...lastRead.keys()]) if (n.startsWith(prefix)) lastRead.delete(n);
+  for (const [n, st] of Object.entries(states ?? {})) if (n.startsWith(prefix) && (st === 'locked' || st === 'unavailable')) lastRead.set(n, st);
+  announceKeychain();
+}
+
+function announceKeychain() {
   const now = keychainStatus();
   if (now.state === lastState) return;
   lastState = now.state;
