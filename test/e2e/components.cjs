@@ -77,11 +77,13 @@ const sha = (b) => require('crypto').createHash('sha256').update(b).digest('hex'
   check(sized.estimate === false && sized.downloadSize === m.components[0].size, `exact size from the manifest: ${sized.downloadSize} bytes`);
 
   // ---- Settings → Features: the Studio row offers the download; click it
+  // Studio came after the betas, so it is not on by default for these runs: switch it on.
+  await k('features', 'set', 'studio', true);
   await main.evaluate(() => { location.hash = ''; });
   await main.keyboard.press('Control+,').catch(() => undefined);
   if (!(await main.$('.features'))) await main.locator('.sidebar >> text=Settings').first().click().catch(() => undefined);
   await main.waitForSelector('.features', { timeout: 15_000 });
-  const row = main.locator('.feature-row', { hasText: 'Studio' }).first();
+  const row = main.locator('.feature-row[data-feature="studio"]');
   await row.scrollIntoViewIfNeeded();
   const btn = row.locator('[data-testid="component-ffmpeg"] button', { hasText: /Download Video and audio engine/ });
   const label = await btn.textContent({ timeout: 10_000 }).catch(() => '');

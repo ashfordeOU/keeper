@@ -113,7 +113,7 @@ export function FeaturesPanel() {
               const st = states.get(f.id);
               const wanted = f.id === 'login' ? !!st?.wanted : st?.wanted ?? true;
               return (
-                <div key={f.id} className={`feature-row ${st?.on === false ? 'off' : ''}`}>
+                <div key={f.id} data-feature={f.id} className={`feature-row ${st?.on === false ? 'off' : ''}`}>
                   <div className="grow">
                     <div className="feature-name">{f.name}{f.always ? <span className="badge" style={{ marginLeft: 6 }}>Always on</span> : null}</div>
                     <div className="small muted">{f.description}</div>
