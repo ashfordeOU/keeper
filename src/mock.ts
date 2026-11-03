@@ -10,6 +10,7 @@ import { mockFocusBlock } from './mock-focus';
 import { mockTimeTrack } from './mock-time';
 import { mockJournal } from './mock-journal';
 import { mockReader } from './mock-reader';
+import { mockPhoneAlerts } from './mock-alerts';
 import { mockFeatures } from './mock-features';
 import { mockUsageStats } from './mock-usage-stats';
 import { mockPro } from './mock-pro';
@@ -308,6 +309,7 @@ export function createMockApi(): KeeperApi {
     ...mockTimeTrack(),
     ...mockJournal(),
     ...mockReader(),
+    ...mockPhoneAlerts(),
     ...mockFocusBlock((ch) => listeners.get(ch)?.forEach((cb) => (cb as () => void)())),
     ...mockPlaces(),
     ...mockTracks((ch) => listeners.get(ch)?.forEach((cb) => (cb as () => void)())),

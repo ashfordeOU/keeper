@@ -22,6 +22,7 @@ import { cleanLink, isUrl } from '../../core/textools';
 import type { FileEntry } from '../../core/types';
 import { fetchWeather, type Weather } from '../../core/weather';
 import { weatherOptions } from './forecast';
+import { phoneAlert } from './phone-alerts';
 import { getSecret, settings } from '../store';
 import { lyricsFor, mediaAction, micInUse, nowPlaying, watchMic } from './media';
 import { cameraInUse } from './island-place';
@@ -275,6 +276,8 @@ export class IslandService {
   // ---------------------------------------------------------------- alerts
 
   alert(a: Omit<IslandAlert, 'id' | 'at'>) {
+    // Focus sessions and blocking can also reach the phone (Phone Alerts → Focus and time).
+    if (a.kind === 'focus') phoneAlert('focus', a.title, a.detail);
     const item: IslandAlert = { ...a, id: Math.random().toString(36).slice(2), at: Date.now() };
     this.alerts = [item, ...this.alerts].slice(0, 5);
     setTimeout(() => this.dismiss(item.id), 8000);

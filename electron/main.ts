@@ -142,6 +142,8 @@ import { registerFocusBlockIpc } from './ipc/focus-block';
 import { registerTimeTrackIpc } from './ipc/time-track';
 import { registerJournalIpc } from './ipc/journal';
 import { registerReaderIpc } from './ipc/reader';
+import { registerPhoneAlertsIpc } from './ipc/phone-alerts';
+import { phoneAlert } from './services/phone-alerts';
 import { stopTimeTracking } from './services/time-track';
 import { focusChanged as focusBlockFocusChanged, focusStopRefusal, stopFocusBlock } from './services/focus-block';
 import { act as procAct, apps as procApps } from './services/procs';
@@ -1052,6 +1054,10 @@ async function runRule(r: Rule, auto = false): Promise<CleanResult> {
   const rules = settings().rules.map((x) => (x.id === r.id ? { ...x, lastRun: Date.now() } : x));
   await updateSettings({ rules });
   libraryChanged();
+  if (auto && (res.removed || res.failed)) {
+    const verb = r.action.type === 'trash' ? 'moved to the Trash' : r.action.type === 'move' ? 'moved' : 'tagged';
+    phoneAlert('automations', `Automation “${r.name}” ran`, `${res.removed} file${res.removed === 1 ? '' : 's'} ${verb}${res.failed ? `, ${res.failed} could not be` : ''}`, { urgent: res.failed > 0 });
+  }
   return res;
 }
 
@@ -1333,7 +1339,7 @@ app.whenReady().then(async () => {
   // Places & Tracks: nothing runs until a source is switched on.
   registerTracksIpc({ broadcast, trayChanged: () => void updateTray() });
   // Guided fixes: what the person should do about space, security, privacy and more, and how.
-  registerGuideIpc({ broadcast, preload: preload(), alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }) });
+  registerGuideIpc({ broadcast, preload: preload(), alert: (title, detail) => { islandSvc?.alert({ kind: 'info', title, detail }); phoneAlert('fixit', title, 'New on your Fix-it List in Keeper', { urgent: true }); } });
   registerBuiltinGuideSources({ index: () => index });
   // First look a minute after start, then twice a day; opening the To do list checks again.
   setTimeout(() => void refreshGuide(), 60_000).unref?.();
@@ -1485,6 +1491,8 @@ app.whenReady().then(async () => {
   registerTimeTrackIpc({ broadcast });
   // The reader: feeds and pages saved for later (network only for what the person adds).
   registerReaderIpc({ broadcast, alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }) });
+  // Alerts to your phone: nothing is sent until a channel is set up and an alert it is for happens.
+  registerPhoneAlertsIpc({ broadcast });
   onControlsChanged(() => void updateTray());
   // Firewall: rules, alerts, the DNS filter and traffic history (nothing runs until switched on).
   registerFirewallIpc({ alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }), broadcast, window: { preload: preload(), load, lockDown } });

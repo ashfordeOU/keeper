@@ -9,6 +9,7 @@ import os from 'node:os';
 import path from 'node:path';
 import type { BackupJobStatus, ConflictInfo, MirrorJobStatus, StoreChoice, SyncApi, SyncFolderStatus, SyncOverview } from '../../../core/api-sync';
 import { BackupError, BackupRepo, DEFAULT_RETENTION, type BackupProgress } from '../../../core/sync/backup';
+import { phoneAlert } from '../phone-alerts';
 import { check321, defaultSyncSettings, normalizeSyncSettings, type BackupJobSetting, type MirrorJobSetting, type StoreTarget, type SyncFolderSetting, type SyncSettings } from '../../../core/sync/config';
 import { FolderSync, type SyncProgress } from '../../../core/sync/engine';
 import { emptyState, isConflictName, type FolderState } from '../../../core/sync/folder';
@@ -306,8 +307,11 @@ async function runBackupJob(id: string, password?: string) {
     const list = await repo.snapshots();
     backupState.set(id, { state: 'idle', snapshots: list.length, storedBytes: undefined });
     await jobPatch(id, { lastRun: Date.now(), lastOk: true, lastMessage: `${snap.stats.files.toLocaleString()} files · ${fmt(snap.stats.newBytes)} new` });
+    // Back to normal after a failure: say so once.
+    if (job.lastOk === false) phoneAlert('backups', `Backup “${job.name}” works again`, `${snap.stats.files.toLocaleString()} files backed up`, { good: true });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
+    if ((e as BackupError).code !== 'wrong-key' && !ac.signal.aborted) phoneAlert('backups', `Backup “${job.name}” failed`, msg, { urgent: true });
     backupState.set(id, { ...backupState.get(id), state: (e as BackupError).code === 'wrong-key' ? 'waiting' : 'error', progress: undefined });
     await jobPatch(id, { lastRun: Date.now(), lastOk: false, lastMessage: msg });
   } finally {

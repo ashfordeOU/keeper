@@ -513,4 +513,6 @@ export interface Settings {
   reader: import('./reader').ReaderSettings;
   /** where forecasts come from: MET Norway (default) or Open-Meteo (core/weather.ts) */
   weatherSource: import('./weather').WeatherSource;
+  /** alerts to your phone: channels (tokens are in the keychain) and the batching wait (core/phone-alerts.ts) */
+  phoneAlerts: import('./phone-alerts').PhoneAlertSettings;
 }

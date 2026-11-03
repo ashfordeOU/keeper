@@ -42,6 +42,11 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - On a Mac, Keeper watches every app without asking for anything; blocking single apps waits for Apple's approval of Keeper's network filter, and the page says so instead of showing buttons that would do nothing. The DNS filter can still block a site for every app.
 - The menu bar's summary has a Network part: "3 apps online" with the speeds and a small chart, the three busiest apps with a quick Block (and Allow to undo), "2 waiting" when prompts wait, and Open Network. Settings → Menu bar → Show network turns it off. On a short screen the summary folds the downloads, then the app list, so it still never scrolls.
 
+### Added — Phone Alerts
+- A Phone Alerts page in the Devices section (switch it on in Settings → Features) sends Keeper's alerts to your phone: through the free ntfy app, your own Telegram bot, an e-mail from one of your Mail accounts, or a web address of yours.
+- Choose for each one what it gets: site and server checks, backups, automations, focus and time, the Fix-it List. Send a test from its card and see when the last alert arrived.
+- Alerts that come close together arrive as one message, problems first. Tokens stay in your computer's keychain, never in Keeper's settings.
+
 ### Changed — Weather: forecasts from MET Norway
 - Forecasts now come from MET Norway (the Norwegian Meteorological Institute), which is free for everyone to use. The Weather page credits them under every forecast.
 - Everything on the Weather page, in the Island, the widget and the menu bar works as before: hours, ten days, rain soon, sunrise and sunset, UV and wind.

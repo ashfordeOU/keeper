@@ -556,6 +556,8 @@ export interface KeeperApi extends KeeperApiX {
   journal: import('./api-journal').JournalApi;
   /** the reader: feeds and pages saved for later */
   reader: import('./api-reader').ReaderApi;
+  /** alerts to your phone: ntfy, Telegram, e-mail, a web address */
+  alerts: import('./api-alerts').PhoneAlertsApi;
   /** Island+: calls, levels, other apps' notifications, more agents */
   islandx: import('./island-plus').IslandPlusApi;
   /** Mail, calendars, reminders, alarms and contacts */
@@ -900,6 +902,8 @@ export interface KeeperApi extends KeeperApiX {
   on(channel: 'time-changed', cb: () => void): () => void;
   /** the reader's feeds or articles changed */
   on(channel: 'reader-changed', cb: () => void): () => void;
+  /** phone alert channels changed or an alert went out */
+  on(channel: 'alerts-changed', cb: () => void): () => void;
   on(channel: 'widgets-arrange', cb: (on: boolean) => void): () => void;
   on(channel: 'ambience-changed', cb: () => void): () => void;
   on(channel: 'wallpaper-policy', cb: (p: import('./scenes/policy').RenderPolicy) => void): () => void;

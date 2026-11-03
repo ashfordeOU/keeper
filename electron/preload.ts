@@ -164,6 +164,8 @@ const api = {
   journal: group('journal', ['makeVault', 'addPhotos']),
   // The reader: feeds, read later, OPML.
   reader: group('reader', ['overview', 'items', 'article', 'addFeed', 'removeFeed', 'editFeed', 'refresh', 'setRead', 'markAllRead', 'setStarred', 'saveForLater', 'removeLater', 'importOpml', 'exportOpml']),
+  // Alerts to your phone.
+  alerts: group('alerts', ['overview', 'save', 'remove', 'test', 'setBatch']),
   islandx: group('islandx', ['status', 'callMute', 'callDismiss', 'hideFor', 'installAgentHooks', 'removeAgentHooks', 'openNotifyPermission', 'testNotification', 'startBreak', 'focusFor', 'mediaMode', 'openLauncher', 'showPage']),
   widgets: group('widgets', ['list', 'save', 'remove', 'photos', 'current', 'arrange', 'arranging', 'tint', 'focus']),
   // Dictation anywhere and meeting recording; the listening pill streams its microphone samples here.

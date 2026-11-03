@@ -1,0 +1,21 @@
+/* SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 */
+/* Phone Alerts: one calm panel per way of reaching you. Tokens only. */
+
+.pa-page { display: flex; flex-direction: column; gap: 16px; max-width: 980px; }
+.pa-list { display: flex; flex-direction: column; gap: 12px; }
+.pa-card { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 16px; align-items: start; }
+.pa-card.off { opacity: .65; }
+.pa-icon { width: 44px; height: 44px; border-radius: var(--r-pill); display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); }
+.pa-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.pa-name { font-size: var(--fs-lg); font-weight: 650; }
+.pa-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.pa-ctl { display: flex; align-items: center; gap: 8px; }
+.pa-trust { padding: 0 4px; }
+.pa-log summary { cursor: default; display: flex; gap: 8px; align-items: baseline; list-style: none; }
+.pa-log summary::-webkit-details-marker { display: none; }
+.pa-log ul { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.pa-log li { display: flex; align-items: center; gap: 8px; font-size: var(--fs-sm); }
+.pa-log .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pa-kinds { align-self: flex-start; }
+.pa-more summary { font-size: var(--fs-sm); color: var(--text-2); cursor: default; margin-bottom: 8px; }
+@media (max-width: 1100px) { .pa-card { grid-template-columns: 40px minmax(0, 1fr); } .pa-ctl { grid-column: 2; } }

@@ -1,0 +1,86 @@
+/* SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 */
+/* Shared pieces of Keeper's design language used by Monitors, Phone Alerts,
+   web capture and the photo editor: first-run panels, drawings, calm panels,
+   floating capsules, inspectors and trust lines. Tokens only. */
+
+/* ------------------------------------------------------------ first run */
+.fr { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(220px, 0.8fr); align-items: center; gap: 32px; padding: 40px 44px; background: var(--bg-elev); border-radius: var(--r-lg); box-shadow: var(--shadow); }
+.fr-text { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.fr-kicker { font-size: var(--fs-xs); font-weight: 650; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
+.fr-title { margin: 0; font-size: calc(var(--fs-2xl) * 1.42); line-height: 1.08; letter-spacing: -0.02em; font-weight: 750; color: var(--text); }
+.fr-mark { color: var(--accent); }
+.fr-line { margin: 0; font-size: var(--fs-lg); color: var(--text-2); max-width: 46ch; }
+.fr-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 4px; }
+.fr-art { display: grid; place-items: center; }
+.fr-art .art { width: 100%; max-width: 280px; height: auto; }
+@media (max-width: 1100px) { .fr { grid-template-columns: 1fr; padding: 28px; } .fr-art { order: -1; } .fr-art .art { max-width: 200px; } .fr-title { font-size: calc(var(--fs-2xl) * 1.17); } }
+
+.trust-line { margin: 0; font-size: var(--fs-sm); color: var(--text-3); }
+
+/* ------------------------------------------------------------ drawings (theme colours only) */
+.art-halo { fill: var(--accent-soft); }
+.art-card { fill: var(--bg-elev); stroke: var(--line-strong); stroke-width: 1.5; }
+.art-shadow { filter: drop-shadow(0 6px 14px rgba(0, 0, 0, .08)); }
+.art-sunk { fill: var(--bg-sunk); }
+.art-line { fill: var(--line-strong); }
+.art-line.strong { fill: var(--text-3); opacity: .55; }
+.art-accent { fill: var(--accent); opacity: .85; }
+.art-ok { fill: var(--ok); }
+.art-sun { fill: var(--warn); opacity: .8; }
+.art-tick { fill: none; stroke: var(--accent); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.art-pop .art-tick { stroke: var(--accent-text); stroke-width: 2.4; }
+.art-wave { fill: none; stroke: var(--accent); stroke-width: 3; stroke-linecap: round; opacity: .6; }
+.art-pulse { fill: none; stroke: var(--accent); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+@media (prefers-reduced-motion: no-preference) {
+  .art-pop { animation: art-in .5s var(--ease) both; }
+  @keyframes art-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+}
+
+/* ------------------------------------------------------------ calm panels */
+.xpanel { background: var(--bg-elev); border-radius: var(--r-lg); box-shadow: var(--shadow); padding: 20px 22px; }
+.xpanel-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.xpanel-head h3 { margin: 0; font-size: var(--fs-md); font-weight: 650; flex: 1; }
+.xkicker { font-size: var(--fs-xs); font-weight: 650; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
+
+/* ------------------------------------------------------------ floating capsule (filters, toolbars) */
+.capsule { display: inline-flex; align-items: center; gap: 4px; padding: 4px; background: var(--bg-elev); border-radius: var(--r-pill); box-shadow: var(--shadow); }
+.capsule .btn, .capsule button { border-radius: var(--r-pill); }
+.capsule .seg { border: 0; background: transparent; padding: 0; }
+.capsule .seg button { border-radius: var(--r-pill); }
+.capsule .input { border-radius: var(--r-pill); border-color: transparent; background: var(--bg-sunk); }
+
+/* ------------------------------------------------------------ inspector (right-side controls) */
+.insp { display: flex; flex-direction: column; gap: 18px; }
+.insp-sec { display: flex; flex-direction: column; gap: 10px; }
+.insp-title { font-size: var(--fs-xs); font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text-2); margin: 0; }
+.insp-row { display: grid; grid-template-columns: 96px minmax(0, 1fr) 40px; align-items: center; gap: 10px; font-size: var(--fs-sm); color: var(--text-2); }
+.insp-row input[type='range'] { width: 100%; accent-color: var(--accent); }
+.insp-row output { text-align: right; font-variant-numeric: tabular-nums; color: var(--text); }
+.insp-field { display: flex; flex-direction: column; gap: 4px; font-size: var(--fs-sm); color: var(--text-2); }
+.insp-field .input { width: 100%; box-sizing: border-box; }
+.insp-help { font-size: var(--fs-sm); color: var(--text-3); margin: 0; }
+
+/* ------------------------------------------------------------ status dots and chips */
+.sdot { display: inline-block; width: 8px; height: 8px; border-radius: var(--r-pill); background: var(--text-3); flex: none; }
+.sdot.up { background: var(--ok); }
+.sdot.down { background: var(--danger); }
+.sdot.warn { background: var(--warn); }
+.sdot.paused { background: var(--line-strong); }
+.xchip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: var(--r-pill); background: var(--bg-sunk); color: var(--text-2); font-size: var(--fs-xs); font-weight: 600; }
+.xchip.ok { background: var(--ok-soft); color: var(--ok); }
+.xchip.bad { background: var(--danger-soft); color: var(--danger); }
+.xchip.warn { background: var(--warn-soft); color: var(--warn); }
+
+/* ------------------------------------------------------------ sheet form */
+.xform { display: flex; flex-direction: column; gap: 14px; }
+.xform label { display: flex; flex-direction: column; gap: 6px; font-size: var(--fs-sm); color: var(--text-2); font-weight: 550; }
+.xform .input { width: 100%; box-sizing: border-box; }
+.xform-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.xform-foot { display: flex; gap: 8px; justify-content: flex-end; align-items: center; margin-top: 4px; }
+.xform-foot .grow { flex: 1; }
+.xform-err { color: var(--danger); font-size: var(--fs-sm); margin: 0; }
+.xform-note { color: var(--text-3); font-size: var(--fs-sm); margin: 0; }
+.xchecks { display: flex; flex-wrap: wrap; gap: 6px; }
+.xcheck { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: var(--r-pill); border: 1px solid var(--line-strong); background: transparent; color: var(--text-2); font-size: var(--fs-sm); cursor: default; }
+.xcheck[aria-pressed='true'] { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 45%, transparent); color: var(--text); font-weight: 600; }
+.xcheck:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }

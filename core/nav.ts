@@ -107,6 +107,7 @@ export const NAV_PAGES: NavPage[] = [
   { id: 'security', route: { name: 'security' }, label: 'Privacy & Security', i18n: 'nav.protection', icon: 'shield', group: 'security', also: ['protection', 'firewall', 'netactivity', 'vpn'], feature: 'protection', keywords: 'privacy security protection firewall vpn network' },
 
   { id: 'devices', route: { name: 'devices' }, label: 'Devices', icon: 'link', group: 'devices', also: ['mesh'], keywords: 'phone pair link mesh access from anywhere' },
+  { id: 'alerts', route: { name: 'alerts' }, label: 'Phone Alerts', icon: 'bell', group: 'devices', keywords: 'notifications push phone telegram ntfy webhook email alert send' },
   { id: 'rdc', route: { name: 'rdc' }, label: 'Remote Desktops', icon: 'laptop', group: 'devices', keywords: 'rdp vnc ssh remote desktop connect' },
   { id: 'terminal', route: { name: 'terminal' }, label: 'Terminal', icon: 'terminal', group: 'devices', keywords: 'shell console ssh' },
 
