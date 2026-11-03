@@ -122,7 +122,7 @@ function outsideAddress() {
   } else console.log('SKIP KEEPER_GEO_FEED not set; the country download was not exercised');
 
   // ---- the pages
-  await main.locator('.sidebar [title="Network Activity"]').click();
+  await main.locator('.sidebar [title="Privacy & Security"]').click(); await main.locator('[data-testid="hub-tab-netactivity"]').click();
   await main.locator('.net-row.apps').first().waitFor({ timeout: 15_000 });
   await main.waitForTimeout(2500);
   const pageText = await main.locator('.content').innerText();
@@ -140,7 +140,7 @@ function outsideAddress() {
   const health = await main.locator('.net-health').innerText().catch(() => '');
   check(/Interfaces/.test(health) && health.includes(out.iface), 'Health shows the interfaces');
   await main.screenshot({ path: `${SHOTS}/linux-health.png` });
-  await main.locator('.sidebar [title="VPN"]').click();
+  await main.locator('.sidebar [title="Privacy & Security"]').click(); await main.locator('[data-testid="hub-tab-vpn"]').click();
   await main.waitForTimeout(2000);
   const vt = await main.locator('.content').innerText();
   check(/Not connected to a VPN/.test(vt), 'VPN page loads and says no VPN is connected');
@@ -157,7 +157,7 @@ function outsideAddress() {
     return { main: pct(0), all: pids.reduce((x, _, i) => x + pct(i), 0) };
   };
   await main.evaluate(() => localStorage.setItem('net.tab', '"apps"'));
-  await main.locator('.sidebar [title="Network Activity"]').click();
+  await main.locator('.sidebar [title="Privacy & Security"]').click(); await main.locator('[data-testid="hub-tab-netactivity"]').click();
   await main.waitForTimeout(3000);
   const open = await measure(20_000);
   await main.locator('.sidebar [title="Home"]').click();

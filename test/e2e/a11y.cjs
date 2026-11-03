@@ -285,7 +285,8 @@ function audit(scope) {
     // ------------------------------------------------ settings sections and a settings dialog
     await nav('settings');
     await w.waitForTimeout(1200);
-    const sections = await w.$$eval('.content h2[id]', (h) => h.map((x) => x.id));
+    // Settings shows one section at a time: visit each from its list.
+    const sections = await w.$$eval('[data-testid^="settings-sec-"]', (b) => b.map((x) => x.dataset.testid.slice('settings-sec-'.length)));
     for (const id of sections) {
       await nav(`settings:${id}`);
       await w.waitForTimeout(250);
@@ -441,6 +442,9 @@ function audit(scope) {
   check(await motionIs('reduce'), 'reduce motion follows the system setting');
   await w.emulateMedia({ reducedMotion: 'no-preference' });
   check(await motionIs('system'), 'and animates again when the system does');
+  // A Settings section with switches both on and off (Settings shows one section at a time).
+  await nav('settings:files');
+  await w.waitForTimeout(800);
   await w.emulateMedia({ forcedColors: 'active' });
   await w.waitForTimeout(300);
   await w.evaluate(() => document.querySelector('.topbar button:not([disabled])')?.focus());

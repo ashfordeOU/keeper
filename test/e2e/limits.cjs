@@ -57,7 +57,7 @@ const until = async (fn, ms = 20000, step = 250) => { const t = Date.now(); for 
 
     // The processes page shows the limits section
     await w.evaluate(() => window.keeper.svc.limits());
-    await w.click('.sidebar [title="Keeper’s processes"]').catch(() => undefined);
+    await w.click('.sidebar [title="Health"]').then(() => w.click('[data-tab-id="keeper"]')).catch(() => undefined);
     const panel = await until(() => w.locator('[data-testid="kproc-limits"]').textContent(), 20000, 500);
     check(!!panel && /Keeper’s own limits/.test(panel) && /restarted it/.test(panel), 'Keeper’s processes lists the limits and what Keeper did');
     fs.mkdirSync(path.join(ROOT, 'shots'), { recursive: true });

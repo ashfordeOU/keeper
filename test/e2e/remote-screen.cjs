@@ -262,7 +262,7 @@ async function pair(A, B) {
       await X.main.evaluate((d) => window.keeper.settings.set({ appearance: d ? 'dark' : 'light' }), dark);
     }
     await A.main.evaluate((id) => window.keeper.settings.get().then(() => window.location.hash = id), laptopId).catch(() => undefined);
-    await A.main.locator('.nav-item[title="Pair a device, phones, remote access"]').click().catch(() => undefined);
+    await A.main.locator('.nav-item[title="Pair a device, phones, access from anywhere"]').click().catch(() => undefined);
     await A.main.locator(`.nav-item.link-side`).first().click().catch(() => undefined);
     await wait(700);
     await A.main.locator('[data-testid=device-screen]').scrollIntoViewIfNeeded().catch(() => undefined);

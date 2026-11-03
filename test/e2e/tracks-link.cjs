@@ -47,7 +47,7 @@ const api = (w, fn, ...args) => w.evaluate(([f, a]) => {
   const sa = await api(A.main, 'link.state');
 
   // ---- pair the two apps through their windows (as test/e2e/link.cjs does)
-  const openDevices = async (w) => { await w.locator('.nav-item[title="Pair a device, phones, remote access"]').click(); await w.waitForTimeout(500); };
+  const openDevices = async (w) => { await w.locator('.nav-item[title="Pair a device, phones, access from anywhere"]').click(); await w.waitForTimeout(500); };
   await openDevices(A.main);
   await A.main.locator('.content').getByRole('button', { name: 'Pair a Device' }).first().click();
   const code = await until(async () => (await A.main.locator('[data-testid=link-code]').innerText()).replace(/\D/g, ''));

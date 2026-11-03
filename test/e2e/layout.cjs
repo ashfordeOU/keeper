@@ -270,14 +270,14 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await main.evaluate(() => localStorage.setItem('sidebar.pinned', 'null'));
 
     // "Show all" in a long section (automated runs see everything unless they opt in).
-    // Sections start folded for a person; open System so its long list shows.
-    await main.evaluate(() => { localStorage.setItem('sidebar.compactInTests', '1'); localStorage.removeItem('sidebar.closed'); localStorage.setItem('sidebar.opened', JSON.stringify(['system'])); });
+    // Sections start folded for a person; open Tidy so its long list shows.
+    await main.evaluate(() => { localStorage.setItem('sidebar.compactInTests', '1'); localStorage.removeItem('sidebar.closed'); localStorage.setItem('sidebar.opened', JSON.stringify(['tidy'])); });
     await reload();
-    const sys = main.locator('.nav-section', { has: main.locator('[data-testid="nav-more-system"]') });
+    const sys = main.locator('.nav-section', { has: main.locator('[data-testid="nav-more-tidy"]') });
     const shown = async () => sys.locator('.nav-items > .nav-item:visible').count();
     const n0 = await shown();
     check(n0 >= 5 && n0 <= 6, `a long section shows its first five (${n0})`);
-    const more = main.locator('[data-testid="nav-more-system"]');
+    const more = main.locator('[data-testid="nav-more-tidy"]');
     check(/Show all \(\d+\)/.test(await more.textContent()), `with a "${(await more.textContent()).trim()}" row`);
     await more.scrollIntoViewIfNeeded();
     await both('sidebar-compact');
@@ -287,7 +287,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     check(n1 > n0, `"Show all" opens the rest in place (${n0} → ${n1})`);
     await reload();
     check(await shown() === n1, 'and stays open after a reload');
-    await main.locator('[data-testid="nav-more-system"]').click();
+    await main.locator('[data-testid="nav-more-tidy"]').click();
     await main.evaluate(() => { localStorage.removeItem('sidebar.compactInTests'); localStorage.removeItem('sidebar.opened'); });
   }
 

@@ -55,7 +55,7 @@ async function until(fn, ms = 15_000, step = 250) {
   const ns = (fn, ...a) => main.evaluate(([f, args]) => window.keeper.notesync[f](...args), [fn, a]);
 
   // ---- the page, from the sidebar (on by default; nothing runs until an app is connected)
-  const nav = main.locator('.nav-item[title="Notes Everywhere"]');
+  const nav = main.locator('.nav-item[title="Notes from Other Apps"]');
   check(await nav.count() === 1, 'Notes Everywhere is in the sidebar');
   await nav.click();
   await main.waitForSelector('.nh-page', { timeout: 15_000 });

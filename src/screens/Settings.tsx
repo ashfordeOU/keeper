@@ -156,7 +156,7 @@ function SectionPane({ id, forceOpen }: { id: SectionId; forceOpen?: number }) {
     return out.map((g, i) => (
       <Fragment key={`${g.group ?? ''}${i}`}>
         {g.group ? <h3 className="settings-group">{g.group}</h3> : null}
-        <div className="card settings-card">{g.rows.map((d) => <SettingRow key={d.id} def={d} />)}</div>
+        <div className="card settings-card settings-section">{g.rows.map((d) => <SettingRow key={d.id} def={d} />)}</div>
       </Fragment>
     ));
   };

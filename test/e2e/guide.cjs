@@ -52,11 +52,11 @@ const check = (ok, what) => { console.log(`${ok ? 'PASS' : 'FAIL'} ${what}`); if
   await main.getByText('Skip setup').click();
 
   // To do: check now.
-  await main.click('.sidebar [title="To do"]');
+  await main.click('.sidebar [title="Fix-it List"]');
   await main.getByRole('button', { name: /Check again/ }).click();
   await main.waitForSelector('text=/The Trash holds/', { timeout: 60000 });
   check(true, 'To do lists the Trash finding after checking');
-  const badge = async () => Number((await main.locator('.sidebar [title="To do"] .count').textContent().catch(() => '0')) || '0');
+  const badge = async () => Number((await main.locator('.sidebar [title="Fix-it List"] .count').textContent().catch(() => '0')) || '0');
   const before = await badge();
   check(before >= 1, `the sidebar badge counts open items (${before})`);
   await shot('todo', false);
@@ -90,7 +90,7 @@ const check = (ok, what) => { console.log(`${ok ? 'PASS' : 'FAIL'} ${what}`); if
   await main.keyboard.press('Escape');
 
   // A privacy guide: opens the settings page (stubbed) and keeps the steps on top.
-  await main.click('.sidebar [title="To do"]');
+  await main.click('.sidebar [title="Fix-it List"]');
   await main.getByLabel('How do I').fill('camera');
   await main.locator('.howto-results .chip', { hasText: 'camera' }).first().click();
   await main.waitForSelector('.guide-panel >> text=Stop apps using my camera');

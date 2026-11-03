@@ -219,7 +219,7 @@ const server = http.createServer((req, res) => {
   await main.evaluate(() => window.keeper.glance.close());
 
   // ---- the Usage page
-  await main.locator('.sidebar button[title="Usage"]').first().click();
+  await main.locator('.sidebar button[title="AI Usage"]').first().click();
   // The compact sidebar opens over the page while the pointer rests on it: move away.
   await main.mouse.move(1000, 600);
   await wait(500);

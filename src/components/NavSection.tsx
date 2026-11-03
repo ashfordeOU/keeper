@@ -155,7 +155,7 @@ export function NavSection({ id, title, children, className, menuItems = [], ...
     <div
       {...rest}
       className={`nav-section ${isClosed ? 'closed' : ''} ${showAll ? 'show-all' : ''} ${className ?? ''}`}
-      data-section={id}
+      data-nav-section={id}
       // Every page in it is off: the title goes too.
       hidden={counts.total === 0 && counts.measured ? true : undefined}
       style={{ ['--sec' as string]: `var(--sec-${id}, ${SECTION_COLOR[id] ?? 'var(--accent)'})`, order }}

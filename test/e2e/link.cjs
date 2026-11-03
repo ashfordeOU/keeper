@@ -74,7 +74,7 @@ async function shot(w, name, dark) {
   check(sa.me.id !== sb.me.id, 'each app has its own identity');
 
   // ---- pair through the windows
-  const openDevices = async (w) => { await w.locator('.nav-item[title="Pair a device, phones, remote access"]').click(); await w.waitForTimeout(500); };
+  const openDevices = async (w) => { await w.locator('.nav-item[title="Pair a device, phones, access from anywhere"]').click(); await w.waitForTimeout(500); };
   await openDevices(A.main);
   await shot(A.main, 'devices-empty', false);
   await A.main.locator('.content').getByRole('button', { name: 'Pair a Device' }).first().click();
@@ -174,7 +174,7 @@ async function shot(w, name, dark) {
   const both = await until(async () => relay.listeners.size === 2, 10000);
   check(!!both, 'both apps keep a connection to the relay');
   await openDevices(A.main);
-  await A.main.getByRole('button', { name: 'Remote Access' }).first().click();
+  await A.main.getByRole('tab', { name: 'Access from anywhere' }).first().click();
   await A.main.waitForTimeout(500);
   await shot(A.main, 'remote-access', false);
   await shot(A.main, 'remote-access', true);

@@ -72,7 +72,7 @@ function ask(port, name) {
   check(s.dns.running && s.dns.port > 1024, `DNS filter running on port ${s.dns.port}`);
   const okAns = firstA(await ask(s.dns.port, 'example.test'));
   check(okAns === '10.20.30.40' && upstreamAsked >= 1, `a normal name is answered through the upstream (${okAns})`);
-  await main.click('.sidebar [title="Firewall"]');
+  await main.click('.sidebar [title="Privacy & Security"]'); await main.click('[data-testid="hub-tab-firewall"]');
   await main.waitForSelector('.fw-status');
   await main.click('.fw-tabs >> text=Blocklists & DNS');
   await main.fill('input[placeholder="example.com"]', 'blocked.test');
@@ -142,7 +142,7 @@ function ask(port, name) {
 
   // ---- dark
   await app.evaluate(({ nativeTheme }) => { nativeTheme.themeSource = 'dark'; });
-  await main.click('.sidebar [title="Firewall"]');
+  await main.click('.sidebar [title="Privacy & Security"]'); await main.click('[data-testid="hub-tab-firewall"]');
   await main.click('.fw-tabs >> text=Overview');
   await wait(500);
   await main.screenshot({ path: path.join(SHOTS, 'overview-dark.png') });

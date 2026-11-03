@@ -59,7 +59,7 @@ async function launch(name) {
 
   // ---- pair over Keeper Link, through the windows
   const sa = await A.win.evaluate(() => window.keeper.link.state());
-  const openDevices = async (w) => { await w.locator('.nav-item[title="Pair a device, phones, remote access"]').click(); await sleep(500); };
+  const openDevices = async (w) => { await w.locator('.nav-item[title="Pair a device, phones, access from anywhere"]').click(); await sleep(500); };
   await openDevices(A.win);
   await A.win.locator('.content').getByRole('button', { name: 'Pair a Device' }).first().click();
   const code = await until(async () => (await A.win.locator('[data-testid=link-code]').innerText()).replace(/\D/g, ''), 15_000);
@@ -184,7 +184,7 @@ async function launch(name) {
   for (const [who, scheme] of [[B, 'light'], [A, 'dark']]) {
     await who.win.evaluate((s) => window.keeper.settings.set({ appearance: s }), scheme);
     await who.win.evaluate(() => { location.hash = ''; });
-    await who.win.click('.sidebar [title="Synced folders"]');
+    await who.win.click('.sidebar [title="Synced Folders"]');
     await sleep(1200);
     await who.win.screenshot({ path: path.join(SHOTS, `app-${scheme}-folders.png`) });
     await who.win.click('.sidebar [title="Backups"]');

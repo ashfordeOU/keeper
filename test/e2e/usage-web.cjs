@@ -158,7 +158,7 @@ const server = http.createServer((req, res) => {
   // ---- the page and the glance name each account
   const card = (await u('glanceState')).card;
   check(!!card && /Pl|CP|GP|CW/.test(card.value) && /Claude — Personal|me@example\.com/.test(card.detail + card.tooltip), `the glance names accounts (${card?.value} · ${card?.detail})`);
-  await main.locator('.sidebar button[title="Usage"]').first().click().catch(() => undefined);
+  await main.locator('.sidebar button[title="AI Usage"]').first().click().catch(() => undefined);
   await main.mouse.move(1000, 600);
   await main.waitForSelector('[data-testid=usage-page]', { timeout: 8000 }).catch(() => undefined);
   await wait(800);

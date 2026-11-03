@@ -51,7 +51,7 @@ exit 0
   const val = (id) => row(id).getAttribute('data-value');
 
   // ---- the page, with this machine's real states
-  await w.click('.sidebar [title="Quick Controls"]');
+  await w.click('.sidebar [title="System Controls"]');
   check(!!(await until(() => w.$('[data-testid="qc-group-network"] [data-testid="qc-row-wifi"]'), 30000)), 'Quick Controls opens in System with grouped controls');
   const v = await qc('list');
   check(v.os === 'linux' && v.dryRun === true, 'it reports Linux, in test mode');

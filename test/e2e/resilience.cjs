@@ -122,12 +122,12 @@ async function mainPid(page) {
   check(!!(await until(() => page.locator('.term-app').count(), 15000)), 'the terminal tab opens');
 
   // ---------------------------------------------------------------- 4. a service process crashes
-  // Less-used System pages sit behind "More" in the sidebar.
   // A Keeper started again after a crash is not under test control: its sidebar sections start
   // folded and long ones show their most used items first. Open System and show all of it.
-  if (!(await page.locator('.sidebar [title="Network Activity"]').isVisible())) await page.locator('.sidebar button.nav-title', { hasText: /system/i }).first().click().catch(() => undefined);
-  if (!(await page.locator('.sidebar [title="Network Activity"]').isVisible())) await page.locator('[data-testid="nav-more-system"]').click().catch(() => undefined);
-  await page.click('.sidebar [title="Network Activity"]');
+  // Network Activity is a tab of Privacy & Security (a section that starts open).
+  if (!(await page.locator('.sidebar [title="Privacy & Security"]').isVisible())) await page.locator('.sidebar button.nav-title', { hasText: /privacy/i }).first().click().catch(() => undefined);
+  await page.click('.sidebar [title="Privacy & Security"]');
+  await page.click('[data-testid="hub-tab-netactivity"]');
   const svc = await until(() => page.evaluate(() => window.keeper.svc.list().then((l) => l.find((p) => p.id === 'svc:net' && p.pid))), 30000, 500);
   check(!!svc, `Network Activity runs in its own process (pid ${svc?.pid}, ${Math.round((svc?.memory ?? 0) / 1048576)} MB)`);
   const mainBefore = await mainPid(page);
@@ -137,7 +137,9 @@ async function mainPid(page) {
   check((await mainPid(page)) === mainBefore, 'Keeper itself kept running');
   const sample = await page.evaluate(() => window.keeper.net.sample().then((s) => s.flows.length).catch((e) => `error: ${e.message}`));
   check(typeof sample === 'number', `Network Activity still answers (${sample} connections)`);
-  await page.click('.sidebar [title="Keeper’s processes"]');
+  if (!(await page.locator('.sidebar [title="Health"]').isVisible())) await page.locator('.sidebar button.nav-title', { hasText: /computer/i }).first().click().catch(() => undefined);
+  await page.click('.sidebar [title="Health"]');
+  await page.click('[data-tab-id="keeper"]');
   await page.waitForTimeout(2500);
   await page.screenshot({ path: path.join(SHOTS, 'processes.png') });
   check(await page.locator('.kproc-row', { hasText: 'Network Activity' }).count() === 1, 'the Processes page lists the service');
