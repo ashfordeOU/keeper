@@ -19,6 +19,7 @@ import { Empty, Loading, Modal, PageHead, Toggle } from '../components/ui';
 import { useStore } from '../state';
 import '../styles/fw.css';
 import { MeshTag } from './MeshParts';
+import { Tabs } from '../components/Tabs';
 
 type Tab = 'overview' | 'connections' | 'rules' | 'profiles' | 'dns' | 'history';
 
@@ -58,11 +59,7 @@ export function Firewall() {
         </select>
       </div>
 
-      <div className="seg fw-tabs" role="tablist">
-        {([['overview', 'Overview'], ['connections', 'Connections'], ['rules', 'Rules'], ['profiles', 'Profiles'], ['dns', 'Blocklists & DNS'], ['history', 'History']] as const).map(([k, l]) => (
-          <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}{k === 'overview' && s.pending.length ? <span className="fw-count">{s.pending.length}</span> : null}</button>
-        ))}
-      </div>
+      <Tabs label="Firewall" value={tab} onChange={setTab} items={([['overview', 'Overview'], ['connections', 'Connections'], ['rules', 'Rules'], ['profiles', 'Profiles'], ['dns', 'Blocklists & DNS'], ['history', 'History']] as const).map(([k, l]) => ({ id: k, label: l, badge: k === 'overview' && s.pending.length ? s.pending.length : undefined }))} />
 
       {tab === 'overview' ? <Overview s={s} act={act} go={go} /> : tab === 'connections' ? <Connections s={s} act={act} /> : tab === 'rules' ? <Rules s={s} act={act} /> : tab === 'profiles' ? <Profiles s={s} act={act} /> : tab === 'dns' ? <Dns s={s} act={act} /> : <HistoryTab />}
     </div>

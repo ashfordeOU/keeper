@@ -49,8 +49,6 @@ html[data-view='ambient'], html[data-view='ambient'] body, html[data-view='ambie
 /* ---------------------------------------------------------------- page */
 .amb-page .page-head { flex-wrap: wrap; }
 .amb-live-toggle { display: flex; align-items: center; gap: 10px; padding: 6px 12px; border-radius: var(--radius); background: var(--bg-elev); border: 1px solid var(--line); }
-.amb-tabs { margin: 4px 0 16px; flex-wrap: wrap; }
-.amb-tabs button { display: inline-flex; align-items: center; gap: 6px; }
 .amb-ok { color: var(--ok); }
 
 .amb-vibes { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
@@ -58,7 +56,8 @@ html[data-view='ambient'], html[data-view='ambient'] body, html[data-view='ambie
 .amb-vibe.on { outline: 2px solid var(--accent); outline-offset: 0; }
 .amb-vibe-swatch { position: relative; height: 104px; border: 0; cursor: pointer; display: flex; align-items: flex-end; padding: 10px; }
 .amb-vibe-emoji { font-size: 28px; filter: drop-shadow(0 2px 4px rgba(0,0,0,.35)); }
-.amb-vibe-active { position: absolute; top: 8px; right: 8px; background: var(--accent); color: var(--accent-text); }
+/* Solid, whatever the picture under it and the theme (it read dark-on-dark in light mode). */
+.badge.amb-vibe-active { position: absolute; top: 8px; right: 8px; background: #fff; color: #111; opacity: 1; box-shadow: 0 1px 4px rgba(0, 0, 0, .35); }
 .amb-vibe-body { padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .amb-vibe-editor { border-top: 1px solid var(--line); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
 .amb-capture { display: flex; align-items: center; gap: 10px; margin-top: 16px; flex-wrap: wrap; }

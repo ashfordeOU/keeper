@@ -2,15 +2,15 @@
 /* Privacy & Security */
 
 .sec-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0 14px; }
-.sec-tab { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--bg-elev, var(--bg)); color: var(--text-2); border-radius: 999px; padding: 5px 12px; font-size: 12.5px; cursor: default; }
+.sec-tab { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--bg-elev, var(--bg)); color: var(--text-2); border-radius: var(--r-pill); padding: 5px 12px; font-size: 12.5px; cursor: default; }
 .sec-tab.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent, #fff); }
-.sec-count { min-width: 18px; height: 18px; border-radius: 9px; padding: 0 5px; display: inline-grid; place-items: center; font-size: 11px; font-weight: 700; background: var(--warn); color: #1b1300; }
+.sec-count { min-width: 18px; height: 18px; border-radius: 9px; padding: 0 5px; display: inline-grid; place-items: center; font-size: var(--fs-xs); font-weight: 700; background: var(--warn); color: #1b1300; }
 .sec-tab.on .sec-count { background: rgba(255, 255, 255, .9); color: var(--accent); }
 
 .sec-hero { display: flex; gap: 22px; align-items: center; }
 .sec-label { margin: 0 0 4px; font-size: 20px; }
 .sec-engines { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
-.sec-engine { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; padding: 3px 9px; border-radius: 999px; background: var(--bg-sunk); color: var(--text-2); }
+.sec-engine { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-sm); padding: 3px 9px; border-radius: var(--r-pill); background: var(--bg-sunk); color: var(--text-2); }
 .sec-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--text-3); display: inline-block; }
 .sec-engine.on .sec-dot, .sec-dot.ok { background: var(--ok); }
 .sec-engine.off .sec-dot, .sec-engine.missing .sec-dot, .sec-dot.warn { background: var(--warn); }
@@ -62,7 +62,7 @@
 .sec-sources { display: block; }
 .sec-sources summary { cursor: default; }
 .sec-sources label { display: block; margin-top: 8px; }
-.sec-sources textarea { width: 100%; font-family: var(--mono, ui-monospace, monospace); font-size: 12px; }
+.sec-sources textarea { width: 100%; font-family: var(--mono, ui-monospace, monospace); font-size: var(--fs-sm); }
 .sec-scanrow { padding: 3px 2px; color: var(--text-2); }
 
 @media (max-width: 720px) {

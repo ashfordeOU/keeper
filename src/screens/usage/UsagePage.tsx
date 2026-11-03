@@ -15,6 +15,7 @@ import { Empty, Modal, PageHead, Toggle } from '../../components/ui';
 import { useStore } from '../../state';
 import { Badge, MetricRow, PriorityRow, useUsage } from './parts';
 import { UsageSettings } from './UsageSettings';
+import { Tabs } from '../../components/Tabs';
 
 type Tab = 'overview' | 'accounts' | 'subscriptions' | 'costs' | 'history' | 'settings';
 const TABS: [Tab, string][] = [['overview', 'Overview'], ['accounts', 'Accounts'], ['subscriptions', 'Subscriptions'], ['costs', 'Costs'], ['history', 'History'], ['settings', 'Settings']];
@@ -40,9 +41,7 @@ export function UsagePage({ initial }: { initial?: string }) {
         <button className="btn sm" onClick={() => void api.aiUsage.exportCsv().then((r) => r.path && store.toast(`Saved ${r.rows} rows to ${r.path}`))}><Icon name="down" size={14} />Export CSV</button>
         <button className="btn sm primary" onClick={() => setEdit({ provider: 'claude-web', name: '' })}><Icon name="plus" size={14} />Add account</button>
       </PageHead>
-      <div className="seg tabs" role="tablist">
-        {TABS.map(([id, label]) => <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>{label}</button>)}
-      </div>
+      <Tabs label="AI Usage" value={tab} onChange={setTab} items={TABS.map(([id, label]) => ({ id, label }))} />
       {tab === 'overview' ? <Overview o={o} onAdd={() => setTab('accounts')} /> : null}
       {tab === 'accounts' ? <Accounts o={o} onEdit={setEdit} reload={reload} /> : null}
       {tab === 'subscriptions' ? <Subscriptions o={o} onEdit={setEdit} /> : null}

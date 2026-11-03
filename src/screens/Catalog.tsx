@@ -13,6 +13,7 @@ import { Empty, Modal, PageHead, Toggle } from '../components/ui';
 import { useStore } from '../state';
 import '../styles/controls.css';
 import '../styles/settingsplus.css';
+import { Tabs } from '../components/Tabs';
 
 const UNSET = '<unset>';
 type Tab = 'all' | 'favourites' | 'changes' | 'backups' | 'profiles';
@@ -158,13 +159,7 @@ export function Catalog() {
         <label className="btn sm"><Icon name="folder" size={13} /> Import profile…<input type="file" accept=".json,application/json" hidden onChange={(e) => e.target.files?.[0] && void importProfile(e.target.files[0])} /></label>
       </PageHead>
 
-      <div className="sp-tabs" role="tablist">
-        {(['all', 'favourites', 'changes', 'backups'] as Tab[]).map((t) => (
-          <button key={t} role="tab" aria-selected={tab === t} className={`btn sm ${tab === t ? 'primary' : 'ghost'}`} onClick={() => setTab(t)} data-testid={`cat-tab-${t}`}>
-            {t === 'all' ? 'All settings' : t === 'favourites' ? `Favourites (${favs.length})` : t === 'changes' ? `Changes (${log.length})` : `Backups (${backups.length})`}
-          </button>
-        ))}
-      </div>
+      <Tabs label="Hidden system settings" value={tab} onChange={setTab} items={(['all', 'favourites', 'changes', 'backups'] as Tab[]).map((t) => ({ id: t, testId: `cat-tab-${t}`, label: t === 'all' ? 'All settings' : t === 'favourites' ? 'Favorites' : t === 'changes' ? 'Changes' : 'Backups', badge: t === 'favourites' ? favs.length : t === 'changes' ? log.length : t === 'backups' ? backups.length : undefined }))} />
 
       {tab === 'all' || tab === 'favourites' ? (
         <>

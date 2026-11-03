@@ -14,6 +14,7 @@ import { Icon } from '../components/Icon';
 import { Empty, Loading, PageHead, Toggle } from '../components/ui';
 import { useStore } from '../state';
 import '../styles/notesync.css';
+import { Tabs } from '../components/Tabs';
 
 type Tab = 'notes' | 'apps' | 'review' | 'backups';
 
@@ -42,13 +43,7 @@ export function NotesHub() {
   return (
     <div className="nh-page">
       <PageHead title="Notes from Other Apps" sub={<>{ov.notes.toLocaleString()} notes from {ov.apps} app{ov.apps === 1 ? '' : 's'} · kept in <span className="mono">{ov.hubFolder}</span></>} />
-      <div className="seg nh-tabs" role="tablist">
-        {(Object.keys(TAB_LABEL) as Tab[]).map((t) => (
-          <button key={t} role="tab" data-testid={`nh-tab-${t}`} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>
-            {TAB_LABEL[t]}{t === 'apps' ? ` (${ov.connectors.length})` : ''}{t === 'review' && review ? <span className="nh-count">{review}</span> : null}
-          </button>
-        ))}
-      </div>
+      <Tabs label="Notes from Other Apps" value={tab} onChange={setTab} items={(Object.keys(TAB_LABEL) as Tab[]).map((t) => ({ id: t, testId: `nh-tab-${t}`, label: TAB_LABEL[t], badge: t === 'apps' ? ov.connectors.length : t === 'review' && review ? review : undefined }))} />
       {tab === 'notes' ? <NotesTab ov={ov} /> : null}
       {tab === 'apps' ? <AppsTab ov={ov} reload={reload} /> : null}
       {tab === 'review' ? <ReviewTab /> : null}

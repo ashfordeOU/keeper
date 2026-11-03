@@ -19,6 +19,7 @@ import { AuditShot, ComputerUsePanel } from '../components/ComputerUse';
 import { BrowserAgentPanel } from '../components/BrowserAgent';
 import { useAsync, useStore } from '../state';
 import '../styles/agents.css';
+import { Tabs } from '../components/Tabs';
 
 type Tab = 'connect' | 'services' | 'abilities' | 'teams' | 'schedules' | 'personas' | 'memory' | 'permissions' | 'skills' | 'gateway' | 'learning';
 const TABS: [Tab, string][] = [['connect', 'Agents & apps'], ['services', 'AI services'], ['abilities', 'Abilities'], ['teams', 'Teams'], ['schedules', 'Schedules'], ['personas', 'Personas & projects'], ['memory', 'Memory'], ['permissions', 'What agents may do'], ['skills', 'Skills'], ['gateway', 'Gateway'], ['learning', 'Learning']];
@@ -43,9 +44,8 @@ export function Agents() {
       <PageHead title="Agents" sub="Any AI app or agent can work with Keeper's brain — with your permission for anything it changes.">
         <button className="btn" onClick={() => go({ name: 'graph' })}><Icon name="graph" size={14} /> Knowledge graph</button>
       </PageHead>
-      <div className="seg agents-tabs">
-        {TABS.map(([t, label]) => <button key={t} className={tab === t ? 'on' : ''} onClick={() => go({ name: 'agents', arg: t })}>{label}</button>)}
-      </div>
+      {/* Twelve tabs: those that do not fit wait under More instead of wrapping to a second row. */}
+      <Tabs label="Agents" className="agents-tabs" value={tab} onChange={(t) => go({ name: 'agents', arg: t })} items={TABS.map(([t, label]) => ({ id: t, label }))} />
       {tab === 'connect' ? <Connect /> : tab === 'services' ? <Services /> : tab === 'abilities' ? <AbilitiesPanel /> : tab === 'teams' ? <TeamsPanel /> : tab === 'schedules' ? <SchedulesPanel /> : tab === 'personas' ? <PersonasPanel /> : tab === 'memory' ? <MemoryPanel /> : tab === 'permissions' ? <Permissions /> : tab === 'skills' ? <Skills /> : tab === 'gateway' ? <Gateway /> : <Learning />}
     </div>
   );

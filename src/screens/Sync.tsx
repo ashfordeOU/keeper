@@ -8,6 +8,7 @@ import { formatBytes, relativeTime } from '../../core/format';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
 import { Empty, Loading, Modal, PageHead, Toggle } from '../components/ui';
+import { titleOf } from '../../core/nav';
 import { useStore } from '../state';
 import '../styles/sync.css';
 
@@ -42,8 +43,8 @@ export function Sync() {
   return (
     <div className="sync-page">
       <PageHead
-        title="Sync & Backup"
-        sub={<>This device: <b>{ov.deviceName}</b>{ov.transport === 'none' ? ' · no other devices paired yet' : ` · ${ov.peers.filter((p) => p.online).length} of ${ov.peers.length} devices online`}{ov.waitingFor ? ` · ${ov.waitingFor}` : ''}</>}
+        title={titleOf({ name: 'sync', arg: tab }) ?? 'Sync & Backup'}
+        sub={<>Sync & Backup · This device: <b>{ov.deviceName}</b>{ov.transport === 'none' ? ' · no other devices paired yet' : ` · ${ov.peers.filter((p) => p.online).length} of ${ov.peers.length} devices online`}{ov.waitingFor ? ` · ${ov.waitingFor}` : ''}</>}
       >
         <button className={`btn ${ov.paused ? 'primary' : ''}`} onClick={() => void api.sync.setPaused(!ov.paused).then(setOv)}>
           <Icon name={ov.paused ? 'play' : 'pause'} size={14} /> {ov.paused ? 'Resume' : 'Pause all'}

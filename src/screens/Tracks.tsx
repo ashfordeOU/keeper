@@ -17,6 +17,7 @@ import { useAsync, useStore } from '../state';
 import { TracksMap, sportColour, type MapMarker } from './TracksMap';
 import { Activities, Places, Settings, Sources } from './TracksMore';
 import '../styles/tracks.css';
+import { Tabs } from '../components/Tabs';
 
 type Tab = 'timeline' | 'trips' | 'activities' | 'live' | 'places' | 'sources' | 'settings';
 const TABS: [Tab, string][] = [['timeline', 'Timeline'], ['trips', 'Trips'], ['activities', 'Activities'], ['live', 'Live'], ['places', 'Places'], ['sources', 'Sources'], ['settings', 'Settings']];
@@ -54,9 +55,7 @@ export function Tracks() {
       <PageHead title="Places & Tracks" sub={o ? summaryLine(o) : 'Where your things, people and activities have been. Private, on this computer.'}>
         <button className="btn sm" onClick={() => void api.tracks.importFiles().then((r) => { if (r.imported.length) go({ name: 'tracks' }); })}><Icon name="down" size={13} />Import…</button>
       </PageHead>
-      <div className="seg tk-tabs" role="tablist">
-        {TABS.map(([id, label]) => <button key={id} role="tab" className={tab === id && !file ? 'on' : ''} onClick={() => go({ name: 'tracks', arg: id === 'timeline' ? undefined : id })}>{label}</button>)}
-      </div>
+      <Tabs label="Places & Tracks" value={file ? undefined : tab} onChange={(id) => go({ name: 'tracks', arg: id === 'timeline' ? undefined : id })} items={TABS.map(([id, label]) => ({ id, label }))} />
       {o?.encryptionNote ? <div className="tk-note warn"><Icon name="lock" size={13} />{o.encryptionNote}</div> : null}
       {file ? <FilePreview path={file} /> : !o ? <Loading /> : (
         <>

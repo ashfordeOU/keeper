@@ -23,6 +23,7 @@ import { vibeSwatch } from '../wallpaper/IslandVibes';
 import { MixerControls, useAmbience } from '../wallpaper/MixerControls';
 import { SceneRenderer } from '../wallpaper/scene-gl';
 import '../styles/ambience.css';
+import { Tabs } from '../components/Tabs';
 
 type Tab = 'vibes' | 'wallpaper' | 'schedule' | 'sound' | 'icons' | 'options';
 const TABS: { id: Tab; label: string; icon: string }[] = [
@@ -440,9 +441,7 @@ export function Ambience() {
         <label className="amb-live-toggle" data-testid="amb-live"><Toggle on={live} onChange={(v) => void api.ambience.setPlaying(v)} /><span><b>Live wallpaper</b><span className="muted small" style={{ display: 'block' }}>{!live ? 'Off' : state.strategy === 'still' ? 'Still picture mode' : running ? `Playing on ${running} display${running === 1 ? '' : 's'}` : state.displays.find((d) => d.live)?.live?.reason ?? 'Starting…'}</span></span></label>
       </PageHead>
       {isDemo ? <div className="muted small" style={{ marginBottom: 8 }}>In the app, the wallpaper draws behind your desktop icons and the sound plays from a floating mixer.</div> : null}
-      <div className="seg amb-tabs" role="tablist">
-        {TABS.map((t) => <button key={t.id} role="tab" aria-selected={tab === t.id} className={tab === t.id ? 'on' : ''} data-testid={`amb-tab-${t.id}`} onClick={() => go({ name: 'ambience', arg: t.id })}><Icon name={t.icon} size={13} /> {t.label}</button>)}
-      </div>
+      <Tabs label="Wallpaper & Vibes" value={tab} onChange={(id) => go({ name: 'ambience', arg: id })} items={TABS.map((t) => ({ id: t.id, text: t.label, label: <><Icon name={t.icon} size={13} /> {t.label}</>, testId: `amb-tab-${t.id}` }))} />
       <div className="amb-tab">
         {tab === 'vibes' ? <VibesTab state={state} /> : null}
         {tab === 'wallpaper' ? <WallpaperTab state={state} /> : null}

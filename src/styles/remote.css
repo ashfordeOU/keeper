@@ -20,44 +20,44 @@
 .provider-list { max-height: 220px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; }
 .provider-row { display: flex; gap: 10px; width: 100%; padding: 7px 12px; border: 0; border-bottom: 1px solid var(--line); background: none; color: var(--text); text-align: left; font: inherit; cursor: default; }
 .provider-row:last-child { border-bottom: 0; }
-.conn-form .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; font-size: 13px; }
+.conn-form .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; font-size: var(--fs-md); }
 .conn-form .field > span { font-weight: 550; }
 .conn-form .field.inline { flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; }
 .conn-form .field small { font-weight: 400; }
-.conn-signin { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; border: 1px dashed var(--accent); background: var(--accent-soft); margin-bottom: 12px; font-size: 13px; }
+.conn-signin { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; border: 1px dashed var(--accent); background: var(--accent-soft); margin-bottom: 12px; font-size: var(--fs-md); }
 .conn-signin.done { border-style: solid; }
-.conn-note { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 10px; background: var(--bg-sunk); font-size: 13px; margin-top: 8px; }
+.conn-note { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 10px; background: var(--bg-sunk); font-size: var(--fs-md); margin-top: 8px; }
 .conn-note.warn { background: color-mix(in srgb, var(--danger, #ef4444) 12%, transparent); }
 .conn-note.ok { background: color-mix(in srgb, #22c55e 14%, transparent); }
 .kind-row { display: flex; gap: 6px; flex-wrap: wrap; }
-.kind-chip { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg-elev); color: var(--text-2); font: inherit; font-size: 13px; cursor: default; }
+.kind-chip { padding: 6px 12px; border-radius: var(--r-pill); border: 1px solid var(--line); background: var(--bg-elev); color: var(--text-2); font: inherit; font-size: var(--fs-md); cursor: default; }
 .kind-chip.on { border-color: var(--accent); background: var(--accent-soft); color: var(--text); font-weight: 600; }
 .kind-chip:disabled { opacity: .4; }
 
 .lan-list { display: flex; flex-direction: column; gap: 8px; max-height: 420px; overflow: auto; }
-.lan-device { border: 1px solid var(--line); border-radius: 12px; background: var(--bg-elev); overflow: hidden; }
+.lan-device { border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--bg-elev); overflow: hidden; }
 .lan-head { display: flex; align-items: center; gap: 10px; padding: 10px 12px; cursor: default; }
 .lan-head:hover { background: var(--bg-hover); }
 .lan-tip { display: flex; gap: 6px; padding: 0 12px 10px 42px; }
 .lan-shares { padding: 4px 8px 8px 34px; display: flex; flex-direction: column; gap: 4px; }
-.share-row { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 8px; border: 1px solid transparent; background: none; color: var(--text); font: inherit; font-size: 13px; text-align: left; cursor: default; }
+.share-row { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: var(--r-md); border: 1px solid transparent; background: none; color: var(--text); font: inherit; font-size: var(--fs-md); text-align: left; cursor: default; }
 .lan-howto { margin: 8px 0 0; padding-left: 18px; line-height: 1.6; }
 
-.remote.drop-over { outline: 2px dashed var(--accent); outline-offset: 6px; border-radius: 12px; }
+.remote.drop-over { outline: 2px dashed var(--accent); outline-offset: 6px; border-radius: var(--r-lg); }
 .remote-status { display: flex; align-items: center; gap: 6px; margin: -6px 0 14px; }
 .remote-status .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-3); }
 .remote-status .dot.connected { background: #22c55e; }
 .remote-status .dot.needs-sign-in, .remote-status .dot.error { background: var(--danger, #ef4444); }
 .remote-status .dot.connecting { background: #f59e0b; }
 .remote-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
-.remote-card { border-radius: 12px; padding: 8px; border: 1px solid transparent; cursor: default; min-width: 0; }
+.remote-card { border-radius: var(--r-lg); padding: 8px; border: 1px solid transparent; cursor: default; min-width: 0; }
 .remote-card:hover { background: var(--bg-hover); }
 .remote-card.selected { background: var(--accent-soft); border-color: var(--accent); }
 .remote-card:focus-visible, .folder-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .remote-thumb { aspect-ratio: 4 / 3; border-radius: 9px; background: var(--bg-sunk); display: grid; place-items: center; overflow: hidden; margin-bottom: 6px; }
 .remote-thumb img { width: 100%; height: 100%; object-fit: cover; }
-.remote-name { font-size: 13px; font-weight: 550; }
-.transfers { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; padding: 10px 12px; border-radius: 12px; background: var(--bg-sunk); }
+.remote-name { font-size: var(--fs-md); font-weight: 550; }
+.transfers { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; padding: 10px 12px; border-radius: var(--r-lg); background: var(--bg-sunk); }
 .transfer { display: flex; align-items: center; gap: 8px; }
 
 /* Cloud & Servers with no connection chosen: one card per connection. */

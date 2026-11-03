@@ -364,7 +364,7 @@ function QuickConnect({ onOpen, onSave }: { onOpen: (c: Connection) => void; onS
   return (
     <form className="card pad rdc-quick" onSubmit={(e) => { e.preventDefault(); void go(); }}>
       <Icon name="bolt" size={16} />
-      <input className="input grow" placeholder="Quick connect: rdp://host, vnc://host:5901, ssh user@host, or just a name or address" value={text} onChange={(e) => setText(e.target.value)} data-testid="rdc-quick" spellCheck={false} />
+      <input className="input grow" placeholder="rdp://host, vnc://host:5901, ssh user@host or a name" value={text} onChange={(e) => setText(e.target.value)} data-testid="rdc-quick" spellCheck={false} />
       <button className="btn primary" disabled={busy || !text.trim()}>{busy ? 'Looking…' : 'Connect'}</button>
       {found ? <button type="button" className="btn ghost" onClick={() => onSave(found)} title="Save it to the list">Save</button> : null}
     </form>

@@ -18,6 +18,7 @@ import { Row } from './IslandSettings';
 import { statsPng } from '../voice/stats-png';
 import '../voice/voice.css';
 import { ComponentPrompt } from '../components/ComponentsPanel';
+import { Tabs } from '../components/Tabs';
 
 type Tab = 'dictate' | 'history' | 'words' | 'apps' | 'settings';
 const isMac = navigator.platform.includes('Mac');
@@ -49,9 +50,7 @@ export function Dictation({ initialTab }: { initialTab?: string }) {
     <div className="page voice-page" data-testid="dictation-page">
       <PageHead title="Dictation" sub="Speak in any app and finished text appears where your cursor is. Recognised on this computer unless you choose a service." />
       <ComponentPrompt featureId="dictation" />
-      <div className="seg voice-tabs" role="tablist">
-        {([['dictate', 'Dictate'], ['history', 'History'], ['words', 'Words & snippets'], ['apps', 'Per app'], ['settings', 'Settings']] as const).map(([k, l]) => <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} data-testid={`dictation-tab-${k}`} onClick={() => setTab(k)}>{l}</button>)}
-      </div>
+      <Tabs label="Dictation" value={tab} onChange={setTab} items={([['dictate', 'Dictate'], ['history', 'History'], ['words', 'Words & snippets'], ['apps', 'Per app'], ['settings', 'Settings']] as const).map(([k, l]) => ({ id: k, label: l, testId: `dictation-tab-${k}` }))} />
       {tab === 'dictate' ? <DictateTab cfg={cfg} st={st} live={live} save={save} refresh={() => void api.voice.status().then(setSt)} /> : null}
       {tab === 'history' ? <HistoryTab /> : null}
       {tab === 'words' ? <WordsTab cfg={cfg} save={save} /> : null}

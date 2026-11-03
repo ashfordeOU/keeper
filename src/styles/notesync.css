@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 */
 /* Notes Everywhere */
 .nh-page { display: flex; flex-direction: column; gap: 14px; }
-.nh-tabs { align-self: flex-start; }
 .nh-count { margin-left: 6px; font-size: 11px; padding: 0 6px; border-radius: 999px; background: var(--accent); color: #fff; }
 .nh-notes { display: grid; grid-template-columns: minmax(280px, 380px) 1fr; gap: 14px; min-height: 480px; }
 .nh-list { display: flex; flex-direction: column; gap: 10px; min-width: 0; }

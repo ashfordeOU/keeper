@@ -14,6 +14,7 @@ import { PageHead, Toggle } from '../components/ui';
 import { useStore } from '../state';
 import { Row } from './IslandSettings';
 import '../styles/cues.css';
+import { Tabs } from '../components/Tabs';
 
 type Tab = 'cues' | 'checklists' | 'settings';
 
@@ -48,11 +49,8 @@ export function Cues() {
 
   return (
     <div className="page cues-page" data-testid="cues-page">
-      <PageHead title="Cues" sub="Notes, checklists, links and files that come back in the app, on the site or at the time they belong to.">
-        <div className="seg" role="tablist">
-          {(['cues', 'checklists', 'settings'] as Tab[]).map((t) => <button key={t} role="tab" aria-selected={tab === t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{t === 'cues' ? 'Cues' : t === 'checklists' ? 'Checklists' : 'Settings'}</button>)}
-        </div>
-      </PageHead>
+      <PageHead title="Cues" sub="Notes, checklists, links and files that come back in the app, on the site or at the time they belong to." />
+      <Tabs label="Cues" value={tab} onChange={setTab} items={(['cues', 'checklists', 'settings'] as Tab[]).map((t) => ({ id: t, label: t === 'cues' ? 'Cues' : t === 'checklists' ? 'Checklists' : 'Settings' }))} />
 
       {tab === 'cues' ? (
         <div className="cues-top">

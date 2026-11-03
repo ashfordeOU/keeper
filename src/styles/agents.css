@@ -2,7 +2,6 @@
 /* Agents page, knowledge graph and the approval prompt. */
 
 .agents h2 { font-size: 15px; margin: 18px 0 6px; }
-.agents-tabs { margin: 4px 0 14px; flex-wrap: wrap; }
 .agent-apps { padding: 4px 14px; }
 .agent-app { gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
 .agent-app:last-child { border-bottom: 0; }
