@@ -15,9 +15,19 @@
 # need Windows; the AUR, Snap and the apt/dnf repositories need Linux; the Homebrew cask
 # needs macOS). See RELEASING.md.
 #
-# Mac builds are signed with the stable "Keeper Self-Signed" certificate once
-# KEEPER_SIGNING_CERT / KEEPER_SIGNING_PASSWORD exist (scripts/make-signing-cert.sh),
-# so macOS keeps Keeper's permissions across updates.
+# Who signs the Mac builds comes from .github/release.json ("macSigning"), or from the
+# "mac_signing" input of a manual run, never from which secrets exist:
+#   self-signed   the stable "Keeper Self-Signed" certificate (KEEPER_SIGNING_CERT /
+#                 KEEPER_SIGNING_PASSWORD, scripts/make-signing-cert.sh), so macOS keeps
+#                 Keeper's permissions across updates. CSC_LINK and the Developer ID secrets
+#                 are not even passed to the build.
+#   developer-id  Ashforde's Apple Developer ID, hardened runtime, notarized and stapled:
+#                 KEEPER_DEVELOPER_ID_CERT -> CSC_LINK, KEEPER_DEVELOPER_ID_PASSWORD ->
+#                 CSC_KEY_PASSWORD, APPLE_APP_PASSWORD -> APPLE_APP_SPECIFIC_PASSWORD, plus
+#                 APPLE_ID and APPLE_TEAM_ID (a raw CSC_LINK / CSC_KEY_PASSWORD /
+#                 APPLE_APP_SPECIFIC_PASSWORD is accepted in their place). A missing one fails
+#                 the build; it never falls back to self-signed.
+# See RELEASING.md → Moving to the Developer ID for the order (the updater bridge ships first).
 #
 # Pre-releases are published on GitHub only (with their update information, for testers
 # who switch on "Include beta versions"), never to Homebrew, winget, Chocolatey, Scoop,
@@ -56,6 +66,11 @@ on:
         description: 'Systems to release: "mac", "windows", "linux" (comma-separated) or "all"; empty = .github/release.json'
         type: string
         default: ''
+      mac_signing:
+        description: 'Who signs the Mac build ("release.json" = its "macSigning")'
+        type: choice
+        options: [release.json, self-signed, developer-id]
+        default: release.json
   # release-check.yml builds everything this way, without publishing.
   workflow_call:
     inputs:
@@ -63,6 +78,9 @@ on:
         type: boolean
         default: true
       platforms:
+        type: string
+        default: ''
+      mac_signing:
         type: string
         default: ''
 
@@ -95,6 +113,7 @@ jobs:
       matrix: ${{ steps.platforms.outputs.matrix }}
       cli_from: ${{ steps.platforms.outputs.cli_from }}
       make_latest: ${{ steps.platforms.outputs.make_latest }}
+      mac_signing: ${{ steps.signing.outputs.mac_signing }}
     steps:
       - uses: actions/checkout@v5
       - id: tag
@@ -190,6 +209,22 @@ jobs:
             echo "cli_from=$cli_from"
             echo "make_latest=$make_latest"
           } | tee -a "$GITHUB_OUTPUT"
+      # Who signs the Mac build: .github/release.json's "macSigning" (default self-signed), or the
+      # mac_signing input of a manual run. Never inferred from which secrets exist.
+      - id: signing
+        env:
+          REQUESTED: ${{ inputs.mac_signing }}
+        run: |
+          set -euo pipefail
+          if [ -n "$REQUESTED" ] && [ "$REQUESTED" != release.json ]; then signing="$REQUESTED"; from="the mac_signing input"
+          else signing="$(jq -r '.macSigning // "self-signed"' .github/release.json)"; from=".github/release.json"
+          fi
+          case "$signing" in
+            self-signed|developer-id) ;;
+            *) echo "::error::Unknown macSigning \"$signing\" in $from (use self-signed or developer-id)"; exit 1 ;;
+          esac
+          [ "$signing" = developer-id ] && echo "::notice title=Mac signing::Signed with the Apple Developer ID and notarized (from $from)."
+          echo "mac_signing=$signing" | tee -a "$GITHUB_OUTPUT"
 
   build:
     name: ${{ matrix.name }}
@@ -226,8 +261,8 @@ jobs:
           KEEPER_GOOGLE_CLIENT_ID: ${{ secrets.KEEPER_GOOGLE_CLIENT_ID }}
           KEEPER_GOOGLE_CLIENT_SECRET: ${{ secrets.KEEPER_GOOGLE_CLIENT_SECRET }}
           KEEPER_MS_CLIENT_ID: ${{ secrets.KEEPER_MS_CLIENT_ID }}
-          # A Developer ID certificate is configured: the update window stops warning about the keychain question.
-          KEEPER_DEVELOPER_ID: ${{ matrix.platform == 'darwin' && secrets.CSC_LINK != '' && '1' || '' }}
+          # A Developer ID build: the update window stops warning about the keychain question.
+          KEEPER_DEVELOPER_ID: ${{ matrix.platform == 'darwin' && needs.tag.outputs.mac_signing == 'developer-id' && '1' || '' }}
       # Apple Intelligence, Live Text and Spotlight on macOS (universal, so either processor's build can carry it).
       # The same build as scripts/build-mac-native.mjs, which npm run dist:mac runs locally.
       - name: macOS helper
@@ -239,18 +274,41 @@ jobs:
       - name: Siri and Shortcuts helper
         if: matrix.platform == 'darwin'
         run: native/macos/KeeperIntents/build.sh
-      # The same certificate every release keeps macOS permissions across updates
-      # (build/after-sign.cjs signs with it). A Developer ID (CSC_LINK) takes precedence.
+      # self-signed: the same certificate every release keeps macOS permissions across updates
+      # (build/after-sign.cjs signs with it). developer-id: every secret the Developer ID build
+      # needs must be there, or the build stops here (no fallback to self-signed).
       - name: Signing certificate
         if: matrix.platform == 'darwin'
         shell: bash
         env:
-          CSC_LINK: ${{ secrets.CSC_LINK }}
-          KEEPER_SIGNING_CERT: ${{ secrets.KEEPER_SIGNING_CERT }}
-          KEEPER_SIGNING_PASSWORD: ${{ secrets.KEEPER_SIGNING_PASSWORD }}
+          MAC_SIGNING: ${{ needs.tag.outputs.mac_signing }}
+          KEEPER_SIGNING_CERT: ${{ needs.tag.outputs.mac_signing == 'self-signed' && secrets.KEEPER_SIGNING_CERT || '' }}
+          KEEPER_SIGNING_PASSWORD: ${{ needs.tag.outputs.mac_signing == 'self-signed' && secrets.KEEPER_SIGNING_PASSWORD || '' }}
+          # developer-id only (the same mapping as the Package steps): whether each one is set, and the team.
+          HAS_CERT: ${{ needs.tag.outputs.mac_signing == 'developer-id' && (secrets.KEEPER_DEVELOPER_ID_CERT != '' || secrets.CSC_LINK != '') }}
+          HAS_CERT_PASSWORD: ${{ needs.tag.outputs.mac_signing == 'developer-id' && (secrets.KEEPER_DEVELOPER_ID_CERT != '' && secrets.KEEPER_DEVELOPER_ID_PASSWORD != '' || secrets.KEEPER_DEVELOPER_ID_CERT == '' && secrets.CSC_KEY_PASSWORD != '') }}
+          HAS_APPLE_ID: ${{ needs.tag.outputs.mac_signing == 'developer-id' && secrets.APPLE_ID != '' }}
+          HAS_APP_PASSWORD: ${{ needs.tag.outputs.mac_signing == 'developer-id' && (secrets.APPLE_APP_PASSWORD != '' || secrets.APPLE_APP_SPECIFIC_PASSWORD != '') }}
+          APPLE_TEAM_ID: ${{ needs.tag.outputs.mac_signing == 'developer-id' && secrets.APPLE_TEAM_ID || '' }}
         run: |
-          if [ -n "$CSC_LINK" ]; then
-            echo "Signing with the Developer ID certificate from CSC_LINK."
+          set -euo pipefail
+          if [ "$MAC_SIGNING" = developer-id ]; then
+            missing=()
+            [ "$HAS_CERT" = true ] || missing+=("KEEPER_DEVELOPER_ID_CERT")
+            [ "$HAS_CERT_PASSWORD" = true ] || missing+=("KEEPER_DEVELOPER_ID_PASSWORD")
+            [ "$HAS_APPLE_ID" = true ] || missing+=("APPLE_ID")
+            [ -n "$APPLE_TEAM_ID" ] || missing+=("APPLE_TEAM_ID")
+            [ "$HAS_APP_PASSWORD" = true ] || missing+=("APPLE_APP_PASSWORD")
+            if [ "${#missing[@]}" -gt 0 ]; then
+              echo "::error title=Developer ID::macSigning is developer-id but these secrets are missing: ${missing[*]}. Add them, or set \"macSigning\": \"self-signed\" in .github/release.json. (RELEASING.md → Moving to the Developer ID)"
+              exit 1
+            fi
+            team="$(node scripts/check-mac-signing.mjs --print team)"
+            if [ "$APPLE_TEAM_ID" != "$team" ]; then
+              echo "::error title=Developer ID::APPLE_TEAM_ID is not $team, the team installed copies accept (APPLE_TEAM_ID in core/update-verify.ts)"
+              exit 1
+            fi
+            echo "Signing with the Developer ID of team $team; notarizing with APPLE_ID."
           elif [ -n "$KEEPER_SIGNING_CERT" ]; then
             bash scripts/ci-import-signing-cert.sh
           else
@@ -264,12 +322,16 @@ jobs:
           # The standard download is the core installer: ffmpeg, ONNX Runtime and rclone are left out
           # (staged for the next step) and downloaded when a feature needs them (docs/COMPONENTS.md).
           KEEPER_EDITION: core
-          # All optional. Without them macOS builds are ad-hoc signed and Windows builds unsigned.
-          CSC_LINK: ${{ matrix.platform == 'darwin' && secrets.CSC_LINK || '' }}
-          CSC_KEY_PASSWORD: ${{ matrix.platform == 'darwin' && secrets.CSC_KEY_PASSWORD || '' }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # macOS, developer-id only (self-signed never sees them, a CSC_LINK secret included):
+          # KEEPER_DEVELOPER_ID_CERT -> CSC_LINK, KEEPER_DEVELOPER_ID_PASSWORD -> CSC_KEY_PASSWORD,
+          # APPLE_APP_PASSWORD -> APPLE_APP_SPECIFIC_PASSWORD, APPLE_ID, APPLE_TEAM_ID.
+          KEEPER_MAC_SIGNING: ${{ matrix.platform == 'darwin' && needs.tag.outputs.mac_signing || '' }}
+          CSC_LINK: ${{ matrix.platform == 'darwin' && needs.tag.outputs.mac_signing == 'developer-id' && (secrets.KEEPER_DEVELOPER_ID_CERT || secrets.CSC_LINK) || '' }}
+          CSC_KEY_PASSWORD: ${{ matrix.platform == 'darwin' && needs.tag.outputs.mac_signing == 'developer-id' && (secrets.KEEPER_DEVELOPER_ID_CERT != '' && secrets.KEEPER_DEVELOPER_ID_PASSWORD || secrets.CSC_KEY_PASSWORD) || '' }}
+          APPLE_ID: ${{ matrix.platform == 'darwin' && needs.tag.outputs.mac_signing == 'developer-id' && secrets.APPLE_ID || '' }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ matrix.platform == 'darwin' && needs.tag.outputs.mac_signing == 'developer-id' && (secrets.APPLE_APP_PASSWORD || secrets.APPLE_APP_SPECIFIC_PASSWORD) || '' }}
+          APPLE_TEAM_ID: ${{ matrix.platform == 'darwin' && needs.tag.outputs.mac_signing == 'developer-id' && secrets.APPLE_TEAM_ID || '' }}
+          # Windows, all optional: without them Windows builds are unsigned.
           WIN_CSC_LINK: ${{ matrix.platform == 'win32' && secrets.WIN_CSC_LINK || '' }}
           WIN_CSC_KEY_PASSWORD: ${{ matrix.platform == 'win32' && secrets.WIN_CSC_KEY_PASSWORD || '' }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
@@ -279,11 +341,15 @@ jobs:
           AZURE_TRUSTED_SIGNING_ACCOUNT: ${{ matrix.platform == 'win32' && vars.AZURE_TRUSTED_SIGNING_ACCOUNT || '' }}
           AZURE_TRUSTED_SIGNING_PROFILE: ${{ vars.AZURE_TRUSTED_SIGNING_PROFILE }}
         run: |
+          if [ "$KEEPER_MAC_SIGNING" = developer-id ] && { [ -z "$CSC_LINK" ] || [ -z "$APPLE_ID" ] || [ -z "$APPLE_APP_SPECIFIC_PASSWORD" ] || [ -z "$APPLE_TEAM_ID" ]; }; then
+            echo "::error title=Developer ID::macSigning is developer-id but the certificate or the notarization secrets are missing"; exit 1
+          fi
+          [ "$KEEPER_MAC_SIGNING" = developer-id ] || unset APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID
           # An empty CSC_LINK is read as a file path ("… not a file"): only pass it when it is set.
           [ -n "$CSC_LINK" ] || unset CSC_LINK CSC_KEY_PASSWORD
           [ -n "$WIN_CSC_LINK" ] || unset WIN_CSC_LINK WIN_CSC_KEY_PASSWORD
           config=electron-builder.yml
-          if [ -n "${CSC_LINK:-}" ] || [ -n "$AZURE_TRUSTED_SIGNING_ACCOUNT" ]; then
+          if [ "$KEEPER_MAC_SIGNING" = developer-id ] || [ -n "$AZURE_TRUSTED_SIGNING_ACCOUNT" ]; then
             config=packaging/electron-builder.signed.cjs
           fi
           if [ -z "${CSC_LINK:-}" ] && [ -z "${WIN_CSC_LINK:-}" ]; then export CSC_IDENTITY_AUTO_DISCOVERY=false; fi
@@ -310,8 +376,17 @@ jobs:
         env:
           KEEPER_REQUIRE_ALL: '1'
           KEEPER_EDITION: full
-          CSC_LINK: ${{ matrix.platform == 'darwin' && secrets.CSC_LINK || '' }}
-          CSC_KEY_PASSWORD: ${{ matrix.platform == 'darwin' && secrets.CSC_KEY_PASSWORD || '' }}
+          # The same signing as the core build: notarized too.
+          # macOS, developer-id only (self-signed never sees them, a CSC_LINK secret included):
+          # KEEPER_DEVELOPER_ID_CERT -> CSC_LINK, KEEPER_DEVELOPER_ID_PASSWORD -> CSC_KEY_PASSWORD,
+          # APPLE_APP_PASSWORD -> APPLE_APP_SPECIFIC_PASSWORD, APPLE_ID, APPLE_TEAM_ID.
+          KEEPER_MAC_SIGNING: ${{ matrix.platform == 'darwin' && needs.tag.outputs.mac_signing || '' }}
+          CSC_LINK: ${{ matrix.platform == 'darwin' && needs.tag.outputs.mac_signing == 'developer-id' && (secrets.KEEPER_DEVELOPER_ID_CERT || secrets.CSC_LINK) || '' }}
+          CSC_KEY_PASSWORD: ${{ matrix.platform == 'darwin' && needs.tag.outputs.mac_signing == 'developer-id' && (secrets.KEEPER_DEVELOPER_ID_CERT != '' && secrets.KEEPER_DEVELOPER_ID_PASSWORD || secrets.CSC_KEY_PASSWORD) || '' }}
+          APPLE_ID: ${{ matrix.platform == 'darwin' && needs.tag.outputs.mac_signing == 'developer-id' && secrets.APPLE_ID || '' }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ matrix.platform == 'darwin' && needs.tag.outputs.mac_signing == 'developer-id' && (secrets.APPLE_APP_PASSWORD || secrets.APPLE_APP_SPECIFIC_PASSWORD) || '' }}
+          APPLE_TEAM_ID: ${{ matrix.platform == 'darwin' && needs.tag.outputs.mac_signing == 'developer-id' && secrets.APPLE_TEAM_ID || '' }}
+          # Windows, all optional: without them Windows builds are unsigned.
           WIN_CSC_LINK: ${{ matrix.platform == 'win32' && secrets.WIN_CSC_LINK || '' }}
           WIN_CSC_KEY_PASSWORD: ${{ matrix.platform == 'win32' && secrets.WIN_CSC_KEY_PASSWORD || '' }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
@@ -321,10 +396,15 @@ jobs:
           AZURE_TRUSTED_SIGNING_ACCOUNT: ${{ matrix.platform == 'win32' && vars.AZURE_TRUSTED_SIGNING_ACCOUNT || '' }}
           AZURE_TRUSTED_SIGNING_PROFILE: ${{ vars.AZURE_TRUSTED_SIGNING_PROFILE }}
         run: |
+          if [ "$KEEPER_MAC_SIGNING" = developer-id ] && { [ -z "$CSC_LINK" ] || [ -z "$APPLE_ID" ] || [ -z "$APPLE_APP_SPECIFIC_PASSWORD" ] || [ -z "$APPLE_TEAM_ID" ]; }; then
+            echo "::error title=Developer ID::macSigning is developer-id but the certificate or the notarization secrets are missing"; exit 1
+          fi
+          [ "$KEEPER_MAC_SIGNING" = developer-id ] || unset APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID
+          # An empty CSC_LINK is read as a file path ("… not a file"): only pass it when it is set.
           [ -n "$CSC_LINK" ] || unset CSC_LINK CSC_KEY_PASSWORD
           [ -n "$WIN_CSC_LINK" ] || unset WIN_CSC_LINK WIN_CSC_KEY_PASSWORD
           config=electron-builder.yml
-          if [ -n "${CSC_LINK:-}" ] || [ -n "$AZURE_TRUSTED_SIGNING_ACCOUNT" ]; then
+          if [ "$KEEPER_MAC_SIGNING" = developer-id ] || [ -n "$AZURE_TRUSTED_SIGNING_ACCOUNT" ]; then
             config=packaging/electron-builder.signed.cjs
           fi
           if [ -z "${CSC_LINK:-}" ] && [ -z "${WIN_CSC_LINK:-}" ]; then export CSC_IDENTITY_AUTO_DISCOVERY=false; fi
@@ -346,6 +426,12 @@ jobs:
             echo "Offline installer: $full"
           done
           rm -rf release-full
+      # developer-id: every dmg (core and full) is checked before upload: Developer ID of the team,
+      # hardened runtime on the app and its helpers, stapled, accepted by Gatekeeper, and meeting
+      # the requirement self-signed copies' updater bridge accepts (core/update-verify.ts).
+      - name: Check the Developer ID signature
+        if: runner.os == 'macOS' && needs.tag.outputs.mac_signing == 'developer-id'
+        run: node scripts/check-mac-signing.mjs release/*.dmg
       # Both Mac builds write latest-mac.yml; Keeper updates Mac copies from the dmg itself,
       # so the per-processor file is kept under its own name instead of clashing.
       - if: runner.os == 'macOS'
@@ -487,12 +573,15 @@ jobs:
           subject-path: ${{ steps.subjects.outputs.paths }}
       # .github/release-notes/<version>.md when it exists, else the CHANGELOG section; long
       # notes fold their long sections; then the platforms line and the install notes.
+      # A developer-id release says so in its notes (and marks them, so self-signed copies warn
+      # that macOS asks once more; core/update-verify.ts).
       - name: Release notes
         env:
           RELEASE_VERSION: ${{ steps.meta.outputs.version }}
           PLATFORMS: ${{ needs.tag.outputs.platforms }}
+          MAC_SIGNING: ${{ needs.tag.outputs.mac_signing }}
         run: |
-          node .github/scripts/release-notes.mjs --version "$RELEASE_VERSION" --platforms "$PLATFORMS" --out notes.md
+          node .github/scripts/release-notes.mjs --version "$RELEASE_VERSION" --platforms "$PLATFORMS" --mac-signing "$MAC_SIGNING" --out notes.md
           wc -c notes.md
       # Creates the tag on the commit that was built when it does not exist yet.
       - uses: softprops/action-gh-release@v2

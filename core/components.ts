@@ -13,6 +13,7 @@
 // Pure functions and data: shared by the main process, the interface and tests.
 
 import layout from './component-layout.json';
+import { DEVELOPER_ID_SIGNER } from './update-verify';
 
 export type ComponentId = 'ffmpeg' | 'onnxruntime' | 'rclone';
 
@@ -397,4 +398,15 @@ export function componentRequirement(appRequirement: string | undefined): string
     .trim();
   if (!r || /^identifier\s+"[^"]*"$/.test(r)) return undefined;
   return r;
+}
+
+/**
+ * Every requirement a component's program may meet (any one is enough): the app's own
+ * signer (componentRequirement), or Ashforde's Developer ID, the same bridge the updater
+ * allows (core/update-verify.ts). Empty for an ad-hoc app: only a valid signature is checked.
+ */
+export function componentRequirements(appRequirement: string | undefined): string[] {
+  const own = componentRequirement(appRequirement);
+  if (!own) return [];
+  return [...new Set([own, DEVELOPER_ID_SIGNER])];
 }

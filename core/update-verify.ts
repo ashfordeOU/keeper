@@ -60,3 +60,56 @@ export function designatedRequirement(output: string): string | undefined {
 export function isAdHocRequirement(requirement: string | undefined): boolean {
   return !requirement || /\bcdhash\b/.test(requirement);
 }
+
+// ---------------------------------------------------------------- the move to a Developer ID
+
+/** Ashforde OÜ's Apple Developer Team ID: the one place it is written (the release workflow reads it from here too). */
+export const APPLE_TEAM_ID = 'D69G45342Y';
+
+/** Keeper's bundle identifier (appId in electron-builder.yml). */
+export const KEEPER_BUNDLE_ID = 'io.github.ashfordeou.keeper';
+
+/**
+ * Code signed with a "Developer ID Application" certificate (the leaf carries Apple's
+ * 1.2.840.113635.100.6.1.13 marker) issued by Apple to Ashforde's team, and to nobody else.
+ * The same form as the designated requirement codesign gives a Developer ID build
+ * (`anchor apple generic … certificate leaf[subject.OU] = D69G45342Y`); quoting the team is
+ * the same value in the requirement language.
+ */
+export const DEVELOPER_ID_SIGNER = `anchor apple generic and certificate leaf[field.1.2.840.113635.100.6.1.13] exists and certificate leaf[subject.OU] = "${APPLE_TEAM_ID}"`;
+
+/** Keeper itself, signed with Ashforde's Developer ID. */
+export const DEVELOPER_ID_APP_REQUIREMENT = `${DEVELOPER_ID_SIGNER} and identifier "${KEEPER_BUNDLE_ID}"`;
+
+/**
+ * The requirements a new version of the app may meet to replace this copy: the running
+ * copy's own designated requirement, or (the bridge from "Keeper Self-Signed" to the
+ * Developer ID) Keeper signed with Ashforde's Developer ID. Nothing else.
+ * Empty for an ad-hoc copy, which can only check that the signature is valid.
+ * A copy signed with the Developer ID gets the same rule twice over: its own
+ * requirement already names the team.
+ */
+export function updateRequirements(running: string | undefined): string[] {
+  if (isAdHocRequirement(running)) return [];
+  return [...new Set([running as string, DEVELOPER_ID_APP_REQUIREMENT])];
+}
+
+/**
+ * Marks a release whose Mac build is signed with the Developer ID (an HTML comment the
+ * release workflow writes into the release notes; .github/scripts/release-notes.mjs).
+ */
+export const DEVELOPER_ID_RELEASE_MARKER = '<!-- keeper:mac-signing=developer-id -->';
+
+/** Whether a release's notes say its Mac build is signed with the Developer ID. */
+export function releaseSignedWithDeveloperId(notes: string | null | undefined): boolean {
+  return !!notes && notes.includes(DEVELOPER_ID_RELEASE_MARKER);
+}
+
+/**
+ * Whether installing this release changes who signs Keeper on this Mac: a copy that is
+ * not signed with the Developer ID moving to one that is. macOS then asks once more for
+ * the keychain and may ask for permissions again.
+ */
+export function isSignerChange(o: { platform: string; developerId: boolean; notes: string | null | undefined }): boolean {
+  return o.platform === 'darwin' && !o.developerId && releaseSignedWithDeveloperId(o.notes);
+}

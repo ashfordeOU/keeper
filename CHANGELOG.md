@@ -4,6 +4,11 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 
 ## [Unreleased]
 
+### Changed — Ready for Apple Developer ID builds on macOS
+- Updates on a Mac accept a new version signed like the installed copy or, the one bridge, signed with Ashforde's Apple Developer ID (team D69G45342Y). Downloaded components are checked the same way. Nothing else is accepted, and a copy on the Developer ID accepts only the Developer ID. This release is still self-signed; it prepares copies to move to the notarized Developer ID build on their own.
+- When the next version is the first one signed with the Developer ID, the Software Update window says so in one line: macOS asks once more for your login password (choose Always Allow) and may ask you to allow Keeper again in Privacy & Security; after that, updates don't ask.
+- Releases: `"macSigning"` in `.github/release.json` (`self-signed` by default, or `developer-id`) decides who signs the Mac build; adding a secret never changes it. A Developer ID build uses the hardened runtime on the app, keeper-helper, Keeper Intents and agent-desktop, is notarized and stapled for both the standard and the offline installer, is checked before upload, and fails rather than falling back when a secret is missing. RELEASING.md → Moving to the Developer ID has the steps.
+
 ### Changed — Navigation and Settings
 - The sidebar has the same sections as Settings → Features: Library, Favorites, Locations, Cloud & Servers and Tags, then Mail & Calendar, Notes, Tidy, Sync & Backup, Computer, Privacy & Security, Devices, AI, Screen and Desktop. Settings stays at the foot. A section whose parts are all off disappears; the everyday ones start open and the rest show only their titles. The top block is Home, Recents and Browse; Weather and Places & Tracks moved to Desktop. Library kinds with nothing in them stay out.
 - One page each, with tabs: System Controls (Quick switches, Hidden system settings, Per app), Privacy & Security (Overview, Protection, Firewall, Network activity, VPN) and Startup & Apps (Startup items, Installed apps). Keeper's processes is Health → Keeper itself; Browser tabs is part of Health → Apps & tabs; Keeper Mesh is Devices → Private network. Every old link still works.

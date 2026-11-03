@@ -71,3 +71,9 @@ export class KeychainLockedError extends Error {
 
 /** Shown in the update window on macOS before restarting into a new version. */
 export const UPDATE_KEYCHAIN_NOTE = 'macOS may ask for your login password once so Keeper can unlock its saved sign-ins (“Keeper Safe Storage”): type it and choose Always Allow.';
+
+/**
+ * Shown instead, once, when the update moves Keeper from its own certificate to Ashforde's
+ * Apple Developer ID (UpdateStatus.signerChange).
+ */
+export const UPDATE_SIGNER_CHANGE_NOTE = 'This update is signed with Ashforde’s Apple Developer ID. macOS will ask once more for your login password (choose Always Allow) and may ask you to allow Keeper again in Privacy & Security. After this, updates won’t ask.';

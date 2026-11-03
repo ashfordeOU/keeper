@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 import { describe, expect, it } from 'vitest';
-import { checksumFor, checksumProblem, designatedRequirement, isAdHocRequirement, parseChecksums } from '../core/update-verify';
+import {
+  APPLE_TEAM_ID, checksumFor, checksumProblem, designatedRequirement, DEVELOPER_ID_APP_REQUIREMENT, DEVELOPER_ID_RELEASE_MARKER, DEVELOPER_ID_SIGNER,
+  isAdHocRequirement, isSignerChange, parseChecksums, releaseSignedWithDeveloperId, updateRequirements,
+} from '../core/update-verify';
 
 const A = 'a'.repeat(64);
 const B = 'B'.repeat(64);
@@ -55,5 +58,51 @@ describe('code signature requirements', () => {
     expect(isAdHocRequirement(undefined)).toBe(true);
     expect(isAdHocRequirement(designatedRequirement(selfSigned))).toBe(false);
     expect(isAdHocRequirement(designatedRequirement(developerId))).toBe(false);
+  });
+});
+
+describe('the bridge from "Keeper Self-Signed" to the Developer ID', () => {
+  const selfSigned = 'identifier "io.github.ashfordeou.keeper" and certificate leaf = H"e0517bd6aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"';
+  const devIdApp = 'anchor apple generic and certificate leaf[field.1.2.840.113635.100.6.1.13] exists and certificate leaf[subject.OU] = "D69G45342Y" and identifier "io.github.ashfordeou.keeper"';
+
+  it('pins Ashforde\'s team, the Developer ID Application marker and Keeper\'s identifier, written once', () => {
+    expect(APPLE_TEAM_ID).toBe('D69G45342Y');
+    expect(DEVELOPER_ID_APP_REQUIREMENT).toBe(devIdApp);
+    expect(DEVELOPER_ID_SIGNER).toBe('anchor apple generic and certificate leaf[field.1.2.840.113635.100.6.1.13] exists and certificate leaf[subject.OU] = "D69G45342Y"');
+  });
+
+  it('a self-signed copy accepts its own signer or the Developer ID, and nothing else', () => {
+    expect(updateRequirements(selfSigned)).toEqual([selfSigned, devIdApp]);
+  });
+
+  it('a Developer ID copy keeps its own requirement (and the same team\'s)', () => {
+    const own = 'anchor apple generic and identifier "io.github.ashfordeou.keeper" and (certificate leaf[field.1.2.840.113635.100.6.1.9] /* exists */ or certificate 1[field.1.2.840.113635.100.6.2.6] /* exists */ and certificate leaf[field.1.2.840.113635.100.6.1.13] /* exists */ and certificate leaf[subject.OU] = D69G45342Y)';
+    expect(updateRequirements(own)).toEqual([own, devIdApp]);
+    // The bridge rule is not added twice.
+    expect(updateRequirements(devIdApp)).toEqual([devIdApp]);
+  });
+
+  it('an ad-hoc copy has no requirement to add the bridge to', () => {
+    expect(updateRequirements('cdhash H"0123"')).toEqual([]);
+    expect(updateRequirements(undefined)).toEqual([]);
+  });
+
+  it('every accepted requirement names Keeper and a certificate: no other team, app or ad-hoc build', () => {
+    for (const r of updateRequirements(selfSigned)) {
+      expect(r).toContain('identifier "io.github.ashfordeou.keeper"');
+      expect(r).toMatch(/certificate leaf/);
+      expect(r).not.toMatch(/\bor\b/);
+    }
+  });
+
+  it('tells self-signed copies when the next version moves to the Developer ID', () => {
+    const notes = `${DEVELOPER_ID_RELEASE_MARKER}\n\n### Fixed\n- x`;
+    expect(releaseSignedWithDeveloperId(notes)).toBe(true);
+    expect(releaseSignedWithDeveloperId('### Fixed\n- x')).toBe(false);
+    expect(releaseSignedWithDeveloperId(undefined)).toBe(false);
+    expect(isSignerChange({ platform: 'darwin', developerId: false, notes })).toBe(true);
+    expect(isSignerChange({ platform: 'darwin', developerId: true, notes })).toBe(false);
+    expect(isSignerChange({ platform: 'darwin', developerId: false, notes: '### Fixed' })).toBe(false);
+    expect(isSignerChange({ platform: 'win32', developerId: false, notes })).toBe(false);
   });
 });

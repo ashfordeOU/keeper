@@ -7,8 +7,9 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { noteBlocks } from '../core/update-window';
+import { DEVELOPER_ID_RELEASE_MARKER as MARKER } from '../core/update-verify';
 // @ts-expect-error plain JavaScript module without type declarations
-import { buildNotes, changelogSection, foldLongNotes } from '../.github/scripts/release-notes.mjs';
+import { buildNotes, changelogSection, DEVELOPER_ID_RELEASE_MARKER, foldLongNotes } from '../.github/scripts/release-notes.mjs';
 
 const ROOT = path.resolve(__dirname, '..');
 const CHANGELOG = readFileSync(path.join(ROOT, 'CHANGELOG.md'), 'utf8');
@@ -47,6 +48,24 @@ describe('release notes', () => {
     const beta = buildNotes({ version: '1.1.0-beta.1', changelog: '' }) as string;
     expect(beta).toContain('Keeper 1.1.0-beta.1');
     expect(beta).toContain('| sh -s -- --beta');
+  });
+
+  it('a Developer ID release drops Open Anyway and is marked for the updater', () => {
+    expect(DEVELOPER_ID_RELEASE_MARKER).toBe(MARKER);
+    const changelog = '## [1.2.0]\n### Added\n- x';
+    const self = buildNotes({ version: '1.2.0', changelog }) as string;
+    expect(self).not.toContain(MARKER);
+    expect(self).toContain('Open Anyway');
+    const dev = buildNotes({ version: '1.2.0', changelog, macSigning: 'developer-id' }) as string;
+    expect(dev.startsWith(MARKER)).toBe(true);
+    expect(dev).toContain('Apple Developer ID');
+    expect(dev).toContain('Always Allow');
+    expect(dev).not.toMatch(/click \*\*Open Anyway\*\*/);
+    // Keeper's window does not show the marker.
+    expect(JSON.stringify(noteBlocks(dev))).not.toContain('keeper:mac-signing');
+    // No Mac build, no marker; and only the two known values.
+    expect(buildNotes({ version: '1.2.0', changelog, platforms: ['windows'], macSigning: 'developer-id' })).not.toContain(MARKER);
+    expect(() => buildNotes({ version: '1.2.0', changelog, macSigning: 'apple' })).toThrow(/macSigning/);
   });
 
   it('stays under GitHub\'s size limit', () => {

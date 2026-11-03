@@ -14,7 +14,8 @@
 // release's SHA256SUMS.txt, and on macOS the new app's signature must be valid
 // and, when this copy is signed with a certificate (self-signed or Developer ID),
 // meet this copy's designated requirement, so only builds signed the same way can
-// replace it. electron-updater checks its own downloads (sha512 in latest*.yml).
+// replace it; or, the one bridge, Ashforde's Apple Developer ID (core/update-verify.ts),
+// so self-signed copies move to the Developer ID build on their own. electron-updater checks its own downloads (sha512 in latest*.yml).
 
 import { app, net, Notification, powerMonitor, shell } from 'electron';
 import { spawn } from 'node:child_process';
@@ -26,7 +27,8 @@ import type { UpdateStatus } from '../../core/api-x';
 import { run } from '../../core/platform';
 import { detectInstallSource, INSTALL_SOURCES } from '../../core/install-source';
 import { compareVersions, feedAllowed, parseVersion, pickAsset, pickUpdate, releaseFits, releaseFor, versionNotes, wantsBeta, type GhAsset, type GhRelease, type InstallKind, type VersionNote } from '../../core/updates';
-import { CHECKSUMS_FILE, checksumProblem, designatedRequirement, isAdHocRequirement } from '../../core/update-verify';
+import { CHECKSUMS_FILE, checksumProblem, designatedRequirement, isSignerChange, updateRequirements } from '../../core/update-verify';
+import { DEVELOPER_ID } from '../build-flags';
 import { describePlan, nextStep, planFor, type UpdateWhen } from '../../core/update-schedule';
 import { isSkipped } from '../../core/update-window';
 import { settings, updateSettings } from '../store';
@@ -138,7 +140,7 @@ export async function checkForUpdates(user = true): Promise<UpdateStatus> {
     const list = await fetchReleases();
     release = pickUpdate(forThisComputer(list), app.getVersion(), { beta: s.updateBeta, chosen: s.updateBetaChosen });
     if (!release) {
-      set({ state: 'none', version: undefined, notes: undefined, checkedAt: Date.now(), message: 'Keeper is up to date' });
+      set({ state: 'none', version: undefined, notes: undefined, signerChange: undefined, checkedAt: Date.now(), message: 'Keeper is up to date' });
       return status;
     }
     asset = pickAsset(release.assets, process.platform, process.arch, assetKind());
@@ -146,6 +148,7 @@ export async function checkForUpdates(user = true): Promise<UpdateStatus> {
     if (downloaded && status.version !== version) downloaded = undefined;
     set({
       state: downloaded ? 'ready' : 'available', version, notes: release.body ?? '', url: release.html_url, publishedAt: release.published_at ?? undefined,
+      signerChange: isSignerChange({ platform: process.platform, developerId: DEVELOPER_ID, notes: release.body }) || undefined,
       size: asset?.size, checkedAt: Date.now(), ...methodFor(kind),
       message: kind === 'source' ? 'You are running Keeper from source; pull the latest code to update.' : managed ? `Installed with ${INSTALL_SOURCES[source].label}; update it there.` : !asset ? 'This release has no installer for this computer yet' : undefined,
     });
@@ -227,10 +230,11 @@ async function verifyMacSignature(next: string) {
   const valid = await run('/usr/bin/codesign', ['--verify', '--deep', '--strict', next], 300_000);
   if (!valid.ok) throw new Error(`The new version's code signature is not valid; it was not installed (${(valid.stderr || valid.stdout).trim().split('\n')[0]})`);
   const mine = await run('/usr/bin/codesign', ['-d', '-r-', currentBundle()], 60_000);
-  const requirement = designatedRequirement(`${mine.stdout}\n${mine.stderr}`);
-  if (isAdHocRequirement(requirement)) return;
-  const same = await run('/usr/bin/codesign', ['--verify', `-R=${requirement}`, next], 300_000);
-  if (!same.ok) throw new Error('The new version is not signed by the same developer as this copy of Keeper; it was not installed');
+  // This copy's own requirement, or Ashforde's Developer ID (the bridge from "Keeper Self-Signed").
+  const requirements = updateRequirements(designatedRequirement(`${mine.stdout}\n${mine.stderr}`));
+  if (!requirements.length) return;
+  for (const r of requirements) if ((await run('/usr/bin/codesign', ['--verify', `-R=${r}`, next], 300_000)).ok) return;
+  throw new Error('The new version is not signed by the same developer as this copy of Keeper; it was not installed');
 }
 
 export async function downloadUpdate(): Promise<UpdateStatus> {

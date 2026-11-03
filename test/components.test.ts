@@ -12,7 +12,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
-  addonRow, addonsFor, backgroundPlan, componentAsset, componentRequirement, componentsFor, featureNeeds, joinRel, manifestAsset, manifestProblem, missingFor,
+  addonRow, addonsFor, backgroundPlan, componentAsset, componentRequirement, componentRequirements, componentsFor, featureNeeds, joinRel, manifestAsset, manifestProblem, missingFor,
   offlineTotal, parseManifest, releaseBase, safeRelative, versionMatches, type ComponentInfo, type ComponentManifest,
 } from '../core/components';
 import { readTar } from '../core/tar';
@@ -121,6 +121,20 @@ describe('macOS signature requirement for components', () => {
     expect(componentRequirement('cdhash H"0123"')).toBeUndefined();
     expect(componentRequirement(undefined)).toBeUndefined();
     expect(componentRequirement('identifier "x"')).toBeUndefined();
+  });
+
+  it('accepts the app\'s own signer or Ashforde\'s Developer ID, and nothing else', () => {
+    const devId = 'anchor apple generic and certificate leaf[field.1.2.840.113635.100.6.1.13] exists and certificate leaf[subject.OU] = "D69G45342Y"';
+    expect(componentRequirements('identifier "io.github.ashfordeou.keeper" and certificate leaf = H"abcd"')).toEqual(['certificate leaf = H"abcd"', devId]);
+    // A Developer ID copy: its own rule (the same team) and the bridge rule; no identifier pinned.
+    const own = 'anchor apple generic and identifier "io.github.ashfordeou.keeper" and (certificate leaf[field.1.2.840.113635.100.6.1.9] /* exists */ or certificate 1[field.1.2.840.113635.100.6.2.6] /* exists */ and certificate leaf[field.1.2.840.113635.100.6.1.13] /* exists */ and certificate leaf[subject.OU] = D69G45342Y)';
+    const r = componentRequirements(own);
+    expect(r).toHaveLength(2);
+    expect(r[1]).toBe(devId);
+    for (const x of r) expect(x).not.toContain('identifier');
+    // Ad hoc: no requirement at all (only a valid signature), never the bridge alone.
+    expect(componentRequirements('cdhash H"0123"')).toEqual([]);
+    expect(componentRequirements(undefined)).toEqual([]);
   });
 });
 

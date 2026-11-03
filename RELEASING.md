@@ -9,6 +9,7 @@ published by GitHub Actions from `main`. A release is started by changing `"vers
 - [Releasing a version](#releasing-a-version)
 - [macOS only, or all three](#macos-only-or-all-three)
 - [Checking a release](#checking-a-release)
+- [Moving to the Developer ID](#moving-to-the-developer-id)
 - [Keeper 1.0.0](#keeper-100)
 - [When something goes wrong](#when-something-goes-wrong)
 
@@ -43,7 +44,8 @@ notice** on the run's summary when its secret is missing. A missing secret never
 | `SNAPCRAFT_STORE_CREDENTIALS` (secret): `snapcraft export-login -` after `snapcraft register keeper` and classic confinement approval | `snap` job (Linux in the release) | Skipped |
 | `KEEPER_GPG_PRIVATE_KEY`, optional `KEEPER_GPG_PASSPHRASE` (secrets): the key in `KEYS/keeper-release.asc` | GPG signatures, apt and dnf repositories (Linux in the release); `pages` then publishes the dnf repository (needs GitHub Pages on `gh-pages`) | No `.asc` files, no apt/dnf repositories |
 | `MSSTORE_IDENTITY_NAME`, `MSSTORE_PUBLISHER` (variables) from Partner Center | `msstore` job (Windows in the release): the `.msix` workflow artifact, uploaded by hand | The `.msix` has placeholder identity (a warning); Partner Center refuses it |
-| `CSC_LINK`, `CSC_KEY_PASSWORD`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID` | Developer ID signing and notarization (`packaging/electron-builder.signed.cjs`) | Self-signed as above. **Not for 1.0.0**: switching to a Developer ID changes the signer, so copies signed with "Keeper Self-Signed" will refuse that update and need the install script once; plan it as its own release |
+| `KEEPER_DEVELOPER_ID_CERT` (base64 .p12 of the "Developer ID Application" certificate), `KEEPER_DEVELOPER_ID_PASSWORD`, `APPLE_ID`, `APPLE_TEAM_ID` (`D69G45342Y`), `APPLE_APP_PASSWORD` (app-specific password) | Developer ID signing, notarization and stapling (`packaging/electron-builder.signed.cjs`), only when `"macSigning"` in `.github/release.json` is `"developer-id"` | Not read while `"macSigning"` is `"self-signed"`. With `"developer-id"`, a missing one **fails** the build (never a quiet self-signed release). A raw `CSC_LINK` / `CSC_KEY_PASSWORD` / `APPLE_APP_SPECIFIC_PASSWORD` works in their place, and is likewise ignored while self-signed. See [Moving to the Developer ID](#moving-to-the-developer-id) |
+| `KEEPER_INSTALLER_CERT` (base64 .p12 of "Developer ID Installer: Ashforde OU (D69G45342Y)"), `KEEPER_INSTALLER_PASSWORD` | Reserved for a future signed `.pkg` installer; nothing reads them yet | Nothing changes (no `.pkg` is built) |
 | `WIN_CSC_LINK`/`WIN_CSC_KEY_PASSWORD`, or `AZURE_*` secrets and variables | Windows code signing | Unsigned; SmartScreen asks on first launch |
 
 Also: Settings → Actions → General → *Workflow permissions*: **Read and write**. Nothing may
@@ -109,12 +111,60 @@ a published release; release a new version.
   `SHA256SUMS.txt` with `SHA256SUMS.txt.sigstore.json`.
 - `gh attestation verify Keeper-mac-arm64.dmg --repo ashfordeOU/keeper` on a downloaded file.
 - A Mac with the previous version: **Check for Updates…** offers it, installs it and relaunches;
-  the keychain question appears once (**Always Allow**); permissions are kept.
+  the keychain question appears once (**Always Allow**); permissions are kept (the move to the
+  Developer ID asks once more, see [Moving to the Developer ID](#moving-to-the-developer-id)).
 - For a macOS-only release: a Windows or Linux copy says it is up to date, and
   `curl -fsSL https://raw.githubusercontent.com/ashfordeOU/keeper/main/scripts/install.sh | sh`
   on Linux still installs the previous version.
 - `main` has the *Homebrew: Keeper x.y.z* commit (and *Scoop* with Windows), Verified. Run
   **Re-sign history** with *Verify only* (type `re-sign main`) to check every branch and tag.
+
+## Moving to the Developer ID
+
+`"macSigning"` in [`.github/release.json`](.github/release.json) says who signs the Mac build:
+`"self-signed"` (default, the "Keeper Self-Signed" certificate) or `"developer-id"`
+(Ashforde OÜ's Apple Developer ID, team `D69G45342Y`, hardened runtime, notarized and stapled,
+core and full editions). Only this setting switches it; adding a secret never does. A manual
+run of **Release** can override it with *mac_signing*.
+
+The signer change has to reach copies in two steps, **bridge first, then flip**:
+
+1. **The bridge release (self-signed).** Installed copies only accept an update that meets their
+   own designated requirement, which for a self-signed copy names the "Keeper Self-Signed"
+   certificate. The updater (and the components check) also accepts Keeper signed with
+   Ashforde's Developer ID (`DEVELOPER_ID_APP_REQUIREMENT` in
+   [`core/update-verify.ts`](core/update-verify.ts), where the Team ID is written once). Ship a
+   release with that code while `"macSigning"` is still `"self-signed"`, and give copies time
+   to take it (they check every six hours; a week or two is kind). Copies older than the bridge
+   refuse the Developer ID build ("not signed by the same developer") and need the install
+   script once.
+2. **Secrets.** Add `KEEPER_DEVELOPER_ID_CERT`, `KEEPER_DEVELOPER_ID_PASSWORD`, `APPLE_ID`,
+   `APPLE_TEAM_ID` and `APPLE_APP_PASSWORD` (table above). The release maps them to what
+   electron-builder reads: `KEEPER_DEVELOPER_ID_CERT` → `CSC_LINK`,
+   `KEEPER_DEVELOPER_ID_PASSWORD` → `CSC_KEY_PASSWORD`, `APPLE_APP_PASSWORD` →
+   `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_ID` and `APPLE_TEAM_ID` as they are.
+3. **Try it without publishing.** **Actions → Release → Run workflow** on `main` with *Build only*
+   and *mac_signing* `developer-id`. The Mac jobs sign, notarize (a few minutes per edition and
+   processor), staple, and run [`scripts/check-mac-signing.mjs`](scripts/check-mac-signing.mjs)
+   on every dmg: Developer ID of team `D69G45342Y` on the app, keeper-helper, Keeper Intents.app
+   and agent-desktop, hardened runtime, a stapled ticket, Gatekeeper's "Notarized Developer ID",
+   and the requirement self-signed copies accept. A missing secret fails here, by name.
+4. **Flip.** Set `"macSigning": "developer-id"`, add a changelog line, and release the next
+   version as usual. Its notes start with a hidden marker
+   (`<!-- keeper:mac-signing=developer-id -->`) and drop the **Open Anyway** step; a self-signed
+   copy's Software Update window shows one line instead of the usual keychain note: *"This
+   update is signed with Ashforde's Apple Developer ID. macOS will ask once more for your login
+   password (choose Always Allow) and may ask you to allow Keeper again in Privacy & Security.
+   After this, updates won't ask."*
+5. **Check** on a Mac with the bridge release: **Check for Updates…** shows that line, installs and
+   relaunches; the keychain asks once (**Always Allow**); Settings → Permissions shows what to
+   allow again. `codesign -dv --verbose=2 /Applications/Keeper.app` shows
+   `Authority=Developer ID Application: Ashforde OU (D69G45342Y)`, and
+   `spctl -a -vv /Applications/Keeper.app` says `source=Notarized Developer ID`. The next update
+   asks nothing.
+
+Never flip back: a Developer ID copy pins the Developer ID (its own requirement) and refuses a
+self-signed build. Keep `KEEPER_SIGNING_CERT` until no self-signed release is being made.
 
 ## Keeper 1.0.0
 
@@ -138,8 +188,9 @@ The first stable release. Until now only `0.1.0-beta.N` pre-releases shipped.
 
 What people get: beta copies update to 1.0.0 by themselves and then follow stable releases
 (unless they turned **Include beta versions** on, then they keep getting betas); a stable copy
-never gets a beta. The first launch on a Mac still needs **Open Anyway** after a download, and
-macOS asks once per update to use the keychain item until there is a Developer ID build.
+never gets a beta. While Mac builds are self-signed, the first launch on a Mac needs **Open
+Anyway** after a download, and macOS asks once per update to use the keychain item; both go away
+with the Developer ID build ([Moving to the Developer ID](#moving-to-the-developer-id)).
 
 ## When something goes wrong
 

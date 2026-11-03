@@ -80,6 +80,8 @@ export interface UpdateStatus {
   countdown?: number;
   /** what is holding it back (a recording, a folder being locked…) */
   waitingFor?: string;
+  /** macOS: the new version is signed with Ashforde's Apple Developer ID and this copy is not (core/update-verify.ts) */
+  signerChange?: boolean;
 }
 
 export interface AiProviderInfo {

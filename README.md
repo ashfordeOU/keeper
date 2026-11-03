@@ -373,11 +373,13 @@ The one line in Terminal picks `Keeper-mac-arm64.dmg` (Apple silicon) or `Keeper
 
 Keeper then updates itself from GitHub Releases (Settings → Updates). The newest beta instead: add `-s -- --beta` after `sh`.
 
-**First launch on a Mac.** Keeper is signed with its own certificate ("Keeper Self-Signed"), not yet an Apple Developer ID, so macOS treats it as an app from an unidentified developer:
+**First launch on a Mac.** Keeper is moving from its own certificate ("Keeper Self-Signed") to Ashforde's Apple Developer ID, notarised by Apple. The release notes say which one a version uses.
 
-1. **Gatekeeper, once.** After a dmg or Homebrew install, the first open is blocked: open **System Settings → Privacy & Security**, find the line about Keeper and click **Open Anyway** (on macOS 14 and older, Control-click Keeper in Applications and choose **Open**). The install script removes the quarantine flag, so it skips this step.
-2. **Keychain, once per update.** Keeper keeps its saved keys and passwords encrypted with a key in your keychain ("Keeper Safe Storage"). After an update macOS may ask whether Keeper may use it: enter your password and click **Always Allow**. Until Keeper has a Developer ID this comes back once after each update, never more often.
-3. **Permissions stay.** Every release is signed with the same certificate, so Accessibility, Screen Recording and the other permissions you grant carry over updates, and Keeper only installs an update that matches the release's checksum and is signed the same way. The welcome tour offers to set up the permissions Keeper's features use (Settings → Permissions any time; [docs/PERMISSIONS.md](docs/PERMISSIONS.md) says what each is for).
+- **Developer ID builds** open like any other app: no Gatekeeper step. Copies that update from a self-signed version hear from macOS once: it asks for your login password to use "Keeper Safe Storage" (click **Always Allow**) and may ask you to allow Keeper again in **System Settings → Privacy & Security**. The Software Update window says so beforehand. After this, updates don't ask.
+- **Self-signed builds** are treated as an app from an unidentified developer:
+  1. **Gatekeeper, once.** After a dmg or Homebrew install, the first open is blocked: open **System Settings → Privacy & Security**, find the line about Keeper and click **Open Anyway** (on macOS 14 and older, Control-click Keeper in Applications and choose **Open**). The install script removes the quarantine flag, so it skips this step.
+  2. **Keychain, once per update.** Keeper keeps its saved keys and passwords encrypted with a key in your keychain ("Keeper Safe Storage"). After an update macOS may ask whether Keeper may use it: enter your password and click **Always Allow**. This comes back once after each update until the Developer ID build, never more often.
+- **Permissions stay.** Releases are signed the same way every time, so Accessibility, Screen Recording and the other permissions you grant carry over updates (the one move to the Developer ID aside), and Keeper only installs an update that matches the release's checksum and is signed the same way or with Ashforde's Developer ID. The welcome tour offers to set up the permissions Keeper's features use (Settings → Permissions any time; [docs/PERMISSIONS.md](docs/PERMISSIONS.md) says what each is for).
 
 ### Windows 10/11 and Linux
 

@@ -136,5 +136,51 @@ describe('release workflow', () => {
     // The release build requires every packaged piece.
     expect(JSON.stringify(wf.jobs.build.steps)).toContain("KEEPER_REQUIRE_ALL\":\"1");
   });
+
+  it('the Mac signer comes from release.json\'s macSigning (or the manual input), never from which secrets exist', () => {
+    const config = JSON.parse(readFileSync(path.join(ROOT, '.github/release.json'), 'utf8')) as { macSigning?: string };
+    expect(['self-signed', 'developer-id']).toContain(config.macSigning ?? 'self-signed');
+    const raw = readFileSync(path.join(ROOT, '.github/workflows/release.yml'), 'utf8');
+    expect(raw).toMatch(/workflow_dispatch:[\s\S]*mac_signing:/);
+    const step = wf.jobs.tag.steps?.find((s) => s.id === 'signing');
+    expect(step?.run).toContain('.macSigning // "self-signed"');
+    expect(step?.env?.REQUESTED).toContain('inputs.mac_signing');
+    // Every expression that reads a Mac signing secret is gated on the signer chosen.
+    for (const line of raw.split('\n')) {
+      if (/secrets\.(CSC_LINK|CSC_KEY_PASSWORD|KEEPER_DEVELOPER_ID_CERT|KEEPER_DEVELOPER_ID_PASSWORD|APPLE_ID|APPLE_TEAM_ID|APPLE_APP_PASSWORD|APPLE_APP_SPECIFIC_PASSWORD)\b/.test(line)) {
+        expect(line).toContain("needs.tag.outputs.mac_signing == 'developer-id'");
+      }
+      if (/secrets\.KEEPER_SIGNING_(CERT|PASSWORD)\b/.test(line)) expect(line).toContain("needs.tag.outputs.mac_signing == 'self-signed'");
+    }
+  });
+
+  it('a Developer ID build maps the secrets, notarizes both editions and checks them before upload', () => {
+    const steps = wf.jobs.build.steps ?? [];
+    const packaging = steps.filter((s) => /npx electron-builder/.test(s.run ?? ''));
+    expect(packaging.map((s) => s.name)).toEqual(['Package', 'Offline installer (everything inside)']);
+    for (const s of packaging) {
+      const env = s.env ?? {};
+      expect(env.CSC_LINK).toMatch(/secrets\.KEEPER_DEVELOPER_ID_CERT \|\| secrets\.CSC_LINK/);
+      expect(env.CSC_KEY_PASSWORD).toMatch(/secrets\.KEEPER_DEVELOPER_ID_PASSWORD \|\| secrets\.CSC_KEY_PASSWORD/);
+      expect(env.APPLE_APP_SPECIFIC_PASSWORD).toMatch(/secrets\.APPLE_APP_PASSWORD \|\| secrets\.APPLE_APP_SPECIFIC_PASSWORD/);
+      expect(env.APPLE_ID).toContain('secrets.APPLE_ID');
+      expect(env.APPLE_TEAM_ID).toContain('secrets.APPLE_TEAM_ID');
+      expect(env.KEEPER_MAC_SIGNING).toContain('needs.tag.outputs.mac_signing');
+      // developer-id with a secret missing stops; the signed config is chosen by the signer, not by CSC_LINK.
+      expect(s.run).toMatch(/KEEPER_MAC_SIGNING" = developer-id \] && \{[^}]*-z "\$CSC_LINK"[^}]*\}; then[\s\S]*?exit 1/);
+      expect(s.run).toContain('if [ "$KEEPER_MAC_SIGNING" = developer-id ] || [ -n "$AZURE_TRUSTED_SIGNING_ACCOUNT" ]; then');
+    }
+    const cert = steps.find((s) => s.name === 'Signing certificate');
+    expect(cert?.run).toMatch(/missing secrets|secrets are missing/);
+    expect(cert?.run).toContain('check-mac-signing.mjs --print team');
+    const check = steps.findIndex((s) => s.name === 'Check the Developer ID signature');
+    expect(check).toBeGreaterThan(steps.findIndex((s) => s.name === 'Offline installer (everything inside)'));
+    expect(steps[check].if).toContain("needs.tag.outputs.mac_signing == 'developer-id'");
+    expect(steps[check].run).toContain('release/*.dmg');
+    expect(check).toBeLessThan(steps.findIndex((s) => s.uses?.startsWith('actions/upload-artifact') === true));
+    // The build flag and the release notes follow the same choice.
+    expect(JSON.stringify(steps)).toContain("KEEPER_DEVELOPER_ID\":\"${{ matrix.platform == 'darwin' && needs.tag.outputs.mac_signing == 'developer-id'");
+    expect(wf.jobs.release.steps?.find((s) => s.name === 'Release notes')?.run).toContain('--mac-signing "$MAC_SIGNING"');
+  });
 });
 

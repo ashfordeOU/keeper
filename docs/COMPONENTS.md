@@ -43,8 +43,11 @@ Built in `.github/workflows/release.yml`, in each build job (so they follow the 
    and removes them from the app. `scripts/verify-package.cjs` checks that they are staged and
    are no longer in the app.
 2. On macOS, `build/after-sign.cjs` signs every Mach-O file in the staging folder with the identity
-   the app was just signed with (`KEEPER_SIGN_IDENTITY`, the Developer ID, or ad hoc). This happens
-   before anything is packed.
+   the app was just signed with (`KEEPER_SIGN_IDENTITY`, the Developer ID, or ad hoc). A Developer ID
+   build first checks the app's own pieces carry the team's Developer ID with the hardened runtime,
+   and signs the components with the hardened runtime and a secure timestamp too. This happens
+   before anything is packed. On download, Keeper accepts a component signed like itself or with
+   Ashforde's Developer ID (the bridge in `core/update-verify.ts`), nothing else.
 3. **Downloadable components** runs `node scripts/components.mjs pack`. It writes
    `keeper-component-<name>-<platform>-<arch>.tar.gz` (plain ustar, fixed times and owners) and
    `components-<platform>-<arch>.json`.

@@ -11,7 +11,9 @@
 // under a <details> line ("12 changes") on GitHub. Keeper's own Software Update
 // window drops the HTML and shows the heading and the list as they are. Then a line
 // says which systems the release is for when it is not all of them, and how to
-// install and open it.
+// install and open it. --mac-signing developer-id (the release workflow passes
+// .github/release.json's "macSigning") changes the Mac first-launch notes and marks
+// the release so self-signed copies warn about the one last keychain question.
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
@@ -72,7 +74,15 @@ function platformLine(platforms) {
   return `> **This release is for ${inIt}.** ${left.join(' and ')} ${left.length > 1 ? 'follow' : 'follows'} in a later release; until then copies there stay on their current version and are not offered this one, and the install scripts keep installing the newest release with a ${left.join(' or ')} build.`;
 }
 
-function installSection(platforms, prerelease) {
+/**
+ * Marks a release whose Mac build is signed with Ashforde's Developer ID. Keeper's updater looks
+ * for it (DEVELOPER_ID_RELEASE_MARKER in core/update-verify.ts) to warn self-signed copies that
+ * macOS asks once more. An HTML comment: GitHub and the Software Update window do not show it.
+ */
+export const DEVELOPER_ID_RELEASE_MARKER = '<!-- keeper:mac-signing=developer-id -->';
+export const MAC_SIGNINGS = ['self-signed', 'developer-id'];
+
+function installSection(platforms, prerelease, macSigning = 'self-signed') {
   const beta = prerelease ? ' -s -- --beta' : '';
   const out = ['### Install'];
   if (platforms.includes('mac') || platforms.includes('linux')) {
@@ -83,7 +93,13 @@ function installSection(platforms, prerelease) {
     out.push('On Windows, in PowerShell:', '```powershell', `irm https://raw.githubusercontent.com/${REPO}/main/scripts/install.ps1 | iex`, '```');
   }
   out.push('Or download the file for your system below. Copies already installed update themselves.');
-  if (platforms.includes('mac')) {
+  if (platforms.includes('mac') && macSigning === 'developer-id') {
+    out.push(
+      '',
+      '**First launch on a Mac.** This build is signed with Ashforde\'s Apple Developer ID and notarised by Apple, so it opens like any other app, with no **Open Anyway** step.',
+      '- Updating a copy signed with Keeper\'s own certificate ("Keeper Self-Signed"): macOS asks once more for your login password to use "Keeper Safe Storage" (choose **Always Allow**) and may ask you to allow Keeper again in **System Settings → Privacy & Security**. After this, updates don\'t ask.',
+    );
+  } else if (platforms.includes('mac')) {
     out.push(
       '',
       '**First launch on a Mac.** This build is signed with Keeper\'s own certificate, not yet an Apple Developer ID, so:',
@@ -97,25 +113,27 @@ function installSection(platforms, prerelease) {
 }
 
 /** The whole release body. */
-export function buildNotes({ version, platforms = ALL_PLATFORMS, changelog = '', override = '' }) {
+export function buildNotes({ version, platforms = ALL_PLATFORMS, changelog = '', override = '', macSigning = 'self-signed' }) {
+  if (!MAC_SIGNINGS.includes(macSigning)) throw new Error(`macSigning must be one of ${MAC_SIGNINGS.join(', ')}, not "${macSigning}"`);
   const prerelease = version.includes('-');
+  const marker = platforms.includes('mac') && macSigning === 'developer-id' ? DEVELOPER_ID_RELEASE_MARKER : '';
   // A hand-written summary is shown as written; a changelog section folds when it is long.
   let body = override.trim() || foldLongNotes(changelogSection(changelog, version)) || `Keeper ${version}`;
   const lead = platformLine(platforms);
-  const install = installSection(platforms, prerelease);
-  const room = MAX - lead.length - install.length - 400;
+  const install = installSection(platforms, prerelease, macSigning);
+  const room = MAX - marker.length - lead.length - install.length - 400;
   if (body.length > room) {
     body = `${body.slice(0, room).replace(/\n[^\n]*$/, '')}\n\n…the rest is in [CHANGELOG.md](https://github.com/${REPO}/blob/v${version}/CHANGELOG.md).`;
     // A cut inside a fold would leave it open to the end of the page.
     if ((body.match(/<details>/g) ?? []).length > (body.match(/<\/details>/g) ?? []).length) body += '\n\n</details>';
   }
-  return [lead, body, install].filter(Boolean).join('\n\n') + '\n';
+  return [marker, lead, body, install].filter(Boolean).join('\n\n') + '\n';
 }
 
 function main(argv) {
   const a = {};
   for (let i = 0; i < argv.length; i += 2) a[argv[i].replace(/^--/, '')] = argv[i + 1];
-  if (!a.version) throw new Error('usage: release-notes.mjs --version X [--platforms mac,windows,linux] [--out notes.md]');
+  if (!a.version) throw new Error('usage: release-notes.mjs --version X [--platforms mac,windows,linux] [--mac-signing self-signed|developer-id] [--out notes.md]');
   const platforms = (a.platforms ?? ALL_PLATFORMS.join(',')).split(',').filter(Boolean);
   const overrideFile = path.join(ROOT, '.github', 'release-notes', `${a.version}.md`);
   const notes = buildNotes({
@@ -123,6 +141,7 @@ function main(argv) {
     platforms,
     changelog: readFileSync(path.join(ROOT, a.changelog ?? 'CHANGELOG.md'), 'utf8'),
     override: existsSync(overrideFile) ? readFileSync(overrideFile, 'utf8').replace(/^<!--[\s\S]*?-->\s*/, '') : '',
+    macSigning: a['mac-signing'] || 'self-signed',
   });
   if (a.out) writeFileSync(a.out, notes);
   else process.stdout.write(notes);

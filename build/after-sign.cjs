@@ -7,7 +7,13 @@
 // designated requirement, so macOS keeps Accessibility, Screen Recording and the
 // other permissions across updates, and the in-app updater accepts only builds
 // signed the same way. Without the variable this does nothing: builds stay
-// ad-hoc signed. A Developer ID build (CSC_LINK) is signed by electron-builder itself.
+// ad-hoc signed.
+//
+// A Developer ID build (KEEPER_MAC_SIGNING=developer-id, packaging/electron-builder.signed.cjs)
+// is signed, notarized and stapled by electron-builder itself, keeper-helper, Keeper Intents.app
+// and agent-desktop included: here the app is left alone, its pieces are checked (Developer ID
+// of the expected team, hardened runtime), and the downloadable components are signed with the
+// same Developer ID, the hardened runtime and a secure timestamp.
 //
 // The requirements are deliberately not preserved: an ad-hoc requirement pins
 // one build's cdhash, which is exactly what this replaces.
@@ -31,7 +37,7 @@ exports.agentDesktopBinaries = agentDesktopBinaries;
  * them, so they run without Gatekeeper prompts, keep the permissions granted to Keeper and pass
  * the app's check when they are downloaded (electron/services/components.ts).
  */
-function signComponents(staging, identity) {
+function signComponents(staging, identity, extra = []) {
   if (!fs.existsSync(staging)) return 0;
   const files = [];
   const walk = (d) => {
@@ -48,18 +54,56 @@ function signComponents(staging, identity) {
     }
   };
   walk(staging);
-  for (const f of files) codesign(['--force', '--sign', identity, f]);
+  for (const f of files) codesign(['--force', '--sign', identity, ...extra, f]);
   return files.length;
 }
 exports.signComponents = signComponents;
 
+const developerIdBuild = () => process.env.KEEPER_MAC_SIGNING === 'developer-id';
+
+/** `codesign -dvv` of a file or bundle (it prints on stderr): Authority, TeamIdentifier, flags… */
+function signatureInfo(file) {
+  const r = spawnSync('/usr/bin/codesign', ['-dvv', file], { encoding: 'utf8' });
+  const out = `${r.stdout ?? ''}\n${r.stderr ?? ''}`;
+  const field = (name) => new RegExp(`^${name}=(.+)$`, 'm').exec(out)?.[1].trim();
+  return { authority: field('Authority'), team: field('TeamIdentifier'), runtime: /flags=0x[0-9a-f]*\([^)]*\bruntime\b/.test(out), out };
+}
+exports.signatureInfo = signatureInfo;
+
 /** The identity the app was signed with: KEEPER_SIGN_IDENTITY, the Developer ID electron-builder used, or ad hoc. */
 function appIdentity(app) {
-  if (process.env.KEEPER_SIGN_IDENTITY && !process.env.CSC_LINK) return process.env.KEEPER_SIGN_IDENTITY;
+  if (process.env.KEEPER_SIGN_IDENTITY && !developerIdBuild() && !process.env.CSC_LINK) return process.env.KEEPER_SIGN_IDENTITY;
   // codesign -dvv prints the signing chain leaf first ("Authority=Developer ID Application: …") on stderr.
-  const r = spawnSync('/usr/bin/codesign', ['-dvv', app], { encoding: 'utf8' });
-  const m = /^Authority=(.+)$/m.exec(`${r.stdout ?? ''}\n${r.stderr ?? ''}`);
-  return m ? m[1].trim() : '-';
+  return signatureInfo(app).authority ?? '-';
+}
+
+/**
+ * A Developer ID build: the app and the programs inside it that matter most must carry the
+ * Developer ID of the team the updater accepts, with the hardened runtime. Throws otherwise.
+ */
+function checkDeveloperIdApp(app, team) {
+  const contents = path.join(app, 'Contents');
+  const pieces = [app, path.join(contents, 'MacOS', 'keeper-helper'), path.join(contents, 'Library', 'Helpers', 'Keeper Intents.app'), ...agentDesktopBinaries(path.join(contents, 'Resources'))]
+    .filter((f) => fs.existsSync(f));
+  for (const f of pieces) {
+    const info = signatureInfo(f);
+    const problems = [];
+    if (!info.authority?.startsWith('Developer ID Application:')) problems.push(`signed by ${info.authority ?? 'nobody (ad hoc)'}`);
+    if (info.team !== team) problems.push(`team ${info.team ?? 'none'}, not ${team}`);
+    if (!info.runtime) problems.push('no hardened runtime');
+    if (problems.length) throw new Error(`after-sign: ${path.relative(path.dirname(app), f)} is not a Developer ID build: ${problems.join(', ')}`);
+  }
+  return pieces.length;
+}
+exports.checkDeveloperIdApp = checkDeveloperIdApp;
+
+/** The keychain electron-builder imported CSC_LINK into, so components are signed from the very same identity. */
+async function builderKeychain(context) {
+  try {
+    return (await context.packager.codeSigningInfo?.value)?.keychainFile || undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 exports.default = async function afterSign(context) {
@@ -67,9 +111,20 @@ exports.default = async function afterSign(context) {
     const { componentsStaging, ARCH } = require('./after-pack.cjs');
     const staging = componentsStaging(context.outDir, 'darwin', ARCH[context.arch] ?? 'x64');
     // Signed last, after the app, with the very identity the app now carries.
+    const keychain = developerIdBuild() ? await builderKeychain(context) : undefined;
     context.__signComponents = () => {
       const app = path.join(context.appOutDir, `${context.packager.appInfo.productFilename}.app`);
-      const n = signComponents(staging, appIdentity(app));
+      const identity = appIdentity(app);
+      let extra = [];
+      if (developerIdBuild()) {
+        // Never a quiet fallback: a Developer ID release whose app is not Developer ID signed stops here.
+        const team = process.env.APPLE_TEAM_ID;
+        if (!team) throw new Error('after-sign: Developer ID build without APPLE_TEAM_ID');
+        const n = checkDeveloperIdApp(app, team);
+        console.log(`  • after-sign: ${n} piece(s) of the app carry the Developer ID of team ${team} with the hardened runtime`);
+        extra = ['--options', 'runtime', '--timestamp', ...(keychain ? ['--keychain', keychain] : [])];
+      }
+      const n = signComponents(staging, identity, extra);
       if (n) console.log(`  • after-sign: signed ${n} program(s) in the downloadable components like the app`);
     };
   }
@@ -83,7 +138,7 @@ exports.default = async function afterSign(context) {
 async function signApp(context) {
   const identity = process.env.KEEPER_SIGN_IDENTITY;
   if (!identity || context.electronPlatformName !== 'darwin' || process.platform !== 'darwin') return;
-  if (process.env.CSC_LINK) {
+  if (developerIdBuild() || process.env.CSC_LINK) {
     console.log('  • after-sign: Developer ID build, KEEPER_SIGN_IDENTITY ignored');
     return;
   }

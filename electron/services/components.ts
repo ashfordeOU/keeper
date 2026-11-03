@@ -11,7 +11,7 @@
 import { app, net } from 'electron';
 import { existsSync, promises as fsp } from 'node:fs';
 import path from 'node:path';
-import { backgroundPlan, componentDef, COMPONENTS, componentsFor, isComponentId, offlineTotal, usable, componentRequirement, type ComponentId, type ComponentInfo } from '../../core/components';
+import { backgroundPlan, componentDef, COMPONENTS, componentsFor, isComponentId, offlineTotal, usable, componentRequirements, type ComponentId, type ComponentInfo } from '../../core/components';
 import { feedAllowed } from '../../core/updates';
 import { designatedRequirement } from '../../core/update-verify';
 import { run } from '../../core/platform';
@@ -53,13 +53,15 @@ const appBundle = () => path.resolve(path.dirname(app.getPath('exe')), '..', '..
 async function verifySignatures(files: string[]) {
   if (process.platform !== 'darwin' || !files.length) return;
   const mine = await run('/usr/bin/codesign', ['-d', '-r-', appBundle()], 60_000);
-  const requirement = componentRequirement(designatedRequirement(`${mine.stdout}\n${mine.stderr}`));
+  // This copy's signer, or Ashforde's Developer ID (the bridge from the self-signed certificate).
+  const requirements = componentRequirements(designatedRequirement(`${mine.stdout}\n${mine.stderr}`));
   for (const f of files) {
     const valid = await run('/usr/bin/codesign', ['--verify', '--strict', f], 60_000);
     if (!valid.ok) throw new Error(`${path.basename(f)} is not validly signed; it was not installed (${(valid.stderr || valid.stdout).trim().split('\n')[0]})`);
-    if (!requirement) continue;
-    const same = await run('/usr/bin/codesign', ['--verify', `-R=${requirement}`, f], 60_000);
-    if (!same.ok) throw new Error(`${path.basename(f)} is not signed by the same developer as this copy of Keeper; it was not installed`);
+    if (!requirements.length) continue;
+    let same = false;
+    for (const r of requirements) if ((same = (await run('/usr/bin/codesign', ['--verify', `-R=${r}`, f], 60_000)).ok)) break;
+    if (!same) throw new Error(`${path.basename(f)} is not signed by the same developer as this copy of Keeper; it was not installed`);
   }
 }
 

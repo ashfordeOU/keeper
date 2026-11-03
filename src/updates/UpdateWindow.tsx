@@ -6,7 +6,7 @@
 
 import { useEffect, useState } from 'react';
 import type { UpdateStatus } from '../../core/api-x';
-import { UPDATE_KEYCHAIN_NOTE } from '../../core/keychain';
+import { UPDATE_KEYCHAIN_NOTE, UPDATE_SIGNER_CHANGE_NOTE } from '../../core/keychain';
 import { noteBlocks, updateWindowView, type NoteInline, type UpdateWindowAction } from '../../core/update-window';
 import { wantsBeta } from '../../core/updates';
 import { api } from '../api';
@@ -96,8 +96,10 @@ export function UpdateWindow() {
             </div>
           ) : null}
           {v.note ? <div className="upw-note">{v.note}</div> : null}
-          {/* Before restarting into the new version: the macOS keychain question that follows is expected. */}
-          {keychainAsks && (v.kind === 'available' || v.kind === 'downloading' || v.kind === 'ready') ? <div className="upw-note" data-testid="update-keychain-note">{UPDATE_KEYCHAIN_NOTE}</div> : null}
+          {/* Before restarting into the new version: the macOS keychain question that follows is expected.
+              The move to the Developer ID says so in its own words (and that it is the last time). */}
+          {(v.kind === 'available' || v.kind === 'downloading' || v.kind === 'ready') && s?.signerChange ? <div className="upw-note" data-testid="update-signer-note">{UPDATE_SIGNER_CHANGE_NOTE}</div>
+            : keychainAsks && (v.kind === 'available' || v.kind === 'downloading' || v.kind === 'ready') ? <div className="upw-note" data-testid="update-keychain-note">{UPDATE_KEYCHAIN_NOTE}</div> : null}
         </div>
       </div>
 
