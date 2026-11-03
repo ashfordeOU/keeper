@@ -50,11 +50,11 @@ Keeper is one app you install once. It is made of parts you switch on and off in
 | **Notes** | Markdown notes in folders you own, Cues that pop up in the right app or website, and Notes from Other Apps in one search |
 | **Tidy** | Clean Up, Duplicates, the Space Map, Large Files, Convert, Automations and Undo History |
 | **Sync & Backup** | Synced Folders, Backups, Cloud Mirrors and Older Versions |
-| **Computer** | Health, Startup & Apps, System Controls, Keep Awake and the Fix-it List |
+| **Computer** | Health, Startup & Apps, System Controls, Keep Awake, Monitors for your sites and servers, and the Fix-it List |
 | **Privacy & Security** | A score with fixes, checks of new downloads for malware, a firewall, network activity and VPNs |
-| **Devices** | Your computers and phones, paired with a code: send files, share the clipboard, see and control another screen; Remote Desktops and Terminal |
+| **Devices** | Your computers and phones, paired with a code: send files, share the clipboard, see and control another screen; Phone Alerts, Remote Desktops and Terminal |
 | **AI** | The AI you choose, or one on this computer, for the Assistant, Agents, Dictation and Meetings, with what it may see and do set by you |
-| **Screen** | Screenshots and text from the screen, Studio for screen recordings, Stage for a clean screen, and the Toolbox |
+| **Screen** | Screenshots, whole web pages and text from the screen, a light photo editor, Studio for screen recordings, Stage for a clean screen, and the Toolbox |
 | **Desktop** | Widgets, Wallpaper & Vibes, Weather, Places & Tracks, and Monorail on a Mac |
 | **Island** | A live bar at the top of the screen: now playing, timers, the next meeting, new mail and a drop shelf |
 
@@ -185,9 +185,10 @@ Every update is checked before it is installed: it must match the release's `SHA
 ## Privacy and security
 
 - **Your files are never uploaded.** Search, text in pictures, duplicates, cleanup, notes and dictation run on this computer.
-- **Only the parts you turn on go online.** These are weather, lyrics, the mail, calendars and cloud services you connect, the update check, and the AI you choose.
+- **Only the parts you turn on go online.** These are weather (from MET Norway), lyrics, site monitors and phone alerts you set up, the mail, calendars and cloud services you connect, the update check, and the AI you choose.
 - **Your AI sees only what you allow.** Passwords, keys and card numbers are blanked out before text goes to an AI on the internet. **Only use AIs on this computer** in **Settings → AI** keeps everything here.
 - **Anonymous usage stats are off until you tick the box** in setup. They go once a day, with no file names, searches or account names, and **See exactly what's sent** in **Settings → Privacy & permissions** shows each report ([docs/PRIVACY-USAGE-STATS.md](docs/PRIVACY-USAGE-STATS.md)).
+- **Crash reports are off until you switch them on** in **Settings → Privacy & permissions**: anonymous, never the error's message, your folders or names, and **See what's sent** shows them ([docs/CRASH-REPORTS.md](docs/CRASH-REPORTS.md)).
 - **Passwords and keys stay in your system's keychain.** That is Keychain on a Mac, Credential Manager on Windows, and Secret Service or KWallet on Linux.
 - **Every release can be checked.** It lists `SHA256SUMS.txt`, a Sigstore signature of that file and GitHub build attestations ([Verifying a download](docs/INSTALL.md#verifying-a-download)).
 - **Found a security problem?** Please report it privately, as [SECURITY.md](SECURITY.md) describes, not in a public issue.
