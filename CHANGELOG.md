@@ -11,6 +11,14 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - Settings → Island → Look: Match theme (the default), Dark, or Colourful with six bright gradients; Subtle or Bold; and an accent colour. A preview shows how it looks, also while music plays, a meeting is next, a timer runs or it charges.
 - Text stays easy to read in every theme and look: Keeper checks it on every part of the Island's background.
 
+### Changed — Notes: a calmer page
+- Notes is now three rounded panels with the same gap between them: your notes, the open note, and links and outline.
+- The notes list has one header: the vault, a search box, New, and More for folders, canvases, bases and sorting. The separate strip of icons is gone. Files, Tags, Bookmarks and Recent are labelled.
+- Each note shows its name once, in its tab. Live, Source and Read sit in the same row, with More for slides, earlier versions, publishing and recording.
+- The text sits in a centred column of comfortable width, with its properties lined up above it in a neat grid.
+- Links and outline open from a button in the note's header. Sections have headings with counts. The panel is closed at first on smaller windows, floats over the note there instead of squeezing it, and remembers what you chose.
+- A designed first page, an empty page with the one next step, and helpful notes when a list is empty. Light and dark, every button named for screen readers.
+
 ### Changed — Hello
 - Keeper's start page is called **Hello** (it was Home), so it is never mixed up with your home folder, which is now simply Home again on Linux.
 

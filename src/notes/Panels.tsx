@@ -41,15 +41,15 @@ function Virtual<T>({ items, row, height = ROW, className, role, label, onKeyDow
 
 interface TreeRow { path: string; name: string; depth: number; folder: boolean; open?: boolean }
 
-export function Explorer({ onNew, onMenu }: { onNew: (kind: 'note' | 'folder' | 'canvas' | 'base', folder: string) => void; onMenu: (path: string, folder: boolean) => MenuItem[] }) {
+export function Explorer({ onMenu, sort, collapse, onNew, onImport }: { onMenu: (path: string, folder: boolean) => MenuItem[]; sort: 'name' | 'modified'; /** bumps to close every folder */ collapse: number; onNew: () => void; onImport: () => void }) {
   const n = useNotes();
   const [openDirs, setOpenDirs] = useState<Set<string>>(() => {
     try { return new Set(JSON.parse(localStorage.getItem(`notes.open.${n.vault.id}`) ?? '[]') as string[]); } catch { return new Set(); }
   });
-  const [sort, setSort] = useState<'name' | 'modified'>('name');
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
   const [dropOn, setDropOn] = useState<string | null>(null);
   useEffect(() => { try { localStorage.setItem(`notes.open.${n.vault.id}`, JSON.stringify([...openDirs])); } catch { /* ignore */ } }, [openDirs, n.vault.id]);
+  useEffect(() => { if (collapse) setOpenDirs(new Set()); }, [collapse]);
   // Show the open note's folder.
   useEffect(() => {
     if (!n.activePath) return;
@@ -103,17 +103,18 @@ export function Explorer({ onNew, onMenu }: { onNew: (kind: 'note' | 'folder' | 
 
   // One stop in the Tab order: the open note's row, or the first row.
   const activeShown = rows.some((r) => r.path === n.activePath);
+  if (!rows.length) {
+    return (
+      <div className="nt-empty-small is-designed">
+        <strong>No notes yet</strong>
+        <span>Start one, or bring notes from another app.</span>
+        <button className="btn sm primary" onClick={onNew}><Icon name="plus" size={12} /> New note</button>
+        <button className="btn sm ghost" onClick={onImport}><Icon name="importIn" size={12} /> Import notes…</button>
+      </div>
+    );
+  }
   return (
     <div className="nt-explorer" onDragOver={(e) => { e.preventDefault(); setDropOn(''); }} onDrop={(e) => drop(e, '')}>
-      <div className="nt-panel-tools">
-        <button className="nt-icon-btn" title="New note" aria-label="New note" onClick={() => onNew('note', '')}><Icon name="plus" size={14} /></button>
-        <button className="nt-icon-btn" title="New folder" aria-label="New folder" onClick={() => onNew('folder', '')}><Icon name="folder" size={14} /></button>
-        <button className="nt-icon-btn" title="New canvas" aria-label="New canvas" onClick={() => onNew('canvas', '')}><Icon name="grid" size={14} /></button>
-        <button className="nt-icon-btn" title="New base" aria-label="New base" onClick={() => onNew('base', '')}><Icon name="list" size={14} /></button>
-        <span className="nt-spacer" />
-        <button className="nt-icon-btn" title={sort === 'name' ? 'Sorted by name' : 'Sorted by last change'} aria-label={sort === 'name' ? 'Sorted by name' : 'Sorted by last change'} onClick={() => setSort((s) => (s === 'name' ? 'modified' : 'name'))}><Icon name={sort === 'name' ? 'text' : 'clock'} size={14} /></button>
-        <button className="nt-icon-btn" title="Close all folders" aria-label="Close all folders" onClick={() => setOpenDirs(new Set())}><Icon name="minus" size={14} /></button>
-      </div>
       <Virtual items={rows} className="nt-tree" role="tree" label="Notes" onKeyDown={(e) => {
         // Up and Down move between rows, Right opens a folder, Left closes it, Enter opens the note.
         const t = e.target as HTMLElement;
@@ -133,7 +134,7 @@ export function Explorer({ onNew, onMenu }: { onNew: (kind: 'note' | 'folder' | 
           aria-selected={n.activePath === r.path}
           tabIndex={(activeShown ? n.activePath === r.path : i === 0) ? 0 : -1}
           className={`nt-tree-row ${r.folder ? 'is-folder' : ''} ${n.activePath === r.path ? 'is-active' : ''} ${dropOn === r.path ? 'is-drop' : ''}`}
-          style={{ paddingLeft: 8 + r.depth * 14 }}
+          style={{ ['--depth' as string]: r.depth }}
           draggable
           data-path={r.path}
           title={r.path}
@@ -153,11 +154,12 @@ export function Explorer({ onNew, onMenu }: { onNew: (kind: 'note' | 'folder' | 
   );
 }
 
-export function SearchPanel({ query, setQuery }: { query: string; setQuery: (q: string) => void }) {
+export function SearchPanel({ query }: { query: string }) {
   const n = useNotes();
   const [hits, setHits] = useState<Awaited<ReturnType<typeof api.notes.search>>>([]);
   const [caseSensitive, setCase] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [tips, setTips] = useState(false);
   useEffect(() => {
     if (!query.trim()) { setHits([]); return; }
     let alive = true;
@@ -167,13 +169,14 @@ export function SearchPanel({ query, setQuery }: { query: string; setQuery: (q: 
   }, [query, caseSensitive, n.vault.id, n.rev]);
   return (
     <div className="nt-search">
-      <div className="nt-search-box">
-        <Icon name="search" size={13} />
-        <input autoFocus placeholder="Search notes…" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Search notes" />
-        <button className={`nt-icon-btn ${caseSensitive ? 'is-on' : ''}`} title="Match case" onClick={() => setCase((c) => !c)}>Aa</button>
+      <div className="nt-search-bar">
+        <span className="nt-search-count" role="status">{busy ? 'Searching…' : query ? `${hits.length} note${hits.length === 1 ? '' : 's'}` : 'Type to search'}</span>
+        <span className="nt-spacer" />
+        <button className={`nt-chip-btn ${caseSensitive ? 'is-on' : ''}`} aria-pressed={caseSensitive} title="Match upper and lower case" onClick={() => setCase((c) => !c)}>Aa</button>
+        <button className={`nt-chip-btn ${tips ? 'is-on' : ''}`} aria-expanded={tips} onClick={() => setTips((t) => !t)}>Tips</button>
       </div>
-      <div className="nt-search-help">path: file: tag: line:( ) block:( ) section:( ) task-todo: [property:value] "phrase" -not OR /regex/</div>
-      <div className="nt-search-count">{busy ? 'Searching…' : query ? `${hits.length} file${hits.length === 1 ? '' : 's'}` : ''}</div>
+      {tips ? <div className="nt-search-help"><code>tag:#idea</code> <code>path:Books/</code> <code>"exact words"</code> <code>-leave out</code> <code>[status:done]</code> <code>task-todo:</code> <code>a OR b</code> <code>/regex/</code></div> : null}
+      {query.trim() && !busy && !hits.length ? <div className="nt-empty-small">No notes match. Try fewer words.</div> : null}
       <div className="nt-search-results">
         {hits.map((h) => (
           <div key={h.path} className="nt-hit">
@@ -197,7 +200,7 @@ export function TagsPanel() {
   return (
     <div className="nt-list">
       {tags.length ? tags.map((t) => (
-        <button key={t.tag} className="nt-list-row" style={{ paddingLeft: 10 + (t.tag.split('/').length - 1) * 14 }} onClick={() => n.search(`tag:#${t.tag}`)}>
+        <button key={t.tag} className="nt-list-row" style={{ ['--depth' as string]: t.tag.split('/').length - 1 }} onClick={() => n.search(`tag:#${t.tag}`)}>
           <span>#{t.tag.split('/').pop()}</span><span className="nt-count">{t.count}</span>
         </button>
       )) : <div className="nt-empty-small">No tags yet. Write #tag in a note.</div>}
@@ -213,7 +216,7 @@ export function BookmarksPanel() {
   return (
     <div className="nt-list">
       {items.length ? flat(items).map(({ b, depth }, i) => (
-        <button key={i} className="nt-list-row" style={{ paddingLeft: 10 + depth * 14 }} onClick={() => {
+        <button key={i} className="nt-list-row" style={{ ['--depth' as string]: depth }} onClick={() => {
           if (b.type === 'file' && b.path) n.open(b.path, { subpath: b.subpath?.replace(/^#/, '') });
           else if ((b.type === 'heading' || b.type === 'block') && b.path) n.open(b.path, { subpath: b.subpath?.replace(/^#/, '') });
           else if (b.type === 'search' && b.query) n.search(b.query);
@@ -232,7 +235,7 @@ export function RecentPanel() {
   const list = recentFiles(n.vault.id).filter((p) => n.files.some((f) => f.path === p));
   return (
     <div className="nt-list">
-      {list.map((p) => <button key={p} className="nt-list-row" onClick={() => n.open(p)}><span>{p.replace(/\.md$/, '')}</span></button>)}
+      {list.length ? list.map((p) => <button key={p} className="nt-list-row" onClick={() => n.open(p)}><span>{p.replace(/\.md$/, '')}</span></button>) : <div className="nt-empty-small">Notes you open show up here.</div>}
     </div>
   );
 }
@@ -257,14 +260,15 @@ export function LinksPanel({ path }: { path: string | null }) {
   const outUnique = [...new Map(out.filter((o) => o.link.target).map((o) => [o.resolved ?? `?${o.link.target}`, o])).values()];
   return (
     <div className="nt-links" data-testid="links-panel">
-      <div className="nt-sec-title">Linked mentions <span className="nt-count">{back.length}</span></div>
+      <h3 className="nt-sec-title">Linked mentions <span className="nt-count">{back.length}</span></h3>
       {back.length ? back.map((b) => (
         <div key={b.source} className="nt-backlink">
           <button className="nt-hit-title" onClick={() => n.open(b.source)}>{b.source.replace(/\.md$/, '')}</button>
           {b.links.slice(0, 3).map((l, i) => <div key={i} className="nt-hit-line">{l.context}</div>)}
         </div>
       )) : <div className="nt-empty-small">No notes link here yet.</div>}
-      <button className="nt-sec-title nt-sec-toggle" onClick={() => setShowUnl((s) => !s)}><Icon name={showUnl ? 'chevronDown' : 'chevronRight'} size={11} /> Unlinked mentions {showUnl ? <span className="nt-count">{unl.length}</span> : null}</button>
+      <h3 className="nt-sec-title"><button className="nt-sec-toggle" aria-expanded={showUnl} onClick={() => setShowUnl((s) => !s)}><Icon name={showUnl ? 'chevronDown' : 'chevronRight'} size={11} /> Unlinked mentions</button>{showUnl ? <span className="nt-count">{unl.length}</span> : null}</h3>
+      {showUnl && !unl.length ? <div className="nt-empty-small">No other notes mention this one by name.</div> : null}
       {showUnl ? unl.map((u, i) => (
         <div key={i} className="nt-backlink">
           <button className="nt-hit-title" onClick={() => n.open(u.source)}>{u.source.replace(/\.md$/, '')}</button>
@@ -272,7 +276,8 @@ export function LinksPanel({ path }: { path: string | null }) {
           <button className="nt-link-btn" onClick={() => void api.notes.linkMention(n.vault.id, u.source, u.from, u.to, path).then(() => n.refresh())}>Link</button>
         </div>
       )) : null}
-      <div className="nt-sec-title">Outgoing links <span className="nt-count">{outUnique.length}</span></div>
+      <h3 className="nt-sec-title">Outgoing links <span className="nt-count">{outUnique.length}</span></h3>
+      {!outUnique.length ? <div className="nt-empty-small">This note links nowhere yet. Type [[ to link.</div> : null}
       {outUnique.map((o, i) => (
         <button key={i} className={`nt-list-row ${o.resolved ? '' : 'is-unresolved'}`} onClick={() => n.openLink(o.link.target, path)}>
           <Icon name={o.link.embed ? 'image' : 'link'} size={12} /><span>{o.resolved ? o.resolved.replace(/\.md$/, '') : `${o.link.target} (not created)`}</span>
@@ -284,11 +289,12 @@ export function LinksPanel({ path }: { path: string | null }) {
 
 export function OutlinePanel({ text, onJump }: { text: string | null; onJump: (line: number, heading: string) => void }) {
   const hs = useMemo(() => (text ? parseNote(text).headings : []), [text]);
-  if (!hs.length) return <div className="nt-empty-small">No headings in this note.</div>;
+  if (!hs.length) return <div className="nt-empty-small">No headings in this note. Start a line with # to add one.</div>;
   const min = Math.min(...hs.map((h) => h.level));
   return (
-    <div className="nt-list">
-      {hs.map((h, i) => <button key={i} className="nt-list-row" style={{ paddingLeft: 10 + (h.level - min) * 14 }} onClick={() => onJump(h.line, h.text)}>{h.text}</button>)}
+    <div className="nt-list nt-outline">
+      <h3 className="nt-sec-title">Headings <span className="nt-count">{hs.length}</span></h3>
+      {hs.map((h, i) => <button key={i} className="nt-list-row" style={{ ['--depth' as string]: h.level - min }} onClick={() => onJump(h.line, h.text)}>{h.text}</button>)}
     </div>
   );
 }

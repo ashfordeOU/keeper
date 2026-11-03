@@ -9,7 +9,7 @@ import { Learn } from '../components/Learn';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
-import { Modal, type MenuItem } from '../components/ui';
+import { ContextMenu, Modal, type MenuItem } from '../components/ui';
 import { useStore } from '../state';
 import type { NotesSettings, OpenVault, VaultInfo, NoteSnapshot } from '../../core/api-notes';
 import { fuzzy } from '../../core/notes/vault';
@@ -17,7 +17,7 @@ import { formatDate } from '../../core/notes/templates';
 import type { Bookmark } from '../../core/notes/config';
 import { validateManifest } from '../../core/notes/plugins';
 import { Ctx, kindOf, pushRecent, recentFiles, type NotesCtx } from './ctx';
-import { NoteView, type ViewMode } from './NoteView';
+import { NoteView, type NoteHandle, type ViewMode } from './NoteView';
 import { CanvasView } from './CanvasView';
 import { BaseView } from './BaseView';
 import { VaultGraph } from './VaultGraph';
@@ -31,17 +31,31 @@ import '../styles/notes.css';
 
 interface Tab { id: string; path: string; mode: ViewMode; subpath?: string }
 interface Pane { tabs: Tab[]; active: string }
-interface Layout { panes: Pane[]; focus: number; left: string; right: string; leftOpen: boolean; rightOpen: boolean }
+interface Layout { panes: Pane[]; focus: number; left: string; right: string; leftOpen: boolean; rightOpen?: boolean; /** the view to go back to after a search */ lastLeft?: string }
 
 const GRAPH = 'graph://vault';
 let tabSeq = 0;
 const newTab = (path: string, mode: ViewMode = 'live', subpath?: string): Tab => ({ id: `t${Date.now().toString(36)}${++tabSeq}`, path, mode, subpath });
-const emptyLayout = (): Layout => ({ panes: [{ tabs: [], active: '' }], focus: 0, left: 'files', right: 'links', leftOpen: true, rightOpen: true });
+const emptyLayout = (): Layout => ({ panes: [{ tabs: [], active: '' }], focus: 0, left: 'files', right: 'links', leftOpen: true });
+
+/** The side panel (links, outline, graph, AI): remembered; closed at first on narrower windows. */
+const NARROW = 1180;
+const inspectorKey = (narrow: boolean) => `notes.inspector.${narrow ? 'narrow' : 'wide'}`;
+function inspectorPref(narrow: boolean): boolean {
+  try { const v = localStorage.getItem(inspectorKey(narrow)); if (v === '1' || v === '0') return v === '1'; } catch { /* no storage */ }
+  return !narrow && window.innerWidth >= 1360;
+}
+
+function useWidth(): number {
+  const [w, setW] = useState(() => window.innerWidth);
+  useEffect(() => { const f = () => setW(window.innerWidth); addEventListener('resize', f); return () => removeEventListener('resize', f); }, []);
+  return w;
+}
 
 function loadLayout(vault: string): Layout {
   try {
     const l = JSON.parse(localStorage.getItem(`notes.ws.${vault}`) ?? 'null') as Layout | null;
-    if (l?.panes?.length) return l;
+    if (l?.panes?.length) return { ...l, left: l.left === 'search' ? l.lastLeft ?? 'files' : l.left };
   } catch { /* fresh */ }
   return emptyLayout();
 }
@@ -103,38 +117,89 @@ function Prompt({ title, initial, onOk, onClose, okLabel = 'OK' }: { title: stri
   );
 }
 
-// ---------------------------------------------------------------- vault chooser
+// ---------------------------------------------------------------- pictures and empty states
 
-function VaultChooser({ onOpen }: { onOpen: (v: VaultInfo) => void }) {
+/** Three note cards, one with a link to another, in the theme's own colours. */
+export function NotesArt({ kind = 'notes' }: { kind?: 'notes' | 'import' }) {
+  return (
+    <svg className="nt-art" viewBox="0 0 220 104" role="img" aria-label={kind === 'import' ? 'Notes from other apps arriving as files' : 'Notes linked to each other'}>
+      <rect x="18" y="22" width="70" height="68" rx="12" className="art-card back" />
+      <rect x="132" y="14" width="70" height="68" rx="12" className="art-card back" />
+      <path d="M78 58 C 100 40, 116 40, 142 46" className="art-link" />
+      <rect x="70" y="8" width="80" height="88" rx="14" className="art-card" />
+      <rect x="84" y="24" width="44" height="8" rx="4" className="art-line strong" />
+      <rect x="84" y="40" width="52" height="6" rx="3" className="art-line" />
+      <rect x="84" y="52" width="38" height="6" rx="3" className="art-line accent" />
+      <rect x="84" y="64" width="48" height="6" rx="3" className="art-line" />
+      {kind === 'import' ? <path d="M110 74 v12 M104 81 l6 6 l6 -6" className="art-arrow" /> : <circle cx="128" cy="80" r="5" className="art-dot" />}
+    </svg>
+  );
+}
+
+function VaultChooser({ onOpen, error }: { onOpen: (v: VaultInfo) => void; error: string | null }) {
   const [list, setList] = useState<VaultInfo[] | null>(null);
   const [creating, setCreating] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(error);
   useEffect(() => { void api.notes.vaults().then(setList); }, []);
+  useEffect(() => setErr(error), [error]);
+  const first = list !== null && !list.length;
   return (
     <div className="nt-chooser">
-      <div className="nt-chooser-card">
-        <div className="nt-chooser-head"><Icon name="document" size={28} /><h2>Notes</h2></div>
-        <p className="nt-dim">A vault is a folder of Markdown files. Open one you already have — vaults made by other notes apps work as they are, with their links, properties, daily notes, canvases and bases — or start a new one.</p>
+      <section className="nt-chooser-card nt-panel" aria-labelledby="nt-chooser-title">
+        <NotesArt />
+        <div className="nt-kicker">Notes</div>
+        <h2 id="nt-chooser-title">{first ? <>Your notes, as <em>plain</em> files</> : 'Choose a vault'}</h2>
+        <p className="nt-lead">A vault is a folder of Markdown notes. Vaults from other notes apps open as they are.</p>
         {list?.length ? (
-          <div className="nt-vault-list">
+          <div className="nt-vault-list" role="list">
             {list.map((v) => (
-              <div key={v.id} className="nt-vault-row">
+              <div key={v.id} className="nt-vault-row" role="listitem">
                 <button className="nt-vault-open" disabled={v.missing} onClick={() => onOpen(v)}>
-                  <strong>{v.name}</strong><span className="nt-dim">{v.path}{v.missing ? ' — not found' : ''}</span>
+                  <span className="nt-vault-mark" aria-hidden>{v.name.slice(0, 1).toUpperCase()}</span>
+                  <span className="nt-vault-text"><strong>{v.name}</strong><span className="nt-dim">{v.missing ? 'Folder not found' : v.path}</span></span>
+                  <Icon name="chevronRight" size={14} />
                 </button>
-                <button className="nt-icon-btn" title="Remove from this list (the folder is kept)" aria-label="Remove from this list (the folder is kept)" onClick={() => void api.notes.removeVault(v.id).then(setList)}><Icon name="close" size={12} /></button>
+                <button className="nt-icon-btn" title="Remove from this list (the folder is kept)" aria-label={`Remove ${v.name} from this list`} onClick={() => void api.notes.removeVault(v.id).then(setList)}><Icon name="close" size={12} /></button>
               </div>
             ))}
           </div>
         ) : null}
-        {err ? <div className="nt-base-err">{err}</div> : null}
-        <div className="nt-modal-actions">
-          <button className="btn" onClick={() => setCreating(true)}><Icon name="plus" size={13} /> New vault</button>
-          <button className="btn primary" onClick={() => void api.notes.addVault().then((v) => v && onOpen(v)).catch((e) => setErr((e as Error).message))}><Icon name="folder" size={13} /> Open folder as vault</button>
+        {err ? <div className="nt-base-err" role="alert"><Icon name="warning" size={13} /> {err}</div> : null}
+        <div className="nt-chooser-actions">
+          <button className={`btn ${first ? 'primary' : ''}`} onClick={() => setCreating(true)}><Icon name="plus" size={13} /> New vault</button>
+          <button className={`btn ${first ? '' : 'primary'}`} onClick={() => void api.notes.addVault().then((v) => v && onOpen(v)).catch((e) => setErr((e as Error).message))}><Icon name="folder" size={13} /> Open folder as vault</button>
         </div>
-      </div>
+        <div className="nt-trust">On this computer · Plain Markdown · Works with other notes apps</div>
+      </section>
       {creating ? <Prompt title="Name of the new vault" initial="Notes" okLabel="Create" onClose={() => setCreating(false)} onOk={(name) => void api.notes.createVault(name).then((v) => v && onOpen(v))} /> : null}
     </div>
+  );
+}
+
+function EmptyPane({ count, onNew, onOpen, onToday, onImport }: { count: number; onNew: () => void; onOpen: () => void; onToday: () => void; onImport: () => void }) {
+  return (
+    <section className="nt-empty-pane" aria-labelledby="nt-empty-title">
+      <NotesArt />
+      <h2 id="nt-empty-title">{count ? <>Pick up where you <em>left</em> off</> : <>Write your <em>first</em> note</>}</h2>
+      <p className="nt-lead">{count ? 'Open a note, or start a new one.' : 'Or bring your notes from another app.'}</p>
+      <div className="nt-empty-actions">
+        <button className="btn primary" onClick={onNew}><Icon name="plus" size={13} /> New note <kbd>Ctrl N</kbd></button>
+        {count ? <button className="btn" onClick={onOpen}><Icon name="search" size={13} /> Open note <kbd>Ctrl O</kbd></button> : null}
+        <button className="btn ghost" onClick={onToday}><Icon name="calendar" size={13} /> Today’s note</button>
+        <button className="btn ghost" onClick={onImport}><Icon name="importIn" size={13} /> Import notes…</button>
+      </div>
+      <div className="nt-trust">{count.toLocaleString()} note{count === 1 ? '' : 's'} · On this computer · Plain Markdown files</div>
+    </section>
+  );
+}
+
+function Gone({ path, onClose }: { path: string; onClose: () => void }) {
+  return (
+    <section className="nt-empty-pane is-small" role="status">
+      <h2>This note moved</h2>
+      <p className="nt-lead">“{path.replace(/\.md$/, '')}” is not in the vault any more.</p>
+      <div className="nt-empty-actions"><button className="btn" onClick={onClose}>Close tab</button></div>
+    </section>
   );
 }
 
@@ -153,6 +218,23 @@ export function NotesApp() {
   const [settings, setSettings] = useState<NotesSettings | null>(null);
   const [pluginCmds, setPluginCmds] = useState<PluginCommand[]>([]);
   const editors = useRef(new Map<string, NoteEditor | null>());
+  const handles = useRef(new Map<string, NoteHandle | null>());
+  const searchBox = useRef<HTMLInputElement>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[]; label: string } | null>(null);
+  const [sort, setSort] = useState<'name' | 'modified'>('name');
+  const [collapse, setCollapse] = useState(0);
+  const [recording, setRecording] = useState(false);
+  const width = useWidth();
+  const narrow = width < NARROW;
+  // Wide and narrow windows remember the side panel separately, so making the window smaller never covers the note by surprise.
+  const [inspector, setInspectorRaw] = useState(() => inspectorPref(narrow));
+  useEffect(() => setInspectorRaw(inspectorPref(narrow)), [narrow]);
+  const setInspector = useCallback((on: boolean) => { setInspectorRaw(on); try { localStorage.setItem(inspectorKey(window.innerWidth < NARROW), on ? '1' : '0'); } catch { /* ignore */ } }, []);
+  const findIn = useCallback((q?: string) => {
+    if (q !== undefined) setSearchQ(q);
+    setLayoutRaw((l) => ({ ...l, leftOpen: true, left: 'search', lastLeft: l.left === 'search' ? l.lastLeft : l.left }));
+    setTimeout(() => searchBox.current?.focus());
+  }, []);
   const hosts = useRef<PluginHost[]>([]);
 
   const setLayout = useCallback((f: (l: Layout) => Layout) => setLayoutRaw((l) => {
@@ -264,7 +346,7 @@ export function NotesApp() {
 
   const ctx: NotesCtx | null = vault ? {
     vault, files: vault.files, rev, open, openLink, refresh, toast, activePath,
-    search: (q) => { setSearchQ(q); setLayout((l) => ({ ...l, left: 'search', leftOpen: true })); },
+    search: (q) => findIn(q),
     rename: (p) => setModal({ kind: 'rename', arg: p }),
   } : null;
 
@@ -393,7 +475,7 @@ export function NotesApp() {
       { id: 'tomorrow', name: 'Open tomorrow’s daily note', run: () => void daily('day', 1) },
       { id: 'weekly', name: 'Open this week’s note', run: () => void daily('week') },
       { id: 'monthly', name: 'Open this month’s note', run: () => void daily('month') },
-      { id: 'search', name: 'Search in all notes (Ctrl+Shift+F)', run: () => setLayout((l) => ({ ...l, left: 'search', leftOpen: true })) },
+      { id: 'search', name: 'Search in all notes (Ctrl+Shift+F)', run: () => findIn() },
       { id: 'graph', name: 'Open graph view', run: () => open(GRAPH, { newTab: true }) },
       { id: 'random', name: 'Open a random note', run: () => vault && void api.notes.random(vault.id).then((p) => p && open(p)) },
       { id: 'split', name: 'Split right', run: () => activePath && open(activePath, { split: true }) },
@@ -409,7 +491,9 @@ export function NotesApp() {
       { id: 'extract', name: 'Extract selection into a new note', run: () => ed && activePath && setModal({ kind: 'extract', arg: activePath }) },
       { id: 'rename', name: 'Rename this file', run: () => activePath && setModal({ kind: 'rename', arg: activePath }) },
       { id: 'bookmark', name: 'Bookmark this file', run: () => activePath && void toggleBookmark(activePath) },
-      { id: 'ask', name: 'Ask your notes (AI)', run: () => setLayout((l) => ({ ...l, right: 'ai', rightOpen: true })) },
+      { id: 'ask', name: 'Ask your notes (AI)', run: () => { setLayout((l) => ({ ...l, right: 'ai' })); setInspector(true); } },
+      { id: 'panel', name: 'Show or hide links and outline', run: () => setInspector(!inspector) },
+      { id: 'collapse', name: 'Close all folders', run: () => setCollapse((c) => c + 1) },
       { id: 'settings', name: 'Notes settings', run: () => setModal({ kind: 'settings' }) },
       { id: 'vaults', name: 'Open another vault…', run: () => { setVault(null); setVaultId(null); try { localStorage.removeItem('notes.vault'); } catch { /* ignore */ } } },
       { id: 'workspace-save', name: 'Save this layout as a workspace…', run: () => setModal({ kind: 'saveWs' }) },
@@ -417,7 +501,7 @@ export function NotesApp() {
       ...pluginCmds.map((c) => ({ id: `plugin:${c.plugin}:${c.id}`, name: c.name, run: () => hosts.current.find((h) => h.manifest.id === c.plugin)?.run(c.id) })),
     ];
     return list;
-  }, [activeTab, activePath, vault, pluginCmds, newFile, daily, open]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeTab, activePath, vault, pluginCmds, newFile, daily, open, inspector]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Shortcuts while the Notes page is open.
   useEffect(() => {
@@ -430,7 +514,7 @@ export function NotesApp() {
       else if (k === 'p' && !e.shiftKey) { e.preventDefault(); e.stopPropagation(); setModal({ kind: 'palette' }); }
       // Not with Alt: ⌥⌘N / Ctrl+Alt+N opens the page in a window of its own.
       else if (k === 'n' && !e.shiftKey && !e.altKey) { e.preventDefault(); void newFile('note'); }
-      else if (k === 'f' && e.shiftKey) { e.preventDefault(); setLayout((l) => ({ ...l, left: 'search', leftOpen: true })); }
+      else if (k === 'f' && e.shiftKey) { e.preventDefault(); findIn(); }
       else if (k === 'e' && !e.shiftKey && activeTab) { e.preventDefault(); setMode(activeTab.id, activeTab.mode === 'reading' ? 'live' : 'reading'); }
       else if (k === 'w' && !e.shiftKey && activeTab) { e.preventDefault(); e.stopPropagation(); closeTab(layout.focus, activeTab.id); }
       else if (k === 'd' && e.shiftKey) { e.preventDefault(); void daily('day'); }
@@ -450,9 +534,8 @@ export function NotesApp() {
 
   if (!vault || !ctx) {
     return (
-      <div className="nt-root">
-        {error ? <div className="nt-base-err" style={{ margin: 16 }}>{error}</div> : null}
-        <VaultChooser onOpen={(v) => void openVault(v.id)} />
+      <div className="nt-root is-chooser">
+        <VaultChooser error={error} onOpen={(v) => void openVault(v.id)} />
       </div>
     );
   }
@@ -460,85 +543,159 @@ export function NotesApp() {
   const renderTab = (t: Tab, active: boolean) => {
     if (t.path === GRAPH) return <VaultGraph />;
     const k = kindOf(t.path);
-    if (!vault.files.some((f) => f.path === t.path)) return <div className="nt-empty">“{t.path}” is not in the vault any more.</div>;
-    if (k === 'note') return <NoteView key={t.id} path={t.path} mode={t.mode} setMode={(m) => setMode(t.id, m)} subpath={t.subpath} active={active} onEditor={(e) => { editors.current.set(t.id, e); }} />;
+    if (!vault.files.some((f) => f.path === t.path)) return <Gone path={t.path} onClose={() => closeTab(layout.focus, t.id)} />;
+    if (k === 'note') return <NoteView key={t.id} path={t.path} mode={t.mode} subpath={t.subpath} active={active} onEditor={(e) => { editors.current.set(t.id, e); }} onHandle={(h) => { handles.current.set(t.id, h); }} onRecording={setRecording} />;
     if (k === 'canvas') return <CanvasView path={t.path} />;
     if (k === 'base') return <BaseView path={t.path} />;
     return <div className="nt-file-view"><FilePreview path={`${vault.path}/${t.path}`} /></div>;
   };
 
   const L = layout;
+  const showMenu = (e: React.MouseEvent, items: MenuItem[], label: string) => {
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setMenu({ x: r.left, y: r.bottom + 4, items, label });
+  };
+  const switchVault = () => { setVault(null); setVaultId(null); try { localStorage.removeItem('notes.vault'); } catch { /* ignore */ } };
+  const moreMenu: MenuItem[] = [
+    { label: 'New folder', icon: 'folder', run: () => void newFile('folder') },
+    { label: 'New canvas', icon: 'grid', run: () => void newFile('canvas') },
+    { label: 'New base', icon: 'list', run: () => void newFile('base') },
+    { sep: true, label: '' },
+    { label: sort === 'name' ? 'Sort by last change' : 'Sort by name', icon: sort === 'name' ? 'clock' : 'text', run: () => setSort(sort === 'name' ? 'modified' : 'name') },
+    { label: 'Close all folders', icon: 'minus', run: () => setCollapse((c) => c + 1) },
+    { sep: true, label: '' },
+    { label: 'Random note', icon: 'shuffle', run: () => void api.notes.random(vault.id).then((p) => p && open(p)) },
+    { label: 'All commands', icon: 'terminal', kbd: 'Ctrl P', run: () => setModal({ kind: 'palette' }) },
+  ];
+  const vaultMenu: MenuItem[] = [
+    { label: 'Switch vault…', icon: 'folder', run: switchVault },
+    { label: 'Show in folder', icon: 'reveal', run: () => void api.notes.reveal(vault.id, '') },
+    { sep: true, label: '' },
+    { label: 'Notes settings', icon: 'settings', run: () => setModal({ kind: 'settings' }) },
+  ];
+  const noteMenu = (t: Tab): MenuItem[] => {
+    const p = t.path;
+    const h = handles.current.get(t.id);
+    return [
+      ...(kindOf(p) === 'note' ? [
+        { label: recording ? 'Stop recording' : 'Record audio', icon: 'mic', run: () => h?.record() },
+        { label: 'Present as slides', icon: 'play', run: () => setModal({ kind: 'slides', arg: p }) },
+        { label: 'Earlier versions…', icon: 'history', run: () => setModal({ kind: 'snapshots', arg: p }) },
+        { label: 'Publish as a website…', icon: 'globe', run: () => setModal({ kind: 'publish', arg: p }) },
+        { sep: true, label: '' },
+      ] : []),
+      { label: 'Open to the right', icon: 'columns', run: () => open(p, { split: true }) },
+      { label: 'Rename…', icon: 'rename', run: () => setModal({ kind: 'rename', arg: p }) },
+      { label: 'Bookmark', icon: 'star', run: () => void toggleBookmark(p) },
+      { label: 'Copy link', icon: 'copy', run: () => void navigator.clipboard.writeText(`[[${p.replace(/\.md$/, '')}]]`) },
+      { label: 'Show in folder', icon: 'reveal', run: () => void api.notes.reveal(vault.id, p) },
+      { sep: true, label: '' },
+      { label: 'Delete', icon: 'trash', danger: true, run: () => void remove(p) },
+    ];
+  };
+  const inspectorShown = inspector;
+  const views: [string, string][] = [['files', 'Files'], ['tags', 'Tags'], ['bookmarks', 'Bookmarks'], ['recent', 'Recent']];
+  const searching = L.left === 'search' || !!searchQ;
+
   return (
     <Ctx.Provider value={ctx}>
-      <div className="nt-root" data-testid="notes-root">
-        <div className="nt-ribbon" aria-label="Notes tools">
-          <button className="nt-icon-btn" title="Show or hide the file panel" aria-label="Show or hide the file panel" onClick={() => setLayout((l) => ({ ...l, leftOpen: !l.leftOpen }))}><Icon name="columns" size={15} /></button>
-          <button className="nt-icon-btn" title="Open note (Ctrl+O)" aria-label="Quick switcher" onClick={() => setModal({ kind: 'switcher' })}><Icon name="search" size={15} /></button>
-          <button className="nt-icon-btn" title="Today’s daily note (Ctrl+Shift+D)" aria-label="Daily note" onClick={() => void daily('day')}><Icon name="calendar" size={15} /></button>
-          <button className="nt-icon-btn" title="Graph view" aria-label="Graph view" onClick={() => open(GRAPH, { newTab: true })}><Icon name="graph" size={15} /></button>
-          <button className="nt-icon-btn" title="New canvas" aria-label="New canvas" onClick={() => void newFile('canvas')}><Icon name="grid" size={15} /></button>
-          <button className="nt-icon-btn" title="Random note" aria-label="Random note" onClick={() => void api.notes.random(vault.id).then((p) => p && open(p))}><Icon name="shuffle" size={15} /></button>
-          <button className="nt-icon-btn" title="Commands (Ctrl+P)" aria-label="Commands" onClick={() => setModal({ kind: 'palette' })}><Icon name="terminal" size={15} /></button>
-          <span className="nt-spacer" />
-          <button className="nt-icon-btn" title="Notes settings" aria-label="Notes settings" onClick={() => setModal({ kind: 'settings' })}><Icon name="settings" size={15} /></button>
-        </div>
+      <div className={`nt-root ${narrow ? 'is-narrow' : ''}`} data-testid="notes-root">
         {L.leftOpen ? (
-          <aside className="nt-left">
-            <div className="nt-vault-name" title={vault.path}>
-              <button onClick={() => { setVault(null); setVaultId(null); try { localStorage.removeItem('notes.vault'); } catch { /* ignore */ } }} title="Switch vault"><Icon name="chevronDown" size={11} /> {vault.name}</button>
-            </div>
-            <div className="nt-panel-tabs" role="tablist">
-              {[['files', 'folder', 'Files'], ['search', 'search', 'Search'], ['bookmarks', 'star', 'Bookmarks'], ['tags', 'tag', 'Tags'], ['recent', 'clock', 'Recent']].map(([id, icon, label]) => (
-                <button key={id} role="tab" aria-selected={L.left === id} aria-label={label} title={label} className={L.left === id ? 'on' : ''} onClick={() => setLayout((l) => ({ ...l, left: id }))}><Icon name={icon} size={14} /></button>
-              ))}
+          <aside className="nt-left nt-panel" aria-label="Notes in this vault">
+            <div className="nt-left-head">
+              <div className="nt-left-row">
+                <button className="nt-vault-btn" title={`${vault.path}\nSwitch vault or open settings`} aria-haspopup="menu" onClick={(e) => showMenu(e, vaultMenu, 'Vault')}>
+                  <span className="nt-vault-mark" aria-hidden>{vault.name.slice(0, 1).toUpperCase()}</span>
+                  <span className="nt-vault-label">{vault.name}</span>
+                  <Icon name="chevronDown" size={12} />
+                </button>
+                <button className="nt-icon-btn" title="More" aria-label="More" aria-haspopup="menu" onClick={(e) => showMenu(e, moreMenu, 'More')}><Icon name="more" size={16} stroke={2.6} /></button>
+                <button className="nt-new-btn" title="New note (Ctrl+N)" aria-label="New note" onClick={() => void newFile('note')}><Icon name="plus" size={14} stroke={2.2} />{narrow ? null : ' New'}</button>
+              </div>
+              <label className="nt-search-field">
+                <Icon name="search" size={14} />
+                <input ref={searchBox} className="nt-search-input" placeholder="Search notes" aria-label="Search notes" value={searchQ}
+                  onFocus={() => setLayout((l) => (l.left === 'search' ? l : { ...l, left: 'search', lastLeft: l.left === 'search' ? l.lastLeft : l.left }))}
+                  onChange={(e) => setSearchQ(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); setSearchQ(''); setLayout((l) => ({ ...l, left: l.lastLeft ?? 'files' })); (e.target as HTMLInputElement).blur(); } }} />
+                {searching ? <button type="button" className="nt-search-clear" aria-label="Clear search" title="Clear search (Esc)" onClick={() => { setSearchQ(''); setLayout((l) => ({ ...l, left: l.lastLeft ?? 'files' })); }}><Icon name="close" size={11} /></button> : <kbd aria-hidden>Ctrl ⇧ F</kbd>}
+              </label>
+              {!searching ? (
+                <div className="nt-seg nt-seg-fill" role="tablist" aria-label="Show">
+                  {views.map(([id, label]) => (
+                    <button key={id} role="tab" aria-selected={L.left === id} className={L.left === id ? 'on' : ''} onClick={() => setLayout((l) => ({ ...l, left: id }))}>{label}</button>
+                  ))}
+                </div>
+              ) : null}
             </div>
             <div className="nt-panel-body">
-              {L.left === 'files' ? <Explorer onNew={(k, f) => void newFile(k, f || undefined)} onMenu={fileMenu} />
-                : L.left === 'search' ? <SearchPanel query={searchQ} setQuery={setSearchQ} />
+              {searching ? <SearchPanel query={searchQ} />
+                : L.left === 'files' ? <Explorer onMenu={fileMenu} sort={sort} collapse={collapse} onNew={() => void newFile('note')} onImport={() => setModal({ kind: 'import' })} />
                 : L.left === 'bookmarks' ? <BookmarksPanel />
                 : L.left === 'tags' ? <TagsPanel />
                 : <RecentPanel />}
             </div>
+            <div className="nt-left-foot">
+              <button className="nt-quiet-btn" title="Today’s daily note (Ctrl+Shift+D)" aria-label="Daily note" onClick={() => void daily('day')}><Icon name="calendar" size={14} /> Today</button>
+              <button className="nt-quiet-btn" title="All notes as a graph (Ctrl+Alt+G)" aria-label="Graph view" onClick={() => open(GRAPH, { newTab: true })}><Icon name="graph" size={14} /> Graph</button>
+              <span className="nt-spacer" />
+              <button className="nt-icon-btn" title="Notes settings" aria-label="Notes settings" onClick={() => setModal({ kind: 'settings' })}><Icon name="settings" size={15} /></button>
+            </div>
           </aside>
         ) : null}
         <main className={`nt-main panes-${L.panes.length}`}>
-          {L.panes.map((p, pi) => (
-            <section key={pi} className={`nt-pane ${pi === L.focus ? 'is-focus' : ''}`} onMouseDown={() => pi !== L.focus && setLayout((l) => ({ ...l, focus: pi }))}>
-              <div className="nt-tabs" role="tablist">
-                {p.tabs.map((t) => (
-                  <div key={t.id} role="tab" aria-selected={t.id === p.active} className={`nt-tab ${t.id === p.active ? 'on' : ''}`} onClick={() => setLayout((l) => ({ ...l, focus: pi, panes: l.panes.map((x, i) => (i === pi ? { ...x, active: t.id } : x)) }))} onAuxClick={(e) => e.button === 1 && closeTab(pi, t.id)} title={t.path}>
-                    <span className={`nt-kind kind-${t.path === GRAPH ? 'graph' : kindOf(t.path)}`} />
-                    <span className="nt-tab-name">{t.path === GRAPH ? 'Graph' : t.path.split('/').pop()!.replace(/\.md$/, '')}</span>
-                    <button className="nt-tab-x" aria-label="Close tab" onClick={(e) => { e.stopPropagation(); closeTab(pi, t.id); }}>×</button>
+          {L.panes.map((p, pi) => {
+            const at = p.tabs.find((t) => t.id === p.active) ?? null;
+            const last = pi === L.panes.length - 1;
+            return (
+              <section key={pi} className={`nt-pane nt-panel ${pi === L.focus ? 'is-focus' : ''}`} onMouseDown={() => pi !== L.focus && setLayout((l) => ({ ...l, focus: pi }))}>
+                <div className="nt-pane-head">
+                  {pi === 0 ? <button className="nt-icon-btn" title={L.leftOpen ? 'Hide the note list' : 'Show the note list'} aria-label={L.leftOpen ? 'Hide the note list' : 'Show the note list'} aria-pressed={L.leftOpen} onClick={() => setLayout((l) => ({ ...l, leftOpen: !l.leftOpen }))}><Icon name="panelLeft" size={16} /></button> : null}
+                  <div className="nt-tabs" role="tablist" aria-label="Open notes">
+                    {p.tabs.map((t) => (
+                      <div key={t.id} role="tab" tabIndex={t.id === p.active ? 0 : -1} aria-selected={t.id === p.active} className={`nt-tab ${t.id === p.active ? 'on' : ''}`}
+                        onClick={() => setLayout((l) => ({ ...l, focus: pi, panes: l.panes.map((x, i) => (i === pi ? { ...x, active: t.id } : x)) }))}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); (e.currentTarget as HTMLElement).click(); } }}
+                        onAuxClick={(e) => e.button === 1 && closeTab(pi, t.id)} title={t.path}>
+                        <span className={`nt-kind kind-${t.path === GRAPH ? 'graph' : kindOf(t.path)}`} aria-hidden />
+                        <span className="nt-tab-name">{t.path === GRAPH ? 'Graph' : t.path.split('/').pop()!.replace(/\.md$/, '')}</span>
+                        <button className="nt-tab-x" aria-label={`Close ${t.path.split('/').pop()!.replace(/\.md$/, '')}`} title="Close (Ctrl+W)" onClick={(e) => { e.stopPropagation(); closeTab(pi, t.id); }}><Icon name="close" size={10} stroke={2.2} /></button>
+                      </div>
+                    ))}
+                    <button className="nt-icon-btn nt-tab-new" title="New note (Ctrl+N)" aria-label="New tab" onClick={() => void newFile('note')}><Icon name="plus" size={14} /></button>
                   </div>
-                ))}
-                <button className="nt-icon-btn nt-tab-new" title="New note" aria-label="New tab" onClick={() => void newFile('note')}><Icon name="plus" size={13} /></button>
-                <span className="nt-spacer" />
-                {pi === L.panes.length - 1 ? <button className="nt-icon-btn" title="Show or hide the side panel" aria-label="Show or hide the side panel" onClick={() => setLayout((l) => ({ ...l, rightOpen: !l.rightOpen }))}><Icon name="columns" size={14} /></button> : null}
-              </div>
-              <div className="nt-pane-body">
-                {p.tabs.length ? p.tabs.map((t) => (
-                  <div key={t.id} className="nt-tab-body" style={{ display: t.id === p.active ? undefined : 'none' }}>
-                    {t.id === p.active || kindOf(t.path) === 'note' ? renderTab(t, pi === L.focus && t.id === p.active) : null}
-                  </div>
-                )) : (
-                  <div className="nt-empty-pane">
-                    <button className="btn" onClick={() => void newFile('note')}>New note <kbd>Ctrl N</kbd></button>
-                    <button className="btn" onClick={() => setModal({ kind: 'switcher' })}>Open note <kbd>Ctrl O</kbd></button>
-                    <button className="btn" onClick={() => void daily('day')}>Today’s note</button>
-                    <div className="nt-dim">{vault.files.length.toLocaleString()} files · read in {vault.took} ms</div>
-                  </div>
-                )}
-              </div>
-            </section>
-          ))}
+                  {at && kindOf(at.path) === 'note' && at.path !== GRAPH ? (
+                    <div className="nt-seg" role="group" aria-label="View">
+                      <button className={at.mode === 'live' ? 'on' : ''} aria-pressed={at.mode === 'live'} onClick={() => setMode(at.id, 'live')} title="Write with formatting shown">Live</button>
+                      <button className={at.mode === 'source' ? 'on' : ''} aria-pressed={at.mode === 'source'} onClick={() => setMode(at.id, 'source')} title="Plain Markdown">Source</button>
+                      <button className={at.mode === 'reading' ? 'on' : ''} aria-pressed={at.mode === 'reading'} onClick={() => { void handles.current.get(at.id)?.flush(); setMode(at.id, 'reading'); }} title="Reading view (Ctrl+E)">Read</button>
+                    </div>
+                  ) : null}
+                  {at && at.path !== GRAPH ? <button className="nt-icon-btn" title="More for this note" aria-label="More for this note" aria-haspopup="menu" onClick={(e) => showMenu(e, noteMenu(at), 'This note')}><Icon name="more" size={16} stroke={2.6} /></button> : null}
+                  {last ? <button className={`nt-icon-btn ${inspectorShown ? 'is-on' : ''}`} title={inspectorShown ? 'Hide links and outline' : 'Show links and outline'} aria-label="Links and outline" aria-pressed={inspectorShown} onClick={() => setInspector(!inspectorShown)}><Icon name="panelRight" size={16} /></button> : null}
+                </div>
+                <div className="nt-pane-body">
+                  {p.tabs.length ? p.tabs.map((t) => (
+                    <div key={t.id} className="nt-tab-body" style={{ display: t.id === p.active ? undefined : 'none' }}>
+                      {t.id === p.active || kindOf(t.path) === 'note' ? renderTab(t, pi === L.focus && t.id === p.active) : null}
+                    </div>
+                  )) : (
+                    <EmptyPane count={vault.files.filter((f) => kindOf(f.path) === 'note').length} onNew={() => void newFile('note')} onOpen={() => setModal({ kind: 'switcher' })} onToday={() => void daily('day')} onImport={() => setModal({ kind: 'import' })} />
+                  )}
+                </div>
+              </section>
+            );
+          })}
         </main>
-        {L.rightOpen ? (
-          <aside className="nt-right">
-            <div className="nt-panel-tabs" role="tablist">
-              {[['links', 'link', 'Links'], ['outline', 'list', 'Outline'], ['graph', 'graph', 'Local graph'], ['ai', 'sparkle', 'Ask AI']].map(([id, icon, label]) => (
-                <button key={id} role="tab" aria-selected={L.right === id} aria-label={label} title={label} className={L.right === id ? 'on' : ''} onClick={() => setLayout((l) => ({ ...l, right: id }))}><Icon name={icon} size={14} /></button>
-              ))}
+        {inspectorShown ? (
+          <aside className={`nt-right nt-panel ${narrow ? 'is-floating' : ''}`} aria-label="Links and outline" onKeyDown={(e) => { if (e.key === 'Escape' && narrow) setInspector(false); }}>
+            <div className="nt-right-head">
+              <div className="nt-seg nt-seg-fill" role="tablist" aria-label="Side panel">
+                {[['links', 'Links'], ['outline', 'Outline'], ['graph', 'Graph'], ['ai', 'Ask AI']].map(([id, label]) => (
+                  <button key={id} role="tab" aria-selected={L.right === id} className={L.right === id ? 'on' : ''} onClick={() => setLayout((l) => ({ ...l, right: id }))}>{label}</button>
+                ))}
+              </div>
+              <button className="nt-icon-btn" title="Close side panel" aria-label="Close side panel" onClick={() => setInspector(false)}><Icon name="close" size={12} /></button>
             </div>
             <div className="nt-panel-body">
               {L.right === 'links' ? <LinksPanel path={activePath && kindOf(activePath) === 'note' ? activePath : null} />
@@ -548,7 +705,8 @@ export function NotesApp() {
             </div>
           </aside>
         ) : null}
-
+        {menu ? <ContextMenu x={menu.x} y={menu.y} items={menu.items} label={menu.label} onClose={() => setMenu(null)} /> : null}
+        {recording ? <div className="nt-rec-pill" role="status"><span aria-hidden>●</span> Recording <button className="btn sm" onClick={() => [...handles.current.values()].forEach((h) => h?.stopRecording())}>Stop</button></div> : null}
         {modal?.kind === 'switcher' ? (
           <Picker placeholder="Find or create a note…" items={[...recentFiles(vault.id).filter((p) => vault.files.some((f) => f.path === p)), ...vault.files.map((f) => f.path).filter((p) => !recentFiles(vault.id).includes(p))]}
             label={(p) => p.replace(/\.md$/, '')} detail={(p) => (kindOf(p) !== 'note' ? kindOf(p) : undefined)}

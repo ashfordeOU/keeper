@@ -124,6 +124,12 @@ const P: Record<string, string> = {
   webpage: 'M3 5h18v14H3zM3 9h18M6 7h.01M8.5 7h.01M7 13h6M7 16h10',
   rss: 'M5 19h.01M5 12a7 7 0 0 1 7 7M5 5a14 14 0 0 1 14 14',
   paperclip: 'M20 11.5 12.5 19a5 5 0 0 1-7-7L13 4.5a3.3 3.3 0 0 1 4.7 4.7L10.2 16.7a1.7 1.7 0 0 1-2.4-2.4L14.5 7.6',
+  more: 'M5 12h.01M12 12h.01M19 12h.01',
+  panelLeft: 'M4 5h16v14H4zM9.5 5v14',
+  panelRight: 'M4 5h16v14H4zM14.5 5v14',
+  mindmap: 'M12 10.2a1.8 1.8 0 1 0 0 3.6 1.8 1.8 0 0 0 0-3.6zM3 5h5M16 5h5M3 19h5M16 19h5M10.6 10.8 8 5M13.4 10.8 16 5M10.6 13.2 8 19M13.4 13.2 16 19',
+  importIn: 'M12 3v11M7.5 9.5 12 14l4.5-4.5M4 15v5h16v-5',
+  exportOut: 'M12 14V3M7.5 7.5 12 3l4.5 4.5M4 15v5h16v-5',
 };
 
 export type IconName = keyof typeof P;

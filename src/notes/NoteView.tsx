@@ -56,7 +56,7 @@ export function Properties({ text, onChange }: { text: string; onChange: (t: str
   const { props, error } = useMemo(() => readProps(text), [text]);
   const [newKey, setNewKey] = useState('');
   const keys = Object.keys(props);
-  if (error) return <div className="nt-props nt-props-error"><Icon name="warning" size={13} /> Properties could not be read: {error}</div>;
+  if (error) return <div className="nt-col nt-props nt-props-error" role="alert"><Icon name="warning" size={13} /> Properties could not be read: {error}</div>;
   const set = (k: string, v: YamlValue | undefined) => {
     const next = { ...props };
     if (v === undefined) delete next[k];
@@ -65,7 +65,7 @@ export function Properties({ text, onChange }: { text: string; onChange: (t: str
   };
   if (!keys.length && !newKey) return null;
   return (
-    <div className="nt-props" aria-label="Properties">
+    <div className="nt-col nt-props" role="group" aria-label="Properties">
       {keys.map((k) => {
         const v = props[k];
         const type = propType(k, v, n.vault.config.types);
@@ -86,7 +86,7 @@ export function Properties({ text, onChange }: { text: string; onChange: (t: str
       })}
       <form className="nt-prop-add" onSubmit={(e) => { e.preventDefault(); if (newKey.trim()) { set(newKey.trim(), null); setNewKey(''); } }}>
         <Icon name="plus" size={12} />
-        <input placeholder="Add property" value={newKey} onChange={(e) => setNewKey(e.target.value)} />
+        <input className="nt-prop-new" placeholder="Add property" aria-label="Add property" value={newKey} onChange={(e) => setNewKey(e.target.value)} />
       </form>
     </div>
   );
@@ -107,7 +107,10 @@ function Chips({ values, onChange, tag }: { values: string[]; onChange: (v: stri
   );
 }
 
-export function NoteView({ path, mode, setMode, subpath, active, onEditor }: { path: string; mode: ViewMode; setMode: (m: ViewMode) => void; subpath?: string; active: boolean; onEditor?: (e: NoteEditor | null) => void }) {
+/** What the page header can ask of an open note. */
+export interface NoteHandle { flush(): Promise<void>; record(): void; stopRecording(): void }
+
+export function NoteView({ path, mode, subpath, active, onEditor, onHandle, onRecording }: { path: string; mode: ViewMode; subpath?: string; active: boolean; onEditor?: (e: NoteEditor | null) => void; onHandle?: (h: NoteHandle | null) => void; onRecording?: (on: boolean) => void }) {
   const n = useNotes();
   const [text, setText] = useState<string | null>(null);
   const [settings, setSettings] = useState<{ vim?: boolean; spellcheck?: boolean }>({});
@@ -208,6 +211,12 @@ export function NoteView({ path, mode, setMode, subpath, active, onEditor }: { p
   useEffect(() => { if (active) onEditor?.(editor.current); }, [active, onEditor]);
   useEffect(() => { if (editor.current && subpath) jumpTo(editor.current, subpath); }, [subpath]);
 
+  useEffect(() => { onRecording?.(!!recording); }, [recording]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    onHandle?.({ flush, record: () => void record(), stopRecording: () => recording?.stop() });
+  });
+  useEffect(() => () => onHandle?.(null), []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const stats = useMemo(() => {
     if (text == null) return null;
     const p = parseNote(text);
@@ -248,7 +257,8 @@ export function NoteView({ path, mode, setMode, subpath, active, onEditor }: { p
     }
   };
 
-  if (text == null) return <div className="nt-loading">Opening…</div>;
+  if (text == null) return <div className="nt-loading" role="status">Opening…</div>;
+  const crumbs = path.split('/').slice(0, -1);
   const toggleTaskLine = (line: number) => {
     const lines = text.split('\n');
     lines[line] = lines[line].replace(/\[(.)\]/, (_m, c: string) => (c === ' ' ? '[x]' : '[ ]'));
@@ -256,31 +266,22 @@ export function NoteView({ path, mode, setMode, subpath, active, onEditor }: { p
   };
 
   return (
-    <div className={`nt-note mode-${mode}`} onPasteCapture={(e) => { if (e.clipboardData.files.length) { e.preventDefault(); void attach(e.clipboardData.files); } }} onDropCapture={(e) => { if (e.dataTransfer.files.length) { e.preventDefault(); e.stopPropagation(); void attach(e.dataTransfer.files); } }}>
-      <div className="nt-note-bar">
-        <span className="nt-crumbs">{path.replace(/\.md$/, '').split('/').map((p, i, a) => <span key={i} className={i === a.length - 1 ? 'is-last' : ''}>{p}{i < a.length - 1 ? ' / ' : ''}</span>)}</span>
-        <span className="nt-spacer" />
-        <button className={`nt-icon-btn ${recording ? 'is-on' : ''}`} title={recording ? 'Stop recording' : 'Record audio into this note'} aria-label={recording ? 'Stop recording' : 'Record audio into this note'} onClick={() => void record()}><Icon name="mic" size={14} /></button>
-        <div className="nt-seg" role="group" aria-label="View">
-          <button className={mode === 'live' ? 'on' : ''} onClick={() => setMode('live')} title="Live preview">Live</button>
-          <button className={mode === 'source' ? 'on' : ''} onClick={() => setMode('source')} title="Source mode">Source</button>
-          <button className={mode === 'reading' ? 'on' : ''} onClick={() => { void flush(); setMode('reading'); }} title="Reading view (Ctrl+E)">Read</button>
+    <div className={`nt-note mode-${mode} ${n.vault.config.readableLineLength === false ? 'is-wide' : ''}`} onPasteCapture={(e) => { if (e.clipboardData.files.length) { e.preventDefault(); void attach(e.clipboardData.files); } }} onDropCapture={(e) => { if (e.dataTransfer.files.length) { e.preventDefault(); e.stopPropagation(); void attach(e.dataTransfer.files); } }}>
+      <div className="nt-note-body">
+        <div className="nt-scroll">
+          {crumbs.length ? <nav className="nt-col nt-crumbs" aria-label="Folder">{crumbs.map((c, i) => <span key={i}>{c}</span>)}</nav> : null}
+          {mode === 'reading' ? (
+            <><Properties text={text} onChange={change} /><Reading path={path} text={text} onToggleTask={toggleTaskLine} /></>
+          ) : (
+            <>
+              <Properties text={text} onChange={(t) => { change(t); editor.current?.setText(t); }} />
+              <div className="nt-editor" ref={editorBox} data-testid="note-editor" />
+            </>
+          )}
         </div>
       </div>
-      <div className="nt-note-body">
-        {mode === 'reading' ? (
-          <div className="nt-scroll"><Properties text={text} onChange={change} /><Reading path={path} text={text} onToggleTask={toggleTaskLine} /></div>
-        ) : (
-          <div className="nt-editor-wrap">
-            <div className="nt-props-host"><Properties text={text} onChange={(t) => { change(t); editor.current?.setText(t); }} /></div>
-            <div className="nt-editor" ref={editorBox} data-testid="note-editor" />
-          </div>
-        )}
-      </div>
-      <div className="nt-status">
-        {stats ? <span>{stats.words.toLocaleString()} words · {stats.chars.toLocaleString()} characters</span> : null}
-        {mode !== 'reading' ? <span>Line {cursorLine + 1}</span> : null}
-        {recording ? <span className="nt-rec">● Recording</span> : null}
+      <div className="nt-status" aria-label="Note size">
+        {stats ? <span>{stats.words.toLocaleString()} words · {stats.chars.toLocaleString()} characters{mode !== 'reading' ? ` · Line ${cursorLine + 1}` : ''}</span> : null}
       </div>
     </div>
   );

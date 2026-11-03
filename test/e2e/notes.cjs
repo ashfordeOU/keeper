@@ -88,15 +88,22 @@ const ai = http.createServer((req, res) => {
 
   try {
     // 1. Open the vault (made by another notes app) through the page.
-    await main.locator('.sidebar').getByText('Notes', { exact: true }).first().click();
+    await main.locator('.sidebar [data-nav-key="nav:notes"]').click();
     await main.getByRole('button', { name: /Open folder as vault/ }).waitFor({ timeout: 15000 });
+    check(await main.locator('.nt-chooser-card .nt-art').count() === 1 && await main.locator('.nt-chooser-card h2').count() === 1, 'the first run is a designed page with a picture and one headline');
+    await shot('first-run', false);
     await main.evaluate((p) => window.keeper.notes.addVault(p), VAULT);
-    await main.locator('.sidebar').getByText('Notes Everywhere').first().click().catch(() => undefined);
-    await main.locator('.sidebar').getByText('Notes', { exact: true }).first().click();
+    await main.locator('.sidebar [data-nav-key="nav:noteshub"]').click().catch(() => undefined);
+    await main.locator('.sidebar [data-nav-key="nav:notes"]').click();
     await main.locator('.nt-vault-open', { hasText: 'My Vault' }).click();
     await main.waitForSelector('[data-testid=notes-root] .nt-tree-row[data-path="Welcome.md"]', { timeout: 15000 });
     const rows = await main.locator('.nt-tree-row').allInnerTexts();
     check(rows.some((r) => r.includes('Books')) && rows.some((r) => r.includes('Welcome')) && !rows.some((r) => r.includes('.obsidian')), `the vault opens with its files (and not its settings folder): ${rows.length} rows`);
+    // One calm layout: no tool rail, one header for the notes list, every icon button named.
+    check(await main.locator('.nt-ribbon, .nt-panel-tools').count() === 0, 'no separate tool rail or second toolbar');
+    check(await main.locator('.nt-left-head').count() === 1 && await main.locator('.nt-left-head .nt-search-field').count() === 1, 'the notes list has one header with search');
+    const unnamed = await main.evaluate(() => [...document.querySelectorAll('[data-testid=notes-root] button')].filter((b) => !(b.getAttribute('aria-label') || b.textContent || '').trim()).map((b) => b.className));
+    check(unnamed.length === 0, `every button on the page has a name${unnamed.length ? ': ' + unnamed.join(', ') : ''}`);
     const shared = await main.evaluate(async () => (await window.keeper.notes.vaults())[0]);
     check(shared.shared === true, 'Keeper sees that the vault is shared with another notes app');
 
@@ -116,8 +123,13 @@ const ai = http.createServer((req, res) => {
     const fresh = read('Fresh idea.md');
     check(fresh.includes('[[Welcome]]'), `the note is saved as plain Markdown with the link: ${JSON.stringify(fresh)}`);
     await main.locator('.nt-tree-row[data-path="Welcome.md"]').click();
+    // The note's name shows once (its tab); the old second title line is gone.
+    check(await main.locator('.nt-note-bar').count() === 0 && await main.locator('.nt-tab.on .nt-tab-name').innerText() === 'Welcome', 'one title per note: the tab');
+    const panelBtn = main.getByRole('button', { name: 'Links and outline' });
+    if ((await panelBtn.getAttribute('aria-pressed')) !== 'true') await panelBtn.click();
     await main.getByRole('tab', { name: 'Links' }).click();
     await main.waitForSelector('[data-testid=links-panel] .nt-backlink >> text=Fresh idea', { timeout: 10000 });
+    check(/Linked mentions\s*1/.test(await main.locator('[data-testid=links-panel] .nt-sec-title').first().innerText()), 'link sections have headings with counts');
     check(true, 'the backlink from “Fresh idea” shows on Welcome');
     await shot('backlinks', false);
 
@@ -139,7 +151,8 @@ const ai = http.createServer((req, res) => {
     check(daily.startsWith(`# ${WEEKDAY}`) && daily.includes('## Plan'), `the daily note ${DAILY} was made from the template: ${JSON.stringify(daily.split('\n')[0])}`);
 
     // 5. A canvas, saved as a valid .canvas file.
-    await main.locator('.nt-ribbon').getByTitle('New canvas').click();
+    await main.getByRole('button', { name: 'More', exact: true }).click();
+    await main.getByRole('menuitem', { name: 'New canvas' }).click();
     await main.waitForSelector('[data-testid=canvas-board]', { timeout: 10000 });
     await main.getByRole('button', { name: 'Add card' }).click();
     await main.waitForSelector('.nt-cv-edit', { timeout: 5000 });
@@ -159,7 +172,6 @@ const ai = http.createServer((req, res) => {
     const baseRows = await main.locator('[data-testid=base-view] tbody tr').allInnerTexts();
     check(baseRows.length === 2 && baseRows.some((r) => r.includes('Dune')) && baseRows.some((r) => r.includes('Hyperion')) && !baseRows.some((r) => r.includes('Emma')), `the base shows only finished books: ${baseRows.map((r) => r.split('\t')[0]).join(', ')}`);
     await shot('base', false);
-    await main.getByRole('tab', { name: 'Search' }).click();
     await main.getByRole('textbox', { name: 'Search notes' }).fill('tag:#book [status:reading]');
     await main.waitForSelector('.nt-hit-title', { timeout: 10000 });
     await main.waitForTimeout(500);
@@ -172,6 +184,7 @@ const ai = http.createServer((req, res) => {
     await shot('search', false);
 
     // 7. Ask the vault (stand-in AI); the answer cites a note.
+    await main.getByRole('textbox', { name: 'Search notes' }).press('Escape');
     await main.getByRole('tab', { name: 'Files' }).click();
     await main.locator('.nt-tree-row[data-path="Garden plan.md"]').click();
     await main.getByRole('tab', { name: 'Ask AI' }).click();
@@ -201,6 +214,19 @@ const ai = http.createServer((req, res) => {
     await main.waitForTimeout(600);
     await shot('editor', true);
     await shot('editor', false);
+
+    // The side panel remembers being closed, and narrower windows start with it closed.
+    await main.getByRole('button', { name: 'Close side panel' }).click();
+    check(await main.locator('.nt-right').count() === 0, 'the side panel closes from its own header');
+    await main.setViewportSize({ width: 1024, height: 768 });
+    await main.waitForTimeout(400);
+    check(await main.locator('.nt-right').count() === 0, 'a narrower window starts with the side panel closed');
+    await main.getByRole('button', { name: 'Links and outline' }).click();
+    check(await main.locator('.nt-right.is-floating').count() === 1, 'on a narrow window the side panel floats over the note instead of squeezing it');
+    await main.keyboard.press('Escape');
+    await main.locator('.nt-right').getByRole('button', { name: 'Close side panel' }).click().catch(() => undefined);
+    await shot('narrow', false);
+    await main.setViewportSize({ width: 1440, height: 900 });
   } catch (e) {
     check(false, `step failed: ${e.message.split('\n')[0]}`);
     await main.screenshot({ path: `${SHOTS}/notes-failure.png` }).catch(() => undefined);

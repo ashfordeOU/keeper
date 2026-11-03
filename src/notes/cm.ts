@@ -502,11 +502,13 @@ export async function createEditor(parent: HTMLElement, text: string, host: Edit
         },
       }),
       EditorView.theme({
-        '&': { height: '100%', fontSize: '15px' },
-        '.cm-scroller': { fontFamily: 'inherit', lineHeight: '1.65', padding: '24px 0 40vh' },
-        '.cm-content': { maxWidth: opts.readable === false ? 'none' : '760px', margin: '0 auto', padding: '0 32px', caretColor: 'var(--accent)' },
-        '.cm-gutters': { background: 'transparent', border: 'none', color: 'var(--text-3)' },
-        '.cm-foldGutter .cm-gutterElement': { cursor: 'pointer', opacity: '0.5' },
+        // The page scrolls the note (with its properties above it); the text sits in the
+        // same centred column as the properties, the fold arrows just left of it.
+        '&': { height: 'auto', fontSize: 'var(--fs-lg)' },
+        '.cm-scroller': { fontFamily: 'inherit', lineHeight: '1.7', overflow: 'visible' },
+        '.cm-content': { padding: '0 var(--nt-pad, 32px) 0 calc(var(--nt-pad, 32px) - var(--nt-fold, 16px))', caretColor: 'var(--accent)' },
+        '.cm-gutters': { background: 'transparent', border: 'none', color: 'var(--text-3)', minWidth: 'var(--nt-fold, 16px)' },
+        '.cm-foldGutter .cm-gutterElement': { cursor: 'pointer', opacity: '0.5', width: 'var(--nt-fold, 16px)', textAlign: 'center' },
         '&.cm-focused': { outline: 'none' },
         '.cm-tooltip-autocomplete': { borderRadius: '8px' },
       }),

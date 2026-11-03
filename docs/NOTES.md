@@ -29,6 +29,15 @@ Keeper is not affiliated with any other notes app. Folder names are mentioned on
 | Keeper plugins | `<userData>/notes/plugins/<id>/manifest.json` + `main.js` |
 | Open tabs and panes | the window's local storage, per vault |
 
+## The page
+
+- **Three panels**, separated by one equal gap: the notes list, the open note, and links and outline. Only the first two are always there.
+- **The notes list** has one header: the vault (its menu switches vault and opens settings), a search box (Ctrl+Shift+F; Esc goes back), **New**, and **More** (new folder, canvas or base, sort by name or last change, close all folders, random note, all commands). Below it: Files, Tags, Bookmarks and Recent. **Today** and **Graph** sit at the bottom.
+- **The open note** has one row on top: the tabs, Live / Source / Read, **More for this note** (record audio, slides, earlier versions, publish, open to the right, rename, bookmark, delete) and the button for links and outline. The note's name shows once, in its tab; a note inside a folder shows the folder path above its properties.
+- **The text column** is about 70 characters wide and centred; the properties sit in an aligned grid in the same column. The vault's "readable line length" setting off makes it full width.
+- **Links and outline** are closed at first on windows narrower than about 1360 pixels. Wide and narrow windows remember the choice separately. Below 1180 pixels the panel floats over the note (Esc closes it).
+- Spacing comes from one scale (`--nt-s1` … `--nt-s7` in `src/styles/notes.css`); text sizes and corners come from Keeper's tokens.
+
 ## Code map
 
 - `core/notes/*` holds pure logic with no Electron or DOM, tested in `test/notes.test.ts`:
