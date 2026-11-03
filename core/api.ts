@@ -613,8 +613,23 @@ export interface KeeperApi extends KeeperApiX {
     clipboardImage(): Promise<CaptureResult | null>;
     /** reads text (and codes) from an image or PDF file */
     readFile(path: string): Promise<CaptureResult>;
-    /** saves a screenshot of the whole screen, a chosen window or a dragged area; returns its path */
-    screenshot(mode?: 'full' | 'window' | 'area'): Promise<string | null>;
+    /** saves a screenshot of the whole screen, a chosen window, a dragged area or a scrolling area; returns its path */
+    screenshot(mode?: 'full' | 'window' | 'area' | 'scroll', o?: { timer?: number }): Promise<string | null>;
+    /** stops a scrolling capture (what was taken so far is kept) */
+    stopScroll(): Promise<boolean>;
+    /** pins a picture on top of every app; returns the pin's id */
+    pin(path: string): Promise<string>;
+    pins(): Promise<{ id: string; path: string; opacity: number; through: boolean; bounds: { x: number; y: number; width: number; height: number } }[]>;
+    /** opacity (0.2–1), clicks going through it, or close */
+    setPin(id: string, patch: { opacity?: number; through?: boolean; close?: boolean }): Promise<boolean>;
+    closePins(): Promise<number>;
+    /** every see-through pin takes clicks again */
+    clickablePins(): Promise<number>;
+    /** uploads a picture to the person's own storage and copies the link */
+    share(path: string): Promise<{ link: string; expiresAt?: number }>;
+    /** the previews shown after screenshots (diagnostics and tests) */
+    previews(): Promise<{ items: string[]; shown: string[] }>;
+    closePreviews(): Promise<void>;
     record(mode?: 'full' | 'window' | 'area', opts?: { mic?: boolean; systemAudio?: boolean; countdown?: number }): Promise<RecordState>;
     stopRecording(): Promise<string | null>;
     recordState(): Promise<RecordState>;

@@ -54,8 +54,17 @@ export function Capture() {
   const [opts, setOpts] = useState<CaptureOptions | null>(null);
   const [showOptions, setShowOptions] = useState(false);
   const [result, setResult] = useState<CaptureResult | null>(null);
+  const [pins, setPins] = useState<{ id: string; through: boolean }[]>([]);
+  const [canUpload, setCanUpload] = useState(false);
 
-  const reload = () => void api.capture.history().then(setItems);
+  const reload = () => { void api.capture.history().then(setItems); void api.capture.pins().then(setPins).catch(() => undefined); };
+  useEffect(() => { setCanUpload(!!settings && settings.island.upload.kind !== 'none'); }, [settings]);
+  // Pins are closed from their own windows too: look again now and then while there are some.
+  useEffect(() => {
+    if (!pins.length) return;
+    const t = setInterval(() => void api.capture.pins().then(setPins).catch(() => undefined), 3000);
+    return () => clearInterval(t);
+  }, [pins.length]);
   useEffect(() => {
     reload();
     void api.capture.recordState().then(setRec);
@@ -117,7 +126,16 @@ export function Capture() {
             <button className="btn sm" disabled={!!busy} onClick={() => void run('shot', () => api.capture.screenshot('area'))}>Area</button>
             <button className="btn sm" disabled={!!busy} onClick={() => void run('shot', () => api.capture.screenshot('window'))}>Window</button>
             <button className="btn sm" disabled={!!busy} onClick={() => void run('shot', () => api.capture.screenshot('full'))}>Screen</button>
+            <button className="btn sm" disabled={!!busy} title="Keeper scrolls the part you choose and joins it into one tall picture" data-testid="capture-scroll" onClick={() => void run('shot', () => api.capture.screenshot('scroll'))}>Scrolling</button>
           </div>
+          {opts ? (
+            <label className="capture-timer small">
+              <Icon name="timer" size={12} /> Timer
+              <select aria-label="Self-timer" value={opts.timer} onChange={(e) => void setOpt({ timer: Number(e.target.value) })} data-testid="capture-timer">
+                <option value={0}>Off</option><option value={3}>3 seconds</option><option value={5}>5 seconds</option><option value={10}>10 seconds</option>
+              </select>
+            </label>
+          ) : null}
           {opts ? <kbd>{key(opts.screenshotShortcut)}</kbd> : null}
         </div>
         <div className={`capture-action split ${rec.recording ? 'recording' : ''}`}>
@@ -138,6 +156,15 @@ export function Capture() {
           <Icon name="drop" size={20} /><b>Pick a colour</b><span>From anywhere on screen; copied as hex</span>{opts ? <kbd>{key(opts.colorShortcut)}</kbd> : null}
         </button>
       </div>
+
+      {pins.length ? (
+        <div className="card pad capture-pins" role="status" data-testid="capture-pins">
+          <Icon name="pin" size={14} />
+          <span className="grow">{pins.length} picture{pins.length === 1 ? '' : 's'} pinned on screen{pins.some((p) => p.through) ? ` · clicks go through ${pins.filter((p) => p.through).length}` : ''}. Esc closes the one in front.</span>
+          {pins.some((p) => p.through) ? <button className="btn sm" onClick={() => void api.capture.clickablePins().then(reload)}>Make clickable{opts?.pinShortcut ? ` (${key(opts.pinShortcut)})` : ''}</button> : null}
+          <button className="btn sm" onClick={() => void api.capture.closePins().then(reload)}>Close all</button>
+        </div>
+      ) : null}
 
       {busy ? <div className="progress indeterminate" role="progressbar" aria-label="Working" style={{ margin: '14px 0' }}><i /></div> : null}
 
@@ -190,6 +217,8 @@ export function Capture() {
                   <>
                     <button className="btn sm" onClick={() => void api.files.open(e.path!)}>Open</button>
                     {e.kind === 'screenshot' ? <button className="btn sm" onClick={() => go({ name: 'annotate', arg: e.path })}><Icon name="rename" size={12} /> Annotate</button> : null}
+                    {e.kind === 'screenshot' ? <button className="btn sm icon" title="Pin on screen" aria-label="Pin on screen" onClick={() => void run('pin', () => api.capture.pin(e.path!))}><Icon name="pin" size={12} /></button> : null}
+                    {e.kind === 'screenshot' && canUpload ? <button className="btn sm icon" title="Upload and copy link" aria-label="Upload and copy link" onClick={() => void run('upload', () => api.capture.share(e.path!)).then((r) => r && toast('Link copied'))}><Icon name="link" size={12} /></button> : null}
                     <button className="btn sm icon" title="Show in folder" aria-label="Show in folder" onClick={() => void api.files.reveal(e.path!)}><Icon name="reveal" size={12} /></button>
                   </>
                 ) : (
@@ -225,6 +254,15 @@ export function Capture() {
             <Opt label="Handwriting" hint="Uses the system’s recognizer where there is one; elsewhere keeps soft strokes instead of black and white."><Toggle on={!!opts.handwriting} onChange={(v) => void setOpt({ handwriting: v })} /></Opt>
             <Opt label="Offer to open links in QR codes" hint="Asks first; only web links."><Toggle on={opts.openQrLinks} onChange={(v) => void setOpt({ openQrLinks: v })} /></Opt>
             <Opt label="Open screenshots in the editor" hint="Right after taking one."><Toggle on={opts.annotateAfterScreenshot} onChange={(v) => void setOpt({ annotateAfterScreenshot: v })} /></Opt>
+            <Opt label="Preview after each screenshot" hint="A small card in the corner: drag it into any app, or Annotate, Copy, Save, Upload or Pin. Several stack."><Toggle on={opts.quickPreview} onChange={(v) => void setOpt({ quickPreview: v })} /></Opt>
+            {opts.quickPreview ? (
+              <Opt label="The preview goes away">
+                <select className="input" value={opts.quickSeconds} onChange={(e) => void setOpt({ quickSeconds: Number(e.target.value) })}>
+                  <option value={5}>After 5 seconds</option><option value={8}>After 8 seconds</option><option value={15}>After 15 seconds</option><option value={0}>When I close it</option>
+                </select>
+              </Opt>
+            ) : null}
+            <Opt label="Shadow around windows" hint="A window screenshot gets a soft shadow on a see-through background."><Toggle on={opts.windowShadow} onChange={(v) => void setOpt({ windowShadow: v })} /></Opt>
             <div className="divider" />
             <Opt label="Record the microphone"><Toggle on={opts.recordMic} onChange={(v) => void setOpt({ recordMic: v })} /></Opt>
             <Opt label="Record system sound" hint="Windows and Linux."><Toggle on={opts.recordSystemAudio} onChange={(v) => void setOpt({ recordSystemAudio: v })} /></Opt>
@@ -235,6 +273,7 @@ export function Capture() {
             <div className="divider" />
             <Opt label="Screenshot shortcut"><input className="input" value={opts.screenshotShortcut} onChange={(e) => setOpts({ ...opts, screenshotShortcut: e.target.value })} onBlur={(e) => void setOpt({ screenshotShortcut: e.target.value })} /></Opt>
             <Opt label="Recording shortcut"><input className="input" value={opts.recordShortcut} onChange={(e) => setOpts({ ...opts, recordShortcut: e.target.value })} onBlur={(e) => void setOpt({ recordShortcut: e.target.value })} /></Opt>
+            <Opt label="Make pinned pictures clickable" hint="Only taken while a pinned picture lets clicks through."><input className="input" value={opts.pinShortcut} onChange={(e) => setOpts({ ...opts, pinShortcut: e.target.value })} onBlur={(e) => void setOpt({ pinShortcut: e.target.value })} /></Opt>
             <Opt label="Colour picker shortcut"><input className="input" value={opts.colorShortcut} onChange={(e) => setOpts({ ...opts, colorShortcut: e.target.value })} onBlur={(e) => void setOpt({ colorShortcut: e.target.value })} /></Opt>
             <span className="small muted">Recognition languages are set in Settings › Library.</span>
           </div>

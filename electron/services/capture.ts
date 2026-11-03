@@ -70,7 +70,7 @@ export async function remember(e: Omit<CaptureEntry, 'id' | 'at'>): Promise<Capt
 
 // ---------------------------------------------------------------- the frozen screen
 
-async function grabDisplay(display: Electron.Display): Promise<Electron.NativeImage> {
+export async function grabDisplay(display: Electron.Display): Promise<Electron.NativeImage> {
   const { width, height } = display.size;
   const scale = display.scaleFactor;
   const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: Math.round(width * scale), height: Math.round(height * scale) } });
@@ -182,7 +182,7 @@ export function onOverlayReady(fn: ((w: BrowserWindow) => void) | undefined) {
   overlayReady = fn;
 }
 
-function crop(shot: Electron.NativeImage, display: Electron.Display, r: Rect): Electron.NativeImage {
+export function crop(shot: Electron.NativeImage, display: Electron.Display, r: Rect): Electron.NativeImage {
   const sx = shot.getSize().width / display.bounds.width;
   const sy = shot.getSize().height / display.bounds.height;
   return shot.crop({ x: Math.round(r.x * sx), y: Math.round(r.y * sy), width: Math.max(1, Math.round(r.w * sx)), height: Math.max(1, Math.round(r.h * sy)) });
@@ -311,13 +311,61 @@ export async function saveScreenshot(img: Electron.NativeImage): Promise<string>
   return p;
 }
 
-export type ScreenshotMode = 'full' | 'window' | 'area';
+export type ScreenshotMode = 'full' | 'window' | 'area' | 'scroll';
 
-export async function takeScreenshot(mode: ScreenshotMode, preload: string): Promise<string | null> {
+/** The self-timer: 3-2-1 on every screen (Stage's overlay), gone before the picture is taken. */
+async function selfTimer(seconds: number) {
+  if (seconds <= 0) return;
+  const { showCountdown } = await import('./stage/overlay');
+  for (let n = seconds; n > 0; n--) {
+    showCountdown(n);
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  showCountdown(0);
+  // the countdown's window has to be off the screen before the screen is read
+  await new Promise((r) => setTimeout(r, 250));
+}
+
+async function windowImage(id: string, display: Electron.Display): Promise<Electron.NativeImage | null> {
+  const big = { width: Math.round(display.size.width * display.scaleFactor), height: Math.round(display.size.height * display.scaleFactor) };
+  const s = (await desktopCapturer.getSources({ types: ['window'], thumbnailSize: big, fetchWindowIcons: false })).find((x) => x.id === id);
+  return s && !s.thumbnail.isEmpty() ? s.thumbnail : null;
+}
+
+/** A window on a see-through background with a soft shadow (and the rounded corners macOS and Windows 11 draw). */
+export async function shadowed(img: Electron.NativeImage, scale: number): Promise<Electron.NativeImage> {
+  const { shadowFor, withShadow } = await import('../../core/capture-extras');
+  const { width, height } = img.getSize();
+  const out = withShadow({ data: new Uint8Array(img.toBitmap()), width, height }, shadowFor(scale, process.platform !== 'linux'));
+  return nativeImage.createFromBitmap(Buffer.from(out.data.buffer, out.data.byteOffset, out.data.byteLength), { width: out.width, height: out.height, scaleFactor: 1 });
+}
+
+export async function takeScreenshot(mode: ScreenshotMode, preload: string, o: { timer?: number } = {}): Promise<string | null> {
+  const opts = await getOptions();
+  const timer = o.timer ?? opts.timer;
   let img: Electron.NativeImage | null = null;
-  if (mode === 'full') img = await grabDisplay(displayUnderCursor());
-  else if (mode === 'area') img = (await pickArea(preload, 'Drag over the area to capture'))?.image ?? null;
-  else img = (await pickWindow(preload))?.image ?? null;
+  if (mode === 'scroll') {
+    const { scrollingCapture } = await import('./capture-more');
+    img = await scrollingCapture(preload);
+  } else if (mode === 'full') {
+    await selfTimer(timer);
+    img = await grabDisplay(displayUnderCursor());
+  } else if (mode === 'area') {
+    const picked = await pickArea(preload, timer ? `Drag over the area; the picture is taken ${timer} seconds later` : 'Drag over the area to capture');
+    if (picked && timer) {
+      // The area is chosen first; then there is time to open a menu or hover over something.
+      await selfTimer(timer);
+      img = crop(await grabDisplay(picked.display), picked.display, picked.rect);
+    } else img = picked?.image ?? null;
+  } else {
+    const display = displayUnderCursor();
+    const w = await pickWindow(preload);
+    if (w && timer) {
+      await selfTimer(timer);
+      img = (await windowImage(w.id, display)) ?? w.image;
+    } else img = w?.image ?? null;
+    if (img && !img.isEmpty() && opts.windowShadow) img = await shadowed(img, display.scaleFactor);
+  }
   if (!img || img.isEmpty()) return null;
   return saveScreenshot(img);
 }

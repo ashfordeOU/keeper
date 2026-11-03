@@ -57,5 +57,14 @@ export function createMockCapture(): KeeperApi['capture'] {
     options: async () => ({ ...options }),
     setOptions: async (patch) => (options = { ...options, ...patch }),
     openLink: async (u) => { window.open(u, '_blank'); },
+    stopScroll: async () => false,
+    pin: async () => 'pin-demo',
+    pins: async () => [],
+    setPin: async () => false,
+    closePins: async () => 0,
+    clickablePins: async () => 0,
+    share: async () => later({ link: 'https://files.example.com/keeper/abc123/Screenshot.png' }),
+    previews: async () => ({ items: [], shown: [] }),
+    closePreviews: async () => undefined,
   };
 }

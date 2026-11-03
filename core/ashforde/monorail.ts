@@ -280,6 +280,9 @@ export const OVERLAY_TITLES = {
   guide: 'Keeper guide',
   sharing: 'Keeper — sharing this screen',
   blocked: 'Keeper — paused while you focus',
+  pin: 'Keeper pinned picture',
+  preview: 'Keeper capture preview',
+  scrollBar: 'Keeper scrolling capture',
 } as const;
 export type OverlayKind = keyof typeof OVERLAY_TITLES;
 

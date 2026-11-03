@@ -38,3 +38,9 @@ button.capture-action:hover { border-color: var(--accent); }
 .annotate-canvas { display: block; box-shadow: var(--shadow); cursor: crosshair; }
 .annotate-canvas.tool-text { cursor: text; }
 .annotate-text { position: fixed; z-index: 50; min-width: 180px; min-height: 36px; background: rgba(255, 255, 255, .92); border: 1.5px dashed var(--accent); border-radius: 6px; padding: 4px 6px; font-weight: 600; outline: none; resize: both; }
+/* The self-timer under the screenshot buttons, and the line about pictures pinned on screen. */
+.capture-action .capture-timer { display: inline-flex; gap: 6px; align-items: center; margin-top: 6px; color: var(--text-2); }
+.capture-action .capture-timer svg { margin: 0; color: var(--text-3); }
+.capture-action .capture-timer select { font-size: var(--fs-sm); }
+.capture-pins { display: flex; gap: 10px; align-items: center; margin-top: 14px; }
+.capture-pins svg { color: var(--accent); }

@@ -23,3 +23,9 @@ contextBridge.exposeInMainWorld('keeperStudioRec', {
   chunk: (track: string, buf: ArrayBuffer) => ipcRenderer.send('studio.rec.chunk', track, buf),
   event: (track: string, what: string, detail?: unknown) => ipcRenderer.send('studio.rec.event', track, what, detail),
 });
+
+// Keeper's small floating windows (pinned pictures, the after-capture previews,
+// the drawing sheet): they can only name an action for their own window.
+contextBridge.exposeInMainWorld('keeperFloat', {
+  act: (action: string, arg?: unknown) => ipcRenderer.send('capture.float', String(action), arg),
+});

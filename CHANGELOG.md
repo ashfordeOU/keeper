@@ -89,6 +89,13 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - Choose how long the link works: 1, 3 or 7 days on a storage bucket (the links stop working), or no end, 1, 7 or 30 days on WebDAV (the page then says the link has ended).
 - The Island shows "Uploading" with progress, then "Link copied". A finished export can be uploaded later with **Upload and copy link**.
 
+### Added — Capture: scrolling capture, pinned pictures, a preview after each screenshot
+- **Scrolling**: drag over the part of a window that scrolls; Keeper scrolls it step by step and joins the frames where they overlap into one tall picture. A Stop bar (or Esc) ends it early. Needs Accessibility on a Mac and xdotool on Linux X11.
+- **Preview after each screenshot**: a card in the corner to drag into any app, or Annotate, Copy, Save, Upload (copies a link to your own storage) and Pin. Several stack; it goes after 8 seconds unless you point at it (Capture → Options).
+- **Pin on screen**: a picture floating over every app; drag and resize it, set its opacity (− +, or keys 1–0), let clicks go through it (⌘⌥⇧P / Ctrl+Alt+Shift+P makes it clickable again), copy it, and close it with Esc.
+- **Self-timer**: 3, 5 or 10 seconds, with a countdown on screen; an area or window is chosen first.
+- **Window with shadow**: window screenshots get a soft shadow on a see-through background (Capture → Options → Shadow around windows).
+
 ### Added — Mail: Today at the top of the inbox
 - The inbox opens with a greeting for the time of day and your first name (from the name you send mail as; with none, no name), today's date, and today's events as cards from every calendar Keeper reads: time, title, the calendar's colour, "Now · until 6:45 PM" on the one going on, "Next" on the one after, and Join for Zoom, Google Meet, Teams, Webex, FaceTime, Jitsi and Whereby links. Join opens the meeting in your default app. The cards scroll sideways and can be reached with the keyboard; with no events the row is hidden, and a narrow window shows one "Now: …" or "Next: …" line.
 - While Mail is open, the bar at the top of the window shows the meeting going on, or the next one within 15 minutes, with Join.

@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 -->
 # Share links
 
-Studio can upload a finished video and copy a link to it. The link points into **your own storage**: a WebDAV server (Nextcloud, ownCloud, a NAS, any WebDAV folder) or an S3-compatible bucket (AWS S3, Cloudflare R2, Backblaze B2, MinIO, Wasabi…). Nothing is uploaded to Keeper or Ashforde, and nothing is uploaded until you choose a storage and ask for a link.
+Studio can upload a finished video and copy a link to it, and Capture can do the same for a screenshot. The link points into **your own storage**: a WebDAV server (Nextcloud, ownCloud, a NAS, any WebDAV folder) or an S3-compatible bucket (AWS S3, Cloudflare R2, Backblaze B2, MinIO, Wasabi…). Nothing is uploaded to Keeper or Ashforde, and nothing is uploaded until you choose a storage and ask for a link.
 
 The storage is the one the Island's shelf already uses: **Island settings → Upload & share** (kind, address, bucket, key, folder, and how long S3 links work). The secret key or password is kept in the system keychain. Settings → General → Screen → "Where share links go" opens it.
 
@@ -42,6 +42,10 @@ On WebDAV, the page finds the video by its name next to it, so it works under th
 
 **Not built:** a password on the page, and view counts. Both would need something running on a server, and Keeper keeps to plain files in your own storage.
 
+## Capture: Upload
+
+The preview after a screenshot and each screenshot in Capture's list have **Upload**: the picture goes into a new random folder in the same storage and its link is copied, with the same Island activity. S3 links work for the hours set in Island settings.
+
 ## Platforms
 
 All three. The upload is plain HTTPS from Keeper's main process (`fetch`), the same code the shelf uses.
@@ -52,6 +56,6 @@ All three. The upload is plain HTTPS from Keeper's main process (`fetch`), the s
 |---|---|
 | The page, WebVTT, transcript paragraphs, link lifetimes, safe names | `core/share-page.ts` (`test/share-page.test.ts`) |
 | Upload folders for WebDAV and S3, signed links with a download name | `electron/services/upload.ts`, `core/s3.ts` |
-| Uploads, the Island activity, copying the link | `electron/services/share-link.ts` |
+| Studio and Capture uploads, the Island activity, copying the link | `electron/services/share-link.ts` |
 | Studio's export with a link | `electron/services/studio/exporter.ts`, `electron/ipc/studio.ts`, `src/studio/ExportDialog.tsx` |
-| End to end (a local WebDAV server stands in for the storage) | `test/e2e/studio.cjs` |
+| End to end (a local WebDAV server, the page played back in a browser window) | `test/e2e/capture-extras.cjs`, `test/e2e/studio.cjs` |

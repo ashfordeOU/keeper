@@ -48,6 +48,16 @@ export interface CaptureOptions {
   ocrEnhance?: boolean;
   /** handwriting: use the system's recognizer where there is one, and keep greys for the built-in one */
   handwriting?: boolean;
+  /** self-timer before a screenshot, in seconds (0, 3, 5 or 10) */
+  timer: number;
+  /** a window screenshot gets a soft shadow on a see-through background */
+  windowShadow: boolean;
+  /** after each screenshot, a small preview in the corner (drag it out, annotate, copy, save, upload, pin) */
+  quickPreview: boolean;
+  /** the preview goes by itself after this many seconds (0: it stays until closed) */
+  quickSeconds: number;
+  /** makes see-through pinned pictures clickable again (only taken while one is see-through) */
+  pinShortcut: string;
 }
 
 export function defaultCaptureOptions(): CaptureOptions {
@@ -69,6 +79,11 @@ export function defaultCaptureOptions(): CaptureOptions {
     ocrLayout: 'auto',
     ocrEnhance: true,
     handwriting: false,
+    timer: 0,
+    windowShadow: true,
+    quickPreview: true,
+    quickSeconds: 8,
+    pinShortcut: 'CommandOrControl+Alt+Shift+P',
   };
 }
 
@@ -79,6 +94,8 @@ export function mergeCaptureOptions(raw: unknown): CaptureOptions {
   for (const k of Object.keys(base) as (keyof CaptureOptions)[]) {
     if (typeof r[k] === typeof base[k]) (base as unknown as Record<string, unknown>)[k] = r[k];
   }
+  base.timer = [0, 3, 5, 10].includes(base.timer) ? base.timer : 0;
+  base.quickSeconds = Number.isFinite(base.quickSeconds) ? Math.max(0, Math.min(60, Math.round(base.quickSeconds))) : 8;
   return base;
 }
 

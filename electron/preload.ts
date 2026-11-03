@@ -13,7 +13,7 @@ function group(name: string, methods: string[]) {
 
 const api = {
   system: group('system', ['info', 'disks', 'health', 'killProcess', 'ejectAll', 'wifiNetworks', 'openExternal']),
-  capture: group('capture', ['text', 'clipboardImage', 'readFile', 'screenshot', 'record', 'stopRecording', 'recordState', 'color', 'colors', 'history', 'removeHistory', 'clearHistory', 'options', 'setOptions', 'openLink']),
+  capture: group('capture', ['text', 'clipboardImage', 'readFile', 'screenshot', 'stopScroll', 'pin', 'pins', 'setPin', 'closePins', 'clickablePins', 'share', 'previews', 'closePreviews', 'record', 'stopRecording', 'recordState', 'color', 'colors', 'history', 'removeHistory', 'clearHistory', 'options', 'setOptions', 'openLink']),
   weather: group('weather', ['get', 'search']),
   settings: group('settings', ['get', 'set', 'setSecret', 'hasSecret', 'pickFolder', 'pickFiles']),
   prefs: group('prefs', ['shortcuts', 'saveFile', 'openFile']),
