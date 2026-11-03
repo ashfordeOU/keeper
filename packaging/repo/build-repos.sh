@@ -9,7 +9,7 @@
 #   so the .deb files are served straight from GitHub Releases:
 #     deb [signed-by=/usr/share/keyrings/keeper.gpg] https://github.com/ashfordeOU/keeper/releases/latest/download /
 # dnf: repodata/ on the gh-pages branch (GitHub Pages), pointing at the release's .rpm files:
-#     baseurl=https://ashfordeou.github.io/keeper/rpm
+#     baseurl=https://keeper.ashforde.org/rpm
 set -eu
 
 ASSETS="$1"
@@ -54,11 +54,11 @@ gpg --batch --yes --armor --export "$KEY" > "$PAGES/keeper-release.asc"
 cat > "$PAGES/rpm/keeper.repo" <<REPO
 [keeper]
 name=Keeper
-baseurl=https://ashfordeou.github.io/keeper/rpm
+baseurl=https://keeper.ashforde.org/rpm
 enabled=1
 gpgcheck=0
 repo_gpgcheck=1
-gpgkey=https://ashfordeou.github.io/keeper/keeper-release.asc
+gpgkey=https://keeper.ashforde.org/keeper-release.asc
 REPO
 touch "$PAGES/.nojekyll"
 echo "apt: $(grep -c '^Package:' "$ASSETS/Packages") package(s); dnf: $(find "$ASSETS" -maxdepth 1 -name "*.rpm" | wc -l) package(s)"

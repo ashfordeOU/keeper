@@ -41,6 +41,17 @@ describe('website', () => {
     for (const f of listed) expect(f).not.toMatch(/^(rpm|KEYS)(\/|$)|^keeper-release\.asc$/);
   });
 
+  it('is served at keeper.ashforde.org: CNAME on every build, canonical links there, nothing under the old /keeper/ path', () => {
+    expect(readFileSync(path.join(out, 'CNAME'), 'utf8')).toBe('keeper.ashforde.org\n');
+    expect(readFileSync(path.join(out, 'index.html'), 'utf8')).toContain('<link rel="canonical" href="https://keeper.ashforde.org/');
+    expect(readFileSync(path.join(out, 'sitemap.xml'), 'utf8')).toContain('<loc>https://keeper.ashforde.org/</loc>');
+    for (const f of files(out).filter((p) => p.endsWith('.html'))) {
+      const html = readFileSync(path.join(out, f), 'utf8');
+      expect(html, f).not.toMatch(/href="\/keeper\/|src="\/keeper\/|ashfordeou\.github\.io\/(keeper|monorail)/);
+    }
+    expect(readFileSync(path.join(out, 'monorail/index.html'), 'utf8')).toContain('https://monorail.ashforde.org/keeper/');
+  });
+
   it('loads scripts, styles and pictures only from itself (no tracking, no other sites)', () => {
     for (const f of files(out).filter((p) => p.endsWith('.html'))) {
       const html = readFileSync(path.join(out, f), 'utf8');

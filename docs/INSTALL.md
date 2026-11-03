@@ -130,7 +130,7 @@ The repository is a signed flat repository attached to each release, so packages
 **dnf repository**
 
 ```bash
-sudo curl -fsSL -o /etc/yum.repos.d/keeper.repo https://ashfordeou.github.io/keeper/rpm/keeper.repo
+sudo curl -fsSL -o /etc/yum.repos.d/keeper.repo https://keeper.ashforde.org/rpm/keeper.repo
 ```
 
 ```bash

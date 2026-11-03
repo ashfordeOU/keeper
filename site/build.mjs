@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
-// Builds Keeper's website (https://ashfordeou.github.io/keeper/) from site/ into site/dist.
+// Builds Keeper's website (https://keeper.ashforde.org/) from site/ into site/dist.
 //
 //   node site/build.mjs                 build into site/dist
 //   node site/build.mjs --out <dir>     build somewhere else (the Website workflow builds outside the checkout)
@@ -20,7 +20,9 @@ import { escapeHtml, inline, markdown, slug } from './lib/markdown.mjs';
 
 const SITE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(SITE, '..');
-const BASE = 'https://ashfordeou.github.io/keeper/';
+const BASE = 'https://keeper.ashforde.org/';
+/** The custom domain GitHub Pages serves gh-pages at (Settings → Pages → Custom domain). */
+export const DOMAIN = 'keeper.ashforde.org';
 const REPO = 'https://github.com/ashfordeOU/keeper';
 /** Paths on gh-pages that belong to release.yml's pages job; the site must never write them. */
 export const RESERVED = ['rpm', 'keeper-release.asc', 'KEYS'];
@@ -168,6 +170,8 @@ function build() {
   write('robots.txt', `User-agent: *\nAllow: /\nSitemap: ${BASE}sitemap.xml\n`);
   write('sitemap.xml', `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${pages.map((p) => `<url><loc>${BASE}${p.replace(/index\.html$/, '')}</loc></url>`).join('')}</urlset>\n`);
   write('.nojekyll', '');
+  // Pages keeps the custom domain only while CNAME is on the branch, so every build writes it.
+  write('CNAME', `${DOMAIN}\n`);
   written.push('.site-files');
   writeFileSync(path.join(OUT, '.site-files'), `${written.sort().join('\n')}\n`);
 
@@ -199,8 +203,9 @@ function checkLinks(written) {
     for (const ref of refs) {
       if (/^(https?:|mailto:|data:)/.test(ref)) continue;
       const [pathPart, hash] = ref.split('#');
-      const from = pathPart.startsWith('/keeper/') ? '.' : path.posix.dirname(p);
-      const rel = pathPart.startsWith('/keeper/') ? pathPart.slice('/keeper/'.length) || '.' : pathPart;
+      // The site is served at the domain's root, so /x is x from the top of the site.
+      const from = pathPart.startsWith('/') ? '.' : path.posix.dirname(p);
+      const rel = pathPart.startsWith('/') ? pathPart.slice(1) || '.' : pathPart;
       let target = pathPart ? path.posix.normalize(path.posix.join(from, rel.split('?')[0])) : p;
       if (target.startsWith('..')) { problems.push(`${p}: ${ref} leaves the site`); continue; }
       target = target.replace(/^\.\/?/, '');

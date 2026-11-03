@@ -23,7 +23,7 @@ published by GitHub Actions from `main`. A release is started by changing `"vers
 | [`ci.yml`](.github/workflows/ci.yml) | every push and pull request | Tests and builds; native e2e on pushes to `main` |
 | [`resign-history.yml`](.github/workflows/resign-history.yml) | you, by hand | *Verify only* checks every branch and tag is Verified |
 | [`remove-old-releases.yml`](.github/workflows/remove-old-releases.yml) | you, by hand | Deletes old pre-releases (and, with *delete_tags*, their tags) once a stable release 1.0.0 or later is out |
-| [`site.yml`](.github/workflows/site.yml) | a change to `site/`, the README, the changelog or `docs/` landing on `main` (sign-and-land starts it), a published release, or by hand | Builds the website (`node site/build.mjs`) and publishes it to the root of `gh-pages`, signed as ashfordeOU, next to the dnf repository. Settings → Pages → Source must be *Deploy from a branch*, `gh-pages`, `/ (root)`: https://ashfordeou.github.io/keeper/ |
+| [`site.yml`](.github/workflows/site.yml) | a change to `site/`, the README, the changelog or `docs/` landing on `main` (sign-and-land starts it), a published release, or by hand | Builds the website (`node site/build.mjs`) and publishes it to the root of `gh-pages`, signed as ashfordeOU, next to the dnf repository. Settings → Pages → Source must be *Deploy from a branch*, `gh-pages`, `/ (root)`, with the custom domain `keeper.ashforde.org` (the build writes `CNAME`; Cloudflare: CNAME `keeper` → `ashfordeou.github.io`, DNS only): https://keeper.ashforde.org/ |
 
 A version with a hyphen (`1.1.0-beta.1`) is a pre-release: GitHub only, no channels, and only
 copies with betas on (or beta copies) take it. See [docs/BETA.md](docs/BETA.md).

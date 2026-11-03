@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 # Builds Keeper's website from site/ (plus README.md, CHANGELOG.md, docs/ and the
 # screenshots in docs/screenshots) and publishes it to the root of the gh-pages branch,
-# which GitHub Pages serves at https://ashfordeou.github.io/keeper/.
+# which GitHub Pages serves at https://keeper.ashforde.org/.
 #
 # One-time setup: Settings → Pages → Build and deployment → Source: "Deploy from a branch",
 # Branch: gh-pages, folder: / (root).
