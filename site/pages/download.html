@@ -1,0 +1,139 @@
+<!--
+path: download/
+title: Download
+description: Download Keeper for macOS, Windows and Linux: the standard and offline installers, package managers, checksums and how to check a download, and betas.
+-->
+<div class="wrap page-head">
+  <p class="kicker">Download</p>
+  <h1>Get Keeper for <span class="grad">your computer</span>.</h1>
+  <p class="lede">Every file comes from Keeper's <a href="https://github.com/ashfordeOU/keeper/releases">GitHub Releases</a>, built there from the public source. A version can come out for macOS first, so each link below points at the newest release that has that file.</p>
+  <p class="release-line" data-release-line hidden></p>
+</div>
+
+<div class="wrap">
+  <div class="os-tabs">
+    <section class="os" id="mac" aria-labelledby="mac-title">
+      <h2 id="mac-title">macOS <span class="pill" data-here hidden>This computer</span></h2>
+      <p class="req">macOS 12 or later · Apple silicon or Intel · signed with Ashforde's Developer ID and notarized by Apple from 1.0.0</p>
+      <div class="cmd"><pre>curl -fsSL https://raw.githubusercontent.com/ashfordeOU/keeper/main/scripts/install.sh | bash</pre></div>
+      <h3>Disk image</h3>
+      <ul class="files">
+        <li><a href="https://github.com/ashfordeOU/keeper/releases" data-asset="Keeper-mac-arm64.dmg">Apple silicon (M1 and later)<span>.dmg</span></a></li>
+        <li><a href="https://github.com/ashfordeOU/keeper/releases" data-asset="Keeper-mac-x64.dmg">Intel<span>.dmg</span></a></li>
+      </ul>
+      <h3>Offline installer</h3>
+      <ul class="files">
+        <li><a href="https://github.com/ashfordeOU/keeper/releases" data-asset="Keeper-mac-arm64-full.dmg">Apple silicon, everything inside<span>.dmg</span></a></li>
+        <li><a href="https://github.com/ashfordeOU/keeper/releases" data-asset="Keeper-mac-x64-full.dmg">Intel, everything inside<span>.dmg</span></a></li>
+      </ul>
+      <h3>Homebrew</h3>
+      <div class="cmd"><pre>brew tap ashfordeOU/keeper https://github.com/ashfordeOU/keeper</pre></div>
+      <div class="cmd"><pre>brew install --cask keeper</pre></div>
+    </section>
+
+    <section class="os" id="windows" aria-labelledby="win-title">
+      <h2 id="win-title">Windows <span class="pill" data-here hidden>This computer</span></h2>
+      <p class="req">Windows 10 or 11 · 64-bit (on ARM through x64 emulation) · installs for your user only, no administrator needed</p>
+      <div class="cmd ps"><pre>irm https://raw.githubusercontent.com/ashfordeOU/keeper/main/scripts/install.ps1 | iex</pre></div>
+      <h3>Installer</h3>
+      <ul class="files">
+        <li><a href="https://github.com/ashfordeOU/keeper/releases" data-asset="Keeper-setup-x64.exe">Keeper setup<span>.exe</span></a></li>
+        <li><a href="https://github.com/ashfordeOU/keeper/releases" data-asset="Keeper-setup-x64-full.exe">Offline installer, everything inside<span>.exe</span></a></li>
+        <li><a href="https://github.com/ashfordeOU/keeper/releases" data-asset="Keeper-portable.exe">Portable, nothing installed<span>.exe</span></a></li>
+      </ul>
+      <h3>Package managers</h3>
+      <div class="cmd ps"><pre>winget install Ashforde.Keeper</pre></div>
+      <div class="cmd ps"><pre>scoop bucket add keeper https://github.com/ashfordeOU/keeper; scoop install keeper/keeper</pre></div>
+      <div class="cmd ps"><pre>choco install keeper-files</pre></div>
+      <p class="req">If SmartScreen appears, choose <b>More info → Run anyway</b>.</p>
+    </section>
+
+    <section class="os" id="linux" aria-labelledby="linux-title">
+      <h2 id="linux-title">Linux <span class="pill" data-here hidden>This computer</span></h2>
+      <p class="req">64-bit, x64 or ARM64 · the script picks the .deb, the .rpm or the AppImage</p>
+      <div class="cmd"><pre>curl -fsSL https://raw.githubusercontent.com/ashfordeOU/keeper/main/scripts/install.sh | bash</pre></div>
+      <h3>Packages</h3>
+      <ul class="files">
+        <li><a href="https://github.com/ashfordeOU/keeper/releases" data-asset="Keeper-linux-amd64.deb">Debian, Ubuntu (x64)<span>.deb</span></a></li>
+        <li><a href="https://github.com/ashfordeOU/keeper/releases" data-asset="Keeper-linux-arm64.deb">Debian, Ubuntu (ARM64)<span>.deb</span></a></li>
+        <li><a href="https://github.com/ashfordeOU/keeper/releases" data-asset="Keeper-linux-x86_64.rpm">Fedora, openSUSE (x64)<span>.rpm</span></a></li>
+        <li><a href="https://github.com/ashfordeOU/keeper/releases" data-asset="Keeper-linux-aarch64.rpm">Fedora, openSUSE (ARM64)<span>.rpm</span></a></li>
+      </ul>
+      <h3>AppImage and archive</h3>
+      <ul class="files">
+        <li><a href="https://github.com/ashfordeOU/keeper/releases" data-asset="Keeper-linux-x86_64.AppImage">AppImage (x64)<span>.AppImage</span></a></li>
+        <li><a href="https://github.com/ashfordeOU/keeper/releases" data-asset="Keeper-linux-arm64.AppImage">AppImage (ARM64)<span>.AppImage</span></a></li>
+        <li><a href="https://github.com/ashfordeOU/keeper/releases" data-asset="Keeper-linux-x64.tar.gz">Archive (x64)<span>.tar.gz</span></a></li>
+        <li><a href="https://github.com/ashfordeOU/keeper/releases" data-asset="Keeper-linux-arm64.tar.gz">Archive (ARM64)<span>.tar.gz</span></a></li>
+      </ul>
+      <h3>Offline installer</h3>
+      <ul class="files">
+        <li><a href="https://github.com/ashfordeOU/keeper/releases" data-asset="Keeper-linux-x86_64-full.AppImage">AppImage (x64), everything inside<span>.AppImage</span></a></li>
+        <li><a href="https://github.com/ashfordeOU/keeper/releases" data-asset="Keeper-linux-arm64-full.AppImage">AppImage (ARM64), everything inside<span>.AppImage</span></a></li>
+        <li><a href="https://github.com/ashfordeOU/keeper/releases" data-asset="Keeper-linux-x64-full.tar.gz">Archive (x64), everything inside<span>.tar.gz</span></a></li>
+        <li><a href="https://github.com/ashfordeOU/keeper/releases" data-asset="Keeper-linux-arm64-full.tar.gz">Archive (ARM64), everything inside<span>.tar.gz</span></a></li>
+      </ul>
+      <p class="req">Now playing, dictation and download sources use <code>playerctl</code>, <code>xdotool</code> (or <code>wtype</code> on Wayland) and <code>attr</code>. The apt and dnf repositories, the AUR, Flatpak and Snap are in the <a href="https://github.com/ashfordeOU/keeper/blob/main/docs/INSTALL.md#linux">install guide</a>.</p>
+    </section>
+  </div>
+</div>
+
+<section class="wrap" id="editions">
+  <p class="kicker">Core and offline installers</p>
+  <h2>Core or offline: the same Keeper.</h2>
+  <div class="grid">
+    <div class="card"><h3>Core installer (smaller)</h3><p>Leaves out three heavy tools that only some parts use: video tools, on-device AI and cloud connections. Keeper downloads each one when you switch on a part that needs it, and checks it the same way as an update.</p></div>
+    <div class="card"><h3>Offline (everything inside)</h3><p>Files ending in <code>-full</code> have every part inside, for computers without a network or if you'd rather download once. With the script, add <code>-s -- --full</code> after <code>bash</code>.</p></div>
+    <div class="card"><h3>Just the command</h3><p>The <code>keeper</code> command for terminals and scripts comes with every install. To get only the command, use <code>--cli-only</code> with the script (needs Node.js 22 or later).</p></div>
+  </div>
+</section>
+
+<section class="wrap" id="verify">
+  <p class="kicker">Check a download</p>
+  <h2>Know the file is the one we built.</h2>
+  <p class="sub">The install scripts do these checks for you, and so does Keeper's updater. To check a file you downloaded yourself:</p>
+  <ol class="steps">
+    <li>
+      <h3>Compare the checksum</h3>
+      <p>Download <code>SHA256SUMS.txt</code> from the same release, put it next to your file and run:</p>
+      <div class="cmd"><pre>shasum -a 256 --check --ignore-missing SHA256SUMS.txt</pre></div>
+      <p>On Linux use <code>sha256sum --check --ignore-missing SHA256SUMS.txt</code>. On Windows, compare the line for your file with <code>Get-FileHash .\Keeper-setup-x64.exe</code>.</p>
+    </li>
+    <li>
+      <h3>Check the Sigstore signature of the checksums</h3>
+      <p><code>SHA256SUMS.txt</code> is signed by the release workflow without a long-lived key, and the signature is recorded in a public log. Download <code>SHA256SUMS.txt.sigstore.json</code> too and run:</p>
+      <div class="cmd"><pre>cosign verify-blob SHA256SUMS.txt --bundle SHA256SUMS.txt.sigstore.json \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  --certificate-identity-regexp '^https://github.com/ashfordeOU/keeper/\.github/workflows/release\.yml@refs/(heads/main|tags/v)'</pre></div>
+    </li>
+    <li>
+      <h3>Check where it was built</h3>
+      <p>GitHub records which workflow run built each file. With the <a href="https://cli.github.com">GitHub CLI</a>:</p>
+      <div class="cmd"><pre>gh attestation verify Keeper-mac-arm64.dmg --repo ashfordeOU/keeper</pre></div>
+    </li>
+    <li>
+      <h3>On a Mac, check the signature</h3>
+      <p>From 1.0.0, Keeper is signed with Ashforde's Apple Developer ID (team D69G45342Y) and notarized:</p>
+      <div class="cmd"><pre>codesign -dv --verbose=2 /Applications/Keeper.app</pre></div>
+      <p>It should show <code>Authority=Developer ID Application: Ashforde OU (D69G45342Y)</code>.</p>
+    </li>
+  </ol>
+  <p style="margin-top:18px">If a file does not check out, don't run it, and please <a href="{{root}}support/#security">tell us</a>. More in the <a href="https://github.com/ashfordeOU/keeper/blob/main/docs/INSTALL.md#verifying-a-download">install guide</a>.</p>
+</section>
+
+<section class="wrap" id="beta">
+  <p class="kicker">Betas</p>
+  <h2>Try the next version early.</h2>
+  <div class="install">
+    <div>
+      <p class="sub">Betas come out on GitHub as pre-releases before a version is final. Turn on <b>Settings → Updates → Include beta versions</b>, or install the newest beta with the script:</p>
+      <div class="cmd"><pre>curl -fsSL https://raw.githubusercontent.com/ashfordeOU/keeper/main/scripts/install.sh | bash -s -- --beta</pre></div>
+      <p style="color:var(--muted);font-size:15px">Package managers only ever get stable versions. A copy on betas follows betas until a newer stable version is out. Testers: see the <a href="https://github.com/ashfordeOU/keeper/blob/main/docs/BETA.md">beta guide</a>.</p>
+    </div>
+    <div class="card">
+      <h3>Updates</h3>
+      <p>Keeper updates itself. In <b>Settings → Updates</b>, choose automatically, ask first, or only when you check.</p>
+      <p>Every update must match the release's <code>SHA256SUMS.txt</code> before it is installed, and on a Mac it must be signed with Ashforde's Developer ID.</p>
+    </div>
+  </div>
+</section>

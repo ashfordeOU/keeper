@@ -1,0 +1,77 @@
+<!--
+path: privacy/
+title: Privacy
+description: Keeper is local first: your files are never uploaded, and nothing leaves your computer unless you turn it on. Here is everything that can.
+-->
+<div class="wrap page-head">
+  <p class="kicker">Privacy</p>
+  <h1>Your files stay <span class="grad">on your computer</span>.</h1>
+  <p class="lede">Keeper works on your computer, not on a server. There is no Keeper account and no ads. This page lists everything that can leave your computer, and how to stop each one.</p>
+</div>
+
+<div class="wrap">
+  <div class="grid">
+    <div class="card"><h3>Local first</h3><p>Search, text in pictures, duplicates, cleanup, notes and dictation all run on this computer. Your files are never uploaded.</p></div>
+    <div class="card"><h3>Off until you turn it on</h3><p>Anything that talks to the internet is listed in <b>Settings → Privacy &amp; permissions</b>, with what it sends and a switch.</p></div>
+    <div class="card"><h3>Secrets in the keychain</h3><p>Passwords and keys are kept in the system keychain, never in a plain file.</p></div>
+  </div>
+</div>
+
+<div class="wrap prose">
+  <h2 id="what-leaves">What leaves your computer</h2>
+  <p class="muted">Only these, and only when you use them:</p>
+  <div class="table"><table>
+    <thead><tr><th>What</th><th>When</th><th>What it sends</th></tr></thead>
+    <tbody>
+      <tr><td>Weather</td><td>When the Weather part or the Island's weather is on</td><td>The position of the places you added, to the weather service</td></tr>
+      <tr><td>Lyrics</td><td>When now playing shows lyrics</td><td>The song's title, artist, album and length</td></tr>
+      <tr><td>Mail, calendars and cloud services</td><td>Only accounts you connect</td><td>What those services need to sync, straight to them</td></tr>
+      <tr><td>The update check</td><td>As set in Settings → Updates</td><td>A request to GitHub for the newest release</td></tr>
+      <tr><td>The AI you chose</td><td>Only when you ask it something</td><td>Only what you allow it to see, with passwords, keys and card numbers blanked first</td></tr>
+      <tr><td>Your other devices</td><td>Only devices you paired</td><td>Encrypted between the two devices; there is no Keeper server</td></tr>
+      <tr><td>Anonymous usage stats</td><td>Once a day, unless you switch them off</td><td>The version, the kind of computer and which parts are on (details below)</td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout"><p><b>Only use AIs on this computer</b> keeps every AI request on this computer, and Keeper's own firewall lists Keeper's connections like any other app's, so you can block them there too.</p></div>
+
+  <h2 id="usage-stats">Anonymous usage stats</h2>
+  <p>Ashforde wants to know how many copies of Keeper are in use, on what kinds of computers, and which parts people use, so the next versions get better. The report is small and anonymous by design.</p>
+  <ul>
+    <li><b>At most once a day</b>, when your computer is idle and online, over an encrypted connection.</li>
+    <li><b>On by default, off with one switch</b>, in the welcome tour and in Settings → Privacy.</li>
+    <li><b>See it yourself.</b> <i>See exactly what's sent</i> shows the last report and the next one, field by field.</li>
+    <li><b>Reset it.</b> <i>Reset my anonymous ID</i> makes a new random ID, and unsent reports are dropped.</li>
+  </ul>
+  <h3>What is sent</h3>
+  <p>A random ID made on your computer (not based on your hardware or name), the day, Keeper's version and how it was installed, the system and its version, the kind of processor, rounded memory, the number of screens, your language and region setting, which parts are switched on, which main pages were opened (as rough counts), and how many crashes and restarts there were.</p>
+  <h3>What is never sent</h3>
+  <ul class="yesno">
+    <li class="no">File names, paths or file contents</li>
+    <li class="no">What you search for</li>
+    <li class="no">What you ask an AI, or its answers</li>
+    <li class="no">Account names, email addresses, user names or the computer's name</li>
+    <li class="no">Your internet address, or a location worked out from it</li>
+    <li class="no">Serial numbers, hardware IDs or network card addresses</li>
+    <li class="no">Wi-Fi names, or which apps you have installed</li>
+  </ul>
+  <p>The full list of fields, with examples, is in <a href="https://github.com/ashfordeOU/keeper/blob/main/docs/PRIVACY-USAGE-STATS.md">PRIVACY-USAGE-STATS.md</a>.</p>
+
+  <h2 id="permissions">System permissions</h2>
+  <p>Keeper asks for a permission only when you switch on a part that needs it, and says what it is for first. Permissions carry over updates, and each one can be taken back in your system's settings.</p>
+  <div class="table"><table>
+    <thead><tr><th>Permission</th><th>Used for</th></tr></thead>
+    <tbody>
+      <tr><td>Accessibility (Mac)</td><td>Typing dictated text, notifications in the Island, tidying windows for Stage, control from your devices</td></tr>
+      <tr><td>Screen recording</td><td>Screenshots, Studio, copying text from the screen, recording a meeting's sound</td></tr>
+      <tr><td>Microphone</td><td>Only while you dictate or record</td></tr>
+      <tr><td>Camera</td><td>The Island's mirror and Studio recordings with the camera on</td></tr>
+      <tr><td>Full Disk Access (Mac)</td><td>Where downloads came from, and protected folders in the library</td></tr>
+      <tr><td>Calendars and Reminders</td><td>Your next meeting and tasks in the Island</td></tr>
+      <tr><td>Local Network</td><td>Finding your devices, servers and shared folders</td></tr>
+    </tbody>
+  </table></div>
+  <p>Every permission on macOS, Windows and Linux, and how to take it back: <a href="https://github.com/ashfordeOU/keeper/blob/main/docs/PERMISSIONS.md">PERMISSIONS.md</a>.</p>
+
+  <h2 id="this-site">This website</h2>
+  <p>This site has no tracking, no analytics and no cookies. The download button asks GitHub for the list of releases, straight from your browser, to find the newest file for your computer. Your colour choice is kept in your browser only.</p>
+</div>

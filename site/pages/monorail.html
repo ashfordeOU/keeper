@@ -1,0 +1,57 @@
+<!--
+path: monorail/
+title: Keeper + Monorail
+description: Keeper and Monorail, Ashforde's scrolling window manager, work together on a Mac: one Stay Awake, closed-lid mode handed to Keeper, and Keeper's panels left alone.
+-->
+<div class="wrap page-head">
+  <p class="kicker">Keeper + Monorail</p>
+  <h1>Two Ashforde apps that <span class="grad">know about each other</span>.</h1>
+  <p class="lede">Monorail is Ashforde's scrolling window manager for Mac: every window gets a place on a strip that runs past the screen edges, so new windows slide in without squeezing the others. With Keeper on the same Mac, the two never get in each other's way.</p>
+  <div class="cta" style="justify-content:flex-start">
+    <a class="btn primary" href="https://ashfordeou.github.io/monorail/keeper/">Monorail's page about Keeper</a>
+    <a class="btn ghost" href="https://ashfordeou.github.io/monorail/">About Monorail</a>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="grid">
+    <div class="card">
+      <span class="ic" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M3 12h3M18 12h3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="12" r="4.5" fill="none" stroke="currentColor" stroke-width="2"/></svg></span>
+      <h3>One Stay Awake</h3>
+      <p>Start Stay Awake in either app and only one of them keeps the Mac awake, never both. While Keeper runs, Monorail hands the job to Keeper's Keep Awake and says so.</p>
+      <p>When Keeper starts a session and Monorail already has one you started, Keeper takes it over and tells you.</p>
+    </div>
+    <div class="card">
+      <span class="ic" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M2 19h20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
+      <h3>Lid closed, safely</h3>
+      <p>Monorail can hand a closed-lid session to Keeper, which keeps a MacBook running with the lid shut. Same rules in both apps: only while plugged in, and off when it gets hot or in Low Power Mode.</p>
+      <p>If Keeper can't (setup missing, or permission refused), it starts nothing and says why, and Monorail keeps the Mac awake itself.</p>
+    </div>
+    <div class="card">
+      <span class="ic" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="5" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><rect x="3" y="11" width="8" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="13" y="11" width="8" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2"/></svg></span>
+      <h3>Keeper's panels left alone</h3>
+      <p>Monorail never tiles, moves or pushes off screen the Island, the clipboard picker, widgets, the wallpaper, Stage and Keeper's other panels. Keeper's main window still tiles like any other window.</p>
+    </div>
+    <div class="card">
+      <span class="ic" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7.5V12l3 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg></span>
+      <h3>Focus and presenting, in step</h3>
+      <p>A Focus session in Keeper switches on Monorail's Focus mode, and the other way round. Stage switches on Monorail's presentation mode, so its notices stay out of recordings.</p>
+    </div>
+    <div class="card">
+      <span class="ic" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M7 10h2M11 10h2M15 10h2M8 14h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
+      <h3>No shortcut clashes</h3>
+      <p>Keeper compares its keyboard shortcuts with Monorail's. When two clash, it suggests a free key and changes Keeper's with one click; Monorail's keys are never changed.</p>
+    </div>
+    <div class="card">
+      <span class="ic" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M21 3v6h-6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      <h3>One updater, on your Mac only</h3>
+      <p>Keeper can install Monorail, and updates it only when Monorail's own updates are off. The two talk to each other on your Mac only, and nothing about your windows or files leaves it.</p>
+    </div>
+  </div>
+</div>
+
+<div class="wrap prose">
+  <h2 id="setup">Turning it on</h2>
+  <p>Nothing to set up. Keeper's panels are left alone whether or not you change anything. The rest uses the <b>Monorail</b> switch in Keeper → Settings → Features, which turns on by itself the first time Keeper finds Monorail installed. If you turn it off, Keeper never turns it back on.</p>
+  <p>The hand-overs need Monorail 1.7.9 or later. With an older Monorail, Keeper still keeps its panels out of the way. Every detail, for the curious: <a href="https://github.com/ashfordeOU/keeper/blob/main/docs/KEEPER-MONORAIL.md">KEEPER-MONORAIL.md</a>.</p>
+</div>
