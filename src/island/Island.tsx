@@ -121,6 +121,9 @@ export function Island() {
   // The pointer rests on the closed Island: the shape breathes (grows a little) and the window is already the open size.
   const [breath, setBreath] = useState(false);
   const pointerIn = useRef(false);
+  // When the open Island last changed size (another view, another size): a leave just after it is the shape
+  // moving away from the pointer, not the pointer leaving, so it gets the longer grace.
+  const resizedAt = useRef(0);
   const samples = useRef<PointerSample[]>([]);
   const pressed = useRef(0);
   const modeRef = useRef(mode);
@@ -190,6 +193,7 @@ export function Island() {
       reveal.current = { from: { w: now.w, h: now.h }, to };
     }
     const kind = motionFor(was, t);
+    if (kind === 'view') resizedAt.current = Date.now();
     if (reduced) {
       // Less motion: sizes jump, the content crossfades.
       s.jump(to);
@@ -858,7 +862,7 @@ export function Island() {
           if (e.clientX > r.left + 1 && e.clientX < r.right - 1 && e.clientY > r.top + 1 && e.clientY < r.bottom - 1) return;
           if (view === 'compact') { leaveClosed(); return; }
           pointerIn.current = false;
-          if (view === 'alert' && alertOpen) { setAlertOpen(false); api.island.setExpanded(false); } else collapse(Date.now() - dragEnded.current < 500 ? 1500 : CLOSE_GRACE_MS, true); }}
+          if (view === 'alert' && alertOpen) { setAlertOpen(false); api.island.setExpanded(false); } else collapse(Date.now() - dragEnded.current < 500 || Date.now() - resizedAt.current < 700 ? 1500 : CLOSE_GRACE_MS, true); }}
         onClick={(e) => {
           if (view !== 'compact') return;
           // Alt/Option-click hides the Island for a minute (alerts still come back after).

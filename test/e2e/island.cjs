@@ -17,6 +17,9 @@ const SHOTS = process.argv[3];
 fs.mkdirSync(SHOTS, { recursive: true });
 for (const d of ['Documents', 'Downloads', 'Desktop']) fs.mkdirSync(path.join(HOME, d), { recursive: true });
 
+// Under xvfb the real pointer starts in the middle of the screen. On a smaller screen (1440 × 900) a Large
+// panel grows over it, and the page sees the pointer leave the Island. Park it in a corner (needs xdotool).
+try { require('child_process').execFileSync('xdotool', ['mousemove', '0', '0'], { stdio: 'ignore' }); } catch { /* no xdotool or no X */ }
 const check = (ok, what) => { console.log(`${ok ? 'PASS' : 'FAIL'} ${what}`); if (!ok) process.exitCode = 1; };
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 // The whole X screen, so the transparent Island is seen over the desktop.
@@ -151,7 +154,8 @@ const SHARED = ics([['BEGIN:VEVENT', 'UID:holiday@island', `DTSTART:${local(tomo
   // Pointer leaves: back to the pill, and the window shrinks again.
   await isl.mouse.move(5, 300);
   await isl.locator('.isl-content').dispatchEvent('mouseleave');
-  await wait(1600);
+  // (Just after the panel changed size a leave waits longer, 1.5 s, for the pointer to come back.)
+  await wait(2600);
   b = await islandBounds();
   check(await isl.locator('.cmp').count() === 1 && b.width < 600, `closes back to the pill (${b.width}×${b.height})`);
 

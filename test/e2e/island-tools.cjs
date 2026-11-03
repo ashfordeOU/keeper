@@ -13,6 +13,9 @@ const SHOTS = path.resolve(process.argv[3]);
 fs.mkdirSync(SHOTS, { recursive: true });
 for (const d of ['Documents', 'Downloads', 'Desktop']) fs.mkdirSync(path.join(HOME, d), { recursive: true });
 
+// Under xvfb the real pointer starts in the middle of the screen. On a smaller screen (1440 × 900) a Large
+// panel grows over it, and the page sees the pointer leave the Island. Park it in a corner (needs xdotool).
+try { require('child_process').execFileSync('xdotool', ['mousemove', '0', '0'], { stdio: 'ignore' }); } catch { /* no xdotool or no X */ }
 const check = (ok, what) => { console.log(`${ok ? 'PASS' : 'FAIL'} ${what}`); if (!ok) process.exitCode = 1; };
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 

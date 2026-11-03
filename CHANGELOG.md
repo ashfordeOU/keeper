@@ -143,6 +143,7 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - Opening and closing use real springs (src/island/spring.ts) instead of one CSS curve: a slightly bouncy open, a close that never bounces, its own spring for switching views, the wings and cards, and a new target keeps the speed it has, so a hover that turns into an open (or a close called off) is one motion. Nothing runs on animation frames once the shape is still.
 - The pointer arriving makes the closed Island grow a little at once; it opens after 140 ms (was 250 ms; a delay you chose is kept), and a pointer sweeping along the menu bar only passes by. The window grows to the open size during that wait, still letting clicks through outside the shape, so opening is only the shape's motion.
 - Closing: 220 ms after the pointer leaves (not while a menu is open, a field has the keyboard, something is dragged or a button is held), the content fades out first and then the shape closes; the window shrinks once it has come to rest. With Reduce motion the sizes change at once.
+- When the open Island changes size (opening a smaller or larger tool from More, another view) and so ends up away from the pointer, it waits 1.5 s for the pointer to come back instead of closing after 220 ms.
 - macOS: a light trackpad tap as the Island opens, never when the pointer only passes over it (Settings → Island → Haptic feedback; needs keeper-helper, nothing happens without it).
 
 ### Changed — Island look
