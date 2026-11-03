@@ -76,6 +76,179 @@ describe('website', () => {
   });
 });
 
+describe('website pages', () => {
+  const html = (p: string) => readFileSync(path.join(out, p), 'utf8');
+  const pages = () => files(out).filter((p) => p.endsWith('.html'));
+
+  it('gives every page its own 1200 × 630 preview image from the site itself', () => {
+    for (const f of pages()) {
+      const m = html(f).match(/<meta property="og:image" content="https:\/\/keeper\.ashforde\.org\/(assets\/og\/[a-z-]+\.jpg)">/);
+      expect(m, f).toBeTruthy();
+      const jpg = readFileSync(path.join(out, m![1]));
+      expect(jpg.length, m![1]).toBeLessThan(300 * 1024);
+      // The JPEG's size, from its first SOF marker.
+      let i = 2;
+      let size: [number, number] | null = null;
+      while (i < jpg.length) {
+        const marker = jpg[i + 1];
+        const len = jpg.readUInt16BE(i + 2);
+        if (marker >= 0xc0 && marker <= 0xc2) { size = [jpg.readUInt16BE(i + 7), jpg.readUInt16BE(i + 5)]; break; }
+        i += 2 + len;
+      }
+      expect(size, m![1]).toEqual([1200, 630]);
+      expect(html(f)).toContain('<meta property="og:image:width" content="1200">');
+    }
+    expect(html('index.html')).not.toContain('assets/shots/hero.webp');
+  });
+
+  it('loads its script and its logic only from itself, and fetches only the public release list', () => {
+    const js = [readFileSync(path.join(out, 'assets/site.js'), 'utf8'), ...files(out).filter((p) => p.startsWith('assets/lib/')).map((p) => html(p))].join('\n');
+    for (const m of js.matchAll(/\bfrom\s+['"]([^'"]+)['"]/g)) expect(m[1]).toMatch(/^\.\.?\//);
+    for (const m of js.matchAll(/https?:\/\/[^\s'"`)]+/g)) expect(m[0]).toMatch(/^https:\/\/(api\.)?github\.com\//);
+    const css = html('assets/site.css');
+    expect(css).not.toMatch(/@import|url\(\s*["']?https?:/);
+    for (const f of pages()) expect(html(f), f).not.toMatch(/<link[^>]+(preconnect|dns-prefetch|fonts\.googleapis)/);
+    expect(html('index.html')).toContain('<script type="module" src="./assets/site.js"></script>');
+  });
+
+  it('stops motion for people who ask for less, and shows everything without the script', () => {
+    const css = html('assets/site.css');
+    const calm = css.slice(css.indexOf('@media (prefers-reduced-motion: reduce)'));
+    expect(calm).toMatch(/\.js \.reveal \{ opacity:1; transform:none; transition:none; \}/);
+    expect(calm).toMatch(/animation-duration:0s !important/);
+    expect(html('assets/site.js')).toContain("matchMedia('(prefers-reduced-motion: reduce)')");
+    // Content hidden for the reveal only once the script runs (and shown again if it never does).
+    expect(css).toMatch(/^\.js \.reveal \{ opacity:0;/m);
+    expect(html('index.html')).toMatch(/classList\.add\('js'\);.*if \(!window\.keeperSite\) document\.documentElement\.classList\.remove\('js'\)/);
+  });
+
+  it('writes every interactive part out in full, so it reads well with the script off', () => {
+    const home = html('index.html');
+    for (const hook of ['data-builder', 'data-island', 'data-search', 'data-compare', 'data-themes', 'data-savings']) expect(home, hook).toContain(hook);
+    expect(home.match(/role="switch" aria-checked="true"/g)?.length).toBe(5);
+    expect(home).toContain('About 185 MB');
+    expect(home).toContain('Screenshot 2026-10-28 at 09.14.02.png');
+    expect(home).toContain('$150–$370 a year');
+    expect(home).toMatch(/<input type="range" min="0" max="100"[^>]*aria-label=/);
+    expect(home).toMatch(/role="tablist"[\s\S]*role="tabpanel"/);
+    const mono = html('monorail/index.html');
+    expect(mono).toContain('data-lid');
+    expect(mono).toContain('You close the lid. Keeper keeps the Mac awake.');
+    expect(mono).toMatch(/<svg viewBox="0 0 960 430" role="img" aria-labelledby=/);
+    for (const f of ['strip.webp', 'icon.webp', 'menu.svg']) {
+      const p = path.join(out, 'assets/monorail', f);
+      expect(existsSync(p), f).toBe(true);
+      expect(readFileSync(p).length, f).toBeLessThan(300 * 1024);
+    }
+  });
+
+  it('keeps headlines short and never offers betas', () => {
+    for (const f of readdirSync(path.join(ROOT, 'site/pages')).filter((p) => p.endsWith('.html') && p !== 'changelog.html')) {
+      const src = readFileSync(path.join(ROOT, 'site/pages', f), 'utf8');
+      for (const m of src.matchAll(/<h([12])\b[^>]*>([\s\S]*?)<\/h\1>/g)) {
+        const words = m[2].replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').trim().split(/\s+/).filter((w) => w !== '&');
+        expect(words.length, `${f}: ${m[2]}`).toBeLessThanOrEqual(8);
+      }
+      expect(src, f).not.toMatch(/\bbetas?\b|pre-release|now available/i);
+    }
+    expect(html('assets/site.js')).not.toMatch(/\bbeta\b/i);
+    expect(html('changelog/index.html')).not.toMatch(/<h2>[^<]*-[a-z]+\.\d+/);
+  });
+
+  it('marks screenshots with their size so nothing moves while they load, and loads lower ones lazily', () => {
+    for (const f of pages()) {
+      for (const m of html(f).matchAll(/<img\b[^>]*>/g)) {
+        expect(m[0], f).toMatch(/\swidth="\d+" height="\d+"/);
+        if (/assets\/shots\//.test(m[0])) expect(m[0], f).toMatch(/loading="lazy"|fetchpriority="high"/);
+      }
+    }
+  });
+});
+
+describe('website: the interactive parts', () => {
+  // site/lib is plain JavaScript shared by the build and the browser.
+  const load = (name: string) => import(path.join(ROOT, 'site/lib', name));
+
+  it('Build your Keeper: counts each downloaded piece once and lists what runs', async () => {
+    const { PARTS, CORE_MB, defaultOn, estimate, toggle } = await load('parts.mjs');
+    expect(defaultOn()).toEqual(['files', 'island', 'tidy', 'privacy', 'awake']);
+    expect(estimate(defaultOn())).toMatchObject({ core: CORE_MB, extra: 0, total: CORE_MB, count: 5 });
+    const studio = estimate(['studio']);
+    expect(studio.pieces.map((p: { id: string }) => p.id)).toEqual(['video']);
+    const both = estimate(['studio', 'ai']);
+    expect(both.pieces.map((p: { id: string }) => p.id)).toEqual(['ai', 'video']);
+    expect(both.total).toBe(CORE_MB + 30 + 19);
+    expect(estimate([]).runs).toEqual([]);
+    expect(estimate(['sync']).runs[0]).toMatchObject({ id: 'sync', runs: 'Syncs on a schedule' });
+    expect(toggle(['files'], 'files')).toEqual([]);
+    expect(toggle(['notes'], 'files')).toEqual(['files', 'notes']);
+    for (const p of PARTS) expect(existsSync(path.join(ROOT, 'docs/screenshots', `${p.shot}-light.webp`)), p.shot).toBe(true);
+  });
+
+  it('the search demo reads plain-English searches', async () => {
+    const { PRESETS, parseQuery, search, size, ago } = await load('search-demo.mjs');
+    expect(parseQuery('pdfs from gmail last week')).toMatchObject({ kind: 'pdf', from: 'gmail', maxDays: 14, words: [] });
+    expect(parseQuery('videos over 500 MB')).toMatchObject({ kind: 'video', minMb: 500 });
+    expect(parseQuery('pictures from Lisbon')).toMatchObject({ kind: 'image', from: null, words: ['lisbon'] });
+    expect(search('screenshots with wifi password').map((f: { name: string; why: string }) => [f.name, f.why])).toEqual([['Screenshot 2026-10-28 at 09.14.02.png', 'Text in the picture']]);
+    expect(search('videos over 500 MB').map((f: { name: string }) => f.name)).toEqual(['Lisbon trip.mov', 'Screen Recording 2025-11-02.mov']);
+    expect(search('pdfs from gmail last week')).toHaveLength(2);
+    expect(search('')).toEqual([]);
+    expect(search('nothing like this')).toEqual([]);
+    for (const q of PRESETS) expect(search(q).length, q).toBeGreaterThan(0);
+    expect([size(2400), size(184), size(0.4)]).toEqual(['2.3 GB', '184 MB', '410 KB']);
+    expect([ago(0), ago(1), ago(6), ago(75), ago(400), ago(800)]).toEqual(['today', 'yesterday', '6 days ago', '3 months ago', 'a year ago', '2 years ago']);
+  });
+
+  it('the price comparison adds up the ticked kinds and names no product', async () => {
+    const { CATEGORIES, totals, money } = await load('savings.mjs');
+    const on = CATEGORIES.filter((c: { on: boolean }) => c.on).map((c: { id: string }) => c.id);
+    expect(totals(on)).toEqual({ count: 4, low: 150, high: 370 });
+    expect(money(totals(on))).toBe('$150–$370 a year');
+    expect(money(totals([]))).toBe('$0');
+    expect(money(totals(['notch', 'clipboard']))).toBe('$20–$60 a year');
+    for (const c of CATEGORIES) {
+      expect(c.low).toBeLessThanOrEqual(c.high);
+      expect(c.name).toMatch(/^(A|An) [a-z]|^[A-Z][a-z]+( [a-z]+)*$/);
+    }
+  });
+
+  it('the before/after slider follows the pointer and the keys', async () => {
+    const { fromPointer, fromKey, clamp } = await load('slider.mjs');
+    expect(fromPointer(150, 100, 200)).toBe(25);
+    expect(fromPointer(50, 100, 200)).toBe(0);
+    expect(fromPointer(900, 100, 200)).toBe(100);
+    expect(fromPointer(10, 0, 0)).toBe(50);
+    expect(fromKey(50, 'ArrowLeft')).toBe(48);
+    expect(fromKey(50, 'ArrowRight', true)).toBe(60);
+    expect(fromKey(3, 'PageDown')).toBe(0);
+    expect([fromKey(40, 'Home'), fromKey(40, 'End'), fromKey(40, 'a')]).toEqual([0, 100, null]);
+    expect(clamp(Number.NaN)).toBe(50);
+  });
+
+  it('Try the Island: clock, battery, meeting and the timer', async () => {
+    const { clock, battery, startsIn, tick } = await load('island.mjs');
+    expect([clock(42), clock(214), clock(3725), clock(-3)]).toEqual(['0:42', '3:34', '1:02:05', '0:00']);
+    expect(battery(76)).toEqual({ percent: 76, fill: 0.76, tone: 'ok' });
+    expect([battery(18).tone, battery(9).tone, battery(50, true).tone, battery(140).percent]).toEqual(['warn', 'low', 'charging', 100]);
+    expect([startsIn(12), startsIn(0), startsIn(65), startsIn(120)]).toEqual(['in 12 min', 'now', 'in 1 h 5 min', 'in 2 h']);
+    const s = { playing: true, song: 213, length: 214, timer: 1, timerOn: true };
+    expect(tick(s)).toEqual({ playing: true, song: 0, length: 214, timer: 0, timerOn: false });
+    expect(tick({ ...s, playing: false, timerOn: false })).toMatchObject({ song: 213, timer: 1 });
+  });
+
+  it('the lid demo follows the hand-over: Keeper only when it says yes, asleep on battery', async () => {
+    const { lidSteps, lidOwner } = await load('lid.mjs');
+    expect(lidOwner({ keeperReady: true, pluggedIn: true })).toBe('keeper');
+    expect(lidOwner({ keeperReady: false, pluggedIn: true })).toBe('monorail');
+    expect(lidOwner({ keeperReady: true, pluggedIn: false })).toBe('none');
+    const steps = lidSteps({ keeperReady: false, pluggedIn: true });
+    expect(steps.some((s: { who: string }) => s.who === 'keeper')).toBe(false);
+    expect(steps[1].text).toContain('waits');
+    expect(lidSteps({ keeperReady: true, pluggedIn: true }).map((s: { lid: string }) => s.lid)).toEqual(['open', 'open', 'open', 'closed', 'open']);
+  });
+});
+
 describe('website workflow', () => {
   type Step = { name?: string; uses?: string; with?: Record<string, unknown>; run?: string; env?: Record<string, string>; if?: string };
   type Job = { concurrency?: { group?: string }; steps?: Step[] };

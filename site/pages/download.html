@@ -1,20 +1,31 @@
 <!--
 path: download/
 title: Download
+og: download
 description: Download Keeper for macOS, Windows and Linux: the standard and offline installers, package managers, checksums and how to check a download.
 -->
 <div class="wrap page-head">
   <p class="kicker">Download</p>
   <h1>Get Keeper for <span class="grad">your computer</span>.</h1>
-  <p class="lede">Every file comes from Keeper's <a href="https://github.com/ashfordeOU/keeper/releases">GitHub Releases</a>, built there from the public source. A version can come out for macOS first, so each link below points at the newest release that has that file.</p>
+  <p class="lede">Free. Built in public on <a href="https://github.com/ashfordeOU/keeper/releases">GitHub</a>.</p>
   <p class="release-line" data-release-line hidden></p>
+</div>
+
+<div class="wrap">
+  <div class="pick">
+    <span class="os-ic" aria-hidden="true"><svg width="30" height="30" viewBox="0 0 24 24"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19.5h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+    <div><h2>For this computer</h2><p class="dl-note" data-dl-note aria-live="polite">We pick the right file for you.</p></div>
+    <a class="btn primary" href="#mac" data-download data-all="#mac">
+      <span><span data-dl-label>Download Keeper</span><span class="sub" data-dl-sub>For macOS, Windows and Linux</span></span>
+    </a>
+  </div>
 </div>
 
 <div class="wrap">
   <div class="os-tabs">
     <section class="os" id="mac" aria-labelledby="mac-title">
-      <h2 id="mac-title">macOS <span class="pill" data-here hidden>This computer</span></h2>
-      <p class="req">macOS 12 or later · Apple silicon or Intel · signed with Ashforde's Developer ID and notarized by Apple from 1.0.0</p>
+      <h2 id="mac-title"><svg width="30" height="30" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="11" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M10.5 5h3v1.2h-3Z" fill="currentColor"/><path d="M2 18.5h20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>macOS <span class="pill" data-here hidden>This computer</span></h2>
+      <p class="req">macOS 12 or later · Apple silicon or Intel</p>
       <div class="cmd"><pre>curl -fsSL https://raw.githubusercontent.com/ashfordeOU/keeper/main/scripts/install.sh | bash</pre></div>
       <h3>Disk image</h3>
       <ul class="files">
@@ -32,8 +43,8 @@ description: Download Keeper for macOS, Windows and Linux: the standard and offl
     </section>
 
     <section class="os" id="windows" aria-labelledby="win-title">
-      <h2 id="win-title">Windows <span class="pill" data-here hidden>This computer</span></h2>
-      <p class="req">Windows 10 or 11 · 64-bit (on ARM through x64 emulation) · installs for your user only, no administrator needed</p>
+      <h2 id="win-title"><svg width="30" height="30" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3 14h18M9 20h6M12 17v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>Windows <span class="pill" data-here hidden>This computer</span></h2>
+      <p class="req">Windows 10 or 11 · 64-bit · no administrator needed</p>
       <div class="cmd ps"><pre>irm https://raw.githubusercontent.com/ashfordeOU/keeper/main/scripts/install.ps1 | iex</pre></div>
       <h3>Installer</h3>
       <ul class="files">
@@ -49,8 +60,8 @@ description: Download Keeper for macOS, Windows and Linux: the standard and offl
     </section>
 
     <section class="os" id="linux" aria-labelledby="linux-title">
-      <h2 id="linux-title">Linux <span class="pill" data-here hidden>This computer</span></h2>
-      <p class="req">64-bit, x64 or ARM64 · the script picks the .deb, the .rpm or the AppImage</p>
+      <h2 id="linux-title"><svg width="30" height="30" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m7 9 3 3-3 3M12 15h5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Linux <span class="pill" data-here hidden>This computer</span></h2>
+      <p class="req">64-bit, x64 or ARM64 · the script picks the right package</p>
       <div class="cmd"><pre>curl -fsSL https://raw.githubusercontent.com/ashfordeOU/keeper/main/scripts/install.sh | bash</pre></div>
       <h3>Packages</h3>
       <ul class="files">
@@ -73,25 +84,25 @@ description: Download Keeper for macOS, Windows and Linux: the standard and offl
         <li><a href="https://github.com/ashfordeOU/keeper/releases" data-asset="Keeper-linux-x64-full.tar.gz">Archive (x64), everything inside<span>.tar.gz</span></a></li>
         <li><a href="https://github.com/ashfordeOU/keeper/releases" data-asset="Keeper-linux-arm64-full.tar.gz">Archive (ARM64), everything inside<span>.tar.gz</span></a></li>
       </ul>
-      <p class="req">Now playing, dictation and download sources use <code>playerctl</code>, <code>xdotool</code> (or <code>wtype</code> on Wayland) and <code>attr</code>. The apt and dnf repositories, the AUR, Flatpak and Snap are in the <a href="https://github.com/ashfordeOU/keeper/blob/main/docs/INSTALL.md#linux">install guide</a>.</p>
+      <p class="req">More ways to install are in the <a href="https://github.com/ashfordeOU/keeper/blob/main/docs/INSTALL.md#linux">install guide</a>.</p>
     </section>
   </div>
 </div>
 
 <section class="wrap" id="editions">
-  <p class="kicker">Core and offline installers</p>
-  <h2>Core or offline: the same Keeper.</h2>
+  <p class="kicker">Which file?</p>
+  <h2>Standard or offline. Same Keeper.</h2>
   <div class="grid">
-    <div class="card"><h3>Core installer (smaller)</h3><p>Leaves out three heavy tools that only some parts use: video tools, on-device AI and cloud connections. Keeper downloads each one when you switch on a part that needs it, and checks it the same way as an update.</p></div>
-    <div class="card"><h3>Offline (everything inside)</h3><p>Files ending in <code>-full</code> have every part inside, for computers without a network or if you'd rather download once. With the script, add <code>-s -- --full</code> after <code>bash</code>.</p></div>
-    <div class="card"><h3>Just the command</h3><p>The <code>keeper</code> command for terminals and scripts comes with every install. To get only the command, use <code>--cli-only</code> with the script (needs Node.js 22 or later).</p></div>
+    <div class="card"><h3>Standard</h3><p>Smaller. Video, AI and cloud tools download when a part needs them.</p></div>
+    <div class="card"><h3>Offline</h3><p>Everything inside. Files ending in <code>-full</code>, or <code>-s -- --full</code> with the script.</p></div>
+    <div class="card"><h3>Just the command</h3><p>Add <code>--cli-only</code> to the script. Needs Node.js 22 or later.</p></div>
   </div>
 </section>
 
 <section class="wrap" id="verify">
   <p class="kicker">Check a download</p>
-  <h2>Know the file is the one we built.</h2>
-  <p class="sub">The install scripts do these checks for you, and so does Keeper's updater. To check a file you downloaded yourself:</p>
+  <h2>Know it's the file we built.</h2>
+  <div class="verify-note"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5 4.5 5.5v6c0 4.6 3.1 8.6 7.5 10 4.4-1.4 7.5-5.4 7.5-10v-6L12 2.5Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="m8.5 12 2.4 2.4 4.6-4.8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><p>The install scripts and Keeper's updater check every file for you, updates included. To check one yourself:</p></div>
   <ol class="steps">
     <li>
       <h3>Compare the checksum</h3>
@@ -101,31 +112,22 @@ description: Download Keeper for macOS, Windows and Linux: the standard and offl
     </li>
     <li>
       <h3>Check the Sigstore signature of the checksums</h3>
-      <p><code>SHA256SUMS.txt</code> is signed by the release workflow without a long-lived key, and the signature is recorded in a public log. Download <code>SHA256SUMS.txt.sigstore.json</code> too and run:</p>
+      <p>Download <code>SHA256SUMS.txt.sigstore.json</code> too and run:</p>
       <div class="cmd"><pre>cosign verify-blob SHA256SUMS.txt --bundle SHA256SUMS.txt.sigstore.json \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
   --certificate-identity-regexp '^https://github.com/ashfordeOU/keeper/\.github/workflows/release\.yml@refs/(heads/main|tags/v)'</pre></div>
     </li>
     <li>
       <h3>Check where it was built</h3>
-      <p>GitHub records which workflow run built each file. With the <a href="https://cli.github.com">GitHub CLI</a>:</p>
+      <p>With the <a href="https://cli.github.com">GitHub CLI</a>:</p>
       <div class="cmd"><pre>gh attestation verify Keeper-mac-arm64.dmg --repo ashfordeOU/keeper</pre></div>
     </li>
     <li>
       <h3>On a Mac, check the signature</h3>
-      <p>From 1.0.0, Keeper is signed with Ashforde's Apple Developer ID (team D69G45342Y) and notarized:</p>
+      <p>Keeper is signed with Ashforde's Apple Developer ID (team D69G45342Y):</p>
       <div class="cmd"><pre>codesign -dv --verbose=2 /Applications/Keeper.app</pre></div>
       <p>It should show <code>Authority=Developer ID Application: Ashforde OU (D69G45342Y)</code>.</p>
     </li>
   </ol>
   <p style="margin-top:18px">If a file does not check out, don't run it, and please <a href="{{root}}support/#security">tell us</a>. More in the <a href="https://github.com/ashfordeOU/keeper/blob/main/docs/INSTALL.md#verifying-a-download">install guide</a>.</p>
-</section>
-
-<section class="wrap" id="updates">
-  <div class="install">
-    <div class="card">
-      <h3>Updates</h3>
-      <p>Keeper updates itself, and checks every update before installing it.</p>
-    </div>
-  </div>
 </section>

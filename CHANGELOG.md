@@ -4,6 +4,20 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 
 ## [Unreleased]
 
+### Added — Website: a new home page, features page and Keeper + Monorail page
+- The home page tells Keeper's story in pictures: Keeper in a laptop with the Island dropping from the notch, then short sections with real screenshots in light and dark.
+- Build your Keeper: switch parts on and off and see a preview, the rough download size and what keeps running.
+- Try the Island: a working Island under a notch, with music, a focus timer, the next meeting and the battery. Hover, click or tap it.
+- A search demo with ready-made searches, a light and dark slider, a theme picker and a price comparison by kind of app ("Keeper: free").
+- The features page shows every group of parts as in Settings, with screenshots and a side menu that follows you down the page.
+- The Keeper + Monorail page shows what each app does, a diagram of how they talk on your Mac, a lid demo you can play and three steps to set them up.
+- The download page picks the file for your computer at the top; each system has its own card.
+- Every page has its own preview picture for links shared in chats and social apps.
+- Everything works by keyboard and touch, reads well without scripts, and stands still for people who ask for less motion.
+
+### Changed — Website
+- Shorter words everywhere, no version badges, and only finished versions in the changelog and the download links.
+
 ### Added — Any page in a window of its own
 - Every page can open in a window of its own: the window button in the top bar, right-click a page in the sidebar → Open in New Window, the command palette (Open Mail in New Window, or a page's name and "in New Window"), Window → New Window for This Page, or ⌥⌘N (Ctrl+Alt+N on Windows and Linux).
 - The window shows just that page, with its name in the top bar and in its title ("Mail — Keeper"), and no sidebar or tabs. It has the same frame as the main window.

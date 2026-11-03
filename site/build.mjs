@@ -17,6 +17,10 @@ import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statS
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { escapeHtml, inline, markdown, slug } from './lib/markdown.mjs';
+import { PARTS, PIECES, defaultOn, estimate } from './lib/parts.mjs';
+import { CATEGORIES, money, totals } from './lib/savings.mjs';
+import { PRESETS, ago, search, size as fileSize } from './lib/search-demo.mjs';
+import { lidSteps } from './lib/lid.mjs';
 
 const SITE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(SITE, '..');
@@ -34,7 +38,7 @@ const read = (p) => readFileSync(path.join(ROOT, p), 'utf8');
 
 // ---------------------------------------------------------------- the changelog
 
-/** Releases in CHANGELOG.md, newest first: { version, date, body }. Empty sections are left out. */
+/** Releases in CHANGELOG.md, newest first: { version, date, body }. Empty sections and test versions (1.0.0-x) are left out. */
 function releases() {
   const src = read('CHANGELOG.md').replace(/\r\n/g, '\n');
   const parts = src.split(/^## /m).slice(1);
@@ -42,7 +46,7 @@ function releases() {
     const [head, ...rest] = p.split('\n');
     const m = head.match(/^\[?([^\]\s]+)\]?(?:\s*-\s*(\d{4}-\d{2}-\d{2}))?/);
     return { version: m?.[1] ?? head.trim(), date: m?.[2] ?? '', body: rest.join('\n').trim() };
-  }).filter((r) => r.body && !/^unreleased$/i.test(r.version));
+  }).filter((r) => r.body && !/^unreleased$/i.test(r.version) && !r.version.includes('-'));
 }
 
 /** Links in Markdown taken from the repository point at GitHub (docs) or stay absolute. */
@@ -66,8 +70,7 @@ function changelogHtml(list) {
         return null;
       },
     });
-    const pre = /-/.test(r.version) ? ' <span class="pill">beta</span>' : '';
-    return `<article class="release" id="v${slug(r.version)}"><header><h2>${escapeHtml(r.version)}${pre}</h2>${r.date ? `<p><time datetime="${r.date}">${fmt(r.date)}</time> · <a href="${REPO}/releases/tag/v${encodeURIComponent(r.version)}">Release files</a></p>` : ''}</header>${body}</article>`;
+    return `<article class="release" id="v${slug(r.version)}"><header><h2>${escapeHtml(r.version)}</h2>${r.date ? `<p><time datetime="${r.date}">${fmt(r.date)}</time> · <a href="${REPO}/releases/tag/v${encodeURIComponent(r.version)}">Release files</a></p>` : ''}</header>${body}</article>`;
   }).join('\n');
   return `${toc}\n<div class="releases">\n${items}\n</div>`;
 }
@@ -91,25 +94,38 @@ const NAV = [
   ['monorail/', 'With Monorail'], ['changelog/', 'Changelog'], ['support/', 'Support'],
 ];
 
-// hero.webp is the home page's large picture and every page's preview image.
-const shotsUsed = new Set(['hero.webp', 'home-light.webp', 'home-dark.webp']);
+// Screenshots the pages use (added as they are found), copied into assets/shots.
+const shotsUsed = new Set();
 
-/** A screenshot in light and dark: CSS shows the one that matches the page's theme. */
-function shot(name, alt, cls = '') {
+/** Marks a screenshot's light and dark files as used; returns their file names. */
+function useShot(name) {
   const file = (theme) => existsSync(path.join(ROOT, 'docs/screenshots', `${name}-${theme}.webp`)) ? `${name}-${theme}.webp` : `${name}.webp`;
-  const light = file('light');
-  const dark = file('dark');
-  for (const f of [light, dark]) {
+  const files = [file('light'), file('dark')];
+  for (const f of files) {
     if (!existsSync(path.join(ROOT, 'docs/screenshots', f))) throw new Error(`no screenshot docs/screenshots/${f}`);
     shotsUsed.add(f);
   }
-  const size = name.startsWith('island-expanded') ? 'width="900" height="394"' : name === 'tray' ? 'width="436" height="548"' : name === 'hero' ? 'width="1600" height="760"' : 'width="1440" height="900"';
+  return files;
+}
+
+/** Width and height of a screenshot, so the page keeps its place while pictures load. */
+const SIZES = { 'island-expanded': [900, 394], 'island-notch': [760, 94], 'island-pill': [760, 81], tray: [436, 548] };
+const sizeOf = (name) => SIZES[name] ?? [1440, 900];
+
+/** A screenshot in light and dark: CSS shows the one that matches the page's theme. */
+// A class of "eager" loads it at once (pictures at the top of a page); others load as they near the screen.
+function shot(name, alt, cls = '') {
+  const [light, dark] = useShot(name);
+  const [w, h] = sizeOf(name);
+  const size = `width="${w}" height="${h}"`;
+  const load = /\beager\b/.test(cls) ? 'fetchpriority="high"' : 'loading="lazy" decoding="async"';
   const a = escapeHtml(alt);
-  if (light === dark) return `<figure class="shot ${cls}"><img src="{{root}}assets/shots/${light}" ${size} alt="${a}" loading="lazy" decoding="async"></figure>`;
-  return `<figure class="shot ${cls}"><img class="only-light" src="{{root}}assets/shots/${light}" ${size} alt="${a}" loading="lazy" decoding="async"><img class="only-dark" src="{{root}}assets/shots/${dark}" ${size} alt="${a}" loading="lazy" decoding="async"></figure>`;
+  if (light === dark) return `<figure class="shot ${cls}"><img src="{{root}}assets/shots/${light}" ${size} alt="${a}" ${load}></figure>`;
+  return `<figure class="shot ${cls}"><img class="only-light" src="{{root}}assets/shots/${light}" ${size} alt="${a}" ${load}><img class="only-dark" src="{{root}}assets/shots/${dark}" ${size} alt="${a}" ${load}></figure>`;
 }
 
 function render(layout, meta, body, file) {
+  if (!existsSync(path.join(SITE, 'assets/og', `${meta.og ?? 'home'}.jpg`))) throw new Error(`${file}: no preview image site/assets/og/${meta.og ?? 'home'}.jpg (make it with node site/og/make.mjs)`);
   const out = meta.path ?? '';
   const depth = out.split('/').filter(Boolean).length;
   const root = meta.root ?? (depth ? '../'.repeat(depth) : './');
@@ -120,12 +136,82 @@ function render(layout, meta, body, file) {
     .replaceAll('{{title}}', escapeHtml(meta.title ? `${meta.title} · Keeper by Ashforde®` : 'Keeper by Ashforde® · one install, a whole suite for your computer'))
     .replaceAll('{{description}}', escapeHtml(meta.description ?? ''))
     .replaceAll('{{canonical}}', `${BASE}${out}`)
+    .replaceAll('{{og}}', `${BASE}assets/og/${meta.og ?? 'home'}.jpg`)
     .replaceAll('{{bodyclass}}', escapeHtml(meta.class ?? ''));
+  // {{win name "alt" "Title"}}: a screenshot in an app window frame.
+  html = html.replace(/\{\{win ([a-z0-9-]+) "([^"]*)" "([^"]*)"\}\}/g, (_, n, alt, title) => `<div class="window"><div class="bar"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="title">${escapeHtml(title)}</span></div>${shot(n, alt)}</div>`);
   html = html.replace(/\{\{shot ([a-z0-9-]+) "([^"]*)"(?: "([^"]*)")?\}\}/g, (_, n, alt, cls) => shot(n, alt, cls));
+  // {{use a b c}}: screenshots the page's script shows later (copied, nothing written here).
+  html = html.replace(/\{\{use ([a-z0-9 -]+)\}\}/g, (_, names) => { for (const n of names.trim().split(/\s+/)) useShot(n); return ''; });
   html = html.replaceAll('{{root}}', root);
   const left = html.match(/\{\{[^}]*\}\}/);
   if (left) throw new Error(`${file}: unknown placeholder ${left[0]}`);
   return html;
+}
+
+
+// ---------------------------------------------------------------- interactive parts
+// Each is written out in full here, so it reads well with the script off; site.js then
+// makes it respond. The numbers come from the same site/lib modules the script uses.
+
+const ALL_MB = () => estimate(PARTS.map((p) => p.id)).total;
+const pct = (mb) => `${((mb / ALL_MB()) * 100).toFixed(1)}%`;
+
+function builderHtml() {
+  for (const p of PARTS) useShot(p.shot);
+  const on = defaultOn();
+  const est = estimate(on);
+  const has = (k) => est.pieces.some((x) => x.id === k);
+  const first = PARTS.find((p) => p.on);
+  const [light, dark] = useShot(first.shot);
+  const [w, h] = sizeOf(first.shot);
+  const sw = PARTS.map((p) => `<li><button type="button" class="sw" role="switch" aria-checked="${p.on}" data-part="${p.id}" data-shot="${p.shot}"><span>${escapeHtml(p.name)}</span><span class="switch" aria-hidden="true"></span></button></li>`).join('');
+  const bar = [`<i style="width:${pct(est.core)}"></i>`, ...Object.keys(PIECES).map((k) => `<i data-piece="${k}" style="width:${has(k) ? pct(PIECES[k].mb) : '0%'}"></i>`)].join('');
+  const legend = [`<li>Core ${est.core} MB</li>`, ...Object.entries(PIECES).map(([k, v]) => `<li data-piece="${k}"${has(k) ? '' : ' hidden'}>${escapeHtml(v.name)} ${v.mb} MB</li>`)].join('');
+  const runs = PARTS.map((p) => `<li data-runs="${p.id}"${on.includes(p.id) ? '' : ' hidden'}><b>${escapeHtml(p.name)}</b><span>${escapeHtml(p.runs)}</span></li>`).join('');
+  const alt = `${escapeHtml(first.name)} in Keeper`;
+  return `<div class="builder" data-builder>
+  <ul class="switches" aria-label="Parts of Keeper">${sw}</ul>
+  <div class="preview">
+    <div class="window"><div class="bar"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="title" data-preview-title>${escapeHtml(first.name)}</span></div>
+      <figure class="shot"><img class="only-light" data-preview="light" src="{{root}}assets/shots/${light}" width="${w}" height="${h}" alt="${alt}" loading="lazy" decoding="async"><img class="only-dark" data-preview="dark" src="{{root}}assets/shots/${dark}" width="${w}" height="${h}" alt="${alt}" loading="lazy" decoding="async"></figure></div>
+    <div class="meter" aria-live="polite">
+      <div class="num"><b data-total>About ${est.total} MB</b><small data-count>${est.count} of ${PARTS.length} parts on</small></div>
+      <div class="bar" aria-hidden="true">${bar}</div>
+      <ul class="legend">${legend}</ul>
+      <ul class="runs" aria-label="What runs"><li class="none" data-runs-none${on.length ? ' hidden' : ''}>Nothing runs. Switch a part on.</li>${runs}</ul>
+    </div>
+  </div>
+</div>`;
+}
+
+function savingsHtml() {
+  const t = totals(CATEGORIES.filter((c) => c.on).map((c) => c.id));
+  const cats = CATEGORIES.map((c) => `<li><label><input type="checkbox" value="${c.id}"${c.on ? ' checked' : ''}><span>${escapeHtml(c.name)}</span><span class="price">$${c.low}–$${c.high}</span></label></li>`).join('');
+  return `<div class="calc" data-savings>
+  <fieldset class="bare"><legend class="sr">Kinds of paid apps you use</legend><ul class="cats">${cats}</ul></fieldset>
+  <div class="total" aria-live="polite"><p>You'd pay about</p><span class="sum" data-sum>${money(t)}</span><hr><p>With Keeper</p><span class="free grad">Free</span></div>
+</div>`;
+}
+
+/** One search result row (the same markup site.js writes). */
+function resultRow(f, i) {
+  const badge = f.kind === 'screenshot' ? 'png' : f.kind.slice(0, 4);
+  return `<li style="--i:${i}"><span class="kind ${f.kind}" aria-hidden="true">${escapeHtml(badge)}</span><span class="t"><span class="name">${escapeHtml(f.name)}</span><span class="meta">${escapeHtml(f.why)} · ${escapeHtml(ago(f.days))} · ${escapeHtml(fileSize(f.mb))}</span></span></li>`;
+}
+
+function searchHtml() {
+  const q = PRESETS[0];
+  const chips = PRESETS.map((p, i) => `<button type="button" aria-pressed="${i === 0}">${escapeHtml(p)}</button>`).join('');
+  return `<div class="sdemo" data-search>
+  <label class="sfield"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="m20 20-4-4" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg><span class="sr">Try a search</span><input type="search" value="${escapeHtml(q)}" autocomplete="off" spellcheck="false"></label>
+  <div class="chips" role="group" aria-label="Try these">${chips}</div>
+  <ul class="sres" aria-live="polite" aria-label="Results">${search(q).map(resultRow).join('')}</ul>
+</div>`;
+}
+
+function lidHtml() {
+  return `<ol class="lid-steps" data-lid-steps>${lidSteps({ keeperReady: true, pluggedIn: true }).map((s) => `<li>${escapeHtml(s.text)}</li>`).join('')}</ol>`;
 }
 
 // ---------------------------------------------------------------- build
@@ -149,14 +235,24 @@ function build() {
     let b = body;
     b = b.replace('{{changelog}}', () => changelogHtml(list));
     b = b.replaceAll('{{latest}}', escapeHtml(latest?.version ?? ''));
+    b = b.replace('{{builder}}', builderHtml).replace('{{savings}}', savingsHtml).replace('{{search-demo}}', searchHtml).replace('{{lid-steps}}', lidHtml);
     const html = render(layout, meta, b, f);
     write(meta.out ?? `${meta.path ?? ''}index.html`, html);
   }
 
-  // Assets: the stylesheet, script and icons; screenshots the pages use.
-  for (const f of readdirSync(path.join(SITE, 'assets'))) {
-    cpSync(path.join(SITE, 'assets', f), path.join(OUT, 'assets', f));
-    written.push(`assets/${f}`);
+  // Assets: the stylesheet, script, pictures and preview images; screenshots the pages use.
+  const copyDir = (from, to) => {
+    for (const e of readdirSync(from, { withFileTypes: true })) {
+      if (e.isDirectory()) { copyDir(path.join(from, e.name), `${to}/${e.name}`); continue; }
+      cpSync(path.join(from, e.name), path.join(OUT, to, e.name));
+      written.push(`${to}/${e.name}`);
+    }
+  };
+  copyDir(path.join(SITE, 'assets'), 'assets');
+  // The interactive parts' logic (site/lib, tested in test/site.test.ts); markdown.mjs is for the build only.
+  for (const f of readdirSync(path.join(SITE, 'lib')).filter((n) => n.endsWith('.mjs') && n !== 'markdown.mjs')) {
+    cpSync(path.join(SITE, 'lib', f), path.join(OUT, 'assets/lib', f));
+    written.push(`assets/lib/${f}`);
   }
   cpSync(path.join(ROOT, 'public/favicon.svg'), path.join(OUT, 'assets/keeper.svg'));
   written.push('assets/keeper.svg');

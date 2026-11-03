@@ -1,12 +1,13 @@
 <!--
 path: monorail/
 title: Keeper + Monorail
-description: Keeper and Monorail, Ashforde's scrolling window manager, work together on a Mac: one Stay Awake, closed-lid mode handed to Keeper, and Keeper's panels left alone.
+og: monorail
+description: Keeper and Monorail, Ashforde's scrolling window manager for Mac: Keeper's panels stay put, one Stay Awake, and a closed-lid session handed over safely. All on your Mac.
 -->
 <div class="wrap page-head">
   <p class="kicker">Keeper + Monorail</p>
-  <h1>Two Ashforde apps that <span class="grad">know about each other</span>.</h1>
-  <p class="lede">Monorail is Ashforde's scrolling window manager for Mac: every window gets a place on a strip that runs past the screen edges, so new windows slide in without squeezing the others. With Keeper on the same Mac, the two never get in each other's way.</p>
+  <h1>Two Mac apps. <span class="grad">One calm Mac.</span></h1>
+  <p class="lede">Each works on its own. Together they keep out of each other's way and share one Stay Awake.</p>
   <div class="cta" style="justify-content:flex-start">
     <a class="btn primary" href="https://monorail.ashforde.org/keeper/">Monorail's page about Keeper</a>
     <a class="btn ghost" href="https://monorail.ashforde.org/">About Monorail</a>
@@ -14,44 +15,139 @@ description: Keeper and Monorail, Ashforde's scrolling window manager, work toge
 </div>
 
 <div class="wrap">
-  <div class="grid">
-    <div class="card">
-      <span class="ic" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M3 12h3M18 12h3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="12" r="4.5" fill="none" stroke="currentColor" stroke-width="2"/></svg></span>
-      <h3>One Stay Awake</h3>
-      <p>Start Stay Awake in either app and only one of them keeps the Mac awake, never both. While Keeper runs, Monorail hands the job to Keeper's Keep Awake and says so.</p>
-      <p>When Keeper starts a session and Monorail already has one you started, Keeper takes it over and tells you.</p>
+  <figure class="mono-illus reveal" aria-labelledby="illus-cap">
+    <div class="laptop">
+      <div class="lid"><div class="screen strip-scene">
+        <div class="rail" aria-hidden="true"><span class="win w1"><i></i></span><span class="win w2"><i></i></span><span class="win w3"><i></i></span><span class="win w4"><i></i></span><span class="win w5"><i></i></span></div>
+        <div class="slider-bar" aria-hidden="true"><i></i><i class="on"></i><i></i><i></i><i></i></div>
+        <div class="stay island-crop">{{shot island-expanded "Keeper's Island, open at the top of the screen"}}</div>
+      </div></div>
+      <div class="base" aria-hidden="true"></div>
     </div>
-    <div class="card">
-      <span class="ic" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M2 19h20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
-      <h3>Lid closed, safely</h3>
-      <p>Monorail can hand a closed-lid session to Keeper, which keeps a MacBook running with the lid shut. Same rules in both apps: only while plugged in, and off when it gets hot or in Low Power Mode.</p>
-      <p>If Keeper can't (setup missing, or permission refused), it starts nothing and says why, and Monorail keeps the Mac awake itself.</p>
-    </div>
-    <div class="card">
-      <span class="ic" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="5" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><rect x="3" y="11" width="8" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="13" y="11" width="8" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2"/></svg></span>
-      <h3>Keeper's panels left alone</h3>
-      <p>Monorail never tiles, moves or pushes off screen the Island, the clipboard picker, widgets, the wallpaper, Stage and Keeper's other panels. Keeper's main window still tiles like any other window.</p>
-    </div>
-    <div class="card">
-      <span class="ic" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7.5V12l3 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg></span>
-      <h3>Focus and presenting, in step</h3>
-      <p>A Focus session in Keeper switches on Monorail's Focus mode, and the other way round. Stage switches on Monorail's presentation mode, so its notices stay out of recordings.</p>
-    </div>
-    <div class="card">
-      <span class="ic" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M7 10h2M11 10h2M15 10h2M8 14h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
-      <h3>No shortcut clashes</h3>
-      <p>Keeper compares its keyboard shortcuts with Monorail's. When two clash, it suggests a free key and changes Keeper's with one click; Monorail's keys are never changed.</p>
-    </div>
-    <div class="card">
-      <span class="ic" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M21 3v6h-6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-      <h3>One updater, on your Mac only</h3>
-      <p>Keeper can install Monorail, and updates it only when Monorail's own updates are off. The two talk to each other on your Mac only, and nothing about your windows or files leaves it.</p>
-    </div>
-  </div>
+    <figcaption id="illus-cap" class="illus">Illustration: Monorail's windows slide along the strip. Keeper's Island stays put.</figcaption>
+  </figure>
 </div>
 
-<div class="wrap prose">
-  <h2 id="setup">Turning it on</h2>
-  <p>Nothing to set up. Keeper's panels are left alone whether or not you change anything. The rest uses the <b>Monorail</b> switch in Keeper → Settings → Features, which turns on by itself the first time Keeper finds Monorail installed. If you turn it off, Keeper never turns it back on.</p>
-  <p>The hand-overs need Monorail 1.7.9 or later. With an older Monorail, Keeper still keeps its panels out of the way. Every detail, for the curious: <a href="https://github.com/ashfordeOU/keeper/blob/main/docs/KEEPER-MONORAIL.md">KEEPER-MONORAIL.md</a>.</p>
+<section class="wrap" id="side-by-side" aria-labelledby="sbs-title">
+  <div class="head reveal">
+    <p class="kicker">Side by side</p>
+    <h2 id="sbs-title">What each one does.</h2>
+  </div>
+  <div class="pair">
+    <article class="app-card reveal">
+      <div class="who"><img src="{{root}}assets/keeper.svg" width="44" height="44" alt=""><b>Keeper</b></div>
+      <ul><li>Files, mail, notes and more</li><li>The Island at the notch</li><li>Keep Awake, even lid closed</li></ul>
+      {{shot home "Keeper's Home: free space, the library by kind and recent downloads"}}
+    </article>
+    <article class="app-card reveal">
+      <div class="who"><img src="{{root}}assets/monorail/icon.webp" width="44" height="44" alt=""><b>Monorail</b></div>
+      <ul><li>Windows side by side on one strip</li><li>Workspaces, pairs and layouts</li><li>Stay Awake from the menu bar</li></ul>
+      <figure class="shot"><img src="{{root}}assets/monorail/strip.webp" width="1270" height="760" alt="Monorail: windows side by side on one strip that runs past the screen edges" loading="lazy" decoding="async"></figure>
+    </article>
+  </div>
+</section>
+
+<section class="wrap" id="together" aria-labelledby="together-title">
+  <div class="head reveal">
+    <p class="kicker">Together</p>
+    <h2 id="together-title">They know about each other.</h2>
+  </div>
+  <div class="grid">
+    <div class="card reveal"><span class="ic" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="5" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><rect x="3" y="11" width="8" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="13" y="11" width="8" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2"/></svg></span><h3>Keeper's panels stay put</h3><p>The Island, widgets and Quick Search are never moved.</p></div>
+    <div class="card reveal"><span class="ic" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M3 12h3M18 12h3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="12" r="4.5" fill="none" stroke="currentColor" stroke-width="2"/></svg></span><h3>One Stay Awake</h3><p>Only one app keeps the Mac awake. Never both.</p></div>
+    <div class="card reveal"><span class="ic" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M2 19h20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span><h3>Lid closed, handed over</h3><p>Only when Keeper can take it without a password.</p></div>
+    <div class="card reveal"><span class="ic" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7.5V12l3 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg></span><h3>Focus in step</h3><p>Focus or present in one, and the other follows.</p></div>
+    <div class="card reveal"><span class="ic" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M7 10h2M11 10h2M15 10h2M8 14h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span><h3>No shortcut clashes</h3><p>Keeper spots a clash and suggests a free key.</p></div>
+    <div class="card reveal"><span class="ic" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M7 9h10M7 13h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span><h3>Each shows the other</h3><p>Monorail's menu shows when Keeper keeps your Mac awake.</p></div>
+  </div>
+</section>
+
+<section class="wrap" id="how" aria-labelledby="how-title">
+  <div class="head reveal">
+    <p class="kicker">How they talk</p>
+    <h2 id="how-title">On your Mac. No server.</h2>
+  </div>
+  <figure class="diagram reveal" aria-labelledby="diagram-cap">
+    <svg viewBox="0 0 960 430" role="img" aria-labelledby="diagram-title diagram-desc">
+      <title id="diagram-title">How Keeper and Monorail talk</title>
+      <desc id="diagram-desc">Both apps run on your Mac. Keeper says hello to Monorail and tells it whether Keeper keeps the Mac awake. Monorail hands Stay Awake to Keeper. When the lid closes, Monorail asks Keeper to take over and waits for a yes or no. Keeper installs and updates Monorail.</desc>
+      <defs>
+        <linearGradient id="gk" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6B3DFF"/><stop offset="1" stop-color="#C9357A"/></linearGradient>
+        <linearGradient id="gm" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3A2A6E"/><stop offset="1" stop-color="#C2456E"/></linearGradient>
+        <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="#6B3DFF"/></marker>
+      </defs>
+      <rect class="d-mac" x="14" y="14" width="932" height="402" rx="26"/>
+      <text class="d-sm" x="40" y="46">Your Mac</text>
+      <rect class="d-k" x="50" y="70" width="250" height="300" rx="22"/>
+      <text class="d-w" x="78" y="112" style="font-size:22px">Keeper</text>
+      <text class="d-w" x="78" y="150" style="font-weight:500">The Island and panels</text>
+      <text class="d-w" x="78" y="178" style="font-weight:500">Keep Awake</text>
+      <text class="d-w" x="78" y="206" style="font-weight:500">Lid-closed mode</text>
+      <text class="d-w" x="78" y="234" style="font-weight:500">Installs Monorail</text>
+      <rect class="d-m" x="660" y="70" width="250" height="300" rx="22"/>
+      <text class="d-w" x="688" y="112" style="font-size:22px">Monorail</text>
+      <text class="d-w" x="688" y="150" style="font-weight:500">Windows on a strip</text>
+      <text class="d-w" x="688" y="178" style="font-weight:500">Stay Awake</text>
+      <text class="d-w" x="688" y="206" style="font-weight:500">Leaves Keeper's</text>
+      <text class="d-w" x="688" y="230" style="font-weight:500">panels alone</text>
+      <path class="d-line" d="M310 120H650" marker-end="url(#ah)"/>
+      <text x="480" y="108" text-anchor="middle">Hello: I'm here, I keep it awake</text>
+      <path class="d-line" d="M650 180H310" marker-end="url(#ah)"/>
+      <text x="480" y="168" text-anchor="middle">Stay Awake started: over to you</text>
+      <path class="d-line" d="M650 240H310" marker-end="url(#ah)"/>
+      <text x="480" y="228" text-anchor="middle">Lid closed: can you take it?</text>
+      <path class="d-line" d="M310 270H650" marker-end="url(#ah)"/>
+      <text x="480" y="292" text-anchor="middle">Yes, or no and why</text>
+      <path class="d-dash" d="M310 340H650" marker-end="url(#ah)"/>
+      <text class="d-sm" x="480" y="330" text-anchor="middle">Install and update</text>
+      <text class="d-sm" x="480" y="398" text-anchor="middle">Nothing about your windows or files leaves the Mac.</text>
+    </svg>
+    <figcaption id="diagram-cap">Monorail waits for Keeper's answer. If Keeper can't, Monorail keeps the Mac awake itself.</figcaption>
+  </figure>
+</section>
+
+<section class="wrap" id="lid" aria-labelledby="lid-title">
+  <div class="head reveal">
+    <p class="kicker">Try it</p>
+    <h2 id="lid-title">Close the lid. Nothing drops.</h2>
+    <p class="sub">Press Play. Change the switches to see what happens.</p>
+  </div>
+  <div class="lid-demo reveal" data-lid>
+    <div>
+      <div class="mac" aria-hidden="true"><div class="m-lid"><div class="m-scr"></div></div><div class="m-base"></div></div>
+      <div class="holder" aria-hidden="true"><span data-who="monorail">Monorail</span><span data-who="keeper">Keeper</span><span class="none" data-who="none">Asleep</span></div>
+    </div>
+    <div>
+      {{lid-steps}}
+      <div class="lid-opts">
+        <label><input type="checkbox" name="ready" checked> Keeper is set up for lid closed</label>
+        <label><input type="checkbox" name="plugged" checked> Plugged in</label>
+      </div>
+      <p style="margin:18px 0 0"><button type="button" class="btn primary small" data-lid-play>Play</button></p>
+    </div>
+  </div>
+  <p class="fine">Shared rules: plugged in only unless you choose otherwise, a 20% battery floor, and it stops if the Mac gets hot or Low Power Mode is on. Lid-closed hand-over is in Monorail's download version.</p>
+</section>
+
+<section class="wrap" id="setup" aria-labelledby="setup-title">
+  <div class="head reveal">
+    <p class="kicker">Set them up together</p>
+    <h2 id="setup-title">Three steps.</h2>
+  </div>
+  <ol class="steps shots">
+    <li class="reveal"><div><h3>Get Keeper</h3><p>Download it for your Mac. <a href="{{root}}download/">Download</a></p></div>{{win home "Keeper's Home after install" "Keeper"}}</li>
+    <li class="reveal"><div><h3>Switch on Monorail in Keeper</h3><p>In Features, turn on Monorail. Keeper installs it.</p></div>{{win features "Keeper's Features page, with a switch for every part" "Features"}}</li>
+    <li class="reveal"><div><h3>Let Monorail arrange windows</h3><p>Allow Accessibility when your Mac asks. The two find each other.</p></div><div class="window"><div class="bar"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="title">Monorail</span></div><figure class="shot"><img src="{{root}}assets/monorail/menu.svg" width="1280" height="520" alt="Monorail's menu: the panel that hangs under its menu bar icon" loading="lazy" decoding="async"></figure></div></li>
+  </ol>
+  <p class="fine">Already have Monorail? Keeper finds it and connects. Hand-overs need Monorail 1.7.9 or later.</p>
+</section>
+
+<div class="wrap">
+  <section class="closing" aria-labelledby="closing-title">
+    <h2 id="closing-title">Better together.</h2>
+    <div class="cta">
+      <a class="btn primary" href="{{root}}download/">Download Keeper</a>
+      <a class="btn ghost" href="https://monorail.ashforde.org/">Get Monorail</a>
+    </div>
+  </section>
 </div>

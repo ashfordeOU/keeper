@@ -72,6 +72,38 @@ Places & Tracks can show an online map and look up place names; both are off unt
 
 The offline world outline used by Network Activity and Places & Tracks comes from [Natural Earth](https://www.naturalearthdata.com) (public domain), simplified and rounded to 0.1°.
 
+### Device frames on Keeper's website (MIT)
+
+The laptop, monitor, window and phone frames on keeper.ashforde.org (`site/assets/site.css`) are hand-written CSS adapted from the laptop, browser and phone mockups of [opensource-ui](https://opensourceui.in) (<https://github.com/bidyut10/opensourceui>), © 2026 Bidyut Kundu, under the MIT License. They are not part of the Keeper app, and the website loads nothing from that site.
+
+<details><summary>MIT License (opensource-ui)</summary>
+
+````text
+MIT License
+
+Copyright (c) 2026 Bidyut Kundu
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+````
+
+</details>
+
 ### KaTeX and its fonts (MIT, SIL OFL 1.1)
 
 Maths in notes is drawn with [KaTeX](https://katex.org) 0.19.1 (MIT, © Khan Academy and other contributors). The KaTeX fonts (`KaTeX_*.woff2`, `.woff`, `.ttf`) come from <https://github.com/KaTeX/katex-fonts>, are © 2009-2010 Design Science, Inc. and © 2014-2018 Khan Academy, and are licensed under the SIL Open Font License, Version 1.1. They are used unchanged.

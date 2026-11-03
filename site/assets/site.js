@@ -1,8 +1,19 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
-// Keeper's website: colour scheme, the small-screen menu, copy buttons, and download links
-// that point at the newest release with a file for this computer (as scripts/install.sh picks
-// it: a version can come out for macOS first, so this is not simply GitHub's latest release).
+// Keeper's website: color scheme, the small-screen menu, copy buttons, download links that
+// point at the newest release with a file for this computer (as scripts/install.sh picks it:
+// a version can come out for macOS first, so this is not simply GitHub's latest release), and
+// the interactive parts (their logic is in site/lib, tested in test/site.test.ts).
 // No tracking: the only request is to GitHub's public release list, kept for ten minutes.
+// Every interactive part is written out in the page, so it reads well without this script,
+// and motion stops under prefers-reduced-motion.
+import { PARTS, PIECES, estimate } from './lib/parts.mjs';
+import { money, totals } from './lib/savings.mjs';
+import { ago, search, size } from './lib/search-demo.mjs';
+import { fromKey, fromPointer } from './lib/slider.mjs';
+import { battery, clock, startsIn, tick } from './lib/island.mjs';
+import { lidSteps } from './lib/lid.mjs';
+
+window.keeperSite = true;
 (() => {
   'use strict';
   const REPO = 'ashfordeOU/keeper';
@@ -10,7 +21,7 @@
   const LIST = `https://api.github.com/repos/${REPO}/releases?per_page=50`;
   const root = document.documentElement;
 
-  // ---------------------------------------------------------------- colour scheme
+  // ---------------------------------------------------------------- color scheme
   const store = {
     get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
     set(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { /* private window */ } },
@@ -108,17 +119,14 @@
     return pending;
   }
 
-  /** The newest stable release with the file; when none has it yet, the newest beta with it. */
+  /** The newest release with the file (test builds marked as pre-releases are never offered). */
   function newestWith(list, name) {
-    const find = (beta) => {
-      for (const rel of list) {
-        if (rel.pre && !beta) continue;
-        const a = rel.assets.find((x) => x.n === name);
-        if (a) return { rel, url: a.u, size: a.s };
-      }
-      return null;
-    };
-    return find(false) || find(true);
+    for (const rel of list) {
+      if (rel.pre) continue;
+      const a = rel.assets.find((x) => x.n === name);
+      if (a) return { rel, url: a.u, size: a.s };
+    }
+    return null;
   }
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
   const mb = (n) => (n ? `${Math.round(n / 1048576)} MB` : '');
@@ -146,13 +154,13 @@
     }
     label.textContent = `Download for ${NAME[os]}`;
     sub.textContent = ARCH[os][arch];
-    btn.href = RELEASES;
+    btn.href = allLink;
     try {
       const list = await releases();
       const hit = newestWith(list, FILE[os][arch]);
-      if (!hit) throw new Error('no release has this file yet');
+      if (!hit) { sub.textContent = `${ARCH[os][arch]} · coming soon`; return; }
       btn.href = hit.url;
-      sub.textContent = [ARCH[os][arch], `version ${ver(hit.rel.tag)}`, mb(hit.size)].filter(Boolean).join(' · ');
+      sub.textContent = [ARCH[os][arch], mb(hit.size)].filter(Boolean).join(' · ');
       const bits = [];
       // Mac builds are signed with Ashforde's Developer ID and notarized from 1.0.0.
       if (os === 'mac' && notarized(hit.rel)) bits.push('Signed and notarized by Apple');
@@ -186,13 +194,13 @@
       for (const a of links) {
         const hit = newestWith(list, a.dataset.asset);
         const info = a.querySelector('span');
-        if (!hit) { if (info) info.textContent = 'not released yet'; continue; }
+        if (!hit) { if (info) info.textContent = 'coming soon'; continue; }
         a.href = hit.url;
         if (info) info.textContent = [mb(hit.size), ver(hit.rel.tag)].filter(Boolean).join(' · ');
       }
       if (line) {
         const main = FILE[here.os] ? newestWith(list, FILE[here.os][here.arch]) : null;
-        const rel = main ? main.rel : (list.find((r) => !r.pre) || list[0]);
+        const rel = main ? main.rel : list.find((r) => !r.pre);
         if (rel) {
           const sums = assetUrl(rel, 'SHA256SUMS.txt');
           const sig = assetUrl(rel, 'SHA256SUMS.txt.sigstore.json');
@@ -205,6 +213,291 @@
       if (line) { line.innerHTML = `Couldn't reach GitHub just now; every file is on the <a href="${RELEASES}">Releases page</a>.`; line.hidden = false; }
     }
   }
+
+
+  // ================================================================ interactive parts
+  const calm = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const base = new URL('./', import.meta.url).href; // …/assets/
+
+  // ---------------------------------------------------------------- scroll reveal
+  function reveal() {
+    const items = document.querySelectorAll('.reveal');
+    if (!items.length) return;
+    if (calm.matches || !('IntersectionObserver' in window)) { for (const el of items) el.classList.add('in'); return; }
+    const io = new IntersectionObserver((entries) => {
+      for (const e of entries) if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+    }, { rootMargin: '0px 0px -8% 0px', threshold: 0.08 });
+    for (const el of items) io.observe(el);
+  }
+
+  // ---------------------------------------------------------------- build your Keeper
+  function builder() {
+    const box = document.querySelector('[data-builder]');
+    if (!box) return;
+    const all = estimate(PARTS.map((p) => p.id)).total;
+    const imgs = { light: box.querySelector('[data-preview="light"]'), dark: box.querySelector('[data-preview="dark"]') };
+    const title = box.querySelector('[data-preview-title]');
+    const shotFile = (name, theme) => `${base}shots/${name}-${theme}.webp`;
+    const show = (part) => {
+      if (!part) return;
+      title.textContent = part.name;
+      for (const t of ['light', 'dark']) {
+        const img = imgs[t];
+        if (!img || img.dataset.shot === part.shot) continue;
+        img.dataset.shot = part.shot;
+        const swap = () => { img.src = shotFile(part.shot, t); img.alt = `${part.name} in Keeper`; img.classList.remove('swap'); };
+        if (calm.matches) swap(); else { img.classList.add('swap'); setTimeout(swap, 180); }
+      }
+    };
+    const update = (lastId) => {
+      const on = [...box.querySelectorAll('.sw[aria-checked="true"]')].map((b) => b.dataset.part);
+      const est = estimate(on);
+      box.querySelector('[data-total]').textContent = `About ${est.total} MB`;
+      box.querySelector('[data-count]').textContent = `${est.count} of ${PARTS.length} parts on`;
+      for (const k of Object.keys(PIECES)) {
+        const has = est.pieces.some((p) => p.id === k);
+        const bar = box.querySelector(`.bar i[data-piece="${k}"]`);
+        if (bar) bar.style.width = has ? `${(PIECES[k].mb / all) * 100}%` : '0%';
+        const leg = box.querySelector(`.legend li[data-piece="${k}"]`);
+        if (leg) leg.hidden = !has;
+      }
+      for (const li of box.querySelectorAll('[data-runs]')) li.hidden = !on.includes(li.dataset.runs);
+      box.querySelector('[data-runs-none]').hidden = on.length > 0;
+      if (lastId && on.includes(lastId)) show(PARTS.find((p) => p.id === lastId));
+      else if (lastId) show(PARTS.find((p) => on.includes(p.id)));
+    };
+    for (const b of box.querySelectorAll('.sw')) {
+      b.addEventListener('click', () => {
+        b.setAttribute('aria-checked', String(b.getAttribute('aria-checked') !== 'true'));
+        update(b.dataset.part);
+      });
+    }
+  }
+
+  // ---------------------------------------------------------------- try the Island
+  function island() {
+    const stage = document.querySelector('[data-island]');
+    if (!stage) return;
+    const mock = stage.querySelector('.isl-mock');
+    const pill = stage.querySelector('.isl-pill');
+    const q = (k) => stage.querySelector(`[data-isl-${k}]`);
+    const SONGS = [
+      { title: 'Morning Light', who: 'Ana Sol · Coast', length: 214, lyric: 'Every small thing has a place after all' },
+      { title: 'Tidewater', who: 'Ana Sol · Coast', length: 262, lyric: 'The water knows the way back home' },
+    ];
+    let state = { playing: true, song: 42, length: SONGS[0].length, track: 0, timer: 25 * 60, timerOn: false, meeting: 12 };
+    const hover = window.matchMedia('(hover: hover)');
+    const setOpen = (open, focus) => {
+      mock.classList.toggle('open', open);
+      pill.setAttribute('aria-expanded', String(open));
+      if (open && focus) q('play').focus();
+      if (!open && focus) pill.focus();
+    };
+    const paint = () => {
+      const s = SONGS[state.track];
+      stage.querySelector('.music b').textContent = s.title;
+      stage.querySelector('.music .muted').textContent = s.who;
+      stage.querySelector('.isl-pill .l span:last-child').textContent = s.title;
+      q('lyric').textContent = s.lyric;
+      q('pos').textContent = clock(state.song);
+      q('len').textContent = clock(state.length);
+      q('scrub').style.width = `${(state.song / state.length) * 100}%`;
+      q('play').setAttribute('aria-label', state.playing ? 'Pause' : 'Play');
+      q('play').querySelector('[data-icon-pause]').toggleAttribute('hidden', !state.playing);
+      q('play').querySelector('[data-icon-play]').toggleAttribute('hidden', state.playing);
+      stage.querySelector('.eq').classList.toggle('paused', !state.playing || calm.matches);
+      q('timer').textContent = clock(state.timer);
+      q('timer-btn').textContent = state.timerOn ? 'Pause' : state.timer < 25 * 60 ? 'Resume' : 'Start';
+      q('pill-right').textContent = state.timerOn || state.timer < 25 * 60 ? clock(state.timer) : '76%';
+      q('in').textContent = startsIn(state.meeting);
+      const b = battery(76);
+      q('batt').className = `batt ${b.tone}`;
+      q('batt').querySelector('i').style.width = `${b.fill * 100}%`;
+      q('batt-pct').textContent = `${b.percent}%`;
+      const d = new Date();
+      q('clock').textContent = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    };
+    pill.addEventListener('click', () => setOpen(!mock.classList.contains('open'), true));
+    q('close').addEventListener('click', () => setOpen(false, true));
+    mock.addEventListener('mouseenter', () => { if (hover.matches) setOpen(true, false); });
+    mock.addEventListener('mouseleave', () => { if (hover.matches && !mock.contains(document.activeElement)) setOpen(false, false); });
+    mock.addEventListener('keydown', (e) => { if (e.key === 'Escape' && mock.classList.contains('open')) { e.preventDefault(); setOpen(false, true); } });
+    document.addEventListener('pointerdown', (e) => { if (!mock.contains(e.target) && mock.classList.contains('open')) setOpen(false, false); });
+    q('play').addEventListener('click', () => { state.playing = !state.playing; paint(); });
+    q('prev').addEventListener('click', () => { state.song = 0; paint(); });
+    q('next').addEventListener('click', () => { state.track = (state.track + 1) % SONGS.length; state.length = SONGS[state.track].length; state.song = 0; state.playing = true; paint(); });
+    q('timer-btn').addEventListener('click', () => { if (state.timer === 0) state.timer = 25 * 60; state.timerOn = !state.timerOn; paint(); });
+    q('join').addEventListener('click', () => {
+      const j = q('join');
+      const joined = j.classList.toggle('joined');
+      j.textContent = joined ? 'Joined' : 'Join';
+    });
+    // The clock runs only while the Island is on screen.
+    let timer = 0;
+    const run = (on) => {
+      clearInterval(timer);
+      if (on) timer = setInterval(() => { state = tick(state, 1); paint(); }, 1000);
+    };
+    // It opens by itself the first time it comes into view, to show what's inside.
+    let shown = false;
+    if ('IntersectionObserver' in window) {
+      new IntersectionObserver((es) => {
+        const on = es[0].isIntersecting;
+        run(on);
+        if (on && !shown) { shown = true; setTimeout(() => setOpen(true, false), calm.matches ? 0 : 700); }
+      }, { threshold: 0.5 }).observe(stage);
+    }
+    paint();
+  }
+
+  // ---------------------------------------------------------------- search demo
+  function searchDemo() {
+    const box = document.querySelector('[data-search]');
+    if (!box) return;
+    const input = box.querySelector('input');
+    const list = box.querySelector('.sres');
+    const chips = box.querySelectorAll('.chips button');
+    const row = (f, i) => {
+      const li = document.createElement('li');
+      li.style.setProperty('--i', String(i));
+      li.innerHTML = `<span class="kind ${esc(f.kind)}" aria-hidden="true">${esc(f.kind === 'screenshot' ? 'png' : f.kind.slice(0, 4))}</span><span class="t"><span class="name">${esc(f.name)}</span><span class="meta">${esc(f.why)} · ${esc(ago(f.days))} · ${esc(size(f.mb))}</span></span>`;
+      return li;
+    };
+    let last = input.value;
+    const run = () => {
+      const q = input.value;
+      if (q === last && list.children.length) return;
+      last = q;
+      const hits = search(q);
+      list.replaceChildren(...(hits.length ? hits.map(row) : [Object.assign(document.createElement('li'), { className: 'empty', textContent: q.trim() ? 'Nothing in the demo files. Try a suggestion.' : 'Type a search, or pick one.' })]));
+      for (const c of chips) c.setAttribute('aria-pressed', String(c.textContent === q));
+    };
+    let t = 0;
+    input.addEventListener('input', () => { clearTimeout(t); t = setTimeout(run, 140); });
+    for (const c of chips) c.addEventListener('click', () => { input.value = c.textContent; run(); });
+  }
+
+  // ---------------------------------------------------------------- before and after
+  function sliders() {
+    for (const box of document.querySelectorAll('[data-compare]')) {
+      const range = box.querySelector('input[type="range"]');
+      const set = (v) => { box.style.setProperty('--pos', `${v}%`); range.value = String(v); range.setAttribute('aria-valuetext', `${Math.round(v)}% light`); };
+      range.addEventListener('input', () => set(Number(range.value)));
+      range.addEventListener('keydown', (e) => {
+        const v = fromKey(Number(range.value), e.key, e.shiftKey);
+        if (v == null) return;
+        e.preventDefault();
+        set(v);
+      });
+      // Dragging anywhere on the picture (mouse, pen or a finger moving sideways).
+      let dragging = false;
+      box.addEventListener('pointerdown', (e) => { dragging = true; box.setPointerCapture(e.pointerId); const r = box.getBoundingClientRect(); set(fromPointer(e.clientX, r.left, r.width)); });
+      box.addEventListener('pointermove', (e) => { if (!dragging) return; const r = box.getBoundingClientRect(); set(fromPointer(e.clientX, r.left, r.width)); });
+      const stop = () => { dragging = false; };
+      box.addEventListener('pointerup', stop);
+      box.addEventListener('pointercancel', stop);
+      set(Number(range.value));
+    }
+  }
+
+  // ---------------------------------------------------------------- theme switcher
+  function themes() {
+    const box = document.querySelector('[data-themes]');
+    if (!box) return;
+    const tabs = [...box.querySelectorAll('[role="tab"]')];
+    const img = box.querySelector('[data-theme-img]');
+    const panel = box.querySelector('[role="tabpanel"]');
+    const pick = (tab, focus) => {
+      for (const t of tabs) { const on = t === tab; t.setAttribute('aria-selected', String(on)); t.tabIndex = on ? 0 : -1; }
+      panel.setAttribute('aria-labelledby', tab.id);
+      if (focus) tab.focus();
+      const swap = () => { img.src = tab.dataset.src; img.alt = `Keeper's Home in the ${tab.dataset.name} theme`; img.classList.remove('swap'); };
+      if (calm.matches) swap(); else { img.classList.add('swap'); setTimeout(swap, 200); }
+    };
+    tabs.forEach((t, i) => {
+      t.addEventListener('click', () => pick(t, false));
+      t.addEventListener('keydown', (e) => {
+        const n = { ArrowRight: i + 1, ArrowDown: i + 1, ArrowLeft: i - 1, ArrowUp: i - 1, Home: 0, End: tabs.length - 1 }[e.key];
+        if (n == null) return;
+        e.preventDefault();
+        pick(tabs[(n + tabs.length) % tabs.length], true);
+      });
+    });
+  }
+
+  // ---------------------------------------------------------------- what you'd otherwise pay
+  function savings() {
+    const box = document.querySelector('[data-savings]');
+    if (!box) return;
+    const sum = box.querySelector('[data-sum]');
+    const update = () => { sum.textContent = money(totals([...box.querySelectorAll('input:checked')].map((i) => i.value))); };
+    box.addEventListener('change', update);
+    update();
+  }
+
+  // ---------------------------------------------------------------- Keeper + Monorail: the lid
+  function lidDemo() {
+    const box = document.querySelector('[data-lid]');
+    if (!box) return;
+    const mac = box.querySelector('.mac');
+    const list = box.querySelector('[data-lid-steps]');
+    const who = { keeper: box.querySelector('[data-who="keeper"]'), monorail: box.querySelector('[data-who="monorail"]'), none: box.querySelector('[data-who="none"]') };
+    const btn = box.querySelector('[data-lid-play]');
+    const opts = { ready: box.querySelector('[name="ready"]'), plugged: box.querySelector('[name="plugged"]') };
+    let timer = 0;
+    let steps = [];
+    const show = (i) => {
+      const s = steps[i];
+      [...list.children].forEach((li, n) => { li.classList.toggle('now', n === i); li.classList.toggle('done', n < i); });
+      mac.classList.toggle('closed', s.lid === 'closed');
+      for (const [k, el] of Object.entries(who)) if (el) el.classList.toggle('on', k === s.who);
+    };
+    const render = () => {
+      steps = lidSteps({ keeperReady: opts.ready.checked, pluggedIn: opts.plugged.checked });
+      list.replaceChildren(...steps.map((s) => Object.assign(document.createElement('li'), { textContent: s.text })));
+    };
+    const play = () => {
+      clearTimeout(timer);
+      render();
+      list.classList.add('playing');
+      let i = 0;
+      const next = () => { show(i); i += 1; if (i < steps.length) timer = setTimeout(next, calm.matches ? 1400 : 1800); else btn.textContent = 'Play again'; };
+      btn.textContent = 'Playing…';
+      next();
+    };
+    btn.addEventListener('click', play);
+    for (const o of Object.values(opts)) o.addEventListener('change', () => { clearTimeout(timer); render(); list.classList.remove('playing'); mac.classList.remove('closed'); for (const el of Object.values(who)) el?.classList.remove('on'); btn.textContent = 'Play'; });
+    render();
+  }
+
+  // ---------------------------------------------------------------- features: where you are
+  function featureNav() {
+    const nav = document.querySelector('.feat-nav');
+    if (!nav || !('IntersectionObserver' in window)) return;
+    const links = new Map([...nav.querySelectorAll('a')].map((a) => [a.getAttribute('href').slice(1), a]));
+    const seen = new Map();
+    const io = new IntersectionObserver((entries) => {
+      for (const e of entries) seen.set(e.target.id, e.isIntersecting ? e.intersectionRatio : 0);
+      const best = [...links.keys()].find((id) => (seen.get(id) || 0) > 0);
+      if (!best) return;
+      for (const [id, a] of links) {
+        const on = id === best;
+        a.classList.toggle('on', on);
+        if (on) { a.setAttribute('aria-current', 'location'); if (window.matchMedia('(max-width: 900px)').matches) a.scrollIntoView({ block: 'nearest', inline: 'center', behavior: calm.matches ? 'auto' : 'smooth' }); } else a.removeAttribute('aria-current');
+      }
+    }, { rootMargin: '-120px 0px -55% 0px', threshold: [0, 0.01] });
+    for (const id of links.keys()) { const el = document.getElementById(id); if (el) io.observe(el); }
+  }
+
+  reveal();
+  builder();
+  island();
+  searchDemo();
+  sliders();
+  themes();
+  savings();
+  lidDemo();
+  featureNav();
 
   heroButton();
   fileLinks();
