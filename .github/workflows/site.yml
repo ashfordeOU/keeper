@@ -1,0 +1,95 @@
+# SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
+# Builds Keeper's website from site/ (plus README.md, CHANGELOG.md, docs/ and the
+# screenshots in docs/screenshots) and publishes it to the root of the gh-pages branch,
+# which GitHub Pages serves at https://ashfordeou.github.io/keeper/.
+#
+# One-time setup: Settings → Pages → Build and deployment → Source: "Deploy from a branch",
+# Branch: gh-pages, folder: / (root).
+#
+# gh-pages is shared with release.yml's pages job, which puts the dnf repository (rpm/) and
+# the signing key (keeper-release.asc) there. This workflow never touches those: it removes
+# only the files its previous build listed in .site-files, copies the new build in, and
+# commits. Both jobs use the "gh-pages" concurrency group, so they never push at once.
+# The commit is made as ashfordeOU and signed with COMMIT_SIGNING_KEY, like release.yml's
+# pages job, so gh-pages stays Verified; without the secret nothing is published.
+#
+# Pushes made with the workflow token start no workflows, so sign-and-land.yml (which moves
+# main) starts this one by hand when a landed change touches the site's sources.
+name: Website
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - 'README.md'
+      - 'CHANGELOG.md'
+      - 'docs/**'
+      - 'public/favicon.svg'
+      - '.github/workflows/site.yml'
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write # push to gh-pages
+
+concurrency:
+  group: gh-pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # The site always shows main (a release event would otherwise check out its tag).
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Build the website (no dependencies needed)
+        run: node site/build.mjs --out "$RUNNER_TEMP/site"
+      - name: Publish to gh-pages
+        env:
+          SITE: ${{ runner.temp }}/site
+          SIGNING_KEY: ${{ secrets.COMMIT_SIGNING_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "$SIGNING_KEY" ]; then
+            echo "::error::The COMMIT_SIGNING_KEY secret is not set: the website was built but not published."
+            exit 1
+          fi
+          source_sha="$(git rev-parse --short HEAD)"
+          if git ls-remote --exit-code --heads origin gh-pages >/dev/null; then
+            git fetch origin gh-pages && git switch gh-pages
+          else
+            git switch --orphan gh-pages
+          fi
+          # Remove what the previous build wrote (and only that), so pages that are gone
+          # disappear while rpm/ and keeper-release.asc stay as release.yml left them.
+          if [ -f .site-files ]; then
+            while IFS= read -r f; do
+              case "$f" in ''|/*|*..*|rpm|rpm/*|keeper-release.asc|KEYS|KEYS/*|.git|.git/*) continue ;; esac
+              rm -f -- "$f"
+            done < .site-files
+          fi
+          cp -R "$SITE"/. .
+          find . -mindepth 1 -depth -type d -not -path './.git' -not -path './.git/*' -empty -exec rmdir {} \;
+          git add -A
+          if git diff --cached --quiet; then
+            echo "The website on gh-pages is up to date."
+            exit 0
+          fi
+          key="$RUNNER_TEMP/signing_key"
+          install -m 600 /dev/null "$key"
+          printf '%s\n' "$SIGNING_KEY" > "$key"
+          git config user.name ashfordeOU
+          git config user.email 236818772+ashfordeOU@users.noreply.github.com
+          git config gpg.format ssh
+          git config user.signingkey "$key"
+          git commit -S -m "Website from $source_sha"
+          rm -f "$key"
+          git push origin gh-pages

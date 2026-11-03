@@ -6,7 +6,8 @@
 #                        a Signing Key on the ashfordeOU account
 #
 # A push made with the workflow's own token does not start other workflows, so this
-# one starts CI itself, and the release when the version in package.json changed.
+# one starts CI itself, the release when the version in package.json changed, and the
+# website (site.yml) when its sources changed.
 # Release jobs that commit to this repository push to incoming and start this workflow
 # (workflow_dispatch), so their commits are signed here as well.
 name: Sign and land
@@ -72,11 +73,17 @@ jobs:
           rm -f "$key"
           echo "landed=true" >> "$GITHUB_OUTPUT"
           if git diff "$old" HEAD -- package.json | grep -q '^+  "version"'; then echo "release=true" >> "$GITHUB_OUTPUT"; else echo "release=false" >> "$GITHUB_OUTPUT"; fi
+          if git diff --quiet "$old" HEAD -- site README.md CHANGELOG.md docs public/favicon.svg .github/workflows/site.yml; then echo "site=false" >> "$GITHUB_OUTPUT"; else echo "site=true" >> "$GITHUB_OUTPUT"; fi
       - name: Start CI on main
         if: steps.land.outputs.landed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh workflow run ci.yml --ref main --repo "$GITHUB_REPOSITORY"
+      - name: Start the website (its sources changed)
+        if: steps.land.outputs.landed == 'true' && steps.land.outputs.site == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run site.yml --ref main --repo "$GITHUB_REPOSITORY"
       - name: Start the release (the version changed)
         if: steps.land.outputs.release == 'true'
         env:

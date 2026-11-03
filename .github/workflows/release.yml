@@ -930,10 +930,16 @@ jobs:
 
   # The dnf repository and the public key on gh-pages (GitHub Pages). The commit is made as
   # ashfordeOU and signed here with COMMIT_SIGNING_KEY, so gh-pages stays Verified too.
+  # The website (site.yml) lives at the root of the same branch; this job only replaces
+  # rpm/ and keeper-release.asc, and shares site.yml's concurrency group so the two never
+  # push at the same time.
   pages:
     needs: release
     if: needs.release.outputs.pages == 'true' && needs.release.outputs.prerelease == 'false'
     runs-on: ubuntu-latest
+    concurrency:
+      group: gh-pages
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v5
         with:

@@ -17,12 +17,13 @@ published by GitHub Actions from `main`. A release is started by changing `"vers
 
 | Workflow | Started by | What it does |
 |---|---|---|
-| [`sign-and-land.yml`](.github/workflows/sign-and-land.yml) | a push to `incoming`, or another workflow | Signs each new commit as ashfordeOU with `COMMIT_SIGNING_KEY`, moves `main` to them, starts CI, and starts the release when the version changed |
+| [`sign-and-land.yml`](.github/workflows/sign-and-land.yml) | a push to `incoming`, or another workflow | Signs each new commit as ashfordeOU with `COMMIT_SIGNING_KEY`, moves `main` to them, starts CI, starts the release when the version changed, and the website when its sources changed |
 | [`release-check.yml`](.github/workflows/release-check.yml) | you, by hand | The gate: CI in full (type checks, unit tests, builds, performance budgets, native e2e on macOS and Windows), the release build for the systems to release without publishing (`KEEPER_REQUIRE_ALL`), and a check that every commit on `main` since the last tag is Verified and by ashfordeOU |
 | [`release.yml`](.github/workflows/release.yml) | a version change landing on `main`, a `v*` tag, or by hand | Builds, publishes the GitHub Release, then the channels (Homebrew, Scoop, winget, Chocolatey, AUR, Snap, npm, apt/dnf) for a stable release |
 | [`ci.yml`](.github/workflows/ci.yml) | every push and pull request | Tests and builds; native e2e on pushes to `main` |
 | [`resign-history.yml`](.github/workflows/resign-history.yml) | you, by hand | *Verify only* checks every branch and tag is Verified |
 | [`remove-old-releases.yml`](.github/workflows/remove-old-releases.yml) | you, by hand | Deletes old pre-releases (and, with *delete_tags*, their tags) once a stable release 1.0.0 or later is out |
+| [`site.yml`](.github/workflows/site.yml) | a change to `site/`, the README, the changelog or `docs/` landing on `main` (sign-and-land starts it), a published release, or by hand | Builds the website (`node site/build.mjs`) and publishes it to the root of `gh-pages`, signed as ashfordeOU, next to the dnf repository. Settings → Pages → Source must be *Deploy from a branch*, `gh-pages`, `/ (root)`: https://ashfordeou.github.io/keeper/ |
 
 A version with a hyphen (`1.1.0-beta.1`) is a pre-release: GitHub only, no channels, and only
 copies with betas on (or beta copies) take it. See [docs/BETA.md](docs/BETA.md).
@@ -35,7 +36,7 @@ notice** on the run's summary when its secret is missing. A missing secret never
 
 | Secret / variable | Used by | Without it |
 |---|---|---|
-| `COMMIT_SIGNING_KEY` (secret): private SSH key whose public half is a Signing Key on the ashfordeOU account | `sign-and-land.yml`; the `manifests` job (Casks/keeper.rb, bucket/keeper.json via `incoming`); the `pages` job (gh-pages, signed in the job); signs the Homebrew tap commit | Nothing lands on `main` at all; the cask/bucket and gh-pages updates are skipped |
+| `COMMIT_SIGNING_KEY` (secret): private SSH key whose public half is a Signing Key on the ashfordeOU account | `sign-and-land.yml`; the `manifests` job (Casks/keeper.rb, bucket/keeper.json via `incoming`); the `pages` job (gh-pages, signed in the job); `site.yml` (the website on gh-pages, signed the same way); signs the Homebrew tap commit | Nothing lands on `main` at all; the cask/bucket and gh-pages updates are skipped, and the website is built but not published |
 | `KEEPER_SIGNING_CERT`, `KEEPER_SIGNING_PASSWORD` (secrets): the "Keeper Self-Signed" certificate from `scripts/make-signing-cert.sh` (made once, never again) | macOS builds (`build/after-sign.cjs`) | Ad-hoc signed: people grant permissions again after every update and the updater cannot check the signer. **Required for 1.0.0.** |
 | `HOMEBREW_TAP_TOKEN` (secret): fine-grained token, *Contents: write* on `ashfordeOU/homebrew-keeper` (create that repository first) | `homebrew` job (`brew install --cask ashfordeou/keeper/keeper`, `keeper-cli` formula) | Skipped; `brew tap ashfordeOU/keeper https://github.com/ashfordeOU/keeper` (the cask in this repository) still works |
 | `NPM_TOKEN` (secret): npm automation token for the owner of `keeper-cli` | `npm` job (publishes with provenance) | Skipped |
