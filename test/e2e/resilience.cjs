@@ -58,8 +58,8 @@ async function mainPid(page) {
 
   // A first-run tour may be showing; skip it.
   await w.getByRole('button', { name: 'Skip tour' }).click({ timeout: 3000 }).catch(() => undefined);
-  // Tab 1: the Documents shelf, scrolled.
-  await w.click('.sidebar [title="Documents"]');
+  // Tab 1: the Documents shelf (All Documents in the Library), scrolled.
+  await w.click('.sidebar [data-nav-key="nav:library:document"]');
   await w.waitForTimeout(1500);
   // Tab 2: the terminal, opened with a middle-click (new tab in the background), then selected.
   await w.click('.sidebar [title="Terminal"]', { button: 'middle' });

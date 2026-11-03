@@ -81,7 +81,9 @@ const sha = (b) => require('crypto').createHash('sha256').update(b).digest('hex'
   await k('features', 'set', 'studio', true);
   await main.evaluate(() => { location.hash = ''; });
   await main.keyboard.press('Control+,').catch(() => undefined);
-  if (!(await main.$('.features'))) await main.locator('.sidebar >> text=Settings').first().click().catch(() => undefined);
+  if (!(await main.$('[data-testid="settings-sec-features"]'))) await main.locator('.sidebar >> text=Settings').first().click().catch(() => undefined);
+  // Settings shows one section at a time: open Features.
+  await main.locator('[data-testid="settings-sec-features"]').click({ timeout: 15_000 });
   await main.waitForSelector('.features', { timeout: 15_000 });
   const row = main.locator('.feature-row[data-feature="studio"]');
   await row.scrollIntoViewIfNeeded();

@@ -56,7 +56,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await main.keyboard.type('Permissions');
   await sleep(300);
   await main.keyboard.press('Enter');
-  await main.waitForSelector('#permissions', { timeout: 10000 });
+  await main.waitForSelector('[data-setting-id="permissions"]', { timeout: 10000 });
   await main.waitForSelector('.settings-section [data-testid="permissions-panel"] .perm-row', { timeout: 20000 });
   check(true, 'the palette opens Settings → Permissions');
   await main.locator('#permissions').scrollIntoViewIfNeeded();

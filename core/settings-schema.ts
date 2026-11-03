@@ -334,6 +334,11 @@ export const SETTINGS_ALIASES: Record<string, { section: SectionId; setting?: st
   tray: { section: 'menubar' },
 };
 
+/** A row's old anchor (settings:locked → the row of Locked folders keeps id "locked"). */
+export function legacyAnchor(settingId: string): string | undefined {
+  return Object.entries(SETTINGS_ALIASES).find(([k, v]) => v.setting === settingId && !sectionDef(k))?.[0];
+}
+
 /** `settings:<section>`, `settings:<section>#<setting>`, an old anchor, or a setting id alone. */
 export function parseSettingsArg(arg: string | undefined): { section: SectionId | 'changed'; setting?: string } {
   if (!arg) return { section: 'general' };

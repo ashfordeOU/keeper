@@ -5,7 +5,7 @@
 
 import { useState } from 'react';
 import { accelFromKey, accelLabel } from '../../../core/shortcuts';
-import { defaultValue, getPath, isChanged, labelOf, patchFor, valueText, type SettingDef } from '../../../core/settings-schema';
+import { defaultValue, getPath, isChanged, labelOf, legacyAnchor, patchFor, valueText, type SettingDef } from '../../../core/settings-schema';
 import { api } from '../../api';
 import { Icon } from '../../components/Icon';
 import { ContextMenu, Toggle } from '../../components/ui';
@@ -109,6 +109,8 @@ export function SettingRow({ def }: { def: SettingDef }) {
   const resetBtn = changed ? <button className="btn ghost sm icon setting-reset" title={`Reset to default (${valueText(def, defaultValue(def), platform)})`} aria-label={`Reset ${label} to default`} onClick={reset}><Icon name="refresh" size={12} /></button> : null;
   const common = {
     'data-setting-id': def.id,
+    // Old links and scripts still find a row by its old anchor (#locked, #platform, #ashforde).
+    id: legacyAnchor(def.id),
     'data-changed': changed ? '' : undefined,
     onContextMenu: changed ? (e: React.MouseEvent) => { e.preventDefault(); setMenu({ x: e.clientX, y: e.clientY }); } : undefined,
   };
