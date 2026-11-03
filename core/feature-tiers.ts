@@ -138,6 +138,7 @@ export const TIERS: Record<string, FeatureTier> = {
   capture: { plain: 'Screenshots and copy text from screen', setup: 'screen', normal: 'on', shown: 'basic' },
   studio: { plain: 'Studio (screen recording)', setup: 'screen', normal: 'off', shown: 'basic' },
   stage: { plain: 'Stage (clean screen)', setup: 'screen', normal: 'off', shown: 'basic' },
+  drawOnScreen: { plain: 'Draw on screen', setup: 'screen', normal: 'parent', follows: 'stage', shown: 'customize' },
   stageAuto: { plain: 'Start Stage when I share my screen', setup: 'screen', normal: 'off', shown: 'advanced' },
   tools: { plain: 'Toolbox', setup: 'screen', normal: 'off', shown: 'basic' },
   videoDownload: { plain: 'Save videos from web pages', setup: 'screen', normal: 'off', shown: 'basic' },

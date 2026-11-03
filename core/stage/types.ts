@@ -106,6 +106,8 @@ export interface StageSettings {
   /** where Stage shows up */
   surfaces: { tray: boolean; island: boolean; shortcut: boolean };
   displayKeys: DisplayKeySettings;
+  /** Draw on screen: its shortcut, pen colours and how ink behaves (core/stage/draw.ts) */
+  draw: import('./draw').DrawSettings;
 }
 
 // ---------------------------------------------------------------- how each switch works on each system
@@ -241,4 +243,8 @@ export interface StageApi {
   overlays(): Promise<{ display: number; state: unknown }[]>;
   /** the tray menu's Stage items, as text */
   tray(): Promise<string[]>;
+  /** Draw on screen: start (true), finish (false) or switch (nothing); returns whether it is on */
+  draw(on?: boolean): Promise<boolean>;
+  /** what each drawing sheet holds now (diagnostics and tests) */
+  drawState(): Promise<{ on: boolean; sheets: { display: number; state: unknown }[] }>;
 }

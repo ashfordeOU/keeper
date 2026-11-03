@@ -9,6 +9,7 @@ import type { StageApi, StageCapture, StageSettings, StageStatus } from '../core
 export function mockStage(emit: (ch: string, ...a: unknown[]) => void): { stage: StageApi } {
   let cfg: StageSettings = normalizeStageSettings(undefined);
   let st: StageStatus = { on: false, auto: false, applied: [], notices: [], platform: 'darwin' };
+  let drawOn = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const env = { os: 'darwin' as const, desktop: '', wayland: false, tools: [], schemas: [], extensions: [] };
   const capture: StageCapture = { active: false, sources: [], method: 'Keeper’s recorder (reliable), the system’s capture controls and known recorder apps in front (a guess: macOS has no public signal)' };
@@ -76,6 +77,8 @@ export function mockStage(emit: (ch: string, ...a: unknown[]) => void): { stage:
     displayInputs: async () => ({ current: 0x0f, inputs: [{ code: 0x0f, label: 'DisplayPort 1' }, { code: 0x11, label: 'HDMI 1' }, { code: 0x12, label: 'HDMI 2' }, { code: 0x1b, label: 'USB-C' }] }),
     setDisplayInput: async () => undefined,
     overlays: async () => [],
+    draw: async (on?: boolean) => (drawOn = on ?? !drawOn),
+    drawState: async () => ({ on: drawOn, sheets: [] }),
     tray: async () => (st.on ? [`● Stage: ${st.presetName}`, '  Stop Stage', '  Add 15 minutes'] : ['Stage', ...cfg.presets.map((p) => `  ${p.name}`), '  —', '  Stage Settings…']),
   };
   return { stage };

@@ -1342,7 +1342,7 @@ app.whenReady().then(async () => {
   onLimitAlert((title, detail) => islandSvc?.alert({ kind: 'info', title, detail }));
   // Keep Awake: sessions, triggers, closed-lid mode, statistics (before the Island starts, which hands it keep-awake requests).
   registerAwakeIpc({ islandSvc, broadcast, updateTray: () => void updateTray(), show: (route) => showMain(route) });
-  registerStageIpc({ islandSvc, broadcast, updateTray: () => void updateTray(), show: (route) => showMain(route), reregister: () => registerShortcuts(), recording: () => recordingState().recording });
+  registerStageIpc({ islandSvc, broadcast, capturePreload: capturePreload(), updateTray: () => void updateTray(), show: (route) => showMain(route), reregister: () => registerShortcuts(), recording: () => recordingState().recording });
   // Voice: dictation anywhere (talk key, pill, Island) and meeting recording (Island, tray, call detection).
   registerVoiceIpc({ islandSvc, broadcast, updateTray: () => void updateTray(), show: (route) => showMain(route), preload: preload(), lockDown, reregister: () => registerShortcuts() });
   registerIpc();

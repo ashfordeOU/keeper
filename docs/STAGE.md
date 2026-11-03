@@ -29,6 +29,7 @@ On the Stage page you choose which surfaces Stage appears on: tray, Island and s
 - **Stage mode** is on by default. Nothing runs until you start it.
 - **Stage: start when the screen is captured** is off by default.
 - **Display keys** is off by default.
+- **Draw on screen** is on whenever Stage mode is (it has only a shortcut until you press it).
 
 ## Switches, per system
 
@@ -116,6 +117,35 @@ This extends `display-control`.
 
 Presentation mode used to live in the Island service. Stage owns it now and keeps its behaviour exactly: keep awake (Keep Awake reason "Presentation mode") and hide desktop icons. The macOS-only icon hiding now also works on Windows and GNOME/Xfce. `island.presentation(on)`, the palette's Presentation Mode commands and Monorail's follow-presentation hook all still work. Monorail follows when the legacy mode or the Presenting preset starts or stops.
 
+## Draw on screen
+
+Press **⌘⌥⇧D / Ctrl+Alt+Shift+D** (Stage page → Draw on screen; also the tray's Stage menu and the command palette) to lay a see-through sheet over every screen and draw on it, over any app, with or without Stage on. The screen with the pointer gets the tool bar; the others take ink too.
+
+| Tool | Key | |
+|---|---|---|
+| Pen | P | smooth lines |
+| Highlighter | H | wide, see-through, flat ends |
+| Arrow | A | drag from the tail to the point |
+| Box | B | drag from corner to corner |
+| Spotlight | S | dims everything but a circle around the pointer |
+| Colours | 1–6 | six pen colours, chosen on the Stage page |
+| Line width | tool bar | thin, medium, thick |
+| Fade | F | each line disappears by itself a few seconds after it is drawn (2, 3, 5 or 10 s) |
+| Board | W | see-through → white board → black board |
+| Undo | ⌘Z / Ctrl+Z | |
+| Clear | C, Backspace | |
+| Finish | Esc, Done, or the shortcut again | the ink is cleared |
+
+The tool, colour, width and Fade are remembered for next time. A screen recording (Studio or any other recorder) records the ink like anything else on screen.
+
+| | macOS | Windows | Linux |
+|---|---|---|---|
+| Drawing over apps | ✅ a panel above full-screen apps | ✅ | ✅ X11; 🟡 Wayland (the desktop decides whether a window may cover the others) |
+| Keys while drawing | ✅ the sheet takes the keys | ✅ | ✅ |
+| See-through sheet | ✅ | ✅ | 🟡 needs a compositor; without one the sheet is dark (use a board) |
+
+Nothing exists until the shortcut is pressed; when drawing ends the sheets are closed. Turning **Draw on screen** off in Settings → Features gives the shortcut back.
+
 ## Files
 
 | Part | File |
@@ -124,6 +154,8 @@ Presentation mode used to live in the Island service. Stage owns it now and keep
 | Service: start/stop, journal, watchdog, Keep Awake bridge, previews, auto-start | `electron/services/stage/index.ts` |
 | Running changes, hiding and quitting apps, screen sizes, wallpaper | `electron/services/stage/exec.ts` |
 | Overlay and backdrop windows | `electron/services/stage/overlay.ts` |
+| Draw on screen: settings, drawing helpers, the sheet's page | `core/stage/draw.ts` (`test/stage-draw.test.ts`) |
+| Draw on screen: the sheets | `electron/services/stage/draw.ts` |
 | Key and click events | `electron/services/stage/events.ts` |
 | Capture detection | `electron/services/stage/detect.ts` |
 | Display keys | `electron/services/stage/display-keys.ts` |
@@ -133,7 +165,7 @@ Presentation mode used to live in the Island service. Stage owns it now and keep
 | Page, Island tile, monitor controls | `src/screens/Stage.tsx`, `src/stage/StageTile.tsx`, `src/stage/DisplayExtras.tsx`, `src/styles/stage.css` |
 | Browser demo | `src/mock-stage.ts` |
 | CLI | `cli/stage.ts` |
-| End-to-end (real app, Linux) | `test/e2e/stage.cjs` |
+| End-to-end (real app, Linux) | `test/e2e/stage.cjs`; Draw on screen in `test/e2e/capture-extras.cjs` |
 
 ## Verified and not verified
 

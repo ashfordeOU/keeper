@@ -9,6 +9,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { copyPreset, countOn } from '../../core/stage/presets';
 import { RECORDING_SIZES } from '../../core/stage/display';
+import type { DrawSettings } from '../../core/stage/draw';
 import type { StageCapture, StageDisplayMode, StagePreset, StageSettings, StageStatus, StageSwitches, SwitchInfo, StageOs } from '../../core/stage/types';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
@@ -68,6 +69,7 @@ export function Stage() {
       </div>
       <PresetEditor key={preset.id} preset={preset} cfg={cfg} os={os} support={support} setCfg={setCfg} onDelete={() => setSel(cfg.preset)} />
       <Starting cfg={cfg} save={save} st={st} />
+      <DrawSection cfg={cfg} save={save} />
       <h2 className="stage-h">External monitors</h2>
       <DisplayExtras cfg={cfg} save={save} />
       <h2 className="stage-h">How each switch works here</h2>
@@ -281,6 +283,47 @@ function Starting({ cfg, save, st }: { cfg: StageSettings; save: (p: Partial<Sta
             <input placeholder="App name" value={keep} onChange={(e) => setKeep(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && keep.trim()) { save({ keep: [...cfg.keep, keep.trim()] }); setKeep(''); } }} />
           </div>
         </Row>
+      </div>
+    </>
+  );
+}
+
+function DrawSection({ cfg, save }: { cfg: StageSettings; save: (p: Partial<StageSettings>) => void }) {
+  const on = useFeature('drawOnScreen');
+  const { toast } = useStore();
+  const d = cfg.draw;
+  const set = (patch: Partial<DrawSettings>) => save({ draw: { ...d, ...patch } });
+  return (
+    <>
+      <h2 className="stage-h">Draw on screen</h2>
+      <div className="card settings-section" data-testid="stage-draw">
+        <Row title="Draw on screen" desc="Press the shortcut to draw, highlight, add arrows and boxes or spotlight one spot, over any app. Esc or the shortcut again ends it and clears the ink.">
+          <span data-testid="stage-draw-toggle"><Toggle on={on} onChange={(v) => void api.features.set('drawOnScreen', v)} /></span>
+        </Row>
+        {on ? (
+          <>
+            <Row title="Shortcut" desc="From any app. While drawing: P pen, H highlighter, A arrow, B box, S spotlight, 1–6 colours, F fade, W board, C clear.">
+              <input className="stage-key" aria-label="Draw on screen shortcut" value={d.shortcut} onChange={(e) => set({ shortcut: e.target.value })} />
+              <button className="btn sm" data-testid="stage-draw-try" onClick={() => void api.stage.draw(true).catch((e: unknown) => toast(e instanceof Error ? e.message : String(e)))}>Try it</button>
+            </Row>
+            <Row title="Pen colours" desc="Keys 1 to 6 while drawing.">
+              <div className="stage-draw-colors">
+                {d.colors.map((c, i) => (
+                  <label key={i} className="stage-draw-swatch" style={{ background: c }}>
+                    <span className="sr-only">Colour {i + 1}</span>
+                    <input type="color" value={c} onChange={(e) => set({ colors: d.colors.map((x, j) => (j === i ? e.target.value : x)) })} />
+                  </label>
+                ))}
+              </div>
+            </Row>
+            <Row title="Ink fades away" desc="Each line disappears by itself a moment after you draw it, so the screen stays clear while you talk.">
+              <select aria-label="How long ink stays" value={d.fadeSeconds} disabled={!d.fade} onChange={(e) => set({ fadeSeconds: Number(e.target.value) })}>
+                {[2, 3, 5, 10].map((n) => <option key={n} value={n}>After {n} seconds</option>)}
+              </select>
+              <Toggle on={d.fade} onChange={(v) => set({ fade: v })} />
+            </Row>
+          </>
+        ) : null}
       </div>
     </>
   );

@@ -4,6 +4,7 @@
 // settings loaded from disk.
 
 import type { DisplayKeySettings, StageAppRule, StagePreset, StageSettings, StageSwitches } from './types';
+import { defaultDrawSettings, normalizeDrawSettings } from './draw';
 
 export const NO_SWITCHES: StageSwitches = {
   hideDesktopIcons: false,
@@ -87,6 +88,7 @@ export function defaultStageSettings(): StageSettings {
     auto: { preset: 'recording', streams: true, apps: true, keeperRecorder: true, extraApps: [], stopWhenDone: true },
     surfaces: { tray: true, island: true, shortcut: true },
     displayKeys: { ...DEFAULT_DISPLAY_KEYS },
+    draw: defaultDrawSettings(),
   };
 }
 
@@ -173,6 +175,7 @@ export function normalizeStageSettings(raw: unknown): StageSettings {
       volumeUp: str(k.volumeUp, d.displayKeys.volumeUp), volumeDown: str(k.volumeDown, d.displayKeys.volumeDown),
       mediaVolumeKeys: bool(k.mediaVolumeKeys, false), target: str(k.target, 'all') || 'all', step: num(k.step, 10, 1, 50),
     },
+    draw: normalizeDrawSettings(r.draw),
   };
 }
 

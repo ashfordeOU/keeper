@@ -9,6 +9,8 @@
 //     clicks going through and back, Esc closes), Upload from the preview, the self-timer,
 //     a window with its shadow on a see-through background, and a scrolling capture of a
 //     long page (scrolled with xdotool, stitched where the frames overlap)
+//   - Stage's Draw on screen: the shortcut, the pen, the highlighter and an arrow, Undo,
+//     the tool bar, Esc to finish; switching the part off frees the shortcut
 // Screenshots of the screen (light and dark) for each.
 const { _electron } = require('playwright');
 const { execFileSync, spawn, spawnSync } = require('child_process');
@@ -228,7 +230,7 @@ const dav = http.createServer((req, res) => {
   const scroll = w.evaluate(() => window.keeper.capture.screenshot('scroll').catch((e) => `error: ${e.message}`));
   const area = await until(async () => overlayWith(app, 'the part of the window that scrolls'), 8000);
   check(!!area, 'the area chooser asks for the part that scrolls');
-  if (area) await area.evaluate((r) => window.keeperCapture.done(r), { x: b.x + 10, y: b.y + 10, w: b.width - 40, h: 380 });
+  if (area) await area.evaluate((r) => window.keeperCapture.done(r), { x: b.x + 10, y: b.y + 10, w: b.width - 40, h: 380 }).catch(() => undefined); // the chooser closes as it answers
   const bar = await until(() => windowByTitle(/scrolling capture/i), 6000);
   check(!!bar, 'a Stop bar shows outside the captured part');
   if (bar) grabScreen(path.join(SHOTS, 'capture-scrolling-light.png'));
@@ -240,6 +242,65 @@ const dav = http.createServer((req, res) => {
   } else check(false, `the scrolling capture finished (${long})`);
   await app.evaluate(() => globalThis.__longPage.destroy());
   await w.evaluate(() => window.keeper.capture.closePreviews());
+
+  // ------------------------------------------------ Stage: Draw on screen
+  await nav('stage');
+  await w.waitForSelector('[data-testid="stage-draw"]', { timeout: 10000 });
+  for (const theme of ['light', 'dark']) {
+    await setTheme(theme);
+    await w.waitForTimeout(600);
+    await w.locator('[data-testid="stage-draw"]').scrollIntoViewIfNeeded();
+    await w.screenshot({ path: path.join(SHOTS, `stage-draw-settings-${theme}.png`) });
+  }
+  await setTheme('light');
+  check((await w.evaluate(() => window.keeper.stage.drawState())).on === false, 'nothing is drawn until asked');
+  xdo('mousemove', 700, 450);
+  xdo('key', 'ctrl+alt+shift+d');
+  let ds = await until(async () => { const s = await w.evaluate(() => window.keeper.stage.drawState()); return s.on ? s : null; }, 4000);
+  if (!ds) { console.log('INFO the shortcut did not reach Keeper here; starting from the page instead'); await w.evaluate(() => window.keeper.stage.draw(true)); ds = await w.evaluate(() => window.keeper.stage.drawState()); }
+  check(ds.on && ds.sheets.length >= 1 && ds.sheets.some((s) => s.state?.toolbar), 'drawing starts, with the tool bar on the screen with the pointer');
+  const sheet = await until(async () => overlayWith(app, 'Drawing tools'), 4000);
+  const pathOn = async (pts) => { await sheet.mouse.move(pts[0][0], pts[0][1]); await sheet.mouse.down(); for (const [x, y] of pts.slice(1)) await sheet.mouse.move(x, y, { steps: 4 }); await sheet.mouse.up(); };
+  await pathOn(Array.from({ length: 24 }, (_, i) => [300 + i * 18, 420 + Math.round(Math.sin(i / 3) * 40)]));
+  await sheet.keyboard.press('h');
+  await sheet.keyboard.press('2');
+  await pathOn([[320, 300], [760, 300]]);
+  await sheet.keyboard.press('a');
+  await sheet.keyboard.press('4');
+  await pathOn([[1100, 650], [900, 520]]);
+  await sheet.keyboard.press('b');
+  await sheet.keyboard.press('3');
+  await pathOn([[880, 180], [1240, 330]]);
+  let st = (await w.evaluate(() => window.keeper.stage.drawState())).sheets.find((s) => s.state?.toolbar)?.state;
+  check(st?.strokes === 4 && st.tool === 'rect', `pen, highlighter, arrow and box (${JSON.stringify(st)})`);
+  // W: a white board, then a black one (without a compositor, as here, the see-through sheet shows black anyway).
+  for (const theme of ['light', 'dark']) {
+    await sheet.keyboard.press('w');
+    await w.waitForTimeout(400);
+    grabScreen(path.join(SHOTS, `stage-draw-${theme}.png`));
+  }
+  st = (await w.evaluate(() => window.keeper.stage.drawState())).sheets.find((s) => s.state?.toolbar)?.state;
+  check(st?.board === 'black', `W switches the board (${st?.board})`);
+  await sheet.keyboard.press('w');
+  await sheet.keyboard.press('Control+z');
+  st = (await w.evaluate(() => window.keeper.stage.drawState())).sheets.find((s) => s.state?.toolbar)?.state;
+  check(st?.strokes === 3, 'Undo takes the last line back');
+  await sheet.keyboard.press('f');
+  st = (await w.evaluate(() => window.keeper.stage.drawState())).sheets.find((s) => s.state?.toolbar)?.state;
+  check(st?.fade === true, 'F makes ink fade');
+  const saved = await w.evaluate(() => window.keeper.stage.settings());
+  check(saved.draw.fade === true && saved.draw.tool === 'rect', 'the tool bar’s choices are kept for next time');
+  await sheet.keyboard.press('Escape').catch(() => undefined);
+  check(!!(await until(async () => (!(await w.evaluate(() => window.keeper.stage.drawState())).on ? true : null), 4000)), 'Esc finishes drawing and clears the ink');
+  await w.evaluate((d) => window.keeper.stage.setSettings({ draw: { ...d, fade: false, tool: 'pen' } }), saved.draw);
+  // Off: the part frees its shortcut and refuses to start.
+  await w.evaluate(() => window.keeper.features.set('drawOnScreen', false));
+  await w.waitForTimeout(400);
+  const off = await w.evaluate(() => window.keeper.stage.draw(true).then(() => 'started', (e) => e.message));
+  check(/switched off/.test(off), `with the part off, drawing does not start (${off})`);
+  const keys = await w.evaluate(() => window.keeper.prefs.shortcuts());
+  check(!JSON.stringify(keys).includes('Draw on screen'), 'and its shortcut is given back');
+  await w.evaluate(() => window.keeper.features.set('drawOnScreen', true));
 
   check(!errors.length, `no page errors (${errors.slice(0, 3).join(' | ')})`);
   await app.close();

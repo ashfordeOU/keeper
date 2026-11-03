@@ -15,6 +15,7 @@ import type { IslandService } from '../services/island';
 import { StageService } from '../services/stage';
 import { forgetDisplays, nudge, registerDisplayKeys } from '../services/stage/display-keys';
 import { overlayState } from '../services/stage/overlay';
+import { drawing, drawState, setDrawHooks, setDrawing, toggleDrawing } from '../services/stage/draw';
 import { runningApps } from '../services/devices';
 
 function handle(name: string, fn: (...args: never[]) => unknown) {
@@ -32,6 +33,8 @@ export interface StageCtx {
   /** re-registers every global shortcut (Keeper's own function, so turning features off frees them) */
   reregister: () => void;
   recording: () => boolean;
+  /** the preload of Keeper's floating windows (the drawing sheet) */
+  capturePreload: string;
 }
 
 const str = (v: unknown) => String(v ?? '');
@@ -84,6 +87,13 @@ export function registerStageIpc(c: StageCtx) {
   void svc.init().then(() => c.reregister());
   onFeature('stage', () => { c.reregister(); c.updateTray(); });
   onFeature('displayKeys', () => c.reregister());
+  // Draw on screen: its shortcut comes and goes with the switch; switching it off ends drawing.
+  drawPreload = c.capturePreload;
+  setDrawHooks({
+    save: (patch) => void svc!.saveSettings({ draw: { ...svc!.cfg.draw, ...patch } }),
+    changed: (on) => { c.broadcast('stage-draw', on); c.updateTray(); },
+  });
+  onFeature('drawOnScreen', (on) => { if (!on) void setDrawing(false); c.reregister(); c.updateTray(); });
 
   const s = svc;
   handle('stage.status', () => s.status());
@@ -105,6 +115,8 @@ export function registerStageIpc(c: StageCtx) {
   handle('stage.setDisplayInput', async (id: string, code: number) => { await setInput(id, Number(code)); forgetDisplays(); });
   // For the end-to-end test and diagnostics: what the overlays draw right now.
   handle('stage.overlays', () => overlayState());
+  handle('stage.draw', (on?: boolean) => drawNow(on));
+  handle('stage.drawState', () => drawState());
   // The tray menu's Stage items as text (diagnostics and the end-to-end test).
   handle('stage.tray', () => stageTrayItems().flatMap((i) => [i.label ?? '', ...((i.submenu as Electron.MenuItemConstructorOptions[] | undefined) ?? []).map((x) => `  ${x.label ?? '—'}`)]));
 
@@ -187,6 +199,19 @@ export function registerStageShortcuts(reg: (acc: string, fn: () => void, owner?
     for (const p of s.cfg.presets) if (p.shortcut) reg(p.shortcut, () => void s.toggle(p.id, 'Shortcut').catch(() => undefined), `Stage: ${p.name}`);
   }
   if (featureOn('displayKeys')) registerDisplayKeys(s.cfg.displayKeys);
+  if (featureOn('drawOnScreen') && s.cfg.draw.shortcut) reg(s.cfg.draw.shortcut, () => void drawNow().catch(() => undefined), 'Draw on screen');
+}
+
+let drawPreload = '';
+/** Starts or ends Draw on screen (nothing: switches it). */
+export async function drawNow(on?: boolean): Promise<boolean> {
+  if (!svc) return false;
+  if (on === false) return setDrawing(false);
+  if (!featureOn('drawOnScreen')) {
+    if (on) throw new Error('Draw on screen is switched off in Settings → Features.');
+    return false;
+  }
+  return on === true ? setDrawing(true, svc.cfg.draw, drawPreload) : toggleDrawing(svc.cfg.draw, drawPreload);
 }
 
 /** Stage in the tray menu: start a preset, or the live state and Stop. */
@@ -199,13 +224,21 @@ export function stageTrayItems(): Electron.MenuItemConstructorOptions[] {
     return [{ label: `● Stage: ${st.presetName ?? 'starting…'}${st.on ? ` · ${mins} min` : ''}`, submenu: [
       { label: 'Stop Stage', accelerator: s.cfg.surfaces.shortcut ? s.cfg.shortcut : undefined, click: () => void s.stop() },
       { label: 'Add 15 minutes', enabled: st.on, click: () => void s.extend(15) },
+      ...drawItem(s),
     ] }];
   }
   return [{ label: 'Stage', submenu: [
     ...s.cfg.presets.map((p) => ({ label: p.name, accelerator: p.id === s.cfg.preset && s.cfg.surfaces.shortcut ? s.cfg.shortcut : p.shortcut || undefined, click: () => void s.start(p.id, { reason: 'Menu bar' }).catch(() => undefined) })),
+    ...drawItem(s),
     { type: 'separator' as const },
     { label: 'Stage Settings…', click: () => stageShow?.('stage') },
   ] }];
+}
+
+/** "Draw on Screen" (or "Stop Drawing") in Stage's tray menu, while that switch is on. */
+function drawItem(s: StageService): Electron.MenuItemConstructorOptions[] {
+  if (!featureOn('drawOnScreen')) return [];
+  return [{ label: drawing() ? 'Stop Drawing' : 'Draw on Screen', accelerator: s.cfg.draw.shortcut || undefined, click: () => void drawNow().catch(() => undefined) }];
 }
 
 let stageShow: ((route: string) => void) | undefined;

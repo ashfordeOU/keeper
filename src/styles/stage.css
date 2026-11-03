@@ -50,3 +50,8 @@
   .stage-page .setting .ctl { justify-content: flex-start; }
   .stage-support td .muted { display: none; }
 }
+/* Draw on screen: the six pen colours, each a swatch that opens the system's colour picker. */
+.stage-draw-colors { display: flex; gap: 8px; }
+.stage-draw-swatch { position: relative; width: 26px; height: 26px; border-radius: var(--r-pill); border: 2px solid var(--line); cursor: pointer; }
+.stage-draw-swatch:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.stage-draw-swatch input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; border: 0; padding: 0; }
