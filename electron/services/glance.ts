@@ -4,10 +4,11 @@
 // the owl for 400 ms opens it too (Settings → Menu bar → "Show the glance on
 // hover"), and it closes shortly after the pointer has left both the owl and
 // the pop-over. Its numbers are read only while it is open, through the
-// governor (core/glance.ts makes the cards).
+// governor (core/glance.ts makes the tiles and rows). It is a fixed width and
+// takes the height of what it shows (the page reports it), so nothing scrolls.
 
 import { BrowserWindow, nativeTheme, screen, type Tray } from 'electron';
-import { glanceCards, normalizeGlanceSettings, type GlanceInputs, type GlanceRecentFile, type GlanceSettings, type GlanceView } from '../../core/glance';
+import { glanceLayout, normalizeGlanceSettings, type GlanceInputs, type GlanceRecentFile, type GlanceSettings, type GlanceView } from '../../core/glance';
 import { poll } from './governor';
 import { unwatchLive } from './monitor-live';
 import { keepUnmanaged, overlayOptions } from './unmanaged';
@@ -26,7 +27,10 @@ export interface GlanceDeps {
 }
 
 const W = 360;
-const H = 520;
+/** the height before the page has measured itself; afterwards its content's height */
+const DEFAULT_H = 520;
+const MIN_H = 200;
+let H = DEFAULT_H;
 let deps: GlanceDeps | null = null;
 let win: BrowserWindow | null = null;
 let anchor: Tray | null = null;
@@ -47,8 +51,18 @@ export async function glanceView(o: { light?: boolean } = {}): Promise<GlanceVie
   // Live readings, Wi-Fi and AI usage only while the glance is on screen.
   const light = !!o.light || !glanceOpen();
   const inputs = deps ? await deps.inputs(light).catch(() => ({ now: Date.now() })) : { now: Date.now() };
-  const r = deps?.recent(3) ?? { list: [], total: 0 };
-  return { cards: glanceCards(inputs, s.cards), actions: s.actions, recent: r.list, moreRecent: Math.max(0, r.total - r.list.length), settings: s };
+  const r = s.sections.downloads ? deps?.recent(3) ?? { list: [], total: 0 } : { list: [], total: 0 };
+  return glanceLayout(inputs, s, r);
+}
+
+/** The page measured its content: the window takes that height, never taller than the screen. */
+export function fitGlance(height: number) {
+  if (!win || win.isDestroyed() || !Number.isFinite(height)) return;
+  const wa = screen.getDisplayMatching(win.getBounds()).workArea;
+  const h = Math.round(Math.min(Math.max(MIN_H, height), wa.height - 16));
+  if (h === H) return;
+  H = h;
+  place(win);
 }
 
 export const glanceOpen = () => !!win && !win.isDestroyed() && win.isVisible();

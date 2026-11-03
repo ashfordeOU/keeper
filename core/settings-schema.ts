@@ -185,7 +185,7 @@ export const SETTINGS: SettingDef[] = [
 
   // ---------------------------------------------------------------- Menu bar / tray
   { id: 'trayEnabled', path: 'trayEnabled', section: 'menubar', label: 'Keeper in the menu bar', labelFor: { win32: 'Keeper in the system tray', linux: 'Keeper in the tray' }, help: 'Click the owl for a summary: weather, storage, network and new downloads.', level: 'basic', kind: 'toggle', keywords: ['tray icon', 'menu bar icon', 'owl', 'status bar'] },
-  { id: 'glance', section: 'menubar', label: 'What the summary shows', help: 'Its cards and up to 12 buttons, in this order.', level: 'basic', kind: 'panel', panel: 'glance', keywords: ['cards', 'buttons', 'quick actions', 'hover'] },
+  { id: 'glance', section: 'menubar', label: 'What the summary shows', help: 'Its parts, readings and four quick actions.', level: 'basic', kind: 'panel', panel: 'glance', keywords: ['cards', 'buttons', 'quick actions', 'hover', 'downloads', 'readings', 'sections'] },
   { id: 'usageLabel', section: 'menubar', label: 'AI usage in the menu bar', level: 'advanced', kind: 'panel', panel: 'usageLabel', feature: 'usageTracker', keywords: ['claude', 'codex', 'limits'] },
   { id: 'monitorTray', section: 'menubar', label: 'Live readings', help: 'Processor, memory and network next to the clock.', level: 'advanced', kind: 'link', to: { name: 'health', arg: 'settings' }, feature: 'health', keywords: ['cpu', 'memory', 'stats', 'monitor'] },
 

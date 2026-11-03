@@ -5,7 +5,7 @@
 
 import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import { REPORT_URL } from '../../../core/brand';
-import { ACTION_INFO, CARD_INFO, GLANCE_ACTIONS, GLANCE_CARDS, type GlanceSettings } from '../../../core/glance';
+import { ACTION_INFO, CARD_INFO, GLANCE_ACTIONS, GLANCE_CARDS, GLANCE_SECTIONS, PINNED_ACTIONS, SECTION_INFO, type GlanceSettings } from '../../../core/glance';
 import { accelLabel, type ShortcutStatus } from '../../../core/shortcuts';
 import { changedSettings, exportSettings, getPath, labelOf, previewImport, resetPatch, settingDefaults as defaultsFor, valueText, type ImportPreview } from '../../../core/settings-schema';
 import { api } from '../../api';
@@ -54,14 +54,23 @@ function GlancePanel() {
   const save = (p: Partial<GlanceSettings>) => void api.glance.setSettings(p).then(setG);
   const flip = <T extends string>(list: T[], id: T) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id]);
   if (!g) return null;
+  const full = g.actions.length >= PINNED_ACTIONS;
   return (
     <div data-testid="settings-menubar">
       {mac ? <Row title="Open the summary when I point at the owl" desc="It closes again when you move away."><Toggle on={g.hover} onChange={(v) => save({ hover: v })} /></Row> : null}
-      <Row title="What the summary shows" desc="In this order.">
+      {GLANCE_SECTIONS.map((k) => (
+        <Row key={k} title={`Show ${SECTION_INFO[k].label.toLowerCase()}`} desc={SECTION_INFO[k].help}>
+          <Toggle on={g.sections[k]} onChange={(v) => save({ sections: { ...g.sections, [k]: v } })} />
+        </Row>
+      ))}
+      <Row title="What the summary shows" desc="Readings, Keep Awake and the rows under them.">
         <div className="gl-chips">{GLANCE_CARDS.map((c) => <button key={c} className={`gl-chip${g.cards.includes(c) ? ' on' : ''}`} aria-pressed={g.cards.includes(c)} onClick={() => save({ cards: GLANCE_CARDS.filter((x) => flip(g.cards, c).includes(x)) })}>{CARD_INFO[c].label}</button>)}</div>
       </Row>
-      <Row title="Buttons in the summary" desc="Up to 12.">
-        <div className="gl-chips">{GLANCE_ACTIONS.map((a) => <button key={a} className={`gl-chip${g.actions.includes(a) ? ' on' : ''}`} aria-pressed={g.actions.includes(a)} onClick={() => save({ actions: flip(g.actions, a) })}>{ACTION_INFO[a].label}</button>)}</div>
+      <Row title="Quick action buttons" desc={`Pick ${PINNED_ACTIONS}, in order. The rest are under More.`}>
+        <div className="gl-chips" data-testid="settings-menubar-actions">{GLANCE_ACTIONS.map((a) => {
+          const on = g.actions.includes(a);
+          return <button key={a} className={`gl-chip${on ? ' on' : ''}`} aria-pressed={on} disabled={!on && full} title={!on && full ? `Turn one off first (up to ${PINNED_ACTIONS})` : undefined} onClick={() => save({ actions: flip(g.actions, a) })}>{ACTION_INFO[a].label}</button>;
+        })}</div>
       </Row>
     </div>
   );

@@ -4,6 +4,17 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 
 ## [Unreleased]
 
+### Changed — Menu bar: a calmer, smaller summary under the owl
+- The summary under the owl in the menu bar (the tray on Windows and Linux) is cleaner and never scrolls: its window is as tall as what it shows and fits its width exactly.
+- At the top: Keeper and one line that says "All good", or the one thing that needs you (a nearly full disk, no internet, a low battery, an AI limit running out). Click it to go there.
+- Weather, disk, this computer and the network are four tiles of the same size with short values that never wrap ("96 GB free", "↓34 ↑2 KB/s") and one thin bar where there is an amount.
+- Keep Awake is a switch you can flip without leaving the summary.
+- Four quick actions of the same size; the others are under More. Edit picks the four in Settings.
+- Recent downloads: three files with an icon, the size, and long names cut in the middle so the start and the type stay readable. "See all" is easy to see.
+- Open Keeper is the main button at the bottom, with Settings and Quit lined up beside it.
+- Settings → Menu bar can hide the readings, the quick actions or the downloads. The tip is now off unless you turn it on.
+- Works by keyboard (arrows, Enter, Escape folds More, then closes), in light and dark, and stands still for people who ask for less motion.
+
 ### Added — Website: a new home page, features page and Keeper + Monorail page
 - The home page tells Keeper's story in pictures: Keeper in a laptop with the Island dropping from the notch, then short sections with real screenshots in light and dark.
 - Build your Keeper: switch parts on and off and see a preview, the rough download size and what keeps running.

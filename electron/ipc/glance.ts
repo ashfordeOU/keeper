@@ -7,7 +7,7 @@ import { promises as fsp } from 'node:fs';
 import os from 'node:os';
 import { normalizeGlanceSettings, type GlanceActionId, type GlanceInputs, type GlanceSettings } from '../../core/glance';
 import type { IslandService } from '../services/island';
-import { glanceSettings, glanceView, hideGlance, initGlance, showGlance, type GlanceRecent } from '../services/glance';
+import { fitGlance, glanceSettings, glanceView, hideGlance, initGlance, showGlance, type GlanceRecent } from '../services/glance';
 import { liveState, unwatchLive, watchLive } from '../services/monitor-live';
 import { lastMemory, readMemory } from '../services/memory';
 import { memoryDetail } from '../../core/memory';
@@ -90,6 +90,7 @@ export function registerGlanceIpc(d: GlanceIpcDeps) {
     return next;
   });
   ipcMain.handle('glance.close', () => { hideGlance(); unwatchLive('glance'); });
+  ipcMain.handle('glance.fit', (_e, height: number) => fitGlance(Number(height)));
   ipcMain.handle('glance.run', (_e, id: GlanceActionId) => { hideGlance(); d.run(id); });
   // A card or "See all": a page in the main window, a meeting link, or a quick action.
   ipcMain.handle('glance.open', (_e, target: string) => {
