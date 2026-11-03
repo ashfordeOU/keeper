@@ -4,6 +4,25 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 
 ## [Unreleased]
 
+### Added — Mail
+- Narrow windows: below 900 px a clicked message takes the list's place, with Back (before, nothing showed).
+- Inbox tabs All, Primary, Updates and Promos with unread counts; Unread toggle; To Reply; smart mailboxes (saved searches).
+- ⌘1–⌘9 switch accounts; each account has a colour, a picture, its unread count, Classic or Chat reading, and a notch switch.
+- Send-from addresses with their own signature and Reply-To; signatures optional on replies and removable per message.
+- Setup guides for Gmail, Outlook, iCloud, Yahoo, AOL, Fastmail, Zoho and any IMAP provider, with the app-password pages.
+- Rules on sender, recipients, subject, text, attachments and mailing list (all or any) that move, archive, mark read, flag, label or delete as mail arrives; also written to the server as Sieve (ManageSieve) or Gmail filters.
+- ⌘K search with from: to: subject: has:attachment is:unread in: label: before: after:, this computer first, then the servers; Save as a smart mailbox.
+- Remind me if no reply (a day, three days, a week, a date); mute a conversation; block a sender; Report spam.
+- Invitation cards add Add to Calendar.
+- Phishing warnings (look-alike domains, a contact's or a company's name on a stranger's address, replies elsewhere, links that lie, failed DMARC) with Report spam and Block.
+- Tracking parameters taken off links; Load images (⇧⌘I); the connections Mail makes listed in Settings; read receipts never sent.
+- Sign-in codes get Copy code and magic links Open link, in notifications and the Island; the Island counts down Undo send.
+- Quick Look for attachments, Print, Save as PDF; sender pictures from contacts; designed mail on a light card in dark mode (or darkened); text size ⌘+ / ⌘−; list density.
+- Rich-text compose (bold, italic, lists, sizes, links), templates, drafts saved to the server's Drafts, ⌘J tones and your own instruction streamed in, an editable list of what the AI remembers, Ask answers citing their messages.
+- ⌘Z undoes archive, delete and move; snooze shared with your other computers (IMAP keyword or a hidden folder); catch-up after sleep or a network change; Dock badge (all, Important, none).
+- Unread, Inbox and Mail accounts widgets; Email button on the Island's shelf for files dropped on the notch.
+- AI apps: Add to Claude desktop, Claude Code, Cursor or Codex from Mail settings; tidy (archive, label, move) with your approval per batch; prepared messages open in Keeper and go only when you press Send.
+
 ### Changed — Ready for Apple Developer ID builds on macOS
 - Updates on a Mac accept a new version signed like the installed copy or, the one bridge, signed with Ashforde's Apple Developer ID (team D69G45342Y). Downloaded components are checked the same way. Nothing else is accepted, and a copy on the Developer ID accepts only the Developer ID. This release is still self-signed; it prepares copies to move to the notarized Developer ID build on their own.
 - When the next version is the first one signed with the Developer ID, the Software Update window says so in one line: macOS asks once more for your login password (choose Always Allow) and may ask you to allow Keeper again in Privacy & Security; after that, updates don't ask.

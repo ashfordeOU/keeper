@@ -83,8 +83,6 @@ JMAP is not used yet; Fastmail works through IMAP and CalDAV with an app passwor
 - **Invitations**: meeting requests show a card with *Accept / Maybe / Decline*;
   Keeper sends the answer to the organiser (iTIP REPLY) and puts the event in
   your calendar.
-- **Filters** for new inbox mail run on this computer (sender, recipients,
-  subject or text contains … → mark read, flag, move, label, delete).
 - **AI** (optional, with the AI chosen in Settings → AI & Brain, which can be
   on this computer only): *Summarize* a conversation, *Reply ideas* (three
   answers, yes / ask / not now, in your own voice taken from lines of your sent
@@ -104,6 +102,104 @@ JMAP is not used yet; Fastmail works through IMAP and CalDAV with an app passwor
   mail" is shown). New **Important** mail drops down from the Island (the
   notch or the pill) with *Open*, *Archive* and *Mark read*; Settings can
   include all mail or none.
+
+### Mail: reading, sorting and writing (second round)
+
+- **Tabs**: All, Primary (the same as Important), Updates and Promos (Other,
+  split by what the mail is: receipts, notifications and accounts, or
+  marketing), each with its unread count, and an *Unread* toggle
+  (`core/pim/smart.ts`). **To Reply** lists mail from people waiting for your
+  answer (written to you, not a list or a machine, the last word theirs).
+- **Accounts**: `⌘1`…`⌘9` (Ctrl elsewhere) open one account's inbox, `⌘0`
+  all of them. Each account has a colour, an optional picture, its unread
+  count, a reading view (*Classic* or *Chat*: bubbles with a reply box), and
+  whether its mail drops from the notch. **Send-from addresses** (aliases)
+  each have their own signature and Reply-To; replies go from the address the
+  mail was written to. Signatures can be left off replies per account and
+  taken off one message in the compose window.
+- **Setup guides** for Gmail, Outlook, iCloud, Yahoo, AOL, Fastmail, Zoho and
+  any IMAP provider in the Add account dialog, linking to each provider's
+  app-password page (`core/pim/provider-guides.ts`).
+- **Search** (`⌘K`): `from:` `to:` `subject:` `has:attachment` `is:unread`
+  `is:read` `is:flagged` `in:` (inbox, sent, a folder, important, updates,
+  promos) `label:` `account:` `before:` `after:` (dates or `7d`, `2w`, `3m`,
+  `1y`), quoted phrases and `-word`. This computer's results first, then the
+  servers' older ones (the same filters as an IMAP SEARCH), newest first.
+  `pim.search(query, { server })` is the one function other pages call
+  (`core/pim/search.ts`). A search can be kept as a **smart mailbox**.
+- **Rules** (`core/pim/rules.ts`): conditions on the sender, recipients,
+  subject, text, attachments and mailing list (all or any), actions move,
+  archive, mark read, flag, label and delete, run on this computer as mail
+  arrives. Rules marked *Also on the server* are written as a **Sieve** script
+  through **ManageSieve** (RFC 5804, port 4190, STARTTLS required, own small
+  client: `electron/services/pim/managesieve.ts`) or as **Gmail filters**
+  (Gmail API, signed in with Google). Rules that cannot be written there keep
+  running in Keeper.
+- **Mute** a conversation (new mail in it is read and archived) and **block** a
+  sender or a domain (their mail goes to Junk, also what is already there).
+- **Remind me if no reply** on sent mail: in a day, three days, a week or on a
+  date, from the message or while writing; the Island and a notification say
+  so if nobody answered.
+- **Invitations**: *Accept / Maybe / Decline* answer the organiser (iMIP
+  REPLY) and say plainly when the account cannot send; *Add to Calendar* adds
+  the event without answering.
+- **Reading**: sender pictures from your contacts (pictures inside the
+  contact card only; nothing is fetched), a known company's colour, or
+  initials. Designed mail stays on a light card in dark mode (or is darkened,
+  if chosen). Text size with `⌘+` / `⌘−`; list density. **Quick Look** for
+  pictures, PDFs and text attachments. **Print** and **Save as PDF**.
+- **Phishing warnings** (`core/pim/phishing.ts`): a contact's name on a
+  stranger's address, a company's name on another domain, look-alike domains
+  (one letter off, letters from other alphabets, `paypal-security.example`),
+  replies that go elsewhere, link text naming another place, and failed
+  DMARC. A banner offers *Report spam* (to Junk, sender blocked) and *Block*.
+  Such mail never gets a one-click *Copy code* or *Open link*.
+- **Privacy**: pictures from the internet are held back by default (*Load
+  images*, `⇧⌘I`, or always for a sender), tracking pixels are removed and
+  tracking parameters (`utm_*`, `fbclid`, `mc_eid` …) are taken off links
+  (`core/pim/privacy.ts`). Keeper never sends read receipts. Settings → Mail &
+  Calendar → Mail privacy lists every connection Mail makes.
+- **Sign-in codes and links**: a new sign-in code gets *Copy code* in the
+  notification and *Copy* in the Island; a magic sign-in link gets *Open link*.
+- **Writing**: rich text (bold, italic, underline, lists, sizes, links;
+  Markdown typed as text still works), templates with `{first_name}` and
+  friends, drafts kept with the window and **saved to the server's Drafts**
+  (one copy, replaced as you write, removed when sent), `⌘J` for tones
+  (shorter, more detail, friendlier, more formal, confident, casual,
+  apologetic, proofread) or your own instruction, **streamed into the
+  message**, with **what the AI remembers** about you (a list you see and edit
+  in Settings; "remember that …" adds a line). *Ask* answers cite the messages
+  as numbered links.
+- **Undo**: `⌘Z` takes back the last archive, delete or move (the messages are
+  found again by Message-ID). Undo send is off or 5–30 seconds; the Island
+  counts down with *Undo*.
+- **Snooze on every computer**: a snoozed message carries an IMAP keyword
+  (`$KSnooze-<time>`); servers without keywords get a small note in a hidden
+  *Keeper Snoozes* folder (`core/pim/snooze-sync.ts`).
+- **Catching up** after sleep, unlocking or a network change: inboxes, the
+  offline queue, the outbox and no-reply reminders are checked at once.
+- **Dock badge**: all unread, Important only, or none.
+- **The notch**: which accounts and which senders drop down; dropping files
+  on the notch puts them on the shelf, whose *Email* button starts a message
+  with them attached.
+- **Widgets**: Unread mail, Inbox (Important, medium and large) and Mail
+  accounts (small and medium).
+- **AI apps over MCP**: *Add to* Claude desktop, Claude Code, Cursor or Codex
+  writes their settings file after you confirm (the old file is kept as a
+  backup). Besides search, read and drafts, apps may **tidy** (archive, label,
+  move; never delete), each batch approved by you in Keeper, and **prepare** a
+  message, which opens in Keeper's compose window and goes only when you press
+  Send.
+
+### An iPhone companion (not built)
+
+What a companion app would need: the accounts list without passwords (the
+phone signs in itself, or receives an app password over the paired Keeper
+link), the snooze keywords and the *Keeper Snoozes* note (already on the
+server, so a phone app can read them), rules on the server (Sieve or Gmail
+filters, already written), push for new mail (an APNs relay, since a phone
+cannot hold IMAP IDLE in the background), and the AI memory and templates
+synced through Keeper's device link. Nothing on the Mac side blocks it.
 
 ## Where calendars come from
 
