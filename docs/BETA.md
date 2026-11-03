@@ -76,10 +76,11 @@ tag: cut `-beta.N+1`.
    | Windows 10 or 11 (also on ARM) | `Keeper-setup-x64.exe` |
    | Linux | `Keeper-linux-x86_64.AppImage` (or `.deb`, `.rpm`) |
 
-   The `releases/latest/download/…` links in the README always point at the newest *stable*
-   version, never a beta.
+   The `releases/latest/download/…` links in [INSTALL.md](INSTALL.md) always point at the newest
+   *stable* version, never a beta.
 3. Install it as usual. A beta installs over a stable copy and keeps your settings and library.
-   Until signing is set up, macOS and Windows warn on first launch: see README → First launch.
+   What macOS and Windows may ask on first launch: [INSTALL.md → macOS](INSTALL.md#macos) and
+   [Windows](INSTALL.md#windows).
 4. In Keeper: Settings → Updates → check that **Include beta versions** is on. A beta copy
    follows betas by itself unless you switched this off by hand before. Without it, a beta
    copy only updates to the next *stable* version.
