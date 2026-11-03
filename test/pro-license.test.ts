@@ -41,7 +41,9 @@ describe('licenses', () => {
     forged.plan = 'team';
     forged.seats = 500;
     expect(await verifyLicense(`${pre}.${b64url(utf8(JSON.stringify(forged)))}.${sig}`, [KEY.publicKey], NOW)).toMatchObject({ ok: false, reason: 'signature' });
-    const flipped = sig.slice(0, -2) + (sig.slice(-2) === 'AA' ? 'AB' : 'AA');
+    // Flip a real byte (the last base64 character partly holds unused padding bits).
+    const bytes = unb64url(sig); bytes[10] ^= 0x01;
+    const flipped = b64url(bytes);
     expect(await verifyLicense(`${pre}.${body}.${flipped}`, [KEY.publicKey], NOW)).toMatchObject({ ok: false, reason: 'signature' });
   });
   it('one signed with another key is refused; either of two listed keys works (moving to a new key)', async () => {
