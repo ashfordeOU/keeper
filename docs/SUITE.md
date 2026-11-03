@@ -20,6 +20,7 @@ is off has no process at all.
 | Watchdog | Keeper's runtime as plain Node (`watchdog.cjs`) | nothing; checks every 3 s that Keeper is alive | Keeper, at each start |
 | Services | Electron utility processes (`svc-*.cjs`, electron/svc/host.ts), started on first use, stopped a minute after the last | Network Activity sampling (`svc-net`), the process manager's sampling and actions (`svc-procs`: reading every process on the computer, and the PowerShell host that does it on Windows) | Keeper's ServiceHost, with growing waits; the call in flight is tried once more |
 | Terminal host | Keeper's runtime as plain Node (`term-host.cjs`) | terminal sessions | Keeper, on demand |
+| Light app (instead of Keeper) | `Keeper --keeper-solo=<app>` (an app icon, while Keeper is closed) | that app icon's windows and services only ([SOLO.md](SOLO.md)) | the watchdog |
 
 Each Keeper process is the same signed program, so permissions the system gives
 Keeper (screen recording, accessibility, calendars, notifications) apply to all
@@ -44,10 +45,20 @@ Every page is a page of the main window, and any page can also open in a window 
 (Open in New Window, ⌥⌘N / Ctrl+Alt+N). Those windows belong to the app process, like the
 main window: they load the same interface and preload, so every IPC handler answers them and
 `broadcast()` reaches them. Mail, Calendar and Notes can also have app icons of their own
-(Keeper Mail, Keeper Calendar, Keeper Notes) that open just their page's window, starting Keeper
-hidden first when needed, with `--keeper-open=<page>` or `keeper://open/<page>` through the
-single-instance lock. They are not parts: no process of their own, and nothing to restart.
-See [Pages in windows of their own](WINDOWS.md).
+(Keeper Mail, Keeper Notes, Keeper Files…) that open just their page's window in a running
+Keeper, through the single-instance lock. They are not parts: no process of their own, and nothing
+to restart. See [Pages in windows of their own](WINDOWS.md).
+
+## Light apps
+
+Started while Keeper is closed, an app icon runs as a **light app** (`Keeper --keeper-solo=mail`,
+`electron/solo/main.ts`): one process with only that part's services (Mail and calendars in it,
+not in a part of their own), no main window, library, Island, widgets, tray, supervisor or
+channel. It holds the same single-instance lock as Keeper, so the two never run side by side:
+Keeper started later takes over (the light app stops its services and lets go of its locks
+first), and an app icon used while Keeper runs just opens its page there. A part still running
+from an earlier Keeper (the Island or Mail outliving a crash) makes an app icon start Keeper
+itself, which adopts it. See [Light apps](SOLO.md).
 
 ## The channel
 

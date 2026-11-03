@@ -1,27 +1,36 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
-// Settings → Features → App icons: Keeper Mail, Keeper Calendar and Keeper Notes
-// (core/launchers.ts), each added to Applications, the Start menu or the app menu
-// on request, and removed here again.
+// Settings → Features → App icons: Keeper Mail, Keeper Calendar, Keeper Notes, Keeper Files
+// and the others (core/launchers.ts). Each one is added to Applications, the Start menu or
+// the app menu on request, and removed here again. Started while Keeper is closed, it runs
+// as a light app with only its own part (core/solo.ts); the switch below can make them start
+// all of Keeper instead.
 
 import { useEffect, useState } from 'react';
 import { LAUNCHERS } from '../../core/launchers';
 import type { LauncherState } from '../../core/launchers';
-import { navPage } from '../../core/nav';
 import { api } from '../api';
+import { useFeatureStates } from '../features';
 import { useStore } from '../state';
 import { Icon } from './Icon';
+import { Toggle } from './ui';
 
 const errText = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 export function LaunchersPanel() {
   const { info, toast } = useStore();
+  const states = useFeatureStates();
   const [list, setList] = useState<LauncherState[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
-  useEffect(() => { void api.launchers?.list().then(setList).catch(() => undefined); }, []);
+  useEffect(() => { void api.launchers?.list().then(setList).catch(() => undefined); }, [states]);
   if (!api.launchers || !list) return null;
   const platform = info?.platform ?? '';
   const where = platform === 'darwin' ? 'Applications' : platform === 'win32' ? 'the Start menu' : 'your app menu';
   const reveal = platform === 'darwin' ? 'Show in Finder' : platform === 'win32' ? 'Show in File Explorer' : 'Show in Folder';
+  const on = (feature: string) => states?.get(feature)?.on !== false;
+  const light = on('soloApps');
+  // Only the parts that are on; the others wait until their part is switched on.
+  const shown = list.filter((l) => on(LAUNCHERS.find((x) => x.page === l.page)?.feature ?? ''));
+  const waiting = list.length - shown.length;
 
   const act = async (page: string, what: 'add' | 'remove') => {
     setBusy(page);
@@ -37,29 +46,39 @@ export function LaunchersPanel() {
   };
 
   return (
-    <div className="feature-group" data-testid="launchers">
-      <div className="feature-group-title">App icons</div>
-      <div className="small muted" style={{ padding: '0 2px 8px' }}>
-        Keeper Mail, Keeper Calendar and Keeper Notes: icons of their own to keep in your {platform === 'darwin' ? 'Dock' : platform === 'win32' ? 'Start menu or taskbar' : 'dock or app menu'}. Each opens just its page in a window of its own, and starts Keeper first when it is not running. They use Keeper’s settings, accounts and updates, so Keeper stays installed.
-      </div>
-      {list.map((l) => {
-        const def = LAUNCHERS.find((x) => x.page === l.page);
-        return (
-          <div key={l.page} className="feature-row" data-launcher={l.page}>
-            <span style={{ background: def?.color, flex: 'none', width: 26, height: 26, borderRadius: 7, display: 'grid', placeItems: 'center', color: '#fff' }} aria-hidden><Icon name={navPage(l.page)?.icon ?? 'app'} size={15} stroke={2.2} /></span>
-            <div className="grow">
-              <div className="feature-name">{l.name}{l.installed ? <span className="badge" style={{ marginLeft: 6 }}>Added</span> : null}</div>
-              <div className="small muted">
-                {l.unavailable ?? (l.foreign ? `Something else is called ${l.name} there; Keeper leaves it alone.` : l.installed ? l.path : `Adds ${l.name} to ${where}.`)}
+    <section className="feature-group launchers" data-testid="launchers" aria-labelledby="launchers-title">
+      <div className="feature-group-title" id="launchers-title">App icons</div>
+      <p className="launchers-lead">Open one part of Keeper on its own, with an icon of its own.</p>
+      <p className="launchers-facts small muted">
+        {light ? 'Starts only what it needs' : 'Starts all of Keeper'} · Same settings and accounts · Updates with Keeper
+      </p>
+      <ul className="launchers-grid">
+        {shown.map((l) => {
+          const def = LAUNCHERS.find((x) => x.page === l.page);
+          const disabled = busy === l.page || (!l.installed && (!!l.unavailable || !!l.foreign));
+          const note = l.unavailable ?? (l.foreign ? 'Another app has this name' : l.installed ? 'Added' : 'Not added');
+          return (
+            <li key={l.page} className={`launcher-tile ${l.installed ? 'on' : ''}`} data-launcher={l.page}>
+              <span className="launcher-badge" style={{ background: def?.color }} aria-hidden><Icon name={def?.icon ?? 'app'} size={16} stroke={2.2} /></span>
+              <div className="grow launcher-text">
+                {/* "Keeper" is in every name: the tile shows the part ("Mail"), the full name is in the tooltip. */}
+                <div className="launcher-name" title={l.name}>{l.name.replace(/^Keeper /, '')}</div>
+                <div className="small muted launcher-note" title={l.installed ? `${l.name} is in ${where}: ${l.path}` : undefined}>{note}</div>
               </div>
-            </div>
-            {l.installed ? <button className="btn sm" onClick={() => void api.launchers!.reveal(l.page)}>{reveal}</button> : null}
-            {l.installed
-              ? <button className="btn sm" disabled={busy === l.page} onClick={() => void act(l.page, 'remove')}>Remove</button>
-              : <button className="btn sm" disabled={busy === l.page || !!l.unavailable || l.foreign} onClick={() => void act(l.page, 'add')}>{platform === 'darwin' ? 'Add to Applications' : platform === 'win32' ? 'Add to Start Menu' : 'Add to App Menu'}</button>}
-          </div>
-        );
-      })}
-    </div>
+              {l.installed ? <button className="btn ghost icon sm" title={reveal} aria-label={`${reveal}: ${l.name}`} onClick={() => void api.launchers!.reveal(l.page)}><Icon name="folder" size={14} /></button> : null}
+              <Toggle on={l.installed} disabled={disabled} label={`${l.name} in ${where}`} onChange={(v) => void act(l.page, v ? 'add' : 'remove')} />
+            </li>
+          );
+        })}
+      </ul>
+      {waiting > 0 ? <p className="small muted launchers-more">{waiting === 1 ? 'One more app icon appears' : `${waiting} more app icons appear`} when its part is switched on below.</p> : null}
+      <div className="feature-row launchers-light">
+        <div className="grow">
+          <div className="feature-name">Start only what they need</div>
+          <div className="small muted">Off: an app icon starts all of Keeper.</div>
+        </div>
+        <Toggle on={light} label="App icons start only what they need" onChange={(v) => void api.features.set('soloApps', v).catch((e) => toast(errText(e)))} />
+      </div>
+    </section>
   );
 }

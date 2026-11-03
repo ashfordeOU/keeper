@@ -445,8 +445,10 @@ export interface KeeperApi extends KeeperApiX {
   svc: import('./api-session').SvcApi;
   /** pages in windows of their own (core/page-window.ts; absent in the browser demo) */
   windows?: import('./page-window').PageWindowsApi;
-  /** separate app icons for Mail, Calendar and Notes (core/launchers.ts; absent in the browser demo) */
+  /** separate app icons: Keeper Mail, Keeper Notes… (core/launchers.ts; absent in the browser demo) */
   launchers?: import('./launchers').LaunchersApi;
+  /** a light app started by an app icon (core/solo.ts); answers only in one */
+  solo?: import('./solo').SoloApi;
   /** the suite's parts: the Island and widgets in processes of their own (docs/SUITE.md) */
   suite?: import('./api-suite').SuiteApi;
   /** the Island's tools: Ask, AI usage, sales, stocks, notes, to-dos, teleprompter, shortcuts */

@@ -7,6 +7,15 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 ### Changed — Hello
 - Keeper's start page is called **Hello** (it was Home), so it is never mixed up with your home folder, which is now simply Home again on Linux.
 
+### Added — App icons: Keeper Mail, Keeper Notes and the others run as light apps
+- Open Keeper Mail, Keeper Calendar or Keeper Notes while Keeper is closed and only that part starts: no library, Island, widgets, menu bar icon, monitor, sync or AI. Keeper Mail and Keeper Notes use about a third of Keeper's memory, and almost no processor while idle.
+- Six more app icons: Keeper Reminders, Keeper Planner, Keeper Files, Keeper Studio, Keeper Terminal and Keeper Remote Desktops. Add any of them in Settings → Features → App icons with one switch each.
+- Each has its own name and icon in the Dock or taskbar (on Windows and Linux its windows group under its own icon).
+- Open a second app icon and it joins the same light app. Open Keeper itself and it takes over the same windows; nothing runs twice.
+- With Keeper already open, an app icon just opens its page in a window of Keeper's.
+- Open Keeper is one click away in each light app's top bar. Prefer all of Keeper? Switch off "Start only what they need".
+- Same settings, accounts, passwords and updates as Keeper; one installer.
+
 ### Changed — Typed Snippets: a calmer page where your snippets come first
 - The page opens on your snippets: each shows its short code, the start of its text and how often you used it. Find one with the search, sort by most used or A to Z.
 - New snippet is one button. It opens a side panel with a live preview and chips that add the date, the time, the clipboard or where the cursor lands.

@@ -1,14 +1,17 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The separate app icons on a Mac (core/launchers.ts): "Keeper Mail.app",
-// "Keeper Calendar.app" and "Keeper Notes.app", made inside Keeper.app at
-// Contents/Library/Launchers by build/after-pack.cjs, before the app is signed.
+// "Keeper Calendar.app", "Keeper Notes.app", "Keeper Files.app" and the others,
+// made inside Keeper.app at Contents/Library/Launchers by build/after-pack.cjs,
+// before the app is signed.
 //
-// Each is a plain app bundle: an Info.plist naming its page (KeeperPage), its
-// icon (build/launchers/keeper-<page>.icns, scripts/launcher-icons.mjs) and a copy
-// of keeper-launcher, the small universal program native/macos/KeeperHelper builds
-// with keeper-helper (`swift build -c release --arch arm64 --arch x86_64`, the
-// release workflow's "macOS helper" step and scripts/build-mac-native.mjs). It
-// opens keeper://open/<page> and quits.
+// Each is a plain app bundle: an Info.plist naming its app icon (KeeperApp) and
+// page (KeeperPage), its icon (build/launchers/keeper-<app>.icns,
+// scripts/launcher-icons.mjs) and a copy of keeper-launcher, the small universal
+// program native/macos/KeeperHelper builds with keeper-helper (`swift build -c
+// release --arch arm64 --arch x86_64`, the release workflow's "macOS helper" step
+// and scripts/build-mac-native.mjs). It starts Keeper as a light app
+// (--keeper-solo=<app>, docs/SOLO.md), or opens keeper://open/<page> in a Keeper
+// that is running, and quits.
 //
 // Signing: they are nested code in Keeper.app, so they are signed with the app's
 // own identity: by electron-builder for a Developer ID build (hardened runtime,
@@ -23,6 +26,12 @@ const LAUNCHERS = [
   { page: 'mail', name: 'Keeper Mail', bundleId: 'io.github.ashfordeou.keeper.mail' },
   { page: 'calendar', name: 'Keeper Calendar', bundleId: 'io.github.ashfordeou.keeper.calendar' },
   { page: 'notes', name: 'Keeper Notes', bundleId: 'io.github.ashfordeou.keeper.notes' },
+  { page: 'reminders', name: 'Keeper Reminders', bundleId: 'io.github.ashfordeou.keeper.reminders' },
+  { page: 'planner', name: 'Keeper Planner', bundleId: 'io.github.ashfordeou.keeper.planner' },
+  { page: 'files', opens: 'browse', name: 'Keeper Files', bundleId: 'io.github.ashfordeou.keeper.files' },
+  { page: 'studio', name: 'Keeper Studio', bundleId: 'io.github.ashfordeou.keeper.studio' },
+  { page: 'terminal', name: 'Keeper Terminal', bundleId: 'io.github.ashfordeou.keeper.terminal' },
+  { page: 'rdc', name: 'Keeper Remote Desktops', bundleId: 'io.github.ashfordeou.keeper.rdc' },
 ];
 exports.LAUNCHERS = LAUNCHERS;
 
@@ -52,10 +61,12 @@ function infoPlist(l, version) {
     LSMinimumSystemVersion: '13.0',
     LSApplicationCategoryType: 'public.app-category.productivity',
     NSHumanReadableCopyright: '© 2026 Ashforde OÜ. Keeper by Ashforde®',
-    KeeperPage: l.page,
+    KeeperApp: l.page,
+    KeeperPage: l.opens ?? l.page,
   };
   const body = Object.entries(entries).map(([k, v]) => `\t<key>${esc(k)}</key>\n\t<string>${esc(v)}</string>`).join('\n');
-  // It quits as soon as Keeper has the link: no Dock icon of its own while it runs.
+  // It quits as soon as Keeper has started (or has the link): no Dock icon of its own while it runs;
+  // the light app it starts shows this app's icon in the Dock.
   return `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0">\n<dict>\n${body}\n\t<key>LSUIElement</key>\n\t<true/>\n</dict>\n</plist>\n`;
 }
 exports.infoPlist = infoPlist;
@@ -76,7 +87,7 @@ const launchersDir = (app) => path.join(app, 'Contents', 'Library', 'Launchers')
 exports.launchersDir = launchersDir;
 
 /**
- * Makes the three launchers inside `app`. Returns how many were made, or 0 (with the reason)
+ * Makes the launchers inside `app`. Returns how many were made, or 0 (with the reason)
  * when keeper-launcher was not built: Keeper works without them; Settings then says they are
  * not in this copy.
  */

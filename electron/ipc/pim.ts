@@ -2,50 +2,18 @@
 // Mail, calendars, reminders, alarms and contacts over IPC, and for the
 // keeper command and AI agents through Keeper's local socket.
 
-import { app, BrowserWindow, dialog, ipcMain } from 'electron';
-import { promises as fsp } from 'node:fs';
-import path from 'node:path';
 import { mailMcp } from '../../core/pim/mail-mcp';
 import { requestApproval, setToolProvider } from '../services/agents';
-import { registerKeeperMethod } from '../services/brain';
+import { registerKeeperMethod } from '../services/keeper-methods';
 import { featureOn } from '../services/features';
-import { mailLink } from '../../core/pim/mail-link';
-import { markOrigin } from '../services/origin-mark';
-import { pim as pimHere } from '../services/pim';
 import { pimCalls as pim, pimToolCalls as pimTools, threadOfCall as threadOf } from '../services/pim/route';
+import { registerPimWindowIpc } from './pim-window';
 
-export const PIM_METHODS = Object.keys(pimHere) as (keyof typeof pimHere)[];
+export { PIM_METHODS } from './pim-window';
 
 // Answered here, or by Mail and calendars in a process of its own (services/pim/route.ts).
 export function registerPimIpc() {
-  for (const m of PIM_METHODS) {
-    ipcMain.handle(`pim.${m}`, (_e, ...args: unknown[]) => (pim[m] as (...a: unknown[]) => unknown)(...args));
-  }
-  // A saved attachment records the message it came from (Downloaded From → Mail).
-  ipcMain.removeHandler('pim.saveAttachment');
-  ipcMain.handle('pim.saveAttachment', async (_e, id: string, att: string, to?: string) => {
-    const saved = await pim.saveAttachment(id, att, to);
-    if (saved) await markOrigin(saved, { url: mailLink(id) });
-    return saved;
-  });
-  // Save as PDF: the message is drawn in a hidden window (no scripts) and printed to a file.
-  ipcMain.removeHandler('pim.savePdf');
-  ipcMain.handle('pim.savePdf', async (e, id: string) => {
-    const html = await pim.printable(id);
-    const owner = BrowserWindow.fromWebContents(e.sender) ?? undefined;
-    const title = (html.match(/<title>([^<]*)<\/title>/)?.[1] ?? 'Message').replace(/[\\/:*?"<>|]+/g, ' ').trim().slice(0, 80) || 'Message';
-    const pick = owner ? await dialog.showSaveDialog(owner, { defaultPath: path.join(app.getPath('downloads'), `${title}.pdf`), filters: [{ name: 'PDF', extensions: ['pdf'] }] }) : { canceled: true, filePath: undefined };
-    if (pick.canceled || !pick.filePath) return null;
-    const w = new BrowserWindow({ show: false, webPreferences: { javascript: false, sandbox: true, offscreen: true } });
-    try {
-      await w.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
-      const pdf = await w.webContents.printToPDF({ printBackground: true });
-      await fsp.writeFile(pick.filePath, pdf);
-      return pick.filePath;
-    } finally {
-      w.destroy();
-    }
-  });
+  registerPimWindowIpc();
   // `keeper` command and agents: read-only questions answered here; changes ask in the app.
   registerKeeperMethod('keeper/mail.search', (p) => pimTools.searchMail(String(p.query ?? ''), Number(p.limit ?? 20)));
   registerKeeperMethod('keeper/calendar.list', (p) => pimTools.listEvents(Number(p.from ?? Date.now()), Number(p.to ?? Date.now() + 7 * 86_400_000)));

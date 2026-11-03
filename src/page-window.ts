@@ -10,6 +10,10 @@ const params = typeof location !== 'undefined' ? new URLSearchParams(location.se
 
 /** This window shows one page, without the sidebar or tabs. */
 export const IS_PAGE_WINDOW = params.get('view') === 'page';
+/** …in a light app started by an app icon (Keeper Mail…; core/solo.ts), not in Keeper itself. */
+export const IS_SOLO = IS_PAGE_WINDOW && params.get('solo') === '1';
+/** The page this window was opened for. */
+export const PAGE_WINDOW_PAGE = IS_PAGE_WINDOW ? params.get('page') ?? '' : '';
 
 /** "mail:<id>" → { name: 'mail', arg: '<id>' } */
 export function routeFromText(t: string): NavRoute {

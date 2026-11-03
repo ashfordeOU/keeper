@@ -23,6 +23,10 @@ export interface PageWindowDeps {
   load: (w: BrowserWindow, view: string, extra: Record<string, string>) => void;
   /** a page window opened, or the last one closed (macOS: the Dock icon follows) */
   changed?: () => void;
+  /** a light app (docs/SOLO.md): its windows are named after it ("Keeper Mail") and carry its icon */
+  own?: (key: string) => { title: string; icon: string } | undefined;
+  /** a light app: a page it does not have goes to Keeper instead (true when it took the request) */
+  divert?: (route: NavRoute, key: string) => boolean;
 }
 
 let deps: PageWindowDeps | null = null;
@@ -79,6 +83,7 @@ export function openPageWindow(route: NavRoute, label?: string): { key: string; 
   if (!deps) { pending.push([route, label]); return null; }
   const key = pageWindowKey(route);
   if (!key) return null;
+  if (deps.divert?.(route, key)) return { key, created: false };
   const existing = pageWindows().get(key);
   if (isMac) void app.dock?.show();
   if (existing) {
@@ -94,9 +99,10 @@ export function openPageWindow(route: NavRoute, label?: string): { key: string; 
   const near = screen.getDisplayNearestPoint(cursor).workArea;
   const saved = settings().pageWindows?.[key];
   const b = placePageWindow(saved, screen.getAllDisplays().map((d) => d.workArea), near, windows.size % 8);
+  const own = deps.own?.(key);
   const win = new BrowserWindow({
-    icon: path.join(__dirname, '..', 'build', 'icon.png'),
-    ...b, minWidth: PAGE_WINDOW_MIN.width, minHeight: PAGE_WINDOW_MIN.height, show: false, title: pageWindowTitle(name, APP_NAME),
+    icon: own?.icon ?? path.join(__dirname, '..', 'build', 'icon.png'),
+    ...b, minWidth: PAGE_WINDOW_MIN.width, minHeight: PAGE_WINDOW_MIN.height, show: false, title: own?.title ?? pageWindowTitle(name, APP_NAME),
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#111114' : '#f6f5f2',
     // The same frame as the main window: traffic lights in the page's top bar on a Mac, the
     // system's caption buttons over it elsewhere.
@@ -108,7 +114,7 @@ export function openPageWindow(route: NavRoute, label?: string): { key: string; 
   windows.set(key, win);
   adoptPageWindow(key, win);
   deps.lockDown(win);
-  // Its name stays the page's ("Mail — Keeper"): in the Dock's and the Window menu's lists, the taskbar and window switchers.
+  // Its name stays the page's ("Mail — Keeper", or "Keeper Mail" in a light app): in the Dock's and the Window menu's lists, the taskbar and window switchers.
   win.on('page-title-updated', (e) => e.preventDefault());
   deps.load(win, 'page', { page: key, route: routeText(route), label: name });
   win.once('ready-to-show', () => {

@@ -89,7 +89,7 @@ exports.default = async function afterPack(context) {
     for (const f of require('./after-sign.cjs').agentDesktopBinaries(resources)) require('child_process').execFileSync('/usr/bin/codesign', ['--force', '--sign', '-', f], { stdio: 'inherit' });
   }
 
-  // macOS: Keeper Mail, Keeper Calendar and Keeper Notes (separate app icons, core/launchers.ts) go
+  // macOS: Keeper Mail, Keeper Notes and the other separate app icons (core/launchers.ts) go
   // inside the app at Contents/Library/Launchers, before it is signed (build/mac-launchers.cjs).
   // Ad-hoc signed here like keeper-helper; after-sign.cjs or a Developer ID build signs them again.
   if (platform === 'darwin') {

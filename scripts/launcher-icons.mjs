@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Makes the icons of the separate app icons (Keeper Mail, Keeper Calendar, Keeper
-// Notes; core/launchers.ts) from build/icon.svg: Keeper's owl with a round badge
+// Notes, Keeper Files and the others; core/launchers.ts) from build/icon.svg: Keeper's owl with a round badge
 // in the part's colour carrying the part's sidebar glyph (src/components/Icon.tsx).
 //
 //   node scripts/launcher-icons.mjs [--check]
@@ -25,6 +25,12 @@ export const BADGES = [
   { page: 'mail', color: '#2f7cf6', glyph: 'M3 5h18v14H3zM3 6l9 7 9-7' },
   { page: 'calendar', color: '#ef4b3f', glyph: 'M4 6h16v15H4zM4 10h16M8 3v4M16 3v4' },
   { page: 'notes', color: '#f2a516', glyph: 'M6 3h8l5 5v13H6zM14 3v5h5M9 13h7M9 17h5' },
+  { page: 'reminders', color: '#7a5af5', glyph: 'M4 6l1.5 1.5L8 5M4 12l1.5 1.5L8 11M4 18l1.5 1.5L8 17M11 6h9M11 12h9M11 18h9' },
+  { page: 'planner', color: '#0f9d8a', glyph: 'M3 5h5v14H3zM10 5h5v14h-5zM17 5h4v14h-4z' },
+  { page: 'files', color: '#5b6b7f', glyph: 'M3 6a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z' },
+  { page: 'studio', color: '#e0457b', glyph: 'M3 6h13v12H3zM16 10l5-3v10l-5-3' },
+  { page: 'terminal', color: '#2d3440', glyph: 'M4 5h16v14H4zM8 10l2 2-2 2M12 15h4' },
+  { page: 'rdc', color: '#1f9e5a', glyph: 'M5 5h14v10H5zM3 19h18' },
 ];
 
 /** Keeper's icon with the badge drawn over its lower right corner (1024 units square). */

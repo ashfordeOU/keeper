@@ -8,7 +8,7 @@ import type { HostId } from '../../core/rdc/hosting';
 import { registerFindings } from '../services/guide';
 import { featureOn } from '../services/features';
 import { hostingFindings } from '../../core/rdc/hosting';
-import { registerKeeperMethod } from '../services/brain';
+import { registerKeeperMethod } from '../services/keeper-methods';
 import * as rdc from '../services/rdc';
 import * as places from '../services/rdc/places';
 

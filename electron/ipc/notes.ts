@@ -4,7 +4,7 @@
 
 import { ipcMain } from 'electron';
 import * as svc from '../services/notes';
-import { registerKeeperMethod } from '../services/brain';
+import { registerKeeperMethod } from '../services/keeper-methods';
 import { featureOn } from '../services/features';
 import { linkKeeperVaults } from '../services/notes-sync';
 

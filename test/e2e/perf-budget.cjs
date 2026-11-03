@@ -20,6 +20,9 @@
 //        KEEPER_PERF_MODE=big …                   a big library: the main process's heap stays bounded,
 //                                                 and its processor time and disk writes while reading it
 //        KEEPER_PERF_MODE=battery …               a big library on battery: listed, then nothing else
+//        KEEPER_PERF_MODE=solo KEEPER_PERF_SOLO=mail …  a light app started by an app icon
+//                                                 (--keeper-solo=mail|notes|calendar…, docs/SOLO.md):
+//                                                 its budgets are half of Keeper's default ones
 //
 // Big library mode: tens of thousands of files and 1,500 long text
 // documents (KEEPER_PERF_FILES, KEEPER_PERF_DOCS, KEEPER_PERF_DOC_KB), read
@@ -53,7 +56,9 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const MODE = ['minimal', 'big', 'battery'].includes(process.env.KEEPER_PERF_MODE) ? process.env.KEEPER_PERF_MODE : 'balanced';
+const MODE = ['minimal', 'big', 'battery', 'solo'].includes(process.env.KEEPER_PERF_MODE) ? process.env.KEEPER_PERF_MODE : 'balanced';
+// The app icon a solo run starts (core/launchers.ts).
+const SOLO = MODE === 'solo' ? (process.env.KEEPER_PERF_SOLO || 'mail') : '';
 const BIG = {
   files: Number(process.env.KEEPER_PERF_FILES ?? 40_000),
   docs: Number(process.env.KEEPER_PERF_DOCS ?? 1500),
@@ -115,9 +120,16 @@ const BUDGET = {
   // budgets rise by that much (anonymous by 90 MB, to 345 MB; PSS and private memory by 80 and
   // 60 MB). Minimal mode keeps everything in one process (core/suite.ts separateByDefault),
   // so its budgets stay as they were.
-  pssMB: Number(process.env.KEEPER_PERF_PSS_MB ?? (MODE === 'minimal' ? 440 : 580)),
-  privMB: Number(process.env.KEEPER_PERF_PRIV_MB ?? (MODE === 'minimal' ? 300 : 400)),
-  anonMB: Number(process.env.KEEPER_PERF_ANON_MB ?? (MODE === 'minimal' ? 245 : 345)),
+  //
+  // A light app (Keeper Mail, Keeper Notes, Keeper Calendar: docs/SOLO.md) runs one main process
+  // and one page with no library, Island, widgets or parts: half of the default budgets at most.
+  // Measured (one machine, 60 s settle, 60 s idle):    PSS      private   anonymous
+  //   Keeper itself                                    469 MB   299 MB    319 MB
+  //   Keeper Mail / Notes / Reminders                  ~172 MB  89 MB     101–105 MB
+  //   Keeper Calendar (its week grid costs more)       271 MB   164 MB    110 MB
+  pssMB: Number(process.env.KEEPER_PERF_PSS_MB ?? (MODE === 'minimal' ? 440 : MODE === 'solo' ? 290 : 580)),
+  privMB: Number(process.env.KEEPER_PERF_PRIV_MB ?? (MODE === 'minimal' ? 300 : MODE === 'solo' ? 200 : 400)),
+  anonMB: Number(process.env.KEEPER_PERF_ANON_MB ?? (MODE === 'minimal' ? 245 : MODE === 'solo' ? 172 : 345)),
 };
 const SECONDS = Number(process.env.KEEPER_PERF_SECONDS ?? 60);
 // Keeper finishes its first-start work (thumbnails, sources, the meaning index) in the
@@ -370,21 +382,26 @@ async function once() {
   const { home, files } = makeHome();
   const user = fs.mkdtempSync(path.join(os.tmpdir(), 'keeper-perf-cfg-'));
   if (MODE === 'minimal') fs.writeFileSync(path.join(user, 'settings.json'), JSON.stringify({ resourceMode: 'minimal' }));
+  // Its own one-per-person lock (instance.ts), so a Keeper running elsewhere on this machine is never met.
+  const run = path.join(user, 'run');
+  fs.mkdirSync(run, { recursive: true, mode: 0o700 });
   const app = await _electron.launch({
     executablePath: path.join(ROOT, 'node_modules', '.bin', 'electron'),
-    args: [ROOT, '--no-sandbox', `--user-data-dir=${user}`],
-    env: { ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME: home, XDG_CONFIG_HOME: user, NODE_OPTIONS: '' },
+    args: [ROOT, '--no-sandbox', `--user-data-dir=${user}`, ...(SOLO ? [`--keeper-solo=${SOLO}`] : [])],
+    env: { ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME: home, XDG_CONFIG_HOME: user, XDG_RUNTIME_DIR: run, NODE_OPTIONS: '' },
   });
   try {
     const root = app.process().pid;
     let win;
     for (let i = 0; i < 240 && !win; i++) {
-      for (const w of app.windows()) if (/view=app|index\.html$/.test(w.url()) && (await w.$('.sidebar').catch(() => null))) win = w;
+      for (const w of app.windows()) {
+        if (SOLO ? /view=page/.test(w.url()) && (await w.$('[data-testid="page-window-title"]').catch(() => null)) : /view=app|index\.html$/.test(w.url()) && (await w.$('.sidebar').catch(() => null))) win = w;
+      }
       if (!win) await sleep(250);
     }
-    if (!win) throw new Error('the main window never appeared');
-    // Wait until the library is read and the text in documents is too.
-    for (let i = 0; i < 360; i++) {
+    if (!win) throw new Error(SOLO ? `the ${SOLO} window never appeared` : 'the main window never appeared');
+    // Wait until the library is read and the text in documents is too (a light app has no library).
+    for (let i = 0; i < 360 && !SOLO; i++) {
       const st = await win.evaluate(() => window.keeper.library.status());
       if (!st.indexing && st.files >= files * 0.9 && !st.ocrPending) break;
       await sleep(500);
@@ -455,8 +472,8 @@ async function once() {
     const r = await once();
     const ok = r.cpuPct <= BUDGET.cpuPct && r.pssMB <= BUDGET.pssMB && r.privMB <= BUDGET.privMB && r.anonMB <= BUDGET.anonMB;
     console.log(`  per process, proportional/private memory and processor: ${r.parts.join(' · ')}`);
-    if (process.env.KEEPER_PERF_JSON) fs.appendFileSync(process.env.KEEPER_PERF_JSON, JSON.stringify({ mode: MODE, attempt, cpuPct: r.cpuPct, pssMB: r.pssMB, privMB: r.privMB, anonMB: r.anonMB, procs: r.procs }) + '\n');
-    console.log(`perf budget (${MODE}, attempt ${attempt}): ${r.files} files, idle processor ${r.cpuPct.toFixed(2)}% (budget ${BUDGET.cpuPct}%), memory ${r.pssMB.toFixed(0)} MB proportional (budget ${BUDGET.pssMB} MB), ${r.privMB.toFixed(0)} MB private (budget ${BUDGET.privMB} MB), ${r.anonMB.toFixed(0)} MB anonymous (budget ${BUDGET.anonMB} MB) ${ok ? 'OK' : 'OVER'}`);
+    if (process.env.KEEPER_PERF_JSON) fs.appendFileSync(process.env.KEEPER_PERF_JSON, JSON.stringify({ mode: MODE, solo: SOLO || undefined, attempt, cpuPct: r.cpuPct, pssMB: r.pssMB, privMB: r.privMB, anonMB: r.anonMB, procs: r.procs }) + '\n');
+    console.log(`perf budget (${MODE}${SOLO ? ` ${SOLO}` : ''}, attempt ${attempt}): ${r.files} files, idle processor ${r.cpuPct.toFixed(2)}% (budget ${BUDGET.cpuPct}%), memory ${r.pssMB.toFixed(0)} MB proportional (budget ${BUDGET.pssMB} MB), ${r.privMB.toFixed(0)} MB private (budget ${BUDGET.privMB} MB), ${r.anonMB.toFixed(0)} MB anonymous (budget ${BUDGET.anonMB} MB) ${ok ? 'OK' : 'OVER'}`);
     if (ok) process.exit(0);
   }
   process.exit(1);

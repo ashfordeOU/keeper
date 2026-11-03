@@ -43,6 +43,12 @@
     Delete "$0\Microsoft\Windows\Start Menu\Programs\Keeper Mail.lnk"
     Delete "$0\Microsoft\Windows\Start Menu\Programs\Keeper Calendar.lnk"
     Delete "$0\Microsoft\Windows\Start Menu\Programs\Keeper Notes.lnk"
+    Delete "$0\Microsoft\Windows\Start Menu\Programs\Keeper Reminders.lnk"
+    Delete "$0\Microsoft\Windows\Start Menu\Programs\Keeper Planner.lnk"
+    Delete "$0\Microsoft\Windows\Start Menu\Programs\Keeper Files.lnk"
+    Delete "$0\Microsoft\Windows\Start Menu\Programs\Keeper Studio.lnk"
+    Delete "$0\Microsoft\Windows\Start Menu\Programs\Keeper Terminal.lnk"
+    Delete "$0\Microsoft\Windows\Start Menu\Programs\Keeper Remote Desktops.lnk"
     RMDir /r "$0\Keeper\launchers"
   ${endIf}
 !macroend

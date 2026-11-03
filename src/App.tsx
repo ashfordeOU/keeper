@@ -112,7 +112,7 @@ import { viewScope, viewsFor } from '../core/folder-view';
 import { setSidebarPinned, setSidebarWidth, useSidebarLocal } from './sidebar-state';
 import { QuickLookHost } from './preview/QuickLook';
 import { FileOpsHost } from './fileops';
-import { IS_PAGE_WINDOW, openInWindow, PAGE_WINDOW_LABEL, windowLabel } from './page-window';
+import { IS_PAGE_WINDOW, IS_SOLO, openInWindow, PAGE_WINDOW_LABEL, windowLabel } from './page-window';
 import { ThemeQuickPicker } from './components/ThemeQuickPicker';
 import { toggleThemePatch } from './theme';
 import { useProgressAnnouncer } from './a11y';
@@ -335,6 +335,8 @@ function TopBar({ onPalette, page }: { onPalette: () => void; /** a page in a wi
       ) : null}
       {/* This page in a window of its own (⌥⌘N / Ctrl+Alt+N; also the Window menu and the sidebar's right-click). */}
       {page ? null : <button className="btn ghost icon" data-testid="open-in-window" title={`Open in New Window (${mod === '⌘' ? '⌥⌘N' : 'Ctrl+Alt+N'})`} aria-label="Open in New Window" onClick={() => void openInWindow(route, here, toast)}><Icon name="external" size={16} /></button>}
+      {/* A light app (Keeper Mail…): all of Keeper is one click away, and takes over this window. */}
+      {IS_SOLO ? <button className="btn ghost sm" data-testid="open-keeper" title="Open all of Keeper here" onClick={() => void api.solo?.openKeeper()}>Open Keeper</button> : null}
       <button className="btn ghost icon" title={`Command palette (${mod}K)`} aria-label={`Command palette (${mod}K)`} onClick={onPalette}><Icon name="sparkle" size={16} /></button>
       <ThemeQuickPicker title={`Theme and light or dark (${mod}${shift}L swaps the last two)`} />
     </header>

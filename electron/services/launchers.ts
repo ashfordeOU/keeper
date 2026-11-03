@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
-// Separate app icons for Mail, Calendar and Notes (core/launchers.ts): made on
-// request from Settings → Features, and removed there. Keeper only ever removes
+// Separate app icons (Keeper Mail, Keeper Notes, Keeper Files…; core/launchers.ts):
+// made on request from Settings → Features, and removed there. Keeper only ever removes
 // what it made itself (checked by the bundle identifier, the shortcut's
 // arguments or the desktop entry's X-Keeper-Launcher line).
 
@@ -10,6 +10,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { isOurDesktopEntry, isOurMacLauncher, isOurShortcut, LAUNCHERS, launcherDef, launcherPlan, type LauncherContext, type LauncherPlan, type LauncherState } from '../../core/launchers';
+import { featureOn } from './features';
 
 const run = (cmd: string, args: string[]) => new Promise<boolean>((resolve) => {
   execFile(cmd, args, { timeout: 20_000 }, (e) => resolve(!e));
@@ -53,13 +54,15 @@ function ours(plan: LauncherPlan): boolean {
 
 function stateOf(page: string, c = launcherContext()): LauncherState {
   const l = launcherDef(page);
-  if (!l) return { page, name: page, path: '', installed: false, unavailable: 'Only Mail, Calendar and Notes have app icons of their own' };
+  if (!l) return { page, name: page, path: '', installed: false, unavailable: 'This part of Keeper has no app icon of its own' };
   const plan = launcherPlan(page, c);
+  const off = featureOn(l.feature) ? undefined : 'Turn this part on above to add its icon';
   if ('unavailable' in plan) return { page, name: l.name, path: '', installed: false, unavailable: plan.unavailable };
   const there = fs.existsSync(plan.target);
   const mine = there && ours(plan);
   const missing = plan.kind === 'mac-app' && !fs.existsSync(plan.source) ? 'Not in this copy of Keeper' : undefined;
-  return { page, name: l.name, path: plan.target, installed: mine, ...(there && !mine ? { foreign: true } : {}), ...(missing && !mine ? { unavailable: missing } : {}) };
+  const why = missing ?? off;
+  return { page, name: l.name, path: plan.target, installed: mine, ...(there && !mine ? { foreign: true } : {}), ...(why && !mine ? { unavailable: why } : {}) };
 }
 
 export function listLaunchers(): LauncherState[] {
@@ -83,7 +86,8 @@ export async function addLauncher(page: string): Promise<LauncherState[]> {
   } else if (plan.kind === 'win-shortcut') {
     fs.mkdirSync(path.dirname(plan.icon), { recursive: true });
     fs.writeFileSync(plan.icon, fs.readFileSync(shippedIcon(page, 'ico')));
-    const ok = shell.writeShortcutLink(plan.target, 'create', { target: plan.exe, args: plan.args, description: plan.description, icon: plan.icon, iconIndex: 0, cwd: path.dirname(plan.exe) });
+    // The shortcut carries the app ID the light app's windows use, so the taskbar groups them under its icon.
+    const ok = shell.writeShortcutLink(plan.target, fs.existsSync(plan.target) ? 'replace' : 'create', { target: plan.exe, args: plan.args, description: plan.description, icon: plan.icon, iconIndex: 0, cwd: path.dirname(plan.exe), appUserModelId: plan.appUserModelId });
     if (!ok) throw new Error(`Could not add ${plan.name} to the Start menu`);
   } else {
     fs.mkdirSync(path.dirname(plan.icon), { recursive: true });
@@ -108,17 +112,26 @@ export async function removeLauncher(page: string): Promise<LauncherState[]> {
 }
 
 /**
- * macOS: launchers copied to Applications by an older Keeper are replaced by this version's
- * (they are copies, so they do not update with Keeper by themselves).
+ * App icons made by an older Keeper are brought up to date: on a Mac the copies in Applications
+ * (they do not update with Keeper by themselves); on Windows and Linux shortcuts and desktop
+ * entries that still open a page in Keeper rather than starting a light app.
  */
 export async function refreshLaunchers() {
-  if (process.platform !== 'darwin' || !app.isPackaged) return;
   const c = launcherContext();
   for (const l of LAUNCHERS) {
     const plan = launcherPlan(l.page, c);
-    if ('unavailable' in plan || plan.kind !== 'mac-app' || !fs.existsSync(plan.target) || !ours(plan) || !fs.existsSync(plan.source)) continue;
-    const version = (p: string) => /<key>CFBundleVersion<\/key>\s*<string>([^<]*)<\/string>/.exec(read(path.join(p, 'Contents', 'Info.plist')) ?? '')?.[1];
-    if (version(plan.target) !== version(plan.source)) await addLauncher(l.page).catch(() => undefined);
+    if ('unavailable' in plan || !fs.existsSync(plan.target) || !ours(plan)) continue;
+    if (plan.kind === 'mac-app') {
+      if (!app.isPackaged || !fs.existsSync(plan.source)) continue;
+      const version = (p: string) => /<key>CFBundleVersion<\/key>\s*<string>([^<]*)<\/string>/.exec(read(path.join(p, 'Contents', 'Info.plist')) ?? '')?.[1];
+      if (version(plan.target) !== version(plan.source)) await addLauncher(l.page).catch(() => undefined);
+    } else if (plan.kind === 'linux-desktop') {
+      if (read(plan.target) !== plan.content) await addLauncher(l.page).catch(() => undefined);
+    } else {
+      let args = '';
+      try { args = shell.readShortcutLink(plan.target).args ?? ''; } catch { continue; }
+      if (args !== plan.args) await addLauncher(l.page).catch(() => undefined);
+    }
   }
 }
 

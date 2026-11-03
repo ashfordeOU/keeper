@@ -9,7 +9,6 @@ import { onPartOpenUrl, partBroadcast, startHub } from './suite/hub';
 import { registerSuiteIpc, separateAtStart, startSuite } from './suite/supervisor';
 import { installRemotes, uninstallRemotes } from './suite/remote';
 import { installMailRemote, uninstallMailRemote } from './suite/mail';
-import type { TransferOptions } from '../core/fileops';
 import { clipboardImage, readFile as readCaptureFile } from './services/capture';
 import { addBusyCheck } from './services/busy';
 import { onBeforeInstall, onUpdateNotificationClick, onUpdateStatus } from './services/updater';
@@ -22,7 +21,6 @@ import { attachHover, glanceView, showGlance, toggleGlance } from './services/gl
 import { registerGlanceIpc } from './ipc/glance';
 import { glanceTooltip, type GlanceActionId } from '../core/glance';
 import { menuKey } from '../core/menu-key';
-import { isUnder, typeCounts } from '../core/file-types';
 import { startBreadcrumbs } from './breadcrumbs';
 import { anotherKeeperTookOver, holdInstanceLock, releaseInstanceLock } from './instance';
 import { installNavGuard } from './nav-guard';
@@ -39,8 +37,8 @@ import { cacheTargets } from '../core/cleanup/targets';
 import { findExactDuplicates, findFormatPairs, findSimilarImages } from '../core/duplicates';
 import { DAY, MB, formatBytes, tildify } from '../core/format';
 import { FileIndex } from '../core/indexer';
-import { Journal, undoMoves } from '../core/journal';
-import { powershell, readDownloadSource, run, targetEnv } from '../core/platform';
+import { Journal } from '../core/journal';
+import { powershell, readDownloadSource, targetEnv } from '../core/platform';
 import { planRule } from '../core/rules';
 import { checkRemovable, isInside } from '../core/safety';
 import type { AllSettings } from '../core/settings';
@@ -125,6 +123,7 @@ import { setMonitorIslandAlert } from './services/monitor';
 import { registerPimIpc } from './ipc/pim';
 import { registerNotesIpc } from './ipc/notes';
 import { registerSearchIpc } from './ipc/search';
+import { libraryFolders as libraryFoldersOf, makeIndex as makeLibraryIndex, registerLibraryIpc } from './ipc/library';
 import { setOriginRefresh } from './services/origin-mark';
 import { stageAfterStudio, stageBefore, type StageBefore } from '../core/stage/studio';
 import { allowRoot as allowPreviewRoot } from './services/preview';
@@ -170,6 +169,7 @@ import { nativeApps, nativeOpen } from './services/native-apps';
 import { anyPageWindowShown, lastPageWindowClosedAt, openPageWindow, pageOfWindow, registerPageWindows } from './services/page-windows';
 import { registerLaunchersIpc } from './services/launchers';
 import { pageFromArgv, pageFromUrl, routeOfPage } from '../core/page-window';
+import { reopenFromArgv } from '../core/solo';
 
 void squarify; // the interface lays out the Space Map; kept for the CLI's future text treemap
 
@@ -762,27 +762,14 @@ function onSecondInstance(argv: string[]) {
 
 // ---------------------------------------------------------------- library
 
-/**
- * The folders the library reads. Until the first-run setup is finished (or skipped) only
- * Downloads: reading Desktop and Documents would make macOS ask about each folder before
- * the person has seen anything (setup offers Full Disk Access as one switch instead).
- */
-function libraryFolders(s: AllSettings) {
-  const all = s.folders.filter((f) => existsSync(f));
-  const waiting = !s.setupDone && !NO_TOUR;
-  const downloads = (() => { try { return app.getPath('downloads'); } catch { return ''; } })();
-  return (waiting ? all.filter((f) => f === downloads || path.basename(f) === 'Downloads') : all).map((f) => ({ path: f, label: path.basename(f) }));
-}
-
 function makeIndex(s: AllSettings) {
-  const folders = libraryFolders(s);
   // Looked up each time, so "Where downloads came from" can be switched off and on.
   const hooks = {
     get readSource() { return featureOn('sources') ? readDownloadSource : undefined; },
     get readSources() { return featureOn('sources') ? readDownloadSources : undefined; },
     readTags: process.platform === 'darwin' ? readFinderTags : undefined,
   };
-  return new FileIndex(path.join(app.getPath('userData'), 'index.json'), folders, s.excluded, hooks);
+  return makeLibraryIndex(s, NO_TOUR, hooks);
 }
 
 // Found so far and expected, for Home ("Reading your folders · 120,000 of ~270,000").
@@ -837,15 +824,6 @@ function backgroundWork(): import('../core/api').BackgroundWork {
   const d = canWork(vision.pending ? 'text' : 'details');
   return { pending, state: d.ok ? 'working' : 'waiting', reason: d.ok ? undefined : d.reason, boostedUntil: workBoostedUntil() };
 }
-
-const sortFiles = (list: FileEntry[], key: string = 'date', desc = true) => {
-  const dir = desc ? -1 : 1;
-  return list.sort((a, b) =>
-    key === 'name' ? dir * a.name.localeCompare(b.name, undefined, { numeric: true })
-      : key === 'size' ? dir * (a.size - b.size)
-      : key === 'kind' ? a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name)
-      : dir * (a.mtime - b.mtime));
-};
 
 // ---------------------------------------------------------------- cleanup
 
@@ -1089,15 +1067,6 @@ function handle(name: string, fn: (...args: never[]) => unknown) {
   ipcMain.handle(name, async (_e, ...args) => fn(...(args as never[])));
 }
 
-/**
- * Lists cross to the window as structured clones; recognised text can be long,
- * so lists carry only its start (enough to show that text exists). Full text is
- * fetched on demand (inspect, readText).
- */
-function lite(f: FileEntry): FileEntry {
-  return f.text && f.text.length > 160 ? { ...f, text: f.text.slice(0, 160), textCut: true } : f;
-}
-
 function registerIpc() {
   handle('system.info', () => ({ platform: process.platform, arch: process.arch, osVersion: os.release(), appVersion: app.getVersion(), home: os.homedir(), sep: path.sep }));
   handle('system.disks', disks);
@@ -1125,72 +1094,25 @@ function registerIpc() {
     return r.canceled ? null : r.filePaths[0];
   });
 
-  handle('library.status', () => ({ indexing: index.scanning, files: index.files.size, lastScan: index.lastScan, ocrPending: vision.pending, found: index.scanning ? scanFound : undefined, expected: index.scanning ? scanExpected : undefined, background: backgroundWork() }));
-  // "Speed up now": background reading at full speed for half an hour, even on battery.
-  handle('library.speedUp', () => { boostWork(30 * 60_000); });
-  handle('library.rescan', () => rescan());
-  handle('library.totals', () => index.totals());
-  // The type chips' counts on the file list (Everywhere, or one folder and what is inside it).
-  handle('library.typeCounts', (under?: string) => typeCounts(index.files.values(), under || undefined));
-  handle('library.recent', (n: number, kind?: string) => index.recent(n, (f) => !kind || (kind === 'screenshot' ? !!f.screenshot : kind === 'download' ? f.root === 'Downloads' : f.kind === kind)).map(lite));
-  handle('library.list', (o: { kind?: FileKind; screenshot?: boolean; fromWeb?: boolean; under?: string; root?: string; source?: string; tag?: string; sort?: string; desc?: boolean; limit?: number }) => {
-    const list = index.all().filter((f) => (!o.kind || f.kind === o.kind) && (!o.screenshot || f.screenshot) && (!o.fromWeb || !!f.source) && (!o.under || isUnder(f.path, o.under)) && (!o.root || f.root === o.root) && (!o.source || f.source?.id === o.source) && (!o.tag || f.tags?.includes(o.tag)));
-    const sorted = sortFiles(list, o.sort, o.desc ?? o.sort !== 'name');
-    return (o.limit ? sorted.slice(0, o.limit) : sorted).map(lite);
-  });
+  // The library's and the file list's calls (shared with the Keeper Files light app: electron/ipc/library.ts).
   let dupeCache: Set<string> | undefined;
-  handle('library.search', (text: string, limit = 300) => {
-    const { parsed, hits } = index.query(text, { duplicatePaths: dupeCache });
-    return { parsed, hits: hits.slice(0, limit).map((h) => ({ ...h, file: lite(h.file) })) };
-  });
-  handle('library.bySource', () => index.bySource());
-  handle('library.tags', () => index.allTags());
-  handle('library.setTags', (p: string, tags: string[]) => { index.setTags(p, tags); syncFinderTags(p, index.files.get(p)?.tags ?? []); libraryChanged(); });
-  handle('library.inspect', async (p: string) => index.files.get(p) ?? (await index.refresh(p)) ?? null);
-  handle('library.readText', async (paths: string[]) => {
-    const out = [];
-    for (const p of paths) {
-      let text = index.files.get(p)?.text ?? index.extras.get(p)?.text;
-      if (text === undefined) {
-        const { loadImage, ocrFile } = await import('./services/vision');
-        const img = await loadImage(p);
-        text = img ? await ocrFile(p, img, settings().ocrLanguages) : '';
-        index.setText(p, text);
-      }
-      out.push({ path: p, text });
-    }
-    return out;
-  });
-  handle('library.largeFiles', (minMb: number) => largeFiles(index.all(), minMb).map(lite));
-
-  handle('files.browse', (dir: string, hidden?: boolean) => files.browse(dir, hidden));
-  handle('files.thumbnail', (p: string, size: number) => files.thumbnail(p, size));
-  handle('files.icon', (p: string) => files.icon(p));
-  // Usage learning (off unless turned on) notes opens, moves and trashes made in Keeper.
-  handle('files.open', (p: string) => { recordUsage({ type: 'open', path: p }); return files.open(p); });
-  handle('files.openWith', (p: string) => files.openWith(p));
-  handle('files.reveal', (p: string) => files.reveal(p));
-  handle('files.copyPaths', (paths: string[]) => files.copyPaths(paths));
-  handle('files.copyText', (t: string) => files.copyText(t));
-  handle('files.trash', (paths: string[], title?: string) => { for (const p of paths) recordUsage({ type: 'trash', path: p }); return files.trash(paths, title); });
-  handle('files.move', async (paths: string[], dir: string, opts?: TransferOptions) => {
-    const r = await files.move(paths, dir, { ...opts }, (p) => broadcast('files-progress', p));
-    for (const op of journal.get(r.journalId ?? '')?.ops ?? []) if (op.type === 'move' && op.to) recordUsage({ type: 'move', from: op.from, to: op.to });
-    return r;
-  });
-  handle('files.copy', (paths: string[], dir: string, opts?: TransferOptions) => files.copy(paths, dir, { ...opts }, (p) => broadcast('files-progress', p)));
-  handle('files.clipboardPaths', () => files.clipboardPaths());
-  handle('files.conflicts', (paths: string[], dir: string, op?: 'copy' | 'move') => files.conflicts(paths, dir, op));
-  handle('files.rename', (p: string, name: string) => files.rename(p, name));
-  handle('files.previewRename', (paths: string[], steps: never) => files.previewRename(paths, steps));
-  handle('files.applyRename', (paths: string[], steps: never) => files.applyRename(paths, steps));
-  handle('files.newFolder', (dir: string, name: string) => files.newFolder(dir, name));
-  handle('files.compress', (paths: string[]) => files.compress(paths));
-  ipcMain.on('files.startDrag', (e, paths: string[]) => {
-    const list = paths.filter((p) => existsSync(p));
-    if (!list.length) return;
-    const icon = nativeImage.createFromPath(list[0]);
-    e.sender.startDrag({ file: list[0], files: list, icon: icon.isEmpty() ? nativeImage.createFromDataURL('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=') : icon.resize({ width: 64 }) });
+  registerLibraryIpc({
+    index: () => index, files: () => files, journal: () => journal,
+    scan: () => ({ found: scanFound, expected: scanExpected }),
+    ocrPending: () => vision.pending,
+    background: backgroundWork,
+    rescan: () => rescan(),
+    speedUp: () => { boostWork(30 * 60_000); },
+    changed: libraryChanged,
+    broadcast,
+    duplicates: () => dupeCache,
+    readText: async (p) => {
+      const { loadImage, ocrFile } = await import('./services/vision');
+      const img = await loadImage(p);
+      return img ? ocrFile(p, img, settings().ocrLanguages) : '';
+    },
+    record: recordUsage,
+    syncTags: syncFinderTags,
   });
 
   handle('duplicates.scan', async (opts: { similar?: boolean; threshold?: number } = {}) => {
@@ -1243,26 +1165,6 @@ function registerIpc() {
     const r = settings().rules.find((x) => x.id === id);
     if (!r) throw new Error('Rule not found');
     return runRule(r);
-  });
-
-  handle('history.list', async () => {
-    await journal.load();
-    return journal.list();
-  });
-  handle('history.undo', async (id: string) => {
-    await journal.load();
-    const e = journal.get(id);
-    if (!e || e.undone) return { restored: 0, failed: [] };
-    const res = await undoMoves(e);
-    // Items sent to the Trash: point the user at it (restoring from the system Trash is up to the OS).
-    const trashed = e.ops.filter((o) => o.type === 'trash');
-    if (trashed.length && process.platform === 'darwin') await run('/usr/bin/open', [path.join(os.homedir(), '.Trash')]);
-    else if (trashed.length && process.platform === 'win32') await run('explorer.exe', ['shell:RecycleBinFolder']);
-    else if (trashed.length) await shell.openPath(path.join(os.homedir(), '.local', 'share', 'Trash', 'files'));
-    for (const op of e.ops) if (op.type === 'move' && op.to) index.rename(op.to, op.from);
-    await journal.markUndone(id);
-    libraryChanged();
-    return { restored: res.restored, failed: res.failed.concat(trashed.length ? [`${trashed.length} item(s) are in the Trash — put them back from there`] : []) };
   });
 
   handle('usage.get', () => usage());
@@ -1698,6 +1600,9 @@ let studioSince: number | undefined;
     else if (settings().trayEnabled) app.dock?.hide();
   } });
   registerLaunchersIpc();
+  // Keeper itself is not a light app (core/solo.ts); its windows asking to open Keeper get the main window.
+  handle('solo.info', () => null);
+  handle('solo.openKeeper', (route?: string) => showMain(typeof route === 'string' && route ? route : undefined));
   if (!(process.argv.includes('--hidden') || startedForPage) || settings().resourceMode === 'performance') createMain();
   restoreExtraWindows();
   await index.load();
@@ -1776,6 +1681,8 @@ let studioSince: number | undefined;
 
   const link = process.argv.find((a) => a.startsWith('keeper://'));
   const startPage = pageFromArgv(process.argv);
+  // Taking over from a light app (Keeper Mail…): the windows it had open come back here.
+  for (const p of reopenFromArgv(process.argv)) if (p !== startPage) openPage(p);
   if (startPage) openPage(startPage);
   else if (link) handleDeepLink(link);
   else if (!handleRdcArgv(process.argv)) handlePlatformArgv(process.argv);
@@ -1791,7 +1698,7 @@ let studioSince: number | undefined;
     if (JSON.stringify(next.brain) !== JSON.stringify(prev.brain)) void brainSettingsChanged(next.brain, prev.brain);
     if (JSON.stringify(next.agents) !== JSON.stringify(prev.agents)) void agentSettingsChanged(normalizeAgentSettings(next.agents), normalizeAgentSettings(prev.agents));
     if (next.folders.join() !== prev.folders.join() || next.excluded.join() !== prev.excluded.join() || next.showHidden !== prev.showHidden || next.includeRemote !== prev.includeRemote || next.setupDone !== prev.setupDone) {
-      index.folders = libraryFolders(next);
+      index.folders = libraryFoldersOf(next, NO_TOUR);
       index.excluded = next.includeRemote ? next.excluded : [...new Set([...next.excluded, ...remoteFolders()])];
       void rescan();
     }

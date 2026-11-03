@@ -7,6 +7,7 @@
 // that already has a window brings that window forward instead of opening a
 // second one. Its size and place are kept per page in settings (pageWindows).
 
+import { launcherDef, launcherPage, SOLO_SWITCH } from './launchers';
 import { NAV_PAGES, navPage, pageOf, type NavRoute } from './nav';
 
 /** Where a window is on the screen. */
@@ -45,12 +46,21 @@ export function openablePage(id: unknown): string | undefined {
   return PAGE_ID.test(v) && navPage(v) ? v : undefined;
 }
 
-/** The page named by `--keeper-open=<page>` (or `--keeper-open <page>`) in a command line; anything else is ignored. */
+/**
+ * The page named by `--keeper-open=<page>` (or `--keeper-open <page>`) in a command line; anything
+ * else is ignored. An app icon's `--keeper-solo=<app>` names its page too (core/solo.ts): when Keeper
+ * is open already, the app icon simply opens its page in a window of Keeper's.
+ */
 export function pageFromArgv(argv: readonly string[]): string | undefined {
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a.startsWith(`${OPEN_SWITCH}=`)) return openablePage(a.slice(OPEN_SWITCH.length + 1));
     if (a === OPEN_SWITCH) return openablePage(argv[i + 1]);
+    const solo = a.startsWith(`${SOLO_SWITCH}=`) ? a.slice(SOLO_SWITCH.length + 1) : a === SOLO_SWITCH ? argv[i + 1] : undefined;
+    if (solo !== undefined) {
+      const l = launcherDef(String(solo).trim().toLowerCase());
+      return l ? openablePage(launcherPage(l)) : undefined;
+    }
   }
   return undefined;
 }

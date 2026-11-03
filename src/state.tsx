@@ -5,7 +5,8 @@
 import { linkInMessage } from '../core/settings-links';
 import { expireToast, pushToast, toastLife } from './lib/toasts';
 import { rememberRoute, scrollMap, seedScroll, setPlaceMemory, startPlace, onScrollChanged } from './place';
-import { IS_PAGE_WINDOW, PAGE_WINDOW_START } from './page-window';
+import { IS_PAGE_WINDOW, IS_SOLO, openInWindow, PAGE_WINDOW_PAGE, PAGE_WINDOW_START } from './page-window';
+import { soloKeepsRoute } from '../core/solo';
 import { activeTab, closeOthers, closeTab, closeToRight, detachTab, duplicateTab, emptyWindow, goBack, goForward, moveTab, navigate, newTab, openTab, pinTab, reopenClosed, selectTab, type Tab, type WindowState } from '../core/session';
 import type { SessionInitial } from '../core/api-session';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -247,6 +248,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // A page window has no tabs: ⌘-click and middle-click open in it as a plain click does.
   const tabsOn = settings?.tabs !== false && !IS_PAGE_WINDOW;
   const go = useCallback((r: Route) => {
+    // A light app (Keeper Mail…) keeps its own part; another page opens in its app's window or in Keeper.
+    if (IS_SOLO && !soloKeepsRoute(PAGE_WINDOW_PAGE, r)) { void openInWindow(r); return; }
     const intent = tabsOn ? takeNewTabIntent() : null;
     setWin((w) => (intent ? openTab(w, r, { background: intent.background }) : navigate(w, r)));
     if (!intent || !intent.background) select([]);

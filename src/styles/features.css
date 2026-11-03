@@ -39,3 +39,15 @@
 .components-section { margin-top: 18px; }
 .suite-intro { padding: 0 2px 8px; }
 .suite-row .kproc-dot { flex: none; }
+/* Settings → Features → App icons: one calm tile per app icon, a switch each. */
+.launchers-lead { margin: 2px 2px 0; font-weight: 600; }
+.launchers-facts { margin: 2px 2px 10px; }
+.launchers-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; }
+.launcher-tile { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--r-lg); background: var(--bg); border: 1px solid var(--line); min-width: 0; }
+.launcher-tile.on { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
+.launcher-badge { flex: none; width: 28px; height: 28px; border-radius: var(--r-md); display: grid; place-items: center; color: #fff; }
+.launcher-text { min-width: 0; }
+.launcher-name, .launcher-note { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.launcher-name { font-weight: 600; }
+.launchers-more { margin: 8px 2px 0; }
+.launchers-light { margin-top: 10px; }

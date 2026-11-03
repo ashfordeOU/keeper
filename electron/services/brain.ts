@@ -31,6 +31,7 @@ import { getSecret, hasSecret, secretLocked, settings, updateSettings } from '..
 import { appleProvider, mcpLaunch } from './platform';
 import { useBrain } from './platform/brain-adapter';
 import { canWork, conditions, pacer, track, whenIdle } from './governor';
+import { keeperMethods, registerKeeperMethod, registerKeeperStream } from './keeper-methods';
 import { restMs } from '../../core/governor';
 
 export interface BrainDeps {
@@ -455,7 +456,7 @@ const sameToken = (t: string) => {
   return a.length === b.length && timingSafeEqual(a, b);
 };
 
-const extraMethods = new Map<string, (params: Record<string, unknown>, notify: (method: string, params: unknown) => void) => Promise<unknown> | unknown>();
+const extraMethods = keeperMethods;
 
 /** Maps an agent's hub token (and terminal) to who it is; set by the agent hub. */
 let agentResolver: ((token?: string, session?: string) => string | undefined) | null = null;
@@ -463,15 +464,8 @@ export function setAgentResolver(fn: typeof agentResolver) {
   agentResolver = fn;
 }
 
-/** Lets other parts of Keeper answer the keeper command through the same socket (e.g. "keeper/sync.status"). */
-export function registerKeeperMethod(method: string, fn: (params: Record<string, unknown>) => Promise<unknown> | unknown) {
-  extraMethods.set(method, fn);
-}
-
-/** Like registerKeeperMethod, for long-running calls that send notifications back to the caller (e.g. the browser extension's link). */
-export function registerKeeperStream(method: string, fn: (params: Record<string, unknown>, notify: (method: string, params: unknown) => void) => Promise<unknown> | unknown) {
-  extraMethods.set(method, fn);
-}
+// Registered in a module of their own (services/keeper-methods.ts), so parts can add theirs without loading the brain.
+export { registerKeeperMethod, registerKeeperStream };
 
 /** Methods only Keeper's own command uses, next to the standard MCP ones. */
 async function keeperMethod(m: JsonRpcRequest, notify: (method: string, params: unknown) => void): Promise<JsonRpcResponse | undefined> {

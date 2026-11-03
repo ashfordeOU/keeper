@@ -134,22 +134,35 @@ async function secondStart(args) {
 
   // 6. Keeper Mail in the app menu (Linux: a desktop entry), and removed again.
   const before = await main.evaluate(() => window.keeper.launchers.list());
-  check(before.length === 3 && before.every((l) => !l.installed), 'three app icons offered, none added yet');
+  check(before.length === 9 && before.every((l) => !l.installed), `nine app icons offered, none added yet (${before.length})`);
   const after = await main.evaluate(() => window.keeper.launchers.add('mail'));
   const entry = path.join(HOME, '.local/share/applications/keeper-mail.desktop');
   const text = fs.existsSync(entry) ? fs.readFileSync(entry, 'utf8') : '';
-  check(after.find((l) => l.page === 'mail')?.installed === true && /^Exec=.*--keeper-open=mail$/m.test(text) && /^Name=Keeper Mail$/m.test(text), 'Keeper Mail is added to the app menu with --keeper-open=mail');
+  check(after.find((l) => l.page === 'mail')?.installed === true && /^Exec=.*--keeper-solo=mail$/m.test(text) && /^Name=Keeper Mail$/m.test(text) && /^StartupWMClass=keeper-mail$/m.test(text), 'Keeper Mail is added to the app menu with --keeper-solo=mail and a window class of its own');
   const icon = /^Icon=(.*)$/m.exec(text)?.[1];
   check(!!icon && fs.existsSync(icon), 'with an icon of its own');
   // Settings → Features in a window of its own lists them, Keeper Mail as added.
   await main.evaluate(() => window.keeper.windows.openPage({ name: 'settings', arg: 'features' }));
   const sw = await pageOf(app, 'settings');
-  const listed = sw && await until(async () => (await sw.locator('[data-testid="launchers"] [data-launcher]').count()) === 3, 20_000);
-  check(!!listed, 'Settings → Features lists the three app icons');
+  const listed = sw && await until(async () => (await sw.locator('[data-testid="launchers"] [data-launcher]').count()) >= 3, 20_000);
+  check(!!listed, 'Settings → Features lists the app icons whose parts are on');
   if (listed) {
-    check((await sw.locator('[data-launcher="mail"]').textContent())?.includes('Added'), 'with Keeper Mail marked as added');
+    check(await sw.locator('[data-launcher="mail"] [role="switch"][aria-checked="true"]').count() === 1, 'with Keeper Mail switched on (added)');
+    // Light and dark, at 1440×900 (the app icons and the light-app switch).
+    await app.evaluate(({ BrowserWindow }) => { const w = BrowserWindow.getAllWindows().find((x) => /page=settings/.test(x.webContents.getURL())); w.setBounds({ x: 0, y: 0, width: 1440, height: 900 }); });
+    await wait(1000);
     await sw.locator('[data-testid="launchers"]').scrollIntoViewIfNeeded();
-    await sw.screenshot({ path: path.join(SHOTS, 'app-icons-settings.png') });
+    await sw.evaluate(() => document.querySelector('[data-testid="launchers"]')?.scrollIntoView({ block: 'start' }));
+    await sw.screenshot({ path: path.join(SHOTS, 'app-icons-light.png') });
+    await main.evaluate(() => window.keeper.settings.set({ appearance: 'dark' }));
+    await wait(1500);
+    await sw.screenshot({ path: path.join(SHOTS, 'app-icons-dark.png') });
+    await main.evaluate(() => window.keeper.settings.set({ appearance: 'system' }));
+    await app.evaluate(({ BrowserWindow }) => { const w = BrowserWindow.getAllWindows().find((x) => /page=settings/.test(x.webContents.getURL())); w.setBounds({ x: 0, y: 0, width: 1024, height: 768 }); });
+    await wait(1000);
+    await sw.evaluate(() => document.querySelector('[data-testid="launchers"]')?.scrollIntoView({ block: 'start' }));
+    await sw.screenshot({ path: path.join(SHOTS, 'app-icons-1024.png') });
+    check(await sw.locator('[data-testid="launchers"] [role="switch"]').count() >= 4, 'each app icon has a switch, and so do light apps');
   }
   await main.evaluate(() => window.keeper.launchers.remove('mail'));
   check(!fs.existsSync(entry) && !(icon && fs.existsSync(icon)), 'removing Keeper Mail deletes what Keeper made');

@@ -178,6 +178,7 @@ export const TIERS: Record<string, FeatureTier> = {
   tray: { plain: 'Keeper in the menu bar', setup: 'general', normal: 'on', shown: 'basic' },
   login: { plain: 'Open at login', setup: 'general', normal: 'on', shown: 'basic' },
   platform: { plain: 'In Finder, Spotlight and Shortcuts', setup: 'general', normal: 'on', shown: 'basic' },
+  soloApps: { plain: 'Light app icons', setup: 'general', normal: 'on', shown: 'advanced' },
   updates: { plain: 'Check for updates automatically', setup: 'general', normal: 'on', shown: 'basic' },
   usageStats: { plain: 'Anonymous usage stats', setup: 'general', normal: 'off', shown: 'basic' },
   proAccount: { plain: 'Account and Pro', setup: 'general', normal: 'on', shown: 'advanced' },

@@ -173,7 +173,7 @@ async function signApp(context) {
   for (const f of agentDesktopBinaries(path.join(app, 'Contents', 'Resources'))) codesign(['--force', '--sign', identity, f]);
   const intents = path.join(app, 'Contents', 'Library', 'Helpers', 'Keeper Intents.app');
   if (fs.existsSync(intents)) codesign(['--force', '--sign', identity, '--preserve-metadata=entitlements,flags', intents]);
-  // Keeper Mail, Keeper Calendar and Keeper Notes (Contents/Library/Launchers, build/mac-launchers.cjs).
+  // The separate app icons, Keeper Mail and the others (Contents/Library/Launchers, build/mac-launchers.cjs).
   for (const b of require('./mac-launchers.cjs').launcherBundles(app)) codesign(['--force', '--sign', identity, b]);
   // --deep reaches Electron's frameworks and helper apps; entitlements and flags each
   // piece already had are kept, the requirement is made fresh from the certificate.
