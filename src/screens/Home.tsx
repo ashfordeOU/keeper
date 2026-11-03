@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
-// Home: a calm start. The greeting and one quiet line (files, free space, how
-// the reading of the folders is going, the weather as a small chip); one line
+// Home: a calm start, and the front door to your files. The greeting and one
+// quiet line (files, free space, how the reading of the folders is going, the
+// weather as a small chip); Desktop, Documents and Downloads as big tiles; one line
 // of suggestion only when something is worth doing; Jump back in, with recent
 // files under the projects they belong to; a Today column (events, tasks due,
-// what is running); the Library as tiles. Edit Home shows, hides and reorders
+// what is running); a search box with the file types under it. Edit Home shows, hides and reorders
 // sections and sets how roomy it is. Nothing here polls: lists load once and
 // follow the app's change events; pictures load as they come into view.
 
@@ -22,10 +23,12 @@ import { api } from '../api';
 import { Icon } from '../components/Icon';
 import { KIND_COLOR, SizeBar, Thumb, Toggle } from '../components/ui';
 import { openGuide, useGuideList } from '../guide';
-import { useT } from '../i18n';
 import { useAsync, useStore } from '../state';
 import '../styles/screens-a.css';
 import '../styles/home.css';
+import { frontDoorFolders, shortCount, TYPE_CHIPS, typeLabel, type TypeChipId } from '../../core/file-types';
+import { useHiddenRoutes } from '../features';
+import '../styles/filetypes.css';
 
 const SHELVES: FileKind[] = ['image', 'video', 'audio', 'document', 'archive', 'installer', 'app'];
 /** Kinds shown as a small picture; the rest show their type's icon (a page of text says nothing at 34 px). */
@@ -379,21 +382,20 @@ function TodayColumn({ onHide }: { onHide: () => void }) {
 
 function LibrarySection({ style }: { style: HomeSettings['library'] }) {
   const { go, version } = useStore();
-  const t = useT();
   const totals = useAsync(() => api.library.totals(), [version]);
   const short = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10_000 ? 0 : 1)}k` : String(n));
   // Empty kinds are left out once the counts are in.
   const kinds = SHELVES.filter((k) => !totals.data || totals.data[k].count > 0);
-  const tip = (k: FileKind) => (totals.data ? `${t(`kindAll.${k}`)}: ${totals.data[k].count.toLocaleString()} · ${formatBytes(totals.data[k].size)}` : t(`kindAll.${k}`));
+  const tip = (k: FileKind) => (totals.data ? `${typeLabel(k)}: ${totals.data[k].count.toLocaleString()} · ${formatBytes(totals.data[k].size)}` : typeLabel(k));
   return (
     <section className="section" aria-labelledby="home-lib">
-      <div className="section-head"><h2 id="home-lib">Library</h2></div>
+      <div className="section-head"><h2 id="home-lib">By type</h2><span className="grow" /><button className="home-link" onClick={() => go({ name: 'library' })}>Everywhere <Icon name="chevronRight" size={12} /></button></div>
       {style === 'tiles' ? (
         <div className="home-tiles" data-testid="home-library-tiles">
           {kinds.map((k) => (
             <button key={k} className="home-tile" onClick={() => go({ name: 'library', arg: k })} title={tip(k)}>
               <span className="ico" style={{ background: KIND_COLOR[k] }}><Icon name={k} size={15} /></span>
-              <span className="lbl ellipsis">{t(`kindAll.${k}`)}</span>
+              <span className="lbl ellipsis">{typeLabel(k)}</span>
               <span className="n">{totals.data ? totals.data[k].count.toLocaleString() : '—'}{totals.data ? <small>{formatBytes(totals.data[k].size)}</small> : null}</span>
             </button>
           ))}
@@ -402,11 +404,76 @@ function LibrarySection({ style }: { style: HomeSettings['library'] }) {
         <div className="home-chips" data-testid="home-library-chips">
           {kinds.map((k) => (
             <button key={k} className="home-chip" onClick={() => go({ name: 'library', arg: k })} title={tip(k)}>
-              <i style={{ background: KIND_COLOR[k] }} />{t(`kindAll.${k}`)} <span className="n">{totals.data ? short(totals.data[k].count) : '—'}</span>
+              <i style={{ background: KIND_COLOR[k] }} />{typeLabel(k)} <span className="n">{totals.data ? short(totals.data[k].count) : '—'}</span>
             </button>
           ))}
         </div>
       )}
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------- the front door
+
+/** Desktop, Documents and Downloads: big tiles with how much is in each (from the library, read once). */
+function FolderTiles() {
+  const { go, version } = useStore();
+  const places = useAsync(() => api.places.list(), []);
+  const folders = places.data ? frontDoorFolders(places.data.favorites, places.data.home) : [];
+  const counts = useAsync(() => Promise.all(folders.map((f) => api.library.typeCounts(f.path).catch(() => null))), [folders.map((f) => f.path).join('|'), version]);
+  if (places.data && !folders.length) return null;
+  return (
+    <section className="section" aria-label="Your folders">
+      <div className="home-folders" data-testid="home-folders">
+        {(places.data ? folders : [{ name: 'Desktop', path: '', icon: 'screenshot' }, { name: 'Documents', path: '', icon: 'document' }, { name: 'Downloads', path: '', icon: 'down' }]).map((f, i) => {
+          const c = counts.data?.[i]?.all;
+          const meta = c ? (c.count ? `${c.count.toLocaleString()} file${c.count === 1 ? '' : 's'} · ${formatBytes(c.size)}` : 'Empty') : ' ';
+          return (
+            <button key={f.name} className="home-folder" data-testid="home-folder" disabled={!f.path} onClick={() => go({ name: 'browse', arg: f.path })} title={f.path ? `Open ${f.path}` : f.name}>
+              <span className="ico" aria-hidden><Icon name={f.icon} size={22} /></span>
+              <span className="name ellipsis">{f.name}</span>
+              <span className="meta ellipsis">{meta}</span>
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+/** Find a file: a search box that carries on in the top bar's, and the types (Everywhere) under it. */
+function FindSection() {
+  const { go, version } = useStore();
+  const hidden = useHiddenRoutes();
+  const counts = useAsync(() => api.library.typeCounts(), [version]);
+  const [text, setText] = useState('');
+  const search = (q: string) => {
+    if (!q.trim()) return;
+    go({ name: 'search', q });
+    // Typing goes on in the top bar's search box, where the results page keeps it.
+    requestAnimationFrame(() => { const el = document.getElementById('search') as HTMLInputElement | null; if (el) { el.focus(); el.setSelectionRange(q.length, q.length); } });
+  };
+  const chips = TYPE_CHIPS.filter((c) => (!counts.data || counts.data[c.id].count > 0) && (c.id !== 'web' || !hidden.has('downloads')));
+  return (
+    <section className="section home-find" aria-labelledby="home-find">
+      <h2 id="home-find" className="sr-only">Find a file</h2>
+      <label className="home-find-box">
+        <Icon name="search" size={17} />
+        <input data-testid="home-search" aria-label="Find a file" placeholder="Find a file, say “invoice from March”" value={text}
+          onChange={(e) => { setText(e.target.value); search(e.target.value); }} onKeyDown={(e) => { if (e.key === 'Enter') search(text); }} />
+        <kbd aria-hidden>{navigator.platform.includes('Mac') ? '⌘F' : 'Ctrl+F'}</kbd>
+      </label>
+      {chips.length ? <div className="type-chips" role="group" aria-label="Or look by type" data-testid="home-types">
+        <span className="lead" aria-hidden>Or by type</span>
+        {chips.map((c) => {
+          const n = counts.data?.[c.id as TypeChipId];
+          return (
+            <button key={c.id} className="type-chip" data-chip={c.id} onClick={() => go({ name: 'library', arg: c.id })} title={`${c.tip}, in every folder${n ? ` · ${n.count.toLocaleString()} · ${formatBytes(n.size)}` : ''}`}>
+              <i style={{ background: c.color === 'web' ? 'var(--c-installer)' : `var(--c-${c.color})` }} aria-hidden />{c.label}{n ? <span className="n">{shortCount(n.count)}</span> : null}
+            </button>
+          );
+        })}
+      </div> : null}
     </section>
   );
 }
@@ -516,6 +583,8 @@ export function Home() {
   const wide = useWide(root);
   const { main, side } = homeColumns(home, wide);
   const draw: Record<HomeSectionId, () => React.ReactNode> = {
+    folders: () => <FolderTiles />,
+    search: () => <FindSection />,
     suggestions: () => <SuggestionLine />,
     jump: () => <JumpBackIn narrow={!wide} />,
     today: () => <TodayColumn onHide={() => setHome(setSectionShown(home, 'today', false))} />,

@@ -1,34 +1,36 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 import { describe, expect, it } from 'vitest';
-import { attention, defaultHomeSettings, headerLine, HOME_LAYOUT_VERSION, homeColumns, lowOnSpace, migrateHome, moveSection, normalizeHome, setSectionShown, visibleSections } from '../core/home-layout';
+import { attention, defaultHomeSettings, headerLine, HOME_LAYOUT_VERSION, homeColumns, lowOnSpace, migrateHome, migrateHomeV3, moveSection, normalizeHome, setSectionShown, visibleSections } from '../core/home-layout';
 import { defaultSettings, mergeSettings } from '../core/settings';
 
 const GB = 1024 ** 3;
 const fmt = (b: number) => `${Math.round(b / GB)} GB`;
 
 describe('Home layout', () => {
-  it('starts with suggestions, Jump back in, Today, Library tiles and pinned; weather and storage are off', () => {
-    expect(visibleSections(defaultHomeSettings())).toEqual(['suggestions', 'jump', 'today', 'library', 'pinned']);
+  it('starts with your folders, suggestions, Jump back in, Find a file, Today and pinned; type tiles, weather and storage are off', () => {
+    expect(visibleSections(defaultHomeSettings())).toEqual(['folders', 'suggestions', 'jump', 'search', 'today', 'pinned']);
     expect(defaultSettings([], []).home.library).toBe('tiles');
   });
   it('reorders, shows and hides', () => {
-    let h = moveSection(defaultHomeSettings(), 'jump', -1);
-    expect(h.order.slice(0, 3)).toEqual(['jump', 'suggestions', 'today']);
-    expect(moveSection(h, 'jump', -1)).toBe(h);
+    let h = moveSection(defaultHomeSettings(), 'folders', 1);
+    expect(h.order.slice(0, 3)).toEqual(['suggestions', 'folders', 'jump']);
+    h = moveSection(h, 'suggestions', 1);
+    expect(moveSection(h, 'folders', -1)).toBe(h);
     h = setSectionShown(h, 'weather', true);
-    h = setSectionShown(h, 'library', false);
-    expect(visibleSections(h)).toEqual(['jump', 'suggestions', 'today', 'pinned', 'weather']);
+    h = setSectionShown(h, 'library', true);
+    h = setSectionShown(h, 'search', false);
+    expect(visibleSections(h)).toEqual(['folders', 'suggestions', 'jump', 'today', 'library', 'pinned', 'weather']);
   });
   it('puts Today in a column of its own only on a wide window', () => {
     const h = defaultHomeSettings();
-    expect(homeColumns(h, true)).toEqual({ main: ['suggestions', 'jump', 'library', 'pinned'], side: ['today'] });
-    expect(homeColumns(h, false)).toEqual({ main: ['suggestions', 'jump', 'today', 'library', 'pinned'], side: [] });
+    expect(homeColumns(h, true)).toEqual({ main: ['folders', 'suggestions', 'jump', 'search', 'pinned'], side: ['today'] });
+    expect(homeColumns(h, false)).toEqual({ main: ['folders', 'suggestions', 'jump', 'search', 'today', 'pinned'], side: [] });
     expect(homeColumns(setSectionShown(h, 'today', false), true).side).toEqual([]);
   });
   it('cleans up stored values and adds new sections at the end', () => {
-    const h = normalizeHome({ v: 2, order: ['jump', 'bogus', 'jump'], hidden: ['x', 'library'], density: 'huge', library: 'chips' });
+    const h = normalizeHome({ v: 3, order: ['jump', 'bogus', 'jump'], hidden: ['x', 'library'], density: 'huge', library: 'chips' });
     expect(h.order[0]).toBe('jump');
-    expect(h.order).toHaveLength(7);
+    expect(h.order).toHaveLength(9);
     expect(h.hidden).toEqual(['library']);
     expect(h.density).toBe('comfortable');
     expect(h.library).toBe('chips');
@@ -42,26 +44,41 @@ describe('moving older Home settings on', () => {
     const h = normalizeHome(old);
     expect(h.v).toBe(HOME_LAYOUT_VERSION);
     // Calendar today was last; it becomes Today in the same place (a column on a wide window anyway).
-    expect(h.order).toEqual(['suggestions', 'library', 'jump', 'pinned', 'weather', 'usage', 'today']);
-    expect(visibleSections(h)).toEqual(['suggestions', 'library', 'jump', 'pinned', 'today']);
+    expect(h.order).toEqual(['folders', 'suggestions', 'library', 'jump', 'search', 'pinned', 'weather', 'usage', 'today']);
+    expect(visibleSections(h)).toEqual(['folders', 'suggestions', 'jump', 'search', 'pinned', 'today']);
     expect(h.library).toBe('tiles');
     expect('recent' in h).toBe(false);
   });
   it('keeps the person’s order, spacing and hidden sections, and shows Today', () => {
     const h = normalizeHome({ order: ['recent', 'pinned', 'attention', 'library'], hidden: ['attention', 'calendar', 'pinned'], density: 'compact', library: 'tiles' });
-    expect(h.order.slice(0, 4)).toEqual(['jump', 'today', 'pinned', 'suggestions']);
-    expect(h.hidden).toEqual(['suggestions', 'pinned']);
+    expect(h.order.slice(0, 5)).toEqual(['folders', 'jump', 'search', 'today', 'pinned']);
+    expect(h.hidden).toEqual(['suggestions', 'pinned', 'library']);
     expect(h.density).toBe('compact');
   });
   it('runs once: settings already moved on are left as they are', () => {
     const once = normalizeHome({ order: ['recent'], hidden: [] });
     const hidden = setSectionShown(once, 'today', false);
-    expect(normalizeHome(JSON.parse(JSON.stringify(hidden))).hidden).toEqual(['today']);
+    expect(normalizeHome(JSON.parse(JSON.stringify(hidden))).hidden).toEqual(['library', 'today']);
     expect(migrateHome({ order: ['calendar', 'recent'] }).order).toEqual(['today', 'jump']);
   });
   it('is applied when settings are read', () => {
     const s = mergeSettings(defaultSettings([], []), { home: { order: ['recent', 'attention'], hidden: [] } });
-    expect(s.home.order.slice(0, 3)).toEqual(['jump', 'today', 'suggestions']);
+    expect(s.home.order.slice(0, 4)).toEqual(['folders', 'jump', 'search', 'today']);
+  });
+  it('Home as the front door: your folders first, Find a file after Jump back in, the type tiles step back', () => {
+    const v2 = { v: 2, order: ['suggestions', 'jump', 'today', 'library', 'pinned', 'weather', 'usage'], hidden: ['weather'], density: 'compact', library: 'chips' };
+    const h = normalizeHome(v2);
+    expect(h.v).toBe(3);
+    expect(h.order).toEqual(['folders', 'suggestions', 'jump', 'search', 'today', 'library', 'pinned', 'weather', 'usage']);
+    expect(h.hidden).toEqual(['weather', 'library']);
+    expect(h.density).toBe('compact');
+    expect(h.library).toBe('chips');
+    // Someone who moved Jump back in last gets Find a file after it; no Jump back in puts it second.
+    expect(migrateHomeV3({ v: 2, order: ['today', 'jump'] }).order).toEqual(['folders', 'today', 'jump', 'search']);
+    expect(migrateHomeV3({ v: 2, order: ['today'] }).order).toEqual(['folders', 'search', 'today']);
+    // Runs once: a v3 layout with Your folders moved down keeps it there.
+    const moved = moveSection(h, 'folders', 1);
+    expect(normalizeHome(JSON.parse(JSON.stringify(moved))).order.slice(0, 2)).toEqual(['suggestions', 'folders']);
   });
 });
 

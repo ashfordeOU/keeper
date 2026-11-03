@@ -11,7 +11,6 @@ import { PimSidebar } from './pim/PimSidebar';
 import { Reminders } from './pim/Reminders';
 import { Planner } from './pim/Planner';
 import { Component, lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import type { FileKind } from '../core/types';
 import { api } from './api';
 import { CommandPalette } from './components/CommandPalette';
 import { Icon } from './components/Icon';
@@ -23,8 +22,9 @@ import { NavSection } from './components/NavSection';
 import { TerminalApp } from './terminal/TerminalApp';
 import { usePlaceMemory } from './place';
 import { PlacesSidebar } from './components/PlacesSidebar';
+import './styles/filetypes.css';
 import { Player } from './components/Player';
-import { ContextMenu, Empty, KIND_COLOR } from './components/ui';
+import { ContextMenu, Empty } from './components/ui';
 import { Apps } from './screens/Apps';
 import { Assistant } from './screens/Assistant';
 import { Agents } from './screens/Agents';
@@ -32,7 +32,6 @@ import { Graph } from './screens/Graph';
 import { ApprovalHost } from './components/ApprovalHost';
 import { Browse } from './screens/Browse';
 import { Cleanup } from './screens/Cleanup';
-import { Downloads } from './screens/Downloads';
 import { Duplicates } from './screens/Duplicates';
 import { Health } from './screens/Health';
 import { KeepAwake } from './screens/KeepAwake';
@@ -57,7 +56,8 @@ import { Security } from './screens/Security';
 import { Protection } from './screens/Protection';
 import { Hub } from './components/Hub';
 import { HintsContext } from './components/page-context';
-import { hubOf, navSections, navPage, type NavPage } from '../core/nav';
+import { hubOf, navSections, type NavPage } from '../core/nav';
+import { shortCount, TYPE_CHIPS } from '../core/file-types';
 import { Todo } from './screens/Todo';
 import { CoachHost, GuideHost, RouteHints, TourHost, useTodoCount } from './guide';
 import { Rules } from './screens/Rules';
@@ -96,7 +96,6 @@ const Meetings = lazy(() => import('./screens/Meetings').then((m) => ({ default:
 const StudioPage = lazy(() => import('./screens/Studio').then((m) => ({ default: m.Studio })));
 // Stage mode's page (presets and settings) loads the first time it opens.
 const StagePage = lazy(() => import('./screens/Stage').then((m) => ({ default: m.Stage })));
-import { CloudSidebar } from './components/CloudSidebar';
 import { DevicesSidebar, LinkPrompts } from './components/LinkParts';
 import { ScreenPrompts } from './screen/ScreenParts';
 import { Devices } from './screens/Devices';
@@ -120,7 +119,6 @@ import { useProgressAnnouncer } from './a11y';
 
 const contentEl = () => document.querySelector<HTMLElement>('.main > .content');
 
-const SHELVES: FileKind[] = ['image', 'video', 'audio', 'document', 'archive', 'installer', 'app'];
 
 /** Places & Tracks, unless its settings leave it out of the sidebar. */
 function TracksNav({ page }: { page: NavPage }) {
@@ -146,7 +144,7 @@ function SuiteRows({ pages }: { pages: NavPage[] }) {
   return <>{pages.map((p) => (p.id === 'todo' ? <TodoNav key={p.id} page={p} /> : p.id === 'tracks' ? <TracksNav key={p.id} page={p} /> : <PageNav key={p.id} page={p} />))}</>;
 }
 
-function NavItem({ route, also, icon, label, count, color, tip }: { route: Route; /** other routes of the same page (its tabs) */ also?: string[]; icon?: string; label: string; count?: number | string; /** a filled tile in this colour: a collection, never a folder */ color?: string; tip?: string }) {
+function NavItem({ route, also, icon, label, count, color, dot, tip }: { route: Route; /** other routes of the same page (its tabs) */ also?: string[]; icon?: string; label: string; count?: number | string; /** a filled tile in this colour: a collection, never a folder */ color?: string; /** the icon in this colour (a file type) */ dot?: string; tip?: string }) {
   const { route: cur, go, settings, updateSettings, tabs, toast } = useStore();
   const hiddenRoutes = useHiddenRoutes();
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
@@ -170,12 +168,18 @@ function NavItem({ route, also, icon, label, count, color, tip }: { route: Route
       ]} />
     ) : null}
     <button className={`nav-item ${active ? 'active' : ''} ${color ? 'is-collection' : ''}`} aria-current={active ? 'page' : undefined} data-nav-key={key} onClick={() => go(to)} title={tip ? `${label}\n${tip}` : label} onContextMenu={(e) => { e.preventDefault(); setMenu({ x: e.clientX, y: e.clientY }); }}>
-      {color ? <span className="nav-kind" style={{ background: color }} aria-hidden><Icon name={icon ?? 'collection'} size={11} stroke={2.2} /></span> : <Icon name={icon ?? 'folder'} size={15} />}
+      {color ? <span className="nav-kind" style={{ background: color }} aria-hidden><Icon name={icon ?? 'collection'} size={11} stroke={2.2} /></span> : dot ? <span className="nav-type-ico" style={{ color: dot }} aria-hidden><Icon name={icon ?? 'folder'} size={15} /></span> : <Icon name={icon ?? 'folder'} size={15} />}
       <span className="label ellipsis">{label}</span>
       {count !== undefined ? <span className="count">{count}</span> : null}
     </button>
     </>
   );
+}
+
+/** A page row among the places (Home, Recents, Trash, a tag): a NavItem, Home named in the person's language. */
+function PlacesItem(p: { route: Route; icon?: string; label: string; dot?: string; tip?: string }) {
+  const t = useT();
+  return <NavItem {...p} label={p.route.name === 'home' ? t('nav.home') : p.label} />;
 }
 
 /** The sidebar's layout: full, or an icons-only rail that opens over the page on hover or keyboard focus. */
@@ -229,27 +233,29 @@ function Sidebar({ rail, width, mode }: { rail: boolean; width: number; mode: st
 }
 
 function SidebarNav({ rail, expanded, onToggle, canPin }: { rail: boolean; expanded: boolean; onToggle: () => void; canPin: boolean }) {
-  const { settings, version, info, route } = useStore();
+  const { settings, version, route, info } = useStore();
   const t = useT();
-  const totals = useAsync(() => api.library.totals(), [version]);
+  const hiddenRoutes = useHiddenRoutes();
+  // The type counts only when "Find by type" is in the sidebar (off by default: nothing is read).
+  const counts = useAsync(() => (settings?.sidebarTypes ? api.library.typeCounts() : Promise.resolve(undefined)), [version, settings?.sidebarTypes]);
   const tags = useAsync(() => api.library.tags(), [version]);
-  const short = (n?: number) => (n === undefined ? undefined : n >= 1000 ? `${(n / 1000).toFixed(n >= 10_000 ? 0 : 1)}k` : String(n));
-  const downloads = navPage('downloads');
   return (
     <nav className="sidebar" id="app-sidebar" aria-label="Sidebar" data-expanded={expanded ? '1' : undefined}>
       <div className="brand" title="Keeper by Ashforde®"><OwlMark tile size={26} title="Keeper by Ashforde®" /><span className="brand-name">Keeper<small>by Ashforde®</small></span>
         {canPin && expanded ? <button className="btn ghost icon sm sidebar-pin" data-testid="sidebar-pin" aria-pressed={!rail} title={rail ? `Keep the sidebar open (${mod === '⌘' ? '⌘⌥S' : 'Ctrl+Alt+S'})` : `Fold the sidebar to icons (${mod === '⌘' ? '⌘⌥S' : 'Ctrl+Alt+S'})`} onClick={onToggle}><Icon name={rail ? 'pin' : 'chevronLeft'} size={13} /></button> : null}
       </div>
-      <NavItem route={{ name: 'home' }} icon="home" label={t('nav.home')} />
-      <NavItem route={{ name: 'recents' }} icon="clock" label={t('nav.recents')} />
-      <NavItem route={{ name: 'browse', arg: info?.home }} icon="folder" label={t('nav.browse')} />
+      {/* Keeper's Home first, then the places laid out like this system's file manager (Finder, File Explorer,
+          GNOME Files or Dolphin; core/sidebar-places.ts). Types are chips on the file list (core/file-types.ts). */}
+      <PlacesSidebar Item={PlacesItem} />
 
-      {/* Every file of a kind, wherever it is: collections (filled tiles), not folders (Favorites, below). Kinds with nothing in them stay out. */}
-      <NavSection id="library" title={t('section.library')}>
-        {SHELVES.filter((k) => !totals.data || totals.data[k].count > 0 || (route.name === 'library' && route.arg === k)).map((k) => <NavItem key={k} route={{ name: 'library', arg: k }} color={KIND_COLOR[k]} icon={k} label={t(`kindAll.${k}`)} tip="Every file of this kind on this computer, whichever folder it is in" count={short(totals.data?.[k].count)} />)}
-        <NavItem route={{ name: 'screenshots' }} color="var(--c-image)" icon="screenshot" label={t('kindAll.screenshot')} tip="Every screenshot on this computer, whichever folder it is in" />
-        {downloads ? <PageNav page={downloads} /> : null}
-      </NavSection>
+      {/* Find by type, for those who want it here too (Settings → Sidebar); folded until opened. */}
+      {settings?.sidebarTypes ? (
+        <NavSection id="types" title="Find by type">
+          {TYPE_CHIPS.filter((c) => (!counts.data || counts.data[c.id].count > 0 || (route.name === 'library' && route.arg === c.id)) && (c.id !== 'web' || !hiddenRoutes.has('downloads'))).map((c) => (
+            <NavItem key={c.id} route={{ name: 'library', arg: c.id }} icon={c.icon} dot={c.color === 'web' ? 'var(--c-installer)' : `var(--c-${c.color})`} label={c.label} tip={`${c.tip}, in every folder`} count={counts.data ? shortCount(counts.data[c.id].count) : undefined} />
+          ))}
+        </NavSection>
+      ) : null}
 
       {settings?.savedSearches.length ? (
         <NavSection id="saved" title={t('section.saved')}>
@@ -257,12 +263,8 @@ function SidebarNav({ rail, expanded, onToggle, canPin }: { rail: boolean; expan
         </NavSection>
       ) : null}
 
-      {/* Favorites (pinned folders included) and Locations: disks, cloud, network, Trash. */}
-      <PlacesSidebar />
-      {/* Cloud services, servers, home servers and other computers. */}
-      <CloudSidebar />
-
-      {tags.data?.length ? (
+      {/* Finder's tags are in the places (with their colours) on a Mac. */}
+      {tags.data?.length && info?.platform !== 'darwin' ? (
         <NavSection id="tags" title={t('section.tags')}>
           {tags.data.slice(0, 8).map((t) => <NavItem key={t.tag} route={{ name: 'tag', arg: t.tag }} icon="tag" label={t.tag} count={t.count} />)}
         </NavSection>
@@ -378,7 +380,7 @@ function Page() {
     saved: () => <Search />,
     search: () => <Search />,
     browse: () => <Browse />,
-    downloads: () => <Downloads />,
+    downloads: () => <Library />,
     duplicates: () => <Duplicates />,
     cleanup: () => <Cleanup />,
     space: () => <Space />,

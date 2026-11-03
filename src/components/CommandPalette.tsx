@@ -24,6 +24,7 @@ import { useVoiceCommands } from '../voice/palette';
 import { openNative } from '../lib/native';
 import { usageCommands } from '../screens/usage/palette';
 import { HUB_TABS, NAV_PAGES, navPage } from '../../core/nav';
+import { TYPE_CHIPS } from '../../core/file-types';
 import { useT } from '../i18n';
 import { openInWindow, windowLabel } from '../page-window';
 
@@ -80,7 +81,6 @@ const PAGE_EXTRAS: [Route, string, string][] = [
   [{ name: 'notes', arg: 'today' }, 'Today’s Daily Note', 'calendar'],
   [{ name: 'notes', arg: 'graph' }, 'Notes Graph', 'graph'],
 ];
-const KINDS = ['image', 'video', 'audio', 'document', 'archive', 'installer', 'app'] as const;
 
 function pageCommands(t: (k: string) => string, home: string | undefined, go: (r: Route) => void): Command[] {
   const pages = NAV_PAGES.map((p) => ({
@@ -91,9 +91,10 @@ function pageCommands(t: (k: string) => string, home: string | undefined, go: (r
     id: `go-${hub}-${tab.route.name}${tab.route.arg ? `-${tab.route.arg}` : ''}`, label: `${navPage(hub)?.label} › ${tab.label}`, group: 'Go to' as const, icon: navPage(hub)?.icon ?? 'settings', typed: true,
     keywords: tab.keywords, route: tab.route.name, run: (go: (r: Route) => void) => go(tab.route as Route),
   })));
-  const kinds = KINDS.map((k) => ({ id: `go-kind-${k}`, label: t(`kindAll.${k}`), group: 'Go to' as const, icon: k, typed: true, route: 'library', run: (go: (r: Route) => void) => go({ name: 'library', arg: k }) }));
+  // Each type, Everywhere ("Documents everywhere"; once "All Documents", still found by that name).
+  const kinds = TYPE_CHIPS.filter((c) => c.id !== 'web').map((c) => ({ id: `go-kind-${c.id}`, label: `${c.label} everywhere`, group: 'Go to' as const, icon: c.icon, typed: true, route: 'library', keywords: `all ${c.label.toLowerCase()} ${t(`kindAll.${c.id}`)} type kind`, run: (go: (r: Route) => void) => go({ name: 'library', arg: c.id }) }));
   const extras = PAGE_EXTRAS.map(([route, label, icon]) => ({ id: `go-${label}`, label, group: 'Go to' as const, icon, typed: true, route: route.name, run: (go: (r: Route) => void) => go(route) }));
-  return [...pages, ...tabs, ...kinds, { id: 'go-screenshots', label: t('kindAll.screenshot'), group: 'Go to' as const, icon: 'screenshot', typed: true, route: 'screenshots', run: (go: (r: Route) => void) => go({ name: 'screenshots' }) }, ...extras].map((c) => ({ ...c, run: () => c.run(go) }));
+  return [...pages, ...tabs, ...kinds, ...extras].map((c) => ({ ...c, run: () => c.run(go) }));
 }
 
 // With nothing typed: the commands run last, then the common pages and actions, then the rest.

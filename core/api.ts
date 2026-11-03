@@ -699,7 +699,10 @@ export interface KeeperApi extends KeeperApiX {
     speedUp(): Promise<void>;
     totals(): Promise<Record<FileKind, { count: number; size: number }>>;
     recent(n: number, kind?: FileKind | 'screenshot' | 'download'): Promise<FileEntry[]>;
-    list(opts: { kind?: FileKind; screenshot?: boolean; root?: string; source?: string; tag?: string; sort?: 'name' | 'date' | 'size' | 'kind'; desc?: boolean; limit?: number }): Promise<FileEntry[]>;
+    /** `fromWeb`: files with a recorded download source; `under`: only that folder and what is inside it */
+    list(opts: { kind?: FileKind; screenshot?: boolean; fromWeb?: boolean; under?: string; root?: string; source?: string; tag?: string; sort?: 'name' | 'date' | 'size' | 'kind'; desc?: boolean; limit?: number }): Promise<FileEntry[]>;
+    /** how many files each type chip holds, everywhere or in one folder and inside it */
+    typeCounts(under?: string): Promise<import('./file-types').TypeCounts>;
     search(text: string, limit?: number): Promise<{ parsed: ParsedQuery; hits: SearchHit[] }>;
     bySource(): Promise<{ id: string; name: string; count: number; size: number; latest: number }[]>;
     tags(): Promise<{ tag: string; count: number }[]>;

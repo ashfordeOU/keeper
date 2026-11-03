@@ -33,6 +33,10 @@ export interface PlacesModel {
   network: Place[];
   shared?: Place;
   airdrop: boolean;
+  /** Linux: the file manager's own bookmarks (GNOME's gtk-3.0 bookmarks, Dolphin's places) */
+  bookmarks?: Place[];
+  /** Linux: whose file manager's layout to follow */
+  desktop?: 'gnome' | 'kde';
 }
 
 const sepOf = (platform: string) => (platform === 'win32' ? '\\' : '/');

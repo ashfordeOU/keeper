@@ -10,7 +10,7 @@ import { useStore } from '../state';
 import { Icon } from './Icon';
 import { SuitePanel } from './SuitePanel';
 import { LaunchersPanel } from './LaunchersPanel';
-import { SECTION_COLOR, SECTION_IDS, SECTION_NAMES } from './NavSection';
+import { SECTION_COLOR, SECTION_IDS, SECTION_NAMES, SECTION_PLATFORMS } from './NavSection';
 import { Toggle } from './ui';
 import { ComponentNeeds, ComponentsSection } from './ComponentsPanel';
 import '../styles/features.css';
@@ -154,9 +154,10 @@ export function FeaturesPanel() {
 
 /** Settings → Sidebar: show, hide and reorder the sidebar's sections; bring back hidden entries. */
 export function SidebarPanel() {
-  const { settings, updateSettings } = useStore();
+  const { settings, updateSettings, info } = useStore();
   if (!settings) return null;
-  const order = [...(settings.sidebarOrder?.length ? settings.sidebarOrder : []), ...SECTION_IDS.filter((s) => !settings.sidebarOrder?.includes(s))];
+  const here = (id: string) => !SECTION_PLATFORMS[id] || SECTION_PLATFORMS[id].includes(info?.platform ?? '');
+  const order = [...(settings.sidebarOrder?.length ? settings.sidebarOrder : []), ...SECTION_IDS.filter((s) => !settings.sidebarOrder?.includes(s))].filter(here);
   const hidden = settings.sidebarHidden ?? [];
   const move = (i: number, d: -1 | 1) => {
     const next = [...order];
@@ -170,14 +171,15 @@ export function SidebarPanel() {
   return (
     <div className="sidebar-custom">
       {order.map((id, i) => {
-        const shown = !hidden.includes(`section:${id}`);
+        // Find by type is off unless asked for (its own setting); the rest show unless hidden.
+        const shown = id === 'types' ? !!settings.sidebarTypes : !hidden.includes(`section:${id}`);
         return (
           <div key={id} className="sidebar-custom-row">
             <i className="sec-dot" style={{ background: SECTION_COLOR[id] }} />
             <span className="grow">{SECTION_NAMES[id] ?? id}</span>
             <button className="btn sm ghost icon" title="Move up" aria-label="Move up" disabled={i === 0} onClick={() => move(i, -1)}><Icon name="arrowUp" size={13} /></button>
             <button className="btn sm ghost icon" title="Move down" aria-label="Move down" disabled={i === order.length - 1} onClick={() => move(i, 1)}><Icon name="chevronDown" size={13} /></button>
-            <Toggle on={shown} onChange={(v) => toggle(`section:${id}`, v)} />
+            <Toggle label={`Show ${SECTION_NAMES[id] ?? id}`} on={shown} onChange={(v) => (id === 'types' ? void updateSettings({ sidebarTypes: v }) : toggle(`section:${id}`, v))} />
           </div>
         );
       })}

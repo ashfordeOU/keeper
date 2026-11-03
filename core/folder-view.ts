@@ -12,11 +12,14 @@ export type SortKey = 'name' | 'date' | 'size' | 'kind';
 export interface Sort { key: SortKey; desc: boolean }
 
 /** Kinds whose files are mostly words: a page of tiny text tells nothing, so they open as a list. */
-const LIST_FIRST = new Set(['document', 'archive', 'installer', 'app', 'code', 'other', 'audio']);
+const LIST_FIRST = new Set(['document', 'archive', 'installer', 'app', 'code', 'other', 'audio', 'web', '']);
 
-/** Which remembered view a page uses: real folders share one, each Library collection has its own. */
-export function viewScope(route: { name: string; arg?: string }): string {
-  if (route.name === 'browse') return 'browse';
+/**
+ * Which remembered view a page uses: real folders share one; each type (a chip,
+ * Everywhere or in a folder: `q` on a folder's route) has its own.
+ */
+export function viewScope(route: { name: string; arg?: string; q?: string }): string {
+  if (route.name === 'browse') return route.q ? `library:${route.q}` : 'browse';
   if (route.name === 'library') return `library:${route.arg ?? ''}`;
   if (route.name === 'screenshots') return 'library:screenshot';
   return 'files';
@@ -140,7 +143,7 @@ export function isPlainText(ext: string): boolean {
 const NOUN: Record<string, [string, string]> = {
   image: ['picture', 'pictures'], video: ['video', 'videos'], audio: ['music or audio file', 'music and audio files'], document: ['document', 'documents'],
   archive: ['archive', 'archives'], installer: ['installer', 'installers'], app: ['app', 'apps'], code: ['code file', 'code files'], other: ['other file', 'other files'],
-  screenshot: ['screenshot', 'screenshots'],
+  screenshot: ['screenshot', 'screenshots'], web: ['file saved from the web', 'files saved from the web'], all: ['file', 'files'],
 };
 
 /** "this Mac", "this PC" or "this computer". */

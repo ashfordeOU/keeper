@@ -484,6 +484,8 @@ export interface Settings {
   sidebarMode: import('./sidebar-layout').SidebarMode;
   /** long sidebar sections show this many items (most used first) and "Show all"; 0 shows everything */
   sidebarSectionLimit: number;
+  /** Settings → Sidebar: a folded "Find by type" section (Documents, Pictures…) in the sidebar */
+  sidebarTypes: boolean;
   /** Settings → General → Always show all settings: every section's "More settings" starts open */
   settingsAdvanced?: boolean;
   /** Home's sections, order, density and styles (Edit Home) */

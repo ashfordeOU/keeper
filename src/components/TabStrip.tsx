@@ -7,6 +7,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import { isMac, useStore, type Route } from '../state';
+import { asTypeFilter, typeLabel } from '../../core/file-types';
 import type { Tab } from '../../core/session';
 import { Icon } from './Icon';
 import { ContextMenu, type MenuItem } from './ui';
@@ -16,8 +17,8 @@ import '../styles/tabs.css';
 export const rdcTabNames = new Map<string, string>();
 
 const TITLES: Record<string, [string, string]> = {
-  home: ['Home', 'home'], recents: ['Recents', 'clock'], library: ['Library', 'grid'], screenshots: ['Screenshots', 'screenshot'], search: ['Search', 'search'],
-  saved: ['Saved search', 'search'], browse: ['Browse', 'folder'], downloads: ['Downloaded From', 'down'], source: ['Downloads', 'down'], tag: ['Tag', 'tag'],
+  home: ['Home', 'home'], recents: ['Recents', 'clock'], library: ['Everywhere', 'search'], screenshots: ['Screenshots', 'screenshot'], search: ['Search', 'search'],
+  saved: ['Saved search', 'search'], browse: ['Home Folder', 'folder'], downloads: ['From the Web', 'down'], source: ['Downloads', 'down'], tag: ['Tag', 'tag'],
   duplicates: ['Duplicates', 'dupes'], cleanup: ['Clean Up', 'broom'], space: ['Space Map', 'map'], large: ['Large Files', 'weight'], startup: ['Startup Items', 'power'],
   apps: ['Applications', 'app'], protection: ['Protection', 'shield'], rules: ['Automations', 'rules'], history: ['History', 'history'], assistant: ['Assistant', 'assistant'],
   island: ['Island', 'island'], settings: ['Settings', 'settings'], tools: ['Toolbox', 'terminal'], health: ['Health', 'bolt'], capture: ['Capture', 'screenshot'],
@@ -26,13 +27,14 @@ const TITLES: Record<string, [string, string]> = {
   rdc: ['Remote Desktops', 'laptop'], vpn: ['VPN', 'lock'], mesh: ['Mesh', 'graph'], agents: ['Agents', 'agent'], graph: ['Knowledge Graph', 'graph'], mail: ['Mail', 'mail'], calendar: ['Calendar', 'calendar'], reminders: ['Reminders', 'check'], planner: ['Planner', 'columns'], alarms: ['Alarms', 'timer'],
 };
 
-const SHELVES: Record<string, string> = { image: 'Images', video: 'Videos', audio: 'Music', document: 'Documents', archive: 'Archives', installer: 'Installers', app: 'Apps', code: 'Code', other: 'Other' };
 
 export function tabTitle(r: Route): { title: string; icon: string } {
   const [name, icon] = TITLES[r.name] ?? [r.name, 'folder'];
   if (r.name === 'search' && r.q) return { title: `“${r.q}”`, icon };
   if (r.name === 'browse' && r.arg) return { title: r.arg.split(/[\\/]/).filter(Boolean).pop() ?? r.arg, icon };
-  if (r.name === 'library' && r.arg) return { title: SHELVES[r.arg] ?? r.arg, icon };
+  if (r.name === 'library') return { title: r.arg ? typeLabel(asTypeFilter(r.arg)) : 'Everywhere', icon: 'search' };
+  // A type in a folder: "Downloads · Pictures".
+  if (r.name === 'browse' && r.arg && r.q) return { title: `${r.arg.split(/[\\/]/).filter(Boolean).pop() ?? r.arg} · ${typeLabel(asTypeFilter(r.q))}`, icon };
   if (r.name === 'tag' && r.arg) return { title: `#${r.arg}`, icon };
   // A remote desktop in a tab is called after its connection.
   if (r.name === 'rdc' && r.q && (r.arg === 'vnc' || r.arg === 'web')) return { title: rdcTabNames.get(r.q) ?? 'Remote desktop', icon: r.arg === 'web' ? 'globe' : 'laptop' };

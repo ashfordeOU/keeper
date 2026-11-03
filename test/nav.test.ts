@@ -19,7 +19,7 @@ describe('route aliases', () => {
     expect(resolveRoute({ name: 'protection', arg: 'watch' })).toEqual({ name: 'security', arg: 'watch' });
   });
   it('leave everything else alone (the merged pages keep their routes as tabs)', () => {
-    for (const name of ['controls', 'catalog', 'appcontrols', 'firewall', 'netactivity', 'vpn', 'protection', 'startup', 'apps', 'mesh', 'todo', 'downloads', 'history']) {
+    for (const name of ['controls', 'catalog', 'appcontrols', 'firewall', 'netactivity', 'vpn', 'protection', 'startup', 'apps', 'mesh', 'todo', 'history']) {
       const r = { name };
       expect(resolveRoute(r)).toBe(r);
     }
@@ -42,14 +42,16 @@ describe('route aliases', () => {
     expect(titleOf({ name: 'netactivity' })).toBe('Privacy & Security');
     expect(titleOf({ name: 'apps' })).toBe('Startup & Apps');
     expect(titleOf({ name: 'todo' })).toBe('Fix-it List');
-    expect(titleOf({ name: 'downloads' })).toBe('Download Sources');
+    // The Library's old pages are Everywhere + a type chip (core/file-types.ts).
+    expect(titleOf(resolveRoute({ name: 'downloads' }))).toBe('From the Web');
+    expect(titleOf(resolveRoute({ name: 'screenshots' }))).toBe('Everywhere');
     expect(pageOf({ name: 'sync', arg: 'backups' })?.label).toBe('Backups');
   });
   it('cover every route the window knows', () => {
     const state = fs.readFileSync(path.join(root, 'src/state.tsx'), 'utf8');
     const names = [...state.match(/export type RouteName =([\s\S]*?);/)![1].matchAll(/'([a-z]+)'/g)].map((m) => m[1]);
     // Pages reached from a file or a place rather than from the sidebar or palette.
-    const elsewhere = new Set(['library', 'screenshots', 'search', 'source', 'tag', 'saved', 'annotate', 'network', 'trash']);
+    const elsewhere = new Set(['library', 'screenshots', 'downloads', 'search', 'source', 'tag', 'saved', 'annotate', 'network', 'trash']);
     const missing = names.filter((n) => !elsewhere.has(n) && !pageOf({ name: n }) && !hubOf({ name: n }));
     expect(missing).toEqual([]);
   });
@@ -69,7 +71,8 @@ describe('one taxonomy', () => {
     const order = NAV_GROUPS.map((g) => g.id);
     const ids = navSections().map((s) => s.id);
     expect(ids).toEqual(order.filter((g) => ids.includes(g)));
-    expect(ids).toEqual(['files', 'notes', 'tidy', 'sync', 'computer', 'security', 'devices', 'ai', 'screen', 'desktop']);
+    // Files has no rows of its own: its places come from Places (folders, then Locations), its types are chips.
+    expect(ids).toEqual(['notes', 'tidy', 'sync', 'computer', 'security', 'devices', 'ai', 'screen', 'desktop']);
   });
   it('a page’s section holds the part that owns it', () => {
     const wrong: string[] = [];
@@ -81,8 +84,8 @@ describe('one taxonomy', () => {
     }
     expect(wrong).toEqual([]);
   });
-  it('Weather and Places & Tracks are out of the top block, which holds Home, Recents and Browse only', () => {
-    expect(NAV_PAGES.filter((p) => p.group === 'top').map((p) => p.label)).toEqual(['Home', 'Recents', 'Browse']);
+  it('Weather and Places & Tracks are out of the top block, which holds Home and Recents only', () => {
+    expect(NAV_PAGES.filter((p) => p.group === 'top').map((p) => p.label)).toEqual(['Home', 'Recents']);
     expect(pageOf({ name: 'weather' })?.group).toBe('desktop');
     expect(pageOf({ name: 'tracks' })?.group).toBe('desktop');
   });
@@ -103,7 +106,7 @@ describe('names', () => {
   it('a page’s title is its name in the sidebar and the palette', () => {
     // Screen file → its page (merged pages show their own title, so their tabs are not listed).
     const SCREENS: Record<string, string> = {
-      'Downloads.tsx': 'downloads', 'NotesHub.tsx': 'noteshub', 'Cleanup.tsx': 'cleanup', 'Duplicates.tsx': 'duplicates', 'Space.tsx': 'space', 'Large.tsx': 'large',
+      'NotesHub.tsx': 'noteshub', 'Cleanup.tsx': 'cleanup', 'Duplicates.tsx': 'duplicates', 'Space.tsx': 'space', 'Large.tsx': 'large',
       'Convert.tsx': 'convert', 'Rules.tsx': 'rules', 'History.tsx': 'history', 'Health.tsx': 'health', 'KeepAwake.tsx': 'awake', 'Devices.tsx': 'devices',
       'RemoteDesktop.tsx': 'rdc', 'Assistant.tsx': 'assistant', 'Agents.tsx': 'agents', 'usage/UsagePage.tsx': 'aiusage', 'Dictation.tsx': 'dictation', 'Meetings.tsx': 'meetings',
       'Capture.tsx': 'capture', 'Studio.tsx': 'studio', 'Stage.tsx': 'stage', 'Tools.tsx': 'tools', 'Widgets.tsx': 'widgets', 'Ambience.tsx': 'ambience', 'Tracks.tsx': 'tracks',

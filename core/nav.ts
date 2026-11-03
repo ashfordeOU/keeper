@@ -5,6 +5,7 @@
 // (`navGroup` in core/features.ts). Old routes keep working (resolveRoute).
 
 import { FEATURES, NAV_GROUPS, type FeatureState, type NavGroup } from './features';
+import { migrateFilesRoute } from './file-types';
 
 export interface NavRoute {
   name: string;
@@ -21,7 +22,7 @@ export interface NavPage {
   /** an i18n key that translates the label, where there is one */
   i18n?: string;
   icon: string;
-  /** sidebar section; 'top' for Home, Recents and Browse; 'none' for palette-only pages */
+  /** sidebar section; 'top' for Home and Recents; 'none' for palette-only pages */
   group: NavGroup | 'top' | 'none';
   /** other routes that are part of this page (its tabs): the row stays highlighted on them */
   also?: string[];
@@ -69,9 +70,11 @@ export const HUB_TABS: Record<string, NavTab[]> = {
 export const NAV_PAGES: NavPage[] = [
   { id: 'home', route: { name: 'home' }, label: 'Home', i18n: 'nav.home', icon: 'home', group: 'top' },
   { id: 'recents', route: { name: 'recents' }, label: 'Recents', i18n: 'nav.recents', icon: 'clock', group: 'top' },
-  { id: 'browse', route: { name: 'browse' }, label: 'Browse', i18n: 'nav.browse', icon: 'folder', group: 'top' },
-  // Library: every file of a kind; Download Sources closes the section.
-  { id: 'downloads', route: { name: 'downloads' }, label: 'Download Sources', i18n: 'nav.downloads', icon: 'down', group: 'files', kbd: 'J', keywords: 'downloaded from where downloads came from website app source' },
+  // The sidebar lists real places only (the folders come from Places). Your home folder and the
+  // file types are reached from Home, the palette and the chips on every file list.
+  { id: 'browse', route: { name: 'browse' }, label: 'Home Folder', icon: 'folder', group: 'none', keywords: 'browse files folders user folder' },
+  { id: 'library', route: { name: 'library' }, label: 'Everywhere', icon: 'search', group: 'none', keywords: 'all files library every document all documents all images kinds types find by type' },
+  { id: 'downloads', route: { name: 'library', arg: 'web' }, label: 'From the Web', icon: 'down', group: 'none', kbd: 'J', keywords: 'downloaded from download sources where downloads came from website app source' },
   { id: 'remote', route: { name: 'remote' }, label: 'Cloud & Servers', icon: 'cloud', group: 'none', keywords: 'cloud drive dropbox onedrive google sftp webdav s3 nas server' },
 
   { id: 'notes', route: { name: 'notes' }, label: 'Notes', icon: 'document', group: 'notes', keywords: 'markdown vault obsidian' },
@@ -166,7 +169,8 @@ export function hubOf(r: NavRoute): { hub: string; tab: NavTab } | undefined {
 }
 
 /**
- * Old routes that moved. Everything else stays where it was: the merged pages
+ * Old routes that moved (the Library's pages became Everywhere + a type chip:
+ * core/file-types.ts migrateFilesRoute). Everything else stays where it was: the merged pages
  * keep their old routes as tabs (controls, catalog, appcontrols; protection,
  * firewall, netactivity, vpn; startup, apps; mesh).
  */
@@ -182,7 +186,8 @@ export function resolveRoute<R extends NavRoute>(r: R): R {
   if (r.name === 'browsers') return { ...r, name: 'health', arg: 'apps' };
   // Privacy & Security's own tabs (protection:<tab>) moved to the overview's route.
   if (r.name === 'protection' && arg) return { ...r, name: 'security', arg };
-  return r;
+  // The Library's pages are Everywhere + a type chip (All Screenshots, Download Sources, a source).
+  return migrateFilesRoute(r);
 }
 
 /** Routes hidden because the part named on a page or tab (rather than in core/features.ts) is off. */

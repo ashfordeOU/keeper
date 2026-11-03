@@ -2,6 +2,7 @@
 // Sample data for the browser demo (`npm run demo`). Nothing here touches a disk.
 
 import { mockUsage } from './mock-usage';
+import { isUnder, typeCounts } from '../core/file-types';
 import { mockIslandTools } from './mock-island-tools';
 import { mockAiUsage } from './mock-ai-usage';
 import { mockCues } from './mock-cues';
@@ -463,11 +464,12 @@ export function createMockApi(): KeeperApi {
         for (const f of files) { t[f.kind].count += 37; t[f.kind].size += f.size * 37; }
         return t;
       },
+      typeCounts: async (under) => typeCounts(files, under),
       recent: async (n, kind) => files
         .filter((f) => !kind || (kind === 'screenshot' ? f.screenshot : kind === 'download' ? f.root === 'Downloads' : f.kind === kind))
         .sort((a, b) => b.mtime - a.mtime).slice(0, n),
       list: async (o) => {
-        let l = files.filter((f) => (!o.kind || f.kind === o.kind) && (!o.screenshot || f.screenshot) && (!o.root || f.root === o.root) && (!o.source || f.source?.id === o.source) && (!o.tag || f.tags?.includes(o.tag)));
+        let l = files.filter((f) => (!o.kind || f.kind === o.kind) && (!o.screenshot || f.screenshot) && (!o.fromWeb || !!f.source) && (!o.under || isUnder(f.path, o.under)) && (!o.root || f.root === o.root) && (!o.source || f.source?.id === o.source) && (!o.tag || f.tags?.includes(o.tag)));
         const dir = o.desc === false ? 1 : -1;
         const key = o.sort ?? 'date';
         l = l.sort((a, b) => key === 'name' ? a.name.localeCompare(b.name) * -dir : key === 'size' ? (a.size - b.size) * dir : key === 'kind' ? a.kind.localeCompare(b.kind) : (a.mtime - b.mtime) * dir);

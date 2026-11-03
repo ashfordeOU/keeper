@@ -29,6 +29,17 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 ### Changed — Website
 - Shorter words everywhere, no version badges, and only finished versions in the changelog and the download links.
 
+### Added — Files: one obvious place for your files
+- The sidebar lists real places only, laid out like your system's file manager: Finder's Favorites, Locations and Tags on a Mac; Home, Gallery, OneDrive, Quick access and This PC on Windows; GNOME Files' or Dolphin's lists on Linux, with your bookmarks. Keeper's Home stays first.
+- "Documents" in the sidebar is the folder, nothing else. The Library section (All Documents, All Images…), Browse and Download Sources have left the sidebar.
+- Every file list has "By type" chips with counts: Documents, Pictures, Videos, Music, Archives, Installers, Apps, Screenshots and From the web. They work in any folder (and the folders inside it) and Everywhere. All Documents is now Everywhere + Documents, with the same sorting, grouping by folder and views.
+- From the web replaces Download Sources; the sites and apps files came from are chips under it.
+- Home is the front door: Desktop, Documents and Downloads as big tiles with how much is in each, then your recent files, then a search box with the types under it.
+- Disks and servers come and go as they connect, with how full they are and Eject. A server that drops stays listed as Offline until it is back; a click connects again, Forget removes it. Keeper's cloud and server connections sit in Locations with their status.
+- Settings → Sidebar → More settings → Find by type in the sidebar adds a folded section with the types, for those who want them there.
+- Old links, tabs, the command palette and keeper:// links to the old pages still open the right view. Pinned folders, places you removed, saved searches and tags are kept.
+- Sorting by name in a type list now goes A to Z (it went Z to A).
+
 ### Added — Any page in a window of its own
 - Every page can open in a window of its own: the window button in the top bar, right-click a page in the sidebar → Open in New Window, the command palette (Open Mail in New Window, or a page's name and "in New Window"), Window → New Window for This Page, or ⌥⌘N (Ctrl+Alt+N on Windows and Linux).
 - The window shows just that page, with its name in the top bar and in its title ("Mail — Keeper"), and no sidebar or tabs. It has the same frame as the main window.

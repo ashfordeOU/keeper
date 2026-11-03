@@ -58,8 +58,8 @@ async function mainPid(page) {
 
   // A first-run tour may be showing; skip it.
   await w.getByRole('button', { name: 'Skip tour' }).click({ timeout: 3000 }).catch(() => undefined);
-  // Tab 1: the Documents shelf (All Documents in the Library), scrolled.
-  await w.click('.sidebar [data-nav-key="nav:library:document"]');
+  // Tab 1: Everywhere + Documents (once All Documents), from Home's types, scrolled.
+  await w.click('[data-testid="home-types"] [data-chip="document"]');
   await w.waitForTimeout(1500);
   // Tab 2: the terminal, opened with a middle-click (new tab in the background), then selected.
   await w.click('.sidebar [title="Terminal"]', { button: 'middle' });
@@ -171,7 +171,7 @@ async function mainPid(page) {
   if (page) {
     await page.screenshot({ path: path.join(SHOTS, 'safe-mode.png') });
     const hidden = await page.evaluate(() => [...document.querySelectorAll('.sidebar [title]')].map((e) => e.getAttribute('title')));
-    check(!hidden.includes('Terminal') && hidden.some((t) => t.startsWith('All Documents')), 'safe mode keeps the library and switches the rest off');
+    check(!hidden.includes('Terminal') && hidden.some((t) => t.startsWith('Recent')), 'safe mode keeps your files and switches the rest off');
     check((await page.locator('.tab-strip .tab').count()) >= 1, 'tabs are still there in safe mode');
   }
 

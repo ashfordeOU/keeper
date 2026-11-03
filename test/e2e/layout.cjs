@@ -70,7 +70,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await both('home-small');
     await size(1440, 900);
     if (process.env.LAYOUT_TAG === 'before') { await app.close(); return; }
-    // Home: a quiet header, Jump back in grouped by folder, Today beside it, Library tiles.
+    // Home: a quiet header, your folders, Jump back in grouped by folder, Find a file, Today beside it.
     check(/files? · .* free/.test(await main.locator('[data-testid="home-line"]').textContent()), `one quiet line under the greeting ("${(await main.locator('[data-testid="home-line"]').textContent()).trim()}")`);
     check(await main.locator('[data-testid="home-rescan"]').count() === 1 && await main.getByRole('button', { name: /^Rescan$/ }).count() === 0, 'Rescan is a small icon button');
     check(await main.locator('.home .card, .home .kind-tile, .home-attention').count() === 0, 'no big storage, clean-up or attention cards');
@@ -79,8 +79,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       const h = (await sugg.boundingBox())?.height ?? 0;
       check(h <= 48, `a suggestion is one line (${Math.round(h)} px)`);
     } else console.log('  (no suggestion on this computer)');
-    const tiles = main.locator('[data-testid="home-library-tiles"] .home-tile');
-    check(await tiles.count() >= 3 && /^All /.test((await tiles.first().locator('.lbl').textContent()) ?? ''), 'the Library is tiles named as in the sidebar (All Images…)');
+    // The front door: Desktop, Documents and Downloads as big tiles, then a search box with the types under it.
+    const doors = await main.locator('[data-testid="home-folder"] .name').allTextContents();
+    check(doors.join(',') === 'Desktop,Documents,Downloads', `Home's first row is Desktop, Documents and Downloads (${doors.join(', ')})`);
+    check(await main.locator('[data-testid="home-search"]').count() === 1 && await main.locator('[data-testid="home-types"] .type-chip').count() >= 3, 'Find a file: a search box and the types under it');
     const recent = main.locator('[data-testid="home-recent"] .home-recent-item');
     const nRecent = await recent.count();
     check(nRecent >= 1, `Jump back in shows recent files (${nRecent}, ${await main.locator('[data-testid="home-group"]').count()} groups)`);
@@ -117,7 +119,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await main.click('[data-testid="home-today-hide"]');
     await reload();
     check(await main.locator('[data-testid="home-today"]').count() === 0, 'Today can be hidden from its own header');
-    // Edit Home: hide Library, show Storage, move Today up, compact spacing; kept after a reload.
+    // Edit Home: show By type (off by default), show Storage, hide Today, move Jump back in up, compact spacing; kept after a reload.
     await main.click('[data-testid="home-edit"]');
     await sleep(300);
     await both('home-edit');
@@ -128,11 +130,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await main.locator('[data-testid="home-edit-panel"]').getByRole('radio', { name: 'Compact' }).click();
     await main.click('[data-testid="home-edit"]');
     await reload();
-    check(await main.locator('[data-section="library"]').count() === 0 && await main.locator('[data-section="usage"]').count() === 1 && await main.locator('[data-section="today"]').count() === 1, 'Edit Home hides and shows sections, kept after a reload');
-    check(await main.evaluate(async () => (await window.keeper.settings.get()).home.order[0]) === 'jump', 'and the order is kept');
+    check(await main.locator('[data-section="library"]').count() === 1 && await main.locator('[data-section="usage"]').count() === 1 && await main.locator('[data-section="today"]').count() === 1, 'Edit Home hides and shows sections, kept after a reload');
+    check(await main.evaluate(async () => (await window.keeper.settings.get()).home.order.slice(0, 2).join(',')) === 'folders,jump', 'and the order is kept');
     check(await main.locator('.home.home-compact').count() === 1, 'the spacing choice is kept');
     await both('home-edited');
-    await main.evaluate(async () => { const s = await window.keeper.settings.get(); await window.keeper.settings.set({ home: { ...s.home, order: ['suggestions', 'jump', 'today', 'library', 'pinned', 'weather', 'usage'], hidden: ['weather', 'usage'], density: 'comfortable' } }); });
+    await main.evaluate(async () => { const s = await window.keeper.settings.get(); await window.keeper.settings.set({ home: { ...s.home, order: ['folders', 'suggestions', 'jump', 'search', 'today', 'library', 'pinned', 'weather', 'usage'], hidden: ['library', 'weather', 'usage'], density: 'comfortable' } }); });
     await sleep(500);
     // A few themes.
     for (const t of ['glass', 'retro', 'minimal']) {

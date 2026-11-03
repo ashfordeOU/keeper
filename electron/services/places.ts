@@ -16,6 +16,7 @@ import {
   parseProcMounts, parseServerAddress, parseTrashInfo, parseWinDisks, serversFromRecords, type DiscoveredServer, type MdnsRecord, type Place, type PlacesModel,
 } from '../../core/places';
 import { powershell, run } from '../../core/platform';
+import { desktopOf, parseGtkBookmarks, parseKdePlaces } from '../../core/sidebar-places';
 import { uniqueName } from '../../core/rules';
 import { settings, updateSettings } from '../store';
 import { poll } from './governor';
@@ -122,6 +123,16 @@ async function winDisks(): Promise<{ volumes: Place[]; network: Place[] }> {
 
 let lastModel: PlacesModel | null = null;
 
+/** The Linux file manager's bookmarks (Dolphin's on KDE, GNOME's elsewhere) and whose layout to follow. */
+async function linuxBookmarks(): Promise<{ bookmarks: Place[]; desktop: 'gnome' | 'kde' }> {
+  const desktop = desktopOf(process.env);
+  const cfg = process.env.XDG_CONFIG_HOME || path.join(home(), '.config');
+  const data = process.env.XDG_DATA_HOME || path.join(home(), '.local', 'share');
+  const read = (p: string) => fsp.readFile(p, 'utf8').catch(() => '');
+  const marks = desktop === 'kde' ? parseKdePlaces(await read(path.join(data, 'user-places.xbel')), home()) : parseGtkBookmarks(await read(path.join(cfg, 'gtk-3.0', 'bookmarks')));
+  return { bookmarks: marks.filter((b) => existsSync(b.path)), desktop };
+}
+
 export async function listPlaces(): Promise<PlacesModel> {
   const s = settings();
   const disks = isMac ? await macDisks() : isWin ? await winDisks() : await linuxDisks();
@@ -142,6 +153,7 @@ export async function listPlaces(): Promise<PlacesModel> {
     network,
     shared: icloud ? { id: 'shared', name: 'Shared', path: icloud.path, kind: 'shared', icon: 'island' } : undefined,
     airdrop: isMac,
+    ...(process.platform === 'linux' ? await linuxBookmarks() : {}),
   };
   lastModel = model;
   return model;

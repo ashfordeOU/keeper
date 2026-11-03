@@ -5,7 +5,7 @@
 //   • a real folder shows its subfolders first, then its files, in icons, list
 //     (with disclosure triangles), columns and gallery; double-click and Enter
 //     open a folder; the path bar, Back, Forward and Ctrl/⌘+↑ work;
-//   • the Library's "All Documents" says what it is, groups by folder (list
+//   • Everywhere + the Documents chip (once "All Documents") says what it is, groups by folder (list
 //     view by default) and "Show in folder" opens the real folder;
 //   • nothing in the sidebar is wider than the sidebar at 180, 228 and 360 px
 //     and in the icon rail, even with a very long name.
@@ -269,7 +269,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await sleep(1200);
   const head = await main.locator('[data-testid="kind-intro"]').textContent().catch(() => '');
   check(/^Every document on this computer, wherever it is\. \d+ in \d+ folders?/.test(head.trim()), `All Documents says what it is ("${head.trim()}")`);
-  check(await main.locator('nav.sidebar .nav-item', { hasText: 'All Documents' }).count() === 1, 'the sidebar calls it "All Documents"');
+  // A type is a chip on the list, not a sidebar place: the sidebar's "Documents" is the folder only.
+  check(await main.locator('[data-testid="chip-document"]').getAttribute('aria-pressed') === 'true' && await main.locator('[data-testid="scope-everywhere"]').getAttribute('aria-checked') === 'true', 'Everywhere + the Documents chip (once "All Documents")');
+  check(await main.locator('nav.sidebar .nav-item', { hasText: /^All Documents/ }).count() === 0 && await main.locator('nav.sidebar .nav-item', { hasText: /^Documents$/ }).count() === 1, 'the sidebar has one "Documents": the folder');
   check(await main.locator('.file-list').count() === 1, 'a text-heavy collection opens as a list');
   const groups = await main.locator('.file-list tr.group-row').allTextContents();
   check(groups.length >= 5 && groups.some((g) => /Notes/.test(g)) && groups.some((g) => /Keeper/.test(g)), `grouped by folder (${groups.length} folders)`);

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
-// The "Cloud & Servers" sidebar section: every connection, how it is doing,
-// how full it is, and one click to open it.
+// Cloud services and servers in the sidebar's Locations: every connection, how
+// it is doing, how full it is, and one click to open it.
 
 import { useEffect, useState } from 'react';
 import { parseRemoteRoute, remoteRoute } from '../../core/remote/paths';
@@ -18,7 +18,8 @@ export const STATE_LABEL: Record<ConnStatus['state'], string> = {
   idle: 'Ready', connecting: 'Connecting…', connected: 'Connected', 'needs-sign-in': 'Sign in again', offline: 'Can’t reach it', error: 'Problem',
 };
 
-export function CloudSidebar() {
+/** The rows for Locations (`bare`), or a section of their own. */
+export function CloudSidebar({ bare }: { bare?: boolean } = {}) {
   const { route, go, toast } = useStore();
   const [data, setData] = useState<{ connections: Connection[]; status: ConnStatus[] } | null>(null);
   const [adding, setAdding] = useState(false);
@@ -64,9 +65,8 @@ export function CloudSidebar() {
   };
 
   if (!data) return null;
-  return (
+  const rows = (
     <>
-      <NavSection id="cloud" title="Cloud & Servers" menuItems={[{ label: 'Add a Connection…', icon: 'plus', run: () => setAdding(true) }]}>
         {data.connections.map((c) => {
           const s = status(c.id);
           const q = s?.quota;
@@ -84,9 +84,13 @@ export function CloudSidebar() {
         })}
         <button className="nav-item add-conn" onClick={() => setAdding(true)}>
           <Icon name="plus" size={15} />
-          <span className="label ellipsis">{data.connections.length ? 'Add…' : 'Connect a cloud or server…'}</span>
+          <span className="label ellipsis">{data.connections.length && !bare ? 'Add…' : 'Connect a cloud or server…'}</span>
         </button>
-      </NavSection>
+    </>
+  );
+  return (
+    <>
+      {bare ? rows : <NavSection id="cloud" title="Cloud & Servers" menuItems={[{ label: 'Add a Connection…', icon: 'plus', run: () => setAdding(true) }]}>{rows}</NavSection>}
       {menu ? <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} /> : null}
       {adding ? <ConnectionDialog onClose={() => setAdding(false)} onSaved={(c) => void openConn(c)} /> : null}
       {editing ? <ConnectionDialog edit={editing} onClose={() => setEditing(null)} /> : null}

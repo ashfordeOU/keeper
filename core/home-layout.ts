@@ -5,15 +5,17 @@
 // doing now. Plain functions so they are easy to test.
 
 /**
+ * folders: the front door, Desktop, Documents and Downloads as big tiles;
+ * search: a search box, with the file types (Documents, Pictures…) under it;
  * suggestions: one line when something is worth doing (low space, a finding on To do);
  * jump: recent files grouped by the project or folder they belong to;
  * today: events, tasks due and what is running (a column beside the rest on a wide window).
  */
-export type HomeSectionId = 'suggestions' | 'jump' | 'today' | 'library' | 'pinned' | 'weather' | 'usage';
+export type HomeSectionId = 'folders' | 'suggestions' | 'jump' | 'search' | 'today' | 'library' | 'pinned' | 'weather' | 'usage';
 export type HomeDensity = 'comfortable' | 'compact' | 'spacious';
 
 /** Bumped when the sections change; older settings are moved on by normalizeHome. */
-export const HOME_LAYOUT_VERSION = 2;
+export const HOME_LAYOUT_VERSION = 3;
 
 export interface HomeSettings {
   v: number;
@@ -26,10 +28,12 @@ export interface HomeSettings {
 }
 
 export const HOME_SECTIONS: { id: HomeSectionId; name: string; description: string }[] = [
+  { id: 'folders', name: 'Your folders', description: 'Desktop, Documents and Downloads as big tiles, with how much is in each.' },
   { id: 'suggestions', name: 'Suggestions', description: 'One line, only when something is worth doing: low space or a finding on the Fix-it List.' },
   { id: 'jump', name: 'Jump back in', description: 'Recent files, grouped by the project or folder they belong to.' },
+  { id: 'search', name: 'Find a file', description: 'A search box, and Documents, Pictures and the other types under it.' },
   { id: 'today', name: 'Today', description: 'Today’s events, tasks due, and timers, Keep Awake or a recording while they run.' },
-  { id: 'library', name: 'Library', description: 'All Images, All Videos, All Documents and so on, with counts.' },
+  { id: 'library', name: 'By type', description: 'Pictures, Videos, Documents and so on as tiles, with counts.' },
   { id: 'pinned', name: 'Pinned folders', description: 'Folders you pinned to Favorites.' },
   { id: 'weather', name: 'Weather', description: 'The full forecast card (the header always has a small chip).' },
   { id: 'usage', name: 'Storage', description: 'How the disk is used, by kind of file.' },
@@ -48,7 +52,7 @@ const IDS = HOME_SECTIONS.map((s) => s.id);
 const isId = (s: unknown): s is HomeSectionId => IDS.includes(s as HomeSectionId);
 
 export function defaultHomeSettings(): HomeSettings {
-  return { v: HOME_LAYOUT_VERSION, order: [...IDS], hidden: ['weather', 'usage'], density: 'comfortable', library: 'tiles' };
+  return { v: HOME_LAYOUT_VERSION, order: [...IDS], hidden: ['library', 'weather', 'usage'], density: 'comfortable', library: 'tiles' };
 }
 
 /** Sections of the first Home (before Jump back in and Today) and what they became. */
@@ -66,7 +70,22 @@ export function migrateHome(x: Record<string, unknown>): Record<string, unknown>
   // Today follows Jump back in when Calendar today was not in the list.
   if (!order.includes('today')) order.splice(order.includes('jump') ? order.indexOf('jump') + 1 : order.length, 0, 'today');
   const hidden = Array.isArray(x.hidden) ? map(x.hidden).filter((id) => id !== 'today') : undefined;
-  return { v: HOME_LAYOUT_VERSION, order, hidden, density: x.density, library: 'tiles' };
+  return { v: 2, order, hidden, density: x.density, library: 'tiles' };
+}
+
+/**
+ * Home as the front door (version 3): Your folders comes first and Find a file
+ * follows Jump back in; the type tiles (once "Library") step back, since the
+ * same types sit under the search box. The rest of the order and what was
+ * hidden stay as the person left them.
+ */
+export function migrateHomeV3(x: Record<string, unknown>): Record<string, unknown> {
+  const order = (Array.isArray(x.order) ? x.order : []).filter((s): s is HomeSectionId => isId(s) && s !== 'folders' && s !== 'search');
+  order.unshift('folders');
+  const j = order.indexOf('jump');
+  order.splice(j < 0 ? 1 : j + 1, 0, 'search');
+  const hidden = Array.isArray(x.hidden) ? [...new Set([...x.hidden.filter(isId), 'library' as HomeSectionId])] : undefined;
+  return { ...x, v: HOME_LAYOUT_VERSION, order, hidden };
 }
 
 /** Bad or old values fall back; older layouts are moved on; sections added later join at the end. */
@@ -74,7 +93,8 @@ export function normalizeHome(v: unknown): HomeSettings {
   const d = defaultHomeSettings();
   if (!v || typeof v !== 'object') return d;
   let x = v as Record<string, unknown>;
-  if (x.v !== HOME_LAYOUT_VERSION) x = migrateHome(x);
+  if (x.v !== HOME_LAYOUT_VERSION && x.v !== 2) x = migrateHome(x);
+  if (x.v === 2) x = migrateHomeV3(x);
   const known = (a: unknown): HomeSectionId[] => (Array.isArray(a) ? a.filter(isId) : []);
   const order = [...new Set(known(x.order))];
   for (const id of IDS) if (!order.includes(id)) order.push(id);

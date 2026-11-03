@@ -20,7 +20,7 @@ const OPEN_KEY = 'sidebar.opened';
 const listeners = new Set<() => void>();
 
 /** Open for someone who has not opened or closed any section yet (Balanced): the rest show their titles only. */
-export const DEFAULT_OPEN = ['library', 'favorites', 'locations', 'pim', 'tidy', 'computer', 'security'];
+export const DEFAULT_OPEN = ['favorites', 'quick', 'locations', 'remote', 'tags', 'pim', 'tidy', 'computer', 'security'];
 
 function load(key: string, fallback: string[] = []): Set<string> {
   try {
@@ -85,11 +85,12 @@ function useOpened(): Set<string> {
 
 /** Section colours, in the order they appear; themes may override --sec-<id>. */
 export const SECTION_COLOR: Record<string, string> = {
-  library: '#e5487f',
-  saved: '#3b82f6',
   favorites: '#f59e0b',
+  quick: '#f59e0b',
   locations: '#14b8a6',
-  cloud: '#0ea5e9',
+  remote: '#0ea5e9',
+  types: '#e5487f',
+  saved: '#3b82f6',
   devices: '#10b981',
   sync: '#10b981',
   pim: '#e8590c',
@@ -103,16 +104,21 @@ export const SECTION_COLOR: Record<string, string> = {
   desktop: '#d946ef',
 };
 
+/** Sections only one system has (its file manager's layout, core/sidebar-places.ts). */
+export const SECTION_PLATFORMS: Record<string, string[]> = { favorites: ['darwin', 'linux'], quick: ['win32'], remote: ['linux'] };
+
 /** Section names for Customize sidebar (the suite sections take theirs from core/features.ts NAV_GROUPS). */
 export const SECTION_NAMES: Record<string, string> = {
-  library: 'Library', saved: 'Saved searches', favorites: 'Favorites', locations: 'Locations', cloud: 'Cloud & Servers', devices: 'Devices', sync: 'Sync & Backup',
+  favorites: 'Favorites', quick: 'Quick access', locations: 'Locations', remote: 'Remote', types: 'Find by type', saved: 'Saved searches', devices: 'Devices', sync: 'Sync & Backup',
   pim: 'Mail & Calendar', tags: 'Tags', notes: 'Notes', tidy: 'Tidy', computer: 'Computer', security: 'Privacy & Security', ai: 'AI', screen: 'Screen', desktop: 'Desktop',
 };
 
 export const SECTION_IDS = Object.keys(SECTION_COLOR);
 
-export function NavSection({ id, title, children, className, menuItems = [], ...rest }: {
+export function NavSection({ id, title, children, className, menuItems = [], noLimit, ...rest }: {
   id: string;
+  /** every row shows (places: a folder or a disk never hides behind "Show all") */
+  noLimit?: boolean;
   title: React.ReactNode;
   children: React.ReactNode;
   className?: string;
@@ -126,7 +132,7 @@ export function NavSection({ id, title, children, className, menuItems = [], ...
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const { settings, updateSettings, go } = useStore();
   const { usage } = useSidebarLocal();
-  const limit = compactionAllowed() ? settings?.sidebarSectionLimit ?? SECTION_LIMIT_DEFAULT : 0;
+  const limit = compactionAllowed() && !noLimit ? settings?.sidebarSectionLimit ?? SECTION_LIMIT_DEFAULT : 0;
   const itemsRef = useRef<HTMLDivElement>(null);
   const [counts, setCounts] = useState({ total: 0, more: 0, measured: false });
   // Marks the items beyond the most used ones (they hide until "Show all"); runs again when the items change.

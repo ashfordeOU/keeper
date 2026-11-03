@@ -23,3 +23,10 @@
 .browse-pathbar { display: flex; gap: 6px; align-items: center; margin-bottom: 12px; }
 .browse-pathbar input { flex: 1; font-family: var(--mono); font-size: 12px; }
 .cloud-mark { color: var(--text-3); }
+
+/* A server that dropped: dimmed, with a quiet "Offline" (a click connects again). */
+.place-row.offline .nav-item { color: var(--text-3); }
+.place-row.offline .nav-item .label { text-decoration: none; }
+.place-state { margin-left: auto; flex: none; font-size: var(--fs-xs); color: var(--text-3); padding: 0 6px; border-radius: var(--r-pill); background: var(--bg-sunk); }
+/* The places right under Keeper's Home (no title): a little room before the first section. */
+.nav-folders { display: flex; flex-direction: column; margin-bottom: 6px; border-radius: var(--r-md); }

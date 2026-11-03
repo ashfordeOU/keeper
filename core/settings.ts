@@ -18,6 +18,7 @@ import { defaultSyncSettings, normalizeSyncSettings } from './sync/config';
 import { defaultGlanceSettings } from './glance';
 import { DEFAULT_PLATFORM } from './platform-integrations';
 import { defaultHomeSettings, normalizeHome } from './home-layout';
+import { migrateSidebarLists } from './file-types';
 import { DEFAULT_THEME, THEMES } from './themes';
 import type { Rule, Settings } from './types';
 import { sanitizePageWindows } from './page-window';
@@ -161,6 +162,7 @@ export function defaultSettings(folders: string[], rules: Rule[]): AllSettings {
     inspectorMode: 'selection',
     sidebarMode: 'auto',
     sidebarSectionLimit: 5,
+    sidebarTypes: false,
     settingsAdvanced: false,
     home: defaultHomeSettings(),
     permissionsSetup: '',
@@ -240,6 +242,8 @@ export function mergeSettings(base: AllSettings, raw: unknown): AllSettings {
   out.island.hoverDelayMs = migrateHoverDelay(out.island.hoverDelayMs, Object.keys(rawIsland).length > 0 && rawIsland.openModel !== 1);
   out.island.openModel = 1;
   out.island = { ...out.island, panelSize: isPanelSize(out.island.panelSize) ? out.island.panelSize : 'regular', panelSizes: cleanPanelSizes(out.island.panelSizes) as IslandSettings['panelSizes'], windowType: islandWindowType(out.island.windowType) };
+  // The Library and Cloud & Servers sections are gone (types are chips on the file list; connections are in Locations).
+  Object.assign(out, migrateSidebarLists(out));
   out.sidebarSectionLimit = Number.isFinite(out.sidebarSectionLimit) ? Math.max(0, Math.min(50, Math.round(out.sidebarSectionLimit))) : 5;
   if (!['', 'all', 'onDemand'].includes(out.permissionsSetup)) out.permissionsSetup = '';
   return out;

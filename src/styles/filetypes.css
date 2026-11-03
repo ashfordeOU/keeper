@@ -1,0 +1,54 @@
+/* SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 */
+/* The bar over a file list: where you look (this folder or Everywhere) and the
+   "By type" chips with their counts (src/components/TypeChips.tsx). Tokens only. */
+
+.type-bar {
+  /* A floating capsule over the list, not a strip: the scope, then the chips. */
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; width: fit-content; max-width: 100%;
+  margin: 0 0 16px; padding: 5px 6px; border-radius: var(--r-lg); background: var(--bg-elev); box-shadow: var(--shadow);
+}
+.type-bar .type-scope { border: 0; }
+.type-scope { flex: none; }
+.type-scope button { max-width: 220px; }
+.type-scope button .ellipsis { min-width: 0; }
+.type-chips { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.type-sources { flex-basis: 100%; padding-left: 2px; }
+
+.type-chip {
+  display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 11px;
+  border-radius: var(--r-pill); border: 1px solid transparent; background: transparent;
+  color: var(--text-2); font: inherit; font-size: var(--fs-md); cursor: default; white-space: nowrap;
+}
+.type-chip:hover { background: var(--bg-hover); color: var(--text); }
+.type-chip > i { width: 8px; height: 8px; border-radius: var(--r-pill); flex: none; }
+.type-chip .n { color: var(--text-3); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
+.type-chip.on { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 45%, transparent); color: var(--accent-ink, var(--accent)); font-weight: 600; }
+.type-chip.on .n { color: inherit; opacity: .8; }
+.type-chip.sm { height: 24px; padding: 0 9px; font-size: var(--fs-sm); }
+
+/* Home: the three front-door folders. */
+.home-folders { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.home-folder {
+  display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 14px; row-gap: 2px; align-items: center;
+  min-height: 84px; padding: 18px 20px; border-radius: var(--r-lg); border: 1px solid transparent;
+  background: var(--bg-elev); box-shadow: var(--shadow); color: inherit; font: inherit; text-align: left; cursor: default; min-width: 0;
+}
+.home-folder:hover { border-color: var(--line-strong); }
+.home-folder:disabled { opacity: .6; }
+.home-folder .ico { grid-row: 1 / span 2; width: 44px; height: 44px; border-radius: var(--r-lg); display: grid; place-items: center; color: var(--accent); background: var(--accent-soft); }
+.home-folder .name { font-size: var(--fs-lg); font-weight: 650; min-width: 0; }
+.home-folder .meta { font-size: var(--fs-sm); color: var(--text-3); font-variant-numeric: tabular-nums; min-width: 0; }
+@media (max-width: 760px) { .home-folders { grid-template-columns: 1fr; } }
+
+/* Home: find a file, with the types under it. */
+.home-find { display: flex; flex-direction: column; gap: 12px; }
+.home-find-box { display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 14px; border-radius: var(--r-lg); border: 1px solid var(--line-strong); background: var(--bg-elev); color: var(--text-3); }
+.home-find-box:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.home-find-box input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; color: var(--text); font: inherit; font-size: var(--fs-lg); }
+.home-find-box kbd { font-size: var(--fs-xs); color: var(--text-3); }
+.home-find .type-chip { border-color: var(--line); }
+.home-find .type-chips .lead { align-self: center; font-size: var(--fs-sm); color: var(--text-3); margin-right: 2px; }
+
+/* "Find by type" in the sidebar (Settings → Sidebar): the kind's colour as a dot. */
+.nav-item .type-dot { width: 8px; height: 8px; border-radius: var(--r-pill); flex: none; margin: 0 4px 0 3px; }
+.nav-type-ico { display: inline-flex; flex: none; }

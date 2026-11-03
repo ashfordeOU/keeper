@@ -22,6 +22,7 @@ import { attachHover, glanceView, showGlance, toggleGlance } from './services/gl
 import { registerGlanceIpc } from './ipc/glance';
 import { glanceTooltip, type GlanceActionId } from '../core/glance';
 import { menuKey } from '../core/menu-key';
+import { isUnder, typeCounts } from '../core/file-types';
 import { startBreadcrumbs } from './breadcrumbs';
 import { anotherKeeperTookOver, holdInstanceLock, releaseInstanceLock } from './instance';
 import { installNavGuard } from './nav-guard';
@@ -832,7 +833,7 @@ function backgroundWork(): import('../core/api').BackgroundWork {
 const sortFiles = (list: FileEntry[], key: string = 'date', desc = true) => {
   const dir = desc ? -1 : 1;
   return list.sort((a, b) =>
-    key === 'name' ? dir * -1 * a.name.localeCompare(b.name, undefined, { numeric: true }) * -1 * -1
+    key === 'name' ? dir * a.name.localeCompare(b.name, undefined, { numeric: true })
       : key === 'size' ? dir * (a.size - b.size)
       : key === 'kind' ? a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name)
       : dir * (a.mtime - b.mtime));
@@ -1121,9 +1122,11 @@ function registerIpc() {
   handle('library.speedUp', () => { boostWork(30 * 60_000); });
   handle('library.rescan', () => rescan());
   handle('library.totals', () => index.totals());
+  // The type chips' counts on the file list (Everywhere, or one folder and what is inside it).
+  handle('library.typeCounts', (under?: string) => typeCounts(index.files.values(), under || undefined));
   handle('library.recent', (n: number, kind?: string) => index.recent(n, (f) => !kind || (kind === 'screenshot' ? !!f.screenshot : kind === 'download' ? f.root === 'Downloads' : f.kind === kind)).map(lite));
-  handle('library.list', (o: { kind?: FileKind; screenshot?: boolean; root?: string; source?: string; tag?: string; sort?: string; desc?: boolean; limit?: number }) => {
-    const list = index.all().filter((f) => (!o.kind || f.kind === o.kind) && (!o.screenshot || f.screenshot) && (!o.root || f.root === o.root) && (!o.source || f.source?.id === o.source) && (!o.tag || f.tags?.includes(o.tag)));
+  handle('library.list', (o: { kind?: FileKind; screenshot?: boolean; fromWeb?: boolean; under?: string; root?: string; source?: string; tag?: string; sort?: string; desc?: boolean; limit?: number }) => {
+    const list = index.all().filter((f) => (!o.kind || f.kind === o.kind) && (!o.screenshot || f.screenshot) && (!o.fromWeb || !!f.source) && (!o.under || isUnder(f.path, o.under)) && (!o.root || f.root === o.root) && (!o.source || f.source?.id === o.source) && (!o.tag || f.tags?.includes(o.tag)));
     const sorted = sortFiles(list, o.sort, o.desc ?? o.sort !== 'name');
     return (o.limit ? sorted.slice(0, o.limit) : sorted).map(lite);
   });

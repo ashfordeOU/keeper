@@ -49,7 +49,7 @@ describe('one window per page', () => {
     // A tab of a merged page belongs to that page's window.
     expect(pageWindowKey({ name: 'firewall' })).toBe('security');
     expect(pageWindowKey({ name: 'sync', arg: 'mirrors' })).toBe('sync-mirrors');
-    // Pages outside the sidebar are keyed by their route.
+    // Everywhere and its type chips share one window.
     expect(pageWindowKey({ name: 'library', arg: 'image' })).toBe('library');
     expect(pageWindowKey({ name: '../x' })).toBeUndefined();
   });
@@ -66,7 +66,7 @@ describe('one window per page', () => {
     expect(pageWindowTitle(pageWindowLabel('mail'))).toBe('Mail — Keeper');
     expect(pageWindowLabel('security')).toBe('Privacy & Security');
     expect(pageWindowLabel('mail', 'Courrier')).toBe('Courrier');
-    expect(pageWindowLabel('library')).toBe('Library');
+    expect(pageWindowLabel('library')).toBe('Everywhere');
     expect(pageWindowLabel('mail', '\u0007  ')).toBe('Mail');
   });
 });

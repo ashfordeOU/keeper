@@ -37,7 +37,8 @@ const check = (ok, what) => { console.log(`${ok ? 'PASS' : 'FAIL'} ${what}`); if
   check(!!item?.deletedAt, 'trash.list reads the deletion date');
 
   const sidebar = await main.locator('.sidebar, nav').first().innerText();
-  check(/Favorites/i.test(sidebar) && /Locations/i.test(sidebar) && /Trash/.test(sidebar) && /Dropbox/.test(sidebar), 'sidebar renders Favorites, Locations, Dropbox and Trash');
+  // GNOME Files' layout (the default on Linux): Recent, Starred, Home Folder, the folders, Trash; Other Locations.
+  check(/Recent/.test(sidebar) && /Starred/.test(sidebar) && /Home Folder/.test(sidebar) && /Other Locations/i.test(sidebar) && /Trash/.test(sidebar) && /Dropbox/.test(sidebar), 'sidebar renders Recent, Starred, Home Folder, Trash, Other Locations and Dropbox');
   await main.screenshot({ path: `${SHOTS}/sidebar.png` });
 
   await main.getByRole('button', { name: 'Trash', exact: true }).click();

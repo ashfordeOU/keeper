@@ -2,7 +2,9 @@
 // A real folder, the way Finder and File Explorer show one: its subfolders
 // first, then its files, as icons, a list with disclosure triangles, columns
 // or a gallery; a path bar on top; double-click or Enter opens a folder, and
-// Back, Forward and ⌘↑ / Alt+↑ (the enclosing folder) work.
+// Back, Forward and ⌘↑ / Alt+↑ (the enclosing folder) work. The "By type"
+// chips over the list show one type (Documents, Pictures…) in this folder and
+// the folders inside it; the type sits in the route's q (core/file-types.ts).
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { formatBytes } from '../../core/format';
@@ -22,6 +24,10 @@ import { TidyDialog } from '../components/TidyDialog';
 import { parseServerAddress } from '../../core/places';
 import { ConnectDialog } from './Network';
 import '../styles/places.css';
+import { chipQuery, isUnder, matchesType, routeChip, typeCounts, typeLabel } from '../../core/file-types';
+import { looksLikeScreenshot } from '../../core/classify';
+import { rememberFolder, TypeChips } from '../components/TypeChips';
+import { CopyTextButton, GroupToggle, TypeEmpty, useTypeList } from './Library';
 
 type SortKey = 'name' | 'date' | 'size' | 'kind';
 
@@ -58,6 +64,8 @@ export function Browse() {
   };
 
   const entries = useAsync(() => (dir ? api.files.browse(dir, hidden) : Promise.resolve([])), [dir, hidden, version]);
+  useEffect(() => rememberFolder(dir), [dir]);
+
   // Folders Keeper unlocked, which can be locked again in one step.
   const locks = useAsync(() => api.lock.list(), [version]);
   const unlockedHere = useMemo(() => new Set((locks.data ?? []).filter((l) => l.state === 'unlocked' && l.folder).map((l) => l.folder!)), [locks.data]);
@@ -67,6 +75,17 @@ export function Browse() {
     const root = dir.split(/[\\/]/).pop() ?? '';
     return sortFoldersFirst((entries.data ?? []).map((e) => browseItem(e, root)), sort);
   }, [entries.data, sort, dir]);
+
+  // A type chosen with the chips: from the library (this folder and inside it) when Keeper reads
+  // this folder, otherwise from what is in the folder itself.
+  const chip = routeChip(route);
+  const indexed = !!dir && (settings?.folders ?? []).some((r) => isUnder(dir, r) || isUnder(r, dir));
+  const typeList = useTypeList(chipQuery(chip, { under: dir }), `browse:${chip}`, true, sort, true, chip === 'all' || !indexed);
+  const local = useMemo(() => (indexed ? undefined : items.map((e) => ({ ...e, screenshot: e.screenshot ?? (looksLikeScreenshot(e.name) || undefined) }))), [indexed, items]);
+  const localCounts = useMemo(() => (local ? typeCounts(local) : undefined), [local]);
+  const localShown = useMemo(() => (local && chip !== 'all' ? sortFoldersFirst(local.filter((f) => matchesType(f, chipQuery(chip))), sort) : undefined), [local, chip, sort]);
+  const typeShown = chip === 'all' ? undefined : indexed ? typeList.shown : localShown;
+  const folderName = dir.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || dir;
 
   // List view's disclosure triangles: open folders and what is in them.
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -214,6 +233,8 @@ export function Browse() {
           <button className="btn ghost sm icon" title="Go to a path or server address" aria-label="Go to a path or server address" onClick={() => setTyped(typed === null ? dir : null)}><Icon name="terminal" size={13} /></button>
         </div>
         <div className="btn-row">
+          {chip === 'screenshot' ? <CopyTextButton list={typeShown} /> : null}
+          {chip !== 'all' && indexed ? <GroupToggle grouped={typeList.grouped} onChange={typeList.setGrouped} /> : null}
           <HiddenToggle />
           {clip ? <button className="btn sm" data-testid="paste-here" onClick={() => void pasteInto(dir)} title={`Paste ${clip.paths.length === 1 ? 'the item' : `${clip.paths.length} items`} you ${clip.op === 'cut' ? 'cut' : 'copied'} into this folder`}><Icon name="clipboard" size={13} /> Paste{clip.op === 'cut' ? ' (Move)' : ''}</button> : null}
           <button className="btn sm" onClick={() => setNewFolder('untitled folder')}><Icon name="plus" size={13} /> New Folder</button>
@@ -226,10 +247,21 @@ export function Browse() {
         </div>
       </div>
 
+      {dir ? <TypeChips folder={dir} active={chip} counts={localCounts} /> : null}
       {entries.data?.some((e) => e.cloudOnly) ? (
         <div className="small muted row cloud-mark" style={{ gap: 6, marginBottom: 10 }}><Icon name="cloud" size={13} />{entries.data.filter((e) => e.cloudOnly).length} item(s) here are kept only in the cloud and download when opened.</div>
       ) : null}
-      {entries.loading && !entries.data ? <Loading /> : entries.error ? <Empty icon="lock" title="Can’t open this folder">{entries.error}</Empty> : !items.length ? <Empty icon="folder" title="This folder is empty" /> : view === 'columns' ? (
+      {entries.loading && !entries.data ? <Loading /> : entries.error ? <Empty icon="lock" title="Can’t open this folder">{entries.error}</Empty> : chip !== 'all' ? (
+        <Files
+          files={typeShown}
+          header={indexed ? typeList.header : undefined}
+          showFolder={!(indexed && typeList.header) && view === 'list'}
+          sort={sort}
+          onSort={(k) => setSort((s) => ({ key: k, desc: s.key === k ? !s.desc : k !== 'name' }))}
+          showSource={chip === 'web'}
+          empty={<TypeEmpty chip={chip} inFolder={folderName} />}
+        />
+      ) : !items.length ? <Empty icon="folder" title="This folder is empty" action={<button className="btn" onClick={() => setNewFolder('untitled folder')}><Icon name="plus" size={13} /> New Folder</button>}>Drop files here to move them in.</Empty> : view === 'columns' ? (
         <ColumnView dir={dir} items={items} hidden={hidden} sort={sort} onOpenDir={openDir} onContext={onContext} />
       ) : (
         <Files
@@ -241,7 +273,7 @@ export function Browse() {
           onContext={onContext}
         />
       )}
-      {items.length ? <div className="small muted folder-status" aria-live="polite">{nDirs ? `${nDirs} folder${nDirs === 1 ? '' : 's'}, ` : ''}{items.length - nDirs} file{items.length - nDirs === 1 ? '' : 's'}</div> : null}
+      {chip !== 'all' ? (typeShown?.length ? <div className="small muted folder-status" aria-live="polite">{typeShown.length.toLocaleString()} {typeLabel(chip).toLowerCase()} in {folderName}{indexed ? ' and the folders in it' : ''}</div> : null) : items.length ? <div className="small muted folder-status" aria-live="polite">{nDirs ? `${nDirs} folder${nDirs === 1 ? '' : 's'}, ` : ''}{items.length - nDirs} file{items.length - nDirs === 1 ? '' : 's'}</div> : null}
 
       {menu ? <ContextMenu x={menu.x} y={menu.y} items={menu.entry.locked ? vaultMenu(menu.entry) : folderMenu(menu.entry)} onClose={() => setMenu(null)} /> : null}
       {locking ? <LockDialog dir={locking} onClose={() => setLocking(null)} /> : null}
