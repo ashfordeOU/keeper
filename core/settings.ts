@@ -68,6 +68,8 @@ export function defaultIsland(): IslandSettings {
     x11OnWayland: true,
     privacyDots: true,
     activitiesOff: [],
+    alwaysBattery: false,
+    openTo: 'activity',
     hoverOpen: true,
     hoverDelayMs: HOVER_DWELL_MS,
     haptics: true,

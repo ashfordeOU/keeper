@@ -240,7 +240,8 @@ export interface IslandState {
   focus: FocusState;
   keepAwake: KeepAwakeState;
   weather?: Weather;
-  battery?: { percent: number; charging: boolean };
+  /** lowPower: macOS Low Power Mode (Windows: Energy saver) is on */
+  battery?: { percent: number; charging: boolean; lowPower?: boolean };
   /** remaining ms until the next break reminder, when break reminders are on */
   breakIn?: number;
   /** a screen recording is running */
@@ -363,6 +364,10 @@ export interface IslandSettings {
   privacyDots?: boolean;
   /** activity kinds not to show in the pill */
   activitiesOff?: string[];
+  /** the battery glyph and its percentage in the closed Island whenever nothing else is going on (off: only when low) */
+  alwaysBattery?: boolean;
+  /** what opening the Island shows (always the full Island, with the deck): the live activity's own view, Home, or the view used last */
+  openTo?: 'activity' | 'home' | 'last';
   /** open the Island when the pointer rests on it (tap or click always works) */
   hoverOpen?: boolean;
   /** how long the pointer rests before it opens, in ms (140 by default; core/island-open.ts) */

@@ -6,7 +6,9 @@
 // the calendars picker (a calendar switched off leaves the Calendar tab and the pill's countdown);
 // the deck (never wider than the panel, only the open view named), More, pinning and unpinning;
 // the open model (the breath at once, the window grown while it waits, open after the rest, content out
-// before the shape shrinks) and no animation frames at rest.
+// before the shape shrinks) and no animation frames at rest; power (a 3-second notice on unplug and plug-in,
+// one battery glyph with its percentage, no cut-off words) and that opening always gives the full Island with
+// its deck, also from a notice, an activity or a notice that dropped down by itself.
 // The Island's window runs in Keeper's own process here (KEEPER_SUITE=shared), where this test
 // reaches it; test/e2e/suite.cjs checks the Island in a process of its own.
 const { _electron } = require('playwright');
@@ -43,8 +45,12 @@ const SHARED = ics([['BEGIN:VEVENT', 'UID:holiday@island', `DTSTART:${local(tomo
   const feeds = http.createServer((req, res) => { res.writeHead(200, { 'content-type': 'text/calendar' }); res.end(SHARED); });
   await new Promise((r) => feeds.listen(0, '127.0.0.1', r));
   const teamFile = path.join(HOME, 'Downloads', 'team.ics');
+  // The battery the Island reads (KEEPER_TEST_BATTERY, never in official builds): plugged in at first.
+  const battFile = path.join(HOME, 'battery.json');
+  const setBattery = (b) => fs.writeFileSync(battFile, JSON.stringify(b));
+  setBattery({ percent: 100, charging: true });
   fs.writeFileSync(teamFile, TEAM);
-  const app = await _electron.launch({ executablePath: path.resolve(__dirname, '../../node_modules/.bin/electron'), args: [path.resolve(__dirname, '../..'), '--no-sandbox'], env: { ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME, NODE_OPTIONS: '', KEEPER_SUITE: 'shared', XDG_CONFIG_HOME: HOME + '/.config', XDG_DATA_HOME: HOME + '/.local/share' } });
+  const app = await _electron.launch({ executablePath: path.resolve(__dirname, '../../node_modules/.bin/electron'), args: [path.resolve(__dirname, '../..'), '--no-sandbox'], env: { ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME, NODE_OPTIONS: '', KEEPER_SUITE: 'shared', KEEPER_TEST_BATTERY: battFile, XDG_CONFIG_HOME: HOME + '/.config', XDG_DATA_HOME: HOME + '/.local/share' } });
   let main;
   let isl;
   for (let i = 0; i < 60 && !(main && isl); i++) {
@@ -87,10 +93,11 @@ const SHARED = ics([['BEGIN:VEVENT', 'UID:holiday@island', `DTSTART:${local(tomo
   check(Math.abs(b.x + b.width / 2 - centre) <= 1, `pill stays centred with the bubble (window ${b.width} wide)`);
   screenshot('3-split');
 
-  // Click: the Live Activity card for the timer, in a bigger window.
+  // Click: the full Island with its deck, opened into the timer's own view (Open into: the live activity).
   await isl.locator('.isl-content').click();
   await wait(900);
-  check(await isl.locator('.live-card').count() === 1, 'clicking opens the Live Activity card');
+  check(await isl.locator('.isl-panel .tabs.deck').count() === 1 && await isl.locator('[data-testid="island-more"]').count() === 1, 'clicking opens the full Island with its deck and More');
+  check(await isl.locator('[data-testid="island-tab-focus"][aria-selected="true"], .deck-live.on').count() === 1, 'it opens into the timer’s own view');
   b = await islandBounds();
   // The open window is the card itself (plus room for its shadow), never a frame around it.
   const hugs = async () => {
@@ -99,15 +106,8 @@ const SHARED = ics([['BEGIN:VEVENT', 'UID:holiday@island', `DTSTART:${local(tomo
     return { ok: w.width >= card.w && w.height >= card.h && w.width - card.w <= 56 && w.height - card.h <= 34, text: `window ${w.width}×${w.height}, Island ${card.w}×${card.h}` };
   };
   let fit = await hugs();
-  check(b.width > layout.pill.width + 2 && fit.ok, `the window grows to the card and no further (${fit.text})`);
-  screenshot('4-live-card');
-
-  // More: the full panel.
-  await isl.locator('.live-card button', { hasText: 'More' }).click();
-  await wait(800);
-  check(await isl.locator('.isl-panel .tabs').count() === 1, '“More” opens the full panel');
-  fit = await hugs();
-  check(fit.ok, `the window is the panel and no further (${fit.text})`);
+  check(b.width > layout.pill.width + 2 && fit.ok, `the window grows to the panel and no further (${fit.text})`);
+  screenshot('4-open-from-activity');
   screenshot('5-panel');
 
   // ---------------------------------------------------------------- the deck and More
@@ -121,7 +121,7 @@ const SHARED = ics([['BEGIN:VEVENT', 'UID:holiday@island', `DTSTART:${local(tomo
   let df = await deckFits();
   check(df.ok, `the deck fits the panel (${df.text})`);
   check(df.tabs.slice(0, 4).join() === 'Home,Shelf,Week,Timer' && df.tabs[df.tabs.length - 1] === 'More tools', `the default deck is Home, Shelf, Week, Timer, then More (${df.tabs.join(', ')})`);
-  check(df.labels.length === 1 && df.labels[0] === 'Home', `only the open view shows its name (${df.labels.join(', ')})`);
+  check(df.labels.length === 1 && df.labels[0] === 'Timer', `only the open view shows its name (${df.labels.join(', ')})`);
   // The live slot: the timer runs and Timer is pinned, so no slot; a running timer with Timer unpinned borrows one.
   check(await isl.locator('[data-testid="island-live-slot"]').count() === 0, 'no live slot while the live view is pinned');
   await isl.locator('[data-testid="island-more"]').click();
@@ -277,6 +277,13 @@ const SHARED = ics([['BEGIN:VEVENT', 'UID:holiday@island', `DTSTART:${local(tomo
     window.requestAnimationFrame = (cb) => { window.__raf++; return raf(cb); };
   });
   const rafs = () => isl.evaluate(() => window.__raf);
+  // Hovering uses the real (X) pointer: the window grows as the pointer arrives, and Playwright's own pointer
+  // would stay at the same place in the page (off the Island once it is wider), where a real one stays on the screen.
+  const realPointer = async (x, y) => {
+    const wb = await islandBounds();
+    try { execFileSync('xdotool', ['mousemove', String(Math.round(wb.x + x)), String(Math.round(wb.y + y))]); } catch { await isl.mouse.move(x, y); }
+  };
+  const parkPointer = () => { try { execFileSync('xdotool', ['mousemove', '0', '0']); } catch { /* no xdotool */ } };
   await setIsl({ hoverOpen: true, hoverDelayMs: 450 });
   await wait(1500);
   await isl.evaluate(() => { window.__raf = 0; });
@@ -289,7 +296,7 @@ const SHARED = ics([['BEGIN:VEVENT', 'UID:holiday@island', `DTSTART:${local(tomo
   const bw0 = (await islandBounds()).width;
   const pill = await isl.evaluate(() => { const r = document.querySelector('.isl-content').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
   const t0 = Date.now();
-  await isl.mouse.move(pill.x, pill.y);
+  await realPointer(pill.x, pill.y);
   await wait(150);
   const breathing = await isl.evaluate(() => document.querySelector('.isl-root').classList.contains('breath') && !document.querySelector('.live-card, .isl-panel'));
   const w1 = await shapeW();
@@ -304,6 +311,7 @@ const SHARED = ics([['BEGIN:VEVENT', 'UID:holiday@island', `DTSTART:${local(tomo
   const opacity = () => isl.evaluate(() => getComputedStyle(document.querySelector('.isl-in')).opacity);
   check(await opacity() === '1', 'the content shows once the shape is open');
   // Leaving: the content fades out before the shape starts to shrink.
+  parkPointer();
   await isl.mouse.move(-50, 2000);
   await isl.locator('.isl-content').dispatchEvent('mouseleave');
   await wait(260);
@@ -336,6 +344,112 @@ const SHARED = ics([['BEGIN:VEVENT', 'UID:holiday@island', `DTSTART:${local(tomo
   await isl.evaluate(() => window.keeper.island.focus('stop'));
   await wait(2000);
   check(await isl.locator('.isl-bubble').count() === 0, 'the bubble goes when the job is done');
+
+  // ---------------------------------------------------------------- power, and opening from a notice
+  await closeIsland();
+  const pillState = () => isl.evaluate(() => {
+    const cmp = document.querySelector('.cmp');
+    if (!cmp) return null;
+    const batt = cmp.querySelector('[data-testid="island-battery"]');
+    const word = cmp.querySelector('[data-testid="island-wing-power"]');
+    // Nothing in the closed Island is cut off: no "…", and no element (but a label hidden whole) wider than its box.
+    const cut = [...cmp.querySelectorAll('*')].filter((el) => !el.classList.contains('nofit') && el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflow === 'hidden' && el.textContent.trim()).map((el) => el.className);
+    return {
+      text: cmp.innerText.replace(/\s+/g, ' ').trim(),
+      batt: batt ? { label: batt.getAttribute('aria-label'), pct: batt.innerText.replace(/\s+/g, ''), color: batt.style.getPropertyValue('--batt') } : null,
+      word: word ? { text: word.textContent, fits: word.dataset.fits, visible: getComputedStyle(word).visibility !== 'hidden' } : null,
+      ellipsis: /…/.test(cmp.innerText), cut,
+    };
+  });
+  const powerEvent = (ev) => app.evaluate(({ powerMonitor }, e) => powerMonitor.emit(e), ev);
+  // Unplugged: "On battery" and one battery glyph with 100%, for about 3 s.
+  setBattery({ percent: 100, charging: false });
+  await powerEvent('on-battery');
+  let ps = null;
+  const tUnplug = Date.now();
+  for (let i = 0; i < 40 && !(ps = await pillState())?.batt; i++) await wait(50);
+  check(!!ps?.batt && /100/.test(ps.batt.pct) && /Battery 100%/.test(ps.batt.label), `unplugging shows the battery glyph with its percentage (${JSON.stringify(ps?.batt)})`);
+  check(!!ps?.word && ps.word.text === 'On battery' && (ps.word.fits === 'yes') === ps.word.visible, `the notice names itself only when the words fit whole (${JSON.stringify(ps?.word)})`);
+  check(ps && !ps.ellipsis && ps.cut.length === 0, `nothing in the closed Island is cut off (“${ps?.text}”${ps?.cut.length ? `; cut: ${ps.cut.join(', ')}` : ''})`);
+  check(ps && (ps.text.match(/battery/gi) || []).length <= 1, `no glyph and words saying the same thing twice (“${ps?.text}”)`);
+  await shot('power-1-unplug-notice');
+  for (let i = 0; i < 80 && (await pillState())?.batt; i++) await wait(100);
+  const gone = Date.now() - tUnplug;
+  ps = await pillState();
+  check(!ps?.batt && gone >= 2500 && gone <= 4500, `the notice goes after about 3 s (${gone} ms) and on battery shows nothing (“${ps?.text}”)`);
+  await shot('power-2-closed-on-battery');
+  // "Always show battery": the glyph stays (only when nothing else is going on).
+  await setIsl({ alwaysBattery: true });
+  await wait(900);
+  ps = await pillState();
+  check(!!ps?.batt && /100%/.test(ps.batt.pct) && !ps.word && !ps.ellipsis, `“Always show battery” keeps just the glyph and 100% (${JSON.stringify(ps?.batt)})`);
+  await shot('power-3-always-battery');
+  await setIsl({ alwaysBattery: false });
+  // Low: red, and it stays.
+  setBattery({ percent: 15, charging: false });
+  await powerEvent('on-battery');
+  await wait(900);
+  ps = await pillState();
+  check(!!ps?.batt && /15/.test(ps.batt.pct) && ps.batt.color.trim() === '#ff453a', `a low battery stays, in red (${JSON.stringify(ps?.batt)})`);
+  // Plugged in: "Charging" in green; opening while the notice shows gives the full Island, the notice a banner.
+  setBattery({ percent: 84, charging: true });
+  await powerEvent('on-ac');
+  for (let i = 0; i < 40 && (ps = await pillState())?.word?.text !== 'Charging'; i++) await wait(50);
+  check(ps?.word?.text === 'Charging' && ps.batt?.color.trim() === '#30d158' && /84/.test(ps.batt.pct), `plugging in shows Charging and 84% in green (${JSON.stringify(ps)})`);
+  await shot('power-4-plug-in-notice');
+  await isl.locator('.isl-content').click();
+  await wait(700);
+  check(await isl.locator('.isl-panel .tabs.deck').count() === 1 && await isl.locator('[data-testid="island-more"]').count() === 1, 'opening while the notice shows gives the full Island with its deck and More');
+  check(await isl.locator('[data-testid="island-live-banner"][data-kind="charging"]').count() === 1, 'the notice shows as a banner above the view');
+  await shot('power-5-open-with-notice');
+  await closeIsland();
+  setBattery({ percent: 84, charging: true });
+
+  // Keep Awake (an activity with its own buttons): hovering opens the full Island, the activity a banner with them.
+  await isl.evaluate(() => window.keeper.island.keepAwake(true));
+  await wait(1200);
+  const awakeShown = /awake/i.test((await isl.locator('.isl-content').getAttribute('aria-label')) || '');
+  const pc = await isl.evaluate(() => { const r = document.querySelector('.isl-content').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
+  await realPointer(pc.x, pc.y);
+  for (let i = 0; i < 40 && !(await isl.locator('.isl-panel').count()); i++) await wait(50);
+  await wait(600);
+  check(await isl.locator('.isl-panel .tabs.deck').count() === 1 && await isl.locator('[data-testid="island-more"]').count() === 1, 'hovering while an activity shows opens the full Island with its deck');
+  if (awakeShown) {
+    const banner = isl.locator('[data-testid="island-live-banner"][data-kind="awake"]');
+    check(await banner.count() === 1 && await banner.locator('button', { hasText: 'Stop keeping awake' }).count() === 1, 'Keep Awake shows as a banner with its buttons');
+    await shot('open-with-activity');
+    // Clicking the banner shows the activity in full, still with the deck.
+    await banner.locator('.live-banner-main').click();
+    await wait(500);
+    check(await isl.locator('[data-testid="island-live-card"]').count() === 1 && await isl.locator('.isl-panel .tabs.deck').count() === 1, 'the banner opens the activity in full inside the Island, deck and all');
+  } else console.log('NOTE Keep Awake is not available here; its banner was not checked');
+  parkPointer();
+  await closeIsland();
+  await isl.evaluate(() => window.keeper.island.keepAwake(false));
+  await wait(800);
+
+  // A notice in the pill: hovering opens the full Island, the notice a banner above the view.
+  await main.evaluate(() => window.keeper.islandx.testNotification());
+  await wait(900);
+  check(await isl.locator('.cmp').count() === 1 && /notifications look/.test(await isl.locator('.cmp').innerText()), 'a notification shows in the closed Island');
+  await isl.locator('.isl-content').click();
+  await wait(700);
+  check(await isl.locator('.isl-panel .tabs.deck').count() === 1 && await isl.locator('[data-testid="island-live-banner"][data-kind="alert"]').count() === 1, 'opening from a notification gives the full Island, the notification a banner');
+  await closeIsland();
+  // A notice that drops down by itself (Alerts: as a banner) is the small card; a click on it opens the full Island.
+  await setIsl({ alertStyle: 'banner' });
+  await wait(600);
+  await main.evaluate(() => window.keeper.islandx.testNotification());
+  for (let i = 0; i < 40 && !(await isl.locator('[data-testid="island-alert-card"]').count()); i++) await wait(50);
+  check(await isl.locator('[data-testid="island-alert-card"]').count() === 1 && await isl.locator('.isl-panel').count() === 0, 'a notice drops down by itself as the small card');
+  await shot('drop-down-notice');
+  await isl.locator('[data-testid="island-alert-card"] b').first().click();
+  await wait(800);
+  check(await isl.locator('.isl-panel .tabs.deck').count() === 1 && await isl.locator('[data-testid="island-more"]').count() === 1 && await isl.locator('[data-testid="island-live-banner"][data-kind="alert"]').count() === 1, 'a click on the dropped-down notice opens the full Island');
+  await shot('open-from-drop-down');
+  await closeIsland();
+  await setIsl({ alertStyle: 'notch' });
+  await wait(6500);
 
   const prev = await main.evaluate(() => window.keeper.island.placementPreview());
   check(prev.displays.length >= 1 && prev.wanted.length >= 1, `Settings preview sees ${prev.displays.length} screen(s): ${prev.displays.map((d) => `${d.info.bounds.width}×${d.info.bounds.height} ${d.placement.anchor}`).join(', ')}`);

@@ -140,6 +140,11 @@ const LIVE_TOOL: Partial<Record<string, IslandToolId | null>> = {
   recording: null,
 };
 
+/** The tool that shows an activity in full (music → Home, a timer → Timer, an agent → Agents), or null. */
+export function toolForActivity(kind: string): IslandToolId | null {
+  return LIVE_TOOL[kind] ?? null;
+}
+
 /**
  * The deck's live slot: the most important activity going on whose view is not pinned borrows a place
  * before More (music while Home is not pinned, an agent at work, a timer, a recording). None when every

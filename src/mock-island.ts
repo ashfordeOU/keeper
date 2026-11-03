@@ -40,14 +40,14 @@ export function createMockIsland(island: IslandState, files: FileEntry[], settin
     { id: 'c5', kind: 'text', text: 'Meeting moved to 3pm — same room.', at: Date.now() - 7_200_000, source: 'Chat', note: 'Tell Sam' },
     { id: 'c6', kind: 'file', text: '/Users/demo/Documents/Budget 2026.xlsx', at: Date.now() - 9_000_000, source: 'Files' },
   ];
-  // ?island=idle|music|timer|split|many|charging|recording|privacy shapes what is going on in the demo.
+  // ?island=idle|music|timer|split|many|charging|unplug|low|recording|privacy shapes what is going on in the demo.
   const scene = params.get('island');
   if (scene) {
     const now = Date.now();
     island.agents = scene === 'many' ? island.agents : [];
     island.events = scene === 'many' ? [{ uid: 'm', title: 'Design review', start: now + 4 * 60_000, end: now + 34 * 60_000, allDay: false, location: 'Room 4', url: 'https://meet.example.com/abc' }] : [];
     island.weather = scene === 'many' ? island.weather : island.weather && { ...island.weather, nowcast: undefined };
-    if (scene === 'idle' || scene === 'timer' || scene === 'recording' || scene === 'charging' || scene === 'privacy') island.nowPlaying = undefined;
+    if (scene === 'idle' || scene === 'timer' || scene === 'recording' || scene === 'charging' || scene === 'unplug' || scene === 'low' || scene === 'privacy') island.nowPlaying = undefined;
     if (scene === 'timer' || scene === 'split' || scene === 'many') island.focus = { ...island.focus, mode: 'focus', endsAt: now + 18 * 60_000 + 24_000 };
     if (scene === 'recording' || scene === 'many') island.recording = { since: now - 83_000 };
     if (scene === 'many') island.keepAwake = { on: true, until: now + 45 * 60_000 };
@@ -56,6 +56,11 @@ export function createMockIsland(island: IslandState, files: FileEntry[], settin
       // The charger goes in a moment after the page opens.
       setTimeout(() => { island.battery = { percent: 64, charging: true }; emit(); }, 1200);
     }
+    if (scene === 'unplug') {
+      island.battery = { percent: 100, charging: true };
+      setTimeout(() => { island.battery = { percent: 100, charging: false }; emit(); }, 1200);
+    }
+    if (scene === 'low') island.battery = { percent: 15, charging: false, lowPower: true };
     if (scene === 'many' || scene === 'privacy') island.camInUse = ['Video call'];
     if (scene === 'many' || scene === 'privacy') island.micInUse = ['Video call'];
   }

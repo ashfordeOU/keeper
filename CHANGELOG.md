@@ -18,6 +18,17 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - Undo after a fix that made its finding go away said "This has no automatic fix".
 - Each added certificate is its own row (with its SHA-1/SHA-256), so one can be trusted or removed without the others.
 
+### Changed — The Island: power, and opening while something shows
+- Power: one battery glyph with its percentage in tabular figures, filled to the charge: green while charging, yellow in Low Power Mode, red when low. Plugging in or unplugging shows "Charging 84%" or "On battery 100%" for 3 seconds, then the Island goes back to what it showed. On battery by itself shows nothing, unless you turn on Settings → Island → "Always show battery", or the battery is at 20% or less.
+- Words beside the notch are shown whole or not at all: a label that does not fit leaves the icon and the number (before, "On battery" was cut to "On b…" and stayed).
+- Opening the Island (hover, click, tap, swipe, Enter, the bubble) always shows the whole Island with its deck and More. What is going on (Keep Awake, a recording, a call, a reminder, a meeting, a notification or mail, a plug-in notice) shows as a banner at the top with its buttons; click it for the full view. Before, a small card with no way to the rest opened instead.
+- New setting "Open into": the live activity's own view (default: a timer opens Timer, music Home, an agent Agents; anything else Home), Home, or the view used last (Home after 10 minutes).
+- A notice that drops down by itself (Alerts: as a banner) is still the small card; a click on it opens the whole Island.
+- The closed Island: real album art beside the notch and a waveform in the artwork's colour, flat while paused; paused music leaves after 2 minutes; a timer's last 10 seconds pulse; files on the shelf show as a small count when nothing else is going on.
+
+### Fixed
+- The Island: an alert could stay in the wings for good when Keeper's state changed while it showed (a battery or music check reset its timer).
+
 ## [0.1.0-beta.8] - 2026-11-03
 
 The release candidate for 1.0: Keeper as a suite (the Island, widgets and Mail in their own processes), a new first run with fewer parts on, a redesigned Island, Home, sidebar and two-pane Settings, Studio, Mail on a par with the best Mac mail apps, copy and move in the file manager, one search for everything, smaller downloads with parts fetched when switched on, and the bridge to the Developer ID: this version also accepts updates signed with Ashforde's Apple Developer ID (team D69G45342Y), which 1.0.0 will be.

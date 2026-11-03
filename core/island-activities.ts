@@ -12,7 +12,18 @@ import { countdownShort } from './pim/agenda';
 export type ActivityKind =
   | 'dictation' | 'recording' | 'agent-waiting' | 'agent-stuck' | 'meeting' | 'charging' | 'battery-low' | 'timer'
   | 'progress' | 'music' | 'agent-working' | 'rain' | 'copied' | 'headphones' | 'awake' | 'unlocked' | 'paused-music' | 'sharing' | 'ai-control' | 'workspace' | 'remote' | 'mesh-exit'
-  | 'call' | 'level' | 'cue' | 'alert' | 'reminder' | 'update' | 'usage';
+  | 'call' | 'level' | 'cue' | 'alert' | 'reminder' | 'update' | 'usage'
+  // Power: plugged in or unplugged (a 3-second notice), and the battery glyph (only when asked for, or when low).
+  | 'unplugged' | 'battery'
+  // Files waiting on the shelf: a small count when nothing else is going on.
+  | 'shelf-idle';
+
+/** The battery as the closed Island draws it: one glyph, its fill and colour by charge, and the percentage. */
+export interface BatteryLook {
+  percent: number;
+  charging: boolean;
+  lowPower?: boolean;
+}
 
 export interface Activity {
   id: string;
@@ -36,6 +47,12 @@ export interface Activity {
   since?: number;
   /** a path or id the card's buttons act on */
   ref?: string;
+  /** power activities: the battery glyph's state */
+  battery?: BatteryLook;
+  /** music: the artwork (a data: or https: URL) shown left of the notch */
+  art?: string;
+  /** timers counting down: ms left (the digits pulse in the last 10 s) */
+  left?: number;
 }
 
 /** Small dots that are always shown while a camera or microphone is in use. */
@@ -71,7 +88,9 @@ export const PRIORITY: Record<ActivityKind, number> = {
   remote: 90,
   'agent-waiting': 88,
   'agent-stuck': 86,
+  // Plugged in or unplugged: a notice for 3 s, never a live activity.
   charging: 82,
+  unplugged: 82,
   meeting: 80,
   'battery-low': 78,
   timer: 72,
@@ -94,7 +113,32 @@ export const PRIORITY: Record<ActivityKind, number> = {
   'paused-music': 20,
   // A Keeper update is downloaded and installs on restart: quiet, never in the way.
   update: 22,
+  // The battery glyph when "Always show battery" is on (or while charging below 20%): only when nothing else is going on.
+  battery: 12,
+  // Files on the shelf: the lowest of all.
+  'shelf-idle': 5,
 };
+
+/** How long the plug-in or unplug notice stays in the closed Island. */
+export const POWER_NOTICE_MS = 3000;
+/** At or below this the battery counts as low (red, and it stays in the Island). */
+export const BATTERY_LOW = 20;
+/** Music paused this long leaves the closed Island. */
+export const PAUSED_MUSIC_LEAVES_MS = 2 * 60_000;
+
+/** The battery's colour: green while charging, red when low, yellow in Low Power Mode, otherwise white. */
+export function batteryColor(b: BatteryLook): string {
+  if (b.charging) return '#30d158';
+  if (Math.round(b.percent) <= BATTERY_LOW) return '#ff453a';
+  if (b.lowPower) return '#ffd60a';
+  return '#f5f5f7';
+}
+
+/** A kind turned off in Settings; "Charging" covers both plugging in and unplugging. */
+export function kindOff(kind: ActivityKind, off: readonly string[] | undefined): boolean {
+  if (!off?.length) return false;
+  return off.includes(kind) || (kind === 'unplugged' && off.includes('charging'));
+}
 
 const mmss = (ms: number) => {
   const s = Math.max(0, Math.round(ms / 1000));
@@ -130,6 +174,10 @@ export interface ExtraInputs {
   meetingRec?: { title: string; elapsedMs: number; paused: boolean; last?: string };
   /** a Keeper update downloaded and ready to install (its version) */
   updateReady?: string;
+  /** Settings → Island → "Always show battery": the battery glyph whenever nothing else is going on */
+  alwaysBattery?: boolean;
+  /** when the music was paused (it leaves the closed Island 2 minutes later) */
+  musicPausedSince?: number;
 }
 
 /** Ongoing activities from the Island's state. */
@@ -171,8 +219,14 @@ export function activitiesFrom(s: IslandState, now: number, x: ExtraInputs = {})
     add({ id: `ev-${ev.uid}`, kind: 'meeting', icon: 'calendar', title: ev.title, detail: ev.location, trailing: countdownShort(ev.start, now), color: ev.color ?? '#a78bfa', since: ev.start, ref: ev.url });
   }
 
-  if (s.battery && !s.battery.charging && s.battery.percent <= 20) {
-    add({ id: 'battery-low', kind: 'battery-low', icon: 'battery', title: 'Battery low', detail: `${Math.round(s.battery.percent)}% left`, trailing: `${Math.round(s.battery.percent)}%`, color: '#ff453a', progress: s.battery.percent / 100 });
+  if (s.battery && Number.isFinite(s.battery.percent)) {
+    const b = s.battery;
+    const pct = Math.round(b.percent);
+    const look: BatteryLook = { percent: pct, charging: b.charging, lowPower: b.lowPower };
+    // Low stays until the charger is in or it is above 20%; the glyph otherwise only when asked for,
+    // or while it charges from low. Being on battery by itself shows nothing.
+    if (!b.charging && pct <= BATTERY_LOW) add({ id: 'battery-low', kind: 'battery-low', icon: 'battery', title: 'Battery low', detail: `${pct}% left`, trailing: `${pct}%`, color: batteryColor(look), progress: pct / 100, battery: look });
+    else if (x.alwaysBattery || (b.charging && pct < BATTERY_LOW)) add({ id: 'battery', kind: 'battery', icon: 'battery', title: b.charging ? 'Charging' : b.lowPower ? 'Low Power Mode' : 'Battery', detail: `${pct}%`, trailing: `${pct}%`, color: batteryColor(look), progress: pct / 100, battery: look });
   }
 
   if (s.focus.mode !== 'idle') {
@@ -186,14 +240,14 @@ export function activitiesFrom(s: IslandState, now: number, x: ExtraInputs = {})
     } else {
       const left = f.pausedLeft ?? Math.max(0, f.endsAt - now);
       const total = (f.mode === 'break' ? f.breakMin : f.focusMin) * 60_000;
-      add({ id: 'timer', kind: 'timer', icon: 'timer', title: paused ? `${name} (paused)` : name, trailing: mmss(left), progress: total ? Math.max(0, 1 - left / total) : undefined, color: f.mode === 'break' ? '#34d399' : '#ff9f0a', ref: f.taskId });
+      add({ id: 'timer', kind: 'timer', icon: 'timer', title: paused ? `${name} (paused)` : name, trailing: mmss(left), progress: total ? Math.max(0, 1 - left / total) : undefined, color: f.mode === 'break' ? '#34d399' : '#ff9f0a', ref: f.taskId, left: paused ? undefined : left });
     }
   }
 
   // Countdown timers from Alarms (several can run; each is its own activity).
   for (const t of s.countdowns ?? []) {
     const left = t.endsAt !== undefined ? Math.max(0, t.endsAt - now) : t.leftMs ?? t.durationMs;
-    add({ id: `countdown-${t.id}`, kind: 'timer', icon: 'timer', title: t.endsAt !== undefined ? t.label : `${t.label} (paused)`, trailing: mmss(left), progress: t.durationMs ? 1 - left / t.durationMs : undefined, color: '#ff9f0a', ref: t.id });
+    add({ id: `countdown-${t.id}`, kind: 'timer', icon: 'timer', title: t.endsAt !== undefined ? t.label : `${t.label} (paused)`, trailing: mmss(left), progress: t.durationMs ? 1 - left / t.durationMs : undefined, color: '#ff9f0a', ref: t.id, left: t.endsAt !== undefined ? left : undefined });
   }
 
   for (const j of x.jobs ?? []) {
@@ -201,10 +255,11 @@ export function activitiesFrom(s: IslandState, now: number, x: ExtraInputs = {})
   }
 
   const np = s.nowPlaying;
-  if (np) {
+  // Paused music leaves after two minutes (it comes back when it plays again).
+  if (np && (np.playing || x.musicPausedSince === undefined || now - x.musicPausedSince < PAUSED_MUSIC_LEAVES_MS)) {
     add({
       id: 'music', kind: np.playing ? 'music' : 'paused-music', icon: 'audio', title: np.title, detail: np.artist, color: '#ff375f', wave: np.playing,
-      progress: np.duration ? np.position / np.duration : undefined, ref: np.app,
+      progress: np.duration ? np.position / np.duration : undefined, ref: np.app, art: np.artwork,
     });
   }
 
@@ -220,7 +275,9 @@ export function activitiesFrom(s: IslandState, now: number, x: ExtraInputs = {})
     const left = s.keepAwake.until ? Math.max(0, s.keepAwake.until - now) : 0;
     add({ id: 'awake', kind: 'awake', icon: 'coffee', title: 'Staying awake', detail: s.keepAwake.reason, trailing: left ? mmss(left) : '∞', color: '#d6a46b' });
   }
-  return out.filter((a) => !x.off?.includes(a.kind));
+  // Files waiting on the shelf: a small count, only when nothing else is going on (it has the lowest priority).
+  if (s.shelf?.length) add({ id: 'shelf-idle', kind: 'shelf-idle', icon: 'archive', title: `${s.shelf.length} on the shelf`, trailing: String(s.shelf.length), color: '#a1a1aa' });
+  return out.filter((a) => !kindOff(a.kind, x.off));
 }
 
 const JOB_TITLE: Record<string, string> = { convert: 'Converting', cleanup: 'Looking for things to clean', junk: 'Looking for things to clean', duplicates: 'Finding duplicates', dupes: 'Finding duplicates', space: 'Measuring folders', index: 'Reading your files', upload: 'Uploading', download: 'Downloading', lock: 'Locking a folder', unlock: 'Unlocking a folder', sync: 'Syncing', backup: 'Backing up', restore: 'Restoring', mirror: 'Mirroring', arriving: 'Arriving', workout: 'Workout running' };
@@ -230,8 +287,14 @@ const JOB_ICON: Record<string, string> = { convert: 'refresh', cleanup: 'broom',
 export function transientsFrom(prev: IslandState | null, next: IslandState, now: number): Activity[] {
   if (!prev) return [];
   const out: Activity[] = [];
-  if (next.battery && prev.battery && next.battery.charging && !prev.battery.charging) {
-    out.push({ id: `charging-${now}`, kind: 'charging', priority: PRIORITY.charging, icon: 'bolt', title: 'Charging', trailing: `${Math.round(next.battery.percent)}%`, progress: next.battery.percent / 100, color: '#30d158', until: now + 4000 });
+  // Plugged in or unplugged: shown for 3 seconds, then the Island goes back to what it showed.
+  const nb = next.battery;
+  if (nb && prev.battery && nb.charging !== prev.battery.charging && Number.isFinite(nb.percent)) {
+    const pct = Math.round(nb.percent);
+    const look: BatteryLook = { percent: pct, charging: nb.charging, lowPower: nb.lowPower };
+    out.push(nb.charging
+      ? { id: `charging-${now}`, kind: 'charging', priority: PRIORITY.charging, icon: 'bolt', title: 'Charging', detail: `${pct}%`, trailing: `${pct}%`, progress: pct / 100, color: batteryColor(look), until: now + POWER_NOTICE_MS, since: now, battery: look }
+      : { id: `unplugged-${now}`, kind: 'unplugged', priority: PRIORITY.unplugged, icon: 'battery', title: 'On battery', detail: `${pct}%`, trailing: `${pct}%`, progress: pct / 100, color: batteryColor(look), until: now + POWER_NOTICE_MS, since: now, battery: look });
   }
   const clip = next.clips[0];
   if (clip && clip.id !== prev.clips[0]?.id && now - clip.at < 5000) {
@@ -252,8 +315,13 @@ export function transientsFrom(prev: IslandState | null, next: IslandState, now:
 }
 
 /** The most important activity takes the pill, the next one the bubble, the rest are counted. */
+/** Shown only when nothing else is going on: never as the bubble, never counted. */
+const AMBIENT: ActivityKind[] = ['shelf-idle', 'battery'];
+
 export function present(list: Activity[], now: number): Presentation {
-  const live = list.filter((a) => !a.until || a.until > now);
+  const going = list.filter((a) => !a.until || a.until > now);
+  const busy = going.some((a) => !AMBIENT.includes(a.kind));
+  const live = busy ? going.filter((a) => !AMBIENT.includes(a.kind)) : going;
   // Highest priority first; among equals, the newest.
   live.sort((a, b) => b.priority - a.priority || (b.since ?? 0) - (a.since ?? 0) || a.id.localeCompare(b.id));
   // The same kind twice (two agents waiting) shows once with a count.

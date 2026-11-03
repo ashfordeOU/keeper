@@ -122,8 +122,9 @@ const ISLAND_LINK = ics([['BEGIN:VEVENT', 'UID:dentist@old', `DTSTART:${local(to
   root('1-island-countdown');
   await isl.locator('.isl-content').click().catch(() => {});
   await wait(900);
-  const card = isl.locator('.live-card');
-  check(await card.locator('button', { hasText: 'Join' }).count() === 1, 'the meeting card offers Join');
+  // Opening shows the full Island; the meeting is the banner above the view, with Join.
+  const card = isl.locator('[data-testid="island-live-banner"]');
+  check(await isl.locator('.isl-panel .tabs.deck').count() === 1 && await card.locator('button', { hasText: 'Join' }).count() === 1, 'the open Island shows its deck and the meeting’s banner offers Join');
   root('2-island-meeting-card');
   await app.evaluate(({ BrowserWindow }) => { for (const w of BrowserWindow.getAllWindows()) if (w.webContents.getURL().includes('view=island')) w.webContents.send('event:island-open', 'calendar'); });
   await isl.waitForSelector('[data-testid="island-agenda"]', { timeout: 10_000 }).catch(() => {});

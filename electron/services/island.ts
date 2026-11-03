@@ -5,7 +5,7 @@
 
 import { app, nativeImage, Notification, powerMonitor, powerSaveBlocker, shell } from 'electron';
 import { exec } from 'node:child_process';
-import { existsSync, promises as fsp, watch, type FSWatcher } from 'node:fs';
+import { existsSync, promises as fsp, readFileSync, watch, type FSWatcher } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import type { DevicesState, IslandAlert, IslandState, KeepAwakeOptions, KeepAwakeState, NowPlaying, ShelfAction } from '../../core/api';
@@ -74,7 +74,7 @@ export class IslandService {
   playing?: NowPlaying;
   lyrics?: LyricLine[];
   weather?: Weather;
-  battery?: { percent: number; charging: boolean };
+  battery?: { percent: number; charging: boolean; lowPower?: boolean };
   mic: string[] = [];
   private micEvents?: () => void;
   /** apps using a camera (Windows, Linux) */
@@ -892,13 +892,14 @@ export class IslandService {
   }
 
   private async pollBattery() {
-    const b = await readBattery();
+    const b = TEST_BATTERY() ?? await readBattery();
     if (!b || !Number.isFinite(b.percent)) return;
+    const lowPower = 'lowPower' in b ? !!b.lowPower : await readLowPower();
     const was = this.battery;
-    this.battery = { percent: b.percent, charging: b.charging };
-    if (was && was.charging !== b.charging) this.alert({ kind: 'battery', title: b.charging ? 'Charging' : 'On battery', detail: `${b.percent}%` });
-    if (was && !b.charging && was.percent > 10 && b.percent <= 10) this.alert({ kind: 'battery', title: 'Battery low', detail: `${b.percent}% left` });
-    this.emit();
+    this.battery = { percent: b.percent, charging: b.charging, lowPower };
+    // Plugging in and unplugging are a short notice drawn by the Island itself (core/island-activities.ts
+    // transientsFrom), and a low battery stays as an activity: no alert, so nothing sits in the wings as text.
+    if (!was || was.percent !== b.percent || was.charging !== b.charging || !!was.lowPower !== lowPower) this.emit();
   }
 
   private async pollMic() {
@@ -956,6 +957,31 @@ export async function pasteKeystroke() {
   if (process.platform === 'darwin') await run('/usr/bin/osascript', ['-e', 'tell application "System Events" to keystroke "v" using command down']);
   else if (process.platform === 'win32') await powershell("Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('^v')");
   else if (!(await run('xdotool', ['key', '--clearmodifiers', 'ctrl+v'])).ok) await run('wtype', ['-M', 'ctrl', 'v', '-m', 'ctrl']);
+}
+
+declare const __KEEPER_OFFICIAL__: boolean | undefined;
+/**
+ * Tests only (never in official builds): KEEPER_TEST_BATTERY names a JSON file such as
+ * {"percent":84,"charging":true,"lowPower":false}, read on every battery check, so the Island's
+ * power notices can be checked under a virtual display.
+ */
+function TEST_BATTERY(): { percent: number; charging: boolean; lowPower?: boolean } | null {
+  if ((typeof __KEEPER_OFFICIAL__ === 'boolean' && __KEEPER_OFFICIAL__) || !process.env.KEEPER_TEST_BATTERY) return null;
+  try {
+    const b = JSON.parse(readFileSync(process.env.KEEPER_TEST_BATTERY, 'utf8')) as { percent?: unknown; charging?: unknown; lowPower?: unknown };
+    return typeof b.percent === 'number' ? { percent: b.percent, charging: !!b.charging, lowPower: !!b.lowPower } : null;
+  } catch {
+    return null;
+  }
+}
+
+/** macOS Low Power Mode (pmset's lowpowermode). Elsewhere, or when unknown: off. */
+async function readLowPower(): Promise<boolean> {
+  if (process.platform === 'darwin') {
+    const r = await run('/usr/bin/pmset', ['-g'], 5000);
+    return /^\s*lowpowermode\s+1\b/m.test(r.stdout);
+  }
+  return false;
 }
 
 async function isRunning(name: string): Promise<boolean> {

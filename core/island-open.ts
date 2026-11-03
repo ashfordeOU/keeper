@@ -94,3 +94,34 @@ export function migrateHoverDelay(v: unknown, fromBefore: boolean): number {
   const n = typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.min(1000, Math.round(v))) : HOVER_DWELL_MS;
   return fromBefore && n === OLD_HOVER_DWELL_MS ? HOVER_DWELL_MS : n;
 }
+
+// ---------------------------------------------------------------- what opening shows
+
+/**
+ * Settings → Island → "Open into". Whatever it says, opening (hover, click, tap, a swipe, Enter, the bubble,
+ * a dropped-down alert) always shows the full Island with its deck; this only picks the view.
+ */
+export type OpenTo = 'activity' | 'home' | 'last';
+/** "Last used" goes back to Home when the Island was last open longer ago than this. */
+export const LAST_VIEW_KEEP_MS = 10 * 60_000;
+
+/**
+ * The view the Island opens into: the live activity's own view (a timer → Timer, music → Home, an agent →
+ * Agents) when the setting says so and it has one, the view used last (for 10 minutes), or Home.
+ */
+export function viewToOpen(o: { openTo?: OpenTo; activityTool?: string | null; last?: { view: string; at: number } | null; now: number; available?: (view: string) => boolean }): string {
+  const ok = (v: string | null | undefined): v is string => !!v && (!o.available || o.available(v));
+  const openTo = o.openTo ?? 'activity';
+  if (openTo === 'activity' && ok(o.activityTool)) return o.activityTool;
+  if (openTo === 'last' && o.last && o.now - o.last.at < LAST_VIEW_KEEP_MS && ok(o.last.view)) return o.last.view;
+  return 'home';
+}
+
+/**
+ * Whether the open Island shows the live activity (or the alert it was opened from) as a banner above the
+ * view: not when the view already is that activity's own (music on Home, a timer on Timer), nor on its full card.
+ */
+export function showBanner(head: { kind: string } | null | undefined, view: string, toolOf: (kind: string) => string | null): boolean {
+  if (!head || view === 'live') return false;
+  return toolOf(head.kind) !== view;
+}

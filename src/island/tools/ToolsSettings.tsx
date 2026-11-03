@@ -43,6 +43,17 @@ export function IslandToolsSettings({ isl, set }: { isl: IS; set: (p: Partial<IS
           <Toggle on={isl.hoverOpen !== false} onChange={(v) => set({ hoverOpen: v })} />
         </div>
       </div>
+      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 12, marginTop: 10 }}>
+        <div>
+          <div style={{ fontWeight: 600 }}>Open into</div>
+          <div className="small muted">Opening always shows the whole Island with its deck. What is going on shows as a banner at the top.</div>
+        </div>
+        <div className="seg" role="radiogroup" aria-label="Open into" data-testid="island-open-to">
+          {([['activity', 'The live activity'], ['home', 'Home'], ['last', 'Last used']] as const).map(([v, l]) => (
+            <button key={v} role="radio" aria-checked={(isl.openTo ?? 'activity') === v} className={(isl.openTo ?? 'activity') === v ? 'on' : ''} title={v === 'activity' ? 'A timer opens Timer, music opens Home, an agent opens Agents; anything else opens Home' : v === 'last' ? 'The view you used last; Home after 10 minutes' : undefined} onClick={() => set({ openTo: v })}>{l}</button>
+          ))}
+        </div>
+      </div>
       {/macintosh|mac os/i.test(navigator.userAgent) ? (
         <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 12, marginTop: 10 }}>
           <div>

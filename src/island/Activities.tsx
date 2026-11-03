@@ -4,9 +4,9 @@
 // controls. Everything here reacts to events; nothing polls.
 
 import { RemoteActivityActions, useRemoteActivities } from '../screen/island-remote';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { IslandState } from '../../core/api';
-import { activitiesFrom, present, transientsFrom, type Activity, type ExtraInputs, type Presentation } from '../../core/island-activities';
+import { activitiesFrom, batteryColor, kindOff, present, transientsFrom, type Activity, type BatteryLook, type ExtraInputs, type Presentation } from '../../core/island-activities';
 import type { Placement } from '../../core/island-place';
 import type { Progress } from '../../core/types';
 import { formatDuration } from '../../core/format';
@@ -14,7 +14,7 @@ import { meetingProvider } from '../../core/pim/agenda';
 import { meetingLink } from '../../core/pim/alarms';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
-import { CallCard, MediaModes } from './IslandPlus';
+import { CallCard, MediaModes, useGlow } from './IslandPlus';
 
 // ---------------------------------------------------------------- data
 
@@ -161,7 +161,17 @@ export interface IslandActivities {
   unlocked: string[];
 }
 
-export function useActivities(state: IslandState | null, now: number, dictation: 'off' | 'on' | 'working', off: string[] = []): IslandActivities {
+/** When the music was paused (undefined while it plays or nothing plays); a new track starts over. */
+function usePausedSince(np: IslandState['nowPlaying'] | undefined): number | undefined {
+  const since = useRef<{ key: string; at: number } | null>(null);
+  const key = np ? `${np.app}\u0000${np.title}` : '';
+  if (!np || np.playing) since.current = null;
+  else if (!since.current || since.current.key !== key) since.current = { key, at: Date.now() };
+  return since.current?.at;
+}
+
+export function useActivities(state: IslandState | null, now: number, dictation: 'off' | 'on' | 'working', off: string[] = [], o: { alwaysBattery?: boolean } = {}): IslandActivities {
+  const musicPausedSince = usePausedSince(state?.nowPlaying);
   const jobs = useJobs();
   const unlocked = useUnlocked();
   const sharing = useSharing();
@@ -188,11 +198,11 @@ export function useActivities(state: IslandState | null, now: number, dictation:
   return useMemo(() => {
     if (!state) return { pres: { more: 0 }, all: [], dots: { camera: [], mic: [] }, unlocked: [] };
     const all = [
-      ...activitiesFrom(state, now, { dictation: dictation === 'off' ? undefined : dictation, jobs, unlocked: unlocked.count, sharing, meshExit, aiControl, remote, off, meetingRec, updateReady }),
-      ...transient.filter((a) => !off.includes(a.kind)),
+      ...activitiesFrom(state, now, { dictation: dictation === 'off' ? undefined : dictation, jobs, unlocked: unlocked.count, sharing, meshExit, aiControl, remote, off, meetingRec, updateReady, alwaysBattery: o.alwaysBattery, musicPausedSince }),
+      ...transient.filter((a) => !kindOff(a.kind, off) && (!a.until || a.until > now)),
     ];
     return { pres: present(all, now), all, dots: { camera: state.camInUse ?? [], mic: state.micInUse ?? [] }, unlocked: unlocked.folders };
-  }, [state, now, dictation, jobs, unlocked, sharing, meshExit, aiControl, remote, transient, off, meetingRec, updateReady]);
+  }, [state, now, dictation, jobs, unlocked, sharing, meshExit, aiControl, remote, transient, off, meetingRec, updateReady, o.alwaysBattery, musicPausedSince]);
 }
 
 // ---------------------------------------------------------------- glyphs
@@ -217,16 +227,105 @@ function Wave({ color }: { color: string }) {
   return <span className="act-wave" style={{ color }} aria-hidden>{[0, 1, 2, 3, 4].map((i) => <i key={i} />)}</span>;
 }
 
+/** The artwork's own colour (core/island-plus.ts glowColor), fully opaque, for the waveform. */
+function useArtTint(art: string | undefined, on: boolean): string | undefined {
+  const glow = useGlow(art, on && !!art);
+  return glow?.replace(/rgba\(([^,]+),([^,]+),([^,]+),[^)]+\)/, 'rgb($1,$2,$3)');
+}
+
+/** The music's waveform, in the colour of its artwork (pink when the artwork has none or cannot be read). */
+function MusicWave({ a }: { a: Activity }) {
+  const tint = useArtTint(a.art, a.kind === 'music');
+  return <Wave color={tint ?? a.color} />;
+}
+
+/** True once the element's content is wider than the element (measured again whenever it resizes). */
+function useOverflows<T extends HTMLElement>(dep: unknown): [React.RefObject<T | null>, boolean] {
+  const ref = useRef<T>(null);
+  const [over, setOver] = useState(false);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const check = () => setOver(el.scrollWidth > el.clientWidth + 0.5);
+    check();
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [dep]);
+  return [ref, over];
+}
+
+/**
+ * A label in the closed Island that is shown whole or not at all: text that does not fit is never cut
+ * off with "…" there; the icon and the number carry it instead.
+ */
+export function FitText({ text, className = '', testId }: { text: string; className?: string; testId?: string }) {
+  const [ref, over] = useOverflows<HTMLSpanElement>(text);
+  return <span ref={ref} className={`fit-text ${over ? 'nofit' : ''} ${className}`} data-testid={testId} data-fits={over ? 'no' : 'yes'} aria-hidden={over || undefined}>{text}</span>;
+}
+
+/**
+ * One battery glyph with its percentage: filled to the charge, green while charging, red when low, yellow in
+ * Low Power Mode. The percentage sits beside it in tabular figures, or inside the glyph when the room is short.
+ */
+export function BatteryMeter({ b, inside: forceInside }: { b: BatteryLook; inside?: boolean }) {
+  const pct = Math.max(0, Math.min(100, Math.round(b.percent)));
+  const color = batteryColor(b);
+  const [ref, over] = useOverflows<HTMLSpanElement>(pct);
+  const [inside, setInside] = useState(!!forceInside);
+  // Beside it first; when the wing has no room for that, the number moves into the glyph.
+  useLayoutEffect(() => { if (!forceInside && over) setInside(true); }, [over, forceInside]);
+  useLayoutEffect(() => { setInside(!!forceInside); }, [pct, forceInside]);
+  const label = `Battery ${pct}%${b.charging ? ', charging' : b.lowPower ? ', Low Power Mode' : ''}`;
+  // The glyph is drawn: an outline, the fill to the charge, the cap, and a bolt or the number inside.
+  const W = inside ? 28 : 22;
+  const H = inside ? 13 : 11;
+  const inner = W - 6.2;
+  return (
+    <span ref={ref} className={`batt ${inside ? 'inside' : ''}`} role="img" aria-label={label} title={label} data-testid="island-battery" style={{ ['--batt' as string]: color }}>
+      <svg className="batt-glyph" width={W} height={H} viewBox={`0 0 ${W} ${H}`} aria-hidden>
+        <rect x={0.6} y={0.6} width={W - 3.8} height={H - 1.2} rx={inside ? 3.5 : 3} fill="none" stroke="rgba(255,255,255,.5)" strokeWidth={1.2} />
+        <rect x={2} y={2} width={Math.max(1, (inner * pct) / 100)} height={H - 4} rx={1.5} fill={color} />
+        <rect x={W - 2.4} y={H / 2 - 2} width={1.8} height={4} rx={0.9} fill="rgba(255,255,255,.5)" />
+        {inside
+          ? <text x={(W - 3.2) / 2} y={H / 2 + 0.5} textAnchor="middle" dominantBaseline="middle" fontSize={8.5} fontWeight={700} fill="#fff" stroke="#000" strokeWidth={1.6} paintOrder="stroke" style={{ fontVariantNumeric: 'tabular-nums' }}>{pct}</text>
+          : b.charging ? <path d={`M${W / 2 - 0.4} 1.6 l-3.4 4.6 h2.6 l-0.8 3.4 l3.6 -4.8 h-2.6 z`} fill="#fff" stroke="#000" strokeWidth={0.6} /> : null}
+      </svg>
+      {inside ? null : <b className="batt-pct num">{pct}%</b>}
+    </span>
+  );
+}
+
+/** Power activities (plugged in, unplugged, the battery glyph, low battery). */
+export const isPower = (a: Activity | undefined): a is Activity & { battery: BatteryLook } => !!a?.battery;
+
+/** Left of the notch for power: a green bolt while charging, else nothing (the battery is on the right). */
+export function PowerLead({ a }: { a: Activity & { battery: BatteryLook } }) {
+  return a.battery.charging ? <span className="act-lead" style={{ color: batteryColor(a.battery) }} aria-hidden><Icon name="bolt" size={15} /></span> : null;
+}
+
 /** Left of the notch: what it is. */
 export function Leading({ a }: { a: Activity }) {
+  // The real artwork, crossfading when the track changes.
+  if ((a.kind === 'music' || a.kind === 'paused-music') && a.art) return <span className="act-lead act-art has-art"><img key={a.art} src={a.art} alt="" /></span>;
   if (a.kind === 'music' && a.ref) return <span className="act-lead act-art" style={{ background: a.color }}><Icon name="audio" size={12} /></span>;
+  // Files on the shelf: only the small count on the right.
+  if (a.kind === 'shelf-idle') return null;
+  // On its own (the bubble): the battery with its number inside.
+  if (isPower(a)) return <BatteryMeter b={a.battery} inside />;
   return <span className="act-lead" style={{ color: a.color }}><Icon name={a.icon} size={15} /></span>;
 }
 
 /** Right of the notch: how it is going. */
 export function Trailing({ a }: { a: Activity }) {
+  if (a.kind === 'music') return <MusicWave a={a} />;
+  if (a.kind === 'paused-music' && a.art) return <span className="act-wave flat" aria-hidden>{[0, 1, 2, 3, 4].map((i) => <i key={i} />)}</span>;
   if (a.wave) return <Wave color={a.color} />;
-  if (a.kind === 'charging' || a.kind === 'headphones') return <span className="act-pair"><b className="act-trail num" style={{ color: a.color }}>{a.trailing}</b><Ring value={a.progress ?? 0} color={a.color} /></span>;
+  if (isPower(a)) return <BatteryMeter b={a.battery} />;
+  if (a.kind === 'shelf-idle') return <span className="act-shelf" title={a.title}><Icon name="archive" size={11} /><b className="num">{a.trailing}</b></span>;
+  if (a.kind === 'timer' && a.left !== undefined && a.left <= 10_000 && a.left > 0) return <b className="act-trail num act-pulse" style={{ color: a.color }}>{a.trailing}</b>;
+  if (a.kind === 'headphones') return <span className="act-pair"><b className="act-trail num" style={{ color: a.color }}>{a.trailing}</b><Ring value={a.progress ?? 0} color={a.color} /></span>;
   if (a.kind === 'progress') return <Ring value={a.progress ?? 0} color={a.color} />;
   if (a.trailing) return <b className="act-trail num" style={{ color: a.kind === 'timer' || a.kind === 'recording' ? a.color : undefined }}>{a.trailing}</b>;
   if (a.progress !== undefined) return <Ring value={a.progress} color={a.color} />;
@@ -250,7 +349,10 @@ const mmss = (ms: number) => {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 };
 
-export function LiveCard({ a, state, now, unlocked, onMore, reload }: { a: Activity; state: IslandState; now: number; unlocked: string[]; onMore: () => void; reload: () => void }) {
+interface LiveProps { a: Activity; state: IslandState; now: number; unlocked: string[]; reload: () => void }
+
+/** An activity's details and its buttons, for its card in the open Island and for the banner above a view. */
+function liveParts({ a, state, now, unlocked, reload }: LiveProps): { body: React.ReactNode; actions: React.ReactNode } {
   const np = state.nowPlaying;
   let body: React.ReactNode = <div className="muted small">{a.detail}</div>;
   let actions: React.ReactNode = null;
@@ -317,11 +419,19 @@ export function LiveCard({ a, state, now, unlocked, onMore, reload }: { a: Activ
         {api.voice ? <button className="btn sm" title="Tell everyone it is recorded" onClick={() => void api.voice.startMeeting({ title: a.title }).then(reload).catch(() => undefined)}><span className="rec-dot" /> Record</button> : null}
       </>
     );
-  } else if (a.kind === 'progress' || a.kind === 'charging' || a.kind === 'battery-low' || a.kind === 'headphones') {
+  } else if (isPower(a)) {
+    body = (
+      <>
+        <div className="live-big num" style={{ color: batteryColor(a.battery) }}>{a.trailing}</div>
+        <div className={`live-bar ${a.battery.charging ? 'charge' : ''}`}><i style={{ width: `${a.battery.percent}%`, background: batteryColor(a.battery) }} /></div>
+        <div className="muted small">{a.battery.charging ? 'Charging' : a.battery.lowPower ? 'On battery · Low Power Mode' : 'On battery'}</div>
+      </>
+    );
+  } else if (a.kind === 'progress' || a.kind === 'headphones') {
     body = (
       <>
         <div className="live-big num" style={{ color: a.color }}>{a.trailing ?? `${Math.round((a.progress ?? 0) * 100)}%`}</div>
-        <div className={`live-bar ${a.kind === 'charging' ? 'charge' : ''}`}><i style={{ width: `${(a.progress ?? 0) * 100}%`, background: a.color }} /></div>
+        <div className="live-bar"><i style={{ width: `${(a.progress ?? 0) * 100}%`, background: a.color }} /></div>
         {a.detail ? <div className="muted small ellipsis">{a.detail}</div> : null}
       </>
     );
@@ -388,15 +498,48 @@ export function LiveCard({ a, state, now, unlocked, onMore, reload }: { a: Activ
     body = <div className="live-copied ellipsis">{a.detail}</div>;
   }
 
+  return { body, actions };
+}
+
+/** The activity's chip: its icon on its colour (the battery for power). */
+function LiveIcon({ a }: { a: Activity }) {
+  if (isPower(a)) return <span className="live-icon" style={{ background: batteryColor(a.battery), color: a.battery.charging ? '#fff' : '#000' }}><Icon name={a.battery.charging ? 'bolt' : 'battery'} size={13} /></span>;
+  return <span className="live-icon" style={{ background: a.color }}><Icon name={a.icon} size={13} /></span>;
+}
+
+/** An activity in full, as a view of the open Island (its deck stays above it). */
+export function LiveCard(p: LiveProps) {
+  const { a } = p;
+  const { body, actions } = liveParts(p);
   return (
-    <div className="live-card" role="status">
+    <div className="live-card in-panel" role="status" data-testid="island-live-card">
       <div className="live-head">
-        <span className="live-icon" style={{ background: a.color }}><Icon name={a.icon} size={13} /></span>
+        <LiveIcon a={a} />
         <b className="ellipsis grow-min">{a.title}</b>
-        <button className="btn sm ghost" onClick={onMore} title="Open the Island">More</button>
       </div>
       <div className="live-body">{body}</div>
       {actions ? <div className="btn-row live-actions">{actions}</div> : null}
+    </div>
+  );
+}
+
+/**
+ * The live activity (or the notice the Island was opened from) as a compact row above the open view: its icon,
+ * title, how it is going, and its buttons. Clicking it shows the activity in full.
+ */
+export function LiveBanner(p: LiveProps & { onOpen?: () => void; onHide: () => void }) {
+  const { a } = p;
+  const { actions } = liveParts(p);
+  return (
+    <div className="live-banner" role="status" data-testid="island-live-banner" data-kind={a.kind}>
+      <LiveIcon a={a} />
+      <button className="live-banner-main" onClick={p.onOpen} disabled={!p.onOpen} title={p.onOpen ? 'Show it in full' : undefined}>
+        <b className="ellipsis">{a.title}</b>
+        {a.detail && !isPower(a) ? <span className="muted small ellipsis">{a.detail}</span> : null}
+      </button>
+      {isPower(a) ? <BatteryMeter b={a.battery} /> : a.trailing && a.kind !== 'music' ? <b className="num live-banner-trail" style={{ color: a.color }}>{a.trailing}</b> : null}
+      {actions ? <div className="btn-row live-banner-actions">{actions}</div> : null}
+      <button className="btn sm icon ghost" aria-label="Hide this" title="Hide this" onClick={p.onHide}><Icon name="close" size={11} /></button>
     </div>
   );
 }

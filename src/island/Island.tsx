@@ -20,15 +20,15 @@ import { CuesTool } from './tools/CuesTool';
 import { FocusRuler, MediaModes, PlusAlertActions, UsagePin, useGlow } from './IslandPlus';
 import { agentName } from '../../core/island-agents';
 import { plusSetting } from '../../core/island-plus';
-import { alertIcon, alertPresentation, mayExpand, shortTitle } from '../../core/island-expand';
+import { alertIcon, alertPresentation, mayExpand } from '../../core/island-expand';
 import type { Activity } from '../../core/island-activities';
 import { VibesTool } from '../wallpaper/IslandVibes';
-import { DECK_MAX, ISLAND_TOOLS, addRecentTool, deckTools, liveSlot, migrateDeck, moreTools, moveInDeck, pinTool, unpinTool, type IslandToolId, type LiveSlot } from '../../core/island-tools/tools';
+import { DECK_MAX, ISLAND_TOOLS, addRecentTool, deckTools, liveSlot, migrateDeck, moreTools, moveInDeck, pinTool, toolForActivity, unpinTool, type IslandToolId, type LiveSlot } from '../../core/island-tools/tools';
 import { Deck, type DeckItem, type DeckView } from './Deck';
 import { MoreGrid, readRecentTools, writeRecentTools } from './MoreGrid';
 import { SpringSet, SPRINGS } from './spring';
-import { BREATH, CLOSE_GRACE_MS, CONTENT_FADE_IN_MS, CONTENT_FADE_OUT_MS, CONTENT_REVEAL_AT, HOVER_DWELL_MS, addSample, isSweep, mayClose, motionFor, progressOf, type IslandView, type PointerSample } from '../../core/island-open';
-import { chime, Leading, LiveCard, PrivacyDots, Trailing, useActivities, useGestures, useLayout } from './Activities';
+import { BREATH, CLOSE_GRACE_MS, CONTENT_FADE_IN_MS, CONTENT_FADE_OUT_MS, CONTENT_REVEAL_AT, HOVER_DWELL_MS, addSample, isSweep, mayClose, motionFor, progressOf, showBanner, viewToOpen, type IslandView, type PointerSample } from '../../core/island-open';
+import { chime, FitText, isPower, Leading, LiveBanner, LiveCard, PowerLead, PrivacyDots, Trailing, useActivities, useGestures, useLayout } from './Activities';
 import { useFeatureStates } from '../features';
 import { PANEL_SIZES, PANEL_SIZE_LABEL, largestBox, panelBox, roomIn, snapSize, stepSize, tabPanel, withTabSize, type PanelSize } from '../../core/island-size';
 import { useStore } from '../state';
@@ -38,6 +38,8 @@ import '../styles/island.css';
 const islandSay = (msg: string) => window.dispatchEvent(new CustomEvent('island-toast', { detail: msg }));
 
 type Tab = DeckView;
+/** the views the Island can open into: its tools, More, and an activity in full */
+const isTool = (v: string): v is IslandToolId => ISLAND_TOOLS.some((x) => x.id === v);
 type Mood = 'calm' | 'happy' | 'listening' | 'thinking' | 'needs' | 'done' | 'napping' | 'broken' | 'recording' | 'sleeping';
 
 function lineAt(lines: LyricLine[], t: number): number {
@@ -59,6 +61,8 @@ function mmss(ms: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
+/** the height of the banner above the open view (the live activity or the alert it was opened from), pt */
+const BANNER_H = 46;
 /** the window shrinks this long after the shape's spring has come to rest */
 const SHRINK_AFTER_REST_MS = 50;
 /** the person (or the system) asked for less motion: springs jump and content crossfades */
@@ -101,17 +105,24 @@ export function Island() {
   const hoverTimer = useRef<number | undefined>(undefined);
   const tr = (key: string) => translate(resolveLanguage(settings?.language), key);
   const [state, setState] = useState<IslandState | null>(null);
-  // compact: the pill; live: one activity's card; panel: everything (tabs)
-  const [mode, setMode] = useState<'compact' | 'live' | 'panel'>('compact');
+  // compact: the pill; panel: the open Island, always with its deck (core/island-open.ts viewToOpen)
+  const [mode, setMode] = useState<'compact' | 'panel'>('compact');
+  // The activity the open Island was opened for: a banner above the view, or its own view ('live').
   const [liveId, setLiveId] = useState<string | null>(null);
-  const expanded = mode === 'panel';
+  // The banner was hidden for this time the Island is open.
+  const [bannerHidden, setBannerHidden] = useState(false);
+  // The view used last, for "Open into: Last used".
+  const lastView = useRef<{ view: string; at: number } | null>(null);
   const layout = useLayout();
   const [tab, setTab] = useState<Tab>('home');
+  const tabRef = useRef<Tab>(tab);
+  tabRef.current = tab;
   const [recentTools, setRecentTools] = useState<string[]>(readRecentTools);
   const [now, setNow] = useState(Date.now());
   const [alert, setAlert] = useState<IslandAlert | null>(null);
-  // An alert shown inside the bar (the notch wings or the pill) that the person opened by hovering or clicking.
-  const [alertOpen, setAlertOpen] = useState(false);
+  // The alert the person opened the Island from (hovering or clicking it): a banner above the view.
+  const [openedAlert, setOpenedAlert] = useState<IslandAlert | null>(null);
+  const alertTimer = useRef<number | undefined>(undefined);
   const alertRules = useRef({ notch: false, alertStyle: 'notch' as 'notch' | 'banner', showInfo: false });
   const [listening, setListening] = useState<'off' | 'on' | 'working'>('off');
   const [level, setLevel] = useState<number[]>(Array(12).fill(2));
@@ -221,6 +232,8 @@ export function Island() {
 
   // New alerts show for a few seconds. Time-sensitive ones only (core/island-expand.ts);
   // they stay inside the bar (notch wings or pill) unless the person chose banners or opens them.
+  // The timer is the alert's own, not the effect's: every new state (a battery or music check) re-runs the
+  // effect, and a timer cleared there was never set again, which left the alert in the wings for good.
   useEffect(() => {
     const fresh = state?.alerts.find((a) => !seenAlerts.current.has(a.id));
     if (!fresh) return;
@@ -228,27 +241,25 @@ export function Island() {
     const how = alertPresentation(fresh, alertRules.current);
     if (how === 'hidden') return;
     setAlert(fresh);
-    setAlertOpen(false);
     if (how === 'banner') api.island.setExpanded(true);
-    const t = setTimeout(() => {
+    window.clearTimeout(alertTimer.current);
+    alertTimer.current = window.setTimeout(() => {
       setAlert(null);
-      setAlertOpen(false);
-      if (!expanded && how === 'banner') api.island.setExpanded(false);
+      if (modeRef.current !== 'panel' && how === 'banner') api.island.setExpanded(false);
       void api.island.dismiss(fresh.id);
     }, how === 'banner' ? 6000 : 5000);
-    return () => clearTimeout(t);
-  }, [state?.alerts, expanded]);
+  }, [state?.alerts]);
+  useEffect(() => () => window.clearTimeout(alertTimer.current), []);
 
   // Opening grows the window first and then the shape; closing shrinks the shape, then the window.
-  const show = (m: 'live' | 'panel', id?: string) => {
+  const show = () => {
     window.clearTimeout(closeTimer.current);
     window.clearTimeout(hoverTimer.current);
     window.clearTimeout(closing.current);
     setBreath(false);
     unfade();
     api.island.setExpanded(true);
-    if (id) setLiveId(id);
-    setMode(m);
+    setMode('panel');
   };
   /** A close that was fading out is called off (the pointer came back): the content shows again. */
   const unfade = () => {
@@ -277,8 +288,11 @@ export function Island() {
       if (el && fade) { el.style.transition = `opacity ${fade}ms linear`; el.style.opacity = '0'; }
       closeTimer.current = window.setTimeout(() => {
         bannerUp.current = !!alert && alertRules.current.alertStyle === 'banner';
+        if (modeRef.current === 'panel' && tabRef.current !== 'live') lastView.current = { view: tabRef.current, at: Date.now() };
         setMode('compact');
-        setAlertOpen(false);
+        setOpenedAlert(null);
+        setLiveId(null);
+        setBannerHidden(false);
         setBreath(false);
       }, fade);
     };
@@ -310,7 +324,9 @@ export function Island() {
   useEffect(() => api.on('island-open', (t: string) => {
     const [id, then] = t.split(':');
     setTab((id === 'more' || ISLAND_TOOLS.some((x) => x.id === id) ? id : 'home') as Tab);
-    show('panel');
+    setLiveId(null);
+    setOpenedAlert(null);
+    show();
     // The New task shortcut is for typing straight away: only then does opening take the keyboard.
     if (then === 'new') { setComposeKey(Date.now()); api.island.takeFocus?.(); }
   }), []);
@@ -333,7 +349,11 @@ export function Island() {
     return () => window.removeEventListener('island-toast', on);
   }, []);
 
-  const acts = useActivities(state, now, listening, isl?.activitiesOff ?? []);
+  const acts = useActivities(state, now, listening, isl?.activitiesOff ?? [], { alwaysBattery: !!isl?.alwaysBattery });
+  // An activity shown in full that has ended: back to Home.
+  useEffect(() => {
+    if (tab === 'live' && !(liveId && acts.all.some((a) => a.id === liveId))) setTab('home');
+  }, [tab, liveId, acts.all]);
   // A reminder coming due chimes once (it then waits in the Island until Done or Snooze).
   const rung = useRef(new Set<string>());
   useEffect(() => {
@@ -358,12 +378,14 @@ export function Island() {
   const glow = useGlow(plusSetting(isl, 'glow') && state?.nowPlaying?.playing ? state.nowPlaying.artwork : undefined, !!(plusSetting(isl, 'glow') && state?.nowPlaying?.playing));
   // Focus sounds play only while a focus session is running (not during breaks or pauses).
   useFocusSound(isl?.focusSound, !!state && state.focus.mode === 'focus' && state.focus.pausedLeft === undefined, isl?.focusVolume ?? 0.4);
+  // Every way of opening shows the full Island, with the live activity as a banner above the view.
   const gestures = useGestures({
-    tap: () => (acts.pres.primary ? show('live', acts.pres.primary.id) : show('panel')),
-    hold: () => (acts.pres.primary ? show('live', acts.pres.primary.id) : show('panel')),
-    down: () => show('panel'),
+    tap: () => openRef.current(),
+    hold: () => openRef.current(),
+    down: () => openRef.current(),
     up: () => collapse(0),
   });
+  const openRef = useRef<(tap?: boolean, focus?: string) => void>(() => show());
 
   // ---------------------------------------------------------------- sizes of each state
   const sc = layout?.scale ?? 1;
@@ -376,9 +398,9 @@ export function Island() {
   // No room beside the notch (menus or icons reach it): a small tab hangs below the notch instead.
   const hang = notch ? layout!.hang ?? 0 : 0;
   alertRules.current = { notch, alertStyle: isl?.alertStyle ?? 'notch', showInfo: !!isl?.alertsInfo };
-  const inlineAlert = alert && !alertOpen && alertPresentation(alert, alertRules.current) === 'inline' ? alert : null;
-  // An inline alert takes the pill (or the notch's wings) for a moment: its icon and a short title.
-  const alertAct: Activity | undefined = inlineAlert ? { id: `alert-${inlineAlert.id}`, kind: 'alert', priority: 999, icon: alertIcon(inlineAlert.kind), title: shortTitle(inlineAlert.app ? `${inlineAlert.app}: ${inlineAlert.title}` : inlineAlert.title), color: '#ffd60a' } : undefined;
+  const inlineAlert = alert && mode === 'compact' && alertPresentation(alert, alertRules.current) === 'inline' ? alert : null;
+  // An inline alert takes the pill (or the notch's wings) for a moment: its icon, and its title when that fits whole.
+  const alertAct: Activity | undefined = inlineAlert ? { id: `alert-${inlineAlert.id}`, kind: 'alert', priority: 999, icon: alertIcon(inlineAlert.kind), title: inlineAlert.app ? `${inlineAlert.app}: ${inlineAlert.title}` : inlineAlert.title, color: '#ffd60a' } : undefined;
   const primary = alertAct ?? acts.pres.primary;
   const secondary = acts.pres.secondary;
   const dotsOn = isl?.privacyDots !== false && (acts.dots.camera.length > 0 || acts.dots.mic.length > 0);
@@ -449,12 +471,15 @@ export function Island() {
   else if (state.keepAwake.on) liveText = <>☕ Staying awake{state.keepAwake.until ? <> · <b className="num">{mmss(state.keepAwake.until - now)}</b> left</> : null}</>;
   else if (state.weather && isl?.weather) liveText = <>{Math.round(state.weather.current.temp)}° {describeCode(state.weather.current.code).label}</>;
 
-  const view: 'compact' | 'alert' | 'live' | 'panel' = mode === 'panel' ? 'panel' : alert && mode === 'compact' && (alertOpen || alertPresentation(alert, alertRules.current) === 'banner') ? 'alert' : mode === 'live' ? 'live' : 'compact';
-  const live = mode === 'live' ? acts.all.find((a) => a.id === liveId) ?? primary : undefined;
-  if (view === 'live' && !live) {
-    // The activity ended while its card was open.
-    window.setTimeout(() => collapse(0), 0);
-  }
+  // The small card drops down only by itself, for an alert when the person chose banners; anything the
+  // person opens is the full Island.
+  const view: 'compact' | 'alert' | 'panel' = mode === 'panel' ? 'panel' : alert && alertPresentation(alert, alertRules.current) === 'banner' ? 'alert' : 'compact';
+  // What the open Island was opened for: the alert, or the activity (the one asked for, else the main one).
+  // Things only shown when nothing else is going on (the battery glyph, the shelf count) get no banner.
+  // (A shortcut or the tray opening a chosen view shows that view alone.)
+  const liveAct = liveId ? acts.all.find((a) => a.id === liveId) : undefined;
+  const headAct = liveAct && liveAct.kind !== 'battery' && liveAct.kind !== 'shelf-idle' ? liveAct : undefined;
+  const bannerOn = view === 'panel' && !bannerHidden && (openedAlert ? tab !== 'live' : showBanner(headAct, tab, toolForActivity));
   // The open panel: the tab's size (core/island-size.ts), never bigger than the room the placement has.
   // On a notch the open Island is the notch growing: pure black, no shadow and no glow, so no room for them either.
   const halo = !notch && (glow || plusSetting(isl, 'shadow')) ? HALO : 0;
@@ -462,11 +487,13 @@ export function Island() {
   const tabP = tabPanel(tab, isl ?? {});
   const tabSize = tabP.size;
   const panelSize = dragSize ?? tabSize;
+  // The banner adds its own height to the view's size (never past the room there is).
+  const bannerH = Math.round(BANNER_H * sc);
+  const withBanner = (b: Box, on: boolean) => (on ? { w: b.w, h: Math.min(b.h + bannerH, sizeRoom.max ? Math.max(b.h, Math.floor(sizeRoom.max.h)) : b.h + bannerH) } : b);
   const boxes = {
     compact: compact,
     alert: { w: Math.round(420 * sc), h: notchH + Math.round(76 * sc) },
-    live: { w: Math.max(Math.round(440 * sc), gap + 160), h: notchH + Math.round(150 * sc) },
-    panel: panelBox(dragSize ?? tabP.px, sizeRoom),
+    panel: withBanner(panelBox(dragSize ?? tabP.px, sizeRoom), bannerOn),
   };
   const box = boxes[view];
   // The shape is drawn as big as the biggest panel, so every change (open, close, another size) is one morph.
@@ -476,8 +503,8 @@ export function Island() {
   // Open: the window is the card or panel itself (and the notch's ears), plus room for the shadow
   // below a floating Island or the artwork glow, the only things ever drawn outside the shape.
   const openWindow = (b: Box) => (side ? { w: b.w + halo, h: b.h + 2 * halo } : { w: b.w + 2 * Math.max(ears, halo), h: b.h + (halo ? halo + 6 : 0) });
-  // What opens from here: an inline alert, the main activity's card, or the panel.
-  const opensTo = inlineAlert ? boxes.alert : primary ? boxes.live : boxes.panel;
+  // What opens from here: always the full Island (with a banner when something is going on).
+  const opensTo = withBanner(panelBox(tabP.px, sizeRoom), !!(inlineAlert || headAct));
   if (layout && view !== 'compact') winSize.current = openWindow(box);
   // While the pointer rests on the closed Island, its window already grows to what will open (clicks still
   // go through outside the shape), so opening is only the shape's own motion.
@@ -491,13 +518,24 @@ export function Island() {
   geo.current = { full: { w: Math.max(full.w, shapeBox.w), h: Math.max(full.h, shapeBox.h) }, box, edge, floating };
   target.current = { view, breath: breathing, w: shapeBox.w, h: shapeBox.h, r: view === 'compact' && floating ? shapeBox.h / 2 : r };
   const hover = isl?.hoverOpen !== false;
-  /** Opens what the closed Island leads to (an inline alert, the main activity's card, or the panel), with a tap on the trackpad. */
-  const openNow = (tap = true) => {
-    if (inlineAlert) openAlert();
-    else if (primary) show('live', primary.id);
-    else show('panel');
+  /** Which views can be opened into: the tools that are on, and More. */
+  const canOpen = (v: string) => v === 'more' || (isTool(v) && available(v));
+  /**
+   * Opens the full Island, with its deck, into the view the setting picks ("Open into": the live activity's
+   * own view, Home, or the last one). The activity (or the alert in the wings, or the dropped-down notice) shows
+   * as a banner above the view, with its buttons. `focus` names an activity (the bubble beside the pill).
+   */
+  const openNow = (tap = true, focus?: string) => {
+    const from = view === 'alert' ? alert : inlineAlert;
+    const act = focus ? acts.all.find((a) => a.id === focus) : acts.pres.primary;
+    setOpenedAlert(from ?? null);
+    setLiveId(act?.id ?? null);
+    setBannerHidden(false);
+    setTab(viewToOpen({ openTo: isl?.openTo, activityTool: !from && act ? toolForActivity(act.kind) : null, last: lastView.current, now: Date.now(), available: canOpen }) as Tab);
+    show();
     if (tap && isl?.haptics !== false) api.island.haptic?.();
   };
+  openRef.current = openNow;
   const enter = () => {
     pointerIn.current = true;
     if (view === 'compact') {
@@ -526,47 +564,53 @@ export function Island() {
     api.island.prepare?.(false);
     api.island.setInteractive?.(false);
   };
-  /** The person asked to see an inline alert in full: it drops down from the notch or pill now. */
-  function openAlert() {
-    window.clearTimeout(closeTimer.current);
-    api.island.setExpanded(true);
-    setAlertOpen(true);
-  }
   const cameraDot = isl?.cameraDot && layout?.cutout.kind === 'camera' && layout.anchor === 'edge';
+
+  /** An alert's text and buttons: the dropped-down notice, and the banner above the open view. */
+  const alertBody = (al: IslandAlert, inBanner: boolean) => (
+    <>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        {al.kind === 'notification' && al.app && !inBanner ? <span className="muted small" style={{ display: 'block' }}>{al.app}</span> : null}
+        <b className="ellipsis" style={{ display: 'block' }}>{inBanner && al.kind === 'notification' && al.app ? `${al.app}: ${al.title}` : al.title}</b>
+        <span className="muted small ellipsis" style={{ display: 'block' }}>{al.detail}</span>
+      </div>
+      <PlusAlertActions alert={al} onDone={() => { setAlert(null); if (inBanner) setOpenedAlert(null); else if (modeRef.current !== 'panel') api.island.setExpanded(false); }} />
+      {al.path ? (
+        <div className="btn-row">
+          <button className="btn sm" onClick={() => void api.files.open(al.path!)}>Open</button>
+          <button className="btn sm" onClick={() => void api.files.reveal(al.path!)}>Show</button>
+          <button className="btn sm icon" title="Add to shelf" aria-label="Add to shelf" onClick={() => void api.island.addToShelf([al.path!])}><Icon name="plus" size={12} /></button>
+        </div>
+      ) : null}
+    </>
+  );
 
   let content: React.ReactNode;
   if (view === 'alert' && alert) {
+    // Dropped down by itself (Settings → Island → Alerts: as a banner). A click opens the full Island.
     content = (
-      <div className="isl-alert">
+      <div className="isl-alert" data-testid="island-alert-card" title="Click to open the Island">
         {isl?.buddy !== false ? <Buddy mood="happy" /> : null}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          {alert.kind === 'notification' && alert.app ? <span className="muted small" style={{ display: 'block' }}>{alert.app}</span> : null}
-          <b className="ellipsis" style={{ display: 'block' }}>{alert.title}</b>
-          <span className="muted small ellipsis" style={{ display: 'block' }}>{alert.detail}</span>
-        </div>
-        <PlusAlertActions alert={alert} onDone={() => { setAlert(null); if (!expanded) api.island.setExpanded(false); }} />
-        {alert.path ? (
-          <div className="btn-row">
-            <button className="btn sm" onClick={() => void api.files.open(alert.path!)}>Open</button>
-            <button className="btn sm" onClick={() => void api.files.reveal(alert.path!)}>Show</button>
-            <button className="btn sm icon" title="Add to shelf" aria-label="Add to shelf" onClick={() => void api.island.addToShelf([alert.path!])}><Icon name="plus" size={12} /></button>
-          </div>
-        ) : null}
+        {alertBody(alert, false)}
       </div>
     );
-  } else if (view === 'live' && live) {
-    content = <LiveCard a={live} state={state} now={now} unlocked={acts.unlocked} onMore={() => show('panel')} reload={load} />;
   } else if (view === 'compact') {
     const a = primary;
+    const power = isPower(a);
     const trailing = a ? (a.kind === 'dictation' && listening === 'on' ? <span className="level">{level.map((h, i) => <i key={i} style={{ height: h }} />)}</span> : <Trailing a={a} />) : null;
+    const lead = a ? (power ? <PowerLead a={a} /> : <Leading a={a} />) : null;
+    // Words beside the notch are shown whole or not at all (the icon and the number carry them).
+    // Power names itself only for its 3-second notice ("Charging", "On battery").
+    const notice = a && (a.kind === 'charging' || a.kind === 'unplugged');
+    const wingWords = a?.kind === 'alert' ? <FitText text={a.title} className="wing-title" testId="island-wing-alert" /> : notice ? <FitText text={a.title} className="wing-title" testId="island-wing-power" /> : null;
     const more = acts.pres.more ? <span className="act-more">+{acts.pres.more}</span> : null;
     if (notch && hang) {
       content = idleNotch ? <div className="cmp" /> : (
         <div className="cmp notch hang">
           <span className="hang-gap" style={{ height: notchH }} />
           <span className="hang-row" style={{ height: hang }}>
-            {a ? <Leading a={a} /> : null}
-            <span className="live">{a ? a.title : null}</span>
+            {lead}
+            {power || a?.kind === 'alert' ? <span className="live">{wingWords}</span> : <span className="live">{a && a.kind !== 'shelf-idle' ? a.title : null}</span>}
             {trailing}{more}{isl?.privacyDots !== false ? <PrivacyDots dots={acts.dots} /> : null}
           </span>
         </div>
@@ -574,21 +618,20 @@ export function Island() {
     } else if (notch) {
       content = idleNotch ? <div className="cmp" /> : (
         <div className="cmp notch">
-          <span className="wing l">{a ? <Leading a={a} /> : null}</span>
+          <span className="wing l">{lead}{power ? wingWords : null}</span>
           <span className="cut" style={{ width: gap }} />
-          <span className="wing r">{a?.kind === 'alert' ? <span className="wing-title ellipsis" data-testid="island-wing-alert">{a.title}</span> : null}{trailing}{more}{isl?.privacyDots !== false ? <PrivacyDots dots={acts.dots} /> : null}</span>
+          <span className="wing r">{a?.kind === 'alert' ? wingWords : null}{trailing}{more}{isl?.privacyDots !== false ? <PrivacyDots dots={acts.dots} /> : null}</span>
         </div>
       );
     } else {
       content = (
         <div className="cmp">
-          {a ? <Leading a={a} /> : isl?.buddy !== false ? <Buddy mood={mood} /> : null}
-          <span className="live">{a ? a.title : liveText}</span>
+          {a ? lead : isl?.buddy !== false ? <Buddy mood={mood} /> : null}
+          <span className="live">{power ? (notice || a.kind === 'battery-low' ? <FitText text={a.title} testId="island-wing-power" /> : null) : a?.kind === 'shelf-idle' ? null : a ? a.title : liveText}</span>
           {cameraDot && !a ? <i className="cam-dot" aria-hidden /> : null}
           {trailing}
           {more}
           {isl?.privacyDots !== false ? <PrivacyDots dots={acts.dots} /> : null}
-          {!a && state.battery && state.battery.percent < 20 && !state.battery.charging ? <span style={{ color: '#f87171' }}>{Math.round(state.battery.percent)}%</span> : null}
         </div>
       );
     }
@@ -612,7 +655,7 @@ export function Island() {
   const deckItems = deckIds.map(itemOf);
   const slot = liveSlot(acts.all, deckIds, available);
   const more = moreTools(isl?.toolsOff, recentTools, available, (id) => itemOf(id).label);
-  const viewLabel = tab === 'more' ? 'More' : itemOf(tab).label;
+  const viewLabel = tab === 'more' ? 'More' : tab === 'live' ? 'Live' : itemOf(tab).label;
   const setIsl = (p: Partial<NonNullable<typeof isl>>) => isl && void updateSettings({ island: { ...isl, ...p } });
   /** This tab's own size (null: back to the default for it). */
   const setTabSize = (size: PanelSize | null) => {
@@ -626,7 +669,8 @@ export function Island() {
     setTab(id);
     if (!deckIds.includes(id)) setRecentTools((r) => { const next = addRecentTool(r, id); writeRecentTools(next); return next; });
   };
-  const openLive = (x: LiveSlot) => (x.kind === 'tool' ? openTool(x.tool) : show('live', x.activity));
+  // The live slot opens the activity's own tool, or (a recording, say) the activity in full inside the Island.
+  const openLive = (x: LiveSlot) => { if (x.kind === 'tool') openTool(x.tool); else { setLiveId(x.activity); setTab('live'); } };
   // The grip on the bottom edge: drag to resize, snapping to the nearest size; arrow keys step.
   const grip = (
     <div
@@ -656,7 +700,7 @@ export function Island() {
   if (view === 'panel') content = (
       <div className="isl-panel" onDragOver={(e) => { if (!e.dataTransfer.types.includes('Files')) return; e.preventDefault(); if (tab !== 'shelf') setTab('shelf'); }}>
         <Deck
-          items={deckItems} view={tab} fromMore={tab !== 'more' && !deckIds.includes(tab) && !(slot?.kind === 'tool' && slot.tool === tab) ? itemOf(tab) : undefined}
+          items={deckItems} view={tab} fromMore={isTool(tab) && !deckIds.includes(tab) && !(slot?.kind === 'tool' && slot.tool === tab) ? itemOf(tab) : undefined}
           live={slot ? { ...slot, label: slot.kind === 'tool' ? itemOf(slot.tool).label : 'Live' } : null}
           onSelect={openTool} onMore={() => setTab('more')} onLive={openLive}
           onMove={(id, by) => setDeck(moveInDeck(deckIds, id, deckIds.indexOf(id) + by))}
@@ -672,7 +716,21 @@ export function Island() {
           </div>
         ) : null}
         {toast ? <div className="isl-toast">{toast}</div> : null}
+        {bannerOn && openedAlert ? (
+          <div style={{ height: bannerH, flex: 'none' }}>
+            <div className="live-banner alert-banner" role="status" data-testid="island-live-banner" data-kind="alert">
+              <span className="live-icon" style={{ background: '#ffd60a', color: '#000' }}><Icon name={alertIcon(openedAlert.kind)} size={13} /></span>
+              {alertBody(openedAlert, true)}
+              <button className="btn sm icon ghost" aria-label="Hide this" title="Hide this" onClick={() => setOpenedAlert(null)}><Icon name="close" size={11} /></button>
+            </div>
+          </div>
+        ) : bannerOn && headAct ? (
+          <div style={{ height: bannerH, flex: 'none' }}>
+            <LiveBanner a={headAct} state={state} now={now} unlocked={acts.unlocked} reload={load} onOpen={isPower(headAct) ? undefined : () => { setLiveId(headAct.id); setTab('live'); }} onHide={() => setBannerHidden(true)} />
+          </div>
+        ) : null}
         <div className="body">
+          {tab === 'live' && liveAct ? <LiveCard a={liveAct} state={state} now={now} unlocked={acts.unlocked} reload={load} /> : null}
           {tab === 'home' ? (
             <div className="grid2 home">
               <div className="tile" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
@@ -836,7 +894,7 @@ export function Island() {
   return (
     <div className={`isl-root edge-${edge} anchor-${layout?.anchor ?? 'edge'} view-${view} size-${panelSize} ${floating ? 'floating' : ''} ${isl?.monochrome ? 'mono' : ''} ${breathing ? 'breath' : ''}`} style={vars} role="region" aria-label="Island">
       {/* Alerts are read out by screen readers as they arrive, without taking focus. */}
-      <div className="sr-only" role="status" aria-live="assertive" aria-atomic="true">{view === 'alert' && alert ? [alert.app, alert.title, alert.detail].filter(Boolean).join('. ') : ''}</div>
+      <div className="sr-only" role="status" aria-live="assertive" aria-atomic="true">{alert ? [alert.app, alert.title, alert.detail].filter(Boolean).join('. ') : ''}</div>
       <div aria-hidden className={`isl-shadow ${plusSetting(isl, 'shadow') ? '' : 'no-shadow'} ${glow && !notch ? 'glowing' : ''}`} style={glow && !notch ? ({ '--glow': glow } as React.CSSProperties) : undefined}>
         <div className="isl-shape" ref={shapeEl} />
       </div>
@@ -845,10 +903,10 @@ export function Island() {
         className={`isl isl-content view-${view}`}
         // Compact, the Island is one button: Enter or Space opens it, Escape closes it.
         role={view === 'compact' ? 'button' : undefined}
-        tabIndex={view === 'compact' ? 0 : undefined}
+        tabIndex={view === 'compact' || view === 'alert' ? 0 : undefined}
         aria-label={view === 'compact' ? (primary ? `${primary.title}: open` : 'Open the Island') : undefined}
         onKeyDown={(e) => {
-          if (view === 'compact' && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); if (primary) show('live', primary.id); else show('panel'); }
+          if ((view === 'compact' || view === 'alert') && (e.key === 'Enter' || e.key === ' ') && !(e.target as HTMLElement).closest?.('button')) { e.preventDefault(); openNow(false); }
           else if (view !== 'compact' && e.key === 'Escape') collapse(0);
         }}
         onMouseEnter={() => { api.island.setInteractive?.(true); enter(); }}
@@ -862,15 +920,19 @@ export function Island() {
           if (e.clientX > r.left + 1 && e.clientX < r.right - 1 && e.clientY > r.top + 1 && e.clientY < r.bottom - 1) return;
           if (view === 'compact') { leaveClosed(); return; }
           pointerIn.current = false;
-          if (view === 'alert' && alertOpen) { setAlertOpen(false); api.island.setExpanded(false); } else collapse(Date.now() - dragEnded.current < 500 || Date.now() - resizedAt.current < 700 ? 1500 : CLOSE_GRACE_MS, true); }}
+          // A notice that dropped down by itself leaves on its own timer.
+          if (view === 'alert') return;
+          collapse(Date.now() - dragEnded.current < 500 || Date.now() - resizedAt.current < 700 ? 1500 : CLOSE_GRACE_MS, true); }}
         onClick={(e) => {
+          // A click on a notice that dropped down by itself (not on one of its buttons) opens the full Island.
+          if (view === 'alert') { if (!(e.target as HTMLElement).closest?.('button, a, input')) openNow(); return; }
           if (view !== 'compact') return;
           // Alt/Option-click hides the Island for a minute (alerts still come back after).
           if (e.altKey) { void api.islandx?.hideFor(plusSetting(isl, 'altHideMinutes')); return; }
           // A click opens at once (also with hover-to-open off).
           openNow();
         }}
-        onDragEnter={(e) => { if (!e.dataTransfer.types.includes('Files')) return; show('panel'); setTab('shelf'); }}
+        onDragEnter={(e) => { if (!e.dataTransfer.types.includes('Files')) return; show(); setTab('shelf'); }}
         {...gestures}
       >
         {notch ? <><i className="ear l" aria-hidden /><i className="ear r" aria-hidden /></> : null}
@@ -878,7 +940,7 @@ export function Island() {
       </div>
       {view === 'compact' && state.usagePin && !idleNotch ? <UsagePin pin={state.usagePin} /> : null}
       {bubble && view === 'compact' && secondary ? (
-        <button className="isl-bubble" title={secondary.title} aria-label={secondary.title} onClick={() => show('live', secondary.id)} onMouseEnter={() => hover && show('live', secondary.id)}>
+        <button className="isl-bubble" title={secondary.title} aria-label={secondary.title} onClick={() => openNow(true, secondary.id)} onMouseEnter={() => hover && openNow(false, secondary.id)}>
           <Leading a={secondary} />
         </button>
       ) : null}

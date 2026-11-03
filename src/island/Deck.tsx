@@ -8,7 +8,8 @@ import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { DECK_MAX, type IslandToolId, type LiveSlot } from '../../core/island-tools/tools';
 import { Icon } from '../components/Icon';
 
-export type DeckView = IslandToolId | 'more';
+/** a tool, More, or an activity shown in full ('live': a recording, say, opened from the live slot) */
+export type DeckView = IslandToolId | 'more' | 'live';
 
 export interface DeckItem {
   id: IslandToolId;
@@ -88,7 +89,7 @@ export function Deck(props: {
         {items.map(tab)}
         {showLive ? (
           <button
-            className={`deck-tab deck-live ${live.kind === 'tool' && view === live.tool ? 'on' : ''}`} role="tab" aria-selected={live.kind === 'tool' && view === live.tool}
+            className={`deck-tab deck-live ${(live.kind === 'tool' ? view === live.tool : view === 'live') ? 'on' : ''}`} role="tab" aria-selected={live.kind === 'tool' ? view === live.tool : view === 'live'}
             data-testid="island-live-slot" title={`${live.label}: ${live.title}`} aria-label={`${live.label}: ${live.title}`}
             style={{ color: live.color }} onClick={() => props.onLive(live)}
           >
