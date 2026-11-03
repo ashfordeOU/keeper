@@ -171,7 +171,7 @@ async function mainPid(page) {
   if (page) {
     await page.screenshot({ path: path.join(SHOTS, 'safe-mode.png') });
     const hidden = await page.evaluate(() => [...document.querySelectorAll('.sidebar [title]')].map((e) => e.getAttribute('title')));
-    check(!hidden.includes('Terminal') && hidden.includes('Documents'), 'safe mode keeps the library and switches the rest off');
+    check(!hidden.includes('Terminal') && hidden.some((t) => t.startsWith('All Documents')), 'safe mode keeps the library and switches the rest off');
     check((await page.locator('.tab-strip .tab').count()) >= 1, 'tabs are still there in safe mode');
   }
 
