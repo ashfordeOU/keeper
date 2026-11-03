@@ -1,9 +1,12 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 # One-off, started by hand: deletes old beta releases from GitHub once a stable
-# 1.0.0 or later is out. Only the GitHub release goes (its notes and its files,
-# including the latest*.yml the updater reads); the git tag stays. Refuses a
-# release that is not a pre-release, and refuses everything while no stable
-# release >= 1.0.0 exists. Every version is checked before anything is deleted.
+# 1.0.0 or later is out. The GitHub release goes (its notes and its files,
+# including the latest*.yml the updater reads); with "delete_tags" its git tag
+# goes too (the commits stay on main). Refuses a release that is not a
+# pre-release, and refuses everything while no stable release >= 1.0.0 exists.
+# Every version is checked before anything is deleted. A pre-release tag whose
+# release is already gone is accepted when delete_tags is on, so a tag left
+# behind by an earlier run can be removed.
 name: Remove old releases
 
 on:
@@ -14,9 +17,14 @@ on:
         required: true
         type: string
       confirm:
-        description: 'Type "delete" to delete these releases (their tags are kept)'
+        description: 'Type "delete" to delete these releases'
         required: true
         type: string
+      delete_tags:
+        description: "Also delete their git tags (the commits stay on main)"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -36,6 +44,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
           VERSIONS: ${{ inputs.versions }}
           CONFIRM: ${{ inputs.confirm }}
+          DELETE_TAGS: ${{ inputs.delete_tags }}
         run: |
           set -euo pipefail
           [ "$CONFIRM" = "delete" ] || { echo "::error::confirm must be \"delete\"; nothing was deleted"; exit 1; }
@@ -50,6 +59,7 @@ jobs:
 
           # Check every version first, so a bad one deletes nothing.
           tags=()
+          has_release=()
           IFS=',' read -ra wanted <<< "$VERSIONS"
           for raw in "${wanted[@]}"; do
             v="$(echo "$raw" | tr -d '[:space:]')"
@@ -59,22 +69,38 @@ jobs:
               echo "::error::$v is not a pre-release version (x.y.z-something); nothing was deleted"; exit 1
             fi
             tag="v$v"
-            if ! pre="$(gh api "repos/$GH_REPO/releases/tags/$tag" --jq '.prerelease')"; then
+            if pre="$(gh api "repos/$GH_REPO/releases/tags/$tag" --jq '.prerelease' 2>/dev/null)"; then
+              [ "$pre" = "true" ] || { echo "::error::$tag is not a pre-release; nothing was deleted"; exit 1; }
+              has_release+=("yes")
+            elif [ "$DELETE_TAGS" = "true" ] && gh api "repos/$GH_REPO/git/refs/tags/$tag" >/dev/null 2>&1; then
+              echo "$tag has no release any more; only its tag will be deleted"
+              has_release+=("no")
+            else
               echo "::error::No release $tag; nothing was deleted"; exit 1
             fi
-            [ "$pre" = "true" ] || { echo "::error::$tag is not a pre-release; nothing was deleted"; exit 1; }
             tags+=("$tag")
           done
           [ "${#tags[@]}" -gt 0 ] || { echo "::error::No versions given"; exit 1; }
 
-          # The release and its files go; the git tag stays.
+          # The release and its files go; the git tag too when asked.
           deleted=()
-          for tag in "${tags[@]}"; do
-            gh release delete "$tag" --yes
-            deleted+=("$tag")
-            echo "Deleted release $tag (tag kept)"
+          for i in "${!tags[@]}"; do
+            tag="${tags[$i]}"
+            what=""
+            if [ "${has_release[$i]}" = "yes" ]; then
+              gh release delete "$tag" --yes
+              what="release"
+            fi
+            if [ "$DELETE_TAGS" = "true" ]; then
+              gh api -X DELETE "repos/$GH_REPO/git/refs/tags/$tag" >/dev/null
+              what="${what:+$what and }tag"
+            else
+              what="$what (tag kept)"
+            fi
+            deleted+=("$tag: $what")
+            echo "Deleted $tag: $what"
           done
           {
-            echo "### Deleted releases (tags kept)"
-            for tag in "${deleted[@]}"; do echo "- $tag"; done
+            echo "### Deleted"
+            for line in "${deleted[@]}"; do echo "- $line"; done
           } >> "$GITHUB_STEP_SUMMARY"

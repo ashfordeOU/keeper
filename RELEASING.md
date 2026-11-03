@@ -22,6 +22,7 @@ published by GitHub Actions from `main`. A release is started by changing `"vers
 | [`release.yml`](.github/workflows/release.yml) | a version change landing on `main`, a `v*` tag, or by hand | Builds, publishes the GitHub Release, then the channels (Homebrew, Scoop, winget, Chocolatey, AUR, Snap, npm, apt/dnf) for a stable release |
 | [`ci.yml`](.github/workflows/ci.yml) | every push and pull request | Tests and builds; native e2e on pushes to `main` |
 | [`resign-history.yml`](.github/workflows/resign-history.yml) | you, by hand | *Verify only* checks every branch and tag is Verified |
+| [`remove-old-releases.yml`](.github/workflows/remove-old-releases.yml) | you, by hand | Deletes old pre-releases (and, with *delete_tags*, their tags) once a stable release 1.0.0 or later is out |
 
 A version with a hyphen (`1.1.0-beta.1`) is a pre-release: GitHub only, no channels, and only
 copies with betas on (or beta copies) take it. See [docs/BETA.md](docs/BETA.md).
@@ -191,6 +192,29 @@ What people get: beta copies update to 1.0.0 by themselves and then follow stabl
 never gets a beta. While Mac builds are self-signed, the first launch on a Mac needs **Open
 Anyway** after a download, and macOS asks once per update to use the keychain item; both go away
 with the Developer ID build ([Moving to the Developer ID](#moving-to-the-developer-id)).
+
+## Branches and old releases
+
+The repository keeps three branches and nothing else:
+
+| Branch | What it is | Who writes to it |
+|---|---|---|
+| `main` | What every release and install comes from. Every commit signed and by ashfordeOU | `sign-and-land.yml` only |
+| `incoming` | The landing lane: push here and `sign-and-land.yml` signs and moves `main` | You, with `git push origin HEAD:incoming` |
+| `gh-pages` | The website and the dnf repository | Deploy jobs only (the release's `pages` job) |
+
+- Work happens in local branches or worktrees. Rebase onto `origin/incoming` before pushing, and
+  never push a work branch to GitHub: if one is needed as a backup, delete it once its commits
+  are on `main` (same subjects; `sign-and-land.yml` gives them new hashes).
+- Check now and then: `git ls-remote --heads origin` should list only the three above.
+- Under Settings → General, turn on *Automatically delete head branches* so a merged pull
+  request's branch goes by itself.
+
+Old pre-releases: once a stable release is out, run **Remove old releases** with the versions
+(`0.1.0-beta.1,0.1.0-beta.3`), `delete` and, to remove their tags as well, *delete_tags*. Only
+pre-releases are accepted, nothing happens until a stable release 1.0.0 or later exists, and
+every version is checked before anything is deleted. The commits stay on `main`. Copies still
+on a deleted beta keep working and update to the newest release as usual.
 
 ## When something goes wrong
 
