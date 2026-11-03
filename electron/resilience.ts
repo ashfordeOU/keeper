@@ -65,6 +65,23 @@ function readText(file: string): string | null {
 export interface LogEntry { at: number; kind: string; detail: string }
 let logCache: LogEntry[] | null = null;
 
+/** Something went wrong, for crash reports (opt-in): what kind, where, and the error (never shown or logged from here). */
+export type Problem =
+  | { kind: 'exception' | 'rejection'; process: 'main'; error: unknown }
+  | { kind: 'window-error'; process: string; text: string; stack?: string }
+  | { kind: 'window-crash'; process: string; reason: string };
+const problemListeners = new Set<(p: Problem) => void>();
+/** Crash reports listen here; listeners must not throw (they are called while handling an error). */
+export function onProblem(fn: (p: Problem) => void): () => void {
+  problemListeners.add(fn);
+  return () => problemListeners.delete(fn);
+}
+function problem(p: Problem) {
+  for (const l of problemListeners) {
+    try { l(p); } catch { /* a listener failing must never make it worse */ }
+  }
+}
+
 export function logEvent(kind: string, detail: string) {
   const entry = { at: Date.now(), kind, detail: detail.slice(0, 2000) };
   const all = [...readLog(), entry].slice(-200);
@@ -308,6 +325,7 @@ function watchContents(wc: WebContents) {
     const session = hasSession(wc);
     const countKey = session ? key : `${view}:${wc.id}`;
     logEvent('page-crashed', `${session ? key : view}: ${d.reason} (exit code ${d.exitCode})`);
+    problem({ kind: 'window-crash', process: view === 'island' ? 'island' : view === 'widget' ? 'widgets' : 'window', reason: d.reason });
     const times = [...(recentRendererCrashes.get(countKey) ?? []), Date.now()].filter((t) => Date.now() - t < 60_000);
     recentRendererCrashes.set(countKey, times);
     if (times.length <= 1) {
@@ -421,12 +439,13 @@ export function initResilience(d: ResilienceDeps) {
   ipcMain.handle('session.lastSession', () => snapshot.windows.length ? snapshot.savedAt : 0);
   ipcMain.handle('session.log', () => ({ log: readLog().slice().reverse(), dumps: crashDumps(), crashedLastTime: lastRun.unclean, safeMode: SAFE_MODE }));
   // Failures nobody caught: a window's, and the main process's own (logged, and shown once in the main window).
-  ipcMain.handle('session.rendererError', (_e, view: string, text: string, stack?: string) => logEvent('renderer-error', `${String(view).slice(0, 30)}: ${String(text).slice(0, 300)}${stack ? `\n${String(stack).split('\n').slice(1, 4).join('\n')}` : ''}`));
+  ipcMain.handle('session.rendererError', (_e, view: string, text: string, stack?: string) => (problem({ kind: 'window-error', process: String(view) === 'island' ? 'island' : String(view).startsWith('widget') ? 'widgets' : 'window', text: String(text), stack: typeof stack === 'string' ? stack : undefined }), logEvent('renderer-error', `${String(view).slice(0, 30)}: ${String(text).slice(0, 300)}${stack ? `\n${String(stack).split('\n').slice(1, 4).join('\n')}` : ''}`)));
   const once = throttle(60_000);
   const report = (kind: string, e: unknown) => {
     if (ignorable(e)) return;
     const text = errorText(e);
     logEvent(kind, `${text}${e instanceof Error && e.stack ? `\n${e.stack.split('\n').slice(1, 4).join('\n')}` : ''}`);
+    problem({ kind: kind === 'main-rejection' ? 'rejection' : 'exception', process: 'main', error: e });
     const w = deps.main();
     if (once(text) && w && !w.isDestroyed()) w.webContents.send('event:app-error', text);
   };

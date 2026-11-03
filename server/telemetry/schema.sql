@@ -55,3 +55,24 @@ CREATE TABLE IF NOT EXISTS daily_summary (
   monthly INTEGER NOT NULL,
   data    TEXT    NOT NULL               -- JSON: the full aggregate for that day
 );
+
+-- Anonymous crash reports (opt-in in the app). No install ID, no address: only what the
+-- app's schema allows (core/crash-report.ts). Rows older than 90 days are deleted daily.
+CREATE TABLE IF NOT EXISTS crashes (
+  received_day TEXT    NOT NULL,          -- YYYY-MM-DD (UTC) the server got it
+  version      TEXT    NOT NULL,
+  channel      TEXT    NOT NULL,
+  os           TEXT    NOT NULL,
+  os_version   TEXT    NOT NULL,
+  arch         TEXT    NOT NULL,
+  process      TEXT    NOT NULL,
+  kind         TEXT    NOT NULL,
+  name         TEXT    NOT NULL,
+  stack        TEXT    NOT NULL,          -- JSON array of "at fn (file.js:line:col)"
+  signature    TEXT    NOT NULL,          -- the same problem across reports
+  count        INTEGER NOT NULL,
+  first_day    TEXT    NOT NULL,
+  last_day     TEXT    NOT NULL
+);
+CREATE INDEX IF NOT EXISTS crashes_day ON crashes (received_day);
+CREATE INDEX IF NOT EXISTS crashes_signature ON crashes (signature);

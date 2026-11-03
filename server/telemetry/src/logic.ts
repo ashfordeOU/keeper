@@ -5,6 +5,7 @@
 // server accepts exactly what the app may send, nothing more.
 
 import { MAX_BODY_BYTES, MAX_QUEUE_DAYS, validateBody, type UsagePayload } from '../../../core/telemetry';
+import { CRASH_MAX_BODY, MAX_AGE_DAYS, validateCrashBody, type CrashReport } from '../../../core/crash-report';
 
 export { MAX_BODY_BYTES };
 
@@ -94,6 +95,68 @@ export function parsePing(o: { contentType: string | null; declaredLength: numbe
   const bad = v.pings.find((p) => p.day > addDays(today, 1) || p.day < addDays(today, -MAX_QUEUE_DAYS));
   if (bad) return { status: 400, error: `day ${bad.day} out of range` };
   return { status: 200, rows: v.pings.map((p) => rowOf(p, o.now)) };
+}
+
+// ---------------------------------------------------------------- POST /v1/crash
+
+/** Crash reports are kept 90 days, then deleted by the daily job. */
+export const CRASH_RETENTION_DAYS = 90;
+/** Crash requests per minute for the whole service (there is no install ID to count by). */
+export const CRASH_RATE_PER_MINUTE = 600;
+
+/** One stored crash report: no install ID, no address, nothing but the report's own fields. */
+export interface CrashRow {
+  received_day: string;
+  version: string;
+  channel: string;
+  os: string;
+  os_version: string;
+  arch: string;
+  process: string;
+  kind: string;
+  name: string;
+  /** JSON array of frames */
+  stack: string;
+  /** the same problem across reports (version, process, kind, name, first five frames) */
+  signature: string;
+  count: number;
+  first_day: string;
+  last_day: string;
+}
+
+export const CRASH_COLUMNS: (keyof CrashRow)[] = ['received_day', 'version', 'channel', 'os', 'os_version', 'arch', 'process', 'kind', 'name', 'stack', 'signature', 'count', 'first_day', 'last_day'];
+
+async function sha(text: string): Promise<string> {
+  const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return [...new Uint8Array(d)].slice(0, 12).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+export async function crashRowOf(r: CrashReport, now: number): Promise<CrashRow> {
+  return {
+    received_day: dayOf(now), version: r.version, channel: r.channel, os: r.os, os_version: r.osVersion, arch: r.arch, process: r.process, kind: r.kind, name: r.name,
+    stack: JSON.stringify(r.stack), signature: await sha(`${r.version}|${r.process}|${r.kind}|${r.name}|${r.stack.slice(0, 5).join('|')}`), count: r.count, first_day: r.first, last_day: r.last,
+  };
+}
+
+export type CrashResult = { status: 200; rows: CrashRow[] } | { status: 400 | 413 | 415; error: string };
+
+/** Checks one crash request body against the app's own schema (core/crash-report.ts). */
+export async function parseCrash(o: { contentType: string | null; declaredLength: number | null; text: string; now: number }): Promise<CrashResult> {
+  if (!/^application\/json\b/i.test(o.contentType ?? '')) return { status: 415, error: 'JSON only' };
+  if ((o.declaredLength ?? 0) > CRASH_MAX_BODY || new TextEncoder().encode(o.text).length > CRASH_MAX_BODY) return { status: 413, error: 'Too large' };
+  let body: unknown;
+  try { body = JSON.parse(o.text); } catch { return { status: 400, error: 'Not JSON' }; }
+  const v = validateCrashBody(body);
+  if (!v.ok) return { status: 400, error: v.error };
+  const today = dayOf(o.now);
+  const bad = v.body.reports.find((r) => r.last > addDays(today, 1) || r.first < addDays(today, -(MAX_AGE_DAYS + 1)));
+  if (bad) return { status: 400, error: `day ${bad.last} out of range` };
+  return { status: 200, rows: await Promise.all(v.body.reports.map((r) => crashRowOf(r, o.now))) };
+}
+
+/** The oldest received day whose crash reports are kept. */
+export function crashCutoff(now: number, days = CRASH_RETENTION_DAYS): string {
+  return dayOf(now - days * DAY_MS);
 }
 
 /** A fixed window per install ID. Returns whether this request may go on, and the window to store. */

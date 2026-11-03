@@ -169,6 +169,8 @@ const api = {
   // Site and server monitors.
   // The light photo editor.
   photo: group('photo', ['info', 'preview', 'save', 'revert']),
+  // Crash reports for Ashforde (off until switched on).
+  crashReports: group('crashReports', ['status', 'setOn', 'clear', 'sendNow']),
   monitors: group('monitors', ['overview', 'detail', 'save', 'remove', 'setOn', 'checkNow', 'importList', 'exportList']),
   islandx: group('islandx', ['status', 'callMute', 'callDismiss', 'hideFor', 'installAgentHooks', 'removeAgentHooks', 'openNotifyPermission', 'testNotification', 'startBreak', 'focusFor', 'mediaMode', 'openLauncher', 'showPage']),
   widgets: group('widgets', ['list', 'save', 'remove', 'photos', 'current', 'arrange', 'arranging', 'tint', 'focus']),

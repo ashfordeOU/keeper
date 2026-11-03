@@ -64,7 +64,7 @@ One report describes one day. Every field, with an example:
 | `aiProviders` | `1` | How many AI services you connected with a key (a number; no names, no keys) |
 | `devices` | `0` | How many devices are paired with Keeper Link (a number) |
 | **health** | | |
-| `crashes` | `0` | Times Keeper or one of its windows crashed that day (no details, no stack traces) |
+| `crashes` | `0` | Times Keeper or one of its windows crashed that day (no details, no stack traces; detailed crash reports are a separate choice, off by default: docs/CRASH-REPORTS.md) |
 | `restarts` | `0` | Times one of Keeper's background services had to restart |
 | `memory` | `250-500MB` | Keeper's own average memory use: `<250MB`, `250-500MB`, `500MB-1GB` or `1GB+` |
 | `cpu` | `<1%` | Keeper's own average processor use: `<1%`, `1-5%`, `5-20%` or `20%+` |

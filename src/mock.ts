@@ -13,6 +13,7 @@ import { mockReader } from './mock-reader';
 import { mockPhoneAlerts } from './mock-alerts';
 import { mockMonitors } from './mock-monitors';
 import { mockPhoto } from './mock-photo';
+import { mockCrashReports } from './mock-crash';
 import { mockFeatures } from './mock-features';
 import { mockUsageStats } from './mock-usage-stats';
 import { mockPro } from './mock-pro';
@@ -314,6 +315,7 @@ export function createMockApi(): KeeperApi {
     ...mockPhoneAlerts(),
     ...mockMonitors(),
     ...mockPhoto(),
+    ...mockCrashReports(),
     ...mockFocusBlock((ch) => listeners.get(ch)?.forEach((cb) => (cb as () => void)())),
     ...mockPlaces(),
     ...mockTracks((ch) => listeners.get(ch)?.forEach((cb) => (cb as () => void)())),

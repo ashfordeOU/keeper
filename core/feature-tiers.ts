@@ -185,4 +185,5 @@ export const TIERS: Record<string, FeatureTier> = {
   updates: { plain: 'Check for updates automatically', setup: 'general', normal: 'on', shown: 'basic' },
   usageStats: { plain: 'Anonymous usage stats', setup: 'general', normal: 'off', shown: 'basic' },
   proAccount: { plain: 'Account and Pro', setup: 'general', normal: 'on', shown: 'advanced' },
+  crashReports: { plain: 'Crash reports for Ashforde', setup: 'general', normal: 'off', shown: 'basic' },
 };

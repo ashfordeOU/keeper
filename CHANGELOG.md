@@ -42,6 +42,11 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - On a Mac, Keeper watches every app without asking for anything; blocking single apps waits for Apple's approval of Keeper's network filter, and the page says so instead of showing buttons that would do nothing. The DNS filter can still block a site for every app.
 - The menu bar's summary has a Network part: "3 apps online" with the speeds and a small chart, the three busiest apps with a quick Block (and Allow to undo), "2 waiting" when prompts wait, and Open Network. Settings → Menu bar → Show network turns it off. On a short screen the summary folds the downloads, then the app list, so it still never scrolls.
 
+### Added — Privacy: crash reports, if you want to help
+- Settings → Privacy → Send crash reports: when something goes wrong in Keeper, an anonymous report helps Ashforde fix it. Off until you switch it on.
+- A report says which Keeper and which kind of computer, the kind of error and where in Keeper's code it happened. Never the error's message, your folders, files, names or an ID.
+- Reports wait and go together, at most every 30 minutes. See what's sent shows exactly what waits and what went, and switching off deletes what was waiting.
+
 ### Added — Photo editor
 - Right-click any picture → Edit Photo (or Edit in Capture): crop to a shape, straighten, turn and flip, and set light, contrast, colour and warmth.
 - Drag over a face, a name or a number to blur, pixelate or cover it.

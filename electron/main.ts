@@ -145,6 +145,7 @@ import { registerReaderIpc } from './ipc/reader';
 import { registerPhoneAlertsIpc } from './ipc/phone-alerts';
 import { registerMonitorsIpc } from './ipc/site-monitor';
 import { registerPhotoIpc } from './ipc/photo';
+import { registerCrashReportsIpc } from './ipc/crash-reports';
 import { phoneAlert } from './services/phone-alerts';
 import { stopTimeTracking } from './services/time-track';
 import { focusChanged as focusBlockFocusChanged, focusStopRefusal, stopFocusBlock } from './services/focus-block';
@@ -1493,6 +1494,8 @@ app.whenReady().then(async () => {
   registerTimeTrackIpc({ broadcast });
   // The reader: feeds and pages saved for later (network only for what the person adds).
   registerReaderIpc({ broadcast, alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }) });
+  // Crash reports for Ashforde: nothing is collected or sent until the person switches them on.
+  registerCrashReportsIpc();
   // Alerts to your phone: nothing is sent until a channel is set up and an alert it is for happens.
   registerPhoneAlertsIpc({ broadcast });
   // The light photo editor: pictures in the library's folders, Pictures, Downloads and the screenshot folder.

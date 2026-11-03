@@ -2,14 +2,16 @@
 // Keeper's usage stats server, a Cloudflare Worker with a D1 database.
 //
 //   POST /v1/ping    one install's report(s), checked strictly against core/telemetry.ts
+//   POST /v1/crash   anonymous crash reports (opt-in in the app), checked against core/crash-report.ts
 //   GET  /v1/stats   aggregates only, for the dashboard; needs the STATS_TOKEN bearer secret
-//   cron (daily)     keeps a summary of yesterday and deletes raw rows older than 13 months
+//   cron (daily)     keeps a summary of yesterday, deletes raw rows older than 13 months and crash reports older than 90 days
 //
 // The client's address is never read, stored or logged: this code never
 // touches CF-Connecting-IP, X-Forwarded-For or request.cf, and never logs.
 // Cloudflare's own request logs are switched off in wrangler.toml (README).
 
-import { addDays, aggregate, authorized, dailySummary, dayOf, LOOKBACK_DAYS, MAX_BODY_BYTES, parsePing, rateDecision, retentionCutoff, ROW_COLUMNS, type PingRow } from './logic';
+import { addDays, aggregate, authorized, crashCutoff, CRASH_COLUMNS, CRASH_RATE_PER_MINUTE, dailySummary, dayOf, LOOKBACK_DAYS, MAX_BODY_BYTES, parseCrash, parsePing, rateDecision, retentionCutoff, ROW_COLUMNS, type PingRow } from './logic';
+import { CRASH_MAX_BODY } from '../../../core/crash-report';
 
 // The few D1 types used here (no @cloudflare/workers-types needed).
 interface D1Result<T> { results: T[] }
@@ -36,7 +38,7 @@ const CORS = { 'access-control-allow-origin': '*', 'access-control-allow-methods
 const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { ...JSON_HEADERS, ...CORS } });
 
 /** Reads at most MAX_BODY_BYTES + 1 bytes, so a huge body is refused without being read whole. */
-async function readCapped(req: Request): Promise<string | null> {
+async function readCapped(req: Request, max = MAX_BODY_BYTES): Promise<string | null> {
   if (!req.body) return '';
   const reader = req.body.getReader();
   const chunks: Uint8Array[] = [];
@@ -45,7 +47,7 @@ async function readCapped(req: Request): Promise<string | null> {
     const { done, value } = await reader.read();
     if (done) break;
     size += value.byteLength;
-    if (size > MAX_BODY_BYTES) { await reader.cancel().catch(() => undefined); return null; }
+    if (size > max) { await reader.cancel().catch(() => undefined); return null; }
     chunks.push(value);
   }
   const all = new Uint8Array(size);
@@ -75,6 +77,26 @@ async function ping(req: Request, env: Env): Promise<Response> {
   return json(200, { ok: true, stored: r.rows.length });
 }
 
+async function crash(req: Request, env: Env): Promise<Response> {
+  const declared = Number(req.headers.get('content-length'));
+  if (declared > CRASH_MAX_BODY) return json(413, { error: 'Too large' });
+  const text = await readCapped(req, CRASH_MAX_BODY);
+  if (text === null) return json(413, { error: 'Too large' });
+  const now = Date.now();
+  const r = await parseCrash({ contentType: req.headers.get('content-type'), declaredLength: Number.isFinite(declared) ? declared : null, text, now });
+  if (r.status !== 200) return json(r.status, { error: r.error });
+  // No install ID to count by: one window for the whole service keeps a flood out.
+  const key = 'crash-service';
+  const prev = await env.DB.prepare('SELECT window_start, count FROM rate WHERE install_id = ?').bind(key).first<{ window_start: number; count: number }>();
+  const rate = rateDecision(prev, now, CRASH_RATE_PER_MINUTE, 60_000);
+  await env.DB.prepare('INSERT INTO rate (install_id, window_start, count) VALUES (?, ?, ?) ON CONFLICT(install_id) DO UPDATE SET window_start = excluded.window_start, count = excluded.count').bind(key, rate.window_start, rate.count).run();
+  if (!rate.allowed) return json(429, { error: 'Too many requests' });
+  const cols = CRASH_COLUMNS.join(', ');
+  const marks = CRASH_COLUMNS.map(() => '?').join(', ');
+  await env.DB.batch(r.rows.map((row) => env.DB.prepare(`INSERT INTO crashes (${cols}) VALUES (${marks})`).bind(...CRASH_COLUMNS.map((c) => row[c]))));
+  return json(200, { ok: true, stored: r.rows.length });
+}
+
 async function rowsSince(env: Env, from: string, to: string): Promise<PingRow[]> {
   return (await env.DB.prepare('SELECT * FROM pings WHERE day >= ? AND day <= ?').bind(from, to).all<PingRow>()).results;
 }
@@ -97,6 +119,7 @@ async function daily(env: Env, now: number) {
   await env.DB.prepare('INSERT OR REPLACE INTO daily_summary (day, daily, weekly, monthly, data) VALUES (?, ?, ?, ?, ?)').bind(d.day, d.daily, d.weekly, d.monthly, d.data).run();
   await env.DB.prepare('DELETE FROM pings WHERE day < ?').bind(retentionCutoff(now)).run();
   await env.DB.prepare('DELETE FROM rate WHERE window_start < ?').bind(now - 2 * 86_400_000).run();
+  await env.DB.prepare('DELETE FROM crashes WHERE received_day < ?').bind(crashCutoff(now)).run();
 }
 
 export default {
@@ -104,6 +127,7 @@ export default {
     const { pathname } = new URL(req.url);
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
     if (pathname === '/v1/ping') return req.method === 'POST' ? ping(req, env).catch(() => json(500, { error: 'Server error' })) : json(405, { error: 'POST only' });
+    if (pathname === '/v1/crash') return req.method === 'POST' ? crash(req, env).catch(() => json(500, { error: 'Server error' })) : json(405, { error: 'POST only' });
     if (pathname === '/v1/stats') return req.method === 'GET' ? stats(req, env).catch(() => json(500, { error: 'Server error' })) : json(405, { error: 'GET only' });
     return json(404, { error: 'Not found' });
   },

@@ -7,9 +7,10 @@ usage stats and shows totals on a dashboard. What the app sends, and why, is in
 | | |
 | --- | --- |
 | `POST /v1/ping` | One install's report (and up to six earlier days it could not send). Checked strictly against the app's own schema in `core/telemetry.ts`: anything else, a body over 32 KB, or a day outside the last week is refused. At most 6 requests per install ID per hour. One row per install per day. |
+| `POST /v1/crash` | Anonymous crash and error reports, sent only by people who switched them on (Settings → Privacy). Checked strictly against `core/crash-report.ts`: an error's name, the process, the version and system, and stack frames reduced to function, file name and line; no message, no paths, no install ID. At most 20 reports and 24 KB per request; 600 requests a minute for the whole service. Kept 90 days. |
 | `GET /v1/stats` | Totals and percentages only, for the dashboard. Needs `Authorization: Bearer <STATS_TOKEN>`. |
 | `/` | The dashboard (`dashboard/index.html`): paste the token, press Load. |
-| Daily job (03:17 UTC) | Keeps a summary of yesterday (counts only, no install IDs) for good, deletes raw rows older than 13 months and old rate-limit windows. |
+| Daily job (03:17 UTC) | Keeps a summary of yesterday (counts only, no install IDs) for good, deletes raw rows older than 13 months, crash reports older than 90 days and old rate-limit windows. |
 
 **The client's internet address is never stored.** The code never reads
 `CF-Connecting-IP`, `X-Forwarded-For` or `request.cf`, never logs, and the
@@ -106,6 +107,7 @@ thousands of active installs; beyond that, move them into SQL `GROUP BY` queries
 | Raw rows (one per install per day) | 13 months, then deleted by the daily job |
 | Rate-limit windows (install ID, time, count) | 2 days |
 | Daily summaries (counts and percentages, no install IDs) | For good |
+| Crash reports (`crashes`, no install ID) | 90 days, then deleted by the daily job |
 
 To delete one install's rows on request (the person reads their ID in Settings → Privacy):
 

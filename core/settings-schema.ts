@@ -222,6 +222,7 @@ export const SETTINGS: SettingDef[] = [
 
   // ---------------------------------------------------------------- Privacy & permissions
   { id: 'permissions', section: 'privacy', label: 'Approvals', help: 'What Keeper may use on this computer, and why each part needs it.', level: 'basic', kind: 'panel', panel: 'permissions', keywords: ['permissions', 'accessibility', 'screen recording', 'microphone', 'camera', 'full disk access', 'allow'] },
+  { id: 'crashReports', section: 'privacy', label: 'Send crash reports', help: 'Off until you switch it on. Anonymous: never the message, files or names.', level: 'basic', kind: 'panel', panel: 'crashReports', network: true, keywords: ['crash', 'error reports', 'bug reports', 'diagnostics', 'telemetry', 'stack trace'] },
   { id: 'usageStats', section: 'privacy', label: 'Send anonymous usage stats', help: 'Once a day. Never your files, searches or names.', level: 'basic', kind: 'panel', panel: 'usageStats', network: true, keywords: ['telemetry', 'tracking', 'analytics', 'diagnostics', 'data collection'] },
   { id: 'privacy.ai', section: 'privacy', label: 'What AI may see', level: 'basic', kind: 'link', to: { name: 'settings', arg: 'ai#brain' }, keywords: ['ai privacy'] },
 
