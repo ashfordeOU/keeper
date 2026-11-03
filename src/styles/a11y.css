@@ -97,10 +97,10 @@ html[data-motion='reduce'] *, html[data-motion='reduce'] *::before, html[data-mo
 /* ------------------------------------------------------------------ larger text */
 
 /* The main window, terminal and Quick Search windows scale as a whole; the Island and pills keep their size. */
-html[data-scaled='true']:is([data-view='app'], [data-view='terminal']) #root { zoom: var(--ui-scale, 1); height: calc(100% / var(--ui-scale, 1)); }
+html[data-scaled='true']:is([data-view='app'], [data-view='page'], [data-view='terminal']) #root { zoom: var(--ui-scale, 1); height: calc(100% / var(--ui-scale, 1)); }
 /* Dialogs and Quick Look are drawn outside the page (straight in <body>), so they scale on their own. */
-html[data-scaled='true']:is([data-view='app'], [data-view='terminal']) body > .modal-back > .modal,
-html[data-scaled='true']:is([data-view='app'], [data-view='terminal']) body > .ql > .ql-window { zoom: var(--ui-scale, 1); }
+html[data-scaled='true']:is([data-view='app'], [data-view='page'], [data-view='terminal']) body > .modal-back > .modal,
+html[data-scaled='true']:is([data-view='app'], [data-view='page'], [data-view='terminal']) body > .ql > .ql-window { zoom: var(--ui-scale, 1); }
 
 /* ------------------------------------------------------------------ more contrast */
 

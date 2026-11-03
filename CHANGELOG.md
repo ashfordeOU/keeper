@@ -4,6 +4,16 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 
 ## [Unreleased]
 
+### Added — Any page in a window of its own
+- Every page can open in a window of its own: the window button in the top bar, right-click a page in the sidebar → Open in New Window, the command palette (Open Mail in New Window, or a page's name and "in New Window"), Window → New Window for This Page, or ⌥⌘N (Ctrl+Alt+N on Windows and Linux).
+- The window shows just that page, with its name in the top bar and in its title ("Mail — Keeper"), and no sidebar or tabs. It has the same frame as the main window.
+- Asking for a page that already has a window brings that window to the front instead of opening another.
+- Each page's window opens where it was last time, moved back onto a screen when that screen is gone.
+- Closing a page window never quits Keeper. On a Mac, page windows are listed in the Dock's menu and the Window menu.
+- While a Keeper window is in front, ⌥⌘N opens the page in a window of its own; everywhere else it is still the Island's New task.
+- In Notes, Ctrl+Alt+N no longer also makes a new note.
+- Keeper opens a page in its own window when started with `--keeper-open=mail` or given the link `keeper://open/mail` (any of Keeper's pages; anything else is ignored). Started this way, Keeper shows only that page's window.
+
 ### Added — Mail: Today at the top of the inbox
 - The inbox opens with a greeting for the time of day and your first name (from the name you send mail as; with none, no name), today's date, and today's events as cards from every calendar Keeper reads: time, title, the calendar's colour, "Now · until 6:45 PM" on the one going on, "Next" on the one after, and Join for Zoom, Google Meet, Teams, Webex, FaceTime, Jitsi and Whereby links. Join opens the meeting in your default app. The cards scroll sideways and can be reached with the keyboard; with no events the row is hidden, and a narrow window shows one "Now: …" or "Next: …" line.
 - While Mail is open, the bar at the top of the window shows the meeting going on, or the next one within 15 minutes, with Join.

@@ -6,7 +6,7 @@ import { openPermissions } from './PermissionsPanel';
 import { accessCommands } from '../screen/palette';
 import { FLOWS } from '../../core/guide/builtin';
 import { openGuide } from '../guide';
-import { useCommandFilter } from '../features';
+import { useCommandFilter, useHiddenRoutes } from '../features';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { THEMES } from '../../core/themes';
 import { TOOL_INFO, type ConvertTool } from '../../core/convert-types';
@@ -25,6 +25,7 @@ import { openNative } from '../lib/native';
 import { usageCommands } from '../screens/usage/palette';
 import { HUB_TABS, NAV_PAGES, navPage } from '../../core/nav';
 import { useT } from '../i18n';
+import { openInWindow, windowLabel } from '../page-window';
 
 interface Command {
   id: string;
@@ -126,6 +127,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
   // Places & Tracks: "Where is my laptop?" for each device, item and person (its settings can leave these out).
   const tracksCommands = useTracksCommands(store.go);
   const t = useT();
+  const hiddenRoutes = useHiddenRoutes();
   const commands = useMemo<Command[]>(() => [
     ...(rdc ? [
       { id: 'rdc-quick', label: 'Quick Connect to a Remote Desktop…', group: 'Actions' as const, icon: 'laptop', keywords: 'rdp vnc ssh remote desktop connect', run: () => void api.rdc.showQuick() },
@@ -138,6 +140,11 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     // AI usage: "Usage: …" (hidden with the tracker).
     ...usageCommands(store.toast, store.go),
     ...pageCommands(t, store.info?.home, store.go),
+    // The page in front in a window of its own, and any page by name ("Mail in New Window").
+    ...(api.windows ? [
+      { id: 'page-window', label: `Open ${windowLabel(store.route, t) ?? 'This Page'} in New Window`, group: 'Actions' as const, icon: 'external', kbd: mod === '⌘' ? '⌥⌘N' : 'Ctrl+Alt+N', keywords: 'new window separate window detach own window', run: () => void openInWindow(store.route, windowLabel(store.route, t), store.toast) },
+      ...NAV_PAGES.filter((p) => !hiddenRoutes.has(p.route.name)).map((p) => ({ id: `window-${p.id}`, label: `${p.i18n ? t(p.i18n) : p.label} in New Window`, group: 'Actions' as const, icon: p.icon, typed: true, keywords: `new window own window ${p.keywords ?? ''}`, run: () => void openInWindow(p.route, p.i18n ? t(p.i18n) : p.label, store.toast) })),
+    ] : []),
     { id: 'rescan', label: 'Rescan Library', group: 'Actions', icon: 'refresh', keywords: 'index refresh reload', run: async () => { await api.library.rescan(); store.toast('Reading your folders…'); } },
     { id: 'setup-again', label: 'Set Up Keeper Again…', group: 'Actions', icon: 'sparkle', keywords: 'welcome tour first run onboarding recommended presets choose parts', run: () => openSetupAgain() },
     { id: 'check-updates', label: 'Check for Updates…', group: 'Actions', icon: 'refresh', keywords: 'update upgrade new version release software', run: () => void api.appInfo.openUpdateWindow() },
@@ -241,7 +248,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     ...[5, 10, 25].map((m) => ({ id: `timer-${m}`, label: `Start a ${m}-Minute Timer`, group: 'Actions' as const, icon: 'timer', keywords: 'countdown kitchen', run: async () => { await api.pim.startTimer(`${m} min`, m * 60_000); store.toast(`Timer set for ${m} minutes`); } })),
     { id: 'shelf-clear', label: 'Clear the Shelf', group: 'Actions', icon: 'island', run: async () => { await api.island.clearShelf(); } },
     ...tracksCommands,
-  ], [store, meshCmds, ambienceCmds, voiceCmds, rdc, tracksCommands, t]);
+  ], [store, meshCmds, ambienceCmds, voiceCmds, rdc, tracksCommands, t, hiddenRoutes]);
 
   const allowed = useCommandFilter();
   const looksLikeSearch = text.trim().length > 1;

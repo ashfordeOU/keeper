@@ -38,6 +38,16 @@ of them. The parts take nothing of their own from the system.
 - `electron/suite/mail.ts` (in the app) and `electron/services/pim/route.ts`: the app's callers (the `pim.*` IPC handlers, the `keeper` command's and agents' mail and calendar tools, MCP mail, Voice's meeting list, the Island's focus log) call `pimCalls` / `pimToolCalls`, which go to the Mail part when it runs, and are answered in the app when Keeper is one process. What the Mail part reports (new Important mail and other alerts for the Island, its next meeting, timers and due reminders, `pim-changed` for the windows, "show the calendar") comes back as `note` messages and goes where it always went.
 - `electron/ipc/island.ts`, `electron/ipc/widgets.ts`: the window code, shared by both placements (in the app, or in the part).
 
+## Windows of the app
+
+Every page is a page of the main window, and any page can also open in a window of its own
+(Open in New Window, ⌥⌘N / Ctrl+Alt+N). Those windows belong to the app process, like the
+main window: they load the same interface and preload, so every IPC handler answers them and
+`broadcast()` reaches them. `--keeper-open=<page>` and `keeper://open/<page>` open a page's
+window through the single-instance lock, starting Keeper hidden first when needed. Page
+windows are not parts: no process of their own, and nothing to restart.
+See [Pages in windows of their own](WINDOWS.md).
+
 ## The channel
 
 - The app listens on a Unix socket (a named pipe on Windows) in `<userData>/suite/`

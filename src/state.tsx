@@ -5,6 +5,7 @@
 import { linkInMessage } from '../core/settings-links';
 import { expireToast, pushToast, toastLife } from './lib/toasts';
 import { rememberRoute, scrollMap, seedScroll, setPlaceMemory, startPlace, onScrollChanged } from './place';
+import { IS_PAGE_WINDOW, PAGE_WINDOW_START } from './page-window';
 import { activeTab, closeOthers, closeTab, closeToRight, detachTab, duplicateTab, emptyWindow, goBack, goForward, moveTab, navigate, newTab, openTab, pinTab, reopenClosed, selectTab, type Tab, type WindowState } from '../core/session';
 import type { SessionInitial } from '../core/api-session';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -170,6 +171,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       seedScroll(boot.state.scroll);
       return boot.state;
     }
+    // A page in a window of its own starts on its page; the main window where it was left.
+    if (PAGE_WINDOW_START) return emptyWindow(boot.key, PAGE_WINDOW_START as Route);
     const w = emptyWindow(boot.key, startPlace?.route ?? { name: 'home' });
     w.tabs[0].back = (startPlace?.history ?? []).slice(-30);
     return w;
@@ -221,7 +224,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return () => offs.forEach((o) => o());
   }, []);
 
-  useEffect(() => rememberRoute(route, tab.back as Route[]), [route, tab.back]);
+  // Where the main window was, for its next start (a page window's place is its own session's).
+  useEffect(() => { if (!IS_PAGE_WINDOW) rememberRoute(route, tab.back as Route[]); }, [route, tab.back]);
   // Anonymous usage stats count page opens by name only (nothing is kept while they are off).
   useEffect(() => { void api.usageStats?.page(route.name).catch(() => undefined); }, [route.name]);
   useEffect(() => {
@@ -240,7 +244,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // Settings → Accessibility: motion, text size and focus outlines, in every window.
   useEffect(() => (settings ? applyA11y(settings.a11y) : undefined), [settings]);
 
-  const tabsOn = settings?.tabs !== false;
+  // A page window has no tabs: ⌘-click and middle-click open in it as a plain click does.
+  const tabsOn = settings?.tabs !== false && !IS_PAGE_WINDOW;
   const go = useCallback((r: Route) => {
     const intent = tabsOn ? takeNewTabIntent() : null;
     setWin((w) => (intent ? openTab(w, r, { background: intent.background }) : navigate(w, r)));

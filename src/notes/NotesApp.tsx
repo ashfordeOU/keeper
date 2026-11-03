@@ -428,7 +428,8 @@ export function NotesApp() {
       const k = e.key.toLowerCase();
       if (k === 'o' && !e.shiftKey) { e.preventDefault(); setModal({ kind: 'switcher' }); }
       else if (k === 'p' && !e.shiftKey) { e.preventDefault(); e.stopPropagation(); setModal({ kind: 'palette' }); }
-      else if (k === 'n' && !e.shiftKey) { e.preventDefault(); void newFile('note'); }
+      // Not with Alt: ⌥⌘N / Ctrl+Alt+N opens the page in a window of its own.
+      else if (k === 'n' && !e.shiftKey && !e.altKey) { e.preventDefault(); void newFile('note'); }
       else if (k === 'f' && e.shiftKey) { e.preventDefault(); setLayout((l) => ({ ...l, left: 'search', leftOpen: true })); }
       else if (k === 'e' && !e.shiftKey && activeTab) { e.preventDefault(); setMode(activeTab.id, activeTab.mode === 'reading' ? 'live' : 'reading'); }
       else if (k === 'w' && !e.shiftKey && activeTab) { e.preventDefault(); e.stopPropagation(); closeTab(layout.focus, activeTab.id); }

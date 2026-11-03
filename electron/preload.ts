@@ -120,6 +120,8 @@ const api = {
   tools: group('tools', ['networkInfo', 'publicIp', 'tweaks', 'setTweak', 'clearQuarantine', 'resetPermissions', 'pickApp', 'pickFiles', 'saveAs']),
   folders: group('folders', ['tidy']),
   aiActions: group('aiActions', ['provider', 'suggestName', 'summarize', 'receipts', 'altText', 'translateSubtitles']),
+  // Pages in windows of their own.
+  windows: group('windows', ['openPage', 'list']),
   // Tabs and windows that survive crashes (see electron/resilience.ts).
   session: {
     ...group('session', ['openWindow', 'lastSession', 'log', 'openDumps', 'report', 'relaunch', 'rendererError']),

@@ -435,6 +435,8 @@ export interface KeeperApi extends KeeperApiX {
   session: import('./api-session').SessionApi;
   /** Keeper's own processes and services */
   svc: import('./api-session').SvcApi;
+  /** pages in windows of their own (core/page-window.ts; absent in the browser demo) */
+  windows?: import('./page-window').PageWindowsApi;
   /** the suite's parts: the Island and widgets in processes of their own (docs/SUITE.md) */
   suite?: import('./api-suite').SuiteApi;
   /** the Island's tools: Ask, AI usage, sales, stocks, notes, to-dos, teleprompter, shortcuts */
@@ -796,7 +798,7 @@ export interface KeeperApi extends KeeperApiX {
   on(channel: 'navigate', cb: (route: string) => void): () => void;
   on(channel: 'dictation', cb: (state: 'start' | 'stop') => void): () => void;
   on(channel: 'palette', cb: () => void): () => void;
-  on(channel: 'toggle-inspector' | 'toggle-sidebar', cb: () => void): () => void;
+  on(channel: 'toggle-inspector' | 'toggle-sidebar' | 'open-in-window', cb: () => void): () => void;
   /** a feature needs a system permission now (the window points to Settings → Permissions) */
   on(channel: 'permission-needed', cb: (p: { id: string; feature?: string }) => void): () => void;
   /** the keychain started or stopped refusing Keeper's saved sign-ins */

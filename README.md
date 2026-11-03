@@ -67,6 +67,7 @@ Keeper is one app you install once. It is made of parts you switch on and off in
 - **Your files stay on your computer.** No account and no ads. [Privacy and security](#privacy-and-security) says what can go online.
 - **Nothing is lost.** Files go to the Trash, every change is in Undo History, and moves and renames can be undone.
 - **Mail that keeps up.** Important and Other inboxes, Send later, Snooze, Follow up, one-click Unsubscribe, rules and warnings about fake senders. Accounts connect with an app password; one-click sign-in with Google and Microsoft is not available yet.
+- **Any page in its own window.** Open Mail, Calendar or any other page in a window of its own ([docs/WINDOWS.md](docs/WINDOWS.md)).
 - **One search for everything.** Files, mail, events, tasks, contacts, notes, settings and Keeper's own pages from one box.
 - **Folders like Finder and File Explorer.** Icons, list, columns or gallery; copy, cut, paste and drag, with Replace, Keep Both or Skip.
 - **Studio.** Automatic zooms where you click, captions made on this computer, and export to MP4, WebM or GIF up to 4K.
@@ -198,7 +199,7 @@ Every update is checked before it is installed: it must match the release's `SHA
 | Area | Documents |
 |---|---|
 | Getting started | [Install](docs/INSTALL.md) · [Permissions](docs/PERMISSIONS.md) · [Themes](docs/THEMES.md) · [Accessibility](docs/ACCESSIBILITY.md) |
-| The suite | [Keeper as a suite](docs/SUITE.md) · [Parts downloaded when switched on](docs/COMPONENTS.md) · [Staying up after a crash](docs/RESILIENCE.md) · [Works with your computer](docs/PLATFORM.md) |
+| The suite | [Keeper as a suite](docs/SUITE.md) · [Pages in windows of their own](docs/WINDOWS.md) · [Parts downloaded when switched on](docs/COMPONENTS.md) · [Staying up after a crash](docs/RESILIENCE.md) · [Works with your computer](docs/PLATFORM.md) |
 | Files | [Cloud and servers](docs/CONNECT.md) · [PDF tools and Convert](docs/FILEKIT.md) |
 | Mail & Calendar | [Mail, calendars, reminders and the clock](docs/PIM.md) · [Planner](docs/PLANNER.md) |
 | Notes | [Notes](docs/NOTES.md) · [Notes from other apps](docs/NOTES-EVERYWHERE.md) |

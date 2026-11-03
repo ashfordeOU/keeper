@@ -16,6 +16,7 @@ import { DEFAULT_PLATFORM } from './platform-integrations';
 import { defaultHomeSettings, normalizeHome } from './home-layout';
 import { DEFAULT_THEME, THEMES } from './themes';
 import type { Rule, Settings } from './types';
+import { sanitizePageWindows } from './page-window';
 
 export type AllSettings = Settings & { island: IslandSettings };
 
@@ -130,6 +131,7 @@ export function defaultSettings(folders: string[], rules: Rule[]): AllSettings {
     resourceMode: 'balanced',
     features: {},
     sidebarHidden: [],
+    pageWindows: {},
     featureSets: [],
     menuBarOneIcon: false,
     glance: {},
@@ -192,6 +194,7 @@ export function mergeSettings(base: AllSettings, raw: unknown): AllSettings {
   out.agents = normalizeAgentSettings(out.agents);
   out.awake = normalizeAwakeSettings(out.awake, r.island && typeof r.island === 'object' ? (r.island as { awakeTriggers?: unknown }).awakeTriggers : undefined);
   if (!Array.isArray(out.featureSets)) out.featureSets = [];
+  out.pageWindows = sanitizePageWindows(out.pageWindows);
   // The AI usage tracker's own menu-bar item became a card in the owl's glance: someone who had
   // switched the item off does not get the card either. (The old feature switch is dropped.)
   if (out.features && 'usageMenuBar' in out.features) {

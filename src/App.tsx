@@ -104,6 +104,7 @@ import { viewScope, viewsFor } from '../core/folder-view';
 import { setSidebarPinned, setSidebarWidth, useSidebarLocal } from './sidebar-state';
 import { QuickLookHost } from './preview/QuickLook';
 import { FileOpsHost } from './fileops';
+import { IS_PAGE_WINDOW, openInWindow, PAGE_WINDOW_LABEL, windowLabel } from './page-window';
 import { ThemeQuickPicker } from './components/ThemeQuickPicker';
 import { toggleThemePatch } from './theme';
 import { useProgressAnnouncer } from './a11y';
@@ -137,7 +138,7 @@ function SuiteRows({ pages }: { pages: NavPage[] }) {
 }
 
 function NavItem({ route, also, icon, label, count, color, tip }: { route: Route; /** other routes of the same page (its tabs) */ also?: string[]; icon?: string; label: string; count?: number | string; /** a filled tile in this colour: a collection, never a folder */ color?: string; tip?: string }) {
-  const { route: cur, go, settings, updateSettings, tabs } = useStore();
+  const { route: cur, go, settings, updateSettings, tabs, toast } = useStore();
   const hiddenRoutes = useHiddenRoutes();
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const active = (cur.name === route.name && (cur.arg ?? '') === (route.arg ?? '')) || !!also?.includes(cur.name) || (!!also && cur.name === route.name);
@@ -151,7 +152,10 @@ function NavItem({ route, also, icon, label, count, color, tip }: { route: Route
     <>
     {menu ? (
       <ContextMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)} items={[
-        ...(settings?.tabs !== false ? [{ label: 'Open in New Tab', icon: 'plus', run: () => tabs.open(to) }, { sep: true, label: '' }] : []),
+        ...(settings?.tabs !== false ? [{ label: 'Open in New Tab', icon: 'plus', run: () => tabs.open(to) }] : []),
+        // The page in a window of its own (or its window brought forward).
+        { label: 'Open in New Window', icon: 'external', run: () => void openInWindow(to, label, toast) },
+        { sep: true, label: '' },
         { label: 'Remove from Sidebar', icon: 'close', run: () => settings && void updateSettings({ sidebarHidden: [...(settings.sidebarHidden ?? []), key] }) },
         { label: 'Customize Sidebar…', icon: 'settings', run: () => go({ name: 'settings', arg: 'appearance#sidebar' }) },
       ]} />
@@ -272,9 +276,10 @@ function SidebarNav({ rail, expanded, onToggle, canPin }: { rail: boolean; expan
   );
 }
 
-function TopBar({ onPalette }: { onPalette: () => void }) {
-  const { route, go, back, canBack, forward, canForward, inspector, setInspector } = useStore();
+function TopBar({ onPalette, page }: { onPalette: () => void; /** a page in a window of its own: its name instead of the search box */ page?: boolean }) {
+  const { route, go, back, canBack, forward, canForward, inspector, setInspector, toast } = useStore();
   const t = useT();
+  const here = windowLabel(route, t);
   const [text, setText] = useState(route.name === 'search' ? route.q ?? '' : '');
   useEffect(() => {
     if (route.name === 'search') setText(route.q ?? '');
@@ -293,7 +298,7 @@ function TopBar({ onPalette }: { onPalette: () => void }) {
     <header className="topbar">
       <button className="btn ghost icon sm" disabled={!canBack} onClick={back} title="Back" aria-label="Back"><Icon name="chevronLeft" size={16} /></button>
       {canForward ? <button className="btn ghost icon sm" onClick={forward} title="Forward" aria-label="Forward"><Icon name="chevronRight" size={16} /></button> : null}
-      <div className="searchbox">
+      {page ? <div className="page-window-title" data-testid="page-window-title">{here ?? PAGE_WINDOW_LABEL}</div> : <div className="searchbox">
         <Icon name="search" size={15} />
         <input
           id="search"
@@ -309,7 +314,7 @@ function TopBar({ onPalette }: { onPalette: () => void }) {
           }}
         />
         <kbd aria-hidden>{mod}F</kbd>
-      </div>
+      </div>}
       <div className="spacer" />
       {/* In Mail: the meeting going on, or starting within 15 minutes, with Join. */}
       <MeetingChip />
@@ -317,6 +322,8 @@ function TopBar({ onPalette }: { onPalette: () => void }) {
       {FILE_ROUTES.includes(route.name) ? (
         <button className={`btn ghost icon ${inspector ? 'on' : ''}`} aria-pressed={inspector} aria-controls={inspector ? 'inspector' : undefined} data-testid="inspector-toggle" title={`${inspector ? 'Hide' : 'Show'} Inspector (${mod === '⌘' ? '⌘⌥I' : 'Ctrl+Alt+I'})`} onClick={() => setInspector(!inspector)}><Icon name="info" size={16} /></button>
       ) : null}
+      {/* This page in a window of its own (⌥⌘N / Ctrl+Alt+N; also the Window menu and the sidebar's right-click). */}
+      {page ? null : <button className="btn ghost icon" data-testid="open-in-window" title={`Open in New Window (${mod === '⌘' ? '⌥⌘N' : 'Ctrl+Alt+N'})`} aria-label="Open in New Window" onClick={() => void openInWindow(route, here, toast)}><Icon name="external" size={16} /></button>}
       <button className="btn ghost icon" title={`Command palette (${mod}K)`} aria-label={`Command palette (${mod}K)`} onClick={onPalette}><Icon name="sparkle" size={16} /></button>
       <ThemeQuickPicker title={`Theme and light or dark (${mod}${shift}L swaps the last two)`} />
     </header>
@@ -476,7 +483,7 @@ function InspectorPane({ shown }: { shown: boolean }) {
     window.addEventListener('resize', on);
     return () => window.removeEventListener('resize', on);
   }, []);
-  const sidebar = document.querySelector<HTMLElement>('.sidebar-col')?.offsetWidth ?? 228;
+  const sidebar = IS_PAGE_WINDOW ? 0 : document.querySelector<HTMLElement>('.sidebar-col')?.offsetWidth ?? 228;
   const range = inspectorRange(winW, sidebar);
   const w = Math.min(range.max, live ?? inspectorWidth);
   return (
@@ -496,6 +503,8 @@ function clearsSelection(target: EventTarget | null): boolean {
 
 export function App() {
   const store = useStore();
+  // A page in a window of its own: the page alone, without the sidebar, tabs or the main window's prompts.
+  const page = IS_PAGE_WINDOW;
   const [palette, setPalette] = useState(false);
   const showInspector = store.inspector;
   const side = useSidebarLayout();
@@ -515,6 +524,9 @@ export function App() {
         const files = store.selection;
         if (files.length) { e.preventDefault(); void api.library.readText(files).then((r) => { const t = r.map((x) => x.text).filter(Boolean).join('\n\n'); if (t) { void api.files.copyText(t); store.toast(`Copied text from ${r.filter((x) => x.text).length} file(s)`); } else store.toast('No text found in the selection'); }); }
       }
+      // ⌥⌘N / Ctrl+Alt+N: this page in a window of its own (also the Window menu; while the Island's
+      // New task shortcut holds these keys, the main process passes them on as open-in-window).
+      else if (cmd && e.altKey && !e.shiftKey && e.code === 'KeyN') { e.preventDefault(); void openInWindow(store.route, windowLabel(store.route), store.toast); }
       // ⌘⌥S / Ctrl+Alt+S folds the sidebar to its rail or keeps it open.
       else if (cmd && e.altKey && !e.shiftKey && e.code === 'KeyS') { e.preventDefault(); toggleSidebar(side.rail, side.mode, store.toast); }
       // ⌘⌥I / Ctrl+Alt+I (and ⌘I / Ctrl+I) shows or hides the Inspector.
@@ -540,7 +552,8 @@ export function App() {
     const onSide = () => toggleSidebar(side.rail, side.mode, store.toast);
     const offSide = api.on('toggle-sidebar', onSide);
     window.addEventListener('keeper-toggle-sidebar', onSide);
-    return () => { window.removeEventListener('keydown', onKey); off(); offSide(); window.removeEventListener('keeper-toggle-sidebar', onSide); };
+    const offWin = api.on('open-in-window', () => void openInWindow(store.route, windowLabel(store.route), store.toast));
+    return () => { window.removeEventListener('keydown', onKey); off(); offSide(); offWin(); window.removeEventListener('keeper-toggle-sidebar', onSide); };
   }, [store, side.rail, side.mode]);
 
   // Settings → Permissions, from the palette, a feature that needs one, or after "Restart Keeper now".
@@ -556,22 +569,34 @@ export function App() {
   useProgressAnnouncer();
 
   return (
-    <div className={`shell ${side.rail ? 'has-rail' : ''}`} style={{ ['--sidebar' as string]: `${side.rail ? SIDEBAR_RAIL : side.width}px` }} onClick={(e) => { if ((store.selection.length || store.focused) && clearsSelection(e.target)) store.setSelection([]); }}>
+    <div className={`shell ${side.rail && !page ? 'has-rail' : ''} ${page ? 'page-window' : ''}`} style={{ ['--sidebar' as string]: page ? '0px' : `${side.rail ? SIDEBAR_RAIL : side.width}px` }} onClick={(e) => { if ((store.selection.length || store.focused) && clearsSelection(e.target)) store.setSelection([]); }}>
       {/* Keyboard users can jump past the sidebar straight to the page. */}
-      <button className="skip-link" onClick={() => contentEl()?.focus()}>Skip to content</button>
-      <Sidebar rail={side.rail} width={side.width} mode={side.mode} />
+      {page ? null : <button className="skip-link" onClick={() => contentEl()?.focus()}>Skip to content</button>}
+      {page ? <div /> : <Sidebar rail={side.rail} width={side.width} mode={side.mode} />}
       <main className="main">
-        <TopBar onPalette={() => setPalette(true)} />
+        <TopBar onPalette={() => setPalette(true)} page={page} />
         {/* Tabs: middle-click or ⌘/Ctrl-click anything to open it in a new one; they survive restarts and crashes. */}
-        <TabStrip />
-        <RecoveryNotice />
-        <div className="content" id="content" tabIndex={-1}><UpdateBanner /><KeychainBanner /><CoachHost route={store.route} /><PageHints route={store.route}><PageBoundary route={`${store.route.name}:${store.route.arg ?? ''}:${store.route.q ?? ''}`}><Page /></PageBoundary></PageHints></div>
+        {page ? null : <TabStrip />}
+        {page ? null : <RecoveryNotice />}
+        <div className="content" id="content" tabIndex={-1}>{page ? null : <UpdateBanner />}<KeychainBanner />{page ? null : <CoachHost route={store.route} />}<PageHints route={store.route}><PageBoundary route={`${store.route.name}:${store.route.arg ?? ''}:${store.route.q ?? ''}`}><Page /></PageBoundary></PageHints></div>
       </main>
       <InspectorPane shown={showInspector} />
       {palette ? <CommandPalette onClose={() => setPalette(false)} /> : null}
-      <WhatsNew />
       <QuickLookHost />
       <FileOpsHost />
+      {page ? <PageWindowToasts /> : <MainWindowHosts />}
+    </div>
+  );
+}
+
+/**
+ * What only the main window shows: alarms ringing, prompts from other devices, approvals, guided fixes,
+ * the tour and What's new. A page window leaves them out, so each appears once, however many windows are open.
+ */
+function MainWindowHosts() {
+  return (
+    <>
+      <WhatsNew />
       {/* An alarm or timer that is ringing, with Snooze and Stop. */}
       <RingHost />
       <LinkPrompts />
@@ -584,15 +609,23 @@ export function App() {
       <TourHost />
       {/* A feature that needs a system permission points to Settings → Permissions. */}
       <PermissionNudgeHost />
-      <div className="toast-stack" role="status" aria-live="polite">
-        {store.toasts.map((t) => (
-          <div className="toast" key={t.id}>
-            <span>{t.text}</span>
-            {t.count > 1 ? <span className="toast-count" aria-label={`${t.count} times`}>×{t.count}</span> : null}
-            {t.action ? <button className="btn sm" onClick={t.action.run}>{t.action.label}</button> : null}
-          </div>
-        ))}
-      </div>
+      <PageWindowToasts />
+    </>
+  );
+}
+
+/** Messages at the bottom of the window. */
+function PageWindowToasts() {
+  const store = useStore();
+  return (
+    <div className="toast-stack" role="status" aria-live="polite">
+      {store.toasts.map((t) => (
+        <div className="toast" key={t.id}>
+          <span>{t.text}</span>
+          {t.count > 1 ? <span className="toast-count" aria-label={`${t.count} times`}>×{t.count}</span> : null}
+          {t.action ? <button className="btn sm" onClick={t.action.run}>{t.action.label}</button> : null}
+        </div>
+      ))}
     </div>
   );
 }

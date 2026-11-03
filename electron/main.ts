@@ -153,6 +153,8 @@ import { registerSetupIpc } from './services/setup';
 import { setNudgeElsewhere } from './services/permission-nudge';
 import { catalogueFor } from '../core/permissions';
 import { nativeApps, nativeOpen } from './services/native-apps';
+import { anyPageWindowShown, lastPageWindowClosedAt, openPageWindow, pageOfWindow, registerPageWindows } from './services/page-windows';
+import { pageFromArgv, pageFromUrl, routeOfPage } from '../core/page-window';
 
 void squarify; // the interface lays out the Space Map; kept for the CLI's future text treemap
 
@@ -190,6 +192,13 @@ let vision: VisionQueue;
 let islandSvc: IslandService;
 let lastCleanup: CleanupGroup[] = [];
 let quitting = false;
+/**
+ * Started to open one page in a window of its own (a separate app icon: Keeper Mail…, or
+ * --keeper-open / keeper://open/<page>): the main window stays hidden, as when started at login.
+ */
+let startedForPage = pageFromArgv(process.argv);
+/** When a page window was last opened from outside (macOS: the activation that follows is not a click on the Dock icon). */
+let pageOpenedAt = 0;
 /** Mail and calendars runs in this process (Keeper as one process), not in a part of its own. */
 let pimInApp = false;
 
@@ -242,8 +251,8 @@ declare const __KEEPER_OFFICIAL__: boolean | undefined;
 // Automated tests can skip the first-run tour; official builds ignore this.
 const NO_TOUR = !(typeof __KEEPER_OFFICIAL__ === 'boolean' && __KEEPER_OFFICIAL__) && process.env.KEEPER_SKIP_TOUR === '1';
 
-function load(win: BrowserWindow, view: string) {
-  const extra: Record<string, string> = view === 'app' && NO_TOUR ? { notour: '1' } : {};
+function load(win: BrowserWindow, view: string, query: Record<string, string> = {}) {
+  const extra: Record<string, string> = { ...query, ...((view === 'app' || view === 'page') && NO_TOUR ? { notour: '1' } : {}) };
   if (DEV_URL) void win.loadURL(`${DEV_URL}?${new URLSearchParams({ view, ...extra })}`);
   else void win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'), { query: { view, ...extra } });
 }
@@ -276,13 +285,14 @@ function createMain() {
   lockDown(main);
   load(main, 'app');
   // Started at login: stay in the tray until the user opens Keeper.
-  main.once('ready-to-show', () => { if (!(process.argv.includes('--hidden') || startedForSearch) || main?.isVisible()) main?.show(); });
+  main.once('ready-to-show', () => { if (!(process.argv.includes('--hidden') || startedForSearch || startedForPage) || main?.isVisible()) main?.show(); });
   main.on('close', (e) => {
     // Keep running in the tray so Quick Search, the Island and rules keep working.
     if (!quitting && settings().trayEnabled) {
       e.preventDefault();
       main?.hide();
-      if (isMac) app.dock?.hide();
+      // Page windows still open keep the Dock icon (and their entries in its menu).
+      if (isMac && !anyPageWindowShown()) app.dock?.hide();
       releaseMainLater();
     }
   });
@@ -320,6 +330,7 @@ function releaseMainLater() {
 }
 
 function showMain(route?: string) {
+  startedForPage = undefined;
   if (!main) createMain();
   if (isMac) void app.dock?.show();
   main!.show();
@@ -418,7 +429,18 @@ function appMenu(): Menu {
         { role: 'quit' as const },
       ],
     }] : []),
-    { role: 'fileMenu' }, { role: 'editMenu' }, { role: 'viewMenu' }, { role: 'windowMenu' },
+    { role: 'fileMenu' }, { role: 'editMenu' }, { role: 'viewMenu' },
+    // The system's Window menu (on a Mac it lists every window, page windows included), with
+    // New Window for This Page (⌥⌘N / Ctrl+Alt+N).
+    {
+      label: 'Window', role: 'window', submenu: [
+        { role: 'minimize' },
+        ...(isMac ? [{ role: 'zoom' as const }] : [{ role: 'close' as const }]),
+        { type: 'separator' as const },
+        { label: 'New Window for This Page', accelerator: 'CmdOrCtrl+Alt+N', click: () => pageInNewWindow() },
+        ...(isMac ? [{ type: 'separator' as const }, { role: 'front' as const }] : []),
+      ],
+    },
     help,
   ]);
 }
@@ -623,7 +645,30 @@ const intentDeps: IntentDeps = {
   },
 };
 
+/** Opens one of Keeper's pages in a window of its own (a launcher, a link, the command line). */
+function openPage(id: string) {
+  const route = routeOfPage(id);
+  if (!route) return;
+  pageOpenedAt = Date.now();
+  openPageWindow(route);
+}
+
+/**
+ * New Window for This Page (the Window menu, ⌥⌘N / Ctrl+Alt+N): the window in front opens the page
+ * it shows in a window of its own (it knows its page and tab); with no Keeper window in front, the
+ * main window comes forward.
+ */
+function pageInNewWindow() {
+  const f = BrowserWindow.getFocusedWindow();
+  const url = f && !f.isDestroyed() ? f.webContents.getURL() : '';
+  if (f && (pageOfWindow(f) || /[?&]view=app\b/.test(url) || (url && !url.includes('view=')))) f.webContents.send('event:open-in-window');
+  else showMain();
+}
+
 function handleDeepLink(url: string) {
+  // keeper://open/mail: that page in a window of its own.
+  const page = pageFromUrl(url);
+  if (page) return openPage(page);
   if (handlePlatformUrl(url)) return;
   // Pages, the focus timer, locking folders and automations, for Siri, Shortcuts and desktop assistants.
   if (handleIntentUrl(url, intentDeps)) return;
@@ -668,6 +713,8 @@ function handleDeepLink(url: string) {
 
 app.on('open-url', (e, url) => {
   e.preventDefault();
+  // A separate app icon started Keeper: only its page's window shows, not the main window.
+  if (!app.isReady() && pageFromUrl(url)) startedForPage = pageFromUrl(url);
   if (app.isReady()) handleDeepLink(url);
   else app.once('ready', () => handleDeepLink(url));
 });
@@ -677,6 +724,9 @@ onPartOpenUrl((url) => handleDeepLink(url));
 
 /** Another start of Keeper (this copy or any other) handed over its command line. */
 function onSecondInstance(argv: string[]) {
+  // --keeper-open=calendar (Keeper Calendar on Windows and Linux): that page in a window of its own.
+  const page = pageFromArgv(argv);
+  if (page) return openPage(page);
   // A .rdp or .vnc file double-clicked or "Connect with Keeper" in the file manager.
   if (handleRdcArgv(argv)) return;
   if (handlePlatformArgv(argv)) return;
@@ -1562,7 +1612,14 @@ let studioSince: number | undefined;
   initResilience({ preload, lockDown, restore: () => settings().restorePlace !== false, main: () => main });
   // What Keeper was doing, kept where a crash cannot erase it (session/breadcrumbs.json).
   startBreadcrumbs({ polls: pollerSnapshot, crashedLastTime: lastRun.unclean });
-  if (!process.argv.includes('--hidden') || settings().resourceMode === 'performance') createMain();
+  // Pages in windows of their own (core/page-window.ts).
+  registerPageWindows({ preload, lockDown, load, changed: () => {
+    // macOS: the Dock icon stays while a page window or the main window is open; with only the tray left, it goes as before.
+    if (!isMac) return;
+    if (anyPageWindowShown() || main?.isVisible()) void app.dock?.show();
+    else if (settings().trayEnabled) app.dock?.hide();
+  } });
+  if (!(process.argv.includes('--hidden') || startedForPage) || settings().resourceMode === 'performance') createMain();
   restoreExtraWindows();
   await index.load();
   registerPlatformIpc({ ask: askKeeper });
@@ -1639,7 +1696,9 @@ let studioSince: number | undefined;
   void rescan();
 
   const link = process.argv.find((a) => a.startsWith('keeper://'));
-  if (link) handleDeepLink(link);
+  const startPage = pageFromArgv(process.argv);
+  if (startPage) openPage(startPage);
+  else if (link) handleDeepLink(link);
   else if (!handleRdcArgv(process.argv)) handlePlatformArgv(process.argv);
 
   // File changes in watched folders arrive at once; this full re-read catches the rest.
@@ -1670,7 +1729,9 @@ let studioSince: number | undefined;
     broadcast('settings-changed', next);
   });
 
-  app.on('activate', () => showMain());
+  // A click on the Dock icon brings the main window; the activation that comes with a page opened
+  // by a separate app icon (Keeper Mail…) does not.
+  app.on('activate', () => { if (Date.now() - pageOpenedAt > 1500) showMain(); });
 });
 
 // Folders set to lock again when Keeper quits are locked first; quitting then carries on.
@@ -1716,6 +1777,8 @@ app.on('before-quit', (e) => {
   }
 });
 
+// Closing a page window never quits Keeper: only closing the last window when the main window was
+// the one closed (with no tray to come back from) does. Starting Keeper again shows it.
 app.on('window-all-closed', () => {
-  if (!settings().trayEnabled) app.quit();
+  if (!settings().trayEnabled && Date.now() - lastPageWindowClosedAt() > 1000) app.quit();
 });

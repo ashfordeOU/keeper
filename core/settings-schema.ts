@@ -453,7 +453,7 @@ export function groupHits(hits: SearchHit[], per = 3): { section: SectionId; hit
 export const SETTINGS_FILE_VERSION = 1;
 
 /** Never leave the computer in an export, and never come in from an import. */
-const NEVER = ['lastRunVersion', 'menuBarOneIcon', 'updatePlan', 'updateSkip', 'updateBetaChosen', 'permissionsAsked', 'permissionsSetup', 'recentServers', 'island.upload', 'island.calendarUrl', 'island.place', 'island.driveKeepAwake', 'features', 'featureSets'];
+const NEVER = ['lastRunVersion', 'menuBarOneIcon', 'updatePlan', 'updateSkip', 'updateBetaChosen', 'permissionsAsked', 'permissionsSetup', 'recentServers', 'island.upload', 'island.calendarUrl', 'island.place', 'island.driveKeepAwake', 'features', 'featureSets', 'pageWindows'];
 /** Paths that differ between computers: exported only when asked for. */
 const FOLDER_PATHS = ['folders', 'excluded', 'pinned', 'hiddenPlaces', 'rules', 'sync', 'island.clipIgnoreApps'];
 /** Any key that looks like it holds a secret, at any depth. */

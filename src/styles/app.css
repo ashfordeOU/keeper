@@ -223,6 +223,9 @@ button.nav-title:hover .nav-chevron, button.nav-title:focus-visible .nav-chevron
 .topbar > * { -webkit-app-region: no-drag; }
 .topbar .spacer { flex: 0 0 12px; -webkit-app-region: drag; height: 100%; }
 html[data-platform='win32'] .topbar { padding-right: 150px; }
+/* A page in a window of its own (view=page): its name where the search box is, clear of the traffic lights. */
+.topbar > .page-window-title { flex: 1; min-width: 0; font-weight: 650; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; -webkit-app-region: drag; }
+html[data-view='page'][data-platform='darwin'] .topbar { padding-left: 84px; }
 .searchbox {
   display: flex; align-items: center; gap: 8px; flex: 1; max-width: 640px;
   height: 34px; padding: 0 12px; border-radius: 10px;

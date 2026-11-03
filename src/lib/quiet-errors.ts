@@ -11,7 +11,7 @@ const once = throttle(5000);
 /** Shows the toast this window uses: the Island's line, or the app's toasts. */
 function say(text: string, view: string) {
   if (view === 'island') window.dispatchEvent(new CustomEvent('island-toast', { detail: text }));
-  else window.dispatchEvent(new CustomEvent('keeper-toast', { detail: { text, action: view === 'app' ? { label: 'Details', route: 'settings:processes' } : undefined } }));
+  else window.dispatchEvent(new CustomEvent('keeper-toast', { detail: { text, action: view === 'app' || view === 'page' ? { label: 'Details', route: 'settings:processes' } : undefined } }));
 }
 
 export function installQuietErrors(view: string) {

@@ -445,6 +445,8 @@ export interface Settings {
   features: Record<string, boolean>;
   /** sidebar entries the person hid, by id ("section:tidy", "nav:health") */
   sidebarHidden: string[];
+  /** where each page's own window was ("Open in New Window"; core/page-window.ts), by page */
+  pageWindows?: Record<string, import('./page-window').SavedPageWindow>;
   /** feature sets the person saved ("Work", "Travel"), and which set to use on battery / on power */
   featureSets: { id: string; name: string; features: Record<string, boolean> }[];
   /** the one-icon menu bar was applied once (Keep Awake's and the readings' own icons turned off) */

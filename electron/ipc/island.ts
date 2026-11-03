@@ -591,15 +591,21 @@ export function registerIslandShortcuts() {
   };
   reg(s.pasteShortcut, () => toggleClips());
   reg(s.shelfShortcut, () => islandWindows.openOn('shelf'));
-  // New task: the Island's Tasks with the composer focused.
-  if (featureOn('islandTodos')) reg(s.taskShortcut ?? '', () => islandWindows.openOn('reminders:new'));
+  // New task: the Island's Tasks with the composer focused. While a Keeper window is in front, its own
+  // ⌥⌘N / Ctrl+Alt+N (New Window for This Page) wins, as ⌘⌥I does below.
+  if (featureOn('islandTodos')) reg(s.taskShortcut ?? '', () => {
+    const f = BrowserWindow.getFocusedWindow();
+    const url = f && !f.isDestroyed() ? f.webContents.getURL() : '';
+    if (url && (!url.includes('view=') || /[?&]view=(app|page)\b/.test(url)) && /^(CommandOrControl|CmdOrCtrl)\+Alt\+N$/i.test(s.taskShortcut ?? '')) { f!.webContents.send('event:open-in-window'); return; }
+    islandWindows.openOn('reminders:new');
+  });
   // Opens the Island from anywhere, on the screen with the pointer.
   // While a Keeper window is in front its own ⌘⌥I / Ctrl+Alt+I (Show/Hide Inspector) wins: a system-wide
   // shortcut never reaches the page, so it is passed on.
   reg(s.openShortcut ?? '', () => {
     const f = BrowserWindow.getFocusedWindow();
     const url = f && !f.isDestroyed() ? f.webContents.getURL() : '';
-    if (url && (!url.includes('view=') || /[?&]view=app\b/.test(url)) && /^CommandOrControl\+Alt\+I$/i.test(s.openShortcut ?? '')) { f!.webContents.send('event:toggle-inspector'); return; }
+    if (url && (!url.includes('view=') || /[?&]view=(app|page)\b/.test(url)) && /^CommandOrControl\+Alt\+I$/i.test(s.openShortcut ?? '')) { f!.webContents.send('event:toggle-inspector'); return; }
     islandWindows.openOn('home');
   });
   // The player's controls from the keyboard's media keys, when the person wants the Island to answer them.

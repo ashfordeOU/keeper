@@ -294,7 +294,8 @@ export const CORE = {
   routes: ['settings'],
   // native-*: handing a place, forecast or day to the system's own apps (core/native-apps.ts).
   // check-updates and about: the small Software Update and About Keeper windows (a check by hand works with automatic checks off).
-  commands: ['appearance', 'hidden-files', 'inspector', 'inspector-settings', 'sidebar-toggle', 'permissions', 'view', 'look', 'theme-*', 'native-*', 'check-updates', 'about', 'setup-again'],
+  // page-window and window-*: a page in a window of its own (the palette lists only pages that are on).
+  commands: ['appearance', 'hidden-files', 'inspector', 'inspector-settings', 'sidebar-toggle', 'permissions', 'view', 'look', 'theme-*', 'native-*', 'check-updates', 'about', 'setup-again', 'page-window', 'window-*'],
 };
 
 const byId = new Map(FEATURES.map((f) => [f.id, f]));

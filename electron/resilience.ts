@@ -202,15 +202,36 @@ let deps: ResilienceDeps;
 const extraWindows = new Map<string, BrowserWindow>();
 const pendingWindows = new Map<string, WindowState>();
 
-/** The main window and its extra windows keep tabs in the session; small windows (the Island, widgets…) do not. */
+/** Pages in windows of their own (electron/services/page-windows.ts), by session key ("page:mail"). */
+const pageWindows = new Map<string, BrowserWindow>();
+
+/**
+ * The main window, its extra windows and page windows keep their place and drafts in the session
+ * (a page window: what it shows and what was typed in it); small windows (the Island, widgets…) do not.
+ */
 function hasSession(wc: WebContents): boolean {
   const url = wc.getURL();
-  return !/[?&]view=/.test(url) || /[?&]view=app\b/.test(url);
+  return !/[?&]view=/.test(url) || /[?&]view=(app|page)\b/.test(url);
 }
 
 function keyOf(wc: WebContents): string {
   for (const [k, w] of extraWindows) if (!w.isDestroyed() && w.webContents === wc) return k;
+  for (const [k, w] of pageWindows) if (!w.isDestroyed() && w.webContents === wc) return k;
   return 'main';
+}
+
+/**
+ * A page window keeps its own session under "page:<page>", apart from the main window's tabs.
+ * Closed by the person, it is forgotten (the next one starts fresh on its page); lost with Keeper
+ * (a crash, an update), it opens with what it showed and what was typed the next time it opens.
+ */
+export function adoptPageWindow(page: string, win: BrowserWindow) {
+  const key = `page:${page}`;
+  pageWindows.set(key, win);
+  win.on('closed', () => {
+    if (pageWindows.get(key) === win) pageWindows.delete(key);
+    if (!quittingNow) dropWindow(key);
+  });
 }
 
 function openWindow(key: string, state?: WindowState) {
@@ -254,7 +275,8 @@ export function setQuitting() {
 /** Opens the windows that were open last time, beside the main window. */
 export function restoreExtraWindows() {
   if (!deps.restore()) return;
-  for (const w of snapshot.windows) if (w.key !== 'main' && !extraWindows.has(w.key)) openWindow(w.key);
+  // Page windows open when their page is asked for again (a launcher, the menu), not at every start.
+  for (const w of snapshot.windows) if (w.key !== 'main' && !w.key.startsWith('page:') && !extraWindows.has(w.key)) openWindow(w.key);
 }
 
 // ---------------------------------------------------------------- crashed or frozen pages
