@@ -56,6 +56,11 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - Select text in any app and press ⌘⇧1 / Ctrl+Shift+1: a small bar beside the pointer offers Copy, Search, Translate, Rewrite, Define, Open link and Write to. Translate, Rewrite and Define use the AI you chose in Keeper (which can run on this computer) and only when you press them; results come with Copy and Replace.
 - Choose the buttons, the language to translate into and the search address in Settings → AI → Actions for selected text. Off until you turn it on.
 
+### Added — Notes: Journal
+- A Journal page in the Notes section (switch it on in Settings → Features) keeps one entry a day as an ordinary Markdown note: Start makes a Journal vault in Documents, or you choose one of your vaults.
+- Each entry has a mood, your words (saved as you type), photos you add or pick from the ones you took that day, and, if you switch them on, the weather and where you were from Weather and Places & Tracks.
+- A month calendar marks the days you wrote, a streak counts the days in a row, and On this day shows what you wrote on the same day in earlier years.
+
 ### Added — Time Tracking
 - A new Time Tracking page (Computer section; off until you switch it on yourself) records which app, document and website you use and for how long, only on this computer and encrypted with a key in the system keychain.
 - Day view: a timeline coloured by project and totals by project, app, site and document; Week view: each day as bars by project. Go back day by day or week by week.

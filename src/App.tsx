@@ -82,6 +82,8 @@ const NotesApp = lazy(() => import('./notes/NotesApp').then((m) => ({ default: m
 // Cues (notes and checklists tied to an app, a site or a time) load the first time the page opens.
 const CuesPage = lazy(() => import('./screens/Cues').then((m) => ({ default: m.Cues })));
 // Focus blocking (lists, schedules, strict mode) loads the first time its page opens.
+// Journal mode in Notes loads the first time its page opens.
+const JournalPage = lazy(() => import('./screens/Journal').then((m) => ({ default: m.Journal })));
 // Time tracking (timeline, week, projects) loads the first time its page opens.
 const TimePage = lazy(() => import('./screens/TimeTracking').then((m) => ({ default: m.TimeTracking })));
 const FocusBlockPage = lazy(() => import('./screens/FocusBlock').then((m) => ({ default: m.FocusBlock })));
@@ -424,6 +426,7 @@ function Page() {
     cues: () => <Suspense fallback={null}><CuesPage /></Suspense>,
     blocking: () => <Suspense fallback={null}><FocusBlockPage /></Suspense>,
     time: () => <Suspense fallback={null}><TimePage /></Suspense>,
+    journal: () => <Suspense fallback={null}><JournalPage key={route.arg ?? ''} initialDay={route.arg} /></Suspense>,
     terminal: () => <TerminalApp mode="page" startCwd={route.arg} openSession={route.q?.startsWith('session:') ? route.q.slice(8) : undefined} />,
     rdc: () => <Suspense fallback={null}><RemoteDesktops /></Suspense>,
     devices: () => <Devices />,

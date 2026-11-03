@@ -7,6 +7,7 @@ import { mockAiUsage } from './mock-ai-usage';
 import { mockCues } from './mock-cues';
 import { mockFocusBlock } from './mock-focus';
 import { mockTimeTrack } from './mock-time';
+import { mockJournal } from './mock-journal';
 import { mockFeatures } from './mock-features';
 import { mockUsageStats } from './mock-usage-stats';
 import { mockPermissions } from './mock-permissions';
@@ -302,6 +303,7 @@ export function createMockApi(): KeeperApi {
     // Cues and Island+ (calls, levels, notifications, agents).
     ...mockCues((ch) => listeners.get(ch)?.forEach((cb) => (cb as () => void)())),
     ...mockTimeTrack(),
+    ...mockJournal(),
     ...mockFocusBlock((ch) => listeners.get(ch)?.forEach((cb) => (cb as () => void)())),
     ...mockPlaces(),
     ...mockTracks((ch) => listeners.get(ch)?.forEach((cb) => (cb as () => void)())),

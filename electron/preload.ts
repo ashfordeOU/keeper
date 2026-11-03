@@ -156,6 +156,8 @@ const api = {
   focusBlock: group('focusBlock', ['status', 'saveList', 'removeList', 'saveSchedule', 'removeSchedule', 'setFocusList', 'start', 'stop', 'pass', 'runningApps', 'blockedApp', 'closeApp', 'dismiss', 'testFront']),
   // Automatic time tracking: days, weeks, projects, CSV.
   timeTrack: group('timeTrack', ['status', 'day', 'week', 'setPaused', 'saveRules', 'exportCsv', 'removeDay', 'wipe', 'testFront']),
+  // Journal mode in Notes: a journal vault and photos for an entry.
+  journal: group('journal', ['makeVault', 'addPhotos']),
   islandx: group('islandx', ['status', 'callMute', 'callDismiss', 'hideFor', 'installAgentHooks', 'removeAgentHooks', 'openNotifyPermission', 'testNotification', 'startBreak', 'focusFor', 'mediaMode', 'openLauncher', 'showPage']),
   widgets: group('widgets', ['list', 'save', 'remove', 'photos', 'current', 'arrange', 'arranging', 'tint', 'focus']),
   // Dictation anywhere and meeting recording; the listening pill streams its microphone samples here.

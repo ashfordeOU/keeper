@@ -505,4 +505,6 @@ export interface Settings {
   focusBlock: import('./focus-block').FocusBlockOptions;
   /** automatic time tracking: what is kept and for how long (core/time-track.ts); the rules and data live in <userData>/time */
   timeTrack: import('./time-track').TimeTrackOptions;
+  /** Journal mode in Notes: which vault and folder, and what is added to an entry (core/notes/journal.ts) */
+  journal: import('./notes/journal').JournalSettings;
 }

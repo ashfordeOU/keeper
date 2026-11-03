@@ -538,6 +538,8 @@ export interface KeeperApi extends KeeperApiX {
   focusBlock: import('./api-focus').FocusBlockApi;
   /** automatic time tracking, only on this computer */
   timeTrack: import('./api-time').TimeTrackApi;
+  /** Journal mode in Notes */
+  journal: import('./api-journal').JournalApi;
   /** Island+: calls, levels, other apps' notifications, more agents */
   islandx: import('./island-plus').IslandPlusApi;
   /** Mail, calendars, reminders, alarms and contacts */

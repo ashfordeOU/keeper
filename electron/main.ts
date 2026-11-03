@@ -139,6 +139,7 @@ import { PRESETS as CONTROL_PRESETS } from '../core/controls/catalog';
 import { registerFirewallIpc, stopFirewall } from './ipc/fw';
 import { registerFocusBlockIpc } from './ipc/focus-block';
 import { registerTimeTrackIpc } from './ipc/time-track';
+import { registerJournalIpc } from './ipc/journal';
 import { stopTimeTracking } from './services/time-track';
 import { focusChanged as focusBlockFocusChanged, focusStopRefusal, stopFocusBlock } from './services/focus-block';
 import { act as procAct, apps as procApps } from './services/procs';
@@ -1487,6 +1488,8 @@ app.whenReady().then(async () => {
   registerPimIpc();
   // Notes: vaults are read only while the Notes page is open.
   registerNotesIpc({ broadcast, allowRoot: allowPreviewRoot });
+  // Journal mode: a dated entry a day in a notes vault (the rest goes through Notes' own calls).
+  registerJournalIpc();
   registerSearchIpc({
     show: showMain,
     link: (url) => handleDeepLink(url),
