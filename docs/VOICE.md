@@ -116,7 +116,7 @@ The ✅/🟡/❌ marks match the research files.
 | 19 | Prose and exact modes | ✓ | ✓ | ✓ | ✅ |
 | 20 | Project file and symbol names from the repo | cwd of the front app's shells (`lsof`) | window title matched to known projects | cwd of the front app's shells (`/proc`), or the title | ✅ opt-in (*Spell my project's names*) |
 | 22 | Dictionary plus learning from corrections, fed as a model prompt | ✓ | ✓ | ✓ | ✅ |
-| 23 | Snippets (fuzzy trigger, exact text) | ✓ | ✓ | ✓ | ✅ |
+| 23 | Snippets (fuzzy trigger, exact text; the same list gives typed snippets their abbreviations, [LAUNCHER.md](LAUNCHER.md#typed-snippets)) | ✓ | ✓ | ✓ | ✅ |
 | 24–25 | About 100 languages, automatic detection | ✓ | ✓ | ✓ | ✅ |
 | 26 | Translation to English | ✓ | ✓ | ✓ | ✅ (Whisper translate task) |
 | 27 | Engines and model manager | Whisper tiny/base/small/turbo, Apple recognizer, any OpenAI-compatible service | Whisper and service | Whisper and service | ✅ |

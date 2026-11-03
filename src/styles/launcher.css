@@ -1,0 +1,73 @@
+/* SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 */
+/* Quick Search's launcher rows, the clipboard picker's sets and queue, typed
+   snippets and the selection bar. Tokens only (sizes, corners, colours). */
+
+/* ---------------------------------------------------------------- Quick Search */
+.quick .ql-row { min-height: 40px; }
+.quick .ql-img { width: 30px; height: 30px; flex: none; object-fit: contain; }
+.quick .ql-icon { width: 30px; height: 30px; border-radius: var(--r-sm); display: grid; place-items: center; flex: none; background: var(--bg-sunk); color: var(--text-2); }
+.quick .ql-title { font-weight: 550; }
+.quick .ql-answer .ql-title { font-size: var(--fs-xl); font-variant-numeric: tabular-nums; }
+.quick .ql-answer .ql-icon { background: var(--accent-soft); color: var(--accent); }
+.quick .ql-enter { flex: none; opacity: .85; padding: 2px 8px; border-radius: var(--r-pill); background: color-mix(in srgb, currentColor 14%, transparent); }
+.quick .q-row.on .ql-icon { background: color-mix(in srgb, var(--accent-text) 18%, transparent); color: inherit; }
+/* The chosen row's second line stays readable on the accent. */
+html[data-view] .quick .q-row.on .muted { color: inherit; opacity: .85; }
+.quick .ql-note { padding: 6px 10px; color: var(--danger); }
+
+/* ---------------------------------------------------------------- clipboard picker: sets and the queue */
+.cp { position: relative; }
+.cp .cp-sets { display: flex; gap: 6px; padding: 0 12px 8px; overflow-x: auto; scrollbar-width: none; }
+.cp .cp-sets button { flex: none; border: 1px solid var(--line); background: none; color: inherit; padding: 3px 10px; border-radius: var(--r-pill); font-size: var(--fs-sm); cursor: pointer; }
+.cp .cp-sets button.on { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.cp .cp-sets button.new { border-style: dashed; color: var(--text-2); }
+.cp .cp-sets input { flex: none; width: 120px; padding: 3px 10px; border-radius: var(--r-pill); border: 1px solid var(--accent); background: var(--bg); color: var(--text); font-size: var(--fs-sm); }
+html[data-view] .cp .cp-row.on .muted { color: inherit; opacity: .8; }
+.cp .cp-row.on .cp-q { background: var(--accent-text); color: var(--accent); }
+.cp .cp-q { flex: none; min-width: 20px; height: 20px; padding: 0 6px; border-radius: var(--r-pill); background: var(--accent); color: var(--accent-text); display: grid; place-items: center; font-size: var(--fs-xs); font-weight: 650; }
+.cp .cp-bar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-top: 1px solid var(--line); background: var(--accent-soft); font-size: var(--fs-sm); }
+.cp .cp-bar .grow { flex: 1; min-width: 0; }
+.cp .cp-bar button { border: 0; border-radius: var(--r-sm); padding: 4px 10px; background: var(--accent); color: var(--accent-text); font-size: var(--fs-sm); cursor: pointer; }
+.cp .cp-bar button.ghost { background: none; color: inherit; border: 1px solid var(--line); }
+.cp .cp-menu { position: absolute; right: 12px; z-index: 2; background: var(--bg-elev); border: 1px solid var(--line-strong); border-radius: var(--r-md); box-shadow: var(--shadow-pop); padding: 4px; min-width: 220px; }
+.cp .cp-menu button { display: block; width: 100%; text-align: left; background: none; border: 0; color: inherit; padding: 6px 10px; border-radius: var(--r-sm); font-size: var(--fs-sm); cursor: pointer; }
+.cp .cp-menu button:hover, .cp .cp-menu button:focus-visible { background: var(--bg-hover); }
+.cp .cp-menu .sep { height: 1px; background: var(--line); margin: 4px 6px; }
+
+/* ---------------------------------------------------------------- typed snippets */
+.snip-page .snip-status { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; }
+.snip-page .snip-status.ok { background: var(--ok-soft); }
+.snip-page .snip-status.warn { background: var(--warn-soft); }
+.snip-page .snip-table { width: 100%; border-collapse: collapse; }
+.snip-page .snip-table th { text-align: left; font-weight: 550; color: var(--text-2); font-size: var(--fs-sm); padding: 6px 8px; border-bottom: 1px solid var(--line); }
+.snip-page .snip-table td { padding: 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.snip-page .snip-table code { font-family: var(--mono); font-size: var(--fs-sm); background: var(--bg-sunk); padding: 1px 6px; border-radius: var(--r-sm); }
+.snip-page .snip-text { white-space: pre-wrap; word-break: break-word; }
+.snip-page .snip-form { display: grid; grid-template-columns: 96px minmax(0, 560px); gap: 12px 16px; align-items: start; padding: 16px; }
+.snip-page .snip-form > label { padding-top: 7px; font-weight: 550; }
+.snip-page .snip-form .input { width: 100%; box-sizing: border-box; }
+.snip-page .snip-form textarea { min-height: 84px; resize: vertical; }
+.snip-page .snip-insert { margin-top: 6px; color: var(--text-2); }
+.snip-page .snip-more { padding: 12px 16px; }
+.snip-page .snip-more summary { cursor: pointer; font-weight: 550; }
+.snip-page .snip-more[open] summary { margin-bottom: 10px; }
+.snip-page .snip-preview { white-space: pre-wrap; background: var(--bg-sunk); border-radius: var(--r-sm); padding: 8px 10px; font-size: var(--fs-sm); min-height: 2.4em; }
+
+/* ---------------------------------------------------------------- the selection bar */
+html[data-view='selection'], html[data-view='selection'] body { background: transparent; }
+.selbar { margin: 6px; background: var(--bg-elev); border: 1px solid var(--line-strong); border-radius: var(--r-lg); box-shadow: var(--shadow-pop); overflow: hidden; display: flex; flex-direction: column; }
+.selbar .sb-text { padding: 8px 12px 0; color: var(--text-2); font-size: var(--fs-sm); display: flex; gap: 8px; align-items: baseline; }
+.selbar .sb-text .grow { flex: 1; min-width: 0; }
+.selbar .sb-actions { display: flex; flex-wrap: wrap; gap: 4px; padding: 8px; }
+.selbar .sb-actions button { display: inline-flex; align-items: center; gap: 6px; border: 0; background: none; color: inherit; padding: 6px 10px; border-radius: var(--r-md); font-size: var(--fs-sm); cursor: pointer; }
+.selbar .sb-actions button:hover, .selbar .sb-actions button:focus-visible { background: var(--bg-hover); }
+.selbar .sb-actions button[aria-pressed='true'] { background: var(--accent-soft); color: var(--accent); }
+.selbar .sb-result { border-top: 1px solid var(--line); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.selbar .sb-result .out { white-space: pre-wrap; word-break: break-word; max-height: 240px; overflow-y: auto; font-size: var(--fs-md); }
+.selbar .sb-result .row { display: flex; gap: 6px; align-items: center; }
+.selbar .sb-result .row .grow { flex: 1; }
+.selbar .sb-foot { padding: 0 12px 8px; color: var(--text-2); font-size: var(--fs-xs); }
+.selbar .sb-error { color: var(--danger); }
+.cp .cp-foot .cp-collect { margin-left: auto; background: none; border: 0; padding: 0; color: var(--accent); font-size: var(--fs-xs); cursor: pointer; }
+.snip-page .snip-table td:first-child { width: 140px; }
+.snip-page .snip-more { margin-top: 14px; }

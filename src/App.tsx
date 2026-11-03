@@ -82,6 +82,7 @@ const NotesApp = lazy(() => import('./notes/NotesApp').then((m) => ({ default: m
 // Cues (notes and checklists tied to an app, a site or a time) load the first time the page opens.
 const CuesPage = lazy(() => import('./screens/Cues').then((m) => ({ default: m.Cues })));
 const Dictation = lazy(() => import('./screens/Dictation').then((m) => ({ default: m.Dictation })));
+const TypedSnippets = lazy(() => import('./screens/TypedSnippets').then((m) => ({ default: m.TypedSnippets })));
 const Meetings = lazy(() => import('./screens/Meetings').then((m) => ({ default: m.Meetings })));
 // Studio (recording and the editor) loads the first time it opens.
 const StudioPage = lazy(() => import('./screens/Studio').then((m) => ({ default: m.Studio })));
@@ -391,6 +392,7 @@ function Page() {
     health: () => <Health />,
     awake: () => <KeepAwake />,
     dictation: () => <Suspense fallback={null}><Dictation key={route.arg ?? ''} initialTab={route.arg} /></Suspense>,
+    snippets: () => <Suspense fallback={null}><TypedSnippets /></Suspense>,
     meetings: () => <Suspense fallback={null}><Meetings key={route.arg ?? ''} initial={route.arg} /></Suspense>,
     stage: () => <Suspense fallback={null}><StagePage /></Suspense>,
     studio: () => <Suspense fallback={null}><StudioPage key={route.arg ?? ''} initial={route.arg} /></Suspense>,

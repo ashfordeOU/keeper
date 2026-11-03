@@ -237,6 +237,8 @@ export interface IslandState {
   /** hidden by the user or because an app is full screen */
   hidden?: boolean;
   clips: ClipItem[];
+  /** a paste queue: what is left to paste, one by one (core/island.ts PasteQueue) */
+  pasteQueue?: { left: number; collecting: boolean; next?: string; total: number };
   focus: FocusState;
   keepAwake: KeepAwakeState;
   weather?: Weather;
@@ -316,6 +318,12 @@ export interface IslandSettings {
   downloadAlerts: boolean;
   /** clipboard picker that pastes into the app in front */
   pasteShortcut: string;
+  /** while a paste queue runs: paste the next item from it */
+  pasteNextShortcut: string;
+  /** paste what is on the clipboard without its formatting ('' for none) */
+  plainPasteShortcut: string;
+  /** while a paste queue runs, a normal ⌘V / Ctrl+V takes the next item too (needs the key listener) */
+  queueOnPaste: boolean;
   /** open the shelf from anywhere */
   shelfShortcut: string;
   /** open the Island's Tasks with the new-task field ready, from anywhere */
@@ -467,6 +475,25 @@ export interface KeeperApi extends KeeperApiX {
   awake: import('./api-awake').AwakeApi;
   /** dictation anywhere and meeting recording (core/voice) */
   voice: import('./voice/types').VoiceApi;
+  /** typed snippets: whether the keyboard listener runs, and importing a list */
+  snippets: {
+    status(): Promise<{ on: boolean; how?: string; note?: string; wanted: boolean; platform: string }>;
+    restart(): Promise<{ on: boolean; how?: string; note?: string }>;
+    /** asks for a CSV file (abbreviation, text, what to say) and adds its rows */
+    importCsv(): Promise<{ added: number; skipped: number } | null>;
+    /** a snippet's text with its placeholders filled in, for the preview */
+    preview(text: string): Promise<string>;
+  };
+  /** the bar for text selected in any app (core/selection.ts) */
+  selection: {
+    show(): Promise<import('./selection').SelectionView>;
+    current(): Promise<import('./selection').SelectionView | null>;
+    run(action: import('./selection').SelectionActionId): Promise<{ result?: string; done?: boolean }>;
+    replace(text: string): Promise<void>;
+    copy(text: string): Promise<void>;
+    close(): Promise<void>;
+    resize(height: number): Promise<void>;
+  };
   /** Stage mode: a clean screen for recording, presenting and screenshots; external monitor inputs */
   stage: import('./stage/types').StageApi;
   /** Studio: screen recordings with the pointer, clicks, sound and camera kept apart, an editor and exports */
@@ -628,7 +655,9 @@ export interface KeeperApi extends KeeperApiX {
   };
   /** The one search box beyond files: mail, events, tasks, contacts, notes, Keeper's features and system settings. */
   search: {
-    everything(q: string, opts?: { kinds?: import('./search-everything').EverythingKind[]; limit?: number }): Promise<import('./search-everything').EverythingResult>;
+    everything(q: string, opts?: { kinds?: import('./search-everything').EverythingKind[]; limit?: number; launch?: boolean }): Promise<import('./search-everything').EverythingResult>;
+    /** opens an app, saved link, command or action from Quick Search (reveal: show the app in its folder) */
+    launch(kind: import('./search-everything').EverythingKind, id: string, query: string, how?: 'open' | 'reveal'): Promise<{ ok: boolean; message?: string }>;
     /** shows a result's page ("name:arg") in the main window */
     open(route: string): Promise<void>;
   };
@@ -770,6 +799,15 @@ export interface KeeperApi extends KeeperApiX {
     toggleClipCollection(id: string, name: string): Promise<void>;
     /** puts a clip on the clipboard and pastes it into the app in front */
     pasteClip(id: string, plain?: boolean): Promise<void>;
+    /** paste one by one: with clip ids, ready to paste them in that order; without, what is copied next joins */
+    queueStart(ids?: string[]): Promise<void>;
+    /** pastes the next one from the queue into the app in front */
+    queueNext(): Promise<void>;
+    queueStop(): Promise<void>;
+    /** pastes what is on the clipboard without its formatting */
+    pastePlain(): Promise<void>;
+    /** never keep copies made in this app again, and forget the ones kept (pinned and filed ones stay); how many went */
+    neverKeepFrom(app: string): Promise<number>;
     exportClips(): Promise<string | null>;
     importClips(): Promise<number>;
     openClips(): Promise<void>;

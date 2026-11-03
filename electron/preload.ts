@@ -40,7 +40,10 @@ const api = {
   rules: group('rules', ['list', 'save', 'remove', 'plan', 'run']),
   history: group('history', ['list', 'undo']),
   // The one search box's other sources (mail, events, tasks, contacts, notes, features, settings).
-  search: group('search', ['everything', 'open']),
+  search: group('search', ['everything', 'open', 'launch']),
+  // Typed snippets and the selection bar.
+  snippets: group('snippets', ['status', 'restart', 'importCsv', 'preview']),
+  selection: group('selection', ['show', 'current', 'run', 'replace', 'copy', 'close', 'resize']),
   ai: group('ai', ['ask']),
   monitor: group('monitor', ['history', 'topToday', 'alerts', 'setAlertRules', 'docker', 'dockerAction', 'killTree', 'stopAgent', 'thermals', 'disks', 'speedTest', 'speedHistory']),
   forecast: group('forecast', ['places', 'savePlaces', 'get', 'alerts', 'radar', 'climate']),
@@ -136,7 +139,7 @@ const api = {
   appInfo: group('appInfo', ['updateStatus', 'checkForUpdates', 'installUpdate', 'downloadUpdate', 'whatsNew', 'releasesPage', 'versionNotes', 'scheduleUpdate', 'loginItem', 'setLoginItem', 'openUpdateWindow', 'installAndRelaunch', 'skipVersion', 'openUpdateSettings', 'openAbout', 'about']),
   island: {
     ...group('island', ['state', 'addToShelf', 'removeFromShelf', 'clearShelf', 'copyClip', 'pinClip', 'removeClip', 'clearClips', 'focus', 'keepAwake', 'presentation', 'media', 'openAgent', 'transcribe', 'typeText', 'dismiss']),
-    ...group('island', ['createShelf', 'selectShelf', 'renameShelf', 'setShelfColor', 'pinShelf', 'closeShelf', 'reopenShelf', 'moveShelfItem', 'renameShelfItem', 'shelfAction', 'updateClip', 'toggleClipCollection', 'pasteClip', 'exportClips', 'importClips', 'openClips', 'openShelf', 'openTab', 'hide', 'setVolume', 'setMuted', 'setBrightness', 'refreshDevices', 'awakeStatus', 'layout', 'placementPreview', 'placeLog']),
+    ...group('island', ['createShelf', 'selectShelf', 'renameShelf', 'setShelfColor', 'pinShelf', 'closeShelf', 'reopenShelf', 'moveShelfItem', 'renameShelfItem', 'shelfAction', 'updateClip', 'toggleClipCollection', 'pasteClip', 'queueStart', 'queueNext', 'queueStop', 'pastePlain', 'neverKeepFrom', 'exportClips', 'importClips', 'openClips', 'openShelf', 'openTab', 'hide', 'setVolume', 'setMuted', 'setBrightness', 'refreshDevices', 'awakeStatus', 'layout', 'placementPreview', 'placeLog']),
     setExpanded: (v: boolean) => ipcRenderer.send('island.setExpanded', v),
     setInteractive: (v: boolean) => ipcRenderer.send('island.setInteractive', v),
     takeFocus: () => ipcRenderer.send('island.takeFocus'),

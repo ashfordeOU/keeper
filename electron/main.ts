@@ -53,7 +53,10 @@ import { colorPick, quietly, recordingState, registerCaptureIpc, registerCapture
 import { handleStudioLink, registerStudioIpc, registerStudioShortcuts, stopStudio, studioRecording, studioStop, studioTrayItems } from './ipc/studio';
 import { FileService } from './services/files';
 import { IslandService } from './services/island';
-import { islandWindows, openClips, registerIslandIpc, registerIslandShortcuts } from './ipc/island';
+import { islandWindows, openClips, registerIslandIpc, registerIslandShortcuts, toggleClips } from './ipc/island';
+import { registerTypingIpc } from './ipc/typing';
+import { initSnippets } from './services/snippets';
+import { initSelectionBar, showSelectionBar } from './services/selection-bar';
 import { registerWidgetsIpc, syncWidgets } from './ipc/widgets';
 import { ambienceTrayItems, registerAmbience, registerAmbienceShortcuts } from './services/wallpaper';
 import { registerIslandToolsIpc } from './ipc/island-tools';
@@ -355,6 +358,8 @@ function toggleQuick() {
     lockDown(quick);
     load(quick, 'quick');
     quick.on('blur', () => quick?.hide());
+    // Esc and opening a result close the page's window: the next shortcut makes a new one.
+    quick.on('closed', () => { quick = null; });
   }
   quick.setBounds({ x: Math.round(d.workArea.x + (d.workArea.width - w) / 2), y: Math.round(d.workArea.y + d.workArea.height * 0.18), width: w, height: h });
   quick.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
@@ -594,6 +599,8 @@ function registerShortcuts() {
   if (featureOn('capture')) reg(s.island.captureShortcut, () => void doCapture(), 'Copy text from screen');
   // Dictation (Voice): its toggle and edit-by-voice shortcuts; holding the talk key needs no shortcut.
   registerVoiceShortcuts(reg);
+  // Select text anywhere, press this: copy, search, translate, rewrite, define.
+  if (featureOn('selectionBar')) reg(s.selection?.shortcut ?? '', () => void showSelectionBar().catch((e) => islandSvc?.alert({ kind: 'info', title: 'Selected text', detail: e instanceof Error ? e.message : String(e) })), 'Actions for selected text');
   if (featureOn('island')) registerIslandShortcuts();
   // Stage mode's shortcut, its presets' shortcuts and the display keys.
   registerStageShortcuts(reg);
@@ -1475,7 +1482,31 @@ app.whenReady().then(async () => {
   registerPimIpc();
   // Notes: vaults are read only while the Notes page is open.
   registerNotesIpc({ broadcast, allowRoot: allowPreviewRoot });
-  registerSearchIpc({ show: showMain });
+  registerSearchIpc({
+    show: showMain,
+    link: (url) => handleDeepLink(url),
+    note: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }),
+    copy: (t) => writeText(t),
+    // Quick Search's actions that are not keeper:// links.
+    job: async (name) => {
+      // The app in front gets the keyboard back first (for pasting).
+      const away = async () => { quick?.hide(); if (isMac) app.hide(); await new Promise((r) => setTimeout(r, 200)); };
+      if (name === 'clips') toggleClips();
+      else if (name === 'selection') { await away(); await showSelectionBar(); }
+      else if (name === 'pasteQueue') { if (islandSvc.queue.active) islandSvc.queueStop(); else await islandSvc.queueStart(); }
+      else if (name === 'plainPaste') { await away(); await islandSvc.pastePlain(); }
+      else if (name === 'hideIsland') islandSvc.hide(!islandSvc.hidden);
+      else {
+        const [id, on] = name === 'wifiOn' ? ['wifi', true] : name === 'wifiOff' ? ['wifi', false] : name === 'bluetoothOn' ? ['bluetooth', true] : ['bluetooth', false];
+        const r = await controlsSet(id as string, on as boolean);
+        if (!r.ok) islandSvc.alert({ kind: 'info', title: 'Could not change that', detail: r.message });
+      }
+    },
+  });
+  // Typed snippets and the selection bar: nothing runs until they are switched on.
+  registerTypingIpc();
+  initSelectionBar({ preload: preload(), lockDown, load });
+  initSnippets({ expanded: () => undefined });
   const pimDeps: PimDeps = {
     broadcast,
     alert: (title, detail, kind, ref, mail) => islandSvc?.alert({ kind: kind ?? 'info', title, detail, ref, mail }),
@@ -1723,7 +1754,8 @@ let studioSince: number | undefined;
     if (next.trayEnabled !== prev.trayEnabled || next.trayCount !== prev.trayCount) void updateTray();
     if (next.island.enabled !== prev.island.enabled) (next.island.enabled ? createIsland() : destroyIsland());
     else if ((['edge', 'displays', 'size', 'blendNotch', 'cameraEdge', 'followCamera', 'offsetX', 'offsetY'] as const).some((k) => next.island[k] !== prev.island[k])) islandWindows.ensure(true);
-    if (['pasteShortcut', 'shelfShortcut', 'taskShortcut', 'hideShortcut', 'awakeShortcut'].some((k) => next.island[k as 'pasteShortcut'] !== prev.island[k as 'pasteShortcut'])) registerShortcuts();
+    if (['pasteShortcut', 'shelfShortcut', 'taskShortcut', 'hideShortcut', 'awakeShortcut', 'plainPasteShortcut'].some((k) => next.island[k as 'pasteShortcut'] !== prev.island[k as 'pasteShortcut'])) registerShortcuts();
+    if (next.selection?.shortcut !== prev.selection?.shortcut) registerShortcuts();
     if (next.island.calendarUrl !== prev.island.calendarUrl) { void islandSvc.pollCalendar(); void adoptIslandCalendarUrl(next.island.calendarUrl).catch(() => undefined); }
     if (JSON.stringify(next.island.place) !== JSON.stringify(prev.island.place) || next.island.units !== prev.island.units) void islandSvc.pollWeather(true);
     broadcast('island-changed');

@@ -9,6 +9,7 @@
 import type { IslandState } from './api';
 import { countdownShort, joinLink } from './pim/agenda';
 import type { CalendarEvent } from './island';
+import { queueLabel } from './paste-queue';
 
 export type ActivityKind =
   | 'dictation' | 'recording' | 'agent-waiting' | 'agent-stuck' | 'meeting' | 'charging' | 'battery-low' | 'timer'
@@ -17,7 +18,9 @@ export type ActivityKind =
   // Power: plugged in or unplugged (a 3-second notice), and the battery glyph (only when asked for, or when low).
   | 'unplugged' | 'battery'
   // Files waiting on the shelf: a small count when nothing else is going on.
-  | 'shelf-idle';
+  | 'shelf-idle'
+  // Paste one by one: how many are left.
+  | 'paste-queue';
 
 /** The battery as the closed Island draws it: one glyph, its fill and colour by charge, and the percentage. */
 export interface BatteryLook {
@@ -94,6 +97,8 @@ export const PRIORITY: Record<ActivityKind, number> = {
   unplugged: 82,
   meeting: 80,
   'battery-low': 78,
+  // Pasting one by one: the count stays in view until the queue is done.
+  'paste-queue': 74,
   timer: 72,
   // A cue for the app or page in front.
   cue: 70,
@@ -275,6 +280,10 @@ export function activitiesFrom(s: IslandState, now: number, x: ExtraInputs = {})
   if (s.keepAwake.on) {
     const left = s.keepAwake.until ? Math.max(0, s.keepAwake.until - now) : 0;
     add({ id: 'awake', kind: 'awake', icon: 'coffee', title: 'Staying awake', detail: s.keepAwake.reason, trailing: left ? mmss(left) : '∞', color: '#d6a46b' });
+  }
+  if (s.pasteQueue) {
+    const q = s.pasteQueue;
+    add({ id: 'paste-queue', kind: 'paste-queue', icon: 'clipboard', title: q.collecting ? 'Collecting to paste one by one' : 'Pasting one by one', detail: q.next ? q.next.slice(0, 80) : queueLabel(q), trailing: q.collecting ? `+${q.left}` : `${q.left} left`, color: '#bf5af2' });
   }
   // Files waiting on the shelf: a small count, only when nothing else is going on (it has the lowest priority).
   if (s.shelf?.length) add({ id: 'shelf-idle', kind: 'shelf-idle', icon: 'archive', title: `${s.shelf.length} on the shelf`, trailing: String(s.shelf.length), color: '#a1a1aa' });

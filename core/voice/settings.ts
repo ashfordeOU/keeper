@@ -120,7 +120,10 @@ export function normalizeVoiceSettings(saved: unknown, platform: string = 'linux
   if (!['tiny', 'base', 'small', 'turbo'].includes(s.meetings.model)) s.meetings.model = 'base';
   s.apps = s.apps.filter((a) => a && typeof a.app === 'string' && a.app.trim());
   s.dictionary = s.dictionary.filter((e) => e && typeof e.word === 'string' && e.word.trim());
-  s.snippets = s.snippets.filter((e) => e && typeof e.trigger === 'string' && e.trigger.trim() && typeof e.text === 'string');
+  // A snippet is said, typed, or both: it needs one of the two.
+  s.snippets = s.snippets
+    .filter((e) => e && typeof e.text === 'string' && ((typeof e.trigger === 'string' && e.trigger.trim()) || (typeof e.abbr === 'string' && /^\S{2,32}$/.test(e.abbr))))
+    .map((e) => ({ ...e, trigger: typeof e.trigger === 'string' ? e.trigger : '', abbr: typeof e.abbr === 'string' && /^\S{2,32}$/.test(e.abbr) ? e.abbr : undefined }));
   return s;
 }
 

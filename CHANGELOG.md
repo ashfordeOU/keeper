@@ -19,6 +19,29 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - Opening one shows just its page in a window of its own. When Keeper is not running it starts without the main window. They use Keeper's settings, accounts and updates.
 - Uninstalling Keeper on Windows removes the Start menu icons it added.
 
+### Added — Quick Search: open apps, do sums and run commands
+- Quick Search opens apps: those in Applications on a Mac, the Start menu (and Store apps) on Windows, and installed apps on Linux. Enter opens one; ⌘ or Ctrl+Enter shows it in its folder. What you open often and lately comes first.
+- Type a sum (12*(3+4), 2^10, 15% of 80, 120 + 15%) or a conversion (5 ft in cm, 72f to c) and the answer is the first row; Enter copies it. Currencies convert with the European Central Bank's daily rates once you turn that on in Settings → General → Quick Search; until then nothing is downloaded.
+- Saved links: a word and an address, so “map berlin” opens the map with Berlin filled in. A few come ready; change them in Settings → General → Quick Search.
+- Your own commands: give a command line a name and a word, and run it from Quick Search. Keeper shows exactly what will run and asks first (unless you tell it not to for that command); what it prints can be shown or copied.
+- Keeper's own actions are commands too: screenshots, recording, keep awake, Stage, dictation, focus, locking folders, Wi-Fi and Bluetooth, the clipboard picker.
+- Quick Search's window is made again after it closes, so its shortcut keeps working after Esc.
+
+### Added — Clipboard: sets and pasting one by one
+- Sets in the clipboard picker: chips above the list for your named lists (Addresses, Replies…). ⌘S / Ctrl+S or right-click files a clip in a set or starts a new one.
+- Paste one by one: line clips up with Space, paste a whole set, or collect what you copy next. Each paste takes the next one, the Island shows “3 left” with Paste next and Stop, and ⌘⌥V / Ctrl+Alt+V pastes the next one while a queue runs.
+- Paste as plain text: from Quick Search, or with a shortcut you choose in Settings → Island; the formatting comes back for the next paste.
+- Never keep copies from an app: a list in Settings → Island → Clipboard, and on any clip in the picker (which also forgets what was kept from it).
+
+### Added — Typed snippets
+- Type a short abbreviation such as ;addr in any app and it becomes your saved text. Placeholders fill in today's date (or one a week from now), the time, the weekday and what you copied, and put the cursor where you want it.
+- One list with Dictation's spoken snippets: a snippet can be typed, said, or both. Import from a CSV file. Password fields and apps you list (password managers by default) are left alone.
+- A new page, Desktop → Typed Snippets, says plainly whether Keeper can listen to the keyboard on this computer and what to do if not (Input Monitoring on a Mac; the “input” group on Linux Wayland). Off until you turn it on; with no typed snippets nothing runs.
+
+### Added — Actions for selected text
+- Select text in any app and press ⌘⇧1 / Ctrl+Shift+1: a small bar beside the pointer offers Copy, Search, Translate, Rewrite, Define, Open link and Write to. Translate, Rewrite and Define use the AI you chose in Keeper (which can run on this computer) and only when you press them; results come with Copy and Replace.
+- Choose the buttons, the language to translate into and the search address in Settings → AI → Actions for selected text. Off until you turn it on.
+
 ### Added — Mail: Today at the top of the inbox
 - The inbox opens with a greeting for the time of day and your first name (from the name you send mail as; with none, no name), today's date, and today's events as cards from every calendar Keeper reads: time, title, the calendar's colour, "Now · until 6:45 PM" on the one going on, "Next" on the one after, and Join for Zoom, Google Meet, Teams, Webex, FaceTime, Jitsi and Whereby links. Join opens the meeting in your default app. The cards scroll sideways and can be reached with the keyboard; with no events the row is hidden, and a narrow window shows one "Now: …" or "Next: …" line.
 - While Mail is open, the bar at the top of the window shows the meeting going on, or the next one within 15 minutes, with Join.

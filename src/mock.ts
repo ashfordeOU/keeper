@@ -12,6 +12,7 @@ import { mockAwake } from './mock-awake';
 import { mockStage } from './mock-stage';
 import { mockStudio } from './mock-studio';
 import { mockVoice } from './mock-voice';
+import { mockTyping } from './mock-typing';
 import { mockAshforde } from './mock-ashforde';
 import { mockComponents } from './mock-components';
 import { featureStates } from '../core/features';
@@ -295,6 +296,7 @@ export function createMockApi(): KeeperApi {
 
   return {
     ...mockX(),
+    ...mockTyping(),
     // Cues and Island+ (calls, levels, notifications, agents).
     ...mockCues((ch) => listeners.get(ch)?.forEach((cb) => (cb as () => void)())),
     ...mockPlaces(),
@@ -576,6 +578,7 @@ export function createMockApi(): KeeperApi {
         { kind: 'feature', label: 'Keeper', hits: [{ kind: 'feature', id: 'weather', title: 'Weather', detail: 'On · Forecasts for your places', route: 'weather' }] },
       ], missed: [] } : { groups: [], missed: [] }),
       open: async () => undefined,
+      launch: async () => ({ ok: true }),
     },
     history: {
       list: async () => [

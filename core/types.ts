@@ -397,6 +397,12 @@ export interface Settings {
   excluded: string[];
   showHidden: boolean;
   quickSearchShortcut: string;
+  /** Quick Search as a launcher: sums, currency, saved links and your own commands (core/launcher) */
+  launcher: import('./launcher/links').LauncherSettings;
+  /** the bar for text selected in any app (core/selection.ts) */
+  selection: import('./selection').SelectionSettings;
+  /** typed snippets (core/typing/expand.ts); the snippets themselves live with Dictation's */
+  typing: import('./typing/expand').TypingSettings;
   /** Keeper inside the operating system: Spotlight, desktop search, Explorer, native text recognition */
   platform: import('./platform-integrations').PlatformSettings;
   trayEnabled: boolean;

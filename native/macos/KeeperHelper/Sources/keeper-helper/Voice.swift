@@ -8,6 +8,11 @@
 //   voice.systemAudio  streams the computer's sound as base64 16 kHz mono
 //                      float32 (ScreenCaptureKit audio, macOS 13+; needs Screen &
 //                      System Audio Recording). Keeper's own sound is left out.
+//   voice.typed        streams what is typed in any app, for typed snippets and
+//                      the paste queue (a listen-only event tap; Input Monitoring).
+//                      Characters come from the keyboard layout in use. Lines:
+//                      "ready", "t <json string>", "k back", "k reset", "k paste".
+//                      Nothing arrives while a password field has Secure Input on.
 //   voice.focus        is the focused field a password field? (Accessibility:
 //                      the secure text field subrole, or secure keyboard entry on)
 //   voice.micState     is the default microphone in use by any app, and which apps run
@@ -26,6 +31,7 @@ import ScreenCaptureKit
 func voiceCall(id: Int, method: String, params: [String: Any]) async throws -> [String: Any] {
     switch method {
     case "voice.keys": return try await voiceKeys(id: id, params)
+    case "voice.typed": return try await voiceTyped(id: id)
     case "voice.systemAudio":
         if #available(macOS 13.0, *) { return try await voiceSystemAudio(id: id) }
         throw NSError(domain: "keeper", code: 71, userInfo: [NSLocalizedDescriptionKey: "Recording the computer's sound needs macOS 13 or later"])
@@ -118,6 +124,85 @@ func voiceKeys(id: Int, _ p: [String: Any]) async throws -> [String: Any] {
     CFMachPortInvalidate(tap)
     if let l = box.loop { CFRunLoopStop(l) }
     Unmanaged<VoiceTap>.fromOpaque(ref).release()
+    return ["ok": true]
+}
+
+// MARK: - what is typed (typed snippets, the paste queue)
+
+final class TypedTap: @unchecked Sendable {
+    let id: Int
+    var tap: CFMachPort?
+    var loop: CFRunLoop?
+
+    init(id: Int) { self.id = id }
+
+    /// Return, Tab, Esc, the arrows, Home, End, Page Up/Down, forward delete: start again.
+    static let resetCodes: Set<Int64> = [36, 76, 48, 53, 123, 124, 125, 126, 115, 119, 116, 121, 117]
+
+    func characters(_ e: CGEvent) -> String {
+        var len = 0
+        var chars = [UniChar](repeating: 0, count: 8)
+        e.keyboardGetUnicodeString(maxStringLength: 8, actualStringLength: &len, unicodeString: &chars)
+        return len > 0 ? String(utf16CodeUnits: chars, count: min(len, 8)) : ""
+    }
+
+    func handle(_ type: CGEventType, _ e: CGEvent) {
+        if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+            if let t = tap { CGEvent.tapEnable(tap: t, enable: true) }
+            return
+        }
+        if type == .leftMouseDown || type == .rightMouseDown { Wire.shared.delta(id, "k reset"); return }
+        guard type == .keyDown else { return }
+        let kc = e.getIntegerValueField(.keyboardEventKeycode)
+        let flags = e.flags
+        if flags.contains(.maskCommand) {
+            // ⌘V on any layout: the key that types "v".
+            Wire.shared.delta(id, characters(e).lowercased() == "v" ? "k paste" : "k reset")
+            return
+        }
+        if flags.contains(.maskControl) { Wire.shared.delta(id, "k reset"); return }
+        if kc == 51 { Wire.shared.delta(id, "k back"); return }
+        if TypedTap.resetCodes.contains(kc) { Wire.shared.delta(id, "k reset"); return }
+        let s = characters(e)
+        // A dead key (´ waiting for a letter) types nothing yet.
+        if s.isEmpty { return }
+        if s.unicodeScalars.contains(where: { $0.value < 0x20 || $0.value == 0x7f || ($0.value >= 0xF700 && $0.value <= 0xF8FF) }) { Wire.shared.delta(id, "k reset"); return }
+        guard let data = try? JSONSerialization.data(withJSONObject: [s]), let json = String(data: data, encoding: .utf8), json.count > 2 else { return }
+        Wire.shared.delta(id, "t " + String(json.dropFirst().dropLast()))
+    }
+}
+
+func voiceTyped(id: Int) async throws -> [String: Any] {
+    let box = TypedTap(id: id)
+    if !CGPreflightListenEventAccess() { _ = CGRequestListenEventAccess() }
+    let mask = (1 << CGEventType.keyDown.rawValue) | (1 << CGEventType.leftMouseDown.rawValue) | (1 << CGEventType.rightMouseDown.rawValue)
+    let callback: CGEventTapCallBack = { _, type, event, refcon in
+        guard let refcon else { return Unmanaged.passUnretained(event) }
+        Unmanaged<TypedTap>.fromOpaque(refcon).takeUnretainedValue().handle(type, event)
+        return Unmanaged.passUnretained(event)
+    }
+    let ref = Unmanaged.passRetained(box).toOpaque()
+    guard let tap = CGEvent.tapCreate(tap: .cgSessionEventTap, place: .headInsertEventTap, options: .listenOnly, eventsOfInterest: CGEventMask(mask), callback: callback, userInfo: ref) else {
+        Unmanaged<TypedTap>.fromOpaque(ref).release()
+        throw NSError(domain: "keeper", code: 74, userInfo: [NSLocalizedDescriptionKey: "Input Monitoring permission is needed: allow Keeper in System Settings → Privacy & Security → Input Monitoring"])
+    }
+    box.tap = tap
+    let thread = Thread {
+        box.loop = CFRunLoopGetCurrent()
+        let src = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
+        CFRunLoopAddSource(CFRunLoopGetCurrent(), src, .commonModes)
+        CGEvent.tapEnable(tap: tap, enable: true)
+        CFRunLoopRun()
+    }
+    thread.start()
+    Wire.shared.delta(id, "ready")
+    while !Task.isCancelled {
+        try? await Task.sleep(nanoseconds: 400_000_000)
+    }
+    CGEvent.tapEnable(tap: tap, enable: false)
+    CFMachPortInvalidate(tap)
+    if let l = box.loop { CFRunLoopStop(l) }
+    Unmanaged<TypedTap>.fromOpaque(ref).release()
     return ["ok": true]
 }
 

@@ -17,6 +17,9 @@ import { defaultHomeSettings, normalizeHome } from './home-layout';
 import { DEFAULT_THEME, THEMES } from './themes';
 import type { Rule, Settings } from './types';
 import { sanitizePageWindows } from './page-window';
+import { defaultLauncher, normalizeLauncher } from './launcher/links';
+import { defaultSelection, normalizeSelection } from './selection';
+import { defaultTyping, normalizeTyping } from './typing/expand';
 
 export type AllSettings = Settings & { island: IslandSettings };
 
@@ -42,6 +45,9 @@ export function defaultIsland(): IslandSettings {
     captureShortcut: 'CommandOrControl+Shift+2',
     downloadAlerts: true,
     pasteShortcut: 'CommandOrControl+Shift+V',
+    pasteNextShortcut: 'CommandOrControl+Alt+V',
+    plainPasteShortcut: '',
+    queueOnPaste: true,
     shelfShortcut: 'CommandOrControl+Shift+X',
     taskShortcut: 'CommandOrControl+Alt+N',
     hideShortcut: 'CommandOrControl+Shift+H',
@@ -104,6 +110,9 @@ export function defaultSettings(folders: string[], rules: Rule[]): AllSettings {
     excluded: [],
     showHidden: false,
     quickSearchShortcut: 'CommandOrControl+Shift+Space',
+    launcher: defaultLauncher(),
+    selection: defaultSelection(),
+    typing: defaultTyping(),
     platform: { ...DEFAULT_PLATFORM },
     trayEnabled: true,
     trayCount: 10,
@@ -208,6 +217,9 @@ export function mergeSettings(base: AllSettings, raw: unknown): AllSettings {
   if (!['selection', 'always', 'never'].includes(out.inspectorMode)) out.inspectorMode = 'selection';
   if (!['auto', 'full', 'compact'].includes(out.sidebarMode)) out.sidebarMode = 'auto';
   out.home = normalizeHome(r.home);
+  out.launcher = normalizeLauncher(r.launcher);
+  out.selection = normalizeSelection(r.selection);
+  out.typing = normalizeTyping(r.typing);
   // The open Island's sizes and window type (settings from before them get the defaults).
   // The deck (pinned tools) came after the tabs: settings from before it keep the person's first choices.
   const rawIsland = r.island && typeof r.island === 'object' ? (r.island as Record<string, unknown>) : {};

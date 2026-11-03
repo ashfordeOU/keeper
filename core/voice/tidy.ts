@@ -298,6 +298,8 @@ export function matchSnippet(text: string, snippets: Snippet[]): Snippet | undef
 function inlineSnippets(text: string, snippets: Snippet[], applied: string[]): string {
   let t = text;
   for (const s of snippets) {
+    // Typed-only snippets have nothing to say.
+    if (!norm(s.trigger)) continue;
     const re = new RegExp(`\\b(?:insert )?snippet\\s+${escapeRe(norm(s.trigger)).replace(/ /g, '[\\s,.-]+')}\\b[.,]?`, 'gi');
     t = t.replace(re, () => { applied.push(`snippet:${s.trigger}`); return `${LIT_OPEN}${s.text}${LIT_CLOSE}`; });
   }

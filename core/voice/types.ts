@@ -44,9 +44,11 @@ export interface DictEntry {
 
 export interface Snippet {
   id: string;
-  /** what you say ("my address") */
+  /** what you say ("my address"); '' for a snippet that is only typed */
   trigger: string;
-  /** what is typed, word for word */
+  /** what you type for it (";addr"); typed snippets, core/typing/expand.ts */
+  abbr?: string;
+  /** what is typed, word for word (typed snippets fill in {date}, {clipboard}, {cursor}…) */
   text: string;
   uses?: number;
 }

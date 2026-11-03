@@ -31,6 +31,7 @@ import { MailPanel } from '../../pim/mail-settings';
 import { PermissionsPanel } from '../../components/PermissionsPanel';
 import { NativeAppsPanel } from '../../components/NativeAppsPanel';
 import { AccessibilityPanel } from '../../components/AccessibilityPanel';
+import { ClipIgnorePanel, LauncherCommandsPanel, LauncherLinksPanel, SelectionBarPanel } from '../../components/LauncherPanels';
 import '../../styles/glance.css';
 
 const UsageSettings = lazy(() => import('../usage/UsageSettings').then((m) => ({ default: m.UsageSettings })));
@@ -276,4 +277,8 @@ export const PANELS: Record<string, PanelDef> = {
   resources: { render: () => <UsagePanel />, own: true, wide: true },
   meshPlaces: { render: () => <MeshPlaces />, wide: true },
   about: { render: () => <AboutPanel />, own: true, wide: true },
+  launcherLinks: { render: () => <LauncherLinksPanel />, wide: true },
+  launcherCommands: { render: () => <LauncherCommandsPanel />, wide: true },
+  selectionBar: { render: () => <SelectionBarPanel />, wide: true },
+  clipIgnore: { render: () => <ClipIgnorePanel />, wide: true },
 };

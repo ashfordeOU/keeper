@@ -3,7 +3,7 @@
 // download and screenshot alerts, coding agents, calendar, now playing,
 // weather and battery. (Dictation lives in electron/services/voice.)
 
-import { app, nativeImage, Notification, powerMonitor, powerSaveBlocker, shell } from 'electron';
+import { app, globalShortcut, nativeImage, Notification, powerMonitor, powerSaveBlocker, shell } from 'electron';
 import { exec } from 'node:child_process';
 import { existsSync, promises as fsp, readFileSync, watch, type FSWatcher } from 'node:fs';
 import os from 'node:os';
@@ -34,6 +34,7 @@ import { lyricsFor as lyricsOn, plusSetting } from '../../core/island-plus';
 import { uploadFile } from './upload';
 import { poll, pollNow } from './governor';
 import { featureOn, onFeature } from './features';
+import { PasteQueue } from '../../core/paste-queue';
 
 /** Things the Island borrows from the rest of the app (set by electron/ipc/island.ts). */
 export interface IslandHooks {
@@ -54,6 +55,8 @@ const PARTIAL = /\.(crdownload|part|partial|download|opdownload|tmp|!ut)$/i;
 export class IslandService {
   store: shelves.ShelfStore = shelves.newStore();
   clips = new ClipHistory(200, 30);
+  /** paste one by one (core/paste-queue.ts) */
+  queue = new PasteQueue();
   devices?: DevicesState;
   hooks: IslandHooks = {};
   /** reasons the automatic keep-awake rules are holding the computer awake */
@@ -217,7 +220,7 @@ export class IslandService {
       shelf: views.find((v) => v.id === this.store.active)?.items ?? [], shelves: views, activeShelf: this.store.active,
       closedShelves: this.store.closed.map((c) => ({ id: c.id, name: c.name, color: c.color, count: c.items.length })),
       devices: this.devices, awakeTriggers: this.awakeTriggers, awakeAvailable: featureOn('keepAwake'), hidden: this.userHidden || this.fsHidden,
-      clips: this.clips.items, focus: this.focus, keepAwake: this.awake, agents: this.agents, events: [...this.events, ...this.pimEvents].sort((a, b) => a.start - b.start), countdowns: this.countdowns, dueReminders: this.dueReminders,
+      clips: this.clips.items, pasteQueue: this.queueView(), focus: this.focus, keepAwake: this.awake, agents: this.agents, events: [...this.events, ...this.pimEvents].sort((a, b) => a.start - b.start), countdowns: this.countdowns, dueReminders: this.dueReminders,
       nowPlaying: this.playing, lyrics: this.lyrics, weather: this.weather, battery: this.battery, micInUse: this.mic, camInUse: this.cam, alerts: this.alerts, breakIn, recording: this.recording,
       monorail: this.monorail,
     };
@@ -450,6 +453,7 @@ export class IslandService {
       if (looksSecret(value) || value.length >= 100_000) return;
       const item = this.clips.add({ kind: detectClipKind(value), text: value, source });
       if (!item) return;
+      void this.queueCopied(item.id);
       this.changed();
       if (item.kind === 'link' && s.clipFetchTitles) void this.fetchTitle(item.id, value);
       return;
@@ -459,7 +463,8 @@ export class IslandService {
       const joined = files.join('\n');
       if (files.length && joined !== this.lastClip) {
         this.lastClip = joined;
-        if (this.clips.add({ kind: 'file', text: joined, source: await frontmostApp().catch(() => undefined) })) this.changed();
+        const it = this.clips.add({ kind: 'file', text: joined, source: await frontmostApp().catch(() => undefined) });
+        if (it) { void this.queueCopied(it.id); this.changed(); }
         return;
       }
     }
@@ -467,12 +472,13 @@ export class IslandService {
       const img = await readImage();
       if (!img) return;
       const { width, height } = img.getSize();
-      const sig = `${width}x${height}:${img.toBitmap().subarray(0, 4096).reduce((a, b) => (a * 31 + b) >>> 0, 7)}`;
+      const sig = imageSig(img);
       if (sig === this.lastImageSig) return;
       this.lastImageSig = sig;
       const thumb = img.resize({ width: Math.min(320, width) }).toDataURL();
       const item = this.clips.add({ kind: 'image', image: thumb, text: `Image ${width}×${height}`, source: await frontmostApp().catch(() => undefined) });
       if (!item) return;
+      void this.queueCopied(item.id);
       this.changed();
       // Read the text in the copied image so it can be found later.
       if (this.hooks.ocrImage) {
@@ -524,6 +530,152 @@ export class IslandService {
     await pasteKeystroke();
   }
 
+  /** Puts a clip on the clipboard without moving it in the history (the queue's next one). */
+  private async putOnClipboard(c: ClipItem) {
+    if (c.kind === 'image' && c.image) await writeImage(nativeImage.createFromDataURL(c.image));
+    else if (c.kind === 'file' && c.text) await writePaths(c.text.split('\n'));
+    else if (c.text) await writeText(c.text);
+    if (c.kind === 'image') {
+      // What we put there is not a new copy.
+      const back = await readImage();
+      if (back) this.lastImageSig = imageSig(back);
+    } else this.lastClip = c.text ?? this.lastClip;
+  }
+
+  // ---------------------------------------------------------------- paste one by one
+
+  private queueView(): IslandState['pasteQueue'] {
+    const v = this.queue.view();
+    if (!v) return undefined;
+    const head = this.queue.peek();
+    const c = head ? this.clips.get(head) : undefined;
+    return { ...v, next: c ? (c.kind === 'image' ? 'An image' : (c.text ?? '').slice(0, 120)) : undefined };
+  }
+
+  /** While collecting, a new copy joins the queue and the first one stays on the clipboard, ready. */
+  private async queueCopied(id: string) {
+    if (!this.queue.copied(id)) return;
+    const head = this.queue.peek();
+    if (head && head !== id) {
+      const c = this.clips.get(head);
+      if (c) await this.putOnClipboard(c);
+    }
+    this.changed();
+  }
+
+  /** Called with the paste listener's events (typing.ts) while a queue runs. */
+  queuePasted = () => {
+    if (!this.queue.active || this.queue.collecting && !this.queue.items.length) return;
+    // The app reads the clipboard as the keys go down: the next one goes on it a moment later.
+    setTimeout(() => void this.queueAdvance(), 250);
+  };
+
+  private async queueAdvance() {
+    const next = this.queue.took();
+    if (next) {
+      const c = this.clips.get(next);
+      if (c) await this.putOnClipboard(c);
+    } else this.queueEnded(true);
+    this.changed();
+  }
+
+  private queueListening = false;
+  private queueFeatureWatch?: () => void;
+  private async queueHooks(on: boolean) {
+    const acc = settings().island.pasteNextShortcut;
+    if (on) {
+      // Clipboard history switched off: the queue ends with it.
+      this.queueFeatureWatch ??= onFeature('clipboard', (yes) => { if (!yes && this.queue.active) this.queueStop(); });
+      try { if (acc && !globalShortcut.isRegistered(acc)) globalShortcut.register(acc, () => void this.queueNext()); } catch { /* taken or not valid */ }
+      if (settings().island.queueOnPaste && !this.queueListening) {
+        this.queueListening = true;
+        const { listen } = await import('./typing');
+        await listen('pasteQueue', (e) => { if (e.t === 'paste') this.queuePasted(); });
+      }
+    } else {
+      try { if (acc) globalShortcut.unregister(acc); } catch { /* not ours */ }
+      if (this.queueListening) {
+        this.queueListening = false;
+        const { unlisten } = await import('./typing');
+        unlisten('pasteQueue');
+      }
+    }
+  }
+
+  private queueEnded(done: boolean) {
+    this.queue.stop();
+    void this.queueHooks(false);
+    if (done) this.alert({ kind: 'info', title: 'Pasted them all', detail: 'The paste queue is empty' });
+  }
+
+  /** Starts a queue: with ids, ready to paste them in order; without, what is copied next joins. */
+  async queueStart(ids?: string[]) {
+    const known = (ids ?? []).filter((id) => this.clips.get(id));
+    this.queue.start(known);
+    const head = this.queue.peek();
+    if (head) await this.putOnClipboard(this.clips.get(head)!);
+    await this.queueHooks(true);
+    this.changed();
+  }
+
+  /** Pastes the next one into the app in front (the shortcut, or the Island's button). */
+  async queueNext() {
+    const head = this.queue.peek();
+    if (!head) { if (this.queue.active && !this.queue.items.length) this.alert({ kind: 'info', title: 'Nothing to paste yet', detail: 'Copy what you want to paste one by one' }); return; }
+    const c = this.clips.get(head);
+    if (c) {
+      await this.putOnClipboard(c);
+      await new Promise((r) => setTimeout(r, 80));
+      // Our own paste is not the person's: the listener's ⌘V is left out for a moment.
+      if (this.queueListening) (await import('./typing')).quiet(600);
+      await pasteKeystroke();
+      await new Promise((r) => setTimeout(r, 250));
+    }
+    await this.queueAdvance();
+  }
+
+  queueStop() {
+    this.queueEnded(false);
+    this.changed();
+  }
+
+  /** Pastes what is on the clipboard as plain text (formatting dropped), then puts it back as it was. */
+  async pastePlain() {
+    const text = await readText();
+    if (!text) return;
+    const { clipboard, ClipboardItem } = await import('electron');
+    // Everything on the clipboard now (rich text, HTML), read out so it can go back afterwards.
+    const kept: Record<string, Blob>[] = [];
+    try {
+      for (const item of await clipboard.read()) {
+        const parts: Record<string, Blob> = {};
+        for (const t of item.types) parts[t] = (await item.getType(t)) as Blob;
+        kept.push(parts);
+      }
+    } catch { /* nothing readable */ }
+    const rich = kept.some((k) => Object.keys(k).some((t) => t !== 'text/plain'));
+    this.lastClip = text;
+    await writeText(text);
+    await new Promise((r) => setTimeout(r, 60));
+    await pasteKeystroke();
+    // The formatting comes back for the next ordinary paste.
+    if (rich) setTimeout(() => void (async () => { if ((await readText()) === text) await clipboard.write(kept.map((k) => new ClipboardItem(k))).catch(() => undefined); })(), 700);
+  }
+
+  /** Never keep copies from this app again; the ones kept from it go too (pinned and filed ones stay). */
+  async neverKeepFrom(appName: string): Promise<number> {
+    const name = appName.trim();
+    if (!name) return 0;
+    const { updateSettings } = await import('../store');
+    const isl = settings().island;
+    if (!isl.clipIgnoreApps.some((a) => a.toLowerCase() === name.toLowerCase())) await updateSettings({ island: { ...isl, clipIgnoreApps: [...isl.clipIgnoreApps, name] } });
+    const before = this.clips.items.length;
+    this.clips.items = this.clips.items.filter((c) => c.pinned || c.collections?.length || (c.source ?? '').toLowerCase() !== name.toLowerCase());
+    for (const id of [...this.queue.items]) if (!this.clips.get(id)) this.queue.drop(id);
+    this.changed();
+    return before - this.clips.items.length;
+  }
+
   updateClip(id: string, patch: { note?: string }) {
     this.clips.update(id, { note: patch.note?.slice(0, 2000) });
     this.changed();
@@ -541,7 +693,7 @@ export class IslandService {
   }
 
   pinClip(id: string) { this.clips.togglePin(id); this.changed(); }
-  removeClip(id: string) { this.clips.remove(id); this.changed(); }
+  removeClip(id: string) { this.clips.remove(id); this.queue.drop(id); this.changed(); }
   clearClips() { this.clips.clear(); this.changed(); }
 
   // ---------------------------------------------------------------- focus & breaks
@@ -950,6 +1102,12 @@ export class IslandService {
   ignoreClip(text: string) {
     this.lastClip = text;
   }
+}
+
+/** A quick fingerprint of a picture on the clipboard (its size and first pixels). */
+function imageSig(img: Electron.NativeImage): string {
+  const { width, height } = img.getSize();
+  return `${width}x${height}:${img.toBitmap().subarray(0, 4096).reduce((a, b) => (a * 31 + b) >>> 0, 7)}`;
 }
 
 /** Presses the paste shortcut in the app in front. */

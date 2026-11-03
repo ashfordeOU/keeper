@@ -2,15 +2,23 @@
 // search.everything: the one search box's other sources besides files (which
 // the library answers): mail on this computer, events, tasks, contacts, notes
 // in Keeper's Notes vaults, Keeper's own features, pages and settings, and system
-// settings. Each source has a time limit and is skipped while its feature is
-// off; nothing here reaches a server.
+// settings. Quick Search also asks for its launcher rows (core/launcher): an
+// answer to a sum or conversion, apps, Keeper's actions, saved links and your
+// own commands, ranked with what you opened before. Each source has a time
+// limit and is skipped while its feature is off; nothing here reaches a
+// server (currency rates only when the person turned them on).
 
-import { ipcMain } from 'electron';
+import { app, ipcMain } from 'electron';
 import { FEATURES } from '../../core/features';
 import { hiddenFolder } from '../../core/pim/mail-mcp';
 import { searchCatalog, type Os } from '../../core/settings-catalog';
-import { best, groupHits, queryWords, withTimeout, type EverythingHit, type EverythingKind, type EverythingResult } from '../../core/search-everything';
-import { featureOn } from '../services/features';
+import { best, groupHits, LAUNCH_KINDS, queryWords, scoreText, withTimeout, type EverythingHit, type EverythingKind, type EverythingResult } from '../../core/search-everything';
+import { calculate } from '../../core/launcher/calc';
+import { availableActions, LAUNCH_ACTIONS } from '../../core/launcher/actions';
+import { homeCurrency, matchCommandKeywords, matchLinks } from '../../core/launcher/links';
+import { answer as convertAnswer, parseConversion } from '../../core/island-tools/units';
+import * as launcher from '../services/launcher';
+import { featureOn, onFeature } from '../services/features';
 import { searchSettings } from '../../core/settings-schema';
 import { settings } from '../store';
 import * as notes from '../services/notes';
@@ -22,7 +30,92 @@ const LIMIT_MS = 1500;
 
 type Source = (words: string[], q: string, limit: number) => Promise<EverythingHit[]>;
 
+/** The launcher's rows score like other matches, plus what you opened before. */
+const withHabit = (id: string, score: number) => score + launcher.bonusFor(id);
+
 const sources: Record<EverythingKind, { feature?: string; run: Source }> = {
+  answer: {
+    feature: 'launcher',
+    run: async (_words, q) => {
+      const ls = launcher.launcherSettings();
+      const out: EverythingHit[] = [];
+      const sum = ls.calc ? calculate(q) : undefined;
+      if (sum) out.push({ kind: 'answer', id: 'calc', title: `= ${sum.text}`, detail: `${q.trim()} · Enter copies the answer`, copy: String(Number(sum.value.toPrecision(12))), route: '', icon: 'ruler' });
+      const conv = ls.calc ? parseConversion(q) : undefined;
+      if (conv) {
+        let rates;
+        if (conv.dim === 'currency' && ls.currency) rates = (await (await import('../services/island-tools')).rates('EUR').catch(() => null)) ?? undefined;
+        const home = homeCurrency(app.getLocaleCountryCode() ? `x-${app.getLocaleCountryCode()}` : app.getLocale());
+        for (const a of convertAnswer(q, rates, home).slice(0, 3)) {
+          out.push({ kind: 'answer', id: `conv:${a.unit}`, title: `= ${a.text}`, detail: conv.dim === 'currency' ? 'European Central Bank reference rate · Enter copies it' : 'Enter copies the answer', copy: a.text.replace(/ [^ ]+$/, '').replace(/,/g, ''), route: '', icon: 'ruler' });
+        }
+        if (conv.dim === 'currency' && !ls.currency) out.push({ kind: 'answer', id: 'currency-off', title: 'Converting currencies is off', detail: 'Turn it on in Settings → General → Quick Search (downloads daily rates)', route: 'settings:general#launcher.currency', icon: 'coin' });
+      }
+      return out;
+    },
+  },
+  app: {
+    feature: 'launcher',
+    run: async (words, _q, limit) => {
+      const apps = await launcher.launchApps();
+      const scored: EverythingHit[] = [];
+      for (const a of apps) {
+        const sc = scoreText(words, a.name, a.keywords ?? '');
+        if (sc < 0) continue;
+        scored.push({ kind: 'app', id: a.id, title: a.name, detail: process.platform === 'darwin' ? a.path.replace(/\/[^/]+$/, '') : a.keywords?.slice(0, 80), route: '', icon: 'app', score: withHabit(`app:${a.id}`, sc) });
+      }
+      scored.sort((x, y) => (y.score ?? 0) - (x.score ?? 0) || x.title.localeCompare(y.title));
+      const top = scored.slice(0, Math.max(limit, 6));
+      // Pictures for the few rows that show.
+      await Promise.all(top.map(async (h) => { const a = apps.find((x) => x.id === h.id); if (a) h.image = await launcher.appIcon(a); }));
+      return top;
+    },
+  },
+  action: {
+    feature: 'launcher',
+    run: async (words, _q, limit) => {
+      const list = availableActions(featureOn, process.platform);
+      const out: EverythingHit[] = [];
+      for (const a of list) {
+        const sc = scoreText(words, a.title, a.words);
+        if (sc >= 0) out.push({ kind: 'action', id: a.id, title: a.title, route: '', icon: a.icon, score: withHabit(`action:${a.id}`, sc) });
+      }
+      return out.sort((x, y) => (y.score ?? 0) - (x.score ?? 0)).slice(0, limit);
+    },
+  },
+  link: {
+    feature: 'launcher',
+    run: async (words, q) => {
+      const ls = launcher.launcherSettings();
+      const out: EverythingHit[] = [];
+      for (const { link, query } of matchLinks(q, ls.links)) {
+        const needs = link.url.includes('{query}');
+        if (needs && !query) out.push({ kind: 'link', id: link.id, title: `${link.name}: type what to look for`, detail: link.url.replace(/\{query\}.*/, '…'), route: '', icon: 'globe', fill: `${link.keyword} `, score: 30 });
+        else out.push({ kind: 'link', id: link.id, title: needs ? `${link.name}: ${query}` : link.name, detail: link.url.replace('{query}', query), route: '', icon: 'globe', query, score: withHabit(`link:${link.id}`, 40) });
+      }
+      // By name too ("encyc" finds the Encyclopedia link): Enter fills in its keyword.
+      for (const l of ls.links) {
+        if (out.some((h) => h.id === l.id)) continue;
+        const sc = scoreText(words, l.name, l.keyword);
+        if (sc >= 0) out.push({ kind: 'link', id: l.id, title: l.name, detail: `Type “${l.keyword}” and what to look for`, route: '', icon: 'globe', fill: l.url.includes('{query}') ? `${l.keyword} ` : undefined, score: withHabit(`link:${l.id}`, sc) });
+      }
+      return out;
+    },
+  },
+  command: {
+    feature: 'launcher',
+    run: async (words, q, limit) => {
+      const ls = launcher.launcherSettings();
+      const out: EverythingHit[] = [];
+      for (const { cmd, query } of matchCommandKeywords(q, ls.commands)) out.push({ kind: 'command', id: cmd.id, title: query ? `${cmd.name}: ${query}` : cmd.name, detail: cmd.confirm ? 'Asks before it runs' : 'Runs straight away', route: '', icon: 'terminal', query, score: withHabit(`command:${cmd.id}`, 40) });
+      for (const c of ls.commands) {
+        if (out.some((h) => h.id === c.id)) continue;
+        const sc = scoreText(words, c.name, c.keyword ?? '');
+        if (sc >= 0) out.push({ kind: 'command', id: c.id, title: c.name, detail: c.confirm ? 'Asks before it runs' : 'Runs straight away', route: '', icon: 'terminal', query: '', score: withHabit(`command:${c.id}`, sc) });
+      }
+      return out.slice(0, limit);
+    },
+  },
   mail: {
     feature: 'mail',
     run: async (words, q, limit) => {
@@ -104,11 +197,13 @@ const sources: Record<EverythingKind, { feature?: string; run: Source }> = {
 };
 
 /** Searches every source but files at once, each within its time limit. */
-export async function searchEverything(q: string, opts: { kinds?: EverythingKind[]; limit?: number } = {}): Promise<EverythingResult> {
+export async function searchEverything(q: string, opts: { kinds?: EverythingKind[]; limit?: number; launch?: boolean } = {}): Promise<EverythingResult> {
   const words = queryWords(q);
   if (!words.length) return { groups: [], missed: [] };
   const limit = Math.max(1, Math.min(20, opts.limit ?? 5));
-  const kinds = (opts.kinds ?? (Object.keys(sources) as EverythingKind[])).filter((k) => sources[k] && (!sources[k].feature || featureOn(sources[k].feature!)));
+  // Launcher rows only for Quick Search (the Search page lists what is kept, not apps and sums).
+  const wanted = (Object.keys(sources) as EverythingKind[]).filter((k) => opts.launch || !LAUNCH_KINDS.includes(k));
+  const kinds = (opts.kinds ?? wanted).filter((k) => sources[k] && (!sources[k].feature || featureOn(sources[k].feature!)));
   const missed: EverythingKind[] = [];
   const all = await Promise.all(kinds.map(async (k) => {
     const r = await withTimeout(sources[k].run(words, q.trim(), limit), LIMIT_MS);
@@ -118,8 +213,58 @@ export async function searchEverything(q: string, opts: { kinds?: EverythingKind
   return { groups: groupHits(all.flat()), missed };
 }
 
-export function registerSearchIpc(d: { show: (route: string) => void }) {
-  ipcMain.handle('search.everything', (_e, q: string, opts?: { kinds?: EverythingKind[]; limit?: number }) => searchEverything(String(q ?? ''), opts ?? {}));
+export interface SearchDeps {
+  show: (route: string) => void;
+  /** a keeper:// link, as if opened from outside */
+  link: (url: string) => void;
+  /** one of the launcher's named jobs (core/launcher/actions.ts `run`) */
+  job: (name: NonNullable<(typeof LAUNCH_ACTIONS)[number]['run']>) => Promise<void> | void;
+  /** a short note in the Island (a command's output, a problem) */
+  note: (title: string, detail: string) => void;
+  copy: (text: string) => Promise<void>;
+}
+
+/** Opens an app, saved link, command or action chosen in Quick Search. */
+async function launch(d: SearchDeps, kind: EverythingKind, id: string, query: string, how: 'open' | 'reveal'): Promise<{ ok: boolean; message?: string }> {
+  try {
+    if (kind === 'app') {
+      const a = (await launcher.launchApps()).find((x) => x.id === id);
+      if (!a) return { ok: false, message: 'That app is no longer there' };
+      if (how === 'reveal') launcher.revealApp(a);
+      else await launcher.openApp(a);
+      return { ok: true };
+    }
+    if (kind === 'link') {
+      const l = launcher.launcherSettings().links.find((x) => x.id === id);
+      if (!l) return { ok: false, message: 'That saved link is gone' };
+      await launcher.openLink(l, query, d.link);
+      return { ok: true };
+    }
+    if (kind === 'command') {
+      const c = launcher.launcherSettings().commands.find((x) => x.id === id);
+      if (!c) return { ok: false, message: 'That command is gone' };
+      const r = await launcher.runCommand(c, query, d.note, d.copy);
+      return { ok: r.ran ? !!r.ok : true, message: r.ran ? undefined : 'Not run' };
+    }
+    if (kind === 'action') {
+      const a = availableActions(featureOn, process.platform).find((x) => x.id === id);
+      if (!a) return { ok: false, message: 'That is not available now' };
+      launcher.noteUse(`action:${a.id}`);
+      if (a.link) d.link(a.link);
+      else if (a.run) await d.job(a.run);
+      return { ok: true };
+    }
+    return { ok: false, message: 'Nothing to open' };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+export function registerSearchIpc(d: SearchDeps) {
+  ipcMain.handle('search.everything', (_e, q: string, opts?: { kinds?: EverythingKind[]; limit?: number; launch?: boolean }) => searchEverything(String(q ?? ''), opts ?? {}));
   // Opens a result in the main window (Quick Search is a window of its own).
   ipcMain.handle('search.open', (_e, route: string) => d.show(String(route ?? '')));
+  ipcMain.handle('search.launch', (_e, kind: EverythingKind, id: string, query?: string, how?: 'open' | 'reveal') => launch(d, kind, String(id ?? ''), String(query ?? ''), how === 'reveal' ? 'reveal' : 'open'));
+  // Off: the list of apps is forgotten (it is read again on first use).
+  onFeature('launcher', (on) => { if (!on) launcher.forgetApps(); });
 }

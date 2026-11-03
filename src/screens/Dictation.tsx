@@ -193,6 +193,7 @@ function HistoryTab() {
 // ---------------------------------------------------------------- dictionary and snippets
 
 function WordsTab({ cfg, save }: { cfg: VoiceSettings; save: (p: DeepPartial<VoiceSettings>) => Promise<void> }) {
+  const { go } = useStore();
   const [word, setWord] = useState('');
   const [heard, setHeard] = useState('');
   const [trig, setTrig] = useState('');
@@ -259,9 +260,9 @@ function WordsTab({ cfg, save }: { cfg: VoiceSettings; save: (p: DeepPartial<Voi
               <table className="voice-table" data-testid="dictation-snippets">
                 <thead><tr><th>Say</th><th>Types exactly</th><th /></tr></thead>
                 <tbody>
-                  {cfg.snippets.map((s) => (
+                  {cfg.snippets.filter((s) => s.trigger).map((s) => (
                     <tr key={s.id}>
-                      <td><b>{s.trigger}</b></td>
+                      <td><b>{s.trigger}</b>{s.abbr ? <div className="small muted">or type {s.abbr}</div> : null}</td>
                       <td className="muted" style={{ whiteSpace: 'pre-wrap' }}>{s.text.length > 80 ? s.text.slice(0, 79) + '…' : s.text}</td>
                       <td style={{ width: 32 }}><button className="btn icon sm ghost" title="Remove" aria-label="Remove" onClick={() => void setSnips(cfg.snippets.filter((x) => x.id !== s.id))}><Icon name="close" size={12} /></button></td>
                     </tr>
@@ -274,7 +275,7 @@ function WordsTab({ cfg, save }: { cfg: VoiceSettings; save: (p: DeepPartial<Voi
                 </tbody>
               </table>
             </div>
-            <div className="meet-consent"><Icon name="info" size={12} /> Say the trigger on its own (said a little differently is fine), or “snippet my address” inside a sentence.</div>
+            <div className="meet-consent"><Icon name="info" size={12} /> Say the trigger on its own (said a little differently is fine), or “snippet my address” inside a sentence. To type them too, give them an abbreviation in <button className="btn sm ghost" onClick={() => go({ name: 'snippets' })}>Typed Snippets</button>.</div>
           </div>
         </div>
       </div>

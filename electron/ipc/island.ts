@@ -490,6 +490,18 @@ export function registerIslandIpc(c: IslandContext) {
     await hideClips();
     await svc.pasteClip(id);
   });
+  // Paste one by one: started from the clipboard picker (chosen clips) or empty (what is copied next joins).
+  h('island.queueStart', async (ids?: string[]) => {
+    await hideClips();
+    await svc.queueStart(Array.isArray(ids) ? ids.filter((x) => typeof x === 'string') : undefined);
+  });
+  h('island.queueNext', () => svc.queueNext());
+  h('island.queueStop', () => svc.queueStop());
+  h('island.pastePlain', async () => {
+    await hideClips();
+    await svc.pastePlain();
+  });
+  h('island.neverKeepFrom', (appName: string) => svc.neverKeepFrom(String(appName ?? '')));
   h('island.exportClips', async () => {
     const r = await dialog.showSaveDialog({ defaultPath: path.join(app.getPath('documents'), `Keeper clipboard ${new Date().toISOString().slice(0, 10)}.json`), filters: [{ name: 'Keeper clipboard backup', extensions: ['json'] }] });
     if (r.canceled || !r.filePath) return null;
@@ -590,6 +602,10 @@ export function registerIslandShortcuts() {
     }
   };
   reg(s.pasteShortcut, () => toggleClips());
+  // Paste without formatting, from any app (no shortcut until one is chosen).
+  if (featureOn('clipboard')) reg(s.plainPasteShortcut ?? '', () => void ctx.islandSvc.pastePlain());
+  // While a paste queue runs: its "paste the next one" shortcut (taken only then).
+  if (ctx.islandSvc.queue.active) reg(s.pasteNextShortcut ?? '', () => void ctx.islandSvc.queueNext());
   reg(s.shelfShortcut, () => islandWindows.openOn('shelf'));
   // New task: the Island's Tasks with the composer focused. While a Keeper window is in front, its own
   // ⌥⌘N / Ctrl+Alt+N (New Window for This Page) wins, as ⌘⌥I does below.

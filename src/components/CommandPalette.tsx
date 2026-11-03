@@ -211,6 +211,9 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
       const r = await api.capture.clipboardImage();
       if (r?.text || r?.code) { await api.files.copyText(r.code ?? r.text); store.toast('Text copied'); } else store.toast('No image with text on the clipboard');
     } },
+    { id: 'clip-collect', label: 'Paste One by One: Collect What I Copy', group: 'Actions', icon: 'clipboard', keywords: 'paste queue paste stack clipboard sequential several', run: async () => { await api.island.queueStart(); store.toast('Copy what you want to paste; each paste then takes the next one'); } },
+    { id: 'clip-queue-stop', label: 'Stop Pasting One by One', group: 'Actions', icon: 'clipboard', keywords: 'paste queue stop clear', run: async () => { await api.island.queueStop(); } },
+    { id: 'snippet-new', label: 'New Typed Snippet', group: 'Actions', icon: 'text', keywords: 'text expansion abbreviation autotext', run: async () => { store.go({ name: 'snippets' }); } },
     { id: 'focus', label: 'Start a 25-Minute Focus', group: 'Actions', icon: 'timer', keywords: 'pomodoro timer', run: async () => { await api.island.focus('start', 25); store.toast('Focus started — see you in 25 minutes'); } },
     { id: 'focus-stop', label: 'Stop Focus Timer', group: 'Actions', icon: 'timer', run: async () => { await api.island.focus('stop'); } },
     // Stage mode: a clean screen (presets from the Stage page).

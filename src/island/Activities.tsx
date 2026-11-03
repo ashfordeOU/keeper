@@ -435,6 +435,15 @@ function liveParts({ a, state, now, unlocked, reload }: LiveProps): { body: Reac
         {a.detail ? <div className="muted small ellipsis">{a.detail}</div> : null}
       </>
     );
+  } else if (a.kind === 'paste-queue') {
+    // Paste one by one: what goes next, and the queue's own buttons.
+    body = <div><div className="live-big num" style={{ color: a.color }}>{a.trailing}</div><div className="muted small ellipsis">{a.detail}</div></div>;
+    actions = (
+      <>
+        <button className="btn sm primary" data-testid="queue-next" onClick={() => void api.island.queueNext().then(reload)}>Paste next</button>
+        <button className="btn sm" data-testid="queue-stop" onClick={() => void api.island.queueStop().then(reload)}>Stop</button>
+      </>
+    );
   } else if (a.kind === 'awake') {
     actions = (
       <>

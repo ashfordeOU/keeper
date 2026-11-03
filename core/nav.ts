@@ -116,6 +116,7 @@ export const NAV_PAGES: NavPage[] = [
   { id: 'tools', route: { name: 'tools' }, label: 'Toolbox', i18n: 'nav.toolbox', icon: 'terminal', group: 'screen', keywords: 'tools utilities developer' },
 
   { id: 'island', route: { name: 'island' }, label: 'Island', i18n: 'nav.island', icon: 'island', group: 'desktop', keywords: 'notch shelf now playing' },
+  { id: 'snippets', route: { name: 'snippets' }, label: 'Typed Snippets', icon: 'text', group: 'desktop', keywords: 'text expansion abbreviation expand autotext shortcut' },
   { id: 'widgets', route: { name: 'widgets' }, label: 'Widgets', i18n: 'nav.widgets', icon: 'grid', group: 'desktop', keywords: 'desktop clock' },
   { id: 'ambience', route: { name: 'ambience' }, label: 'Wallpaper & Vibes', icon: 'palette', group: 'desktop', keywords: 'wallpaper vibes ambient sound theme' },
   { id: 'weather', route: { name: 'weather' }, label: 'Weather', i18n: 'nav.weather', icon: 'sun', group: 'desktop', keywords: 'forecast rain radar' },

@@ -131,6 +131,11 @@ export function createMockIsland(island: IslandState, files: FileEntry[], settin
         emit();
       },
       pasteClip: async () => undefined,
+      queueStart: async () => undefined,
+      queueNext: async () => undefined,
+      queueStop: async () => undefined,
+      pastePlain: async () => undefined,
+      neverKeepFrom: async () => 0,
       exportClips: async () => '/Users/demo/Documents/Keeper clipboard.json',
       importClips: async () => 0,
       openClips: async () => { window.open('?view=clips', '_blank', 'width=460,height=520'); },

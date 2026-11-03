@@ -14,6 +14,7 @@ import { IslandToolsSettings } from '../island/tools/ToolsSettings';
 import { PlusSettings } from '../island/PlusSettings';
 import { CalendarPicker, useIslandCalendars } from '../island/CalendarPicker';
 import { PANEL_SIZES, PANEL_SIZE_LABEL, isPanelSize } from '../../core/island-size';
+import { ClipIgnorePanel } from '../components/LauncherPanels';
 import '../styles/screens-b.css';
 
 export function Row({ title, desc, children, id }: { title: string; desc?: ReactNode; children: ReactNode; id?: string }) {
@@ -133,8 +134,15 @@ export function IslandSettings() {
             <option value={1}>1 day</option><option value={7}>1 week</option><option value={30}>1 month</option><option value={90}>3 months</option><option value={365}>1 year</option><option value={0}>Never</option>
           </select>
         </Row>
-        <Row title="Never record copies from" desc="Comma-separated app names, e.g. password managers.">
-          <input className="input" style={{ width: 300 }} defaultValue={isl.clipIgnoreApps.join(', ')} onBlur={(e) => set({ clipIgnoreApps: e.target.value.split(',').map((x) => x.trim()).filter(Boolean) })} />
+        <Row title="Never keep copies from" desc="Password managers and other apps whose copies stay out of history.">
+          <ClipIgnorePanel />
+        </Row>
+        <Row title="Paste one by one" desc={`Line clips up in the picker (Space), or collect what you copy next. Each paste then takes the next; ${pretty(isl.pasteNextShortcut)} pastes the next too.`}>
+          <button className="btn sm" data-testid="island-collect" onClick={() => void api.island.queueStart()}>Start collecting</button>
+        </Row>
+        <Row title="Each paste takes the next one" desc="While pasting one by one, your usual paste keys move on too. Keeper listens to the keyboard only then."><Toggle on={isl.queueOnPaste} onChange={(v) => set({ queueOnPaste: v })} /></Row>
+        <Row title="Paste as plain text" desc="A shortcut that pastes what you copied without fonts and colours.">
+          {isl.plainPasteShortcut ? <kbd className="badge">{pretty(isl.plainPasteShortcut)}</kbd> : <button className="btn sm" onClick={() => set({ plainPasteShortcut: 'CommandOrControl+Alt+Shift+V' })}>Use {pretty('CommandOrControl+Alt+Shift+V')}</button>}
         </Row>
         <Row title="Show page titles for links" desc="Keeper visits a copied link once to read its title. Off keeps everything on this computer."><Toggle on={isl.clipFetchTitles} onChange={(v) => set({ clipFetchTitles: v })} /></Row>
       </div>

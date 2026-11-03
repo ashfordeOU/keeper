@@ -267,6 +267,7 @@ export const FLOAT_RULES: NonNullable<MonorailSettings['appRules']> = [
 export const OVERLAY_TITLES = {
   island: 'Keeper Island',
   clips: 'Keeper Clipboard',
+  selection: 'Keeper Selection',
   popover: 'Keeper Glance',
   voice: 'Keeper Voice',
   cue: 'Keeper cue',
