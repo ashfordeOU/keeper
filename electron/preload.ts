@@ -167,6 +167,8 @@ const api = {
   // Alerts to your phone.
   alerts: group('alerts', ['overview', 'save', 'remove', 'test', 'setBatch']),
   // Site and server monitors.
+  // The light photo editor.
+  photo: group('photo', ['info', 'preview', 'save', 'revert']),
   monitors: group('monitors', ['overview', 'detail', 'save', 'remove', 'setOn', 'checkNow', 'importList', 'exportList']),
   islandx: group('islandx', ['status', 'callMute', 'callDismiss', 'hideFor', 'installAgentHooks', 'removeAgentHooks', 'openNotifyPermission', 'testNotification', 'startBreak', 'focusFor', 'mediaMode', 'openLauncher', 'showPage']),
   widgets: group('widgets', ['list', 'save', 'remove', 'photos', 'current', 'arrange', 'arranging', 'tint', 'focus']),

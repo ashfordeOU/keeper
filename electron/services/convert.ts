@@ -661,12 +661,15 @@ export class Converter {
     return this.session;
   }
 
-  private async removeBackground(input: string, output: string, progress: (f: number, phase: string) => void): Promise<string> {
+  /**
+   * The subject's mask for a picture (raw, one channel, the picture's own size): 255 where the
+   * subject is. Used by background removal here and by the photo editor.
+   */
+  async cutoutMask(base: Buffer, progress: (f: number, phase: string) => void = () => undefined): Promise<{ alpha: Buffer; width: number; height: number }> {
     const sharp = this.sharp();
     const session = await this.model();
     const ort = onnxRuntime('Background removal');
     progress(0.3, 'Finding the subject');
-    const base = await (await this.image(input)).removeAlpha().toBuffer();
     const meta = await sharp(base).metadata();
     const W = meta.width!;
     const H = meta.height!;
@@ -691,6 +694,18 @@ export class Converter {
     progress(0.8, 'Cutting out');
     // extractChannel keeps the mask single-channel; resizing and blurring would otherwise make it RGB.
     const alpha = await sharp(mask, { raw: { width: S, height: S, channels: 1 } }).resize(W, H, { fit: 'fill' }).blur(0.6).extractChannel(0).raw().toBuffer();
+    return { alpha, width: W, height: H };
+  }
+
+  /** sharp, for the photo editor (loaded once, with the converter). */
+  sharpLib(): Sharp {
+    return this.sharp();
+  }
+
+  private async removeBackground(input: string, output: string, progress: (f: number, phase: string) => void): Promise<string> {
+    const sharp = this.sharp();
+    const base = await (await this.image(input)).removeAlpha().toBuffer();
+    const { alpha, width: W, height: H } = await this.cutoutMask(base, progress);
     await sharp(base).joinChannel(alpha, { raw: { width: W, height: H, channels: 1 } }).png().toFile(output);
     return output;
   }

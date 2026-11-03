@@ -20,6 +20,7 @@ import { arrowNav, isTypeKey, labelFromContext, useFocusTrap, useTypeahead } fro
 import { readableOn } from '../../core/themes';
 import { isPlainText, parentOf, prettyFolder, viewScope, viewsFor, type FileView } from '../../core/folder-view';
 import { showInFolder } from '../folder-nav';
+import { useFeature } from '../features';
 
 export const KIND_COLOR: Record<FileKind | 'folder', string> = {
   image: 'var(--c-image)', video: 'var(--c-video)', audio: 'var(--c-audio)', document: 'var(--c-document)', archive: 'var(--c-archive)',
@@ -609,6 +610,7 @@ export function ContextMenu({ x, y, items, onClose, label }: { x: number; y: num
 /** The standard right-click menu for files. */
 export function useFileMenu() {
   const store = useStore();
+  const photoOn = useFeature('photoEditor');
   const [state, setState] = useState<{ x: number; y: number; file: FileEntry } | null>(null);
   const [renaming, setRenaming] = useState<string[] | null>(null);
   const open = (e: React.MouseEvent, file: FileEntry) => {
@@ -648,6 +650,7 @@ export function useFileMenu() {
     // Any format to another (pictures, documents, data, subtitles, fonts, 3D, drawings, mail…).
     { label: 'Convert to…', icon: 'refresh', run: () => store.go({ name: 'convert', arg: JSON.stringify({ tool: 'convert.to', files: sel }) }) },
     ...(state.file.kind === 'image' ? [
+      ...(photoOn ? [{ label: 'Edit Photo…', icon: 'sliders', run: () => store.go({ name: 'photo', arg: state.file.path }) }] : []),
       { label: 'Annotate…', icon: 'rename', run: () => store.go({ name: 'annotate', arg: state.file.path }) },
       { label: 'Read Text and Codes', icon: 'text', run: () => void api.capture.readFile(state.file.path).then((r) => { const t = r.code ?? r.text; if (t) { void api.files.copyText(t); store.toast(r.code ? `Copied code: ${r.code}` : 'Copied the text in this image'); } else store.toast('No text found'); }) },
     ] : state.file.ext === 'pdf' ? [

@@ -248,6 +248,13 @@ function downloadsDir(): string {
   return path.resolve(d) === path.resolve(app.getPath('home')) ? path.join(d, 'Downloads') : d;
 }
 
+/** The one converter, for other parts that reuse it (the photo editor); null before Convert's IPC is registered. */
+let sharedConverter: (() => Promise<Converter>) | null = null;
+export const getConverter = (): Promise<Converter> => {
+  if (!sharedConverter) throw new Error('Keeper is still starting.');
+  return sharedConverter();
+};
+
 export function registerConvertIpc(deps: Deps) {
   let label = 'Converting';
   // The converters, and the PDF, image and signing libraries they use, load the first time something is converted.
@@ -263,6 +270,7 @@ export function registerConvertIpc(deps: Deps) {
       return 'Keeper’s brain reads it when the folder is part of your library';
     },
   })));
+  sharedConverter = converter;
   registerFileKitIpc(converter);
   let busy = false;
   void registerPhoneScan(converter, deps);

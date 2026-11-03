@@ -9,11 +9,15 @@ import { defaultWebCapture, DEVICES, normalizeCaptureUrl, type CaptureDevice, ty
 import { api } from '../../api';
 import { Icon } from '../../components/Icon';
 import { Modal, Toggle } from '../../components/ui';
+import { useFeature } from '../../features';
+import { useStore } from '../../state';
 import '../../styles/extras.css';
 
 const DEVICE_ICON: Record<CaptureDevice, string> = { desktop: 'laptop', phone: 'phone', social: 'share' };
 
 export function WebCaptureSheet({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+  const { go } = useStore();
+  const photoOn = useFeature('photoEditor');
   const [url, setUrl] = useState('');
   const [o, setO] = useState<Omit<WebCaptureOptions, 'url'>>(defaultWebCapture());
   const [phase, setPhase] = useState('');
@@ -53,6 +57,7 @@ export function WebCaptureSheet({ onClose, onDone }: { onClose: () => void; onDo
             <button className="btn ghost" onClick={() => { setRes(null); setUrl(''); input.current?.focus(); }}>Capture another</button>
             <span className="grow" />
             <button className="btn" onClick={() => void api.files.reveal(res.path)}>Show in folder</button>
+            {res.format === 'png' && photoOn ? <button className="btn" onClick={() => { onClose(); go({ name: 'photo', arg: res.path }); }} data-testid="wc-edit">Edit</button> : null}
             <button className="btn primary" onClick={() => void api.files.open(res.path)} data-testid="wc-open">Open</button>
           </div>
         </div>

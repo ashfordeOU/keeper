@@ -120,6 +120,7 @@ export const NAV_PAGES: NavPage[] = [
   { id: 'meetings', route: { name: 'meetings' }, label: 'Meetings', icon: 'calendar', group: 'ai', keywords: 'record transcribe notes' },
 
   { id: 'capture', route: { name: 'capture' }, label: 'Capture', i18n: 'nav.capture', icon: 'screenshot', group: 'screen', keywords: 'screenshot text from screen color picker' },
+  { id: 'photo', route: { name: 'photo' }, label: 'Photo Editor', icon: 'sliders', group: 'none', keywords: 'edit photo picture image crop rotate straighten brightness exposure contrast saturation warmth blur redact pixelate resize convert background remove' },
   { id: 'studio', route: { name: 'studio' }, label: 'Studio', icon: 'video', group: 'screen', keywords: 'record screen video edit zoom export' },
   { id: 'stage', route: { name: 'stage' }, label: 'Stage', icon: 'eye', group: 'screen', keywords: 'clean screen present recording' },
   { id: 'tools', route: { name: 'tools' }, label: 'Toolbox', i18n: 'nav.toolbox', icon: 'terminal', group: 'screen', keywords: 'tools utilities developer' },

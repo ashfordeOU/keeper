@@ -560,6 +560,8 @@ export interface KeeperApi extends KeeperApiX {
   alerts: import('./api-alerts').PhoneAlertsApi;
   /** site and server monitors: web pages, ports, ping, DNS */
   monitors: import('./api-monitors').MonitorsApi;
+  /** the light photo editor (core/photo-edit.ts) */
+  photo: import('./api-photo').PhotoApi;
   /** Island+: calls, levels, other apps' notifications, more agents */
   islandx: import('./island-plus').IslandPlusApi;
   /** Mail, calendars, reminders, alarms and contacts */

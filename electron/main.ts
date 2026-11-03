@@ -144,6 +144,7 @@ import { registerJournalIpc } from './ipc/journal';
 import { registerReaderIpc } from './ipc/reader';
 import { registerPhoneAlertsIpc } from './ipc/phone-alerts';
 import { registerMonitorsIpc } from './ipc/site-monitor';
+import { registerPhotoIpc } from './ipc/photo';
 import { phoneAlert } from './services/phone-alerts';
 import { stopTimeTracking } from './services/time-track';
 import { focusChanged as focusBlockFocusChanged, focusStopRefusal, stopFocusBlock } from './services/focus-block';
@@ -1494,6 +1495,8 @@ app.whenReady().then(async () => {
   registerReaderIpc({ broadcast, alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }) });
   // Alerts to your phone: nothing is sent until a channel is set up and an alert it is for happens.
   registerPhoneAlertsIpc({ broadcast });
+  // The light photo editor: pictures in the library's folders, Pictures, Downloads and the screenshot folder.
+  registerPhotoIpc({ roots: async () => [...settings().folders, app.getPath('pictures'), app.getPath('downloads'), app.getPath('desktop'), await (await import('./services/capture')).screenshotFolder()] });
   // Site and server monitors: no timer until one is added; alerts go to the Island (or the system) and the phone.
   registerMonitorsIpc({
     broadcast,

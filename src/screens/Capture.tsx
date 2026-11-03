@@ -10,6 +10,7 @@ import { relativeTime } from '../../core/format';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
 import { Empty, Modal, PageHead, Toggle } from '../components/ui';
+import { useFeature } from '../features';
 import { useStore } from '../state';
 import '../styles/capture.css';
 import { WebCaptureSheet } from './capture/WebCapture';
@@ -58,6 +59,7 @@ export function Capture() {
   const [pins, setPins] = useState<{ id: string; through: boolean }[]>([]);
   const [canUpload, setCanUpload] = useState(false);
   const [webSheet, setWebSheet] = useState(false);
+  const photoOn = useFeature('photoEditor');
 
   const reload = () => { void api.capture.history().then(setItems); void api.capture.pins().then(setPins).catch(() => undefined); };
   useEffect(() => { setCanUpload(!!settings && settings.island.upload.kind !== 'none'); }, [settings]);
@@ -221,6 +223,7 @@ export function Capture() {
                 {e.path ? (
                   <>
                     <button className="btn sm" onClick={() => void api.files.open(e.path!)}>Open</button>
+                    {(e.kind === 'screenshot' || e.kind === 'webpage') && /\.(png|jpe?g|webp)$/i.test(e.path) && photoOn ? <button className="btn sm" onClick={() => go({ name: 'photo', arg: e.path })} data-testid="capture-edit"><Icon name="sliders" size={12} /> Edit</button> : null}
                     {e.kind === 'screenshot' ? <button className="btn sm" onClick={() => go({ name: 'annotate', arg: e.path })}><Icon name="rename" size={12} /> Annotate</button> : null}
                     {e.kind === 'screenshot' ? <button className="btn sm icon" title="Pin on screen" aria-label="Pin on screen" onClick={() => void run('pin', () => api.capture.pin(e.path!))}><Icon name="pin" size={12} /></button> : null}
                     {e.kind === 'screenshot' && canUpload ? <button className="btn sm icon" title="Upload and copy link" aria-label="Upload and copy link" onClick={() => void run('upload', () => api.capture.share(e.path!)).then((r) => r && toast('Link copied'))}><Icon name="link" size={12} /></button> : null}

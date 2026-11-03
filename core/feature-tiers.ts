@@ -84,6 +84,7 @@ export const TIERS: Record<string, FeatureTier> = {
   settingsCatalog: { plain: 'Hidden system settings', setup: 'computer', normal: 'off', shown: 'advanced' },
   appControls: { plain: 'Limits for each app', setup: 'computer', normal: 'off', shown: 'advanced' },
   browserTabs: { plain: 'Browser tabs', setup: 'computer', normal: 'off', shown: 'advanced' },
+  photoEditor: { plain: 'Edit photos', setup: 'screen', normal: 'on', shown: 'customize' },
   monitors: { plain: 'Watch your sites and servers', setup: 'computer', normal: 'off', shown: 'basic' },
   phoneAlerts: { plain: 'Alerts to your phone', setup: 'devices', normal: 'off', shown: 'basic' },
   reader: { plain: 'Feeds and read later', setup: 'notes', normal: 'off', shown: 'basic' },
