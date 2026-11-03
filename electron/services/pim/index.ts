@@ -41,6 +41,7 @@ import { extendTimer } from '../../../core/widget-timer';
 import { evaluateRules, planActions, SIEVE_SCRIPT, toSieve, type Rule } from '../../../core/pim/rules';
 import { imapCriteria, matchMailQuery, orderResults, parseMailQuery } from '../../../core/pim/search';
 import { badgeCount, extractCode, extractSignInLink, inTab, isBlocked, isDesignedMail, isMuted, notchAllows, sortReminders, tabCounts, toReply, unreadByAccount } from '../../../core/pim/smart';
+import { labelCounts } from '../../../core/pim/mail-today';
 import { linksIn, phishingWarnings } from '../../../core/pim/phishing';
 import { adoptRemote, mergeEntries, noteBody, NOTE_SUBJECT, readNote, SNOOZE_FOLDER, snoozeKeyword } from '../../../core/pim/snooze-sync';
 import { cleanMemory, draftPrompt, rememberIn, rewritePrompt } from '../../../core/pim/mail-ai';
@@ -1887,6 +1888,7 @@ export const pim: PimApi = {
     else if (v.folder === 'unified:sent') list = await cachedOf('sent', v.account);
     else if (v.folder === 'snoozed') list = (await cachedEverywhere(v.account)).filter((m) => isSnoozed(m, now));
     else if (v.folder === 'search') list = await cachedEverywhere(v.account, true);
+    else if (v.folder.startsWith('label:')) { const l = v.folder.slice(6).toLowerCase(); list = (await cachedEverywhere(v.account)).filter((m) => (m.labels ?? []).some((x) => x.toLowerCase() === l)); }
     else if (smart) list = (await searchMail(smart.query, { account: v.account })).messages;
     else if (v.account) list = [...(await cachedMessages(v.account, v.folder))];
     if (v.folder !== 'snoozed') list = list.filter((m) => !isSnoozed(m, now));
@@ -2410,7 +2412,7 @@ export const pim: PimApi = {
     await load();
     const ctx = await triageCtx();
     const inbox = (await cachedOf('inbox')).filter((m) => !isSnoozed(m, Date.now()) && !isBlocked(m.from, state.prefs.blockedSenders ?? [])).map((m) => withTriage(m, ctx));
-    return { byAccount: unreadByAccount(inbox), all: badgeCount(inbox, 'all'), important: badgeCount(inbox, 'important') };
+    return { byAccount: unreadByAccount(inbox), all: badgeCount(inbox, 'all'), important: badgeCount(inbox, 'important'), labels: labelCounts(await cachedEverywhere()) };
   },
   async dismissToReply(id) {
     const { account, folder } = splitId(id);

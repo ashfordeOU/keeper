@@ -141,6 +141,7 @@ export function defaultSettings(folders: string[], rules: Rule[]): AllSettings {
     updatePlan: null,
     updateSkip: '',
     restorePlace: true,
+    mailToday: true,
     language: 'system',
     inspectorMode: 'selection',
     sidebarMode: 'auto',

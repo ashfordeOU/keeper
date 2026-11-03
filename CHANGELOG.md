@@ -4,6 +4,20 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 
 ## [Unreleased]
 
+### Added — Mail: Today at the top of the inbox
+- The inbox opens with a greeting for the time of day and your first name (from the name you send mail as; with none, no name), today's date, and today's events as cards from every calendar Keeper reads: time, title, the calendar's colour, "Now · until 6:45 PM" on the one going on, "Next" on the one after, and Join for Zoom, Google Meet, Teams, Webex, FaceTime, Jitsi and Whereby links. Join opens the meeting in your default app. The cards scroll sideways and can be reached with the keyboard; with no events the row is hidden, and a narrow window shows one "Now: …" or "Next: …" line.
+- While Mail is open, the bar at the top of the window shows the meeting going on, or the next one within 15 minutes, with Join.
+- Filter chips under the search box: Inbox with its unread number, Primary, and icon chips for Updates, Promotions, Security, To Reply, Flagged and Attachments, each with its name and a tooltip. The chosen chip is marked.
+- A column of accounts beside the folders: All inboxes, each account's picture or initials (a colour that stays the same for its address) with its unread number, and + to add an account.
+- Labels in the folder list, each with its own colour and count; a label shows its mail from every folder.
+- The message list is grouped under Today, Yesterday, Past week and Older, with "12 min" and "3 h" for the last day, then clock times, then dates.
+- "Updated 2 minutes ago" at the foot of the list, from when mail was last checked; click it to check now.
+- New message shows its key: ⌘N on a Mac, Ctrl+N elsewhere (now in every shortcut set), or your own.
+- Settings → Mail & Calendar → Show today at the top of the inbox turns the greeting, the events and the meeting chip off.
+
+### Fixed — Mail
+- With Appearance set to Dark on a computer in light mode (or the other way round), plain-text mail was drawn in the wrong colour and could not be read; it now follows Keeper's own choice.
+
 ## [1.0.0] - 2026-11-03
 
 The first stable release of Keeper by Ashforde®, and the first signed with Ashforde's Apple Developer ID and notarized by Apple: it opens like any other Mac app, with no Open Anyway and no keychain question after updates. On top of 0.1.0-beta.8 it brings a Fix-it List that explains each finding and lets you trust, snooze or undo, and an Island that shows power as one battery glyph and always opens in full.

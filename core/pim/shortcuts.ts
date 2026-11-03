@@ -19,7 +19,7 @@ export const SCHEMES: Record<SchemeId, { label: string; keys: Partial<Record<Mai
   gmail: {
     label: 'Web mail (single letters)',
     keys: {
-      next: ['j', 'ArrowDown'], prev: ['k', 'ArrowUp'], reply: ['r'], replyAll: ['a'], forward: ['f'], compose: ['c'], archive: ['e'], trash: ['#', 'Delete'],
+      next: ['j', 'ArrowDown'], prev: ['k', 'ArrowUp'], reply: ['r'], replyAll: ['a'], forward: ['f'], compose: ['c', 'mod+n'], archive: ['e'], trash: ['#', 'Delete'],
       flag: ['s'], unread: ['shift+u'], read: ['shift+i'], snooze: ['b'], search: ['/'], select: ['x'], back: ['u', 'Escape'], important: ['g i'], other: ['g o'], followUp: ['shift+f'],
     },
   },
@@ -33,7 +33,7 @@ export const SCHEMES: Record<SchemeId, { label: string; keys: Partial<Record<Mai
   superhuman: {
     label: 'Fast triage (E done, H snooze)',
     keys: {
-      next: ['j', 'ArrowDown'], prev: ['k', 'ArrowUp'], reply: ['r', 'Enter'], replyAll: ['a'], forward: ['f'], compose: ['c'], archive: ['e'], trash: ['#'],
+      next: ['j', 'ArrowDown'], prev: ['k', 'ArrowUp'], reply: ['r', 'Enter'], replyAll: ['a'], forward: ['f'], compose: ['c', 'mod+n'], archive: ['e'], trash: ['#'],
       flag: ['s'], unread: ['u'], read: ['shift+u'], snooze: ['h'], search: ['/'], select: ['x'], back: ['Escape'], important: ['tab'], other: ['shift+tab'], followUp: ['shift+f'],
     },
   },
@@ -123,4 +123,14 @@ export function showCombo(k: string, mac: boolean): string {
     const mods = parts.map((p) => (mac ? ({ mod: '⌘', ctrl: '⌃', alt: '⌥', shift: '⇧', meta: '⌘' } as Record<string, string>)[p] : ({ mod: 'Ctrl', ctrl: 'Ctrl', alt: 'Alt', shift: 'Shift', meta: 'Win' } as Record<string, string>)[p]) ?? p);
     return mac ? [...mods, name].join('') : [...mods, name].join('+');
   }).join(' then ');
+}
+
+/**
+ * The key shown on the New message button: the person's own choice, else the
+ * one with ⌘ / Ctrl (⌘N, Ctrl+N), else the set's single letter.
+ */
+export function composeShortcut(scheme: SchemeId, overrides: Partial<Record<MailAction, string>> = {}, mac = false): string | undefined {
+  const keys = [...bindings(scheme, overrides)].filter(([, a]) => a === 'compose').map(([k]) => k);
+  const pick = overrides.compose !== undefined ? keys[0] : keys.find((k) => k.startsWith('mod+')) ?? keys[0];
+  return pick ? showCombo(pick, mac) : undefined;
 }

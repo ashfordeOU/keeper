@@ -14,6 +14,7 @@ export function meetingProvider(url: string | undefined): string | undefined {
   if (host === 'meet.google.com') return 'Google Meet';
   if (/^teams\.(microsoft|live)\.com$/.test(host)) return 'Teams';
   if (/(^|\.)webex\.com$/.test(host)) return 'Webex';
+  if (host === 'facetime.apple.com') return 'FaceTime';
   if (host === 'meet.jit.si') return 'Jitsi';
   if (/(^|\.)whereby\.com$/.test(host)) return 'Whereby';
   return undefined;
@@ -76,9 +77,10 @@ export const inIsland = (c: CalendarInfo | undefined) => !!c && c.visible && c.i
 
 /**
  * Occurrences as agenda rows for one day, all-day ones first, the same meeting
- * from two calendars (a subscribed copy and the system's) shown once.
+ * from two calendars (a subscribed copy and the system's) shown once. The
+ * Island's calendars unless told which.
  */
-export function agendaFor(occ: Occurrence[], calendars: CalendarInfo[], dayStart: number, now: number): AgendaItem[] {
+export function agendaFor(occ: Occurrence[], calendars: CalendarInfo[], dayStart: number, now: number, include: (c: CalendarInfo | undefined) => boolean = inIsland): AgendaItem[] {
   const from = startOfDay(dayStart);
   const to = nextDay(from);
   const cals = new Map(calendars.map((c) => [c.id, c]));
@@ -86,7 +88,7 @@ export function agendaFor(occ: Occurrence[], calendars: CalendarInfo[], dayStart
   const out: AgendaItem[] = [];
   for (const o of occ) {
     const c = cals.get(o.event.calendar);
-    if (!inIsland(c) || o.end <= from || o.start >= to || o.event.status === 'cancelled') continue;
+    if (!include(c) || o.end <= from || o.start >= to || o.event.status === 'cancelled') continue;
     const dup = `${o.event.title.trim().toLowerCase()}|${o.start}|${o.end}`;
     if (seen.has(dup)) continue;
     seen.add(dup);

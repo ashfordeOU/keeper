@@ -7,7 +7,9 @@
 // changes one occurrence; an event alert reaches the Island; a timer rings.
 // Mail's second round: rules on arrival, search with filters, phishing and
 // tracking, invitations (iMIP), aliases, remind if no reply, drafts on the
-// server, undo, inbox tabs and the narrow layout.
+// server, undo, inbox tabs and the narrow layout. The Today layout: the
+// greeting, today's events with Join, the meeting chip, the filter chips, the
+// account column, labels and "Updated … ago".
 const { _electron } = require('playwright');
 const fs = require('fs');
 const path = require('path');
@@ -232,7 +234,7 @@ const MSG = (subject, extra = '') => [
   check(!!opened && !opened.signInLink && !opened.code, 'a message that looks like an impersonation gets no one-click Open or Copy');
   check(!!opened && opened.blocked === 1 && opened.cleanedLinks === 1 && /href="https:\/\/evil\.example\/login\?id=7"/.test(opened.html), 'the remote picture is held back and the tracking part of the link is taken off');
   await main.locator('.mail-folder', { hasText: 'All inboxes' }).click();
-  await main.locator('.mail-tabs button', { hasText: 'All' }).first().click();
+  await main.locator('.mail-tabs button', { hasText: 'Inbox' }).first().click();
   await main.waitForTimeout(400);
   await main.locator('.mail-row', { hasText: 'Confirm your account' }).first().click();
   await main.waitForSelector('[data-testid="mail-phish"]', { timeout: 10_000 }).catch(() => {});
@@ -314,7 +316,7 @@ const MSG = (subject, extra = '') => [
   // A narrow window: the list, then the message with Back.
   await main.setViewportSize({ width: 820, height: 760 });
   await main.locator('.mail-folder', { hasText: 'All inboxes' }).click();
-  await main.locator('.mail-tabs button', { hasText: 'All' }).first().click();
+  await main.locator('.mail-tabs button', { hasText: 'Inbox' }).first().click();
   await main.waitForTimeout(500);
   await main.locator('.mail-row').first().click();
   await main.waitForTimeout(800);
@@ -327,6 +329,78 @@ const MSG = (subject, extra = '') => [
   check(await main.locator('.mail-list').isVisible(), 'Back returns to the list');
   await main.setViewportSize({ width: 1440, height: 900 });
   await main.waitForTimeout(300);
+
+  // ---------------------------------------------------------------- Mail: Today
+  // Join opens the meeting in the default browser; here the main process only notes the address.
+  await app.evaluate(({ shell }) => { global.__opened = []; shell.openExternal = async (u) => { global.__opened.push(u); }; });
+  const t0 = Date.now();
+  const ev = (title, start, end, extra = {}) => main.evaluate(([e]) => window.keeper.pim.saveEvent(e), [{ id: '', uid: '', calendar: 'local:calendar', title, start, end, allDay: false, ...extra }]);
+  await ev('Design review', t0 - 20 * 60_000, t0 + 40 * 60_000, { location: 'https://us02web.zoom.us/j/8812345?pwd=garden' });
+  await ev('Plant order call', t0 + 2 * 3_600_000, t0 + 2.5 * 3_600_000, { description: 'Join with Google Meet: https://meet.google.com/abc-defg-hij' });
+  await ev('Lunch with Bob', t0 + 3 * 3_600_000, t0 + 4 * 3_600_000, { location: 'Café Verde' });
+  // A label on one message, for the Labels list.
+  const toLabel = (await main.evaluate(() => window.keeper.pim.messages({ folder: 'unified', tab: 'all' }))).messages.find((m) => !m.security);
+  if (toLabel) await main.evaluate((id) => window.keeper.pim.label([id], 'Clients', true), toLabel.id);
+  await main.locator('[data-testid="mail-rail"] button[aria-label^="All inboxes"]').click();
+  await main.waitForSelector('[data-testid="mail-today-card"]', { timeout: 10_000 }).catch(() => {});
+  const todayText = (await main.locator('[data-testid="mail-today"]').innerText().catch(() => '')) || '';
+  check(/^Good (morning|afternoon|evening), Ana|^Hello, Ana/.test(todayText) && /Today is /.test(todayText), `the inbox greets Ana by the time of day with today's date ("${todayText.split('\n')[0]}")`);
+  const now0 = main.locator('.today-card.now', { hasText: 'Design review' });
+  check(await now0.count() === 1 && /Now · until/.test(await now0.innerText()), 'the running event is marked "Now · until …"');
+  check(await main.locator('[data-testid="mail-today-card"]').count() >= 3 && await main.locator('.today-card', { hasText: 'Lunch with Bob' }).locator('[data-testid="mail-today-join"]').count() === 0, 'today’s events show as cards; one without a video link has no Join');
+  await now0.locator('[data-testid="mail-today-join"]').click();
+  const joined = await waitFor(async () => (await app.evaluate(() => global.__opened)).find((u) => /zoom\.us/.test(u)), 10);
+  check(!!joined, 'Join opens the Zoom link in the default app');
+  check(await main.locator('[data-testid="meeting-chip"]', { hasText: 'Design review' }).locator('[data-testid="mail-today-join"]').count() === 1, 'the bar at the top shows the meeting going on, with Join');
+  // Keyboard: the cards are buttons in the tab order; arrow keys move between them.
+  await main.locator('.today-card.now .today-open').focus();
+  await main.keyboard.press('ArrowRight');
+  check(await main.evaluate(() => document.activeElement?.closest('.today-card')?.textContent ?? '').then((t) => /Plant order call/.test(t)), 'arrow keys move between the event cards');
+  // Chips: Inbox with its number, icon chips with names; a chosen one filters the list and is marked.
+  const inboxChip = main.locator('[data-chip="inbox"]');
+  check(await inboxChip.getAttribute('aria-selected') === 'true' || await main.locator('[data-chip="important"]').getAttribute('aria-selected') === 'true', 'a chip is marked as chosen');
+  check((await main.locator('[data-chip="security"]').getAttribute('aria-label')) === 'Security' && /Sign-in alerts/.test(await main.locator('[data-chip="security"]').getAttribute('title')), 'icon chips have names and tooltips');
+  await inboxChip.click();
+  await main.waitForTimeout(500);
+  const allRows = await main.locator('.mail-row').count();
+  await main.locator('[data-chip="security"]').click();
+  await main.waitForTimeout(500);
+  const secRows = await main.locator('.mail-row').allInnerTexts();
+  check(secRows.length > 0 && secRows.length < allRows && secRows.every((t) => /Security/.test(t)) && await main.locator('[data-chip="security"]').getAttribute('aria-selected') === 'true', `the Security chip shows only security mail (${secRows.length} of ${allRows})`);
+  await inboxChip.click();
+  await main.waitForTimeout(400);
+  check(await main.locator('.mail-row').count() === allRows, 'Inbox shows everything again');
+  check(await main.locator('[data-testid="mail-day"]', { hasText: 'Today' }).count() === 1, 'messages are grouped under Today');
+  check(await main.locator('[data-testid="mail-rail-account"] .rail-initials', { hasText: 'AL' }).count() === 1, 'the account column shows the account’s initials');
+  check(/^(New message)\s*(Ctrl\+N|⌘N)$/.test((await main.locator('[data-testid="mail-compose"]').innerText()).replace(/\s+/g, ' ').trim()), 'New message shows its shortcut');
+  const label = await waitFor(async () => (await main.locator('[data-testid="mail-label"]', { hasText: 'Clients' }).count()) > 0, 20);
+  check(!!label, 'labels are listed with a colour and a count');
+  // Footer: when mail was last checked; a click checks now.
+  const foot = main.locator('[data-testid="mail-updated"]');
+  check(/Updated (just now|\d+ minutes? ago)/.test(await foot.innerText()), `the footer says when mail was last checked ("${await foot.innerText()}")`);
+  await foot.click();
+  check(!!(await waitFor(async () => /Updated just now/.test(await foot.innerText()), 30)), 'clicking it checks for new mail');
+  // Screenshots of the layout in light and dark.
+  for (const look of ['light', 'dark']) {
+    await main.evaluate((a) => window.keeper.settings.set({ appearance: a }), look);
+    await inboxChip.click();
+    await main.waitForTimeout(600);
+    await main.locator('.mail-row').first().click();
+    await main.waitForTimeout(1500);
+    await main.screenshot({ path: `${SHOTS}/app-mail-today-${look}.png` });
+  }
+  await main.evaluate(() => window.keeper.settings.set({ appearance: 'system' }));
+  // Narrow: the cards fold into one "Now: …" line.
+  await inboxChip.click();
+  await main.setViewportSize({ width: 820, height: 760 });
+  await main.waitForTimeout(500);
+  check(await main.locator('[data-testid="mail-today-next"]').isVisible() && !(await main.locator('[data-testid="mail-today-strip"]').isVisible()) && /Now: Design review/.test(await main.locator('[data-testid="mail-today-next"]').innerText()), 'a narrow window shows one "Now: …" line instead of the cards');
+  await main.setViewportSize({ width: 1440, height: 900 });
+  // The setting turns it off.
+  await main.evaluate(() => window.keeper.settings.set({ mailToday: false }));
+  await main.waitForTimeout(600);
+  check(await main.locator('[data-testid="mail-today"]').count() === 0 && await main.locator('[data-testid="meeting-chip"]').count() === 0, 'Show today at the top of the inbox: off hides the greeting, the events and the chip');
+  await main.evaluate(() => window.keeper.settings.set({ mailToday: true }));
 
   // ---------------------------------------------------------------- calendar (CalDAV)
   await main.evaluate((u) => window.keeper.pim.addAccount({ kind: 'caldav', caldav: u, davUser: 'ana', password: 'secret', label: 'Home server' }), dav.url);

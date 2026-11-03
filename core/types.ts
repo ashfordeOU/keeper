@@ -465,6 +465,8 @@ export interface Settings {
   updateSkip?: string;
   /** reopen the page you were on after an update or restart */
   restorePlace?: boolean;
+  /** Mail's inbox opens with a greeting, today's events (Join for video meetings) and the next meeting at the top of the window */
+  mailToday?: boolean;
   /** open pages in tabs (⌘/Ctrl-click or middle-click, ⌘T); off keeps one page per window */
   tabs?: boolean;
   language: string;

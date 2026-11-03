@@ -105,7 +105,7 @@ JMAP is not used yet; Fastmail works through IMAP and CalDAV with an app passwor
 
 ### Mail: reading, sorting and writing (second round)
 
-- **Tabs**: All, Primary (the same as Important), Updates and Promos (Other,
+- **Tabs** (now the filter chips of the Today layout, below): All (Inbox), Primary (the same as Important), Updates and Promos (Other,
   split by what the mail is: receipts, notifications and accounts, or
   marketing), each with its unread count, and an *Unread* toggle
   (`core/pim/smart.ts`). **To Reply** lists mail from people waiting for your
@@ -190,6 +190,42 @@ JMAP is not used yet; Fastmail works through IMAP and CalDAV with an app passwor
   move; never delete), each batch approved by you in Keeper, and **prepare** a
   message, which opens in Keeper's compose window and goes only when you press
   Send.
+
+### Mail: the Today layout
+
+- **Greeting**: the inbox opens with "Good morning", "Good afternoon" or "Good
+  evening" and your first name, taken from the name you send mail as (with no
+  name there, the greeting has none; nothing is guessed), and today's date.
+- **Today's events** as cards under it, from every visible calendar Keeper
+  reads (this computer's own, Google, Microsoft, CalDAV, subscriptions and
+  Keeper's own calendar): time, title, the calendar's colour, "Now · until
+  6:45 PM" on the one going on, "Next" on the one after, and **Join** when the
+  event has a Zoom, Google Meet, Teams, Webex, FaceTime, Jitsi or Whereby link
+  in its place, notes or address. Join opens the link in your default app; a
+  card opens the event. The cards scroll sideways and are in the tab order
+  (← / → move between them). With no events today the row is not shown; in a
+  window narrower than 900 px it folds into one "Now: …" or "Next: …" line.
+- **Meeting chip**: while Mail is open, the bar at the top of the window shows
+  the meeting going on, or the next one starting within 15 minutes, with Join.
+- **Filter chips** under the search box: *Inbox* (with its unread number),
+  *Primary* (Important), then icon chips with names and tooltips for Updates,
+  Promotions, Security, To Reply, Flagged and Attachments. They use the views
+  Mail already had; the chosen chip is marked; one account's inbox stays that
+  account's. Unread only and conversations are buttons beside the search box.
+- **Account column** beside the folders: All inboxes, then each account's
+  picture (or initials on its colour, which stays the same for its address)
+  with its unread number (⌘1…⌘9 / Ctrl+1…9 still switch), and + to add one.
+  Below 900 px it steps aside; the folder list still names every account.
+- **New message** shows its key from the shortcut set (⌘N on a Mac, Ctrl+N
+  elsewhere, added to every set; your own key if you changed it).
+- **Labels** with a steady colour and their count (unread, else all), from
+  every folder kept on this computer; a label opens its mail from any folder.
+- **The list** is grouped under Today, Yesterday, Past week and Older; times
+  read "12 min" and "3 h" within a day, then the clock time, then the date.
+- **"Updated 2 minutes ago"** at the foot of the list, from when the accounts
+  were last checked, moving on by itself; click it to check now.
+- Settings → Mail & Calendar → *Show today at the top of the inbox* turns off
+  the greeting, the events and the meeting chip.
 
 ### An iPhone companion (not built)
 

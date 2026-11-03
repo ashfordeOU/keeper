@@ -6,6 +6,7 @@ import { RecoveryNotice } from './components/RecoveryNotice';
 import { Alarms, RingHost } from './pim/Alarms';
 import { Calendar } from './pim/Calendar';
 import { Mail } from './pim/Mail';
+import { MeetingChip } from './pim/mail-today';
 import { PimSidebar } from './pim/PimSidebar';
 import { Reminders } from './pim/Reminders';
 import { Planner } from './pim/Planner';
@@ -310,6 +311,8 @@ function TopBar({ onPalette }: { onPalette: () => void }) {
         <kbd aria-hidden>{mod}F</kbd>
       </div>
       <div className="spacer" />
+      {/* In Mail: the meeting going on, or starting within 15 minutes, with Join. */}
+      <MeetingChip />
       <Player />
       {FILE_ROUTES.includes(route.name) ? (
         <button className={`btn ghost icon ${inspector ? 'on' : ''}`} aria-pressed={inspector} aria-controls={inspector ? 'inspector' : undefined} data-testid="inspector-toggle" title={`${inspector ? 'Hide' : 'Show'} Inspector (${mod === '⌘' ? '⌘⌥I' : 'Ctrl+Alt+I'})`} onClick={() => setInspector(!inspector)}><Icon name="info" size={16} /></button>

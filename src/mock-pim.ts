@@ -7,6 +7,7 @@ import { classify, followUpDraft, isSnoozed, pickForQuestion, sortTime, subscrip
 import { dueKey, dueNow, nextAlarmTime } from '../core/pim/alarms';
 import { occurrences } from '../core/pim/ical';
 import { makeReply, matchesQuery, threadMessages, type Draft, type MailRule } from '../core/pim/mail';
+import { labelCounts } from '../core/pim/mail-today';
 import { badgeCount, extractCode, extractSignInLink, inTab, isBlocked, isDesignedMail, tabCounts, toReply, unreadByAccount, type NoReplyReminder } from '../core/pim/smart';
 import { matchMailQuery, orderResults, parseMailQuery } from '../core/pim/search';
 import { linksIn, phishingWarnings } from '../core/pim/phishing';
@@ -186,6 +187,7 @@ export function mockPim(emit: Emit): { pim: PimApi } {
         : v.folder === 'unified:sent' ? messages.filter((m) => sentFolders.has(m.folder))
           : v.folder === 'snoozed' ? messages.filter((m) => isSnoozed(m, t))
             : v.folder === 'search' ? [...messages]
+              : v.folder.startsWith('label:') ? messages.filter((m) => (m.labels ?? []).some((x) => x.toLowerCase() === v.folder.slice(6).toLowerCase()))
               : messages.filter((m) => m.account === v.account && m.folder === v.folder);
       const smart = v.folder.startsWith('smart:') ? (prefs.smartMailboxes ?? []).find((x) => x.id === v.folder.slice(6)) : undefined;
       if (v.folder === 'toreply') list = messages.filter((m) => m.folder === 'INBOX');
@@ -355,7 +357,7 @@ export function mockPim(emit: Emit): { pim: PimApi } {
       const all = orderResults(local, []);
       return { messages: all.slice(0, o?.limit ?? 500), local: Math.min(all.length, o?.limit ?? 500) };
     },
-    unreadCounts: async () => { const inbox = triaged(messages.filter((m) => m.folder === 'INBOX')); return { byAccount: unreadByAccount(inbox), all: badgeCount(inbox, 'all'), important: badgeCount(inbox, 'important') }; },
+    unreadCounts: async () => { const inbox = triaged(messages.filter((m) => m.folder === 'INBOX')); return { byAccount: unreadByAccount(inbox), all: badgeCount(inbox, 'all'), important: badgeCount(inbox, 'important'), labels: labelCounts(messages) }; },
     dismissToReply: async () => { changed('mail'); },
     remindNoReply: async (id, at) => { const m = messages.find((x) => x.id === id)!; noReply = noReply.filter((r) => r.id !== id); if (at !== null) noReply.push({ id, messageId: m.messageId ?? id, account: m.account, subject: m.subject, to: m.to, sentAt: m.date, at }); changed('mail'); },
     noReplyReminders: async () => noReply,

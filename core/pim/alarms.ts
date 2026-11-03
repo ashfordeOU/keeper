@@ -95,7 +95,7 @@ export function dueNow(input: ScheduleInput, since: number, now: number): { due:
 /** A video-meeting link in an event's place, notes or URL, for a Join button. */
 export function meetingLink(e: Pick<CalEvent, 'location' | 'description' | 'url'>): string | undefined {
   const hay = [e.url, e.location, e.description].filter(Boolean).join(' ');
-  const m = hay.match(/https:\/\/(?:[\w-]+\.)?(?:zoom\.us\/(?:j|my|w)\/[^\s<>"]+|meet\.google\.com\/[a-z-]+|teams\.microsoft\.com\/l\/meetup-join\/[^\s<>"]+|teams\.live\.com\/meet\/[^\s<>"]+|[\w.-]*webex\.com\/[^\s<>"]+|meet\.jit\.si\/[^\s<>"]+|whereby\.com\/[^\s<>"]+|app\.gather\.town\/[^\s<>"]+|discord\.gg\/[^\s<>"]+)/i);
+  const m = hay.match(/https:\/\/(?:[\w-]+\.)?(?:zoom\.us\/(?:j|my|w)\/[^\s<>"]+|meet\.google\.com\/[a-z-]+|teams\.microsoft\.com\/(?:l\/meetup-join|meet)\/[^\s<>"]+|facetime\.apple\.com\/join[^\s<>"]+|teams\.live\.com\/meet\/[^\s<>"]+|[\w.-]*webex\.com\/[^\s<>"]+|meet\.jit\.si\/[^\s<>"]+|whereby\.com\/[^\s<>"]+|app\.gather\.town\/[^\s<>"]+|discord\.gg\/[^\s<>"]+)/i);
   return m?.[0];
 }
 

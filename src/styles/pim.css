@@ -18,9 +18,9 @@
 
 /* ------------------------------------------------------------------ mail */
 
-.mail { display: grid; grid-template-columns: 220px minmax(280px, 380px) 1fr; height: 100%; min-height: 0; position: relative; }
+.mail { display: grid; grid-template-columns: 268px minmax(280px, 380px) 1fr; grid-template-rows: auto minmax(0, 1fr); height: 100%; min-height: 0; position: relative; }
 .mail-folders { border-right: 1px solid var(--line); padding: 12px 8px; overflow-y: auto; display: flex; flex-direction: column; gap: 1px; background: var(--bg-sunk); }
-.compose-btn { margin-bottom: 10px; justify-content: center; }
+.compose-btn { margin-bottom: 10px; justify-content: center; gap: 8px; }
 .mail-folder { display: flex; align-items: center; gap: 8px; width: 100%; border: 0; background: none; padding: 6px 8px; border-radius: 7px; color: var(--text-2); font-size: 13px; text-align: left; cursor: default; }
 .mail-folder:hover { background: var(--bg-hover); color: var(--text); }
 .mail-folder.on { background: var(--bg-active); color: var(--text); font-weight: 600; }
@@ -253,8 +253,8 @@
 .calendar.dropping .cal-main { outline: 2px dashed var(--accent); outline-offset: -6px; border-radius: 12px; }
 
 /* Mail: Important / Other, the wide layout, Waiting for reply, Subscriptions */
-.mail.with-side { grid-template-columns: 220px 1fr; }
-.mail.layout-wide { grid-template-columns: 220px 1fr; }
+.mail.with-side { grid-template-columns: 268px 1fr; }
+.mail.layout-wide { grid-template-columns: 268px 1fr; }
 .mail-side { overflow-y: auto; min-width: 0; }
 .mail-tabs { display: flex; gap: 2px; padding: 0 10px 8px; }
 .mail-tabs button { border: 0; background: none; color: var(--text-2); font: inherit; font-size: 13px; padding: 5px 10px; border-radius: 7px; display: flex; align-items: center; gap: 6px; }
@@ -382,3 +382,82 @@
 }
 .message-card .banner > span.grow { min-width: 180px; }
 .message-card .banner { flex-wrap: wrap; }
+
+/* ------------------------------------------------------------------ Mail: Today */
+/* The account column and the folders share the first column; the greeting spans the rest. */
+.mail-nav { grid-row: 1 / -1; display: flex; min-height: 0; min-width: 0; }
+.mail-nav .mail-folders { flex: 1; min-width: 0; }
+.mail-list, .mail-side, .mail > .mail-reader { grid-row: 2; }
+.mail-list { min-width: 0; }
+.mail-rail { width: 52px; flex: none; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 12px 0; border-right: 1px solid var(--line); background: var(--bg-sunk); overflow-y: auto; }
+.rail-item { position: relative; border: 0; background: none; padding: 0; border-radius: 50%; display: grid; place-items: center; cursor: default; color: var(--text-2); }
+.rail-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.rail-item:hover .rail-initials, .rail-item:hover .rail-pic { filter: brightness(1.08); }
+.rail-item.on .rail-initials, .rail-item.on .rail-pic { box-shadow: 0 0 0 2px var(--bg-sunk), 0 0 0 4px var(--accent); }
+.rail-initials { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 700; letter-spacing: .02em; }
+.rail-initials.all, .rail-initials.plus { background: var(--bg-elev); color: var(--text-2); border: 1px solid var(--line-strong); }
+.rail-initials.plus { border-style: dashed; }
+.rail-pic { border-radius: 50%; object-fit: cover; }
+.rail-badge { position: absolute; top: -4px; right: -7px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: var(--r-pill); background: var(--danger); color: #fff; font-size: var(--fs-xs); font-weight: 700; line-height: 17px; text-align: center; font-variant-numeric: tabular-nums; box-shadow: 0 0 0 2px var(--bg-sunk); }
+.compose-btn kbd { margin-left: auto; font: 11px var(--mono); padding: 1px 6px; border-radius: var(--r-sm); background: color-mix(in srgb, var(--accent-text, #fff) 20%, transparent); }
+
+.mail-today { grid-column: 2 / -1; grid-row: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px 16px 12px; border-bottom: 1px solid var(--line); background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 7%, transparent), transparent 85%); }
+.today-hello { display: flex; align-items: baseline; gap: 4px 14px; flex-wrap: wrap; }
+.today-greeting { margin: 0; font-size: var(--fs-2xl); font-weight: 700; letter-spacing: -.02em; line-height: 1.15; color: var(--text); }
+.today-date { font-size: var(--fs-md); color: var(--text-2); }
+.today-strip { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 6px; scroll-snap-type: x proximity; scrollbar-width: thin; }
+.today-card { position: relative; flex: 0 0 auto; width: 212px; min-height: 74px; display: flex; flex-direction: column; justify-content: space-between; gap: 6px; padding: 8px 10px 8px 14px; border: 1px solid var(--line); border-radius: var(--r-lg); background: color-mix(in srgb, var(--bg-elev) 90%, transparent); scroll-snap-align: start; }
+.today-card::before { content: ''; position: absolute; left: 5px; top: 9px; bottom: 9px; width: 3px; border-radius: var(--r-sm); background: var(--cal, var(--accent)); }
+.today-card.now { border-color: color-mix(in srgb, var(--cal, var(--accent)) 55%, var(--line)); background: color-mix(in srgb, var(--cal, var(--accent)) 12%, var(--bg-elev)); box-shadow: var(--shadow); }
+.today-card.past { opacity: .62; }
+.today-open { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: default; }
+.today-open:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: var(--r-sm); }
+.today-time { display: flex; align-items: center; gap: 6px; font-size: var(--fs-xs); color: var(--text-3); font-variant-numeric: tabular-nums; }
+.today-badge { font-size: var(--fs-xs); font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--accent-ink, var(--accent)); }
+.today-title { font-size: var(--fs-md); color: var(--text); }
+.today-note { font-size: var(--fs-sm); color: var(--text-2); }
+.today-note.live { color: var(--ok-ink, var(--ok)); font-weight: 650; }
+.today-join { align-self: flex-start; height: 24px; gap: 4px; }
+.today-next { display: none; }
+
+.mail-chips { gap: 3px; padding: 8px 10px; border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
+.mail-chips .mail-chip { flex: none; height: 28px; padding: 0 9px; gap: 5px; border: 1px solid var(--line); border-radius: var(--r-pill); background: color-mix(in srgb, var(--bg-elev) 85%, transparent); color: var(--text-2); }
+.mail-chips .mail-chip.icon-only:not(.on) { width: 27px; padding: 0; justify-content: center; }
+.mail-chips .mail-chip:hover { border-color: var(--line-strong); color: var(--text); }
+/* Chosen: Keeper's selected-chip look (soft accent, accent edge), so the text keeps its contrast in every theme. */
+.mail-chips .mail-chip.on { background: var(--accent-soft); border-color: var(--accent); color: var(--text); font-weight: 650; }
+.mail-chips .mail-chip.on svg { color: var(--accent-ink, var(--accent)); }
+.mail-chips .mail-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.mail-chip .count { font-size: var(--fs-xs); font-weight: 650; font-variant-numeric: tabular-nums; color: var(--accent-ink, var(--accent)); }
+
+.mail-day { position: sticky; top: 0; z-index: 1; padding: 6px 12px 4px; font-size: var(--fs-xs); font-weight: 650; letter-spacing: .05em; text-transform: uppercase; color: var(--text-3); background: color-mix(in srgb, var(--bg) 94%, transparent); border-bottom: 1px solid var(--line); }
+.mail-folder .count.dim { opacity: .65; }
+.mail-foot { display: flex; justify-content: center; padding: 4px 8px; border-top: 1px solid var(--line); }
+.mail-updated { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border: 0; border-radius: var(--r-pill); background: none; color: var(--text-3); font: inherit; font-size: var(--fs-xs); cursor: default; }
+.mail-updated:hover:not(:disabled) { background: var(--bg-hover); color: var(--text-2); }
+.mail-updated:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.mail-updated .spinner { width: 11px; height: 11px; border-width: 1.5px; }
+
+/* The meeting chip in the bar at the top of the window (Mail only). */
+.meeting-chip { display: flex; align-items: center; gap: 8px; min-width: 0; max-width: 380px; height: 30px; padding: 0 3px 0 10px; border: 1px solid var(--line); border-radius: var(--r-pill); background: var(--bg-elev); }
+.meeting-chip.live { border-color: color-mix(in srgb, var(--cal, var(--accent)) 50%, var(--line)); background: color-mix(in srgb, var(--cal, var(--accent)) 10%, var(--bg-elev)); }
+.meeting-dot { width: 8px; height: 8px; flex: none; border-radius: 50%; background: var(--cal, var(--accent)); }
+.meeting-chip.live .meeting-dot { box-shadow: 0 0 0 3px color-mix(in srgb, var(--cal, var(--accent)) 28%, transparent); }
+.meeting-open { display: flex; align-items: baseline; gap: 6px; min-width: 0; padding: 0; border: 0; background: none; color: var(--text); font: inherit; font-size: var(--fs-sm); cursor: default; }
+.meeting-open:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--r-sm); }
+.meeting-chip .today-join { height: 24px; border-radius: var(--r-pill); }
+
+/* Narrow windows: the events fold into one line; the account column steps aside (the folders still list every account). */
+@media (max-width: 900px) {
+  .mail-rail { display: none; }
+  .mail-today { padding: 10px 12px; gap: 6px; }
+  .today-greeting { font-size: var(--fs-xl); }
+  .today-strip { display: none; }
+  .today-next { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: var(--fs-md); color: var(--text-2); }
+  .mail.reading .mail-today { display: none; }
+  .meeting-open .muted { display: none; }
+}
+@media (max-width: 640px) {
+  .mail-nav { display: none; }
+  .mail-today { grid-column: 1 / -1; }
+}

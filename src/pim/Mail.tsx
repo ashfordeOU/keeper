@@ -4,14 +4,15 @@
 // reading pane (remote pictures held back, links that show where they go),
 // sent mail waiting for an answer, newsletter cleanup, search across accounts
 // (this computer first, then the servers), snooze, send later, undo send,
-// two layouts, keyboard-shortcut sets and AI help.
+// two layouts, keyboard-shortcut sets and AI help; on top, the Today layout
+// (mail-today.tsx): greeting, today's events, filter chips, account column.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { MailView, OpenMessage, Outbox } from '../../core/api-pim';
 import type { Draft } from '../../core/pim/mail';
 import { formatAddress } from '../../core/pim/mail';
 import type { PimPrefsView } from '../../core/pim/prefs';
-import { bindings, comboOf, makeResolver, type MailAction } from '../../core/pim/shortcuts';
+import { bindings, comboOf, composeShortcut, makeResolver, type MailAction } from '../../core/pim/shortcuts';
 import { outboxPhase, snoozeChoices } from '../../core/pim/triage';
 import type { Account, MailFolder, MessageSummary, Thread } from '../../core/pim/types';
 import { formatBytes } from '../../core/format';
@@ -25,6 +26,9 @@ import { AccountDialog } from './AccountDialog';
 import { AskCard, CleanupView, ScheduledView, WaitingView } from './mail-views';
 import { AccountMark, ChatThread, CodeBanner, PhishBanner, QuickLook, remindMenu, SearchChips, SenderAvatar } from './mail-parts';
 import { accountForDigit, nextTextSize, type InboxTab } from '../../core/pim/smart';
+import { chipKeeps, chipOf, chipView, firstName, groupByDay, labelColor, lastChecked, listTime, type ChipId, type ChipView } from '../../core/pim/mail-today';
+import type { LabelCount } from '../../core/api-pim';
+import { AccountRail, clock, MailChips, TodayHeader, UpdatedFooter, useToday } from './mail-today';
 import '../styles/pim.css';
 
 const FOLDER_ICON: Record<string, string> = { inbox: 'inbox', sent: 'send', drafts: 'rename', trash: 'trash', junk: 'warning', archive: 'archive', all: 'mail', flagged: 'flag' };
@@ -70,13 +74,16 @@ function langName(): string {
 }
 
 export function Mail() {
-  const { toast, go, route, draft, setDraft, info } = useStore();
+  const { toast, go, route, draft, setDraft, info, settings } = useStore();
   const mac = info?.platform === 'darwin';
-  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [accounts, setAccounts] = useState<(Account & { lastChecked?: number })[]>([]);
   const [folders, setFolders] = useState<MailFolder[]>([]);
   const [prefs, setPrefs] = useState<PimPrefsView | null>(null);
   const [view, setView] = useState<MailView>({ folder: 'unified', threaded: true, filter: 'all', tab: 'important' });
   const [unread, setUnread] = useState<Record<string, number>>({});
+  const [labels, setLabels] = useState<LabelCount[]>([]);
+  // A chip that narrows the list further here (Security).
+  const [only, setOnly] = useState<ChipView['only']>();
   const [narrowBack, setNarrowBack] = useState(0);
   const [side, setSide] = useState<Side>(null);
   const [query, setQuery] = useState('');
@@ -101,6 +108,9 @@ export function Mail() {
   const splitOn = prefs?.splitInbox !== false;
   const searching = !!query.trim();
   const inboxView = !searching && !side && (view.folder === 'unified' || view.folder.toUpperCase() === 'INBOX');
+  const chipsShown = !searching && !side && (inboxView || view.folder === 'toreply');
+  const todayOn = settings?.mailToday !== false;
+  const { strip, now } = useToday(todayOn);
 
   const loadAccounts = useCallback(() => {
     void api.pim.accounts().then(setAccounts);
@@ -112,12 +122,14 @@ export function Mail() {
     // Searching looks in every account and folder kept on this computer first.
     const v: MailView = q ? { ...view, folder: 'search', account: undefined, split: undefined, tab: undefined, query: q } : { ...view, split: undefined, tab: splitOn ? view.tab : undefined };
     void api.pim.messages(v).then(setList);
-    void api.pim.unreadCounts().then((u) => setUnread(u.byAccount));
+    void api.pim.unreadCounts().then((u) => { setUnread(u.byAccount); setLabels(u.labels ?? []); });
     void api.pim.waiting().then((w) => setWaitingCount(w.filter((x) => x.overdue).length));
   }, [view, query, splitOn]);
   const loadOutbox = useCallback(() => void api.pim.outbox().then(setOutbox), []);
 
   useEffect(loadAccounts, [loadAccounts]);
+  // "Updated 2 minutes ago" reads when each account was last checked.
+  useEffect(() => { void api.pim.accounts().then(setAccounts); }, [Math.floor(now / 60_000)]);
   // "New Mail Message" from the command palette or a keeper:// link; a message id from the Island's drop-down.
   useEffect(() => {
     if (route.arg === 'compose') setCompose({ to: [], cc: [], bcc: [], subject: '', body: '' });
@@ -163,7 +175,7 @@ export function Mail() {
   }, [list.messages, server, searching]);
   const localCount = list.messages.length;
 
-  const rows = useMemo(() => {
+  const allRows = useMemo(() => {
     if (view.threaded && list.threads && !searching) {
       return list.threads.map((t) => {
         const inView = t.messages.filter((m) => list.messages.some((x) => x.id === m.id));
@@ -173,6 +185,7 @@ export function Mail() {
     }
     return shownMessages.map((m) => ({ key: m.id, last: m, count: 1, unread: m.seen ? 0 : 1, thread: undefined as Thread | undefined }));
   }, [list, view.threaded, shownMessages, searching]);
+  const rows = useMemo(() => (only && !searching ? allRows.filter((r) => (r.thread ? r.thread.messages : [r.last]).some((m) => chipKeeps(m, only))) : allRows), [allRows, only, searching]);
 
   const current = rows.find((r) => r.last.id === selected || r.thread?.messages.some((m) => m.id === selected));
   const ids = checked.size ? [...checked] : current ? (current.thread ? current.thread.messages.filter((m) => list.messages.some((x) => x.id === m.id)).map((m) => m.id) : [current.last.id]) : [];
@@ -200,7 +213,12 @@ export function Mail() {
   }, [current]);
 
   const snoozeMenu = (x: number, y: number, target: string[]) => setMenu({ x, y, items: snoozeChoices(Date.now()).map((s) => ({ label: s.label, icon: 'clock', run: () => void act(() => api.pim.snooze(target, s.at), `Snoozed until ${new Date(s.at).toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' })}`) })) });
-  const showTab = (tab: InboxTab) => { setSide(null); setQuery(''); setView({ ...view, tab, split: undefined }); setSelected(null); };
+  const showTab = (tab: InboxTab) => { setSide(null); setQuery(''); setOnly(undefined); setView({ ...view, tab, split: undefined, ...(view.folder === 'toreply' ? { folder: 'unified' } : {}) }); setSelected(null); };
+  const pickChip = (id: ChipId) => {
+    const c = chipView(id, splitOn);
+    setSide(null); setQuery(''); setOnly(c.only); setSelected(null);
+    setView({ ...view, folder: c.folder, tab: c.tab, filter: c.filter, split: undefined });
+  };
   const showSplit = (split: 'important' | 'other' | undefined) => showTab(split === 'important' ? 'important' : split === 'other' ? 'updates' : 'all');
   const undoLast = () => void api.pim.undo().then((what) => toast(what ? `Undone: ${what}` : 'Nothing to undo'), (e) => toast(errText(e)));
   const mailAccountsOrdered = accounts.filter((a) => a.mail);
@@ -250,8 +268,9 @@ export function Mail() {
 
   const refresh = async () => {
     setRefreshing(true);
-    await act(() => api.pim.refresh(view.account, view.folder === 'unified:sent' || view.folder === 'snoozed' ? undefined : view.folder));
+    await act(() => api.pim.refresh(view.account, view.account && !/^(unified|snoozed|toreply|smart:|label:)/.test(view.folder) ? view.folder : undefined));
     setRefreshing(false);
+    void api.pim.accounts().then(setAccounts);
   };
 
   const askMail = async () => {
@@ -270,8 +289,12 @@ export function Mail() {
   const mailAccounts = accounts.filter((a) => a.mail);
   const totalUnread = folders.filter((f) => f.special === 'inbox').reduce((n, f) => n + f.unread, 0);
   const openSide = (s: Side) => { setSide(s); setSelected(null); setQuery(''); };
-  const openView = (v: Partial<MailView>) => { setSide(null); setQuery(''); setView({ ...view, ...v }); setSelected(null); };
+  const openView = (v: Partial<MailView>) => { setSide(null); setQuery(''); setOnly(undefined); setView({ ...view, ...v }); setSelected(null); };
   const isOn = (folder: string, account?: string) => !side && !searching && view.folder === folder && view.account === account;
+  const showToday = todayOn && inboxView;
+  // Your first name, from the names you send mail as (nothing else is guessed).
+  const myName = firstName(mailAccounts.flatMap((a) => a.identities.map((i) => i.name)));
+  const composeKey = composeShortcut(prefs?.shortcutScheme ?? 'gmail', prefs?.shortcutOverrides as Partial<Record<MailAction, string>>, mac);
 
   if (!mailAccounts.length) {
     return (
@@ -319,6 +342,14 @@ export function Mail() {
   const acctColor = (id: string) => accounts.find((a) => a.id === id)?.color ?? 'var(--accent)';
   const cross = view.folder === 'unified' || view.folder === 'unified:sent' || view.folder === 'snoozed' || searching;
 
+  // Today, Yesterday, the past week, older: a heading where the day changes (not in search, which ranks by place).
+  const rowTime = (m: MessageSummary) => (m.snoozedUntil && m.snoozedUntil <= now && m.snoozedUntil > m.date ? m.snoozedUntil : m.date);
+  const heads = new Map<number, string>();
+  if (!searching && view.folder !== 'snoozed') {
+    let i = 0;
+    for (const g of groupByDay(rows, (r) => rowTime(r.last), now)) { heads.set(i, g.label); i += g.rows.length; }
+  }
+  const rowWhen = (m: MessageSummary) => (m.snoozedUntil && m.snoozedUntil > now ? `until ${when(m.snoozedUntil)}` : listTime(m.date, now, clock, (t) => when(t)));
   const rowsEl = (
     <div className={`mail-rows ${layout === 'wide' ? 'wide' : ''} density-${prefs?.mailDensity ?? 'comfortable'}`} role="listbox" aria-label="Messages" aria-multiselectable>
       {ask ? (ask.busy ? <div className="ai-card"><div className="row" style={{ gap: 8 }}><div className="spinner" /> Reading your mail…</div></div> : <AskCard answer={ask.answer ?? ''} sources={ask.sources ?? []} onOpen={(id) => setSelected(id)} onClose={() => setAsk(null)} />) : null}
@@ -331,6 +362,7 @@ export function Mail() {
         return (
           <div key={r.key}>
             {searching && i === localCount && server?.messages.length ? <div className="mail-section">On the server · {rows.length - localCount}</div> : null}
+            {heads.has(i) ? <div className="mail-day" role="presentation" data-testid="mail-day">{heads.get(i)}</div> : null}
             <div role="option" aria-selected={on} className={`mail-row ${on ? 'on' : ''} ${r.unread ? 'unread' : ''} ${checked.has(m.id) ? 'checked' : ''}`} onClick={(e) => {
               if (e.metaKey || e.ctrlKey) { toggleCheck(m.id); return; }
               setSelected(m.id);
@@ -348,14 +380,14 @@ export function Mail() {
                     <b className="mail-subject-inline">{m.subject}</b><span className="muted"> — {m.snippet}</span>
                   </span>
                   <span className="mail-labels">{(m.labels ?? []).slice(0, 2).map((l) => <span key={l} className="label-chip">{l}</span>)}{m.hasAttachments ? <Icon name="paperclip" size={11} /> : null}</span>
-                  <span className="mail-date">{m.snoozedUntil && m.snoozedUntil > Date.now() ? `until ${when(m.snoozedUntil)}` : when(m.date)}</span>
+                  <span className="mail-date" title={new Date(m.date).toLocaleString()}>{rowWhen(m)}</span>
                 </>
               ) : (
                 <div className="grow" style={{ minWidth: 0 }}>
                   <div className="mail-row-top">
                     <span className="mail-from ellipsis">{people}</span>
                     {r.count > 1 ? <span className="mail-count">{r.count}</span> : null}
-                    <span className="mail-date">{m.snoozedUntil && m.snoozedUntil > Date.now() ? `until ${when(m.snoozedUntil)}` : when(m.date)}</span>
+                    <span className="mail-date" title={new Date(m.date).toLocaleString()}>{rowWhen(m)}</span>
                   </div>
                   <div className="mail-subject ellipsis">{m.security ? <span className="pill danger" title="Sign-in alert, code or password reset: always Important"><Icon name="shield" size={10} /> Security</span> : null}{m.flagged ? <Icon name="flag" size={11} className="flag" /> : null}{m.subject}</div>
                   <div className="mail-snippet ellipsis">{m.hasAttachments ? <Icon name="paperclip" size={11} /> : null}{(m.labels ?? []).slice(0, 2).map((l) => <span key={l} className="label-chip">{l}</span>)}{searching ? <span className="label-chip">{m.folder.toUpperCase() === 'INBOX' ? 'Inbox' : m.folder.split(/[/.]/).pop()}</span> : null}{m.snippet}</div>
@@ -377,9 +409,14 @@ export function Mail() {
       : side === 'scheduled' ? <ScheduledView outbox={outbox} onEdit={(d) => setCompose(d)} /> : null;
 
   return (
-    <div className={`mail layout-${layout} ${side ? 'with-side' : ''} ${current ? 'reading' : ''}`} data-narrow-back={narrowBack} style={{ ['--mail-text' as string]: `${textSize}px` }}>
+    <div className={`mail layout-${layout} ${side ? 'with-side' : ''} ${current ? 'reading' : ''} ${showToday ? 'has-today' : ''}`} data-narrow-back={narrowBack} style={{ ['--mail-text' as string]: `${textSize}px` }}>
+      <div className="mail-nav">
+      <AccountRail accounts={mailAccounts} unread={unread} totalUnread={totalUnread} mac={mac} current={side || searching ? undefined : view.account ?? (view.folder === 'unified' ? 'all' : undefined)}
+        onAll={() => openView({ folder: 'unified', account: undefined, split: undefined, tab: splitOn ? 'important' : undefined, filter: 'all' })}
+        onAccount={(a) => openView({ account: a.id, folder: 'INBOX', split: undefined, tab: splitOn ? 'important' : undefined, filter: 'all' })}
+        onAdd={() => setAdding(true)} />
       <aside className="mail-folders">
-        <button className="btn primary compose-btn" onClick={() => setCompose({ to: [], cc: [], bcc: [], subject: '', body: '' })}><Icon name="rename" size={14} /> New message</button>
+        <button className="btn primary compose-btn" title={`New message${composeKey ? ` (${composeKey})` : ''}`} onClick={() => setCompose({ to: [], cc: [], bcc: [], subject: '', body: '' })} data-testid="mail-compose"><Icon name="rename" size={14} /><span className="grow">New message</span>{composeKey ? <kbd aria-hidden>{composeKey}</kbd> : null}</button>
         <button className={`mail-folder ${isOn('unified') ? 'on' : ''}`} onClick={() => openView({ folder: 'unified', account: undefined, split: splitOn ? 'important' : undefined })}>
           <Icon name="inbox" size={15} /><span className="grow ellipsis">All inboxes</span>{totalUnread ? <span className="count">{totalUnread}</span> : null}
         </button>
@@ -395,6 +432,16 @@ export function Mail() {
           <div className="mail-account">
             <div className="mail-account-name">Smart mailboxes</div>
             {(prefs?.smartMailboxes ?? []).map((sm) => <button key={sm.id} className={`mail-folder ${isOn(`smart:${sm.id}`) ? 'on' : ''}`} title={sm.query} onClick={() => openView({ folder: `smart:${sm.id}`, account: undefined, split: undefined, tab: undefined })}><Icon name="search" size={15} /><span className="grow ellipsis">{sm.name}</span></button>)}
+          </div>
+        ) : null}
+        {labels.length ? (
+          <div className="mail-account" data-testid="mail-labels">
+            <div className="mail-account-name">Labels</div>
+            {labels.slice(0, 15).map((l) => (
+              <button key={l.name} className={`mail-folder ${isOn(`label:${l.name}`) ? 'on' : ''}`} title={`${l.name}: ${l.count} message${l.count === 1 ? '' : 's'}${l.unread ? `, ${l.unread} unread` : ''}`} onClick={() => openView({ folder: `label:${l.name}`, account: undefined, split: undefined, tab: undefined, filter: 'all' })} data-testid="mail-label">
+                <Icon name="tag" size={15} style={{ color: labelColor(l.name) }} /><span className="grow ellipsis">{l.name}</span><span className={`count ${l.unread ? '' : 'dim'}`}>{l.unread || l.count}</span>
+              </button>
+            ))}
           </div>
         ) : null}
         {mailAccounts.map((a, ai) => (
@@ -413,6 +460,8 @@ export function Mail() {
         <button className="btn ghost sm" style={{ marginTop: 8 }} onClick={() => setAdding(true)}><Icon name="plus" size={13} /> Add account</button>
         <button className="btn ghost sm" onClick={() => go({ name: 'settings', arg: 'pim' })}><Icon name="settings" size={13} /> Mail settings</button>
       </aside>
+      </div>
+      {showToday ? <TodayHeader name={myName} strip={strip} now={now} /> : null}
 
       {side ? <section className="mail-side">{sideView}</section> : (
         <section className="mail-list">
@@ -423,19 +472,19 @@ export function Mail() {
                 onKeyDown={(e) => { if (e.key === 'Escape') setQuery(''); else if (e.key === 'Enter' && /\?\s*$/.test(query)) void askMail(); }} aria-label="Search mail" />
             </div>
             {searching ? <button className="btn sm ghost" title="Ask your mail (answers from the messages that fit, with sources)" onClick={() => void askMail()} data-testid="mail-ask-btn"><Icon name="sparkle" size={13} /> Ask</button> : null}
+            {chipsShown ? (
+              <>
+                <button className={`btn icon sm ${view.filter === 'unread' ? 'on' : ''}`} aria-pressed={view.filter === 'unread'} title="Only unread" aria-label="Only unread" data-testid="mail-unread-only" onClick={() => setView({ ...view, filter: view.filter === 'unread' ? 'all' : 'unread' })}><Icon name="mail" size={14} /></button>
+                <button className={`btn icon sm ${view.threaded ? 'on' : ''}`} aria-pressed={view.threaded} title={view.threaded ? 'Grouped into conversations (click for single messages)' : 'Single messages (click to group into conversations)'} aria-label="Group into conversations" onClick={() => setView({ ...view, threaded: !view.threaded })}><Icon name="replyAll" size={14} /></button>
+              </>
+            ) : null}
             <button className="btn icon sm" title="Check for new mail" aria-label="Check for new mail" onClick={() => void refresh()}>{refreshing ? <div className="spinner" /> : <Icon name="refresh" size={14} />}</button>
             <button className="btn icon sm" title={layout === 'wide' ? 'List beside the message' : 'Wide list with bulk actions'} aria-label="Change layout" onClick={() => void api.pim.setPrefs({ mailLayout: layout === 'wide' ? 'split' : 'wide' }).then(setPrefs)}><Icon name={layout === 'wide' ? 'columns' : 'list'} size={14} /></button>
           </div>
-          {inboxView && splitOn ? (
-            <div className="mail-tabs" role="tablist" data-testid="mail-tabs">
-              {([['all', 'All', list.counts?.all], ['important', 'Primary', list.counts?.important], ['updates', 'Updates', list.counts?.updates], ['promos', 'Promos', list.counts?.promos]] as const).map(([t, label, n]) => (
-                <button key={t} role="tab" aria-selected={(view.tab ?? 'all') === t} className={(view.tab ?? 'all') === t ? 'on' : ''} onClick={() => showTab(t)}>{label}{n ? <span className="count">{n}</span> : null}</button>
-              ))}
-              <span className="grow" />
-              <button className={`btn sm ghost ${view.filter === 'unread' ? 'on' : ''}`} aria-pressed={view.filter === 'unread'} title="Only unread" data-testid="mail-unread-only" onClick={() => setView({ ...view, filter: view.filter === 'unread' ? 'all' : 'unread' })}><Icon name="mail" size={12} /> Unread</button>
-            </div>
+          {chipsShown ? (
+            <MailChips split={splitOn} active={chipOf({ ...view, only })} counts={list.counts} inboxUnread={view.account ? unread[view.account] ?? 0 : totalUnread} onPick={pickChip} />
           ) : null}
-          {!searching ? (
+          {!searching && !chipsShown ? (
             <div className="mail-list-filters">
               <div className="seg">
                 {(['all', 'unread', 'flagged', 'attachments'] as const).map((f) => <button key={f} className={view.filter === f ? 'on' : ''} onClick={() => setView({ ...view, filter: f })}>{f === 'all' ? 'All' : f === 'unread' ? 'Unread' : f === 'flagged' ? 'Flagged' : 'Attachments'}</button>)}
@@ -461,6 +510,7 @@ export function Mail() {
             </div>
           ) : null}
           {layout === 'wide' && current ? <div className="mail-reader wide-reader">{reader}</div> : rowsEl}
+          <UpdatedFooter at={lastChecked(accounts)} now={now} busy={refreshing} onSync={() => void refresh()} />
         </section>
       )}
 

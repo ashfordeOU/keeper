@@ -60,13 +60,20 @@ export interface OpenMessage {
   remindAt?: number;
 }
 
+export interface LabelCount {
+  name: string;
+  count: number;
+  unread: number;
+}
+
 export interface MailView {
   account?: string;
   /**
    * a folder path, or a view across accounts: 'unified' (every inbox),
    * 'unified:sent' (every Sent folder), 'snoozed', 'toreply' (mail from people
    * waiting for your answer), 'smart:<id>' (a saved search), or 'search'
-   * (every folder kept on this computer)
+   * (every folder kept on this computer), or 'label:<name>' (mail with that
+   * label in any folder)
    */
   folder: string;
   /** an inbox's Important or Other half */
@@ -147,7 +154,8 @@ export interface PimApi {
    */
   search(query: string, opts?: { account?: string; limit?: number; server?: boolean }): Promise<{ messages: MessageSummary[]; local: number }>;
   /** unread inbox mail per account, and in all (the account switcher, widgets) */
-  unreadCounts(): Promise<{ byAccount: Record<string, number>; all: number; important: number }>;
+  /** labels: each label on mail kept here (not Junk or Trash), with how many messages carry it and how many of those are unread */
+  unreadCounts(): Promise<{ byAccount: Record<string, number>; all: number; important: number; labels?: LabelCount[] }>;
   /** take a message off To Reply */
   dismissToReply(id: string): Promise<void>;
   /** "Remind me if no reply" on a sent message (null: cancel) */
