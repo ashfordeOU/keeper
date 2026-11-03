@@ -503,4 +503,6 @@ export interface Settings {
   nativeApps?: import('./native-apps').NativeAppPrefs;
   /** blocking sites and apps during Focus, on a schedule or by hand: how strict it is (core/focus-block.ts); the lists live in focus-block.json */
   focusBlock: import('./focus-block').FocusBlockOptions;
+  /** automatic time tracking: what is kept and for how long (core/time-track.ts); the rules and data live in <userData>/time */
+  timeTrack: import('./time-track').TimeTrackOptions;
 }

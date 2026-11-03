@@ -95,6 +95,7 @@ export const NAV_PAGES: NavPage[] = [
   { id: 'startup', route: { name: 'startup' }, label: 'Startup & Apps', icon: 'power', group: 'computer', also: ['apps'], keywords: 'startup items login installed applications uninstall' },
   { id: 'controls', route: { name: 'controls' }, label: 'System Controls', icon: 'settings', group: 'computer', also: ['catalog', 'appcontrols'], keywords: 'quick controls system settings+ app controls wifi bluetooth' },
   { id: 'awake', route: { name: 'awake' }, label: 'Keep Awake', icon: 'coffee', group: 'computer', keywords: 'caffeine sleep stay awake triggers closed lid' },
+  { id: 'time', route: { name: 'time' }, label: 'Time Tracking', icon: 'stopwatch', group: 'computer', keywords: 'time tracker timesheet hours apps sites projects productivity timeline' },
   { id: 'blocking', route: { name: 'blocking' }, label: 'Focus Blocking', icon: 'block', group: 'computer', keywords: 'block sites apps distractions focus schedule strict social news' },
   { id: 'todo', route: { name: 'todo' }, label: 'Fix-it List', icon: 'check', group: 'computer', keywords: 'to do todo fix issues problems recommendations space security privacy' },
 

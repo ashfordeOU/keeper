@@ -154,6 +154,8 @@ const api = {
   cues: group('cues', ['state', 'list', 'create', 'update', 'toggleItem', 'skipItem', 'complete', 'reopen', 'snooze', 'remove', 'restore', 'purge', 'dismiss', 'templates', 'saveTemplate', 'removeTemplate', 'startTemplate', 'parse', 'suggest', 'settings', 'setSettings', 'compose', 'openFolder', 'exportMarkdown', 'syncWithDevices', 'popup', 'closePopup', 'reportPage', 'openPage']),
   // Focus blocking: lists, schedules, passes and the block window over an app.
   focusBlock: group('focusBlock', ['status', 'saveList', 'removeList', 'saveSchedule', 'removeSchedule', 'setFocusList', 'start', 'stop', 'pass', 'runningApps', 'blockedApp', 'closeApp', 'dismiss', 'testFront']),
+  // Automatic time tracking: days, weeks, projects, CSV.
+  timeTrack: group('timeTrack', ['status', 'day', 'week', 'setPaused', 'saveRules', 'exportCsv', 'removeDay', 'wipe', 'testFront']),
   islandx: group('islandx', ['status', 'callMute', 'callDismiss', 'hideFor', 'installAgentHooks', 'removeAgentHooks', 'openNotifyPermission', 'testNotification', 'startBreak', 'focusFor', 'mediaMode', 'openLauncher', 'showPage']),
   widgets: group('widgets', ['list', 'save', 'remove', 'photos', 'current', 'arrange', 'arranging', 'tint', 'focus']),
   // Dictation anywhere and meeting recording; the listening pill streams its microphone samples here.

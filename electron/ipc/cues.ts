@@ -13,6 +13,7 @@ import { searchCues, whenText } from '../../core/cues/dashboard';
 import { describeAnchor, type Cue, type CueAnchor } from '../../core/cues/model';
 import { registerKeeperMethod } from '../services/brain';
 import { CuesService } from '../services/cues';
+import { timePageInFront } from '../services/time-track';
 import { featureOn, onFeature } from '../services/features';
 import { linuxWindowBounds, type FrontWindow } from '../services/fg-watch';
 import { keepUnmanaged, overlayOptions } from '../services/unmanaged';
@@ -224,6 +225,8 @@ export function registerCuesIpc(c: CuesContext) {
 
   // ---------------------------------------------------------------- the browser extension and `keeper cues`
   registerKeeperMethod('keeper/cues.active', (p) => {
+    // Time tracking learns the site of the browser tab in front from the same report.
+    if (typeof p.url === 'string') timePageInFront(p.url);
     if (svc && typeof p.url === 'string') svc.browserActive(p.url, String(p.title ?? ''));
     return { ok: !!svc };
   });

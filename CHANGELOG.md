@@ -56,6 +56,13 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - Select text in any app and press ⌘⇧1 / Ctrl+Shift+1: a small bar beside the pointer offers Copy, Search, Translate, Rewrite, Define, Open link and Write to. Translate, Rewrite and Define use the AI you chose in Keeper (which can run on this computer) and only when you press them; results come with Copy and Replace.
 - Choose the buttons, the language to translate into and the search address in Settings → AI → Actions for selected text. Off until you turn it on.
 
+### Added — Time Tracking
+- A new Time Tracking page (Computer section; off until you switch it on yourself) records which app, document and website you use and for how long, only on this computer and encrypted with a key in the system keychain.
+- Day view: a timeline coloured by project and totals by project, app, site and document; Week view: each day as bars by project. Go back day by day or week by week.
+- Projects come from your own rules ("the site contains client.example", "the window title contains proposal"), and apply to days already recorded.
+- Export any day or week as CSV for a timesheet or an invoice.
+- Pause for an hour or until you resume; time stops counting when nobody is at the computer or the screen is locked; password managers and anything you add are never recorded; window titles and websites can be left out; old days are deleted after the time you choose; Delete everything removes it all.
+
 ### Added — Focus Blocking
 - A new Focus Blocking page (Computer section; switch it on in Settings → Features) keeps chosen sites and apps out of reach while a Focus session runs, on a schedule (days and hours, also past midnight), or for 30 minutes, an hour or two by hand. Starter lists for social sites, news, and video and games can be changed or replaced.
 - In browsers with Keeper's extension a blocked site shows a calm page instead, with the time the block ends; pages already open move to it. With the firewall's DNS filter on, the same sites are blocked for every other app too, and the query log says Focus blocking stopped them.

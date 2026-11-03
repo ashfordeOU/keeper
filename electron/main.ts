@@ -138,6 +138,8 @@ import { cached as controlsCached, list as controlsList, onControlsChanged, set 
 import { PRESETS as CONTROL_PRESETS } from '../core/controls/catalog';
 import { registerFirewallIpc, stopFirewall } from './ipc/fw';
 import { registerFocusBlockIpc } from './ipc/focus-block';
+import { registerTimeTrackIpc } from './ipc/time-track';
+import { stopTimeTracking } from './services/time-track';
 import { focusChanged as focusBlockFocusChanged, focusStopRefusal, stopFocusBlock } from './services/focus-block';
 import { act as procAct, apps as procApps } from './services/procs';
 import { registerSyncIpc } from './ipc/sync';
@@ -1561,6 +1563,8 @@ app.whenReady().then(async () => {
     runningApps: async () => [...new Set((await procApps()).map((a) => a.name))].sort((a, b) => a.localeCompare(b)),
   });
   if (islandSvc) islandSvc.stopGuard = focusStopRefusal;
+  // Automatic time tracking: off until switched on; only on this computer, encrypted.
+  registerTimeTrackIpc({ broadcast });
   onControlsChanged(() => void updateTray());
   // Firewall: rules, alerts, the DNS filter and traffic history (nothing runs until switched on).
   registerFirewallIpc({ alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }), broadcast });
@@ -1824,6 +1828,7 @@ app.on('before-quit', (e) => {
   stopIslandX();
   stopCues();
   stopFocusBlock();
+  void stopTimeTracking();
   stopStudio();
   try {
     index?.saveSync();

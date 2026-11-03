@@ -536,6 +536,8 @@ export interface KeeperApi extends KeeperApiX {
   cues: import('./cues/api').CuesApi;
   /** blocking sites and apps during Focus, on a schedule or by hand */
   focusBlock: import('./api-focus').FocusBlockApi;
+  /** automatic time tracking, only on this computer */
+  timeTrack: import('./api-time').TimeTrackApi;
   /** Island+: calls, levels, other apps' notifications, more agents */
   islandx: import('./island-plus').IslandPlusApi;
   /** Mail, calendars, reminders, alarms and contacts */
@@ -857,6 +859,8 @@ export interface KeeperApi extends KeeperApiX {
   on(channel: 'cues-changed' | 'cue-popup', cb: () => void): () => void;
   /** Focus blocking started, ended or changed */
   on(channel: 'focusblock-changed', cb: () => void): () => void;
+  /** time tracking recorded something or its settings changed */
+  on(channel: 'time-changed', cb: () => void): () => void;
   on(channel: 'widgets-arrange', cb: (on: boolean) => void): () => void;
   on(channel: 'ambience-changed', cb: () => void): () => void;
   on(channel: 'wallpaper-policy', cb: (p: import('./scenes/policy').RenderPolicy) => void): () => void;
