@@ -11,7 +11,8 @@ import { money, totals } from './lib/savings.mjs';
 import { ago, search, size } from './lib/search-demo.mjs';
 import { fromKey, fromPointer } from './lib/slider.mjs';
 import { battery, clock, startsIn, tick } from './lib/island.mjs';
-import { lidSteps } from './lib/lid.mjs';
+import { lidSteps, scene } from './lib/lid.mjs';
+import { SLIDE_MS, nextPart, nextSlide, scrolled, tilt, wordsLit } from './lib/motion.mjs';
 
 window.keeperSite = true;
 (() => {
@@ -230,25 +231,166 @@ window.keeperSite = true;
     for (const el of items) io.observe(el);
   }
 
+  // ---------------------------------------------------------------- on screen
+  // Endless loops (glows, steam, the menu bar) run only while their part is on screen.
+  function live() {
+    const items = document.querySelectorAll('[data-live]');
+    if (!items.length || !('IntersectionObserver' in window)) return;
+    const io = new IntersectionObserver((entries) => {
+      for (const e of entries) e.target.classList.toggle('live', e.isIntersecting && !calm.matches);
+    }, { threshold: 0.1 });
+    for (const el of items) io.observe(el);
+  }
+
+  // ---------------------------------------------------------------- a statement lights up
+  // Word by word, from faint to full, as it scrolls up the screen. Without the script or with
+  // reduced motion it's simply all there.
+  function statement() {
+    const box = document.querySelector('[data-say]');
+    if (!box || calm.matches) return;
+    const words = [];
+    const split = (node) => {
+      for (const n of [...node.childNodes]) {
+        if (n.nodeType === 1) { split(n); continue; }
+        if (n.nodeType !== 3 || !n.textContent.trim()) continue;
+        const frag = document.createDocumentFragment();
+        for (const part of n.textContent.split(/(\s+)/)) {
+          if (!part) continue;
+          if (/^\s+$/.test(part)) { frag.append(part); continue; }
+          const w = Object.assign(document.createElement('span'), { className: 'w', textContent: part });
+          words.push(w);
+          frag.append(w);
+        }
+        n.replaceWith(frag);
+      }
+    };
+    split(box);
+    let frame = 0;
+    const paint = () => {
+      frame = 0;
+      const n = wordsLit(box.getBoundingClientRect().top, innerHeight, words.length);
+      words.forEach((w, i) => w.classList.toggle('on', i < n));
+    };
+    const ask = () => { if (!frame) frame = requestAnimationFrame(paint); };
+    addEventListener('scroll', ask, { passive: true });
+    addEventListener('resize', ask, { passive: true });
+    paint();
+  }
+
+  // ---------------------------------------------------------------- the hero laptop leans
+  // A few degrees towards the pointer, and back as the page scrolls away. Only with a mouse
+  // or trackpad for the pointer, never with reduced motion, and only while it's on screen.
+  function heroTilt() {
+    const box = document.querySelector('[data-tilt]');
+    if (!box || calm.matches) return;
+    const fine = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+    let x = null; let y = null; let frame = 0; let on = true;
+    const paint = () => {
+      frame = 0;
+      const r = box.getBoundingClientRect();
+      const hero = box.closest('.hero') || box;
+      const h = hero.getBoundingClientRect();
+      const t = tilt({ x, y, rect: r, scroll: scrolled(h.top, h.height) });
+      box.style.setProperty('--rx', `${t.rx}deg`);
+      box.style.setProperty('--ry', `${t.ry}deg`);
+    };
+    const ask = () => { if (on && !frame) frame = requestAnimationFrame(paint); };
+    if (fine) {
+      box.closest('.hero')?.addEventListener('pointermove', (e) => { x = e.clientX; y = e.clientY; ask(); }, { passive: true });
+      box.closest('.hero')?.addEventListener('pointerleave', () => { x = null; y = null; ask(); });
+    }
+    addEventListener('scroll', ask, { passive: true });
+    if ('IntersectionObserver' in window) new IntersectionObserver((es) => { on = es[0].isIntersecting; }).observe(box);
+  }
+
+  // ---------------------------------------------------------------- slideshows in a monitor
+  /**
+   * Shows a new picture in a monitor: a copy of the current one is changed by `set` and
+   * slides in over it (at once with reduced motion).
+   */
+  function slideTo(panel, set) {
+    const all = [...panel.querySelectorAll('.shot')];
+    const cur = all.at(-1);
+    for (const f of all.slice(0, -1)) f.remove();
+    cur.classList.remove('enter', 'in', 'leave');
+    if (calm.matches) { set(cur); return; }
+    const next = cur.cloneNode(true);
+    set(next);
+    next.classList.add('enter');
+    cur.after(next);
+    const img = [...next.querySelectorAll('img')].find((i) => getComputedStyle(i).display !== 'none');
+    const go = () => requestAnimationFrame(() => requestAnimationFrame(() => {
+      next.classList.add('in');
+      cur.classList.add('leave');
+      setTimeout(() => { if (cur.isConnected) cur.remove(); next.classList.remove('enter', 'in'); }, 650);
+    }));
+    (img && img.decode ? img.decode() : Promise.resolve()).catch(() => {}).then(go);
+  }
+
+  /**
+   * Moves a slideshow on every few seconds while it's on screen, unless the person paused
+   * it or is pointing at or working in it. Never with reduced motion.
+   * @returns {{ restart(): void }}
+   */
+  function slideshow(box, monitor, advance, what) {
+    const btn = box.querySelector('[data-pause]');
+    if (calm.matches || !btn || !monitor || !('IntersectionObserver' in window)) return { restart() {} };
+    monitor.style.setProperty('--slide', `${SLIDE_MS}ms`);
+    let paused = false; let hold = false; let seen = false; let t = 0;
+    const restart = () => {
+      clearTimeout(t);
+      monitor.classList.remove('running');
+      if (!seen || paused || hold) return;
+      void monitor.offsetWidth; // start the progress line again
+      monitor.classList.add('running');
+      t = setTimeout(() => { advance(); restart(); }, SLIDE_MS);
+    };
+    const name = () => btn.setAttribute('aria-label', `${paused ? 'Play' : 'Pause'} the ${what} slideshow`);
+    name();
+    btn.hidden = false;
+    btn.addEventListener('click', () => {
+      paused = !paused;
+      btn.setAttribute('aria-pressed', String(paused));
+      btn.querySelector('[data-pause-label]').textContent = paused ? 'Play' : 'Pause';
+      btn.querySelector('[data-icon-pause]').toggleAttribute('hidden', paused);
+      btn.querySelector('[data-icon-play]').toggleAttribute('hidden', !paused);
+      name();
+      restart();
+    });
+    const holdOn = (v) => () => { if (hold !== v) { hold = v; restart(); } };
+    monitor.addEventListener('pointerenter', holdOn(true));
+    monitor.addEventListener('pointerleave', holdOn(false));
+    box.addEventListener('focusin', (e) => { if (e.target !== btn) holdOn(true)(); });
+    box.addEventListener('focusout', holdOn(false));
+    new IntersectionObserver((es) => { seen = es[0].isIntersecting; restart(); }, { threshold: 0.4 }).observe(monitor);
+    return { restart };
+  }
+
   // ---------------------------------------------------------------- build your Keeper
   function builder() {
     const box = document.querySelector('[data-builder]');
     if (!box) return;
     const all = estimate(PARTS.map((p) => p.id)).total;
-    const imgs = { light: box.querySelector('[data-preview="light"]'), dark: box.querySelector('[data-preview="dark"]') };
+    const monitor = box.querySelector('.monitor');
+    const panel = monitor.querySelector('.panel');
     const title = box.querySelector('[data-preview-title]');
     const shotFile = (name, theme) => `${base}shots/${name}-${theme}.webp`;
+    let shown = PARTS.find((p) => p.on)?.id ?? null;
     const show = (part) => {
-      if (!part) return;
+      if (!part || part.id === shown) return;
+      shown = part.id;
       title.textContent = part.name;
-      for (const t of ['light', 'dark']) {
-        const img = imgs[t];
-        if (!img || img.dataset.shot === part.shot) continue;
-        img.dataset.shot = part.shot;
-        const swap = () => { img.src = shotFile(part.shot, t); img.alt = `${part.name} in Keeper`; img.classList.remove('swap'); };
-        if (calm.matches) swap(); else { img.classList.add('swap'); setTimeout(swap, 180); }
-      }
+      slideTo(panel, (fig) => {
+        for (const t of ['light', 'dark']) {
+          const img = fig.querySelector(`[data-preview="${t}"]`);
+          if (!img) continue;
+          img.src = shotFile(part.shot, t);
+          img.alt = `${part.name} in Keeper`;
+        }
+      });
     };
+    const isOn = () => [...box.querySelectorAll('.sw[aria-checked="true"]')].map((b) => b.dataset.part);
+    const show2 = slideshow(box, monitor, () => { const id = nextPart(PARTS, isOn(), shown); if (id) show(PARTS.find((p) => p.id === id)); }, 'parts');
     const update = (lastId) => {
       const on = [...box.querySelectorAll('.sw[aria-checked="true"]')].map((b) => b.dataset.part);
       const est = estimate(on);
@@ -270,6 +412,7 @@ window.keeperSite = true;
       b.addEventListener('click', () => {
         b.setAttribute('aria-checked', String(b.getAttribute('aria-checked') !== 'true'));
         update(b.dataset.part);
+        show2.restart();
       });
     }
   }
@@ -405,22 +548,29 @@ window.keeperSite = true;
     const box = document.querySelector('[data-themes]');
     if (!box) return;
     const tabs = [...box.querySelectorAll('[role="tab"]')];
-    const img = box.querySelector('[data-theme-img]');
     const panel = box.querySelector('[role="tabpanel"]');
+    const screen = panel.querySelector('.panel');
+    let current = tabs.findIndex((t) => t.getAttribute('aria-selected') === 'true');
     const pick = (tab, focus) => {
       for (const t of tabs) { const on = t === tab; t.setAttribute('aria-selected', String(on)); t.tabIndex = on ? 0 : -1; }
       panel.setAttribute('aria-labelledby', tab.id);
       if (focus) tab.focus();
-      const swap = () => { img.src = tab.dataset.src; img.alt = `Keeper's Home in the ${tab.dataset.name} theme`; img.classList.remove('swap'); };
-      if (calm.matches) swap(); else { img.classList.add('swap'); setTimeout(swap, 200); }
+      if (tabs.indexOf(tab) === current) return;
+      current = tabs.indexOf(tab);
+      const now = box.querySelector('[data-theme-now]');
+      if (now) now.textContent = tab.dataset.name;
+      slideTo(screen, (fig) => { const img = fig.querySelector('[data-theme-img]'); img.src = tab.dataset.src; img.alt = `Keeper's Home in the ${tab.dataset.name} theme`; });
     };
+    // The themes take turns on the monitor; picking one starts the count again.
+    const show = slideshow(box, panel, () => pick(tabs[nextSlide(current, tabs.length)], false), 'themes');
     tabs.forEach((t, i) => {
-      t.addEventListener('click', () => pick(t, false));
+      t.addEventListener('click', () => { pick(t, false); show.restart(); });
       t.addEventListener('keydown', (e) => {
         const n = { ArrowRight: i + 1, ArrowDown: i + 1, ArrowLeft: i - 1, ArrowUp: i - 1, Home: 0, End: tabs.length - 1 }[e.key];
         if (n == null) return;
         e.preventDefault();
         pick(tabs[(n + tabs.length) % tabs.length], true);
+        show.restart();
       });
     });
   }
@@ -449,7 +599,10 @@ window.keeperSite = true;
     const show = (i) => {
       const s = steps[i];
       [...list.children].forEach((li, n) => { li.classList.toggle('now', n === i); li.classList.toggle('done', n < i); });
-      mac.classList.toggle('closed', s.lid === 'closed');
+      const sc = scene(s);
+      mac.dataset.lid = sc.lid;
+      mac.dataset.screen = sc.screen;
+      if (sc.glow) mac.dataset.glow = sc.glow; else delete mac.dataset.glow;
       for (const [k, el] of Object.entries(who)) if (el) el.classList.toggle('on', k === s.who);
     };
     const render = () => {
@@ -466,7 +619,7 @@ window.keeperSite = true;
       next();
     };
     btn.addEventListener('click', play);
-    for (const o of Object.values(opts)) o.addEventListener('change', () => { clearTimeout(timer); render(); list.classList.remove('playing'); mac.classList.remove('closed'); for (const el of Object.values(who)) el?.classList.remove('on'); btn.textContent = 'Play'; });
+    for (const o of Object.values(opts)) o.addEventListener('change', () => { clearTimeout(timer); render(); list.classList.remove('playing'); mac.dataset.lid = 'open'; mac.dataset.screen = 'strip'; delete mac.dataset.glow; for (const el of Object.values(who)) el?.classList.remove('on'); btn.textContent = 'Play'; });
     render();
   }
 
@@ -490,6 +643,9 @@ window.keeperSite = true;
   }
 
   reveal();
+  live();
+  statement();
+  heroTilt();
   builder();
   island();
   searchDemo();

@@ -129,9 +129,11 @@ function render(layout, meta, body, file) {
   const out = meta.path ?? '';
   const depth = out.split('/').filter(Boolean).length;
   const root = meta.root ?? (depth ? '../'.repeat(depth) : './');
-  const nav = NAV.map(([href, label]) => `<a href="{{root}}${href}"${href === out ? ' aria-current="page"' : ''}>${label}</a>`).join('');
+  // Download is also the bar's one filled button; the plain link shows only in the small-screen menu.
+  const nav = NAV.map(([href, label]) => `<a href="{{root}}${href}"${href === out ? ' aria-current="page"' : ''}${href === 'download/' ? ' class="in-menu"' : ''}>${label}</a>`).join('');
   let html = layout
     .replace('{{nav}}', nav)
+    .replace('{{dlcurrent}}', out === 'download/' ? ' aria-current="page"' : '')
     .replace('{{body}}', body)
     .replaceAll('{{title}}', escapeHtml(meta.title ? `${meta.title} · Keeper by Ashforde®` : 'Keeper by Ashforde® · one install, a whole suite for your computer'))
     .replaceAll('{{description}}', escapeHtml(meta.description ?? ''))
@@ -157,6 +159,9 @@ function render(layout, meta, body, file) {
 const ALL_MB = () => estimate(PARTS.map((p) => p.id)).total;
 const pct = (mb) => `${((mb / ALL_MB()) * 100).toFixed(1)}%`;
 
+/** The button that stops a slideshow (shown by site.js once the show runs). */
+const PAUSE = '<button type="button" class="pause" data-pause aria-pressed="false" hidden><svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true" data-icon-pause><path d="M8 5v14M16 5v14" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/></svg><svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true" data-icon-play hidden><path d="M7 4.5v15l12-7.5Z" fill="currentColor"/></svg><span data-pause-label>Pause</span></button>';
+
 function builderHtml() {
   for (const p of PARTS) useShot(p.shot);
   const on = defaultOn();
@@ -170,15 +175,23 @@ function builderHtml() {
   const legend = [`<li>Core ${est.core} MB</li>`, ...Object.entries(PIECES).map(([k, v]) => `<li data-piece="${k}"${has(k) ? '' : ' hidden'}>${escapeHtml(v.name)} ${v.mb} MB</li>`)].join('');
   const runs = PARTS.map((p) => `<li data-runs="${p.id}"${on.includes(p.id) ? '' : ' hidden'}><b>${escapeHtml(p.name)}</b><span>${escapeHtml(p.runs)}</span></li>`).join('');
   const alt = `${escapeHtml(first.name)} in Keeper`;
-  return `<div class="builder" data-builder>
-  <ul class="switches" aria-label="Parts of Keeper">${sw}</ul>
-  <div class="preview">
-    <div class="window"><div class="bar"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="title" data-preview-title>${escapeHtml(first.name)}</span></div>
-      <figure class="shot"><img class="only-light" data-preview="light" src="{{root}}assets/shots/${light}" width="${w}" height="${h}" alt="${alt}" loading="lazy" decoding="async"><img class="only-dark" data-preview="dark" src="{{root}}assets/shots/${dark}" width="${w}" height="${h}" alt="${alt}" loading="lazy" decoding="async"></figure></div>
-    <div class="meter" aria-live="polite">
+  return `<div class="shell" data-builder>
+  <div class="shell-bar"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="title">Your Keeper</span><a class="btn primary small" href="{{root}}download/">Download</a></div>
+  <div class="shell-body">
+    <div class="pnl pnl-parts"><p class="pnl-title" id="parts-title">Parts</p><ul class="switches" aria-labelledby="parts-title">${sw}</ul></div>
+    <div class="pnl pnl-stage">
+      <div class="monitor" data-live>
+        <div class="panel"><figure class="shot"><img class="only-light" data-preview="light" src="{{root}}assets/shots/${light}" width="${w}" height="${h}" alt="${alt}" loading="lazy" decoding="async"><img class="only-dark" data-preview="dark" src="{{root}}assets/shots/${dark}" width="${w}" height="${h}" alt="${alt}" loading="lazy" decoding="async"></figure><span class="progress" aria-hidden="true"></span></div>
+        <div class="neck" aria-hidden="true"></div><div class="foot" aria-hidden="true"></div>
+      </div>
+      <p class="slide-ctl"><span class="now" data-preview-title>${escapeHtml(first.name)}</span>${PAUSE}</p>
+    </div>
+    <div class="pnl pnl-meter meter" aria-live="polite">
+      <p class="pnl-title">Download size</p>
       <div class="num"><b data-total>About ${est.total} MB</b><small data-count>${est.count} of ${PARTS.length} parts on</small></div>
       <div class="bar" aria-hidden="true">${bar}</div>
       <ul class="legend">${legend}</ul>
+      <p class="pnl-title">What runs</p>
       <ul class="runs" aria-label="What runs"><li class="none" data-runs-none${on.length ? ' hidden' : ''}>Nothing runs. Switch a part on.</li>${runs}</ul>
     </div>
   </div>
@@ -235,7 +248,7 @@ function build() {
     let b = body;
     b = b.replace('{{changelog}}', () => changelogHtml(list));
     b = b.replaceAll('{{latest}}', escapeHtml(latest?.version ?? ''));
-    b = b.replace('{{builder}}', builderHtml).replace('{{savings}}', savingsHtml).replace('{{search-demo}}', searchHtml).replace('{{lid-steps}}', lidHtml);
+    b = b.replace('{{builder}}', builderHtml).replace('{{savings}}', savingsHtml).replace('{{search-demo}}', searchHtml).replace('{{lid-steps}}', lidHtml).replaceAll('{{pause}}', PAUSE);
     const html = render(layout, meta, b, f);
     write(meta.out ?? `${meta.path ?? ''}index.html`, html);
   }

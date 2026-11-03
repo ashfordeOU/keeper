@@ -8,7 +8,7 @@ description: Keeper and Monorail, Ashforde's scrolling window manager for Mac: K
   <p class="kicker">Keeper + Monorail</p>
   <h1>Two Mac apps. <span class="grad">One calm Mac.</span></h1>
   <p class="lede">Each works on its own. Together they keep out of each other's way and share one Stay Awake.</p>
-  <div class="cta" style="justify-content:flex-start">
+  <div class="cta start">
     <a class="btn primary" href="https://monorail.ashforde.org/keeper/">Monorail's page about Keeper</a>
     <a class="btn ghost" href="https://monorail.ashforde.org/">About Monorail</a>
   </div>
@@ -29,7 +29,7 @@ description: Keeper and Monorail, Ashforde's scrolling window manager for Mac: K
 </div>
 
 <section class="wrap" id="side-by-side" aria-labelledby="sbs-title">
-  <div class="head reveal">
+  <div class="head center reveal">
     <p class="kicker">Side by side</p>
     <h2 id="sbs-title">What each one does.</h2>
   </div>
@@ -48,7 +48,7 @@ description: Keeper and Monorail, Ashforde's scrolling window manager for Mac: K
 </section>
 
 <section class="wrap" id="together" aria-labelledby="together-title">
-  <div class="head reveal">
+  <div class="head center reveal">
     <p class="kicker">Together</p>
     <h2 id="together-title">They know about each other.</h2>
   </div>
@@ -63,7 +63,7 @@ description: Keeper and Monorail, Ashforde's scrolling window manager for Mac: K
 </section>
 
 <section class="wrap" id="how" aria-labelledby="how-title">
-  <div class="head reveal">
+  <div class="head center reveal">
     <p class="kicker">How they talk</p>
     <h2 id="how-title">On your Mac. No server.</h2>
   </div>
@@ -112,9 +112,20 @@ description: Keeper and Monorail, Ashforde's scrolling window manager for Mac: K
     <h2 id="lid-title">Close the lid. Nothing drops.</h2>
     <p class="sub">Press Play. Change the switches to see what happens.</p>
   </div>
-  <div class="lid-demo reveal" data-lid>
+  <div class="lid-demo reveal" data-lid data-live>
     <div>
-      <div class="mac" aria-hidden="true"><div class="m-lid"><div class="m-scr"></div></div><div class="m-base"></div></div>
+      <div class="mac" data-screen="strip" data-lid="open" aria-hidden="true">
+        <span class="m-glow"></span>
+        <div class="m-lid">
+          <div class="m-face"><div class="m-scr">
+            <span class="m-strip"><i></i><i></i><i></i><i></i><i></i></span>
+            <span class="m-isl"><span class="cup"><i></i><i></i><i></i><svg width="14" height="14" viewBox="0 0 24 24"><path d="M4 10h12v4.5A5.5 5.5 0 0 1 10.5 20h-1A5.5 5.5 0 0 1 4 14.5Z" fill="currentColor"/><path d="M16 11.5h1.5a2.5 2.5 0 0 1 0 5H15.6" fill="none" stroke="currentColor" stroke-width="2"/></svg></span><b>Awake</b></span>
+            <span class="m-zz"><i>z</i><i>z</i><i>z</i></span>
+          </div></div>
+          <div class="m-back"><span></span></div>
+        </div>
+        <div class="m-base"><span class="m-led"></span></div>
+      </div>
       <div class="holder" aria-hidden="true"><span data-who="monorail">Monorail</span><span data-who="keeper">Keeper</span><span class="none" data-who="none">Asleep</span></div>
     </div>
     <div>
@@ -123,7 +134,7 @@ description: Keeper and Monorail, Ashforde's scrolling window manager for Mac: K
         <label><input type="checkbox" name="ready" checked> Keeper is set up for lid closed</label>
         <label><input type="checkbox" name="plugged" checked> Plugged in</label>
       </div>
-      <p style="margin:18px 0 0"><button type="button" class="btn primary small" data-lid-play>Play</button></p>
+      <p class="lid-play"><button type="button" class="btn primary" data-lid-play>Play</button></p>
     </div>
   </div>
   <p class="fine">Shared rules: plugged in only unless you choose otherwise, a 20% battery floor, and it stops if the Mac gets hot or Low Power Mode is on. Lid-closed hand-over is in Monorail's download version.</p>

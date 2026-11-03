@@ -23,6 +23,15 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - Settings → Menu bar can hide the readings, the quick actions or the downloads. The tip is now off unless you turn it on.
 - Works by keyboard (arrows, Enter, Escape folds More, then closes), in light and dark, and stands still for people who ask for less motion.
 
+### Added — Website: devices that move, and one calm layout everywhere
+- The laptop on the home page opens as the page loads: the lid lifts, the screen lights up, Keeper fades in and the Island drops from the notch. It leans a little towards your pointer.
+- In the lid demo the little Mac's lid really closes and opens, its screen shows who is in charge, and a soft glow shows who keeps it awake.
+- The theme picker and Build your Keeper play as slideshows in a monitor, with a Pause button.
+- The Island breathes softly while closed and settles in as it opens; its battery fills. Small touches: steam over the Keep Awake cup, Wi-Fi and Bluetooth in the menu bar.
+- A floating top bar with one Download button, bigger headlines with one marked phrase, a short statement that lights up as you scroll, and Build your Keeper as an app with three panels.
+- Every page shares one width, one spacing scale, one set of corners, and evenly balanced rows of cards, checked at four screen widths in light and dark.
+- None of it moves for people who ask for less motion.
+
 ### Added — Website: a new home page, features page and Keeper + Monorail page
 - The home page tells Keeper's story in pictures: Keeper in a laptop with the Island dropping from the notch, then short sections with real screenshots in light and dark.
 - Build your Keeper: switch parts on and off and see a preview, the rough download size and what keeps running.

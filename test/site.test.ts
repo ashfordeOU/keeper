@@ -249,6 +249,122 @@ describe('website: the interactive parts', () => {
   });
 });
 
+describe('website: devices that move', () => {
+  const load = (name: string) => import(path.join(ROOT, 'site/lib', name));
+  const built = (p: string) => readFileSync(path.join(out, p), 'utf8');
+  const pages = () => files(out).filter((p) => p.endsWith('.html'));
+
+  it('the hero laptop leans a few degrees at most, towards the pointer and back with the scroll', async () => {
+    const { tilt, scrolled, clamp, MAX_TILT } = await load('motion.mjs');
+    const rect = { left: 100, top: 100, width: 400, height: 200 };
+    expect(tilt({ rect })).toEqual({ rx: 0, ry: 0 });
+    expect(tilt({ x: 300, y: 200, rect })).toEqual({ rx: 0, ry: 0 });
+    expect(tilt({ x: 500, y: 200, rect }).ry).toBe(MAX_TILT);
+    expect(tilt({ x: 100, y: 200, rect }).ry).toBe(-MAX_TILT);
+    expect(tilt({ x: 300, y: 100, rect }).rx).toBeGreaterThan(0);
+    expect(tilt({ x: 9000, y: -9000, rect, scroll: 5 })).toEqual({ rx: MAX_TILT, ry: MAX_TILT });
+    for (const x of [-1e6, 0, 250, 1e6]) for (const sc of [0, 0.5, 1]) {
+      const t = tilt({ x, y: x, rect, scroll: sc });
+      expect(Math.abs(t.rx)).toBeLessThanOrEqual(MAX_TILT);
+      expect(Math.abs(t.ry)).toBeLessThanOrEqual(MAX_TILT);
+    }
+    expect(MAX_TILT).toBeLessThanOrEqual(4);
+    expect([scrolled(0, 800), scrolled(-400, 800), scrolled(-2000, 800), scrolled(300, 800), scrolled(-10, 0)]).toEqual([0, 0.5, 1, 0, 0]);
+    expect(clamp(Number.NaN, 0, 10)).toBe(5);
+  });
+
+  it('slideshows go round, and Build your Keeper shows only parts that are on', async () => {
+    const { nextSlide, nextPart, SLIDE_MS } = await load('motion.mjs');
+    expect([nextSlide(0, 8), nextSlide(7, 8), nextSlide(0, 8, -1), nextSlide(3, 0)]).toEqual([1, 0, 7, 0]);
+    const parts = [{ id: 'files' }, { id: 'island' }, { id: 'notes' }, { id: 'tidy' }];
+    expect(nextPart(parts, ['files', 'tidy'], 'files')).toBe('tidy');
+    expect(nextPart(parts, ['files', 'tidy'], 'tidy')).toBe('files');
+    expect(nextPart(parts, ['island'], 'files')).toBe('island');
+    expect(nextPart(parts, [], 'files')).toBeNull();
+    expect(SLIDE_MS).toBeGreaterThanOrEqual(3000);
+  });
+
+  it('the statement lights up word by word as it scrolls up the screen', async () => {
+    const { wordsLit } = await load('motion.mjs');
+    expect(wordsLit(900, 1000, 20)).toBe(0);
+    expect(wordsLit(850, 1000, 20)).toBe(0);
+    expect(wordsLit(600, 1000, 20)).toBe(10);
+    expect(wordsLit(350, 1000, 20)).toBe(20);
+    expect(wordsLit(-500, 1000, 20)).toBe(20);
+    expect([wordsLit(0, 0, 20), wordsLit(0, 1000, 0)]).toEqual([0, 0]);
+  });
+
+  it('the little Mac in the lid demo shows who keeps it awake', async () => {
+    const { lidSteps, scene } = await load('lid.mjs');
+    const scenes = lidSteps({ keeperReady: true, pluggedIn: true }).map(scene);
+    expect(scenes[0]).toEqual({ lid: 'open', screen: 'strip', glow: 'monorail' });
+    expect(scenes[3]).toEqual({ lid: 'closed', screen: 'island', glow: 'keeper' });
+    expect(lidSteps({ keeperReady: false, pluggedIn: true }).map(scene).every((s: { glow: string }) => s.glow === 'monorail')).toBe(true);
+    expect(lidSteps({ keeperReady: true, pluggedIn: false }).map(scene).at(-1)).toEqual({ lid: 'closed', screen: 'asleep', glow: null });
+  });
+
+  it('writes the moving parts into the pages, with a still picture underneath', () => {
+    const home = built('index.html');
+    expect(home).toMatch(/<div class="hero-visual" data-tilt data-live>/);
+    expect(home).toMatch(/class="mb-wifi"[\s\S]*class="mb-bt"/);
+    expect(home).toMatch(/<p class="say" data-say>/);
+    // Both slideshows sit in a monitor, with a Pause button the script shows once a show runs.
+    expect(home.match(/<div class="monitor"[^>]*data-live>/g)?.length).toBe(2);
+    expect(home.match(/<button type="button" class="pause" data-pause aria-pressed="false" hidden>/g)?.length).toBe(2);
+    expect(home).toMatch(/<div class="shell" data-builder>[\s\S]*class="pnl pnl-parts"[\s\S]*class="pnl pnl-stage"[\s\S]*class="pnl pnl-meter meter"/);
+    const mono = built('monorail/index.html');
+    expect(mono).toMatch(/<div class="mac" data-screen="strip" data-lid="open" aria-hidden="true">/);
+    for (const part of ['m-glow', 'm-face', 'm-back', 'm-strip', 'm-isl', 'm-zz', 'm-led']) expect(mono, part).toContain(`class="${part}`);
+    // One filled button in the top bar, and the page it leads to marked as current there.
+    for (const f of pages()) expect(built(f).match(/class="btn primary nav-cta"/g)?.length, f).toBe(1);
+    expect(built('download/index.html')).toContain('class="btn primary nav-cta" href="../download/" aria-current="page"');
+  });
+
+  it('moves only for people who haven\'t asked for less, and only while on screen', () => {
+    const css = built('assets/site.css');
+    const start = css.indexOf('@media (prefers-reduced-motion: no-preference) {');
+    expect(start).toBeGreaterThan(0);
+    let depth = 0; let end = start;
+    for (let i = css.indexOf('{', start); i < css.length; i++) { if (css[i] === '{') depth++; else if (css[i] === '}' && --depth === 0) { end = i; break; } }
+    const motion = css.slice(start, end);
+    const outside = css.slice(0, start) + css.slice(end);
+    const NEW = ['lid-open', 'screen-on', 'app-in', 'drop', 'glow-in', 'breathe', 'breathe-pill', 'wifi', 'bt', 'steam', 'strip', 'progress'];
+    for (const k of NEW) {
+      expect(css, k).toContain(`@keyframes ${k} `);
+      expect(motion, k).toMatch(new RegExp(`animation:[^;]*\\b${k}\\b`));
+      expect(outside, k).not.toMatch(new RegExp(`animation:[^;]*\\b${k}\\b`));
+    }
+    // Endless loops wait for .live (set while on screen).
+    for (const loop of ['breathe-pill', 'wifi', 'steam', 'strip']) {
+      const rules = [...motion.matchAll(new RegExp(`([^{}]+)\\{[^}]*animation:[^;]*\\b${loop}\\b[^;]*infinite`, 'g'))].map((m) => m[1]);
+      expect(rules.length, loop).toBeGreaterThan(0);
+      for (const r of rules) expect(r, loop).toMatch(/\.live|data-screen="island"/);
+    }
+    const js = built('assets/site.js');
+    expect(js).toMatch(/function heroTilt\(\) \{[\s\S]*?if \(!box \|\| calm\.matches\) return;/);
+    expect(js).toMatch(/function slideshow\([^)]*\) \{[\s\S]*?if \(calm\.matches/);
+    expect(js).toMatch(/function statement\(\) \{[\s\S]*?if \(!box \|\| calm\.matches\) return;/);
+    expect(existsSync(path.join(ROOT, 'test/e2e/site-layout.cjs'))).toBe(true);
+  });
+
+  it('draws from one scale: radii, section spacing and the head-to-content gap', () => {
+    const css = built('assets/site.css');
+    expect(css).toMatch(/--r-sm:12px; --r-md:16px; --r-xl:28px;/);
+    expect(css).toContain('section { padding:var(--section) 0 0; }');
+    expect(css).toContain('main .head + * { margin-top:var(--head-gap); }');
+    // Panels and cards take their corners from the scale (device artwork draws its own).
+    const SURFACES = ['.card', '.promise', '.os', '.window', '.pnl', '.shell', '.shell-bar', '.faq details', '.plat', '.pick', '.mono-band', '.diagram', '.lid-demo', '.isl-stage', '.closing', '.meter', '.total', '.sdemo', '.compare', '.table', '.callout', '.verify-note', '.fparts li', '.cats label', '.sw', '.steps > li', '.app-card', '.signed', '.pill-nav'];
+    for (const m of css.matchAll(/(^|\})\s*([^{}@]+)\{([^}]*)\}/g)) {
+      const sels = m[2].split(',').map((x) => x.trim());
+      const r = m[3].match(/border-radius:([^;]+)/);
+      if (!r || !sels.some((x) => SURFACES.includes(x))) continue;
+      expect(r[1].trim(), m[2].trim()).toMatch(/^var\(--(radius|r-sm|r-md|r-xl)\)$|^999px$/);
+    }
+    // A flipped spotlight swaps the two column widths, so the pairs mirror.
+    expect(css).toContain('.spot.flip { grid-template-columns:minmax(0, 1.2fr) minmax(0, .8fr); }');
+  });
+});
+
 describe('website workflow', () => {
   type Step = { name?: string; uses?: string; with?: Record<string, unknown>; run?: string; env?: Record<string, string>; if?: string };
   type Job = { concurrency?: { group?: string }; steps?: Step[] };

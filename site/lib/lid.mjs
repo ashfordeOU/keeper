@@ -31,3 +31,15 @@ export function lidSteps({ keeperReady, pluggedIn }) {
 
 /** Who holds the Mac awake at the end of a run. */
 export const lidOwner = (s) => lidSteps(s).at(-1).who;
+
+/**
+ * What the little Mac in the demo shows for one step: the lid, what's on its screen
+ * (Monorail's strip, Keeper's Island saying it keeps the Mac awake, or a sleeping screen),
+ * and which app's Stay Awake glow lights up under it.
+ * @param {{ who: 'monorail'|'keeper'|'none', lid: 'open'|'closed' }} step
+ * @returns {{ lid: 'open'|'closed', screen: 'strip'|'island'|'asleep', glow: 'keeper'|'monorail'|null }}
+ */
+export function scene(step) {
+  const screen = step.who === 'keeper' ? 'island' : step.who === 'monorail' ? 'strip' : 'asleep';
+  return { lid: step.lid, screen, glow: step.who === 'none' ? null : step.who };
+}
