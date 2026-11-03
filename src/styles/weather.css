@@ -270,6 +270,8 @@ html[data-theme='dark'] .wx-map-credit { background: rgba(0, 0, 0, .55); color: 
 /* ------------------------------------------------------------ footer */
 .wx-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-top: 22px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 11.5px; color: var(--text-2); }
 .wx-foot svg { color: var(--text-3); }
+.wx-foot a { color: var(--accent); text-decoration: none; }
+.wx-foot a:hover, .wx-foot a:focus-visible { text-decoration: underline; }
 
 /* ------------------------------------------------------------ narrow */
 @container (max-width: 560px) {

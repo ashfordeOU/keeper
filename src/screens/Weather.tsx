@@ -6,6 +6,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { addPlace, movePlace, type MonthlyClimate, type RadarFrame, type WeatherAlert } from '../../core/forecast';
+import { MET_CREDIT, MET_LICENCE_URL } from '../../core/met';
 import type { Place, Weather as W } from '../../core/weather';
 import { api } from '../api';
 import { Chart } from '../components/Chart';
@@ -105,7 +106,7 @@ export function Weather() {
         .catch((e: unknown) => live && setErrs((m) => ({ ...m, [placeKey(p)]: e instanceof Error ? e.message : String(e) })));
     }
     return () => { live = false; };
-  }, [places, units]);
+  }, [places, units, settings?.weatherSource]);
 
   const save = async (list: Place[]) => {
     setPlaces(await api.forecast.savePlaces(list));
@@ -229,7 +230,12 @@ export function Weather() {
 
       <footer className="wx-foot">
         <Icon name="shield" size={12} />
-        <span>Forecasts from Open-Meteo. Only the places you add are ever looked up.</span>
+        {(w?.source ?? settings?.weatherSource ?? 'met') === 'met' ? (
+          <span data-testid="wx-credit">
+            <a href="https://www.met.no/en" target="_blank" rel="noreferrer">{MET_CREDIT}</a>
+            {' '}(<a href={MET_LICENCE_URL} target="_blank" rel="noreferrer">CC BY 4.0</a>). Only the places you add are ever looked up.
+          </span>
+        ) : <span data-testid="wx-credit">Forecasts from Open-Meteo. Only the places you add are ever looked up.</span>}
         {alerts.data && !alerts.data.supported && place ? <span>Official weather alerts are shown for places in the United States.</span> : null}
       </footer>
     </div>

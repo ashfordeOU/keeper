@@ -511,4 +511,6 @@ export interface Settings {
   journal: import('./notes/journal').JournalSettings;
   /** the reader: how often feeds are read, how long articles stay, full text and pictures (core/reader.ts) */
   reader: import('./reader').ReaderSettings;
+  /** where forecasts come from: MET Norway (default) or Open-Meteo (core/weather.ts) */
+  weatherSource: import('./weather').WeatherSource;
 }

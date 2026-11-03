@@ -4,12 +4,20 @@
 // Only coordinates of places the user chose are ever sent.
 
 import { app } from 'electron';
+import { settings } from '../store';
 import { promises as fsp } from 'node:fs';
 import path from 'node:path';
 import { climateUrl, inUnitedStates, monthlyAverages, parseNwsAlerts, parseRadarIndex, type MonthlyClimate, type WeatherAlert } from '../../core/forecast';
 import { fetchWeather, type Place, type Weather } from '../../core/weather';
 
-const UA = { 'user-agent': 'Keeper (https://github.com/ashfordeOU/keeper)' };
+const UA = { 'user-agent': `Keeper/${app.getVersion()} https://keeper.ashforde.org` };
+
+declare const __KEEPER_OFFICIAL__: boolean | undefined;
+/** Tests only, never in an official build: KEEPER_MET_URL points forecasts at a stand-in server. */
+export function weatherOptions(): { source: ReturnType<typeof settings>['weatherSource']; version: string; metHost?: string } {
+  const official = typeof __KEEPER_OFFICIAL__ === 'boolean' && __KEEPER_OFFICIAL__;
+  return { source: settings().weatherSource, version: app.getVersion(), metHost: (!official && process.env.KEEPER_MET_URL) || undefined };
+}
 
 export class ForecastService {
   private file = path.join(app.getPath('userData'), 'places.json');
@@ -36,10 +44,11 @@ export class ForecastService {
   }
 
   async get(p: Place, units: 'metric' | 'imperial'): Promise<Weather> {
-    const key = `${p.lat.toFixed(2)},${p.lon.toFixed(2)},${units}`;
+    const source = settings().weatherSource;
+    const key = `${p.lat.toFixed(2)},${p.lon.toFixed(2)},${units},${source}`;
     const hit = this.cache.get(key);
     if (hit && Date.now() - hit.at < 10 * 60_000) return hit.w;
-    const w = await fetchWeather(p, units);
+    const w = await fetchWeather(p, units, weatherOptions());
     this.cache.set(key, { at: Date.now(), w });
     return w;
   }

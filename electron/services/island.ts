@@ -21,6 +21,7 @@ import * as shelves from '../../core/shelves';
 import { cleanLink, isUrl } from '../../core/textools';
 import type { FileEntry } from '../../core/types';
 import { fetchWeather, type Weather } from '../../core/weather';
+import { weatherOptions } from './forecast';
 import { getSecret, settings } from '../store';
 import { lyricsFor, mediaAction, micInUse, nowPlaying, watchMic } from './media';
 import { cameraInUse } from './island-place';
@@ -1092,10 +1093,10 @@ export class IslandService {
   async pollWeather(force = false): Promise<Weather | undefined> {
     const s = settings().island;
     if (!s.weather || !s.place) return undefined;
-    if (!force && this.weather && Date.now() - this.weather.fetchedAt < 15 * 60_000 && this.weather.place.name === s.place.name) return this.weather;
+    if (!force && this.weather && Date.now() - this.weather.fetchedAt < 15 * 60_000 && this.weather.place.name === s.place.name && (this.weather.source ?? 'open-meteo') === settings().weatherSource) return this.weather;
     try {
       const prevCast = this.weather?.nowcast;
-      this.weather = await fetchWeather(s.place, s.units);
+      this.weather = await fetchWeather(s.place, s.units, weatherOptions());
       if (this.weather.nowcast && this.weather.nowcast !== prevCast && /starting/.test(this.weather.nowcast)) this.alert({ kind: 'info', title: this.weather.nowcast, detail: s.place.name });
       this.emit();
     } catch {

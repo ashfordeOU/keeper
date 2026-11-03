@@ -1,12 +1,23 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
-// Weather for the Island and Home, from Open-Meteo (free, no account, no key).
+// Weather for the Island and Home. Forecasts come from MET Norway (core/met.ts:
+// free for any use, CC BY 4.0) unless the person chooses Open-Meteo in
+// Settings. Place search and air quality come from Open-Meteo either way.
 // Only the chosen place's coordinates are sent.
+
+import { metGet, metUrl, parseMet, type MetCached, type MetFetch, type MetForecast } from './met';
+
+/** Where forecasts come from: MET Norway (the default) or Open-Meteo. */
+export type WeatherSource = 'met' | 'open-meteo';
+export const WEATHER_SOURCES: WeatherSource[] = ['met', 'open-meteo'];
+export const normalizeWeatherSource = (v: unknown): WeatherSource => (v === 'open-meteo' ? 'open-meteo' : 'met');
 
 export interface Place {
   name: string;
   lat: number;
   lon: number;
   country?: string;
+  /** the place's IANA time zone, when the place search gave one */
+  tz?: string;
 }
 
 export interface Weather {
@@ -36,6 +47,8 @@ export interface Weather {
   utcOffset?: number;
   /** "Rain starting in about 20 minutes", when the next two hours suggest it */
   nowcast?: string;
+  /** who made the forecast (absent in older data: Open-Meteo) */
+  source?: WeatherSource;
 }
 
 /** WMO weather interpretation codes -> short label and an icon key. */
@@ -129,23 +142,50 @@ export function nowcast(m: OpenMeteo['minutely_15'], _current: number, now = Dat
   return first ? `Rain stopping in about ${mins} minutes` : `Rain starting in about ${mins} minutes`;
 }
 
-export async function fetchWeather(p: Place, units: 'metric' | 'imperial' = 'metric', signal?: AbortSignal): Promise<Weather> {
-  const res = await fetch(weatherUrl(p, units), { signal });
-  if (!res.ok) throw new Error(`Weather service returned ${res.status}`);
-  const data = (await res.json()) as OpenMeteo;
-  let aqi: number | undefined;
+export interface FetchWeatherOptions {
+  source?: WeatherSource;
+  /** Keeper's version, for the User-Agent MET Norway asks for */
+  version?: string;
+  signal?: AbortSignal;
+  /** tests only: a stand-in for api.met.no */
+  metHost?: string;
+}
+
+/** MET answers kept until they expire, shared by the Island and the Weather page. */
+const metCache = new Map<string, MetCached>();
+
+async function airQuality(p: Place, signal?: AbortSignal): Promise<number | undefined> {
   try {
     const a = await fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${p.lat}&longitude=${p.lon}&current=us_aqi`, { signal });
-    if (a.ok) aqi = ((await a.json()) as { current?: { us_aqi?: number } }).current?.us_aqi;
+    if (a.ok) return ((await a.json()) as { current?: { us_aqi?: number } }).current?.us_aqi;
   } catch {
     /* air quality is optional */
   }
-  return parseWeather(p, units, data, aqi);
+  return undefined;
+}
+
+async function fromOpenMeteo(p: Place, units: 'metric' | 'imperial', signal?: AbortSignal): Promise<Weather> {
+  const res = await fetch(weatherUrl(p, units), { signal });
+  if (!res.ok) throw new Error(`Weather service returned ${res.status}`);
+  const data = (await res.json()) as OpenMeteo;
+  return { ...parseWeather(p, units, data, await airQuality(p, signal)), source: 'open-meteo' };
+}
+
+async function fromMet(p: Place, units: 'metric' | 'imperial', o: FetchWeatherOptions): Promise<Weather> {
+  const body = await metGet(metUrl(p, o.metHost), { cache: metCache, version: o.version ?? '0', fetch: fetch as unknown as MetFetch, signal: o.signal });
+  const w = parseMet(p, units, body as MetForecast);
+  w.current.aqi = await airQuality(p, o.signal);
+  return { ...w, source: 'met' };
+}
+
+export async function fetchWeather(p: Place, units: 'metric' | 'imperial' = 'metric', o: FetchWeatherOptions | AbortSignal = {}): Promise<Weather> {
+  const opts: FetchWeatherOptions = o instanceof AbortSignal ? { signal: o } : o;
+  return normalizeWeatherSource(opts.source) === 'open-meteo' ? fromOpenMeteo(p, units, opts.signal) : fromMet(p, units, opts);
 }
 
 export async function searchPlaces(name: string, signal?: AbortSignal): Promise<Place[]> {
   const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?count=6&language=en&format=json&name=${encodeURIComponent(name)}`, { signal });
   if (!res.ok) return [];
-  const data = (await res.json()) as { results?: { name: string; latitude: number; longitude: number; country?: string; admin1?: string }[] };
-  return (data.results ?? []).map((r) => ({ name: r.admin1 && r.admin1 !== r.name ? `${r.name}, ${r.admin1}` : r.name, lat: r.latitude, lon: r.longitude, country: r.country }));
+  const data = (await res.json()) as { results?: { name: string; latitude: number; longitude: number; country?: string; admin1?: string; timezone?: string }[] };
+  return (data.results ?? []).map((r) => ({ name: r.admin1 && r.admin1 !== r.name ? `${r.name}, ${r.admin1}` : r.name, lat: r.latitude, lon: r.longitude, country: r.country, ...(r.timezone ? { tz: r.timezone } : {}) }));
 }

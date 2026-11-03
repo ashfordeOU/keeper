@@ -42,6 +42,12 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - On a Mac, Keeper watches every app without asking for anything; blocking single apps waits for Apple's approval of Keeper's network filter, and the page says so instead of showing buttons that would do nothing. The DNS filter can still block a site for every app.
 - The menu bar's summary has a Network part: "3 apps online" with the speeds and a small chart, the three busiest apps with a quick Block (and Allow to undo), "2 waiting" when prompts wait, and Open Network. Settings → Menu bar → Show network turns it off. On a short screen the summary folds the downloads, then the app list, so it still never scrolls.
 
+### Changed — Weather: forecasts from MET Norway
+- Forecasts now come from MET Norway (the Norwegian Meteorological Institute), which is free for everyone to use. The Weather page credits them under every forecast.
+- Everything on the Weather page, in the Island, the widget and the menu bar works as before: hours, ten days, rain soon, sunrise and sunset, UV and wind.
+- Prefer Open-Meteo? Choose it in Settings → General → Weather → Forecasts from (under More settings).
+- Keeper asks for a forecast only when the last one has expired, as MET asks, so it uses the network less.
+
 ### Changed — Menu bar: a calmer, smaller summary under the owl
 - The summary under the owl in the menu bar (the tray on Windows and Linux) is cleaner and never scrolls: its window is as tall as what it shows and fits its width exactly.
 - At the top: Keeper and one line that says "All good", or the one thing that needs you (a nearly full disk, no internet, a low battery, an AI limit running out). Click it to go there.
