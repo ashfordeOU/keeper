@@ -57,7 +57,7 @@ import { islandWindows, openClips, registerIslandIpc, registerIslandShortcuts, t
 import { registerTypingIpc } from './ipc/typing';
 import { initSnippets } from './services/snippets';
 import { initSelectionBar, showSelectionBar } from './services/selection-bar';
-import { registerWidgetsIpc, syncWidgets } from './ipc/widgets';
+import { registerWidgetsIpc, replaceWidgets, syncWidgets } from './ipc/widgets';
 import { ambienceTrayItems, registerAmbience, registerAmbienceShortcuts } from './services/wallpaper';
 import { registerIslandToolsIpc } from './ipc/island-tools';
 // Island+ (calls, levels, notifications, agents) and Cues (ISLAND+CUES workstream).
@@ -141,6 +141,7 @@ import { cached as controlsCached, list as controlsList, onControlsChanged, set 
 import { PRESETS as CONTROL_PRESETS } from '../core/controls/catalog';
 import { registerFirewallIpc, stopFirewall } from './ipc/fw';
 import { registerFocusBlockIpc } from './ipc/focus-block';
+import { boxesApi } from './services/folder-boxes';
 import { registerSnapShortcuts, snapApi, startSnap, syncSnapWatch } from './services/snap';
 import { registerTimeTrackIpc } from './ipc/time-track';
 import { registerJournalIpc } from './ipc/journal';
@@ -1552,6 +1553,8 @@ app.whenReady().then(async () => {
     focusBlockFocusChanged(on);
   };
   // Focus blocking: sites through the browser extension and the DNS filter, apps through the app in front (nothing runs while off).
+  // Folder boxes: what each box shows, opening from it, and tidying the desktop into boxes (one History step).
+  for (const [k, fn] of Object.entries(boxesApi({ journal: () => journal, moved: (from, to) => index?.rename(from, to), replaceWidgets: async (list) => { await replaceWidgets(list); } }))) ipcMain.handle(`boxes.${k}`, async (_e, ...args) => (fn as (...a: unknown[]) => unknown)(...args));
   // Snap windows: the window in front into a half, a third, a quarter; layouts per set of screens.
   for (const [k, fn] of Object.entries(snapApi)) ipcMain.handle(`snap.${k}`, async (_e, ...args) => (fn as (...a: unknown[]) => unknown)(...args));
   startSnap(() => registerShortcuts());
@@ -1711,6 +1714,7 @@ let studioSince: number | undefined;
   const platformDeps = { index: () => index, showMain, ask: askKeeper };
   onFeature('platform', (on) => (on ? void initPlatform(platformDeps) : stopPlatform()), { now: true });
   onFeature('widgets', () => syncWidgets());
+  onFeature('folderBoxes', () => syncWidgets());
   // The brain reads passages and serves AI apps once the saved library is in.
   // The knowledge graph of everything: nothing runs until something asks for it.
   startGraphAll({ index: () => index });

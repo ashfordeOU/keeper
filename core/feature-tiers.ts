@@ -136,6 +136,7 @@ export const TIERS: Record<string, FeatureTier> = {
   islandHud: { plain: 'Volume and brightness in the Island', setup: 'island', normal: 'off', shown: 'advanced' },
   textSnippets: { plain: 'Typed snippets', setup: 'desktop', normal: 'off', shown: 'basic' },
   widgets: { plain: 'Desktop widgets', setup: 'desktop', normal: 'off', shown: 'basic' },
+  folderBoxes: { plain: 'Folder boxes on the desktop', setup: 'desktop', normal: 'off', shown: 'basic' },
   snapWindows: { plain: 'Snap windows', setup: 'desktop', normal: 'off', shown: 'basic' },
   wallpaper: { plain: 'Live wallpaper', setup: 'desktop', normal: 'off', shown: 'basic' },
   vibes: { plain: 'Vibes', setup: 'desktop', normal: 'off', shown: 'basic' },

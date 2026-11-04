@@ -108,7 +108,8 @@ export function syncWidgets() {
   if (remote) return remote.sync();
   if (!ctx) return;
   // Desktop widgets switched off in Settings → Features: every widget window closes.
-  const list = featureOn('widgets') ? normalizeWidgets(settings().widgets) : [];
+  // Folder boxes have their own switch too (Settings → Features → Folder boxes).
+  const list = featureOn('widgets') ? normalizeWidgets(settings().widgets).filter((w) => w.kind !== 'folder' || featureOn('folderBoxes')) : [];
   for (const [id, w] of widgetWins) {
     if (!list.some((x) => x.id === id)) {
       if (!w.isDestroyed()) w.destroy();

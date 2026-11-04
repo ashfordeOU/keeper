@@ -2,10 +2,15 @@
 // The browser demo's window and desktop parts: snap windows with two saved
 // layouts made from sample apps, kept in memory.
 
+import type { BoxesApi } from '../core/api-boxes';
 import type { SnapApi, SnapStatus } from '../core/api-snap';
+import { boxItems, planTidy, type BoxEntry } from '../core/folder-boxes';
 import type { SnapLayout } from '../core/snap';
 
-export function mockDesk(): { snap: SnapApi } {
+const DAY = 86_400_000;
+const SAMPLE: BoxEntry[] = ['Holiday 1.jpg', 'Holiday 2.jpg', 'Plans.pdf', 'Budget.xlsx', 'Notes.txt', 'Talk.mp4', 'Setup.dmg', 'Old photos'].map((name, i) => ({ name, path: `/Users/sam/Desktop/${name}`, isDir: !name.includes('.'), size: 1000 * (i + 1), mtime: Date.now() - i * DAY }));
+
+export function mockDesk(): { snap: SnapApi; boxes: BoxesApi } {
   let layouts: SnapLayout[] = [
     { id: 'l1', name: 'Docked', screens: '1920x1080+2560x1440', savedAt: Date.now() - 2 * 86_400_000, windows: [
       { app: 'Mail', title: 'Inbox', screen: 0, rel: { x: 0, y: 0, width: 0.5, height: 1 } },
@@ -27,6 +32,14 @@ export function mockDesk(): { snap: SnapApi } {
       renameLayout: async (id, name) => { layouts = layouts.map((l) => (l.id === id ? { ...l, name } : l)); return status(); },
       removeLayout: async (id) => { layouts = layouts.filter((l) => l.id !== id); return status(); },
       openPermission: async () => undefined,
+    },
+    boxes: {
+      status: async () => ({ desktop: '/Users/sam/Desktop', floats: false, tidyOffered: true }),
+      list: async (_folder, sort, show) => boxItems(SAMPLE, { sort, show }),
+      open: async () => true,
+      reveal: async () => undefined,
+      planTidy: async () => planTidy('/Users/sam/Desktop', SAMPLE, () => false, '/'),
+      tidy: async () => ({ moved: 7, boxes: 5 }),
     },
   };
 }

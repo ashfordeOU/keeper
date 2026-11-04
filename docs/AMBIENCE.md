@@ -160,6 +160,10 @@ theme's accent. **Arrange on desktop** (page, tray, palette): every widget can
 be dragged, even locked ones, and snaps to screen edges, centre lines and its
 neighbours (12 px gaps).
 
+**Folder box** is a widget kind of its own, with its own switch (`folderBoxes`):
+a folder's files on the desktop, and Tidy my desktop into boxes. See
+[FOLDER-BOXES.md](FOLDER-BOXES.md).
+
 ## Folder icons
 
 Make an icon from 8 patterns × 10 colour pairs (or any colour), a symbol (emoji

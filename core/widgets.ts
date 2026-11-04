@@ -10,7 +10,8 @@ export type WidgetKind =
   | 'photo' | 'text' | 'clipboard' | 'focus' | 'system'
   | 'day' | 'year' | 'season' | 'world' | 'quote'
   | 'week' | 'timer' | 'forecast'
-  | 'mail-unread' | 'mail-inbox' | 'mail-accounts';
+  | 'mail-unread' | 'mail-inbox' | 'mail-accounts'
+  | 'folder';
 
 export type WidgetShape = 'card' | 'circle' | 'pill' | 'none';
 export type WidgetSizePreset = 'S' | 'M' | 'L';
@@ -59,6 +60,11 @@ export interface WidgetConfig {
     /** timer: the chosen minutes, and the running countdown timer it started */
     minutes?: number;
     timerId?: string;
+    /** folder box (core/folder-boxes.ts): the order, which kind it shows, rolled up to its title, and its height unrolled */
+    sort?: import('./folder-boxes').BoxSort;
+    show?: import('./folder-boxes').BoxGroup | 'all';
+    rolled?: boolean;
+    fullHeight?: number;
   };
 }
 
@@ -88,6 +94,7 @@ export const WIDGET_KINDS: { kind: WidgetKind; name: string; description: string
   { kind: 'mail-unread', name: 'Unread mail', description: 'How much unread mail is waiting', size: [170, 150] },
   { kind: 'mail-inbox', name: 'Inbox', description: 'Your newest Important mail; click one to read it', size: [340, 230], presets: { S: [300, 200], M: [340, 230], L: [380, 380] } },
   { kind: 'mail-accounts', name: 'Mail accounts', description: 'Each account and its unread mail', size: [280, 190], presets: { S: [200, 170], M: [280, 190], L: [320, 260] } },
+  { kind: 'folder', name: 'Folder box', description: 'A folder’s files on your desktop; double-click to open', size: [320, 260], presets: { S: [260, 200], M: [320, 260], L: [440, 340] } },
   { kind: 'forecast', name: '7-day forecast', description: 'Highs, lows and rain by part of the day', size: [780, 300], presets: { S: [620, 270], M: [780, 300], L: [960, 370] } },
 ];
 
@@ -218,7 +225,7 @@ export function newWidget(kind: WidgetKind, at: { x: number; y: number }, now = 
     locked: false,
     allWorkspaces: true,
     style: defaultStyle(),
-    options: kind === 'countdown' ? { title: 'New year', target: new Date(new Date(now).getFullYear() + 1, 0, 1).getTime() } : kind === 'text' ? { text: 'Keep what you love.' } : kind === 'clock' ? { analog: false, seconds: false, timeZones: [] } : kind === 'photo' ? { interval: 30 } : kind === 'world' ? { places: DEFAULT_WORLD } : kind === 'timer' ? { minutes: 25 } : {},
+    options: kind === 'countdown' ? { title: 'New year', target: new Date(new Date(now).getFullYear() + 1, 0, 1).getTime() } : kind === 'text' ? { text: 'Keep what you love.' } : kind === 'clock' ? { analog: false, seconds: false, timeZones: [] } : kind === 'photo' ? { interval: 30 } : kind === 'world' ? { places: DEFAULT_WORLD } : kind === 'timer' ? { minutes: 25 } : kind === 'folder' ? { sort: 'kind', show: 'all' } : {},
   };
 }
 

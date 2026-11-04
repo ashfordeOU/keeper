@@ -6,6 +6,11 @@
 //                 half through the API and through a global shortcut; a shortcut
 //                 changed on the page; a layout saved, the window moved away and
 //                 brought back; a layout deleted from its menu.
+//   Folder boxes  off until switched on; Tidy my desktop shows what moves, moves
+//                 loose desktop files into one folder per kind with a box each, and
+//                 Undo puts them back; a box window lists its files and rolls up;
+//                 a box's rule for new files lands in Automations; switched off,
+//                 the box windows close.
 // Pictures in light and dark (the sidebar as a rail, so no real disk names show).
 
 const { _electron } = require('playwright');
@@ -139,6 +144,81 @@ const near = (a, b, d = 24) => Math.abs(a - b) <= d;
     const after = geometry(id);
     check(before && after && before.x === after.x, 'snap: switched off, its shortcuts do nothing');
     term.kill();
+  }
+
+  // ================================================================ Folder boxes
+  if (want('boxes')) {
+    const desk = path.join(HOME, 'Desktop');
+    for (const f of ['Harbour.jpg', 'Beach.png', 'Plans.pdf', 'Budget.xlsx', 'Reading list.txt', 'Song.mp3', 'Talk.mp4', 'Setup.zip']) fs.writeFileSync(path.join(desk, f), 'sample ' + f);
+    fs.mkdirSync(path.join(desk, 'Projects'), { recursive: true });
+    await k('features', 'set', 'widgets', true);
+    await navigate('widgets');
+    await main.waitForSelector('.wg-add', { timeout: 15000 });
+    check(!(await main.locator('.wg-add:has-text("Folder box")').count()), 'boxes: no Folder box to add until the part is on');
+    check((await features()).find((f) => f.id === 'folderBoxes')?.on === false, 'boxes: off until switched on');
+    await k('features', 'set', 'folderBoxes', true);
+    await main.waitForSelector('[data-testid="boxes-tidy"]', { timeout: 10000 });
+    check(await main.locator('.wg-add:has-text("Folder box")').count() === 1, 'boxes: Folder box can be added once on');
+
+    await main.locator('[data-testid="boxes-tidy-look"]').click();
+    await main.waitForSelector('[data-testid="boxes-plan"]', { timeout: 10000 });
+    const planText = await main.locator('[data-testid="boxes-plan"]').innerText();
+    check(/8 files move into 5 folders/.test(planText) && /Pictures/.test(planText) && /2 files/.test(planText), `boxes: the plan says what moves before anything does (${planText.split('\n').slice(0, 2).join(' / ')})`);
+    check(fs.existsSync(path.join(desk, 'Harbour.jpg')), 'boxes: nothing moved while looking');
+    for (const theme of ['light', 'dark']) { await k('settings', 'set', { appearance: theme }); await wait(600); await main.screenshot({ path: path.join(SHOTS, `boxes-plan-${theme}.png`) }); }
+    await k('settings', 'set', { appearance: 'light' });
+    await main.locator('[data-testid="boxes-tidy-go"]').click();
+    const tidied = await until(() => fs.existsSync(path.join(desk, 'Pictures', 'Harbour.jpg')) && fs.existsSync(path.join(desk, 'Documents', 'Plans.pdf')), 10000);
+    check(!!tidied && !fs.existsSync(path.join(desk, 'Harbour.jpg')) && fs.existsSync(path.join(desk, 'Projects')), 'boxes: loose files are in one folder per kind; folders stay');
+    const boxes = await until(async () => { const l = (await k('widgets', 'list')).filter((w) => w.kind === 'folder'); return l.length === 5 ? l : null; }, 8000);
+    check(!!boxes, `boxes: a box for each folder (${(await k('widgets', 'list')).filter((w) => w.kind === 'folder').length})`);
+    const hist = await k('history', 'list');
+    const entry = hist.find((h) => /Tidied the desktop into 5 boxes/.test(h.title));
+    check(!!entry && entry.undoable, 'boxes: tidying is one step in History, with Undo');
+
+    // A box window on the desktop lists its files and rolls up.
+    const pics = boxes?.find((w) => w.options.title === 'Pictures');
+    const win = await until(async () => {
+      for (const w of app.windows()) { if (w.url().includes('view=widget') && w.url().includes(pics?.id ?? '-')) return w; }
+      return null;
+    }, 10000);
+    check(!!win, 'boxes: the Pictures box is on the desktop');
+    if (win) {
+      await win.waitForSelector('[data-testid="folder-box"] .fbox-item', { timeout: 10000 }).catch(() => undefined);
+      const names = await win.locator('.fbox-name').allInnerTexts();
+      check(names.join(',') === 'Beach.png,Harbour.jpg', `boxes: the box shows its folder's files (${names.join(', ')})`);
+      await win.screenshot({ path: path.join(SHOTS, 'boxes-window.png') });
+      await win.locator('.fbox-roll').click();
+      const rolled = await until(async () => (await k('widgets', 'list')).find((w) => w.id === pics.id)?.bounds.height === 44, 5000);
+      const hNow = await app.evaluate(({ BrowserWindow }, id) => BrowserWindow.getAllWindows().find((w) => w.webContents.getURL().includes(id))?.getBounds().height, pics.id);
+      check(!!rolled && hNow <= 50, `boxes: rolled up to its title bar (${hNow})`);
+      await win.locator('.fbox-roll').click();
+      const back = await until(async () => (await k('widgets', 'list')).find((w) => w.id === pics.id)?.bounds.height > 44, 5000);
+      check(!!back, 'boxes: and unrolled again');
+    }
+
+    // Undo puts every file back.
+    await k('history', 'undo', entry.id);
+    check(!!(await until(() => fs.existsSync(path.join(desk, 'Harbour.jpg')) && fs.existsSync(path.join(desk, 'Plans.pdf')), 8000)), 'boxes: Undo puts the files back on the desktop');
+    check(!fs.existsSync(path.join(desk, 'Documents')), 'boxes: and removes the folders it made, now empty');
+
+    // A box's rule for new files is an Automation.
+    await main.bringToFront();
+    await navigate('widgets');
+    await main.waitForSelector('.wgp', { timeout: 10000 });
+    const card = main.locator('.wgp', { hasText: 'Pictures' }).first();
+    await card.locator('button', { hasText: 'Edit' }).click();
+    await main.locator('[data-testid="box-rule"]').first().selectOption('pictures');
+    const rule = await until(async () => (await k('settings', 'get')).rules.find((r) => r.id.startsWith('box-pictures')), 5000);
+    check(!!rule && rule.action.to === path.join(desk, 'Pictures') && rule.scope[0] === desk, 'boxes: New desktop files here adds an Automation for that box');
+    await card.locator('button', { hasText: 'Done' }).click();
+    await main.locator('.wgp').first().scrollIntoViewIfNeeded();
+    await shot('boxes');
+
+    // Off: the box windows close, the other widgets stay.
+    await k('features', 'set', 'folderBoxes', false);
+    const gone = await until(() => !app.windows().some((w) => w.url().includes(pics?.id ?? '-')), 8000);
+    check(!!gone, 'boxes: switched off, the boxes leave the desktop');
   }
 
   check(errors.length === 0, `no page errors (${errors.slice(0, 3).join(' | ')})`);

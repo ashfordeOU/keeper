@@ -234,3 +234,29 @@ html[data-view='clips'] #root { padding: 8px; height: 100%; box-sizing: border-b
 .wg-mail-row.unread b::before { content: '•'; margin-right: 4px; color: var(--accent, #0a84ff); }
 .wg-mail-row.acct { flex-direction: row; align-items: center; gap: 6px; }
 .wg-mail-row.acct i { width: 8px; height: 8px; border-radius: var(--r-sm); flex: none; }
+
+/* Folder boxes: a folder's files on the desktop (src/island/FolderBox.tsx) */
+.wg.kind-folder { padding: 0; justify-content: flex-start; }
+.fbox { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.fbox-head { display: flex; align-items: center; gap: 8px; height: 44px; flex: none; padding: 0 10px 0 14px; box-sizing: border-box; font-weight: 650; }
+.fbox-head > svg { opacity: .75; flex: none; }
+.fbox-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fbox-count { opacity: .6; font-weight: 500; font-size: .9em; font-variant-numeric: tabular-nums; }
+.fbox-roll { border: 0; background: rgba(255, 255, 255, .1); color: inherit; width: 24px; height: 24px; border-radius: var(--r-pill); display: grid; place-items: center; cursor: default; flex: none; }
+.fbox-roll:hover { background: rgba(255, 255, 255, .2); }
+.fbox-roll:focus-visible, .fbox-item:focus-visible { outline: 2px solid currentColor; outline-offset: 1px; }
+.fbox:not(.rolled) .fbox-head { border-bottom: 1px solid rgba(255, 255, 255, .1); }
+.fbox-grid { flex: 1; min-height: 0; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); align-content: start; gap: 4px; padding: 8px; }
+.fbox-item { -webkit-app-region: no-drag; border: 0; background: none; color: inherit; font: inherit; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px 6px; border-radius: var(--r-md); cursor: default; min-width: 0; }
+.fbox-item:hover { background: rgba(255, 255, 255, .08); }
+.fbox-item.sel { background: rgba(255, 255, 255, .16); }
+.fbox-icon { width: 36px; height: 36px; border-radius: var(--r-md); display: grid; place-items: center; background: rgba(255, 255, 255, .12); }
+.fbox-icon.k-folder { background: rgba(120, 160, 255, .28); }
+.fbox-icon.k-image { background: rgba(255, 140, 180, .26); }
+.fbox-icon.k-document { background: rgba(140, 200, 255, .24); }
+.fbox-icon.k-video, .fbox-icon.k-audio { background: rgba(190, 150, 255, .26); }
+.fbox-icon.k-archive, .fbox-icon.k-installer { background: rgba(255, 200, 120, .26); }
+.fbox-name { font-size: .85em; line-height: 1.2; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fbox-empty { padding: 14px; opacity: .72; font-size: .92em; }
+.wg[data-ink='light'] .fbox-roll, .wg[data-ink='light'] .fbox-icon { background: rgba(0, 0, 0, .07); }
+.wg[data-ink='light'] .fbox-item.sel { background: rgba(0, 0, 0, .1); }

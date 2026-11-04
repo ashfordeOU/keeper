@@ -16,6 +16,7 @@ import { Icon } from '../components/Icon';
 import '../styles/widgets.css';
 import { openNative } from '../lib/native';
 import { ForecastWidget, TimerWidget, WeekWidget, WorldWidget } from './WidgetsPlus';
+import { FolderBoxWidget } from './FolderBox';
 
 const FONTS: Record<WidgetConfig['style']['font'], string> = {
   system: 'var(--font)',
@@ -43,7 +44,7 @@ export function widgetSurface(w: WidgetConfig, tint?: string | null): React.CSSP
 }
 
 /** Kinds that keep their own time (or none): no shared ticking timer for them. */
-const OWN_CLOCK = new Set<WidgetKind>(['week', 'world', 'timer', 'forecast', 'photo', 'text', 'disk', 'system', 'mail-unread', 'mail-inbox', 'mail-accounts']);
+const OWN_CLOCK = new Set<WidgetKind>(['week', 'world', 'timer', 'forecast', 'photo', 'text', 'disk', 'system', 'mail-unread', 'mail-inbox', 'mail-accounts', 'folder']);
 /** Kinds that show something from the Island's state. */
 const NEEDS_ISLAND = new Set<WidgetKind>(['events', 'weather', 'sun-moon', 'battery', 'focus', 'season', 'clipboard']);
 
@@ -311,6 +312,8 @@ export function WidgetBody({ w }: { w: WidgetConfig }) {
       return <TimerWidget w={w} />;
     case 'forecast':
       return <ForecastWidget w={w} />;
+    case 'folder':
+      return <FolderBoxWidget w={w} />;
     case 'mail-unread':
       return <MailUnreadWidget />;
     case 'mail-inbox':

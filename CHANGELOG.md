@@ -4,6 +4,12 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 
 ## [Unreleased]
 
+### Added — Folder boxes: a folder's files on the desktop
+- A new widget, Folder box, shows any folder's files as icons on the desktop: folders first, then by kind, name, newest or largest, or only one kind. Double-click (or Enter) opens a file; right-click shows it in its folder. The button in its corner rolls it up to its title.
+- Tidy my desktop (on the Widgets page) shows first what would move, then puts loose desktop files into one folder per kind (Pictures, Documents, Music…) inside the desktop, with a box for each. Folders and hidden files stay. It is one step in History, and Undo puts everything back.
+- New desktop files here: a box can send new pictures (or documents, or any kind) from the desktop into its folder, as an ordinary Automation you can see and change.
+- On all three systems. On Wayland the boxes are ordinary windows and may sit over other apps, and the Widgets page says so. Off until you turn it on in Settings → Features → Desktop.
+
 ### Added — Snap Windows: halves, thirds and quarters with one shortcut
 - Put the window in front into the left or right half, the top or bottom half, a third, two thirds, a quarter, the whole screen, the middle or the next screen. Halves, Fill, Middle and Next screen have keys from the start (Ctrl Alt Shift with the arrows, Enter, C and N; ⌘⌥⇧ on a Mac); thirds and quarters are yours to choose.
 - Save this layout keeps where your windows sit on this set of screens, named Laptop or Docked; Restore puts them back. Optionally, plugging in a screen brings back its layout by itself.

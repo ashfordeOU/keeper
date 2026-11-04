@@ -55,7 +55,7 @@ Keeper is one app you install once. It is made of parts you switch on and off in
 | **Devices** | Your computers and phones, paired with a code: send files, share the clipboard, see and control another screen; Phone Alerts, Remote Desktops and Terminal |
 | **AI** | The AI you choose, or one on this computer, for the Assistant, Agents, Dictation and Meetings, with what it may see and do set by you |
 | **Screen** | Screenshots, whole web pages and text from the screen, a light photo editor, Studio for screen recordings, Stage for a clean screen, and the Toolbox |
-| **Desktop** | Snap Windows, Widgets, Wallpaper & Vibes, Weather, Places & Tracks, and Monorail on a Mac |
+| **Desktop** | Snap Windows, Widgets and folder boxes, Wallpaper & Vibes, Weather, Places & Tracks, and Monorail on a Mac |
 | **Island** | A live bar at the top of the screen: now playing, timers, the next meeting, new mail and a drop shelf |
 
 **Each part runs on its own.** The Island, the widgets and Mail keep working if the main window stops, and a part that is off does not run at all ([docs/SUITE.md](docs/SUITE.md)).

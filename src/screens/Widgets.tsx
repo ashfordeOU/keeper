@@ -8,6 +8,8 @@ import { api, isDemo } from '../api';
 import { Icon } from '../components/Icon';
 import { Empty, PageHead, Toggle } from '../components/ui';
 import { useWidgetTint, WidgetBody, widgetInk, widgetSurface } from '../island/Widget';
+import { useFeature } from '../features';
+import { BoxEditor, TidyBoxes } from './FolderBoxes';
 import { useStore } from '../state';
 import '../styles/widgets.css';
 
@@ -16,6 +18,7 @@ const KIND_ICON: Record<WidgetKind, string> = {
   text: 'text', battery: 'battery', disk: 'weight', system: 'bolt', focus: 'timer', clipboard: 'clipboard',
   day: 'calendar', year: 'chart', season: 'sun', world: 'globe', quote: 'note',
   week: 'calendar', timer: 'timer', forecast: 'sun', 'mail-unread': 'mail', 'mail-inbox': 'inbox', 'mail-accounts': 'mail',
+  folder: 'folder',
 };
 
 /** Wide widgets get a wider card on this page, so their preview stays readable. */
@@ -83,6 +86,7 @@ function Editor({ w, onChange, onRemove }: { w: WidgetConfig; onChange: (w: Widg
           {(w.options.places ?? DEFAULT_WORLD).length < 8 ? <button className="btn sm" style={{ alignSelf: 'flex-start' }} onClick={() => opt({ places: [...(w.options.places ?? DEFAULT_WORLD), { label: 'Singapore', zone: 'Asia/Singapore' }] })}><Icon name="plus" size={11} /> Add a place</button> : null}
         </div>
       ) : null}
+      {w.kind === 'folder' ? <BoxEditor w={w} opt={opt} row={row} /> : null}
       {w.kind === 'photo' ? (
         <>
           {row('Folder', <button className="btn sm" onClick={() => void api.settings.pickFolder().then((f) => f && opt({ folder: f }))}>{w.options.folder ? w.options.folder.split(/[\\/]/).pop() : 'Choose…'}</button>)}
@@ -114,6 +118,7 @@ export function Widgets() {
   const [open, setOpen] = useState<string | null>(null);
   const timers = useRef(new Map<string, number>());
   const [arranging, setArranging] = useState(false);
+  const boxesOn = useFeature('folderBoxes');
   useEffect(() => {
     void api.widgets.arranging?.().then(setArranging).catch(() => undefined);
     return api.on('widgets-arrange', (on) => setArranging(!!on));
@@ -145,9 +150,10 @@ export function Widgets() {
       <PageHead title="Widgets" sub="Small live windows for your desktop. Drag them anywhere; style each one your way.">
         <button className={`btn ${arranging ? 'primary' : ''}`} data-testid="wg-arrange" onClick={() => void api.widgets.arrange?.(!arranging).then((v) => { setArranging(v); toast(v ? 'Arrange mode: drag widgets on the desktop; they snap to edges and each other' : 'Widgets stay where they are'); })}><Icon name="grid" size={13} /> {arranging ? 'Done arranging' : 'Arrange on desktop'}</button>
       </PageHead>
+      {boxesOn ? <TidyBoxes /> : null}
       <div className="section-head"><h2>Add a widget</h2></div>
       <div className="grid cols-auto">
-        {WIDGET_KINDS.map((k) => (
+        {WIDGET_KINDS.filter((k) => k.kind !== 'folder' || boxesOn).map((k) => (
           <button key={k.kind} className="card pad hover wg-add" onClick={() => void add(k.kind)}>
             <span className="wg-add-icon"><Icon name={KIND_ICON[k.kind]} size={18} /></span>
             <span><b>{k.name}</b><span className="muted small" style={{ display: 'block' }}>{k.description}</span></span>
@@ -167,7 +173,7 @@ export function Widgets() {
                 <Preview w={w} />
                 <div className="row" style={{ padding: '10px 14px' }}>
                   <Icon name={KIND_ICON[w.kind]} size={14} />
-                  <b className="grow">{meta.name}{w.kind === 'countdown' && w.options.title ? ` · ${w.options.title}` : ''}</b>
+                  <b className="grow">{meta.name}{(w.kind === 'countdown' || w.kind === 'folder') && w.options.title ? ` · ${w.options.title}` : ''}</b>
                   {w.locked ? <span className="badge"><Icon name="lock" size={10} /> Locked</span> : null}
                   <button className="btn sm" onClick={() => setOpen(open === w.id ? null : w.id)}>{open === w.id ? 'Done' : 'Edit'}</button>
                 </div>
