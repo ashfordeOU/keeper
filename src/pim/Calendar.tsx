@@ -20,6 +20,8 @@ import { useStore } from '../state';
 import { CalendarAccessCard, CalendarSources, useSystemAccess } from './CalendarSources';
 import { usePimChanges } from './Mail';
 import '../styles/pim.css';
+import { ImportDialog } from './ImportDialog';
+import { CalendarWelcome } from './PimWelcome';
 
 type View = 'day' | 'week' | 'month' | 'agenda' | 'year';
 const DAY = 86_400_000;
@@ -79,10 +81,15 @@ export function Calendar() {
   const [editing, setEditing] = useState<{ event: CalEvent; instance?: number } | null>(null);
   const [quick, setQuick] = useState('');
   const [adding, setAdding] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [welcomeOff, setWelcomeOff] = useState(() => { try { return localStorage.getItem('cal.welcomeOff') === '1'; } catch { return false; } });
   const [dropping, setDropping] = useState(false);
   const [access, setAccess] = useSystemAccess();
   const [now, setNow] = useState(Date.now());
   const [from, to] = range(view, cursor, ws);
+  // Nothing connected and nothing written yet: a designed first screen instead of an empty grid.
+  const connected = cals.some((c) => (c.account !== 'local' && !c.source) || c.source === 'system' || (c.account === 'local' && c.id !== 'local:calendar'));
+  const showWelcome = !welcomeOff && cals.length > 0 && !connected && !occ.some((o) => !cals.find((c) => c.id === o.event.calendar)?.source);
 
   const load = useCallback(() => {
     void api.pim.calendars().then(setCals);
@@ -204,7 +211,7 @@ export function Calendar() {
           {cals.map((c, i, list) => (
             <div key={c.id}>
             {c.group && c.group !== list[i - 1]?.group ? <div className="cal-group">{c.group}</div> : null}
-            <label key={c.id} className="cal-item" title={c.readOnly ? 'Read only' : ''}>
+            <label key={c.id} className="cal-item" title={c.readOnly ? 'Read only' : ''} onContextMenu={(e) => { e.preventDefault(); void api.pim.exportIcs(c.id).then((p) => p && toast(`Saved ${p.split(/[\\/]/).pop()}`), (x) => toast(clean(x))); }}>
               <input type="checkbox" checked={c.visible} onChange={(e) => void api.pim.setCalendar(c.id, { visible: e.target.checked })} style={{ accentColor: c.color }} />
               <i style={{ background: c.color }} />
               <span className="grow ellipsis">{c.name}</span>
@@ -213,7 +220,7 @@ export function Calendar() {
             </div>
           ))}
           <button className="btn ghost sm" style={{ marginTop: 6 }} onClick={() => setAdding(true)}><Icon name="plus" size={13} /> Add or connect calendars</button>
-          <button className="btn ghost sm" onClick={async () => { const n = await api.pim.importIcs(); if (n) toast(`Imported ${n} event${n === 1 ? '' : 's'}`); }}><Icon name="down" size={13} /> Import .ics</button>
+          <button className="btn ghost sm" onClick={() => setImporting(true)} data-testid="calendar-import"><Icon name="down" size={13} /> Import</button>
         </div>
       </aside>
 
@@ -235,7 +242,12 @@ export function Calendar() {
           </div>
         </div>
 
-        {view === 'day' || view === 'week' ? (
+        {showWelcome ? (
+          <div className="cal-welcome">
+            <CalendarWelcome onConnect={() => setAdding(true)} onImport={() => setImporting(true)} />
+            <button className="link-like small" onClick={() => { setWelcomeOff(true); try { localStorage.setItem('cal.welcomeOff', '1'); } catch { /* fine */ } }}>Show the empty calendar</button>
+          </div>
+        ) : view === 'day' || view === 'week' ? (
           <TimeGrid days={view === 'day' ? [startOfDay(cursor)] : Array.from({ length: 7 }, (_, i) => addDays(from, i))} occ={occ} colorOf={colorOf} now={now}
             onNew={newEvent} onOpen={(o) => setEditing({ event: o.event, instance: o.instance })} onMove={move} />
         ) : view === 'month' ? (
@@ -253,6 +265,7 @@ export function Calendar() {
 
       {editing ? <EventEditor event={editing.event} instance={editing.instance} calendars={cals} onClose={() => setEditing(null)} /> : null}
       {adding ? <Modal title="Calendars" onClose={() => setAdding(false)} width={620}><CalendarSources /></Modal> : null}
+      {importing ? <ImportDialog area="calendar" onClose={() => { setImporting(false); load(); }} onOpen={() => load()} /> : null}
     </div>
   );
 }

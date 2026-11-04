@@ -2,6 +2,7 @@
 // Mail and calendar settings the interface can change.
 
 import type { MailTemplate } from './compose-rich';
+import type { UnifiedView } from './unified';
 
 export interface SmartMailbox {
   id: string;
@@ -62,6 +63,8 @@ export interface PimPrefsView {
   templates?: MailTemplate[];
   /** saved searches shown as mailboxes */
   smartMailboxes?: SmartMailbox[];
+  /** your own combined mailboxes (chosen accounts' inboxes or folders as one list) */
+  unifiedViews?: UnifiedView[];
   /** the sign-in code or magic link in new mail: a Copy / Open button on its notification and in the Island (on unless false) */
   codeActions?: boolean;
 }

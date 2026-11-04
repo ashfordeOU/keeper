@@ -32,7 +32,9 @@ function ServerRow({ label, value, onChange }: { label: string; value?: ServerSe
   );
 }
 
-export function AccountDialog({ onClose, onAdded, initialTab = 'mail' }: { onClose: () => void; onAdded: () => void; initialTab?: Tab }) {
+const PLACEHOLDER: Partial<Record<GuideId, string>> = { gmail: 'you@gmail.com', outlook: 'you@outlook.com', icloud: 'you@icloud.com', yahoo: 'you@yahoo.com', fastmail: 'you@fastmail.com' };
+
+export function AccountDialog({ onClose, onAdded, initialTab = 'mail', provider }: { onClose: () => void; onAdded: () => void; initialTab?: Tab; /** started from a provider's button: its guide is open and its address shape shown */ provider?: GuideId }) {
   const [tab, setTab] = useState<Tab>(initialTab);
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
@@ -120,8 +122,8 @@ export function AccountDialog({ onClose, onAdded, initialTab = 'mail' }: { onClo
             </div>
           ) : null}
           {oauth.data && (!oauth.data.google || !oauth.data.microsoft) ? <div className="small muted">Enter your address and Keeper finds the servers. Most providers want an <b>app password</b> here rather than your usual one; Keeper links to the page that makes it.</div> : null}
-          <SetupGuides email={email} />
-          <label className="field"><span>Email address</span><input className="input" autoFocus value={email} onChange={(e) => { setEmail(e.target.value); setCfg(null); }} onKeyDown={(e) => e.key === 'Enter' && !cfg && void find()} placeholder="you@example.com" /></label>
+          <SetupGuides email={email} initial={provider} />
+          <label className="field"><span>Email address</span><input className="input" autoFocus value={email} onChange={(e) => { setEmail(e.target.value); setCfg(null); }} onKeyDown={(e) => e.key === 'Enter' && !cfg && void find()} placeholder={(provider && PLACEHOLDER[provider]) ?? 'you@example.com'} /></label>
           {!cfg ? <div className="btn-row" style={{ justifyContent: 'flex-end' }}><button className="btn primary" disabled={!!busy} onClick={() => void find()}>{busy === 'find' ? <div className="spinner" /> : null} Continue</button></div> : (
             <>
               <div className="discovered">
@@ -172,8 +174,8 @@ export function AccountDialog({ onClose, onAdded, initialTab = 'mail' }: { onClo
 }
 
 /** Step-by-step setup per provider, with the page that makes an app password. */
-function SetupGuides({ email }: { email: string }) {
-  const [open, setOpen] = useState<GuideId | null>(null);
+function SetupGuides({ email, initial }: { email: string; initial?: GuideId }) {
+  const [open, setOpen] = useState<GuideId | null>(initial ?? null);
   const typed = email.includes('@') ? guideFor(email) : null;
   const g = GUIDES.find((x) => x.id === (open ?? typed?.id));
   const link = g ? appPasswordLink(g) : undefined;

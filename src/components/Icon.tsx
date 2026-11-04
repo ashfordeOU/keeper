@@ -9,6 +9,8 @@ const P: Record<string, string> = {
   audio: 'M9 18V5l11-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM20 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0z',
   document: 'M6 3h8l5 5v13H6zM14 3v5h5M9 13h7M9 17h5',
   archive: 'M4 4h16v4H4zM5 8v12h14V8M10 12h4',
+  person: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21a8 8 0 0 1 16 0',
+  table: 'M3 5h18v14H3zM3 10h18M3 15h18M9 5v14',
   installer: 'M12 3v11M7 10l5 5 5-5M4 17v3h16v-3',
   app: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z',
   code: 'M8 7l-5 5 5 5M16 7l5 5-5 5M14 4l-4 16',

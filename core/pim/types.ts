@@ -2,7 +2,7 @@
 // Mail, calendars, reminders, alarms and contacts: the shapes shared by the
 // pure logic, the main process and the interface.
 
-export type AccountKind = 'imap' | 'google' | 'microsoft' | 'caldav' | 'ics';
+export type AccountKind = 'imap' | 'google' | 'microsoft' | 'caldav' | 'ics' | 'local';
 
 export interface ServerSettings {
   host: string;

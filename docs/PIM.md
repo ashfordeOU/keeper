@@ -70,6 +70,11 @@ JMAP is not used yet; Fastmail works through IMAP and CalDAV with an app passwor
   all*, *Unsubscribe*, *Delete all*. Their later mail goes to Other.
 - **Views across accounts**: All inboxes, All sent, Snoozed, Scheduled (Send
   later), Waiting for reply, Subscriptions.
+- **Combined mailboxes** (`core/pim/unified.ts`): *Combine mailboxes* under
+  All inboxes picks any accounts' inboxes or folders ("Work + Home inboxes",
+  every Sent) to read as one list, with its unread number. Inbox-only
+  combinations get the inbox's tabs and leave out blocked and muted mail; a
+  message in two accounts shows once. Right-click one to change or remove it.
 - **Search**: every folder kept on this computer first (inboxes first), then
   the servers' own search for older mail (Inbox, Sent, Archive / All Mail),
   shown in a section of its own. A question (ending in `?`, or *Ask*) is
@@ -241,6 +246,58 @@ server, so a phone app can read them), rules on the server (Sieve or Gmail
 filters, already written), push for new mail (an APNs relay, since a phone
 cannot hold IMAP IDLE in the background), and the AI memory and templates
 synced through Keeper's device link. Nothing on the Mac side blocks it.
+
+## Import and export
+
+One flow in every part: **Import** in Mail (the folder list, the first screen,
+right-click a folder), Calendar (beside the calendars), Reminders (the page's
+Import menu) and **Settings → Mail & Calendar → Import and export** (also
+contacts). Four steps: *Choose* where from (things found on this computer
+first) → *Get ready* (plain steps, choose the file or folder) → *Importing*
+(a bar, the folder being read, *Stop*) → *Done* (one line such as "1,204
+messages in 6 folders · 3 already here", **Undo**, *Show*). Past imports are
+listed with Undo. Nothing in the other app is changed. The readers are in
+`core/pim/mail-import.ts`, `core/pim/task-import.ts` and
+`core/pim/contact-import.ts`; `electron/services/pim/importer.ts` runs them.
+
+| From | What comes in | Systems |
+| --- | --- | --- |
+| **.mbox** files (any mail app's export; a folder named `X.mbox` from a Mac; a web mail's download) | every message, read and flagged marks (`Status`, `X-Status`, `X-Mozilla-Status`); read as a stream, so files of many gigabytes are fine. A web mail download (`X-Gmail-Labels`) is split into Inbox, Sent, Drafts, Trash, Junk and a folder per label, with labels, unread and starred kept | all |
+| **.eml** files or a folder of them (sub-folders kept; `.emlx` too) | every message | all |
+| **Apple Mail** on this Mac (`~/Library/Mail/V*`, read only) | every mailbox as a folder under "Apple Mail", read, flagged and answered marks; deleted messages left out; messages Mail kept without their attachments (`.partial.emlx`) are said so in the summary. macOS may ask for Full Disk Access first; Keeper says so | macOS |
+| **Thunderbird** profiles (found through `profiles.ini`, also the Snap and Flatpak ones) | Local Folders and the mail kept from each account (mbox files next to their `.msf`, sub-folders in `.sbd`; maildir storage too), with read and flagged marks | all |
+| **Outlook for Mac archive (.olm)** | every message with its folder, attachments, read and flagged marks (a ZIP read without loading it whole, ZIP64 understood) | all |
+| **Outlook for Windows (.pst)** | not read: a .pst reader is large and Keeper adds no packages; the dialog says to add the account (its mail comes from the server) or convert to .mbox | — |
+| **.ics** | a calendar of its own (named after the file) with repeats, changed occurrences, time zones, all-day events, alerts and people; written in one go, so thousands of events load fast. Undo removes the calendar | all |
+| **Apple Reminders** | every list (as tags), due dates (all-day or timed), completion, priority. Read through the Reminders app's scripting (macOS asks once) | macOS |
+| **Google Tasks** | every list (as tags), sub-tasks as steps, completion; a sign-in that asks only to read tasks (`tasks.readonly`), used once and not kept | all, needs Google sign-in in this copy |
+| **Microsoft To Do** | every list, checklist items as steps, importance, repeats, reminders; a sign-in for `Tasks.Read`, used once | all, needs Microsoft sign-in in this copy |
+| **Todoist** | a project's CSV, a backup (.zip of CSVs) or JSON, or the API token (used once, never kept): projects and sections as tags, sub-tasks as steps, priorities, "every …" repeats | all |
+| **CSV** (tasks) | columns found by name: title/task/name, notes, due, priority, list/project, done/status, steps | all |
+| **.ics** (tasks) | VTODO with due dates, repeats, priorities and steps | all |
+| **.vcf** (vCard 2.1, 3.0, 4.0) | names, addresses, phones, company, birthday, pictures inside the card; quoted-printable cards decoded | all |
+| **CSV** (contacts) | a web mail's or desktop app's export, found by column names | all |
+
+Imported mail goes into the **On this computer** account (kind `local`,
+`electron/services/pim/local-mail.ts`): each message an `.eml` file, each
+folder's list the same JSON the other accounts use, so search, conversations,
+labels, flags, moving and attachments work the same. Each import gets its own
+top folder ("Thunderbird", "Apple Mail", "Imported"…). A message already in
+the same folder (same Message-ID) is skipped; tasks with the same title and
+day, and contacts with the same first address, too.
+
+**Export**: right-click a folder or an account in Mail for *.mbox* (one file
+per folder, mboxrd) or *.eml* files; a calendar (right-click it, or Settings)
+as *.ics*; tasks as *.csv* or *.ics*; contacts as *.vcf* or *.csv*.
+
+## First screens
+
+Mail, Calendar and Reminders open on a designed screen while there is nothing
+yet: a small drawing in Keeper's line style, a big short title, the one way in
+and an import. Mail has a button per provider (Gmail, Outlook, iCloud, Yahoo,
+Fastmail, Other): Gmail and Outlook sign in straight away when this copy has
+the sign-in, the others open the account dialog with that provider's steps
+and app-password link. A line under each says what happens to your data.
 
 ## Where calendars come from
 
@@ -483,7 +540,7 @@ Not tested:
   Evolution client is tested against a stand-in Evolution service on a private
   D-Bus (`test/calendar-eds.test.ts`), not against a real GNOME desktop.
 
-Not built yet: JMAP; adding message text to Keeper's brain for the Assistant
+Not built yet: JMAP; Outlook for Windows .pst files; adding message text to Keeper's brain for the Assistant
 ; a contacts page (contacts
 are read from CardDAV and used for suggestions only); an *Attachments* shelf in
 the Library; Windows and Linux wake-ups for alarms.

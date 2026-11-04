@@ -7,7 +7,9 @@ import { dayKey, effectiveDay, repeatLabel, stepProgress, todayTasks } from '../
 import type { CalendarInfo, Reminder } from '../../core/pim/types';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
-import { PageHead } from '../components/ui';
+import { ContextMenu, PageHead, type MenuItem } from '../components/ui';
+import { ImportDialog } from './ImportDialog';
+import { RemindersWelcome } from './PimWelcome';
 import { useStore } from '../state';
 import { usePimChanges } from './Mail';
 import { deleteTask, projectsOf, setDone, TaskComposer, TaskDetail, UndoBar } from './tasks-ui';
@@ -24,12 +26,15 @@ export function Reminders() {
   const [showDone, setShowDone] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const [sel, setSel] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
   const today = dayKey(Date.now());
   // Today: planned or due today, and what was left from earlier days (carried forward).
   const todayIds = useMemo(() => new Set(todayTasks(items, today).map((r) => r.id)), [items, today]);
 
   const load = useCallback(() => {
-    void api.pim.reminders().then((r) => setItems(r.filter((x) => !x.id.startsWith('local:snooze-'))));
+    void api.pim.reminders().then((r) => { setItems(r.filter((x) => !x.id.startsWith('local:snooze-'))); setLoaded(true); });
     void api.pim.calendars().then((c) => setLists(c.filter((x) => x.tasks || x.id === 'local:calendar')));
   }, []);
   useEffect(load, [load]);
@@ -67,6 +72,12 @@ export function Reminders() {
       <section className="rem-main">
         <PageHead title={list === 'all' ? 'All reminders' : list === 'today' ? 'Today' : list === 'flagged' ? 'Important' : listName(list)} sub={`${shown.filter((r) => !r.done).length} to do`}>
           <label className="row small" style={{ gap: 6 }}><input type="checkbox" checked={showDone} onChange={(e) => setShowDone(e.target.checked)} /> Show done</label>
+          <button className="btn sm ghost" title="Import and export" aria-label="Import and export" data-testid="reminders-more" onClick={(e) => setMenu({ x: e.clientX - 200, y: e.clientY + 12, items: [
+            { label: 'Import tasks…', icon: 'down', run: () => setImporting(true) },
+            { sep: true, label: '' },
+            { label: 'Export as spreadsheet (.csv)…', icon: 'table', run: () => void api.pim.exportTasks('csv').then((r) => r && toast(`Saved ${r.count} task${r.count === 1 ? '' : 's'}`), (x) => toast(clean(x))) },
+            { label: 'Export as calendar file (.ics)…', icon: 'calendar', run: () => void api.pim.exportTasks('ics').then((r) => r && toast(`Saved ${r.count} task${r.count === 1 ? '' : 's'}`), (x) => toast(clean(x))) },
+          ] })}><Icon name="down" size={14} /> Import</button>
         </PageHead>
         <TaskComposer placeholder="Add a reminder — “Call the bank tomorrow 10am !! #home”" defaults={{ list: list === 'all' || list === 'today' || list === 'flagged' ? 'local' : list, priority: list === 'flagged' ? 3 : 0, plannedFor: list === 'today' ? today : undefined }} />
         <div className="rem-items">
@@ -92,11 +103,14 @@ export function Reminders() {
               <button className="btn sm ghost icon" title="Delete (Undo for a few seconds)" aria-label="Delete" onClick={() => void deleteTask(r)}><Icon name="trash" size={13} /></button>
             </div>
           ))}
-          {!shown.length ? <div className="empty small muted" style={{ padding: 30 }}>{showDone ? 'Nothing here.' : 'All done.'}</div> : null}
+          {!shown.length && loaded && !items.length ? <RemindersWelcome onNew={() => (document.querySelector('.rem-main input') as HTMLInputElement | null)?.focus()} onImport={() => setImporting(true)} /> : null}
+          {!shown.length && items.length ? <div className="empty small muted" style={{ padding: 30 }}>{showDone ? 'Nothing here.' : 'All done.'}</div> : null}
         </div>
       </section>
       {sel && items.some((r) => r.id === sel) ? <aside className="planner-detail"><TaskDetail key={sel} task={items.find((r) => r.id === sel)!} today={today} projects={projectsOf(items)} onClose={() => setSel(null)} /></aside> : null}
       <UndoBar />
+      {menu ? <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} label="Import and export" /> : null}
+      {importing ? <ImportDialog area="reminders" onClose={() => { setImporting(false); load(); }} /> : null}
     </div>
   );
 }

@@ -8,7 +8,7 @@ import type { AddressObject, ParsedMail } from 'mailparser';
 
 // The mail libraries are large (about 2 MB of code): they load the first time mail is used.
 const imapFlow = async () => (await import('imapflow')).ImapFlow;
-const parseMail = async (source: Buffer | string, opts: import('mailparser').SimpleParserOptions = {}): Promise<ParsedMail> => (await import('mailparser')).simpleParser(source, opts);
+export const parseMail = async (source: Buffer | string, opts: import('mailparser').SimpleParserOptions = {}): Promise<ParsedMail> => (await import('mailparser')).simpleParser(source, opts);
 const mailer = async () => (await import('nodemailer')).default;
 const mailComposer = async () => (await import('nodemailer/lib/mail-composer')).default;
 import { parseUnsubscribe, snippetOf } from '../../../core/pim/mail';
@@ -78,7 +78,37 @@ function hasAttachments(structure: FetchMessageObject['bodyStructure']): boolean
   return walk(structure);
 }
 
-export class MailAccount {
+/**
+ * What Keeper asks of a mail account's store: an IMAP server (MailAccount), or
+ * mail kept on this computer (LocalMailbox: imported mail, POP3 downloads).
+ */
+export interface MailBox {
+  test(): Promise<void>;
+  folders(): Promise<MailFolder[]>;
+  cachedFolders(): Promise<MailFolder[]>;
+  summaries(folder: string, uids: number[]): Promise<MessageSummary[]>;
+  cached(folder: string): Promise<FolderCache>;
+  sync(folder: string): Promise<{ messages: MessageSummary[]; added: MessageSummary[] }>;
+  older(folder: string, count?: number): Promise<MessageSummary[]>;
+  source(folder: string, uid: number): Promise<Buffer>;
+  body(folder: string, uid: number): Promise<{ body: MessageBody; parsed: ParsedMail }>;
+  setFlags(folder: string, uids: number[], flag: string, on: boolean): Promise<void>;
+  move(folder: string, uids: number[], dest: string): Promise<Map<number, number> | undefined>;
+  keepsKeywords(folder: string): Promise<boolean>;
+  byMessageId(folder: string, messageId: string): Promise<number[]>;
+  searchWith(folder: string, criteria: Record<string, unknown>): Promise<number[]>;
+  newestText(folder: string): Promise<{ uid: number; text: string } | undefined>;
+  ensureFolder(path: string): Promise<void>;
+  remove(folder: string, uids: number[], trash?: string): Promise<unknown>;
+  append(folder: string, raw: Buffer | string, flags?: string[]): Promise<number | undefined>;
+  search(folder: string, text: string): Promise<number[]>;
+  /** every message's number in a folder (export) */
+  allUids(folder: string): Promise<number[]>;
+  watch(folder: string, onNew: () => void): Promise<void>;
+  stop(): Promise<void>;
+}
+
+export class MailAccount implements MailBox {
   private ops: ImapFlow | null = null;
   private opsTimer: NodeJS.Timeout | undefined;
   private opsQueue: Promise<unknown> = Promise.resolve();
@@ -422,6 +452,18 @@ export class MailAccount {
         const r = await c.search({ or: [{ subject: text }, { from: text }, { body: text }] }, { uid: true });
         // The newest first, and not too many.
         return Array.isArray(r) ? r.sort((a, b) => b - a).slice(0, 100) : [];
+      } finally {
+        lock.release();
+      }
+    });
+  }
+
+  async allUids(folder: string): Promise<number[]> {
+    return this.run(async (c) => {
+      const lock = await c.getMailboxLock(folder, { readOnly: true });
+      try {
+        const r = await c.search({ all: true }, { uid: true });
+        return Array.isArray(r) ? r : [];
       } finally {
         lock.release();
       }

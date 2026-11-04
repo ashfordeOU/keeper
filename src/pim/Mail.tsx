@@ -19,10 +19,14 @@ import { formatBytes } from '../../core/format';
 import { mailLink, notesFromMessage } from '../../core/pim/mail-link';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
-import { ContextMenu, Empty, Modal, type MenuItem } from '../components/ui';
+import { ContextMenu, Modal, type MenuItem } from '../components/ui';
 import { useStore } from '../state';
 import { Compose } from './Compose';
 import { AccountDialog } from './AccountDialog';
+import { ImportDialog } from './ImportDialog';
+import { CombineDialog } from './CombineDialog';
+import { unifiedUnread, type UnifiedView } from '../../core/pim/unified';
+import { MailWelcome } from './PimWelcome';
 import { AskCard, CleanupView, ScheduledView, WaitingView } from './mail-views';
 import { RelatedPanel } from '../components/RelatedPanel';
 import { AccountMark, ChatThread, CodeBanner, PhishBanner, QuickLook, remindMenu, SearchChips, SenderAvatar } from './mail-parts';
@@ -103,6 +107,8 @@ export function Mail() {
   });
   const setCompose = (d: (Draft & { account?: string }) | null) => { setComposeState(d); if (!d) setDraft('mail.compose', ''); };
   const [adding, setAdding] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [combining, setCombining] = useState<UnifiedView | 'new' | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [outbox, setOutbox] = useState<Outbox[]>([]);
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
@@ -301,19 +307,22 @@ export function Mail() {
   const myName = firstName(mailAccounts.flatMap((a) => a.identities.map((i) => i.name)));
   const composeKey = composeShortcut(prefs?.shortcutScheme ?? 'gmail', prefs?.shortcutOverrides as Partial<Record<MailAction, string>>, mac);
 
+  // One Import window for the first screen and the folders, so it stays open when the imported mail appears.
+  const importDialog = importing ? <ImportDialog area="mail" onClose={() => { setImporting(false); loadAccounts(); }} onOpen={(w) => { loadAccounts(); const i = w.indexOf(':'); openView({ account: w.slice(0, i), folder: w.slice(i + 1), split: undefined, tab: undefined }); }} /> : null;
   if (!mailAccounts.length) {
-    return (
-      <div className="pim-empty">
-        <Empty icon="mail" title="Add a mail account">
-          Gmail, iCloud, Yahoo, AOL, Fastmail, Zoho, or any mail service that offers IMAP (Outlook.com and Microsoft 365 need Sign in with Microsoft). Keeper talks to your provider directly; your mail stays on its servers and on this computer.
-        </Empty>
-        <div className="btn-row" style={{ justifyContent: 'center' }}>
-          <button className="btn primary" onClick={() => setAdding(true)}><Icon name="plus" size={14} /> Add account</button>
-        </div>
-        {adding ? <AccountDialog onClose={() => setAdding(false)} onAdded={() => { setAdding(false); loadAccounts(); void refresh(); }} /> : null}
-      </div>
-    );
+    return <><MailWelcome onAdded={() => { loadAccounts(); void refresh(); }} onImport={() => setImporting(true)} />{importDialog}</>;
   }
+
+  const exportMenu = (e: React.MouseEvent, account: string, folder?: string) => {
+    e.preventDefault();
+    const run = (format: 'mbox' | 'eml') => void api.pim.exportMail(account, folder, format).then((r) => r && toast(`Saved ${r.count.toLocaleString()} message${r.count === 1 ? '' : 's'}`), (x) => toast(errText(x)));
+    setMenu({ x: e.clientX, y: e.clientY, items: [
+      { label: folder ? 'Export as mailbox file (.mbox)…' : 'Export account as .mbox files…', icon: 'down', run: () => run('mbox') },
+      { label: 'Export as message files (.eml)…', icon: 'down', run: () => run('eml') },
+      { sep: true, label: '' },
+      { label: 'Import mail…', icon: 'archive', run: () => setImporting(true) },
+    ] });
+  };
 
   const rowMenu = (e: React.MouseEvent, m: MessageSummary) => {
     e.preventDefault();
@@ -416,6 +425,7 @@ export function Mail() {
       : side === 'scheduled' ? <ScheduledView outbox={outbox} onEdit={(d) => setCompose(d)} /> : null;
 
   return (
+    <>
     <div className={`mail layout-${layout} ${side ? 'with-side' : ''} ${current ? 'reading' : ''} ${showToday ? 'has-today' : ''}`} data-narrow-back={narrowBack} style={{ ['--mail-text' as string]: `${textSize}px` }}>
       <div className="mail-nav">
       <AccountRail accounts={mailAccounts} unread={unread} totalUnread={totalUnread} mac={mac} current={side || searching ? undefined : view.account ?? (view.folder === 'unified' ? 'all' : undefined)}
@@ -427,6 +437,13 @@ export function Mail() {
         <button className={`mail-folder ${isOn('unified') ? 'on' : ''}`} onClick={() => openView({ folder: 'unified', account: undefined, split: splitOn ? 'important' : undefined })}>
           <Icon name="inbox" size={15} /><span className="grow ellipsis">All inboxes</span>{totalUnread ? <span className="count">{totalUnread}</span> : null}
         </button>
+        {(prefs?.unifiedViews ?? []).map((uv) => (
+          <button key={uv.id} className={`mail-folder ${isOn(`view:${uv.id}`) ? 'on' : ''}`} data-testid="mail-combined" title={uv.sources.map((x) => `${accounts.find((a) => a.id === x.account)?.label ?? x.account}: ${x.folder === 'inbox' ? 'Inbox' : x.folder}`).join('\n')}
+            onClick={() => openView({ folder: `view:${uv.id}`, account: undefined, split: undefined, tab: undefined })} onContextMenu={(e) => { e.preventDefault(); setCombining(uv); }}>
+            <Icon name="collection" size={15} /><span className="grow ellipsis">{uv.name}</span>{unifiedUnread(uv, folders) ? <span className="count">{unifiedUnread(uv, folders)}</span> : null}
+          </button>
+        ))}
+        {mailAccounts.length > 1 ? <button className="mail-folder dim" onClick={() => setCombining('new')} data-testid="mail-combine"><Icon name="plus" size={15} /><span className="grow ellipsis">Combine mailboxes</span></button> : null}
         <button className={`mail-folder ${isOn('toreply') ? 'on' : ''}`} onClick={() => openView({ folder: 'toreply', account: undefined, split: undefined, tab: undefined })} data-testid="mail-nav-toreply"><Icon name="reply" size={15} /><span className="grow ellipsis">To Reply</span></button>
         <button className={`mail-folder ${side === 'waiting' ? 'on' : ''}`} onClick={() => openSide('waiting')} data-testid="mail-nav-waiting">
           <Icon name="history" size={15} /><span className="grow ellipsis">Waiting for reply</span>{waitingCount ? <span className="count warn">{waitingCount}</span> : null}
@@ -453,9 +470,9 @@ export function Mail() {
         ) : null}
         {mailAccounts.map((a, ai) => (
           <div key={a.id} className="mail-account">
-            <div className="mail-account-name" title={`${a.email ?? ''}${ai < 9 ? ` · ${mac ? '⌘' : 'Ctrl+'}${ai + 1}` : ''}`}><AccountMark a={a} />{a.label}{unread[a.id] ? <span className="acct-unread" data-testid="mail-account-unread">{unread[a.id]}</span> : null}{(a as Account & { needsSignIn?: boolean }).needsSignIn ? <span className="badge warn" title="Sign in again">!</span> : (a as Account & { lastError?: string }).lastError ? <span className="badge warn" title={`Couldn’t check it: ${(a as Account & { lastError?: string }).lastError}. Settings → Mail & Calendar has Retry.`}>!</span> : null}</div>
+            <div className="mail-account-name" onContextMenu={(e) => exportMenu(e, a.id)} title={`${a.email ?? ''}${ai < 9 ? ` · ${mac ? '⌘' : 'Ctrl+'}${ai + 1}` : ''}`}><AccountMark a={a} />{a.label}{unread[a.id] ? <span className="acct-unread" data-testid="mail-account-unread">{unread[a.id]}</span> : null}{(a as Account & { needsSignIn?: boolean }).needsSignIn ? <span className="badge warn" title="Sign in again">!</span> : (a as Account & { lastError?: string }).lastError ? <span className="badge warn" title={`Couldn’t check it: ${(a as Account & { lastError?: string }).lastError}. Settings → Mail & Calendar has Retry.`}>!</span> : null}</div>
             {folders.filter((f) => f.account === a.id).map((f) => (
-              <button key={f.path} className={`mail-folder ${isOn(f.path, a.id) ? 'on' : ''}`} style={{ paddingLeft: 8 + depth(f) * 14 }} title={f.path} onClick={() => openView({ account: a.id, folder: f.path, split: f.special === 'inbox' && splitOn ? 'important' : undefined })}
+              <button key={f.path} className={`mail-folder ${isOn(f.path, a.id) ? 'on' : ''}`} style={{ paddingLeft: 8 + depth(f) * 14 }} title={f.path} onContextMenu={(e) => exportMenu(e, a.id, f.path)} onClick={() => openView({ account: a.id, folder: f.path, split: f.special === 'inbox' && splitOn ? 'important' : undefined })}
                 onDragOver={(e) => e.preventDefault()} onDrop={(e) => { const raw = e.dataTransfer.getData('text/keeper-mail'); if (raw) void act(() => api.pim.move(JSON.parse(raw), f.path), `Moved to ${f.name}`); }}>
                 <Icon name={FOLDER_ICON[f.special ?? ''] ?? 'folder'} size={15} />
                 <span className="grow ellipsis">{f.name}</span>
@@ -465,6 +482,7 @@ export function Mail() {
           </div>
         ))}
         <button className="btn ghost sm" style={{ marginTop: 8 }} onClick={() => setAdding(true)}><Icon name="plus" size={13} /> Add account</button>
+        <button className="btn ghost sm" onClick={() => setImporting(true)} data-testid="mail-import"><Icon name="down" size={13} /> Import mail</button>
         <button className="btn ghost sm" onClick={() => go({ name: 'settings', arg: 'pim' })}><Icon name="settings" size={13} /> Mail settings</button>
       </aside>
       </div>
@@ -543,7 +561,13 @@ export function Mail() {
       {compose ? <Compose draft={compose} accounts={mailAccounts} onClose={() => setCompose(null)} onSent={(o) => { setCompose(null); toast(o.scheduled ? `Will send ${new Date(o.sendAt).toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' })}` : 'Sending…'); loadOutbox(); }} /> : null}
       {adding ? <AccountDialog onClose={() => setAdding(false)} onAdded={() => { setAdding(false); loadAccounts(); }} /> : null}
       {menu ? <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} /> : null}
+      {combining ? <CombineDialog accounts={mailAccounts} folders={folders} view={combining === 'new' ? undefined : combining}
+        onClose={() => setCombining(null)}
+        onRemove={combining === 'new' ? undefined : () => { void api.pim.setPrefs({ unifiedViews: (prefs?.unifiedViews ?? []).filter((x) => x.id !== combining.id) }).then(setPrefs); setCombining(null); if (view.folder === `view:${combining.id}`) openView({ folder: 'unified', account: undefined }); }}
+        onSave={(uv) => { const list = prefs?.unifiedViews ?? []; void api.pim.setPrefs({ unifiedViews: list.some((x) => x.id === uv.id) ? list.map((x) => (x.id === uv.id ? uv : x)) : [...list, uv] }).then(setPrefs); setCombining(null); openView({ folder: `view:${uv.id}`, account: undefined, split: undefined, tab: undefined }); }} /> : null}
     </div>
+    {importDialog}
+    </>
   );
 }
 

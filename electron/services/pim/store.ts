@@ -11,6 +11,7 @@ import type { LogEntry } from '../../../core/pim/insights';
 import type { Draft, MailRule } from '../../../core/pim/mail';
 import type { MailTemplate } from '../../../core/pim/compose-rich';
 import type { SmartMailbox } from '../../../core/pim/prefs';
+import type { UnifiedView } from '../../../core/pim/unified';
 import type { NoReplyReminder } from '../../../core/pim/smart';
 import type { SnoozeEntry } from '../../../core/pim/snooze-sync';
 import type { Account, Alarm, CalEvent, CalendarInfo, Contact, CountdownTimer, MessageSummary, Reminder, WorldClock } from '../../../core/pim/types';
@@ -81,6 +82,8 @@ export interface PimPrefs {
   templates?: MailTemplate[];
   /** saved searches shown as mailboxes */
   smartMailboxes?: SmartMailbox[];
+  /** combined mailboxes of chosen accounts' folders */
+  unifiedViews?: UnifiedView[];
   /** the sign-in code or magic link in new mail: a Copy / Open button on its notification and in the Island (on unless false) */
   codeActions?: boolean;
 }

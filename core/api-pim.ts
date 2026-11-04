@@ -11,6 +11,7 @@ import type { SystemAccess } from './pim/syscal';
 import type { CalendarStatus, UpcomingEvent } from './pim/week-events';
 import type { PhishWarning } from './pim/phishing';
 import type { InboxTab, NoReplyReminder } from './pim/smart';
+import type { FoundSource, ImportArea, ImportRequest, ImportResult, ImportSourceId, ImportSourceInfo } from './pim/import-flow';
 
 export interface NewAccount {
   kind: 'imap' | 'caldav' | 'ics' | 'google' | 'microsoft';
@@ -73,7 +74,8 @@ export interface MailView {
    * 'unified:sent' (every Sent folder), 'snoozed', 'toreply' (mail from people
    * waiting for your answer), 'smart:<id>' (a saved search), or 'search'
    * (every folder kept on this computer), or 'label:<name>' (mail with that
-   * label in any folder)
+   * label in any folder), or 'view:<id>' (a combined mailbox of chosen
+   * accounts' inboxes or folders, core/pim/unified.ts)
    */
   folder: string;
   /** an inbox's Important or Other half */
@@ -228,7 +230,7 @@ export interface PimApi {
   /** the reply or forward, filled in */
   draftFor(id: string, mode: 'reply' | 'replyAll' | 'forward'): Promise<Draft>;
   /** html: the rich editor's text (else body is Markdown); noSignature: taken off this message; key: its mirrored draft goes; remindAt: remind me if no reply by then */
-  send(d: Draft & { account: string; sendAt?: number; markdown?: boolean; html?: string; noSignature?: boolean; key?: string; remindAt?: number }): Promise<Outbox>;
+  send(d: Draft & { account: string; sendAt?: number; markdown?: boolean; html?: string; noSignature?: boolean; key?: string; remindAt?: number; }): Promise<Outbox>;
   undoSend(id: string): Promise<Draft | null>;
   outbox(): Promise<Outbox[]>;
   /** saves to the account's Drafts folder; with a key, the previous copy saved with that key is replaced */
@@ -308,6 +310,23 @@ export interface PimApi {
   contacts(): Promise<Contact[]>;
   saveContact(c: Contact): Promise<Contact>;
   deleteContact(id: string): Promise<void>;
+
+  /** the places a part can import from, on this system (progress arrives as 'pim-import' events) */
+  importSources(area: ImportArea): Promise<ImportSourceInfo[]>;
+  /** Thunderbird profiles, Apple Mail and Apple Reminders found on this computer */
+  foundSources(): Promise<FoundSource[]>;
+  /** the picker for a source's files or folder (empty when cancelled) */
+  pickImport(source: ImportSourceId): Promise<string[]>;
+  runImport(req: ImportRequest): Promise<ImportResult>;
+  cancelImport(id: string): Promise<void>;
+  /** takes an import back; the updated record, or null when it cannot be */
+  undoImport(id: string): Promise<ImportResult | null>;
+  /** the last imports, newest first */
+  importHistory(): Promise<ImportResult[]>;
+  /** a folder (or a whole account) to .mbox or .eml files; asks where */
+  exportMail(account: string, folder: string | undefined, format: 'mbox' | 'eml'): Promise<{ path: string; count: number } | null>;
+  exportTasks(format: 'csv' | 'ics'): Promise<{ path: string; count: number } | null>;
+  exportContacts(format: 'vcf' | 'csv'): Promise<{ path: string; count: number } | null>;
 
   prefs(): Promise<PimPrefsView>;
   setPrefs(p: Partial<PimPrefsView>): Promise<PimPrefsView>;

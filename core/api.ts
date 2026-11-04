@@ -959,6 +959,8 @@ export interface KeeperApi extends KeeperApiX {
   on(channel: 'notes-import', cb: (e: import('./notes/import-sources').ImportProgress) => void): () => void;
   on(channel: 'guide-mini', cb: (id: string) => void): () => void;
   on(channel: 'pim-changed', cb: (kind: string, extra?: unknown) => void): () => void;
+  /** an import or export moving along (core/pim/import-flow.ts) */
+  on(channel: 'pim-import', cb: (p: import('./pim/import-flow').ImportProgress) => void): () => void;
   /** AI writing in the compose window, as it arrives (the whole text so far) */
   on(channel: 'pim-ai-stream', cb: (p: { req: string; text: string; done?: boolean }) => void): () => void;
   on(channel: 'pim-ring', cb: (r: import('./api-pim').Ring) => void): () => void;

@@ -55,6 +55,21 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - Search by meaning now also understands your mail, calendar events, tasks, contacts and notes outside your library, on this computer, in the same quiet background batches as your files. One search ranks every kind together.
 - It follows the graph's choices: leave mail or an account out and it leaves the search too.
 
+### Added — Mail, Calendar, Reminders and Contacts: import and export
+- One Import in Mail, Calendar, Reminders and Settings → Mail & Calendar, the same four steps everywhere: choose where from, read the short steps, watch it come in (with Stop), then a one-line summary with Undo.
+- Mail from .mbox files (also a web mail's whole download, sorted into Inbox, Sent and your labels), .eml files and folders, Apple Mail on a Mac, Thunderbird profiles (found by themselves) and Outlook for Mac archives (.olm), with folders, read and flagged marks and attachments. It lands in a new "On this computer" account you can search, read, file and reply from.
+- Calendars from .ics files into a calendar of their own, with repeats, moved occurrences, time zones, all-day events, alerts and guests.
+- Tasks from Apple Reminders, Google Tasks, Microsoft To Do, Todoist (a file or your token, used once), any spreadsheet and .ics; lists become tags and sub-tasks become steps.
+- Contacts from .vcf cards (old and new) and spreadsheets.
+- Export a mail folder or a whole account as .mbox or .eml files (right-click it), a calendar as .ics, tasks as .csv or .ics and contacts as .vcf or .csv.
+- Anything already there is skipped, and every import can be taken back later from Past imports.
+
+### Changed — Mail, Calendar and Reminders: first screens
+- With nothing set up yet, Mail, Calendar and Reminders open on a calm, drawn screen with one clear way in. Mail has a button for Gmail, Outlook, iCloud, Yahoo, Fastmail and Other that starts that provider's own setup, and "Import mail from another app".
+
+### Added — Mail: combined mailboxes
+- Combine any accounts' inboxes or folders into one list of your own (for example your two work inboxes), with its unread number, next to All inboxes.
+
 ### Added — Island: colours that follow your theme
 - The Island is no longer only black. Open, it shows a soft gradient made from your theme's colours, with matching text, buttons and cards. Light themes get a light Island; every theme gets its own.
 - What is going on tints it: the colours of the album art while music plays, the calendar's colour before a meeting, orange for a timer, green while charging. It glides to the new colour (at once with less motion).

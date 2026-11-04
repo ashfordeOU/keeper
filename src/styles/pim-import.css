@@ -1,0 +1,83 @@
+/* SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 */
+/* The Import flow (Mail, Calendar, Reminders, Contacts) and the designed
+   empty states of Mail, Calendar and Reminders. Text sizes and corners from
+   the tokens only. Spacing follows 4 / 8 / 12 / 16 / 24 / 32. */
+
+/* ------------------------------------------------------------------ import */
+.imp-steps { display: flex; gap: 16px; list-style: none; margin: 0 0 16px; padding: 0; font-size: var(--fs-xs); color: var(--text-3); }
+.imp-steps li { display: flex; align-items: center; gap: 6px; }
+.imp-steps li.on { color: var(--text); font-weight: 600; }
+.imp-steps li.done { color: var(--text-2); }
+.imp-dot { width: 8px; height: 8px; border-radius: var(--r-pill); background: var(--line-strong); }
+.imp-steps li.on .imp-dot { background: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.imp-steps li.done .imp-dot { background: var(--ok); }
+
+.imp-body { display: flex; flex-direction: column; gap: 12px; }
+.imp-lede { margin: 0; color: var(--text-2); font-size: var(--fs-md); }
+.imp-kicker { margin: 4px 0 8px; font-size: var(--fs-xs); font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: .04em; }
+.imp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; }
+.imp-card { display: flex; align-items: center; gap: 12px; padding: 12px; text-align: left; background: var(--bg-elev); border: 1px solid var(--line); border-radius: var(--r-lg); color: var(--text); cursor: pointer; transition: border-color .15s var(--ease), box-shadow .15s var(--ease); }
+.imp-card:hover, .imp-card:focus-visible { border-color: var(--accent); box-shadow: var(--shadow); }
+.imp-card.found { background: color-mix(in srgb, var(--accent-soft) 60%, var(--bg-elev)); }
+.imp-card.off { opacity: .62; }
+.imp-card-icon { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: var(--r-md); background: var(--accent-soft); color: var(--accent-ink, var(--accent)); }
+.imp-card-icon.big { width: 44px; height: 44px; border-radius: var(--r-lg); }
+.imp-card-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.imp-card-text b { font-size: var(--fs-md); font-weight: 600; }
+.imp-card-text small { font-size: var(--fs-xs); color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.imp-history ul { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.imp-history li { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--bg-sunk); border-radius: var(--r-md); }
+
+.imp-head { display: flex; align-items: center; gap: 12px; }
+.imp-head h3 { margin: 0; font-size: var(--fs-lg); }
+.imp-howto { margin: 0; padding: 12px 16px 12px 32px; background: var(--bg-sunk); border-radius: var(--r-lg); color: var(--text-2); font-size: var(--fs-md); display: flex; flex-direction: column; gap: 6px; }
+.imp-pick { display: flex; align-items: center; gap: 12px; }
+.imp-picked { color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 6px; }
+.imp-foot { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.imp-trust { flex: 1; }
+
+.imp-running { align-items: stretch; padding: 16px 0; }
+.imp-running h3 { margin: 0; font-size: var(--fs-xl); letter-spacing: -.01em; }
+.imp-bar { height: 8px; border-radius: var(--r-pill); background: var(--bg-sunk); overflow: hidden; }
+.imp-bar span { display: block; height: 100%; background: var(--accent); border-radius: var(--r-pill); transition: width .3s var(--ease); }
+.imp-bar.busy span { animation: imp-slide 1.4s var(--ease) infinite; }
+@keyframes imp-slide { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
+@media (prefers-reduced-motion: reduce) { .imp-bar.busy span { animation: none; opacity: .5; width: 100% !important; } .imp-card { transition: none; } }
+:root[data-motion='reduce'] .imp-bar.busy span { animation: none; opacity: .5; width: 100% !important; }
+
+.imp-done { align-items: center; text-align: center; padding: 8px 0; }
+.imp-done h3 { margin: 4px 0 0; font-size: var(--fs-2xl); letter-spacing: -.02em; }
+.imp-done .imp-foot { align-self: stretch; }
+.imp-done-mark { display: grid; place-items: center; width: 56px; height: 56px; border-radius: var(--r-pill); background: var(--ok-soft); color: var(--ok); }
+.imp-summary { margin: 0; font-size: var(--fs-lg); color: var(--text-2); }
+.imp-notes { margin: 0; padding: 0; list-style: none; }
+
+/* ------------------------------------------------------------------ designed empty states */
+.pim-welcome { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 16px; padding: 48px 24px; min-height: 100%; }
+.pim-welcome-card { display: flex; flex-direction: column; align-items: center; gap: 16px; max-width: 620px; width: 100%; padding: 32px; background: var(--bg-elev); border-radius: var(--radius); box-shadow: var(--shadow); }
+.pim-welcome .pim-art { color: var(--accent); }
+.pim-welcome .pim-art .soft { fill: var(--accent-soft); stroke: none; }
+.pim-welcome .pim-art .paper { fill: var(--bg-elev); stroke: currentColor; }
+.pim-welcome .pim-art .line { stroke: var(--text-3); opacity: .5; }
+.pim-welcome .pim-art .glow { fill: var(--ok); stroke: none; opacity: .9; }
+.pim-kicker { font-size: var(--fs-xs); font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: .05em; }
+.pim-welcome h2 { margin: 0; font-size: var(--fs-2xl); letter-spacing: -.02em; line-height: 1.15; }
+.pim-welcome h2 em { font-style: normal; color: var(--accent-ink, var(--accent)); }
+.pim-welcome p { margin: 0; color: var(--text-2); font-size: var(--fs-md); max-width: 440px; }
+.pim-providers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; width: 100%; }
+.pim-provider { display: flex; align-items: center; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--bg); color: var(--text); font-size: var(--fs-md); font-weight: 600; cursor: pointer; transition: border-color .15s var(--ease), box-shadow .15s var(--ease); }
+.pim-provider:hover, .pim-provider:focus-visible { border-color: var(--accent); box-shadow: var(--shadow); }
+.pim-provider .pim-mono { display: grid; place-items: center; width: 28px; height: 28px; border-radius: var(--r-md); color: #fff; font-size: var(--fs-sm); font-weight: 700; flex: none; }
+.pim-welcome-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.pim-trust { font-size: var(--fs-xs); color: var(--text-3); display: flex; align-items: center; gap: 6px; }
+@media (max-width: 760px) { .pim-providers { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (prefers-reduced-motion: reduce) { .pim-provider { transition: none; } }
+.cal-welcome { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; overflow: auto; padding-bottom: 24px; }
+.cal-welcome .pim-welcome { min-height: 0; }
+
+/* ------------------------------------------------------------------ combined mailboxes */
+.mail-folder.dim { color: var(--text-3); }
+.combine-account { padding: 8px 12px; background: var(--bg-sunk); border-radius: var(--r-md); display: flex; flex-direction: column; gap: 8px; }
+.combine-folders { display: flex; flex-direction: column; gap: 6px; padding-left: 28px; max-height: 180px; overflow: auto; }
+

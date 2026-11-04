@@ -29,6 +29,7 @@ import { AshfordeAppsPanel } from '../../components/AshfordeApps';
 import { ThemeGallery, ThemeTweaks } from '../../components/ThemeGallery';
 import { MeshPlaces } from '../MeshParts';
 import { PimSettings } from '../../pim/PimSettings';
+import { ImportPanel } from '../../pim/ImportPanel';
 import { MailPanel } from '../../pim/mail-settings';
 import { PermissionsPanel } from '../../components/PermissionsPanel';
 import { NativeAppsPanel } from '../../components/NativeAppsPanel';
@@ -275,6 +276,7 @@ export const PANELS: Record<string, PanelDef> = {
   usageLabel: { render: () => <Suspense fallback={null}><UsageSettings /></Suspense>, own: true, wide: true },
   brain: { render: () => <BrainSettingsPanel />, own: true, wide: true },
   pim: { render: () => <PimSettings />, own: true, wide: true },
+  pimImport: { render: () => <ImportPanel />, wide: true },
   mailReading: { render: () => <MailPanel part="reading" />, wide: true },
   mailRules: { render: () => <MailPanel part="rules" />, wide: true },
   mailSmart: { render: () => <MailPanel part="smart" />, wide: true },

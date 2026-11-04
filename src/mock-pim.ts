@@ -20,10 +20,13 @@ import { suggest } from '../core/pim/vcard';
 import { buildCalendarStatus, upcomingFrom } from '../core/pim/week-events';
 import type { SystemAccess } from '../core/pim/syscal';
 import { extendTimer } from '../core/widget-timer';
+import { importSummary } from '../core/pim/mail-import';
+import { AREA_NOUN, sourcesFor, IMPORT_SOURCES, type ImportResult } from '../core/pim/import-flow';
 
 type Emit = (channel: string, ...args: unknown[]) => void;
 
 export function mockPim(emit: Emit): { pim: PimApi } {
+  const imports: ImportResult[] = [];
   const now = Date.now();
   const day = 86_400_000;
   const at = (dayOffset: number, h: number, m = 0) => {
@@ -375,6 +378,24 @@ export function mockPim(emit: Emit): { pim: PimApi } {
     stageCompose: async () => undefined,
     stagedCompose: async () => null,
     dropDraft: async () => undefined,
+    importSources: async (area) => sourcesFor(area, 'darwin'),
+    foundSources: async () => [{ source: 'thunderbird', ref: '/Users/demo/Library/Thunderbird/Profiles/abc.default', label: 'default', detail: 'Default profile' }, { source: 'apple-mail', ref: '/Users/demo/Library/Mail/V10', label: 'Apple Mail', detail: 'Mail’s folder (V10)' }],
+    pickImport: async (source) => [`/Users/demo/Downloads/sample.${IMPORT_SOURCES.find((s) => s.id === source)?.extensions?.[0] ?? 'mbox'}`],
+    runImport: async (req) => {
+      const id = `imp-${Date.now()}`;
+      const area = IMPORT_SOURCES.find((s) => s.id === req.source)!.area;
+      for (let i = 0; i <= 10; i++) { emit('pim-import', { id, source: req.source, phase: i < 10 ? 'adding' : 'done', done: i * 42, total: 420, current: 'Inbox' }); await new Promise((r) => setTimeout(r, 120)); }
+      const counts = { added: 420, skipped: 3, failed: 0, folders: area === 'mail' ? 4 : 1 };
+      const r: ImportResult = { id, area, source: req.source, label: 'sample', at: Date.now(), ...counts, summary: importSummary(counts, AREA_NOUN[area]) };
+      imports.unshift(r);
+      return r;
+    },
+    cancelImport: async () => undefined,
+    undoImport: async (id) => { const r = imports.find((x) => x.id === id); if (r) r.undone = true; return r ?? null; },
+    importHistory: async () => imports,
+    exportMail: async () => ({ path: '/Users/demo/Downloads/Inbox.mbox', count: 9 }),
+    exportTasks: async () => ({ path: '/Users/demo/Downloads/Tasks.csv', count: 12 }),
+    exportContacts: async () => ({ path: '/Users/demo/Downloads/Contacts.vcf', count: 4 }),
     prefs: async () => prefs,
     setPrefs: async (p) => (prefs = { ...prefs, ...p }),
   };

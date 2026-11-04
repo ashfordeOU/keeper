@@ -33,7 +33,11 @@ import { suggest as suggestAddresses, serializeVCard } from '../../../core/pim/v
 import { redact } from '../../../core/brain/redact';
 import { featureOn, onFeature } from '../features';
 import { poll, pollNow } from '../governor';
-import { cidMap, compose, MailAccount, smtpSend, smtpVerify, toBody, type Auth } from './mail';
+import { cidMap, compose, MailAccount, smtpSend, smtpVerify, toBody, type Auth, type MailBox } from './mail';
+import { LocalMailbox } from './local-mail';
+import { cancelImport, exportContacts, exportMail, exportTasks, foundSources, importHistory, runImport, undoImport, type ImportHost } from './importer';
+import { sourcesFor } from '../../../core/pim/import-flow';
+import { inboxOnly, mergeFolders, resolveSources } from '../../../core/pim/unified';
 import { dav, deleteHref, discover, fetchContacts, fetchIcs, graphCalendars, graphDelete, graphEvents, graphSave, putEvent, putTodo, syncCalendar, type DavAuth } from './dav';
 import { accessToken, cancelSignIn, clientFor, saveTokens, signIn } from './oauth';
 import { keeperUrl } from '../../../core/origin';
@@ -102,7 +106,7 @@ let deps: PimDeps | null = null;
 let accounts: Account[] = [];
 let state: PimState = emptyState();
 let contacts: Contact[] = [];
-const mailboxes = new Map<string, MailAccount>();
+const mailboxes = new Map<string, MailBox>();
 const events = new Map<string, CalEvent[]>();
 const memory = new Map<string, { at: number; secret: 'keychain' | 'memory' }>();
 const needsSignIn = new Set<string>();
@@ -226,10 +230,10 @@ async function davAuth(a: Account): Promise<DavAuth> {
   return { basic: { user: (a as Account & { davUser?: string }).davUser ?? a.email ?? a.imap?.user ?? '', pass } };
 }
 
-function mailbox(a: Account): MailAccount {
+function mailbox(a: Account): MailBox {
   let m = mailboxes.get(a.id);
   if (!m) {
-    m = new MailAccount(a, () => mailAuth(a));
+    m = a.kind === 'local' ? new LocalMailbox(a) : new MailAccount(a, () => mailAuth(a));
     mailboxes.set(a.id, m);
   }
   return m;
@@ -1795,6 +1799,128 @@ function catchUp() {
 
 // ---------------------------------------------------------------- the API
 
+// ---------------------------------------------------------------- import and export
+
+const LOCAL_MAIL = 'local-mail';
+
+/** The "On this computer" mail account, made the first time something is imported. */
+async function localMailAccount(): Promise<Account> {
+  await load();
+  let a = acct(LOCAL_MAIL);
+  if (!a) {
+    a = { id: LOCAL_MAIL, kind: 'local', label: 'On this computer', identities: [], mail: true, calendar: false, contacts: false, color: '#8e8e93' };
+    accounts.push(a);
+    await saveAccounts(accounts);
+    changed('accounts');
+  }
+  return a;
+}
+
+const importHost: ImportHost = {
+  progress: (p) => deps?.broadcast('pim-import', p),
+  async localMail() {
+    const a = await localMailAccount();
+    return { account: a.id, box: mailbox(a) as LocalMailbox };
+  },
+  async mailChanged(folders) {
+    const a = acct(LOCAL_MAIL);
+    if (!a) return;
+    await mailbox(a).folders();
+    for (const f of new Set(folders)) {
+      folderCache.set(fkey(a.id, f), (await mailbox(a).sync(f)).messages);
+      firstSync.add(fkey(a.id, f));
+    }
+    ctxCache = null;
+    changed('mail', { account: a.id });
+  },
+  async addEvents(evs, opts) {
+    await load();
+    let cal = opts.calendar ? calOf(opts.calendar) : undefined;
+    const created = !cal;
+    if (!cal) {
+      cal = { id: `${LOCAL}:cal:${randomUUID().slice(0, 8)}`, account: LOCAL, name: opts.name || 'Imported', color: COLORS[state.calendars.length % COLORS.length], url: '', readOnly: false, visible: true, colorSet: true };
+      state.calendars.push(cal);
+      events.set(cal.id, []);
+      saveState();
+    }
+    if (cal.readOnly) throw new Error('This calendar cannot be changed');
+    const byUid = new Map<string, CalEvent[]>();
+    for (const e of evs) byUid.set(e.uid, [...(byUid.get(e.uid) ?? []), { ...e, calendar: cal.id, id: `${cal.id}:${e.uid}${e.recurrenceId !== undefined ? `:${e.recurrenceId}` : ''}`, href: undefined, etag: undefined }]);
+    if (cal.account === LOCAL && !cal.source) {
+      // On this computer: written at once, not one at a time (thousands of events load quickly).
+      const rest = (events.get(cal.id) ?? []).filter((e) => !byUid.has(e.uid));
+      events.set(cal.id, [...rest, ...[...byUid.values()].flat()]);
+      saveEvents(cal.id);
+      changed('calendar');
+    } else for (const [uid, list] of byUid) await writeFamily(cal, uid, list);
+    return { calendar: cal.id, created, uids: [...byUid.keys()] };
+  },
+  async removeEvents(calendar, uids, dropCalendar) {
+    await load();
+    const cal = calOf(calendar);
+    if (!cal) return;
+    if (dropCalendar && cal.account === LOCAL) {
+      events.delete(cal.id);
+      void fsp.rm(files.events(cal.id), { force: true });
+      state.calendars = state.calendars.filter((c) => c.id !== cal.id);
+      saveState();
+      changed('calendar');
+      return;
+    }
+    if (cal.account === LOCAL) {
+      const gone = new Set(uids);
+      events.set(cal.id, (events.get(cal.id) ?? []).filter((e) => !gone.has(e.uid)));
+      saveEvents(cal.id);
+      changed('calendar');
+    } else for (const uid of uids) await writeFamily(cal, uid, [], true);
+  },
+  reminders: () => state.reminders,
+  async addReminders(list) {
+    await load();
+    state.reminders = [...state.reminders, ...list];
+    saveState();
+    changed('reminders');
+  },
+  async removeReminders(ids) {
+    await load();
+    const gone = new Set(ids);
+    state.reminders = state.reminders.filter((r) => !gone.has(r.id));
+    saveState();
+    changed('reminders');
+  },
+  contacts: () => contacts,
+  async addContacts(list) {
+    await load();
+    contacts = [...contacts, ...list];
+    void writeJson(files.contacts(), contacts);
+    changed('contacts');
+  },
+  async removeContacts(ids) {
+    await load();
+    const gone = new Set(ids);
+    contacts = contacts.filter((c) => !gone.has(c.id));
+    void writeJson(files.contacts(), contacts);
+    changed('contacts');
+  },
+  async signInToken(provider, scopes) {
+    await load();
+    const client = clientFor(provider, state.prefs.clients);
+    if (!client) throw new Error(`This copy of Keeper has no ${provider === 'google' ? 'Google' : 'Microsoft'} sign-in set up. Export a file from the app instead, or add a client ID in Settings → Mail & Calendar.`);
+    // Used for this import only: the token is never written anywhere.
+    return (await signIn(provider, client, undefined, undefined, scopes)).access;
+  },
+  mailbox: (account) => {
+    const a = acct(account);
+    return a ? mailbox(a) : undefined;
+  },
+  folders: async (account) => {
+    const a = acct(account);
+    return a ? mailbox(a).cachedFolders() : [];
+  },
+};
+
+const PICK_TITLES: Record<string, string> = { mbox: 'Choose mailbox files', eml: 'Choose a folder of messages', olm: 'Choose an Outlook archive', ics: 'Choose a calendar file', 'tasks-csv': 'Choose a task list', 'tasks-ics': 'Choose a task file', todoist: 'Choose a Todoist file', vcf: 'Choose contact cards', 'contacts-csv': 'Choose a contacts file' };
+
 export const pim: PimApi = {
   async accounts() {
     await load();
@@ -1864,6 +1990,7 @@ export const pim: PimApi = {
     await dropSecret(`oauth.${id}.mail`);
     await dropSecret(`oauth.${id}.graph`);
     await fsp.rm(path.dirname(files.folders(id)), { recursive: true, force: true });
+    await fsp.rm(path.join(path.dirname(files.state()), 'local-mail', hash(id)), { recursive: true, force: true });
     await saveAccounts(accounts);
     saveState();
     changed('accounts');
@@ -1885,7 +2012,12 @@ export const pim: PimApi = {
     const now = Date.now();
     let list: MessageSummary[] = [];
     const smart = v.folder.startsWith('smart:') ? (state.prefs.smartMailboxes ?? []).find((x) => x.id === v.folder.slice(6)) : undefined;
-    if (v.folder === 'unified' || v.folder === 'toreply') list = await cachedOf('inbox', v.account);
+    const combined = v.folder.startsWith('view:') ? (state.prefs.unifiedViews ?? []).find((x) => x.id === v.folder.slice(5)) : undefined;
+    if (combined) {
+      const all: MailFolder[] = [];
+      for (const a of accounts.filter((x) => x.mail)) all.push(...(await mailbox(a).cachedFolders()));
+      list = mergeFolders(await Promise.all(resolveSources(combined, all).filter((s) => !v.account || s.account === v.account).map((s) => cachedMessages(s.account, s.folder))));
+    } else if (v.folder === 'unified' || v.folder === 'toreply') list = await cachedOf('inbox', v.account);
     else if (v.folder === 'unified:sent') list = await cachedOf('sent', v.account);
     else if (v.folder === 'snoozed') list = (await cachedEverywhere(v.account)).filter((m) => isSnoozed(m, now));
     else if (v.folder === 'search') list = await cachedEverywhere(v.account, true);
@@ -1896,7 +2028,7 @@ export const pim: PimApi = {
     const ctx = await triageCtx();
     list = list.map((m) => withTriage(m, ctx));
     // An inbox splits into Important and Other (security alerts are always Important); Other in two tabs.
-    const inbox = v.folder === 'unified' || v.folder.toUpperCase() === 'INBOX';
+    const inbox = v.folder === 'unified' || v.folder.toUpperCase() === 'INBOX' || (!!combined && inboxOnly(combined));
     if (inbox) {
       // Blocked senders and muted conversations never show in an inbox.
       const blocked = state.prefs.blockedSenders ?? [];
@@ -2410,6 +2542,49 @@ export const pim: PimApi = {
     changed('contacts');
   },
 
+  importSources: async (area) => sourcesFor(area, process.platform),
+  foundSources: () => foundSources(),
+  async pickImport(source) {
+    const info = sourcesFor('mail', process.platform).concat(sourcesFor('calendar', process.platform), sourcesFor('reminders', process.platform), sourcesFor('contacts', process.platform)).find((s) => s.id === source);
+    if (!info) return [];
+    const folder = info.pick === 'folder';
+    const exts = (info.extensions ?? []).filter(Boolean);
+    const r = await openDialog({
+      title: PICK_TITLES[source] ?? 'Choose',
+      // .mbox exports from a Mac are folders; files without an extension are mboxes too.
+      properties: folder ? ['openDirectory', 'multiSelections'] : source === 'mbox' ? ['openFile', 'openDirectory', 'multiSelections'] : ['openFile', 'multiSelections'],
+      filters: folder || source === 'mbox' ? undefined : [{ name: info.label, extensions: exts }],
+    }, { canceled: true, filePaths: [] });
+    return r.canceled ? [] : r.filePaths;
+  },
+  runImport: (req) => runImport(req, importHost),
+  async cancelImport(id) { cancelImport(id); },
+  undoImport: (id) => undoImport(id, importHost),
+  importHistory: () => importHistory(),
+  async exportMail(account, folder, format) {
+    await load();
+    const a = acct(account);
+    if (!a) return null;
+    const single = !!folder && format === 'mbox';
+    const name = `${(folder === 'INBOX' ? 'Inbox' : folder?.split('/').pop()) ?? a.label}`.replace(/[\\/:*?"<>|]+/g, ' ');
+    const r = single
+      ? await saveDialog({ defaultPath: path.join(app.getPath('downloads'), `${name}.mbox`), filters: [{ name: 'Mailbox', extensions: ['mbox'] }] }, { canceled: true, filePath: '' })
+      : await openDialog({ title: 'Choose where to save the mail', properties: ['openDirectory', 'createDirectory'] }, { canceled: true, filePaths: [] }).then((x) => ({ canceled: x.canceled, filePath: x.filePaths[0] ? path.join(x.filePaths[0], name) : '' }));
+    if (r.canceled || !r.filePath) return null;
+    return exportMail(account, folder, format, r.filePath, importHost);
+  },
+  async exportTasks(format) {
+    await load();
+    const r = await saveDialog({ defaultPath: path.join(app.getPath('downloads'), `Tasks.${format}`), filters: [{ name: format === 'csv' ? 'Spreadsheet' : 'Calendar', extensions: [format] }] }, { canceled: true, filePath: '' });
+    if (r.canceled || !r.filePath) return null;
+    return exportTasks(state.reminders, format, r.filePath);
+  },
+  async exportContacts(format) {
+    await load();
+    const r = await saveDialog({ defaultPath: path.join(app.getPath('downloads'), `Contacts.${format}`), filters: [{ name: format === 'vcf' ? 'Contact cards' : 'Spreadsheet', extensions: [format] }] }, { canceled: true, filePath: '' });
+    if (r.canceled || !r.filePath) return null;
+    return exportContacts(contacts, format, r.filePath);
+  },
   search: (query, opts) => searchMail(query, opts),
   async unreadCounts() {
     await load();
@@ -2530,7 +2705,7 @@ export const pim: PimApi = {
     saveState();
     if (p.undoSendSec !== undefined) armOutbox();
     if (p.dockBadge !== undefined || p.blockedSenders !== undefined || p.splitInbox !== undefined) void updateBadge();
-    if (p.smartMailboxes !== undefined || p.blockedSenders !== undefined) changed('mail');
+    if (p.smartMailboxes !== undefined || p.unifiedViews !== undefined || p.blockedSenders !== undefined) changed('mail');
     if (p.aiMemory !== undefined) state.prefs.aiMemory = cleanMemory(p.aiMemory);
     return state.prefs as PimPrefsView;
   },
