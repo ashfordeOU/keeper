@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The Mail & Calendar part of the sidebar, with the unread count and the
-// number of reminders due today. Hidden when all four parts are switched off.
+// number of tasks due today (Tasks: the Planner and Reminders as one page). Hidden when all four parts are switched off.
 
 import { useCallback, useEffect, useState } from 'react';
 import type { Route } from '../state';
@@ -10,7 +10,7 @@ import { useHiddenRoutes } from '../features';
 import { usePimChanges } from './Mail';
 import { dayKey, todayTasks } from '../../core/pim/tasks';
 
-type NavItemType = (p: { route: Route; icon?: string; label: string; count?: number | string }) => React.ReactElement | null;
+type NavItemType = (p: { route: Route; also?: string[]; icon?: string; label: string; count?: number | string }) => React.ReactElement | null;
 
 export function PimSidebar({ Item }: { Item: NavItemType }) {
   const hidden = useHiddenRoutes();
@@ -27,8 +27,8 @@ export function PimSidebar({ Item }: { Item: NavItemType }) {
     <NavSection id="pim" title="Mail & Calendar">
       <Item route={{ name: 'mail' }} icon="mail" label="Mail" count={unread || undefined} />
       <Item route={{ name: 'calendar' }} icon="calendar" label="Calendar" />
-      <Item route={{ name: 'reminders' }} icon="listCheck" label="Reminders" count={due || undefined} />
-      <Item route={{ name: 'planner' }} icon="columns" label="Planner" />
+      {/* One home for things to do: the Planner's days and the Reminders lists are Tasks' two tabs. */}
+      <Item route={{ name: 'planner' }} also={['reminders']} icon="listCheck" label="Tasks" count={due || undefined} />
       <Item route={{ name: 'alarms' }} icon="alarm" label="Clock" />
     </NavSection>
   );

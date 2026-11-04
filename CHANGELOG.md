@@ -4,6 +4,10 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 
 ## [Unreleased]
 
+### Changed — Tasks: one home for things to do
+- Reminders and the Planner are one **Tasks** page in Mail & Calendar, with the tasks due today counted beside it. **Plan** holds the days (Today, Week, Inbox, Upcoming, Overdue, projects) and **Lists** holds your reminder lists, Important and each account's lists. The view you are on is named under the title.
+- Old links, page windows and the Keeper Planner and Keeper Reminders app icons still open the right tab.
+
 ### Changed — Voice: Dictation, Meetings and Snippets on one page
 - One **Voice** page in the AI section with three tabs: Dictation, Meetings and Snippets. They share one engine and one list of snippets you type or say, so they now live together. Old links and page windows still open the right tab.
 - Typed Snippets is now simply **Snippets**, and lists the clipboard picker's sets under your snippets, each with Paste one by one and Open.

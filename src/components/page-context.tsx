@@ -15,6 +15,9 @@ export interface HubFrame {
 export const HubContext = createContext<HubFrame | null>(null);
 export const EmbeddedContext = createContext(false);
 
+/** The merged page this page is a tab of (its title shows instead of the page's own), if any. */
+export const useHubTitle = (): string | undefined => useContext(HubContext)?.title;
+
 export interface HintsFrame {
   /** the hints for the page on screen */
   render(): ReactNode;

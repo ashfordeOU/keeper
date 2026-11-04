@@ -61,7 +61,11 @@ const msg = (subject, i, extra = []) => [
     await main.screenshot({ path: path.join(SHOTS, `${name}-${mode}.png`) });
     if (NAMED) fs.copyFileSync(path.join(SHOTS, `${name}-${mode}.png`), path.join(NAMED, `pimall-${name}-${mode}.png`));
   };
-  const go = async (title) => { await main.click(`.sidebar [title="${title}"]`); await wait(900); };
+  const go = async (title) => {
+    // Reminders is the Lists tab of Tasks (the Planner's days are its other tab).
+    if (title === 'Reminders') { await main.click('.sidebar [title="Tasks"]'); await wait(600); if (await main.locator('[data-testid="hub-tab-reminders"]').count()) await main.click('[data-testid="hub-tab-reminders"]'); await wait(600); return; }
+    await main.click(`.sidebar [title="${title}"]`); await wait(900);
+  };
 
   // ---------------------------------------------------------------- first screens, light and dark
   for (const mode of ['light', 'dark']) {

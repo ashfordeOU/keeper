@@ -138,6 +138,14 @@ describe('merged pages (cuts and merges)', () => {
     expect(navSections().find((g) => g.id === 'ai')!.pages.map((p) => p.label)).toContain('Voice');
     expect(navSections().find((g) => g.id === 'desktop')!.pages.map((p) => p.label)).not.toContain('Snippets');
   });
+  it('Tasks holds the Planner (Plan) and Reminders (Lists)', () => {
+    expect(HUB_TABS.tasks.map((t) => `${t.route.name}:${t.label}`)).toEqual(['planner:Plan', 'reminders:Lists']);
+    expect(hubOf({ name: 'reminders' })?.hub).toBe('tasks');
+    expect(hubOf({ name: 'planner', arg: 'week' })?.hub).toBe('tasks');
+    expect(navPage('planner')?.id).toBe('tasks');
+    expect(navPage('reminders')?.route).toEqual({ name: 'reminders' });
+    expect(listedPages().map((p) => p.label)).not.toContain('Planner');
+  });
   it('old page ids still open their page (windows, app icons, keeper://open links)', () => {
     expect(navPage('capture')?.id).toBe('screen');
     expect(navPage('studio')?.route).toEqual({ name: 'studio' });

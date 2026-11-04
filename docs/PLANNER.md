@@ -1,7 +1,11 @@
 # Planner
 
-Keeper has one task list. The Reminders page, the Planner page and the
-Island's Tasks, Week and Insights tabs all show the same tasks. A task is a
+Keeper has one task list, and one **Tasks** page for it in Mail & Calendar,
+with two tabs: **Plan** (the days: Today, Week, Inbox, Upcoming, Overdue and
+projects) and **Lists** (all reminders, Important, and each account's lists).
+They used to be the Planner and Reminders pages; their routes, page windows
+and the Keeper Planner and Keeper Reminders app icons still open their tab.
+The Island's Tasks, Week and Insights tabs show the same tasks. A task is a
 `Reminder` (`core/pim/types.ts`). Local tasks live on this computer, and
 tasks in a calendar account's task list sync as VTODO over CalDAV.
 
@@ -67,7 +71,7 @@ The composer (`TaskComposer`, `src/pim/tasks-ui.tsx`) shows what the words set a
 
 - The Island's **Tasks** tab, or from anywhere with **New task** (<kbd>Ctrl Alt N</kbd>, <kbd>⌘⌥N</kbd> on a Mac). The shortcut opens Tasks with the field focused. Change it in Settings → Island → Shortcuts.
 - The **Week** tab and the Planner's Week, with *+ Add* under any day.
-- The **Planner** and **Reminders** pages.
+- The **Tasks** page's Plan and Lists tabs.
 - **Island Notes**: <kbd>⌘/Ctrl Enter</kbd> turns the line under the cursor into a task for today, and the line leaves the note.
 - AI agents and MCP clients (below), and the command palette (*New Task…*).
 

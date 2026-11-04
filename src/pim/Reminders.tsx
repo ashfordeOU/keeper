@@ -8,6 +8,7 @@ import type { CalendarInfo, Reminder } from '../../core/pim/types';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
 import { ContextMenu, PageHead, type MenuItem } from '../components/ui';
+import { useHubTitle } from '../components/page-context';
 import { ImportDialog } from './ImportDialog';
 import { RemindersWelcome } from './PimWelcome';
 import { useStore } from '../state';
@@ -20,6 +21,7 @@ const clean = (e: unknown) => (e instanceof Error ? e.message : String(e)).repla
 
 export function Reminders() {
   const { toast } = useStore();
+  const hub = useHubTitle();
   const [items, setItems] = useState<Reminder[]>([]);
   const [lists, setLists] = useState<CalendarInfo[]>([]);
   const [list, setList] = useState<string>('all');
@@ -54,6 +56,7 @@ export function Reminders() {
     }
   };
 
+  const listTitle = list === 'all' ? 'All reminders' : list === 'today' ? 'Today' : list === 'flagged' ? 'Important' : listName(list);
   const overdue = (r: Reminder) => !r.done && r.due !== undefined && r.due < Date.now();
   const counts = { all: items.filter((r) => !r.done).length, today: todayIds.size, flagged: items.filter((r) => !r.done && (r.priority ?? 0) >= 3).length };
 
@@ -70,7 +73,7 @@ export function Reminders() {
         ))}
       </aside>
       <section className="rem-main">
-        <PageHead title={list === 'all' ? 'All reminders' : list === 'today' ? 'Today' : list === 'flagged' ? 'Important' : listName(list)} sub={`${shown.filter((r) => !r.done).length} to do`}>
+        <PageHead title={listTitle} sub={hub ? `${listTitle} · ${shown.filter((r) => !r.done).length} to do` : `${shown.filter((r) => !r.done).length} to do`}>
           <label className="row small" style={{ gap: 6 }}><input type="checkbox" checked={showDone} onChange={(e) => setShowDone(e.target.checked)} /> Show done</label>
           <button className="btn sm ghost" title="Import and export" aria-label="Import and export" data-testid="reminders-more" onClick={(e) => setMenu({ x: e.clientX - 200, y: e.clientY + 12, items: [
             { label: 'Import tasks…', icon: 'down', run: () => setImporting(true) },

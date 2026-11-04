@@ -9,6 +9,7 @@ import { addDays, inboxTasks, overdueTasks, sortTasks, taskDay, todayTasks, upco
 import { api } from '../api';
 import { Icon } from '../components/Icon';
 import { PageHead } from '../components/ui';
+import { useHubTitle } from '../components/page-context';
 import { useFeature } from '../features';
 import { useStore } from '../state';
 import { InsightsView, WeekBoard } from './planner-views';
@@ -21,6 +22,8 @@ export function Planner({ initial }: { initial?: string }) {
   const { tasks, loaded } = useTasks();
   const today = useToday();
   const insightsOn = useFeature('insights');
+  // A tab of Tasks: the page's title is Tasks, so the view's own name leads the line under it.
+  const hub = useHubTitle();
   const { toast } = useStore();
   const [view, setView] = useState<View>(initial && !initial.startsWith('task:') && initial !== 'new' ? (initial as View) : 'today');
   const [sel, setSel] = useState<string | null>(null);
@@ -109,7 +112,7 @@ export function Planner({ initial }: { initial?: string }) {
         {projects.map((p) => nav(`project:${p}`, `#${p}`, 'tag', tasks.filter((t) => t.project === p && !t.done).length))}
       </aside>
       <section className="rem-main tk-scope">
-        <PageHead title={title} sub={sub} />
+        <PageHead title={title} sub={hub ? <>{title}{sub ? <> · {sub}</> : null}</> : sub} />
         {loaded ? body : null}
       </section>
       {selected ? <aside className="planner-detail"><TaskDetail key={selected.id} task={selected} today={today} projects={projects} onClose={() => setSel(null)} /></aside> : null}

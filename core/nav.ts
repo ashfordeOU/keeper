@@ -75,6 +75,11 @@ export const HUB_TABS: Record<string, NavTab[]> = {
     { route: { name: 'meetings' }, label: 'Meetings', keywords: 'record transcribe meeting notes call minutes' },
     { route: { name: 'snippets' }, label: 'Snippets', keywords: 'typed said snippets text expansion abbreviation clipboard sets saved text' },
   ],
+  // Reminders and the Planner were two homes for the same tasks: one Tasks page, the days and the lists as its views.
+  tasks: [
+    { route: { name: 'planner' }, label: 'Plan', keywords: 'today week inbox upcoming overdue plan my day projects' },
+    { route: { name: 'reminders' }, label: 'Lists', keywords: 'reminders to-do lists important flagged accounts' },
+  ],
   devices: [
     { route: { name: 'devices' }, label: 'Paired', keywords: 'phone computer pair link send files' },
     { route: { name: 'devices', arg: 'phone' }, label: 'Phone', keywords: 'android iphone mirror' },
@@ -160,9 +165,9 @@ export const NAV_PAGES: NavPage[] = [
   // Mail & Calendar's own section lists these (src/pim/PimSidebar.tsx); the palette names them the same.
   { id: 'mail', route: { name: 'mail' }, label: 'Mail', icon: 'mail', group: 'none', keywords: 'inbox email' },
   { id: 'calendar', route: { name: 'calendar' }, label: 'Calendar', icon: 'calendar', group: 'none', keywords: 'events schedule agenda' },
-  { id: 'reminders', route: { name: 'reminders' }, label: 'Reminders', icon: 'listCheck', group: 'none', keywords: 'todo tasks to-do lists' },
+  { id: 'tasks', route: { name: 'planner' }, label: 'Tasks', icon: 'listCheck', group: 'none', also: ['reminders'], keywords: 'tasks todo to-do reminders planner today week inbox plan overdue upcoming lists' },
+  { id: 'reminders', route: { name: 'reminders' }, label: 'Reminders', icon: 'listCheck', group: 'none', inHub: 'tasks', keywords: 'todo tasks to-do lists' },
   { id: 'inbox', route: { name: 'inbox' }, label: 'Inbox', icon: 'inbox', group: 'none', keywords: 'capture catch quick thought idea jot sort later triage' },
-  { id: 'planner', route: { name: 'planner' }, label: 'Planner', icon: 'columns', group: 'none', keywords: 'today week inbox plan tasks overdue upcoming' },
   { id: 'alarms', route: { name: 'alarms' }, label: 'Clock', icon: 'alarm', group: 'none', keywords: 'alarms timers stopwatch world clocks' },
 
   { id: 'settings', route: { name: 'settings' }, label: 'Settings', i18n: 'nav.settings', icon: 'settings', group: 'none', keywords: 'preferences options' },
@@ -171,7 +176,7 @@ export const NAV_PAGES: NavPage[] = [
 const byId = new Map(NAV_PAGES.map((p) => [p.id, p]));
 
 /** Old page ids that are now a merged page's first tab: links, windows and app icons that name them still work. */
-export const PAGE_ALIASES: Record<string, string> = { capture: 'screen', dictation: 'voice' };
+export const PAGE_ALIASES: Record<string, string> = { capture: 'screen', dictation: 'voice', planner: 'tasks' };
 
 export const navPage = (id: string) => byId.get(id) ?? byId.get(PAGE_ALIASES[id] ?? '');
 
