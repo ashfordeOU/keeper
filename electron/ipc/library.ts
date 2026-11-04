@@ -17,6 +17,7 @@ import { largeFiles } from '../../core/cleanup/files';
 import type { AllSettings } from '../../core/settings';
 import type { FileEntry, FileKind } from '../../core/types';
 import type { FileService } from '../services/files';
+import { onThisDayFiles } from '../../core/today';
 
 export interface LibraryIpcDeps {
   index: () => FileIndex;
@@ -122,6 +123,8 @@ export function registerLibraryIpc(d: LibraryIpcDeps) {
     return out;
   });
   handle('library.largeFiles', (minMb: number) => largeFiles(index().all(), minMb).map(lite));
+  // Today's On this day card: pictures made on this day in earlier years (core/today.ts).
+  handle('library.onThisDay', (n?: number) => onThisDayFiles(index().all().filter((f) => f.kind === 'image'), Date.now(), Math.max(1, Math.min(12, Number(n) || 6))).map(lite));
 
   handle('files.browse', (dir: string, hidden?: boolean) => files().browse(dir, hidden));
   handle('files.thumbnail', (p: string, size: number) => files().thumbnail(p, size));

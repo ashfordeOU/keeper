@@ -10,7 +10,7 @@
 import type { AgendaItem } from './pim/agenda';
 import { compareTasks, todayTasks, type Task } from './pim/tasks';
 
-export type TodayCardId = 'now' | 'tasks' | 'reply' | 'inbox' | 'fixit' | 'focus';
+export type TodayCardId = 'now' | 'tasks' | 'reply' | 'inbox' | 'fixit' | 'focus' | 'followup' | 'backup' | 'recap' | 'onthisday';
 
 export interface TodayCardDef {
   id: TodayCardId;
@@ -18,6 +18,8 @@ export interface TodayCardDef {
   description: string;
   /** shown only while this part is on */
   feature: string;
+  /** shown only while it has something to say; otherwise it takes no room */
+  quiet?: boolean;
 }
 
 export const TODAY_CARDS: TodayCardDef[] = [
@@ -27,15 +29,22 @@ export const TODAY_CARDS: TodayCardDef[] = [
   { id: 'inbox', name: 'Inbox to sort', description: 'Things you caught with the Inbox shortcut.', feature: 'captureInbox' },
   { id: 'fixit', name: 'One thing to fix', description: 'The most useful item from the Fix-it List.', feature: 'guide' },
   { id: 'focus', name: 'Focus', description: 'Start a focus session on your top task.', feature: 'focus' },
+  { id: 'followup', name: 'Follow-ups', description: 'Mail you sent that still waits for an answer, past your follow-up days.', feature: 'mail', quiet: true },
+  { id: 'backup', name: 'Backups', description: 'Shown when a backup is late or went wrong, with Fix.', feature: 'sync', quiet: true },
+  { id: 'recap', name: 'Your week', description: 'Tasks done, focus time and your streak this week.', feature: 'insights' },
+  { id: 'onthisday', name: 'On this day', description: 'Photos and journal entries from this day in earlier years.', feature: 'library', quiet: true },
 ];
+
+/** Cards that only show when they have something to say (a late backup, a follow-up due, a photo from last year). */
+export const QUIET_CARDS = TODAY_CARDS.filter((c) => c.quiet).map((c) => c.id);
 
 /** How much Today shows: a calm three, the usual five, or all six. */
 export type TodaySize = 'simple' | 'standard' | 'full';
 
 export const TODAY_SIZES: Record<TodaySize, TodayCardId[]> = {
   simple: ['now', 'tasks', 'focus'],
-  standard: ['now', 'tasks', 'reply', 'inbox', 'fixit'],
-  full: ['now', 'tasks', 'reply', 'inbox', 'fixit', 'focus'],
+  standard: ['now', 'tasks', 'reply', 'inbox', 'fixit', 'followup', 'backup'],
+  full: ['now', 'tasks', 'reply', 'inbox', 'fixit', 'focus', 'followup', 'backup', 'recap', 'onthisday'],
 };
 
 /** The calmer presets get the simple set; Everything gets every card. */
@@ -89,6 +98,11 @@ export function normalizeToday(raw: unknown): TodaySettings {
 export function todayCards(s: Pick<TodaySettings, 'cards'>, preset: string | undefined, on: (feature: string) => boolean): TodayCardId[] {
   const list = s.cards ?? TODAY_SIZES[sizeForPreset(preset)];
   return list.filter((id) => on(TODAY_CARDS.find((c) => c.id === id)!.feature));
+}
+
+/** The cards to draw now: a quiet card only while it has something to say (`has`). */
+export function visibleCards(cards: TodayCardId[], has: Partial<Record<TodayCardId, boolean>>): TodayCardId[] {
+  return cards.filter((c) => !QUIET_CARDS.includes(c) || has[c] === true);
 }
 
 /** Shows or hides one card, keeping the others where they are (a hidden card comes back in its usual place). */
@@ -168,3 +182,65 @@ export const replyLine = (n: number) => (n === 1 ? '1 message waits for your rep
 export function todayKicker(now: number, locale?: string): string {
   return new Date(now).toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' });
 }
+
+// ---------------------------------------------------------------- the quieter cards
+
+/** A backup worth a word on Today: one that went wrong, or has not run for longer than it should. */
+export interface BackupNote { id: string; name: string; line: string; late: boolean }
+
+const DAY = 86_400_000;
+
+/** How long is too long without a backup: a day and a half for daily ones, nine days for weekly, else a week. */
+export function backupLateAfter(schedule: unknown): number {
+  const kind = typeof schedule === 'string' ? schedule : (schedule as { kind?: string } | undefined)?.kind;
+  if (kind === 'hourly') return DAY / 2;
+  if (kind === 'daily') return DAY * 1.5;
+  if (kind === 'weekly') return DAY * 9;
+  return DAY * 7;
+}
+
+/** "3 days ago", "yesterday", "today". */
+export function daysAgo(t: number, now: number): string {
+  const d = Math.floor((now - t) / DAY);
+  return d <= 0 ? 'today' : d === 1 ? 'yesterday' : `${d} days ago`;
+}
+
+/** The backup most worth a word: one that failed first, then the latest one; none when all are fine. */
+export function backupNote(jobs: { id: string; name: string; schedule: unknown; created: number; lastRun?: number; lastOk?: boolean; paused?: boolean; state?: string }[], now: number): BackupNote | undefined {
+  const notes = jobs.filter((j) => !j.paused && j.state !== 'running').flatMap((j): (BackupNote & { at: number; bad: number })[] => {
+    if (j.lastRun && j.lastOk === false) return [{ id: j.id, name: j.name, line: `Last backup went wrong ${daysAgo(j.lastRun, now)}`, late: true, at: j.lastRun, bad: 2 }];
+    const since = j.lastRun ?? j.created;
+    if (now - since > backupLateAfter(j.schedule)) return [{ id: j.id, name: j.name, line: j.lastRun ? `Last backup ${daysAgo(j.lastRun, now)}` : 'Not backed up yet', late: true, at: since, bad: 1 }];
+    return [];
+  });
+  const top = notes.sort((a, b) => b.bad - a.bad || a.at - b.at)[0];
+  return top ? { id: top.id, name: top.name, line: top.line, late: top.late } : undefined;
+}
+
+/** Files made on this day (month and day) in earlier years, newest year first: photos for On this day. */
+export function onThisDayFiles<F extends { btime: number; mtime: number; screenshot?: boolean }>(files: F[], now: number, n = 6): F[] {
+  const d = new Date(now);
+  const year = d.getFullYear();
+  const same = (t: number) => { const x = new Date(t); return x.getMonth() === d.getMonth() && x.getDate() === d.getDate() && x.getFullYear() < year; };
+  return files.filter((f) => !f.screenshot && same(f.btime || f.mtime)).sort((a, b) => (b.btime || b.mtime) - (a.btime || a.mtime)).slice(0, n);
+}
+
+/** "A year ago", "2 years ago". */
+export function yearsAgo(t: number, now: number): string {
+  const y = new Date(now).getFullYear() - new Date(t).getFullYear();
+  return y <= 1 ? 'A year ago' : `${y} years ago`;
+}
+
+/** The week in a line: "6 tasks done · 2 h 30 min focused · 4 days in a row". */
+export function recapLine(week: { tasks: number; focusMin: number }, streak: number): string {
+  const parts: string[] = [];
+  parts.push(week.tasks === 1 ? '1 task done' : `${week.tasks} tasks done`);
+  const h = Math.floor(week.focusMin / 60);
+  const m = Math.round(week.focusMin % 60);
+  parts.push(week.focusMin < 1 ? 'no focus time yet' : h ? `${h} h${m ? ` ${m} min` : ''} focused` : `${m} min focused`);
+  if (streak > 1) parts.push(`${streak} days in a row`);
+  return parts.join(' · ');
+}
+
+/** Follow-ups: "2 sent messages wait for an answer". */
+export const followUpLine = (n: number) => (n === 1 ? '1 message you sent waits for an answer' : `${n} messages you sent wait for an answer`);

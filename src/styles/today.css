@@ -134,3 +134,11 @@ html[data-view='inbox-card'] #root { height: 100vh; padding: 10px; box-sizing: b
 @media (prefers-reduced-motion: no-preference) {
   .td-card, .ib-item { transition: box-shadow .2s var(--ease); }
 }
+
+/* On this day: a row of small pictures from this day in earlier years */
+.td-otd { list-style: none; margin: 0; padding: 0; display: flex; gap: 8px; }
+.td-otd-pic { width: 64px; height: 64px; padding: 0; border: 0; border-radius: var(--r-md); overflow: hidden; background: var(--bg-sunk); color: var(--text-3); display: grid; place-items: center; cursor: default; }
+.td-otd-pic img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.td-otd-pic:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* The Now card's empty day: the designed empty state, small enough for a card */
+.td-card .empty.compact { padding: 6px 0 2px; }

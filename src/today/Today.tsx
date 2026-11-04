@@ -2,7 +2,8 @@
 // Today, at the top of Hello: the one place that answers "what now?". Cards
 // from one list (core/today.ts): Now and next (with Join, and the block you
 // planned), your top three tasks, mail waiting for your reply, the Inbox, one
-// Fix-it item and Focus. Plan my day is its one strong button. The pieces are
+// Fix-it item and Focus; quieter cards (follow-ups, a late backup, On this
+// day) only when they have something to say, and Your week. Plan my day is its one strong button. The pieces are
 // the ones the Planner, Mail and the Island use (tasks-ui, agenda, focus), so
 // a task ticked here is ticked everywhere. Nothing polls: lists follow the
 // app's change events, and the clock moves twice a minute.
@@ -16,7 +17,9 @@ import { agendaFor, type AgendaItem } from '../../core/pim/agenda';
 import { inMailToday } from '../../core/pim/mail-today';
 import { dayKey, isOverdue, type Task } from '../../core/pim/tasks';
 import type { CalendarInfo, Occurrence } from '../../core/pim/types';
-import { cardSpan, nowNext, replyLine, startsIn, timeLeft, todayCards, todayKicker, topTasks, type TodayCardId } from '../../core/today';
+import { backupNote, cardSpan, followUpLine, nowNext, recapLine, replyLine, startsIn, timeLeft, todayCards, todayKicker, topTasks, visibleCards, yearsAgo, type BackupNote, type TodayCardId } from '../../core/today';
+import type { Insights } from '../../core/pim/insights';
+import type { FileEntry } from '../../core/types';
 import { formatBytes } from '../../core/format';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
@@ -109,6 +112,50 @@ export function useInboxCount(on: boolean): number | null {
   return n;
 }
 
+/** Sent mail past its follow-up days, still without an answer (Mail's Waiting list). */
+function useFollowUps(on: boolean): number | null {
+  const [n, setN] = useState<number | null>(null);
+  const load = useCallback(() => {
+    if (!on || !api.pim?.waiting) return;
+    void api.pim.waiting().then((w) => setN(w.filter((x) => x.overdue).length), () => setN(0));
+  }, [on]);
+  useEffect(load, [load]);
+  useEffect(() => (on ? api.on('pim-changed', ((k: string) => { if (k === 'mail') load(); }) as never) : undefined), [on, load]);
+  return n;
+}
+
+/** The backup most worth a word: late or gone wrong (nothing when all are fine). */
+function useBackupNote(on: boolean, now: number): BackupNote | undefined {
+  const [jobs, setJobs] = useState<Parameters<typeof backupNote>[0]>([]);
+  useEffect(() => {
+    if (!on || !api.sync?.overview) return;
+    void api.sync.overview().then((o) => setJobs(o.backups), () => setJobs([]));
+  }, [on]);
+  return useMemo(() => backupNote(jobs, now), [jobs, now]);
+}
+
+/** Tasks done and focus time this week (once the Insights part's own view). */
+function useInsights(on: boolean): Insights | null {
+  const [i, setI] = useState<Insights | null>(null);
+  useEffect(() => {
+    if (!on || !api.pim?.insights) return;
+    void api.pim.insights().then(setI, () => setI(null));
+  }, [on]);
+  return i;
+}
+
+/** Pictures from this day in earlier years. */
+function useOnThisDay(on: boolean, day: string): { file: FileEntry; thumb: string | null }[] {
+  const [list, setList] = useState<{ file: FileEntry; thumb: string | null }[]>([]);
+  useEffect(() => {
+    if (!on || !api.library?.onThisDay) return;
+    let live = true;
+    void api.library.onThisDay(4).then((files) => Promise.all(files.map(async (f) => ({ file: f, thumb: await api.files.thumbnail(f.path, 160).catch(() => null) })))).then((x) => { if (live) setList(x); }, () => undefined);
+    return () => { live = false; };
+  }, [on, day]);
+  return list;
+}
+
 // ---------------------------------------------------------------- the cards
 
 const SpanContext = createContext<TodayCardId[]>([]);
@@ -140,8 +187,10 @@ function NowCard({ items, blocks, tasks, now }: { items: AgendaItem[]; blocks: P
           </button>
           {head.join ? <button className="btn sm td-join" data-testid="today-join" title={head.provider ? `Join on ${head.provider}` : 'Join the meeting'} aria-label={`Join ${head.title}`} onClick={() => join(head.join!)}><Icon name="video" size={12} /> Join</button> : null}
         </div>
+      ) : items.length ? (
+        <p className="td-quiet">Nothing else on the calendar today.</p>
       ) : (
-        <p className="td-quiet">{items.length ? 'Nothing else on the calendar today.' : 'Nothing on the calendar today.'}</p>
+        <Empty compact icon="calendar" title="A clear day" action={<button className="btn sm" data-testid="today-add-event" onClick={() => go({ name: 'calendar', arg: 'new' })}><Icon name="plus" size={12} /> Add an event</button>}>Nothing on the calendar today: room for your top three.</Empty>
       )}
       {nn.now && nn.next ? <button className="td-then ellipsis" onClick={() => void api.pim?.openEvent(nn.next!.eventId, nn.next!.instance)}>Then {nn.next.title} at {clock(nn.next.start)}</button> : null}
       {block ? (
@@ -250,6 +299,60 @@ function FocusCard({ task, running }: { task?: Task; running?: Running }) {
   );
 }
 
+function FollowUpCard({ n }: { n: number }) {
+  const { go } = useStore();
+  return (
+    <Card id="followup" kicker="Follow-ups">
+      <button className="td-stat" onClick={() => go({ name: 'mail', arg: 'waiting' })} aria-label={`${followUpLine(n)}. Open Waiting`}>
+        <span className="td-num">{n}</span>
+        <span className="td-sub">{followUpLine(n)}</span>
+      </button>
+      <div className="td-card-foot"><button className="home-link quiet" onClick={() => go({ name: 'mail', arg: 'waiting' })}>Open Waiting <Icon name="chevronRight" size={11} /></button></div>
+    </Card>
+  );
+}
+
+function BackupCard({ note }: { note: BackupNote }) {
+  const { go } = useStore();
+  return (
+    <Card id="backup" kicker="Backups">
+      <button className="td-fix ellipsis" title={`${note.name}: ${note.line}`} onClick={() => go({ name: 'sync', arg: 'backups' })}><Icon name="shield" size={13} /> {note.line}</button>
+      <div className="td-card-foot">
+        <button className="btn sm" data-testid="today-backup-fix" onClick={() => go({ name: 'sync', arg: 'backups' })}>Fix</button>
+        <span className="td-sub ellipsis">{note.name}</span>
+      </div>
+    </Card>
+  );
+}
+
+function RecapCard({ i }: { i: Insights | null }) {
+  const { go } = useStore();
+  return (
+    <Card id="recap" kicker="Your week">
+      {i ? <p className="td-big-line" data-testid="today-recap">{recapLine(i.week, i.streak)}</p> : <p className="td-quiet">Your week shows here as you tick tasks and focus.</p>}
+      <div className="td-card-foot"><button className="home-link quiet" onClick={() => go({ name: 'planner', arg: 'insights' })}>More <Icon name="chevronRight" size={11} /></button></div>
+    </Card>
+  );
+}
+
+function OnThisDayCard({ list }: { list: { file: FileEntry; thumb: string | null }[] }) {
+  const now = useNow();
+  return (
+    <Card id="onthisday" kicker="On this day">
+      <ul className="td-otd" aria-label="Pictures from this day in earlier years">
+        {list.map(({ file, thumb }) => (
+          <li key={file.path}>
+            <button className="td-otd-pic" title={`${file.name} · ${yearsAgo(file.btime || file.mtime, now)}`} aria-label={`${file.name}, ${yearsAgo(file.btime || file.mtime, now)}`} onClick={() => void api.files.open(file.path)}>
+              {thumb ? <img src={thumb} alt="" /> : <Icon name="image" size={18} />}
+            </button>
+          </li>
+        ))}
+      </ul>
+      <div className="td-card-foot"><span className="td-sub">{list[0] ? yearsAgo(list[0].file.btime || list[0].file.mtime, now) : ''}</span></div>
+    </Card>
+  );
+}
+
 // ---------------------------------------------------------------- Today
 
 export function TodaySection({ onHide, onChooseCards }: { onHide: () => void; onChooseCards: () => void }) {
@@ -268,6 +371,12 @@ export function TodaySection({ onHide, onChooseCards }: { onHide: () => void; on
   const cards = t ? todayCards(t, preset, (f) => states?.get(f)?.on ?? true) : [];
   const reply = useReplyCount(cards.includes('reply'));
   const inbox = useInboxCount(cards.includes('inbox'));
+  const follow = useFollowUps(cards.includes('followup'));
+  const backup = useBackupNote(cards.includes('backup'), now);
+  const recap = useInsights(cards.includes('recap'));
+  const past = useOnThisDay(cards.includes('onthisday'), today);
+  // Quiet cards take room only while they have something to say.
+  const shown = visibleCards(cards, { followup: !!follow, backup: !!backup, onthisday: past.length > 0 });
   const [sheet, setSheet] = useState<'plan' | 'wrap' | null>(null);
   // Plan My Day and Wrap Up the Day from the command palette (Hello with plan or wrap).
   useEffect(() => {
@@ -309,6 +418,10 @@ export function TodaySection({ onHide, onChooseCards }: { onHide: () => void; on
     inbox: () => <StatCard key="inbox" id="inbox" kicker="Inbox" n={inbox} line={sortNudge(inbox ?? 0)} zero="Nothing to sort" action={{ label: inbox ? 'Sort now' : 'Open Inbox', run: () => go({ name: 'inbox' }) }} />,
     fixit: () => <FixitCard key="fixit" />,
     focus: () => <FocusCard key="focus" task={top} running={focusRun} />,
+    followup: () => <FollowUpCard key="followup" n={follow ?? 0} />,
+    backup: () => (backup ? <BackupCard key="backup" note={backup} /> : null),
+    recap: () => <RecapCard key="recap" i={recap} />,
+    onthisday: () => <OnThisDayCard key="onthisday" list={past} />,
   };
 
   return (
@@ -321,7 +434,7 @@ export function TodaySection({ onHide, onChooseCards }: { onHide: () => void; on
         {main ? <button className="btn primary" data-testid={main.id} onClick={main.run}>{main.label}</button> : null}
         <button ref={more} className="btn ghost icon" data-testid="today-more" title="More for Today" aria-label="More for Today" aria-haspopup="menu" onClick={() => { const r = more.current!.getBoundingClientRect(); setMenu({ x: r.right - 220, y: r.bottom + 4 }); }}><Icon name="more" size={15} /></button>
       </div>
-      {cards.length ? <SpanContext.Provider value={cards}><div className={`td-grid${cards.filter((c) => c !== 'now' && c !== 'tasks').length >= 4 ? ' many' : ''}`}>{cards.map((id) => draw[id]())}</div></SpanContext.Provider> : <p className="td-quiet">Choose what Today shows with More.</p>}
+      {shown.length ? <SpanContext.Provider value={shown}><div className={`td-grid${shown.filter((c) => c !== 'now' && c !== 'tasks').length >= 4 ? ' many' : ''}`}>{shown.map((id) => draw[id]())}</div></SpanContext.Provider> : <p className="td-quiet">Choose what Today shows with More.</p>}
       {others.length ? (
         <ul className="td-running" aria-label="Running now">
           {others.map((r) => <li key={r.id}><button className="td-run" onClick={() => go({ name: r.route as 'awake' })}><Icon name={r.icon} size={12} /> {r.label} <span className="td-sub">{r.detail}</span></button></li>)}

@@ -764,6 +764,8 @@ export interface KeeperApi extends KeeperApiX {
     inspect(path: string): Promise<FileEntry | null>;
     readText(paths: string[]): Promise<{ path: string; text: string }[]>;
     largeFiles(minMb: number): Promise<FileEntry[]>;
+    /** pictures made on this day in earlier years, newest year first (Today's On this day) */
+    onThisDay(n?: number): Promise<FileEntry[]>;
   };
   files: {
     browse(dir: string, showHidden?: boolean): Promise<BrowseEntry[]>;

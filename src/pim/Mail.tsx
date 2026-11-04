@@ -149,6 +149,8 @@ export function Mail() {
     // A contact from the search box: the mail from them.
     else if (route.arg?.startsWith('search:')) { setSide(null); setQuery(route.arg.slice(7)); }
     // Hello's Today: the mail waiting for your reply.
+    // Today's Follow-ups: the mail you sent that still waits for an answer.
+    else if (route.arg === 'waiting') { setSelected(null); setQuery(''); setSide('waiting'); }
     else if (route.arg === 'toreply') { setSide(null); setQuery(''); setView((v) => ({ ...v, folder: 'toreply', account: undefined, split: undefined, tab: undefined })); }
     else if (route.arg && route.arg.split(':').length > 2) { setSide(null); setQuery(''); setView((v) => ({ ...v, folder: 'unified', account: undefined, split: undefined, tab: 'all' })); setSelected(route.arg); }
   }, [route.arg]);

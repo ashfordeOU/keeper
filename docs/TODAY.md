@@ -35,10 +35,18 @@ owner part; a card whose part is off is not shown.
 | Inbox | How much is in the Inbox and how long sorting takes | Inbox |
 | One thing to fix | The most useful item from the Fix-it List, with its fix and Not now / Trust | Fix-it list |
 | Focus | 25 minutes on your top task, or the session going on with Stop | Focus timer |
+| Follow-ups (quiet) | How many messages you sent wait for an answer past your follow-up days (Settings → Mail), opening Mail's Waiting | Mail |
+| Backups (quiet) | A backup that went wrong, or is late for its schedule ("Last backup 3 days ago"), with **Fix** | Sync & Backup |
+| Your week | Tasks done, focus time and your streak this week, from what used to be the separate Insights | Insights |
+| On this day (quiet) | Up to four pictures made on this day in earlier years ("A year ago") | Library |
+
+A **quiet** card takes no room until it has something to say: a calm day shows no Backups or Follow-ups card at all. The usual set includes Follow-ups and Backups; **Your week** and **On this day** are in the full set and in Edit Home → Today's cards.
+
+With nothing on the calendar, **Now and next** shows a small designed empty state, *A clear day*, with **Add an event**.
 
 Which cards show follows the preset until you pick your own (Edit Home →
 Today's cards): **Light** and **Files only** get a calm three (Now, Top three,
-Focus); **Recommended** gets five (no Focus); **Everything** gets all six. When
+Focus); **Recommended** gets five (no Focus) plus the quiet Follow-ups and Backups; **Everything** gets every card. When
 the modes arrive they will choose a set the same way (`sizeForPreset`).
 
 Timers, Keep Awake and a recording show as small capsules under the cards

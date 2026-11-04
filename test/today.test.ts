@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { AgendaItem } from '../core/pim/agenda';
 import type { Task } from '../core/pim/tasks';
 import { defaultSettings, mergeSettings } from '../core/settings';
-import { cardSpan, defaultTodaySettings, mailStripCompact, normalizeToday, nowNext, replyLine, setCardShown, sizeForPreset, startsIn, TODAY_CARDS, TODAY_SIZES, timeLeft, todayCards, topTasks } from '../core/today';
+import { backupLateAfter, backupNote, cardSpan, daysAgo, defaultTodaySettings, followUpLine, mailStripCompact, normalizeToday, nowNext, onThisDayFiles, QUIET_CARDS, recapLine, replyLine, setCardShown, sizeForPreset, startsIn, TODAY_CARDS, TODAY_SIZES, timeLeft, todayCards, topTasks, visibleCards, yearsAgo } from '../core/today';
 
 const MIN = 60_000;
 const at = (h: number, m = 0) => new Date(2026, 10, 4, h, m).getTime();
@@ -11,19 +11,19 @@ const ev = (key: string, start: number, end: number, o: Partial<AgendaItem> = {}
 const task = (id: string, o: Partial<Task> = {}): Task => ({ id, list: 'local', title: id, done: false, ...o });
 
 describe('Today cards', () => {
-  it('follow the preset: a calm three, the usual five, or all six', () => {
+  it('follow the preset: a calm three, the usual five (plus quiet ones that show only when needed), or all', () => {
     expect(sizeForPreset('light')).toBe('simple');
     expect(sizeForPreset('files')).toBe('simple');
     expect(sizeForPreset('everything')).toBe('full');
     expect(sizeForPreset('recommended')).toBe('standard');
     expect(sizeForPreset(undefined)).toBe('standard');
     expect(TODAY_SIZES.simple).toHaveLength(3);
-    expect(TODAY_SIZES.standard).toHaveLength(5);
+    expect(visibleCards(TODAY_SIZES.standard, {})).toHaveLength(5);
     expect(TODAY_SIZES.full).toEqual(TODAY_CARDS.map((c) => c.id));
-    expect(todayCards({ cards: null }, 'everything', () => true)).toHaveLength(6);
+    expect(todayCards({ cards: null }, 'everything', () => true)).toHaveLength(TODAY_CARDS.length);
   });
   it('leave out cards whose part is off, and keep the person’s own choice', () => {
-    expect(todayCards({ cards: null }, 'recommended', (f) => f !== 'mail')).toEqual(['now', 'tasks', 'inbox', 'fixit']);
+    expect(visibleCards(todayCards({ cards: null }, 'recommended', (f) => f !== 'mail'), {})).toEqual(['now', 'tasks', 'inbox', 'fixit']);
     expect(todayCards({ cards: ['focus', 'now'] }, 'everything', () => true)).toEqual(['focus', 'now']);
   });
   it('show and hide one card, coming back in its usual place', () => {
@@ -33,11 +33,43 @@ describe('Today cards', () => {
   });
   it('share a 12-column row: three in one row, otherwise Now and tasks on top', () => {
     expect(cardSpan(['now', 'tasks', 'focus'], 'focus')).toBe(4);
-    const five = TODAY_SIZES.standard;
+    const five = visibleCards(TODAY_SIZES.standard, {});
     expect(cardSpan(five, 'now')).toBe(6);
     expect(cardSpan(five, 'reply')).toBe(4);
     expect(cardSpan(TODAY_SIZES.full, 'focus')).toBe(3);
     expect(cardSpan(['reply'], 'reply')).toBe(12);
+  });
+});
+
+describe('the quiet cards', () => {
+  const now = new Date(2026, 10, 4, 10).getTime();
+  const DAY = 86_400_000;
+  it('take no room until they have something to say', () => {
+    expect(QUIET_CARDS).toEqual(['followup', 'backup', 'onthisday']);
+    expect(visibleCards(['now', 'backup', 'followup', 'recap'], { backup: true })).toEqual(['now', 'backup', 'recap']);
+  });
+  it('a backup is worth a word when it went wrong or is late for its schedule', () => {
+    const job = (o: object) => ({ id: 'b', name: 'Photos', schedule: { kind: 'daily' }, created: now - 30 * DAY, ...o });
+    expect(backupNote([job({ lastRun: now - DAY / 2, lastOk: true })], now)).toBeUndefined();
+    expect(backupNote([job({ lastRun: now - 3 * DAY, lastOk: true })], now)).toMatchObject({ line: 'Last backup 3 days ago', late: true });
+    expect(backupNote([job({ lastRun: now - 3 * DAY, lastOk: true }), job({ id: 'c', name: 'Work', lastRun: now - DAY / 4, lastOk: false })], now)).toMatchObject({ id: 'c', line: 'Last backup went wrong today' });
+    expect(backupNote([job({ paused: true, lastRun: now - 30 * DAY })], now)).toBeUndefined();
+    expect(backupNote([job({ created: now - 3 * DAY })], now)?.line).toBe('Not backed up yet');
+    expect(backupLateAfter({ kind: 'weekly' })).toBe(9 * DAY);
+    expect(daysAgo(now - DAY - 1000, now)).toBe('yesterday');
+  });
+  it('On this day finds files from this day in earlier years, never screenshots, newest first', () => {
+    const f = (y: number, m: number, d: number, o: object = {}) => ({ btime: new Date(y, m, d, 12).getTime(), mtime: 0, ...o });
+    const out = onThisDayFiles([f(2025, 10, 4), f(2024, 10, 4), f(2026, 10, 4), f(2025, 10, 5), f(2023, 10, 4, { screenshot: true })], now);
+    expect(out.map((x) => new Date(x.btime).getFullYear())).toEqual([2025, 2024]);
+    expect(yearsAgo(out[1].btime, now)).toBe('2 years ago');
+    expect(yearsAgo(out[0].btime, now)).toBe('A year ago');
+  });
+  it('the week and follow-ups in plain words', () => {
+    expect(recapLine({ tasks: 6, focusMin: 150 }, 4)).toBe('6 tasks done · 2 h 30 min focused · 4 days in a row');
+    expect(recapLine({ tasks: 1, focusMin: 0 }, 1)).toBe('1 task done · no focus time yet');
+    expect(followUpLine(1)).toBe('1 message you sent waits for an answer');
+    expect(followUpLine(3)).toBe('3 messages you sent wait for an answer');
   });
 });
 

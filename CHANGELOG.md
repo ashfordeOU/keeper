@@ -4,6 +4,13 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 
 ## [Unreleased]
 
+### Added — Today: quieter cards that speak only when needed
+- **Follow-ups**: how many messages you sent still wait for an answer past your follow-up days, opening Mail's Waiting list.
+- **Backups**: shown only when a backup went wrong or is late for its schedule ("Last backup 3 days ago"), with Fix.
+- **Your week**: tasks done, focus time and your streak, where the separate Insights used to be.
+- **On this day**: a few pictures made on this day in earlier years.
+- A day with nothing on the calendar shows a small designed card, *A clear day*, with Add an event, instead of a bare line.
+
 ### Added — AI: where AI is used, in one table
 - Settings → AI → **Where AI is used** lists every part that uses your AI (Assistant, Ask in the Island, selected text, writing help, Mail, Meetings, Agents and search) with a switch for each part that is only AI and a Settings button for Mail and Meetings, so you can see at a glance which AI does what.
 

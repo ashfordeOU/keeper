@@ -81,6 +81,7 @@ import { createMockIsland } from './mock-island';
 import { mockAmbience } from './mock-ambience';
 import type { CleanupGroup, DuplicateGroup, FileEntry, FileKind, Rule, SpaceNode } from '../core/types';
 import { mockPreview } from './preview/mock';
+import { onThisDayFiles } from '../core/today';
 
 const HOME = '/Users/demo';
 const DAY = 86_400_000;
@@ -534,6 +535,7 @@ export function createMockApi(): KeeperApi {
       inspect: async (p) => byPath(p) ?? null,
       readText: async (paths) => paths.map((p) => ({ path: p, text: byPath(p)?.text ?? '' })),
       largeFiles: async (minMb) => files.filter((f) => f.size >= minMb * MB).sort((a, b) => b.size - a.size),
+      onThisDay: async (n) => onThisDayFiles(files.filter((f) => f.kind === 'image'), Date.now(), n ?? 6),
     },
     files: {
       browse: async (dir, showHidden) => lockX.adjust(dir, browse(dir), !!showHidden),
