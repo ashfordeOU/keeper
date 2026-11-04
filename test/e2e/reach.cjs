@@ -470,6 +470,20 @@ async function launch(extraEnv = {}, opts = {}) {
     await main.waitForSelector('.sidebar', { timeout: 30000 });
   }
 
+  // ---------------------------------------------------------------- the conformance report
+  if (want('conformance')) {
+    await navigate('settings');
+    await main.waitForSelector('[data-testid="settings-search"]', { timeout: 15000 });
+    await main.locator('[data-testid="settings-search"]').fill('wcag');
+    await main.locator('[data-testid="settings-result"]').first().click({ timeout: 10000 }).catch(() => undefined);
+    const row = await until(async () => (await main.locator('[data-testid="a11y-report"]').count()) > 0, 10000);
+    check(!!row, 'Settings → Accessibility links the conformance report');
+    const desc = await main.locator('text=How Keeper meets WCAG 2.2 AA').first().innerText().catch(() => '');
+    check(/\d+ supported, \d+ partly/.test(desc), `with its summary (${desc})`);
+    await main.locator('[data-testid="a11y-report"]').scrollIntoViewIfNeeded();
+    await both('auditplatform-conformance');
+  }
+
   check(errors.length === 0, `no page errors (${errors.slice(0, 2).join('; ')})`);
   await app.close();
   fontServer.close();

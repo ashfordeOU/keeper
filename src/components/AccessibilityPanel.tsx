@@ -2,6 +2,7 @@
 // Settings → Accessibility: motion, text size and focus outlines. Keyboard
 // shortcuts and what is supported are in docs/ACCESSIBILITY.md.
 
+import { tally } from '../../core/a11y-conformance';
 import { defaultA11y, TEXT_SCALES, type A11ySettings, type MotionPref } from '../../core/a11y';
 import { api } from '../api';
 import { Row } from '../screens/IslandSettings';
@@ -19,6 +20,8 @@ export function AccessibilityPanel() {
   if (!settings) return null;
   const a: A11ySettings = { ...defaultA11y(), ...settings.a11y };
   const set = (patch: Partial<A11ySettings>) => void updateSettings({ a11y: { ...a, ...patch } });
+  const t = tally();
+  const summary = `${t.Supports} supported, ${t['Partially supports']} partly`;
   return (
     <>
       <Row title="Reduce motion" desc="Calms animations everywhere: the Island’s changes of shape, toasts, page transitions and moving wallpapers. “Follow system” uses your computer’s own setting.">
@@ -40,6 +43,9 @@ export function AccessibilityPanel() {
       </Row>
       <Row title="Keyboard and screen readers" desc="Keeper also follows your system’s high-contrast and increased-contrast settings. Tab moves between controls, arrow keys move inside lists, menus and tabs, Esc closes. The guide lists every shortcut.">
         <button className="btn ghost" onClick={() => void api.system.openExternal('https://github.com/ashfordeOU/keeper/blob/main/docs/ACCESSIBILITY.md')}>Read the guide</button>
+      </Row>
+      <Row title="Accessibility standards" desc={`How Keeper meets WCAG 2.2 AA, criterion by criterion: ${summary}.`}>
+        <button className="btn ghost" data-testid="a11y-report" onClick={() => void api.system.openExternal('https://github.com/ashfordeOU/keeper/blob/main/docs/ACCESSIBILITY-CONFORMANCE.md')}>Read the report</button>
       </Row>
     </>
   );

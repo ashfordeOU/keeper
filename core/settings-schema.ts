@@ -278,7 +278,7 @@ export const SETTINGS: SettingDef[] = [
   { id: 'privacy.ai', section: 'privacy', label: 'What AI may see', level: 'basic', kind: 'link', to: { name: 'settings', arg: 'ai#brain' }, keywords: ['ai privacy'] },
 
   // ---------------------------------------------------------------- Accessibility
-  { id: 'a11y', section: 'accessibility', label: 'Motion, text size and focus', level: 'basic', kind: 'panel', panel: 'a11y', keywords: ['reduce motion', 'animations', 'zoom', 'bigger text', 'focus ring', 'outline'] },
+  { id: 'a11y', section: 'accessibility', label: 'Motion, text size and focus', level: 'basic', kind: 'panel', panel: 'a11y', keywords: ['reduce motion', 'animations', 'zoom', 'bigger text', 'focus ring', 'outline', 'wcag', 'conformance', 'acr', 'section 508', 'en 301 549', 'standards'] },
   { id: 'a11y.motion', path: 'a11y.motion', section: 'accessibility', label: 'Reduce motion', level: 'basic', kind: 'choice', inPanel: 'a11y', choices: [{ value: 'system', label: 'Automatic' }, { value: 'reduce', label: 'On' }, { value: 'full', label: 'Off' }], keywords: ['animations'] },
   { id: 'a11y.textScale', path: 'a11y.textScale', section: 'accessibility', label: 'Text size', level: 'basic', kind: 'number', inPanel: 'a11y', keywords: ['zoom', 'bigger text', 'font size'] },
   { id: 'reading', section: 'accessibility', group: 'Reading comfort', label: 'Reading and read aloud', help: 'Fonts made for reading, spacing, larger buttons and your computer’s voice.', level: 'basic', kind: 'panel', panel: 'reading', keywords: ['dyslexia', 'dyslexic', 'opendyslexic', 'atkinson', 'hyperlegible', 'line spacing', 'letter spacing', 'read aloud', 'text to speech', 'tts', 'reflow', 'wrap', '200%', 'big buttons', 'touch targets', 'low vision'] },
