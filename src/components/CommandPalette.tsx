@@ -232,6 +232,8 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     { id: 'wrap-up', label: 'Wrap Up the Day', group: 'Actions', icon: 'check', keywords: 'shutdown end of day evening tomorrow journal', run: async () => { store.go({ name: 'home', arg: 'wrap' }); } },
     { id: 'focus', label: 'Start a 25-Minute Focus', group: 'Actions', icon: 'timer', keywords: 'pomodoro timer', run: async () => { await api.island.focus('start', 25); store.toast('Focus started — see you in 25 minutes'); } },
     { id: 'focus-stop', label: 'Stop Focus Timer', group: 'Actions', icon: 'timer', run: async () => { await api.island.focus('stop'); } },
+    // Menu bar icons live behind Keeper's divider only on a Mac.
+    ...(store.info?.platform === 'darwin' ? [{ id: 'menubar-icons-show', label: 'Show Hidden Menu Bar Icons', group: 'Actions' as const, icon: 'eye', keywords: 'menu bar icons hidden status items divider notch', run: async () => { const s = await api.menuBar.peek(); if (!s.divider) store.toast(s.availability.line); } }] : []),
     // Snap windows: the window in front goes into place (Keeper's own, from its palette).
     { id: 'snap-left', label: 'Snap Window to the Left Half', group: 'Actions', icon: 'columns', keywords: 'tile window half side by side', run: async () => { const r = await api.snap.run('left'); if (!r.ok && r.message) store.toast(r.message); } },
     { id: 'snap-right', label: 'Snap Window to the Right Half', group: 'Actions', icon: 'columns', keywords: 'tile window half side by side', run: async () => { const r = await api.snap.run('right'); if (!r.ok && r.message) store.toast(r.message); } },

@@ -160,6 +160,8 @@ const api = {
   // Focus blocking: lists, schedules, passes and the block window over an app.
   // Folder boxes: a folder's files on the desktop, and tidying the desktop into boxes.
   boxes: group('boxes', ['status', 'list', 'open', 'reveal', 'planTidy', 'tidy']),
+  // Menu bar icons (Mac): other apps' icons behind Keeper's divider.
+  menuBar: group('menuBar', ['status', 'setHiding', 'peek', 'press', 'move', 'openSettings']),
   // Snap windows: halves, thirds, quarters and layouts per set of screens.
   snap: group('snap', ['status', 'run', 'saveLayout', 'restoreLayout', 'renameLayout', 'removeLayout', 'openPermission']),
   focusBlock: group('focusBlock', ['status', 'saveList', 'removeList', 'saveSchedule', 'removeSchedule', 'setFocusList', 'start', 'stop', 'pass', 'runningApps', 'blockedApp', 'closeApp', 'dismiss', 'testFront']),

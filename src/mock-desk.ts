@@ -3,6 +3,7 @@
 // layouts made from sample apps, kept in memory.
 
 import type { BoxesApi } from '../core/api-boxes';
+import type { MenuBarApi, MenuBarStatus } from '../core/api-menubar';
 import type { SnapApi, SnapStatus } from '../core/api-snap';
 import { boxItems, planTidy, type BoxEntry } from '../core/folder-boxes';
 import type { SnapLayout } from '../core/snap';
@@ -10,7 +11,16 @@ import type { SnapLayout } from '../core/snap';
 const DAY = 86_400_000;
 const SAMPLE: BoxEntry[] = ['Holiday 1.jpg', 'Holiday 2.jpg', 'Plans.pdf', 'Budget.xlsx', 'Notes.txt', 'Talk.mp4', 'Setup.dmg', 'Old photos'].map((name, i) => ({ name, path: `/Users/sam/Desktop/${name}`, isDir: !name.includes('.'), size: 1000 * (i + 1), mtime: Date.now() - i * DAY }));
 
-export function mockDesk(): { snap: SnapApi; boxes: BoxesApi } {
+const ICON = (id: number, app: string, x: number, system = false) => ({ id: `${id}:1`, app, pid: id, x, width: 28, system });
+
+export function mockDesk(): { snap: SnapApi; boxes: BoxesApi; menuBar: MenuBarApi } {
+  let hiding = true;
+  const menuStatus = async (): Promise<MenuBarStatus> => ({
+    availability: { state: 'ready', line: 'Icons left of Keeper’s divider stay out of sight until you click it.' },
+    hidden: [ICON(301, 'Cloud Drive', 900), ICON(302, 'Password Safe', 930), ICON(303, 'VPN', 960)],
+    shown: [ICON(304, 'Music', 1100), ICON(305, 'Battery', 1180, true), ICON(306, 'Control Centre', 1220, true)],
+    hiding, peeking: false, divider: true,
+  });
   let layouts: SnapLayout[] = [
     { id: 'l1', name: 'Docked', screens: '1920x1080+2560x1440', savedAt: Date.now() - 2 * 86_400_000, windows: [
       { app: 'Mail', title: 'Inbox', screen: 0, rel: { x: 0, y: 0, width: 0.5, height: 1 } },
@@ -40,6 +50,14 @@ export function mockDesk(): { snap: SnapApi; boxes: BoxesApi } {
       reveal: async () => undefined,
       planTidy: async () => planTidy('/Users/sam/Desktop', SAMPLE, () => false, '/'),
       tidy: async () => ({ moved: 7, boxes: 5 }),
+    },
+    menuBar: {
+      status: menuStatus,
+      setHiding: async (on) => { hiding = on; return menuStatus(); },
+      peek: menuStatus,
+      press: async () => true,
+      move: async () => ({ ok: true }),
+      openSettings: async () => undefined,
     },
   };
 }

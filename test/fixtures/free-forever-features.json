@@ -167,6 +167,7 @@
     "bigButtons",
     "offlineCheck",
     "snapWindows",
-    "folderBoxes"
+    "folderBoxes",
+    "menuBarItems"
   ]
 }

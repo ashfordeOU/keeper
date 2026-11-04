@@ -63,3 +63,25 @@ The Network part reads the connections (the same reading as the firewall's live 
 - `src/glance/Glance.tsx` and `src/styles/glance.css`: the summary itself; Settings → Menu bar is `GlancePanel` in `src/screens/settings/panels.tsx`.
 - The Network part: `glanceNetwork()` in `electron/services/fw/index.ts` (read only while the summary is open), `glanceNetView()` in `core/glance.ts`, `NetPart` in `src/glance/Glance.tsx`; `test/e2e/netmon.cjs` checks it.
 - `test/e2e/glance.cjs`: opens it and checks the parts, equal sizes, no overflow, the switch, More, the keyboard, Settings, light, dark and reduced motion.
+
+## Other apps' icons (Mac)
+
+A separate part, **Menu bar icons** (`menuBarItems`, Settings → Features → Desktop, **off** until you turn it on), keeps other apps' icons out of sight on a Mac.
+
+- **The divider.** Keeper adds a second, small item to the menu bar: a short bar with a notch. Icons left of it are hidden: while hiding, the divider's title grows as wide as the screen, so everything left of it is pushed past the left edge (the same thing a very wide icon does). A click shows them; they hide again after 15 seconds (5, 30, 60 or never, under More settings). A right-click lists the hidden icons; choosing one shows them and opens that icon's menu. Hidden icons are still running and still work.
+- **Choosing which.** Settings → Menu bar → Other apps' icons lists the icons *In view* and *Hidden*. **Hide** and **Keep in view** move an icon across the divider with a ⌘-drag, exactly as you would by hand, then put the pointer back where it was. **Open** opens a hidden icon's menu. The clock and Control Centre are marked *Stays put*.
+- **When one changes.** With *Show a hidden icon that changes* on (More settings, off by default), Keeper looks at the hidden icons every 5 seconds while they are hidden; when one changes width (a badge, a timer, a status) it shows them for a moment and puts a dot on the divider.
+- The palette has **Show Hidden Menu Bar Icons**.
+
+| What | How (all public) | Needs |
+|---|---|---|
+| Which icons there are, and where | `CGWindowListCopyWindowInfo`: status windows (level 25) with their owner and place, through JavaScript for Automation's ObjC bridge | nothing |
+| Hiding | an ordinary status item of Keeper's own (Electron's `Tray`) whose title is a run of wide spaces | nothing |
+| Moving an icon | synthetic mouse events with ⌘ held (`CGEventCreateMouseEvent`, `CGEventPost`) | Accessibility |
+| Opening a hidden icon | System Events: the app's second menu bar, `AXPress` on the nearest item | Accessibility |
+
+On **macOS 26** the system has its own Menu Bar settings for hiding icons; the panel says so, and both can be used together.
+
+**Windows** already keeps extra icons in the taskbar's overflow (the ^ by the clock): the panel says so and **Open taskbar settings** opens Settings → Personalisation → Taskbar, where you choose them. **Linux** trays differ on each desktop (and GNOME has none by default), so the panel says plainly that Keeper cannot hide or move other apps' icons there, with no button. Nothing of this part runs on Windows or Linux.
+
+What was checked: the pure parts (reading the status windows, which side of the divider, the divider's width and dot, the ⌘-drag's path, what changed, settings, what each system allows, the divider's template picture) have unit tests in `test/menubar-items.test.ts`; `test/e2e/desk.cjs` checks the Linux panel and that no divider is made there. The divider, the list, ⌘-drag moves and opening an icon have **not** run on a Mac yet: they need checking on a real Mac with Accessibility granted (macOS 13 to 15 and macOS 26, a notch MacBook, and with Monorail's menu bar item present).

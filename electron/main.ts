@@ -142,6 +142,7 @@ import { PRESETS as CONTROL_PRESETS } from '../core/controls/catalog';
 import { registerFirewallIpc, stopFirewall } from './ipc/fw';
 import { registerFocusBlockIpc } from './ipc/focus-block';
 import { boxesApi } from './services/folder-boxes';
+import { menuBarApi, menuBarSettingsChanged, startMenuBarItems } from './services/menubar-items';
 import { registerSnapShortcuts, snapApi, startSnap, syncSnapWatch } from './services/snap';
 import { registerTimeTrackIpc } from './ipc/time-track';
 import { registerJournalIpc } from './ipc/journal';
@@ -1555,6 +1556,9 @@ app.whenReady().then(async () => {
   // Focus blocking: sites through the browser extension and the DNS filter, apps through the app in front (nothing runs while off).
   // Folder boxes: what each box shows, opening from it, and tidying the desktop into boxes (one History step).
   for (const [k, fn] of Object.entries(boxesApi({ journal: () => journal, moved: (from, to) => index?.rename(from, to), replaceWidgets: async (list) => { await replaceWidgets(list); } }))) ipcMain.handle(`boxes.${k}`, async (_e, ...args) => (fn as (...a: unknown[]) => unknown)(...args));
+  // Menu bar icons (Mac): Keeper's divider, hiding other apps' icons left of it (nothing while off, nothing on Windows or Linux).
+  for (const [k, fn] of Object.entries(menuBarApi)) ipcMain.handle(`menuBar.${k}`, async (_e, ...args) => (fn as (...a: unknown[]) => unknown)(...args));
+  startMenuBarItems((route) => showMain(route));
   // Snap windows: the window in front into a half, a third, a quarter; layouts per set of screens.
   for (const [k, fn] of Object.entries(snapApi)) ipcMain.handle(`snap.${k}`, async (_e, ...args) => (fn as (...a: unknown[]) => unknown)(...args));
   startSnap(() => registerShortcuts());
@@ -1811,6 +1815,7 @@ let studioSince: number | undefined;
     }
     if (next.platform?.askShortcut !== prev.platform?.askShortcut) registerShortcuts();
     if (JSON.stringify(next.snap) !== JSON.stringify(prev.snap)) { registerShortcuts(); syncSnapWatch(); }
+    if (JSON.stringify(next.menuBarItems) !== JSON.stringify(prev.menuBarItems)) menuBarSettingsChanged();
     if (next.quickSearchShortcut !== prev.quickSearchShortcut || next.island.captureShortcut !== prev.island.captureShortcut || next.island.dictationShortcut !== prev.island.dictationShortcut) registerShortcuts();
     if (next.trayEnabled !== prev.trayEnabled || next.trayCount !== prev.trayCount) void updateTray();
     if (next.island.enabled !== prev.island.enabled) (next.island.enabled ? createIsland() : destroyIsland());

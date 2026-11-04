@@ -554,6 +554,8 @@ export interface KeeperApi extends KeeperApiX {
   focusBlock: import('./api-focus').FocusBlockApi;
   /** folder boxes on the desktop and tidying the desktop into them */
   boxes: import('./api-boxes').BoxesApi;
+  /** other apps' menu bar icons behind Keeper's divider (Mac) */
+  menuBar: import('./api-menubar').MenuBarApi;
   /** snap windows: the window in front into place, and layouts per set of screens */
   snap: import('./api-snap').SnapApi;
   /** automatic time tracking, only on this computer */

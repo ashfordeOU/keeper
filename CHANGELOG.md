@@ -4,6 +4,12 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 
 ## [Unreleased]
 
+### Added — Menu bar icons: other apps' icons out of sight on a Mac
+- Keeper adds a small divider to the menu bar. Icons left of it stay out of sight until you click it, and hide again after 15 seconds (or when you choose). Right-click the divider for a list of the hidden ones and open any of them from there.
+- Settings → Menu bar lists the icons in view and the hidden ones, with Hide and Keep in view for each (Keeper moves the icon across the divider for you, the way ⌘-drag does), and Open for hidden ones. The clock and Control Centre stay where macOS puts them.
+- Optionally, a hidden icon that changes (a new badge, a timer) shows them all for a moment, and the divider gets a dot.
+- On macOS 26 the page also points to the system's own Menu Bar settings. Windows keeps extra icons in the taskbar's own overflow, so there Keeper opens those settings instead; Linux trays differ, and the page says plainly that Keeper cannot hide them there. Off until you turn it on.
+
 ### Added — Folder boxes: a folder's files on the desktop
 - A new widget, Folder box, shows any folder's files as icons on the desktop: folders first, then by kind, name, newest or largest, or only one kind. Double-click (or Enter) opens a file; right-click shows it in its folder. The button in its corner rolls it up to its title.
 - Tidy my desktop (on the Widgets page) shows first what would move, then puts loose desktop files into one folder per kind (Pictures, Documents, Music…) inside the desktop, with a box for each. Folders and hidden files stay. It is one step in History, and Undo puts everything back.

@@ -25,6 +25,7 @@ import { FeaturesPanel, SidebarPanel } from '../../components/FeaturesPanel';
 import { LockedFoldersPanel } from '../../components/LockDialog';
 import { BrainSettingsPanel } from '../../components/BrainPanel';
 import { PlatformIntegrations } from '../../components/PlatformIntegrations';
+import { MenuBarItemsPanel } from '../../components/MenuBarItemsPanel';
 import { AshfordeAppsPanel } from '../../components/AshfordeApps';
 import { ThemeGallery, ThemeTweaks } from '../../components/ThemeGallery';
 import { MeshPlaces } from '../MeshParts';
@@ -283,6 +284,7 @@ export const PANELS: Record<string, PanelDef> = {
   ocrLanguages: { render: () => <OcrLanguagesPanel /> },
   openWith: { render: () => <NativeAppsPanel />, wide: true },
   platform: { render: () => <PlatformIntegrations />, wide: true },
+  menuBarItems: { render: () => <MenuBarItemsPanel />, wide: true },
   glance: { render: () => <GlancePanel />, own: true, wide: true },
   usageLabel: { render: () => <Suspense fallback={null}><UsageSettings /></Suspense>, own: true, wide: true },
   brain: { render: () => <BrainSettingsPanel />, own: true, wide: true },

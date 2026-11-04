@@ -11,6 +11,9 @@
 //                 Undo puts them back; a box window lists its files and rolls up;
 //                 a box's rule for new files lands in Automations; switched off,
 //                 the box windows close.
+//   Menu bar icons  off until switched on; on Linux, Settings → Menu bar says
+//                 plainly that other apps' tray icons cannot be hidden here, with
+//                 no button that would pretend otherwise, and no divider is made.
 // Pictures in light and dark (the sidebar as a rail, so no real disk names show).
 
 const { _electron } = require('playwright');
@@ -219,6 +222,25 @@ const near = (a, b, d = 24) => Math.abs(a - b) <= d;
     await k('features', 'set', 'folderBoxes', false);
     const gone = await until(() => !app.windows().some((w) => w.url().includes(pics?.id ?? '-')), 8000);
     check(!!gone, 'boxes: switched off, the boxes leave the desktop');
+  }
+
+  // ================================================================ Menu bar icons
+  if (want('menubar')) {
+    check((await features()).find((f) => f.id === 'menuBarItems')?.on === false, 'menubar: off until switched on');
+    await k('features', 'set', 'menuBarItems', true);
+    await wait(400);
+    const st = await k('menuBar', 'status');
+    check(st.availability.state === 'unsupported' && !st.divider && !st.shown.length, `menubar: on Linux it says so and makes no divider (${st.availability.state})`);
+    await navigate('settings:menubar');
+    await main.waitForSelector('[data-testid="menubar-items"]', { timeout: 15000 });
+    const text = await main.locator('[data-testid="menubar-items"]').innerText();
+    check(/cannot hide or move other apps’ icons here/.test(text), 'menubar: the panel tells the truth about Linux trays');
+    check(await main.locator('[data-testid="menubar-items"] button').count() === 0, 'menubar: and offers no button that would do nothing');
+    await main.locator('[data-testid="menubar-items"]').scrollIntoViewIfNeeded();
+    await shot('menubar');
+    await k('features', 'set', 'menuBarItems', false);
+    await wait(400);
+    check(await main.locator('[data-testid="menubar-items"]').count() === 0, 'menubar: switched off, its settings leave');
   }
 
   check(errors.length === 0, `no page errors (${errors.slice(0, 3).join(' | ')})`);
