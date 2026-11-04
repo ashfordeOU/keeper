@@ -65,7 +65,8 @@ describe('years of events', () => {
     const summer = year.find((o) => o.event.uid === 'r0' && new Date(o.start).getUTCMonth() === 6)!;
     expect(new Date(summer.start).getUTCHours()).toBe(8);
     expect(week.filter((o) => o.event.uid.startsWith('r'))).toHaveLength(200);
-    expect(parseMs + yearMs + weekMs).toBeLessThan(5000);
-  });
+    // Seconds, not minutes: shared Windows build machines run this two to three times slower than a laptop.
+    expect(parseMs + yearMs + weekMs).toBeLessThan(15_000);
+  }, 30_000);
 });
 

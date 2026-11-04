@@ -125,7 +125,11 @@ describe('signatures in the main process', () => {
     const os = await import('node:os');
     const path = await import('node:path');
     const home = fs.mkdtempSync(path.join(os.tmpdir(), 'keeper-sig-'));
-    const root = process.platform === 'darwin' ? path.join(home, 'Library/Thunderbird') : path.join(home, '.thunderbird');
+    // Windows keeps Thunderbird under the roaming app data folder, which the service reads from APPDATA.
+    const appData = path.join(home, 'AppData', 'Roaming');
+    const before = process.env.APPDATA;
+    if (process.platform === 'win32') process.env.APPDATA = appData;
+    const root = process.platform === 'darwin' ? path.join(home, 'Library/Thunderbird') : process.platform === 'win32' ? path.join(appData, 'Thunderbird') : path.join(home, '.thunderbird');
     fs.mkdirSync(path.join(root, 'p1'), { recursive: true });
     fs.writeFileSync(path.join(root, 'profiles.ini'), '[Profile0]\nName=default\nIsRelative=1\nPath=p1\nDefault=1\n');
     fs.writeFileSync(path.join(root, 'p1', 'prefs.js'), 'user_pref("mail.identity.id1.useremail", "ana@example.org");\nuser_pref("mail.identity.id1.attach_signature", true);\nuser_pref("mail.identity.id1.sig_file-rel", "[ProfD]sig.html");\n');
@@ -135,6 +139,7 @@ describe('signatures in the main process', () => {
       const got = await localSignatures(home);
       expect(got).toEqual([{ source: 'Thunderbird', name: 'ana@example.org', html: '<p>Ana <a href="https://studio.example">Studio</a></p>', email: 'ana@example.org' }]);
     } finally {
+      if (process.platform === 'win32') process.env.APPDATA = before;
       fs.rmSync(home, { recursive: true, force: true });
     }
   });
