@@ -191,6 +191,8 @@ function shortName(f: FindingView): string {
   if (s?.kind === 'extension') return s.name;
   if (s?.kind === 'certificate') return s.name;
   if (s?.kind === 'login-item') return s.tool?.name ?? s.label ?? s.name;
+  // A grouped row with no subject (parts you haven't used) names each by its detail.
+  if (!s && f.group && f.detail) return f.detail;
   return f.title;
 }
 

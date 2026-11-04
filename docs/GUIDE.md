@@ -53,6 +53,14 @@ Keeper has one list of things worth doing: the Fix-it List. Other pages show the
 
 Three calm levels replace the five severities on screen (`core/attention.ts`): **Worth fixing** (critical and high), **When you have time** (medium) and **Good to know** (low and information). Only "Worth fixing" is tinted, in a soft amber; nothing is red. Scores use calm words: *Well protected*, *A few things to look at*, *Some things to look at*, never "at risk".
 
+## Parts you don't use
+
+Keeper notes, on this computer only, when each part's pages were last opened (`page-use.json` in Keeper's data folder; nothing is sent). A part you have not opened for 30 days becomes a **Good to know** row on the Fix-it List: "You haven't opened Weather in 40 days". The row says what the part does in the background while it is on, and which other parts would go off with it. **Turn it off** switches the part off; **Undo** turns it on again, and it then counts as used today. Several such rows are shown together under "3 parts you haven't used lately".
+
+- Nothing is suggested until Keeper has counted for 30 days.
+- Only parts whose whole use is their page are judged: Clean Up, Duplicates, Space Map, Convert, Weather, Places & Tracks, Journal, Reader, Notes, Assistant, Toolbox, Studio, Stage, the photo editor, Remote Desktops, Hidden system settings and Processes. Parts that work for you without their page being opened (Automations, sync and backups, monitors, Mail, the sidebar's places, shortcuts, the Island) are never suggested. A part that another part still needs without a page of its own (Weather while the Island shows the weather) is left alone.
+- Settings → Features → **Suggest turning off unused parts** stops the suggestions.
+
 ## The Fix-it List: details, Trust, Snooze
 
 Each row opens (click it, its arrow, or Enter on the arrow) to show what exactly was found. Keeper gathers this only when a row is opened, never when the page loads. Every row has one clear action, **Fix**, and **More** (⋯) with **Trust**, **Snooze for** 1 day, 1 week or 1 month, **Ignore**, and Show in Finder or Explorer or the browser's own page for an extension. Several rows can be selected and trusted or snoozed together. Three or more alike are shown together under one row that opens.

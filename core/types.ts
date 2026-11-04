@@ -523,4 +523,6 @@ export interface Settings {
   notices: import('./notices').NoticeSettings;
   /** the "?" in the top bar that opens the page's help (F1 works either way) */
   helpButton: boolean;
+  /** a gentle Fix-it row for a part unopened for 30 days (core/declutter.ts) */
+  declutter: boolean;
 }

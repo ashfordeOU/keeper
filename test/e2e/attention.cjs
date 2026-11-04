@@ -23,6 +23,10 @@ fs.rmSync(HOME, { recursive: true, force: true });
 for (const d of ['Downloads', 'Desktop', 'Documents', 'Pictures']) fs.mkdirSync(path.join(HOME, d), { recursive: true });
 fs.writeFileSync(path.join(HOME, 'Documents/Plan.md'), '# Plan\n\nA note.\n');
 fs.mkdirSync(SHOTS, { recursive: true });
+// Usage-aware decluttering: Keeper has counted for 40 days, and only Notes was opened lately.
+const DAY = 86_400_000;
+fs.mkdirSync(path.join(HOME, '.config/Keeper'), { recursive: true });
+fs.writeFileSync(path.join(HOME, '.config/Keeper/page-use.json'), JSON.stringify({ since: Date.now() - 40 * DAY, parts: { notes: { last: Date.now() - DAY, n: 3 } } }));
 
 (async () => {
   const app = await _electron.launch({ executablePath: path.join(ROOT, 'node_modules/.bin/electron'), args: [ROOT, '--no-sandbox'], env: { ...process.env, KEEPER_SKIP_TOUR: '1', HOME, NODE_OPTIONS: '', XDG_CONFIG_HOME: path.join(HOME, '.config'), XDG_DATA_HOME: path.join(HOME, '.local/share'), XDG_CURRENT_DESKTOP: 'test' } });
@@ -137,6 +141,32 @@ fs.mkdirSync(SHOTS, { recursive: true });
     check(!!(await until(async () => (await w.getByTestId('help-sheet').count()) === 1)), 'F1 still works without the button');
     await w.keyboard.press('Escape');
     await w.evaluate(() => window.keeper.settings.set({ helpButton: true }));
+  }
+
+  // ---------------------------------------------------------------- parts you don't use
+  if (part('declutter')) {
+    await k('guide', 'refresh');
+    const list = await k('guide', 'list');
+    const rows = list.findings.filter((f) => f.source === 'declutter');
+    check(rows.length > 0, `parts unopened for 40 days are offered (${rows.map((r) => r.id.slice(10)).slice(0, 6).join(', ')})`);
+    check(!rows.some((r) => r.id === 'declutter:notes' || r.id === 'declutter:library' || r.id === 'declutter:guide'), 'a part opened lately, the library and the Fix-it List itself are not');
+    check(rows.every((r) => r.severity === 'low' && /haven’t opened .+ in \d+ days/.test(r.title)), 'each is a calm “Good to know” row in plain words');
+    const one = rows[0];
+    const fid = one.id.slice('declutter:'.length);
+    const r1 = await k('guide', 'apply', one.id);
+    check(r1.ok, `Turn it off: ${r1.message}`);
+    const isOn = async () => (await k('features', 'list')).find((x) => x.id === fid)?.on;
+    check(!!(await until(async () => (await isOn()) === false)), `${fid} is off`);
+    const r2 = await k('guide', 'undo', one.id);
+    check(r2.ok && !!(await until(async () => (await isOn()) === true)), `Undo turns it on again: ${r2.message}`);
+    await nav('todo');
+    await w.waitForSelector('.todo', { timeout: 20000 });
+    await w.getByRole('button', { name: /Check again/ }).click();
+    const group = w.locator('[data-testid="fixit-group"]', { hasText: 'haven’t used lately' });
+    check(!!(await until(async () => (await group.count()) === 1, 30000)), 'the Fix-it List shows them together, calmly');
+    await group.locator('.fx-toggle').click();
+    await w.waitForTimeout(500);
+    await shots('declutter');
   }
 
   // ---------------------------------------------------------------- a smaller window

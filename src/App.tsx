@@ -390,6 +390,8 @@ class PageBoundary extends Component<{ children: ReactNode; route: string }, { e
 function Page() {
   const { route } = useStore();
   const hiddenRoutes = useHiddenRoutes();
+  // Usage-aware decluttering: which parts' pages get opened (counted on this computer only).
+  useEffect(() => { void api.pageUse?.opened(route.name).catch(() => undefined); }, [route.name]);
   // A tab of a merged page (System Controls, Privacy & Security, Startup & Apps) shows under that page's title and tabs.
   const hub = hubOf(route)?.hub;
   const inHub = (el: React.ReactElement) => (hub && hub !== 'devices' ? <Hub id={hub}>{el}</Hub> : el);

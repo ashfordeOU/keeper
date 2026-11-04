@@ -146,6 +146,7 @@ import { registerJournalIpc } from './ipc/journal';
 import { registerReaderIpc } from './ipc/reader';
 import { registerPhoneAlertsIpc } from './ipc/phone-alerts';
 import { registerNoticesIpc } from './ipc/notices';
+import { registerPageUse } from './services/page-use';
 import { notice, noticeFor, noticesSettingsChanged, startNotices, systemNotification } from './services/notices';
 import { registerMonitorsIpc } from './ipc/site-monitor';
 import { registerPhotoIpc } from './ipc/photo';
@@ -1373,6 +1374,8 @@ app.whenReady().then(async () => {
   // Guided fixes: what the person should do about space, security, privacy and more, and how.
   registerGuideIpc({ broadcast, preload: preload(), alert: (title, detail) => { notice({ part: 'fixit', title, detail, route: { name: 'todo' } }); phoneAlert('fixit', title, 'New on your Fix-it List in Keeper', { urgent: true }); } });
   registerBuiltinGuideSources({ index: () => index });
+  // Usage-aware decluttering: when each part's pages were last opened, on this computer only.
+  registerPageUse();
   // First look a minute after start, then twice a day; opening the To do list checks again.
   setTimeout(() => void refreshGuide(), 60_000).unref?.();
   setInterval(() => void refreshGuide(), 12 * 3600_000).unref?.();

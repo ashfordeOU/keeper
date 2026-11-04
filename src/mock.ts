@@ -321,6 +321,7 @@ export function createMockApi(): KeeperApi {
     ...mockInbox((ch, ...a) => listeners.get(ch)?.forEach((cb) => (cb as (...x: unknown[]) => void)(...a))),
     ...mockReader(),
     ...mockPhoneAlerts(),
+    pageUse: { opened: async () => undefined },
     ...mockNotices((ch, ...args) => listeners.get(ch)?.forEach((cb) => (cb as (...a: unknown[]) => void)(...args))),
     ...mockMonitors(),
     ...mockPhoto(),

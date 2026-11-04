@@ -169,6 +169,8 @@ const api = {
   // Alerts to your phone.
   alerts: group('alerts', ['overview', 'save', 'remove', 'test', 'setBatch']),
   // The notification center.
+  // Usage-aware decluttering: a page was opened (counted on this computer only).
+  pageUse: group('pageUse', ['opened']),
   notices: group('notices', ['list', 'done', 'doneAll', 'snoozeAll', 'clearDone', 'test']),
   // Site and server monitors.
   // The light photo editor.

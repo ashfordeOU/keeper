@@ -190,6 +190,7 @@ export function defaultSettings(folders: string[], rules: Rule[]): AllSettings {
     phoneAlerts: defaultPhoneAlertSettings(),
     notices: defaultNoticeSettings(),
     helpButton: true,
+    declutter: true,
     island: defaultIsland(),
   };
 }
