@@ -75,6 +75,7 @@ export const NAV_PAGES: NavPage[] = [
   { id: 'browse', route: { name: 'browse' }, label: 'Home Folder', icon: 'folder', group: 'none', keywords: 'browse files folders user folder' },
   { id: 'library', route: { name: 'library' }, label: 'Everywhere', icon: 'search', group: 'none', keywords: 'all files library every document all documents all images kinds types find by type' },
   { id: 'downloads', route: { name: 'library', arg: 'web' }, label: 'From the Web', icon: 'down', group: 'none', kbd: 'J', keywords: 'downloaded from download sources where downloads came from website app source' },
+  { id: 'panes', route: { name: 'panes' }, label: 'Side by Side', icon: 'panes', group: 'none', keywords: 'dual pane two panes two folders split view compare folders sync folders copy between move between' },
   { id: 'remote', route: { name: 'remote' }, label: 'Cloud & Servers', icon: 'cloud', group: 'none', keywords: 'cloud drive dropbox onedrive google sftp webdav s3 nas server' },
 
   { id: 'notes', route: { name: 'notes' }, label: 'Notes', icon: 'document', group: 'notes', keywords: 'markdown vault obsidian' },

@@ -73,7 +73,7 @@ One thing at a time. Notices wait; distractions stay out. For: people who lose t
 
 Everything in reach, tight and fast, for keyboard people. For: developers, it and power users.
 
-- **Turns on:** Terminal, AI agents in the terminal, AI agents, Coding assistants, AI limits in the Island, AI usage and limits, Local servers and ports, Containers, Network & firewall, Hidden system settings, Remote Desktop, VNC and SSH, Private network for your devices, Toolbox, Running apps, Apps and commands in Quick Search, Quick switches, Graphics, fans and power
+- **Turns on:** Two folders side by side, Terminal, AI agents in the terminal, AI agents, Coding assistants, AI limits in the Island, AI usage and limits, Local servers and ports, Containers, Network & firewall, Hidden system settings, Remote Desktop, VNC and SSH, Private network for your devices, Toolbox, Running apps, Apps and commands in Quick Search, Quick switches, Graphics, fans and power
 - **Turns off:** Ambient sound, Vibes
 - **Settings:** Spacing: Compact · All settings shown: Yes · Rows per sidebar section: All · Help button: Hidden · A tip a day: Off · Sites and servers notices: Now · Network notices: Now · AI usage notices: Now
 - **Sidebar:** every section

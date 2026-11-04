@@ -174,6 +174,8 @@ const api = {
   // The Inbox: things caught with one shortcut, and its small card.
   inbox: group('inbox', ['list', 'add', 'remove', 'restore', 'card']),
   // Archives: look inside, take out, pack.
+  // Side by Side: compare, sync and copy between two folders.
+  panes: group('panes', ['compare', 'copy', 'sync']),
   archives: group('archives', ['open', 'extract', 'peek', 'create', 'support', 'pick', 'pickItems']),
   // The PDF reader: open, save edits, restore.
   pdfReader: group('pdfReader', ['read', 'pick', 'pickMore', 'save', 'hasBackup', 'restore']),

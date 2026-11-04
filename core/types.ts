@@ -518,6 +518,8 @@ export interface Settings {
   journal: import('./notes/journal').JournalSettings;
   /** archives: where unpacked files go, and opening that folder after (core/archives.ts) */
   archives: { extractTo: 'beside' | 'ask'; openAfter: boolean };
+  /** Side by Side: compare inside folders too, F5/F6 copy and move (core/panes.ts) */
+  panes: { deep: boolean; fKeys: boolean };
   /** the PDF reader: dark pages for reading, and keeping the version before each save */
   pdfReader: { darkPages: boolean; keepPrevious: boolean };
   /** the reader: how often feeds are read, how long articles stay, full text and pictures (core/reader.ts) */

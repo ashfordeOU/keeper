@@ -53,6 +53,8 @@ export const TIERS: Record<string, FeatureTier> = {
   ocr: { plain: 'Words in pictures and scans', setup: 'files', normal: 'enoughMemory', shown: 'customize' },
   places: { plain: 'Disks, cloud drives and servers', setup: 'files', normal: 'on', shown: 'customize' },
   network: { plain: 'Network folders', setup: 'files', normal: 'on', shown: 'customize' },
+  // Costs nothing, but Recommended stays at fifty parts on a Mac laptop: offered in Basic, on in Pro.
+  filePanes: { plain: 'Two folders side by side', setup: 'files', normal: 'off', shown: 'basic' },
   lock: { plain: 'Locked folders', setup: 'files', normal: 'on', shown: 'basic' },
   remote: { plain: 'Cloud and servers', setup: 'files', normal: 'off', shown: 'basic' },
   bigButtons: { plain: 'Big buttons on Today', setup: 'files', normal: 'off', shown: 'basic' },

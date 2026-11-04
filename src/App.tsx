@@ -89,6 +89,8 @@ const CuesPage = lazy(() => import('./screens/Cues').then((m) => ({ default: m.C
 // The reader (feeds and read later) loads the first time its page opens.
 // Archives loads the first time its page opens.
 const PdfReaderPage = lazy(() => import('./screens/PdfReader').then((m) => ({ default: m.PdfReader })));
+// Side by Side loads the first time its page opens.
+const PanesPage = lazy(() => import('./screens/Panes').then((m) => ({ default: m.Panes })));
 const ArchivesPage = lazy(() => import('./screens/Archives').then((m) => ({ default: m.Archives })));
 const ReaderPage = lazy(() => import('./screens/Reader').then((m) => ({ default: m.Reader })));
 // Alerts to your phone load the first time their page opens.
@@ -476,6 +478,7 @@ function Page() {
     time: () => <Suspense fallback={null}><TimePage /></Suspense>,
     reader: () => <Suspense fallback={null}><ReaderPage /></Suspense>,
     pdf: () => <Suspense fallback={null}><PdfReaderPage key={route.arg ?? ''} initial={route.arg} /></Suspense>,
+    panes: () => <Suspense fallback={null}><PanesPage /></Suspense>,
     archives: () => <Suspense fallback={null}><ArchivesPage key={route.arg ?? ''} initial={route.arg} /></Suspense>,
     alerts: () => <Suspense fallback={null}><PhoneAlertsPage /></Suspense>,
     monitors: () => <Suspense fallback={null}><MonitorsPage /></Suspense>,

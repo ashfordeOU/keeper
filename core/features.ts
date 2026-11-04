@@ -121,6 +121,7 @@ export const FEATURES: FeatureDef[] = [
   { id: 'ocr', name: 'Text in pictures', description: 'Recognises text in screenshots and photos, on this computer.', group: 'Library', defaultOn: true, bridge: { get: (s) => s.ocrEnabled !== false, set: (on) => ({ ocrEnabled: on }) }, cost: { level: 'high', background: 'Recognises text in new pictures when you are not busy, never on battery', memory: 'About 150 MB while it works, released after a minute' } },
   { id: 'places', name: 'Disks, cloud drives and servers', description: 'The Locations part of the sidebar, with free space and eject.', group: 'Library', defaultOn: true, routes: ['trash'], commands: ['eject'], cost: { level: 'low', background: 'Notices disks coming and going (no programs started)' } },
   { id: 'network', name: 'Network browsing', description: 'Finds servers and shared folders on your network; Connect to Server.', group: 'Library', defaultOn: true, requires: ['places'], routes: ['network'], cost: { level: 'none', background: 'Only while the Network page is open' } },
+  { id: 'filePanes', name: 'Side by Side', description: 'Two folders next to each other, on this computer or on a cloud or server, to copy and move between them, see what differs and sync them after a preview.', group: 'Library', defaultOn: true, routes: ['panes'], commands: ['panes*'], cost: { level: 'none', background: 'Nothing: only while the page is open' } },
   { id: 'lock', name: 'Locked folders', description: 'Encrypts folders so only you can open them.', group: 'Library', defaultOn: true, commands: ['lock*'], cost: { level: 'none', background: 'Locks folders again on your schedule' } },
 
   // ---------------------------------------------------------------- Tidy
@@ -310,7 +311,7 @@ function staticNormal(n: Normal): boolean {
 
 /** Each feature's section in the sidebar and in Settings → Features (the same groups). */
 const NAV_GROUP: Record<NavGroup, string[]> = {
-  files: ['library', 'sources', 'docText', 'ocr', 'places', 'network', 'lock', 'remote', 'bigButtons'],
+  files: ['library', 'sources', 'docText', 'ocr', 'places', 'network', 'filePanes', 'lock', 'remote', 'bigButtons'],
   pim: ['mail', 'calendars', 'planner', 'dayPlan', 'insights', 'alarms'],
   notes: ['notes', 'captureInbox', 'cues', 'notesHub', 'notesSync', 'journal', 'reader', 'pdfReader'],
   tidy: ['cleanup', 'duplicates', 'space', 'convert', 'archives', 'rules', 'history', 'fileKit', 'workflows', 'faces', 'speechModel'],

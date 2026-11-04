@@ -92,7 +92,7 @@ describe('one taxonomy', () => {
 });
 
 describe('names', () => {
-  const MINOR = new Set(['&', 'and', 'from', 'of', 'to', 'in', 'on', 'for', 'a', 'the']);
+  const MINOR = new Set(['&', 'and', 'by', 'from', 'of', 'to', 'in', 'on', 'for', 'a', 'the']);
   it('are unique and in title case', () => {
     const labels = NAV_PAGES.map((p) => p.label);
     expect(new Set(labels).size).toBe(labels.length);

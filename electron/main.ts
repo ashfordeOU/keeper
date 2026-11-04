@@ -149,6 +149,7 @@ import { registerTimeTrackIpc } from './ipc/time-track';
 import { registerJournalIpc } from './ipc/journal';
 import { registerReaderIpc } from './ipc/reader';
 import { registerArchivesIpc } from './ipc/archives';
+import { registerPanesIpc } from './ipc/panes';
 import { registerPdfReaderIpc } from './ipc/pdf-reader';
 import { registerPhoneAlertsIpc } from './ipc/phone-alerts';
 import { registerNoticesIpc } from './ipc/notices';
@@ -1588,6 +1589,8 @@ app.whenReady().then(async () => {
   // The reader: feeds and pages saved for later (network only for what the person adds).
   // Archives: look inside zip, 7z, rar and tar files, take out what you choose, pack with a password.
   registerArchivesIpc();
+  // Side by Side: two folders, compared and synced; nothing runs until the page asks.
+  registerPanesIpc({ broadcast });
   // The PDF reader: mark up, fill in, organise and save PDFs.
   registerPdfReaderIpc();
   registerReaderIpc({ broadcast, alert: noticeFor('reader', { name: 'reader' }) });

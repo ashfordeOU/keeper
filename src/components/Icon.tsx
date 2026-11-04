@@ -36,6 +36,10 @@ const P: Record<string, string> = {
   star: 'M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z',
   grid: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z',
   columns: 'M3 5h5v14H3zM10 5h5v14h-5zM17 5h4v14h-4z',
+  // Two arrows passing each other: swap the two sides.
+  swap: 'M4 8h15M15 4l4 4-4 4M20 16H5M9 12l-4 4 4 4',
+  // Two side-by-side panels.
+  panes: 'M3 5h8v14H3zM13 5h8v14h-8z',
   gallery: 'M3 4h18v11H3zM3 19h4M10 19h4M17 19h4',
   collection: 'M4 7h16v13H4zM6 4h12M8 11h8M8 15h5',
   list: 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',

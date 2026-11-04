@@ -52,6 +52,12 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - One calm row on the Fix-it List ("3 apps have security updates"), Check now, and Check App Updates in the palette.
 - Off until you switch it on (Settings → Features → Computer); then one look a day, never while the screen is locked. Keeper never keeps a copy of anyone's app.
 
+### Added — Files: Side by Side, and tabs that keep your folder
+- Side by Side shows two folders next to each other, each on this computer or on a cloud or server connection. Pick a place on either side, choose files, and Copy or Move them across (F5 and F6 work too); two folders here use the usual copy with its questions and Undo, and a move from a server only removes the original once the copy is done.
+- Differences shows only what is not the same on both sides, folders inside included: only on one side, newer on one side, or the same date with another size. Untick what to leave out, pick a direction (or both ways, newer wins), see what will happen, then Sync. Nothing is ever deleted, and a replaced file on this computer goes to the Trash first.
+- Open it from a folder's More menu, right-click a folder → Open Side by Side (in Files or on a connection), or the palette. Both sides belong to the tab, so they come back after a restart.
+- ⌘T / Ctrl+T on a folder opens the same folder in a new tab, and right-click a folder → Open in New Tab.
+
 ### Added — Modes: one choice that shapes Keeper
 - Pick a mode: Standard (as Keeper comes), Simple, Focus, Pro, Researcher, Creator, Writer or Family. Each sets which parts are on, text size, spacing, motion, how notices arrive, how much help you see and which sidebar sections show. Your files, notes, mail and accounts are never touched.
 - Add to any mode: Low vision, Steady hands, Easier reading, Screen reader and Privacy-max. They stack: "Writer + Easier reading + Privacy-max".

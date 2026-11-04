@@ -9,6 +9,7 @@ import { api } from '../api';
 import { isMac, useStore, type Route } from '../state';
 import { asTypeFilter, typeLabel } from '../../core/file-types';
 import type { Tab } from '../../core/session';
+import { newTabRoute } from '../../core/panes';
 import { Icon } from './Icon';
 import { ContextMenu, type MenuItem } from './ui';
 import '../styles/tabs.css';
@@ -23,7 +24,7 @@ const TITLES: Record<string, [string, string]> = {
   apps: ['Applications', 'app'], protection: ['Protection', 'shield'], rules: ['Automations', 'rules'], history: ['History', 'history'], assistant: ['Assistant', 'assistant'],
   island: ['Island', 'island'], settings: ['Settings', 'settings'], tools: ['Toolbox', 'terminal'], health: ['Health', 'bolt'], capture: ['Capture', 'screenshot'],
   annotate: ['Annotate', 'screenshot'], convert: ['Convert', 'refresh'], widgets: ['Widgets', 'grid'], weather: ['Weather', 'sun'], network: ['Network', 'globe'], trash: ['Trash', 'trash'],
-  remote: ['Cloud & Servers', 'cloud'], terminal: ['Terminal', 'terminal'], sync: ['Sync & Backup', 'refresh'], devices: ['Devices', 'laptop'], netactivity: ['Network Activity', 'globe'],
+  remote: ['Cloud & Servers', 'cloud'], panes: ['Side by Side', 'panes'], terminal: ['Terminal', 'terminal'], sync: ['Sync & Backup', 'refresh'], devices: ['Devices', 'laptop'], netactivity: ['Network Activity', 'globe'],
   rdc: ['Remote Desktops', 'laptop'], vpn: ['VPN', 'lock'], mesh: ['Mesh', 'graph'], agents: ['Agents', 'agent'], graph: ['Knowledge Graph', 'graph'], mail: ['Mail', 'mail'], calendar: ['Calendar', 'calendar'], reminders: ['Reminders', 'check'], planner: ['Planner', 'columns'], alarms: ['Alarms', 'timer'],
 };
 
@@ -42,7 +43,7 @@ export function tabTitle(r: Route): { title: string; icon: string } {
 }
 
 export function TabStrip() {
-  const { tabs, settings } = useStore();
+  const { tabs, settings, route } = useStore();
   const [menu, setMenu] = useState<{ x: number; y: number; tab: Tab } | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
   const stripRef = useRef<HTMLDivElement>(null);
@@ -54,7 +55,7 @@ export function TabStrip() {
     if (!on) return;
     const offKey = api.on('tab-key' as 'navigate', ((k: { key: string; shift: boolean }) => {
       if (k.key === 't' && k.shift) tabs.reopenClosed();
-      else if (k.key === 't') tabs.open({ name: 'home' });
+      else if (k.key === 't') tabs.open(newTabRoute(route) as Route);
       else if (k.key === 'w') {
         if (tabs.tabs.length > 1) tabs.close(tabs.active);
         else window.close();
@@ -75,7 +76,7 @@ export function TabStrip() {
     };
     window.addEventListener('keydown', onKey);
     return () => { offKey(); window.removeEventListener('keydown', onKey); };
-  }, [on, tabs]);
+  }, [on, tabs, route]);
 
   if (!on || tabs.tabs.length < 2) return null;
 

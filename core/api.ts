@@ -570,6 +570,8 @@ export interface KeeperApi extends KeeperApiX {
   reader: import('./api-reader').ReaderApi;
   /** archives: look inside, take out, pack with a password (core/archives.ts) */
   archives: import('./archives').ArchivesApi;
+  /** Side by Side: compare, sync and copy between two folders, local or on a connection (core/panes.ts) */
+  panes: import('./panes').PanesApi;
   /** the PDF reader: read, mark up, fill, organise and save PDFs (core/pdf-annotate.ts) */
   pdfReader: import('./pdf-annotate').PdfReaderApi;
   /** alerts to your phone: ntfy, Telegram, e-mail, a web address */

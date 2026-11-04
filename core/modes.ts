@@ -79,7 +79,7 @@ export const MODES: ModeDef[] = [
   },
   {
     id: 'pro', name: 'Pro', line: 'Everything in reach, tight and fast, for keyboard people.', who: 'Developers, IT and power users', icon: 'terminal', tone: 'pro',
-    on: ['terminal', 'agentHub', 'aiAgents', 'agents', 'islandUsage', 'usageTracker', 'devServers', 'containers', 'firewall', 'settingsCatalog', 'remoteDesktops', 'keeperMesh', 'tools', 'processes', 'launcher', 'quickControls', 'monitorSensors'],
+    on: ['filePanes', 'terminal', 'agentHub', 'aiAgents', 'agents', 'islandUsage', 'usageTracker', 'devServers', 'containers', 'firewall', 'settingsCatalog', 'remoteDesktops', 'keeperMesh', 'tools', 'processes', 'launcher', 'quickControls', 'monitorSensors'],
     off: ['ambientSound', 'vibes'],
     settings: { density: 'compact', settingsAdvanced: true, sidebarSectionLimit: 0, helpButton: false, 'tips.on': false, 'notices.delivery.monitors': 'now', 'notices.delivery.network': 'now', 'notices.delivery.aiusage': 'now' },
     signature: { name: 'Run anything', line: 'Quick Search runs any Keeper action, your commands and saved links.', part: 'launcher' },

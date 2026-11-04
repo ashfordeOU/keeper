@@ -16,6 +16,8 @@ import { ContextMenu, Empty, ExtTile, Loading, Modal, type MenuItem } from '../c
 import { openQuickLook } from '../preview/QuickLook';
 import { useStore } from '../state';
 import { RemoteOverview } from './RemoteOverview';
+import { useFeature } from '../features';
+import { panesRoute } from '../../core/panes';
 import '../styles/remote.css';
 import '../styles/screens-a.css';
 
@@ -61,7 +63,8 @@ function RemoteThumb({ id, entry }: { id: string; entry: RemoteEntry }) {
 }
 
 export function Remote() {
-  const { route, go, toast } = useStore();
+  const { route, go, toast, info, settings, tabs } = useStore();
+  const panesOn = useFeature('filePanes');
   const loc = parseRemoteRoute(route.arg);
   const id = loc?.id ?? '';
   const dir = loc?.path ?? '/';
@@ -140,6 +143,9 @@ export function Remote() {
     setMenu({
       x: ev.clientX, y: ev.clientY, items: [
         e.isDir ? { label: 'Open', icon: 'folder', run: () => open(e) } : { label: 'Quick Look', icon: 'eye', run: () => void preview(e) },
+        ...(e.isDir && settings?.tabs !== false ? [{ label: 'Open in New Tab', icon: 'plus', run: () => tabs.open({ name: 'remote', arg: remoteRoute(id, e.path) }) }] : []),
+        // This computer on the left, the folder on the right: copy and move between them, or compare.
+        ...(e.isDir && panesOn ? [{ label: 'Open Side by Side', icon: 'panes', run: () => go(panesRoute({ kind: 'local', path: info?.home ?? '/' }, { kind: 'remote', id, path: e.path })) }] : []),
         ...(!e.isDir ? [{ label: 'Open with Its App', icon: 'external', run: () => void api.remote.open(id, e).then(() => toast('Opened. Saving it sends the change back.'), (err) => toast(errText(err))) }] : []),
         { label: list.length > 1 ? `Download ${list.length} Items` : 'Download', icon: 'down', run: () => void download(list) },
         ...(e.isDir ? [{ label: e.offline ? 'Stop Keeping Offline' : 'Keep Offline', icon: 'pin', run: () => void api.remote.setOffline(id, e.path, !e.offline).then((p) => { toast(p ? `Keeping a copy in ${p}` : 'No longer kept offline'); refresh(); }) }] : []),

@@ -22,6 +22,7 @@ export const PAGE_HELP: Record<string, PageHelp> = {
   browse: { what: 'Your home folder, the way you know it.', can: ['Browse and preview files', 'Drag files to move or copy', 'Show hidden files'], doc: 'FILES.md' },
   library: { what: 'Every file Keeper knows about, in one list.', can: ['Filter by type, date or size', 'Sort and switch views', 'Save a search for later'], doc: 'FILES.md' },
   downloads: { what: 'Files grouped by the site or app they came from.', can: ['Find what came from one site', 'Clear out old downloads', 'Search “pdfs from mail”'], doc: 'FILES.md' },
+  panes: { what: 'Two folders next to each other, here or on a server.', can: ['Copy or move between them', 'See only what differs', 'Sync after a preview'], doc: 'FILES.md' },
   remote: { what: 'Cloud drives and servers, opened like folders.', can: ['Connect a drive or server', 'Browse and copy files', 'Keep sign-ins in the keychain'], doc: 'CONNECT.md' },
   notes: { what: 'Notes as plain Markdown files in folders you choose.', can: ['Write and link notes', 'See a note as a mind map', 'Import from other apps'], doc: 'NOTES.md' },
   pdf: { what: 'Read, mark up, fill in and sign PDFs.', can: ['Highlight and add notes', 'Fill in and sign forms', 'Turn, remove or add pages'], doc: 'PDF-READER.md' },

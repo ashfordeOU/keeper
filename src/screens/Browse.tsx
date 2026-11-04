@@ -28,11 +28,14 @@ import { chipQuery, isUnder, matchesType, routeChip, typeCounts, typeLabel } fro
 import { looksLikeScreenshot } from '../../core/classify';
 import { rememberFolder, TypeChips } from '../components/TypeChips';
 import { CopyTextButton, GroupToggle, TypeEmpty, useTypeList } from './Library';
+import { useFeature } from '../features';
+import { panesRoute } from '../../core/panes';
 
 type SortKey = 'name' | 'date' | 'size' | 'kind';
 
 export function Browse() {
-  const { route, go, info, version, settings, updateSettings, refresh, toast, trash, view, selection, setSelection, setFocused } = useStore();
+  const { route, go, info, version, settings, updateSettings, refresh, toast, trash, view, selection, setSelection, setFocused, tabs } = useStore();
+  const panesOn = useFeature('filePanes');
   const clip = useFileClip();
   const dir = route.arg || info?.home || '';
   const sep = info?.sep ?? (dir.includes('\\') ? '\\' : '/');
@@ -181,6 +184,8 @@ export function Browse() {
 
   const folderMenu = (e: FileEntry): MenuItem[] => [
     { label: 'Open', icon: 'folder', run: () => go({ name: 'browse', arg: e.path }) },
+    ...(settings?.tabs !== false ? [{ label: 'Open in New Tab', icon: 'plus', run: () => tabs.open({ name: 'browse', arg: e.path }) }] : []),
+    ...(panesOn ? [{ label: 'Open Side by Side', icon: 'panes', run: () => go(panesRoute({ kind: 'local', path: dir }, { kind: 'local', path: e.path })) }] : []),
     { label: info?.platform === 'win32' ? 'Show in Explorer' : info?.platform === 'darwin' ? 'Show in Finder' : 'Show in Folder', icon: 'reveal', run: () => void api.files.reveal(e.path) },
     { label: 'Pin to Sidebar', icon: 'pin', run: () => settings && !settings.pinned.includes(e.path) && void updateSettings({ pinned: [...settings.pinned, e.path] }) },
     { label: 'Get Info', icon: 'info', run: () => getInfo(e.path, e.name) },
@@ -276,6 +281,7 @@ export function Browse() {
 
       {more ? <ContextMenu x={more.x} y={more.y} label="More for this folder" onClose={() => setMore(null)} items={[
         { label: `${settings?.showHidden ? 'Hide' : 'Show'} Hidden Files (${mod}${shift}.)`, icon: settings?.showHidden ? 'eyeOff' : 'eye', run: () => settings && void updateSettings({ showHidden: !settings.showHidden }) },
+        ...(panesOn ? [{ label: 'Side by Side', icon: 'panes', run: () => go(panesRoute({ kind: 'local', path: dir }, { kind: 'local', path: parent && parent !== dir ? parent : info?.home ?? dir })) }] : []),
         { label: 'Tidy This Folder…', icon: 'broom', run: () => setTidy(true) },
         { label: pinned ? 'Remove from Sidebar' : 'Add to Sidebar', icon: 'pin', run: () => settings && void updateSettings({ pinned: pinned ? settings.pinned.filter((p) => p !== dir) : [...settings.pinned, dir] }) },
         { label: info?.platform === 'win32' ? 'Show in Explorer' : info?.platform === 'darwin' ? 'Show in Finder' : 'Show in File Manager', icon: 'reveal', run: () => void api.files.reveal(dir) },

@@ -110,6 +110,55 @@ old Library tiles) is there, off by default. Settings from before are moved
 on once: Your folders goes first, Find a file after Jump back in, the type
 tiles step back; everything else stays as you left it.
 
+## Tabs and Side by Side
+
+**Tabs.** Every Keeper window has tabs (Settings → General → Open pages in
+tabs). In Files, ⌘T / Ctrl+T opens the folder you are in again in a new tab,
+right-click a folder → **Open in New Tab** opens that one (in Files and on a
+connection). Tabs keep their folder, Back and Forward and come back after a
+restart.
+
+**Side by Side** (Settings → Features → Files, on in the Pro mode; it costs
+nothing until the page is open) shows two folders next to each other. Each
+side picks its place on its own: Home and its folders, folders you pinned, or
+any Cloud & Servers connection (shared folders that the system mounts are
+already folders here).
+
+- Open it from a folder's **More** (⋯) → Side by Side (this folder on the
+  left, the one above it on the right), right-click a folder → **Open Side by
+  Side**, right-click a folder on a connection (Home on the left, the
+  connection on the right), or the palette. Both sides live in the page's
+  route (`{ name: 'panes', arg: <left>, q: <right> }`, a connection as
+  `@<id>:<path>`), so a tab keeps them.
+- **Files**: the side you last clicked has an accent border. Choose with a
+  click, ⌘/Ctrl-click, Shift-click, the arrow keys and Space; Enter opens a
+  folder, Backspace goes up, ⌘⌥← / → (Ctrl+Alt+← / → elsewhere) switches
+  sides. **Copy →** (F5) and **Move** (F6) send what is chosen to the other
+  side. Two folders on this computer use the usual copy and move, with Replace,
+  Keep Both or Skip and Undo. With a connection on either side, a name already
+  there is kept beside it with a number, a folder already there is filled in,
+  and a move removes the original only after its copy is done (to the Trash
+  here, to the service's own trash where it has one).
+- **Differences** lists only what is not the same: only on the left, only on
+  the right, newer on one side, or the same date with another size. A folder
+  on one side only is one row. Folders inside are compared too (Settings →
+  Files & search → Compare the folders inside too), up to 20,000 items a
+  side; dates within two seconds count as the same. Untick a row to leave it
+  out, pick **left → right**, **Both ways** (the newer copy wins) or **left ←
+  right**, and **Sync…** shows what will happen before anything does.
+- A sync never deletes. One way it copies what is missing or older on the
+  other side and leaves newer ones alone; a file with the same date and
+  another size is never replaced by guessing. A replaced file on this computer
+  goes to the Trash first. Copies made here keep the original's date; for a
+  connection, Keeper remembers what both sides looked like right after the
+  sync, so the copy's new date on the server is not taken for a change.
+- Progress shows in the Island (Syncing, Uploading, Downloading).
+
+Code: `core/panes.ts` (sides, compare, plan, walking a side; tested in
+`test/panes.test.ts`), `electron/services/panes.ts` (compare, copy and sync
+through the same stores as Sync & Backup), `src/screens/Panes.tsx`.
+End to end: `test/e2e/panes.cjs`.
+
 ## Settings → Sidebar
 
 - **Find by type in the sidebar** (More settings): a folded "Find by type"
