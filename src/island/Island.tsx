@@ -328,7 +328,14 @@ export function Island() {
 
   // The shelf shortcut (and the tray) open a tab directly; "reminders:new" (the New task shortcut) focuses the composer.
   const [composeKey, setComposeKey] = useState(0);
+  /**
+   * Opened by a shortcut, the tray or another window (not the pointer): the window growing under a pointer
+   * that is elsewhere reads as a "leave", which is not one. It closes on a real leave after the pointer has
+   * been on it, or with Escape.
+   */
+  const pointerSinceCommand = useRef(true);
   useEffect(() => api.on('island-open', (t: string) => {
+    pointerSinceCommand.current = false;
     const [id, then] = t.split(':');
     setTab((id === 'more' || ISLAND_TOOLS.some((x) => x.id === id) ? id : 'home') as Tab);
     setLiveId(null);
@@ -559,6 +566,7 @@ export function Island() {
   openRef.current = openNow;
   const enter = () => {
     pointerIn.current = true;
+    pointerSinceCommand.current = true;
     if (view === 'compact') {
       // At once: the shape breathes and the window grows to what will open.
       api.island.prepare?.(true);
@@ -933,6 +941,7 @@ export function Island() {
           else if (view !== 'compact' && e.key === 'Escape') collapse(0);
         }}
         onMouseEnter={() => { api.island.setInteractive?.(true); enter(); }}
+        onMouseMove={() => { if (!pointerSinceCommand.current) pointerSinceCommand.current = true; }}
         // The open Island takes the keyboard only when a field in it is clicked, so opening it never
         // brings Keeper (or its main window) to the front.
         onMouseDownCapture={(e) => { if (view !== 'compact' && (e.target as HTMLElement).closest?.(FIELD)) api.island.takeFocus?.(); }}
@@ -943,6 +952,7 @@ export function Island() {
           if (e.clientX > r.left + 1 && e.clientX < r.right - 1 && e.clientY > r.top + 1 && e.clientY < r.bottom - 1) return;
           if (view === 'compact') { leaveClosed(); return; }
           pointerIn.current = false;
+          if (!pointerSinceCommand.current) return;
           // A notice that dropped down by itself leaves on its own timer.
           if (view === 'alert') return;
           collapse(Date.now() - dragEnded.current < 500 || Date.now() - resizedAt.current < 700 ? 1500 : CLOSE_GRACE_MS, true); }}

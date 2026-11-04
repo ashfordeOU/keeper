@@ -19,6 +19,9 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - Each block is an ordinary event that links back to its task: tick it on Today and the task is done; the Island counts it down like any event.
 - Wrap up the day moves what is left to tomorrow and, with the Journal on, adds one line to today's entry. The working day (9:00 to 17:30) is in Settings → General → Today.
 
+### Fixed — Island: opened by a shortcut, it stays open
+- The Island opened by a shortcut, the tray or another window (for example straight to its Calendar tab) no longer closes by itself after two seconds when the pointer is elsewhere; it closes when you move the pointer over it and away, or with Escape.
+
 ### Changed — Screenshots: today's Keeper everywhere
 - Every picture in the README, the docs and the website is new, taken from today's Keeper in light and dark: Hello, Files with its sidebar and type chips, Everywhere, Network & firewall with the Ask prompt, the menu bar, Capture's preview, pins, scrolling captures and Draw on screen, a share link's page, Quick Search, clipboard sets, Typed Snippets, the selection bar, Focus blocking, Time tracking, Journal, Reader, Mail Today, page windows, light apps and app icons, Monitors, Phone Alerts, the photo editor, web page capture, the weather and the Island in several themes.
 - They show sample files and names only, never a real computer's.
