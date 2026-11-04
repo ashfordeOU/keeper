@@ -5,6 +5,7 @@ import { TabStrip } from './components/TabStrip';
 import { RecoveryNotice } from './components/RecoveryNotice';
 import { NoticesButton } from './components/Notices';
 import { HelpButton } from './components/HelpSheet';
+import { SelfCheckHost } from './components/SelfCheck';
 import { Alarms, RingHost } from './pim/Alarms';
 import { Calendar } from './pim/Calendar';
 import { Mail } from './pim/Mail';
@@ -645,6 +646,7 @@ function MainWindowHosts() {
       <WhatsNew />
       {/* An alarm or timer that is ringing, with Snooze and Stop. */}
       <RingHost />
+      <SelfCheckHost />
       <LinkPrompts />
       <ScreenPrompts />
       <ForceQuitHost />

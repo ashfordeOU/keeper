@@ -259,7 +259,7 @@ export const SETTINGS: SettingDef[] = [
   { id: 'meshPlaces', section: 'devices', label: 'Where device controls appear', help: 'In the palette, the tray and the Island.', level: 'advanced', kind: 'panel', panel: 'meshPlaces', feature: 'keeperMesh', keywords: ['mesh', 'private network', 'controls'] },
 
   // ---------------------------------------------------------------- About
-  { id: 'about', section: 'about', label: 'Version and what’s new', level: 'basic', kind: 'panel', panel: 'about', keywords: ['version', 'release notes', 'changelog', 'source code', 'license', 'report a problem', 'bug'] },
+  { id: 'about', section: 'about', label: 'Version and what’s new', level: 'basic', kind: 'panel', panel: 'about', keywords: ['version', 'release notes', 'changelog', 'source code', 'license', 'report a problem', 'bug', 'check keeper', 'self-check', 'diagnostics', 'problem report', 'logs', 'support'] },
 
   // ---------------------------------------------------------------- Account & Pro (builds with Pro switched on only)
   { id: 'proAccount', section: 'account', label: 'Your plan', help: 'Your plan and license on this computer.', level: 'basic', kind: 'panel', panel: 'proAccount', feature: 'proAccount', exportable: false, resettable: false, keywords: ['pro', 'license', 'subscription', 'restore purchase', 'manage subscription', 'remove license'] },

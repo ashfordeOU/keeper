@@ -562,6 +562,8 @@ export interface KeeperApi extends KeeperApiX {
   alerts: import('./api-alerts').PhoneAlertsApi;
   /** the notification center: every notice from Keeper, batched and quiet (core/notices.ts) */
   notices: import('./api-notices').NoticesApi;
+  /** Check Keeper and the redacted problem report (core/selfcheck.ts) */
+  selfCheck: import('./api-selfcheck').SelfCheckApi;
   /** usage-aware decluttering: a page was opened (counted on this computer only; core/declutter.ts) */
   pageUse: { opened(route: string): Promise<void> };
   /** site and server monitors: web pages, ports, ping, DNS */

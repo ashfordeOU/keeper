@@ -37,6 +37,7 @@ import { AccessibilityPanel } from '../../components/AccessibilityPanel';
 import { ClipIgnorePanel, LauncherCommandsPanel, LauncherLinksPanel, SelectionBarPanel } from '../../components/LauncherPanels';
 import { IslandAccentPanel } from '../../island/LookSettings';
 import { NoticePartsPanel, QuietHoursPanel } from '../../components/Notices';
+import { openSelfCheck } from '../../components/SelfCheck';
 import '../../styles/glance.css';
 
 const UsageSettings = lazy(() => import('../usage/UsageSettings').then((m) => ({ default: m.UsageSettings })));
@@ -228,8 +229,14 @@ function AboutPanel() {
       <Row title="Keeper by Ashforde®" desc={<WhatsNewHover only="current"><span className="dotted">Version {info?.appVersion ?? ''}</span></WhatsNewHover>}>
         <button className="btn" onClick={() => void api.system.openExternal('https://github.com/ashfordeOU/keeper')}><Icon name="external" size={13} /> Source code</button>
       </Row>
-      <Row title="Report a problem" desc="Something wrong or missing? A page opens on GitHub with a new issue ready to fill in.">
-        <button className="btn" data-testid="report-problem" onClick={() => void api.system.openExternal(REPORT_URL)}><Icon name="external" size={13} /> Report a problem</button>
+      <Row title="Check Keeper" desc="A quick check of each part, with a fix for anything amber.">
+        <button className="btn" data-testid="selfcheck-open" onClick={() => openSelfCheck('check')}><Icon name="check" size={13} /> Check Keeper</button>
+      </Row>
+      <Row title="Report a problem" desc="Save a report with names and keys taken out, then attach it to a new issue. Nothing is sent.">
+        <div className="btn-row">
+          <button className="btn" data-testid="report-make" onClick={() => openSelfCheck('report')}><Icon name="bug" size={13} /> Make a report…</button>
+          <button className="btn ghost" data-testid="report-problem" onClick={() => void api.system.openExternal(REPORT_URL)}><Icon name="external" size={13} /> New issue</button>
+        </div>
       </Row>
       <Row title="License" desc="Free for everyone, at home and at work, under PolyForm Shield 1.0.0. © 2026 Ashforde OÜ; Ashforde® is a registered trademark. Includes other people’s work under their own licenses.">
         <div className="btn-row">

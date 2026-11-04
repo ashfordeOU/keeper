@@ -45,6 +45,10 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - The search speed test compares against a plain scan timed at the same moment, so a busy computer no longer fails it while a real slowdown still does.
 - The usage stats test follows today's setup, and the accessibility test measures the light Island against its own light background.
 
+### Added — About: Check Keeper and a problem report with nothing private in it
+- Settings → About → **Check Keeper** shows a green or amber row for saving, disk space, the library, permissions, Keeper's helpers, downloaded parts, passwords and unexpected stops. Each amber row has a Fix.
+- **Make a report…** saves a zip of Keeper's own notes, its settings and what the check found. Your home folder, names, e-mail addresses, keys and tokens are taken out, and you see every file before it is saved. Nothing is sent: attach it to an e-mail or an issue.
+
 ### Added — Fix-it List: a lighter Keeper over time
 - A part you haven't opened for 30 days gets a gentle row on the Fix-it List: "You haven't opened Weather in 40 days", with what it does in the background and **Turn it off**. Undo turns it on again.
 - Keeper counts which pages you open on this computer only; nothing is sent. Settings → Features → **Suggest turning off unused parts** stops the suggestions.

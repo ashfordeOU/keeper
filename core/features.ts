@@ -319,7 +319,7 @@ export const CORE = {
   // native-*: handing a place, forecast or day to the system's own apps (core/native-apps.ts).
   // check-updates and about: the small Software Update and About Keeper windows (a check by hand works with automatic checks off).
   // page-window and window-*: a page in a window of its own (the palette lists only pages that are on).
-  commands: ['help', 'appearance', 'hidden-files', 'inspector', 'inspector-settings', 'sidebar-toggle', 'permissions', 'view', 'look', 'theme-*', 'native-*', 'check-updates', 'about', 'setup-again', 'page-window', 'window-*'],
+  commands: ['help', 'selfcheck', 'problem-report', 'appearance', 'hidden-files', 'inspector', 'inspector-settings', 'sidebar-toggle', 'permissions', 'view', 'look', 'theme-*', 'native-*', 'check-updates', 'about', 'setup-again', 'page-window', 'window-*'],
 };
 
 const byId = new Map(FEATURES.map((f) => [f.id, f]));

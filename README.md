@@ -72,6 +72,8 @@ Keeper is one app you install once. It is made of parts you switch on and off in
 - **Folders like Finder and File Explorer.** Icons, list, columns or gallery; copy, cut, paste and drag, with Replace, Keep Both or Skip.
 - **Studio.** Automatic zooms where you click, captions made on this computer, and export to MP4, WebM or GIF up to 4K.
 - **The Island.** Sizes from Compact to Extra large, your calendars, and new important mail with Archive and Mark read.
+- **Calm by design.** One bell for every notice, shown now, batched or kept silent per part, with quiet hours ([docs/NOTIFICATIONS.md](docs/NOTIFICATIONS.md)); one list of what is worth fixing, in calm words ([docs/GUIDE.md](docs/GUIDE.md)); and a **?** on every page with its guide, offline ([docs/HELP.md](docs/HELP.md)).
+- **Help when something is wrong.** Check Keeper finds what is amber and fixes it; a problem report leaves out names, folders and keys, and nothing is sent ([docs/CHECK-KEEPER.md](docs/CHECK-KEEPER.md)).
 - **Plain settings.** Two panes, search that understands everyday words, and a Reset button on every setting you changed.
 - **The same everywhere.** macOS, Windows and Linux, plus the `keeper` command for terminals. Where a system can't do something, Keeper says so.
 

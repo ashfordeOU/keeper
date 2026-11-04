@@ -171,6 +171,8 @@ const api = {
   // The notification center.
   // Usage-aware decluttering: a page was opened (counted on this computer only).
   pageUse: group('pageUse', ['opened']),
+  // Check Keeper and the problem report (nothing is sent).
+  selfCheck: group('selfCheck', ['run', 'fix', 'reportPreview', 'reportSave']),
   notices: group('notices', ['list', 'done', 'doneAll', 'snoozeAll', 'clearDone', 'test']),
   // Site and server monitors.
   // The light photo editor.

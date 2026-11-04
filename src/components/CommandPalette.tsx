@@ -15,6 +15,7 @@ import { themePatch, toggleThemePatch } from '../theme';
 import { mod, shift, useStore, type Route } from '../state';
 import { openNotices } from './Notices';
 import { openHelp } from './HelpSheet';
+import { openSelfCheck } from './SelfCheck';
 import { Icon } from './Icon';
 import { useFocusTrap } from '../a11y';
 import { CATALOG } from '../../core/settings-catalog';
@@ -152,6 +153,8 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     { id: 'setup-again', label: 'Set Up Keeper Again…', group: 'Actions', icon: 'sparkle', keywords: 'welcome tour first run onboarding recommended presets choose parts', run: () => openSetupAgain() },
     { id: 'check-updates', label: 'Check for Updates…', group: 'Actions', icon: 'refresh', keywords: 'update upgrade new version release software', run: () => void api.appInfo.openUpdateWindow() },
     { id: 'help', label: 'Help for This Page', group: 'Actions', icon: 'help', keywords: 'help guide docs documentation manual how to explain what is this question', kbd: 'F1', run: () => openHelp() },
+    { id: 'selfcheck', label: 'Check Keeper', group: 'Actions', icon: 'check', keywords: 'self check diagnostics health of keeper broken not working troubleshoot', run: () => openSelfCheck('check') },
+    { id: 'problem-report', label: 'Make a Problem Report…', group: 'Actions', icon: 'bug', keywords: 'bug report logs support diagnostics send help issue', run: () => openSelfCheck('report') },
     { id: 'notices', label: 'Notifications', group: 'Actions', icon: 'bell', keywords: 'notices alerts inbox batch quiet hours snooze mark all done', run: () => openNotices() },
     { id: 'notices-snooze', label: 'Snooze Notifications for 1 Hour', group: 'Actions', icon: 'clock', keywords: 'quiet do not disturb mute pause alerts', run: () => void api.notices?.snoozeAll(3600_000) },
     { id: 'about', label: 'About Keeper', group: 'Actions', icon: 'info', keywords: 'version licence license electron', run: () => void api.appInfo.openAbout() },

@@ -29,7 +29,7 @@ fs.mkdirSync(path.join(HOME, '.config/Keeper'), { recursive: true });
 fs.writeFileSync(path.join(HOME, '.config/Keeper/page-use.json'), JSON.stringify({ since: Date.now() - 40 * DAY, parts: { notes: { last: Date.now() - DAY, n: 3 } } }));
 
 (async () => {
-  const app = await _electron.launch({ executablePath: path.join(ROOT, 'node_modules/.bin/electron'), args: [ROOT, '--no-sandbox'], env: { ...process.env, KEEPER_SKIP_TOUR: '1', HOME, NODE_OPTIONS: '', XDG_CONFIG_HOME: path.join(HOME, '.config'), XDG_DATA_HOME: path.join(HOME, '.local/share'), XDG_CURRENT_DESKTOP: 'test' } });
+  const app = await _electron.launch({ executablePath: path.join(ROOT, 'node_modules/.bin/electron'), args: [ROOT, '--no-sandbox'], env: { ...process.env, KEEPER_SKIP_TOUR: '1', HOME, NODE_OPTIONS: '', XDG_CONFIG_HOME: path.join(HOME, '.config'), XDG_DATA_HOME: path.join(HOME, '.local/share'), XDG_CURRENT_DESKTOP: 'test', KEEPER_REPORT_TO: path.join(HOME, 'report.zip') } });
   const w = await until(async () => app.windows().find((x) => { const u = x.url(); return u && (!u.includes('view=') || u.includes('view=app')); }), 30000, 200);
   const errors = [];
   w.on('pageerror', (e) => errors.push(e.message));
@@ -167,6 +167,37 @@ fs.writeFileSync(path.join(HOME, '.config/Keeper/page-use.json'), JSON.stringify
     await group.locator('.fx-toggle').click();
     await w.waitForTimeout(500);
     await shots('declutter');
+  }
+
+  // ---------------------------------------------------------------- Check Keeper and the problem report
+  if (part('selfcheck')) {
+    await nav('settings:about');
+    const open = w.getByTestId('selfcheck-open');
+    check(!!(await until(async () => (await open.count()) === 1)), 'Settings → About offers Check Keeper');
+    await open.click();
+    const rows = w.getByTestId('selfcheck-row');
+    check(!!(await until(async () => (await rows.count()) >= 6, 30000)), `Check Keeper shows a row per part (${await rows.count()})`);
+    const summary = await w.getByTestId('selfcheck-summary').textContent();
+    check(/checks look good|to look at/.test(summary), `with a calm summary: “${summary}”`);
+    const ambers = await w.locator('[data-testid="selfcheck-row"][data-state="amber"]').count();
+    check(ambers === 0 || (await w.getByTestId('selfcheck-fix').count()) >= 1, 'each amber row has a Fix');
+    await shots('selfcheck');
+    await w.getByTestId('selfcheck-report').click();
+    const files = w.getByTestId('report-file');
+    check(!!(await until(async () => (await files.count()) >= 2, 30000)), 'the problem report lists its files');
+    const shown = await w.getByTestId('report-text').textContent();
+    check(/Nothing was sent/.test(shown) && !shown.includes(HOME), 'the first file is shown in full, with the home folder taken out');
+    await shots('report');
+    await w.getByTestId('report-save').click();
+    const zip = path.join(HOME, 'report.zip');
+    check(!!(await until(async () => fs.existsSync(zip) && (await w.getByTestId('report-saved').count()) === 1, 20000)), 'Save report writes the zip');
+    const JSZip = require(path.join(ROOT, 'node_modules/jszip'));
+    const z = await JSZip.loadAsync(fs.readFileSync(zip));
+    const names = Object.keys(z.files);
+    let leaked = false;
+    for (const n of names) if ((await z.file(n).async('string')).includes(HOME)) leaked = true;
+    check(names.includes('about.txt') && names.includes('settings.json') && !leaked, `the zip holds ${names.join(', ')}, with no home folder in any file`);
+    await w.keyboard.press('Escape');
   }
 
   // ---------------------------------------------------------------- a smaller window

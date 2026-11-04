@@ -147,6 +147,7 @@ import { registerReaderIpc } from './ipc/reader';
 import { registerPhoneAlertsIpc } from './ipc/phone-alerts';
 import { registerNoticesIpc } from './ipc/notices';
 import { registerPageUse } from './services/page-use';
+import { registerSelfCheck } from './services/selfcheck';
 import { notice, noticeFor, noticesSettingsChanged, startNotices, systemNotification } from './services/notices';
 import { registerMonitorsIpc } from './ipc/site-monitor';
 import { registerPhotoIpc } from './ipc/photo';
@@ -1376,6 +1377,8 @@ app.whenReady().then(async () => {
   registerBuiltinGuideSources({ index: () => index });
   // Usage-aware decluttering: when each part's pages were last opened, on this computer only.
   registerPageUse();
+  // Check Keeper and the problem report: run only when asked.
+  registerSelfCheck({ index: () => (index ? { files: index.files.size, indexing: index.scanning, folders: settings().folders.length } : null), rescan: () => void rescan() });
   // First look a minute after start, then twice a day; opening the To do list checks again.
   setTimeout(() => void refreshGuide(), 60_000).unref?.();
   setInterval(() => void refreshGuide(), 12 * 3600_000).unref?.();

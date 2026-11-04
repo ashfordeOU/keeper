@@ -59,3 +59,20 @@
 .help-doc th, .help-doc td { text-align: left; vertical-align: top; padding: 4px 6px; border-bottom: 1px solid var(--line); }
 .help-doc code { font-size: var(--fs-sm); }
 .help-doc a { color: var(--accent); }
+
+/* ---------------------------------------------------------------- Check Keeper and the problem report */
+.check-status { margin: -6px 0 14px; }
+.check-rows { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 4px; }
+.check-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: var(--r-md); background: var(--bg-sunk); }
+.check-label { font-weight: 600; font-size: var(--fs-md); }
+.check-dot { width: 10px; height: 10px; border-radius: var(--r-pill); flex: none; background: var(--ok); }
+.check-dot.amber { background: var(--warn); }
+.check-loading { display: grid; place-items: center; padding: 32px; }
+.check-foot { display: flex; align-items: center; gap: 8px; padding-top: 14px; }
+.report-lead { margin: -6px 0 14px; }
+.report-files { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 6px; }
+.report-file { border-radius: var(--r-md); background: var(--bg-sunk); }
+.report-file-head { display: flex; align-items: center; gap: 8px; width: 100%; border: 0; background: none; color: inherit; font: inherit; text-align: left; padding: 10px 12px; cursor: default; border-radius: var(--r-md); }
+.report-file-head:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.report-text { margin: 0; padding: 0 12px 12px; max-height: 280px; overflow: auto; white-space: pre-wrap; word-break: break-word; font-family: var(--mono); font-size: var(--fs-xs); color: var(--text-2); }
+.report-saved { margin-top: 10px; color: var(--ok); display: flex; align-items: center; gap: 6px; }
