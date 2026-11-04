@@ -11,7 +11,7 @@ export interface NotesCtx {
   files: VaultFile[];
   /** bumps when any file changed (for panels that read the index) */
   rev: number;
-  open(path: string, opts?: { newTab?: boolean; split?: boolean; subpath?: string; mode?: 'reading' | 'live' | 'source' }): void;
+  open(path: string, opts?: { newTab?: boolean; split?: boolean; subpath?: string; mode?: 'reading' | 'live' | 'source' | 'map' }): void;
   openLink(target: string, from: string, opts?: { newTab?: boolean; split?: boolean }): void;
   refresh(): Promise<void>;
   toast(text: string): void;

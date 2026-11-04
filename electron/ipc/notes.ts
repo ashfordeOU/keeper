@@ -48,6 +48,7 @@ export function registerNotesIpc(d: { broadcast: (channel: string, ...args: unkn
     },
     importPreview: io.importPreview, importRun: io.importRun, importCancel: io.importCancel, imports: io.importsList, importUndo: io.importUndo,
     exportNotes: io.exportNotes,
+    saveImage: (name: string, data: Uint8Array) => io.saveImage(name, Buffer.from(data)),
   };
   for (const [k, fn] of Object.entries(m)) handle(`notes.${k}`, fn);
 

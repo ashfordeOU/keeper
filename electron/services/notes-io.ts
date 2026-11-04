@@ -264,6 +264,15 @@ export async function exportNotes(vault: string, format: ExportFormat, opts: { p
   return { out, files: 1 };
 }
 
+/** Saves a picture made in the window (a mind map as PNG or SVG) where the person chooses. */
+export async function saveImage(name: string, data: Buffer, out?: string): Promise<string | null> {
+  const ext = (/\.([a-z]+)$/i.exec(name)?.[1] ?? 'png').toLowerCase();
+  const to = out ?? (await chooseOut('file', name.replace(/\.[a-z]+$/i, ''), ext));
+  if (!to) return null;
+  await fsp.writeFile(to, data);
+  return to;
+}
+
 /** One note as a page that needs nothing else: links to other notes become plain text, pictures are inside. */
 export async function noteHtml(v: Awaited<ReturnType<typeof notes.vaultFor>>, p: string): Promise<string> {
   const text = v.index.note(p)?.text ?? '';

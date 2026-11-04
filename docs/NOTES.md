@@ -38,6 +38,26 @@ Keeper is not affiliated with any other notes app. Folder names are mentioned on
 - **Links and outline** are closed at first on windows narrower than about 1360 pixels. Wide and narrow windows remember the choice separately. Below 1180 pixels the panel floats over the note (Esc closes it).
 - Spacing comes from one scale (`--nt-s1` … `--nt-s7` in `src/styles/notes.css`); text sizes and corners come from Keeper's tokens.
 
+## Mind maps
+
+**Map** (next to Live, Source and Read) shows a note as a mind map: the `# Title` (or the file name) in the centre, headings and list items as branches. Notes with the property `view: mindmap` open as a map; **More → New mind map** makes one.
+
+| Key | Does |
+| --- | --- |
+| Tab | add a branch under the selected one |
+| Enter | add a branch beside it (Shift+Enter while typing: just save) |
+| F2, double click, or typing | rename |
+| Delete / Backspace | remove the branch and what is under it |
+| Space | fold or unfold |
+| Arrow keys, Home | move around; Alt+↑/↓ reorders |
+| Ctrl+Z / Ctrl+Shift+Z | undo / redo |
+| Ctrl + / − / 0 | zoom in, out, fit |
+
+- Drag a branch onto another to put it under it, or onto the top or bottom edge of one to place it before or after.
+- Every change is written into the Markdown. A heading moved under a list item becomes a list item; new branches under headings become headings. Paragraphs, tables and code blocks stay attached to the branch above them, and a note read and written back without changes is byte for byte the same (unit-tested).
+- **Both sides** or **Right** layouts; **PNG** and **SVG** save the map in the colours on screen.
+- Code: `core/notes/mindmap.ts` (reading, writing, edits, layout; `test/notes-mindmap.test.ts`), `src/notes/MindMap.tsx`; end to end: `test/e2e/notes-mindmap.cjs` (a 500-branch map shows in well under a second).
+
 ## Import and export
 
 **Import notes** is in the vault menu (and on an empty page). Pick the app, follow its steps, check what will come in, then import. Each import goes into a folder of its own (`From Evernote`, then `From Evernote 2`…, or a name you type); nothing in the vault is ever overwritten.

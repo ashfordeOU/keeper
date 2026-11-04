@@ -203,6 +203,7 @@ export function mockNotes(emit: (channel: string, ...args: unknown[]) => void): 
     imports: async () => [],
     importUndo: async () => ({ removed: 0, kept: [] }),
     exportNotes: async () => null,
+    saveImage: async () => null,
   };
   return { notes };
 }

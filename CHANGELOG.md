@@ -11,6 +11,13 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - Settings → Island → Look: Match theme (the default), Dark, or Colourful with six bright gradients; Subtle or Bold; and an accent colour. A preview shows how it looks, also while music plays, a meeting is next, a timer runs or it charges.
 - Text stays easy to read in every theme and look: Keeper checks it on every part of the Island's background.
 
+### Added — Notes: mind maps
+- **Map** (next to Live, Source and Read) shows any note as a mind map: its title in the centre, its headings and lists as branches.
+- Tab adds a branch under, Enter one beside, F2 or just typing renames, Delete removes, Space folds, arrow keys move around, and Ctrl+Z undoes. Drag a branch onto another to move it there, or just above or below one to reorder.
+- Every change is written into the note's Markdown. Paragraphs, tables and code stay with the branch they belong to.
+- Branches on both sides, or all to the right like an outline. Save the map as PNG or SVG.
+- **New mind map** (under More) starts a note that opens as a map. Smooth with hundreds of branches.
+
 ### Added — Notes: import from other apps, and export
 - **Import notes** (in the vault menu, and on an empty page): pick the app, follow two or three plain steps, see how many notes will come in, then watch the progress. At the end you see what came in and what was left out, and why. **Undo** takes it back, and leaves alone any note you changed since.
 - Reads Evernote (.enex), Joplin (.jex, a sync folder, or Joplin while it runs), Standard Notes backups (encrypted ones are opened on this computer), Notesnook, Google Keep (Takeout folder or .zip), Simplenote, Bear exports, Apple Notes saved as files, Samsung Notes, Notion, OneNote, Markdown vaults from other notes apps, and on a Mac, Apple Notes and Bear directly.

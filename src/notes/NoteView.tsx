@@ -13,8 +13,10 @@ import { formatDate } from '../../core/notes/templates';
 import type { EditorHost, NoteEditor } from './cm';
 import { useNotes } from './ctx';
 import { Reading } from './Reading';
+import { MindMap } from './MindMap';
+import { isMindmapNote } from '../../core/notes/mindmap';
 
-export type ViewMode = 'live' | 'source' | 'reading';
+export type ViewMode = 'live' | 'source' | 'reading' | 'map';
 
 const SLASH: { label: string; detail?: string; apply: string }[] = [
   { label: 'Heading 1', apply: '# $|' },
@@ -110,7 +112,7 @@ function Chips({ values, onChange, tag }: { values: string[]; onChange: (v: stri
 /** What the page header can ask of an open note. */
 export interface NoteHandle { flush(): Promise<void>; record(): void; stopRecording(): void }
 
-export function NoteView({ path, mode, subpath, active, onEditor, onHandle, onRecording }: { path: string; mode: ViewMode; subpath?: string; active: boolean; onEditor?: (e: NoteEditor | null) => void; onHandle?: (h: NoteHandle | null) => void; onRecording?: (on: boolean) => void }) {
+export function NoteView({ path, mode, subpath, active, onEditor, onHandle, onRecording, onWantsMap }: { path: string; mode: ViewMode; subpath?: string; active: boolean; onEditor?: (e: NoteEditor | null) => void; onHandle?: (h: NoteHandle | null) => void; onRecording?: (on: boolean) => void; /** the note asks to be shown as a mind map (it has view: mindmap) */ onWantsMap?: () => void }) {
   const n = useNotes();
   const [text, setText] = useState<string | null>(null);
   const [settings, setSettings] = useState<{ vim?: boolean; spellcheck?: boolean }>({});
@@ -151,6 +153,7 @@ export function NoteView({ path, mode, subpath, active, onEditor, onHandle, onRe
       textRef.current = t;
       setText(t);
       editor.current?.setText(t);
+      if (onWantsMap && isMindmapNote(readProps(t).props)) onWantsMap();
     }).catch(() => alive && setText(''));
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -185,7 +188,7 @@ export function NoteView({ path, mode, subpath, active, onEditor, onHandle, onRe
     ],
   }), [n, path, change]);
 
-  const editing = mode !== 'reading' && text != null;
+  const editing = (mode === 'live' || mode === 'source') && text != null;
   // Create the editor (CodeMirror loads on first use).
   useEffect(() => {
     if (!editing || !editorBox.current) return;
@@ -268,6 +271,7 @@ export function NoteView({ path, mode, subpath, active, onEditor, onHandle, onRe
   return (
     <div className={`nt-note mode-${mode} ${n.vault.config.readableLineLength === false ? 'is-wide' : ''}`} onPasteCapture={(e) => { if (e.clipboardData.files.length) { e.preventDefault(); void attach(e.clipboardData.files); } }} onDropCapture={(e) => { if (e.dataTransfer.files.length) { e.preventDefault(); e.stopPropagation(); void attach(e.dataTransfer.files); } }}>
       <div className="nt-note-body">
+        {mode === 'map' ? <MindMap path={path} text={text} onChange={change} toast={n.toast} /> : (
         <div className="nt-scroll">
           {crumbs.length ? <nav className="nt-col nt-crumbs" aria-label="Folder">{crumbs.map((c, i) => <span key={i}>{c}</span>)}</nav> : null}
           {mode === 'reading' ? (
@@ -279,10 +283,11 @@ export function NoteView({ path, mode, subpath, active, onEditor, onHandle, onRe
             </>
           )}
         </div>
+        )}
       </div>
-      <div className="nt-status" aria-label="Note size">
+      {mode === 'map' ? null : <div className="nt-status" aria-label="Note size">
         {stats ? <span>{stats.words.toLocaleString()} words · {stats.chars.toLocaleString()} characters{mode !== 'reading' ? ` · Line ${cursorLine + 1}` : ''}</span> : null}
-      </div>
+      </div>}
     </div>
   );
 }

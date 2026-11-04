@@ -135,5 +135,7 @@ export interface NotesApi {
   /** removes what an import wrote (files changed since are kept) */
   importUndo(id: string, job: string): Promise<{ removed: number; kept: string[] }>;
   /** exports notes (all when paths is empty); asks where unless out is given */
+  /** asks where to save a picture (a mind map as PNG or SVG) and writes it */
+  saveImage(name: string, data: Uint8Array): Promise<string | null>;
   exportNotes(id: string, format: ExportFormat, opts?: { paths?: string[]; out?: string; plain?: boolean }): Promise<{ out: string; files: number } | null>;
 }

@@ -20,6 +20,7 @@ import { Ctx, kindOf, pushRecent, recentFiles, type NotesCtx } from './ctx';
 import { NoteView, type NoteHandle, type ViewMode } from './NoteView';
 import { NotesArt } from './art';
 import { ExportDialog, ImportDialog } from './ImportExport';
+import { newMindmapText } from '../../core/notes/mindmap';
 import { CanvasView } from './CanvasView';
 import { BaseView } from './BaseView';
 import { VaultGraph } from './VaultGraph';
@@ -31,13 +32,13 @@ import { FilePreview } from '../preview/Preview';
 import { splitSlides } from '../../core/notes/render';
 import '../styles/notes.css';
 
-interface Tab { id: string; path: string; mode: ViewMode; subpath?: string }
+interface Tab { id: string; path: string; mode: ViewMode; subpath?: string; /** the view was not chosen: a mind map note may switch to its map */ auto?: boolean }
 interface Pane { tabs: Tab[]; active: string }
 interface Layout { panes: Pane[]; focus: number; left: string; right: string; leftOpen: boolean; rightOpen?: boolean; /** the view to go back to after a search */ lastLeft?: string }
 
 const GRAPH = 'graph://vault';
 let tabSeq = 0;
-const newTab = (path: string, mode: ViewMode = 'live', subpath?: string): Tab => ({ id: `t${Date.now().toString(36)}${++tabSeq}`, path, mode, subpath });
+const newTab = (path: string, mode: ViewMode = 'live', subpath?: string, auto = false): Tab => ({ id: `t${Date.now().toString(36)}${++tabSeq}`, path, mode, subpath, auto: auto || undefined });
 const emptyLayout = (): Layout => ({ panes: [{ tabs: [], active: '' }], focus: 0, left: 'files', right: 'links', leftOpen: true });
 
 /** The side panel (links, outline, graph, AI): remembered; closed at first on narrower windows. */
@@ -288,12 +289,12 @@ export function NotesApp() {
         p.active = existing.id;
         if (opts.subpath) p.tabs = p.tabs.map((t) => (t.id === existing.id ? { ...t, subpath: opts.subpath } : t));
       } else if (opts.newTab || opts.split || !p.tabs.length) {
-        const t = newTab(path, mode, opts.subpath);
+        const t = newTab(path, mode, opts.subpath, !opts.mode);
         p.tabs.push(t);
         p.active = t.id;
       } else {
         // Replace the current tab (as a plain click does).
-        const t = newTab(path, mode, opts.subpath);
+        const t = newTab(path, mode, opts.subpath, !opts.mode);
         const i = p.tabs.findIndex((x) => x.id === p.active);
         if (i >= 0) p.tabs[i] = t; else p.tabs.push(t);
         p.active = t.id;
@@ -327,7 +328,7 @@ export function NotesApp() {
     return { ...l, panes: panes.length ? panes : [{ tabs: [], active: '' }], focus: Math.min(l.focus, Math.max(0, panes.length - 1)) };
   });
 
-  const setMode = (tabId: string, mode: ViewMode) => setLayout((l) => ({ ...l, panes: l.panes.map((p) => ({ ...p, tabs: p.tabs.map((t) => (t.id === tabId ? { ...t, mode } : t)) })) }));
+  const setMode = (tabId: string, mode: ViewMode) => setLayout((l) => ({ ...l, panes: l.panes.map((p) => ({ ...p, tabs: p.tabs.map((t) => (t.id === tabId ? { ...t, mode, auto: undefined } : t)) })) }));
 
   const ctx: NotesCtx | null = vault ? {
     vault, files: vault.files, rev, open, openLink, refresh, toast, activePath,
@@ -355,6 +356,13 @@ export function NotesApp() {
     await api.notes.create(vault.id, p, kind === 'canvas' ? '{\n\t"nodes":[],\n\t"edges":[]\n}' : 'views:\n  - type: table\n    name: Table\n    order:\n      - file.name\n      - file.mtime\n');
     await refresh();
     open(p, { newTab: true });
+  }, [vault, activePath, refresh, open]);
+
+  const newMindmap = useCallback(async () => {
+    if (!vault) return;
+    const p = await api.notes.newNote(vault.id, { title: 'Mind map', activePath: activePath ?? undefined, text: newMindmapText('Mind map') });
+    await refresh();
+    open(p, { newTab: true, mode: 'map' });
   }, [vault, activePath, refresh, open]);
 
   const daily = useCallback(async (period: 'day' | 'week' | 'month' = 'day', offset = 0) => {
@@ -455,6 +463,8 @@ export function NotesApp() {
       { id: 'new', name: 'New note (Ctrl+N)', run: () => void newFile('note') },
       { id: 'canvas', name: 'New canvas', run: () => void newFile('canvas') },
       { id: 'base', name: 'New base', run: () => void newFile('base') },
+      { id: 'mindmap', name: 'New mind map', run: () => void newMindmap() },
+      { id: 'mapview', name: 'Show this note as a mind map', run: () => activeTab && setMode(activeTab.id, activeTab.mode === 'map' ? 'live' : 'map') },
       { id: 'daily', name: 'Open today’s daily note', run: () => void daily('day') },
       { id: 'yesterday', name: 'Open yesterday’s daily note', run: () => void daily('day', -1) },
       { id: 'tomorrow', name: 'Open tomorrow’s daily note', run: () => void daily('day', 1) },
@@ -531,7 +541,7 @@ export function NotesApp() {
     if (t.path === GRAPH) return <VaultGraph />;
     const k = kindOf(t.path);
     if (!vault.files.some((f) => f.path === t.path)) return <Gone path={t.path} onClose={() => closeTab(layout.focus, t.id)} />;
-    if (k === 'note') return <NoteView key={t.id} path={t.path} mode={t.mode} subpath={t.subpath} active={active} onEditor={(e) => { editors.current.set(t.id, e); }} onHandle={(h) => { handles.current.set(t.id, h); }} onRecording={setRecording} />;
+    if (k === 'note') return <NoteView key={t.id} path={t.path} mode={t.mode} subpath={t.subpath} active={active} onEditor={(e) => { editors.current.set(t.id, e); }} onHandle={(h) => { handles.current.set(t.id, h); }} onRecording={setRecording} onWantsMap={t.auto ? () => setMode(t.id, 'map') : undefined} />;
     if (k === 'canvas') return <CanvasView path={t.path} />;
     if (k === 'base') return <BaseView path={t.path} />;
     return <div className="nt-file-view"><FilePreview path={`${vault.path}/${t.path}`} /></div>;
@@ -547,6 +557,7 @@ export function NotesApp() {
     { label: 'New folder', icon: 'folder', run: () => void newFile('folder') },
     { label: 'New canvas', icon: 'grid', run: () => void newFile('canvas') },
     { label: 'New base', icon: 'list', run: () => void newFile('base') },
+    { label: 'New mind map', icon: 'mindmap', run: () => void newMindmap() },
     { sep: true, label: '' },
     { label: sort === 'name' ? 'Sort by last change' : 'Sort by name', icon: sort === 'name' ? 'clock' : 'text', run: () => setSort(sort === 'name' ? 'modified' : 'name') },
     { label: 'Close all folders', icon: 'minus', run: () => setCollapse((c) => c + 1) },
@@ -660,6 +671,7 @@ export function NotesApp() {
                       <button className={at.mode === 'live' ? 'on' : ''} aria-pressed={at.mode === 'live'} onClick={() => setMode(at.id, 'live')} title="Write with formatting shown">Live</button>
                       <button className={at.mode === 'source' ? 'on' : ''} aria-pressed={at.mode === 'source'} onClick={() => setMode(at.id, 'source')} title="Plain Markdown">Source</button>
                       <button className={at.mode === 'reading' ? 'on' : ''} aria-pressed={at.mode === 'reading'} onClick={() => { void handles.current.get(at.id)?.flush(); setMode(at.id, 'reading'); }} title="Reading view (Ctrl+E)">Read</button>
+                      <button className={at.mode === 'map' ? 'on' : ''} aria-pressed={at.mode === 'map'} onClick={() => setMode(at.id, 'map')} title="Headings and lists as a mind map">Map</button>
                     </div>
                   ) : null}
                   {at && at.path !== GRAPH ? <button className="nt-icon-btn" title="More for this note" aria-label="More for this note" aria-haspopup="menu" onClick={(e) => showMenu(e, noteMenu(at), 'This note')}><Icon name="more" size={16} stroke={2.6} /></button> : null}
