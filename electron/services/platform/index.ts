@@ -15,6 +15,7 @@ import { desktopName, hasSessionBus, isInstalled, serve, setLinuxSearch, stopLin
 import { appleProvider, clearSpotlight, macHello, macOcr, pathFromSpotlightActivity, refreshMacHello, stopHelper, syncSpotlight } from './mac';
 import { findOdr, hasPackageIdentity, registerWithOdr, setExplorerMenu, setJumpList, windowsBuild, windowsOcr, windowsOcrLanguages } from './windows';
 import type { ProviderDeps } from './dbus-providers';
+import { appleScriptFor } from '../../../core/automation';
 
 export { appleProvider };
 export type { PlatformChatProvider } from './mac';
@@ -107,8 +108,10 @@ export async function platformSet(id: IntegrationId, on: boolean): Promise<{ lis
 export async function platformAction(id: string): Promise<{ ok: boolean; message?: string; copy?: string }> {
   if (id === 'copy-mcp') return { ok: true, copy: mcpConfigSnippet(), message: 'Copied. Paste it into your AI app’s MCP settings.' };
   if (id === 'copy-links') {
-    return { ok: true, message: 'Copied examples.', copy: ['keeper://search?q=invoices%20from%20last%20month', 'keeper://ask?q=when%20does%20my%20passport%20expire', 'keeper://open?path=/full/path/to/file.pdf', 'keeper://reveal?path=/full/path/to/file.pdf', 'keeper search "tax 2025"', 'keeper mcp'].join('\n') };
+    return { ok: true, message: 'Copied examples.', copy: ['keeper://search?q=invoices%20from%20last%20month', 'keeper://ask?q=when%20does%20my%20passport%20expire', 'keeper://open?path=/full/path/to/file.pdf', 'keeper://reveal?path=/full/path/to/file.pdf', 'keeper search "tax 2025"', 'keeper do focus --minutes 25', 'keeper do send.task --title "Call the plumber"', 'keeper do --list', 'keeper mcp'].join('\n') };
   }
+  if (id === 'install-ps') return (await import('../automation')).installPowershellModule();
+  if (id === 'copy-applescript') return { ok: true, message: 'Copied. Paste it into Script Editor.', copy: [appleScriptFor('focus', { minutes: '25' }), appleScriptFor('send.task', { title: 'Call the plumber' })].join('\n') };
   if (id === 'open-shortcuts') {
     await shell.openExternal('shortcuts://create-shortcut');
     return { ok: true };

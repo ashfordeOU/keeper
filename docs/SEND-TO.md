@@ -9,6 +9,7 @@ One menu turns anything in Keeper into something else. It is the same everywhere
 - **Mail**: right-click a message → **Send to…**.
 - **Notes**: right-click a note in the file list → **Send to…**.
 - **Command palette**: **Send Selection to…** sends the selected files.
+- **Scripts**: every choice except Device is also an action (`keeper do send.task --title …`), see [Automation](AUTOMATION.md). Sent this way it happens without the sheet.
 
 ## The eight choices
 

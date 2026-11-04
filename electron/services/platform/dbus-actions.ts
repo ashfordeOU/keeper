@@ -15,6 +15,7 @@
 // No Electron imports: tests run this against a real dbus-daemon.
 
 import * as dbus from 'dbus-next';
+import { ACTIONS } from '../../../core/automation';
 
 const { Interface } = dbus.interface;
 
@@ -28,17 +29,13 @@ export interface ActionsDeps {
   search(query: string, limit: number): Promise<string[]>;
 }
 
-export const LINUX_ACTIONS: [id: string, title: string, description: string, link?: (p: Record<string, string>) => string][] = [
-  ['ask', 'Ask Keeper', 'Ask about your files (use the Ask method to get the answer back)', (p) => `keeper://ask?q=${encodeURIComponent(p.question ?? '')}`],
-  ['search', 'Search files', 'Open Keeper with a search (use Search for paths)', (p) => `keeper://search?q=${encodeURIComponent(p.query ?? '')}`],
-  ['open-page', 'Open a Keeper page', 'params: page (home, health, cleanup, agents, settings…)', (p) => `keeper://go?page=${encodeURIComponent(p.page ?? 'home')}`],
-  ['focus', 'Start a focus timer', 'params: minutes (0 stops it)', (p) => `keeper://focus?minutes=${encodeURIComponent(p.minutes ?? '25')}`],
-  ['lock-all', 'Lock folders', 'Locks again every folder unlocked in Keeper', () => 'keeper://lock-all'],
-  ['automation', 'Run an automation', 'params: name', (p) => `keeper://automation?name=${encodeURIComponent(p.name ?? '')}`],
-  ['capture', 'Copy text from the screen', 'Select an area; its text is copied', () => 'keeper://capture'],
-  ['awake', 'Keep the computer awake', 'params: minutes', (p) => `keeper://awake?on=true&minutes=${encodeURIComponent(p.minutes ?? '60')}`],
-  ['terminal', 'Open the Terminal', 'params: cwd', (p) => `keeper://terminal${p.cwd ? `?cwd=${encodeURIComponent(p.cwd)}` : ''}`],
-];
+/** Keeper's one list of actions (core/automation.ts), as the bus lists them. */
+export const LINUX_ACTIONS: [id: string, title: string, description: string, link?: (p: Record<string, string>) => string][] = ACTIONS.map((a) => [
+  a.id,
+  a.title,
+  a.args.length ? `${a.what} params: ${a.args.map((x) => x.name).join(', ')}` : a.what,
+  (p: Record<string, string>) => a.link(p),
+]);
 
 /** D-Bus variants → plain strings (numbers and booleans included). */
 export function plainParams(params: Record<string, unknown> | undefined): Record<string, string> {

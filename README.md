@@ -202,7 +202,7 @@ Every update is checked before it is installed: it must match the release's `SHA
 | Area | Documents |
 |---|---|
 | Getting started | [Install](docs/INSTALL.md) · [Permissions](docs/PERMISSIONS.md) · [Themes](docs/THEMES.md) · [Accessibility](docs/ACCESSIBILITY.md) |
-| The suite | [Keeper as a suite](docs/SUITE.md) · [Send to…](docs/SEND-TO.md) · [Pages in windows of their own](docs/WINDOWS.md) · [Parts downloaded when switched on](docs/COMPONENTS.md) · [Staying up after a crash](docs/RESILIENCE.md) · [Works with your computer](docs/PLATFORM.md) |
+| The suite | [Keeper as a suite](docs/SUITE.md) · [Send to…](docs/SEND-TO.md) · [Automation](docs/AUTOMATION.md) · [Pages in windows of their own](docs/WINDOWS.md) · [Parts downloaded when switched on](docs/COMPONENTS.md) · [Staying up after a crash](docs/RESILIENCE.md) · [Works with your computer](docs/PLATFORM.md) |
 | Files | [Cloud and servers](docs/CONNECT.md) · [PDF tools and Convert](docs/FILEKIT.md) |
 | Mail & Calendar | [Mail, calendars, reminders and the clock](docs/PIM.md) · [Planner](docs/PLANNER.md) |
 | Notes | [Notes](docs/NOTES.md) · [Notes from other apps](docs/NOTES-EVERYWHERE.md) |

@@ -28,6 +28,8 @@ import type { FileEntry } from '../core/types';
 import type { BrainHit, BrainStatus } from '../core/brain-contract';
 import { connectToApp, offlineBrain } from '../core/brain/client';
 import { serveLines } from '../core/brain/mcp';
+import { ACTIONS, actionLink, parseDo } from '../core/automation';
+import { spawn } from 'node:child_process';
 
 declare const __KEEPER_VERSION__: string | undefined;
 // Filled in from package.json when the CLI is built.
@@ -514,6 +516,8 @@ ${bold('Usage')}
   keeper ask <question>      Ask about your files with the AI chosen in Keeper (cites files)
   keeper search --semantic   Search Keeper's brain by meaning (--brain: words inside files too)
   keeper brain               What Keeper's brain has read
+  keeper do <action> [--arg value]
+                             Any Keeper action: keeper do focus --minutes 25, keeper do send.task --title "Call Ana" (--list for all)
   keeper mcp                 Serve Keeper to AI apps over MCP (stdio)
   keeper acp                 Keeper as an agent for editors (Agent Client Protocol, stdio)
   keeper term run "<cmd>"    Run in an agent terminal; also list, read <id>, close <id>, write <id> <text>
@@ -837,6 +841,36 @@ async function cmdAmbience(a: Args) {
   });
 }
 
+// ---------------------------------------------------------------- do (every Keeper action: AUTOMATION)
+async function cmdDo(a: Args) {
+  const raw = process.argv.slice(3);
+  if (a.flags.list || !raw.filter((x) => !x.startsWith('--')).length) {
+    const list = ACTIONS.map((x) => ({ id: x.id, title: x.title, what: x.what, args: x.args.map((y) => ({ name: y.name, what: y.what, required: !!y.required })) }));
+    return out(list, a.flags, () => {
+      for (const x of ACTIONS) console.log(`  ${bold(x.id.padEnd(14))} ${x.what}${x.args.length ? dim(`  ${x.args.map((y) => `--${y.name}`).join(' ')}`) : ''}`);
+      console.log(dim('\n  keeper do <action> [--name value]…   e.g. keeper do focus --minutes 25'));
+    });
+  }
+  const { id, args } = parseDo(raw);
+  const r = actionLink(id, args);
+  if (!r.ok) throw new Error(r.message);
+  const app = await connectToApp();
+  let result: unknown;
+  if (app) {
+    try {
+      result = await app.call('keeper/do', { action: id, args });
+    } finally {
+      app.close();
+    }
+  } else {
+    // Keeper is not running: the system opens the link, which starts it.
+    const [cmd, list] = process.platform === 'darwin' ? ['open', [r.link]] : process.platform === 'win32' ? ['cmd', ['/c', 'start', '""', r.link]] : ['xdg-open', [r.link]];
+    spawn(cmd, list as string[], { stdio: 'ignore', detached: true }).unref();
+    result = { ok: true, action: id, link: r.link, started: true };
+  }
+  out(result, a.flags, () => console.log(`${green('✓')} ${ACTIONS.find((x) => x.id === id)!.title}`));
+}
+
 /** Ends the process once everything printed has been written (a pipe would otherwise be cut short); the Windows PowerShell helper would keep it open. */
 function exitWhenFlushed() {
   process.stdout.write('', () => process.exit(process.exitCode ?? 0));
@@ -848,6 +882,7 @@ async function main() {
   if (a.flags.help) return help();
   switch (a.cmd) {
     case 'search': case 'find': return cmdSearch(a);
+    case 'do': return cmdDo(a);
     case 'tool': case 'convert': return cmdTool(a);
     case 'dupes': case 'duplicates': return cmdDupes(a);
     case 'scan': return cmdScan(a);

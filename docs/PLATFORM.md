@@ -10,7 +10,8 @@ can be switched off. Keeper works the same without any of them.
 |---|---|
 | **Any AI app (MCP)** | AI apps and editors that support the Model Context Protocol can search and read your Keeper library. **Copy setup** puts a ready-made `mcpServers` entry on the clipboard. The server runs through Keeper's own runtime, so nothing else needs installing. |
 | **Ask Keeper from anywhere** | <kbd>Ctrl/⌘ Shift K</kbd> (changeable) opens Quick Search ready for a question. <kbd>Tab</kbd> switches between finding files and asking; <kbd>↩</kbd> sends the question to the assistant. |
-| **Links and scripts** | `keeper://ask?q=…` opens the assistant with the question filled in; `keeper://reveal?path=…` shows a file in its folder; `keeper://search?q=…` and `keeper://open?path=…` work as before. The `keeper` command does the same from a terminal. Only absolute local paths are accepted. |
+| **Links and scripts** | `keeper://ask?q=…` opens the assistant with the question filled in; `keeper://reveal?path=…` shows a file in its folder; `keeper://search?q=…` and `keeper://open?path=…` work as before. The `keeper` command does the same from a terminal, and `keeper do <action>` runs any of Keeper's actions ([Automation](AUTOMATION.md)). Only absolute local paths are accepted. |
+| **PowerShell (Windows) and AppleScript (Mac)** | The same actions as PowerShell commands (**Add commands**) and as AppleScript lines (**Copy an example**). See [Automation](AUTOMATION.md). |
 
 ## macOS
 

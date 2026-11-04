@@ -26,11 +26,17 @@ export function openSendTo(item: SendItem) {
 /** Mounted once in the window: listens for openSendTo. */
 export function SendToHost() {
   const [item, setItem] = useState<SendItem | null>(null);
+  const store = useStore();
   useEffect(() => {
     const open = (e: Event) => setItem((e as CustomEvent<SendItem>).detail);
     window.addEventListener(EVENT, open);
-    return () => window.removeEventListener(EVENT, open);
-  }, []);
+    // keeper do send.task --title … (and the same from PowerShell, the session bus or AppleScript).
+    const off = api.on('send-run', (s) => {
+      const it: SendItem = { kind: s.path ? 'file' : s.url ? 'text' : 'text', title: s.title, ...(s.text ? { text: s.text } : {}), ...(s.url ? { url: s.url } : {}), ...(s.path ? { paths: [s.path], link: `keeper://open?path=${encodeURIComponent(s.path)}` } : {}) };
+      void send(s.verb, it, { go: store.go, when: s.when }).then((said) => { if (said) store.toast(said.text, said.undo ? { label: 'Undo', run: () => void said.undo!() } : undefined); }, (e: unknown) => store.toast(e instanceof Error ? e.message : String(e)));
+    });
+    return () => { window.removeEventListener(EVENT, open); off(); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   return item ? <SendToSheet item={item} onClose={() => setItem(null)} /> : null;
 }
 

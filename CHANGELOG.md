@@ -65,6 +65,14 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - Archives' What works here says "Opens with your system's tools" instead of naming the program underneath; only 7-Zip is named, where it needs installing.
 - Snap Windows on Linux says "Works with apps on this desktop".
 
+### Added — Automation: every Keeper action from scripts, PowerShell, AppleScript and the session bus
+- `keeper do <action>` runs any of Keeper's actions from a terminal or a script: `keeper do focus --minutes 25`, `keeper do send.task --title "Call the plumber"`, `keeper do catch --text "…"`. `--list` shows them all and `--json` answers in JSON; a wrong name or value is said plainly and fails the command. If Keeper is not running, it starts.
+- Send to… from scripts: `send.note`, `send.task`, `send.event`, `send.mail`, `send.ai`, `send.shelf` and `send.cue` happen without opening the sheet.
+- On Windows, Settings → Works with your computer → PowerShell commands adds `Import-Module Keeper` with one command per action (Start-KeeperFocus, Send-KeeperSendTask…), for this account only.
+- On a Mac, AppleScript runs any action by opening its link, and Copy an example copies working lines.
+- On Linux, the session bus offers the same list (`org.ashfordeou.Keeper.Actions`).
+- One list behind all of them, and docs/AUTOMATION.md is made from it, so nothing drifts.
+
 ### Added — Send to…: the same eight choices for everything
 - Right-click a file, a mail or a note (or use Send to… in the Inspector, or Send Selection to… in the command palette) and send it to a Note, a Task, an Event, a Mail, another Device, the AI, the Shelf or a Cue. Keys 1 to 8 choose.
 - Every copy keeps a line back to where it came from ("from mail: Invoice October"), with a link that opens it, and most can be undone from the message that follows.
