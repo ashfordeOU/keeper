@@ -822,9 +822,9 @@ export function Check({ on, onChange, label }: { on: boolean; onChange: (v: bool
  * one line of text, the one useful next action (and maybe an Import or Learn beside it) and a
  * shortcut hint. Problems (icon "warning") get a calmer amber shape.
  */
-export function Empty({ icon = 'search', title, children, action, hint }: { icon?: string; title: string; children?: ReactNode; /** buttons under the text: one main action, at most one more */ action?: ReactNode; /** a shortcut or tip under the buttons ("Drop files here", "⌘N makes one") */ hint?: ReactNode }) {
+export function Empty({ icon = 'search', title, children, action, hint, compact }: { icon?: string; title: string; children?: ReactNode; /** buttons under the text: one main action, at most one more */ action?: ReactNode; /** a shortcut or tip under the buttons ("Drop files here", "⌘N makes one") */ hint?: ReactNode; /** inside a card: a smaller picture and less room around it */ compact?: boolean }) {
   return (
-    <div className={`empty ${icon === 'warning' || icon === 'lock' ? 'problem' : ''}`} data-testid="empty-state">
+    <div className={`empty ${compact ? 'compact' : ''} ${icon === 'warning' || icon === 'lock' ? 'problem' : ''}`} data-testid="empty-state">
       <EmptyArt icon={icon} />
       <div className="empty-title">{title}</div>
       {children ? <div className="small empty-text">{children}</div> : null}

@@ -37,6 +37,7 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - A folder's toolbar has New Folder, sort, view and More (Show Hidden Files, Tidy This Folder, Add to Sidebar, Show in Finder), instead of seven buttons.
 
 ### Changed — Empty pages that help
+- Today's Top three card, when nothing is planned, shows a small Plan your day picture with Pick three tasks; Join on a meeting is an accent outline, so Plan my day stays the one filled button.
 - Every empty list has the same designed look: a small picture in the theme's colours, a short title, one line, the one useful button and a tip. Backups, synced folders, mirrors, Remote Desktops, Cues, Mail accounts, AI Usage, the Inspector and a page that ran into a problem use it now.
 - Settings no longer points to "Settings → Performance"; it is Battery and speed. The help under "Run parts in processes of their own" is one line, with the details under More.
 

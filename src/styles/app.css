@@ -370,6 +370,13 @@ html[data-look='minimal'] .toggle.on::after { background: var(--bg); }
 .empty-hint { margin-top: 4px; font-size: var(--fs-xs); color: var(--text-3); }
 .empty-hint kbd { font: 11px var(--mono); padding: 1px 5px; border-radius: var(--r-sm); background: var(--bg-sunk); }
 .empty > .spinner { margin-bottom: 4px; }
+/* Inside a card (Today's tasks, a settings list): the same picture at a smaller size. */
+.empty.compact { padding: 16px 12px; gap: 6px; }
+.empty.compact .empty-art { width: 96px; height: 68px; margin-bottom: 0; }
+.empty.compact .empty-art svg { width: 96px; height: 68px; }
+.empty.compact .empty-art-icon { left: 35px; top: 16px; width: 35px; height: 35px; }
+.empty.compact .empty-art-icon svg { width: 18px; height: 18px; }
+.empty.compact .empty-title { font-size: var(--fs-lg); }
 
 .spinner { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--line-strong); border-top-color: var(--accent); animation: spin .8s linear infinite; flex: none; }
 @keyframes spin { to { transform: rotate(360deg); } }

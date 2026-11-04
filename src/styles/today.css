@@ -34,7 +34,8 @@
 .td-event-open { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: default; }
 .td-big { font-size: var(--fs-lg); font-weight: 650; color: var(--text); }
 .td-big-line { margin: 0; font-size: var(--fs-md); font-weight: 600; display: flex; align-items: center; gap: 6px; }
-.td-join { gap: 4px; }
+/* Join: an accent outline, so the page keeps one filled button (Plan my day). */
+.td-join { gap: 4px; color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
 .td-then { align-self: flex-start; max-width: 100%; border: 0; background: none; padding: 0 0 0 12px; color: var(--text-2); font: inherit; font-size: var(--fs-sm); text-align: left; cursor: default; }
 .td-then:hover, .td-event-open:hover .td-big { text-decoration: underline; text-underline-offset: 2px; }
 .td-block { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: var(--r-md); background: var(--accent-soft); font-size: var(--fs-md); min-width: 0; }
@@ -48,7 +49,6 @@
 .td-tasks li.done .td-task { text-decoration: line-through; color: var(--text-3); }
 .td-task { flex: 1; min-width: 0; border: 0; background: none; padding: 0; color: var(--text); font: inherit; font-size: var(--fs-md); text-align: left; cursor: default; }
 .td-task:hover { text-decoration: underline; text-underline-offset: 2px; }
-.td-empty-tasks { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 
 /* Small number cards */
 .td-stat { display: flex; align-items: baseline; gap: 10px; min-width: 0; border: 0; background: none; padding: 0; color: inherit; font: inherit; text-align: left; cursor: default; }

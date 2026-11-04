@@ -20,7 +20,7 @@ import { cardSpan, nowNext, replyLine, startsIn, timeLeft, todayCards, todayKick
 import { formatBytes } from '../../core/format';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
-import { ContextMenu, type MenuItem } from '../components/ui';
+import { ContextMenu, Empty, type MenuItem } from '../components/ui';
 import { useFeature, useFeatureStates } from '../features';
 import { openGuide, useGuideList } from '../guide';
 import { clock, useNow } from '../pim/mail-today';
@@ -138,7 +138,7 @@ function NowCard({ items, blocks, tasks, now }: { items: AgendaItem[]; blocks: P
             <b className="td-big ellipsis">{head.title}</b>
             <span className="td-sub">{nn.now ? `until ${clock(head.end)} · ${timeLeft(head.end, now)}` : `${clock(head.start)} · ${startsIn(head.start, now)}`}</span>
           </button>
-          {head.join ? <button className="btn sm primary td-join" data-testid="today-join" title={head.provider ? `Join on ${head.provider}` : 'Join the meeting'} aria-label={`Join ${head.title}`} onClick={() => join(head.join!)}><Icon name="video" size={12} /> Join</button> : null}
+          {head.join ? <button className="btn sm td-join" data-testid="today-join" title={head.provider ? `Join on ${head.provider}` : 'Join the meeting'} aria-label={`Join ${head.title}`} onClick={() => join(head.join!)}><Icon name="video" size={12} /> Join</button> : null}
         </div>
       ) : (
         <p className="td-quiet">{items.length ? 'Nothing else on the calendar today.' : 'Nothing on the calendar today.'}</p>
@@ -175,10 +175,7 @@ function TasksCard({ tasks, today, now, onPlan, planner }: { tasks: Task[]; toda
           ))}
         </ul>
       ) : (
-        <div className="td-empty-tasks">
-          <p className="td-quiet">Nothing planned for today yet.</p>
-          {onPlan ? <button className="btn sm" onClick={onPlan}>Pick three tasks</button> : null}
-        </div>
+        <Empty compact icon="listCheck" title="Plan your day" action={onPlan ? <button className="btn sm" onClick={onPlan}>Pick three tasks</button> : undefined}>Nothing planned for today yet.</Empty>
       )}
       <div className="td-card-foot">
         <button className="home-link quiet" onClick={() => go({ name: planner ? 'planner' : 'reminders' })}>All tasks <Icon name="chevronRight" size={11} /></button>
