@@ -65,6 +65,11 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - Archives' What works here says "Opens with your system's tools" instead of naming the program underneath; only 7-Zip is named, where it needs installing.
 - Snap Windows on Linux says "Works with apps on this desktop".
 
+### Added — An accessibility conformance report
+- docs/ACCESSIBILITY-CONFORMANCE.md says, criterion by criterion, how Keeper meets WCAG 2.2 at levels A and AA (the same criteria as in EN 301 549 and Section 508): 37 supported, 12 partly, 6 not applicable, each with the reason. Made from one list, with a test that it covers every criterion.
+- Settings → Accessibility links it, with the summary.
+- The beta checklist has a screen reader pass for each release (VoiceOver, NVDA, Narrator, Orca).
+
 ### Changed — Languages: only complete ones by default, and groundwork to translate everything
 - Settings → General → Language offers complete languages by default. The nine partly translated ones appear with More settings shown, marked "partly translated", and Settings says the rest stays in English. A language you already chose stays.
 - A pseudo language for testing shows every word accented and longer, so words that cannot be translated yet, and words that get cut off, stand out.

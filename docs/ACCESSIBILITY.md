@@ -123,6 +123,10 @@ In the list view, the column headings are buttons that sort by that column.
   KEEPER_SKIP_TOUR=1 xvfb-run -a -s "-screen 0 1440x900x24" node test/e2e/a11y.cjs /tmp/ka11y /tmp/ka11y-shots
   ```
 
+## Standards
+
+[The conformance report](ACCESSIBILITY-CONFORMANCE.md) goes through every WCAG 2.2 A and AA criterion (the same as EN 301 549 and Section 508 for these) and says how far Keeper meets each, and why.
+
 ## Known limits
 
 - **The checker is Keeper's own**, not a full WCAG audit tool. It covers the problems that come up most (names, roles, ARIA references, contrast of plain-coloured text, keyboard reach, images) but cannot judge text over pictures and gradients, reading order, or whether a name is helpful. Testing by hand with screen readers (VoiceOver, NVDA, Narrator, Orca) is still needed; the automated checks do not replace it.

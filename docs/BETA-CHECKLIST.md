@@ -535,6 +535,30 @@ See [TRACKS.md](TRACKS.md).
   - **Expected:** the sign-in page opens in your browser and comes back to Keeper, and your
     activities are imported.
 
+## 14. Accessibility by hand (about 45 minutes)
+
+See [ACCESSIBILITY.md](ACCESSIBILITY.md) and the [conformance report](ACCESSIBILITY-CONFORMANCE.md). Use the screen reader your system comes with: VoiceOver (Mac), NVDA and Narrator (Windows), Orca (Linux).
+
+- [ ] **A11Y-1 A screen reader through the main pages** (15 min)
+  - **Steps:** With the screen reader on, go Hello → Documents → open a file's Inspector → Settings → Accessibility, with the keyboard only.
+  - **Expected:** each page's title is read; sidebar items say which is current; buttons and switches say their name and state; Skip to content works on the first Tab.
+- [ ] **A11Y-2 Messages are read** (5 min)
+  - **Steps:** Move a file to the Trash; run a Clean Up scan.
+  - **Expected:** "Moved to Trash" with Undo is read without moving focus; the scan is read when it starts and ends.
+- [ ] **A11Y-3 Dialogs** (5 min)
+  - **Steps:** Open Send to…, Export settings and Back up Keeper; press Tab repeatedly, then Esc.
+  - **Expected:** focus stays inside, Esc closes, focus returns to what opened it.
+- [ ] **A11Y-4 Text at 200%, wrapped** (5 min)
+  - **Steps:** Settings → Accessibility → Text size 200%, then Wrap larger text on. Visit five pages at a window 1280 pixels wide.
+  - **Expected:** nothing needs scrolling sideways except wide tables; note any page that does.
+- [ ] **A11Y-5 Read aloud and reading fonts** (5 min)
+  - **Steps:** Turn on Read aloud; select text in a note; Read Aloud in the command palette. Choose OpenDyslexic.
+  - **Expected:** the system's own voice reads it; the font changes everywhere except code and the terminal.
+- [ ] **A11Y-6 Contrast themes** (Windows; 5 min)
+  - **Steps:** Windows Settings → Accessibility → Contrast themes → Night sky.
+  - **Expected:** Keeper uses the system's colours; switches, ticks, the selected item and focus stay visible.
+- [ ] **A11Y-7 Report what differs** from the conformance report, with the criterion number (for example "2.1.1: the drawing tools need a mouse").
+
 ---
 
 ## Linux extras (optional)
