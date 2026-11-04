@@ -1,0 +1,18 @@
+/* SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 */
+/* Battery Care: a calm hero with the charge, then rounded panels. Tokens only. */
+
+.bc { display: flex; flex-direction: column; gap: 16px; max-width: 880px; }
+.bc-hero { display: flex; align-items: center; gap: 28px; padding: 24px 28px; background: var(--bg-elev); border-radius: var(--r-lg); box-shadow: var(--shadow); }
+.bc-hero-text { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.bc-hero-title { margin: 0; font-size: var(--fs-xl); font-weight: 700; letter-spacing: -0.01em; }
+.bc-card { display: flex; flex-direction: column; gap: 12px; padding: 20px 24px; background: var(--bg-elev); border-radius: var(--r-lg); box-shadow: var(--shadow); }
+.bc-card h3 { margin: 0; font-size: var(--fs-md); font-weight: 700; }
+.bc-card p { margin: 0; }
+.bc-seg { align-self: flex-start; }
+.bc-seg button { min-width: 64px; justify-content: center; }
+.bc-allow { gap: 8px; color: var(--text-2); }
+.bc-problem { color: var(--danger); }
+.bc-row { display: flex; align-items: center; gap: 16px; padding: 4px 0; }
+.bc-row + .bc-row { padding-top: 14px; }
+.bc-row-text { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.bc-how ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }

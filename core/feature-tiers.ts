@@ -90,6 +90,7 @@ export const TIERS: Record<string, FeatureTier> = {
   photoEditor: { plain: 'Edit photos', setup: 'screen', normal: 'on', shown: 'customize' },
   monitors: { plain: 'Watch your sites and servers', setup: 'computer', normal: 'off', shown: 'basic' },
   appUpdates: { plain: 'Updates for your apps', setup: 'computer', normal: 'off', shown: 'basic' },
+  chargeLimit: { plain: 'Battery care', setup: 'computer', normal: 'off', shown: 'basic' },
   phoneAlerts: { plain: 'Alerts to your phone', setup: 'devices', normal: 'off', shown: 'basic' },
   reader: { plain: 'Feeds and read later', setup: 'notes', normal: 'off', shown: 'basic' },
   journal: { plain: 'Journal', setup: 'notes', normal: 'off', shown: 'basic' },

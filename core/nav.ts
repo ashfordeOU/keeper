@@ -104,6 +104,7 @@ export const NAV_PAGES: NavPage[] = [
   { id: 'awake', route: { name: 'awake' }, label: 'Keep Awake', icon: 'coffee', group: 'computer', keywords: 'caffeine sleep stay awake triggers closed lid' },
   { id: 'time', route: { name: 'time' }, label: 'Time Tracking', icon: 'stopwatch', group: 'computer', keywords: 'time tracker timesheet hours apps sites projects productivity timeline' },
   { id: 'blocking', route: { name: 'blocking' }, label: 'Focus Blocking', icon: 'block', group: 'computer', keywords: 'block sites apps distractions focus schedule strict social news' },
+  { id: 'battery', route: { name: 'battery' }, label: 'Battery Care', icon: 'battery', group: 'computer', keywords: 'battery charge limit 80% charging health trip full charge heat warm laptop longevity' },
   { id: 'monitors', route: { name: 'monitors' }, label: 'Monitors', icon: 'pulse', group: 'computer', keywords: 'uptime site server website down ping port dns certificate ssl tls response time status monitor' },
   { id: 'todo', route: { name: 'todo' }, label: 'Fix-it List', icon: 'check', group: 'computer', keywords: 'to do todo fix issues problems recommendations space security privacy' },
 

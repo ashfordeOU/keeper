@@ -28,6 +28,12 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - Works on macOS (with Accessibility), Windows and Linux on X11. Wayland does not let apps move other apps' windows, and the page says so. On a Mac with Monorail running, Monorail arranges the windows and Keeper's snap keys stay free.
 - Off until you turn it on in Settings → Features → Desktop.
 
+### Added — Battery Care: stop charging at 80%
+- Computer → Battery Care stops charging at 60, 70, 80 or 90%, so a laptop that is plugged in most of the day keeps its battery healthy for longer. On Linux Keeper sets it itself (ThinkPad, ASUS, Framework, Dell, Huawei, LG, MSI, Samsung, System76 and others) under one password prompt, and it stays set after a restart.
+- Full charge for a trip: 100% until tomorrow morning, then back to your limit by itself. Pause when warm: charging waits while the battery is 40°C or warmer.
+- On Windows it opens your laptop maker's own app, which sets the limit; a Mac manages charging itself, and Battery Care says so and opens Battery settings.
+- Off until you switch it on (Settings → Features → Computer).
+
 ### Added — App updates: newer versions of your apps, updated safely
 - Applications → Updates lists apps with a newer version: from each Mac app's own update feed, Homebrew, winget, Flatpak and Snap, with system packages counted and how many are for security. Security updates come first.
 - One button per app: Update runs its package manager; Download fetches the maker's own file, checks it against the key inside the installed app, then opens it; apps with nothing to check open the maker's page. Update all does everything a package manager can do by itself.

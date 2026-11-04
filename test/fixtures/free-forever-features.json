@@ -170,6 +170,8 @@
     "folderBoxes",
     "menuBarItems",
     "mouseButtons",
-    "appUpdates"
+    "appUpdates",
+    "appUpdates",
+    "chargeLimit"
   ]
 }

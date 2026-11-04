@@ -157,6 +157,7 @@ import { registerSelfCheck } from './services/selfcheck';
 import { notice, noticeFor, noticesSettingsChanged, startNotices, systemNotification } from './services/notices';
 import { registerMonitorsIpc } from './ipc/site-monitor';
 import { registerAppUpdatesIpc } from './ipc/app-updates';
+import { registerBatteryCareIpc } from './ipc/battery-care';
 import { registerPhotoIpc } from './ipc/photo';
 import { registerCrashReportsIpc } from './ipc/crash-reports';
 import { phoneAlert } from './services/phone-alerts';
@@ -1602,6 +1603,8 @@ app.whenReady().then(async () => {
   });
   // App updates: nothing runs until switched on; then one look a day and one row on the Fix-it List.
   registerAppUpdatesIpc({ broadcast });
+  // Battery care: nothing runs until switched on; a timer only while a trip charge or pausing while warm is on.
+  registerBatteryCareIpc({ broadcast });
   onControlsChanged(() => void updateTray());
   // Firewall: rules, alerts, the DNS filter and traffic history (nothing runs until switched on).
   registerFirewallIpc({ alert: noticeFor('network', { name: 'firewall' }), broadcast, window: { preload: preload(), load, lockDown } });
