@@ -55,6 +55,10 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - Search by meaning now also understands your mail, calendar events, tasks, contacts and notes outside your library, on this computer, in the same quiet background batches as your files. One search ranks every kind together.
 - It follows the graph's choices: leave mail or an account out and it leaves the search too.
 
+### Added — Mail: POP3 accounts and Exchange servers
+- POP3 accounts: mail is downloaded to this computer, with a copy kept on the server unless you untick it; nothing is downloaded twice.
+- An organisation's own Exchange server is found by itself, and its mail works when it offers IMAP. When it doesn't, Keeper says plainly what to ask your IT team instead of failing.
+
 ### Fixed — Mail: big mailboxes
 - A mailbox of 50,000 messages opens in about a second and scrolls smoothly: the list draws a page at a time and fetches older mail from the server by itself when you reach the bottom.
 - Mail you scrolled back to no longer disappears at the next check, and scrolling past the first few thousand messages no longer stops.

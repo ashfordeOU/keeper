@@ -2,7 +2,7 @@
 // Mail, calendars, reminders, alarms and contacts: the shapes shared by the
 // pure logic, the main process and the interface.
 
-export type AccountKind = 'imap' | 'google' | 'microsoft' | 'caldav' | 'ics' | 'local';
+export type AccountKind = 'imap' | 'pop3' | 'google' | 'microsoft' | 'caldav' | 'ics' | 'local';
 
 export interface ServerSettings {
   host: string;
@@ -35,6 +35,10 @@ export interface Account {
   /** names and addresses you send as; the first is the default */
   identities: Identity[];
   imap?: ServerSettings;
+  /** a POP3 account's incoming server (mail is downloaded into a mailbox on this computer) */
+  pop3?: ServerSettings;
+  /** POP3: leave a copy on the server (on unless false) */
+  keepOnServer?: boolean;
   smtp?: ServerSettings;
   /** CalDAV base URL (or the .ics address for kind 'ics') */
   caldav?: string;

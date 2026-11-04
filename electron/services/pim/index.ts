@@ -35,9 +35,11 @@ import { featureOn, onFeature } from '../features';
 import { poll, pollNow } from '../governor';
 import { cidMap, compose, MailAccount, smtpSend, smtpVerify, toBody, type Auth, type MailBox } from './mail';
 import { LocalMailbox } from './local-mail';
+import { Pop3Mailbox } from './pop3';
 import { gmailSendAs, localSignatures } from './signature-import';
 import { cancelImport, exportContacts, exportMail, exportTasks, foundSources, importHistory, runImport, undoImport, type ImportHost } from './importer';
 import { sourcesFor } from '../../../core/pim/import-flow';
+import { autodiscoverRequest, autodiscoverUrls, exchangeConfig, looksLikeExchange, parseAutodiscover } from '../../../core/pim/exchange';
 import { inboxOnly, mergeFolders, resolveSources } from '../../../core/pim/unified';
 import { dav, deleteHref, discover, fetchContacts, fetchIcs, graphCalendars, graphDelete, graphEvents, graphSave, putEvent, putTodo, syncCalendar, type DavAuth } from './dav';
 import { accessToken, cancelSignIn, clientFor, saveTokens, signIn } from './oauth';
@@ -203,7 +205,7 @@ const secretName = (id: string) => `pass.${id}`;
 const aliasSecret = (id: string, email: string) => `pass.${id}.smtp.${email.toLowerCase()}`;
 
 async function mailAuth(a: Account): Promise<Auth> {
-  const user = a.imap?.user ?? a.email ?? '';
+  const user = a.imap?.user ?? a.pop3?.user ?? a.email ?? '';
   if (a.oauth) {
     try {
       const token = await accessToken(a.id, a.oauth, clientFor(a.oauth, state.prefs.clients)!);
@@ -238,7 +240,7 @@ async function davAuth(a: Account): Promise<DavAuth> {
 function mailbox(a: Account): MailBox {
   let m = mailboxes.get(a.id);
   if (!m) {
-    m = a.kind === 'local' ? new LocalMailbox(a) : new MailAccount(a, () => mailAuth(a));
+    m = a.kind === 'local' ? new LocalMailbox(a) : a.kind === 'pop3' ? new Pop3Mailbox(a, () => mailAuth(a)) : new MailAccount(a, () => mailAuth(a));
     mailboxes.set(a.id, m);
   }
   return m;
@@ -267,7 +269,26 @@ async function discoverConfig(email: string): Promise<MailConfig> {
   } catch {
     /* no DNS answers */
   }
+  // An organisation's own Exchange server: Autodiscover says what it offers mail apps.
+  const ex = await exchangeDiscover(email).catch(() => null);
+  if (ex) return ex;
   return guess(email);
+}
+
+/** Exchange Autodiscover (unauthenticated: the answer, or a sign-in request that shows it is Exchange). */
+async function exchangeDiscover(email: string): Promise<MailConfig | null> {
+  for (const url of autodiscoverUrls(email)) {
+    try {
+      const res = await fetch(url, { method: 'POST', headers: { 'content-type': 'text/xml' }, body: autodiscoverRequest(email), redirect: 'follow', signal: AbortSignal.timeout(6000) });
+      if (res.ok) {
+        const info = parseAutodiscover(await res.text());
+        if (info && (info.imap || info.ews)) return exchangeConfig(email, info);
+      } else if (looksLikeExchange(res.status, res.headers.get('www-authenticate'))) return exchangeConfig(email, {});
+    } catch {
+      /* the next place */
+    }
+  }
+  return null;
 }
 
 function accountFrom(n: NewAccount, id: string = randomUUID()): Account & { davUser?: string } {
@@ -279,10 +300,11 @@ function accountFrom(n: NewAccount, id: string = randomUUID()): Account & { davU
     label: n.label || n.email || (n.caldav ? new URL(n.caldav.replace(/^webcal:/i, 'https:')).hostname : 'Account'),
     email: n.email,
     identities: n.email ? [{ name, email: n.email }] : [],
-    imap: n.imap, smtp: n.smtp,
+    imap: n.kind === 'pop3' ? undefined : n.imap, smtp: n.smtp,
+    ...(n.kind === 'pop3' ? { pop3: n.pop3 ?? n.imap, keepOnServer: n.keepOnServer !== false } : {}),
     caldav: n.caldav ?? (n.calendar !== false ? WELL_KNOWN_CALDAV[domain] : undefined),
     carddav: n.carddav ?? (n.contacts !== false ? WELL_KNOWN_CARDDAV[domain] : undefined),
-    mail: n.kind === 'imap' || n.kind === 'google' || n.kind === 'microsoft' ? n.mail !== false && !!n.imap : false,
+    mail: n.kind === 'imap' || n.kind === 'google' || n.kind === 'microsoft' ? n.mail !== false && !!n.imap : n.kind === 'pop3' ? !!(n.pop3 ?? n.imap) : false,
     calendar: n.kind === 'ics' || n.kind === 'caldav' || n.kind === 'microsoft' ? true : n.calendar !== false && !!(n.caldav ?? WELL_KNOWN_CALDAV[domain]),
     contacts: n.contacts !== false && !!(n.carddav ?? WELL_KNOWN_CARDDAV[domain]),
     insecureTls: n.insecureTls,
@@ -300,7 +322,14 @@ async function testNew(n: NewAccount): Promise<{ ok: boolean; message: string }>
     }
     const auth: Auth = { user: n.imap?.user ?? n.email ?? '', pass: n.password ?? '' };
     const parts: string[] = [];
-    if (a.mail && a.imap) {
+    if (a.mail && a.pop3) {
+      await new Pop3Mailbox(a, async () => ({ user: a.pop3!.user ?? auth.user, pass: n.password ?? '' })).test();
+      parts.push('Mail: connected (POP3)');
+      if (a.smtp) {
+        await smtpVerify(a, { user: n.smtp?.user ?? auth.user, pass: n.password ?? '' });
+        parts.push('sending: works');
+      }
+    } else if (a.mail && a.imap) {
       await new MailAccount(a, async () => auth).test();
       parts.push('Mail: connected');
       if (a.smtp) {

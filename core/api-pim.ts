@@ -14,12 +14,15 @@ import type { InboxTab, NoReplyReminder } from './pim/smart';
 import type { FoundSource, ImportArea, ImportRequest, ImportResult, ImportSourceId, ImportSourceInfo } from './pim/import-flow';
 
 export interface NewAccount {
-  kind: 'imap' | 'caldav' | 'ics' | 'google' | 'microsoft';
+  kind: 'imap' | 'pop3' | 'caldav' | 'ics' | 'google' | 'microsoft';
   email?: string;
   name?: string;
   label?: string;
   password?: string;
   imap?: MailConfig['imap'];
+  /** POP3 instead of IMAP: the incoming server, and whether a copy stays there */
+  pop3?: MailConfig['imap'];
+  keepOnServer?: boolean;
   smtp?: MailConfig['smtp'];
   caldav?: string;
   carddav?: string;

@@ -10,7 +10,10 @@ off, nothing connects, nothing is checked and nothing waits in the background.
 
 | Service | Mail | Calendars | Reminders (tasks) | Contacts | How you connect |
 | --- | --- | --- | --- | --- | --- |
-| Any IMAP/SMTP provider | ✅ IMAP + SMTP | — | — | — | address + password; servers found automatically (provider file, autoconfig, DNS SRV, common names) or entered by hand |
+| Any IMAP/SMTP provider | ✅ IMAP + SMTP | — | — | — | address + password; servers found automatically (provider file, autoconfig, DNS SRV, Exchange Autodiscover, common names) or entered by hand |
+| Any POP3 provider | ✅ POP3 + SMTP, downloaded to this computer (a copy kept on the server unless you untick it) | — | — | — | *Change servers* → POP3 in the Add account dialog |
+| An organisation's own Exchange server | ✅ when it offers IMAP + SMTP (found through Autodiscover) | through this computer's Calendar app | — | — | address + password; Keeper says plainly when the server offers only Exchange's own protocol (EWS), which Keeper doesn't speak yet |
+| Mail imported from other apps | ✅ "On this computer" | ✅ a calendar of its own | ✅ | ✅ | Import (below) |
 | Gmail / Google Calendar | ✅ IMAP + SMTP (XOAUTH2) | ✅ CalDAV | ✅ CalDAV | ✅ CardDAV | **Sign in with Google** (needs a client ID, below) or an app password for mail |
 | Outlook.com / Microsoft 365 | ✅ IMAP + SMTP (XOAUTH2) | ✅ Microsoft Graph | — | — | **Sign in with Microsoft** (needs a client ID, below) |
 | iCloud | ✅ IMAP + SMTP | ✅ CalDAV | ✅ CalDAV | ✅ CardDAV | app-specific password |
@@ -23,7 +26,9 @@ off, nothing connects, nothing is checked and nothing waits in the background.
 | Holidays, birthdays | — | ✅ worked out here | — | — | pick a country; birthdays come from contacts |
 | This computer only | — | ✅ "On this computer" | ✅ "Reminders" | ✅ | nothing to set up |
 
-JMAP is not used yet; Fastmail works through IMAP and CalDAV with an app password.
+JMAP is not used yet; Fastmail works through IMAP and CalDAV with an app password. Exchange Web Services (EWS) is not spoken: an Exchange server is used through the IMAP and SMTP it offers (`core/pim/exchange.ts`).
+
+**POP3** (`core/pim/pop3.ts`, `electron/services/pim/pop3.ts`): each check (with the others, every 10 minutes, and on *Check now*) connects with SSL/TLS or STLS, downloads what is new (by UIDL, so nothing comes twice) into an Inbox on this computer, and either keeps a copy on the server or removes it. Sent, Drafts, Archive and the other folders live on this computer; sending goes through the account's SMTP server.
 
 ## Mail
 

@@ -47,6 +47,9 @@ export function AccountDialog({ onClose, onAdded, initialTab = 'mail', provider 
   const [davUser, setDavUser] = useState('');
   const [label, setLabel] = useState('');
   const [insecure, setInsecure] = useState(false);
+  /** POP3 instead of IMAP (More settings): mail is downloaded to this computer */
+  const [pop, setPop] = useState(false);
+  const [keep, setKeep] = useState(true);
   const oauth = useAsync(() => api.pim.oauthReady(), []);
 
   const find = async () => {
@@ -65,6 +68,7 @@ export function AccountDialog({ onClose, onAdded, initialTab = 'mail', provider 
   const draft = (): NewAccount => {
     if (tab === 'ics') return { kind: 'ics', caldav: url.trim(), label: label || undefined };
     if (tab === 'caldav') return { kind: 'caldav', caldav: url.trim(), email: davUser.includes('@') ? davUser : undefined, davUser, password, label: label || undefined, insecureTls: insecure, calendar: true, contacts: true };
+    if (pop) return { kind: 'pop3', email: email.trim(), name: name || undefined, password, pop3: cfg?.imap, keepOnServer: keep, smtp: cfg?.smtp, caldav: cfg?.caldav, carddav: cfg?.carddav, insecureTls: insecure };
     return { kind: 'imap', email: email.trim(), name: name || undefined, password, imap: cfg?.imap, smtp: cfg?.smtp, caldav: cfg?.caldav, carddav: cfg?.carddav, insecureTls: insecure };
   };
 
@@ -137,6 +141,13 @@ export function AccountDialog({ onClose, onAdded, initialTab = 'mail', provider 
               <label className="field"><span>Password or app password</span><input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void add()} /></label>
               {advanced ? (
                 <div className="col" style={{ gap: 6 }}>
+                  <div className="row small" style={{ gap: 8 }}>
+                    <div className="seg" role="radiogroup" aria-label="Incoming mail">
+                      <button role="radio" aria-checked={!pop} className={!pop ? 'on' : ''} onClick={() => { setPop(false); if (cfg.imap?.port === 995) setCfg({ ...cfg, imap: { ...cfg.imap, port: 993, host: cfg.imap.host.replace(/^pop3?\./, 'imap.') } }); }}>IMAP</button>
+                      <button role="radio" aria-checked={pop} className={pop ? 'on' : ''} data-testid="account-pop3" onClick={() => { setPop(true); setCfg({ ...cfg, imap: { ...(cfg.imap ?? { security: 'tls' as const }), host: (cfg.imap?.host ?? '').replace(/^imap\./, 'pop.'), port: 995, security: cfg.imap?.security ?? 'tls', user: cfg.imap?.user ?? email.trim() } }); }}>POP3</button>
+                    </div>
+                    {pop ? <label className="row" style={{ gap: 6 }}><input type="checkbox" checked={keep} onChange={(e) => setKeep(e.target.checked)} /> Keep a copy on the server</label> : <span className="muted">POP3 downloads mail to this computer</span>}
+                  </div>
                   <ServerRow label="Incoming" value={cfg.imap} onChange={(v) => setCfg({ ...cfg, imap: v })} />
                   <ServerRow label="Outgoing" value={cfg.smtp} onChange={(v) => setCfg({ ...cfg, smtp: v })} />
                   <label className="field"><span>CalDAV (calendars, optional)</span><input className="input" value={cfg.caldav ?? ''} onChange={(e) => setCfg({ ...cfg, caldav: e.target.value || undefined })} placeholder="https://…" /></label>
