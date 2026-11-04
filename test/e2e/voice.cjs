@@ -75,7 +75,9 @@ async function until(fn, ms = 10_000, step = 250) {
   check(await main.locator('.sidebar [title="Voice"]').count() > 0, 'the sidebar has one Voice page');
   await main.locator('.sidebar [title="Voice"]').first().click();
   await main.waitForSelector('[data-testid="hub-tab-meetings"]');
-  check(await main.locator('[data-testid="hub-tab-dictation"]').count() === 1 && await main.locator('[data-testid="hub-tab-snippets"]').count() === 1, 'Voice has Dictation, Meetings and Snippets tabs');
+  // Snippets is a tab too while typed snippets are on (off until switched on in this run).
+  const snipOn = (await main.evaluate(() => window.keeper.features.list())).find((f) => f.id === 'textSnippets')?.on;
+  check(await main.locator('[data-testid="hub-tab-dictation"]').count() === 1 && await main.locator('[data-testid="hub-tab-snippets"]').count() === (snipOn ? 1 : 0), `Voice has Dictation and Meetings tabs${snipOn ? ', and Snippets' : ''}`);
   let tray = await v('tray');
   check(tray.includes('Dictation') && tray.includes('  Start Dictating') && tray.includes('Record Meeting'), `the tray has Dictation and Record Meeting (${tray.join(' | ')})`);
   await openTab('dictation');
