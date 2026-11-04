@@ -138,6 +138,7 @@ export const TIERS: Record<string, FeatureTier> = {
   widgets: { plain: 'Desktop widgets', setup: 'desktop', normal: 'off', shown: 'basic' },
   folderBoxes: { plain: 'Folder boxes on the desktop', setup: 'desktop', normal: 'off', shown: 'basic' },
   menuBarItems: { plain: 'Hide menu bar icons', setup: 'desktop', normal: 'off', shown: 'basic' },
+  mouseButtons: { plain: 'Mouse buttons and app shortcuts', setup: 'desktop', normal: 'off', shown: 'advanced' },
   snapWindows: { plain: 'Snap windows', setup: 'desktop', normal: 'off', shown: 'basic' },
   wallpaper: { plain: 'Live wallpaper', setup: 'desktop', normal: 'off', shown: 'basic' },
   vibes: { plain: 'Vibes', setup: 'desktop', normal: 'off', shown: 'basic' },

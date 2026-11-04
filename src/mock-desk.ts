@@ -4,6 +4,8 @@
 
 import type { BoxesApi } from '../core/api-boxes';
 import type { MenuBarApi, MenuBarStatus } from '../core/api-menubar';
+import type { InputRemapApi } from '../core/api-remap';
+import { remapAvailability } from '../core/input-remap';
 import type { SnapApi, SnapStatus } from '../core/api-snap';
 import { boxItems, planTidy, type BoxEntry } from '../core/folder-boxes';
 import type { SnapLayout } from '../core/snap';
@@ -13,7 +15,7 @@ const SAMPLE: BoxEntry[] = ['Holiday 1.jpg', 'Holiday 2.jpg', 'Plans.pdf', 'Budg
 
 const ICON = (id: number, app: string, x: number, system = false) => ({ id: `${id}:1`, app, pid: id, x, width: 28, system });
 
-export function mockDesk(): { snap: SnapApi; boxes: BoxesApi; menuBar: MenuBarApi } {
+export function mockDesk(): { snap: SnapApi; boxes: BoxesApi; menuBar: MenuBarApi; remap: InputRemapApi } {
   let hiding = true;
   const menuStatus = async (): Promise<MenuBarStatus> => ({
     availability: { state: 'ready', line: 'Icons left of Keeper’s divider stay out of sight until you click it.' },
@@ -58,6 +60,10 @@ export function mockDesk(): { snap: SnapApi; boxes: BoxesApi; menuBar: MenuBarAp
       press: async () => true,
       move: async () => ({ ok: true }),
       openSettings: async () => undefined,
+    },
+    remap: {
+      status: async () => ({ availability: remapAvailability({ platform: 'darwin', helper: true, accessibility: true }), listening: 'event tap', note: '', front: 'Notes', lastPress: null }),
+      runningApps: async () => ['Browser', 'Mail', 'Notes', 'Terminal'],
     },
   };
 }

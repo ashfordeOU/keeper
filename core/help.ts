@@ -46,6 +46,7 @@ export const PAGE_HELP: Record<string, PageHelp> = {
   controls: { what: 'Quick switches for your computer’s settings.', can: ['Turn Wi-Fi or Bluetooth on and off', 'Find a hidden setting', 'Set limits for an app'], doc: 'QUICK-CONTROLS.md' },
   awake: { what: 'Keeps the computer from sleeping while you need it.', can: ['Stay awake for a while', 'Stay awake while something runs', 'Keep working with the lid closed'], doc: 'KEEP-AWAKE.md' },
   time: { what: 'Where your time goes, kept only on this computer.', can: ['See today and this week', 'Group apps into projects', 'Export a timesheet'], doc: 'TIME-TRACKING.md' },
+  buttons: { what: 'Gives mouse buttons a job and changes shortcuts in one app.', can: ['Give a side button a job', 'Change a shortcut in one app', 'See what each system allows'], doc: 'BUTTONS-AND-SHORTCUTS.md' },
   snap: { what: 'Puts the window in front into place with one shortcut.', can: ['Snap to a half or a third', 'Change a shortcut', 'Save and restore a layout'], doc: 'SNAP-WINDOWS.md' },
   blocking: { what: 'Blocks distracting sites and apps while you focus.', can: ['Block a list now', 'Block on a schedule', 'Make it strict'], doc: 'FOCUS-BLOCKING.md' },
   monitors: { what: 'Checks that your sites and servers are up.', can: ['Watch a site or port', 'Get told when it goes down', 'See uptime and speed'], doc: 'SITE-MONITORS.md' },

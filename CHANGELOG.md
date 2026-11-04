@@ -4,6 +4,12 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 
 ## [Unreleased]
 
+### Added — Buttons & Shortcuts (experimental): mouse buttons with a job, and shortcuts changed in one app
+- Give the back, forward and middle buttons of a mouse a job: go back or forward, copy, paste, undo, close or open a tab, show all windows, or any keys you press. In every app, or only in one (that app's own job wins).
+- Change what a shortcut does in one app: "in Notes, Ctrl D sends Ctrl Shift D". Keeper takes the keys only while that app is in front, so every other app keeps them.
+- On Windows and macOS you can also stop a button's own action (More settings); on Linux Keeper can listen to a button but not take it over, and the page says so.
+- Works on macOS (Input Monitoring and Accessibility), Windows and Linux on X11 (xinput or the "input" group for the mouse, xdotool for keys). Wayland does not let apps send keys to other apps, and the page says that too. Off until you turn it on in Settings → Features → Desktop (Advanced).
+
 ### Added — Menu bar icons: other apps' icons out of sight on a Mac
 - Keeper adds a small divider to the menu bar. Icons left of it stay out of sight until you click it, and hide again after 15 seconds (or when you choose). Right-click the divider for a list of the hidden ones and open any of them from there.
 - Settings → Menu bar lists the icons in view and the hidden ones, with Hide and Keep in view for each (Keeper moves the icon across the divider for you, the way ⌘-drag does), and Open for hidden ones. The clock and Control Centre stay where macOS puts them.

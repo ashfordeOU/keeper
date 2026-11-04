@@ -143,6 +143,7 @@ import { registerFirewallIpc, stopFirewall } from './ipc/fw';
 import { registerFocusBlockIpc } from './ipc/focus-block';
 import { boxesApi } from './services/folder-boxes';
 import { menuBarApi, menuBarSettingsChanged, startMenuBarItems } from './services/menubar-items';
+import { inputRemapApi, inputRemapChanged, registerRemapShortcuts, startInputRemap, stopInputRemap } from './services/input-remap';
 import { registerSnapShortcuts, snapApi, startSnap, syncSnapWatch } from './services/snap';
 import { registerTimeTrackIpc } from './ipc/time-track';
 import { registerJournalIpc } from './ipc/journal';
@@ -674,6 +675,8 @@ function registerShortcuts() {
   registerInboxShortcut(reg, s.today.captureShortcut);
   // Snap windows: a shortcut per place on screen (only where Keeper may move windows).
   registerSnapShortcuts(reg);
+  // App shortcuts (Mouse buttons and app shortcuts): only those of the app in front.
+  registerRemapShortcuts(reg);
   void registerStudioShortcuts(reg);
 }
 
@@ -1559,6 +1562,9 @@ app.whenReady().then(async () => {
   // Menu bar icons (Mac): Keeper's divider, hiding other apps' icons left of it (nothing while off, nothing on Windows or Linux).
   for (const [k, fn] of Object.entries(menuBarApi)) ipcMain.handle(`menuBar.${k}`, async (_e, ...args) => (fn as (...a: unknown[]) => unknown)(...args));
   startMenuBarItems((route) => showMain(route));
+  // Mouse buttons and app shortcuts (experimental): nothing listens while it is off or has nothing to do.
+  for (const [k, fn] of Object.entries(inputRemapApi)) ipcMain.handle(`remap.${k}`, async (_e, ...args) => (fn as (...a: unknown[]) => unknown)(...args));
+  startInputRemap(() => registerShortcuts());
   // Snap windows: the window in front into a half, a third, a quarter; layouts per set of screens.
   for (const [k, fn] of Object.entries(snapApi)) ipcMain.handle(`snap.${k}`, async (_e, ...args) => (fn as (...a: unknown[]) => unknown)(...args));
   startSnap(() => registerShortcuts());
@@ -1816,6 +1822,7 @@ let studioSince: number | undefined;
     if (next.platform?.askShortcut !== prev.platform?.askShortcut) registerShortcuts();
     if (JSON.stringify(next.snap) !== JSON.stringify(prev.snap)) { registerShortcuts(); syncSnapWatch(); }
     if (JSON.stringify(next.menuBarItems) !== JSON.stringify(prev.menuBarItems)) menuBarSettingsChanged();
+    if (JSON.stringify(next.inputRemap) !== JSON.stringify(prev.inputRemap)) inputRemapChanged();
     if (next.quickSearchShortcut !== prev.quickSearchShortcut || next.island.captureShortcut !== prev.island.captureShortcut || next.island.dictationShortcut !== prev.island.dictationShortcut) registerShortcuts();
     if (next.trayEnabled !== prev.trayEnabled || next.trayCount !== prev.trayCount) void updateTray();
     if (next.island.enabled !== prev.island.enabled) (next.island.enabled ? createIsland() : destroyIsland());
@@ -1873,6 +1880,7 @@ app.on('before-quit', (e) => {
   stopIslandX();
   stopCues();
   stopFocusBlock();
+  stopInputRemap();
   void stopTimeTracking();
   stopStudio();
   try {

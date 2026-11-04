@@ -14,6 +14,10 @@
 //   Menu bar icons  off until switched on; on Linux, Settings → Menu bar says
 //                 plainly that other apps' tray icons cannot be hidden here, with
 //                 no button that would pretend otherwise, and no divider is made.
+//   Buttons & Shortcuts  off until switched on; the page says what this desktop
+//                 allows; a button added on the page; an app shortcut that works
+//                 only while its app (a real xterm) is in front, and a side
+//                 button's job (through the test hook) typed into that xterm.
 // Pictures in light and dark (the sidebar as a rail, so no real disk names show).
 
 const { _electron } = require('playwright');
@@ -51,7 +55,7 @@ const near = (a, b, d = 24) => Math.abs(a - b) <= d;
   const app = await _electron.launch({
     executablePath: path.resolve(__dirname, '../../node_modules/.bin/electron'),
     args: [path.resolve(__dirname, '../..'), '--no-sandbox'],
-    env: { ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME, NODE_OPTIONS: '', KEEPER_SUITE: 'shared', KEEPER_SKIP_TOUR: '1', XDG_CONFIG_HOME: HOME + '/.config', XDG_DATA_HOME: HOME + '/.local/share', XDG_SESSION_TYPE: 'x11' },
+    env: { ...process.env, KEEPER_DEFAULTS: 'before-1.0', HOME, NODE_OPTIONS: '', KEEPER_SUITE: 'shared', KEEPER_SKIP_TOUR: '1', KEEPER_INPUT_TEST: '1', XDG_CONFIG_HOME: HOME + '/.config', XDG_DATA_HOME: HOME + '/.local/share', XDG_SESSION_TYPE: 'x11' },
   });
   const errors = [];
   const main = await until(() => app.windows().find((w) => { const u = w.url(); return u && (!u.includes('view=') || u.includes('view=app')); }), 40000);
@@ -241,6 +245,57 @@ const near = (a, b, d = 24) => Math.abs(a - b) <= d;
     await k('features', 'set', 'menuBarItems', false);
     await wait(400);
     check(await main.locator('[data-testid="menubar-items"]').count() === 0, 'menubar: switched off, its settings leave');
+  }
+
+  // ================================================================ Buttons & Shortcuts
+  if (want('buttons')) {
+    check((await features()).find((f) => f.id === 'mouseButtons')?.on === false, 'buttons: off until switched on (experimental)');
+    await k('features', 'set', 'mouseButtons', true);
+    await wait(400);
+    await navigate('buttons');
+    await main.waitForSelector('[data-testid="buttons-page"]', { timeout: 15000 });
+    const st = await k('remap', 'status');
+    check(st.availability.keys.state === 'ready', `buttons: app shortcuts work on this X11 desktop (${st.availability.keys.line})`);
+    check(/xinput|input|still does its own thing/.test(st.availability.mouse.line + (st.availability.mouse.hint ?? '')), `buttons: the mouse line is honest about Linux (${st.availability.mouse.state})`);
+    check(!!(await main.locator('[data-testid="remap-mouse"] [data-testid="empty-state"]').count()), 'buttons: no jobs yet is a designed empty state');
+    await shot('buttons-empty');
+    await main.locator('[data-testid="remap-add-button"]').click();
+    const added = await until(async () => (await k('settings', 'get')).inputRemap.mouse[0], 5000);
+    check(added?.button === 'back' && added.keys === 'Alt+Left' && added.app === '', `buttons: Add a button gives the back button Go back in every app (${JSON.stringify(added)})`);
+
+    // A real app: whatever reaches it is written to a file when Return is pressed.
+    const out = path.join(HOME, 'typed.txt');
+    const term = spawn('xterm', ['-T', 'remap-target', '-geometry', '60x10+200+200', '-e', 'sh', '-c', `cat > ${out}`], { stdio: 'ignore' });
+    const id = await until(() => x('xdotool', 'search', '--name', 'remap-target').split('\n')[0], 10000);
+    const s0 = await k('settings', 'get');
+    await k('settings', 'set', { inputRemap: { ...s0.inputRemap, mouse: [{ ...added, app: 'xterm', keys: 'Shift+B' }], keys: [{ id: 'k1', app: 'xterm', from: 'Control+Alt+Shift+K', to: 'Shift+H' }] } });
+    await wait(500);
+    x('xdotool', 'windowactivate', '--sync', id);
+    const fronted = await until(async () => /xterm/i.test((await k('remap', 'status')).front), 8000);
+    check(!!fronted, `buttons: Keeper sees the xterm in front (${(await k('remap', 'status')).front})`);
+    const owned = await until(async () => (await main.evaluate(() => window.keeper.prefs.shortcuts())).some((x) => x.owner === 'In xterm: Control+Alt+Shift+K' && x.state === 'ok'), 6000);
+    check(!!owned, 'buttons: the app shortcut is taken only while its app is in front');
+    x('xdotool', 'key', '--clearmodifiers', 'ctrl+alt+shift+k');
+    await wait(900);
+    const pressed = await k('remap', 'testPress', 'back');
+    check(pressed?.sent === 'Shift+B', `buttons: the back button's job in this app is found (${JSON.stringify(pressed)})`);
+    await wait(900);
+    x('xdotool', 'key', 'Return');
+    const typed = await until(() => { try { const t = fs.readFileSync(out, 'utf8'); return t.includes('\n') ? t : null; } catch { return null; } }, 6000);
+    check((typed || '').trim() === 'HB', `buttons: the xterm got H from the app shortcut and B from the button (${JSON.stringify(typed)})`);
+
+    // Another app in front (a terminal of another kind): the shortcut is given back.
+    const other = spawn('xterm', ['-name', 'otherapp', '-class', 'OtherApp', '-T', 'other-app', '-e', 'sleep', '600'], { stdio: 'ignore' });
+    const oid = await until(() => x('xdotool', 'search', '--name', 'other-app').split('\n')[0], 10000);
+    if (oid) x('xdotool', 'windowactivate', '--sync', oid);
+    const freed = await until(async () => !(await main.evaluate(() => window.keeper.prefs.shortcuts())).some((x) => x.owner === 'In xterm: Control+Alt+Shift+K'), 8000);
+    check(!!freed, `buttons: with another app in front the shortcut is free again (${(await k('remap', 'status')).front}; ${(await main.evaluate(() => window.keeper.prefs.shortcuts())).filter((x) => x.owner.startsWith('In ')).map((x) => x.owner).join(',')})`);
+    await navigate('buttons');
+    await main.waitForSelector('[data-testid^="remap-key-"]', { timeout: 8000 });
+    await shot('buttons');
+    term.kill();
+    other.kill();
+    await k('features', 'set', 'mouseButtons', false);
   }
 
   check(errors.length === 0, `no page errors (${errors.slice(0, 3).join(' | ')})`);

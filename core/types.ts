@@ -539,6 +539,8 @@ export interface Settings {
   modeSession: import('./modes').ModeSession | null;
   /** snap windows: a shortcut per place on screen, the gap around windows, restoring a layout when screens change (core/snap.ts) */
   snap: import('./snap').SnapSettings;
+  /** mouse buttons and app shortcuts (experimental): each button's job, shortcuts changed in one app, taking a button over (core/input-remap.ts) */
+  inputRemap: import('./input-remap').InputRemapSettings;
   /** other apps' menu bar icons behind Keeper's divider on a Mac: hiding, hiding again, showing on a change (core/menubar-items.ts) */
   menuBarItems: import('./menubar-items').MenuBarItemsSettings;
   /** window layouts saved per set of screens ("Docked", "Laptop") */

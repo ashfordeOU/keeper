@@ -5,6 +5,7 @@ import { defaultA11y, normalizeA11y } from './a11y';
 import { defaultFocusBlockOptions, normalizeFocusBlockOptions } from './focus-block';
 import { defaultSnapSettings, normalizeLayouts, normalizeSnapSettings } from './snap';
 import { defaultMenuBarItems, normalizeMenuBarItems } from './menubar-items';
+import { defaultInputRemap, normalizeInputRemap } from './input-remap';
 import { defaultTimeTrackOptions, normalizeTimeTrackOptions } from './time-track';
 import { defaultJournalSettings, normalizeJournalSettings } from './notes/journal';
 import { defaultReaderSettings, normalizeReaderSettings } from './reader';
@@ -190,6 +191,7 @@ export function defaultSettings(folders: string[], rules: Rule[]): AllSettings {
     snap: defaultSnapSettings(),
     snapLayouts: [],
     menuBarItems: defaultMenuBarItems(),
+    inputRemap: defaultInputRemap(),
     timeTrack: defaultTimeTrackOptions(),
     journal: defaultJournalSettings(),
     reader: defaultReaderSettings(),
@@ -243,6 +245,7 @@ export function mergeSettings(base: AllSettings, raw: unknown): AllSettings {
   out.snap = normalizeSnapSettings(out.snap);
   out.snapLayouts = normalizeLayouts(out.snapLayouts);
   out.menuBarItems = normalizeMenuBarItems(out.menuBarItems);
+  out.inputRemap = normalizeInputRemap(out.inputRemap);
   out.timeTrack = normalizeTimeTrackOptions(out.timeTrack);
   out.journal = normalizeJournalSettings(out.journal);
   out.reader = normalizeReaderSettings(out.reader);

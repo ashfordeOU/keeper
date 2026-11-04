@@ -16,6 +16,11 @@
 //   voice.focus        is the focused field a password field? (Accessibility:
 //                      the secure text field subrole, or secure keyboard entry on)
 //   voice.micState     is the default microphone in use by any app, and which apps run
+//   voice.mouse        streams presses of the middle and side mouse buttons, for
+//                      Mouse buttons and app shortcuts (an event tap; Input
+//                      Monitoring). Listen-only, unless "take" lists buttons
+//                      whose own action is stopped (then a default tap, which
+//                      needs Accessibility). Lines: "ready", "btn <2|3|4> down|up".
 //
 // Dispatch: one `case` in main.swift sends every "voice.*" method here.
 
@@ -31,6 +36,7 @@ import ScreenCaptureKit
 func voiceCall(id: Int, method: String, params: [String: Any]) async throws -> [String: Any] {
     switch method {
     case "voice.keys": return try await voiceKeys(id: id, params)
+    case "voice.mouse": return try await voiceMouse(id: id, params)
     case "voice.typed": return try await voiceTyped(id: id)
     case "voice.systemAudio":
         if #available(macOS 13.0, *) { return try await voiceSystemAudio(id: id) }
@@ -124,6 +130,66 @@ func voiceKeys(id: Int, _ p: [String: Any]) async throws -> [String: Any] {
     CFMachPortInvalidate(tap)
     if let l = box.loop { CFRunLoopStop(l) }
     Unmanaged<VoiceTap>.fromOpaque(ref).release()
+    return ["ok": true]
+}
+
+// MARK: - mouse buttons (Mouse buttons and app shortcuts)
+
+final class MouseTap: @unchecked Sendable {
+    let id: Int
+    /// button numbers whose own action is stopped
+    let take: Set<Int64>
+    var tap: CFMachPort?
+    var loop: CFRunLoop?
+
+    init(id: Int, take: Set<Int64>) { self.id = id; self.take = take }
+
+    /// Reports the middle (2) and side (3, 4) buttons; true when the event is to be stopped.
+    func handle(_ type: CGEventType, _ e: CGEvent) -> Bool {
+        if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+            if let t = tap { CGEvent.tapEnable(tap: t, enable: true) }
+            return false
+        }
+        let n = e.getIntegerValueField(.mouseEventButtonNumber)
+        guard n >= 2 && n <= 4 else { return false }
+        Wire.shared.delta(id, "btn \(n) \(type == .otherMouseDown ? "down" : "up")")
+        return take.contains(n)
+    }
+}
+
+func voiceMouse(id: Int, _ p: [String: Any]) async throws -> [String: Any] {
+    let take = Set(((p["take"] as? [Int]) ?? []).map { Int64($0) })
+    let box = MouseTap(id: id, take: take)
+    if !CGPreflightListenEventAccess() { _ = CGRequestListenEventAccess() }
+    let mask = (1 << CGEventType.otherMouseDown.rawValue) | (1 << CGEventType.otherMouseUp.rawValue)
+    let callback: CGEventTapCallBack = { _, type, event, refcon in
+        guard let refcon else { return Unmanaged.passUnretained(event) }
+        let stop = Unmanaged<MouseTap>.fromOpaque(refcon).takeUnretainedValue().handle(type, event)
+        return stop ? nil : Unmanaged.passUnretained(event)
+    }
+    let ref = Unmanaged.passRetained(box).toOpaque()
+    let options: CGEventTapOptions = take.isEmpty ? .listenOnly : .defaultTap
+    guard let tap = CGEvent.tapCreate(tap: .cgSessionEventTap, place: .headInsertEventTap, options: options, eventsOfInterest: CGEventMask(mask), callback: callback, userInfo: ref) else {
+        Unmanaged<MouseTap>.fromOpaque(ref).release()
+        throw NSError(domain: "keeper", code: 73, userInfo: [NSLocalizedDescriptionKey: "Input Monitoring permission is needed: allow Keeper in System Settings → Privacy & Security → Input Monitoring"])
+    }
+    box.tap = tap
+    let thread = Thread {
+        box.loop = CFRunLoopGetCurrent()
+        let src = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
+        CFRunLoopAddSource(CFRunLoopGetCurrent(), src, .commonModes)
+        CGEvent.tapEnable(tap: tap, enable: true)
+        CFRunLoopRun()
+    }
+    thread.start()
+    Wire.shared.delta(id, "ready")
+    while !Task.isCancelled {
+        try? await Task.sleep(nanoseconds: 400_000_000)
+    }
+    CGEvent.tapEnable(tap: tap, enable: false)
+    CFMachPortInvalidate(tap)
+    if let l = box.loop { CFRunLoopStop(l) }
+    Unmanaged<MouseTap>.fromOpaque(ref).release()
     return ["ok": true]
 }
 

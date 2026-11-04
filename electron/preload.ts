@@ -162,6 +162,8 @@ const api = {
   boxes: group('boxes', ['status', 'list', 'open', 'reveal', 'planTidy', 'tidy']),
   // Menu bar icons (Mac): other apps' icons behind Keeper's divider.
   menuBar: group('menuBar', ['status', 'setHiding', 'peek', 'press', 'move', 'openSettings']),
+  // Mouse buttons and app shortcuts (experimental).
+  remap: group('remap', ['status', 'runningApps', 'testPress']),
   // Snap windows: halves, thirds, quarters and layouts per set of screens.
   snap: group('snap', ['status', 'run', 'saveLayout', 'restoreLayout', 'renameLayout', 'removeLayout', 'openPermission']),
   focusBlock: group('focusBlock', ['status', 'saveList', 'removeList', 'saveSchedule', 'removeSchedule', 'setFocusList', 'start', 'stop', 'pass', 'runningApps', 'blockedApp', 'closeApp', 'dismiss', 'testFront']),

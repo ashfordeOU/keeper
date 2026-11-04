@@ -143,7 +143,7 @@ Every Convert tool runs on your computer and works on many files at once. The CL
 | Reset permissions | Security › Permissions | built | Resets one app's privacy permissions (macOS). |
 | Hidden settings | Toolbox › Tweaks | better | Includes macOS, Windows and GNOME settings, including mouse wheel speed, key repeat and natural scrolling. |
 | Display control | Toolbox › Display control | better | Brightness, contrast and volume of external monitors over DDC/CI on all three OSs: Windows built in, macOS through Keeper's helper on Apple silicon (or m1ddc or ddcctl), Linux through ddcutil. |
-| Mouse fixes | Toolbox › Tweaks | os-limit | Scroll direction and wheel speed on all three OSs. Windows can reverse only the mouse wheel. GNOME sets the mouse and touchpad separately. macOS shares one setting for the mouse and trackpad, so they cannot be set separately without a driver. |
+| Mouse fixes | Toolbox › Tweaks | os-limit | Scroll direction and wheel speed on all three OSs. Windows can reverse only the mouse wheel. GNOME sets the mouse and touchpad separately. macOS shares one setting for the mouse and trackpad, so they cannot be set separately without a driver. Extra mouse buttons and shortcuts changed in one app are in Buttons & Shortcuts ([BUTTONS-AND-SHORTCUTS.md](BUTTONS-AND-SHORTCUTS.md)). |
 
 ## Developer (12)
 

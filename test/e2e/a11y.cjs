@@ -35,6 +35,8 @@ const ROUTES = [
   'convert', 'widgets', 'ambience', 'weather', 'network', 'trash', 'remote', 'terminal', 'sync:folders', 'sync:backups', 'devices', 'netactivity',
   'vpn', 'firewall', 'agents', 'graph', 'mail', 'calendar', 'reminders', 'alarms', 'todo', 'awake', 'stage', 'controls', 'catalog',
   'appcontrols', 'browsers', 'noteshub', 'notes', 'rdc', 'mesh', 'tracks', 'cues', 'dictation', 'meetings', 'studio',
+  // Off by default: switched on below so their pages are checked too.
+  'snap', 'buttons', 'settings:menubar',
 ];
 
 // ------------------------------------------------------------------ the in-page checker
@@ -237,6 +239,8 @@ function audit(scope) {
     return found;
   };
 
+  // Parts that start off but have pages or panels of their own.
+  await w.evaluate(() => Promise.all(['snapWindows', 'mouseButtons', 'folderBoxes', 'menuBarItems'].map((f) => window.keeper.features.set(f, true))));
   for (const mode of ['light', 'dark']) {
     await set({ appearance: mode });
     await w.waitForTimeout(400);
