@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The command palette: jump anywhere or run any action by typing a few letters.
 
+import { openSendTo } from './SendTo';
+import { filesItem } from '../../core/send-to';
 import { openSetupAgain } from '../setup/FirstRun';
 import { openPermissions } from './PermissionsPanel';
 import { accessCommands } from '../screen/palette';
@@ -227,6 +229,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     { id: 'clip-collect', label: 'Paste One by One: Collect What I Copy', group: 'Actions', icon: 'clipboard', keywords: 'paste queue paste stack clipboard sequential several', run: async () => { await api.island.queueStart(); store.toast('Copy what you want to paste; each paste then takes the next one'); } },
     { id: 'clip-queue-stop', label: 'Stop Pasting One by One', group: 'Actions', icon: 'clipboard', keywords: 'paste queue stop clear', run: async () => { await api.island.queueStop(); } },
     { id: 'snippet-new', label: 'New Typed Snippet', group: 'Actions', icon: 'text', keywords: 'text expansion abbreviation autotext', run: async () => { store.go({ name: 'snippets' }); } },
+    { id: 'send-to', label: 'Send Selection to…', group: 'Actions', icon: 'send', keywords: 'send to note task event mail device ai shelf cue share forward turn into', run: async () => { if (store.selection.length) openSendTo(filesItem(store.selection)); else store.toast('Select a file first'); } },
     { id: 'inbox-catch', label: 'Catch Something…', group: 'Actions', icon: 'inbox', keywords: 'inbox capture quick thought idea note jot later', run: async () => { await api.inbox.card('open'); } },
     { id: 'plan-day', label: 'Plan My Day', group: 'Actions', icon: 'calendar', keywords: 'time block today schedule three tasks morning', run: async () => { store.go({ name: 'home', arg: 'plan' }); } },
     { id: 'wrap-up', label: 'Wrap Up the Day', group: 'Actions', icon: 'check', keywords: 'shutdown end of day evening tomorrow journal', run: async () => { store.go({ name: 'home', arg: 'wrap' }); } },

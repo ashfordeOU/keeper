@@ -2,6 +2,8 @@
 // Shared building blocks: file thumbnails, grid and list views, chips, toggles,
 // context menu, modal, empty states.
 
+import { openSendTo } from './SendTo';
+import { filesItem } from '../../core/send-to';
 import { tracksFileMenu } from '../screens/TracksSurfaces';
 import { shownIn } from '../screen/surfaces';
 import { Fragment, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -657,6 +659,8 @@ export function useFileMenu() {
     { label: 'Add to Shelf', icon: 'island', run: () => void api.island.addToShelf(sel) },
     { label: store.info?.platform === 'darwin' ? 'Share… (AirDrop, Mail, Messages)' : 'Share…', icon: 'share', run: () => void api.places.share(sel).then((r) => { if (r.message) store.toast(r.message); }) },
     // Your other computers (Keeper Link) and Android phones; handled by the Send sheet on every page.
+    // One menu for every kind of thing: Note, Task, Event, Mail, Device, AI, Shelf, Cue (core/send-to.ts).
+    { label: 'Send to…', icon: 'send', testId: 'menu-send-to', run: () => openSendTo(filesItem(sel)) },
     ...(shownIn('sendTo', 'contextMenu') ? [{ label: 'Send to Device…', icon: 'send', run: () => window.dispatchEvent(new CustomEvent('keeper-send-to', { detail: sel })) }] : []),
     { label: 'Pin to Sidebar', icon: 'pin', run: () => {
       const dir = state.file.path.slice(0, state.file.path.length - state.file.name.length - 1);

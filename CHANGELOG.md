@@ -65,6 +65,11 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - Archives' What works here says "Opens with your system's tools" instead of naming the program underneath; only 7-Zip is named, where it needs installing.
 - Snap Windows on Linux says "Works with apps on this desktop".
 
+### Added — Send to…: the same eight choices for everything
+- Right-click a file, a mail or a note (or use Send to… in the Inspector, or Send Selection to… in the command palette) and send it to a Note, a Task, an Event, a Mail, another Device, the AI, the Shelf or a Cue. Keys 1 to 8 choose.
+- Every copy keeps a line back to where it came from ("from mail: Invoice October"), with a link that opens it, and most can be undone from the message that follows.
+- A choice that cannot be used now says why ("Notes is switched off", "Only files can go there") instead of disappearing.
+
 ### Added — Buttons & Shortcuts (experimental): mouse buttons with a job, and shortcuts changed in one app
 - Give the back, forward and middle buttons of a mouse a job: go back or forward, copy, paste, undo, close or open a tab, show all windows, or any keys you press. In every app, or only in one (that app's own job wins).
 - Change what a shortcut does in one app: "in Notes, Ctrl D sends Ctrl Shift D". Keeper takes the keys only while that app is in front, so every other app keeps them.

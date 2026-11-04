@@ -1,0 +1,19 @@
+/* SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 */
+/* Send to…: what is being sent, then eight quiet choices in two rows. */
+.sendto-what { display: flex; flex-direction: column; gap: 2px; margin-bottom: 14px; min-width: 0; }
+.sendto-kicker { font-size: var(--fs-xs); font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--text-3); }
+.sendto-title { font-size: var(--fs-lg); font-weight: 650; }
+.sendto-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.sendto-verb { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-height: 84px; padding: 12px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--bg-elev); color: var(--text); font: inherit; text-align: left; cursor: default; }
+.sendto-verb:hover:not(:disabled) { border-color: var(--accent); background: var(--accent-soft); }
+.sendto-verb:disabled { opacity: .5; }
+.sendto-verb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sendto-verb > svg { color: var(--accent); }
+.sendto-label { font-size: var(--fs-md); font-weight: 650; }
+.sendto-hint { font-size: var(--fs-xs); color: var(--text-2); line-height: 1.3; }
+.sendto-verb kbd { position: absolute; top: 8px; right: 10px; font: 600 var(--fs-xs) var(--font); color: var(--text-3); }
+.sendto-when { display: flex; align-items: flex-end; gap: 10px; }
+.sendto-when label { flex: 1; display: flex; flex-direction: column; gap: 6px; font-size: var(--fs-sm); color: var(--text-2); }
+.sendto-when input { height: 34px; padding: 0 10px; border-radius: var(--r-md); border: 1px solid var(--line-strong); background: var(--bg); color: var(--text); font: inherit; }
+.sendto-foot { margin: 14px 0 0; }
+@media (max-width: 760px) { .sendto-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

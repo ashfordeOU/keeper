@@ -5,6 +5,7 @@
 // (when switched on) AI. Files stay plain files, so the same vault keeps
 // working in other notes apps.
 
+import { openSendTo } from '../components/SendTo';
 import { Learn } from '../components/Learn';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api';
@@ -420,6 +421,7 @@ export function NotesApp() {
       { label: 'Publish as a website…', icon: 'globe', run: () => setModal({ kind: 'publish', arg: p }) },
     ] : []),
     { label: 'Copy link', icon: 'copy', run: () => void navigator.clipboard.writeText(`[[${p.replace(/\.md$/, '')}]]`) },
+    ...(vault ? [{ label: 'Send to…', icon: 'send', run: () => void api.notes.read(vault.id, p).catch(() => '').then((text) => openSendTo({ kind: kindOf(p) === 'note' ? 'note' : 'file', title: p.split('/').pop()!.replace(/\.md$/, ''), text: text.slice(0, 4000), paths: [`${vault.path}/${p}`], link: `keeper://notes?open=${encodeURIComponent(p)}` })) }] : []),
     { label: 'Show in folder', icon: 'reveal', run: () => vault && void api.notes.reveal(vault.id, p) },
     { sep: true, label: '' },
     { label: 'Delete', icon: 'trash', run: () => void remove(p) },
