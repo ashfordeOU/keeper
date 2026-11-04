@@ -45,6 +45,11 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - The search speed test compares against a plain scan timed at the same moment, so a busy computer no longer fails it while a real slowdown still does.
 - The usage stats test follows today's setup, and the accessibility test measures the light Island against its own light background.
 
+### Added — Help: a "?" on every page
+- The **?** in the top bar (or F1) opens a sheet about the page you are on: what it is in one line, three things you can do there, and the page's own guide.
+- The guides come with Keeper, so help works offline. Links to other guides open in the same sheet.
+- Settings → General → **Show the Help button** hides the **?**; F1 still works.
+
 ### Added — Notifications: one calm place for every notice
 - A bell in the top bar lists every notice from Keeper, grouped by part: Mail, reminders, Sites and servers, the Fix-it List, Privacy & Security, Health, updates and more. Click one to go to it; **Mark all done** and **Snooze all 1 h** are one click away.
 - Settings → General → Notifications: each part tells you **Now**, **Batched** (one summary at 9, 13 and 17, or every hour) or **Silent** (only in the bell). Mail and monitors come now; the Fix-it List and updates are batched, out of the box.

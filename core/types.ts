@@ -521,4 +521,6 @@ export interface Settings {
   phoneAlerts: import('./phone-alerts').PhoneAlertSettings;
   /** the notification center: delivery per part, batch times, quiet hours (core/notices.ts) */
   notices: import('./notices').NoticeSettings;
+  /** the "?" in the top bar that opens the page's help (F1 works either way) */
+  helpButton: boolean;
 }

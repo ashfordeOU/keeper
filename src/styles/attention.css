@@ -40,3 +40,22 @@
 .notice-part > span { flex: 1; min-width: 0; }
 .quiet-hours { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .quiet-hours input[type="time"] { width: 110px; }
+
+/* ---------------------------------------------------------------- the help sheet */
+.help-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.help-kicker { text-transform: uppercase; letter-spacing: .08em; font-weight: 600; }
+.help-title { margin: 0 0 6px; font-size: var(--fs-2xl); letter-spacing: -0.02em; line-height: 1.15; }
+.help-what { margin: 0 0 18px; color: var(--text-2); }
+.help-sub { margin: 0 0 8px; font-size: var(--fs-sm); font-weight: 700; color: var(--text-2); }
+.help-can { list-style: none; margin: 0 0 20px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.help-can li { display: flex; align-items: center; gap: 8px; }
+.help-can svg { color: var(--accent); flex: none; }
+.help-docbar { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.help-docbar .help-sub { margin: 0; }
+.help-doc { flex: 1; min-height: 0; overflow: auto; margin: 8px -8px 0; padding: 0 8px 12px; font-size: var(--fs-md); line-height: 1.55; }
+.help-doc h2 { font-size: var(--fs-lg); margin: 18px 0 6px; }
+.help-doc h3 { font-size: var(--fs-md); margin: 14px 0 4px; }
+.help-doc table { border-collapse: collapse; width: 100%; font-size: var(--fs-sm); }
+.help-doc th, .help-doc td { text-align: left; vertical-align: top; padding: 4px 6px; border-bottom: 1px solid var(--line); }
+.help-doc code { font-size: var(--fs-sm); }
+.help-doc a { color: var(--accent); }

@@ -103,6 +103,42 @@ fs.mkdirSync(SHOTS, { recursive: true });
     await shots('fixit');
   }
 
+  // ---------------------------------------------------------------- help on every page
+  if (part('help')) {
+    await nav('home');
+    await w.waitForTimeout(600);
+    const btn = w.getByTestId('help-button');
+    check(await btn.count() === 1 && /Help/.test(await btn.getAttribute('aria-label')), 'the top bar has a labelled ? button');
+    await btn.click();
+    const sheet = w.getByTestId('help-sheet');
+    check(!!(await until(async () => (await sheet.count()) === 1)), '? opens the help sheet');
+    check((await w.getByTestId('help-title').textContent()) === 'Hello', 'it is about the page you are on');
+    check(await w.locator('[data-testid="help-can"] li').count() === 3, 'three things you can do here');
+    check(!!(await until(async () => (await w.getByTestId('help-doc').textContent()).length > 400)), 'the page’s guide is shown from the bundled docs');
+    await shots('help');
+    await w.keyboard.press('F1');
+    check(!!(await until(async () => (await sheet.count()) === 0)), 'F1 closes it');
+    // A tab with its own guide; a link to another guide opens in the sheet; Back returns.
+    await nav('security');
+    await w.waitForTimeout(800);
+    await w.keyboard.press('F1');
+    check(!!(await until(async () => (await w.getByTestId('help-title').textContent().catch(() => '')) === 'Privacy & Security')), 'F1 opens help for Privacy & Security');
+    const link = w.locator('[data-testid="help-doc"] a', { hasText: 'One attention list' });
+    check(!!(await until(async () => (await link.count()) > 0)), 'the guide links to another guide');
+    await link.first().click();
+    check(!!(await until(async () => /Fix-it List/.test(await w.getByTestId('help-doc').textContent()) && (await w.getByTestId('help-back').count()) === 1)), 'the linked guide opens in the sheet, with Back');
+    await shots('help-linked');
+    await w.getByTestId('help-back').click();
+    check(!!(await until(async () => (await w.getByTestId('help-back').count()) === 0)), 'Back returns to the page’s guide');
+    await w.keyboard.press('Escape');
+    await w.evaluate(() => window.keeper.settings.set({ helpButton: false }));
+    check(!!(await until(async () => (await w.getByTestId('help-button').count()) === 0)), 'Settings can hide the ? button');
+    await w.keyboard.press('F1');
+    check(!!(await until(async () => (await w.getByTestId('help-sheet').count()) === 1)), 'F1 still works without the button');
+    await w.keyboard.press('Escape');
+    await w.evaluate(() => window.keeper.settings.set({ helpButton: true }));
+  }
+
   // ---------------------------------------------------------------- a smaller window
   if (part('small')) {
     await w.setViewportSize({ width: 1024, height: 768 });

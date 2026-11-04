@@ -189,6 +189,7 @@ export function defaultSettings(folders: string[], rules: Rule[]): AllSettings {
     weatherSource: 'met',
     phoneAlerts: defaultPhoneAlertSettings(),
     notices: defaultNoticeSettings(),
+    helpButton: true,
     island: defaultIsland(),
   };
 }
