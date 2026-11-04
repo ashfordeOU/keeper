@@ -88,6 +88,7 @@ export const NAV_PAGES: NavPage[] = [
   { id: 'space', route: { name: 'space' }, label: 'Space Map', i18n: 'nav.space', icon: 'map', group: 'tidy', keywords: 'disk usage treemap storage' },
   { id: 'large', route: { name: 'large' }, label: 'Large Files', i18n: 'nav.large', icon: 'weight', group: 'tidy', keywords: 'big files storage' },
   { id: 'convert', route: { name: 'convert' }, label: 'Convert', i18n: 'nav.convert', icon: 'refresh', group: 'tidy', keywords: 'format pdf video image' },
+  { id: 'archives', route: { name: 'archives' }, label: 'Archives', icon: 'zip', group: 'tidy', keywords: 'zip unzip 7z rar tar gz xz zst iso extract unpack compress password aes' },
   { id: 'rules', route: { name: 'rules' }, label: 'Automations', i18n: 'nav.rules', icon: 'rules', group: 'tidy', keywords: 'rules tidy folders' },
   { id: 'history', route: { name: 'history' }, label: 'Undo History', i18n: 'nav.history', icon: 'history', group: 'tidy', keywords: 'undo history moved removed activity' },
 

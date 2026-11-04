@@ -9,6 +9,8 @@ export interface ArchiveEntry {
   packed?: number;
   mtime?: number;
   dir: boolean;
+  /** protected with a password */
+  encrypted?: boolean;
 }
 
 const u16 = (b: Uint8Array, p: number) => b[p] | (b[p + 1] << 8);
@@ -74,7 +76,7 @@ export function parseZipDirectory(dir: Uint8Array): ArchiveEntry[] {
       }
       e += 4 + len;
     }
-    out.push({ name, size, packed, mtime: dosTime(date, time), dir: name.endsWith('/') });
+    out.push({ name, size, packed, mtime: dosTime(date, time), dir: name.endsWith('/'), ...(flags & 1 ? { encrypted: true } : {}) });
     p += 46 + nameLen + extraLen + commentLen;
   }
   return out;

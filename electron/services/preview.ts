@@ -298,7 +298,7 @@ interface ZipEntryRef extends ArchiveEntry {
   offset?: number;
 }
 
-async function zipEntries(p: string): Promise<ZipEntryRef[]> {
+export async function zipEntries(p: string): Promise<ZipEntryRef[]> {
   const st = await fsp.stat(p);
   const tailLen = Math.min(st.size, 128 * 1024);
   const tail = await readHead(p, tailLen, st.size - tailLen);
@@ -359,7 +359,7 @@ export async function archive(p: string): Promise<{ entries: ArchiveEntry[]; not
   return { entries: [], note: `Keeper cannot look inside .${ext || 'this'} archives on this computer. Installing 7-Zip adds support.` };
 }
 
-function parseTarVerbose(out: string): ArchiveEntry[] {
+export function parseTarVerbose(out: string): ArchiveEntry[] {
   const entries: ArchiveEntry[] = [];
   for (const line of out.split(/\r?\n/)) {
     // drwxr-xr-x  0 user group      0 Oct 30 12:00 folder/
@@ -369,7 +369,7 @@ function parseTarVerbose(out: string): ArchiveEntry[] {
   return entries;
 }
 
-function parse7z(out: string): ArchiveEntry[] {
+export function parse7z(out: string): ArchiveEntry[] {
   const entries: ArchiveEntry[] = [];
   for (const block of out.split(/\r?\n\r?\n/)) {
     const get = (k: string) => block.match(new RegExp(`^${k} = (.*)$`, 'm'))?.[1];
@@ -380,7 +380,7 @@ function parse7z(out: string): ArchiveEntry[] {
   return entries;
 }
 
-function parseUnrar(out: string): ArchiveEntry[] {
+export function parseUnrar(out: string): ArchiveEntry[] {
   const entries: ArchiveEntry[] = [];
   for (const block of out.split(/\r?\n\s*\r?\n/)) {
     const name = block.match(/Name: (.*)/)?.[1];

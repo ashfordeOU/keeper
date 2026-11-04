@@ -165,6 +165,8 @@ const api = {
   journal: group('journal', ['makeVault', 'addPhotos']),
   // The Inbox: things caught with one shortcut, and its small card.
   inbox: group('inbox', ['list', 'add', 'remove', 'restore', 'card']),
+  // Archives: look inside, take out, pack.
+  archives: group('archives', ['open', 'extract', 'peek', 'create', 'support', 'pick', 'pickItems']),
   // The reader: feeds, read later, OPML.
   reader: group('reader', ['overview', 'items', 'article', 'addFeed', 'removeFeed', 'editFeed', 'refresh', 'setRead', 'markAllRead', 'setStarred', 'saveForLater', 'removeLater', 'importOpml', 'exportOpml']),
   // Alerts to your phone.

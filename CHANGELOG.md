@@ -15,6 +15,11 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - Offline check (Privacy-max's own part, there for anyone): every way Keeper could reach the internet, a switch for each, and Turn all off.
 - Recommended is a shorter list: AI limits, AI usage and agents in the terminal are for Pro, and parts that follow another (Draw on screen with Stage) stay off until it is on.
 
+### Added — Archives: look inside, take out what you need, pack with a password
+- A new Archives page (Tidy) opens zip, 7z, RAR, tar.gz, tar.xz, tar.zst, ISO and more without unpacking them: walk around by folder, find a name, Quick Look any file, then take out only what you tick, or everything, into a folder beside the archive.
+- Make an archive packs files and folders into a ZIP or 7z; a password uses AES-256. Keeper opens password-protected ZIPs itself; protected 7z and RAR files need the free 7-Zip program, and Keeper says so.
+- What works here lists, for your computer, how each kind opens and is made. Right-click an archive in Files → Open in Archives, or any files → Compress with a Password.
+
 ### Added — Meetings: your own notes, tidied with the transcript
 - While a meeting is recorded, a notes pad sits beside the live transcript. Type a few words per point; headings start sections, “- [ ]” or @name makes an action item. It is saved as you type and kept with the meeting.
 - Tidy my notes keeps every point in your words, adds when in the call it came up, fills short points out with what was said, and fills the sections you left empty (decisions, blockers, action items) from the transcript, each marked “from the call”. With an AI on this computer it writes them; otherwise plain rules do, and nothing leaves the computer.

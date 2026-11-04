@@ -128,6 +128,7 @@ export const FEATURES: FeatureDef[] = [
   { id: 'duplicates', name: 'Duplicates and look-alike photos', description: 'Finds copies and near-identical pictures.', group: 'Tidy', defaultOn: true, routes: ['duplicates'], commands: ['duplicates'], cost: { level: 'low', background: 'A small fingerprint of each new picture' } },
   { id: 'space', name: 'Space Map and Large Files', description: 'See what takes up room on your disks.', group: 'Tidy', defaultOn: true, routes: ['space', 'large'], commands: ['space', 'large'], cost: { level: 'none', background: 'Only while open' } },
   { id: 'convert', name: 'Convert', description: 'Images, video, audio and PDFs in other formats, cut-outs and more.', group: 'Tidy', defaultOn: true, routes: ['convert'], commands: ['convert*'], cost: { level: 'none', background: 'Only while converting', memory: 'Loaded on first use' } },
+  { id: 'archives', name: 'Archives', description: 'Look inside zip, 7z, RAR and tar files without unpacking them, take out what you choose, and pack files into a ZIP or 7z with a password.', group: 'Tidy', defaultOn: true, routes: ['archives'], commands: ['archive*'], cost: { level: 'none', background: 'Only while you open or pack an archive' } },
   { id: 'rules', name: 'Automations', description: 'Rules that tidy folders for you.', group: 'Tidy', defaultOn: true, routes: ['rules'], commands: ['rules*'], cost: { level: 'low', background: 'Runs your rules once an hour' } },
   { id: 'history', name: 'History and undo', description: 'Everything Keeper moved or removed, with undo.', group: 'Tidy', defaultOn: true, routes: ['history'], cost: { level: 'none' } },
 
@@ -301,7 +302,7 @@ const NAV_GROUP: Record<NavGroup, string[]> = {
   files: ['library', 'sources', 'docText', 'ocr', 'places', 'network', 'lock', 'remote', 'bigButtons'],
   pim: ['mail', 'calendars', 'planner', 'dayPlan', 'insights', 'alarms'],
   notes: ['notes', 'captureInbox', 'cues', 'notesHub', 'notesSync', 'journal', 'reader'],
-  tidy: ['cleanup', 'duplicates', 'space', 'convert', 'rules', 'history', 'fileKit', 'workflows', 'faces', 'speechModel'],
+  tidy: ['cleanup', 'duplicates', 'space', 'convert', 'archives', 'rules', 'history', 'fileKit', 'workflows', 'faces', 'speechModel'],
   sync: ['sync'],
   computer: ['health', 'processes', 'monitorHistory', 'monitorTray', 'devServers', 'containers', 'monitorSensors', 'startupItems', 'guide', 'keepAwake', 'quickControls', 'quickControlsNetwork', 'quickControlsFirewall', 'quickControlsPrivacy', 'quickControlsSecurity', 'settingsCatalog', 'appControls', 'browserTabs', 'displayControl', 'displayKeys', 'focusBlock', 'timeTracking', 'monitors'],
   security: ['protection', 'security', 'netwatch', 'firewall', 'offlineCheck'],

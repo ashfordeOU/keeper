@@ -613,6 +613,7 @@ export function ContextMenu({ x, y, items, onClose, label }: { x: number; y: num
 export function useFileMenu() {
   const store = useStore();
   const photoOn = useFeature('photoEditor');
+  const archivesOn = useFeature('archives');
   const [state, setState] = useState<{ x: number; y: number; file: FileEntry } | null>(null);
   const [renaming, setRenaming] = useState<string[] | null>(null);
   const open = (e: React.MouseEvent, file: FileEntry) => {
@@ -648,6 +649,10 @@ export function useFileMenu() {
     { sep: true, label: '' },
     { label: sel.length > 1 ? `Rename ${sel.length} Items…` : 'Rename…', icon: 'rename', run: () => setRenaming(sel) },
     { label: 'Compress', icon: 'zip', run: () => void api.files.compress(sel).then((p) => { store.toast(`Created ${p.split(/[\\/]/).pop()}`); store.refresh(); }) },
+    ...(archivesOn ? [
+      ...(state.file.kind === 'archive' && sel.length === 1 ? [{ label: 'Open in Archives', icon: 'archive', run: () => store.go({ name: 'archives', arg: state.file.path }) }] : []),
+      { label: 'Compress with a Password…', icon: 'lock', run: () => store.go({ name: 'archives', arg: JSON.stringify({ make: sel }) }) },
+    ] : []),
     { label: 'Convert…', icon: 'refresh', run: () => store.go({ name: 'convert', arg: JSON.stringify(sel) }) },
     // Any format to another (pictures, documents, data, subtitles, fonts, 3D, drawings, mail…).
     { label: 'Convert to…', icon: 'refresh', run: () => store.go({ name: 'convert', arg: JSON.stringify({ tool: 'convert.to', files: sel }) }) },

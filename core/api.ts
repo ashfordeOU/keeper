@@ -560,6 +560,8 @@ export interface KeeperApi extends KeeperApiX {
   inbox: import('./api-inbox').InboxApi;
   /** the reader: feeds and pages saved for later */
   reader: import('./api-reader').ReaderApi;
+  /** archives: look inside, take out, pack with a password (core/archives.ts) */
+  archives: import('./archives').ArchivesApi;
   /** alerts to your phone: ntfy, Telegram, e-mail, a web address */
   alerts: import('./api-alerts').PhoneAlertsApi;
   /** the notification center: every notice from Keeper, batched and quiet (core/notices.ts) */

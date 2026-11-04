@@ -144,6 +144,7 @@ import { registerFocusBlockIpc } from './ipc/focus-block';
 import { registerTimeTrackIpc } from './ipc/time-track';
 import { registerJournalIpc } from './ipc/journal';
 import { registerReaderIpc } from './ipc/reader';
+import { registerArchivesIpc } from './ipc/archives';
 import { registerPhoneAlertsIpc } from './ipc/phone-alerts';
 import { registerNoticesIpc } from './ipc/notices';
 import { registerPageUse } from './services/page-use';
@@ -1562,6 +1563,8 @@ app.whenReady().then(async () => {
   // Automatic time tracking: off until switched on; only on this computer, encrypted.
   registerTimeTrackIpc({ broadcast });
   // The reader: feeds and pages saved for later (network only for what the person adds).
+  // Archives: look inside zip, 7z, rar and tar files, take out what you choose, pack with a password.
+  registerArchivesIpc();
   registerReaderIpc({ broadcast, alert: noticeFor('reader', { name: 'reader' }) });
   // Crash reports for Ashforde: nothing is collected or sent until the person switches them on.
   registerCrashReportsIpc();
