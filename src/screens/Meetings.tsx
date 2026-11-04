@@ -12,14 +12,17 @@ import { WHISPER_MODELS, type WhisperSize } from '../../core/whisper';
 import { api } from '../api';
 import { useFeature } from '../features';
 import { Icon } from '../components/Icon';
-import { Empty, PageHead, Toggle } from '../components/ui';
+import { Empty, MenuButton, PageHead, Toggle } from '../components/ui';
 import { useStore } from '../state';
 import { Row } from './IslandSettings';
 import '../voice/voice.css';
 import { ComponentPrompt } from '../components/ComponentsPanel';
 
 const COLORS = ['var(--accent)', '#ef8f3c', '#2f9e62', '#d946ef', '#0ea5e9', '#e5484d', '#a16207', '#64748b'];
-const fmtDate = (t: number) => new Date(t).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+// Times as this computer writes them: "4:07 pm" or "16:07", never a padded "04:07 PM".
+const fmtDate = (t: number) => new Date(t).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+const fmtTime = (t: number) => new Date(t).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+const EXPORTS: [ExportFormat, string][] = [['md', 'Notes (Markdown)'], ['txt', 'Transcript (plain text)'], ['srt', 'Subtitles (SRT)'], ['vtt', 'Subtitles for the web (VTT)']];
 
 export function Meetings({ initial }: { initial?: string }) {
   const { toast } = useStore();
@@ -148,7 +151,7 @@ function Detail({ id, templates, onChanged, onDeleted }: { id: string; templates
           <Icon name="calendar" size={13} />
           <select className="input" value={m.event?.id ?? ''} onChange={(e) => void api.voice.linkEvent(m.id, e.target.value || null).then(setM)} aria-label="Calendar event">
             <option value="">{m.event ? m.event.title : 'Not linked to an event'}</option>
-            {events.filter((e) => e.id !== m.event?.id).map((e) => <option key={e.id} value={e.id}>{e.title} · {new Date(e.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</option>)}
+            {events.filter((e) => e.id !== m.event?.id).map((e) => <option key={e.id} value={e.id}>{e.title} · {fmtTime(e.start)}</option>)}
             {m.event ? <option value="">Unlink</option> : null}
           </select>
           {m.event?.attendees.length ? <span className="muted small">{m.event.attendees.join(', ')}</span> : null}
@@ -166,8 +169,8 @@ function Detail({ id, templates, onChanged, onDeleted }: { id: string; templates
         </div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           <button className="btn sm primary" disabled={busy} data-testid="meeting-notes" onClick={() => { setBusy(true); void flushPads().then(() => api.voice.writeNotes(m.id)).then((x) => { setM(x); onChanged(); }).finally(() => setBusy(false)); }}><Icon name="sparkle" size={12} /> {busy ? 'Writing…' : notesOn && !padIsEmpty(m.myNotes) ? (m.notes?.sections ? 'Tidy my notes again' : 'Tidy my notes') : m.notes ? 'Write notes again' : 'Write notes'}</button>
-          {(['md', 'srt', 'vtt', 'txt'] as ExportFormat[]).map((f) => <button key={f} className="btn sm" onClick={() => exp(f)}>{f === 'md' ? 'Markdown' : f.toUpperCase()}</button>)}
-          <button className="btn sm ghost" onClick={() => { if (confirm(`Delete “${m.title}” and its transcript?`)) void api.voice.removeMeeting(m.id).then(onDeleted); }}><Icon name="trash" size={12} /> Delete</button>
+          <MenuButton label="Export" icon="share" testId="meeting-export" items={EXPORTS.map(([f, label]) => ({ label, testId: `meeting-export-${f}`, run: () => exp(f) }))} />
+          <MenuButton label="More for this meeting" iconOnly icon="more" className="btn sm ghost icon" testId="meeting-more" items={[{ label: 'Delete meeting…', icon: 'trash', danger: true, testId: 'meeting-delete', run: () => { if (confirm(`Delete “${m.title}” and its transcript?`)) void api.voice.removeMeeting(m.id).then(onDeleted); } }]} />
         </div>
       </div>
       {m.notes?.sections?.length ? (

@@ -4,6 +4,11 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 
 ## [Unreleased]
 
+### Changed — Voice: Dictation, Meetings and Snippets on one page
+- One **Voice** page in the AI section with three tabs: Dictation, Meetings and Snippets. They share one engine and one list of snippets you type or say, so they now live together. Old links and page windows still open the right tab.
+- Typed Snippets is now simply **Snippets**, and lists the clipboard picker's sets under your snippets, each with Paste one by one and Open.
+- A meeting's header is calmer: one **Export** menu (notes, transcript, subtitles) and Delete under More. Times are written the way your computer writes them (16:07 or 4:07 pm), never "04:07 AM".
+
 ### Changed — Screen: one page for capturing, recording and presenting
 - Capture, Studio and Stage are one **Screen** page with three tabs: Capture, Record and Present. Old links, page windows and the Keeper Studio app icon still open the right tab.
 - The Toolbox has left the sidebar. Every tool in it is a command in Quick Search (type "JSON formatter" or "hashes"), and the Toolbox page is still in the palette.

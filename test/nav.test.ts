@@ -108,7 +108,7 @@ describe('names', () => {
     const SCREENS: Record<string, string> = {
       'NotesHub.tsx': 'noteshub', 'Cleanup.tsx': 'cleanup', 'Duplicates.tsx': 'duplicates', 'Space.tsx': 'space', 'Large.tsx': 'large',
       'Convert.tsx': 'convert', 'Rules.tsx': 'rules', 'History.tsx': 'history', 'Health.tsx': 'health', 'KeepAwake.tsx': 'awake', 'Devices.tsx': 'devices',
-      'RemoteDesktop.tsx': 'rdc', 'Assistant.tsx': 'assistant', 'Agents.tsx': 'agents', 'usage/UsagePage.tsx': 'aiusage', 'Dictation.tsx': 'dictation', 'Meetings.tsx': 'meetings',
+      'RemoteDesktop.tsx': 'rdc', 'Assistant.tsx': 'assistant', 'Agents.tsx': 'agents', 'usage/UsagePage.tsx': 'aiusage',
       'Tools.tsx': 'tools', 'Widgets.tsx': 'widgets', 'Ambience.tsx': 'ambience', 'Tracks.tsx': 'tracks',
       'Cues.tsx': 'cues', 'RemoteOverview.tsx': 'remote', 'Security.tsx': 'security',
     };
@@ -129,6 +129,14 @@ describe('merged pages (cuts and merges)', () => {
     expect(hubOf({ name: 'stage', arg: 'draw' })?.hub).toBe('screen');
     expect(navSections().find((g) => g.id === 'screen')!.pages.map((p) => p.label)).toEqual(['Screen']);
     expect(navPage('tools')?.group).toBe('none');
+  });
+  it('Voice holds Dictation, Meetings and Snippets (typed and said, one list)', () => {
+    expect(HUB_TABS.voice.map((t) => t.label)).toEqual(['Dictation', 'Meetings', 'Snippets']);
+    expect(hubOf({ name: 'meetings', arg: 'settings' })?.hub).toBe('voice');
+    expect(hubOf({ name: 'snippets' })?.hub).toBe('voice');
+    expect(navPage('dictation')?.id).toBe('voice');
+    expect(navSections().find((g) => g.id === 'ai')!.pages.map((p) => p.label)).toContain('Voice');
+    expect(navSections().find((g) => g.id === 'desktop')!.pages.map((p) => p.label)).not.toContain('Snippets');
   });
   it('old page ids still open their page (windows, app icons, keeper://open links)', () => {
     expect(navPage('capture')?.id).toBe('screen');

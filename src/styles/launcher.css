@@ -99,6 +99,13 @@ html[data-view='selection'], html[data-view='selection'] body { background: tran
 .snip-edit { display: inline-flex; align-items: center; justify-content: flex-end; gap: 5px; color: var(--text-3); opacity: 0; transition: opacity .12s; }
 .snip-row:hover .snip-edit, .snip-row:focus-visible .snip-edit { opacity: 1; color: var(--accent); }
 .snip-foot { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin: 14px 8px 0; }
+/* the clipboard picker's sets, under the snippets */
+.snip-sets { margin-top: 22px; display: grid; gap: 8px; }
+.snip-sets-head { display: flex; align-items: baseline; gap: 10px; padding: 0 8px; }
+.snip-sets-head h2 { margin: 0; font-size: var(--fs-lg); }
+.snip-sets-list { list-style: none; margin: 0; padding: 6px; background: var(--bg-elev); border-radius: var(--r-lg); box-shadow: var(--shadow); display: grid; gap: 2px; }
+.snip-set { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--r-md); color: var(--text-2); }
+.snip-set:hover { background: var(--bg-sunk); }
 .snip-none { display: grid; justify-items: center; gap: 10px; padding: 48px 20px; color: var(--text-3); background: var(--bg-elev); border-radius: var(--r-lg); box-shadow: var(--shadow); }
 @media (max-width: 1180px) { .snip-row { grid-template-columns: minmax(84px, 120px) minmax(0, 1fr) 64px; } .snip-edit { display: none; } }
 

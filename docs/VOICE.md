@@ -6,6 +6,8 @@ Voice lets you speak into any app and records meetings. Speech is recognised **o
 
 ## Where it lives
 
+One **Voice** page in the AI section has three tabs: **Dictation**, **Meetings** and **Snippets** (typed and said snippets are one list). The old routes, page windows and `keeper://open/dictation`, `meetings` and `snippets` still open their tab. Times on the page are written the way this computer writes them (16:07 or 4:07 pm).
+
 | Surface | Dictation | Meetings |
 |---|---|---|
 | Anywhere | Hold the talk key (opt-in: *Hold a key to talk*), or press the shortcut (default `Ctrl/⌘ Shift ;`). The edit-by-voice shortcut is `Ctrl/⌘ Shift '`. | Offered when a call is noticed. |
@@ -13,7 +15,7 @@ Voice lets you speak into any app and records meetings. Speech is recognised **o
 | Island | A listening activity with the level and live words | A recording activity with the elapsed time and the last line, plus Pause and Stop. Calendar events get a **Record** button next to Join. |
 | Menu bar / tray | Start/stop, edit selection, history | Record meeting / record the noticed call, Pause, Stop and save, live transcript |
 | Command palette | Start/stop dictating, edit selection, Dictation page, history | Record, pause, stop, Meetings page |
-| Pages (home for history and settings) | **More → Dictation**: status, statistics, history, dictionary, snippets, per-app rules, models, settings, and which surfaces it appears on | **More → Meetings**: record, live transcript, past meetings, speakers, notes, calendar link, exports, settings |
+| Pages (home for history and settings) | **Voice → Dictation**: status, statistics, history, dictionary, snippets, per-app rules, models, settings, and which surfaces it appears on | **Voice → Meetings**: record, live transcript, past meetings, speakers, notes, calendar link, settings; **Export** (notes as Markdown, the transcript as plain text, subtitles as SRT or VTT) and, under **More**, Delete |
 | `keeper://` links | `keeper://dictation/toggle`, `/start`, `/stop`, `/cancel`, `/edit` | `keeper://meeting/start?title=…`, `/stop`, `/pause`, `/resume` |
 | Command line | `keeper dictation [start\|stop\|toggle\|cancel\|status\|history\|stats]` | `keeper meeting [start\|stop\|pause\|resume\|live\|list\|export\|notes]` |
 | AI abilities (permission-gated) | `dictation_history` | `meeting_live_transcript` (also needs *Let AIs read the live transcript*), `meeting_list`, `meeting_get`, `meeting_record` |

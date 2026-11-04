@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
-// Typed Snippets: abbreviations you type in any app that become your saved
+// Snippets (a tab of Voice): abbreviations you type in any app that become your saved
 // text. One list with Dictation's spoken snippets: each snippet can be typed,
-// said, or both. The list is the page: a calm head with one status pill and
+// said, or both. The clipboard picker's sets are listed under it as Sets. The list is the page: a calm head with one status pill and
 // one main button, a search, and each snippet as a row with its abbreviation,
 // a preview and how often it was used. New and changed snippets open in a
 // sheet with a live preview and placeholder chips. Import, export and the
@@ -95,7 +95,7 @@ export function TypedSnippets() {
 
   return (
     <div className="page snip-page" data-testid="snippets-page">
-      <PageHead title="Typed Snippets" sub="Type a short code in any app and it becomes your text.">
+      <PageHead title="Snippets" sub="Type or say a short code in any app and it becomes your text.">
         {tone ? (
           <button className={`snip-pill ${tone}`} data-testid="snippets-status" aria-haspopup="dialog" onClick={() => setSheet('status')} title="How typed snippets listen on this computer">
             <span className="snip-dot" aria-hidden />
@@ -155,12 +155,49 @@ export function TypedSnippets() {
       ) : (
         <EmptySnippets onNew={() => setEditing({})} onImport={importCsv} onAdd={addStarter} />
       )}
+      <ClipSets />
 
       {menu ? <ContextMenu x={menu.x} y={menu.y} items={moreItems} label="More" onClose={() => setMenu(null)} /> : null}
       {editing ? <Editor key={editing.id ?? 'new'} start={editing} all={all} said={dictationOn} onClose={() => setEditing(null)} onSave={(s, isNew) => void save({ snippets: isNew ? [...all, s] : all.map((x) => (x.id === s.id ? s : x)) }).then(() => toast(isNew ? `Type ${s.abbr ?? s.trigger} anywhere` : 'Snippet saved'))} onRemove={remove} /> : null}
       {sheet === 'status' && status ? <StatusSheet status={status} tone={tone ?? 'off'} onClose={() => setSheet(null)} onRetry={() => void api.snippets.restart().then(loadStatus)} onSettings={() => { setSheet(null); go({ name: 'settings', arg: 'features' }); }} /> : null}
       {sheet === 'apps' ? <AppsSheet list={exclude} onChange={(list) => void updateSettings({ typing: { ...(settings?.typing ?? { excludeApps: [] }), excludeApps: list } })} onClose={() => setSheet(null)} onDictation={() => { setSheet(null); go({ name: 'dictation', arg: 'apps' }); }} /> : null}
     </div>
+  );
+}
+
+/** The clipboard picker's sets ("Addresses", "Replies"): saved text too, so they are listed here, each opened or pasted one by one. */
+function ClipSets() {
+  const clipsOn = useFeature('clipboard');
+  const [clips, setClips] = useState<{ id: string; collections?: string[] }[] | null>(null);
+  useEffect(() => {
+    if (!clipsOn) return;
+    const load = () => void api.island.state().then((st) => setClips(st.clips ?? [])).catch(() => setClips([]));
+    load();
+    return api.on('island-changed', load);
+  }, [clipsOn]);
+  const sets = useMemo(() => {
+    const by = new Map<string, string[]>();
+    for (const c of clips ?? []) for (const n of c.collections ?? []) by.set(n, [...(by.get(n) ?? []), c.id]);
+    return [...by.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  }, [clips]);
+  if (!clipsOn || !sets.length) return null;
+  return (
+    <section className="snip-sets" aria-labelledby="snip-sets-title" data-testid="snippets-sets">
+      <div className="snip-sets-head">
+        <h2 id="snip-sets-title">Sets</h2>
+        <span className="small muted">Clips you filed together in the clipboard picker</span>
+      </div>
+      <ul className="snip-sets-list">
+        {sets.map(([name, ids]) => (
+          <li key={name} className="snip-set">
+            <Icon name="clipboard" size={14} />
+            <span className="grow ellipsis"><b>{name}</b> <span className="small muted">· {ids.length} {ids.length === 1 ? 'clip' : 'clips'}</span></span>
+            <button className="btn sm ghost" onClick={() => void api.island.queueStart(ids)} title={`Paste the clips in ${name} one after another`}>Paste one by one</button>
+            <button className="btn sm ghost" onClick={() => void api.island.openClips()}>Open</button>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

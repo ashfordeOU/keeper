@@ -36,9 +36,9 @@ Currency is off until Settings → General → Quick Search → Convert currenci
 
 Saved links open only `http(s):`, `mailto:` and `keeper://` addresses.
 
-## Typed snippets
+## Snippets (typed and said)
 
-Type an abbreviation (`;addr`, `/sig`, `brb`) in any app and it becomes its text. One list with Dictation's spoken snippets (`VoiceSettings.snippets`): a snippet has something to say (`trigger`), something to type (`abbr`), or both. The page is **Desktop → Typed Snippets**; Dictation → Words & snippets links to it.
+Type an abbreviation (`;addr`, `/sig`, `brb`) in any app and it becomes its text. One list with Dictation's spoken snippets (`VoiceSettings.snippets`): a snippet has something to say (`trigger`), something to type (`abbr`), or both. The page is **Voice → Snippets** (it was Desktop → Typed Snippets; the old route still opens it); Dictation → Words & snippets links to it. Under the list, **Sets** shows the clipboard picker's sets (clips filed together), each with Paste one by one and Open.
 
 - An abbreviation is 2–32 characters without spaces. One that starts with a letter or digit counts only at the start of a word (`brb` in `herbrb` is left alone); one that starts with a mark counts anywhere. The longest match wins (`findAbbreviation`).
 - Placeholders (`renderSnippet`): `{date}`, `{date long|short|full|iso}`, date maths `{date +3d}`, `{date iso -1w}` (`min`, `h`, `d`, `w`, `m`, `y`), `{time}`, `{time 24h}`, `{weekday}`, `{clipboard}`, `{cursor}` (where the cursor ends up), `{snippet ;sig}` (another snippet, three deep at most), `{{` and `}}` for braces. Unknown placeholders stay as typed.

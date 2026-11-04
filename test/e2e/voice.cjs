@@ -24,6 +24,8 @@ if (MODEL && fs.existsSync(path.join(MODEL, 'whisper-tiny'))) fs.cpSync(path.joi
 fs.mkdirSync(path.join(userData, 'voice'), { recursive: true });
 fs.writeFileSync(path.join(userData, 'voice', 'settings.json'), JSON.stringify({ dictation: { model: 'tiny', insert: 'copy', language: 'en', sounds: false, hud: 'both' }, meetings: { model: 'tiny', language: 'en', notesAi: 'rules', detect: false } }));
 
+// Voice's tabs: the sidebar's Voice row, then the tab.
+let openTab = async () => undefined;
 const check = (ok, what) => { console.log(`${ok ? 'PASS' : 'FAIL'} ${what}`); if (!ok) process.exitCode = 1; };
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 async function until(fn, ms = 10_000, step = 250) {
@@ -51,6 +53,7 @@ async function until(fn, ms = 10_000, step = 250) {
   const errors = [];
   main.on('pageerror', (e) => errors.push(e.message));
   await main.waitForSelector('.sidebar', { timeout: 60_000 });
+  openTab = async (id) => { await main.locator('.sidebar [title="Voice"]').first().click(); await main.locator(`[data-testid="hub-tab-${id}"]`).first().click(); };
   await wait(2500);
   await main.locator('.tour button:has-text("Skip tour")').click({ timeout: 3000 }).catch(() => undefined);
   await main.setViewportSize?.({ width: 1440, height: 900 }).catch(() => undefined);
@@ -69,10 +72,13 @@ async function until(fn, ms = 10_000, step = 250) {
   check(haveSpeech ? st.models.includes('tiny') : true, `speech models found: ${st.models.join(', ') || 'none'}`);
 
   // ---- placement: sidebar, page, tray, palette
-  check(await main.locator('.sidebar [title="Dictation"], .sidebar >> text=Dictation').count() > 0 && await main.locator('.sidebar >> text=Meetings').count() > 0, 'the sidebar has Dictation and Meetings (under More)');
+  check(await main.locator('.sidebar [title="Voice"]').count() > 0, 'the sidebar has one Voice page');
+  await main.locator('.sidebar [title="Voice"]').first().click();
+  await main.waitForSelector('[data-testid="hub-tab-meetings"]');
+  check(await main.locator('[data-testid="hub-tab-dictation"]').count() === 1 && await main.locator('[data-testid="hub-tab-snippets"]').count() === 1, 'Voice has Dictation, Meetings and Snippets tabs');
   let tray = await v('tray');
   check(tray.includes('Dictation') && tray.includes('  Start Dictating') && tray.includes('Record Meeting'), `the tray has Dictation and Record Meeting (${tray.join(' | ')})`);
-  await main.locator('.sidebar >> text=Dictation').first().click();
+  await openTab('dictation');
   await main.waitForSelector('[data-testid="dictation-hero"]');
   await wait(400);
   await main.screenshot({ path: path.join(SHOTS, 'dictation-light.png') });
@@ -138,11 +144,11 @@ async function until(fn, ms = 10_000, step = 250) {
   } else console.log('INFO no speech sample or model given: the live take is not exercised (pass a WAV and a whisper-tiny folder)');
 
   // ---- a meeting
-  await main.locator('.sidebar >> text=Meetings').first().click();
+  await openTab('meetings');
   if (!(await main.waitForSelector('[data-testid="meetings-live"]', { timeout: 15_000 }).catch(() => null))) {
     await main.screenshot({ path: path.join(SHOTS, 'meetings-missing.png') });
     console.log('INFO page now:', (await main.evaluate(() => document.querySelector('.content')?.innerText ?? '')).replace(/\s+/g, ' ').slice(0, 300), errors.join(' | '));
-    await main.locator('.sidebar >> text=Meetings').first().click();
+    await openTab('meetings');
     await main.waitForSelector('[data-testid="meetings-live"]');
   }
   await main.screenshot({ path: path.join(SHOTS, 'meetings-light.png') });
@@ -182,7 +188,7 @@ async function until(fn, ms = 10_000, step = 250) {
   await main.evaluate(() => window.keeper.settings.set({ appearance: 'dark' }));
   await wait(800);
   await main.screenshot({ path: path.join(SHOTS, 'meetings-detail-dark.png') });
-  await main.locator('.sidebar >> text=Dictation').first().click();
+  await openTab('dictation');
   await main.waitForSelector('[data-testid="dictation-hero"]');
   await wait(400);
   await main.screenshot({ path: path.join(SHOTS, 'dictation-dark.png') });
@@ -195,7 +201,7 @@ async function until(fn, ms = 10_000, step = 250) {
   await main.screenshot({ path: path.join(SHOTS, 'dictation-settings-dark.png'), fullPage: true });
   // small window
   await main.setViewportSize?.({ width: 820, height: 640 }).catch(() => undefined);
-  await main.locator('.sidebar >> text=Meetings').first().click().catch(() => undefined);
+  await openTab('meetings').catch(() => undefined);
   await wait(500);
   await main.screenshot({ path: path.join(SHOTS, 'meetings-small-dark.png') });
   const overflow = await main.evaluate(() => { const c = document.querySelector('.content'); return c ? c.scrollWidth - c.clientWidth : 0; });
@@ -203,11 +209,11 @@ async function until(fn, ms = 10_000, step = 250) {
   await main.setViewportSize?.({ width: 1440, height: 900 }).catch(() => undefined);
 
   // ---- switching Meetings off hides its page and tray items
-  await main.locator('.sidebar >> text=Dictation').first().click();
+  await openTab('dictation');
   await main.evaluate(() => window.keeper.features.set('meetings', false));
   await wait(800);
   check(!(await v('tray')).some((t) => /Meeting/.test(t)), 'with Meetings off, the tray has no meeting items');
-  check(await main.locator('.sidebar >> text=Meetings').count() === 0, 'and the sidebar has no Meetings page');
+  check(await main.locator('[data-testid="hub-tab-meetings"]').count() === 0, 'and Voice has no Meetings tab');
   await main.evaluate(() => window.keeper.features.set('meetings', true));
 
   check(!errors.length, `no page errors${errors.length ? `: ${errors.join(' | ')}` : ''}`);

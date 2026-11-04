@@ -609,6 +609,21 @@ export function ContextMenu({ x, y, items, onClose, label }: { x: number; y: num
   );
 }
 
+/** A button that opens a menu under itself (Export…, More): secondary actions in one place. */
+export function MenuButton({ label, items, icon, className = 'btn sm', testId, title, iconOnly }: { label: string; items: MenuItem[]; icon?: string; className?: string; testId?: string; title?: string; /** show only the icon (the label is its name) */ iconOnly?: boolean }) {
+  const ref = useRef<HTMLButtonElement>(null);
+  const [at, setAt] = useState<{ x: number; y: number } | null>(null);
+  const open = () => { const r = ref.current!.getBoundingClientRect(); setAt({ x: r.left, y: r.bottom + 4 }); };
+  return (
+    <>
+      <button ref={ref} type="button" className={className} data-testid={testId} title={title ?? label} aria-label={iconOnly ? label : undefined} aria-haspopup="menu" aria-expanded={!!at} onClick={() => (at ? setAt(null) : open())}>
+        {icon ? <Icon name={icon} size={12} /> : null}{iconOnly ? null : <> {label} <Icon name="chevronDown" size={10} /></>}
+      </button>
+      {at ? <ContextMenu x={at.x} y={at.y} items={items} onClose={() => setAt(null)} label={label} /> : null}
+    </>
+  );
+}
+
 /** The standard right-click menu for files. */
 export function useFileMenu() {
   const store = useStore();

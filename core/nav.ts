@@ -69,6 +69,12 @@ export const HUB_TABS: Record<string, NavTab[]> = {
     { route: { name: 'studio' }, label: 'Record', keywords: 'studio record screen video edit zoom captions export share link' },
     { route: { name: 'stage' }, label: 'Present', keywords: 'stage clean screen present presenting recording hide desktop draw on screen' },
   ],
+  // Dictation and Meetings share one engine and settings, and typed and said snippets one list: one Voice page.
+  voice: [
+    { route: { name: 'dictation' }, label: 'Dictation', keywords: 'voice speak type dictate talk' },
+    { route: { name: 'meetings' }, label: 'Meetings', keywords: 'record transcribe meeting notes call minutes' },
+    { route: { name: 'snippets' }, label: 'Snippets', keywords: 'typed said snippets text expansion abbreviation clipboard sets saved text' },
+  ],
   devices: [
     { route: { name: 'devices' }, label: 'Paired', keywords: 'phone computer pair link send files' },
     { route: { name: 'devices', arg: 'phone' }, label: 'Phone', keywords: 'android iphone mirror' },
@@ -132,8 +138,8 @@ export const NAV_PAGES: NavPage[] = [
   { id: 'agents', route: { name: 'agents' }, label: 'Agents', icon: 'agent', group: 'ai', keywords: 'ai agents' },
   { id: 'aiusage', route: { name: 'aiusage' }, label: 'AI Usage', icon: 'chart', group: 'ai', keywords: 'usage limits credits subscriptions claude codex copilot' },
   { id: 'graph', route: { name: 'graph' }, label: 'Knowledge Graph', icon: 'graph', group: 'ai', keywords: 'brain graph links' },
-  { id: 'dictation', route: { name: 'dictation' }, label: 'Dictation', icon: 'mic', group: 'ai', keywords: 'voice speak type' },
-  { id: 'meetings', route: { name: 'meetings' }, label: 'Meetings', icon: 'calendar', group: 'ai', keywords: 'record transcribe notes' },
+  { id: 'voice', route: { name: 'dictation' }, label: 'Voice', icon: 'mic', group: 'ai', also: ['meetings', 'snippets'], keywords: 'dictation voice speak type meetings record transcribe notes snippets' },
+  { id: 'meetings', route: { name: 'meetings' }, label: 'Meetings', icon: 'calendar', group: 'none', inHub: 'voice', keywords: 'record transcribe notes' },
 
   { id: 'screen', route: { name: 'capture' }, label: 'Screen', icon: 'screenshot', group: 'screen', also: ['studio', 'stage'], keywords: 'screenshot capture text from screen color colour picker record video studio present stage clean screen' },
   { id: 'studio', route: { name: 'studio' }, label: 'Studio', icon: 'video', group: 'none', inHub: 'screen', keywords: 'record screen video edit zoom export' },
@@ -143,7 +149,7 @@ export const NAV_PAGES: NavPage[] = [
   { id: 'tools', route: { name: 'tools' }, label: 'Toolbox', i18n: 'nav.toolbox', icon: 'terminal', group: 'none', keywords: 'tools utilities developer json base64 hash uuid regex timestamp password case word counter' },
 
   { id: 'island', route: { name: 'island' }, label: 'Island', i18n: 'nav.island', icon: 'island', group: 'desktop', keywords: 'notch shelf now playing' },
-  { id: 'snippets', route: { name: 'snippets' }, label: 'Typed Snippets', icon: 'text', group: 'desktop', keywords: 'text expansion abbreviation expand autotext shortcut' },
+  { id: 'snippets', route: { name: 'snippets' }, label: 'Snippets', icon: 'text', group: 'none', inHub: 'voice', keywords: 'typed snippets said snippets text expansion abbreviation expand autotext shortcut clipboard sets' },
   { id: 'snap', route: { name: 'snap' }, label: 'Snap Windows', icon: 'columns', group: 'desktop', keywords: 'snap windows tile halves thirds quarters maximise maximize arrange layout screens docked window manager' },
   { id: 'buttons', route: { name: 'buttons' }, label: 'Buttons & Shortcuts', icon: 'keyboard', group: 'desktop', keywords: 'mouse buttons side button back forward middle click remap per app shortcuts keys rebind' },
   { id: 'widgets', route: { name: 'widgets' }, label: 'Widgets', i18n: 'nav.widgets', icon: 'grid', group: 'desktop', keywords: 'desktop clock' },
@@ -165,7 +171,7 @@ export const NAV_PAGES: NavPage[] = [
 const byId = new Map(NAV_PAGES.map((p) => [p.id, p]));
 
 /** Old page ids that are now a merged page's first tab: links, windows and app icons that name them still work. */
-export const PAGE_ALIASES: Record<string, string> = { capture: 'screen' };
+export const PAGE_ALIASES: Record<string, string> = { capture: 'screen', dictation: 'voice' };
 
 export const navPage = (id: string) => byId.get(id) ?? byId.get(PAGE_ALIASES[id] ?? '');
 

@@ -275,7 +275,7 @@ function WordsTab({ cfg, save }: { cfg: VoiceSettings; save: (p: DeepPartial<Voi
                 </tbody>
               </table>
             </div>
-            <div className="meet-consent"><Icon name="info" size={12} /> Say the trigger on its own (said a little differently is fine), or “snippet my address” inside a sentence. To type them too, give them an abbreviation in <button className="btn sm ghost" onClick={() => go({ name: 'snippets' })}>Typed Snippets</button>.</div>
+            <div className="meet-consent"><Icon name="info" size={12} /> Say the trigger on its own (said a little differently is fine), or “snippet my address” inside a sentence. To type them too, give them an abbreviation in <button className="btn sm ghost" onClick={() => go({ name: 'snippets' })}>Snippets</button>.</div>
           </div>
         </div>
       </div>

@@ -232,7 +232,7 @@ const ai = http.createServer((req, res) => {
     check(s2.island.clipIgnoreApps.includes('Secret App') && typeof gone === 'number', 'an app can be left out of clipboard history');
 
     // ---------------------------------------------------------------- Typed Snippets
-    await main.locator('.nav-item[title="Typed Snippets"]').first().click().catch(async () => main.evaluate(() => window.dispatchEvent(new Event('noop'))));
+    // Snippets is a tab of Voice now: open it by its route (the old one).
     if (!(await main.locator('[data-testid="snippets-page"]').count())) await app.evaluate(({ BrowserWindow }) => { for (const w of BrowserWindow.getAllWindows()) if (!w.webContents.getURL().includes('view=') || w.webContents.getURL().includes('view=app')) w.webContents.send('event:navigate', 'snippets'); });
     await main.waitForSelector('[data-testid="snippets-page"]', { timeout: 15000 });
     // The first run: a designed empty page with three starters, added in one click.
