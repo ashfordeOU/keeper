@@ -15,6 +15,8 @@ import { FileVersions } from '../screens/Sync';
 import '../styles/screens-a.css';
 import { FilePreview } from '../preview/Preview';
 import { openQuickLook } from '../preview/QuickLook';
+import { openSendTo } from './SendTo';
+import { fileItem, filesItem } from '../../core/send-to';
 
 function Preview({ file }: { file: FileEntry }) {
   // The universal previewer: images, video, audio, PDFs, documents, code, archives, fonts, 3D and more.
@@ -68,7 +70,7 @@ export function Inspector({ frozen = false }: { frozen?: boolean } = {}) {
       <aside className="inspector" id="inspector" aria-label="Inspector">
         <h3>{selection.length} items selected</h3>
         <div className="insp-actions">
-          <button className="btn sm" onClick={() => void api.island.addToShelf(selection)}><Icon name="island" size={12} /> Add to Shelf</button>
+          <button className="btn sm" onClick={() => openSendTo(filesItem(selection))}><Icon name="send" size={12} /> Send</button>
           <button className="btn sm" onClick={() => void api.files.copyPaths(selection)}><Icon name="copy" size={12} /> Copy</button>
           <button className="btn sm danger" onClick={() => void trash(selection)}><Icon name="trash" size={12} /> Trash</button>
         </div>
@@ -142,7 +144,7 @@ export function Inspector({ frozen = false }: { frozen?: boolean } = {}) {
       <div className="insp-actions">
         <button className="btn sm" onClick={() => (file.kind === 'audio' ? play(file) : void api.files.open(file.path))}><Icon name={file.kind === 'audio' ? 'play' : 'external'} size={12} /> {file.kind === 'audio' ? 'Play' : 'Open'}</button>
         <button className="btn sm" onClick={() => void api.files.reveal(file.path)}><Icon name="reveal" size={12} /> Show</button>
-        <button className="btn sm" onClick={() => void api.island.addToShelf([file.path]).then(() => toast('Added to the Shelf'))}><Icon name="island" size={12} /> Shelf</button>
+        <button className="btn sm" data-testid="insp-send-to" title="Send to a note, task, event, mail, device, the AI, the Shelf or a cue" onClick={() => openSendTo(fileItem(file.path, { screenshot: file.screenshot, text: file.text }))}><Icon name="send" size={12} /> Send</button>
         <button className="btn sm danger icon" title="Move to Trash" aria-label="Move to Trash" onClick={() => void trash([file.path])}><Icon name="trash" size={12} /></button>
       </div>
 

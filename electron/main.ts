@@ -788,6 +788,8 @@ function handleDeepLink(url: string) {
     else if (action === 'studio') handleStudioLink(u);
     // keeper://mail/<message id> (a task or event made from an email links back to it)
     else if (action === 'mail' && u.pathname.length > 1) showMain(`mail:${decodeURIComponent(u.pathname.slice(1))}`);
+    // keeper://notes?open=<path in the notes folder> (a copy sent from a note links back to it)
+    else if (action === 'notes' && u.searchParams.get('open')) showMain(`notes:open:${u.searchParams.get('open')}`);
     // keeper://task/<id> (a block made by Plan my day links back to its task)
     else if (action === 'task' && u.pathname.length > 1) showMain(`planner:task:${decodeURIComponent(u.pathname.slice(1))}`);
     // keeper://license?token=… (Keeper Pro's e-mail and thank-you page); builds without Pro just open Keeper.

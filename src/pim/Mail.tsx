@@ -37,6 +37,7 @@ import { AccountRail, clock, MailChips, TodayHeader, UpdatedFooter, useToday } f
 import { mailStripCompact } from '../../core/today';
 import { dayKey } from '../../core/pim/tasks';
 import '../styles/pim.css';
+import { openSendTo } from '../components/SendTo';
 
 const FOLDER_ICON: Record<string, string> = { inbox: 'inbox', sent: 'send', drafts: 'rename', trash: 'trash', junk: 'warning', archive: 'archive', all: 'mail', flagged: 'flag' };
 
@@ -146,6 +147,8 @@ export function Mail() {
     else if (route.arg === 'staged') void api.pim.stagedCompose().then((d) => { if (d) setCompose(d); });
     // Files dropped on the notch: a new message with them attached.
     else if (route.arg?.startsWith('attach:')) { try { setCompose({ to: [], cc: [], bcc: [], subject: '', body: '', attachments: (JSON.parse(decodeURIComponent(route.arg.slice(7))) as string[]).map((path) => ({ path })) }); } catch { /* a bad link */ } }
+    // Send to → Mail from any page: a draft with words and files filled in.
+    else if (route.arg?.startsWith('draft:')) { try { const d = JSON.parse(decodeURIComponent(route.arg.slice(6))) as { subject: string; body: string; attachments: string[] }; setCompose({ to: [], cc: [], bcc: [], subject: d.subject, body: d.body, attachments: d.attachments.map((path) => ({ path })) }); } catch { /* a bad link */ } }
     // A contact from the search box: the mail from them.
     else if (route.arg?.startsWith('search:')) { setSide(null); setQuery(route.arg.slice(7)); }
     // Hello's Today: the mail waiting for your reply.
@@ -371,6 +374,7 @@ export function Mail() {
         : { label: 'Move this sender to Other', icon: 'inbox', run: () => void act(() => api.pim.setCategory(sender, 'other'), 'Mail from this sender goes to Other') }] : []),
       { sep: true, label: '' },
       { label: 'Add to Tasks', icon: 'listCheck', run: () => void act(() => addToTasks([m]), 'Added to Tasks') },
+      { label: 'Send to…', icon: 'send', testId: 'mail-send-to', run: () => openSendTo({ kind: 'mail', title: m.subject || '(no subject)', text: m.snippet, link: mailLink(m.id) }) },
       { label: 'Mute conversation', icon: 'eyeOff', run: () => void act(() => api.pim.mute([m.id], true), 'Muted: new mail in it skips the inbox') },
       ...(sender ? [{ label: `Block ${sender}`, icon: 'lock', run: () => void act(() => api.pim.block(sender, true), `Blocked ${sender}`) }] : []),
       ...(m.from && mine.has(m.from.address.toLowerCase()) ? remindMenu(Date.now(), (at) => void act(() => api.pim.remindNoReply(m.id, at), at ? `I’ll remind you ${new Date(at).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })} if nobody answers` : 'Reminder cancelled')).slice(0, 1) : []),
