@@ -9,6 +9,8 @@ Keeper by Ashforde® keeps copies of your files in three ways. All three are in
 | **Backups** | Getting back yesterday's, last month's or last year's files | A drive, a NAS, a server or a cloud service | No: encrypted |
 | **Cloud mirrors** | Seeing a folder in your cloud's own app or web page | A folder on a cloud service (or iCloud Drive, Dropbox… folders) | Yes: ordinary files |
 
+Keeper's own settings and lists move and are backed up separately: see [Moving and backing up Keeper itself](KEEPER-BACKUP.md).
+
 ## Synced folders
 
 - **Between your devices, nothing in between.** Devices talk over Keeper Link

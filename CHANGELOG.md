@@ -65,6 +65,13 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - Archives' What works here says "Opens with your system's tools" instead of naming the program underneath; only 7-Zip is named, where it needs installing.
 - Snap Windows on Linux says "Works with apps on this desktop".
 
+### Added — Move to a new computer, and back up Keeper itself
+- Settings → General → Move or back up Keeper: Back up… saves everything Keeper keeps for you (rules, snippets, cues, themes, the Inbox, automations, notes folders, mail accounts and the rest) in one file sealed with your password. Restore… opens it on a new computer and Keeper restarts as it was.
+- Passwords, keys and this computer's own pairing are never in it; the panel lists what is left out and why.
+- With Keeper Link, Send to another computer sends the sealed file to one of your paired computers.
+- A copy each night (off until you turn it on) keeps the last 14 on this computer, and Put Keeper back to lists them as Today, Yesterday, Tuesday… What a restore replaces is kept, so it can be undone the same way.
+- Setup's first screen asks "Moving from another computer?" and restores a backup there and then.
+
 ### Added — Automation: every Keeper action from scripts, PowerShell, AppleScript and the session bus
 - `keeper do <action>` runs any of Keeper's actions from a terminal or a script: `keeper do focus --minutes 25`, `keeper do send.task --title "Call the plumber"`, `keeper do catch --text "…"`. `--list` shows them all and `--json` answers in JSON; a wrong name or value is said plainly and fails the command. If Keeper is not running, it starts.
 - Send to… from scripts: `send.note`, `send.task`, `send.event`, `send.mail`, `send.ai`, `send.shelf` and `send.cue` happen without opening the sheet.

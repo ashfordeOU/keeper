@@ -592,6 +592,8 @@ export interface KeeperApi extends KeeperApiX {
   displays: import('./api-displays').DisplaysApi;
   /** the light photo editor (core/photo-edit.ts) */
   photo: import('./api-photo').PhotoApi;
+  /** backing up and moving Keeper itself (core/keeper-backup.ts) */
+  keeperBackup: import('./api-keeper-backup').KeeperBackupApi;
   /** crash reports for Ashforde (opt-in, core/crash-report.ts) */
   crashReports: import('./api-crash').CrashReportsApi;
   /** Island+: calls, levels, other apps' notifications, more agents */

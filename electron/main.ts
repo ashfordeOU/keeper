@@ -166,6 +166,8 @@ import { registerBatteryCareIpc } from './ipc/battery-care';
 import { registerDisplaysIpc } from './ipc/displays';
 import { registerPhotoIpc } from './ipc/photo';
 import { registerCrashReportsIpc } from './ipc/crash-reports';
+import { registerKeeperBackupIpc } from './ipc/keeper-backup';
+import { applyPendingRestore } from './services/keeper-backup';
 import { phoneAlert } from './services/phone-alerts';
 import { stopTimeTracking } from './services/time-track';
 import { focusChanged as focusBlockFocusChanged, focusStopRefusal, stopFocusBlock } from './services/focus-block';
@@ -1308,6 +1310,8 @@ function registerIpc() {
 
 app.whenReady().then(async () => {
   if (handedOver) return;
+  // A restore chosen before the restart goes in place before anything reads Keeper's files.
+  await applyPendingRestore().catch(() => false);
   // Keeper keeps one icon in the menu bar (the owl). Once, for people who had them on before: the
   // separate Keep Awake icon and the readings move into the owl's glance and the Island. Done
   // before any menu-bar item exists, so none appears for a moment and vanishes again.
@@ -1608,6 +1612,8 @@ app.whenReady().then(async () => {
   registerReaderIpc({ broadcast, alert: noticeFor('reader', { name: 'reader' }) });
   // Crash reports for Ashforde: nothing is collected or sent until the person switches them on.
   registerCrashReportsIpc();
+  // Backing up Keeper itself: nothing runs until the nightly copy is switched on.
+  registerKeeperBackupIpc();
   // Alerts to your phone: nothing is sent until a channel is set up and an alert it is for happens.
   registerPhoneAlertsIpc({ broadcast });
   // The light photo editor: pictures in the library's folders, Pictures, Downloads and the screenshot folder.

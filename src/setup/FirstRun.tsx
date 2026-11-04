@@ -5,6 +5,7 @@
 // again" (Help menu, command palette) opens it from the second screen with the
 // current choices. Nothing is switched on, read or asked before Continue on screen 2.
 
+import { RestoreSheet } from '../components/KeeperBackup';
 import { useEffect, useMemo, useState, type ReactElement } from 'react';
 import type { SetupContext } from '../../core/api-setup';
 import { DEV_BUNDLE, SETUP_GROUPS, type SetupGroupId } from '../../core/feature-tiers';
@@ -189,6 +190,7 @@ function Welcome({ onNext, skip, ctx }: { onNext: () => void; skip: ReactElement
     ['island', 'The Island', ctx?.notch ? 'A small bar under the notch for music, timers and what’s next.' : 'A small bar at the top of the screen for music, timers and what’s next.'],
     ['plus', 'More when you want it', 'Mail, notes, AI, your other devices, screen recording.'],
   ];
+  const [moving, setMoving] = useState(false);
   return (
     <>
       <h3>Welcome to Keeper</h3>
@@ -200,6 +202,8 @@ function Welcome({ onNext, skip, ctx }: { onNext: () => void; skip: ReactElement
         {skip}
         <button className="btn primary" autoFocus data-testid="setup-start" onClick={onNext}>Get started</button>
       </div>
+      <p className="setup-moving small muted">Moving from another computer? <button className="link-like" data-testid="setup-moving" onClick={() => setMoving(true)}>Restore a Keeper backup</button></p>
+      {moving ? <RestoreSheet onClose={() => setMoving(false)} /> : null}
     </>
   );
 }
