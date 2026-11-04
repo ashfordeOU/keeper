@@ -72,7 +72,7 @@ export const TIERS: Record<string, FeatureTier> = {
   monitorTray: { plain: 'Live numbers in the menu bar', setup: 'computer', normal: 'off', shown: 'advanced' },
   devServers: { plain: 'Local servers and ports', setup: 'computer', normal: 'dev', shown: 'advanced' },
   containers: { plain: 'Containers', setup: 'computer', normal: 'docker', shown: 'advanced' },
-  monitorSensors: { plain: 'Graphics, fans and power', setup: 'computer', normal: 'parent', follows: 'health', shown: 'advanced' },
+  monitorSensors: { plain: 'Graphics, fans and power', setup: 'computer', normal: 'off', follows: 'health', shown: 'advanced' },
   startupItems: { plain: 'Startup items and apps', setup: 'computer', normal: 'on', shown: 'basic' },
   guide: { plain: 'Fix-it list', setup: 'computer', normal: 'on', shown: 'basic' },
   keepAwake: { plain: 'Keep awake', setup: 'computer', normal: 'on', shown: 'basic' },

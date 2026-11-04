@@ -498,7 +498,7 @@ export function Home() {
   const draw: Record<HomeSectionId, () => React.ReactNode> = {
     folders: () => <FolderTiles />,
     search: () => <FindSection />,
-    suggestions: () => <><SuggestionLine /><TipCard /></>,
+    suggestions: () => <SuggestionLine />,
     jump: () => <JumpBackIn narrow={narrow} />,
     today: () => <TodaySection onHide={() => setHome(setSectionShown(home, 'today', false))} onChooseCards={() => { setEditing(true); requestAnimationFrame(() => document.querySelector('[data-testid="home-edit-today-cards"]')?.scrollIntoView({ block: 'nearest' })); }} />,
     library: () => <LibrarySection style={home.library} />,
@@ -512,6 +512,8 @@ export function Home() {
       {editing ? <EditPanel home={home} setHome={setHome} /> : null}
       <div className="home-body">
         <div className="home-main">
+          {/* The week's tip stands on its own, so it shows whether or not Today has taken over the suggestion line. */}
+          <TipCard />
           {homeSections(home, fixit).map((id) => <div key={id} className="home-slot" data-section={id}>{draw[id]()}</div>)}
         </div>
       </div>

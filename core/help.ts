@@ -77,6 +77,7 @@ export const PAGE_HELP: Record<string, PageHelp> = {
   mail: { what: 'All your mail accounts in one inbox.', can: ['Read and reply', 'Snooze until later', 'Send later'], doc: 'PIM.md' },
   calendar: { what: 'Your calendars, from every account.', can: ['Add an event', 'See your week', 'Join a meeting'], doc: 'PIM.md' },
   reminders: { what: 'Things to do, with when and where.', can: ['Add a reminder', 'See today’s list', 'Flag what is important'], doc: 'PIM.md' },
+  inbox: { what: 'Quick thoughts caught from anywhere, sorted later.', can: ['Catch a thought', 'Sort one at a time', 'Turn it into a task'], doc: 'TODAY.md' },
   planner: { what: 'Your tasks laid out over the day and week.', can: ['Plan today', 'Move tasks between days', 'See what is overdue'], doc: 'PLANNER.md' },
   alarms: { what: 'Alarms, timers, a stopwatch and world clocks.', can: ['Set an alarm', 'Start a timer', 'Add a city'], doc: 'PIM.md' },
   settings: { what: 'Everything you can change about Keeper.', can: ['Search for a setting', 'Turn parts on or off', 'Export your settings'], doc: 'SETTINGS-CATALOG.md' },
