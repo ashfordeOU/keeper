@@ -467,3 +467,7 @@
   .mail-nav { display: none; }
   .mail-today { grid-column: 1 / -1; }
 }
+
+/* Clock → Timers: focus presets (work and break lengths that go together) */
+.focus-presets { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.focus-presets .kicker { margin-right: 4px; }

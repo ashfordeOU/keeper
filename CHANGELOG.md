@@ -4,6 +4,9 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 
 ## [Unreleased]
 
+### Added — Clock: focus presets with their breaks
+- Clock → Timers has **Focus** presets that start the Island's focus timer with a break that suits it: 25 and 5 minutes, 50 and 10, or 90 and 15.
+
 ### Added — Today: today's note one click away
 - Today's More menu has **Today's note**, which opens the day's note in Notes, made from your daily note template the first time.
 

@@ -155,3 +155,13 @@ describe('focus upgrades', () => {
     expect(systemPause(newFocus(), 1)).toEqual(newFocus());
   });
 });
+
+describe('focus presets', () => {
+  it('start with the preset’s break, and keep the usual break otherwise', async () => {
+    const { FOCUS_PRESETS, newFocus, startFocus } = await import('../core/island');
+    expect(FOCUS_PRESETS.map((p) => `${p.focus}/${p.break}`)).toEqual(['25/5', '50/10', '90/15']);
+    expect(startFocus(newFocus(25, 5), 50, 0, { breakMin: 10 })).toMatchObject({ focusMin: 50, breakMin: 10, endsAt: 50 * 60_000 });
+    expect(startFocus(newFocus(25, 7), 25, 0).breakMin).toBe(7);
+    expect(startFocus(newFocus(25, 7), 25, 0, { breakMin: 500 }).breakMin).toBe(7);
+  });
+});

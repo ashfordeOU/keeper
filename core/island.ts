@@ -409,6 +409,8 @@ export function newFocus(focusMin = 25, breakMin = 5): FocusState {
 export interface FocusOptions {
   /** count up with no end */
   stopwatch?: boolean;
+  /** the break after this session, in minutes (a preset's: 25 and 5, 50 and 10, 90 and 15) */
+  breakMin?: number;
   taskId?: string;
   taskTitle?: string;
 }
@@ -418,8 +420,16 @@ const clearSession = { pausedLeft: undefined, long: undefined, stopwatch: undefi
 export function startFocus(s: FocusState, minutes = s.focusMin, now = Date.now(), o: FocusOptions = {}): FocusState {
   const base = { ...s, ...clearSession, mode: 'focus' as const, doneMs: 0, segStart: now, taskId: o.taskId, taskTitle: o.taskTitle };
   if (o.stopwatch) return { ...base, stopwatch: true, startedAt: now, endsAt: 0 };
-  return { ...base, focusMin: minutes, endsAt: now + minutes * 60_000 };
+  const breakMin = o.breakMin && o.breakMin > 0 && o.breakMin <= 60 ? Math.round(o.breakMin) : s.breakMin;
+  return { ...base, focusMin: minutes, breakMin, endsAt: now + minutes * 60_000 };
 }
+
+/** The Clock's focus presets: work and break lengths that go together. */
+export const FOCUS_PRESETS: { focus: number; break: number; name: string }[] = [
+  { focus: 25, break: 5, name: 'Classic' },
+  { focus: 50, break: 10, name: 'Longer' },
+  { focus: 90, break: 15, name: 'Deep work' },
+];
 
 /** Start a break straight away (a short or the long one). */
 export function startBreak(s: FocusState, long = false, now = Date.now()): FocusState {

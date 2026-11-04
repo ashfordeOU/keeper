@@ -10,6 +10,8 @@ import { api } from '../api';
 import { Icon } from '../components/Icon';
 import { Modal, PageHead, Toggle } from '../components/ui';
 import { useStore } from '../state';
+import { useFeature } from '../features';
+import { FOCUS_PRESETS } from '../../core/island';
 import { usePimChanges } from './Mail';
 import '../styles/pim.css';
 
@@ -94,11 +96,20 @@ function AlarmList({ alarms }: { alarms: Alarm[] }) {
 }
 
 function Timers({ timers }: { timers: CountdownTimer[] }) {
+  const { toast } = useStore();
+  const focusOn = useFeature('focus');
   const [label, setLabel] = useState('');
   const [mins, setMins] = useState(5);
   const now = Date.now();
   return (
     <div className="col" style={{ gap: 14 }}>
+      {/* Focus lives with the timers: the Island's focus timer, with a break that suits its length. */}
+      {focusOn ? (
+        <div className="focus-presets" role="group" aria-label="Focus" data-testid="clock-focus">
+          <span className="kicker">Focus</span>
+          {FOCUS_PRESETS.map((p) => <button key={p.focus} className="chip" data-testid={`clock-focus-${p.focus}`} title={`${p.name}: ${p.focus} minutes, then a ${p.break}-minute break`} onClick={() => void api.island.focus('start', p.focus, { breakMin: p.break }).then(() => toast(`Focus for ${p.focus} minutes, then a ${p.break}-minute break`, undefined, { key: 'focus' }))}>{p.focus} · {p.break} min</button>)}
+        </div>
+      ) : null}
       <div className="timer-presets">
         {[1, 3, 5, 10, 15, 25, 30, 60].map((m) => <button key={m} className="chip" onClick={() => void api.pim.startTimer(label || `${m} min`, m * 60_000)}>{m < 60 ? `${m} min` : '1 hour'}</button>)}
       </div>

@@ -469,6 +469,7 @@ due dates ("Call the bank tomorrow 10am" sets the time), priorities, notes,
 - **Alarms** once or on chosen days, with a label, a sound (made on the
   computer, no files), snooze length. They ring in Keeper (a window with
   *Snooze* and *Stop*), as a notification and in the Island.
+- **Focus** (on the Timers tab): three presets for the Island's focus timer, each with a break that suits it: 25 and 5 minutes, 50 and 10, 90 and 15.
 - **Timers**: several at once, pause, restart; running timers show in the
   Island.
 - **Stopwatch** with laps; **world clocks** for any time zone.

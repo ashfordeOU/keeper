@@ -847,7 +847,7 @@ export interface KeeperApi extends KeeperApiX {
     removeClip(id: string): Promise<void>;
     clearClips(): Promise<void>;
     /** start a countdown, a stopwatch, pause, resume, add minutes (extend) or stop; a session can be for a task */
-    focus(action: 'start' | 'stopwatch' | 'pause' | 'resume' | 'stop' | 'extend', minutes?: number, task?: { taskId?: string; taskTitle?: string }): Promise<FocusState>;
+    focus(action: 'start' | 'stopwatch' | 'pause' | 'resume' | 'stop' | 'extend', minutes?: number, task?: { taskId?: string; taskTitle?: string; /** the break after it */ breakMin?: number }): Promise<FocusState>;
     keepAwake(on: boolean, options?: KeepAwakeOptions): Promise<KeepAwakeState>;
     presentation(on: boolean): Promise<boolean>;
     media(action: 'toggle' | 'next' | 'previous' | 'seek', value?: number): Promise<void>;

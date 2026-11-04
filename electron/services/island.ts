@@ -709,7 +709,7 @@ export class IslandService {
    * extend (+`minutes`, 5 by default) or stop. A session can be for a task:
    * its focused minutes are logged on it when it ends.
    */
-  focusAction(action: 'start' | 'stopwatch' | 'pause' | 'resume' | 'stop' | 'extend', minutes?: number, o: { taskId?: string; taskTitle?: string } = {}): FocusState {
+  focusAction(action: 'start' | 'stopwatch' | 'pause' | 'resume' | 'stop' | 'extend', minutes?: number, o: { taskId?: string; taskTitle?: string; breakMin?: number } = {}): FocusState {
     const refused = action === 'stop' && this.focus.mode === 'focus' ? this.stopGuard?.() : undefined;
     if (refused) {
       this.alert({ kind: 'focus', title: 'Strict mode is on', detail: refused });
@@ -719,7 +719,7 @@ export class IslandService {
       // Starting over a running session ends that one first (and logs it).
       if (this.focus.mode === 'focus') this.endFocus();
       const is = settings().island;
-      this.focus = startFocus({ ...this.focus, longEvery: plusSetting(is, 'longBreakEvery'), longBreakMin: plusSetting(is, 'longBreakMin') }, minutes ?? this.focus.focusMin, Date.now(), { stopwatch: action === 'stopwatch', taskId: o.taskId, taskTitle: o.taskTitle });
+      this.focus = startFocus({ ...this.focus, longEvery: plusSetting(is, 'longBreakEvery'), longBreakMin: plusSetting(is, 'longBreakMin') }, minutes ?? this.focus.focusMin, Date.now(), { stopwatch: action === 'stopwatch', taskId: o.taskId, taskTitle: o.taskTitle, breakMin: o.breakMin });
       // Focus sessions keep the computer awake (a stopwatch until it is stopped).
       if (!this.awake.on) this.keepAwake(true, this.focus.stopwatch ? {} : { until: this.focus.endsAt }, 'Focus session');
     } else if (action === 'pause') this.focus = pauseFocus(this.focus);

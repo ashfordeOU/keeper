@@ -1285,7 +1285,7 @@ function registerIpc() {
   handle('island.pinClip', (id: string) => islandSvc.pinClip(id));
   handle('island.removeClip', (id: string) => islandSvc.removeClip(id));
   handle('island.clearClips', () => islandSvc.clearClips());
-  handle('island.focus', (action: 'start' | 'stopwatch' | 'pause' | 'resume' | 'stop' | 'extend', minutes?: number, task?: { taskId?: string; taskTitle?: string }) => islandSvc.focusAction(action, minutes, task ?? {}));
+  handle('island.focus', (action: 'start' | 'stopwatch' | 'pause' | 'resume' | 'stop' | 'extend', minutes?: number, task?: { taskId?: string; taskTitle?: string; breakMin?: number }) => islandSvc.focusAction(action, minutes, task ?? {}));
   handle('island.keepAwake', (on: boolean, opts?: KeepAwakeOptions) => { const r = islandSvc.keepAwake(on, opts); void updateTray(); return r; });
   handle('island.presentation', (on: boolean) => stagePresentation(on));
   handle('island.media', (a: 'toggle' | 'next' | 'previous' | 'seek', v?: number) => islandSvc.media(a, v));
