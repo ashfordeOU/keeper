@@ -77,6 +77,6 @@ describe('the docs page', () => {
     const text = readFileSync(file, 'utf8');
     const block = `<!-- actions:start -->\n${automationDoc()}<!-- actions:end -->`;
     if (process.env.ACTIONS_DOC === 'write') writeFileSync(file, text.replace(/<!-- actions:start -->[\s\S]*<!-- actions:end -->/, block));
-    expect(readFileSync(file, 'utf8')).toContain(block);
+    expect(readFileSync(file, 'utf8').replace(/\r\n/g, '\n')).toContain(block);
   });
 });

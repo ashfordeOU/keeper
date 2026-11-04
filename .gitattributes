@@ -2,3 +2,7 @@
 # with a byte order mark, the Mac one LF in Mac Roman's range): no conversion.
 build/installer-license.txt -text
 build/dmg-license.txt -text
+
+# Docs are read and compared as text by tests and by the app's Help: keep them LF on every
+# system, so a Windows checkout reads the same words as everywhere else.
+*.md text eol=lf

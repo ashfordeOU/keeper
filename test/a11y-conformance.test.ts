@@ -26,6 +26,6 @@ describe('the accessibility conformance report', () => {
     const text = readFileSync(file, 'utf8');
     const block = `<!-- conformance:start -->\n${conformanceDoc()}<!-- conformance:end -->`;
     if (process.env.CONFORMANCE_DOC === 'write') writeFileSync(file, text.replace(/<!-- conformance:start -->[\s\S]*<!-- conformance:end -->/, block));
-    expect(readFileSync(file, 'utf8')).toContain(block);
+    expect(readFileSync(file, 'utf8').replace(/\r\n/g, '\n')).toContain(block);
   });
 });

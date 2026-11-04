@@ -119,7 +119,8 @@ export function helpFor(r: NavRoute): HelpFor {
  * and links to other docs kept so the sheet can follow them.
  */
 export function cleanDoc(md: string): string {
-  return md
+  // Windows checkouts and installs may carry CRLF line endings; read them as plain new lines.
+  return md.replace(/\r\n/g, '\n')
     .replace(/<!--[\s\S]*?-->/g, '')
     .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
     .replace(/<img\b[^>]*>/gi, '')

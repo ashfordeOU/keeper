@@ -126,7 +126,7 @@ describe('the macOS bundles', () => {
       fs.writeFileSync(bin, 'stub');
       expect(mac.makeLaunchers(app, '1.0.0', { binary: bin }).made).toBe(LAUNCHERS.length);
       const bundles = mac.launcherBundles(app);
-      expect(bundles.map((b) => path.relative(app, b))).toEqual(LAUNCHERS.map((l) => `Contents/Library/Launchers/${l.name}.app`));
+      expect(bundles.map((b) => path.relative(app, b).split(path.sep).join('/'))).toEqual(LAUNCHERS.map((l) => `Contents/Library/Launchers/${l.name}.app`));
       const exe = path.join(bundles[0], 'Contents', 'MacOS', 'Keeper Mail');
       expect(fs.statSync(exe).mode & 0o111).toBeTruthy();
       expect(fs.existsSync(path.join(bundles[0], 'Contents', 'Resources', 'AppIcon.icns'))).toBe(true);

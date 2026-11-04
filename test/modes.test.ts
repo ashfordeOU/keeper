@@ -250,6 +250,6 @@ describe('the docs page', () => {
     const block = `<!-- modes:start -->\n${modesDoc()}<!-- modes:end -->`;
     // MODES_DOC=write rewrites the block from the data.
     if (process.env.MODES_DOC === 'write') fs.writeFileSync(file, text.replace(/<!-- modes:start -->[\s\S]*<!-- modes:end -->/, block));
-    expect(fs.readFileSync(file, 'utf8')).toContain(block);
+    expect(fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n')).toContain(block);
   });
 });
