@@ -152,6 +152,10 @@
     "files",
     "everything",
     "proAccount",
-    "soloApps"
+    "soloApps",
+    "photoEditor",
+    "monitors",
+    "phoneAlerts",
+    "crashReports"
   ]
 }
