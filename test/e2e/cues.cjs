@@ -4,8 +4,13 @@
 // a page, the Island tool, a timed cue ringing), Island+ (more agents from a
 // status file, other apps' notifications from the desktop bus, the settings),
 // in light and dark.
+const { execFileSync, spawnSync } = require('child_process');
+if (process.platform === 'linux' && !process.env.DBUS_SESSION_BUS_ADDRESS && !process.env.KEEPER_E2E_DBUS) {
+  // Other apps' notifications cross the desktop bus: without a session bus there is nothing to read, so start one.
+  const r = spawnSync('dbus-run-session', ['--', process.execPath, __filename, ...process.argv.slice(2)], { stdio: 'inherit', env: { ...process.env, KEEPER_E2E_DBUS: '1' } });
+  process.exit(r.status ?? 1);
+}
 const { _electron } = require('playwright');
-const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 fs.mkdirSync(path.resolve(process.argv[2]), { recursive: true });
@@ -112,8 +117,13 @@ async function until(fn, ms = 15000) { const end = Date.now() + ms; while (Date.
 
   // ---------------------------------------------------------------- alerts stay inside the bar unless asked for
   const islBounds = () => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((w) => w.webContents.getURL().includes('view=island')).getBounds());
-  // Close the Island the way the pointer leaving it does.
-  await isl.evaluate(() => document.querySelector('.isl-content')?.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, relatedTarget: document.body })));
+  // Close the Island the way the pointer leaving it does. Opened by a command (the Cues tool above), it stays
+  // open until the pointer has been on it, so the pointer moves over it first and then leaves.
+  await isl.evaluate(() => {
+    const el = document.querySelector('.isl-content');
+    el?.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+    el?.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, relatedTarget: document.body }));
+  });
   await until(async () => (await isl.locator('.isl-content.view-compact').count()) > 0, 5000);
   await wait(1500);
   const before = await islBounds();
