@@ -73,7 +73,7 @@ async function secondStart(args) {
   check(await mail.locator('nav.sidebar').count() === 0, 'the page window has no sidebar');
   check(await mail.locator('.tab-strip').count() === 0, 'the page window has no tabs');
   check((await mail.locator('[data-testid="page-window-title"]').textContent())?.trim() === 'Mail', 'its top bar names the page');
-  const mailShown = await mail.locator('.content .mail, .content [data-testid="mail-compose"], .content .pim-setup, .content .empty').count();
+  const mailShown = await mail.locator('.content .mail, .content [data-testid="mail-compose"], .content .pim-setup, .content .empty, .content [data-testid="mail-welcome"]').count();
   check(mailShown > 0, 'the window shows the Mail page');
   check(await mail.locator('[data-testid="open-in-window"]').count() === 0, 'a page window has no Open in New Window button of its own');
   await mail.screenshot({ path: path.join(SHOTS, 'page-window-mail.png') });
