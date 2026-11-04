@@ -25,7 +25,20 @@ const check = (ok, what) => { console.log(`${ok ? 'PASS' : 'FAIL'} ${what}`); if
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 async function until(fn, ms = 15000) { const end = Date.now() + ms; while (Date.now() < end) { try { const v = await fn(); if (v) return v; } catch { /* not yet */ } await wait(250); } return null; }
 
-const ENV = { ...process.env, KEEPER_TEST_NO_RELAUNCH: '1', KEEPER_DEFAULTS: 'before-1.0', HOME, NODE_OPTIONS: '', KEEPER_SUITE: 'shared', KEEPER_SKIP_TOUR: '1', XDG_CONFIG_HOME: HOME + '/.config', XDG_DATA_HOME: HOME + '/.local/share' };
+// A stand-in voice (Linux's spd-say) that writes down what it was asked to say.
+const BIN = path.join(HOME, 'bin');
+const SAID = path.join(HOME, 'said.txt');
+fs.mkdirSync(BIN, { recursive: true });
+fs.writeFileSync(path.join(BIN, 'spd-say'), `#!/bin/sh\nfor a; do last="$a"; done\nprintf '%s' "$last" > '${SAID}'\n`, { mode: 0o755 });
+// Reading fonts from this computer (KEEPER_TEST_FONTS_DIR holds the pinned files, laid out by file name).
+const http = require('http');
+const FONTS_DIR = process.env.KEEPER_TEST_FONTS_DIR || '';
+const fontServer = http.createServer((req, res) => {
+  const name = path.basename(decodeURIComponent(req.url || ''));
+  const f = FONTS_DIR && path.join(FONTS_DIR, name);
+  if (f && fs.existsSync(f)) { res.writeHead(200, { 'content-type': 'font/woff2' }); res.end(fs.readFileSync(f)); } else { res.writeHead(200); res.end('not a font'); }
+}).listen(0, '127.0.0.1');
+const ENV = { ...process.env, PATH: `${BIN}:${process.env.PATH}`, KEEPER_FONTS_BASE: '', KEEPER_TEST_NO_RELAUNCH: '1', KEEPER_DEFAULTS: 'before-1.0', HOME, NODE_OPTIONS: '', KEEPER_SUITE: 'shared', KEEPER_SKIP_TOUR: '1', XDG_CONFIG_HOME: HOME + '/.config', XDG_DATA_HOME: HOME + '/.local/share' };
 
 async function launch(extraEnv = {}, opts = {}) {
   const env = { ...ENV, ...extraEnv };
@@ -58,6 +71,8 @@ async function launch(extraEnv = {}, opts = {}) {
 }
 
 (async () => {
+  await new Promise((r) => (fontServer.listening ? r() : fontServer.once('listening', r)));
+  ENV.KEEPER_FONTS_BASE = `http://127.0.0.1:${fontServer.address().port}`;
   let k = await launch();
   let { app, main, errors, navigate, both, small } = k;
 
@@ -321,8 +336,63 @@ async function launch(extraEnv = {}, opts = {}) {
     await browser.close();
   }
 
+  // ---------------------------------------------------------------- reading comfort
+  if (want('reading')) {
+    const a11y = async (patch) => { const s = await main.evaluate(() => window.keeper.settings.get()); await main.evaluate((a) => window.keeper.settings.set({ a11y: a }), { ...s.a11y, ...patch }); await wait(500); };
+    const attr = (n) => main.evaluate((x) => document.documentElement.dataset[x], n);
+    // Read aloud: off until switched on, then the system voice says the words (Markdown marks left out).
+    const off = await main.evaluate(() => window.keeper.reading.speak('Hello').then(() => 'spoke', (e) => e.message));
+    check(/switched off/.test(off), 'read aloud is off until switched on');
+    await main.evaluate(() => window.keeper.features.set('readAloud', true));
+    const r = await main.evaluate(() => window.keeper.reading.speak('# Garden plan\n**Plant** tomatoes in [May](https://x.org)'));
+    const said = await until(() => fs.existsSync(SAID) && fs.readFileSync(SAID, 'utf8'), 8000);
+    check(r.ok && said === 'Garden plan Plant tomatoes in May', `the computer’s voice reads the words (${said})`);
+    // Text to 200%, wrapped instead of zoomed.
+    await a11y({ textScale: 2, reflow: true });
+    check((await attr('reflow')) === 'true' && (await attr('scaled')) === 'false', 'larger text wraps instead of zooming the window');
+    const fs2 = await main.evaluate(() => getComputedStyle(document.body).fontSize);
+    check(fs2 === '27px', `the body text is twice the size (${fs2})`);
+    await a11y({ textScale: 1, reflow: false });
+    // Larger buttons.
+    await a11y({ bigTargets: true });
+    const h = await main.evaluate(() => document.querySelector('.sidebar .nav-item')?.getBoundingClientRect().height ?? 0);
+    check(h >= 44, `larger buttons are at least 44 pixels tall (${h})`);
+    await a11y({ bigTargets: false });
+    // A reading font: a file that is not the pinned one is refused; the real one is used.
+    await a11y({ readingFont: 'dyslexic' });
+    await wait(1500);
+    if (FONTS_DIR) check((await attr('readingFont')) === 'dyslexic' && (await main.evaluate(() => document.fonts.check("16px 'Keeper Reading Dyslexic'"))), 'OpenDyslexic downloads once, is checked and used');
+    else check((await attr('readingFont')) === undefined, 'a font that is not the pinned file is not used');
+    await a11y({ lineSpacing: 1.6, letterSpacing: 0.04 });
+    // Arrow keys move between rows of a table (Keeper itself on the Health page).
+    await navigate('health:keeper');
+    await until(() => main.locator('.kproc-table [role="row"] button').count(), 15000);
+    const moved = await main.evaluate(async () => {
+      const all = [...document.querySelectorAll('.kproc-table [role="row"]')];
+      const first = all.find((r) => r.querySelector('button'));
+      const i = all.indexOf(first);
+      if (!first || i + 1 >= all.length) return 'few rows';
+      const b = first.querySelector('button'); b.focus();
+      b.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }));
+      await new Promise((r) => setTimeout(r, 50));
+      return all[i + 1].contains(document.activeElement) ? 'ok' : 'stayed';
+    });
+    check(moved === 'ok' || moved === 'few rows', `Down moves to the next row of a table (${moved})`);
+    await navigate('settings');
+    await main.waitForSelector('[data-testid="settings-search"]', { timeout: 15000 });
+    await main.locator('[data-testid="settings-search"]').fill('dyslexia');
+    await main.locator('[data-testid="settings-result"]', { hasText: 'Reading and read aloud' }).first().click({ timeout: 10000 }).catch(() => undefined);
+    check(!!(await until(() => main.locator('[data-testid="reading-panel"]').count(), 10000)), 'Settings → Accessibility has Reading and read aloud');
+    await a11y({ readingFont: 'hyperlegible', letterSpacing: 0 });
+    await wait(1200);
+    await main.locator('[data-testid="reading-panel"]').scrollIntoViewIfNeeded();
+    await both('auditplatform-reading');
+    await a11y({ lineSpacing: 0, letterSpacing: 0, readingFont: 'theme' });
+  }
+
   check(errors.length === 0, `no page errors (${errors.slice(0, 2).join('; ')})`);
   await app.close();
+  fontServer.close();
   console.log(failed ? `${failed} check(s) failed` : 'all checks passed');
   process.exit(failed ? 1 : 0);
 })().catch((e) => { console.error(e); process.exit(1); });

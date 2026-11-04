@@ -135,16 +135,16 @@ export const ADDONS: AddonDef[] = [
   {
     id: 'motor', name: 'Steady hands', line: 'Roomy spacing, focus outlines and keyboard first.', kind: 'access', icon: 'keyboard',
     on: ['dictation'], off: [],
-    settings: { 'a11y.focusAlways': true, 'a11y.motion': 'reduce', density: 'comfortable', 'a11y.textScale': 1.1 },
+    settings: { 'a11y.focusAlways': true, 'a11y.motion': 'reduce', density: 'comfortable', 'a11y.textScale': 1.1, 'a11y.bigTargets': true },
   },
   {
     id: 'dyslexia', name: 'Easier reading', line: 'A rounded font, a little larger, and calm pages.', kind: 'access', icon: 'text',
-    on: ['dictation'], off: [],
-    settings: { font: 'rounded', 'a11y.textScale': 1.1, 'a11y.motion': 'reduce' },
+    on: ['dictation', 'readAloud'], off: [],
+    settings: { font: 'rounded', 'a11y.textScale': 1.1, 'a11y.motion': 'reduce', 'a11y.lineSpacing': 1.6, 'a11y.letterSpacing': 0.04 },
   },
   {
     id: 'screenReader', name: 'Screen reader', line: 'No moving backgrounds; focus outlines always on.', kind: 'access', icon: 'audio',
-    on: [], off: ['wallpaper', 'vibes', 'widgets'],
+    on: ['readAloud'], off: ['wallpaper', 'vibes', 'widgets'],
     settings: { 'a11y.focusAlways': true, 'a11y.motion': 'reduce' },
   },
   {
@@ -405,6 +405,9 @@ export const SETTING_WORDS: Record<string, { label: string; value?: (v: unknown)
   'a11y.textScale': { label: 'Text size', value: (v) => `${Math.round(Number(v) * 100)}%` },
   'a11y.motion': { label: 'Motion', value: (v) => (v === 'reduce' ? 'Reduced' : v === 'full' ? 'Full' : 'Like the system') },
   'a11y.focusAlways': { label: 'Focus outlines', value: (v) => (v ? 'Always' : 'With the keyboard') },
+  'a11y.lineSpacing': { label: 'Line spacing', value: (v) => (Number(v) ? String(v) : 'Theme') },
+  'a11y.letterSpacing': { label: 'Letter spacing', value: (v) => (Number(v) ? (Number(v) < 0.06 ? 'Wider' : 'Widest') : 'Normal') },
+  'a11y.bigTargets': { label: 'Larger buttons', value: (v) => (v ? 'On' : 'Off') },
   density: { label: 'Spacing', value: (v) => (v === 'compact' ? 'Compact' : 'Comfortable') },
   'home.density': { label: 'Today spacing', value: (v) => String(v).replace(/^./, (c) => c.toUpperCase()) },
   font: { label: 'Text style', value: (v) => ({ theme: 'Theme', system: 'System', rounded: 'Rounded', serif: 'Serif', mono: 'Mono' })[String(v)] ?? String(v) },

@@ -5,6 +5,7 @@
 // (when switched on) AI. Files stay plain files, so the same vault keeps
 // working in other notes apps.
 
+import { useFeature } from '../features';
 import { openSendTo } from '../components/SendTo';
 import { Learn } from '../components/Learn';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -194,6 +195,7 @@ function Gone({ path, onClose }: { path: string; onClose: () => void }) {
 
 export function NotesApp() {
   const { route, toast } = useStore();
+  const readAloudOn = useFeature('readAloud');
   const [vaultId, setVaultId] = useState<string | null>(() => { try { return localStorage.getItem('notes.vault'); } catch { return null; } });
   const [vault, setVault] = useState<OpenVault | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -556,6 +558,7 @@ export function NotesApp() {
   };
   const switchVault = () => { setVault(null); setVaultId(null); try { localStorage.removeItem('notes.vault'); } catch { /* ignore */ } };
   const moreMenu: MenuItem[] = [
+    ...(readAloudOn && activePath ? [{ label: 'Read aloud', icon: 'audio', run: () => void api.notes.read(vault.id, activePath).then((t) => api.reading.speak(t)).then((r) => { if (!r.ok && r.message) toast(r.message); }) }] : []),
     { label: 'New folder', icon: 'folder', run: () => void newFile('folder') },
     { label: 'New canvas', icon: 'grid', run: () => void newFile('canvas') },
     { label: 'New base', icon: 'list', run: () => void newFile('base') },

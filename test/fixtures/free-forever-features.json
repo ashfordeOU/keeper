@@ -180,6 +180,7 @@
     "soundPerApp",
     "macAppVolume",
     "keeperBackup",
-    "settingsSync"
+    "settingsSync",
+    "readAloud"
   ]
 }

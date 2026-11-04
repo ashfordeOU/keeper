@@ -26,6 +26,7 @@ import { mockPhoto } from './mock-photo';
 import { mockCrashReports } from './mock-crash';
 import { mockKeeperBackup } from './mock-keeper-backup';
 import { mockSettingsSync } from './mock-settings-sync';
+import { mockReading } from './mock-reading';
 import { mockModes } from './mock-modes';
 import { mockFeatures } from './mock-features';
 import { mockUsageStats } from './mock-usage-stats';
@@ -347,6 +348,7 @@ export function createMockApi(): KeeperApi {
     ...mockCrashReports(),
     ...mockKeeperBackup(),
     ...mockSettingsSync(),
+    ...mockReading(),
     ...mockFocusBlock((ch) => listeners.get(ch)?.forEach((cb) => (cb as () => void)())),
     ...mockDesk(),
     ...mockPlaces(),

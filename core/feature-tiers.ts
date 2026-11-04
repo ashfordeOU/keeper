@@ -166,6 +166,7 @@ export const TIERS: Record<string, FeatureTier> = {
   stageAuto: { plain: 'Start Stage when I share my screen', setup: 'screen', normal: 'off', shown: 'advanced' },
   tools: { plain: 'Toolbox', setup: 'screen', normal: 'off', shown: 'basic' },
   videoDownload: { plain: 'Save videos from web pages', setup: 'screen', normal: 'off', shown: 'basic' },
+  readAloud: { plain: 'Read aloud', setup: 'notes', normal: 'off', shown: 'basic' },
   dictation: { plain: 'Dictation', setup: 'ai', normal: 'off', shown: 'basic' },
   dictationHold: { plain: 'Hold a key to talk', setup: 'ai', normal: 'off', shown: 'advanced' },
   meetings: { plain: 'Meeting notes', setup: 'ai', normal: 'off', shown: 'basic' },
