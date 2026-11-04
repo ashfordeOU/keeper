@@ -942,6 +942,8 @@ export interface KeeperApi extends KeeperApiX {
   on(channel: 'focusblock-changed', cb: () => void): () => void;
   /** the Inbox changed: how many things wait to be sorted */
   on(channel: 'inbox-changed', cb: (count: number) => void): () => void;
+  /** keeper do send.* (core/automation.ts): the window sends it without asking */
+  on(channel: 'send-run', cb: (s: { verb: import('./send-to').SendVerb; title: string; text?: string; url?: string; path?: string; when?: string }) => void): () => void;
   /** the Inbox card was shown again (start with an empty field) */
   on(channel: 'inbox-card', cb: () => void): () => void;
   /** time tracking recorded something or its settings changed */

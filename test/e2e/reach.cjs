@@ -6,6 +6,7 @@
 // 1440×900, and 1024×768 for the sheets.
 
 const { _electron } = require('playwright');
+const { spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
@@ -92,6 +93,37 @@ async function launch(extraEnv = {}) {
         check(draft === null || draft.includes('Garden plan.txt'), 'with a question about the file once an AI is set up');
       }
     } else check(false, 'the Inspector has Send to…');
+  }
+
+  // ---------------------------------------------------------------- keeper do (automation)
+  if (want('automation')) {
+    const cli = (...args) => spawnSync(process.execPath, [path.resolve(__dirname, '../../dist-cli/keeper.cjs'), 'do', ...args], { env: { ...ENV, KEEPER_DATA_DIR: path.join(HOME, '.config', 'Keeper') }, encoding: 'utf8', timeout: 30000 });
+    const list = cli('--list', '--json');
+    const ids = (() => { try { return JSON.parse(list.stdout).map((a) => a.id); } catch { return []; } })();
+    check(ids.includes('focus') && ids.includes('send.task') && ids.includes('catch'), `keeper do --list lists the actions (${ids.length})`);
+    // The command's socket is ready once the app has written its address.
+    await until(() => fs.existsSync(path.join(HOME, '.config', 'Keeper', 'brain', 'endpoint.json')) || fs.readdirSync(path.join(HOME, '.config', 'Keeper', 'brain')).length, 30000);
+    const r = cli('send.task', '--title', 'Call the plumber', '--json');
+    let res = null; try { res = JSON.parse(r.stdout); } catch { /* not JSON */ }
+    check(r.status === 0 && res?.ok === true && /^keeper:\/\/send\?to=task/.test(res.link), `keeper do send.task answers with JSON (${(r.stdout || r.stderr).trim().slice(0, 120)})`);
+    const made = await until(async () => (await main.evaluate(() => window.keeper.pim.reminders())).find((t) => t.title === 'Call the plumber'), 15000);
+    check(!!made, 'and the task is made without opening anything');
+    const c = cli('catch', '--text', 'Ideas for the garden');
+    const caught = await until(async () => (await main.evaluate(() => window.keeper.inbox.list())).find((i) => /Ideas for the garden/.test(i.text)), 15000);
+    check(c.status === 0 && !!caught, 'keeper do catch puts words in the Inbox');
+    const bad = cli('focus', '--minutes', '999');
+    check(bad.status !== 0 && /minutes must be a number from 0 to 240/.test(bad.stderr + bad.stdout), 'a wrong value is said plainly and fails the command');
+    const nope = cli('format-disk');
+    check(nope.status !== 0 && /No action called/.test(nope.stderr + nope.stdout), 'an unknown action fails with a plain message');
+    // Settings → Works with your computer: the links and scripts row names keeper do.
+    await navigate('settings');
+    await main.waitForSelector('[data-testid="settings-search"]', { timeout: 15000 });
+    await main.locator('[data-testid="settings-search"]').fill('scripts');
+    await main.locator('[data-testid="settings-result"]', { hasText: /File manager and desktop search|Works with your computer/ }).first().click({ timeout: 10000 }).catch(() => undefined);
+    const row = await until(async () => (await main.locator('text=keeper do focus').count()) > 0, 15000);
+    check(!!row, 'Settings says how scripts run any action (keeper do)');
+    await main.locator('text=keeper do focus').first().scrollIntoViewIfNeeded().catch(() => undefined);
+    await both('auditplatform-automation');
   }
 
   check(errors.length === 0, `no page errors (${errors.slice(0, 2).join('; ')})`);

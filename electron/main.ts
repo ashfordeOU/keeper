@@ -64,6 +64,9 @@ import { registerIslandToolsIpc } from './ipc/island-tools';
 import { registerIslandXIpc, stopIslandX } from './ipc/islandx';
 import { cueTrayItems, handleCueLink, registerCueShortcut, registerCuesIpc, stopCues } from './ipc/cues';
 import { inboxTrayItems, openInboxCard, registerInboxIpc, registerInboxShortcut } from './ipc/inbox';
+import { addInbox } from './services/inbox';
+import { sendFromLink } from '../core/automation';
+import { registerAutomation } from './services/automation';
 import { flushIslandTools } from './services/island-tools';
 import { checkProtection } from './services/protection';
 import { listStartup, toggleStartup } from './services/startup';
@@ -782,8 +785,14 @@ function handleDeepLink(url: string) {
     // keeper://help?code=123456789&pw=… ("Ask for help" links) opens Help Someone with the code filled in.
     // keeper://cue?text=…&attach=page,app opens a new cue beside the app in front; keeper://cues opens the page.
     else if (action === 'cue') handleCueLink(u);
-    // keeper://inbox opens the card to catch something.
+    // keeper://inbox opens the card to catch something; keeper://inbox?text=… keeps the words without asking.
+    else if (action === 'inbox' && u.searchParams.get('text')) void addInbox({ text: u.searchParams.get('text')!.slice(0, 20_000), source: 'link' });
     else if (action === 'inbox') openInboxCard();
+    // keeper://send?to=task&title=…: Send to… from scripts (keeper do send.task); the window runs it.
+    else if (action === 'send') {
+      const s = sendFromLink(url);
+      if (s) { showMain(); setTimeout(() => broadcast('send-run', s), 600); }
+    }
     // keeper://studio/record (start or stop), /stop, /pause (pause or resume)
     else if (action === 'studio') handleStudioLink(u);
     // keeper://mail/<message id> (a task or event made from an email links back to it)
@@ -1765,6 +1774,8 @@ let studioSince: number | undefined;
     // Agents' own terminals (sub-workers, headless runs) and the hub where agents of every kind work together.
     registerAgentTermIpc({ broadcast, alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }) }),
   ).catch(() => undefined);
+  // keeper do <action>: the one list of actions (core/automation.ts), through the command's socket.
+  registerAutomation({ openLink: (url) => handleDeepLink(url) });
   // macOS: Siri, Spotlight and Shortcuts learn Keeper's actions from its small helper app (once per version).
   void registerIntentsHelper();
   // Linux: the same actions on the session bus (org.ashfordeou.Keeper.Actions) for desktop assistants and launchers.

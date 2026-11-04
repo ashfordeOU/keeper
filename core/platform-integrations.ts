@@ -10,7 +10,7 @@ export type IntegrationId =
   | 'apple-intelligence' | 'mac-ocr' | 'spotlight' | 'shortcuts' | 'mac-services'
   | 'win-ocr' | 'win-agents' | 'win-ai' | 'explorer-menu' | 'jump-list'
   | 'gnome-search' | 'krunner' | 'desktop-actions'
-  | 'mcp' | 'ask-shortcut' | 'url-actions';
+  | 'mcp' | 'ask-shortcut' | 'url-actions' | 'powershell' | 'applescript';
 
 export interface Integration {
   id: IntegrationId;
@@ -108,7 +108,7 @@ export function listIntegrations(f: PlatformFacts, s: PlatformSettings): Integra
   });
   out.push({
     id: 'url-actions', label: 'Links and scripts', toggle: false, enabled: true, available: true,
-    description: 'keeper://search, keeper://ask, keeper://open and keeper://reveal links, and the keeper command, so automation tools, launchers and scripts can use Keeper.',
+    description: 'keeper:// links and the keeper command (keeper do focus --minutes 25), so automation tools, launchers and scripts can use every Keeper action.',
     actions: [{ id: 'copy-links', label: 'Copy examples' }],
   });
 
@@ -134,6 +134,11 @@ export function listIntegrations(f: PlatformFacts, s: PlatformSettings): Integra
       actions: [{ id: 'open-shortcuts', label: 'Open Shortcuts' }],
     });
     out.push({
+      id: 'applescript', label: 'AppleScript', toggle: false, enabled: true, available: true,
+      description: 'Scripts can run any Keeper action by opening its link, for example to start a focus timer.',
+      actions: [{ id: 'copy-applescript', label: 'Copy an example' }],
+    });
+    out.push({
       id: 'mac-services', label: 'Services menu', toggle: false, enabled: false, available: true,
       description: 'Search selected text in Keeper from any app’s Services menu, with a Quick Action you make once in Shortcuts.',
       steps: SERVICES_STEPS,
@@ -142,6 +147,11 @@ export function listIntegrations(f: PlatformFacts, s: PlatformSettings): Integra
   }
 
   if (win) {
+    out.push({
+      id: 'powershell', label: 'PowerShell commands', toggle: false, enabled: false, available: true,
+      description: 'Keeper’s actions as PowerShell commands (Start-KeeperFocus, Send-KeeperSendTask…), for this account only.',
+      actions: [{ id: 'install-ps', label: 'Add commands' }],
+    });
     const build = f.winBuild ?? 0;
     out.push({
       id: 'win-ocr', label: 'Windows text recognition', toggle: true, enabled: s.nativeOcr && !!f.winOcr, available: !!f.winOcr,
