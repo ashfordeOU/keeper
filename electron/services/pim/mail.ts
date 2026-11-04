@@ -20,8 +20,10 @@ import { files, readJson, writeJson, type FolderCache } from './store';
 export type Auth = { user: string; pass: string } | { user: string; accessToken: string };
 
 const QUIET_MS = 60_000;
-/** Messages kept in the list per folder (older ones are fetched as you scroll). */
+/** Messages kept in the list per folder after a check (older ones are fetched as you scroll). */
 const KEEP = 2000;
+/** At most this many are kept in a folder's list once you have scrolled back (the server's search finds the rest). */
+const MAX_KEPT = 25_000;
 /** Messages fetched on a folder's first visit. */
 const FIRST = 300;
 
@@ -98,7 +100,7 @@ export interface MailBox {
   move(folder: string, uids: number[], dest: string): Promise<Map<number, number> | undefined>;
   keepsKeywords(folder: string): Promise<boolean>;
   byMessageId(folder: string, messageId: string): Promise<number[]>;
-  searchWith(folder: string, criteria: Record<string, unknown>): Promise<number[]>;
+  searchWith(folder: string, criteria: Record<string, unknown>, opts?: { skip?: Set<number>; limit?: number }): Promise<number[]>;
   newestText(folder: string): Promise<{ uid: number; text: string } | undefined>;
   ensureFolder(path: string): Promise<void>;
   remove(folder: string, uids: number[], trash?: string): Promise<unknown>;
@@ -170,6 +172,13 @@ export class MailAccount implements MailBox {
           total: f.status?.messages ?? 0,
           delimiter: f.delimiter,
         }));
+      // The folder this connection has open gets no STATUS answer in the list: ask for it on its own.
+      for (const f of out) {
+        const src = list.find((x) => x.path === f.path);
+        if (src?.status) continue;
+        const st = await c.status(f.path, { messages: true, unseen: true }).catch(() => null);
+        if (st) Object.assign(f, { unread: st.unseen ?? f.unread, total: st.messages ?? f.total });
+      }
       const order: (SpecialUse | undefined)[] = ['inbox', 'flagged', 'drafts', 'sent', 'archive', 'all', 'junk', 'trash'];
       out.sort((a, b) => (a.special ? order.indexOf(a.special) : 99) - (b.special ? order.indexOf(b.special) : 99) || a.path.localeCompare(b.path));
       await writeJson(files.folders(this.account.id), out);
@@ -285,7 +294,18 @@ export class MailAccount implements MailBox {
             for (const u of recent) if (!seen.has(u)) known.delete(u);
           }
         } else known.clear();
-        list = [...known.values()].sort((a, b) => b.date - a.date).slice(0, KEEP);
+        // The folder's own numbers, kept up to date with every check (not only when folders are listed).
+        if (box.exists !== undefined) {
+          const unseen = await c.search({ seen: false }, { uid: true }).catch(() => null);
+          const all = await readJson<MailFolder[]>(files.folders(this.account.id), []);
+          const f = all.find((x) => x.path === folder);
+          if (f && Array.isArray(unseen) && (f.total !== box.exists || f.unread !== unseen.length)) {
+            Object.assign(f, { total: box.exists, unread: unseen.length });
+            await writeJson(files.folders(this.account.id), all);
+          }
+        }
+        // What scrolling back already brought in stays (it is not dropped at the next check).
+        list = [...known.values()].sort((a, b) => b.date - a.date).slice(0, Math.min(MAX_KEPT, Math.max(KEEP, cache.messages.length)));
         await writeJson(files.folder(this.account.id, folder), { uidValidity: validity, uidNext: box.uidNext, messages: list } satisfies FolderCache);
         return { messages: list, added };
       } finally {
@@ -294,18 +314,26 @@ export class MailAccount implements MailBox {
     });
   }
 
-  /** Older messages than the oldest in the list (scrolling down). */
-  async older(folder: string, count = 200): Promise<MessageSummary[]> {
+  /**
+   * Older messages than the oldest in the list (scrolling down): the next
+   * `count` by number, stepping further back over gaps left by deleted mail.
+   */
+  async older(folder: string, count = 300): Promise<MessageSummary[]> {
     const cache = await this.cached(folder);
-    const oldest = Math.min(...cache.messages.map((m) => m.uid));
-    if (!Number.isFinite(oldest) || oldest <= 1) return cache.messages;
+    let oldest = cache.messages.reduce((m, x) => Math.min(m, x.uid), Infinity);
+    if (!Number.isFinite(oldest) || oldest <= 1 || cache.messages.length >= MAX_KEPT) return cache.messages;
     return this.run(async (c) => {
       const lock = await c.getMailboxLock(folder, { readOnly: true });
       try {
         const got: MessageSummary[] = [];
-        for await (const m of c.fetch(`${Math.max(1, oldest - count)}:${oldest - 1}`, this.listQuery(c), { uid: true })) got.push(this.summary(folder, m));
-        const all = [...cache.messages, ...got].sort((a, b) => b.date - a.date);
-        await writeJson(files.folder(this.account.id, folder), { ...cache, messages: all.slice(0, KEEP * 2) });
+        for (let tries = 0; got.length < count && oldest > 1 && tries < 8; tries++) {
+          const from = Math.max(1, oldest - count * (tries + 1));
+          for await (const m of c.fetch(`${from}:${oldest - 1}`, this.listQuery(c), { uid: true })) got.push(this.summary(folder, m));
+          oldest = from;
+        }
+        const have = new Set(cache.messages.map((m) => m.uid));
+        const all = [...cache.messages, ...got.filter((m) => !have.has(m.uid))].sort((a, b) => b.date - a.date).slice(0, MAX_KEPT);
+        await writeJson(files.folder(this.account.id, folder), { ...cache, messages: all });
         return all;
       } finally {
         lock.release();
@@ -388,13 +416,13 @@ export class MailAccount implements MailBox {
     });
   }
 
-  /** Search with full criteria (imapflow's form), newest first. */
-  async searchWith(folder: string, criteria: Record<string, unknown>): Promise<number[]> {
+  /** Search with full criteria (imapflow's form), newest first; `skip` leaves out messages already kept here. */
+  async searchWith(folder: string, criteria: Record<string, unknown>, opts: { skip?: Set<number>; limit?: number } = {}): Promise<number[]> {
     return this.run(async (c) => {
       const lock = await c.getMailboxLock(folder, { readOnly: true });
       try {
         const r = await c.search(criteria as never, { uid: true });
-        return Array.isArray(r) ? r.sort((a, b) => b - a).slice(0, 100) : [];
+        return Array.isArray(r) ? r.filter((u) => !opts.skip?.has(u)).sort((a, b) => b - a).slice(0, opts.limit ?? 100) : [];
       } finally {
         lock.release();
       }

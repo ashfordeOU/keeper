@@ -294,6 +294,17 @@ export function unreadByAccount(inbox: Pick<MessageSummary, 'account' | 'seen'>[
   return out;
 }
 
+/**
+ * Unread inbox mail per account: the server's own number for the whole inbox
+ * when it is larger than what the list kept here holds (a big inbox keeps only
+ * its newest messages on this computer).
+ */
+export function mergeUnread(listed: Record<string, number>, folders: { account: string; special?: string; unread: number }[]): Record<string, number> {
+  const out = { ...listed };
+  for (const f of folders) if (f.special === 'inbox' && f.unread > (out[f.account] ?? 0)) out[f.account] = f.unread;
+  return out;
+}
+
 // ---------------------------------------------------------------- reading
 
 export const TEXT_SIZES = [12, 13, 14, 15, 16, 18, 20, 22];

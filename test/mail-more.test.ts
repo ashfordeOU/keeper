@@ -184,6 +184,10 @@ describe('search', () => {
     expect(imapCriteria(parseMailQuery('', NOW))).toBeNull();
     const c = imapCriteria(parseMailQuery('from:ana is:unread after:2026-01-01', NOW))!;
     expect(c).toMatchObject({ from: 'ana', seen: false, since: new Date(2026, 0, 1) });
+    // Several words: the first as it is, the others as NOT (OR (NOT …)), since the server's search has no AND key.
+    const w = imapCriteria(parseMailQuery('lunch friday -cancelled', NOW))!;
+    expect(w.or).toEqual([{ subject: 'lunch' }, { from: 'lunch' }, { body: 'lunch' }]);
+    expect(w.not).toEqual({ or: [{ not: { or: [{ subject: 'friday' }, { from: 'friday' }, { body: 'friday' }] } }, { not: { not: { text: 'cancelled' } } }] });
   });
 });
 

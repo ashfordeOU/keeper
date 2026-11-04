@@ -197,6 +197,32 @@ export function Mail() {
     return shownMessages.map((m) => ({ key: m.id, last: m, count: 1, unread: m.seen ? 0 : 1, thread: undefined as Thread | undefined }));
   }, [list, view.threaded, shownMessages, searching]);
   const rows = useMemo(() => (only && !searching ? allRows.filter((r) => (r.thread ? r.thread.messages : [r.last]).some((m) => chipKeeps(m, only))) : allRows), [allRows, only, searching]);
+  // A long list is drawn a page at a time as you scroll (big mailboxes stay smooth), and a folder of one
+  // account fetches older mail from the server when the bottom is reached.
+  const PAGE = 150;
+  const [limit, setLimit] = useState(PAGE);
+  const [olderBusy, setOlderBusy] = useState(false);
+  const sentinel = useRef<HTMLDivElement>(null);
+  /** Rows drawn last time, by what they show: unchanged rows are reused as they are (React skips them). */
+  const rowElCache = useRef(new Map<string, React.ReactElement>());
+  useEffect(() => setLimit(PAGE), [view.folder, view.account, view.tab, view.filter, query, only]);
+  const canOlder = !searching && !!view.account && !/^(unified|snoozed|toreply|search|smart:|label:|view:)/.test(view.folder) && rows.length >= 100;
+  const loadOlder = useCallback(async () => {
+    if (olderBusy || !view.account) return;
+    setOlderBusy(true);
+    try { await api.pim.older(view.account, view.folder); } catch { /* the button stays */ } finally { setOlderBusy(false); }
+  }, [olderBusy, view.account, view.folder]);
+  useEffect(() => {
+    const el = sentinel.current;
+    if (!el) return;
+    const io = new IntersectionObserver((entries) => {
+      if (!entries.some((e) => e.isIntersecting)) return;
+      if (limit < rows.length) setLimit((l) => l + PAGE);
+      else if (canOlder) void loadOlder();
+    }, { rootMargin: '600px 0px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [limit, rows.length, canOlder, loadOlder]);
 
   const current = rows.find((r) => r.last.id === selected || r.thread?.messages.some((m) => m.id === selected));
   const ids = checked.size ? [...checked] : current ? (current.thread ? current.thread.messages.filter((m) => list.messages.some((x) => x.id === m.id)).map((m) => m.id) : [current.last.id]) : [];
@@ -352,7 +378,7 @@ export function Mail() {
     ] });
   };
 
-  const toggleCheck = (id: string) => { const next = new Set(checked); if (next.has(id)) next.delete(id); else next.add(id); setChecked(next); };
+  const toggleCheck = (id: string) => setChecked((cur) => { const next = new Set(cur); if (next.has(id)) next.delete(id); else next.add(id); return next; });
   const acctColor = (id: string) => accounts.find((a) => a.id === id)?.color ?? 'var(--accent)';
   const acctLabel = (id: string) => accounts.find((a) => a.id === id)?.label ?? id;
   const cross = view.folder === 'unified' || view.folder === 'unified:sent' || view.folder === 'snoozed' || searching;
@@ -365,12 +391,21 @@ export function Mail() {
     for (const g of groupByDay(rows, (r) => rowTime(r.last), now)) { heads.set(i, g.label); i += g.rows.length; }
   }
   const rowWhen = (m: MessageSummary) => (m.snoozedUntil && m.snoozedUntil > now ? `until ${when(m.snoozedUntil)}` : listTime(m.date, now, clock, (t) => when(t)));
+  const rowCtx = `${view.folder}|${view.account}|${view.tab}|${view.filter}|${layout}|${prefs?.mailDensity}|${searching}|${cross}|${mailAccounts.length}|${localCount}|${server?.messages.length ?? 0}|${Math.floor(now / 60_000)}`;
+  const nextRows = new Map<string, React.ReactElement>();
+  const cachedRow = (r: (typeof rows)[number], i: number, make: () => React.ReactElement) => {
+    const m = r.last;
+    const sig = `${rowCtx}|${r.key}|${i}|${heads.get(i) ?? ''}|${m.id}|${m.seen}|${m.flagged}|${m.subject}|${m.snippet}|${(m.labels ?? []).join(',')}|${m.snoozedUntil ?? ''}|${r.count}|${r.unread}|${current?.key === r.key}|${checked.has(m.id)}`;
+    const el = rowElCache.current.get(sig) ?? make();
+    nextRows.set(sig, el);
+    return el;
+  };
   const rowsEl = (
     <div className={`mail-rows ${layout === 'wide' ? 'wide' : ''} density-${prefs?.mailDensity ?? 'comfortable'}`} role="listbox" aria-label="Messages" aria-multiselectable>
       {ask ? (ask.busy ? <div className="ai-card"><div className="row" style={{ gap: 8 }}><div className="spinner" /> Reading your mail…</div></div> : <AskCard answer={ask.answer ?? ''} sources={ask.sources ?? []} onOpen={(id) => setSelected(id)} onClose={() => setAsk(null)} />) : null}
       {searching ? <SearchChips query={query} onSave={() => { const name = window.prompt('Name for this smart mailbox', query.trim()); if (name) void api.pim.setPrefs({ smartMailboxes: [...(prefs?.smartMailboxes ?? []), { id: Math.random().toString(36).slice(2, 10), name, query: query.trim() }] }).then((p) => { setPrefs(p); toast('Saved as a smart mailbox'); }); }} /> : null}
       {searching && localCount ? <div className="mail-section">On this computer · {localCount}</div> : null}
-      {rows.length ? rows.map((r, i) => {
+      {rows.length ? rows.slice(0, limit).map((r, i) => cachedRow(r, i, () => {
         const m = r.last;
         const on = current === r;
         const people = r.thread && others(r.thread.participants).length > 1 ? others(r.thread.participants).slice(0, 3).map((p) => (p.name ?? p.address).split(' ')[0]).join(', ') : (m.from && mine.has(m.from.address.toLowerCase()) ? `To ${m.to.map((a) => a.name || a.address).join(', ')}` : m.from?.name || m.from?.address || '(unknown)');
@@ -413,11 +448,14 @@ export function Mail() {
             </div>
           </div>
         );
-      }) : <div className="empty small muted" style={{ padding: 30 }}>{searching ? (server?.busy ? 'Nothing on this computer; asking the servers…' : 'No messages match') : view.folder === 'toreply' ? 'Nobody is waiting for an answer from you.' : view.tab === 'important' ? 'Nothing important waiting. Nice.' : 'Nothing here'}</div>}
+      })) : <div className="empty small muted" style={{ padding: 30 }}>{searching ? (server?.busy ? 'Nothing on this computer; asking the servers…' : 'No messages match') : view.folder === 'toreply' ? 'Nobody is waiting for an answer from you.' : view.tab === 'important' ? 'Nothing important waiting. Nice.' : 'Nothing here'}</div>}
       {searching && server?.busy && rows.length ? <div className="mail-section"><div className="spinner" /> Searching the servers…</div> : null}
-      {!searching && view.account && !cross && rows.length >= 100 ? <button className="btn ghost sm" style={{ margin: 12 }} onClick={() => void api.pim.older(view.account!, view.folder)}>Load older messages</button> : null}
+      <div ref={sentinel} className="mail-sentinel" aria-hidden />
+      {limit >= rows.length && canOlder && !cross ? <button className="btn ghost sm" style={{ margin: 12 }} disabled={olderBusy} onClick={() => void loadOlder()} data-testid="mail-older">{olderBusy ? <span className="spinner" /> : null} Load older messages</button> : null}
     </div>
   );
+
+  rowElCache.current = nextRows;
 
   const reader = current ? <Conversation key={current.key} row={current} accounts={accounts} mine={mine} prefs={prefs} onReply={(m, id, body) => void reply(m, id, body)} act={act} onBack={() => setSelected(null)} wide={layout === 'wide'} onSnooze={(x, y) => snoozeMenu(x, y, ids)} onMenu={(x, y, items) => setMenu({ x, y, items })} /> : null;
   const sideView = side === 'waiting' ? <WaitingView reloadKey={reloadKey} onOpen={(id) => { setSide(null); setView({ ...view, folder: 'unified:sent', account: undefined, split: undefined }); setSelected(id); }} onCompose={(d) => setCompose(d)} />

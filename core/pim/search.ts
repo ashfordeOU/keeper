@@ -139,17 +139,18 @@ export function imapCriteria(q: MailQuery): Record<string, unknown> | null {
   if (q.after) c.since = new Date(q.after);
   if (q.before) c.before = new Date(q.before);
   if (!and.length && !Object.keys(c).length) return null;
-  // imapflow ANDs keys of one object; several of the same key need nesting.
-  let out: Record<string, unknown> = { ...c };
-  for (const x of and) out = Object.keys(out).length ? { ...out, ...mergeKey(out, x) } : x;
+  // imapflow ANDs the keys of one object and has no AND of its own: criteria whose key is already
+  // taken (several words, each an OR) are added as NOT (OR (NOT a) (NOT b) …), which is a AND b.
+  const out: Record<string, unknown> = { ...c };
+  const rest: Record<string, unknown>[] = [];
+  for (const x of and) {
+    const k = Object.keys(x)[0];
+    if (k !== 'not' && !(k in out)) Object.assign(out, x);
+    else rest.push(x);
+  }
+  if (rest.length === 1) out.not = { not: rest[0] };
+  else if (rest.length > 1) out.not = { or: rest.map((x) => ({ not: x })) };
   return out;
-}
-
-function mergeKey(base: Record<string, unknown>, add: Record<string, unknown>): Record<string, unknown> {
-  const k = Object.keys(add)[0];
-  if (!(k in base)) return add;
-  // Two "or"s (or two of anything): the second goes under a "not not" wrapper-free AND by nesting in "or" with itself.
-  return { [`${k}`]: base[k], and: [...((base.and as unknown[]) ?? []), add] } as Record<string, unknown>;
 }
 
 /** Words for a text search on servers that only take plain words. */

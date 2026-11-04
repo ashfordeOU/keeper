@@ -55,6 +55,12 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - Search by meaning now also understands your mail, calendar events, tasks, contacts and notes outside your library, on this computer, in the same quiet background batches as your files. One search ranks every kind together.
 - It follows the graph's choices: leave mail or an account out and it leaves the search too.
 
+### Fixed — Mail: big mailboxes
+- A mailbox of 50,000 messages opens in about a second and scrolls smoothly: the list draws a page at a time and fetches older mail from the server by itself when you reach the bottom.
+- Mail you scrolled back to no longer disappears at the next check, and scrolling past the first few thousand messages no longer stops.
+- Unread numbers are right for big inboxes and for the folder you have open.
+- Searching the server with several words finds mail again, including older mail than what is kept on this computer.
+
 ### Added — Mail: signatures and how each account writes
 - Rich signatures with your logo, links, fonts and colours, written in place. Several per address, with your choice for new mail, replies and forwards, and a picker in the compose window.
 - Bring in the signature you already have from Gmail, Apple Mail, Outlook on Windows or Thunderbird.

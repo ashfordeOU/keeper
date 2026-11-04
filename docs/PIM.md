@@ -79,6 +79,22 @@ JMAP is not used yet; Fastmail works through IMAP and CalDAV with an app passwor
   the servers' own search for older mail (Inbox, Sent, Archive / All Mail),
   shown in a section of its own. A question (ending in `?`, or *Ask*) is
   answered by the AI from the best-matching messages, with links to them.
+- **Big mailboxes**: a folder's first visit fetches its newest 300 messages;
+  the list draws 150 rows at a time as you scroll (rows that did not change
+  are reused, rows off screen are not laid out), and at the bottom of one
+  account's folder older mail comes from the server by itself, 300 at a time,
+  stepping over gaps left by deleted mail. What scrolling brought in stays at
+  the next check (up to 25,000 per folder; the server's search finds the
+  rest). Each check also brings the folder's own total and unread numbers up
+  to date, and an account's unread number is the server's whole inbox, not
+  only what is kept here. Tested with 50,000 messages in Dovecot
+  (`test/pim-bigbox.test.ts` with `KEEPER_BIG_MAILBOX=50000`,
+  `test/e2e/pim-bigbox.cjs`): the folders list in about 0.2 s, the first page
+  in about 0.5–1.3 s, older pages in under 0.1 s, scrolling at the screen's
+  rate (median frame 17 ms).
+- **Server search with several words** works: each word must match (subject,
+  sender or text) and `-word` leaves mail out; the server's search no longer
+  stops at the newest hundred matches that are already kept here.
 - **Offline**: lists, Sent, Archive and the newest 30 inbox messages' text are
   kept on this computer. Read, flag, archive, delete and move work offline;
   the change is queued and sent when the server answers again.

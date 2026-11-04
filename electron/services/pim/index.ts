@@ -46,6 +46,7 @@ import { assertSecretReadable, dropSecret, emptyState, files, hash, loadAccounts
 import { extendTimer } from '../../../core/widget-timer';
 import { evaluateRules, planActions, SIEVE_SCRIPT, toSieve, type Rule } from '../../../core/pim/rules';
 import { imapCriteria, matchMailQuery, orderResults, parseMailQuery } from '../../../core/pim/search';
+import { mergeUnread } from '../../../core/pim/smart';
 import { badgeCount, extractCode, extractSignInLink, inTab, isBlocked, isDesignedMail, isMuted, notchAllows, sortReminders, tabCounts, toReply, unreadByAccount } from '../../../core/pim/smart';
 import { labelCounts } from '../../../core/pim/mail-today';
 import { linksIn, phishingWarnings } from '../../../core/pim/phishing';
@@ -1689,7 +1690,7 @@ async function serverSearch(q: ReturnType<typeof parseMailQuery>, account?: stri
     for (const f of where) {
       try {
         const known = new Set((await cachedMessages(a.id, f)).map((m) => m.uid));
-        const uids = (await mailbox(a).searchWith(f, crit)).filter((u) => !known.has(u)).slice(0, 40);
+        const uids = await mailbox(a).searchWith(f, crit, { skip: known, limit: 40 });
         found.push(...(await mailbox(a).summaries(f, uids)));
       } catch {
         // Offline or refused: the local results stand.
@@ -2666,7 +2667,12 @@ export const pim: PimApi = {
     await load();
     const ctx = await triageCtx();
     const inbox = (await cachedOf('inbox')).filter((m) => !isSnoozed(m, Date.now()) && !isBlocked(m.from, state.prefs.blockedSenders ?? [])).map((m) => withTriage(m, ctx));
-    return { byAccount: unreadByAccount(inbox), all: badgeCount(inbox, 'all'), important: badgeCount(inbox, 'important'), labels: labelCounts(await cachedEverywhere()) };
+    const folders: MailFolder[] = [];
+    for (const a of accounts.filter((x) => x.mail)) folders.push(...(await mailbox(a).cachedFolders()));
+    const listed = unreadByAccount(inbox);
+    const byAccount = mergeUnread(listed, folders);
+    const extra = Object.keys(byAccount).reduce((n, k) => n + byAccount[k] - (listed[k] ?? 0), 0);
+    return { byAccount, all: badgeCount(inbox, 'all') + extra, important: badgeCount(inbox, 'important'), labels: labelCounts(await cachedEverywhere()) };
   },
   async dismissToReply(id) {
     const { account, folder } = splitId(id);

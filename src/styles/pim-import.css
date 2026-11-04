@@ -101,3 +101,6 @@
 .event-links .chip { display: inline-flex; align-items: center; gap: 4px; }
 .writing-grid select, .writing-grid input[type='color'] { width: 100%; }
 .sig-defaults select { min-width: 140px; }
+.mail-sentinel { height: 1px; }
+/* Rows off screen are not laid out or painted (long lists stay smooth). */
+.mail-rows > div:not(.mail-sentinel) { content-visibility: auto; contain-intrinsic-size: auto 68px; }

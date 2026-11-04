@@ -108,4 +108,24 @@ namespace inbox {
   };
 }
 
-module.exports = { startDovecot, freePort };
+/**
+ * Writes `count` generated messages straight into the user's Maildir (much
+ * faster than sending them one by one), two thirds marked read, plus a
+ * nested folder "Projects/2026" with 40 unread ones. Returns the Maildir path.
+ */
+function fillMaildir(server, count) {
+  const md = path.join(server.dir, 'home/ana/Maildir');
+  for (const sub of ['cur', 'new', 'tmp', '.Projects/cur', '.Projects/new', '.Projects/tmp', '.Projects.2026/cur', '.Projects.2026/new', '.Projects.2026/tmp']) fs.mkdirSync(path.join(md, sub), { recursive: true });
+  const t = Math.floor(Date.now() / 1000);
+  const msg = (i) => {
+    const d = new Date(Date.now() - (count - i) * 600_000);
+    return [`From: Sender ${i % 97} <s${i % 97}@example.org>`, 'To: Ana <ana@example.org>', `Subject: Message number ${i}`, `Message-ID: <m${i}@example.org>`, `Date: ${d.toUTCString()}`, 'MIME-Version: 1.0', 'Content-Type: text/plain', '', `Body of message ${i}.`, ''].join('\r\n');
+  };
+  for (let i = 0; i < count; i++) fs.writeFileSync(path.join(md, 'cur', `${t}.M${i}P1.keeper:2,${i % 3 ? 'S' : ''}`), msg(i));
+  for (let i = 0; i < 40; i++) fs.writeFileSync(path.join(md, '.Projects.2026/cur', `${t}.N${i}P1.keeper:2,`), msg(count + i));
+  fs.writeFileSync(path.join(md, 'subscriptions'), 'Projects\nProjects.2026\n');
+  if (os.userInfo().uid === 0) execFileSync('chown', ['-R', 'dovecot:dovecot', path.join(server.dir, 'home/ana')]);
+  return md;
+}
+
+module.exports = { startDovecot, freePort, fillMaildir };
