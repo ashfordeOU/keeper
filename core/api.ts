@@ -468,6 +468,8 @@ export interface KeeperApi extends KeeperApiX {
   usage: UsageApi;
   /** switch parts of Keeper on and off */
   features: FeaturesApi;
+  /** modes (Standard, Simple, Focus…): preview, switch, reset, and Focus as a timed session (core/modes.ts) */
+  modes: import('./api-modes').ModesApi;
   /** downloadable parts of Keeper and add-on apps (docs/COMPONENTS.md) */
   components: import('./api-components').ComponentsApi;
   /** anonymous usage stats: the switch, exactly what is sent, and the install ID */
@@ -904,6 +906,8 @@ export interface KeeperApi extends KeeperApiX {
   on(channel: 'keychain-changed', cb: (s: import('./keychain').KeychainStatus) => void): () => void;
   /** Help → Set Up Keeper Again */
   on(channel: 'setup-again', cb: () => void): () => void;
+  /** the tray's Mode menu: show the preview for this switch */
+  on(channel: 'mode-preview', cb: (to: import('./modes').ModeChoice) => void): () => void;
   /** the tool launcher was shown again (focus the search box); the menu-bar pop-over's live reading */
   on(channel: 'launcher-shown', cb: () => void): () => void;
   on(channel: 'sysmon-live', cb: (r: import('./monitor-tray').LiveReading) => void): () => void;

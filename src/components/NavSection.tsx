@@ -12,6 +12,8 @@ import { compactionAllowed, useSidebarLocal } from '../sidebar-state';
 import { Icon } from './Icon';
 import { ContextMenu, type MenuItem } from './ui';
 import { useStore } from '../state';
+import { sessionSidebar } from '../../core/modes';
+import { NAV_GROUPS, type NavGroup } from '../../core/features';
 
 // `all:<id>` for a long section showing all its items (kept under the old key).
 const KEY = 'sidebar.closed';
@@ -155,6 +157,9 @@ export function NavSection({ id, title, children, className, menuItems = [], noL
   }, [usage, limit]);
   // Hidden or moved with "Customize sidebar…".
   if (settings?.sidebarHidden?.includes(`section:${id}`)) return null;
+  // A Focus session (core/modes.ts) narrows the sidebar to Focus's sections until it ends; nothing saved changes.
+  const narrow = sessionSidebar(settings?.modeSession);
+  if (narrow && NAV_GROUPS.some((g) => g.id === id) && !narrow.includes(id as NavGroup)) return null;
   const at = settings?.sidebarOrder?.indexOf(id) ?? -1;
   const order = settings?.sidebarOrder?.length ? 100 + (at < 0 ? 50 : at) : undefined;
   return (

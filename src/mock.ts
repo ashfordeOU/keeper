@@ -17,6 +17,7 @@ import { mockSelfCheck } from './mock-selfcheck';
 import { mockMonitors } from './mock-monitors';
 import { mockPhoto } from './mock-photo';
 import { mockCrashReports } from './mock-crash';
+import { mockModes } from './mock-modes';
 import { mockFeatures } from './mock-features';
 import { mockUsageStats } from './mock-usage-stats';
 import { mockPro } from './mock-pro';
@@ -373,6 +374,10 @@ export function createMockApi(): KeeperApi {
       listeners.get('settings-changed')?.forEach((cb) => (cb as (v: unknown) => void)(structuredClone(settings)));
     }, (ch, ...args) => listeners.get(ch)?.forEach((cb) => (cb as (...a: unknown[]) => void)(...args))),
     features: mockFeatures(() => settings, (patch) => {
+      Object.assign(settings, patch);
+      listeners.get('settings-changed')?.forEach((cb) => (cb as (v: unknown) => void)(structuredClone(settings)));
+    }),
+    modes: mockModes(() => settings, (patch) => {
       Object.assign(settings, patch);
       listeners.get('settings-changed')?.forEach((cb) => (cb as (v: unknown) => void)(structuredClone(settings)));
     }),

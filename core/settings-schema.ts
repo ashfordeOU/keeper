@@ -12,6 +12,7 @@
 import { defaultSettings, mergeSettings, type AllSettings } from './settings';
 import { FEATURES, featureOffered, featureStates } from './features';
 import { ISLAND_INTENSITIES, ISLAND_LOOKS, ISLAND_PRESETS } from './island-look';
+import { modeBaseline } from './modes';
 
 export type SectionId = 'general' | 'appearance' | 'features' | 'files' | 'island' | 'menubar' | 'ai' | 'pim' | 'privacy' | 'accessibility' | 'battery' | 'devices' | 'account' | 'about';
 
@@ -91,6 +92,7 @@ export interface SettingDef {
 
 export const SETTINGS: SettingDef[] = [
   // ---------------------------------------------------------------- General
+  { id: 'mode', section: 'general', label: 'Mode', help: 'One choice that shapes Keeper: its parts, spacing, notices and help.', level: 'basic', kind: 'panel', panel: 'mode', keywords: ['mode', 'profile', 'simple', 'focus', 'pro', 'researcher', 'student', 'creator', 'writer', 'family', 'senior', 'accessibility', 'dyslexia', 'low vision', 'privacy', 'offline', 'preset', 'focus session'] },
   { id: 'login', section: 'general', label: 'Open at login', help: 'Keeper starts quietly, so Quick Search, the Island and automations are ready.', level: 'basic', kind: 'panel', panel: 'login', keywords: ['startup', 'boot', 'start automatically', 'launch at login', 'sign in'] },
   { id: 'quickSearchShortcut', path: 'quickSearchShortcut', section: 'general', group: 'Shortcuts', label: 'Quick Search shortcut', help: 'Search your files from any app.', level: 'basic', kind: 'shortcut', feature: 'quickSearch', keywords: ['hotkey', 'keyboard shortcut', 'spotlight', 'launcher'] },
   { id: 'selection.shortcut', path: 'selection.shortcut', section: 'general', group: 'Shortcuts', label: 'Selected text shortcut', help: 'Select text in any app, press this: copy, search, translate, rewrite, define.', level: 'basic', kind: 'shortcut', feature: 'selectionBar', keywords: ['hotkey', 'translate', 'selection', 'popup', 'define', 'rewrite'] },
@@ -132,6 +134,7 @@ export const SETTINGS: SettingDef[] = [
   { id: 'notices.followSystem', path: 'notices.followSystem', section: 'general', group: 'Notifications', label: 'Follow Do Not Disturb', help: 'Where Keeper can read it (GNOME today).', level: 'advanced', kind: 'toggle', feature: 'notices', keywords: ['do not disturb', 'focus mode', 'dnd'] },
   { id: 'phoneAlertsPage', section: 'general', group: 'Phone alerts', label: 'Alerts to your phone', help: 'Choose where alerts go: ntfy, Telegram, e-mail or a web address.', level: 'basic', kind: 'link', to: { name: 'alerts' }, feature: 'phoneAlerts', keywords: ['notifications', 'push', 'telegram', 'ntfy', 'webhook', 'email'] },
   { id: 'phoneAlerts.batchSeconds', path: 'phoneAlerts.batchSeconds', section: 'general', group: 'Phone alerts', label: 'Send alerts together', help: 'Alerts that come close together arrive as one message.', level: 'advanced', kind: 'choice', choices: [{ value: 0, label: 'Right away' }, { value: 30, label: 'Within 30 seconds' }, { value: 120, label: 'Within 2 minutes' }, { value: 600, label: 'Within 10 minutes' }], feature: 'phoneAlerts', keywords: ['batch', 'bundle', 'quiet'] },
+  { id: 'offlineCheck', section: 'privacy', label: 'Offline check', help: 'Every way Keeper could reach the internet, with a switch for each.', level: 'basic', kind: 'panel', panel: 'offlineCheck', feature: 'offlineCheck', keywords: ['offline', 'air gap', 'no internet', 'connections', 'privacy-max', 'network', 'phone home'] },
   { id: 'journal.weather', path: 'journal.weather', section: 'privacy', group: 'Journal', label: 'Weather in journal entries', help: 'Today’s entry notes the weather where you are, from Keeper’s Weather.', level: 'basic', kind: 'toggle', feature: 'journal', keywords: ['diary', 'temperature'] },
   { id: 'journal.place', path: 'journal.place', section: 'privacy', group: 'Journal', label: 'Places in journal entries', help: 'An entry notes where you were that day, from Places & Tracks.', level: 'basic', kind: 'toggle', feature: 'journal', keywords: ['diary', 'location', 'where'] },
   { id: 'journal.photos', path: 'journal.photos', section: 'privacy', group: 'Journal', label: 'Suggest photos from that day', help: 'Shows photos from your folders taken that day; nothing is added until you choose.', level: 'basic', kind: 'toggle', feature: 'journal', keywords: ['diary', 'pictures', 'camera'] },
@@ -336,20 +339,27 @@ export function defaultValue(def: SettingDef): unknown {
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 
-/** Changed from how it came (only rows with a path and that Reset may touch). */
+/** What a row is compared against: the mode's own value where the mode sets it (core/modes.ts), else how Keeper came. */
+export function baselineValue(s: AllSettings, def: SettingDef): unknown {
+  if (!def.path) return undefined;
+  const m = modeBaseline(s, def.path);
+  return m.managed ? m.value : defaultValue(def);
+}
+
+/** Changed from the mode, or from how it came (only rows with a path and that Reset may touch). */
 export function isChanged(s: AllSettings, def: SettingDef): boolean {
   if (!def.path || def.resettable === false) return false;
-  return !same(getPath(s, def.path), defaultValue(def));
+  return !same(getPath(s, def.path), baselineValue(s, def));
 }
 
 export function changedSettings(s: AllSettings, platform = ''): SettingDef[] {
   return SETTINGS.filter((d) => visibleOn(d, platform) && isChanged(s, d));
 }
 
-/** The change that resets these rows (accounts, folders and keys are never touched). */
+/** The change that resets these rows to the mode's values, or how Keeper came (accounts, folders and keys are never touched). */
 export function resetPatch(s: AllSettings, defs: SettingDef[]): Partial<AllSettings> {
   let next: AllSettings = s;
-  for (const d of defs) if (d.path && d.resettable !== false) next = { ...next, ...patchFor(next, d.path, defaultValue(d)) };
+  for (const d of defs) if (d.path && d.resettable !== false) next = { ...next, ...patchFor(next, d.path, baselineValue(s, d)) };
   const out: Record<string, unknown> = {};
   for (const k of Object.keys(next) as (keyof AllSettings)[]) if (next[k] !== s[k]) out[k] = next[k];
   return out as Partial<AllSettings>;

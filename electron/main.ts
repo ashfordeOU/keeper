@@ -167,6 +167,8 @@ import { emptyAndBroken, removeBrokenLink } from './services/tools';
 import { readDownloadSources, readFinderTags } from '../core/platform';
 import { boostWork, canWork, conditions, pace, pacer, poll, pollerSnapshot, startGovernor, usage, whenIdle, workBoostedUntil } from './services/governor';
 import { useMemoryHelper } from './services/memory';
+import { endFocusSession, initModes, previewMode, resetMode, startFocusSession, switchMode } from './services/modes';
+import { badgeText, MODES, modeOf, normalizeSession, SESSION_LENGTHS, type ModeChoice } from '../core/modes';
 import { applyFeatureSet, applyPreset, featureOn, featureSets, listFeatures, liveCosts, onFeature, onFeaturesChanged, removeFeatureSet, saveFeatureSet, setFeature, setPowerSets, startPowerSets } from './services/features';
 import { getSecret, hasSecret, onSettings, setSecret, settings, updateSettings } from './store';
 import { registerUsageStatsIpc } from './ipc/usage-stats';
@@ -568,6 +570,25 @@ async function updateTray() {
  * Everything else is in the glance and the command palette; the feature entries people chose
  * to have in the menu bar (Stage, Dictation, Mesh, Vibes…) wait under More.
  */
+/** The tray's Mode entry: each mode (a preview opens in Keeper before anything changes) and Focus for a while. */
+function trayModeItem(): Electron.MenuItemConstructorOptions {
+  const s = settings();
+  const m = modeOf(s);
+  const session = normalizeSession(s.modeSession);
+  const preview = (to: ModeChoice) => { showMain(); setTimeout(() => main?.webContents.send('event:mode-preview', to), main?.webContents.isLoading() ? 900 : 50); };
+  return {
+    label: `Mode: ${badgeText(m, session)}`,
+    submenu: [
+      ...MODES.map((x) => ({ label: x.name, type: 'radio' as const, checked: x.id === m.base, click: () => { if (x.id !== m.base) preview({ base: x.id, addons: m.addons }); } })),
+      { type: 'separator' as const },
+      ...(session
+        ? [{ label: 'End Focus Now', click: () => void endFocusSession() }]
+        : SESSION_LENGTHS.slice(0, 2).map((n) => ({ label: `Focus for ${n} Minutes`, click: () => void startFocusSession(n) }))),
+      { label: 'Modes…', click: () => showMain('settings:general#mode') },
+    ],
+  };
+}
+
 function trayMenu(): Menu {
   return Menu.buildFromTemplate(trayTemplate());
 }
@@ -606,6 +627,7 @@ function trayTemplate(): Electron.MenuItemConstructorOptions[] {
       { type: 'separator' as const },
       { label: 'Keep Awake…', click: () => showMain('awake') },
     ], click: awake ? () => { islandSvc.keepAwake(false); void updateTray(); } : undefined }] : []),
+    trayModeItem(),
     ...(pinned.length ? [{ label: 'Shelves', submenu: pinned }] : []),
     ...(more.length ? [{ label: 'More', submenu: more }] : []),
     { type: 'separator' },
@@ -1211,6 +1233,12 @@ function registerIpc() {
   handle('features.applySet', (ref: string) => applyFeatureSet(ref));
   handle('features.setPowerSets', (b: string, p: string) => setPowerSets(b, p));
   handle('features.live', () => liveCosts());
+  handle('modes.preview', (to: ModeChoice) => previewMode(to));
+  handle('modes.switch', (to: ModeChoice) => switchMode(to));
+  handle('modes.reset', () => resetMode());
+  handle('modes.focus', (minutes: number) => startFocusSession(minutes));
+  handle('modes.endFocus', () => endFocusSession());
+  initModes({ focus: (action, minutes) => { if (featureOn('focus')) islandSvc?.focusAction(action, minutes); }, changed: () => void updateTray() });
   startPowerSets();
   onFeaturesChanged(() => {
     broadcast('features-changed');

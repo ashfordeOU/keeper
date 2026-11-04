@@ -124,6 +124,7 @@ import { QuickLookHost } from './preview/QuickLook';
 import { FileOpsHost } from './fileops';
 import { IS_PAGE_WINDOW, IS_SOLO, openInWindow, PAGE_WINDOW_LABEL, windowLabel } from './page-window';
 import { ThemeQuickPicker } from './components/ThemeQuickPicker';
+import { ModeBadge, ModeSheetHost } from './components/Modes';
 import { toggleThemePatch } from './theme';
 import { useProgressAnnouncer } from './a11y';
 
@@ -291,6 +292,8 @@ function SidebarNav({ rail, expanded, onToggle, canPin }: { rail: boolean; expan
 
       {/* Settings stays at the foot of the sidebar, whatever is open above it. */}
       <div className="sidebar-foot">
+        {/* The mode (core/modes.ts): its badge switches, with a preview first. */}
+        <ModeBadge compact={!expanded} />
         <NavItem route={{ name: 'settings' }} icon="settings" label={t('nav.settings')} />
       </div>
     </nav>
@@ -652,6 +655,7 @@ function MainWindowHosts() {
       <ForceQuitHost />
       <FirewallAlerts />
       <ApprovalHost />
+      <ModeSheetHost />
       {/* Guided fixes: the step-by-step panel and the first-run tour. */}
       <GuideHost />
       <TourHost />

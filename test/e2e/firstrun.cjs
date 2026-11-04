@@ -71,6 +71,9 @@ const libraryRoots = (main) => main.evaluate(async () => {
     check(await main.locator('[data-testid="setup-goal-notes"]').isDisabled(), 'a fourth goal cannot be picked');
     await main.click('[data-testid="setup-goal-clean"]');
     check(!(await main.locator('[data-testid="setup-goal-notes"]').isDisabled()), 'unpicking one frees a place');
+    // Modes come first on the same screen (Standard picked); the goals point to one without changing it.
+    check(await main.locator('[data-testid="setup-mode-standard"][aria-checked="true"]').count() === 1, 'the mode row comes first, with Standard picked');
+    check(/Creator suits these goals/.test(await main.getByTestId('setup-mode-line').textContent()), 'the goals suggest a mode (Creator) without switching to it');
     check(/Picked for Record my screen and Stay focused/.test(await main.getByTestId('setup-goals-line').textContent()), 'the line says what was picked');
     check(await main.locator('[data-testid="setup-also-login"]').isChecked(), 'Open Keeper when I log in: ticked');
     check(await main.locator('[data-testid="setup-also-updates"]').isChecked(), 'Check for updates automatically: ticked');
@@ -85,7 +88,7 @@ const libraryRoots = (main) => main.evaluate(async () => {
     const on = Object.entries(s.features).filter(([, v]) => v === true).length;
     check(s.features.mail === false && s.features.link === false, 'Mail and devices are offered, not on');
     check(s.features.usageStats === false, 'usage stats stay off');
-    check(on >= 30 && on <= 70, `the essentials and the goals’ parts make a short list (${on})`);
+    check(on >= 30 && on <= 60, `the essentials and the goals’ parts make a short list (${on})`);
     check(s.features.studio === true && s.features.focusBlock === true, 'the goals’ parts are on (Studio, Focus Blocking)');
     check(JSON.stringify(s.setupGoals) === '["record","focus"]' && s.tips.start > 0, 'the goals are kept and the week of tips starts');
     await shot('approvals');

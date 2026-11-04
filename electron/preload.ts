@@ -61,6 +61,7 @@ const api = {
   setup: group('setup', ['context', 'recommended', 'apply', 'approvals', 'finish', 'useAI']),
   keychain: group('keychain', ['status', 'retry']),
   features: group('features', ['list', 'set', 'preset', 'sets', 'saveSet', 'removeSet', 'applySet', 'setPowerSets', 'live']),
+  modes: group('modes', ['preview', 'switch', 'reset', 'focus', 'endFocus']),
   // Downloadable parts (ffmpeg, ONNX Runtime, rclone) and add-on apps (docs/COMPONENTS.md).
   components: group('components', ['list', 'sizes', 'download', 'cancel', 'remove', 'removeAll', 'downloadAll', 'ensureFor', 'switchedOn', 'check', 'addons', 'addonAction']),
   // Studio: recordings with their parts kept apart, the editor and exports.

@@ -245,6 +245,8 @@ export const FEATURES: FeatureDef[] = [
   { id: 'containers', name: 'Containers', description: 'Docker or Podman containers with processor, memory, network and disk use, the engine\'s disk use, and stop, start, restart and pause.', group: 'System', defaultOn: true, requires: ['health'], commands: ['containers'], cost: { level: 'none', background: 'Only while the Containers tab is open' } },
   { id: 'monitorSensors', name: 'Graphics, fans and power', description: 'Graphics use (NVIDIA, AMD, Intel, Apple), fan speeds and temperatures where the system publishes them, and power draw from the battery or the processor package.', group: 'System', defaultOn: true, requires: ['health'], commands: ['sensors'], cost: { level: 'none', background: 'Only while shown; graphics and power join the once-a-minute history look' } },
   { id: 'startupItems', name: 'Startup items and apps', description: 'What starts with your computer, and apps you no longer use.', group: 'System', defaultOn: true, routes: ['startup', 'apps'], cost: { level: 'none' } },
+  { id: 'bigButtons', name: 'Big buttons', description: 'Six large buttons at the top of Today: find a file, free up space, write a mail, your calendar, your pictures and help. Made for Simple and Family, and there for anyone.', group: 'Library', defaultOn: false, cost: { level: 'none', background: 'Nothing: six buttons on Today' } },
+  { id: 'offlineCheck', name: 'Offline check', description: 'Every way Keeper could reach the internet on one page, each with its own switch, and one button that turns them all off. Part of Privacy-max, and there for anyone.', group: 'System', defaultOn: false, commands: ['offline-check'], cost: { level: 'none', background: 'Nothing: a list read from your settings when you open it' } },
   { id: 'guide', name: 'Fix-it list', description: 'What\'s worth fixing on this computer, with a fix for each.', group: 'System', defaultOn: true, routes: ['todo'], commands: ['todo', 'howto*'], cost: { level: 'low', background: 'A look a minute after start, then twice a day' } },
   { id: 'protection', name: 'Privacy & Security', description: 'Who can use your camera, microphone and screen; risky browser extensions; trackers; how secure the system is; with a score and fixes.', group: 'System', defaultOn: true, routes: ['protection'], cost: { level: 'none', background: 'Only when you look' } },
   { id: 'security', name: 'Scan downloads for malware', description: 'Checks new files as they arrive and warns about new startup programs.', group: 'System', defaultOn: true, requires: ['protection'], commands: ['security*'], cost: { level: 'low', background: 'Watches Downloads, Desktop and Documents for new files; startup locations every 30 min; signature updates twice a day', memory: 'The checker loads only while checking, then stops' } },
@@ -295,13 +297,13 @@ function staticNormal(n: Normal): boolean {
 
 /** Each feature's section in the sidebar and in Settings → Features (the same groups). */
 const NAV_GROUP: Record<NavGroup, string[]> = {
-  files: ['library', 'sources', 'docText', 'ocr', 'places', 'network', 'lock', 'remote'],
+  files: ['library', 'sources', 'docText', 'ocr', 'places', 'network', 'lock', 'remote', 'bigButtons'],
   pim: ['mail', 'calendars', 'planner', 'dayPlan', 'insights', 'alarms'],
   notes: ['notes', 'captureInbox', 'cues', 'notesHub', 'notesSync', 'journal', 'reader'],
   tidy: ['cleanup', 'duplicates', 'space', 'convert', 'rules', 'history', 'fileKit', 'workflows', 'faces', 'speechModel'],
   sync: ['sync'],
   computer: ['health', 'processes', 'monitorHistory', 'monitorTray', 'devServers', 'containers', 'monitorSensors', 'startupItems', 'guide', 'keepAwake', 'quickControls', 'quickControlsNetwork', 'quickControlsFirewall', 'quickControlsPrivacy', 'quickControlsSecurity', 'settingsCatalog', 'appControls', 'browserTabs', 'displayControl', 'displayKeys', 'focusBlock', 'timeTracking', 'monitors'],
-  security: ['protection', 'security', 'netwatch', 'firewall'],
+  security: ['protection', 'security', 'netwatch', 'firewall', 'offlineCheck'],
   devices: ['phoneAlerts', 'link', 'remoteScreen', 'keeperMesh', 'meshDirectHandoff', 'remoteDesktops', 'rdcHosting', 'linkDirect', 'remoteFleet', 'remoteTerminal', 'remoteCommands', 'remoteHelp', 'screenExtras', 'unattendedAccess', 'waylandControl', 'mirroring', 'terminal'],
   ai: ['writingHelp', 'selectionBar', 'brain', 'semantic', 'graphAll', 'assistant', 'abilities', 'aiAgents', 'usageTracker', 'agentHub', 'dictation', 'dictationHold', 'meetings', 'meetingDetect'],
   screen: ['capture', 'photoEditor', 'studio', 'stage', 'drawOnScreen', 'stageAuto', 'tools', 'videoDownload'],
@@ -319,7 +321,7 @@ export const CORE = {
   // native-*: handing a place, forecast or day to the system's own apps (core/native-apps.ts).
   // check-updates and about: the small Software Update and About Keeper windows (a check by hand works with automatic checks off).
   // page-window and window-*: a page in a window of its own (the palette lists only pages that are on).
-  commands: ['help', 'selfcheck', 'problem-report', 'appearance', 'hidden-files', 'inspector', 'inspector-settings', 'sidebar-toggle', 'permissions', 'view', 'look', 'theme-*', 'native-*', 'check-updates', 'about', 'setup-again', 'page-window', 'window-*'],
+  commands: ['help', 'selfcheck', 'problem-report', 'appearance', 'hidden-files', 'inspector', 'inspector-settings', 'sidebar-toggle', 'permissions', 'view', 'look', 'theme-*', 'native-*', 'check-updates', 'about', 'setup-again', 'page-window', 'window-*', 'mode-*', 'focus-session*'],
 };
 
 const byId = new Map(FEATURES.map((f) => [f.id, f]));
@@ -417,6 +419,8 @@ export function featurePatch(s: AllSettings, id: string, on: boolean): Partial<A
     else next.features = { ...next.features, [fid]: v };
   };
   apply(id, on);
+  // Parts that follow this one come on with it (they have no switch of their own in Basic).
+  if (on) for (const g of FEATURES) if (g.follows === id && g.normal === 'parent' && !g.ownChoice && !wanted(next, g.id)) apply(g.id, true);
   if (on) {
     const need = (fid: string, seen = new Set<string>()) => {
       for (const r of byId.get(fid)?.requires ?? []) {
@@ -472,7 +476,9 @@ export function recommend(f: FeatureDef, ctx?: ComputerContext): boolean {
   if (!ctx) return staticNormal(n);
   const no = (k: 'dev' | 'docker' | 'notes' | 'ai') => ctx.declined?.includes(k) ?? false;
   switch (n) {
-    case 'on': case 'parent': return true;
+    case 'on': return true;
+    // A part that follows another is on when that one is (Draw on screen with Stage).
+    case 'parent': { const p = f.follows ? byId.get(f.follows) : undefined; return p ? recommend(p, ctx) : true; }
     case 'off': return false;
     case 'dev': return !!ctx.devTools?.length && !no('dev');
     case 'docker': return !!ctx.docker && !no('dev') && !no('docker');

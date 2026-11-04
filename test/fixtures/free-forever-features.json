@@ -160,6 +160,8 @@
     "graphAll",
     "dayPlan",
     "captureInbox",
-    "notices"
+    "notices",
+    "bigButtons",
+    "offlineCheck"
   ]
 }

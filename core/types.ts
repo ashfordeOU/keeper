@@ -529,4 +529,8 @@ export interface Settings {
   setupGoals: import('./goals').GoalId[];
   /** "Getting to know Keeper": one tip a day on Home for a week (core/goals.ts) */
   tips: import('./goals').TipsState;
+  /** the mode Keeper is in (Standard, Simple, Focus…), its add-ons and the person's own changes kept per mode (core/modes.ts) */
+  mode: import('./modes').ModeState;
+  /** a timed Focus session over any mode, or null; it changes nothing saved and ends by itself (core/modes.ts) */
+  modeSession: import('./modes').ModeSession | null;
 }

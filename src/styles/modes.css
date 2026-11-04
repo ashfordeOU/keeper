@@ -1,0 +1,63 @@
+/* Modes (src/components/Modes.tsx): cards, add-on chips, the preview sheet, the badge. */
+.tone-standard { --tone: var(--accent); }
+.tone-simple { --tone: var(--c-app); }
+.tone-focus { --tone: var(--c-video); }
+.tone-pro { --tone: var(--c-code); }
+.tone-researcher { --tone: var(--c-document); }
+.tone-creator { --tone: var(--c-image); }
+.tone-writer { --tone: var(--c-archive); }
+.tone-family { --tone: var(--c-audio); }
+
+.modes { display: flex; flex-direction: column; gap: 16px; }
+.modes-status { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.modes-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.mode-card { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left; padding: 12px; border-radius: var(--r-lg); border: 1px solid var(--line); background: transparent; color: inherit; font: inherit; cursor: default; min-height: 112px; }
+.mode-card:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.mode-card.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; background: color-mix(in srgb, var(--accent) 6%, transparent); }
+.mode-card:focus-visible, .mode-chip:focus-visible, .mode-badge:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.mode-art { width: 36px; height: 36px; flex: none; border-radius: var(--r-md); display: grid; place-items: center; color: var(--tone, var(--accent)); background: color-mix(in srgb, var(--tone, var(--accent)) 14%, transparent); margin-bottom: 4px; }
+.mode-tick { position: absolute; top: 8px; right: 8px; width: 18px; height: 18px; border-radius: var(--r-pill); display: grid; place-items: center; background: var(--accent); color: var(--on-accent, #fff); }
+.modes-addons { display: flex; flex-direction: column; gap: 8px; }
+.modes-addons .kicker { font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: .06em; color: var(--text-3); font-weight: 600; }
+.mode-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.mode-chip { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px; border-radius: var(--r-pill); border: 1px solid var(--line); background: transparent; color: var(--text-2); font: inherit; font-size: var(--fs-sm); cursor: default; }
+.mode-chip.on { border-color: var(--accent); color: var(--text); background: var(--accent-soft); }
+.mode-signature { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: var(--r-lg); background: var(--bg-sunk); }
+.mode-session { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: var(--r-lg); background: var(--bg-sunk); }
+.mode-dot { width: 8px; height: 8px; border-radius: var(--r-pill); background: var(--tone, var(--accent)); flex: none; display: inline-block; }
+
+/* The preview sheet */
+.mode-sheet { display: flex; flex-direction: column; gap: 14px; }
+.mode-sheet-head { display: flex; align-items: center; gap: 12px; }
+.mode-line { font-size: var(--fs-lg); font-weight: 600; letter-spacing: -0.01em; }
+.mode-diff { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; margin: 0; font-size: var(--fs-md); }
+.mode-diff dt { color: var(--text-3); font-size: var(--fs-sm); padding-top: 1px; }
+.mode-diff dd { margin: 0; color: var(--text); }
+.mode-trust { display: flex; align-items: center; gap: 6px; }
+
+/* The badge at the foot of the sidebar */
+.sidebar-foot .mode-badge { margin: 2px 8px 6px; }
+.mode-badge { display: inline-flex; align-items: center; gap: 6px; max-width: calc(100% - 16px); height: 24px; padding: 0 10px; border-radius: var(--r-pill); border: 1px solid color-mix(in srgb, var(--tone, var(--accent)) 35%, var(--line)); background: color-mix(in srgb, var(--tone, var(--accent)) 10%, transparent); color: var(--text-2); font: inherit; font-size: var(--fs-xs); font-weight: 600; cursor: default; }
+.mode-badge.compact { padding: 0; width: 24px; justify-content: center; }
+.mode-badge:hover { color: var(--text); }
+
+@media (max-width: 1100px) { .modes-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (prefers-reduced-motion: no-preference) { .mode-card, .mode-chip { transition: border-color .15s ease, background-color .15s ease; } }
+
+/* Big buttons on Today (src/today/BigButtons.tsx): large, plain, easy to hit. */
+.big-buttons { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 0 0 20px; }
+.big-button { display: flex; align-items: center; gap: 14px; min-height: 76px; padding: 14px 18px; border-radius: var(--r-lg); border: 1px solid var(--line); background: var(--bg-elev); color: var(--text); font: inherit; font-size: var(--fs-lg); font-weight: 600; text-align: left; cursor: default; box-shadow: var(--shadow); }
+.big-button:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.big-button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.big-button-art { width: 44px; height: 44px; flex: none; border-radius: var(--r-md); display: grid; place-items: center; color: var(--accent); background: var(--accent-soft); }
+@media (max-width: 900px) { .big-buttons { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* Offline check (Settings → Privacy) */
+.offline { display: flex; flex-direction: column; gap: 12px; }
+.offline-head { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: var(--r-lg); background: var(--bg-sunk); }
+.offline-meter { flex: 1; display: flex; align-items: baseline; gap: 10px; }
+.offline-meter b { font-size: var(--fs-2xl); letter-spacing: -0.02em; }
+.offline-meter.zero b { color: var(--ok, var(--accent)); }
+.offline-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.offline-list li { display: flex; align-items: center; gap: 12px; padding: 8px 2px; }
+.offline-list li + li { border-top: 1px solid var(--line); }

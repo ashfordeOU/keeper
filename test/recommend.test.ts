@@ -41,12 +41,22 @@ describe('Recommended for this computer', () => {
     expect(n).toBeLessThan(before - 40);
   });
 
-  it('turns on the developer bundle when coding tools are found, and containers with Docker', () => {
+  it('turns on the coding essentials when coding tools are found, and containers with Docker', () => {
     const dev = onFor({ ...macLaptop, devTools: ['VS Code'], docker: true });
-    for (const id of ['terminal', 'agentHub', 'devServers', 'usageTracker', 'islandUsage', 'agents', 'containers']) expect(dev, id).toContain(id);
+    for (const id of ['terminal', 'devServers', 'agents', 'containers']) expect(dev, id).toContain(id);
+    // AI limits and agents in the terminal are for the Pro mode (core/modes.ts), not the essentials.
+    for (const id of ['agentHub', 'usageTracker', 'islandUsage']) expect(dev, id).not.toContain(id);
     expect(onFor(macLaptop)).not.toContain('terminal');
     // Removing the chip keeps them off.
     expect(onFor({ ...macLaptop, devTools: ['VS Code'], declined: ['dev'] })).not.toContain('terminal');
+  });
+
+  it('stays a short list on a developer’s Linux desktop: at most 60 parts written on (the first-run check)', () => {
+    for (const devTools of [[], ['Claude Code', 'VS Code']]) {
+      const p = presetPatch(base(), 'recommended', { platform: 'linux', battery: false, memoryGb: 32, cores: 16, devTools, docker: true, notesFound: '/home/a/vault' });
+      const n = Object.values(p.features ?? {}).filter((v) => v === true).length;
+      expect(n, devTools.join() || 'no tools').toBeLessThanOrEqual(60);
+    }
   });
 
   it('AI parts only with an AI on this computer', () => {

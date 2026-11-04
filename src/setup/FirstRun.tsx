@@ -10,6 +10,7 @@ import type { SetupContext } from '../../core/api-setup';
 import { DEV_BUNDLE, SETUP_GROUPS, type SetupGroupId } from '../../core/feature-tiers';
 import { choicePatch, FEATURES, featureOffered, featureStates, type ComputerContext, type FeatureDef } from '../../core/features';
 import { formatBytes } from '../../core/format';
+import { MODES, modeDef, modeOf, suggestMode, type ModeId } from '../../core/modes';
 import { cleanGoals, GOALS, goalParts, goalsLine, MAX_GOALS, normalizeTips, toggleGoal, type GoalId } from '../../core/goals';
 import { approvalsFor, approvalsLine, type PermPlatform, type SetupApprovals } from '../../core/permissions';
 import { errorText } from '../../core/ipc-error';
@@ -82,6 +83,8 @@ function FirstRun({ step, setStep, again, onDone }: { step: Step; setStep: (s: S
   const [picked, setPicked] = useState<Set<string> | null>(null);
   const [also, setAlso] = useState({ login: true, updates: true, usageStats: false });
   const [goals, setGoals] = useState<GoalId[]>(() => cleanGoals(settings?.setupGoals));
+  // The mode comes first (Standard unless chosen); the goals add their parts on top of it (core/modes.ts).
+  const [mode, setMode] = useState<ModeId>(() => modeOf(settings ?? ({} as never)).base);
   const [after, setAfter] = useState<Route | null>(null);
   const [busy, setBusy] = useState(false);
   const comps = useEnsureComponents();
@@ -101,6 +104,26 @@ function FirstRun({ step, setStep, again, onDone }: { step: Step; setStep: (s: S
     try { localStorage.setItem('coach.tour', '1'); } catch { /* storage unavailable */ }
     onDone();
     if (after) go(after);
+  };
+
+  // The parts on once the mode is set (the goals add to these).
+  let modeParts: string[] | null = null;
+  const withMode = async (next: () => unknown) => {
+    const cur = modeOf(settings ?? ({} as never));
+    if (mode !== cur.base || mode !== 'standard') {
+      setBusy(true);
+      try {
+        if (mode !== cur.base) await api.modes.switch({ base: mode, addons: cur.addons });
+        const rows = await api.features.list();
+        modeParts = rows.filter((r) => r.wanted).map((r) => r.id);
+      } catch (e) {
+        store.toast(errorText(e));
+        setBusy(false);
+        return;
+      }
+      setBusy(false);
+    }
+    await next();
   };
 
   const apply = async (choice: Parameters<NonNullable<typeof api.setup>['apply']>[0]) => {
@@ -131,7 +154,8 @@ function FirstRun({ step, setStep, again, onDone }: { step: Step; setStep: (s: S
         {step === 'how' ? (
           <How ctx={ctx} declined={declined} setDeclined={setDeclined} recommended={recommended} also={also} setAlso={setAlso} busy={busy}
             goals={goals} setGoals={setGoals} onChoose={() => setStep('choose')}
-            onContinue={() => (again ? setStep('choose') : goals.length ? void apply({ parts: goalParts(recommended ?? [], goals, platform) }) : void apply({ preset: 'recommended', declined }))}
+            mode={mode} setMode={setMode}
+            onContinue={() => void withMode(() => (again ? (setPicked(null), setStep('choose')) : goals.length || mode !== 'standard' ? apply({ parts: goalParts(modeParts ?? recommended ?? [], goals, platform) }) : apply({ preset: 'recommended', declined })))}
             onPreset={(p) => void apply({ preset: p })} skip={skip} again={again} />
         ) : null}
         {step === 'choose' ? (
@@ -193,6 +217,7 @@ function How(p: {
   recommended: string[] | null; also: { login: boolean; updates: boolean; usageStats: boolean }; setAlso: (a: { login: boolean; updates: boolean; usageStats: boolean }) => void;
   busy: boolean; onContinue: () => void; onPreset: (p: 'everything' | 'files') => void; skip: ReactElement; again: boolean;
   goals: GoalId[]; setGoals: (g: GoalId[]) => void; onChoose: () => void;
+  mode: ModeId; setMode: (m: ModeId) => void;
 }) {
   const [seeStats, setSeeStats] = useState(false);
   const [stats] = useUsageStats();
@@ -204,13 +229,21 @@ function How(p: {
   const shown = chips.filter((c) => !declined.includes(c.key));
   const groups = groupNames([...(p.recommended ?? []), ...p.goals.flatMap((g) => GOALS.find((x) => x.id === g)?.parts ?? [])]);
   const machine = ctx?.model ? `this ${ctx.model}` : 'this computer';
+  const hint = suggestMode(p.goals);
   const check = (k: 'login' | 'updates' | 'usageStats', label: string, extra?: ReactElement) => (
     <label className="setup-check"><input type="checkbox" data-testid={`setup-also-${k}`} checked={p.also[k]} onChange={(e) => p.setAlso({ ...p.also, [k]: e.target.checked })} /> {label}{extra}</label>
   );
   return (
     <>
+      <div className="setup-mode" data-testid="setup-mode">
+        <div className="small muted">Who is it for?</div>
+        <div className="seg setup-mode-seg" role="radiogroup" aria-label="Who is Keeper for? Pick a mode">
+          {MODES.map((m) => <button key={m.id} role="radio" aria-checked={p.mode === m.id} className={p.mode === m.id ? 'on' : ''} data-testid={`setup-mode-${m.id}`} title={`${m.who}: ${m.line}`} onClick={() => p.setMode(m.id)}>{m.name}</button>)}
+        </div>
+        <div className="small muted" data-testid="setup-mode-line">{modeDef(p.mode)!.line}{hint !== p.mode && hint !== 'standard' ? <> · <button className="link-like" data-testid="setup-mode-hint" onClick={() => p.setMode(hint)}>{modeDef(hint)!.name} suits these goals</button></> : null}</div>
+      </div>
       <h3 className="setup-hero">What do you want Keeper for?</h3>
-      <p className="small muted">Pick up to three. Keeper adds what they need to the essentials for {machine}.</p>
+      <p className="small muted">Pick up to three. Keeper adds what they need to {p.mode === 'standard' ? `the essentials for ${machine}` : `${modeDef(p.mode)!.name}`}.</p>
       <div className="setup-goals" role="group" aria-label="What do you want Keeper for? Pick up to three">
         {GOALS.map((g) => {
           const on = p.goals.includes(g.id);

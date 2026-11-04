@@ -30,6 +30,8 @@ import { HUB_TABS, NAV_PAGES, navPage } from '../../core/nav';
 import { TYPE_CHIPS } from '../../core/file-types';
 import { useT } from '../i18n';
 import { openInWindow, windowLabel } from '../page-window';
+import { modeCommands } from './Modes';
+import { modeOf } from '../../core/modes';
 
 interface Command {
   id: string;
@@ -150,6 +152,8 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
       ...NAV_PAGES.filter((p) => !hiddenRoutes.has(p.route.name)).map((p) => ({ id: `window-${p.id}`, label: `${p.i18n ? t(p.i18n) : p.label} in New Window`, group: 'Actions' as const, icon: p.icon, typed: true, keywords: `new window own window ${p.keywords ?? ''}`, run: () => void openInWindow(p.route, p.i18n ? t(p.i18n) : p.label, store.toast) })),
     ] : []),
     { id: 'rescan', label: 'Rescan Library', group: 'Actions', icon: 'refresh', keywords: 'index refresh reload', run: async () => { await api.library.rescan(); store.toast('Reading your folders…'); } },
+    // Modes: "Mode: Focus" (with a preview first), add-ons, and Focus for a while.
+    ...modeCommands(modeOf(store.settings ?? ({} as never)), store.go),
     { id: 'setup-again', label: 'Set Up Keeper Again…', group: 'Actions', icon: 'sparkle', keywords: 'welcome tour first run onboarding recommended presets choose parts', run: () => openSetupAgain() },
     { id: 'check-updates', label: 'Check for Updates…', group: 'Actions', icon: 'refresh', keywords: 'update upgrade new version release software', run: () => void api.appInfo.openUpdateWindow() },
     { id: 'help', label: 'Help for This Page', group: 'Actions', icon: 'help', keywords: 'help guide docs documentation manual how to explain what is this question', kbd: 'F1', run: () => openHelp() },

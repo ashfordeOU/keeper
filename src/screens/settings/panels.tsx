@@ -34,6 +34,7 @@ import { MailPanel } from '../../pim/mail-settings';
 import { PermissionsPanel } from '../../components/PermissionsPanel';
 import { NativeAppsPanel } from '../../components/NativeAppsPanel';
 import { AccessibilityPanel } from '../../components/AccessibilityPanel';
+import { ModesPanel, OfflineCheckPanel } from '../../components/Modes';
 import { ClipIgnorePanel, LauncherCommandsPanel, LauncherLinksPanel, SelectionBarPanel } from '../../components/LauncherPanels';
 import { IslandAccentPanel } from '../../island/LookSettings';
 import { NoticePartsPanel, QuietHoursPanel } from '../../components/Notices';
@@ -263,6 +264,8 @@ function OcrLanguagesPanel() {
 }
 
 export const PANELS: Record<string, PanelDef> = {
+  mode: { render: () => <ModesPanel />, wide: true },
+  offlineCheck: { render: () => <OfflineCheckPanel />, wide: true },
   setupAgain: { render: () => <button className="btn" data-testid="settings-setup-again" onClick={() => openSetupAgain()}><Icon name="sparkle" size={13} /> Set up again…</button> },
   login: { render: () => <LoginRow />, own: true },
   language: { render: () => <LanguageRow />, own: true },

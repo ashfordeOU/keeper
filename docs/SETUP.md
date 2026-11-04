@@ -3,7 +3,7 @@
 The first time Keeper opens, a short setup asks what you want it for. Nothing is switched on, read or asked until you press **Continue** on the second screen. **Skip setup** keeps the defaults.
 
 1. **Welcome**: what Keeper is, in four lines.
-2. **What do you want Keeper for?** Eight picture cards; pick up to three:
+2. **Who is it for?** A row of modes first (Standard is picked; see [Modes](MODES.md)), then **What do you want Keeper for?** Eight picture cards; pick up to three. The goals add their parts on top of the mode, and may suggest one ("Creator suits these goals") without switching to it:
 
    | Card | Turns on |
    |---|---|

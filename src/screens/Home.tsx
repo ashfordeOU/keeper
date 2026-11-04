@@ -30,8 +30,10 @@ import { useAsync, useStore } from '../state';
 import '../styles/screens-a.css';
 import '../styles/home.css';
 import { frontDoorFolders, shortCount, TYPE_CHIPS, typeLabel, type TypeChipId } from '../../core/file-types';
-import { useFeatureStates, useHiddenRoutes } from '../features';
+import { useFeature, useFeatureStates, useHiddenRoutes } from '../features';
 import { TodaySection } from '../today/Today';
+import { BigButtons } from '../today/BigButtons';
+import '../styles/modes.css';
 import '../styles/filetypes.css';
 
 const SHELVES: FileKind[] = ['image', 'video', 'audio', 'document', 'archive', 'installer', 'app'];
@@ -483,6 +485,7 @@ export function Home() {
   const [editing, setEditing] = useState(false);
   const { settings } = useStore();
   const states = useFeatureStates();
+  const big = useFeature('bigButtons');
   const preset = useMemo(() => (settings ? currentPreset(settings) : undefined), [settings]);
   const fixit = settings ? todayCards(settings.today, preset, (f) => states?.get(f)?.on ?? true).includes('fixit') : false;
   const root = useRef<HTMLDivElement>(null);
@@ -514,6 +517,8 @@ export function Home() {
         <div className="home-main">
           {/* The week's tip stands on its own, so it shows whether or not Today has taken over the suggestion line. */}
           <TipCard />
+          {/* Big buttons (Simple and Family's own part, there for anyone): six large buttons first. */}
+          {big ? <BigButtons /> : null}
           {homeSections(home, fixit).map((id) => <div key={id} className="home-slot" data-section={id}>{draw[id]()}</div>)}
         </div>
       </div>

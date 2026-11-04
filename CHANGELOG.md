@@ -4,6 +4,17 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 
 ## [Unreleased]
 
+### Added — Modes: one choice that shapes Keeper
+- Pick a mode: Standard (as Keeper comes), Simple, Focus, Pro, Researcher, Creator, Writer or Family. Each sets which parts are on, text size, spacing, motion, how notices arrive, how much help you see and which sidebar sections show. Your files, notes, mail and accounts are never touched.
+- Add to any mode: Low vision, Steady hands, Easier reading, Screen reader and Privacy-max. They stack: "Writer + Easier reading + Privacy-max".
+- Every switch shows a preview first: what turns on and off, how it looks, how many sidebar sections stay. Then Switch or Cancel.
+- You always win: what you change in a mode is kept for that mode and comes back when you return. Changed and Reset in Settings compare against the mode you are in, with Reset to Focus (or whichever mode) in one click.
+- Switch from setup (a row of modes before the goal cards, which add to it), Settings → General → Mode, the palette ("Mode: Focus"), the tray's Mode menu or the small badge at the foot of the sidebar.
+- Focus for a while: 25, 50 or 90 minutes over any mode. The focus timer runs, notices wait, the sidebar narrows and the badge counts down; it ends by itself and changes nothing saved.
+- Big buttons on Today (Simple and Family's own part, there for anyone): find a file, free up space, write a mail, calendar, pictures and help.
+- Offline check (Privacy-max's own part, there for anyone): every way Keeper could reach the internet, a switch for each, and Turn all off.
+- Recommended is a shorter list: AI limits, AI usage and agents in the terminal are for Pro, and parts that follow another (Draw on screen with Stage) stay off until it is on.
+
 ### Added — Today: one place that answers "what now?"
 - Hello now opens on Today: what is on now and next (with Join for calls and the time left), your top three tasks to tick off, how many messages wait for your reply, what is in the Inbox, one thing to fix and a Focus button. Your folders and files follow under it.
 - Light and Files only show a calm three cards, Recommended five, Everything all six. Edit Home → Today's cards picks your own; More (…) hides Today.
