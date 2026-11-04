@@ -176,6 +176,7 @@ mac:
     NSLocationUsageDescription: The Toolbox can fill in where you are when you ask it to.
     NSLocationWhenInUseUsageDescription: The Toolbox can fill in where you are when you ask it to.
     NSLocalNetworkUsageDescription: Keeper finds and reaches your other devices, servers and shared folders on this network.
+    NSAudioCaptureUsageDescription: Keeper changes one app's volume only when you ask, by playing that app's sound again at your level (Volume for each app on a Mac).
     NSSpeechRecognitionUsageDescription: Keeper turns speech in your recordings and videos into text on this Mac when you choose macOS's recognizer.
     LSUIElement: false
   # keeper-helper (native/macos) gives Keeper Apple Intelligence, Live Text and

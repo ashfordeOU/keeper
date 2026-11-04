@@ -118,8 +118,11 @@ The Sensors tab always lists what this computer cannot show.
 
 | | macOS | Windows | Linux |
 |---|---|---|---|
-| Volume and mute per app | ❌ see below | ✅ Core Audio sessions (`ISimpleAudioVolume`) through a C# helper that PowerShell compiles in memory, run in Keeper's long-lived PowerShell; extends App controls' volume code | ✅ PipeWire / PulseAudio `pactl` sink-inputs (volume, mute) |
-| Output device | Control Center | ❌ switching is only possible through an undocumented interface, so Keeper does not offer it | ✅ `pactl set-default-sink` |
+| Apps playing sound | ✅ keeper-helper `audio.processes` (the public process object list, macOS 14.2+) | ✅ | ✅ |
+| Volume and mute per app | 🧪 experiment, off by default (see below) | ✅ Core Audio sessions (`ISimpleAudioVolume`) through a C# helper that PowerShell compiles in memory, run in Keeper's long-lived PowerShell; extends App controls' volume code | ✅ PipeWire / PulseAudio `pactl` sink-inputs (volume, mute) |
+| Output device | ✅ keeper-helper `audio.setOutput`: the public, settable `kAudioHardwarePropertyDefaultOutputDevice` property (AudioHardware.h) | ❌ switching is only possible through an undocumented interface (`IPolicyConfig`), so Keeper does not offer it | ✅ `pactl set-default-sink` |
+| Each app to its own output | — | ❌ undocumented interface | ✅ `pactl move-sink-input` |
+| Each app keeps its volume and output | 🧪 with the experiment | Windows keeps it itself | ✅ *Sound for each app* |
 | Browser tabs by memory and data | ✅ | ✅ | ✅ |
 | Energy impact, sleep assertions, App Nap per app | ✅ | — | — |
 
@@ -130,11 +133,14 @@ The Sensors tab always lists what this computer cannot show.
 - Sleep assertions per process come from `pmset -g assertions`.
 - App Nap is the documented `NSAppSleepDisabled` preference (`defaults write <id> NSAppSleepDisabled -bool YES`). It takes effect the next time the app starts.
 
-**Why macOS has no per-app volume.** macOS has no public per-app volume control:
-- Process taps (`AudioHardwareCreateProcessTap`, macOS 14.4+) can only capture another app's audio.
-- Changing that app's volume would mean muting the original, playing a re-mixed copy through an aggregate device Keeper owns, and keeping that in step when devices change.
-- That adds delay, needs the system audio-recording permission for every app it touches, and is what audio-driver products do. Keeper does not do it.
-- App controls already says so for macOS.
+**Output device on macOS.** Re-checked: `kAudioHardwarePropertyDefaultOutputDevice` is a documented, settable property of the system object in Core Audio's public `AudioHardware.h`, so switching the output is public. keeper-helper's `audio.outputs` lists devices with output channels and `audio.setOutput` sets one by its UID; the Output menu in Sound & tabs now works on a Mac.
+
+**Volume for each app on a Mac (experiment).** macOS still has no per-app volume setting. Since macOS 14.2 the public process-tap interface (`CATapDescription`, `AudioHardwareCreateProcessTap`) can capture one app's sound and, with `muteBehavior = mutedWhenTapped`, silence its own output while it is captured. The *Volume for each app on a Mac (experiment)* part (`macAppVolume`, off by default, Settings → Features → Computer, shown with advanced settings) uses that:
+- For an app whose volume you change, keeper-helper creates a private tap on that app and a private aggregate device on the current output, and plays the tapped sound again at your level (0–150%). Back at 100% and not muted, the tap and the device are removed and the app plays as before.
+- No audio driver is installed (consistent with the settings catalogue's choice). It needs the system's audio recording permission (Privacy & Security → Screen & System Audio Recording; Keeper's Info.plist explains why), adds a little delay, and switching the output moves each tapped app with it.
+- The Swift code (`Audio.swift`) is written against the public headers and has not been compiled or heard on a real Mac yet.
+
+**Sound for each app.** With *Sound for each app* (`soundPerApp`, off by default), a volume, mute or output you give an app in Sound & tabs is kept for that app (by name, in `<userData>/sound-rules.json`) and set again when it next plays. Linux hears new streams from the sound server's own event stream (`pactl subscribe`, one small process while on, no polling); a Mac with the experiment looks every 5 seconds; Windows keeps each app's volume itself, so nothing runs there. A stream is set once when it appears, never again, so a change made elsewhere is not undone. **Forget** on a row lets the app go.
 
 ## Share card
 
@@ -173,7 +179,8 @@ Both servers are asked on localhost only. Gemini CLI, Qwen Code and OpenCode com
 | Pages | `src/screens/monitor/*`, `src/screens/Health.tsx` |
 | Demo | `src/mock-sysmon.ts` |
 | CLI | `cli/monitor.ts` |
-| Tests | `test/monitor-*.test.ts` (77), `test/e2e/monitor.cjs` (54 checks) |
+| Sound for each app, Mac outputs and processes | `core/sound-rules.ts`, `electron/services/sound-rules.ts`, `native/macos/KeeperHelper/Sources/keeper-helper/Audio.swift` |
+| Tests | `test/monitor-*.test.ts` (77), `test/sound-rules.test.ts` (8), `test/e2e/monitor.cjs` (54 checks), `test/e2e/sound.cjs` (15 checks) |
 
 ## Feature status
 
@@ -194,8 +201,9 @@ Both servers are asked on localhost only. Gemini CLI, Qwen Code and OpenCode com
 | Global tool launcher, single-tool windows, standard output folder | ✅ | ✅ | ✅ | ✅ |
 | Process list: regex, pins, New/Ended, CSV | ✅ | ✅ | ✅ | ✅ |
 | Containers: stats, system df, actions, agent permission | ✅ | ✅ | ✅ | ✅ (Docker or Podman) |
-| Volume per app | ❌ not public (see above) | ✅ | ✅ | ✅ where possible |
-| Output device switch | Control Center | ❌ undocumented | ✅ | partial |
+| Volume per app | 🧪 process taps, experiment | ✅ | ✅ | ✅ (macOS experimental) |
+| Output device switch | ✅ public property | ❌ undocumented | ✅ | ✅ macOS and Linux |
+| Each app to its own output, kept per app | — | Windows keeps volumes | ✅ | ✅ Linux |
 | Per-tab browser memory and data | ✅ | ✅ | ✅ | ✅ (extension estimate) |
 | Share card PNG | ✅ | ✅ | ✅ | ✅ |
 | Energy impact, assertions, App Nap toggle | ✅ | — | — | ✅ (macOS idea) |

@@ -102,6 +102,9 @@ html[data-platform='darwin'] .toolwin-head { padding-left: 84px; }
 .mon-mixer { padding: 6px 0; }
 .mon-mix-row { display: grid; grid-template-columns: 18px minmax(120px, 220px) 32px 1fr 48px; align-items: center; gap: 10px; padding: 6px 14px; }
 .mon-mix-row input[type='range'] { width: 100%; accent-color: var(--accent); }
+.mon-mix-row { grid-auto-flow: column; grid-auto-columns: auto; }
+.mon-mix-out { height: 26px; width: auto; max-width: 180px; }
+.mon-mix-keep { gap: 10px; margin-top: 8px; padding: 0 4px; }
 .mon-share-preview { width: 100%; border-radius: 10px; border: 1px solid var(--line); background: repeating-conic-gradient(var(--bg-sunk) 0 25%, transparent 0 50%) 0 0 / 16px 16px; }
 
 /* Health → Keeper itself, Settings, and Apps & tabs' browser tabs under the apps. */

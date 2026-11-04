@@ -11,13 +11,16 @@ import type { SysmonApi } from '../../../core/api-sysmon';
 import { api } from '../../api';
 import { Icon } from '../../components/Icon';
 import { Loading, Toggle } from '../../components/ui';
+import { useFeature } from '../../features';
 import { useStore } from '../../state';
 import { useVisibleInterval } from './common';
+import '../../styles/extras.css';
 
 type Tabs = Awaited<ReturnType<SysmonApi['tabs']>>;
 
 export function HealthApps() {
   const { toast, go } = useStore();
+  const perApp = useFeature('soundPerApp');
   const [mix, setMix] = useState<MixerState | null>(null);
   const [tabs, setTabs] = useState<Tabs | null>(null);
   const [energy, setEnergy] = useState<{ supported: boolean; rows: EnergyRow[]; note?: string } | null>(null);
@@ -29,9 +32,14 @@ export function HealthApps() {
   useVisibleInterval(() => void api.sysmon.energy().then(setEnergy).catch(() => undefined), 10_000);
 
   const setStream = async (id: string, patch: { volume?: number; muted?: boolean }) => {
-    setMix((m) => (m ? { ...m, streams: m.streams.map((s) => (s.id === id ? { ...s, ...patch } : s)) } : m));
+    setMix((m) => (m ? { ...m, streams: m.streams.map((s) => (s.id === id ? { ...s, ...patch, remembered: perApp || s.remembered } : s)) } : m));
     if (!(await api.sysmon.setStream(id, patch))) toast('The sound system did not accept the change');
   };
+  const setStreamOutput = async (id: string, sink: string) => {
+    setMix((m) => (m ? { ...m, streams: m.streams.map((s) => (s.id === id ? { ...s, output: sink, remembered: perApp || s.remembered } : s)) } : m));
+    if (!(await api.sysmon.setStreamOutput(id, sink))) toast('Could not move that app to another output');
+  };
+  const canVolume = mix?.canSetVolume !== false;
 
   return (
     <div>
@@ -48,14 +56,27 @@ export function HealthApps() {
             <div key={s.id} className="mon-mix-row">
               <Icon name="audio" size={14} />
               <span className="ellipsis" title={s.pid ? `PID ${s.pid}` : undefined}>{s.name}</span>
-              <button className={`btn ghost sm icon${s.muted ? ' danger' : ''}`} title={s.muted ? 'Unmute' : 'Mute'} aria-label={s.muted ? `Unmute ${s.name}` : `Mute ${s.name}`} onClick={() => void setStream(s.id, { muted: !s.muted })}><Icon name={s.muted ? 'minus' : 'audio'} size={13} /></button>
-              <input type="range" min={0} max={100} value={Math.min(100, s.volume)} aria-label={`${s.name} volume`} onChange={(e) => setMix((m) => (m ? { ...m, streams: m.streams.map((x) => (x.id === s.id ? { ...x, volume: Number(e.target.value) } : x)) } : m))} onMouseUp={(e) => void setStream(s.id, { volume: Number((e.target as HTMLInputElement).value) })} onKeyUp={(e) => void setStream(s.id, { volume: Number((e.target as HTMLInputElement).value) })} />
+              <button className={`btn ghost sm icon${s.muted ? ' danger' : ''}`} disabled={!canVolume} title={s.muted ? 'Unmute' : 'Mute'} aria-label={s.muted ? `Unmute ${s.name}` : `Mute ${s.name}`} onClick={() => void setStream(s.id, { muted: !s.muted })}><Icon name={s.muted ? 'minus' : 'audio'} size={13} /></button>
+              <input type="range" min={0} max={100} value={Math.min(100, s.volume)} disabled={!canVolume} aria-label={`${s.name} volume`} onChange={(e) => setMix((m) => (m ? { ...m, streams: m.streams.map((x) => (x.id === s.id ? { ...x, volume: Number(e.target.value) } : x)) } : m))} onMouseUp={(e) => void setStream(s.id, { volume: Number((e.target as HTMLInputElement).value) })} onKeyUp={(e) => void setStream(s.id, { volume: Number((e.target as HTMLInputElement).value) })} />
               <span className="num small" style={{ width: 40, textAlign: 'right' }}>{s.muted ? 'muted' : `${Math.round(s.volume)}%`}</span>
+              {mix.canRouteStreams && mix.outputs.length > 1 ? (
+                <select className="input mon-mix-out" aria-label={`${s.name} plays to`} value={s.output ?? ''} onChange={(e) => void setStreamOutput(s.id, e.target.value)} data-testid="mix-out">
+                  {!s.output ? <option value="">Default output</option> : null}
+                  {mix.outputs.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+                </select>
+              ) : null}
+              {s.remembered ? <button className="btn ghost sm" title={`Keeper sets ${s.name}’s sound again each time it plays. Forget it.`} onClick={async () => { await api.sysmon.forgetSound(s.name); load(); toast(`${s.name} is back to the system’s own sound`); }} data-testid="mix-forget">Forget</button> : null}
             </div>
           ))}
           {mix.note ? <p className="small muted" style={{ padding: '0 14px 10px' }}>{mix.note}</p> : null}
         </div>
       ) : <p className="small muted">No app is playing sound right now.</p>}
+      {mix?.supported ? (
+        <div className="row small mon-mix-keep">
+          <span className="trust-line grow" data-testid="mix-keep-line">{perApp ? 'Each app keeps its volume and output · Set again when it plays' : 'Keep each app’s volume and output for next time'}</span>
+          <Toggle on={perApp} label="Keep each app’s sound" onChange={(v) => void api.features.set('soundPerApp', v)} />
+        </div>
+      ) : null}
 
       <div className="section-head" style={{ marginTop: 18 }}><h3>Browser tabs</h3><span className="small muted">memory and data per tab, from Keeper’s browser extension</span></div>
       {!tabs ? <Loading /> : !tabs.linked ? (

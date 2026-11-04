@@ -174,9 +174,12 @@ export function mockSysmon(): { sysmon: SysmonApi } {
         containers = containers.map((c) => (c.id === id ? { ...c, state: action === 'stop' ? 'exited' : action === 'pause' ? 'paused' : 'running', status: action === 'stop' ? 'Exited (0) just now' : 'Up 1 second', cpu: action === 'stop' ? undefined : c.cpu } : c));
         return { ok: true, message: `${action === 'stop' ? 'Stopped' : action === 'restart' ? 'Restarted' : action === 'start' ? 'Started' : action === 'pause' ? 'Paused' : 'Resumed'} ${id}` };
       },
-      mixer: async () => ({ supported: true, canSwitchOutput: true, streams, outputs }),
+      mixer: async () => ({ supported: true, canSwitchOutput: true, canSetVolume: true, canRouteStreams: true, streams, outputs }),
       setStream: async (id, patch) => { streams = streams.map((x) => (x.id === id ? { ...x, ...patch } : x)); return true; },
       setOutput: async (name) => { outputs = outputs.map((o) => ({ ...o, default: o.id === name })); return true; },
+      setStreamOutput: async (id, sink) => { streams = streams.map((x) => (x.id === id ? { ...x, output: sink } : x)); return true; },
+      soundRules: async () => ({ on: true, rules: {} }),
+      forgetSound: async () => ({}),
       energy: async () => ({ supported: true, rows: energyRows }),
       setAppNap: async (id, allowed) => { energyRows = energyRows.map((r) => (r.bundleId === id ? { ...r, appNap: allowed } : r)); return true; },
       tabs: async () => ({ linked: true, tabs: [

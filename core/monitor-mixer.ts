@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The per-app volume mixer: every app playing sound with its own volume and
 // mute, and the output device. Linux uses PipeWire / PulseAudio streams
-// (pactl); Windows uses Core Audio sessions through a small C# helper that
-// PowerShell compiles in memory (it extends App controls' volume code).
-// macOS has no public per-app volume control: see docs/MONITOR.md.
+// (pactl), and each app can play to its own output; Windows uses Core Audio
+// sessions through a small C# helper that PowerShell compiles in memory (it
+// extends App controls' volume code). macOS lists the apps playing and
+// switches the output through keeper-helper (public Core Audio); one app's
+// volume there is an experiment through process taps (docs/MONITOR.md).
 
 import { parseSinkInputs } from './appctl';
 
@@ -15,6 +17,10 @@ export interface MixerStream {
   /** 0–150 (Linux allows boosting above 100) */
   volume: number;
   muted: boolean;
+  /** Linux: the output it plays to (sink name) */
+  output?: string;
+  /** Sound for each app keeps a volume, mute or output for this app */
+  remembered?: boolean;
 }
 
 export interface OutputDevice { id: string; name: string; default: boolean }
@@ -25,6 +31,10 @@ export interface MixerState {
   outputs: OutputDevice[];
   /** output switching works here */
   canSwitchOutput: boolean;
+  /** each app's volume can be changed here (false on a Mac without the experiment) */
+  canSetVolume?: boolean;
+  /** each app can play to its own output (Linux) */
+  canRouteStreams?: boolean;
   note?: string;
 }
 
@@ -100,4 +110,4 @@ export function parseWinMixer(out: string): MixerStream[] {
   return [...by.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
-export const MAC_MIXER_NOTE = 'macOS has no public way to change one app’s volume. Process taps (macOS 14.4+) can only capture an app’s sound: changing its volume would mean muting the original and playing a copy through Keeper, which adds delay, needs the audio-capture permission and breaks when the output device changes, so Keeper does not do it. The output device can be chosen in Control Center.';
+export const MAC_MIXER_NOTE = 'Keeper’s helper did not answer, so the apps playing sound cannot be listed. The output device can be chosen in Control Center.';

@@ -7,6 +7,7 @@ import { run } from '../../core/platform';
 import { CONTAINER_ACTIONS, joinStats, parseDf, parsePs, parseStats, safeContainerId, type ContainerAction, type ContainerRow, type DiskUse, type Engine } from '../../core/monitor-containers';
 import { linuxDefaultSinkCmd, linuxMuteCmd, MAC_MIXER_NOTE, parseLinuxSinks, parseLinuxStreams, parseWinMixer, winMixerList, winMixerSet, type MixerState } from '../../core/monitor-mixer';
 import { linuxVolumeCmd } from '../../core/appctl';
+import { linuxMoveCmd, MAC_EXPERIMENT_NOTE, macStreams, sinkIndex, streamSinks } from '../../core/sound-rules';
 import { appNapCmd, parseAppNap, parseAssertions, parseTopPower, type EnergyRow } from '../../core/monitor-energy';
 import { powershell } from '../../core/platform';
 
@@ -60,18 +61,63 @@ export async function containerAction(id: string, action: ContainerAction): Prom
 
 // ---------------------------------------------------------------- mixer
 
+/** macOS: keeper-helper (the main process hands it in; the command line has none) and whether the per-app volume experiment is on. */
+type MacCall = <T>(method: string, params?: unknown, timeoutMs?: number) => Promise<T>;
+let mac: { call: MacCall; perApp: () => boolean } | null = null;
+export function useMacAudio(m: { call: MacCall; perApp: () => boolean }) {
+  mac = m;
+}
+
+/** The last mixer's streams by id, so a change can be remembered under the app's name. */
+const lastStreams = new Map<string, MixerState['streams'][number]>();
+export const streamById = (id: string) => lastStreams.get(id);
+
+function seen(m: MixerState): MixerState {
+  lastStreams.clear();
+  for (const s of m.streams) lastStreams.set(s.id, s);
+  return m;
+}
+
 export async function mixer(): Promise<MixerState> {
-  if (process.platform === 'darwin') return { supported: false, streams: [], outputs: [], canSwitchOutput: false, note: MAC_MIXER_NOTE };
+  if (process.platform === 'darwin') {
+    if (!mac) return { supported: false, streams: [], outputs: [], canSwitchOutput: false, note: MAC_MIXER_NOTE };
+    const [outs, procs] = await Promise.all([
+      mac.call<{ outputs: { uid: string; name: string; default: boolean }[] }>('audio.outputs', {}, 5000).catch(() => null),
+      mac.call<{ processes: { pid: number; bundleId?: string; name?: string; volume?: number; muted?: boolean }[]; note?: string }>('audio.processes', {}, 5000).catch(() => null),
+    ]);
+    if (!outs && !procs) return { supported: false, streams: [], outputs: [], canSwitchOutput: false, note: MAC_MIXER_NOTE };
+    const perApp = mac.perApp();
+    return seen({ supported: true, streams: macStreams(procs?.processes ?? []), outputs: (outs?.outputs ?? []).map((o) => ({ id: o.uid, name: o.name, default: o.default })), canSwitchOutput: !!outs, canSetVolume: perApp, note: perApp ? procs?.note : procs?.note ?? MAC_EXPERIMENT_NOTE });
+  }
   if (process.platform === 'win32') {
     const r = await ps(winMixerList(), 20_000);
-    return { supported: r.ok, streams: parseWinMixer(r.stdout), outputs: [], canSwitchOutput: false, note: 'Windows changes the output device only in its own Sound settings (the switch is not a public interface).' };
+    return seen({ supported: r.ok, streams: parseWinMixer(r.stdout), outputs: [], canSwitchOutput: false, canSetVolume: true, note: 'Windows changes the output device only in its own Sound settings (the switch is not a public interface), and keeps each app’s volume itself.' });
   }
   const [inputs, sinks, def, long] = await Promise.all([run('pactl', ['list', 'sink-inputs'], 8000), run('pactl', ['list', 'short', 'sinks'], 8000), run('pactl', ['get-default-sink'], 8000), run('pactl', ['list', 'sinks'], 8000)]);
   if (!inputs.ok && !sinks.ok) return { supported: false, streams: [], outputs: [], canSwitchOutput: false, note: 'No PipeWire or PulseAudio sound server answered (pactl).' };
-  return { supported: true, streams: parseLinuxStreams(inputs.stdout), outputs: parseLinuxSinks(sinks.stdout, def.stdout, long.stdout), canSwitchOutput: true };
+  const idx = sinkIndex(sinks.stdout);
+  const to = streamSinks(inputs.stdout);
+  const streams = parseLinuxStreams(inputs.stdout).map((s) => ({ ...s, output: idx.get(to.get(s.id) ?? '') }));
+  return seen({ supported: true, streams, outputs: parseLinuxSinks(sinks.stdout, def.stdout, long.stdout), canSwitchOutput: true, canSetVolume: true, canRouteStreams: true });
+}
+
+/** Linux: one app plays to its own output. */
+export async function setStreamOutput(id: string, sink: string): Promise<boolean> {
+  if (process.platform !== 'linux') return false;
+  const c = linuxMoveCmd(id, sink);
+  return (await run(c.file, c.args, 8000)).ok;
 }
 
 export async function setStream(id: string, patch: { volume?: number; muted?: boolean }): Promise<boolean> {
+  if (process.platform === 'darwin') {
+    if (!mac?.perApp() || !/^\d+$/.test(id)) return false;
+    const cur = lastStreams.get(id);
+    const volume = (patch.volume ?? cur?.volume ?? 100) / 100;
+    const muted = patch.muted ?? cur?.muted ?? false;
+    const ok = await mac.call('audio.appVolume', { pid: Number(id), volume, muted }, 8000).then(() => true, () => false);
+    if (ok && cur) lastStreams.set(id, { ...cur, volume: volume * 100, muted });
+    return ok;
+  }
   if (process.platform === 'win32') return (await ps(winMixerSet(Number(id), patch.volume, patch.muted), 20_000)).ok;
   if (process.platform !== 'linux' || !/^\d+$/.test(id)) return false;
   let ok = true;
@@ -87,6 +133,7 @@ export async function setStream(id: string, patch: { volume?: number; muted?: bo
 }
 
 export async function setOutput(name: string): Promise<boolean> {
+  if (process.platform === 'darwin') return !!mac && (await mac.call('audio.setOutput', { uid: name }, 8000).then(() => true, () => false));
   if (process.platform !== 'linux') return false;
   const c = linuxDefaultSinkCmd(name);
   return (await run(c.file, c.args, 8000)).ok;

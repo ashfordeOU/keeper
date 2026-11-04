@@ -1608,6 +1608,8 @@ app.whenReady().then(async () => {
   registerBatteryCareIpc({ broadcast });
   // Displays: screen modes cost nothing in the background; matched brightness looks every few seconds only while on.
   registerDisplaysIpc({ broadcast });
+  // Sound for each app: one small listener for apps that start playing (Linux) only while it is on.
+  void import('./services/sound-rules').then((m) => m.startSoundRules({ broadcast }));
   onControlsChanged(() => void updateTray());
   // Firewall: rules, alerts, the DNS filter and traffic history (nothing runs until switched on).
   registerFirewallIpc({ alert: noticeFor('network', { name: 'firewall' }), broadcast, window: { preload: preload(), load, lockDown } });

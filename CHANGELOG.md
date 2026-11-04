@@ -28,6 +28,12 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - Works on macOS (with Accessibility), Windows and Linux on X11. Wayland does not let apps move other apps' windows, and the page says so. On a Mac with Monorail running, Monorail arranges the windows and Keeper's snap keys stay free.
 - Off until you turn it on in Settings → Features → Desktop.
 
+### Added — Sound for each app
+- Health → Sound & tabs on a Mac: the apps playing sound, and the Output menu switches speakers and headphones (through a public part of macOS after all).
+- On Linux each app can play to its own output: music to the headphones, a call to the speakers.
+- Sound for each app (off until switched on, also from the page): the volume, mute and output you give an app are kept and set again the next time it plays. Forget lets an app go. Windows keeps each app's volume itself.
+- Volume for each app on a Mac, as an experiment (macOS 14.2 and later, off by default): the app's own sound is muted and played again at your level, through the system's audio capture, with no driver to install.
+
 ### Added — Displays: screen sizes, presets and matched brightness
 - Computer → Displays shows every connected screen with its size and refresh rate (and sharp text on a Mac). Pick another and it switches at once; a small Keep this? bar counts down and switches back by itself if you do not press Keep, even when the new mode shows nothing.
 - Save how your screens are set as a preset ("Desk") and use it in one click, or let it apply by itself when that set of screens is plugged in.

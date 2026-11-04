@@ -23,7 +23,9 @@ import { codeSignature, devServers, listeners, processEnv, readSensors, runningA
 import { monitorSettings, setMonitorSettings } from '../services/monitor-settings';
 import { initMonitorTray, togglePopover, trayPreview, trayState, type TrayDeps } from '../services/monitor-tray';
 import { psRun } from '../services/ps-host';
-import { containerAction, containers, energy, mixer, setAppNap, setOutput, setStream, useExtrasPowerShell } from '../services/monitor-extras';
+import { containerAction, containers, energy, mixer, setAppNap, setOutput, setStream, setStreamOutput, useExtrasPowerShell, useMacAudio } from '../services/monitor-extras';
+import { forgetApp, markRemembered, rememberChange, soundRules } from '../services/sound-rules';
+import { macHelperCall } from '../services/platform/mac';
 import { allTabs } from '../services/browser-tabs';
 import { CONTAINER_ACTIONS, type ContainerAction } from '../../core/monitor-containers';
 import { act, details, sample } from '../services/procs';
@@ -134,6 +136,8 @@ export function registerSysmonIpc(d: SysmonDeps) {
     usePowerShell(psRun);
     useExtrasPowerShell(psRun);
   }
+  // macOS: the apps playing sound and the output device come from keeper-helper; one app's volume only with the experiment on.
+  if (process.platform === 'darwin') useMacAudio({ call: macHelperCall, perApp: () => featureOn('macAppVolume') });
   initMonitorTray({ ...d, openLauncher: toggleLauncher });
   initLauncher({ preload: d.preload, lockDown: d.lockDown, showMain: d.showMain, devUrl: d.devUrl });
 
@@ -180,8 +184,20 @@ export function registerSysmonIpc(d: SysmonDeps) {
   handle('sysmon.showPopover', () => togglePopover());
   handle('sysmon.containers', () => (featureOn('containers') ? containers() : { engine: null, containers: [], disk: [], note: 'Containers are switched off.' }));
   handle('sysmon.containerAction', (id: string, action: ContainerAction) => containerAction(str(id, 128), action));
-  handle('sysmon.mixer', () => mixer());
-  handle('sysmon.setStream', (id: string, patch: { volume?: number; muted?: boolean }) => setStream(str(id, 20), { volume: typeof patch?.volume === 'number' ? patch.volume : undefined, muted: typeof patch?.muted === 'boolean' ? patch.muted : undefined }));
+  handle('sysmon.mixer', async () => markRemembered(await mixer()));
+  handle('sysmon.setStream', async (id: string, patch: { volume?: number; muted?: boolean }) => {
+    const p = { volume: typeof patch?.volume === 'number' ? patch.volume : undefined, muted: typeof patch?.muted === 'boolean' ? patch.muted : undefined };
+    const ok = await setStream(str(id, 20), p);
+    if (ok) await rememberChange(str(id, 20), p);
+    return ok;
+  });
+  handle('sysmon.setStreamOutput', async (id: string, sink: string) => {
+    const ok = await setStreamOutput(str(id, 20), str(sink, 200)).catch(() => false);
+    if (ok) await rememberChange(str(id, 20), { output: str(sink, 200) });
+    return ok;
+  });
+  handle('sysmon.soundRules', () => soundRules());
+  handle('sysmon.forgetSound', (name: string) => forgetApp(str(name, 200)));
   handle('sysmon.setOutput', (name: string) => setOutput(str(name, 200)));
   handle('sysmon.energy', () => energy());
   handle('sysmon.setAppNap', (id: string, allowed: boolean) => setAppNap(str(id, 200), !!allowed));

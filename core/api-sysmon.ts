@@ -94,6 +94,11 @@ export interface SysmonApi {
   mixer(): Promise<MixerState>;
   setStream(id: string, patch: { volume?: number; muted?: boolean }): Promise<boolean>;
   setOutput(name: string): Promise<boolean>;
+  /** Linux: one app plays to its own output (a sink name from mixer().outputs) */
+  setStreamOutput(id: string, sink: string): Promise<boolean>;
+  /** Sound for each app: what Keeper keeps per app (by app name) */
+  soundRules(): Promise<{ on: boolean; rules: import('./sound-rules').SoundRules }>;
+  forgetSound(name: string): Promise<import('./sound-rules').SoundRules>;
   /** macOS: energy impact, what holds the computer awake and App Nap per app */
   energy(): Promise<{ supported: boolean; rows: EnergyRow[]; note?: string }>;
   setAppNap(bundleId: string, allowed: boolean): Promise<boolean>;

@@ -91,6 +91,8 @@ export const TIERS: Record<string, FeatureTier> = {
   monitors: { plain: 'Watch your sites and servers', setup: 'computer', normal: 'off', shown: 'basic' },
   appUpdates: { plain: 'Updates for your apps', setup: 'computer', normal: 'off', shown: 'basic' },
   chargeLimit: { plain: 'Battery care', setup: 'computer', normal: 'off', shown: 'basic' },
+  soundPerApp: { plain: 'Each app keeps its own volume', setup: 'computer', normal: 'off', shown: 'basic' },
+  macAppVolume: { plain: 'Volume for each app on a Mac (experiment)', setup: 'computer', normal: 'off', shown: 'advanced' },
   phoneAlerts: { plain: 'Alerts to your phone', setup: 'devices', normal: 'off', shown: 'basic' },
   reader: { plain: 'Feeds and read later', setup: 'notes', normal: 'off', shown: 'basic' },
   journal: { plain: 'Journal', setup: 'notes', normal: 'off', shown: 'basic' },

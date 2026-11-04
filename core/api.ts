@@ -954,6 +954,8 @@ export interface KeeperApi extends KeeperApiX {
   on(channel: 'battery-care-changed', cb: () => void): () => void;
   /** a screen mode changed, waits for Keep, or a monitor's brightness followed */
   on(channel: 'displays-changed', cb: () => void): () => void;
+  /** Sound for each app remembered or forgot an app */
+  on(channel: 'sound-rules-changed', cb: () => void): () => void;
   /** what a web page capture is doing now ("Loading the whole page") */
   on(channel: 'webcapture-phase', cb: (text: string) => void): () => void;
   on(channel: 'widgets-arrange', cb: (on: boolean) => void): () => void;
