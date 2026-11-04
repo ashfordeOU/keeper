@@ -57,7 +57,8 @@ async function launch(extraEnv = {}, opts = {}) {
   await main.getByRole('button', { name: 'Skip tour' }).click({ timeout: 3000 }).catch(() => undefined);
   const navigate = (route) => app.evaluate(({ BrowserWindow }, r) => { for (const w of BrowserWindow.getAllWindows()) { const u = w.webContents.getURL(); if (!u.includes('view=') || u.includes('view=app')) w.webContents.send('event:navigate', r); } }, route);
   // Only demo data in pictures: this machine's own drives and tools leave the sidebar.
-  const tidySidebar = () => main.evaluate(() => { for (const el of document.querySelectorAll('.sidebar *')) if (el.children.length === 0 && /^(vm|claude-code|env-runner|public|examples|Claude Code)$/.test((el.textContent || '').trim())) { const row = el.closest('a, button, li, [role="treeitem"]'); if (row) row.style.display = 'none'; } });
+  // (Text in the pseudo language is read back to plain letters first.)
+  const tidySidebar = () => main.evaluate(() => { for (const el of document.querySelectorAll('.sidebar *')) if (el.children.length === 0 && /^(vm|claude-code|env-runner|public|examples|Claude Code)$/.test((el.textContent || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[[\]·]/g, '').trim())) { const row = el.closest('a, button, li, [role="treeitem"]'); if (row) row.style.display = 'none'; } });
   const shot = async (name) => { await wait(800); await tidySidebar(); await main.screenshot({ path: path.join(SHOTS, `${name}.png`) }); };
   const dark = (on) => main.evaluate((d) => window.keeper.settings.set({ appearance: d ? 'dark' : 'light' }), on);
   const both = async (name) => { await shot(`${name}-light`); await dark(true); await shot(`${name}-dark`); await dark(false); };
@@ -446,6 +447,27 @@ async function launch(extraEnv = {}, opts = {}) {
     check(!!(await until(() => main.locator('[data-testid="ext-card"]').count(), 10000)), 'Settings → General lists the extension with its permissions');
     await main.locator('[data-testid="extensions"]').scrollIntoViewIfNeeded();
     await both('auditplatform-extensions');
+  }
+
+  // ---------------------------------------------------------------- languages and the pseudo language
+  if (want('i18n')) {
+    await main.evaluate(() => window.keeper.settings.set({ settingsAdvanced: false, language: 'system' }));
+    await navigate('settings:general');
+    await main.waitForSelector('[data-testid="language"]', { timeout: 15000 });
+    const basic = await main.locator('[data-testid="language"] option').evaluateAll((o) => o.map((x) => x.value));
+    check(basic.join(',') === 'system,en', `only complete languages are offered by default (${basic.join(',')})`);
+    await main.evaluate(() => window.keeper.settings.set({ settingsAdvanced: true }));
+    await wait(500);
+    const all = await main.locator('[data-testid="language"] option').evaluateAll((o) => o.map((x) => x.textContent));
+    check(all.some((t) => /Deutsch · partly translated/.test(t)) && all.some((t) => /Pseudo/.test(t)), 'with More settings, partly translated languages say so, and the pseudo language is there');
+    await main.evaluate(() => window.keeper.settings.set({ language: 'qps-ploc' }));
+    await navigate('home');
+    const pseudoText = await until(async () => { const t = await main.locator('.sidebar').innerText(); return /\[[^\]]*·/.test(t) ? t : null; }, 10000);
+    check(!!pseudoText, 'the pseudo language shows every word accented and longer');
+    await both('auditplatform-i18n-pseudo');
+    await main.evaluate(() => window.keeper.settings.set({ language: 'system', settingsAdvanced: false }));
+    await main.reload();
+    await main.waitForSelector('.sidebar', { timeout: 30000 });
   }
 
   check(errors.length === 0, `no page errors (${errors.slice(0, 2).join('; ')})`);

@@ -2,19 +2,44 @@
 // The interface's words in every language Keeper speaks. Pure data, so it can
 // be tested without a window; useT() lives in i18n.ts.
 
-export const LANGUAGES: { code: string; name: string }[] = [
+/**
+ * `partial`: only some of the interface is translated yet (scripts/i18n-extract.mjs counts what is not).
+ * Partly translated languages are offered only with More settings shown, and say so, so nobody
+ * meets a half-translated Keeper by accident. `pseudo`: for testing, never for reading.
+ */
+export const LANGUAGES: { code: string; name: string; partial?: boolean; pseudo?: boolean }[] = [
   { code: 'system', name: 'Same as system' },
   { code: 'en', name: 'English' },
-  { code: 'es', name: 'Español' },
-  { code: 'de', name: 'Deutsch' },
-  { code: 'fr', name: 'Français' },
-  { code: 'pt-BR', name: 'Português (Brasil)' },
-  { code: 'it', name: 'Italiano' },
-  { code: 'ru', name: 'Русский' },
-  { code: 'hi', name: 'हिन्दी' },
-  { code: 'ja', name: '日本語' },
-  { code: 'zh-CN', name: '简体中文' },
+  { code: 'es', name: 'Español', partial: true },
+  { code: 'de', name: 'Deutsch', partial: true },
+  { code: 'fr', name: 'Français', partial: true },
+  { code: 'pt-BR', name: 'Português (Brasil)', partial: true },
+  { code: 'it', name: 'Italiano', partial: true },
+  { code: 'ru', name: 'Русский', partial: true },
+  { code: 'hi', name: 'हिन्दी', partial: true },
+  { code: 'ja', name: '日本語', partial: true },
+  { code: 'zh-CN', name: '简体中文', partial: true },
+  { code: 'qps-ploc', name: 'Pseudo (longer words, for testing)', pseudo: true },
 ];
+
+/** The languages to offer: complete ones always; partly translated and pseudo ones with More settings, and whichever is chosen now. */
+export function offeredLanguages(advanced: boolean, current?: string): typeof LANGUAGES {
+  return LANGUAGES.filter((l) => (!l.partial && !l.pseudo) || advanced || l.code === current);
+}
+
+const ACCENTS: Record<string, string> = { a: 'á', e: 'é', i: 'í', o: 'ö', u: 'ü', c: 'ç', n: 'ñ', y: 'ý', A: 'Å', E: 'É', I: 'Î', O: 'Ø', U: 'Û', C: 'Ç', N: 'Ñ' };
+
+/**
+ * Pseudo-localised text: accented letters, about a third longer, in brackets, so text that is
+ * not translatable (stays plain) and text that gets cut off (loses its brackets) stand out.
+ * Placeholders such as {name} are left alone.
+ */
+export function pseudo(text: string): string {
+  if (!text.trim() || text.startsWith('[')) return text;
+  const body = text.replace(/(\{[^}]*\})|([A-Za-z])/g, (_m, ph, ch) => ph ?? ACCENTS[ch] ?? ch);
+  const extra = '·'.repeat(Math.max(1, Math.round(text.length * 0.35)));
+  return `[${body} ${extra}]`;
+}
 
 type Dict = Record<string, string>;
 
@@ -223,6 +248,7 @@ const DICTS: Record<string, Dict> = { en, es, de, fr, 'pt-BR': ptBR, pt: ptBR, i
 /** Resolves "system" and regional variants ("es-MX" -> "es") to a dictionary we have. */
 export function resolveLanguage(setting: string | undefined, system = typeof navigator !== 'undefined' ? navigator.language : 'en'): string {
   const want = !setting || setting === 'system' ? system : setting;
+  if (want === 'qps-ploc') return want;
   if (DICTS[want]) return want;
   const base = want.split('-')[0];
   if (base === 'pt') return 'pt-BR';
@@ -231,6 +257,7 @@ export function resolveLanguage(setting: string | undefined, system = typeof nav
 }
 
 export function translate(lang: string, key: string): string {
+  if (lang === 'qps-ploc') return pseudo(en[key] ?? key);
   return DICTS[lang]?.[key] ?? en[key] ?? key;
 }
 

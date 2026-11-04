@@ -6,7 +6,7 @@ import type { UpdateStatus } from '../../core/api-x';
 import { relativeTime } from '../../core/format';
 import { api } from '../api';
 import { Toggle } from '../components/ui';
-import { LANGUAGES, useT } from '../i18n';
+import { LANGUAGES, offeredLanguages, useT } from '../i18n';
 import { useStore } from '../state';
 import { Row } from './IslandSettings';
 
@@ -15,9 +15,9 @@ export function LanguageRow() {
   const { settings, updateSettings } = useStore();
   if (!settings) return null;
   return (
-    <Row title={t('settings.language')} desc="File names and anything you write stay as they are.">
-      <select className="input" value={settings.language || 'system'} onChange={(e) => void updateSettings({ language: e.target.value })}>
-        {LANGUAGES.map((l) => <option key={l.code} value={l.code}>{l.name}</option>)}
+    <Row title={t('settings.language')} desc={LANGUAGES.find((l) => l.code === settings.language)?.partial ? 'Only some of Keeper is in this language so far; the rest stays in English.' : 'File names and anything you write stay as they are.'}>
+      <select className="input" data-testid="language" value={settings.language || 'system'} onChange={(e) => void updateSettings({ language: e.target.value })}>
+        {offeredLanguages(!!settings.settingsAdvanced, settings.language).map((l) => <option key={l.code} value={l.code}>{l.name}{l.partial ? ' · partly translated' : ''}</option>)}
       </select>
     </Row>
   );

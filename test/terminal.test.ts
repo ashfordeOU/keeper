@@ -372,7 +372,7 @@ describe('terminal palettes for themes', () => {
 
 describe('terminal words', () => {
   it('exist in every language Keeper offers', () => {
-    for (const l of LANGUAGES.filter((x) => x.code !== 'system')) {
+    for (const l of LANGUAGES.filter((x) => x.code !== 'system' && !x.pseudo)) {
       expect(TERM_LANGS).toContain(l.code);
       const d = termDictionary(l.code);
       for (const k of TERM_KEYS) expect(d[k], `${l.code}:${k}`).toBeTruthy();
