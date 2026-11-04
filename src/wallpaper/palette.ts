@@ -20,7 +20,7 @@ export function useAmbienceCommands(toast: (t: string) => void, go: (r: { name: 
   const [s, setS] = useState<AmbienceState | null>(null);
   useEffect(() => { void api.ambience?.state().then(setS).catch(() => undefined); }, []);
   const out: AmbienceCommand[] = [
-    { id: 'vibe-page', label: 'Wallpaper & Vibes', group: 'Go to', icon: 'palette', keywords: 'wallpaper live desktop background scene vibe mood sound', run: () => go({ name: 'ambience' }) },
+    { id: 'vibe-page', label: 'Look & Feel', group: 'Go to', icon: 'palette', keywords: 'wallpaper live desktop background scene vibe mood sound', run: () => go({ name: 'ambience' }) },
     { id: 'widget-arrange', label: 'Arrange Desktop Widgets', group: 'Actions', icon: 'grid', keywords: 'widgets move snap layout desktop', run: () => void api.widgets.arrange?.(true).then(() => toast('Drag widgets on the desktop; they snap into place')) },
     { id: 'folder-icon-page', label: 'Custom Folder Icons', group: 'Go to', icon: 'folder', keywords: 'folder icon colour color pattern symbol finder explorer', run: () => go({ name: 'ambience', arg: 'icons' }) },
   ];

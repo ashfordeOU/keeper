@@ -55,7 +55,7 @@ Keeper is one app you install once. It is made of parts you switch on and off in
 | **Devices** | Your computers and phones, paired with a code: send files, share the clipboard, see and control another screen; Phone Alerts, Remote Desktops and Terminal |
 | **AI** | The AI you choose, or one on this computer, for the Assistant, Agents, Dictation and Meetings, with what it may see and do set by you |
 | **Screen** | Screenshots, whole web pages and text from the screen, a light photo editor, Studio for screen recordings, Stage for a clean screen, and the Toolbox |
-| **Desktop** | Snap Windows, Buttons & Shortcuts, Widgets and folder boxes, Wallpaper & Vibes, Weather, Places & Tracks, and Monorail on a Mac |
+| **Desktop** | Snap Windows, Buttons & Shortcuts, Widgets and folder boxes, Look & Feel (theme, wallpaper, sound and vibes), Weather, Places & Tracks, and Monorail on a Mac |
 | **Island** | A live bar at the top of the screen: now playing, timers, the next meeting, new mail and a drop shelf |
 
 **Each part runs on its own.** The Island, the widgets and Mail keep working if the main window stops, and a part that is off does not run at all ([docs/SUITE.md](docs/SUITE.md)).
@@ -212,7 +212,7 @@ Every update is checked before it is installed: it must match the release's `SHA
 | Devices | [Keeper Link](docs/LINK.md) · [Remote screens and phones](docs/REMOTE.md) · [Remote Desktops](docs/REMOTE-DESKTOPS.md) · [Keeper Mesh](docs/MESH.md) · [Terminal](docs/TERMINAL.md) |
 | AI | [Your files and AI](docs/BRAIN.md) · [Knowledge graph](docs/KNOWLEDGE-GRAPH.md) · [AI agents](docs/AGENTS.md) · [AI skills](docs/ABILITIES.md) · [Computer use](docs/COMPUTER-USE.md) · [AI usage](docs/USAGE-TRACKER.md) · [Dictation and meetings](docs/VOICE.md) |
 | Screen | [Stage](docs/STAGE.md) · [Toolbox](docs/TOOLS.md) |
-| Desktop | [Quick Search, typed snippets and selected text](docs/LAUNCHER.md) · [Wallpaper & Vibes](docs/AMBIENCE.md) · [Places & Tracks](docs/TRACKS.md) · [Keeper and Monorail](docs/KEEPER-MONORAIL.md) |
+| Desktop | [Quick Search, typed snippets and selected text](docs/LAUNCHER.md) · [Look & Feel](docs/AMBIENCE.md) · [Places & Tracks](docs/TRACKS.md) · [Keeper and Monorail](docs/KEEPER-MONORAIL.md) |
 | Island | [Island tools](docs/ISLAND-TOOLS.md) · [Island+ and Cues](docs/ISLAND-CUES.md) · [The Island's colours](docs/ISLAND-LOOK.md) |
 | Project | [Changelog](CHANGELOG.md) · [How Keeper is built](docs/ARCHITECTURE.md) · [The visual budget](docs/DESIGN-BUDGET.md) · [Contributing](CONTRIBUTING.md) · [Security policy](SECURITY.md) · [Releasing](RELEASING.md) |
 

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
-// Wallpaper & Vibes: the home for the desktop's mood. The wallpaper and widgets
+// Look & Feel (once Wallpaper & Vibes): the home for the desktop's mood. The wallpaper and widgets
 // live on the desktop, vibes are picked from the tray and the Island, and sound
 // from a floating mixer; this page is where the library, schedules and options
 // are set up.
@@ -24,13 +24,17 @@ import { MixerControls, useAmbience } from '../wallpaper/MixerControls';
 import { SceneRenderer } from '../wallpaper/scene-gl';
 import '../styles/ambience.css';
 import { Tabs } from '../components/Tabs';
+import { ThemeGallery } from '../components/ThemeGallery';
 
-type Tab = 'vibes' | 'wallpaper' | 'schedule' | 'sound' | 'icons' | 'options';
+type Tab = 'theme' | 'vibes' | 'wallpaper' | 'schedule' | 'sound' | 'icons' | 'options';
+// Look & Feel: how the computer looks and sounds in one place. Theme, wallpaper and sound first;
+// vibes save them together. Settings → Appearance keeps the same theme picker.
 const TABS: { id: Tab; label: string; icon: string }[] = [
-  { id: 'vibes', label: 'Vibes', icon: 'sparkle' },
+  { id: 'theme', label: 'Theme', icon: 'palette' },
   { id: 'wallpaper', label: 'Wallpaper', icon: 'image' },
-  { id: 'schedule', label: 'Schedule', icon: 'clock' },
   { id: 'sound', label: 'Sound', icon: 'audio' },
+  { id: 'vibes', label: 'Vibes', icon: 'sparkle' },
+  { id: 'schedule', label: 'Schedule', icon: 'clock' },
   { id: 'icons', label: 'Folder icons', icon: 'folder' },
   { id: 'options', label: 'Options', icon: 'settings' },
 ];
@@ -428,21 +432,22 @@ function OptionsTab({ state }: { state: AmbienceState }) {
 export function Ambience() {
   const { route, go } = useStore();
   const [state] = useAmbience();
-  const tab = (TABS.some((t) => t.id === route.arg) ? route.arg : 'vibes') as Tab;
+  const tab = (TABS.some((t) => t.id === route.arg) ? route.arg : 'theme') as Tab;
   if (!state) return <div className="empty"><Icon name="sparkle" size={30} /></div>;
   const a = state.settings;
   const live = state.features.wallpaper && a.wallpaper.enabled;
   const running = state.displays.filter((d) => d.live?.running).length;
   return (
     <div className="amb-page" data-testid="amb-page">
-      <PageHead title="Wallpaper & Vibes" sub="Your desktop’s mood: a live wallpaper, theme, ambient sound and widgets that switch together.">
+      <PageHead title="Look & Feel" sub="How your computer looks and sounds: theme, wallpaper and sound, saved together as vibes.">
         <button className="btn" onClick={() => void api.ambience.surprise()} data-testid="amb-surprise"><Icon name="shuffle" size={13} /> Surprise me</button>
         <button className="btn" onClick={() => void api.ambience.openMixer()}><Icon name="audio" size={13} /> Sound mixer</button>
         <label className="amb-live-toggle" data-testid="amb-live"><Toggle on={live} onChange={(v) => void api.ambience.setPlaying(v)} /><span><b>Live wallpaper</b><span className="muted small" style={{ display: 'block' }}>{!live ? 'Off' : state.strategy === 'still' ? 'Still picture mode' : running ? `Playing on ${running} display${running === 1 ? '' : 's'}` : state.displays.find((d) => d.live)?.live?.reason ?? 'Starting…'}</span></span></label>
       </PageHead>
       {isDemo ? <div className="muted small" style={{ marginBottom: 8 }}>In the app, the wallpaper draws behind your desktop icons and the sound plays from a floating mixer.</div> : null}
-      <Tabs label="Wallpaper & Vibes" value={tab} onChange={(id) => go({ name: 'ambience', arg: id })} items={TABS.map((t) => ({ id: t.id, text: t.label, label: <><Icon name={t.icon} size={13} /> {t.label}</>, testId: `amb-tab-${t.id}` }))} />
+      <Tabs label="Look & Feel" value={tab} onChange={(id) => go({ name: 'ambience', arg: id })} items={TABS.map((t) => ({ id: t.id, text: t.label, label: <><Icon name={t.icon} size={13} /> {t.label}</>, testId: `amb-tab-${t.id}` }))} />
       <div className="amb-tab">
+        {tab === 'theme' ? <div className="card pad" data-testid="amb-theme"><ThemeGallery /></div> : null}
         {tab === 'vibes' ? <VibesTab state={state} /> : null}
         {tab === 'wallpaper' ? <WallpaperTab state={state} /> : null}
         {tab === 'schedule' ? <ScheduleTab state={state} /> : null}

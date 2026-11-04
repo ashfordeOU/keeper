@@ -158,7 +158,7 @@ export const NAV_PAGES: NavPage[] = [
   { id: 'snap', route: { name: 'snap' }, label: 'Snap Windows', icon: 'columns', group: 'desktop', keywords: 'snap windows tile halves thirds quarters maximise maximize arrange layout screens docked window manager' },
   { id: 'buttons', route: { name: 'buttons' }, label: 'Buttons & Shortcuts', icon: 'keyboard', group: 'desktop', keywords: 'mouse buttons side button back forward middle click remap per app shortcuts keys rebind' },
   { id: 'widgets', route: { name: 'widgets' }, label: 'Widgets', i18n: 'nav.widgets', icon: 'grid', group: 'desktop', keywords: 'desktop clock' },
-  { id: 'ambience', route: { name: 'ambience' }, label: 'Wallpaper & Vibes', icon: 'palette', group: 'desktop', keywords: 'wallpaper vibes ambient sound theme' },
+  { id: 'ambience', route: { name: 'ambience' }, label: 'Look & Feel', icon: 'palette', group: 'desktop', keywords: 'look and feel theme colours colors dark light appearance wallpaper vibes ambient sound theme' },
   { id: 'weather', route: { name: 'weather' }, label: 'Weather', i18n: 'nav.weather', icon: 'sun', group: 'desktop', keywords: 'forecast rain radar' },
   { id: 'tracks', route: { name: 'tracks' }, label: 'Places & Tracks', icon: 'map', group: 'desktop', keywords: 'map location timeline trips' },
 

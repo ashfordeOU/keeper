@@ -80,7 +80,7 @@ export const PAGE_HELP: Record<string, PageHelp> = {
   island: { what: 'The small bar at the top of your screen.', can: ['Choose what it shows', 'Change how it looks', 'Drop files on its shelf'], doc: 'ISLAND-TOOLS.md' },
   snippets: { what: 'Short words, typed or said, that become your saved text.', can: ['Add a snippet', 'Fill in the date', 'See your clipboard sets'], doc: 'LAUNCHER.md' },
   widgets: { what: 'Small cards on your desktop.', can: ['Add a clock or the weather', 'Move them where you like', 'Choose their look'], doc: 'MENU-BAR.md' },
-  ambience: { what: 'Wallpaper, sound and mood for your desktop.', can: ['Pick a live wallpaper', 'Play a calm sound', 'Save a vibe'], doc: 'AMBIENCE.md' },
+  ambience: { what: 'How your computer looks and sounds.', can: ['Pick a theme or a live wallpaper', 'Play a calm sound', 'Save them together as a vibe'], doc: 'AMBIENCE.md' },
   weather: { what: 'The forecast for your places.', can: ['Add a place', 'See the week ahead', 'Get rain alerts'], doc: 'WEATHER.md' },
   tracks: { what: 'Your trips and places on a map, kept with you.', can: ['Import a track', 'See places you went', 'Share live, if you choose'], doc: 'TRACKS.md' },
   mail: { what: 'All your mail accounts in one inbox.', can: ['Read and reply', 'Snooze until later', 'Send later'], doc: 'PIM.md' },

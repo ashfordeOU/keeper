@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 -->
-# Wallpaper & Vibes
+# Look & Feel (wallpaper, theme, sound and vibes)
 
 Keeper's desktop mood: a **live wallpaper** behind the desktop icons, **vibes**
 that switch wallpaper, theme, ambient sound and widgets together (by hand or on
@@ -16,8 +16,8 @@ allows it, and nothing draws when nobody can see it.
 | Island | **Vibes** tool: vibe tiles, wallpaper on/off and Surprise, sound play/stop and the mixer |
 | Floating panel | **Ambient sound** mixer: ten sliders, master volume, sleep timer; Esc or ✕ hides it, the sound keeps playing |
 | Global shortcuts | Next / previous vibe, Surprise me, pause wallpaper, mixer (off by default; ⌃⌥⌘→ / ← / R / P / M, editable) |
-| Command palette | Wallpaper & Vibes, Next vibe, `Vibe: …` per vibe, `Wallpaper: …` per scene, live wallpaper on/off, Surprise me, mixer, play/stop sound, Arrange desktop widgets, Custom folder icons |
-| Main window | **Wallpaper & Vibes** (sidebar → More): Vibes, Wallpaper (library and per-display), Schedule, Sound, Folder icons, Options (where it appears, performance, desktop picture, measured cost) |
+| Command palette | Look & Feel, Next vibe, `Vibe: …` per vibe, `Wallpaper: …` per scene, live wallpaper on/off, Surprise me, mixer, play/stop sound, Arrange desktop widgets, Custom folder icons |
+| Main window | **Look & Feel** (Desktop in the sidebar; once called Wallpaper & Vibes): Theme (the same picker as Settings → Appearance), Wallpaper (library and per-display), Sound, Vibes, Schedule, Folder icons, Options (where it appears, performance, desktop picture, measured cost) |
 | AI abilities | `list_vibes` (allowed), `set_vibe`, `set_wallpaper`, `ambient_sound` (ask first) |
 | Command line | `keeper ambience status|vibes|vibe <name>|next|prev|surprise|scenes|scene <id> [palette]|pause|play|sound rain=0.6 cafe=0.3|stop|sleep <min>|still|restore` |
 

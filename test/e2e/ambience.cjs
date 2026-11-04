@@ -89,9 +89,18 @@ fs.mkdirSync(SHOTS, { recursive: true });
   check(await w.locator('.wg-add:has-text("Year progress")').count() === 1 && await w.locator('.wg-add:has-text("World clock")').count() === 1, 'the Widgets page offers the new kinds');
   await w.screenshot({ path: path.join(SHOTS, 'widgets-light.png') });
 
+  // Look & Feel has seven tabs: the last ones wait under More (at most six in view).
+  const TAB_LABEL = { theme: 'Theme', wallpaper: 'Wallpaper', sound: 'Sound', vibes: 'Vibes', schedule: 'Schedule', icons: 'Folder icons', options: 'Options' };
+  const ambTab = async (id) => {
+    if (await w.locator(`[data-testid="amb-tab-${id}"]`).count()) return w.click(`[data-testid="amb-tab-${id}"]`);
+    await w.click('.tabs-more');
+    await w.locator('.menu [role="menuitem"]', { hasText: TAB_LABEL[id] }).first().click();
+  };
   // ---- the page
-  await w.click('.sidebar [title="Wallpaper & Vibes"]');
-  check(!!(await until(() => w.$('[data-testid="amb-page"]'), 15000)), 'Wallpaper & Vibes opens from the sidebar');
+  await w.click('.sidebar [title="Look & Feel"]');
+  check(!!(await until(() => w.$('[data-testid="amb-page"]'), 15000)), 'Look & Feel opens from the sidebar');
+  check(!!(await until(() => w.$('[data-testid="amb-theme"]'), 5000)), 'Look & Feel opens on its Theme tab');
+  await ambTab('vibes').catch(() => undefined);
   await w.waitForTimeout(600);
   await w.screenshot({ path: path.join(SHOTS, 'vibes-light.png') });
 
@@ -163,7 +172,7 @@ fs.mkdirSync(SHOTS, { recursive: true });
   fs.writeFileSync(path.join(SHOTS, 'cost.json'), JSON.stringify({ running30fpsBalanced: costRun, byQuality: costByQuality, locked: costLocked, battery: costBattery, renderer: 'Xvfb (software GL)' }, null, 2));
 
   // ---- vibes: switch from the page; theme and wallpaper change together
-  await w.click('[data-testid="amb-tab-vibes"]');
+  await ambTab('vibes');
   await w.click('[data-testid="amb-vibe-deep-work"] .amb-vibe-swatch');
   s = await until(async () => { const x = await amb('state'); return x.settings.activeVibe === 'deep-work' ? x : null; }, 8000);
   check(!!s && s.settings.wallpaper.default.scene === 'contours', 'a vibe switches the wallpaper');
@@ -190,7 +199,7 @@ fs.mkdirSync(SHOTS, { recursive: true });
   check(!!mine && mine.widgets?.length >= 5 && mine.wallpaper?.scene === 'fireflies', 'a new vibe captures the wallpaper and the widget layout');
 
   // ---- schedule: a preset, then a rule that applies now switches by itself
-  await w.click('[data-testid="amb-tab-schedule"]');
+  await ambTab('schedule');
   await w.click('[data-testid="amb-preset-day-night"]');
   s = await until(async () => { const x = await amb('state'); return x.settings.schedule.rules.length === 2 ? x : null; }, 5000);
   check(!!s, 'the Day & night preset adds two sun rules');
@@ -208,7 +217,7 @@ fs.mkdirSync(SHOTS, { recursive: true });
   await amb('set', { schedule: { ...sc2.settings.schedule, enabled: false } });
 
   // ---- wallpaper tab: library, per display
-  await w.click('[data-testid="amb-tab-wallpaper"]');
+  await ambTab('wallpaper');
   await w.click('[data-testid="amb-scene-dunes"]');
   await w.waitForTimeout(1500);
   await w.screenshot({ path: path.join(SHOTS, 'wallpaper-tab-light.png') });
@@ -260,7 +269,7 @@ fs.mkdirSync(SHOTS, { recursive: true });
   const dirFile = fs.readFileSync(path.join(folder, '.directory'), 'utf8');
   check(res.done.length === 1 && /Icon=.*folder-icons\/icon-.*\.png/.test(dirFile) && /ViewMode=1/.test(dirFile), 'KDE Dolphin: Icon= in .directory, other lines kept');
   check((await amb('folderIcons')).length === 1, 'the restore list has the folder');
-  await w.click('[data-testid="amb-tab-icons"]');
+  await ambTab('icons');
   await w.waitForSelector('[data-testid="amb-icon-list"]', { timeout: 5000 }).catch(() => undefined);
   await w.screenshot({ path: path.join(SHOTS, 'icons-light.png') });
   await w.click('[data-testid="amb-icon-restore-all"]');
@@ -296,24 +305,24 @@ fs.mkdirSync(SHOTS, { recursive: true });
 
   // ---- dark mode screenshots of each surface
   await setDark(true);
-  await w.click('[data-testid="amb-tab-vibes"]');
+  await ambTab('vibes');
   await w.waitForTimeout(700);
   await w.screenshot({ path: path.join(SHOTS, 'vibes-dark.png') });
-  await w.click('[data-testid="amb-tab-wallpaper"]');
+  await ambTab('wallpaper');
   await w.waitForTimeout(1200);
   await w.screenshot({ path: path.join(SHOTS, 'wallpaper-tab-dark.png') });
-  await w.click('[data-testid="amb-tab-options"]');
+  await ambTab('options');
   await w.click('[data-testid="amb-measure"]');
   await w.waitForSelector('[data-testid="amb-cost"]', { timeout: 8000 }).catch(() => undefined);
   await w.screenshot({ path: path.join(SHOTS, 'options-dark.png') });
-  await w.click('[data-testid="amb-tab-icons"]');
+  await ambTab('icons');
   await w.waitForTimeout(400);
   await w.screenshot({ path: path.join(SHOTS, 'icons-dark.png') });
-  await w.click('[data-testid="amb-tab-schedule"]');
+  await ambTab('schedule');
   await w.waitForTimeout(400);
   await w.screenshot({ path: path.join(SHOTS, 'schedule-dark.png') });
   await w.setViewportSize({ width: 820, height: 640 }).catch(() => undefined);
-  await w.click('[data-testid="amb-tab-wallpaper"]');
+  await ambTab('wallpaper');
   await w.waitForTimeout(600);
   await w.screenshot({ path: path.join(SHOTS, 'wallpaper-tab-small-dark.png') });
   await w.setViewportSize({ width: 1440, height: 900 }).catch(() => undefined);

@@ -416,7 +416,7 @@ export function ambienceTrayItems(): MenuItemConstructorOptions[] {
     ] });
   }
   if (featureOn('widgets')) sub.push({ label: 'Arrange Widgets', click: () => setArranging(true) });
-  sub.push({ type: 'separator' }, { label: 'Wallpaper & Vibes…', click: () => deps.show('ambience') });
+  sub.push({ type: 'separator' }, { label: 'Look & Feel…', click: () => deps.show('ambience') });
   const active = a.vibes.find((v) => v.id === a.activeVibe);
   return [{ label: active ? `Vibe: ${active.emoji} ${active.name}` : 'Desktop & Vibes', submenu: sub }];
 }

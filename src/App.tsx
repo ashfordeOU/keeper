@@ -50,7 +50,7 @@ import { History } from './screens/History';
 import { Home } from './screens/Home';
 import { IslandSettings } from './screens/IslandSettings';
 import { Widgets } from './screens/Widgets';
-// Wallpaper & Vibes loads the first time the page opens.
+// Look & Feel (Wallpaper & Vibes) loads the first time the page opens.
 const Ambience = lazy(() => import('./screens/Ambience').then((m) => ({ default: m.Ambience })));
 const UsagePage = lazy(() => import('./screens/usage/UsagePage').then((m) => ({ default: m.UsagePage })));
 import { Large } from './screens/Large';
