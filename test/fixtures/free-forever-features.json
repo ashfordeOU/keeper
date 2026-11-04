@@ -178,6 +178,7 @@
     "displayModes",
     "brightnessSync",
     "soundPerApp",
-    "macAppVolume"
+    "macAppVolume",
+    "keeperBackup"
   ]
 }

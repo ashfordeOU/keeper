@@ -1,0 +1,12 @@
+/* SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 */
+/* Move or back up Keeper: rows like every settings panel, a quiet trust line, sheets with two fields. */
+.kb-trust { margin: 0 0 6px; }
+.kb-left { margin-top: 10px; }
+.kb-left summary { cursor: default; color: var(--text-2); }
+.kb-left ul { margin: 6px 0 0; padding-left: 18px; line-height: 1.5; }
+.kb-form { display: flex; flex-direction: column; gap: 12px; }
+.kb-form label { display: flex; flex-direction: column; gap: 6px; font-size: var(--fs-sm); color: var(--text-2); }
+.kb-form input { height: 34px; padding: 0 10px; border-radius: var(--r-md); border: 1px solid var(--line-strong); background: var(--bg); color: var(--text); font: inherit; }
+.kb-meta { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border-radius: var(--r-lg); background: var(--bg-sunk, var(--bg-elev)); }
+.kb-kicker { font-size: var(--fs-xs); font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--text-3); }
+.setup-moving { margin: 12px 0 0; text-align: right; }

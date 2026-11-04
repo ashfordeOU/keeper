@@ -206,7 +206,7 @@ Every update is checked before it is installed: it must match the release's `SHA
 | Files | [Cloud and servers](docs/CONNECT.md) · [PDF tools and Convert](docs/FILEKIT.md) |
 | Mail & Calendar | [Mail, calendars, reminders and the clock](docs/PIM.md) · [Planner](docs/PLANNER.md) |
 | Notes | [Notes](docs/NOTES.md) · [Notes from other apps](docs/NOTES-EVERYWHERE.md) |
-| Sync & Backup | [Sync and backup](docs/SYNC.md) |
+| Sync & Backup | [Sync and backup](docs/SYNC.md) · [Moving and backing up Keeper itself](docs/KEEPER-BACKUP.md) |
 | Computer | [System monitor](docs/MONITOR.md) · [Keep Awake](docs/KEEP-AWAKE.md) · [Quick Controls](docs/QUICK-CONTROLS.md) · [Hidden system settings](docs/SETTINGS-CATALOG.md) · [Fix-it List](docs/GUIDE.md) |
 | Privacy & Security | [Privacy & Security](docs/SECURITY-CENTER.md) · [Firewall](docs/FIREWALL.md) · [Network activity and VPN](docs/NETWORK.md) · [Anonymous usage stats](docs/PRIVACY-USAGE-STATS.md) |
 | Devices | [Keeper Link](docs/LINK.md) · [Remote screens and phones](docs/REMOTE.md) · [Remote Desktops](docs/REMOTE-DESKTOPS.md) · [Keeper Mesh](docs/MESH.md) · [Terminal](docs/TERMINAL.md) |
