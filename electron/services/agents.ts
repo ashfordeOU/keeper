@@ -44,6 +44,7 @@ import { readText, writeText } from './clip';
 import type { FileService } from './files';
 import { act as procAct, sample as procSample } from './procs';
 import { featureOn } from './features';
+import { agentTool as graphAgentTool, GRAPH_TOOL_SPECS } from './graph-all';
 
 export interface AgentDeps {
   index: () => FileIndex;
@@ -766,6 +767,8 @@ export async function graph(o: { within?: string[]; kinds?: string[]; days?: num
 
 // ---------------------------------------------------------------- MCP: actions, graph and skills for agents
 
+// With the graph of everything on, the same two tools cover every kind (electron/services/graph-all.ts).
+const graphTools = (): McpTool[] => (featureOn('graphAll') ? (GRAPH_TOOL_SPECS as McpTool[]) : GRAPH_TOOLS);
 const GRAPH_TOOLS: McpTool[] = [
   { name: 'graph_neighbors', description: 'Files, tags, people, organisations and folders linked to a file in Keeper\'s knowledge graph (links, backlinks, shared names, similar meaning).', inputSchema: { type: 'object', properties: { path: { type: 'string' }, depth: { type: 'integer', minimum: 1, maximum: 3 } }, required: ['path'] }, annotations: { readOnlyHint: true } },
   { name: 'graph_search', description: 'Find nodes (files, tags, people, organisations) in the knowledge graph by name.', inputSchema: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] }, annotations: { readOnlyHint: true } },
@@ -803,9 +806,9 @@ function extraToolsBase(): McpTool[] {
   const a = agentSettings();
   if (computerHook && a.computer.permission !== 'off') {
     const s = computerHook.spec();
-    return [...actionTools(a), ...GRAPH_TOOLS, { name: s.name, description: s.description, inputSchema: s.parameters, annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: true, title: 'Use this computer' } }];
+    return [...actionTools(a), ...graphTools(), { name: s.name, description: s.description, inputSchema: s.parameters, annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: true, title: 'Use this computer' } }];
   }
-  return [...actionTools(a), ...GRAPH_TOOLS];
+  return [...actionTools(a), ...graphTools()];
 }
 
 function actionTools(a: AgentSettings): McpTool[] {
@@ -815,6 +818,11 @@ function actionTools(a: AgentSettings): McpTool[] {
 async function callExtra(name: string, args: Record<string, unknown>, client: string): Promise<{ text: string; isError?: boolean; structured?: unknown; images?: { mime: string; data: string }[] }> {
   if (name === 'computer' && computerHook) return computerHook.run(client, args);
   for (const p of toolProviders.values()) if (p.tools().some((t) => t.name === name)) return p.call(name, args, client);
+  if ((name === 'graph_neighbors' || name === 'graph_search') && featureOn('graphAll')) {
+    // Other AI apps: mail only from accounts shared with them.
+    const r = await graphAgentTool(name, name === 'graph_neighbors' && args.path ? { ...args, path: expand(String(args.path)) } : args, true);
+    if (r) return r;
+  }
   if (name === 'graph_neighbors') {
     const p = expand(String(args.path ?? ''));
     if (!inLibrary(p)) return { text: 'That path is outside the library', isError: true };

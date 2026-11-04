@@ -24,6 +24,7 @@ import { useStore } from '../state';
 import { Compose } from './Compose';
 import { AccountDialog } from './AccountDialog';
 import { AskCard, CleanupView, ScheduledView, WaitingView } from './mail-views';
+import { RelatedPanel } from '../components/RelatedPanel';
 import { AccountMark, ChatThread, CodeBanner, PhishBanner, QuickLook, remindMenu, SearchChips, SenderAvatar } from './mail-parts';
 import { accountForDigit, nextTextSize, type InboxTab } from '../../core/pim/smart';
 import { chipKeeps, chipOf, chipView, firstName, groupByDay, labelColor, lastChecked, listTime, type ChipId, type ChipView } from '../../core/pim/mail-today';
@@ -763,6 +764,8 @@ function MessageCard({ summary, accounts, prefs, onCollapse, act, onGone }: { su
           {look ? <QuickLook id={summary.id} att={look} onClose={() => setLook(null)} /> : null}
         </>
       ) : null}
+      {/* The sender in the knowledge graph: their other mail, meetings, events and files. */}
+      {summary.from ? <div className="message-related"><RelatedPanel target={{ email: summary.from.address }} label={`More with ${summary.from.name || summary.from.address}`} testid="mail-related" /></div> : null}
     </article>
   );
 }

@@ -208,7 +208,7 @@ Every update is checked before it is installed: it must match the release's `SHA
 | Computer | [System monitor](docs/MONITOR.md) · [Keep Awake](docs/KEEP-AWAKE.md) · [Quick Controls](docs/QUICK-CONTROLS.md) · [Hidden system settings](docs/SETTINGS-CATALOG.md) · [Fix-it List](docs/GUIDE.md) |
 | Privacy & Security | [Privacy & Security](docs/SECURITY-CENTER.md) · [Firewall](docs/FIREWALL.md) · [Network activity and VPN](docs/NETWORK.md) · [Anonymous usage stats](docs/PRIVACY-USAGE-STATS.md) |
 | Devices | [Keeper Link](docs/LINK.md) · [Remote screens and phones](docs/REMOTE.md) · [Remote Desktops](docs/REMOTE-DESKTOPS.md) · [Keeper Mesh](docs/MESH.md) · [Terminal](docs/TERMINAL.md) |
-| AI | [Your files and AI](docs/BRAIN.md) · [AI agents](docs/AGENTS.md) · [AI skills](docs/ABILITIES.md) · [Computer use](docs/COMPUTER-USE.md) · [AI usage](docs/USAGE-TRACKER.md) · [Dictation and meetings](docs/VOICE.md) |
+| AI | [Your files and AI](docs/BRAIN.md) · [Knowledge graph](docs/KNOWLEDGE-GRAPH.md) · [AI agents](docs/AGENTS.md) · [AI skills](docs/ABILITIES.md) · [Computer use](docs/COMPUTER-USE.md) · [AI usage](docs/USAGE-TRACKER.md) · [Dictation and meetings](docs/VOICE.md) |
 | Screen | [Stage](docs/STAGE.md) · [Toolbox](docs/TOOLS.md) |
 | Desktop | [Quick Search, typed snippets and selected text](docs/LAUNCHER.md) · [Wallpaper & Vibes](docs/AMBIENCE.md) · [Places & Tracks](docs/TRACKS.md) · [Keeper and Monorail](docs/KEEPER-MONORAIL.md) |
 | Island | [Island tools](docs/ISLAND-TOOLS.md) · [Island+ and Cues](docs/ISLAND-CUES.md) · [The Island's colours](docs/ISLAND-LOOK.md) |

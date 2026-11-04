@@ -8,6 +8,23 @@ import type { AgentCli, AgentProfile } from './brain/agents';
 import type { CatalogEntry } from './brain/catalog';
 import type { GatewayModel } from './brain/gateway';
 import type { Graph } from './graph/build';
+import type { Explanation, GraphPrivacy, GraphView, ItemKind, ItemRef, KNode, RelatedItem, ViewOptions } from './graph/everything';
+import type { EverythingHit, ItemDocKind } from './brain/items';
+
+/** The knowledge graph of everything: what it holds and what it may include. */
+export interface GraphStatus {
+  on: boolean;
+  nodes: number;
+  links: number;
+  counts: Partial<Record<ItemKind, number>>;
+  updatedAt: number;
+  lastChange: { added: number; changed: number; removed: number };
+  meaning: { on: boolean; items: number; embedded: number; pending: number };
+  privacy: GraphPrivacy;
+  accounts: { id: string; label: string }[];
+  folders: { account: string; path: string; name: string }[];
+  parts: { mail: boolean; calendars: boolean; meetings: boolean; tracks: boolean; reader: boolean; notes: boolean };
+}
 import type { Suggestion } from './learn';
 
 export interface ApprovalRequest {
@@ -120,4 +137,18 @@ export interface AgentsApi {
   record(e: { type: 'search'; q: string } | { type: 'page'; name: string } | { type: 'open'; path: string }): Promise<void>;
 
   graph(o?: { within?: string[]; kinds?: string[]; days?: number; similar?: boolean; maxFiles?: number; focus?: string; depth?: number }): Promise<Graph>;
+
+  /** the graph of everything: files, notes, mail, people, organisations, events, tasks, projects, places, saved pages, meetings, apps */
+  graphStatus(): Promise<GraphStatus>;
+  /** a neighbourhood around one thing, or the best-linked part of everything with the rest summed up */
+  graphView(o?: Omit<ViewOptions, 'similar' | 'focus'> & { focus?: string | ItemRef }): Promise<GraphView>;
+  graphFind(q: string, kinds?: ItemKind[]): Promise<KNode[]>;
+  /** what relates to a file, an email, an event, a person… with the reason for each */
+  graphRelated(ref: ItemRef, o?: { limit?: number; kinds?: ItemKind[] }): Promise<{ node: KNode | null; items: RelatedItem[] }>;
+  /** how two things are connected, step by step */
+  graphExplain(a: string, b: string): Promise<Explanation | null>;
+  /** a link to the thing in today's daily note */
+  graphAddToNote(id: string): Promise<{ path: string } | null>;
+  /** one search over files, mail, events, tasks, contacts, notes, meetings and saved pages */
+  searchEverything(q: string, o?: { kinds?: (ItemDocKind | 'file')[]; limit?: number }): Promise<EverythingHit[]>;
 }

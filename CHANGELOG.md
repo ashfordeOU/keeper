@@ -27,6 +27,19 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - Each connection can still open in the outside app (Remote Desktop Connection, FreeRDP or the Mac's Remote Desktop app). A Remote Desktop Gateway, the admin session, all monitors and sharing your home folder open there by themselves, with the reason. If the engine cannot be downloaded, the outside app opens instead.
 - Where it appears → **Remote Desktop in a Keeper tab** switches it off for all connections.
 
+### Added — Knowledge Graph: everything you have, and how it connects
+- The Knowledge Graph now holds your mail, the people in it, organisations, calendar events, tasks and projects, recorded meetings, places and saved pages, next to your files and notes. Every link says why it is there: “Lena Fischer was invited to “Lease viewing””, “lease.pdf came with “Lease renewal””.
+- One person, however they are written: all the addresses on their card, “Fischer, Lena”, “L. Fischer”. Your own addresses never clutter it.
+- Search a person or a topic and the graph focuses on them; the side panel shows what to do (open, email, show in folder, add to today's note), everything linked grouped by reason, and **Explain a connection** shows the chain of links between any two things.
+- A timeline view, filters by kind and time, and a start card with the people and projects that link most. Big graphs stay smooth: the best-linked things are drawn and the rest are summed up.
+- **Related** panels in Notes, Mail (the sender), the file inspector and the event editor show what the graph links to what you are looking at.
+- Built and kept on this computer and nothing is sent anywhere. **What it includes** lets you switch off mail, events, tasks, contacts, meetings, places or saved pages, or leave out an account or a folder; parts that are off add nothing.
+- The Assistant can answer “what do I have about Lena?” across mail, notes, files and the calendar, and cites each email or event so you can open it. Agents' graph tools cover every kind.
+
+### Added — Search by meaning: mail, events, tasks, contacts and notes
+- Search by meaning now also understands your mail, calendar events, tasks, contacts and notes outside your library, on this computer, in the same quiet background batches as your files. One search ranks every kind together.
+- It follows the graph's choices: leave mail or an account out and it leaves the search too.
+
 ### Added — Island: colours that follow your theme
 - The Island is no longer only black. Open, it shows a soft gradient made from your theme's colours, with matching text, buttons and cards. Light themes get a light Island; every theme gets its own.
 - What is going on tints it: the colours of the album art while music plays, the calendar's colour before a meeting, orange for a timer, green while charging. It glides to the new colour (at once with less motion).

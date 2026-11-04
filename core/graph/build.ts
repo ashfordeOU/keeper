@@ -15,6 +15,8 @@ export interface GraphFile {
   mtime: number;
   tags?: string[];
   source?: string;
+  /** the address it came from (keeper://mail/… for a saved attachment) */
+  sourceUrl?: string;
   /** text inside (notes, documents, read from images); only the start is needed */
   text?: string;
 }
@@ -94,6 +96,8 @@ export function extractEntities(text: string, max = 15): string[] {
     if (words.some((w) => STOP.has(w))) continue;
     add(words.join(' '));
   }
+  // "L. Fischer": an initial and a family name.
+  for (const m of t.matchAll(/\b([A-Z])\. ?([A-Z][a-zà-ɏ]{2,})\b/g)) if (!STOP.has(m[2])) add(`${m[1]}. ${m[2]}`);
   // "Acme Property" is the start of "Acme Property GmbH": keep only the full name.
   const names = [...found.keys()];
   for (const n of names) if (names.some((o) => o !== n && o.startsWith(n + ' '))) found.delete(n);

@@ -39,6 +39,40 @@ The search bar's filters apply to all three: *“pdfs from gmail last month”*,
 
 Limits: the model is small. It is good at topics and paraphrases (*“money back when I move out”* → the deposit clause), weaker across languages in very short notes. Images are found by their text and names, not by what they show.
 
+## Search by meaning over more than files
+
+With the **Knowledge graph of everything** part on ([KNOWLEDGE-GRAPH.md](KNOWLEDGE-GRAPH.md)), the same on-device model also reads:
+
+| Kind | What is read |
+|---|---|
+| Mail | the subject, the sender, and the text of messages already on this computer (others: their preview). Never Spam, Trash, sign-in codes or security mail. Secrets are blanked first |
+| Calendar events | title, place, notes and who is invited |
+| Tasks | title, notes and project |
+| Contacts | name, organisation, addresses and the card's note |
+| Notes | notes in Notes vaults outside your library folders (library notes are files already) |
+| Meetings and saved pages | the transcript and notes; the page's summary |
+
+Each item is one short document (its first 1,500 characters) with a word index and one meaning vector. Vectors are built in the same background batches as the files' — after them, newest first, small batches while you work, paused on battery if you like — and kept in `brain/items-vectors.bin` with `brain/items-keys.json`, so an unchanged email is never read twice. The same choices as the graph apply: a part that is off, mail switched off, an account or folder left out — those items leave the index and their vectors are deleted at the next look.
+
+**One search box for every kind.** The Graph page's search, the Assistant's `search_everything` tool and `searchEverything` in the app rank files (from the brain) and every other kind (words and meaning, fused) together with reciprocal-rank fusion, so the best email can sit between two files. Each result carries what to cite: a file's path, or `keeper://mail/<id>`, `keeper://event/<id>`, `keeper://task/<id>`, `keeper://meeting/<id>`, `keeper://contact/<address>` or a web address. The Assistant cites these like files and shows them under the answer; clicking opens the email, event, task, meeting or person.
+
+Without *Search by meaning*, the same search runs on words only.
+
+### Searching pictures by what they show: evaluated, not added
+
+Today pictures are found by their names and the text in them. Finding them by what they *show* (“dog on a beach”) needs a second, image-and-text model. What was weighed (figures from the models' own published results; not measured on Keeper's data):
+
+| Model family | Download (8-bit) | Zero-shot accuracy (ImageNet) | Languages | Notes |
+|---|---|---|---|---|
+| CLIP ViT-B/32 (OpenCLIP, LAION-2B) | about 150 MB (image 88 MB + text 64 MB) | about 66 % | English | widely used; about 30 ms a picture on a laptop processor |
+| MobileCLIP-S0 class (small mobile models) | about 55 MB | about 67 % | English | fastest; check the weights' licence before shipping |
+| SigLIP base | about 200 MB | about 76 % | English | better matches; slower |
+| Multilingual SigLIP / M-CLIP | 400 MB – 1.1 GB | 70 – 75 % | many | matches the multilingual text model, but large |
+
+Trade-off: an English-only model of 55–150 MB would find most everyday scenes (pets, beaches, receipts, whiteboards) but not fine detail or other languages; a multilingual one costs four to seven times the download and roughly double the time per picture. Embedding a library of 50,000 pictures takes 30–60 minutes of background time on a laptop processor.
+
+Recommendation: add it later as a downloadable component ([COMPONENTS.md](COMPONENTS.md)) with a pinned revision and SHA-256 sums, like `multilingual-e5-small`: an 8-bit OpenCLIP ViT-B/32 first (English, about 150 MB), with a multilingual model as a second choice. It is not part of this release because no model of this kind is pinned and checked yet.
+
 ## The assistant (harness)
 
 The same assistant works with every AI. It gets these tools:
@@ -126,4 +160,5 @@ keeper mcp                                      MCP over stdio
 ## How it was checked
 
 - Unit tests (`test/brain.test.ts`, `test/brain-io.test.ts`): passages, words, BM25, 8-bit vectors against float (and 200,000 passages searched in well under a second), the tokenizer against the reference implementation's ids, secret blanking, hybrid search with filters, the harness with a scripted AI (tools, refusals, secrets, no-tools mode, round limit), the OpenAI-format streaming parser, MCP over streams, office document text, settings files of AI apps, and `keeper mcp` with the app closed.
+- `test/brain-items.test.ts`: the item index (words and meaning fused, newest first, only changed items embedded again, vectors kept across restarts, gone items lose theirs) and one ranked list with files, with citations.
 - `test/e2e/brain.cjs` runs the real app under a virtual display with a stand-in AI: the brain reads a Word file, meaning search builds vectors in the worker, the Assistant's AI calls `search_files` and cites the lease, `keeper mcp` and `keeper ask` go through the running app, a Wi-Fi password is blanked, `/etc/passwd` is refused, and **Connect** keeps Cursor's other servers and makes a backup.

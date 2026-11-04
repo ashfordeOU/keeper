@@ -152,6 +152,7 @@ export const TIERS: Record<string, FeatureTier> = {
   meetingDetect: { plain: 'Offer to record calls', setup: 'ai', normal: 'parent', follows: 'meetings', shown: 'customize' },
   brain: { plain: 'Let AI search your files', setup: 'ai', normal: 'localAI', shown: 'basic' },
   semantic: { plain: 'Search by meaning', setup: 'ai', normal: 'off', shown: 'basic' },
+  graphAll: { plain: 'Knowledge graph of everything', setup: 'ai', normal: 'parent', follows: 'brain', shown: 'customize' },
   assistant: { plain: 'Ask about your files', setup: 'ai', normal: 'on', shown: 'basic' },
   abilities: { plain: 'More AI skills', setup: 'ai', normal: 'off', shown: 'advanced' },
   aiAgents: { plain: 'AI agents', setup: 'ai', normal: 'off', shown: 'basic' },

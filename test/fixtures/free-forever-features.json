@@ -156,6 +156,7 @@
     "photoEditor",
     "monitors",
     "phoneAlerts",
-    "crashReports"
+    "crashReports",
+    "graphAll"
   ]
 }

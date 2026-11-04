@@ -38,6 +38,8 @@ export interface BrainHit {
   heading?: string;
   /** which signals found it: the words inside, the meaning, or the name and details */
   why?: ('words' | 'meaning' | 'name')[];
+  /** not a file but mail, an event, a task, a contact, a meeting or a saved page; `path` is then its keeper:// link */
+  item?: 'mail' | 'event' | 'task' | 'contact' | 'note' | 'meeting' | 'bookmark';
 }
 
 export interface BrainStatus {

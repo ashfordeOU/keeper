@@ -42,7 +42,7 @@ export interface HarnessEnv {
    */
   extraTools?: {
     specs: ToolSpec[];
-    run(call: ToolCall): Promise<{ content: string; summary: string; images?: { mime: string; data: string }[] }>;
+    run(call: ToolCall): Promise<{ content: string; summary: string; images?: { mime: string; data: string }[]; sources?: BrainHit[] }>;
     /** a line for the instructions when these tools are on */
     instructions?: string;
   };
@@ -222,7 +222,12 @@ export class Harness {
   }
 
   async runTool(call: ToolCall, actions: ProposedAction[]): Promise<{ content: string; summary: string; error?: boolean; images?: { mime: string; data: string }[] }> {
-    if (this.env.extraTools?.specs.some((s) => s.name === call.name)) return this.env.extraTools.run(call);
+    if (this.env.extraTools?.specs.some((s) => s.name === call.name)) {
+      // Mail, events and other things found by these tools can be cited like files.
+      const r = await this.env.extraTools.run(call);
+      if (r.sources?.length) this.remember(r.sources);
+      return r;
+    }
     const a = call.args;
     const env = this.env;
     const num = (v: unknown, d: number, max: number) => Math.max(1, Math.min(max, Number.isFinite(Number(v)) ? Number(v) : d));

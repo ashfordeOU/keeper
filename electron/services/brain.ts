@@ -192,13 +192,35 @@ export async function syncBrain(): Promise<void> {
   void embedLoop();
 }
 
+/**
+ * More to understand besides files: mail, events, tasks, contacts and notes outside the
+ * library (electron/services/graph-all.ts). They take their turn after the files, in the
+ * same paced batches.
+ */
+interface ExtraEmbedding { pending(): number; run(embed: (texts: string[]) => Promise<Float32Array[]>, n: number): Promise<void> }
+let extraEmbed: ExtraEmbedding | null = null;
+export function setExtraEmbedding(x: ExtraEmbedding | null) {
+  extraEmbed = x;
+}
+/** Something new to understand: starts the background batches if they are idle. */
+export function kickEmbedding() {
+  void embedLoop();
+}
+/** A query's meaning vector, when meaning search is ready. */
+export async function embedQuery(q: string): Promise<Float32Array | null> {
+  if (!worker || semantic !== 'ready' || !q.trim()) return null;
+  return (await worker.embed([q], 'query'))[0] ?? null;
+}
+export const semanticReady = () => semantic === 'ready';
+const extraPending = () => extraEmbed?.pending() ?? 0;
+
 let embedding = false;
 async function embedLoop() {
   if (embedding || !lb || !worker || semantic !== 'ready') return;
   embedding = true;
   const lookup = (p: string) => deps!.index().files.get(p);
   try {
-    while (!stopped && semantic === 'ready' && lb.engine.pendingCount > 0) {
+    while (!stopped && semantic === 'ready' && (lb.engine.pendingCount > 0 || extraPending() > 0)) {
       if (brainSettings().pauseOnBattery && powerMonitor.isOnBatteryPower()) {
         message = 'Paused while on battery';
         statusChanged();
@@ -210,18 +232,23 @@ async function embedLoop() {
       const allowBattery = !brainSettings().pauseOnBattery && powerMonitor.isOnBatteryPower();
       if (!allowBattery && !canWork('embed').ok) {
         message = canWork('embed').reason;
-        embedTask.set('waiting', { pending: lb.engine.pendingCount, detail: message });
+        embedTask.set('waiting', { pending: lb.engine.pendingCount + extraPending(), detail: message });
         statusChanged();
         await whenIdle('embed');
         continue;
       }
       message = undefined;
-      embedTask.set('working', { pending: lb.engine.pendingCount, detail: 'Building meaning vectors' });
+      embedTask.set('working', { pending: lb.engine.pendingCount + extraPending(), detail: 'Building meaning vectors' });
       // Small batches while the person is using the computer, bigger ones when it is idle.
       const idle = powerMonitor.getSystemIdleTime();
       const t0 = Date.now();
-      await lb.engine.embedSome(idle < 10 ? 8 : 32, lookup);
-      lb.markDirty();
+      if (lb.engine.pendingCount > 0) {
+        await lb.engine.embedSome(idle < 10 ? 8 : 32, lookup);
+        lb.markDirty();
+      } else {
+        const w = worker;
+        await extraEmbed!.run((texts) => w.embed(texts, 'passage'), idle < 10 ? 8 : 32);
+      }
       statusChanged();
       // Rests in proportion to the batch, so meaning vectors take their share of the time and no more.
       await new Promise((r) => setTimeout(r, Math.max(idle < 10 ? 250 : 20, restMs('embed', conditions(), Date.now() - t0))));
@@ -348,6 +375,11 @@ let abilityTools: ((o: { client: string; persona?: string; project?: string }) =
 export function setAbilityTools(fn: typeof abilityTools) {
   abilityTools = fn;
 }
+/** Search over mail, events, tasks, contacts and notes, and the knowledge graph (set by graph-all.ts). */
+let everythingTools: (() => ExtraTools | undefined) | null = null;
+export function setEverythingTools(fn: typeof everythingTools) {
+  everythingTools = fn;
+}
 
 /** Two sets of extra tools offered together, each running its own calls. */
 function mergeExtra(a: ExtraTools | undefined, b: ExtraTools | undefined): ExtraTools | undefined {
@@ -407,7 +439,7 @@ export async function ask(
   asks.set(reqId, ctrl);
   // Using the computer takes many small steps: more rounds than a question about files.
   const computer = o.computer ? computerTools?.() : undefined;
-  const extra = mergeExtra(computer, abilityTools?.({ client: 'assistant', persona: o.persona, project: o.project }));
+  const extra = mergeExtra(mergeExtra(computer, everythingTools?.()), abilityTools?.({ client: 'assistant', persona: o.persona, project: o.project }));
   try {
     const r = await lb.ask(question, {
       signal: ctrl.signal,

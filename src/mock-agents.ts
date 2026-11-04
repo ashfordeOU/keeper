@@ -12,6 +12,7 @@ import { draftSkill, parseSkill, serializeSkill, validateSkill } from '../core/b
 import { buildGraph, neighbourhood, type GraphFile } from '../core/graph/build';
 import type { Suggestion } from '../core/learn';
 import type { FileEntry } from '../core/types';
+import { mockGraph } from './mock-graph';
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -140,6 +141,7 @@ export function mockAgents(files: FileEntry[], emit: (channel: string, v: unknow
       if (o?.focus) return neighbourhood(g, g.nodes.some((n) => n.id === o.focus) ? o.focus : `f:${o.focus}`, o.depth ?? 2);
       return g;
     },
+    ...mockGraph(notes, graphFiles.slice(notes.length, notes.length + 60)),
   };
   return { agents };
 }

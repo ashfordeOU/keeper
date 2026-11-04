@@ -11,6 +11,7 @@ import type { ProposedAction, TraceStep } from '../../core/brain/harness';
 import type { ChatMessage } from '../../core/brain/providers';
 import { formatBytes, relativeTime } from '../../core/format';
 import { api } from '../api';
+import { KIND_ICON, openCite } from '../lib/graph-open';
 import { Icon } from '../components/Icon';
 import { PageHead } from '../components/ui';
 import { PersonaPicker, VoiceButton } from '../components/VoiceTalk';
@@ -34,13 +35,14 @@ interface Turn {
 const VIS_LABEL = { names: 'file names and details only', snippets: 'names and the passages that matched', full: 'the files it finds, page by page' } as const;
 
 /** Bold text, paragraphs and [[path]] citations; everything else stays plain. */
-function Answer({ text, home, onOpen }: { text: string; home?: string; onOpen: (p: string) => void }) {
+function Answer({ text, home, onOpen, names }: { text: string; home?: string; onOpen: (p: string) => void; /** names of cited mail, events and other items, by their link */ names?: Map<string, string> }) {
   const expand = (p: string) => (home && p.startsWith('~') ? home + p.slice(1) : p);
   const inline = (s: string, key: string): ReactNode[] =>
     s.split(/(\[\[[^\]]+\]\]|\*\*[^*]+\*\*)/g).map((part, i) => {
       if (part.startsWith('[[') && part.endsWith(']]')) {
         const p = expand(part.slice(2, -2).trim());
-        return <button key={`${key}-${i}`} className="cite" title={p} onClick={() => onOpen(p)}><Icon name="document" size={11} />{p.split(/[\\/]/).pop()}</button>;
+        const item = /^(keeper|https?):/.test(p);
+        return <button key={`${key}-${i}`} className="cite" title={item ? names?.get(p) ?? p : p} onClick={() => onOpen(p)}><Icon name={item ? (p.startsWith('keeper://mail') ? 'mail' : p.startsWith('keeper://event') ? 'calendar' : 'link') : 'document'} size={11} />{item ? names?.get(p) ?? 'Item' : p.split(/[\\/]/).pop()}</button>;
       }
       if (part.startsWith('**') && part.endsWith('**')) return <b key={`${key}-${i}`}>{part.slice(2, -2)}</b>;
       return <Fragment key={`${key}-${i}`}>{part}</Fragment>;
@@ -193,7 +195,7 @@ export function Assistant() {
                   <ol>{t.steps.map((s, i) => <li key={i} className={s.error ? 'err' : ''}>{s.tool.replace(/_/g, ' ')}: {s.summary} <span className="muted">· {s.ms} ms</span></li>)}</ol>
                 </details>
               ) : null}
-              {t.text ? <div className="msg assistant"><Answer text={t.text} home={info?.home} onOpen={(p) => void api.files.open(p)} /></div> : null}
+              {t.text ? <div className="msg assistant"><Answer text={t.text} home={info?.home} names={new Map((t.result?.sources ?? []).filter((h) => h.item).map((h) => [h.path, h.name]))} onOpen={(p) => (/^(keeper|https?):/.test(p) ? openCite(p, go) : void api.files.open(p))} /></div> : null}
               {busy === t.reqId && !t.text ? <div className="msg assistant row"><div className="spinner" /> {t.steps.length ? 'Reading…' : 'Searching your files…'}</div> : null}
               {t.error ? <div className="msg assistant" style={{ color: 'var(--danger)' }}>{t.error}</div> : null}
               {t.result?.actions.length ? (
@@ -219,10 +221,10 @@ export function Assistant() {
                   <summary className="small muted" style={{ padding: '8px 12px', cursor: 'default' }}>Sources ({t.result.sources.length}) · {t.result.provider}{t.result.model && t.result.model !== 'on-device' ? ` · ${t.result.model}` : ''}{t.result.redacted ? ` · ${Object.values(t.result.redacted).reduce((n, x) => n + x, 0)} secret(s) blanked` : ''}{t.result.retrievalOnly ? ' · looked up first' : ''}</summary>
                   <div className="sources">
                     {t.result.sources.map((h) => (
-                      <button key={h.path} className="source" onClick={() => void api.files.reveal(h.path)} title={`Show ${h.path}`}>
-                        <Icon name={h.kind === 'image' ? 'image' : h.kind === 'video' ? 'video' : h.kind === 'audio' ? 'audio' : 'document'} size={14} />
+                      <button key={h.path} className="source" onClick={() => (h.item || /^(keeper|https?):/.test(h.path) ? openCite(h.path, go) : void api.files.reveal(h.path))} title={h.item ? `Open ${h.name}` : `Show ${h.path}`}>
+                        <Icon name={h.item ? (h.item === 'contact' ? 'smile' : KIND_ICON[h.item]) : h.kind === 'image' ? 'image' : h.kind === 'video' ? 'video' : h.kind === 'audio' ? 'audio' : 'document'} size={14} />
                         <div className="grow" style={{ minWidth: 0 }}>
-                          <div className="ellipsis">{short(h.path)}</div>
+                          <div className="ellipsis">{h.item ? h.name : short(h.path)}</div>
                           <Snip h={h} />
                         </div>
                         <span className="small muted">{h.size ? formatBytes(h.size) : ''}{h.mtime ? ` · ${relativeTime(h.mtime)}` : ''}</span>

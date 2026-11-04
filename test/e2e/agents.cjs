@@ -173,13 +173,14 @@ async function post(port, token, pathname, body, headers = {}) {
   check(link(path.join(NOTES, 'Home.md'), path.join(NOTES, 'Apartment move.md')) && link(path.join(NOTES, 'Lease summary.md'), path.join(NOTES, 'Apartment move.md')), 'the graph links notes by their [[links]] (and back)');
   check(g.nodes.some((n) => n.type === 'entity' && n.label === 'Lena Fischer') && g.nodes.some((n) => n.type === 'tag' && n.label === '#home'), 'names mentioned in two notes and #tags become nodes');
   await main.locator('.sidebar [title="Knowledge Graph"]').click();
-  await main.waitForSelector('.graph-canvas', { timeout: 10000 });
+  await main.waitForSelector('[data-testid="kg-canvas"]', { timeout: 10000 });
   await main.waitForTimeout(1500);
-  await main.fill('.graph-page input[placeholder="Find in the graph"]', 'Lease');
+  await main.fill('[data-testid="kg-search"]', 'Lease summary');
+  await main.waitForSelector('[data-testid="kg-opt-node"]', { timeout: 5000 });
   await main.keyboard.press('Enter');
-  await main.waitForSelector('.graph-side', { timeout: 5000 });
-  const side = await main.locator('.graph-side').innerText();
-  check(/Lease summary\.md/.test(side) && /Apartment move\.md/.test(side), 'finding a node shows its links (Lease summary → Apartment move)');
+  await main.waitForSelector('[data-testid="kg-side"] [data-testid="kg-link"]', { timeout: 8000 });
+  const side = await main.locator('[data-testid="kg-side"]').innerText();
+  check(/Lease summary/.test(side) && /Apartment move/.test(side), 'finding a node shows its links (Lease summary → Apartment move)');
   await main.screenshot({ path: `${SHOTS}/graph-light.png` });
 
   // ---- the gateway and A2A

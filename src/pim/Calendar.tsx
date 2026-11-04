@@ -12,6 +12,7 @@ import { isoWeek } from '../../core/pim/tz';
 import type { CalEvent, CalendarInfo, Occurrence } from '../../core/pim/types';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
+import { RelatedPanel } from '../components/RelatedPanel';
 import { Modal } from '../components/ui';
 import { MapButtons } from '../components/NativeOpen';
 import { openNative } from '../lib/native';
@@ -507,6 +508,8 @@ export function EventEditor({ event, instance, calendars, onClose }: { event: Ca
         </div>
         <input className="input" placeholder="People (email addresses; they get an invitation from your calendar server)" value={people} disabled={readOnly} onChange={(x) => setPeople(x.target.value)} />
         <textarea className="input" rows={3} placeholder="Notes" value={e.description ?? ''} disabled={readOnly} onChange={(x) => setE({ ...e, description: x.target.value || undefined })} />
+        {/* What the knowledge graph links to this event: its people's mail, the meeting recording, notes written during it. */}
+        {event.id ? <RelatedPanel target={{ event: event.id }} testid="event-related" /> : null}
         {repeating && event.id && !readOnly ? (
           <div className="seg" style={{ alignSelf: 'flex-start' }}>
             <button className={scope === 'this' ? 'on' : ''} onClick={() => setScope('this')}>This event</button>

@@ -511,6 +511,8 @@ export interface Settings {
   journal: import('./notes/journal').JournalSettings;
   /** the reader: how often feeds are read, how long articles stay, full text and pictures (core/reader.ts) */
   reader: import('./reader').ReaderSettings;
+  /** what the knowledge graph and search by meaning may include: parts, and accounts or folders left out (core/graph/everything.ts) */
+  graph: import('./graph/everything').GraphPrivacy;
   /** where forecasts come from: MET Norway (default) or Open-Meteo (core/weather.ts) */
   weatherSource: import('./weather').WeatherSource;
   /** alerts to your phone: channels (tokens are in the keychain) and the batching wait (core/phone-alerts.ts) */

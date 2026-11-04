@@ -16,6 +16,7 @@ import { DEFAULT_DECK, cleanDeck, migrateDeck } from './island-tools/tools';
 import { HOVER_DWELL_MS, migrateHoverDelay } from './island-open';
 import { DEFAULT_INTENSITY, DEFAULT_LOOK, DEFAULT_PRESET, cleanLook } from './island-look';
 import { defaultBrainSettings, normalizeBrainSettings } from './brain/config';
+import { defaultGraphPrivacy, normalizeGraphPrivacy } from './graph/everything';
 import { defaultAgentSettings, normalizeAgentSettings } from './agents-config';
 import { defaultSyncSettings, normalizeSyncSettings } from './sync/config';
 import { defaultGlanceSettings } from './glance';
@@ -141,6 +142,7 @@ export function defaultSettings(folders: string[], rules: Rule[]): AllSettings {
     includeRemote: false,
     ai: { provider: 'anthropic', model: '', ollamaUrl: 'http://127.0.0.1:11434' },
     brain: defaultBrainSettings(),
+    graph: defaultGraphPrivacy(),
     abilities: defaultAbilities(),
     agents: defaultAgentSettings(),
     sync: defaultSyncSettings(),
@@ -220,6 +222,7 @@ export function mergeSettings(base: AllSettings, raw: unknown): AllSettings {
   out.timeTrack = normalizeTimeTrackOptions(out.timeTrack);
   out.journal = normalizeJournalSettings(out.journal);
   out.reader = normalizeReaderSettings(out.reader);
+  out.graph = normalizeGraphPrivacy(out.graph);
   out.weatherSource = normalizeWeatherSource(out.weatherSource);
   out.phoneAlerts = normalizePhoneAlertSettings(out.phoneAlerts);
   // Settings from before the brain had one AI choice; it becomes the active connection.

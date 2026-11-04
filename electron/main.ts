@@ -105,6 +105,7 @@ import { registerAbilitiesIpc } from './ipc/abilities';
 import { unwireAbilities, wireAbilities } from './services/abilities/wire';
 import { registerBrainIpc } from './ipc/brain';
 import { brainSettingsChanged, startBrain, stopBrain, syncBrain } from './services/brain';
+import { startGraphAll, stopGraphAll } from './services/graph-all';
 import { wireComputer } from './services/computer';
 import { initWritingMenu } from './services/writing';
 import { handleIntentUrl, registerIntentsHelper, type IntentDeps } from './services/intents';
@@ -1638,6 +1639,8 @@ let studioSince: number | undefined;
   onFeature('platform', (on) => (on ? void initPlatform(platformDeps) : stopPlatform()), { now: true });
   onFeature('widgets', () => syncWidgets());
   // The brain reads passages and serves AI apps once the saved library is in.
+  // The knowledge graph of everything: nothing runs until something asks for it.
+  startGraphAll({ index: () => index });
   void startBrain({ index: () => index, broadcast }).then(() => startAgents({
     // AI agents: actions behind permissions, the model gateway, skills, learning and the knowledge graph.
     index: () => index, journal: () => journal, files: () => files, broadcast, changed: libraryChanged,
@@ -1769,6 +1772,7 @@ app.on('before-quit', (e) => {
   if (pimInApp) void stopPim();
   void stopRemote();
   void stopAgents();
+  void stopGraphAll();
   unwireAbilities();
   stopBrain();
   void stopAgentTerminals();

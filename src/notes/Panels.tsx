@@ -6,6 +6,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
+import { RelatedPanel } from '../components/RelatedPanel';
 import { ContextMenu, type MenuItem } from '../components/ui';
 import { arrowNav } from '../a11y';
 import type { Bookmark } from '../../core/notes/config';
@@ -240,6 +241,12 @@ export function RecentPanel() {
   );
 }
 
+/** A note's path on disk, in the system's own way of writing paths. */
+function onDisk(vault: string, rel: string): string {
+  const sep = vault.includes('\\') && !vault.includes('/') ? '\\' : '/';
+  return vault.replace(/[\\/]+$/, '') + sep + rel.split('/').join(sep);
+}
+
 export function LinksPanel({ path }: { path: string | null }) {
   const n = useNotes();
   const [back, setBack] = useState<Awaited<ReturnType<typeof api.notes.backlinks>>>([]);
@@ -283,6 +290,8 @@ export function LinksPanel({ path }: { path: string | null }) {
           <Icon name={o.link.embed ? 'image' : 'link'} size={12} /><span>{o.resolved ? o.resolved.replace(/\.md$/, '') : `${o.link.target} (not created)`}</span>
         </button>
       ))}
+      {/* Mail, people, events and files the knowledge graph links to this note. */}
+      <RelatedPanel target={{ path: onDisk(n.vault.path, path) }} testid="notes-related" />
     </div>
   );
 }

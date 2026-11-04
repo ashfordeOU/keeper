@@ -9,6 +9,7 @@ import { api } from '../api';
 import { useStore } from '../state';
 import { Icon } from './Icon';
 import { InspectorAi } from './InspectorAi';
+import { RelatedPanel } from './RelatedPanel';
 import { FileVersions } from '../screens/Sync';
 import '../styles/screens-a.css';
 import { FilePreview } from '../preview/Preview';
@@ -163,6 +164,9 @@ export function Inspector({ frozen = false }: { frozen?: boolean } = {}) {
       <InspectorAi file={file} onRenamed={(to, n) => { const next = { ...file, path: to, name: n }; setFile(next); setFocused(next); }} />
 
       <FileVersions path={file.path} />
+
+      {/* People, mail, events and notes the knowledge graph links to this file. */}
+      <RelatedPanel target={{ path: file.path }} testid="inspector-related" />
 
       <div className="col">
         <h3>Tags</h3>

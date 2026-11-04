@@ -36,6 +36,7 @@ import { poll, pollNow } from '../governor';
 import { cidMap, compose, MailAccount, smtpSend, smtpVerify, toBody, type Auth } from './mail';
 import { dav, deleteHref, discover, fetchContacts, fetchIcs, graphCalendars, graphDelete, graphEvents, graphSave, putEvent, putTodo, syncCalendar, type DavAuth } from './dav';
 import { accessToken, cancelSignIn, clientFor, saveTokens, signIn } from './oauth';
+import { keeperUrl } from '../../../core/origin';
 import { assertSecretReadable, dropSecret, emptyState, files, hash, loadAccounts, loadContacts, loadState, putSecret, readJson, readSecret, saveAccounts, writeJson, type EventCache, type FolderCache, type PendingOp, type PimState } from './store';
 import { extendTimer } from '../../../core/widget-timer';
 import { evaluateRules, planActions, SIEVE_SCRIPT, toSieve, type Rule } from '../../../core/pim/rules';
@@ -2057,6 +2058,8 @@ export const pim: PimApi = {
     }
     await fsp.mkdir(path.dirname(dest), { recursive: true });
     await fsp.writeFile(dest, content);
+    // Where it came from (the system's "Where from"), so the knowledge graph links the file to this email.
+    void import('../origin-mark').then((m) => m.markOrigin(dest!, { url: keeperUrl('mail', id) })).catch(() => undefined);
     return dest;
   },
   async openAttachment(id, att) {
@@ -2615,7 +2618,7 @@ export async function threadOf(id: string): Promise<MessageSummary[]> {
 }
 
 /** For tests and the agents layer. */
-export const pimInternals = { load, state: () => state, accounts: () => accounts };
+export const pimInternals = { load, state: () => state, accounts: () => accounts, everywhere: () => cachedEverywhere(), events: () => events };
 
 /**
  * Read-only: the raw schema.org JSON-LD blocks (<script type="application/ld+json">) of a

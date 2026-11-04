@@ -5,6 +5,7 @@
 import { dialog, ipcMain } from 'electron';
 import type { Permission } from '../../core/brain/actions';
 import * as ag from '../services/agents';
+import * as ga from '../services/graph-all';
 
 function handle(name: string, fn: (...args: never[]) => unknown) {
   ipcMain.handle(`agents.${name}`, async (_e, ...args) => fn(...(args as never[])));
@@ -56,4 +57,12 @@ export function registerAgentsIpc() {
   handle('forget', () => ag.forgetLearning());
   handle('record', (e: Parameters<typeof ag.record>[0]) => ag.record(e));
   handle('graph', (o?: Parameters<typeof ag.graph>[0]) => ag.graph(o));
+  // The knowledge graph of everything and search over every kind (electron/services/graph-all.ts).
+  handle('graphStatus', () => ga.status());
+  handle('graphView', (o?: Parameters<typeof ga.view>[0]) => ga.view(o ?? {}));
+  handle('graphFind', (q: string, kinds?: Parameters<typeof ga.find>[1]) => ga.find(String(q ?? ''), kinds));
+  handle('graphRelated', (ref: Parameters<typeof ga.relatedTo>[0], o?: Parameters<typeof ga.relatedTo>[1]) => ga.relatedTo(ref, o));
+  handle('graphExplain', (a: string, b: string) => ga.explainLink(String(a), String(b)));
+  handle('graphAddToNote', (id: string) => ga.addToNote(String(id)));
+  handle('searchEverything', (q: string, o?: Parameters<typeof ga.searchEverything>[1]) => ga.searchEverything(String(q ?? ''), o));
 }
