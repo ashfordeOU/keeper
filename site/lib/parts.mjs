@@ -17,18 +17,18 @@ export const PIECES = {
 
 /** The parts, in the order of the grid. `runs` is what keeps running while it is on. */
 export const PARTS = [
-  { id: 'files', name: 'Files', on: true, shot: 'home', runs: 'Watches your folders for new files', needs: [] },
+  { id: 'files', name: 'Files', on: true, shot: 'files', runs: 'Watches your folders for new files', needs: [] },
   { id: 'island', name: 'Island', on: true, shot: 'island-expanded', runs: 'A small bar at the top of the screen', needs: [] },
   { id: 'tidy', name: 'Tidy', on: true, shot: 'space', runs: 'Nothing until you scan', needs: [] },
-  { id: 'privacy', name: 'Privacy & Security', on: true, shot: 'privacy', runs: 'Checks new downloads', needs: [] },
+  { id: 'privacy', name: 'Privacy & Security', on: true, shot: 'network', runs: 'Checks new downloads', needs: [] },
   { id: 'awake', name: 'Keep Awake', on: true, shot: 'awake', runs: 'Only during a session', needs: [] },
-  { id: 'mail', name: 'Mail & Calendar', on: false, shot: 'island-expanded', runs: 'Checks your mail', needs: [] },
+  { id: 'mail', name: 'Mail & Calendar', on: false, shot: 'mail', runs: 'Checks your mail', needs: [] },
   { id: 'notes', name: 'Notes', on: false, shot: 'notes', runs: 'Nothing in the background', needs: [] },
-  { id: 'studio', name: 'Studio', on: false, shot: 'stage', runs: 'Only while you record', needs: ['video'] },
+  { id: 'studio', name: 'Studio', on: false, shot: 'studio', runs: 'Only while you record', needs: ['video'] },
   { id: 'ai', name: 'AI', on: false, shot: 'dictation', runs: 'Only when you ask', needs: ['ai', 'video'] },
-  { id: 'sync', name: 'Sync & Backup', on: false, shot: 'devices', runs: 'Syncs on a schedule', needs: ['cloud'] },
+  { id: 'sync', name: 'Sync & Backup', on: false, shot: 'mesh', runs: 'Syncs on a schedule', needs: ['cloud'] },
   { id: 'devices', name: 'Devices', on: false, shot: 'devices', runs: 'Waits for your other devices', needs: [] },
-  { id: 'desktop', name: 'Desktop', on: false, shot: 'ambience', runs: 'Widgets and wallpaper on screen', needs: [] },
+  { id: 'desktop', name: 'Desktop', on: false, shot: 'themes', runs: 'Widgets and wallpaper on screen', needs: [] },
 ];
 
 /** The ids switched on by default. */

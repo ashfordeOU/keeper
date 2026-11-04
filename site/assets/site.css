@@ -788,3 +788,165 @@ h1, h2, .say { text-wrap:balance; }
 @media (max-width:700px) { .hero .dl-note { min-height:3.2em; } }
 .pnl-stage .monitor .panel img { object-fit:contain; object-position:center; }
 .spot p.kicker, .fgroup > p.kicker { font-size:12.5px; margin:0; }
+
+/* ================================================================ downloads
+   "Your download is starting": the next steps under the button that was pressed, and the small
+   page each download address shows for a moment (download/<target>/). */
+.dl-next { position:relative; max-width:440px; margin:14px 0 0; padding:14px 44px 14px 18px; border-radius:var(--r-md); background:var(--card); box-shadow:var(--shadow-md); font-size:14.5px; text-align:left; animation:rise .35s var(--ease) both; }
+.dl-next p { margin:0; }
+.dl-next ol { margin:8px 0 0; padding-left:20px; color:var(--muted); }
+.dl-next .x { position:absolute; top:8px; right:8px; width:32px; height:32px; border:0; border-radius:999px; background:transparent; color:var(--muted); font-size:20px; cursor:pointer; }
+.dl-next .x:hover { background:var(--soft); color:var(--ink); }
+.hero .dl-next { margin-left:auto; margin-right:auto; }
+body.redirect main { min-height:70vh; display:flex; flex-direction:column; justify-content:center; }
+
+/* ================================================================ Try the Island: a desktop
+   A small, calm desktop under the notch: Keeper's ambient wallpaper, a few files, three of
+   Keeper's widgets and a Dock of its app icons. The Island wears the colours picked below it
+   (core/island-look.ts: a gradient from the theme's colours when open; black with a glowing
+   edge on a notch when closed). Everything here is drawn in CSS; nothing is a screenshot. */
+.isl-stage.desk { height:540px; background:#1b1236; --isl-s0:#3b2a8c; --isl-s1:#8a2f86; --isl-s2:#d2537a; --isl-ink:#fff; --isl-muted:rgba(255,255,255,.72); --isl-tile:rgba(255,255,255,.1); --isl-btn:rgba(255,255,255,.16); --isl-accent:#ffb45e; --isl-edge:#c9a8ff; }
+.isl-stage.desk[data-isl-look="ocean"] { --isl-s0:#0b3a5c; --isl-s1:#0f6a86; --isl-s2:#1a8f9a; --isl-accent:#7ee0ff; --isl-edge:#7ee0ff; }
+.isl-stage.desk[data-isl-look="sunset"] { --isl-s0:#ffe1cf; --isl-s1:#ffc6cf; --isl-s2:#f2c9ff; --isl-ink:#2a1530; --isl-muted:rgba(42,21,48,.7); --isl-tile:rgba(255,255,255,.55); --isl-btn:rgba(42,21,48,.1); --isl-accent:#c2410c; --isl-edge:#ff8a5b; }
+.isl-stage.desk[data-isl-look="berry"] { --isl-s0:#a21caf; --isl-s1:#6d28d9; --isl-s2:#be185d; --isl-accent:#ffd1f0; --isl-edge:#f0abfc; }
+.isl-stage.desk[data-isl-look="dark"] { --isl-s0:#0a0a0c; --isl-s1:#111114; --isl-s2:#0a0a0c; --isl-accent:#b98bff; --isl-edge:#b98bff; }
+.desk .wall { position:absolute; inset:0; overflow:hidden; background:linear-gradient(160deg, #2a1b5e, #57257a 45%, #b2456f 80%, #e2876a); }
+.desk .wall i { position:absolute; width:60%; aspect-ratio:1; border-radius:50%; filter:blur(60px); opacity:.55; }
+.desk .wall i:nth-child(1) { left:-12%; top:-20%; background:#6b3dff; }
+.desk .wall i:nth-child(2) { right:-15%; top:10%; background:#ff5f8f; }
+.desk .wall i:nth-child(3) { left:25%; bottom:-35%; background:#ffb45e; opacity:.45; }
+.desk .menubar { z-index:3; background:rgba(14,8,32,.32); backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px); }
+.desk .mb-left { display:inline-flex; align-items:center; gap:16px; }
+.desk .mb-left span { font-weight:500; opacity:.85; }
+.mb-owl { fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+
+/* The Island on the desktop: black on the notch with an edge in the accent, colours when open. */
+.desk .isl-mock { z-index:4; color:var(--isl-ink); background:#0a0a0c; box-shadow:0 10px 30px rgba(0,0,0,.4), inset 0 -2px 0 color-mix(in srgb, var(--isl-edge) 85%, transparent); transition:width .5s cubic-bezier(.3, 1.3, .5, 1), height .5s cubic-bezier(.3, 1.3, .5, 1), border-radius .4s var(--ease), background .6s; }
+.desk .isl-mock .isl-pill { color:#f4f4f5; }
+.desk .isl-mock .isl-pill .r { color:var(--isl-edge); }
+.desk .isl-mock.open { background:radial-gradient(120% 90% at 0% 0%, rgba(255,255,255,.14), transparent 55%), linear-gradient(135deg, var(--isl-s0), var(--isl-s1) 55%, var(--isl-s2)); box-shadow:0 18px 50px rgba(0,0,0,.4); }
+.desk .isl-full .top { color:var(--isl-muted); }
+.desk .isl-full .top b { color:var(--isl-ink); background:var(--isl-btn); }
+.desk .tile { background:var(--isl-tile); }
+.desk .tile .muted, .desk .ctrl { color:var(--isl-muted); }
+.desk .ibtn, .desk .pillbtn { background:var(--isl-btn); color:var(--isl-ink); }
+.desk .ibtn.main { background:var(--isl-ink); color:var(--isl-s0); }
+.desk .scrub { background:color-mix(in srgb, var(--isl-ink) 18%, transparent); }
+.desk .scrub i { background:var(--isl-accent); }
+.desk .batt .cell, .desk .batt .cell::after { border-color:var(--isl-muted); }
+.desk .batt .cell::after { background:var(--isl-muted); }
+.desk .wave { display:flex; align-items:center; justify-content:space-between; height:24px; }
+.desk .wave i { flex:none; width:3px; height:30%; border-radius:2px; background:var(--isl-accent); opacity:.85; }
+.desk .wave i:nth-child(3n) { height:70%; } .desk .wave i:nth-child(4n+1) { height:50%; } .desk .wave i:nth-child(5n+2) { height:90%; }
+.desk .music .lyric { min-height:1.4em; }
+
+/* A notice dropping out of the closed Island now and then. */
+.isl-note { position:absolute; left:0; right:0; top:34px; display:flex; align-items:center; gap:10px; padding:0 14px; height:46px; color:#f4f4f5; font-size:12.5px; opacity:0; }
+.isl-note b { display:block; font-size:12px; color:var(--isl-edge); }
+.isl-note .nic { width:26px; height:26px; flex:none; border-radius:8px; background:linear-gradient(135deg, var(--isl-s1), var(--isl-s2)); }
+.desk .isl-mock.note:not(.open) { height:84px; border-radius:0 0 22px 22px; }
+.desk .isl-mock.note:not(.open) .isl-note { opacity:1; transition:opacity .3s .2s; }
+
+/* Widgets: the clock, the weather and the week, in Keeper's widget style. */
+.widgets { position:absolute; left:22px; top:58px; z-index:1; display:grid; gap:12px; width:190px; }
+.wdg { display:flex; align-items:center; gap:12px; padding:12px 14px; border-radius:18px; color:#fff; background:rgba(255,255,255,.14); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); box-shadow:inset 0 0 0 1px rgba(255,255,255,.16), 0 10px 30px rgba(20,8,50,.25); font-size:13px; line-height:1.25; }
+.wdg b { display:block; font-size:20px; font-weight:700; font-variant-numeric:tabular-nums; }
+.wdg small { display:block; color:rgba(255,255,255,.78); font-size:11.5px; }
+.wdg .face { position:relative; width:46px; height:46px; flex:none; border-radius:50%; background:rgba(255,255,255,.92); }
+.wdg .face i { position:absolute; left:50%; bottom:50%; width:2px; margin-left:-1px; border-radius:2px; background:#1d1530; transform-origin:50% 100%; transform:rotate(var(--a, 0deg)); }
+.wdg .face .h { height:12px; width:3px; margin-left:-1.5px; }
+.wdg .face .m { height:17px; }
+.wdg .face .s { height:19px; width:1px; margin-left:-.5px; background:#ff5f8f; }
+.wdg .sun { width:40px; height:40px; flex:none; margin-right:10px; border-radius:50%; background:radial-gradient(circle at 40% 40%, #ffe08a, #ffb45e 60%, #ff8a5b); box-shadow:0 0 20px rgba(255,180,94,.6); position:relative; }
+.wdg .sun::after { content:""; position:absolute; right:-10px; bottom:-2px; width:34px; height:18px; border-radius:12px; background:rgba(255,255,255,.95); }
+.wdg.week { display:block; }
+.wdg.week ol { display:grid; grid-template-columns:repeat(7, 1fr); gap:2px; margin:6px 0 0; padding:0; list-style:none; text-align:center; font-size:11px; font-weight:700; }
+.wdg.week li { position:relative; padding:4px 0 8px; border-radius:8px; }
+.wdg.week li.today { background:rgba(255,255,255,.9); color:#2a1b5e; }
+.wdg.week li.dot::after { content:""; position:absolute; left:50%; bottom:2px; width:4px; height:4px; margin-left:-2px; border-radius:50%; background:#ffb45e; }
+
+/* Files on the desktop, and one that lands. */
+.desk-icons { position:absolute; right:22px; top:58px; z-index:1; display:grid; gap:14px; width:96px; margin:0; padding:0; list-style:none; color:#fff; font-size:11.5px; font-weight:600; text-align:center; text-shadow:0 1px 3px rgba(0,0,0,.45); }
+.desk-icons li { display:grid; justify-items:center; gap:4px; }
+.fi { position:relative; display:grid; place-items:center; width:52px; height:42px; }
+.fi.folder { background:linear-gradient(#8ec5ff, #4f8ff7); border-radius:6px 6px 8px 8px; box-shadow:0 6px 14px rgba(0,0,0,.25); }
+.fi.folder::before { content:""; position:absolute; left:0; top:-5px; width:22px; height:8px; border-radius:4px 4px 0 0; background:#6fa9fb; }
+.fi.folder.blue { background:linear-gradient(#c4b5ff, #8a6bff); } .fi.folder.blue::before { background:#a78bff; }
+.fi.shot { width:56px; height:38px; border-radius:5px; background:#fff; box-shadow:0 6px 14px rgba(0,0,0,.25); padding:4px; }
+.fi.shot i { display:block; width:100%; height:100%; border-radius:3px; background:linear-gradient(135deg, #6b3dff, #ff5f8f); }
+.fi.pdf { width:38px; height:48px; border-radius:4px; background:#fff; color:#d23b3b; font-size:10px; font-weight:800; text-shadow:none; box-shadow:0 6px 14px rgba(0,0,0,.25); }
+.landed.pending { opacity:0; transform:translateY(-30px) scale(.6); }
+.landed { transition:opacity .4s, transform .6s cubic-bezier(.3, 1.4, .5, 1); }
+
+/* The Dock: Keeper and its light apps. */
+.dock { position:absolute; left:50%; bottom:16px; z-index:2; display:flex; gap:10px; padding:9px 12px; transform:translateX(-50%); border-radius:22px; background:rgba(255,255,255,.18); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); box-shadow:inset 0 0 0 1px rgba(255,255,255,.22), 0 16px 40px rgba(20,8,50,.35); }
+.dock .app { display:grid; place-items:center; width:46px; height:46px; border-radius:12px; color:#fff; box-shadow:0 4px 10px rgba(0,0,0,.2); transition:transform .25s var(--ease); }
+.dock .app svg { width:26px; height:26px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+.dock .app img { width:46px; height:46px; }
+.dock .keeper { background:none; box-shadow:none; }
+.dock .mail { background:linear-gradient(135deg, #4f8ff7, #2f6fe0); }
+.dock .notes { background:linear-gradient(135deg, #ffc65e, #f59e0b); }
+.dock .cal { background:linear-gradient(135deg, #ff6b6b, #e23b3b); }
+.dock .files { background:linear-gradient(135deg, #7c8aa5, #4b5872); }
+.dock .studio { background:linear-gradient(135deg, #ff6fa3, #e0457b); }
+.dock .term { background:linear-gradient(135deg, #2b2d3a, #15161d); }
+
+/* The colour chips, and the hint that fades once you've tried it. */
+.looks { position:absolute; left:18px; bottom:22px; z-index:3; display:flex; align-items:center; gap:2px; padding:4px 5px 4px 12px; border-radius:999px; background:rgba(14,8,32,.42); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); color:rgba(255,255,255,.88); font-size:12.5px; font-weight:650; }
+.looks .lbl { margin-right:4px; }
+.looks button { display:grid; place-items:center; width:32px; height:32px; padding:0; border:0; border-radius:999px; background:transparent; cursor:pointer; }
+.looks button:hover { background:rgba(255,255,255,.14); }
+.looks button[aria-pressed="true"] { background:rgba(255,255,255,.9); }
+.looks .dot { width:16px; height:16px; border-radius:50%; box-shadow:inset 0 0 0 1px rgba(255,255,255,.45); }
+.looks [data-look="playful"] .dot { background:linear-gradient(135deg, #3b2a8c, #d2537a); }
+.looks [data-look="ocean"] .dot { background:linear-gradient(135deg, #0b3a5c, #1a8f9a); }
+.looks [data-look="sunset"] .dot { background:linear-gradient(135deg, #ffb08a, #e9a6ff); }
+.looks [data-look="berry"] .dot { background:linear-gradient(135deg, #a21caf, #be185d); }
+.looks [data-look="dark"] .dot { background:#0a0a0c; }
+.desk .hint { left:18px; right:auto; bottom:74px; width:auto; padding:6px 12px; border-radius:999px; background:rgba(14,8,32,.4); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); font-size:12.5px; font-weight:600; transition:opacity .5s, transform .5s var(--ease); }
+.desk.used .hint { opacity:0; transform:translateY(6px); pointer-events:none; }
+html:not(.js) .looks { display:none; }
+
+@media (max-width:1100px) { .desk .widgets { width:170px; } .desk .wdg.week { display:none; } }
+@media (max-width:900px) {
+  .desk .widgets, .desk .desk-icons { display:none; }
+  .desk .looks { left:50%; bottom:84px; transform:translateX(-50%); }
+  .desk .hint { left:50%; bottom:136px; transform:translateX(-50%); white-space:nowrap; }
+  .desk.used .hint { transform:translate(-50%, 6px); }
+}
+@media (max-width:620px) {
+  .isl-stage.desk { height:620px; }
+  .desk .dock { gap:6px; padding:7px 9px; border-radius:18px; }
+  .desk .dock .app, .desk .dock .app img { width:36px; height:36px; border-radius:10px; }
+  .desk .dock .app svg { width:20px; height:20px; }
+  .desk .dock .studio, .desk .dock .term { display:none; }
+  .desk .hint { bottom:136px; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .desk.live .wall i:nth-child(1) { animation:drift-a 38s ease-in-out infinite alternate; }
+  .desk.live .wall i:nth-child(2) { animation:drift-b 46s ease-in-out infinite alternate; }
+  .desk.live .wall i:nth-child(3) { animation:drift-a 52s -12s ease-in-out infinite alternate-reverse; }
+  .desk.live .wave i { animation:eq 1.1s ease-in-out infinite; transform-origin:center; }
+  .desk.live .wave i:nth-child(2n) { animation-delay:-.35s; } .desk.live .wave i:nth-child(3n) { animation-delay:-.7s; } .desk.live .wave i:nth-child(5n) { animation-delay:-.2s; }
+  .desk.paused .wave i { animation-play-state:paused; }
+  .desk .wdg .face i { transition:transform .3s cubic-bezier(.3, 1.6, .5, 1); }
+  .desk .dock .app:hover { transform:translateY(-6px) scale(1.08); }
+  .desk.live .isl-mock:not(.open) { animation:edge-glow 4.5s ease-in-out infinite; }
+}
+@keyframes drift-a { from { transform:translate(0, 0) scale(1); } to { transform:translate(8%, 6%) scale(1.12); } }
+@keyframes drift-b { from { transform:translate(0, 0) scale(1.05); } to { transform:translate(-10%, 8%) scale(.95); } }
+@keyframes edge-glow { 0%, 100% { box-shadow:0 10px 30px rgba(0,0,0,.4), inset 0 -2px 0 color-mix(in srgb, var(--isl-edge) 60%, transparent); } 50% { box-shadow:0 10px 30px rgba(0,0,0,.4), inset 0 -2px 0 var(--isl-edge), 0 6px 24px -6px var(--isl-edge); } }
+@media (prefers-reduced-motion: reduce) { .desk .wdg .face .s { display:none; } }
+
+/* ================================================================ more parts: small cards with a picture */
+.cards { list-style:none; margin:var(--head-gap) 0 0; padding:0; display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:var(--gap); }
+@media (max-width:1000px) { .cards { grid-template-columns:repeat(2, minmax(0, 1fr)); } }
+@media (max-width:480px) { .cards { grid-template-columns:1fr; } }
+.card-item { padding:10px 10px 18px; border-radius:var(--radius); background:var(--card); box-shadow:var(--shadow-panel); }
+.card-item .thumb { margin:0 0 14px; aspect-ratio:16 / 10; overflow:hidden; border-radius:var(--r-sm); background:var(--soft); }
+.card-item .thumb .shot img { display:block; width:100%; height:100%; object-fit:cover; object-position:top left; }
+.card-item h3 { margin:0 8px 4px; font-size:17px; letter-spacing:-.01em; }
+.card-item p { margin:0 8px; color:var(--muted); font-size:14.5px; line-height:1.45; }
+.spot .pic, .fshots .shot.pic { margin:0; }
+.spot .pic img, .fshots .shot.pic img { display:block; border-radius:var(--r-md); box-shadow:var(--shadow-md); }

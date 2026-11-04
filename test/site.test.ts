@@ -78,7 +78,8 @@ describe('website', () => {
 
 describe('website pages', () => {
   const html = (p: string) => readFileSync(path.join(out, p), 'utf8');
-  const pages = () => files(out).filter((p) => p.endsWith('.html'));
+  // The site's pages (the download addresses' small pages that send you on are checked on their own).
+  const pages = () => files(out).filter((p) => p.endsWith('.html') && !/^download\/[^/]+\/index\.html$/.test(p));
 
   it('gives every page its own 1200 × 630 preview image from the site itself', () => {
     for (const f of pages()) {
@@ -140,6 +141,19 @@ describe('website pages', () => {
       expect(existsSync(p), f).toBe(true);
       expect(readFileSync(p).length, f).toBeLessThan(300 * 1024);
     }
+  });
+
+  it('writes British English, keeps the theme choice under keeper-theme and says it has no tracking', () => {
+    const us = /\b(colors?|colored|colorful|center(ed)?|organiz\w*|favorites?|notariz\w*|recogniz\w*|optimiz\w*|behaviors?|gray|catalog|canceled|customiz\w*|summariz\w*|labeled)\b/i;
+    for (const f of readdirSync(path.join(ROOT, 'site/pages')).filter((p) => p.endsWith('.html') && p !== 'changelog.html')) {
+      const text = readFileSync(path.join(ROOT, 'site/pages', f), 'utf8').replace(/<(style|script|pre|code)\b[\s\S]*?<\/\1>/g, ' ').replace(/<[^>]+>/g, ' ').replace(/\{\{[^}]*\}\}/g, ' ');
+      expect(text.match(us)?.[0], f).toBeUndefined();
+    }
+    const home = html('index.html');
+    expect(home).toContain("localStorage.getItem('keeper-theme')");
+    expect(home).toContain("localStorage.removeItem('keeper-site-theme')");
+    expect(html('assets/site.js')).not.toContain('keeper-site-theme');
+    for (const f of pages()) expect(html(f), f).toContain('This site has no tracking and no cookies.');
   });
 
   it('keeps headlines short and never offers betas', () => {
@@ -237,6 +251,72 @@ describe('website: the interactive parts', () => {
     expect(tick({ ...s, playing: false, timerOn: false })).toMatchObject({ song: 213, timer: 1 });
   });
 
+  it('Try the Island on a desktop: the clock hands, the notices that drop and the colours', async () => {
+    const { handAngles, deskEvent, DESK_EVENTS, lookOf, LOOKS } = await load('island.mjs');
+    expect(handAngles(new Date(2026, 10, 4, 9, 30, 15))).toEqual({ h: 285.125, m: 181.5, s: 90 });
+    expect(handAngles(new Date(2026, 10, 4, 0, 0, 0))).toEqual({ h: 0, m: 0, s: 0 });
+    expect(deskEvent(0).kind).toBe('download');
+    expect([deskEvent(DESK_EVENTS.length), deskEvent(-1)]).toEqual([DESK_EVENTS[0], DESK_EVENTS[DESK_EVENTS.length - 1]]);
+    expect(LOOKS).toEqual(['playful', 'ocean', 'sunset', 'berry', 'dark']);
+    expect([lookOf('ocean'), lookOf('nope')]).toEqual(['ocean', 'playful']);
+    const home = readFileSync(path.join(out, 'index.html'), 'utf8');
+    const stage = home.slice(home.indexOf('data-island'), home.indexOf('id="tour"'));
+    // A desktop, written out in full: wallpaper, widgets, files, the Dock, the colour chip and a short hint.
+    for (const bit of ['class="wall"', 'class="widgets"', 'class="desk-icons"', 'class="dock"', 'data-desk-drop', 'data-isl-note']) expect(stage, bit).toContain(bit);
+    expect(stage.match(/data-look="/g)?.length).toBe(LOOKS.length);
+    expect(stage.match(/aria-pressed="true" data-look=/g)?.length).toBe(1);
+    expect(stage).toContain('<p class="hint" aria-hidden="true">Hover or tap the Island</p>');
+    // Its motion stops for people who ask for less.
+    const css = readFileSync(path.join(out, 'assets/site.css'), 'utf8');
+    const free = css.slice(css.lastIndexOf('@media (prefers-reduced-motion: no-preference)'));
+    expect(free).toMatch(/\.desk\.live \.wall i:nth-child\(1\) \{ animation:drift-a/);
+  });
+
+  it('download addresses on keeper.ashforde.org send you to the file on GitHub Releases', async () => {
+    const { TARGETS, latestUrl, targetFor, fileUrl, plainClick } = await load('downloads.mjs');
+    // The files a release has: electron-builder.yml's names, and the offline (-full) copies release.yml makes.
+    const builder = readFileSync(path.join(ROOT, 'electron-builder.yml'), 'utf8');
+    const release = readFileSync(path.join(ROOT, '.github/workflows/release.yml'), 'utf8');
+    expect(builder).toContain('artifactName: ${productName}-${os}-${arch}.${ext}');
+    expect(builder).toContain('artifactName: ${productName}-setup-${arch}.${ext}');
+    expect(builder).toContain('artifactName: ${productName}-linux-${arch}.${ext}');
+    expect(release).toContain('full="${base%.*}-full.${base##*.}"');
+    const made = new Set<string>();
+    for (const full of ['', '-full']) {
+      for (const a of ['arm64', 'x64']) made.add(`Keeper-mac-${a}${full}.dmg`);
+      made.add(`Keeper-setup-x64${full}.exe`);
+      for (const a of ['x86_64', 'arm64']) made.add(`Keeper-linux-${a}${full}.AppImage`);
+    }
+    for (const f of ['Keeper-linux-amd64.deb', 'Keeper-linux-arm64.deb', 'Keeper-linux-x86_64.rpm', 'Keeper-linux-aarch64.rpm']) made.add(f);
+    const slugs = TARGETS.map((t: { slug: string }) => t.slug);
+    expect(slugs).toEqual(['mac-arm64', 'mac-intel', 'mac-arm64-full', 'mac-intel-full', 'windows', 'windows-full', 'linux-x64', 'linux-arm64', 'deb', 'rpm']);
+    for (const t of TARGETS as { slug: string; file: string }[]) {
+      expect(made.has(t.file), t.file).toBe(true);
+      const page = path.join(out, 'download', t.slug, 'index.html');
+      expect(existsSync(page), t.slug).toBe(true);
+      const html = readFileSync(page, 'utf8');
+      expect(html).toContain('<meta name="robots" content="noindex">');
+      expect(html).toContain(`<meta http-equiv="refresh" content="0; url=https://github.com/ashfordeOU/keeper/releases/latest/download/${t.file}">`);
+      expect(html).toContain('Your download is starting.');
+      expect(html).toContain(`href="${latestUrl(t.file)}"`);
+    }
+    // Not in the sitemap; the Download page itself stays the page for people.
+    const map = readFileSync(path.join(out, 'sitemap.xml'), 'utf8');
+    expect(map).toContain('<loc>https://keeper.ashforde.org/download/</loc>');
+    expect(map).not.toMatch(/download\/[a-z0-9-]+\/<\/loc>/);
+    expect([targetFor('mac', 'arm64'), targetFor('mac', 'x64'), targetFor('windows', 'arm64'), targetFor('linux', 'arm64'), targetFor('mobile', 'x64')]).toEqual(['mac-arm64', 'mac-intel', 'windows', 'linux-arm64', null]);
+    // GitHub's "latest" address once a full release exists; until then the newest test build that has the file.
+    const pre = [{ pre: true, assets: [{ n: 'Keeper-mac-arm64.dmg', u: 'https://github.com/x/1' }] }];
+    expect(fileUrl(pre, 'Keeper-mac-arm64.dmg')).toBe('https://github.com/x/1');
+    expect(fileUrl(pre, 'Keeper-setup-x64.exe')).toBeNull();
+    expect(fileUrl([{ pre: false, assets: [] }, ...pre], 'Keeper-setup-x64.exe')).toBe(latestUrl('Keeper-setup-x64.exe'));
+    expect([plainClick({ button: 0 }), plainClick({ button: 0, metaKey: true }), plainClick({ button: 0, ctrlKey: true }), plainClick({ button: 0, shiftKey: true }), plainClick({ button: 1 })]).toEqual([true, false, false, false, false]);
+    // The buttons show Keeper's own address and go straight to the file on a plain click.
+    const js = readFileSync(path.join(out, 'assets/site.js'), 'utf8');
+    expect(js).toContain('download/${t.slug}/');
+    expect(js).toContain('if (!plainClick(e)) return;');
+  });
+
   it('the lid demo follows the hand-over: Keeper only when it says yes, asleep on battery', async () => {
     const { lidSteps, lidOwner } = await load('lid.mjs');
     expect(lidOwner({ keeperReady: true, pluggedIn: true })).toBe('keeper');
@@ -252,7 +332,8 @@ describe('website: the interactive parts', () => {
 describe('website: devices that move', () => {
   const load = (name: string) => import(path.join(ROOT, 'site/lib', name));
   const built = (p: string) => readFileSync(path.join(out, p), 'utf8');
-  const pages = () => files(out).filter((p) => p.endsWith('.html'));
+  // The site's pages (the download addresses' small pages that send you on are checked on their own).
+  const pages = () => files(out).filter((p) => p.endsWith('.html') && !/^download\/[^/]+\/index\.html$/.test(p));
 
   it('the hero laptop leans a few degrees at most, towards the pointer and back with the scroll', async () => {
     const { tilt, scrolled, clamp, MAX_TILT } = await load('motion.mjs');

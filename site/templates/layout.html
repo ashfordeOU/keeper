@@ -20,17 +20,17 @@
 <meta name="theme-color" content="#0E0B1D" media="(prefers-color-scheme: dark)">
 <link rel="icon" href="{{root}}assets/keeper.svg" type="image/svg+xml">
 <link rel="stylesheet" href="{{root}}assets/site.css">
-<script>try { const t = localStorage.getItem('keeper-site-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {} document.documentElement.classList.add('js'); setTimeout(function () { if (!window.keeperSite) document.documentElement.classList.remove('js'); }, 2500);</script>
+<script>try { let t = localStorage.getItem('keeper-theme'); const old = localStorage.getItem('keeper-site-theme'); if (old !== null) { if (t === null && (old === 'light' || old === 'dark')) { t = old; localStorage.setItem('keeper-theme', old); } localStorage.removeItem('keeper-site-theme'); } if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {} document.documentElement.classList.add('js'); setTimeout(function () { if (!window.keeperSite) document.documentElement.classList.remove('js'); }, 2500);</script>
 <script type="module" src="{{root}}assets/site.js"></script>
 </head>
-<body class="{{bodyclass}}">
+<body class="{{bodyclass}}" data-root="{{root}}">
 <a class="skip" href="#main">Skip to the content</a>
 <header class="top">
   <div class="wrap">
     <div class="pill-nav">
       <a class="brand" href="{{root}}"><img src="{{root}}assets/keeper.svg" alt="" width="30" height="30"><span>Keeper</span> <small>by Ashforde®</small></a>
       <nav class="links" id="site-nav" aria-label="Site">{{nav}}</nav>
-      <div class="prefs" role="group" aria-label="Color scheme">
+      <div class="prefs" role="group" aria-label="Colour scheme">
         <button type="button" data-theme-choice="auto" aria-pressed="true" title="Match the system">Auto</button>
         <button type="button" data-theme-choice="light" aria-pressed="false" title="Light"><svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.5" fill="currentColor"/><g stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></g></svg><span class="sr">Light</span></button>
         <button type="button" data-theme-choice="dark" aria-pressed="false" title="Dark"><svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z"/></svg><span class="sr">Dark</span></button>
@@ -55,7 +55,7 @@
     </div>
     <div>
       <h2>Help</h2>
-      <ul><li><a href="{{root}}support/">Support and security</a></li><li><a href="https://github.com/ashfordeOU/keeper/blob/main/docs/INSTALL.md">Install guide</a></li><li><a href="https://github.com/ashfordeOU/keeper/issues">Report a problem</a></li><li><a href="{{root}}support/#license">License</a></li></ul>
+      <ul><li><a href="{{root}}support/">Support and security</a></li><li><a href="https://github.com/ashfordeOU/keeper/blob/main/docs/INSTALL.md">Install guide</a></li><li><a href="https://github.com/ashfordeOU/keeper/issues">Report a problem</a></li><li><a href="{{root}}support/#license">Licence</a></li></ul>
     </div>
     <div>
       <h2>Ashforde</h2>

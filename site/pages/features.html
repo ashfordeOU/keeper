@@ -32,70 +32,76 @@ description: Every part of Keeper, grouped as in Settings: Files, Mail & Calenda
   <div class="feat-body">
     <section class="fgroup" id="files" aria-labelledby="files-title">
       <p class="kicker">Files</p>
-      <h2 id="files-title">Your files, sorted and found.</h2>
-      <p>A file manager and a library that knows every file.</p>
+      <h2 id="files-title">Your files, like your system’s own.</h2>
+      <p>A sidebar of real places. Types and Everywhere to find the rest.</p>
       <div class="fshots">
-        {{win home "Keeper's Home: free space, the library by kind and recent downloads" "Home"}}
+        {{win home "Hello, Keeper’s start page: your folders, files to jump back into and today’s plan" "Hello"}}
+        {{win files "Documents in Keeper’s file manager, with type chips and counts above the files" "Files"}}
+        {{win everywhere "Everywhere: every file on this computer in one list, filtered by type" "Everywhere"}}
         {{win search "Search finds a screenshot by the Wi-Fi password written in it" "Search"}}
-        {{win quicklook "Quick Look showing a presentation, with the folder's other files along the bottom" "Quick Look"}}
+        {{win quicklook "Quick Look showing a presentation, with the folder’s other files along the bottom" "Quick Look"}}
       </div>
       <ul class="fparts">
-        <li><b>Library and search</b>By name, kind, date and what's inside.</li>
-        <li><b>Where downloads came from</b>So “pdfs from gmail” just works.</li>
-        <li><b>Text in pictures</b>Read on this computer.</li>
-        <li><b>Disks, cloud drives and servers</b>Free space and eject, in the sidebar.</li>
+        <li id="hello"><b>Hello</b>Your folders, recent files and today, first thing.</li>
+        <li><b>Places like Finder or File Explorer</b>Home, Documents, drives and servers.</li>
+        <li><b>Types and Everywhere</b>Every PDF or photo, wherever it is.</li>
+        <li><b>Search in plain words</b>Even the text inside pictures.</li>
         <li><b>Locked folders</b>Encrypted, so only you can open them.</li>
         <li><b>Cloud and servers</b>Your cloud storage and NAS in one place.</li>
       </ul>
     </section>
-
     <section class="fgroup" id="mail" aria-labelledby="mail-title">
       <p class="kicker">Mail &amp; Calendar</p>
-      <h2 id="mail-title">Every account, one inbox.</h2>
+      <h2 id="mail-title">Every account, one calm inbox.</h2>
       <p>Mail, calendars, tasks and a planner for your week.</p>
+      <div class="fshots">
+        {{win mail "Mail’s Today view: a greeting, today’s events with Join and the inbox" "Mail"}}
+        {{win calendar "Calendar: the week with events from several calendars" "Calendar"}}
+      </div>
       <ul class="fparts">
-        <li><b>Mail</b>Any account. Important and Other, snooze, send later.</li>
-        <li><b>Calendar and reminders</b>Your calendars and to-do lists, with alerts.</li>
+        <li><b>Mail Today</b>Your day and your inbox together.</li>
+        <li><b>Calendar and reminders</b>Your calendars and lists, with alerts.</li>
         <li><b>Planner</b>Today, the week ahead and the Inbox.</li>
-        <li><b>Insights</b>Tasks done and focus time, kept on this computer.</li>
-        <li><b>Alarms, timers and world clocks</b>Plus a stopwatch.</li>
+        <li><b>Alarms and world clocks</b>Plus timers and a stopwatch.</li>
       </ul>
     </section>
-
     <section class="fgroup" id="notes" aria-labelledby="notes-title">
       <p class="kicker">Notes</p>
       <h2 id="notes-title">Plain Markdown, in folders you own.</h2>
-      <p>Open any folder as a vault. Nothing locked in.</p>
+      <p>Notes, a journal and the sites you follow.</p>
       <div class="fshots">
         {{win notes "Notes: a garden plan with a checklist, a callout and its links" "Notes"}}
+        {{win journal "Journal: start a dated entry a day, kept as Markdown" "Journal"}}
+        {{win reader "Reader: an article from a followed site, kept to read offline" "Reader"}}
         {{win cues "Cues: notes and checklists tied to apps, sites and times" "Cues"}}
       </div>
       <ul class="fparts">
-        <li><b>Notes</b>Links, backlinks, daily notes, templates and a graph.</li>
-        <li><b>Cues</b>Notes that pop up when you open an app or site.</li>
+        <li><b>Notes</b>Links, backlinks, daily notes and a graph.</li>
+        <li id="journal"><b>Journal</b>Mood, photos and On this day.</li>
+        <li id="reader"><b>Reader</b>Feeds and pages saved for later, offline.</li>
+        <li><b>Cues</b>Notes that pop up with an app or site.</li>
         <li><b>Notes from other apps</b>Search them all in one place.</li>
       </ul>
     </section>
-
     <section class="fgroup" id="tidy" aria-labelledby="tidy-title">
       <p class="kicker">Tidy</p>
       <h2 id="tidy-title">Clean up, with nothing lost.</h2>
       <p>Everything goes to the Trash first. History can put it back.</p>
       <div class="fshots">
-        {{win space "The Space Map: folders as colored blocks sized by how much room they take" "Space Map"}}
+        {{win space "The Space Map: folders as coloured blocks sized by how much room they take" "Space Map"}}
         {{win duplicates "Duplicates: identical copies and look-alike photos side by side" "Duplicates"}}
-        {{win convert "Convert: PDF tools such as organize, merge, split and rotate pages" "Convert"}}
+        {{win convert "Convert: picture tools such as convert, resize and compress" "Convert"}}
+        {{win photo "Photo Editor: a landscape picture with light and colour sliders" "Photo Editor"}}
       </div>
       <ul class="fparts">
         <li><b>Clean Up</b>Caches, old installers and leftovers.</li>
         <li><b>Duplicates</b>Copies and look-alike photos.</li>
         <li><b>Convert</b>Pictures, video, sound and PDFs.</li>
+        <li id="photo"><b>Photo editor</b>Crop, light, blur and remove backgrounds.</li>
         <li><b>Automations</b>Rules that tidy folders for you.</li>
-        <li><b>Workflows</b>Tools joined into saved steps.</li>
         <li><b>Hide faces</b>Blur faces in pictures, on this computer.</li>
       </ul>
     </section>
-
     <section class="fgroup" id="sync" aria-labelledby="sync-title">
       <p class="kicker">Sync &amp; Backup</p>
       <h2 id="sync-title">Your folders, everywhere.</h2>
@@ -106,65 +112,61 @@ description: Every part of Keeper, grouped as in Settings: Files, Mail & Calenda
         <li><b>Cloud mirrors</b>A copy in the cloud you choose.</li>
       </ul>
     </section>
-
     <section class="fgroup" id="computer" aria-labelledby="computer-title">
       <p class="kicker">Computer</p>
-      <h2 id="computer-title">Know what your computer is doing.</h2>
-      <p>Health, processes, startup items and Keep Awake.</p>
+      <h2 id="computer-title">Know where your time and power go.</h2>
+      <p>Health, focus, time and the sites you look after.</p>
       <div class="fshots">
         {{win monitor "Health: processor, memory, network, disk and battery at a glance" "Health"}}
-        {{win monitor-history "Health history: charts of processor, memory and network over time" "History"}}
-        {{win awake "Keep Awake: start a session for a while, until a time or while something runs" "Keep Awake"}}
-        {{win settingsplus "Hidden system settings, each with a preview and undo" "System Settings+"}}
+        {{win time "Time Tracking: a day’s timeline with projects, apps and sites" "Time Tracking"}}
+        {{win blocking "Focus Blocking: lists of sites and apps blocked while you focus" "Focus Blocking"}}
+        {{win monitors "Monitors: a website’s uptime, response times and recent checks" "Monitors"}}
       </div>
       <ul class="fparts">
         <li id="awake"><b>Keep awake</b>For a while, until a time, or lid closed.</li>
+        <li id="time"><b>Time tracking</b>Apps, documents and sites, kept here.</li>
+        <li id="focus"><b>Focus blocking</b>A calm page instead of the distraction.</li>
+        <li id="monitors"><b>Monitors</b>Sites and servers checked on a schedule.</li>
         <li><b>Health and alerts</b>Heat, battery and misbehaving apps.</li>
-        <li><b>Processes</b>Quit, end or restart anything.</li>
-        <li><b>Dev servers and agents</b>Ports and projects, grouped.</li>
-        <li><b>Quick Controls</b>Wi-Fi, Bluetooth, camera and more, with undo.</li>
-        <li><b>Fix-it list</b>What's worth fixing, with a fix for each.</li>
-        <li><b>Monitor controls</b>Brightness and volume of a plugged-in screen.</li>
-        <li><b>Live readings in the menu bar</b>Small charts, one click away.</li>
+        <li><b>Hidden system settings</b>Each with a preview and undo.</li>
       </ul>
     </section>
-
     <section class="fgroup" id="privacy" aria-labelledby="privacy-title">
       <p class="kicker">Privacy &amp; Security</p>
       <h2 id="privacy-title">See it. Fix it.</h2>
-      <p>A score, the few things worth fixing, and a firewall.</p>
+      <p>A score, every app’s connections and a firewall that asks.</p>
       <div class="fshots">
-        {{win privacy "Privacy and Security: a score out of 100 and the findings most worth fixing" "Privacy & Security"}}
-        {{win firewall "Firewall: rules for which app may connect where" "Firewall"}}
+        {{win privacy "Privacy and Security: a score out of 100 and the findings most worth fixing" "Privacy &amp; Security"}}
+        {{win network "Network and firewall: every app’s connections live, with a sparkline each" "Network &amp; firewall"}}
+        {{win network-ask "A calm Ask prompt in the corner: an app wants to connect" "Ask"}}
+        {{win firewall "Firewall rules: which app may connect where" "Rules"}}
       </div>
       <ul class="fparts">
-        <li><b>Privacy &amp; Security</b>Camera, microphone, extensions and trackers.</li>
-        <li><b>Firewall</b>Rules per app, alerts and a blocklist.</li>
-        <li><b>Network activity</b>Which apps connect where.</li>
+        <li id="network"><b>Network &amp; firewall</b>Every app’s connections, live.</li>
+        <li><b>Allow, Ask or Block</b>Per app and site, for a while or always.</li>
+        <li><b>Where your data goes</b>Countries and companies, in plain words.</li>
         <li><b>Scan downloads</b>New files checked as they arrive.</li>
       </ul>
     </section>
-
     <section class="fgroup" id="devices" aria-labelledby="devices-title">
       <p class="kicker">Devices</p>
       <h2 id="devices-title">All your computers, one place.</h2>
-      <p>Reach files, screens and terminals on your own devices.</p>
+      <p>Reach files, screens and terminals. Alerts on your phone.</p>
       <div class="fshots">
         {{win devices "Devices: your computers and phones, with files, screens and terminals" "Devices"}}
         {{win rdc "Remote Desktops: saved connections and a quick-connect bar" "Remote Desktops"}}
-        {{win mesh "Private network: your devices reach each other as if at home" "Private network"}}
+        {{win alerts "Phone Alerts: a phone that gets Keeper’s alerts" "Phone Alerts"}}
         {{win terminal "Terminal: tabs and a shell inside Keeper" "Terminal"}}
       </div>
       <ul class="fparts">
         <li><b>Remote screens</b>See and control your other computers.</li>
         <li><b>Remote Desktops</b>Connect to any computer you use.</li>
         <li><b>Private network</b>Your devices, as if at home.</li>
+        <li id="alerts"><b>Phone alerts</b>Sites down, backups failed, on your phone.</li>
         <li><b>Terminal</b>Local and remote, inside Keeper.</li>
         <li><b>Help mode</b>One-time help from someone you trust.</li>
-        <li><b>Phones on this screen</b>Show and use your phone here.</li>
       </ul>
     </section>
-
     <section class="fgroup" id="ai" aria-labelledby="ai-title">
       <p class="kicker">AI</p>
       <h2 id="ai-title">The AI you choose. On your terms.</h2>
@@ -173,84 +175,99 @@ description: Every part of Keeper, grouped as in Settings: Files, Mail & Calenda
         {{win dictation "Dictation: speak and the text appears where your cursor is" "Dictation"}}
         {{win meetings "Meetings: a call written down, with a summary and action items" "Meetings"}}
         {{win agents "Agents: what each AI may do, from Off to Ask to Allow" "Agents"}}
-        {{win computer-use "An agent working through a task in Keeper's browser" "Computer use"}}
+        {{shot selection "The selection bar over an article: copy, search, translate or rewrite the selected text" "pic"}}
       </div>
       <ul class="fparts">
         <li><b>Dictation</b>Speak instead of typing, in any app.</li>
         <li><b>Meeting recorder</b>Written down on this computer.</li>
-        <li><b>Writing help</b>Proofread, shorten or rewrite.</li>
+        <li id="selection"><b>Selected text</b>Copy, translate or rewrite it.</li>
         <li><b>Assistant</b>Ask about your files.</li>
-        <li><b>Search by meaning</b>Find files by what they're about.</li>
-        <li><b>AI usage</b>What's left on each AI account.</li>
+        <li><b>Agents</b>Off, Ask or Allow for every action.</li>
+        <li><b>AI usage</b>What’s left on each AI account.</li>
       </ul>
     </section>
-
     <section class="fgroup" id="screen" aria-labelledby="screen-title">
       <p class="kicker">Screen</p>
       <h2 id="screen-title">Capture it. Polish it. Share it.</h2>
-      <p>Screenshots, recordings and a clean screen for presenting.</p>
+      <p>Screenshots, recordings, a pen for presenting and links to share.</p>
       <div class="fshots">
-        {{win stage "Stage: presets that tidy the screen for recording and presenting" "Stage"}}
+        {{shot capture-preview "Two screenshots just taken, as small cards in the corner with Annotate, Copy, Save, Upload and Pin" "pic"}}
+        {{shot capture-pin "A picture pinned on top of everything, with its see-through and copy buttons" "pic"}}
+        {{shot draw "Draw on screen: a box, an arrow and a circle drawn over Keeper, with the tool bar" "pic"}}
+        {{shot studio-share "A shared recording’s page: the player, chapters and the transcript" "pic"}}
+        {{win web-capture "Capture a web page: an address, desktop or phone, picture or PDF" "Capture"}}
+        {{win studio "Studio: record the whole screen, a window or an area" "Studio"}}
       </div>
       <ul class="fparts">
-        <li id="studio"><b>Studio</b>Record, then auto-zoom, trim and caption.</li>
-        <li><b>Screenshots and recording</b>Capture, mark up, copy the text.</li>
-        <li><b>Stage</b>Hide the clutter. Everything comes back after.</li>
-        <li><b>Video downloads</b>Save a video from a web page.</li>
+        <li id="capture"><b>Screenshots</b>Preview, pin, scroll and mark up.</li>
+        <li><b>Whole web pages</b>As a picture or a PDF.</li>
+        <li id="studio"><b>Studio</b>Record, auto-zoom, trim and caption.</li>
+        <li><b>Share links</b>From your own storage, with an end date.</li>
+        <li id="draw"><b>Draw on screen</b>Pen, arrows and a spotlight.</li>
+        <li><b>Stage</b>A clean screen for presenting.</li>
       </ul>
     </section>
-
     <section class="fgroup" id="desktop" aria-labelledby="desktop-title">
       <p class="kicker">Desktop</p>
       <h2 id="desktop-title">A desktop with a mood.</h2>
-      <p>Wallpapers, widgets, sounds and themes that switch together.</p>
+      <p>Themes, wallpapers, widgets and snippets you type.</p>
       <div class="fshots">
-        {{win ambience "Wallpaper and Vibes: moods that switch wallpaper, theme and sound together" "Wallpaper & Vibes"}}
         {{win themes "Themes: a grid of looks, from Playful to Terminal" "Themes"}}
-        {{win tracks "Places and Tracks: a private timeline of where you've been" "Places & Tracks"}}
+        {{win ambience "Wallpaper and Vibes: moods that switch wallpaper, theme and sound together" "Wallpaper &amp; Vibes"}}
+        {{win weather "Weather: today in Lisbon, the next hours and ten days" "Weather"}}
+        {{win snippets "Typed Snippets: short codes that become your saved text" "Typed Snippets"}}
       </div>
       <ul class="fparts">
-        <li id="widgets"><b>Desktop widgets</b>Clocks, weather, disk space and more.</li>
-        <li><b>Live wallpaper</b>Scenes, videos or a picture.</li>
+        <li id="themes"><b>38 themes</b>Light and dark, or following the seasons.</li>
+        <li id="widgets"><b>Desktop widgets</b>Clocks, weather, the week and more.</li>
         <li><b>Vibes</b>Wallpaper, theme and sound, on a schedule.</li>
-        <li><b>Ambient sound</b>Rain, café, waves, with a sleep timer.</li>
         <li><b>Weather</b>Forecasts, rain radar and trips.</li>
-        <li><b>Monorail</b>Works with Ashforde's window manager. <a href="{{root}}monorail/">How</a></li>
+        <li id="snippets"><b>Typed snippets</b>A short code becomes your text.</li>
+        <li><b>Monorail</b>Works with Ashforde’s window manager. <a href="{{root}}monorail/">How</a></li>
       </ul>
     </section>
-
     <section class="fgroup" id="island" aria-labelledby="island-title">
       <p class="kicker">Island</p>
-      <h2 id="island-title">Live, right under the notch.</h2>
-      <p>Rest the pointer on it to open. It steps aside for full screen.</p>
+      <h2 id="island-title">Live under the notch. In your colours.</h2>
+      <p>It wears your theme. Or pick a gradient of your own.</p>
       <div class="island-row">
-        <div class="island-crop">{{shot island-expanded "The Island open: a song playing, the weather, the next meeting and the battery"}}</div>
+        <div class="island-crop">{{shot island-expanded "The Island open: a song playing, the weather and the battery"}}</div>
         <div class="pills">
-          {{shot island-notch "The Island closed around the notch: a recording timer on the left, a terminal on the right"}}
+          {{shot island-notch "The Island closed around the notch: a recording timer on the left"}}
           {{shot island-pill "The Island under the menu bar: a focus timer with 18 minutes left"}}
         </div>
+      </div>
+      <div class="fshots">
+        {{shot island-ocean "The open Island in the Ocean theme’s colours" "pic"}}
+        {{shot island-sunset "The open Island in the Sunset theme’s colours" "pic"}}
+        {{shot island-colourful "The open Island in the Berry gradient" "pic"}}
+        {{shot clipboard "Clipboard history: what you copied, in sets, with search" "pic"}}
       </div>
       <ul class="fparts">
         <li><b>Now playing</b>Controls and lyrics.</li>
         <li><b>Next meeting</b>A countdown and Join.</li>
         <li><b>Focus timer</b>Sessions and breaks.</li>
-        <li><b>Clipboard history</b>Passwords are never kept.</li>
-        <li><b>Tasks and notes</b>Added in plain words.</li>
+        <li id="clipboard"><b>Clipboard sets</b>Paste one by one.</li>
+        <li><b>Your colours</b>Match the theme, Dark or Colourful.</li>
         <li><b>Drop shelf</b>Park files on the way somewhere.</li>
       </ul>
     </section>
-
     <section class="fgroup" id="keeper" aria-labelledby="keeper-title">
       <p class="kicker">Keeper itself</p>
       <h2 id="keeper-title">Ready when you are.</h2>
-      <p>Quick Search, the menu bar and updates.</p>
+      <p>Quick Search, the menu bar, app icons and windows.</p>
       <div class="fshots">
-        {{win features "Settings, Features: presets and a switch for every part" "Features"}}
+        {{shot launcher "Quick Search as a launcher, over the desktop" "pic"}}
+        {{shot menubar "The menu bar summary under the owl: readings, Keep Awake, quick actions and downloads" "pic"}}
+        {{shot light-apps "Keeper Mail on its own, as a light app with a window of its own" "pic"}}
+        {{win app-icons "Settings, Features: app icons for Mail, Calendar, Notes and more" "App icons"}}
       </div>
       <ul class="fparts">
-        <li><b>Quick Search</b>Search from anywhere with a shortcut.</li>
-        <li><b>Menu bar or tray</b>Keeper stays ready after you close it.</li>
-        <li><b>Works with your computer</b>System search and file menus.</li>
+        <li id="launcher"><b>Quick Search</b>Apps, sums, links and your commands.</li>
+        <li><b>Menu bar</b>Readings and quick actions, one click away.</li>
+        <li id="light-apps"><b>Light apps</b>Keeper Mail, Notes and more, each on its own.</li>
+        <li id="page-windows"><b>Page windows</b>Any page in a window of its own.</li>
+        <li><b>Crash reports</b>Off until you switch them on.</li>
         <li><b>Updates</b>Checked before they install.</li>
       </ul>
     </section>

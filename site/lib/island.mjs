@@ -36,3 +36,25 @@ export function tick(state, dt = 1) {
   }
   return next;
 }
+
+/** The desk clock's hands for a time, in degrees from twelve o'clock. */
+export function handAngles(date) {
+  const s = date.getSeconds();
+  const m = date.getMinutes() + s / 60;
+  const h = (date.getHours() % 12) + m / 60;
+  return { h: h * 30, m: m * 6, s: s * 6 };
+}
+
+/** What drops out of the Island now and then on the desktop: a download landing, a message, a meeting. */
+export const DESK_EVENTS = [
+  { kind: 'download', title: 'Downloaded', detail: 'Lisbon guide.pdf' },
+  { kind: 'message', title: 'Ana Lopez', detail: 'Lunch at 1?' },
+  { kind: 'meeting', title: 'Design review', detail: 'In 5 min · Room 4' },
+];
+
+/** The n-th notice, round and round. */
+export const deskEvent = (n) => DESK_EVENTS[((n % DESK_EVENTS.length) + DESK_EVENTS.length) % DESK_EVENTS.length];
+
+/** The Island's colours on the site's desktop, as in Settings → Island → Look. */
+export const LOOKS = ['playful', 'ocean', 'sunset', 'berry', 'dark'];
+export const lookOf = (id) => (LOOKS.includes(id) ? id : LOOKS[0]);

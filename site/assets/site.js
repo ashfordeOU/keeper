@@ -10,8 +10,9 @@ import { PARTS, PIECES, estimate } from './lib/parts.mjs';
 import { money, totals } from './lib/savings.mjs';
 import { ago, search, size } from './lib/search-demo.mjs';
 import { fromKey, fromPointer } from './lib/slider.mjs';
-import { battery, clock, startsIn, tick } from './lib/island.mjs';
+import { battery, clock, deskEvent, handAngles, lookOf, startsIn, tick } from './lib/island.mjs';
 import { lidSteps, scene } from './lib/lid.mjs';
+import { NEXT_STEPS, TARGETS, fileUrl, plainClick, target, targetFor } from './lib/downloads.mjs';
 import { SLIDE_MS, nextPart, nextSlide, scrolled, tilt, wordsLit } from './lib/motion.mjs';
 
 window.keeperSite = true;
@@ -34,7 +35,7 @@ window.keeperSite = true;
   for (const b of document.querySelectorAll('[data-theme-choice]')) {
     b.addEventListener('click', () => {
       const t = b.dataset.themeChoice;
-      if (t === 'auto') { delete root.dataset.theme; store.set('keeper-site-theme', null); } else { root.dataset.theme = t; store.set('keeper-site-theme', t); }
+      if (t === 'auto') { delete root.dataset.theme; store.set('keeper-theme', null); } else { root.dataset.theme = t; store.set('keeper-theme', t); }
       showTheme();
     });
   }
@@ -90,11 +91,6 @@ window.keeperSite = true;
     return { os, arch, sure };
   }
 
-  const FILE = {
-    mac: { arm64: 'Keeper-mac-arm64.dmg', x64: 'Keeper-mac-x64.dmg' },
-    windows: { x64: 'Keeper-setup-x64.exe', arm64: 'Keeper-setup-x64.exe' },
-    linux: { x64: 'Keeper-linux-x86_64.AppImage', arm64: 'Keeper-linux-arm64.AppImage' },
-  };
   const NAME = { mac: 'Mac', windows: 'Windows', linux: 'Linux' };
   const ARCH = { mac: { arm64: 'Apple silicon', x64: 'Intel' }, windows: { x64: '64-bit', arm64: '64-bit (runs on ARM too)' }, linux: { x64: 'x64 AppImage', arm64: 'ARM64 AppImage' } };
 
@@ -137,17 +133,58 @@ window.keeperSite = true;
   // A stable Mac release from 1.0.0 on (tags like v1.2.3) is signed and notarized.
   const notarized = (rel) => !rel.pre && /^v?([1-9]\d*)\.\d+\.\d+$/.test(rel.tag);
 
-  // The big button on the home page.
+  // "Your download is starting": what to do next, under the button that was pressed.
+  function nextSteps(btn, os, url) {
+    let box = document.querySelector('[data-dl-next]');
+    if (!box) {
+      box = document.createElement('div');
+      box.className = 'dl-next';
+      box.dataset.dlNext = '';
+      box.setAttribute('role', 'status');
+      (btn.closest('.cta, .pick, .pill-nav') || btn.parentElement).after(box);
+    }
+    const steps = NEXT_STEPS[os] || [];
+    box.innerHTML = `<p><b>Your download is starting.</b> <a href="${esc(url)}">Not starting?</a></p>${steps.length ? `<ol>${steps.map((x) => `<li>${esc(x)}</li>`).join('')}</ol>` : ''}<button type="button" class="x" aria-label="Close">×</button>`;
+    box.querySelector('.x').addEventListener('click', () => box.remove());
+    box.hidden = false;
+  }
+
+  /**
+   * A Download button shows Keeper's own address (download/mac-arm64/ and so on, a page that
+   * sends you on to the file); a plain click goes straight to the file and says what's next.
+   * Cmd, Ctrl or Shift-click opens the address as it is.
+   */
+  function directLink(a, t, list, os) {
+    a.href = `${document.body.dataset.root || ''}download/${t.slug}/`;
+    const url = fileUrl(list, t.file);
+    if (!url || a.dataset.direct) return url;
+    a.dataset.direct = '1';
+    a.addEventListener('click', (e) => {
+      if (!plainClick(e)) return;
+      e.preventDefault();
+      window.location.href = fileUrl(list, t.file);
+      nextSteps(a, os, fileUrl(list, t.file));
+    });
+    return url;
+  }
+
+  // The big button on the home page and the Download page, and the bar's Download button.
   async function heroButton() {
     const btn = document.querySelector('[data-download]');
+    const bar = document.querySelector('.nav-cta:not([aria-current])');
+    const { os, arch, sure } = await detect();
+    const slug = targetFor(os, arch);
+    const t = slug && target(slug);
+    let list = null;
+    try { list = await releases(); } catch (e) { /* GitHub not reachable: the buttons keep the Download page */ }
+    if (bar && t && list) directLink(bar, t, list, os);
     if (!btn) return;
     const label = btn.querySelector('[data-dl-label]');
     const sub = btn.querySelector('[data-dl-sub]');
     const note = document.querySelector('[data-dl-note]');
-    const { os, arch, sure } = await detect();
     const other = (html) => { if (note) note.innerHTML = html; };
     const allLink = btn.dataset.all || 'download/';
-    if (!FILE[os]) {
+    if (!t) {
       btn.href = allLink;
       label.textContent = 'See the downloads';
       sub.textContent = 'Keeper runs on macOS, Windows and Linux';
@@ -156,29 +193,30 @@ window.keeperSite = true;
     label.textContent = `Download for ${NAME[os]}`;
     sub.textContent = ARCH[os][arch];
     btn.href = allLink;
-    try {
-      const list = await releases();
-      const hit = newestWith(list, FILE[os][arch]);
-      if (!hit) { sub.textContent = `${ARCH[os][arch]} · coming soon`; return; }
-      btn.href = hit.url;
-      sub.textContent = [ARCH[os][arch], mb(hit.size)].filter(Boolean).join(' · ');
-      const bits = [];
-      // Mac builds are signed with Ashforde's Developer ID and notarized from 1.0.0.
-      if (os === 'mac' && notarized(hit.rel)) bits.push('Signed and notarized by Apple');
-      if (os === 'mac') {
-        const otherArch = arch === 'arm64' ? 'x64' : 'arm64';
-        const alt = newestWith(list, FILE.mac[otherArch]);
-        if (alt) bits.push(`${sure ? 'Not this Mac?' : 'Intel Mac?'} <a href="${esc(alt.url)}">Download for ${ARCH.mac[otherArch]}</a>`);
-      }
-      bits.push(`<a href="${allLink}">Other systems and formats</a>`);
-      other(bits.join(' · '));
-    } catch (e) {
+    if (!list) {
       sub.textContent = `${ARCH[os][arch]} · from the Releases page`;
       other(`Pick the file for your computer on <a href="${RELEASES}">GitHub Releases</a>, or see <a href="${allLink}">all downloads</a>.`);
+      return;
     }
+    const url = directLink(btn, t, list, os);
+    if (!url) { btn.href = allLink; sub.textContent = `${ARCH[os][arch]} · coming soon`; return; }
+    const hit = newestWith(list, t.file);
+    sub.textContent = [ARCH[os][arch], hit && mb(hit.size)].filter(Boolean).join(' · ');
+    const bits = [];
+    // Mac builds are signed with Ashforde's Developer ID and notarised from 1.0.0.
+    if (os === 'mac' && hit && notarized(hit.rel)) bits.push('Signed and notarised by Apple');
+    if (os === 'mac') {
+      const alt = target(slug === 'mac-arm64' ? 'mac-intel' : 'mac-arm64');
+      if (fileUrl(list, alt.file)) bits.push(`${sure ? 'Not this Mac?' : 'Intel Mac?'} <a href="${esc(document.body.dataset.root || '')}download/${alt.slug}/" data-alt="${alt.slug}">Download for ${ARCH.mac[slug === 'mac-arm64' ? 'x64' : 'arm64']}</a>`);
+    }
+    bits.push(`<a href="${allLink}">Other systems and formats</a>`);
+    other(bits.join(' · '));
+    const altLink = note && note.querySelector('[data-alt]');
+    if (altLink) directLink(altLink, target(altLink.dataset.alt), list, os);
   }
 
-  // The download page: every file link points at the newest release that has it.
+  // The download page: every file link points at the release that has it (through Keeper's
+  // own address where there is one).
   async function fileLinks() {
     const links = document.querySelectorAll('a[data-asset]');
     if (!links.length) return;
@@ -193,19 +231,22 @@ window.keeperSite = true;
     try {
       const list = await releases();
       for (const a of links) {
-        const hit = newestWith(list, a.dataset.asset);
         const info = a.querySelector('span');
-        if (!hit) { if (info) info.textContent = 'coming soon'; continue; }
-        a.href = hit.url;
-        if (info) info.textContent = [mb(hit.size), ver(hit.rel.tag)].filter(Boolean).join(' · ');
+        const url = fileUrl(list, a.dataset.asset);
+        if (!url) { if (info) info.textContent = 'coming soon'; continue; }
+        const t = TARGETS.find((x) => x.file === a.dataset.asset);
+        if (t) directLink(a, t, list, t.os); else a.href = url;
+        const hit = newestWith(list, a.dataset.asset);
+        if (info && hit) info.textContent = [mb(hit.size), ver(hit.rel.tag)].filter(Boolean).join(' · ');
       }
       if (line) {
-        const main = FILE[here.os] ? newestWith(list, FILE[here.os][here.arch]) : null;
+        const slug = targetFor(here.os, here.arch);
+        const main = slug ? newestWith(list, target(slug).file) : null;
         const rel = main ? main.rel : list.find((r) => !r.pre);
         if (rel) {
           const sums = assetUrl(rel, 'SHA256SUMS.txt');
           const sig = assetUrl(rel, 'SHA256SUMS.txt.sigstore.json');
-          const day = rel.date ? new Date(rel.date).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+          const day = rel.date ? new Date(rel.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
           line.innerHTML = `<b>Keeper ${esc(ver(rel.tag))}</b>${day ? ` · ${day}` : ''} · <a href="${esc(rel.page)}">Release notes and every file</a>${sums ? ` · <a href="${esc(sums)}">SHA256SUMS.txt</a>` : ''}${sig ? ` · <a href="${esc(sig)}">Sigstore bundle</a>` : ''}`;
           line.hidden = false;
         }
@@ -431,6 +472,7 @@ window.keeperSite = true;
     let state = { playing: true, song: 42, length: SONGS[0].length, track: 0, timer: 25 * 60, timerOn: false, meeting: 12 };
     const hover = window.matchMedia('(hover: hover)');
     const setOpen = (open, focus) => {
+      if (open) mock.classList.remove('note');
       mock.classList.toggle('open', open);
       pill.setAttribute('aria-expanded', String(open));
       if (open && focus) q('play').focus();
@@ -449,6 +491,7 @@ window.keeperSite = true;
       q('play').querySelector('[data-icon-pause]').toggleAttribute('hidden', !state.playing);
       q('play').querySelector('[data-icon-play]').toggleAttribute('hidden', state.playing);
       stage.querySelector('.eq').classList.toggle('paused', !state.playing || calm.matches);
+      stage.classList.toggle('paused', !state.playing);
       q('timer').textContent = clock(state.timer);
       q('timer-btn').textContent = state.timerOn ? 'Pause' : state.timer < 25 * 60 ? 'Resume' : 'Start';
       q('pill-right').textContent = state.timerOn || state.timer < 25 * 60 ? clock(state.timer) : '76%';
@@ -475,11 +518,62 @@ window.keeperSite = true;
       const joined = j.classList.toggle('joined');
       j.textContent = joined ? 'Joined' : 'Join';
     });
-    // The clock runs only while the Island is on screen.
+
+    // The desktop around it: the hint goes once you've tried it, the colour chips recolour the
+    // Island, the widget clock ticks and, now and then, a notice drops out of the closed Island
+    // (a download that then lands on the desktop, a message, a meeting).
+    const used = () => stage.classList.add('used');
+    mock.addEventListener('pointerenter', used);
+    stage.addEventListener('pointerdown', used);
+    stage.addEventListener('focusin', used);
+    for (const b of stage.querySelectorAll('[data-look]')) {
+      b.addEventListener('click', () => {
+        stage.dataset.islLook = lookOf(b.dataset.look);
+        for (const x of stage.querySelectorAll('[data-look]')) x.setAttribute('aria-pressed', String(x === b));
+      });
+    }
+    const hands = { h: stage.querySelector('[data-hand="h"]'), m: stage.querySelector('[data-hand="m"]'), s: stage.querySelector('[data-hand="s"]') };
+    const wTime = stage.querySelector('[data-wdg-time]');
+    const wDay = stage.querySelector('[data-wdg-day]');
+    const deskClock = () => {
+      const d = new Date();
+      const a = handAngles(d);
+      for (const k of ['h', 'm', 's']) if (hands[k]) hands[k].style.setProperty('--a', `${a[k]}deg`);
+      if (wTime) wTime.textContent = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      if (wDay) wDay.textContent = d.toLocaleDateString('en-GB', { weekday: 'long' });
+    };
+    const note = mock.querySelector('[data-isl-note]');
+    const drop = stage.querySelector('[data-desk-drop]');
+    let beat = 0;
+    let n = 0;
+    let noteOff = 0;
+    const notice = () => {
+      if (mock.classList.contains('open') || !note) return;
+      const e = deskEvent(n++);
+      note.querySelector('[data-isl-note-t]').textContent = e.title;
+      note.querySelector('[data-isl-note-d]').textContent = e.detail;
+      if (e.kind === 'download' && drop) drop.classList.add('pending');
+      mock.classList.add('note');
+      clearTimeout(noteOff);
+      noteOff = setTimeout(() => {
+        mock.classList.remove('note');
+        if (e.kind === 'download' && drop) drop.classList.remove('pending');
+      }, 3400);
+    };
+
+    // The clocks run only while the Island is on screen; notices only for people who haven't asked for less motion.
     let timer = 0;
     const run = (on) => {
       clearInterval(timer);
-      if (on) timer = setInterval(() => { state = tick(state, 1); paint(); }, 1000);
+      if (!on) return;
+      deskClock();
+      timer = setInterval(() => {
+        state = tick(state, 1);
+        paint();
+        deskClock();
+        beat++;
+        if (!calm.matches && beat % 9 === 4) notice();
+      }, 1000);
     };
     // It opens by itself the first time it comes into view, to show what's inside.
     let shown = false;
@@ -491,6 +585,7 @@ window.keeperSite = true;
       }, { threshold: 0.5 }).observe(stage);
     }
     paint();
+    deskClock();
   }
 
   // ---------------------------------------------------------------- search demo

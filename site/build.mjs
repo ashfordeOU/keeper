@@ -21,6 +21,7 @@ import { PARTS, PIECES, defaultOn, estimate } from './lib/parts.mjs';
 import { CATEGORIES, money, totals } from './lib/savings.mjs';
 import { PRESETS, ago, search, size as fileSize } from './lib/search-demo.mjs';
 import { lidSteps } from './lib/lid.mjs';
+import { TARGETS, latestUrl } from './lib/downloads.mjs';
 
 const SITE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(SITE, '..');
@@ -108,9 +109,21 @@ function useShot(name) {
   return files;
 }
 
+/** Width and height of a WebP (or PNG) file, read from its header. */
+function imageSize(file) {
+  const b = readFileSync(file);
+  if (b.toString('ascii', 0, 4) === 'RIFF' && b.toString('ascii', 8, 12) === 'WEBP') {
+    const kind = b.toString('ascii', 12, 16);
+    if (kind === 'VP8 ') return [b.readUInt16LE(26) & 0x3fff, b.readUInt16LE(28) & 0x3fff];
+    if (kind === 'VP8L') { const v = b.readUInt32LE(21); return [(v & 0x3fff) + 1, ((v >> 14) & 0x3fff) + 1]; }
+    if (kind === 'VP8X') return [1 + b.readUIntLE(24, 3), 1 + b.readUIntLE(27, 3)];
+  }
+  if (b.readUInt32BE(0) === 0x89504e47) return [b.readUInt32BE(16), b.readUInt32BE(20)];
+  throw new Error(`${file}: not a WebP or PNG`);
+}
+
 /** Width and height of a screenshot, so the page keeps its place while pictures load. */
-const SIZES = { 'island-expanded': [900, 394], 'island-notch': [760, 94], 'island-pill': [760, 81], tray: [436, 548] };
-const sizeOf = (name) => SIZES[name] ?? [1440, 900];
+const sizeOf = (name) => imageSize(path.join(ROOT, 'docs/screenshots', useShot(name)[0]));
 
 /** A screenshot in light and dark: CSS shows the one that matches the page's theme. */
 // A class of "eager" loads it at once (pictures at the top of a page); others load as they near the screen.
@@ -230,6 +243,38 @@ function lidHtml() {
   return `<ol class="lid-steps" data-lid-steps>${lidSteps({ keeperReady: true, pluggedIn: true }).map((s) => `<li>${escapeHtml(s.text)}</li>`).join('')}</ol>`;
 }
 
+// ---------------------------------------------------------------- download addresses
+
+/**
+ * download/<target>/: a page that sends the browser straight on to the file on GitHub Releases,
+ * so a Download link shows Keeper's own address. Not for search engines.
+ */
+function redirectPage(t) {
+  const url = escapeHtml(latestUrl(t.file));
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta http-equiv="refresh" content="0; url=${url}">
+<title>Downloading Keeper · Keeper by Ashforde®</title>
+<link rel="canonical" href="${BASE}download/">
+<link rel="icon" href="../../assets/keeper.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../assets/site.css">
+</head>
+<body class="redirect">
+<main id="main" class="wrap page-head">
+  <p class="kicker">Keeper by Ashforde®</p>
+  <h1>Your download is starting.</h1>
+  <p class="lede">Keeper for ${escapeHtml(t.label)}. <a href="${url}">Not starting? Download it here</a>.</p>
+  <p><a href="../">Every download</a></p>
+</main>
+</body>
+</html>
+`;
+}
+
 // ---------------------------------------------------------------- build
 
 function build() {
@@ -256,6 +301,8 @@ function build() {
     write(meta.out ?? `${meta.path ?? ''}index.html`, html);
   }
 
+  for (const t of TARGETS) write(`download/${t.slug}/index.html`, redirectPage(t));
+
   // Assets: the stylesheet, script, pictures and preview images; screenshots the pages use.
   const copyDir = (from, to) => {
     for (const e of readdirSync(from, { withFileTypes: true })) {
@@ -277,7 +324,7 @@ function build() {
     written.push(`assets/shots/${f}`);
   }
 
-  const pages = written.filter((p) => p.endsWith('index.html'));
+  const pages = written.filter((p) => p.endsWith('index.html') && !TARGETS.some((t) => p === `download/${t.slug}/index.html`));
   write('robots.txt', `User-agent: *\nAllow: /\nSitemap: ${BASE}sitemap.xml\n`);
   write('sitemap.xml', `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${pages.map((p) => `<url><loc>${BASE}${p.replace(/index\.html$/, '')}</loc></url>`).join('')}</urlset>\n`);
   write('.nojekyll', '');
