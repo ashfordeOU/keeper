@@ -214,7 +214,7 @@ Every update is checked before it is installed: it must match the release's `SHA
 | Screen | [Stage](docs/STAGE.md) · [Toolbox](docs/TOOLS.md) |
 | Desktop | [Quick Search, typed snippets and selected text](docs/LAUNCHER.md) · [Look & Feel](docs/AMBIENCE.md) · [Places & Tracks](docs/TRACKS.md) · [Keeper and Monorail](docs/KEEPER-MONORAIL.md) |
 | Island | [Island tools](docs/ISLAND-TOOLS.md) · [Island+ and Cues](docs/ISLAND-CUES.md) · [The Island's colours](docs/ISLAND-LOOK.md) |
-| Project | [Changelog](CHANGELOG.md) · [How Keeper is built](docs/ARCHITECTURE.md) · [The visual budget](docs/DESIGN-BUDGET.md) · [Contributing](CONTRIBUTING.md) · [Security policy](SECURITY.md) · [Releasing](RELEASING.md) |
+| Project | [Changelog](CHANGELOG.md) · [How Keeper is built](docs/ARCHITECTURE.md) · [The visual budget](docs/DESIGN-BUDGET.md) · [Translating](docs/TRANSLATING.md) · [Contributing](CONTRIBUTING.md) · [Security policy](SECURITY.md) · [Releasing](RELEASING.md) |
 
 ## Building from source
 

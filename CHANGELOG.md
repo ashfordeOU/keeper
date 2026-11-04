@@ -65,6 +65,11 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - Archives' What works here says "Opens with your system's tools" instead of naming the program underneath; only 7-Zip is named, where it needs installing.
 - Snap Windows on Linux says "Works with apps on this desktop".
 
+### Changed — Languages: only complete ones by default, and groundwork to translate everything
+- Settings → General → Language offers complete languages by default. The nine partly translated ones appear with More settings shown, marked "partly translated", and Settings says the rest stays in English. A language you already chose stays.
+- A pseudo language for testing shows every word accented and longer, so words that cannot be translated yet, and words that get cut off, stand out.
+- scripts/i18n-extract.mjs lists every word not yet translatable (and CSS that only works left to right); a test keeps both from growing.
+
 ### Added — Extensions
 - Small add-ons with their own commands in the command palette. Install one from a folder in Settings → General → Extensions after reading, in plain words, what it may do.
 - Each permission is Off, Ask or Allow. Each extension runs on its own, with no access to your files and no network except the sites it lists, and a changed extension does not run until it is installed again.

@@ -5,7 +5,7 @@
 import { resolveLanguage, translate } from './i18n-strings';
 import { useStore } from './state';
 
-export { DICTIONARIES, LANGUAGES, TRANSLATION_KEYS, resolveLanguage, translate } from './i18n-strings';
+export { DICTIONARIES, LANGUAGES, TRANSLATION_KEYS, offeredLanguages, pseudo, resolveLanguage, translate } from './i18n-strings';
 
 /** `const t = useT(); t('nav.home')` — re-renders when the language setting changes. */
 export function useT(): (key: string) => string {

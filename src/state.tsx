@@ -2,6 +2,7 @@
 // App-wide state: the current page, selection, inspector, music player,
 // settings and toasts. Small enough that plain React context does the job.
 
+import { applyPseudo } from './pseudo-dom';
 import { linkInMessage } from '../core/settings-links';
 import { expireToast, pushToast, toastLife } from './lib/toasts';
 import { rememberRoute, scrollMap, seedScroll, setPlaceMemory, startPlace, onScrollChanged } from './place';
@@ -245,6 +246,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [settings]);
   // Settings → Accessibility: motion, text size and focus outlines, in every window.
   useEffect(() => (settings ? applyA11y(settings.a11y) : undefined), [settings]);
+  // The pseudo language (for testing translation and cut-off words).
+  useEffect(() => applyPseudo(settings?.language === 'qps-ploc'), [settings?.language]);
 
   // A page window has no tabs: ⌘-click and middle-click open in it as a plain click does.
   const tabsOn = settings?.tabs !== false && !IS_PAGE_WINDOW;
