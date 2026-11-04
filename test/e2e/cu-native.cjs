@@ -253,6 +253,7 @@ const api = (w, fn, ...args) => w.evaluate(([f, a]) => {
   if (await until(async () => (await main.getByText('Allow this phone?').count()) > 0, 10000)) await main.getByRole('button', { name: 'Allow', exact: true }).click();
   const phoneOn = await until(async () => (await phone.locator('#status').innerText()).includes('Connected'), 15000);
   check(!!phoneOn, 'a phone is paired over Keeper Link');
+  await phone.locator('#nav-more-btn').click();
   await phone.locator('nav button[data-tab=ai]').click();
 
   // ---------------------------------------------------------------- the Assistant

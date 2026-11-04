@@ -103,7 +103,7 @@ if (!cliOnly) {
   mkdirSync('dist-electron/companion', { recursive: true });
   // Pieces of an earlier build (their names change with their contents).
   for (const f of readdirSync('dist-electron')) if (/^main-[A-Z0-9]+\.mjs(\.map)?$/i.test(f) || f === 'main.cjs' || f === 'main.cjs.map') rmSync(`dist-electron/${f}`);
-  for (const f of ['index.html', 'manifest.webmanifest']) copyFileSync(`companion/${f}`, `dist-electron/companion/${f}`);
+  for (const f of ['index.html', 'manifest.webmanifest', 'sw.js']) copyFileSync(`companion/${f}`, `dist-electron/companion/${f}`);
   copyFileSync('build/icon.png', 'dist-electron/companion/icon.png');
   copyFileSync('native/macos/mesh-helper.plist', 'dist-electron/mesh-helper.plist');
 }

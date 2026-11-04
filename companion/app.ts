@@ -180,16 +180,125 @@ function ready(name: string) {
   status('Connected · encrypted', true);
   $('app').classList.remove('hidden');
   void loadShares();
+  void loadToday();
 }
 
 // ---------------------------------------------------------------- tabs
 
-for (const b of document.querySelectorAll<HTMLButtonElement>('nav button')) {
+const TABS = ['today', 'send', 'files', 'clip', 'screen', 'ai', 'term'];
+for (const b of document.querySelectorAll<HTMLButtonElement>('nav button[data-tab]')) {
   b.onclick = () => {
-    for (const x of document.querySelectorAll('nav button')) x.classList.toggle('on', x === b);
-    for (const t of ['send', 'files', 'clip', 'screen', 'ai', 'term']) $(`tab-${t}`).classList.toggle('hidden', t !== b.dataset.tab);
+    for (const x of document.querySelectorAll('nav button[data-tab]')) x.classList.toggle('on', x === b);
+    for (const t of TABS) $(`tab-${t}`).classList.toggle('hidden', t !== b.dataset.tab);
+    $('nav-more-btn').classList.toggle('on', b.parentElement?.id === 'nav-more');
+    if (b.dataset.tab === 'today') void loadToday();
   };
 }
+// AI and Terminal sit under More, so the row stays short.
+$('nav-more-btn').onclick = () => {
+  const open = $('nav-more').classList.toggle('hidden') === false;
+  $('nav-more-btn').setAttribute('aria-expanded', String(open));
+};
+
+// ---------------------------------------------------------------- today (read when opened: no push, no server)
+
+interface TodayView { day: string; events: { id: string; title: string; when: string; now?: boolean; location?: string }[]; tasks: { id: string; title: string; note?: string; overdue?: boolean }[]; moreTasks: number; inbox: number; parts: { tasks: boolean; inbox: boolean } }
+
+const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+
+async function loadToday() {
+  if (!ch) return;
+  try {
+    const t = (await ch.req('today.get')).header.r as TodayView;
+    $('today-day').textContent = t.day;
+    $('today-events').innerHTML = t.events.length ? t.events.map((e) => `<div class="ev${e.now ? ' now' : ''}"><b>${esc(e.now ? 'Now' : e.when)}</b><span class="grow">${esc(e.title)}${e.location ? ` <span class="muted">· ${esc(e.location)}</span>` : ''}</span></div>`).join('') : '<span class="muted">Nothing on the calendar today.</span>';
+    $('today-tasks-card').classList.toggle('hidden', !t.parts.tasks);
+    $('catch').classList.toggle('hidden', !t.parts.inbox);
+    $('today-tasks').innerHTML = t.tasks.length
+      ? t.tasks.map((x) => `<label class="task" data-id="${esc(x.id)}"><input type="checkbox" aria-label="Done: ${esc(x.title)}"><span class="grow">${esc(x.title)}</span>${x.note ? `<span class="muted${x.overdue ? ' over' : ''}">${esc(x.note)}</span>` : ''}</label>`).join('') + (t.moreTasks ? `<div class="muted">and ${t.moreTasks} more on the computer</div>` : '')
+      : '<span class="muted">Nothing due today.</span>';
+    for (const row of $('today-tasks').querySelectorAll<HTMLLabelElement>('.task')) {
+      const box = row.querySelector('input')!;
+      box.onchange = async () => {
+        row.classList.toggle('done', box.checked);
+        try { await ch?.req('tasks.done', { id: row.dataset.id, done: box.checked }); } catch (err) { box.checked = !box.checked; row.classList.toggle('done', box.checked); message(err instanceof Error ? err.message : String(err), true); }
+      };
+    }
+    $('catch-note').textContent = t.inbox ? `${t.inbox} waiting in the Inbox on the computer.` : 'It waits in the Inbox on the computer.';
+  } catch (err) {
+    $('today-events').textContent = err instanceof Error ? err.message : String(err);
+  }
+}
+
+async function keep(args: Record<string, unknown>, said: string) {
+  try {
+    await ch?.req('inbox.add', args);
+    $('catch-note').textContent = said;
+    void loadToday();
+  } catch (err) {
+    $('catch-note').textContent = err instanceof Error ? err.message : String(err);
+  }
+}
+
+$<HTMLFormElement>('catch').onsubmit = (e) => {
+  e.preventDefault();
+  const input = $<HTMLInputElement>('catch-text');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  void keep({ text }, 'Kept. It waits in the Inbox.');
+};
+$<HTMLInputElement>('catch-photo').onchange = async (e) => {
+  const f = (e.target as HTMLInputElement).files?.[0];
+  (e.target as HTMLInputElement).value = '';
+  if (!f) return;
+  $('catch-note').textContent = 'Sending the photo…';
+  const saved = await upload(f);
+  if (saved) void keep({ name: saved, kind: 'shot' }, 'Photo kept in the Inbox.');
+};
+let rec: MediaRecorder | null = null;
+$('catch-voice').onclick = async () => {
+  if (rec) { rec.stop(); return; }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const parts: Blob[] = [];
+    rec = new MediaRecorder(stream);
+    rec.ondataavailable = (ev) => parts.push(ev.data);
+    rec.onstop = async () => {
+      for (const t of stream.getTracks()) t.stop();
+      rec = null;
+      $('catch-voice').textContent = 'Voice note';
+      const type = parts[0]?.type || 'audio/webm';
+      const f = new File(parts, `Voice note ${new Date().toISOString().slice(0, 16).replace('T', ' ').replace(':', '.')}.${type.includes('mp4') ? 'm4a' : 'webm'}`, { type });
+      const saved = await upload(f);
+      if (saved) void keep({ name: saved, kind: 'voice' }, 'Voice note kept in the Inbox.');
+    };
+    rec.start();
+    $('catch-voice').textContent = 'Stop';
+    $('catch-note').textContent = 'Recording… tap Stop when done.';
+  } catch {
+    $('catch-note').textContent = 'This browser cannot record here. Over the local network, phones only record on secure pages.';
+  }
+};
+
+$<HTMLFormElement>('find').onsubmit = async (e) => {
+  e.preventDefault();
+  const q = $<HTMLInputElement>('find-q').value.trim();
+  const out = $('find-out');
+  if (!q || !ch) return;
+  out.innerHTML = '<div class="muted">Looking…</div>';
+  try {
+    const hits = (await ch.req('find', { q })).header.r as { id: string; name: string; where: string; size: number; kind: string }[];
+    out.innerHTML = hits.length ? hits.map((h) => `<div class="row"><span class="grow"><b>${esc(h.name)}</b><br><span class="muted">${esc(h.where)} · ${size(h.size)}</span></span><button class="btn" data-id="${esc(h.id)}">Show on computer</button></div>`).join('') : '<div class="muted">Nothing found. Try other words.</div>';
+    for (const b of out.querySelectorAll<HTMLButtonElement>('button[data-id]')) b.onclick = () => void ch?.req('find.show', { id: b.dataset.id }).then(() => { b.textContent = 'Shown'; }, (err: unknown) => message(err instanceof Error ? err.message : String(err), true));
+  } catch (err) {
+    out.innerHTML = '';
+    message(err instanceof Error ? err.message : String(err), true);
+  }
+};
+
+// Installable: on a secure page (through the tunnel), the page shell also opens without a connection.
+if ('serviceWorker' in navigator && window.isSecureContext) void navigator.serviceWorker.register('sw.js').catch(() => undefined);
 
 // ---------------------------------------------------------------- send
 
@@ -597,6 +706,9 @@ function showAi(st: AiState) {
   const pending = st.pending ?? [];
   $('ai-badge').textContent = String(pending.length);
   $('ai-badge').classList.toggle('hidden', !pending.length);
+  // AI sits under More: the badge shows there too.
+  $('more-badge').textContent = String(pending.length);
+  $('more-badge').classList.toggle('hidden', !pending.length);
   const box = $('ai-pending');
   box.textContent = '';
   if (st.off) {
@@ -681,7 +793,8 @@ $<HTMLFormElement>('help-join').onsubmit = async (e) => {
     status('Connected · encrypted · view only until they allow control', true);
     $('app').classList.remove('hidden');
     // Help: only the screen.
-    for (const t of ['send', 'files', 'clip', 'ai', 'term']) document.querySelector<HTMLButtonElement>(`nav button[data-tab="${t}"]`)?.classList.add('hidden');
+    for (const t of ['today', 'send', 'files', 'clip', 'ai', 'term']) document.querySelector<HTMLButtonElement>(`nav button[data-tab="${t}"]`)?.classList.add('hidden');
+    $('nav-more-btn').classList.add('hidden');
     document.querySelector<HTMLButtonElement>('nav button[data-tab="screen"]')?.click();
     $('screen-control').classList.add('hidden');
     $('screen-view').textContent = 'View their screen';

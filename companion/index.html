@@ -21,7 +21,21 @@
   .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); display: inline-block; margin-right: 5px; }
   .dot.on { background: var(--ok); }
   nav { display: flex; gap: 6px; margin-bottom: 14px; }
-  nav button { flex: 1; padding: 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--text); font: inherit; font-weight: 600; }
+  #nav-more { margin-top: -6px; }
+  .kicker { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+  .catch-row { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+  .catch-row input:not([type=file]) { flex: 1; min-width: 0; padding: 11px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font: inherit; }
+  .task { display: flex; gap: 10px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--line); }
+  .task:last-child { border-bottom: 0; }
+  .task input { width: 22px; height: 22px; flex: none; }
+  .task.done .grow { text-decoration: line-through; color: var(--muted); }
+  .ev { display: flex; gap: 10px; padding: 4px 0; color: var(--text); }
+  .ev b { min-width: 92px; font-weight: 600; color: var(--muted); }
+  .ev.now b { color: var(--accent); }
+  .over { color: var(--bad); }
+  nav button { flex: 1 1 0; min-width: 0; padding: 10px 2px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--text); font: inherit; font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  nav { flex-wrap: nowrap; max-width: 100%; }
+  #today-tasks-card, #catch, #find, .today-head { max-width: 100%; }
   nav button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
   .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
   .big { display: block; width: 100%; padding: 18px; border-radius: 14px; border: 0; background: var(--accent); color: #fff; font: inherit; font-size: 18px; font-weight: 700; text-align: center; }
@@ -71,15 +85,44 @@
   <button class="big" id="help-go">Connect</button>
 </form>
 <main id="app" class="hidden">
-  <nav>
-    <button data-tab="send" class="on">Send</button>
+  <nav id="nav-main">
+    <button data-tab="today" class="on">Today</button>
+    <button data-tab="send">Send</button>
     <button data-tab="files">Files</button>
-    <button data-tab="clip">Clipboard</button>
     <button data-tab="screen">Screen</button>
+    <button type="button" id="nav-more-btn" aria-expanded="false" aria-controls="nav-more">More<span id="more-badge" class="badge hidden"></span></button>
+  </nav>
+  <nav id="nav-more" class="hidden">
+    <button data-tab="clip">Clipboard</button>
     <button data-tab="ai">AI<span id="ai-badge" class="badge hidden"></span></button>
     <button data-tab="term" id="tab-term-btn">Terminal</button>
   </nav>
-  <section id="tab-send">
+  <section id="tab-today">
+    <div class="card today-head">
+      <div class="kicker" id="today-day">Today</div>
+      <div id="today-events" class="muted">Reading…</div>
+    </div>
+    <form class="card" id="catch">
+      <div class="kicker">Catch something</div>
+      <div class="catch-row"><input id="catch-text" placeholder="A thought, a link, a reminder…" autocomplete="off"><button class="btn yes" id="catch-go">Keep</button></div>
+      <div class="catch-row">
+        <label class="btn" for="catch-photo">Photo</label>
+        <input id="catch-photo" type="file" accept="image/*" capture="environment" class="hidden">
+        <button type="button" class="btn" id="catch-voice">Voice note</button>
+        <span class="muted grow" id="catch-note">It waits in the Inbox on the computer.</span>
+      </div>
+    </form>
+    <div class="card" id="today-tasks-card">
+      <div class="kicker">Tasks</div>
+      <div id="today-tasks" class="muted">Reading…</div>
+    </div>
+    <form class="card" id="find">
+      <div class="kicker">Find my files</div>
+      <div class="catch-row"><input id="find-q" type="search" placeholder="Name, kind or words inside" autocomplete="off"><button class="btn" id="find-go">Find</button></div>
+      <div id="find-out"></div>
+    </form>
+  </section>
+  <section id="tab-send" class="hidden">
     <label class="card loc-share" id="loc-card"><input type="checkbox" id="loc-share"> <span><b>Share my location while this page is open</b><br><span class="muted" id="loc-note">Off. Your computer sees where this phone is, only while this page stays open.</span></span></label>
 
     <label class="big" for="pick">Choose photos or files</label>

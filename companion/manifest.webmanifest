@@ -1,9 +1,12 @@
 {
   "name": "Keeper by Ashforde®",
   "short_name": "Keeper",
+  "id": "./",
   "start_url": "./",
+  "scope": "./",
+  "description": "Today, your tasks, catching thoughts and finding files on your own computer.",
   "display": "standalone",
   "background_color": "#111114",
   "theme_color": "#111114",
-  "icons": [{ "src": "icon.png", "sizes": "1024x1024", "type": "image/png" }]
+  "icons": [{ "src": "icon.png", "sizes": "1024x1024", "type": "image/png", "purpose": "any" }]
 }
