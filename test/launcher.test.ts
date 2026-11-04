@@ -4,7 +4,7 @@ import { calculate, formatCalc } from '../core/launcher/calc';
 import { cleanBook, decayed, HALF_LIFE_MS, MAX_ENTRIES, recordUse, useBonus } from '../core/launcher/frecency';
 import { buildLink, commandLine, defaultLauncher, homeCurrency, linkAllowed, matchCommandKeywords, matchLinks, normalizeLauncher, shellQuote, type QuickLink, type UserCommand } from '../core/launcher/links';
 import { appNameFromPath, dedupeApps, execArgv, isNoiseShortcut, parseDesktopEntry } from '../core/launcher/apps';
-import { availableActions, LAUNCH_ACTIONS } from '../core/launcher/actions';
+import { availableActions, LAUNCH_ACTIONS, TOOL_ACTIONS } from '../core/launcher/actions';
 import { LAUNCH_KINDS, topLaunchHits, type EverythingHit } from '../core/search-everything';
 
 describe('Quick Search sums', () => {
@@ -168,7 +168,16 @@ describe('Keeper actions in Quick Search', () => {
     const on = availableActions((f) => f !== 'capture', 'linux');
     expect(on.some((a) => a.feature === 'capture')).toBe(false);
     expect(on.some((a) => a.id === 'settings')).toBe(true);
-    expect(availableActions(() => true, 'linux')).toHaveLength(LAUNCH_ACTIONS.length);
+    expect(availableActions(() => true, 'linux')).toHaveLength(LAUNCH_ACTIONS.length + TOOL_ACTIONS.length);
+  });
+  it('include every Toolbox tool, found by its name and words, and hidden with its part', () => {
+    expect(TOOL_ACTIONS.find((a) => a.id === 'tool-json')).toMatchObject({ title: 'JSON formatter', tool: 'json', feature: 'tools' });
+    expect(TOOL_ACTIONS.find((a) => a.id === 'tool-hash')!.words).toMatch(/checksum/);
+    expect(TOOL_ACTIONS.find((a) => a.id === 'tool-download-video')!.feature).toBe('videoDownload');
+    expect(availableActions((f) => f !== 'tools', 'linux').some((a) => a.id === 'tool-json')).toBe(false);
+    const ids = [...LAUNCH_ACTIONS, ...TOOL_ACTIONS].map((a) => a.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const a of TOOL_ACTIONS) expect(!a.link && !a.run, a.id).toBe(true);
   });
   it('are Keeper links or named jobs, never both', () => {
     for (const a of LAUNCH_ACTIONS) {

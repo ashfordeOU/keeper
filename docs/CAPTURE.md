@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 -->
 # Capture: screenshots and their extras
 
-Capture (Screen → Capture, part **Screenshots and recording**) copies text from the screen, reads codes, takes screenshots, records the screen and picks colours. This page covers the screenshot extras; text capture is in [TOOLS.md](TOOLS.md#screen-text-capture).
+Capture (the **Screen** page's first tab, part **Screenshots and recording**) copies text from the screen, reads codes, takes screenshots, records the screen and picks colours. The Screen page has three tabs: **Capture**, **Record** (Studio) and **Present** (Stage); the old routes and `keeper://open/studio` and `keeper://open/stage` still open their tab. This page covers the screenshot extras; text capture is in [TOOLS.md](TOOLS.md#screen-text-capture).
 
 | Extra | Where | Default |
 |---|---|---|

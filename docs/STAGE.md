@@ -7,7 +7,7 @@ When Stage ends, everything is put back, newest change first. That includes afte
 
 ## Where it lives
 
-Stage works across the whole system. The page in the main window holds the presets and settings.
+Stage works across the whole system. Its page is the **Present** tab of the Screen page (beside Capture and Record), and holds the presets and settings.
 
 | Surface | What it does |
 |---|---|

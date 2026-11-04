@@ -70,6 +70,7 @@ export const PAGE_HELP: Record<string, PageHelp> = {
   graph: { what: 'How your notes and files link together.', can: ['Explore links', 'Find what is related', 'Search by meaning'], doc: 'BRAIN.md' },
   dictation: { what: 'Speak and Keeper types for you, in any app.', can: ['Hold a key and talk', 'Say a snippet', 'See what was typed'], doc: 'VOICE.md' },
   meetings: { what: 'Record and write down a meeting.', can: ['Record a call', 'Read the transcript', 'Search past meetings'], doc: 'VOICE.md' },
+  screen: { what: 'Capture, record and present your screen, in one place.', can: ['Take a screenshot or copy text', 'Record a clear video', 'Tidy the screen to present'], doc: 'CAPTURE.md' },
   capture: { what: 'Screenshots, text from the screen and colours.', can: ['Take a screenshot', 'Copy text from the screen', 'Pin a picture on screen'], doc: 'CAPTURE.md' },
   photo: { what: 'Light edits to any picture; the original is kept.', can: ['Crop and straighten', 'Fix light and colour', 'Hide private parts'], doc: 'PHOTO-EDITOR.md' },
   studio: { what: 'Record your screen and make a clear video.', can: ['Record the screen or a window', 'Zoom on clicks', 'Export or share a link'], doc: 'CAPTURE.md' },

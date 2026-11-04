@@ -4,6 +4,10 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 
 ## [Unreleased]
 
+### Changed — Screen: one page for capturing, recording and presenting
+- Capture, Studio and Stage are one **Screen** page with three tabs: Capture, Record and Present. Old links, page windows and the Keeper Studio app icon still open the right tab.
+- The Toolbox has left the sidebar. Every tool in it is a command in Quick Search (type "JSON formatter" or "hashes"), and the Toolbox page is still in the palette.
+
 ### Changed — Archives and Snap Windows: plain words
 - Archives' What works here says "Opens with your system's tools" instead of naming the program underneath; only 7-Zip is named, where it needs installing.
 - Snap Windows on Linux says "Works with apps on this desktop".

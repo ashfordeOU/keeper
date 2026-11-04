@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { FEATURES, NAV_GROUPS } from '../core/features';
-import { HUB_TABS, hubOf, NAV_PAGES, navSections, pageOf, resolveRoute, titleOf } from '../core/nav';
+import { HUB_TABS, hubOf, listedPages, NAV_PAGES, navPage, navSections, pageOf, resolveRoute, titleOf } from '../core/nav';
 
 const root = path.resolve(__dirname, '..');
 
@@ -109,7 +109,7 @@ describe('names', () => {
       'NotesHub.tsx': 'noteshub', 'Cleanup.tsx': 'cleanup', 'Duplicates.tsx': 'duplicates', 'Space.tsx': 'space', 'Large.tsx': 'large',
       'Convert.tsx': 'convert', 'Rules.tsx': 'rules', 'History.tsx': 'history', 'Health.tsx': 'health', 'KeepAwake.tsx': 'awake', 'Devices.tsx': 'devices',
       'RemoteDesktop.tsx': 'rdc', 'Assistant.tsx': 'assistant', 'Agents.tsx': 'agents', 'usage/UsagePage.tsx': 'aiusage', 'Dictation.tsx': 'dictation', 'Meetings.tsx': 'meetings',
-      'Capture.tsx': 'capture', 'Studio.tsx': 'studio', 'Stage.tsx': 'stage', 'Tools.tsx': 'tools', 'Widgets.tsx': 'widgets', 'Ambience.tsx': 'ambience', 'Tracks.tsx': 'tracks',
+      'Tools.tsx': 'tools', 'Widgets.tsx': 'widgets', 'Ambience.tsx': 'ambience', 'Tracks.tsx': 'tracks',
       'Cues.tsx': 'cues', 'RemoteOverview.tsx': 'remote', 'Security.tsx': 'security',
     };
     const wrong: string[] = [];
@@ -119,5 +119,28 @@ describe('names', () => {
       for (const m of src.matchAll(/PageHead title="([^"]+)"/g)) if (m[1] !== want) wrong.push(`${file}: "${m[1]}", sidebar says "${want}"`);
     }
     expect(wrong).toEqual([]);
+  });
+});
+
+describe('merged pages (cuts and merges)', () => {
+  it('Screen holds Capture, Record (Studio) and Present (Stage); the Toolbox leaves the sidebar', () => {
+    expect(HUB_TABS.screen.map((t) => `${t.route.name}:${t.label}`)).toEqual(['capture:Capture', 'studio:Record', 'stage:Present']);
+    expect(hubOf({ name: 'studio' })?.hub).toBe('screen');
+    expect(hubOf({ name: 'stage', arg: 'draw' })?.hub).toBe('screen');
+    expect(navSections().find((g) => g.id === 'screen')!.pages.map((p) => p.label)).toEqual(['Screen']);
+    expect(navPage('tools')?.group).toBe('none');
+  });
+  it('old page ids still open their page (windows, app icons, keeper://open links)', () => {
+    expect(navPage('capture')?.id).toBe('screen');
+    expect(navPage('studio')?.route).toEqual({ name: 'studio' });
+    expect(pageOf({ name: 'studio' })?.id).toBe('studio');
+  });
+  it('a page that became a tab is listed once, as the tab', () => {
+    const listed = listedPages().map((p) => p.id);
+    for (const p of NAV_PAGES.filter((x) => x.inHub)) {
+      expect(listed).not.toContain(p.id);
+      expect(HUB_TABS[p.inHub!].some((t) => t.route.name === p.route.name), p.id).toBe(true);
+      expect(p.group).toBe('none');
+    }
   });
 });

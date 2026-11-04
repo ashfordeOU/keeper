@@ -26,7 +26,7 @@ import { useAmbienceCommands } from '../wallpaper/palette';
 import { useVoiceCommands } from '../voice/palette';
 import { openNative } from '../lib/native';
 import { usageCommands } from '../screens/usage/palette';
-import { HUB_TABS, NAV_PAGES, navPage } from '../../core/nav';
+import { HUB_TABS, listedPages, NAV_PAGES, navPage } from '../../core/nav';
 import { TYPE_CHIPS } from '../../core/file-types';
 import { useT } from '../i18n';
 import { openInWindow, windowLabel } from '../page-window';
@@ -88,7 +88,7 @@ const PAGE_EXTRAS: [Route, string, string][] = [
 ];
 
 function pageCommands(t: (k: string) => string, home: string | undefined, go: (r: Route) => void): Command[] {
-  const pages = NAV_PAGES.map((p) => ({
+  const pages = listedPages().map((p) => ({
     id: `go-${p.label}`, label: p.i18n ? t(p.i18n) : p.label, group: 'Go to' as const, icon: p.icon, kbd: p.kbd ? KBD[p.kbd] : p.id === 'settings' ? `${mod},` : undefined,
     keywords: p.keywords, route: p.route.name, run: (go: (r: Route) => void) => go((p.id === 'browse' ? { name: 'browse', arg: home } : p.route) as Route),
   }));

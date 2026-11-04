@@ -3,6 +3,10 @@
 // recording, keep awake, Stage, dictation, focus, locking folders, Wi-Fi and
 // Bluetooth. Each is a keeper:// link the app already answers, or one of a
 // few named jobs the main process runs; each shows only while its part is on.
+// The Toolbox's tools are commands here too ("JSON formatter", "Hashes"):
+// the Toolbox is no longer a sidebar page, so Quick Search is their way in.
+
+import { TOOLBOX } from '../tool-catalog';
 
 export interface LaunchAction {
   id: string;
@@ -18,6 +22,8 @@ export interface LaunchAction {
   run?: 'clips' | 'selection' | 'pasteQueue' | 'plainPaste' | 'wifiOn' | 'wifiOff' | 'bluetoothOn' | 'bluetoothOff' | 'hideIsland';
   /** only on these systems */
   platforms?: string[];
+  /** a Toolbox tool (core/tool-catalog.ts id without `toolbox:`), opened on the Toolbox page */
+  tool?: string;
 }
 
 export const LAUNCH_ACTIONS: LaunchAction[] = [
@@ -52,7 +58,13 @@ export const LAUNCH_ACTIONS: LaunchAction[] = [
   { id: 'settings', title: 'Keeper Settings', words: 'preferences options', icon: 'settings', link: 'keeper://settings' },
 ];
 
+/** Each Toolbox tool as a Quick Search command that opens it. */
+export const TOOL_ACTIONS: LaunchAction[] = TOOLBOX.map((t) => {
+  const id = t.id.slice('toolbox:'.length);
+  return { id: `tool-${id}`, title: t.name, words: `${t.desc} ${t.words ?? ''} toolbox tool`.toLowerCase(), icon: t.icon, feature: t.feature ?? 'tools', tool: id };
+});
+
 /** The actions that apply here, given which parts are on. */
 export function availableActions(on: (feature: string) => boolean, platform: string): LaunchAction[] {
-  return LAUNCH_ACTIONS.filter((a) => (!a.feature || on(a.feature)) && (!a.platforms || a.platforms.includes(platform)));
+  return [...LAUNCH_ACTIONS, ...TOOL_ACTIONS].filter((a) => (!a.feature || on(a.feature)) && (!a.platforms || a.platforms.includes(platform)));
 }

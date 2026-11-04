@@ -18,7 +18,7 @@ The rows above the files, best first (`topLaunchHits` in `core/search-everything
 |---|---|---|---|
 | Answer | sums (`12*(3+4)`, `2^10`, `15% of 80`, `120 + 15%`, `sqrt 2`), unit conversions (`5 ft in cm`, `72f to c`) and, when turned on, currencies | copies the answer | `core/launcher/calc.ts` (its own parser; nothing is ever run as code), `core/island-tools/units.ts` (the Island converter) |
 | Apps | apps on this computer, by name and keywords | opens it; ⌘/Ctrl/Alt+Enter shows it in its folder | `electron/services/launcher.ts` |
-| Do | Keeper's own actions: screenshots, recording, keep awake, Stage, dictation, focus, locking folders, Wi-Fi and Bluetooth, the clipboard picker, pasting one by one, the selection bar | runs it | `core/launcher/actions.ts` (keeper:// links the app already answers, or a named job in main.ts) |
+| Do | Keeper's own actions: screenshots, recording, keep awake, Stage, dictation, focus, locking folders, Wi-Fi and Bluetooth, the clipboard picker, pasting one by one, the selection bar, and every Toolbox tool (JSON formatter, Hashes, Clean a link…) | runs it (a tool opens on the Toolbox page) | `core/launcher/actions.ts` (keeper:// links the app already answers, or a named job in main.ts) |
 | Saved links | a word and an address with `{query}`: `map berlin` | opens the address with the words filled in (encoded) | Settings → General → Quick Search → Saved links |
 | Your commands | a name, an optional word and a command line | runs it after asking (unless you said not to for that command); what it prints is shown, copied or ignored | Settings → General → Quick Search → Your commands (More settings) |
 

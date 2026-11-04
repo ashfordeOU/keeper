@@ -30,6 +30,11 @@ export interface NavPage {
   feature?: string;
   keywords?: string;
   kbd?: 'J' | 'K' | 'D';
+  /**
+   * Now a tab of this merged page (Studio is Screen › Record): kept so its id still opens a
+   * window, an app icon or a keeper://open link, but listed only as the merged page's tab.
+   */
+  inHub?: string;
 }
 
 /** Tabs of the pages that were merged: each old page is now a tab, under its old route. */
@@ -57,6 +62,12 @@ export const HUB_TABS: Record<string, NavTab[]> = {
   startup: [
     { route: { name: 'startup' }, label: 'Startup items', keywords: 'login items boot slow start' },
     { route: { name: 'apps' }, label: 'Installed apps', keywords: 'applications uninstall unused programs' },
+  ],
+  // Capture, Studio and Stage were three pages about the screen: one Screen page with a tab each.
+  screen: [
+    { route: { name: 'capture' }, label: 'Capture', keywords: 'screenshot text from screen qr colour color picker pin scrolling web page' },
+    { route: { name: 'studio' }, label: 'Record', keywords: 'studio record screen video edit zoom captions export share link' },
+    { route: { name: 'stage' }, label: 'Present', keywords: 'stage clean screen present presenting recording hide desktop draw on screen' },
   ],
   devices: [
     { route: { name: 'devices' }, label: 'Paired', keywords: 'phone computer pair link send files' },
@@ -124,11 +135,12 @@ export const NAV_PAGES: NavPage[] = [
   { id: 'dictation', route: { name: 'dictation' }, label: 'Dictation', icon: 'mic', group: 'ai', keywords: 'voice speak type' },
   { id: 'meetings', route: { name: 'meetings' }, label: 'Meetings', icon: 'calendar', group: 'ai', keywords: 'record transcribe notes' },
 
-  { id: 'capture', route: { name: 'capture' }, label: 'Capture', i18n: 'nav.capture', icon: 'screenshot', group: 'screen', keywords: 'screenshot text from screen color picker' },
+  { id: 'screen', route: { name: 'capture' }, label: 'Screen', icon: 'screenshot', group: 'screen', also: ['studio', 'stage'], keywords: 'screenshot capture text from screen color colour picker record video studio present stage clean screen' },
+  { id: 'studio', route: { name: 'studio' }, label: 'Studio', icon: 'video', group: 'none', inHub: 'screen', keywords: 'record screen video edit zoom export' },
+  { id: 'stage', route: { name: 'stage' }, label: 'Stage', icon: 'eye', group: 'none', inHub: 'screen', keywords: 'clean screen present recording' },
   { id: 'photo', route: { name: 'photo' }, label: 'Photo Editor', icon: 'sliders', group: 'none', keywords: 'edit photo picture image crop rotate straighten brightness exposure contrast saturation warmth blur redact pixelate resize convert background remove' },
-  { id: 'studio', route: { name: 'studio' }, label: 'Studio', icon: 'video', group: 'screen', keywords: 'record screen video edit zoom export' },
-  { id: 'stage', route: { name: 'stage' }, label: 'Stage', icon: 'eye', group: 'screen', keywords: 'clean screen present recording' },
-  { id: 'tools', route: { name: 'tools' }, label: 'Toolbox', i18n: 'nav.toolbox', icon: 'terminal', group: 'screen', keywords: 'tools utilities developer' },
+  // Its tools are Quick Search commands too (core/launcher/actions.ts); the page stays a palette entry.
+  { id: 'tools', route: { name: 'tools' }, label: 'Toolbox', i18n: 'nav.toolbox', icon: 'terminal', group: 'none', keywords: 'tools utilities developer json base64 hash uuid regex timestamp password case word counter' },
 
   { id: 'island', route: { name: 'island' }, label: 'Island', i18n: 'nav.island', icon: 'island', group: 'desktop', keywords: 'notch shelf now playing' },
   { id: 'snippets', route: { name: 'snippets' }, label: 'Typed Snippets', icon: 'text', group: 'desktop', keywords: 'text expansion abbreviation expand autotext shortcut' },
@@ -151,7 +163,14 @@ export const NAV_PAGES: NavPage[] = [
 ];
 
 const byId = new Map(NAV_PAGES.map((p) => [p.id, p]));
-export const navPage = (id: string) => byId.get(id);
+
+/** Old page ids that are now a merged page's first tab: links, windows and app icons that name them still work. */
+export const PAGE_ALIASES: Record<string, string> = { capture: 'screen' };
+
+export const navPage = (id: string) => byId.get(id) ?? byId.get(PAGE_ALIASES[id] ?? '');
+
+/** The pages the palette and the sidebar list (a page that became a tab is listed as that tab). */
+export const listedPages = () => NAV_PAGES.filter((p) => !p.inHub);
 
 /** The sidebar's suite sections, in order: the Features groups that have pages. */
 export function navSections(): { id: NavGroup; title: string; pages: NavPage[] }[] {

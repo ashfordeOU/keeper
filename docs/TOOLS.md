@@ -23,8 +23,8 @@ Each row says:
 **Where things are**
 
 - **Convert** is the Convert page: drop files, pick a tool. It is also in the command palette (`Ctrl/⌘ K`, type the tool name) and in the CLI (`keeper tool <name> <files>`).
-- **Toolbox** is the Tools page.
-- **Capture** is the Capture page and its shortcut.
+- **Toolbox** is the Tools page, reached from the palette (`Ctrl/⌘ K`, type “Toolbox”). It is no longer in the sidebar: every tool is also a command in **Quick Search**, so typing “JSON formatter” or “hashes” there opens it.
+- **Capture** is the Screen page's Capture tab and its shortcut.
 
 Every Convert tool runs on your computer and works on many files at once. The CLI can run each one with `--json` output for scripts.
 

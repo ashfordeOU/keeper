@@ -250,7 +250,8 @@ async function launch(d: SearchDeps, kind: EverythingKind, id: string, query: st
       const a = availableActions(featureOn, process.platform).find((x) => x.id === id);
       if (!a) return { ok: false, message: 'That is not available now' };
       launcher.noteUse(`action:${a.id}`);
-      if (a.link) d.link(a.link);
+      if (a.tool) d.show(`tools:${a.tool}`);
+      else if (a.link) d.link(a.link);
       else if (a.run) await d.job(a.run);
       return { ok: true };
     }
