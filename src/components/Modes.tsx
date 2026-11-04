@@ -58,7 +58,7 @@ function ModePreviewSheet({ to, onClose }: { to: ModeChoice; onClose: () => void
     setBusy(true);
     try {
       await api.modes.switch(to);
-      toast(`${modeTitle(to)} is on. Your data stayed as it was.`);
+      toast(`${modeTitle(to)} is on. Your data stayed as it was.`, undefined, { key: 'mode' });
       onClose();
     } catch (e) {
       toast(errorText(e));
@@ -114,7 +114,7 @@ export function ModesPanel() {
     <div className="modes" data-testid="settings-modes">
       <div className="modes-status small muted" data-testid="mode-status">
         <span className={`mode-dot tone-${def.tone}`} aria-hidden /> <b>{modeTitle(m)}</b>
-        {kept ? <> · {kept} {kept === 1 ? 'change' : 'changes'} of yours <button className="link-like" data-testid="mode-reset" onClick={() => void api.modes.reset().then(() => toast(`${modeTitle(m)} is back as it comes`))}>Reset to {def.name}</button></> : <> · as it comes</>}
+        {kept ? <> · {kept} {kept === 1 ? 'change' : 'changes'} of yours <button className="link-like" data-testid="mode-reset" onClick={() => void api.modes.reset().then(() => toast(`${modeTitle(m)} is back as it comes`, undefined, { key: 'mode' }))}>Reset to {def.name}</button></> : <> · as it comes</>}
       </div>
       <div className="modes-grid" role="radiogroup" aria-label="Mode">
         {MODES.map((x) => {
@@ -166,7 +166,7 @@ export function FocusSessionRow() {
         <button className="btn sm" data-testid="focus-session-end" onClick={() => void api.modes.endFocus()}>End now</button>
       ) : (
         <div className="seg" role="group" aria-label="Focus for">
-          {SESSION_LENGTHS.map((n) => <button key={n} data-testid={`focus-session-${n}`} onClick={() => void api.modes.focus(n).then(() => toast(`Focus for ${n} minutes`))}>{n} min</button>)}
+          {SESSION_LENGTHS.map((n) => <button key={n} data-testid={`focus-session-${n}`} onClick={() => void api.modes.focus(n).then(() => toast(`Focus for ${n} minutes`, undefined, { key: 'mode' }))}>{n} min</button>)}
         </div>
       )}
     </div>

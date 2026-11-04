@@ -56,6 +56,14 @@ export interface AddonDef {
 /** The sidebar sections a narrow mode keeps (NAV_GROUPS ids). */
 const SECTIONS_ALL: NavGroup[] = ['files', 'pim', 'notes', 'tidy', 'sync', 'computer', 'security', 'devices', 'connect', 'ai', 'screen', 'desktop'];
 
+/**
+ * Pages that are not a daily destination (Weather): every mode but Standard leaves them out of the
+ * sidebar; the palette, the Island and widgets still open them. Places & Tracks is switched off
+ * outside Standard, and the advanced readings (a year of health history, live readings in the menu bar,
+ * monitor brightness keys) are Pro's.
+ */
+export const NOT_DAILY_ROWS = ['nav:weather'];
+
 export const MODES: ModeDef[] = [
   {
     id: 'standard', name: 'Standard', line: 'Keeper as it comes: the essentials for this computer.', who: 'Most people', icon: 'home', tone: 'standard',
@@ -64,7 +72,7 @@ export const MODES: ModeDef[] = [
   {
     id: 'simple', name: 'Simple', line: 'A calm file manager with mail. Big text, few rows.', who: 'People who want it calm', icon: 'sun', tone: 'simple',
     on: ['library', 'quickSearch', 'cleanup', 'history', 'mail', 'calendars', 'island', 'bigButtons'],
-    off: ['terminal', 'agentHub', 'aiAgents', 'agents', 'islandUsage', 'usageTracker', 'devServers', 'containers', 'firewall', 'keeperMesh', 'tools', 'studio', 'stage', 'widgets', 'tracks', 'settingsCatalog', 'processes', 'startupItems', 'rules', 'brain', 'writingHelp', 'islandAsk', 'quickControls'],
+    off: ['terminal', 'agentHub', 'aiAgents', 'agents', 'islandUsage', 'usageTracker', 'devServers', 'containers', 'firewall', 'keeperMesh', 'tools', 'studio', 'stage', 'widgets', 'tracks', 'settingsCatalog', 'processes', 'startupItems', 'rules', 'brain', 'writingHelp', 'islandAsk', 'quickControls', 'monitorHistory'],
     settings: { 'a11y.textScale': 1.1, density: 'comfortable', 'home.density': 'spacious', 'today.cards': ['now', 'tasks'], settingsAdvanced: false, sidebarSectionLimit: 5, helpButton: true, 'tips.on': true, 'notices.batch': 'hourly', 'notices.delivery.health': 'silent', 'notices.delivery.fixit': 'silent', 'notices.delivery.privacy': 'silent' },
     sidebar: ['files', 'pim'],
     signature: { name: 'Big buttons', line: 'Six large buttons on Today: find a file, free up space, write mail and more.', part: 'bigButtons' },
@@ -72,22 +80,22 @@ export const MODES: ModeDef[] = [
   {
     id: 'focus', name: 'Focus', line: 'One thing at a time. Notices wait; distractions stay out.', who: 'People who lose time to distractions', icon: 'timer', tone: 'focus',
     on: ['captureInbox', 'planner', 'dayPlan', 'focus', 'focusBlock', 'journal', 'island', 'islandTodos'],
-    off: ['widgets', 'vibes', 'wallpaper', 'islandWeather', 'islandStocks', 'islandSales', 'notifyMirror', 'islandInsights'],
+    off: ['widgets', 'vibes', 'wallpaper', 'islandWeather', 'islandStocks', 'islandSales', 'notifyMirror', 'islandInsights', 'tracks', 'monitorHistory'],
     settings: { 'a11y.motion': 'reduce', density: 'comfortable', 'today.cards': ['now', 'tasks', 'focus'], 'notices.batch': 'thrice', 'notices.followFocus': true, 'notices.delivery.mail': 'batched', 'notices.delivery.monitors': 'batched', 'notices.delivery.network': 'batched', 'notices.delivery.reader': 'silent' },
     sidebar: ['files', 'pim', 'notes'],
     signature: { name: 'One thing now', line: 'Today shows what is on now, your top three and one focus timer.', part: 'focus' },
   },
   {
     id: 'pro', name: 'Pro', line: 'Everything in reach, tight and fast, for keyboard people.', who: 'Developers, IT and power users', icon: 'terminal', tone: 'pro',
-    on: ['filePanes', 'terminal', 'agentHub', 'aiAgents', 'agents', 'islandUsage', 'usageTracker', 'devServers', 'containers', 'firewall', 'settingsCatalog', 'remoteDesktops', 'keeperMesh', 'tools', 'processes', 'launcher', 'quickControls', 'monitorSensors'],
-    off: ['ambientSound', 'vibes'],
+    on: ['filePanes', 'terminal', 'agentHub', 'aiAgents', 'agents', 'islandUsage', 'usageTracker', 'devServers', 'containers', 'firewall', 'settingsCatalog', 'remoteDesktops', 'keeperMesh', 'tools', 'processes', 'launcher', 'quickControls', 'monitorSensors', 'monitorHistory', 'monitorTray', 'displayKeys'],
+    off: ['ambientSound', 'vibes', 'tracks'],
     settings: { density: 'compact', settingsAdvanced: true, sidebarSectionLimit: 0, helpButton: false, 'tips.on': false, 'notices.delivery.monitors': 'now', 'notices.delivery.network': 'now', 'notices.delivery.aiusage': 'now' },
     signature: { name: 'Run anything', line: 'Quick Search runs any Keeper action, your commands and saved links.', part: 'launcher' },
   },
   {
     id: 'researcher', name: 'Researcher', line: 'Notes, sources and search by meaning, side by side.', who: 'Students, academics and analysts', icon: 'book', tone: 'researcher',
     on: ['notes', 'brain', 'graphAll', 'semantic', 'docText', 'ocr', 'convert', 'dictation', 'meetings', 'planner', 'calendars', 'reader'],
-    off: ['firewall', 'keeperMesh', 'islandStocks', 'monitorHistory'],
+    off: ['firewall', 'keeperMesh', 'islandStocks', 'monitorHistory', 'tracks'],
     settings: { 'notices.delivery.calendar': 'now', 'notices.delivery.mail': 'batched', 'notices.delivery.health': 'batched' },
     sidebar: ['files', 'pim', 'notes', 'ai'],
     signature: { name: 'Linked sources', line: 'Every note shows the files, mail and notes it is linked to.', part: 'graphAll' },
@@ -95,7 +103,7 @@ export const MODES: ModeDef[] = [
   {
     id: 'creator', name: 'Creator', line: 'Record, edit and share your screen in one flow.', who: 'Video makers, teachers and designers', icon: 'video', tone: 'creator',
     on: ['capture', 'studio', 'stage', 'drawOnScreen', 'photoEditor', 'convert', 'faces', 'islandPrompter', 'speechModel'],
-    off: ['agents', 'aiAgents', 'islandUsage'],
+    off: ['agents', 'aiAgents', 'islandUsage', 'tracks', 'monitorHistory'],
     settings: { 'notices.delivery.health': 'silent', 'notices.delivery.fixit': 'silent', 'notices.delivery.mail': 'batched' },
     sidebar: ['files', 'pim', 'screen'],
     signature: { name: 'Record and share', line: 'Studio records, adds captions and copies a link to share.', part: 'studio' },
@@ -103,7 +111,7 @@ export const MODES: ModeDef[] = [
   {
     id: 'writer', name: 'Writer', line: 'A quiet page to write on, with words that flow.', who: 'Writers, bloggers and journalists', icon: 'note', tone: 'writer',
     on: ['notes', 'journal', 'textSnippets', 'dictation', 'selectionBar', 'writingHelp', 'focusBlock', 'reader'],
-    off: ['health', 'firewall', 'tools', 'studio'],
+    off: ['health', 'firewall', 'tools', 'studio', 'tracks', 'monitorHistory'],
     settings: { font: 'serif', 'a11y.textScale': 1.1, 'a11y.motion': 'reduce', 'home.density': 'spacious', 'notices.delivery.mail': 'batched', 'notices.delivery.reader': 'silent' },
     sidebar: ['files', 'pim', 'notes'],
     signature: { name: 'Distraction blocking', line: 'Block the sites and apps that pull you away while you write.', part: 'focusBlock' },
@@ -111,7 +119,7 @@ export const MODES: ModeDef[] = [
   {
     id: 'family', name: 'Family', line: 'Large and plain, with a helper one click away.', who: 'New or older computer users', icon: 'person', tone: 'family',
     on: ['library', 'mail', 'calendars', 'alarms', 'cleanup', 'link', 'remoteScreen', 'island', 'bigButtons'],
-    off: ['terminal', 'agentHub', 'aiAgents', 'agents', 'islandUsage', 'usageTracker', 'devServers', 'containers', 'firewall', 'settingsCatalog', 'startupItems', 'fileKit', 'studio', 'stage', 'tools', 'rules', 'workflows', 'keeperMesh', 'brain', 'writingHelp', 'islandAsk', 'abilities', 'processes', 'quickControls', 'widgets'],
+    off: ['terminal', 'agentHub', 'aiAgents', 'agents', 'islandUsage', 'usageTracker', 'devServers', 'containers', 'firewall', 'settingsCatalog', 'startupItems', 'fileKit', 'studio', 'stage', 'tools', 'rules', 'workflows', 'keeperMesh', 'brain', 'writingHelp', 'islandAsk', 'abilities', 'processes', 'quickControls', 'widgets', 'tracks', 'monitorHistory'],
     settings: { 'a11y.textScale': 1.25, 'a11y.motion': 'reduce', 'a11y.focusAlways': true, density: 'comfortable', 'home.density': 'spacious', 'today.cards': ['now', 'tasks'], settingsAdvanced: false, sidebarSectionLimit: 5, helpButton: true, 'tips.on': true, 'notices.batch': 'hourly', 'notices.delivery.health': 'silent', 'notices.delivery.fixit': 'silent', 'notices.delivery.network': 'silent', 'notices.delivery.updates': 'silent' },
     sidebar: ['files', 'pim'],
     signature: { name: 'Help mode', line: 'One click lets a trusted relative see your screen, with a big Stop.', part: 'remoteHelp' },
@@ -285,6 +293,8 @@ export function modeSettings(c: ModeChoice): ModeSettings {
   for (const p of MANAGED) out[p] = getAt(defaults(), p);
   Object.assign(out, base.settings);
   out.sidebarHidden = sidebarHiddenFor(base.sidebar);
+  // Weather is not a daily destination: outside Standard its page leaves the sidebar, and it lives in the Island and widgets.
+  if (base.id !== 'standard') out.sidebarHidden = [...(out.sidebarHidden as string[]), ...NOT_DAILY_ROWS];
   for (const a of cleanAddons(c.addons)) {
     for (const [p, v] of Object.entries(addonDef(a)!.settings)) {
       out[p] = LARGEST.has(p) && typeof out[p] === 'number' && typeof v === 'number' ? Math.max(out[p] as number, v) : v;

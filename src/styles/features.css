@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 */
 /* Settings → Features and Sidebar */
+.feature-mode { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: var(--r-lg); background: var(--bg-elev); box-shadow: var(--shadow); }
+.feature-sets-line { margin: -2px 0 6px; }
 .feature-presets { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
 .feature-preset { display: flex; flex-direction: column; gap: 3px; text-align: left; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--text); cursor: default; font: inherit; }
 .feature-preset:hover { border-color: var(--accent); }

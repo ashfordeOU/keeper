@@ -4,6 +4,11 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 
 ## [Unreleased]
 
+### Changed — Modes: presets folded in, calmer switching
+- Settings → Features names the mode you are in, with Change mode…, instead of the old presets. Your saved sets of parts are **My modes**, saved with **Save as my mode** and still usable on battery or on power.
+- Switching modes quickly shows one toast that changes with each switch, not three stacked.
+- Outside Standard, Weather leaves the sidebar (it stays in the Island and widgets), Places & Tracks and a year of health history are off; Pro turns on the advanced readings (health history, live readings in the menu bar, monitor brightness keys).
+
 ### Changed — Sidebar: Connect for other people's machines
 - Remote Desktops and Terminal have their own **Connect** section, apart from **Devices** (your own phones and computers, and Phone Alerts). If you had hidden Devices, Connect starts hidden too; show it again any time with Customise sidebar.
 

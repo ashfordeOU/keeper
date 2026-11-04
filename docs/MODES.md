@@ -21,6 +21,16 @@ One choice that shapes the whole of Keeper. A mode decides which parts are on, h
 - **Anytime**: Settings → General → **Mode** (cards with a picture), the palette (*Mode: Focus*, *Add: Privacy-max*), the tray's **Mode** menu, or the small coloured badge at the foot of the sidebar.
 - **Preview first**: every switch shows a sheet before anything changes: the parts it turns on and off, how it looks (text size, spacing, motion), how many sidebar sections stay, and *Your files, notes, mail and accounts are not touched*. Then **Switch** or **Cancel**.
 
+## Presets and your own modes
+
+Modes replaced the presets (Recommended, Light, Files only, Everything) in Settings → Features: the top of that page names the mode you are in, with **Change mode…**. Your saved sets of parts are **My modes** there: **Save as my mode** keeps the parts that are on now, to use again by hand or on battery and on power.
+
+Switching modes quickly shows one toast that changes with each switch, never a stack of them.
+
+## Not daily destinations
+
+Outside Standard, **Weather** leaves the sidebar (it lives in the Island and widgets, and the palette still opens it), **Places & Tracks** is switched off, and **a year of health history** is off too. **Pro** turns on the advanced readings: a year of health history, live readings in the menu bar and monitor brightness keys.
+
 ## You always win
 
 A mode sets values; anything you change afterwards is kept as **yours, for that mode**. Switch away and your changes wait; come back and they return. Settings → **Changed** and **Reset** compare against the mode you are in, not against how Keeper came, and Settings → General → Mode shows *2 changes of yours* with **Reset to Focus**.
@@ -54,7 +64,7 @@ Keeper as it comes: the essentials for this computer. For: most people.
 A calm file manager with mail. Big text, few rows. For: people who want it calm.
 
 - **Turns on:** Files and search, Quick Search, Clean up, Undo history, Mail, Calendar and reminders, The Island, Big buttons on Today
-- **Turns off:** Terminal, AI agents in the terminal, AI agents, Coding assistants, AI limits in the Island, AI usage and limits, Local servers and ports, Containers, Network & firewall, Private network for your devices, Toolbox, Studio (screen recording), Stage (clean screen), Desktop widgets, Places and tracks, Hidden system settings, Running apps, Startup items and apps, Automations, Let AI search your files, Writing help, Ask AI in the Island, Quick switches
+- **Turns off:** Terminal, AI agents in the terminal, AI agents, Coding assistants, AI limits in the Island, AI usage and limits, Local servers and ports, Containers, Network & firewall, Private network for your devices, Toolbox, Studio (screen recording), Stage (clean screen), Desktop widgets, Places and tracks, Hidden system settings, Running apps, Startup items and apps, Automations, Let AI search your files, Writing help, Ask AI in the Island, Quick switches, A year of health history
 - **Settings:** Text size: 110% · Spacing: Comfortable · Today spacing: Spacious · Cards on Today: 2 · All settings shown: No · Rows per sidebar section: 5 · Help button: Shown · A tip a day: On · Batched notices: Every hour · Health notices: Silent · Fix-it List notices: Silent · Privacy notices: Silent
 - **Sidebar:** Files, Mail & Calendar
 - **Its own part:** Big buttons: Six large buttons on Today: find a file, free up space, write mail and more.
@@ -64,7 +74,7 @@ A calm file manager with mail. Big text, few rows. For: people who want it calm.
 One thing at a time. Notices wait; distractions stay out. For: people who lose time to distractions.
 
 - **Turns on:** Inbox for quick thoughts, Planner, Plan my day, Focus timer and breaks, Block distractions while you focus, Journal, The Island, Tasks in the Island
-- **Turns off:** Desktop widgets, Vibes, Live wallpaper, Weather in the Island, Stocks in the Island, Sales in the Island, Other apps' notifications in the Island, Insights in the Island
+- **Turns off:** Desktop widgets, Vibes, Live wallpaper, Weather in the Island, Stocks in the Island, Sales in the Island, Other apps' notifications in the Island, Insights in the Island, Places and tracks, A year of health history
 - **Settings:** Motion: Reduced · Spacing: Comfortable · Cards on Today: 3 · Batched notices: At 9, 13 and 17 · Hold notices while focusing: Yes · Mail notices: Batched · Sites and servers notices: Batched · Network notices: Batched · Reader notices: Silent
 - **Sidebar:** Files, Mail & Calendar, Notes
 - **Its own part:** One thing now: Today shows what is on now, your top three and one focus timer.
@@ -73,8 +83,8 @@ One thing at a time. Notices wait; distractions stay out. For: people who lose t
 
 Everything in reach, tight and fast, for keyboard people. For: developers, it and power users.
 
-- **Turns on:** Two folders side by side, Terminal, AI agents in the terminal, AI agents, Coding assistants, AI limits in the Island, AI usage and limits, Local servers and ports, Containers, Network & firewall, Hidden system settings, Remote Desktop, VNC and SSH, Private network for your devices, Toolbox, Running apps, Apps and commands in Quick Search, Quick switches, Graphics, fans and power
-- **Turns off:** Ambient sound, Vibes
+- **Turns on:** Two folders side by side, Terminal, AI agents in the terminal, AI agents, Coding assistants, AI limits in the Island, AI usage and limits, Local servers and ports, Containers, Network & firewall, Hidden system settings, Remote Desktop, VNC and SSH, Private network for your devices, Toolbox, Running apps, Apps and commands in Quick Search, Quick switches, Graphics, fans and power, A year of health history, Live numbers in the menu bar, Monitor brightness keys
+- **Turns off:** Ambient sound, Vibes, Places and tracks
 - **Settings:** Spacing: Compact · All settings shown: Yes · Rows per sidebar section: All · Help button: Hidden · A tip a day: Off · Sites and servers notices: Now · Network notices: Now · AI usage notices: Now
 - **Sidebar:** every section
 - **Its own part:** Run anything: Quick Search runs any Keeper action, your commands and saved links.
@@ -84,7 +94,7 @@ Everything in reach, tight and fast, for keyboard people. For: developers, it an
 Notes, sources and search by meaning, side by side. For: students, academics and analysts.
 
 - **Turns on:** Notes, Let AI search your files, Knowledge graph of everything, Search by meaning, Words inside documents, Words in pictures and scans, Convert, Dictation, Meeting notes, Planner, Calendar and reminders, Feeds and read later
-- **Turns off:** Network & firewall, Private network for your devices, Stocks in the Island, A year of health history
+- **Turns off:** Network & firewall, Private network for your devices, Stocks in the Island, A year of health history, Places and tracks
 - **Settings:** Calendar notices: Now · Mail notices: Batched · Health notices: Batched
 - **Sidebar:** Files, Mail & Calendar, Notes, AI
 - **Its own part:** Linked sources: Every note shows the files, mail and notes it is linked to.
@@ -94,7 +104,7 @@ Notes, sources and search by meaning, side by side. For: students, academics and
 Record, edit and share your screen in one flow. For: video makers, teachers and designers.
 
 - **Turns on:** Screenshots and copy text from screen, Studio (screen recording), Stage (clean screen), Draw on screen, Edit photos, Convert, Hide faces in pictures, Teleprompter, Transcribe recordings
-- **Turns off:** Coding assistants, AI agents, AI limits in the Island
+- **Turns off:** Coding assistants, AI agents, AI limits in the Island, Places and tracks, A year of health history
 - **Settings:** Health notices: Silent · Fix-it List notices: Silent · Mail notices: Batched
 - **Sidebar:** Files, Mail & Calendar, Screen
 - **Its own part:** Record and share: Studio records, adds captions and copies a link to share.
@@ -104,7 +114,7 @@ Record, edit and share your screen in one flow. For: video makers, teachers and 
 A quiet page to write on, with words that flow. For: writers, bloggers and journalists.
 
 - **Turns on:** Notes, Journal, Typed snippets, Dictation, Actions for selected text, Writing help, Block distractions while you focus, Feeds and read later
-- **Turns off:** Computer health, Network & firewall, Toolbox, Studio (screen recording)
+- **Turns off:** Computer health, Network & firewall, Toolbox, Studio (screen recording), Places and tracks, A year of health history
 - **Settings:** Text style: Serif · Text size: 110% · Motion: Reduced · Today spacing: Spacious · Mail notices: Batched · Reader notices: Silent
 - **Sidebar:** Files, Mail & Calendar, Notes
 - **Its own part:** Distraction blocking: Block the sites and apps that pull you away while you write.
@@ -114,7 +124,7 @@ A quiet page to write on, with words that flow. For: writers, bloggers and journ
 Large and plain, with a helper one click away. For: new or older computer users.
 
 - **Turns on:** Files and search, Mail, Calendar and reminders, Alarms, timers and clocks, Clean up, Keeper on your other devices, See and control your devices, The Island, Big buttons on Today
-- **Turns off:** Terminal, AI agents in the terminal, AI agents, Coding assistants, AI limits in the Island, AI usage and limits, Local servers and ports, Containers, Network & firewall, Hidden system settings, Startup items and apps, More formats for Convert, Studio (screen recording), Stage (clean screen), Toolbox, Automations, Workflows, Private network for your devices, Let AI search your files, Writing help, Ask AI in the Island, More AI skills, Running apps, Quick switches, Desktop widgets
+- **Turns off:** Terminal, AI agents in the terminal, AI agents, Coding assistants, AI limits in the Island, AI usage and limits, Local servers and ports, Containers, Network & firewall, Hidden system settings, Startup items and apps, More formats for Convert, Studio (screen recording), Stage (clean screen), Toolbox, Automations, Workflows, Private network for your devices, Let AI search your files, Writing help, Ask AI in the Island, More AI skills, Running apps, Quick switches, Desktop widgets, Places and tracks, A year of health history
 - **Settings:** Text size: 125% · Motion: Reduced · Focus outlines: Always · Spacing: Comfortable · Today spacing: Spacious · Cards on Today: 2 · All settings shown: No · Rows per sidebar section: 5 · Help button: Shown · A tip a day: On · Batched notices: Every hour · Health notices: Silent · Fix-it List notices: Silent · Network notices: Silent · Updates notices: Silent
 - **Sidebar:** Files, Mail & Calendar
 - **Its own part:** Help mode: One click lets a trusted relative see your screen, with a big Stop.

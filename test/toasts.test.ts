@@ -19,6 +19,16 @@ describe('toasts', () => {
     expect(list.map((t) => [t.id, t.count])).toEqual([[1, 1], [2, 1], [3, 1]]);
   });
 
+  it('a toast with a key replaces the one showing with that key instead of stacking (switching modes quickly)', () => {
+    let list: ToastItem[] = pushToast([], 'Saved', undefined, 0, 1).list;
+    list = pushToast(list, 'Focus is on.', undefined, 100, 2, 5000, 'mode').list;
+    list = pushToast(list, 'Pro is on.', undefined, 200, 3, 5000, 'mode').list;
+    const r = pushToast(list, 'Writer is on.', undefined, 300, 4, 5000, 'mode');
+    expect(r.id).toBe(2);
+    expect(r.list.map((t) => t.text)).toEqual(['Saved', 'Writer is on.']);
+    expect(r.list[1]).toMatchObject({ count: 1, at: 300, key: 'mode' });
+  });
+
   it('keeps at most three and moves a repeated one to the bottom', () => {
     let list: ToastItem[] = [];
     for (const [i, t] of ['a', 'b', 'c', 'd'].entries()) list = pushToast(list, t, undefined, i, i + 1).list;

@@ -55,7 +55,19 @@ describe('the modes themselves', () => {
   it('keeps the sidebar of the narrow modes to a few sections', () => {
     for (const m of MODES) if (m.sidebar) expect(m.sidebar.length, m.id).toBeLessThanOrEqual(4);
     expect(modeSettings({ base: 'simple', addons: [] }).sidebarHidden).toContain('section:computer');
-    expect(modeSettings({ base: 'pro', addons: [] }).sidebarHidden).toEqual([]);
+    // Pro shows every section; only Weather (not a daily destination) leaves the sidebar outside Standard.
+    expect(modeSettings({ base: 'pro', addons: [] }).sidebarHidden).toEqual(['nav:weather']);
+    expect(modeSettings({ base: 'standard', addons: [] }).sidebarHidden).toEqual([]);
+  });
+  it('Weather and Places & Tracks are Standard’s; the advanced readings are Pro’s', () => {
+    for (const m of MODES.filter((x) => x.id !== 'standard')) {
+      expect(m.off, m.id).toContain('tracks');
+      expect(modeSettings({ base: m.id, addons: [] }).sidebarHidden, m.id).toContain('nav:weather');
+      expect(m.off, m.id).not.toContain('weather');
+    }
+    const pro = MODES.find((m) => m.id === 'pro')!;
+    expect(pro.on).toEqual(expect.arrayContaining(['monitorHistory', 'monitorTray', 'displayKeys']));
+    for (const m of MODES.filter((x) => x.id !== 'standard' && x.id !== 'pro')) expect(m.off, m.id).toContain('monitorHistory');
   });
 });
 

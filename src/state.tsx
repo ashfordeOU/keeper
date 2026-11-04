@@ -101,7 +101,8 @@ interface Store {
   cardSize: number;
   setCardSize(n: number): void;
   toasts: Toast[];
-  toast(text: string, action?: Toast['action']): void;
+  /** `key`: a newer toast about the same thing replaces the one showing (switching modes quickly shows one toast) */
+  toast(text: string, action?: Toast['action'], opts?: { key?: string }): void;
   /** bumps whenever files change, so lists reload */
   version: number;
   refresh(): void;
@@ -321,7 +322,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setSettings(await api.settings.set(patch));
   }, []);
 
-  const toast = useCallback((text: string, action?: Toast['action']) => {
+  const toast = useCallback((text: string, action?: Toast['action'], opts?: { key?: string }) => {
     // A message that names a place in Keeper ("…in Settings → AI & Brain") opens it.
     if (!action) {
       const link = linkInMessage(text);
@@ -334,7 +335,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     // The same text again while it shows collapses into one toast with a count.
     let id = Date.now() + Math.random();
     setToasts((t) => {
-      const r = pushToast(t, text, action, Date.now(), id);
+      const r = pushToast(t, text, action, Date.now(), id, undefined, opts?.key);
       id = r.id;
       return r.list;
     });

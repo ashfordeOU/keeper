@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Settings → Features: every part of Keeper with an on/off switch and what it
-// costs, presets, and Customize sidebar.
+// costs, the mode it follows (modes replaced the presets), your own modes
+// (saved sets of parts), and Customize sidebar.
 
 import { useEffect, useMemo, useState } from 'react';
-import { currentPreset, currentSet, FEATURES, featureDef, featureOffered, NAV_GROUPS, PRESETS, type ComputerContext, type CostLevel, type FeatureSet } from '../../core/features';
+import { currentSet, FEATURES, featureDef, featureOffered, NAV_GROUPS, PRESETS, type CostLevel, type FeatureSet } from '../../core/features';
 import { api } from '../api';
 import { useFeatureStates } from '../features';
 import { useStore } from '../state';
@@ -12,19 +13,17 @@ import { SuitePanel } from './SuitePanel';
 import { LaunchersPanel } from './LaunchersPanel';
 import { SECTION_COLOR, SECTION_IDS, SECTION_NAMES, SECTION_PLATFORMS } from './NavSection';
 import { Toggle } from './ui';
+import { modeOf, modeTitle } from '../../core/modes';
 import { ComponentNeeds, ComponentsSection } from './ComponentsPanel';
 import '../styles/features.css';
 
 const COST_WORD: Record<CostLevel, string> = { none: 'Nothing until you use it', low: 'Light', medium: 'Some', high: 'Heavy while working' };
 
 export function FeaturesPanel() {
-  const { settings, info, toast } = useStore();
+  const { settings, info, toast, go } = useStore();
   const states = useFeatureStates();
   const [q, setQ] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
-  const [ctx, setCtx] = useState<ComputerContext | undefined>();
-  useEffect(() => { void api.setup?.context().then(setCtx).catch(() => undefined); }, []);
-  const preset = settings ? currentPreset(settings, ctx) : undefined;
   const [sets, setSets] = useState<{ sets: FeatureSet[]; onBattery: string; onPower: string } | null>(null);
   const [live, setLive] = useState<Record<string, { name: string; everyMs: number | null; runs: number }[]>>({});
   const [newName, setNewName] = useState('');
@@ -61,21 +60,17 @@ export function FeaturesPanel() {
 
   return (
     <div className="features">
-      <div className="feature-presets" role="radiogroup" aria-label="Presets">
-        {PRESETS.map((p) => (
-          <button key={p.id} role="radio" aria-checked={preset === p.id} className={`feature-preset ${preset === p.id ? 'on' : ''}`} onClick={() => void api.features.preset(p.id)} title={p.description}>
-            <b>{p.name}</b>
-            <span className="small muted">{p.description}</span>
-          </button>
-        ))}
-        {/* Anything else is Custom: the person's own mix. */}
-        <button role="radio" aria-checked={!preset} aria-disabled className={`feature-preset ${!preset ? 'on' : ''}`} data-testid="preset-custom" title="Your own mix of parts">
-          <b>Custom</b>
-          <span className="small muted">Your own mix of parts.</span>
-        </button>
+      {/* Modes replaced the presets (Recommended, Light, Files only, Everything): one choice that shapes Keeper. */}
+      <div className="feature-mode" data-testid="features-mode">
+        <div className="grow">
+          <div className="feature-name">Mode: {modeTitle(modeOf(settings))}</div>
+          <div className="small muted">A mode sets which parts are on. Your own switches below are kept for that mode.</div>
+        </div>
+        <button className="btn sm" data-testid="features-change-mode" onClick={() => go({ name: 'settings', arg: 'general#mode' })}>Change mode…</button>
       </div>
       <div className="feature-sets" data-testid="feature-sets">
-        <div className="feature-group-title">Your sets</div>
+        <div className="feature-group-title">My modes</div>
+        <div className="small muted feature-sets-line">Save the parts that are on now as a mode of your own, to use again or on battery.</div>
         {(sets?.sets ?? []).map((x) => (
           <div key={x.id} className={`feature-row ${mySet === x.id ? 'current' : ''}`}>
             <div className="grow"><div className="feature-name">{x.name}{mySet === x.id ? <span className="badge" style={{ marginLeft: 6 }}>In use</span> : null}</div>
@@ -86,8 +81,8 @@ export function FeaturesPanel() {
           </div>
         ))}
         <div className="feature-row">
-          <input className="input grow" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Name for the current choices, e.g. Travel" aria-label="New set name" />
-          <button className="btn sm" disabled={!newName.trim()} onClick={() => void api.features.saveSet(newName).then((r) => { setSets(r); setNewName(''); toast('Saved'); })}>Save as a set</button>
+          <input className="input grow" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Name it, e.g. Travel" aria-label="Name for my mode" />
+          <button className="btn sm" disabled={!newName.trim()} onClick={() => void api.features.saveSet(newName).then((r) => { setSets(r); setNewName(''); toast('Saved'); })}>Save as my mode</button>
         </div>
         <div className="feature-row">
           <div className="grow"><div className="feature-name">Switch by power source</div><div className="small muted">Use a lighter set on battery and everything on power, automatically.</div></div>
