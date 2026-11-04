@@ -208,6 +208,7 @@ export const TIERS: Record<string, FeatureTier> = {
   notices: { plain: 'Notification center', setup: 'general', normal: 'on', shown: 'customize' },
   usageStats: { plain: 'Anonymous usage stats', setup: 'general', normal: 'off', shown: 'basic' },
   proAccount: { plain: 'Account and Pro', setup: 'general', normal: 'on', shown: 'advanced' },
+  settingsSync: { plain: 'Settings on your other computers', setup: 'sync', normal: 'off', shown: 'basic' },
   keeperBackup: { plain: 'A copy of Keeper each night', setup: 'sync', normal: 'off', shown: 'basic' },
   crashReports: { plain: 'Crash reports for Ashforde', setup: 'general', normal: 'off', shown: 'basic' },
 };

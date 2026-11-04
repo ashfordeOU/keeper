@@ -65,6 +65,12 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - Archives' What works here says "Opens with your system's tools" instead of naming the program underneath; only 7-Zip is named, where it needs installing.
 - Snap Windows on Linux says "Works with apps on this desktop".
 
+### Added — Settings on your other computers
+- Settings → Devices → Keep settings the same: typed snippets, themes and the look, Quick Search links and commands, saved searches, Automations and the mode follow you to the computers you choose, straight over your own encrypted link. No server and no account.
+- Per item, the newest change wins; what it replaced is kept under Older versions with Bring back.
+- Never passwords or keys, and never a path that only one computer has: folders in your home folder move with you, others stay put.
+- Off until you turn it on, and only with computers that chose each other.
+
 ### Added — Move to a new computer, and back up Keeper itself
 - Settings → General → Move or back up Keeper: Back up… saves everything Keeper keeps for you (rules, snippets, cues, themes, the Inbox, automations, notes folders, mail accounts and the rest) in one file sealed with your password. Restore… opens it on a new computer and Keeper restarts as it was.
 - Passwords, keys and this computer's own pairing are never in it; the panel lists what is left out and why.

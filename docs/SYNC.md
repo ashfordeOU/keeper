@@ -134,3 +134,20 @@ keeper backup list|restore|verify --from <folder>
   - Phone uploads from the companion page. The receiving side is written
     (`phoneUploadBegin/Part/Finish` in `electron/services/sync`), but the page
     does not call it yet.
+
+## Settings on your other computers
+
+**Settings → Devices → Keep settings the same** (the part *Settings on your other computers*, off until you turn it on; it needs [Keeper Link](LINK.md)). Choose what travels and which paired computers share, and turn it on for each other on both computers.
+
+| What | How it travels | Never |
+| --- | --- | --- |
+| Typed snippets, themes and the look, Quick Search links and commands, saved searches, Automations, the mode (you choose which) | Keeper Link, end to end encrypted, straight between your computers: no server holds a copy | Passwords, keys, tokens, accounts |
+| Paths inside your home folder (an Automation on `~/Downloads`) | As `~/…`, and placed under the other computer's home folder | A path outside your home folder (a disk, a network share): that item stays on its own computer |
+| Notes folders | [Synced folders](#synced-folders) or the notes apps' own sync | — |
+| Calendars and reminders | The provider (Google, iCloud, Microsoft, CalDAV) | — |
+
+- **Per item, the newest change wins.** Each snippet, link, rule, saved search and look setting carries when and where it last changed. What a newer change replaces is kept under **Older versions** (the last 40), and **Bring back** makes it the newest again everywhere.
+- **What a computer had before it began sharing has no age**, so a change you make afterwards on any computer wins over it.
+- **Only with computers you choose**, in both directions: a computer that has not chosen this one refuses, and says so.
+- **When**: a few seconds after a change and every 15 minutes, while it is on. Off, nothing runs and requests are refused.
+- For developers: the rules in `core/settings-sync.ts` (tests in `test/settings-sync.test.ts`), the exchange (Link request `settings.sync`, permission *Share Keeper settings*) in `electron/services/settings-sync.ts`, the panel in `src/components/SettingsSync.tsx`, and two real apps pairing and sharing in `test/e2e/reach.cjs sync`.

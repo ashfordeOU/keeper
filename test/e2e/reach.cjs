@@ -197,6 +197,73 @@ async function launch(extraEnv = {}, opts = {}) {
     await s.app.close();
   }
 
+  // ---------------------------------------------------------------- settings on your other computers
+  if (want('sync')) {
+    const other = path.join(HOME, 'laptop');
+    for (const d of ['Documents', 'Downloads', 'Desktop']) fs.mkdirSync(path.join(other, d), { recursive: true });
+    const L = await launch({ HOME: other, XDG_CONFIG_HOME: other + '/.config', XDG_DATA_HOME: other + '/.local/share' });
+    const call = (w, f, ...a) => w.evaluate(([fn, args]) => { const p = fn.split('.'); let o = window.keeper; for (const x of p.slice(0, -1)) o = o[x]; return o[p[p.length - 1]](...args); }, [f, a]);
+    const sa = await call(main, 'link.state');
+    const sb = await call(L.main, 'link.state');
+    check(sa.me.listening && sb.me.listening, 'both computers listen for each other');
+    const inv = await call(main, 'link.invite');
+    const pairing = call(L.main, 'link.pair', { address: `127.0.0.1:${sa.me.port}`, code: inv.code });
+    for (const w of [main, L.main]) {
+      const p = await until(async () => (await call(w, 'link.pending')).pairs[0], 15000);
+      if (p) await call(w, 'link.confirmPair', p.id, true);
+    }
+    await pairing.catch(() => undefined);
+    const paired = await until(async () => (await call(main, 'link.state')).devices.length === 1 && (await call(L.main, 'link.state')).devices.length === 1, 15000);
+    check(!!paired, 'the two computers are paired');
+    // Demo names in pictures, never this machine's; and the pairing sheets put away.
+    await call(main, 'link.rename', 'Desk');
+    await call(L.main, 'link.rename', 'Ana’s laptop');
+    for (const w of [main, L.main]) { await w.keyboard.press('Escape').catch(() => undefined); await wait(300); }
+    const idOfL = (await call(main, 'link.state')).devices[0].id;
+    const idOfA = (await call(L.main, 'link.state')).devices[0].id;
+    await call(L.main, 'link.renameDevice', idOfA, 'Desk');
+    await call(main, 'link.renameDevice', idOfL, 'Ana’s laptop');
+    for (const [w, dev] of [[main, idOfL], [L.main, idOfA]]) {
+      await call(w, 'features.set', 'settingsSync', true);
+      await call(w, 'settingsSync.setDevice', dev, true);
+    }
+    // A snippet and a theme made on the desk…
+    const vs = await call(main, 'voice.settings');
+    await call(main, 'voice.setSettings', { snippets: [...vs.snippets, { id: 'sn-addr', abbr: ';addr', trigger: '', text: '1 High Street' }] });
+    await call(main, 'settings.set', { theme: 'blossom' });
+    const r = await call(main, 'settingsSync.syncNow');
+    check(r.devices[0]?.last?.ok === true, `the desk shares with the laptop (${r.devices[0]?.last?.message ?? 'ok'})`);
+    const snip = await until(async () => (await call(L.main, 'voice.settings')).snippets.find((s) => s.abbr === ';addr'), 15000);
+    check(!!snip && snip.text === '1 High Street', 'the snippet appears on the laptop');
+    check(!!(await until(async () => (await call(L.main, 'settings.get')).theme === 'blossom', 10000)), 'and so does the theme');
+    // Both change the theme; the later change wins and the other is kept as an older version.
+    await call(main, 'settings.set', { theme: 'steel' });
+    await wait(50);
+    await call(L.main, 'settings.set', { theme: 'minimal' });
+    await call(L.main, 'settingsSync.syncNow');
+    const themeA = await until(async () => { const t = (await call(main, 'settings.get')).theme; return t === 'minimal' ? t : null; }, 15000);
+    check(themeA === 'minimal', 'the newest change wins on both computers');
+    const older = (await call(main, 'settingsSync.status')).older;
+    check(older.some((o) => o.label === 'Theme' && o.value === 'steel'), `what it replaced is in Older versions (${older.map((o) => `${o.label}:${o.value}`).join(', ')})`);
+    // Turning sharing off on the laptop: the desk's next try is refused, plainly.
+    await call(L.main, 'settingsSync.setDevice', idOfA, false);
+    const r2 = await call(main, 'settingsSync.syncNow');
+    check(r2.devices[0]?.last?.ok === false, `a computer that stopped sharing refuses (${r2.devices[0]?.last?.message})`);
+    await call(L.main, 'settingsSync.setDevice', idOfA, true);
+    await call(L.main, 'settings.set', { theme: 'playful', appearance: 'light' });
+    await call(L.main, 'settingsSync.syncNow');
+    await L.navigate('settings');
+    if (!(await until(() => L.main.locator('[data-testid="settings-search"]').count(), 15000))) await L.shot('debug-sync');
+    await L.main.locator('[data-testid="settings-search"]').fill('other computer');
+    await L.main.locator('[data-testid="settings-result"]', { hasText: 'Keep settings the same' }).first().click({ timeout: 10000 }).catch(() => undefined);
+    const panel = await until(() => L.main.locator('[data-testid="settings-sync"]').count(), 10000);
+    check(!!panel, 'Settings → Devices has Keep settings the same');
+    if (!panel) { await L.shot('debug-sync'); console.log(await L.main.locator('.settings-page').innerText().catch(() => '')); }
+    if (panel) { await L.main.locator('[data-testid="settings-sync"]').scrollIntoViewIfNeeded(); await L.both('auditplatform-sync'); }
+    check(L.errors.length === 0, `no page errors on the laptop (${L.errors.slice(0, 2).join('; ')})`);
+    await L.app.close();
+  }
+
   check(errors.length === 0, `no page errors (${errors.slice(0, 2).join('; ')})`);
   await app.close();
   console.log(failed ? `${failed} check(s) failed` : 'all checks passed');

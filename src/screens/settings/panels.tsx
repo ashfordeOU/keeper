@@ -42,6 +42,7 @@ import { IslandAccentPanel } from '../../island/LookSettings';
 import { NoticePartsPanel, QuietHoursPanel } from '../../components/Notices';
 import { openSelfCheck } from '../../components/SelfCheck';
 import { KeeperBackupPanel } from '../../components/KeeperBackup';
+import { SettingsSyncPanel } from '../../components/SettingsSync';
 import '../../styles/glance.css';
 import { aiPartsShown } from '../../../core/ai-parts';
 import { featureDef } from '../../../core/features';
@@ -309,6 +310,7 @@ export const PANELS: Record<string, PanelDef> = {
   updates: { render: () => <UpdatesPanel />, own: true, wide: true },
   settingsIo: { render: () => <SettingsIoPanel />, wide: true },
   keeperBackup: { render: () => <KeeperBackupPanel />, own: true, wide: true },
+  settingsSync: { render: () => <SettingsSyncPanel />, own: true, wide: true },
   exportTasks: { render: () => <ExportTasksPanel /> },
   resetAll: { render: () => <ResetAllPanel /> },
   theme: { render: () => <ThemeGallery />, wide: true },
