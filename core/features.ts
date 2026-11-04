@@ -20,7 +20,7 @@ export const FEATURE_GROUPS: FeatureGroup[] = ['Library', 'Tidy', 'Island', 'Des
  * The one taxonomy for the sidebar's sections, Settings → Features and the palette:
  * each feature belongs to one of these (`navGroup`), and so does each page (core/nav.ts).
  */
-export type NavGroup = 'files' | 'pim' | 'notes' | 'tidy' | 'sync' | 'computer' | 'security' | 'devices' | 'ai' | 'screen' | 'desktop' | 'island' | 'general';
+export type NavGroup = 'files' | 'pim' | 'notes' | 'tidy' | 'sync' | 'computer' | 'security' | 'devices' | 'connect' | 'ai' | 'screen' | 'desktop' | 'island' | 'general';
 
 /** `within`: a group shown inside another one's sidebar section (the Island's page sits under Desktop). */
 export const NAV_GROUPS: { id: NavGroup; title: string; within?: NavGroup }[] = [
@@ -32,6 +32,8 @@ export const NAV_GROUPS: { id: NavGroup; title: string; within?: NavGroup }[] = 
   { id: 'computer', title: 'Computer' },
   { id: 'security', title: 'Privacy & Security' },
   { id: 'devices', title: 'Devices' },
+  // Other people's machines (Remote Desktops, Terminal and SSH), apart from your own devices.
+  { id: 'connect', title: 'Connect' },
   { id: 'ai', title: 'AI' },
   { id: 'screen', title: 'Screen' },
   { id: 'desktop', title: 'Desktop' },
@@ -319,7 +321,8 @@ const NAV_GROUP: Record<NavGroup, string[]> = {
   sync: ['sync'],
   computer: ['health', 'processes', 'monitorHistory', 'monitorTray', 'devServers', 'containers', 'monitorSensors', 'soundPerApp', 'macAppVolume', 'startupItems', 'guide', 'keepAwake', 'quickControls', 'quickControlsNetwork', 'quickControlsFirewall', 'quickControlsPrivacy', 'quickControlsSecurity', 'settingsCatalog', 'appControls', 'browserTabs', 'displayControl', 'displayKeys', 'displayModes', 'brightnessSync', 'focusBlock', 'timeTracking', 'monitors', 'appUpdates', 'chargeLimit'],
   security: ['protection', 'security', 'netwatch', 'firewall', 'offlineCheck'],
-  devices: ['phoneAlerts', 'link', 'remoteScreen', 'keeperMesh', 'meshDirectHandoff', 'remoteDesktops', 'rdcHosting', 'linkDirect', 'remoteFleet', 'remoteTerminal', 'remoteCommands', 'remoteHelp', 'screenExtras', 'unattendedAccess', 'waylandControl', 'mirroring', 'terminal'],
+  devices: ['phoneAlerts', 'link', 'remoteScreen', 'keeperMesh', 'meshDirectHandoff', 'rdcHosting', 'linkDirect', 'remoteFleet', 'remoteTerminal', 'remoteCommands', 'remoteHelp', 'screenExtras', 'unattendedAccess', 'waylandControl', 'mirroring'],
+  connect: ['remoteDesktops', 'terminal'],
   ai: ['writingHelp', 'selectionBar', 'brain', 'semantic', 'assistant', 'abilities', 'aiAgents', 'usageTracker', 'agentHub', 'dictation', 'dictationHold', 'meetings', 'meetingDetect', 'meetingNotes'],
   screen: ['capture', 'photoEditor', 'studio', 'stage', 'drawOnScreen', 'stageAuto', 'tools', 'videoDownload'],
   desktop: ['textSnippets', 'snapWindows', 'widgets', 'folderBoxes', 'menuBarItems', 'mouseButtons', 'wallpaper', 'vibes', 'ambientSound', 'folderIcons', 'weather', 'tracks', 'tracksLive', 'tracksServices', 'monorail'],

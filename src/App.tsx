@@ -297,7 +297,7 @@ function SidebarNav({ rail, expanded, onToggle, canPin }: { rail: boolean; expan
       {/* The suite, in the same groups as Settings → Features. Mail, calendars, reminders and alarms first. */}
       <PimSidebar Item={NavItem} />
       {navSections().filter((g) => g.id !== 'files').map((g) => (g.id === 'devices' ? (
-        // Paired devices and phones (Keeper Link; drop files on one to send them), then Remote Desktops and Terminal.
+        // Paired devices and phones (Keeper Link; drop files on one to send them), then Phone Alerts. Remote Desktops and Terminal are Connect.
         <DevicesSidebar key={g.id}><SuiteRows pages={g.pages.filter((p) => p.id !== 'devices')} /></DevicesSidebar>
       ) : (
         <NavSection key={g.id} id={g.id} title={g.title}><SuiteRows pages={g.pages} /></NavSection>

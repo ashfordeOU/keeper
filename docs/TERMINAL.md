@@ -4,7 +4,7 @@ Keeper by Ashforde® includes a terminal: tabs, split panes, every shell on the 
 
 ## Where to find it
 
-- **Terminal** in the sidebar (under *More*), or *Terminal* in the command palette.
+- **Terminal** in the sidebar's **Connect** section, beside Remote Desktops, or *Terminal* in the command palette.
 - Its own window: tray → *Terminal*, the palette's *New Terminal Window*, or ⌘⌥T (Ctrl+Alt+T on Windows and Linux).
 - The drop-down terminal slides down from the top of the screen with Ctrl+` and tucks away when you click elsewhere.
 - Right-click a folder in Browse → *Open in Terminal*, or open `keeper://terminal?cwd=/some/folder`.

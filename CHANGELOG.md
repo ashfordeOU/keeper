@@ -4,6 +4,9 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 
 ## [Unreleased]
 
+### Changed — Sidebar: Connect for other people's machines
+- Remote Desktops and Terminal have their own **Connect** section, apart from **Devices** (your own phones and computers, and Phone Alerts). If you had hidden Devices, Connect starts hidden too; show it again any time with Customise sidebar.
+
 ### Changed — Agents: four tabs, and one door to the Knowledge Graph
 - Agents has four tabs instead of eleven: **Apps**, **Permissions**, **Memory** and **Automation**, each with a small switch between its views. Abilities and Skills were two words for one idea: the built-in skills now sit under your own on one Skills view. Old links open the right view.
 - The **Knowledge Graph** moved to the Notes section, beside the notes it links, and the Agents page no longer has its own button for it.

@@ -32,7 +32,7 @@ import { defaultGlanceSettings } from './glance';
 import { DEFAULT_PLATFORM } from './platform-integrations';
 import { defaultHomeSettings, normalizeHome } from './home-layout';
 import { defaultTodaySettings, normalizeToday } from './today';
-import { migrateSidebarLists } from './file-types';
+import { migrateSidebarLists, splitSidebarSections } from './file-types';
 import { DEFAULT_THEME, THEMES } from './themes';
 import type { Rule, Settings } from './types';
 import { sanitizePageWindows } from './page-window';
@@ -164,6 +164,7 @@ export function defaultSettings(folders: string[], rules: Rule[]): AllSettings {
     resourceMode: 'balanced',
     features: {},
     sidebarHidden: [],
+    sidebarSplits: ['connect'],
     pageWindows: {},
     featureSets: [],
     menuBarOneIcon: false,
@@ -304,6 +305,8 @@ export function mergeSettings(base: AllSettings, raw: unknown): AllSettings {
   out.island = { ...out.island, panelSize: isPanelSize(out.island.panelSize) ? out.island.panelSize : 'regular', panelSizes: cleanPanelSizes(out.island.panelSizes) as IslandSettings['panelSizes'], windowType: islandWindowType(out.island.windowType), ...cleanLook(out.island) };
   // The Library and Cloud & Servers sections are gone (types are chips on the file list; connections are in Locations).
   Object.assign(out, migrateSidebarLists(out));
+  // Connect (Remote Desktops and Terminal) came out of Devices: once, it starts hidden wherever Devices was.
+  Object.assign(out, splitSidebarSections(out, Array.isArray(r.sidebarSplits) ? r.sidebarSplits.filter((x): x is string => typeof x === 'string') : []));
   out.sidebarSectionLimit = Number.isFinite(out.sidebarSectionLimit) ? Math.max(0, Math.min(50, Math.round(out.sidebarSectionLimit))) : 5;
   if (!['', 'all', 'onDemand'].includes(out.permissionsSetup)) out.permissionsSetup = '';
   return out;

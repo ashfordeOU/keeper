@@ -138,8 +138,8 @@ export const NAV_PAGES: NavPage[] = [
 
   { id: 'devices', route: { name: 'devices' }, label: 'Devices', icon: 'link', group: 'devices', also: ['mesh'], keywords: 'phone pair link mesh access from anywhere' },
   { id: 'alerts', route: { name: 'alerts' }, label: 'Phone Alerts', icon: 'bell', group: 'devices', keywords: 'notifications push phone telegram ntfy webhook email alert send' },
-  { id: 'rdc', route: { name: 'rdc' }, label: 'Remote Desktops', icon: 'laptop', group: 'devices', keywords: 'rdp vnc ssh remote desktop connect' },
-  { id: 'terminal', route: { name: 'terminal' }, label: 'Terminal', icon: 'terminal', group: 'devices', keywords: 'shell console ssh' },
+  { id: 'rdc', route: { name: 'rdc' }, label: 'Remote Desktops', icon: 'laptop', group: 'connect', keywords: 'rdp vnc ssh remote desktop connect' },
+  { id: 'terminal', route: { name: 'terminal' }, label: 'Terminal', icon: 'terminal', group: 'connect', keywords: 'shell console ssh' },
 
   { id: 'assistant', route: { name: 'assistant' }, label: 'Assistant', i18n: 'nav.assistant', icon: 'assistant', group: 'ai', keywords: 'ask ai chat' },
   { id: 'agents', route: { name: 'agents' }, label: 'Agents', icon: 'agent', group: 'ai', keywords: 'ai agents' },

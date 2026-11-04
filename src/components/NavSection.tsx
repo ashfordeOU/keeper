@@ -94,6 +94,7 @@ export const SECTION_COLOR: Record<string, string> = {
   types: '#e5487f',
   saved: '#3b82f6',
   devices: '#10b981',
+  connect: '#0d9488',
   sync: '#10b981',
   pim: '#e8590c',
   tags: '#8b5cf6',
@@ -111,7 +112,7 @@ export const SECTION_PLATFORMS: Record<string, string[]> = { favorites: ['darwin
 
 /** Section names for Customize sidebar (the suite sections take theirs from core/features.ts NAV_GROUPS). */
 export const SECTION_NAMES: Record<string, string> = {
-  favorites: 'Favorites', quick: 'Quick access', locations: 'Locations', remote: 'Remote', types: 'Find by type', saved: 'Saved searches', devices: 'Devices', sync: 'Sync & Backup',
+  favorites: 'Favorites', quick: 'Quick access', locations: 'Locations', remote: 'Remote', types: 'Find by type', saved: 'Saved searches', devices: 'Devices', connect: 'Connect', sync: 'Sync & Backup',
   pim: 'Mail & Calendar', tags: 'Tags', notes: 'Notes', tidy: 'Tidy', computer: 'Computer', security: 'Privacy & Security', ai: 'AI', screen: 'Screen', desktop: 'Desktop',
 };
 

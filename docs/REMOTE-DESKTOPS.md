@@ -1,6 +1,6 @@
 # Remote Desktops
 
-Keeper by Ashforde® connects to your other computers by any protocol, and can make this computer reachable. Open **Remote Desktops** in the sidebar, or reach it from anywhere (see *Where it appears*).
+Keeper by Ashforde® connects to your other computers by any protocol, and can make this computer reachable. Open **Remote Desktops** in the sidebar's **Connect** section (other people's machines; your own phones and computers are under Devices), or reach it from anywhere (see *Where it appears*).
 
 ## Connecting
 

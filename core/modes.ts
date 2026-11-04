@@ -54,7 +54,7 @@ export interface AddonDef {
 }
 
 /** The sidebar sections a narrow mode keeps (NAV_GROUPS ids). */
-const SECTIONS_ALL: NavGroup[] = ['files', 'pim', 'notes', 'tidy', 'sync', 'computer', 'security', 'devices', 'ai', 'screen', 'desktop'];
+const SECTIONS_ALL: NavGroup[] = ['files', 'pim', 'notes', 'tidy', 'sync', 'computer', 'security', 'devices', 'connect', 'ai', 'screen', 'desktop'];
 
 export const MODES: ModeDef[] = [
   {

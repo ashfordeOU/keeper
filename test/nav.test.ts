@@ -65,7 +65,7 @@ describe('one taxonomy', () => {
   it('agrees with the setup groups (core/feature-tiers.ts) wherever both name one', () => {
     const SAME: Record<string, string> = { privacy: 'security', mail: 'pim' };
     // The knowledge graph follows "Let AI search your files" in setup, but its page sits with the notes it links.
-    const MOVED: Record<string, string> = { graphAll: 'notes' };
+    const MOVED: Record<string, string> = { graphAll: 'notes', remoteDesktops: 'connect', terminal: 'connect' };
     const differ = FEATURES.filter((f) => f.setup && (MOVED[f.id] ?? SAME[f.setup] ?? f.setup) !== f.navGroup).map((f) => `${f.id}: setup ${f.setup}, sidebar ${f.navGroup}`);
     expect(differ).toEqual([]);
   });
@@ -74,7 +74,7 @@ describe('one taxonomy', () => {
     const ids = navSections().map((s) => s.id);
     expect(ids).toEqual(order.filter((g) => ids.includes(g)));
     // Files has no rows of its own: its places come from Places (folders, then Locations), its types are chips.
-    expect(ids).toEqual(['notes', 'tidy', 'sync', 'computer', 'security', 'devices', 'ai', 'screen', 'desktop']);
+    expect(ids).toEqual(['notes', 'tidy', 'sync', 'computer', 'security', 'devices', 'connect', 'ai', 'screen', 'desktop']);
   });
   it('a page’s section holds the part that owns it', () => {
     const wrong: string[] = [];
@@ -153,6 +153,10 @@ describe('merged pages (cuts and merges)', () => {
     expect(navSections().find((g) => g.id === 'ai')!.pages.map((p) => p.id)).not.toContain('graph');
     const agents = fs.readFileSync(path.join(root, 'src/screens/Agents.tsx'), 'utf8');
     expect(agents).not.toMatch(/name: 'graph'/);
+  });
+  it('Connect (other people’s machines) is its own section, apart from Devices (yours)', () => {
+    expect(navSections().find((g) => g.id === 'connect')!.pages.map((p) => p.id)).toEqual(['rdc', 'terminal']);
+    expect(navSections().find((g) => g.id === 'devices')!.pages.map((p) => p.id)).toEqual(['devices', 'alerts']);
   });
   it('old page ids still open their page (windows, app icons, keeper://open links)', () => {
     expect(navPage('capture')?.id).toBe('screen');

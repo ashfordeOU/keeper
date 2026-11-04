@@ -173,6 +173,25 @@ export function frontDoorFolders<P extends { name: string; path: string; kind: s
   return want.map((w) => favorites.find((f) => f.kind === 'folder' && base(f.path) === w && isUnder(f.path, home))).filter((p): p is P => !!p);
 }
 
+/** Sections that came out of another one: [new, old]. Connect (other people's machines) came out of Devices (yours). */
+export const SECTION_SPLITS: [string, string][] = [['connect', 'devices']];
+
+/**
+ * Once per split: a new section starts hidden where the one it came out of was hidden, and sits
+ * right after it in a custom order. `done` lists the splits already made (the person may show it later).
+ */
+export function splitSidebarSections(s: { sidebarOrder?: string[]; sidebarHidden?: string[] }, done: string[]): { sidebarOrder: string[]; sidebarHidden: string[]; sidebarSplits: string[] } {
+  let order = [...(s.sidebarOrder ?? [])];
+  const hidden = [...(s.sidebarHidden ?? [])];
+  for (const [neu, old] of SECTION_SPLITS) {
+    if (done.includes(neu)) continue;
+    if (hidden.includes(`section:${old}`) && !hidden.includes(`section:${neu}`)) hidden.push(`section:${neu}`);
+    const i = order.indexOf(old);
+    if (i >= 0 && !order.includes(neu)) order = [...order.slice(0, i + 1), neu, ...order.slice(i + 1)];
+  }
+  return { sidebarOrder: order, sidebarHidden: hidden, sidebarSplits: [...new Set([...done, ...SECTION_SPLITS.map(([n]) => n)])] };
+}
+
 /** Old sidebar section ids that are gone: the Library became chips; Cloud & Servers joined Locations. */
 const GONE_SECTIONS = new Set(['library', 'cloud']);
 

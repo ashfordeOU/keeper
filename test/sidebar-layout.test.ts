@@ -60,3 +60,22 @@ describe('compacting long sections', () => {
     expect('k0' in u).toBe(false);
   });
 });
+
+describe('sections split from another', () => {
+  it('Connect starts hidden where Devices was hidden, once, and sits after it in a custom order', async () => {
+    const { splitSidebarSections } = await import('../core/file-types');
+    expect(splitSidebarSections({ sidebarHidden: ['section:devices', 'nav:health'], sidebarOrder: ['tidy', 'devices', 'ai'] }, [])).toEqual({ sidebarHidden: ['section:devices', 'nav:health', 'section:connect'], sidebarOrder: ['tidy', 'devices', 'connect', 'ai'], sidebarSplits: ['connect'] });
+    // Done already: the person's own choice stays (Connect shown again although Devices is hidden).
+    expect(splitSidebarSections({ sidebarHidden: ['section:devices'], sidebarOrder: [] }, ['connect']).sidebarHidden).toEqual(['section:devices']);
+    expect(splitSidebarSections({ sidebarHidden: [], sidebarOrder: [] }, []).sidebarHidden).toEqual([]);
+  });
+  it('old settings get the split once through mergeSettings; new ones start with it done', async () => {
+    const { defaultSettings, mergeSettings } = await import('../core/settings');
+    const base = defaultSettings([], []);
+    expect(base.sidebarSplits).toEqual(['connect']);
+    const old = mergeSettings(base, { sidebarHidden: ['section:devices'] });
+    expect(old.sidebarHidden).toContain('section:connect');
+    const again = mergeSettings(base, { ...old, sidebarHidden: ['section:devices'] });
+    expect(again.sidebarHidden).not.toContain('section:connect');
+  });
+});
