@@ -145,6 +145,8 @@ import { registerTimeTrackIpc } from './ipc/time-track';
 import { registerJournalIpc } from './ipc/journal';
 import { registerReaderIpc } from './ipc/reader';
 import { registerPhoneAlertsIpc } from './ipc/phone-alerts';
+import { registerNoticesIpc } from './ipc/notices';
+import { notice, noticeFor, noticesSettingsChanged, startNotices, systemNotification } from './services/notices';
 import { registerMonitorsIpc } from './ipc/site-monitor';
 import { registerPhotoIpc } from './ipc/photo';
 import { registerCrashReportsIpc } from './ipc/crash-reports';
@@ -353,6 +355,14 @@ function releaseMainLater() {
     main.destroy();
   };
   releaseTimer = setTimeout(release, delay);
+}
+
+/** One notice shown now: in the Island when it is on, otherwise as the system's own notification. */
+function showNotice(title: string, detail?: string, route?: { name: string; arg?: string }) {
+  if (islandSvc && featureOn('island')) islandSvc.alert({ kind: 'info', title, detail });
+  else systemNotification(title, detail, () => {
+    if (route?.name === 'notices') { showMain(); setTimeout(() => broadcast('notices-open'), 600); } else showMain(route?.name);
+  });
 }
 
 function showMain(route?: string) {
@@ -1274,7 +1284,10 @@ app.whenReady().then(async () => {
   islandSvc = new IslandService(index, () => broadcast('island-changed'));
   // Focus sessions go into Insights and onto the task they were for.
   islandSvc.focusLog = (minutes, taskId) => void logFocus(minutes, taskId).catch(() => undefined);
-  onLimitAlert((title, detail) => islandSvc?.alert({ kind: 'info', title, detail }));
+  // The notification center: every notice below goes through notice(), shown now, batched or silent per part.
+  startNotices({ broadcast, settings, show: showNotice, focusOn: () => islandSvc?.focus.mode === 'focus' });
+  registerNoticesIpc();
+  onLimitAlert(noticeFor('aiusage', { name: 'aiusage' }));
   // Keep Awake: sessions, triggers, closed-lid mode, statistics (before the Island starts, which hands it keep-awake requests).
   registerAwakeIpc({ islandSvc, broadcast, updateTray: () => void updateTray(), show: (route) => showMain(route) });
   registerStageIpc({ islandSvc, broadcast, capturePreload: capturePreload(), updateTray: () => void updateTray(), show: (route) => showMain(route), reregister: () => registerShortcuts(), recording: () => recordingState().recording });
@@ -1341,8 +1354,9 @@ app.whenReady().then(async () => {
         openUpdateWindow({ check: false, focus: false });
         return true;
       }
-      if (u.countdown !== undefined) islandSvc.alert({ kind: 'info', title: `Keeper updates in ${Math.ceil(u.countdown / 60)} min`, detail: 'You’ll come back to the same page. Postpone it in Keeper.' });
-      else islandSvc.alert({ kind: 'info', title: u.state === 'ready' ? `Keeper ${u.version} is ready to install` : `Keeper ${u.version} is available`, detail: u.state === 'ready' ? (u.message ?? 'Restart Keeper to finish updating') : 'Choose it in the menu bar to see what’s new' });
+      // A restart about to happen is said at once; a new version waits for the batch like other notices.
+      if (u.countdown !== undefined) notice({ part: 'updates', urgent: true, title: `Keeper updates in ${Math.ceil(u.countdown / 60)} min`, detail: 'You’ll come back to the same page. Postpone it in Keeper.' });
+      else notice({ part: 'updates', title: u.state === 'ready' ? `Keeper ${u.version} is ready to install` : `Keeper ${u.version} is available`, detail: u.state === 'ready' ? (u.message ?? 'Restart Keeper to finish updating') : 'Choose it in the menu bar to see what’s new' });
       return false;
     },
   });
@@ -1357,7 +1371,7 @@ app.whenReady().then(async () => {
   // Places & Tracks: nothing runs until a source is switched on.
   registerTracksIpc({ broadcast, trayChanged: () => void updateTray() });
   // Guided fixes: what the person should do about space, security, privacy and more, and how.
-  registerGuideIpc({ broadcast, preload: preload(), alert: (title, detail) => { islandSvc?.alert({ kind: 'info', title, detail }); phoneAlert('fixit', title, 'New on your Fix-it List in Keeper', { urgent: true }); } });
+  registerGuideIpc({ broadcast, preload: preload(), alert: (title, detail) => { notice({ part: 'fixit', title, detail, route: { name: 'todo' } }); phoneAlert('fixit', title, 'New on your Fix-it List in Keeper', { urgent: true }); } });
   registerBuiltinGuideSources({ index: () => index });
   // First look a minute after start, then twice a day; opening the To do list checks again.
   setTimeout(() => void refreshGuide(), 60_000).unref?.();
@@ -1421,8 +1435,8 @@ app.whenReady().then(async () => {
     quit: () => { quitting = true; app.quit(); },
   });
   // AI usage and subscriptions: nothing runs until an account is added.
-  registerUsageTrackerIpc({ preload: preload(), load, lockDown, showMain: (route) => showMain(route), broadcast, alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }) });
-  setMonitorIslandAlert((title, detail) => islandSvc?.alert({ kind: 'info', title, detail }));
+  registerUsageTrackerIpc({ preload: preload(), load, lockDown, showMain: (route) => showMain(route), broadcast, alert: noticeFor('aiusage', { name: 'aiusage' }) });
+  setMonitorIslandAlert(noticeFor('health', { name: 'health' }));
   // Mail, calendars, reminders, alarms and contacts.
   registerPimIpc();
   // Notes: vaults are read only while the Notes page is open.
@@ -1456,7 +1470,13 @@ app.whenReady().then(async () => {
   initSnippets({ expanded: () => undefined });
   const pimDeps: PimDeps = {
     broadcast,
-    alert: (title, detail, kind, ref, mail) => islandSvc?.alert({ kind: kind ?? 'info', title, detail, ref, mail }),
+    alert: (title, detail, kind, ref, mail) => {
+      const now = () => islandSvc?.alert({ kind: kind ?? 'info', title, detail, ref, mail });
+      // New mail and due reminders go through the notification center; "Sending…" with Undo, and copied codes, are shown at once.
+      if (kind === 'mail' && !mail?.undoId && !mail?.code) notice({ part: 'mail', title, detail, route: { name: 'mail' } }, now);
+      else if (kind === 'reminder') notice({ part: 'calendar', title, detail, route: { name: 'reminders' } }, now);
+      else now();
+    },
     badge: (n) => { try { app.setBadgeCount(n); } catch { /* not on this desktop */ } },
     islandReminders: (list) => islandSvc?.setDueReminders(featureOn('islandTodos') ? list : []),
     islandEvents: (evs) => islandSvc?.setPimEvents(evs),
@@ -1467,9 +1487,9 @@ app.whenReady().then(async () => {
   // In a process of its own (the Mail and calendars part), or here when Keeper is one process (and in safe mode).
   if (separateAtStart && !process.argv.includes('--safe-mode')) installMailRemote(pimDeps);
   else { pimInApp = true; void startPim(pimDeps); }
-  registerNetIpc({ alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }) });
+  registerNetIpc({ alert: noticeFor('network', { name: 'netactivity' }) });
   // Privacy & Security: permissions, browsers, posture, real-time malware protection and quarantine.
-  registerSecurityIpc({ broadcast, alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }) });
+  registerSecurityIpc({ broadcast, alert: noticeFor('privacy', { name: 'security' }) });
   // Quick Controls: system switches, read only when asked.
   registerControlsIpc({ broadcast, alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }), show: (r) => showMain(r) });
   // System Settings+, per-app controls and browser tab controls: nothing runs until used.
@@ -1508,7 +1528,7 @@ app.whenReady().then(async () => {
   // Automatic time tracking: off until switched on; only on this computer, encrypted.
   registerTimeTrackIpc({ broadcast });
   // The reader: feeds and pages saved for later (network only for what the person adds).
-  registerReaderIpc({ broadcast, alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }) });
+  registerReaderIpc({ broadcast, alert: noticeFor('reader', { name: 'reader' }) });
   // Crash reports for Ashforde: nothing is collected or sent until the person switches them on.
   registerCrashReportsIpc();
   // Alerts to your phone: nothing is sent until a channel is set up and an alert it is for happens.
@@ -1518,14 +1538,11 @@ app.whenReady().then(async () => {
   // Site and server monitors: no timer until one is added; alerts go to the Island (or the system) and the phone.
   registerMonitorsIpc({
     broadcast,
-    alert: (title, detail) => {
-      if (islandSvc && featureOn('island')) islandSvc.alert({ kind: 'info', title, detail });
-      else if (Notification.isSupported()) new Notification({ title, body: detail }).show();
-    },
+    alert: noticeFor('monitors', { name: 'monitors' }),
   });
   onControlsChanged(() => void updateTray());
   // Firewall: rules, alerts, the DNS filter and traffic history (nothing runs until switched on).
-  registerFirewallIpc({ alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }), broadcast, window: { preload: preload(), load, lockDown } });
+  registerFirewallIpc({ alert: noticeFor('network', { name: 'firewall' }), broadcast, window: { preload: preload(), load, lockDown } });
   // Anonymous usage stats: asked in setup (unticked), off with one switch; at most one small report a day (Settings → Privacy).
   registerUsageStatsIpc();
   // Keeper Pro: handlers in every build; the service itself runs only in builds with Pro switched on.
@@ -1542,7 +1559,7 @@ app.whenReady().then(async () => {
     }
   });
   // Downloadable parts: paths now, any download a while after start (docs/COMPONENTS.md).
-  registerComponentsIpc({ broadcast, alert: (title, detail) => islandSvc?.alert({ kind: 'info', title, detail }) });
+  registerComponentsIpc({ broadcast, alert: noticeFor('keeper') });
   registerSetupIpc();
   // Sync, backups and mirrors. Keeper Link and cloud connections attach when they are ready
   // (attachTransport / attachConnections); KEEPER_SYNC_LOOPBACK is for tests only.
@@ -1753,6 +1770,7 @@ let studioSince: number | undefined;
     if (next.island.calendarUrl !== prev.island.calendarUrl) { void islandSvc.pollCalendar(); void adoptIslandCalendarUrl(next.island.calendarUrl).catch(() => undefined); }
     if (JSON.stringify(next.island.place) !== JSON.stringify(prev.island.place) || next.island.units !== prev.island.units) void islandSvc.pollWeather(true);
     broadcast('island-changed');
+    if (JSON.stringify(next.notices) !== JSON.stringify(prev.notices)) noticesSettingsChanged();
     // Every window (Island, Quick Search, widgets) follows look, theme and language changes.
     broadcast('settings-changed', next);
   });

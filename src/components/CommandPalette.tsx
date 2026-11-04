@@ -13,6 +13,7 @@ import { TOOL_INFO, type ConvertTool } from '../../core/convert-types';
 import { api } from '../api';
 import { themePatch, toggleThemePatch } from '../theme';
 import { mod, shift, useStore, type Route } from '../state';
+import { openNotices } from './Notices';
 import { Icon } from './Icon';
 import { useFocusTrap } from '../a11y';
 import { CATALOG } from '../../core/settings-catalog';
@@ -149,6 +150,8 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     { id: 'rescan', label: 'Rescan Library', group: 'Actions', icon: 'refresh', keywords: 'index refresh reload', run: async () => { await api.library.rescan(); store.toast('Reading your folders…'); } },
     { id: 'setup-again', label: 'Set Up Keeper Again…', group: 'Actions', icon: 'sparkle', keywords: 'welcome tour first run onboarding recommended presets choose parts', run: () => openSetupAgain() },
     { id: 'check-updates', label: 'Check for Updates…', group: 'Actions', icon: 'refresh', keywords: 'update upgrade new version release software', run: () => void api.appInfo.openUpdateWindow() },
+    { id: 'notices', label: 'Notifications', group: 'Actions', icon: 'bell', keywords: 'notices alerts inbox batch quiet hours snooze mark all done', run: () => openNotices() },
+    { id: 'notices-snooze', label: 'Snooze Notifications for 1 Hour', group: 'Actions', icon: 'clock', keywords: 'quiet do not disturb mute pause alerts', run: () => void api.notices?.snoozeAll(3600_000) },
     { id: 'about', label: 'About Keeper', group: 'Actions', icon: 'info', keywords: 'version licence license electron', run: () => void api.appInfo.openAbout() },
     { id: 'terminal-window', label: 'New Terminal Window', group: 'Actions', icon: 'terminal', keywords: 'shell console', run: () => void api.terminal.openWindow() },
     { id: 'terminal-quick', label: 'Drop-down Terminal', group: 'Actions', icon: 'terminal', keywords: 'quake shell console', run: () => void api.terminal.toggleQuick() },

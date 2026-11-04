@@ -3,6 +3,7 @@
 
 import { TabStrip } from './components/TabStrip';
 import { RecoveryNotice } from './components/RecoveryNotice';
+import { NoticesButton } from './components/Notices';
 import { Alarms, RingHost } from './pim/Alarms';
 import { Calendar } from './pim/Calendar';
 import { Mail } from './pim/Mail';
@@ -354,6 +355,7 @@ function TopBar({ onPalette, page }: { onPalette: () => void; /** a page in a wi
       ) : null}
       {/* A light app (Keeper Mail…): all of Keeper is one click away, and takes over this window. */}
       {IS_SOLO ? <button className="btn ghost sm" data-testid="open-keeper" title="Open all of Keeper here" onClick={() => void api.solo?.openKeeper()}>Open Keeper</button> : null}
+      {page ? null : <NoticesButton />}
       {/* View: this page in a window of its own (⌥⌘N / Ctrl+Alt+N; also the Window menu and the sidebar's right-click),
           the command palette, and the theme. One labelled button instead of a row of bare icons. */}
       <ThemeQuickPicker title={`Window and theme (${mod}${shift}L swaps the last two themes)`} actions={[

@@ -159,6 +159,7 @@
     "crashReports",
     "graphAll",
     "dayPlan",
-    "captureInbox"
+    "captureInbox",
+    "notices"
   ]
 }

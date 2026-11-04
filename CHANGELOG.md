@@ -45,6 +45,12 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - The search speed test compares against a plain scan timed at the same moment, so a busy computer no longer fails it while a real slowdown still does.
 - The usage stats test follows today's setup, and the accessibility test measures the light Island against its own light background.
 
+### Added — Notifications: one calm place for every notice
+- A bell in the top bar lists every notice from Keeper, grouped by part: Mail, reminders, Sites and servers, the Fix-it List, Privacy & Security, Health, updates and more. Click one to go to it; **Mark all done** and **Snooze all 1 h** are one click away.
+- Settings → General → Notifications: each part tells you **Now**, **Batched** (one summary at 9, 13 and 17, or every hour) or **Silent** (only in the bell). Mail and monitors come now; the Fix-it List and updates are batched, out of the box.
+- Quiet hours, and notices held while Keeper's focus timer runs. On GNOME, Keeper also follows Do Not Disturb. Alarms and a restart about to happen always come through.
+- When the Island is off, notices show as the system's own notifications instead of being missed.
+
 ### Changed — Fix-it List: one calm list of things worth doing
 - Home, Privacy & Security, Protection and the Fix-it List now share one list, in the same calm words: **Worth fixing**, **When you have time** and **Good to know**. Nothing is red any more.
 - Privacy & Security starts with "3 things worth fixing" and those rows. The score is a small detail under it ("A few things to look at · Score 72 of 100"), and the engines, quarantine and last scan are under **How Keeper checks**.

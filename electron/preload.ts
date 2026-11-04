@@ -168,6 +168,8 @@ const api = {
   reader: group('reader', ['overview', 'items', 'article', 'addFeed', 'removeFeed', 'editFeed', 'refresh', 'setRead', 'markAllRead', 'setStarred', 'saveForLater', 'removeLater', 'importOpml', 'exportOpml']),
   // Alerts to your phone.
   alerts: group('alerts', ['overview', 'save', 'remove', 'test', 'setBatch']),
+  // The notification center.
+  notices: group('notices', ['list', 'done', 'doneAll', 'snoozeAll', 'clearDone', 'test']),
   // Site and server monitors.
   // The light photo editor.
   photo: group('photo', ['info', 'preview', 'save', 'revert']),

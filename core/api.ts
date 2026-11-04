@@ -560,6 +560,8 @@ export interface KeeperApi extends KeeperApiX {
   reader: import('./api-reader').ReaderApi;
   /** alerts to your phone: ntfy, Telegram, e-mail, a web address */
   alerts: import('./api-alerts').PhoneAlertsApi;
+  /** the notification center: every notice from Keeper, batched and quiet (core/notices.ts) */
+  notices: import('./api-notices').NoticesApi;
   /** site and server monitors: web pages, ports, ping, DNS */
   monitors: import('./api-monitors').MonitorsApi;
   /** the light photo editor (core/photo-edit.ts) */
@@ -955,6 +957,10 @@ export interface KeeperApi extends KeeperApiX {
   on(channel: 'catalog-changed', cb: () => void): () => void;
   on(channel: 'browsers-changed', cb: () => void): () => void;
   on(channel: 'guide-changed', cb: (s: import('./guide/types').GuideSummary) => void): () => void;
+  /** the notification center changed: how many are open */
+  on(channel: 'notices-changed', cb: (open: number) => void): () => void;
+  /** a click on a batch summary: open the notification center */
+  on(channel: 'notices-open', cb: () => void): () => void;
   on(channel: 'notes-changed', cb: (e: { vault: string; paths: string[] }) => void): () => void;
   on(channel: 'notes-import', cb: (e: import('./notes/import-sources').ImportProgress) => void): () => void;
   on(channel: 'guide-mini', cb: (id: string) => void): () => void;

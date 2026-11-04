@@ -519,4 +519,6 @@ export interface Settings {
   weatherSource: import('./weather').WeatherSource;
   /** alerts to your phone: channels (tokens are in the keychain) and the batching wait (core/phone-alerts.ts) */
   phoneAlerts: import('./phone-alerts').PhoneAlertSettings;
+  /** the notification center: delivery per part, batch times, quiet hours (core/notices.ts) */
+  notices: import('./notices').NoticeSettings;
 }

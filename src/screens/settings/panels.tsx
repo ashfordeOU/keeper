@@ -36,6 +36,7 @@ import { NativeAppsPanel } from '../../components/NativeAppsPanel';
 import { AccessibilityPanel } from '../../components/AccessibilityPanel';
 import { ClipIgnorePanel, LauncherCommandsPanel, LauncherLinksPanel, SelectionBarPanel } from '../../components/LauncherPanels';
 import { IslandAccentPanel } from '../../island/LookSettings';
+import { NoticePartsPanel, QuietHoursPanel } from '../../components/Notices';
 import '../../styles/glance.css';
 
 const UsageSettings = lazy(() => import('../usage/UsageSettings').then((m) => ({ default: m.UsageSettings })));
@@ -291,6 +292,8 @@ export const PANELS: Record<string, PanelDef> = {
   proAccount: { render: () => <ProAccountPanel />, own: true, wide: true },
   proCatalog: { render: () => <ProCatalogPanel />, wide: true },
   crashReports: { render: () => <CrashReportsPanel />, wide: true },
+  noticeParts: { render: () => <NoticePartsPanel />, wide: true },
+  quietHours: { render: () => <QuietHoursPanel /> },
   a11y: { render: () => <AccessibilityPanel />, own: true, wide: true },
   resources: { render: () => <UsagePanel />, own: true, wide: true },
   meshPlaces: { render: () => <MeshPlaces />, wide: true },
