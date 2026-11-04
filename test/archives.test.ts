@@ -76,10 +76,11 @@ describe('engines on this computer', () => {
     expect(createEngine('7z', seven, 'pw').engine).toBe('7zip');
   });
   it('says what works here in plain words', () => {
-    const rows = supportRows(mac, 'darwin');
-    expect(rows.find((r) => r.format === '7z')!.open).toBe('Opens with the system’s tar; with a password needs 7-Zip');
+    const rows = supportRows(mac);
+    expect(rows.find((r) => r.format === '7z')!.open).toBe('Opens with your system’s tools; with a password needs 7-Zip');
     expect(rows.find((r) => r.format === 'RAR')!.create).toMatch(/Never made/);
-    expect(supportRows(linux, 'linux').find((r) => r.format === '7z')!.ok).toBe(false);
+    expect(supportRows(linux).find((r) => r.format === '7z')!.ok).toBe(false);
+    expect(rows.map((r) => `${r.open} ${r.create}`).join(' ')).not.toMatch(/bsdtar|unrar|system’s tar/);
     expect(sevenZipHint('win32')).toMatch(/7-zip\.org/);
   });
 });

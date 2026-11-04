@@ -221,7 +221,7 @@ export async function create(paths: string[], o: { format: CreateFormat; passwor
 /** What works on this computer, per kind, in plain words. */
 export async function support(): Promise<{ rows: SupportRow[]; sevenZip: boolean; hint: string; platform: string }> {
   const t = await tools();
-  return { rows: supportRows(t, process.platform), sevenZip: !!t.sevenZip, hint: sevenZipHint(process.platform), platform: process.platform };
+  return { rows: supportRows(t), sevenZip: !!t.sevenZip, hint: sevenZipHint(process.platform), platform: process.platform };
 }
 
 export const archivesApi = {

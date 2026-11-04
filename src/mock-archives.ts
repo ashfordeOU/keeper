@@ -24,7 +24,7 @@ export function mockArchives(): { archives: ArchivesApi } {
       extract: async (_p, picked) => ({ dest: '/Users/demo/Downloads/Holiday photos', files: picked?.length ?? 5, skipped: [] }),
       peek: async () => { throw new Error('Quick Look inside archives works in the desktop app.'); },
       create: async (paths, o) => `/Users/demo/Downloads/${paths.length === 1 ? (paths[0].split('/').pop() ?? 'Archive').replace(/\.[^.]+$/, '') : 'Archive'}.${o.format}`,
-      support: async () => ({ rows: supportRows(tools, 'darwin'), sevenZip: false, hint: 'Install the free 7-Zip program, then open the archive again.', platform: 'darwin' }),
+      support: async () => ({ rows: supportRows(tools), sevenZip: false, hint: 'Install the free 7-Zip program, then open the archive again.', platform: 'darwin' }),
       pick: async () => sample.path,
       pickItems: async () => ['/Users/demo/Documents/Report.pdf'],
     },

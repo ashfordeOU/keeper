@@ -306,7 +306,7 @@ export function snapAvailability(f: SnapFacts): SnapAvailability {
       };
     }
     if (f.tools === false) return { state: 'missing', line: 'Snapping needs wmctrl or xdotool.', hint: 'Install one of them (for example sudo apt install wmctrl), then check again.' };
-    return { state: 'ready', line: 'Works with apps on this X11 desktop.' };
+    return { state: 'ready', line: 'Works with apps on this desktop.' };
   }
   return { state: 'unsupported', line: 'Snapping is not available on this system.' };
 }

@@ -192,10 +192,11 @@ export function newArchiveName(paths: string[], format: CreateFormat): string {
 export interface SupportRow { format: string; open: string; create: string; ok: boolean }
 
 /** What this computer can do with each kind, in plain words, for the "What works here" panel. */
-export function supportRows(tools: ArchiveTools, platform: string): SupportRow[] {
+export function supportRows(tools: ArchiveTools): SupportRow[] {
   const how = (f: ArchiveFormat, encrypted = false) => {
     const e = engineFor(f, tools, { encrypted });
-    return e.engine === 'keeper' ? 'Keeper' : e.engine === 'bsdtar' ? (platform === 'linux' ? 'bsdtar' : 'the system’s tar') : e.engine === 'gnutar' ? 'the system’s tar' : e.engine === '7zip' ? '7-Zip' : e.engine === 'unrar' ? 'unrar' : '';
+    // Plain words: the system's own tar or unrar is "your system's tools"; only 7-Zip is named, since it may need installing.
+    return e.engine === 'keeper' ? 'Keeper' : e.engine === 'bsdtar' || e.engine === 'gnutar' || e.engine === 'unrar' ? 'your system’s tools' : e.engine === '7zip' ? '7-Zip' : '';
   };
   const row = (label: string, f: ArchiveFormat, create: string): SupportRow => {
     const by = how(f);
@@ -207,7 +208,7 @@ export function supportRows(tools: ArchiveTools, platform: string): SupportRow[]
   const sevenPlain = createEngine('7z', tools);
   return [
     row('ZIP', 'zip', 'Keeper makes it, with an AES-256 password if you like'),
-    row('7z', '7z', seven.engine ? 'Made with 7-Zip, password and hidden names included' : sevenPlain.engine ? 'Made without a password by the system’s tar; a password needs 7-Zip' : 'Needs 7-Zip'),
+    row('7z', '7z', seven.engine ? 'Made with 7-Zip, password and hidden names included' : sevenPlain.engine ? 'Made without a password by your system’s tools; a password needs 7-Zip' : 'Needs 7-Zip'),
     row('RAR', 'rar', 'Never made: RAR is a closed format; Keeper only opens it'),
     row('TAR and TAR.GZ', 'tar.gz', '—'),
     row('TAR.XZ, TAR.ZST, TAR.BZ2', 'tar.xz', '—'),

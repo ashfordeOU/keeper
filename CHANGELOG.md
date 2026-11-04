@@ -4,6 +4,10 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 
 ## [Unreleased]
 
+### Changed — Archives and Snap Windows: plain words
+- Archives' What works here says "Opens with your system's tools" instead of naming the program underneath; only 7-Zip is named, where it needs installing.
+- Snap Windows on Linux says "Works with apps on this desktop".
+
 ### Added — Buttons & Shortcuts (experimental): mouse buttons with a job, and shortcuts changed in one app
 - Give the back, forward and middle buttons of a mouse a job: go back or forward, copy, paste, undo, close or open a tab, show all windows, or any keys you press. In every app, or only in one (that app's own job wins).
 - Change what a shortcut does in one app: "in Notes, Ctrl D sends Ctrl Shift D". Keeper takes the keys only while that app is in front, so every other app keeps them.
