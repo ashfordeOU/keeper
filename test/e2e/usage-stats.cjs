@@ -2,7 +2,7 @@
 // Usage (Linux CI): xvfb-run -a -s "-screen 0 1600x1000x24" node test/e2e/usage-stats.cjs /tmp/kus /tmp/kus-shots
 // Drives the real Keeper app's anonymous usage stats against a stand-in server
 // on this computer (KEEPER_TELEMETRY_URL, honoured only by unofficial builds):
-// the welcome tour's stats step with its switch and viewer; with the switch on
+// the setup's stats choice with its viewer; with the switch on
 // exactly one report arrives and it matches the allowlist; after switching it
 // off nothing more is sent; with KEEPER_TELEMETRY=0 nothing is sent at all; and
 // Settings → Privacy shows the report. Screenshots in light and dark, plus the
@@ -94,18 +94,26 @@ const theme = async (main, dark) => { await main.evaluate((d) => window.keeper.s
   // ================= on (the default)
   {
     const { app, main, errors } = await launch('on', {});
-    // The tour: its usage stats step, with the switch and the viewer.
+    // Setup: the usage stats choice under "Also", unticked until the person ticks it, with
+    // "See what's sent" showing every field; ticking it and going through setup switches it on.
     await main.getByText('Welcome to Keeper').waitFor({ timeout: 10_000 });
-    await main.locator('.tour').getByRole('button', { name: 'Next' }).click();
-    await main.getByText('Anonymous usage stats').first().waitFor({ timeout: 5000 });
-    const tourSwitch = main.locator('[data-testid="tour-ustats"] button[role="switch"]');
-    check(await tourSwitch.getAttribute('aria-checked') === 'true', 'the tour step has the switch, on by default');
-    for (const dark of [false, true]) { await theme(main, dark); await main.screenshot({ path: path.join(SHOTS, `tour-step-${dark ? 'dark' : 'light'}.png`) }); }
-    await main.click('[data-testid="tour-ustats-see"]');
-    await main.waitForSelector('[data-testid="tour-ustats"] [data-testid="ustats-next"]');
-    check(await main.locator('[data-testid="tour-ustats"] .ustats-row').count() >= ALLOWED.size, 'the tour can show exactly what is sent, field by field');
+    await main.click('[data-testid="setup-start"]');
+    const box = main.locator('[data-testid="setup-also-usageStats"]');
+    await box.waitFor({ timeout: 5000 });
+    check(!(await box.isChecked()), 'setup offers usage stats, unticked until you tick it');
+    await main.click('[data-testid="setup-see-stats"]');
+    await main.waitForSelector('.tour-ustats-scroll [data-testid="ustats-next"]');
+    check(await main.locator('.tour-ustats-scroll .ustats-row').count() >= ALLOWED.size, 'setup can show exactly what is sent, field by field');
     for (const dark of [false, true]) { await theme(main, dark); await main.screenshot({ path: path.join(SHOTS, `tour-viewer-${dark ? 'dark' : 'light'}.png`) }); }
-    await main.locator('.tour').getByRole('button', { name: /Skip tour/ }).click();
+    await theme(main, false);
+    await box.check();
+    await main.click('[data-testid="setup-continue"]');
+    await main.waitForSelector('[data-testid="setup-later"], [data-testid="setup-approvals-next"]', { timeout: 20_000 });
+    await main.click(await main.locator('[data-testid="setup-later"]').count() ? '[data-testid="setup-later"]' : '[data-testid="setup-approvals-next"]');
+    await main.click('[data-testid="setup-connect-skip"]');
+    await main.click('[data-testid="setup-done"]');
+    const turnedOn = await until(async () => (await main.evaluate(() => window.keeper.usageStats.status())).on, 10_000);
+    check(!!turnedOn, 'ticking it in setup switches usage stats on');
 
     // Exactly one report arrives, and it matches the allowlist.
     const got = await until(async () => (pings.length ? pings : null), 90_000, 500);
@@ -155,8 +163,8 @@ const theme = async (main, dark) => { await main.evaluate((d) => window.keeper.s
     }
     await theme(main, false);
 
-    // The firewall lists the connection like any other app's.
-    await navigate(app, 'firewall');
+    // The firewall lists the connection like any other app's (its Settings tab).
+    await navigate(app, 'firewall:settings');
     const fwCard = await until(async () => (await main.locator('[data-testid="ustats-conn"]').count()) > 0, 10_000);
     check(!!fwCard, 'the firewall lists Keeper’s usage stats connection');
     if (fwCard) await main.locator('[data-testid="ustats-conn"]').scrollIntoViewIfNeeded().catch(() => undefined);
@@ -167,7 +175,7 @@ const theme = async (main, dark) => { await main.evaluate((d) => window.keeper.s
     const secCard = await until(async () => (await main.locator('[data-testid="ustats-conn"]').count()) > 0, 30_000, 500);
     check(!!secCard, 'Privacy & Security → Connections lists it too');
     if (secCard) await main.screenshot({ path: path.join(SHOTS, 'privacy-center-connections-light.png') });
-    await navigate(app, 'firewall');
+    await navigate(app, 'firewall:settings');
     await until(async () => (await main.locator('[data-testid="ustats-conn"]').count()) > 0, 10_000);
 
     // Block it in the firewall: a new ID (which would send again) sends nothing while blocked.
@@ -209,7 +217,7 @@ const theme = async (main, dark) => { await main.evaluate((d) => window.keeper.s
   {
     const before = pings.length;
     const { app, main, errors } = await launch('env-off', { KEEPER_TELEMETRY: '0' });
-    await main.getByRole('button', { name: /Skip tour/ }).click({ timeout: 5000 }).catch(() => undefined);
+    await main.click('[data-testid="setup-skip"]', { timeout: 5000 }).catch(() => undefined);
     await navigate(app, 'settings:privacy');
     await main.waitForSelector('[data-testid="ustats-panel"]');
     const s = await main.evaluate(() => window.keeper.usageStats.status());
