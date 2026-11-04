@@ -153,16 +153,40 @@ describe('VectorStore', () => {
 
   it('searches 200 000 passages quickly', () => {
     const dims = 384;
-    const s = new VectorStore(dims, 200_000);
+    const rows = 200_000;
+    const s = new VectorStore(dims, rows);
     const v = randomUnit(dims, 3);
-    for (let i = 0; i < 200_000; i++) s.set(i, v);
+    for (let i = 0; i < rows; i++) s.set(i, v);
     const q = randomUnit(dims, 4);
+    // The yardstick: the least work any search has to do, one plain dot product per row
+    // over the same amount of 8-bit data. Timing both side by side, best of several runs,
+    // means a busy machine slows both alike, while a real slowdown in search (sorting
+    // every row, copying rows, a slower inner loop) still shows up as a bigger ratio.
+    const plain = new Int8Array(dims * rows).fill(7);
+    let sink = 0;
+    const floor = () => {
+      for (let r = 0; r < rows; r++) {
+        const off = r * dims;
+        let dot = 0;
+        for (let i = 0; i < dims; i++) dot += q[i] * plain[off + i];
+        sink += dot;
+      }
+    };
     s.search(q, 50);
-    const t0 = performance.now();
-    s.search(q, 50);
-    const ms = performance.now() - t0;
-    // About 50 ms on a laptop; CI machines are slower and busier.
-    expect(ms).toBeLessThan(400);
+    floor();
+    let searchMs = Infinity;
+    let floorMs = Infinity;
+    for (let run = 0; run < 5; run++) {
+      let t0 = performance.now();
+      s.search(q, 50);
+      searchMs = Math.min(searchMs, performance.now() - t0);
+      t0 = performance.now();
+      floor();
+      floorMs = Math.min(floorMs, performance.now() - t0);
+    }
+    expect(Number.isFinite(sink)).toBe(true);
+    // About 50 ms on a laptop, close to the yardstick; allow three times it plus a little.
+    expect(searchMs, `search ${searchMs.toFixed(1)} ms, plain scan ${floorMs.toFixed(1)} ms`).toBeLessThan(floorMs * 3 + 25);
   });
 });
 
