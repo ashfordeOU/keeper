@@ -213,7 +213,8 @@ async function pair(A, B) {
       try { const c = fs.readFileSync(`/proc/${p}/cmdline`, 'utf8'); if (c.includes('xfreerdp')) sawArgs += c.replace(/\0/g, ' ') + '\n'; } catch { /* gone */ }
     }
   }, 30);
-  const bad = await api(main, 'rdc.connect', rdpBad.id, { password: secret });
+  // The outside app (RDP opens in a Keeper tab by default: test/e2e/rdp-tab.cjs).
+  const bad = await api(main, 'rdc.connect', rdpBad.id, { password: secret, external: true });
   clearInterval(watcher);
   console.log('   ', bad.session && bad.session.error);
   check(!!bad.session && bad.session.state === 'error' && !!bad.session.error, `FreeRDP against a closed port reports the error back (“${bad.session && bad.session.error}”)`);

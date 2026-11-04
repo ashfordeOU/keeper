@@ -130,6 +130,9 @@ const P: Record<string, string> = {
   mindmap: 'M12 10.2a1.8 1.8 0 1 0 0 3.6 1.8 1.8 0 0 0 0-3.6zM3 5h5M16 5h5M3 19h5M16 19h5M10.6 10.8 8 5M13.4 10.8 16 5M10.6 13.2 8 19M13.4 13.2 16 19',
   importIn: 'M12 3v11M7.5 9.5 12 14l4.5-4.5M4 15v5h16v-5',
   exportOut: 'M12 14V3M7.5 7.5 12 3l4.5 4.5M4 15v5h16v-5',
+  expand: 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5',
+  shrink: 'M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5',
+  keyboard: 'M3 6h18v12H3zM7 10h.01M11 10h.01M15 10h.01M17 10h.01M7 14h10',
 };
 
 export type IconName = keyof typeof P;

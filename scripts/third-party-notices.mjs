@@ -225,6 +225,7 @@ const versions = {
   scrcpy: grab('core/screen/mirror.ts', /SCRCPY_VERSION\s*=\s*'([^']+)'/),
   rclone: grab('scripts/fetch-rclone.mjs', /RCLONE_VERSION\s*=\s*'([^']+)'/),
   agentDesktop: grab('scripts/fetch-agent-desktop.mjs', /AGENT_DESKTOP_VERSION\s*=\s*'([^']+)'/),
+  ironrdp: grab('scripts/fetch-ironrdp.mjs', /IRONRDP_VERSION\s*=\s*'([^']+)'/),
   ytdlp: grab('electron/services/video-download.ts', /YTDLP\s*=\s*\{\s*version:\s*'([^']+)'/),
   e5: grab('core/brain/e5.ts', /huggingface\.co\/([^/]+\/[^/]+)\/resolve/, 'Xenova/multilingual-e5-small'),
   whisper: [...read(path.join(ROOT, 'core/whisper.ts')).matchAll(/repo:\s*'([^']+)'/g)].map((m) => m[1]),
@@ -341,6 +342,29 @@ if (ffSources) {
 }
 p('- You can replace the `ffmpeg` (or `ffmpeg.exe`) file in that folder with any FFmpeg build you like.');
 p('- If you would rather get the complete corresponding source from us, write to contact@ashforde.org. We will send it for as long as we offer this version of Keeper, and for at least three years after.');
+p();
+
+p(`### IronRDP (MIT or Apache-2.0), the Remote Desktop engine for tabs`);
+p();
+p(`Remote Desktop connections shown in a Keeper tab use IronRDP's WebAssembly client, the npm package [@devolutions/iron-remote-desktop-rdp](https://www.npmjs.com/package/@devolutions/iron-remote-desktop-rdp) ${versions.ironrdp}, by Devolutions Inc. and the IronRDP contributors, licensed under the MIT licence or the Apache License 2.0 at your option; Keeper uses it under the MIT licence below. Keeper ships the package's one script unchanged, checked against pinned SHA-256 fingerprints (\`scripts/fetch-ironrdp.mjs\`). The core installer leaves it out: Keeper downloads it as the component \`ironrdp\` from its own release the first time a Remote Desktop tab needs it; the offline installer has it in the \`ironrdp\` folder of Keeper's resources, with its licence as \`LICENSE.txt\`.`);
+p();
+p(`- **Source:** <https://github.com/Devolutions/IronRDP> (the \`ironrdp-web\` and \`iron-remote-desktop-rdp\` crates and packages). The WebAssembly inside is built from Rust crates under MIT, Apache-2.0 and similar terms, listed in that repository's \`Cargo.lock\`.`);
+p();
+p('<details><summary>IronRDP licence (MIT)</summary>');
+p();
+p('````text');
+p(`MIT License
+
+Copyright (c) Devolutions Inc. and the IronRDP contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.`);
+p('````');
+p();
+p('</details>');
 p();
 
 p(`### agent-desktop (Apache-2.0), a separate program`);

@@ -25,6 +25,13 @@
       "files": [
         { "from": "resources", "path": "rclone", "to": ".", "strip": true }
       ]
+    },
+    {
+      "id": "ironrdp",
+      "probe": "iron-remote-desktop-rdp.js",
+      "files": [
+        { "from": "resources", "path": "ironrdp", "to": ".", "strip": true }
+      ]
     }
   ]
 }

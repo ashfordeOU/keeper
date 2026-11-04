@@ -182,7 +182,11 @@ const DEV_URL = process.env.VITE_DEV_SERVER_URL;
 installNavGuard(path.join(__dirname, '..', 'dist'), DEV_URL);
 const isMac = process.platform === 'darwin';
 
-protocol.registerSchemesAsPrivileged([{ scheme: 'keeper-file', privileges: { stream: true, supportFetchAPI: true, corsEnabled: true, bypassCSP: false, standard: false } }]);
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'keeper-file', privileges: { stream: true, supportFetchAPI: true, corsEnabled: true, bypassCSP: false, standard: false } },
+  // The Remote Desktop engine's script (electron/ipc/rdc.ts): a module the tab imports.
+  { scheme: 'keeper-engine', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, bypassCSP: false } },
+]);
 // One Keeper per person across every copy (installed, development, downloaded): a later start
 // hands its links and files to the running one and quits (electron/instance.ts). Electron's own
 // lock still covers two starts of the same copy.

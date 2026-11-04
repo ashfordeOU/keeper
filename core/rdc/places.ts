@@ -16,11 +16,13 @@ export interface RdcPlaces {
   tray: boolean;
   /** .rdp and .vnc files open in Keeper, with "Connect with Keeper" in the file manager's right-click menu */
   files: boolean;
-  /** VNC and web consoles open as a tab in the main window, or in a window of their own */
+  /** VNC, Remote Desktop and web consoles open as a tab in the main window, or in a window of their own */
   sessions: 'tab' | 'window';
+  /** Remote Desktop (RDP) is drawn in Keeper (its engine is downloaded on first use) rather than the outside app */
+  rdpInTab: boolean;
 }
 
-export const DEFAULT_PLACES: RdcPlaces = { shortcut: true, accelerator: 'CommandOrControl+Alt+E', palette: true, tray: true, files: true, sessions: 'tab' };
+export const DEFAULT_PLACES: RdcPlaces = { shortcut: true, accelerator: 'CommandOrControl+Alt+E', palette: true, tray: true, files: true, sessions: 'tab', rdpInTab: true };
 
 export function normalizePlaces(raw: unknown): RdcPlaces {
   const o = (raw && typeof raw === 'object' ? raw : {}) as Partial<RdcPlaces>;
@@ -33,6 +35,7 @@ export function normalizePlaces(raw: unknown): RdcPlaces {
     tray: b(o.tray, DEFAULT_PLACES.tray),
     files: b(o.files, DEFAULT_PLACES.files),
     sessions: o.sessions === 'window' ? 'window' : 'tab',
+    rdpInTab: b(o.rdpInTab, DEFAULT_PLACES.rdpInTab),
   };
 }
 

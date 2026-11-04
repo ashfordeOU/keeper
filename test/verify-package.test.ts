@@ -25,6 +25,7 @@ function fakeMac(skip: string[] = []) {
     ort: path.join(mods, 'onnxruntime-node', 'bin', 'napi-v6', 'darwin', 'arm64', 'onnxruntime_binding.node'),
     pty: path.join(mods, 'node-pty', 'prebuilds', 'darwin-arm64', 'pty.node'),
     rclone: path.join(res, 'rclone', 'rclone'),
+    ironrdp: path.join(res, 'ironrdp', 'iron-remote-desktop-rdp.js'),
     agentDesktop: path.join(res, 'agent-desktop', 'agent-desktop'),
     agentDesktopLicence: path.join(res, 'agent-desktop', 'LICENSE.txt'),
     agentDesktopNotice: path.join(res, 'agent-desktop', 'NOTICE.txt'),
@@ -51,6 +52,16 @@ describe('the package check', () => {
     expect(r.missing.map((m: { name: string }) => m.name).join(' ')).toMatch(/rclone.*Intents/);
     expect(() => verifyPackage({ ...o, strict: true })).toThrow(/rclone.*Intents/);
   });
+  it('the Remote Desktop engine is listed locally, required for releases, and must leave a core installer', () => {
+    const o = fakeMac(['ironrdp']);
+    expect(verifyPackage(o).missing.map((m: { name: string }) => m.name).join(' ')).toMatch(/IronRDP/);
+    expect(() => verifyPackage({ ...o, strict: true })).toThrow(/IronRDP/);
+    const left = fakeMac(['ffmpeg', 'rclone']);
+    const staging = fs.mkdtempSync(path.join(os.tmpdir(), 'keeper-stage-'));
+    dirs.push(staging);
+    for (const [id, f] of [['ffmpeg', 'ffmpeg'], ['onnxruntime', 'node_modules/onnxruntime-node/bin/napi-v6/darwin/arm64/onnxruntime_binding.node'], ['rclone', 'rclone'], ['ironrdp', 'iron-remote-desktop-rdp.js']]) { fs.mkdirSync(path.dirname(path.join(staging, id, f)), { recursive: true }); fs.writeFileSync(path.join(staging, id, f), 'x'); }
+    expect(() => verifyPackage({ ...left, edition: 'core', staging })).toThrow(/left .*ironrdp/);
+  });
   it('agent-desktop is optional locally, required for releases, and never ships without its licence', () => {
     const none = fakeMac(['agentDesktop', 'agentDesktopLicence', 'agentDesktopNotice']);
     expect(verifyPackage(none).missing.map((m: { name: string }) => m.name).join(' ')).toMatch(/agent-desktop/);
@@ -59,7 +70,7 @@ describe('the package check', () => {
   });
 
   it('an Intel Mac core installer passes without onnxruntime (it has no Intel Mac build), even with the package\'s empty bin folder left in', () => {
-    const o = fakeMac(['ffmpeg', 'ort', 'rclone']);
+    const o = fakeMac(['ffmpeg', 'ort', 'rclone', 'ironrdp']);
     const mods = path.join(o.resources, 'app.asar.unpacked', 'node_modules');
     fs.mkdirSync(path.join(mods, 'onnxruntime-node', 'bin', 'napi-v6'), { recursive: true });
     fs.mkdirSync(path.join(mods, '@img', 'sharp-darwin-x64', 'lib'), { recursive: true });
@@ -68,7 +79,7 @@ describe('the package check', () => {
     fs.writeFileSync(path.join(mods, 'node-pty', 'prebuilds', 'darwin-x64', 'pty.node'), 'x');
     const staging = fs.mkdtempSync(path.join(os.tmpdir(), 'keeper-stage-'));
     dirs.push(staging);
-    for (const [id, f] of [['ffmpeg', 'ffmpeg'], ['rclone', 'rclone']]) { fs.mkdirSync(path.join(staging, id), { recursive: true }); fs.writeFileSync(path.join(staging, id, f), 'x'); }
+    for (const [id, f] of [['ffmpeg', 'ffmpeg'], ['rclone', 'rclone'], ['ironrdp', 'iron-remote-desktop-rdp.js']]) { fs.mkdirSync(path.join(staging, id), { recursive: true }); fs.writeFileSync(path.join(staging, id, f), 'x'); }
     expect(() => verifyPackage({ ...o, arch: 'x64', edition: 'core', staging })).not.toThrow();
   });
 });

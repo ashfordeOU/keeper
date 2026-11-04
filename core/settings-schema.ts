@@ -238,6 +238,7 @@ export const SETTINGS: SettingDef[] = [
   { id: 'keeperItself', section: 'battery', label: 'What Keeper is running', help: 'Each part, what it uses, and restarting one.', level: 'basic', kind: 'link', to: { name: 'health', arg: 'keeper' }, feature: 'health', keywords: ['processes', 'keeper processes', 'safe mode', 'restart keeper'] },
 
   // ---------------------------------------------------------------- Devices
+  { id: 'rdc.rdpInTab', section: 'devices', group: 'Remote Desktops', label: 'Remote Desktop in a tab', help: 'Shown in Keeper; the engine downloads on first use.', level: 'advanced', kind: 'link', to: { name: 'rdc', arg: 'places' }, feature: 'remoteDesktops', network: true, keywords: ['rdp', 'mstsc', 'freerdp', 'remote desktop', 'ironrdp', 'outside app', 'windows'] },
   { id: 'devices.page', section: 'devices', label: 'Your devices', help: 'Pair a device, your phone, and access from anywhere.', level: 'basic', kind: 'link', to: { name: 'devices' }, keywords: ['pair', 'phone', 'link'] },
   { id: 'meshPlaces', section: 'devices', label: 'Where device controls appear', help: 'In the palette, the tray and the Island.', level: 'advanced', kind: 'panel', panel: 'meshPlaces', feature: 'keeperMesh', keywords: ['mesh', 'private network', 'controls'] },
 

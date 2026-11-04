@@ -37,7 +37,7 @@ export function tabTitle(r: Route): { title: string; icon: string } {
   if (r.name === 'browse' && r.arg && r.q) return { title: `${r.arg.split(/[\\/]/).filter(Boolean).pop() ?? r.arg} · ${typeLabel(asTypeFilter(r.q))}`, icon };
   if (r.name === 'tag' && r.arg) return { title: `#${r.arg}`, icon };
   // A remote desktop in a tab is called after its connection.
-  if (r.name === 'rdc' && r.q && (r.arg === 'vnc' || r.arg === 'web')) return { title: rdcTabNames.get(r.q) ?? 'Remote desktop', icon: r.arg === 'web' ? 'globe' : 'laptop' };
+  if (r.name === 'rdc' && r.q && (r.arg === 'vnc' || r.arg === 'rdp' || r.arg === 'web')) return { title: rdcTabNames.get(r.q) ?? 'Remote desktop', icon: r.arg === 'web' ? 'globe' : 'laptop' };
   return { title: name, icon };
 }
 

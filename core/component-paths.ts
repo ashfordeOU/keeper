@@ -73,12 +73,14 @@ export function componentCandidates(id: ComponentId, c: ComponentPathsContext): 
     if (id === 'ffmpeg') out.push({ source: 'bundled', dir: path.join(unpacked!, 'node_modules', 'ffmpeg-static') });
     if (id === 'onnxruntime') out.push({ source: 'bundled', dir: unpacked! });
     if (id === 'rclone') out.push({ source: 'bundled', dir: path.join(c.resourcesPath, 'rclone') });
+    if (id === 'ironrdp') out.push({ source: 'bundled', dir: path.join(c.resourcesPath, 'ironrdp') });
   }
   out.push({ source: 'installed', dir: installDir(id, c.version, c) });
   if (c.dev && c.appPath) {
     if (id === 'ffmpeg') out.push({ source: 'dev', dir: path.join(c.appPath, 'node_modules', 'ffmpeg-static') });
     if (id === 'onnxruntime') out.push({ source: 'dev', dir: c.appPath });
     if (id === 'rclone') out.push({ source: 'dev', dir: path.join(c.appPath, 'vendor', 'rclone', 'current') });
+    if (id === 'ironrdp') out.push({ source: 'dev', dir: path.join(c.appPath, 'vendor', 'ironrdp', 'current') });
   }
   return out;
 }
@@ -146,6 +148,11 @@ export function onnxRuntime<T = typeof import('onnxruntime-node')>(what = 'This'
     loaded.set(key, createRequire(from)('onnxruntime-node'));
   }
   return loaded.get(key) as T;
+}
+
+/** The Remote Desktop engine's script (one JavaScript module with WebAssembly inside), or null when it is not here. */
+export function ironRdpScript(): string | null {
+  return locateComponent('ironrdp')?.probe ?? null;
 }
 
 /** Whether ONNX Runtime can be loaded on this computer right now (without loading it). */

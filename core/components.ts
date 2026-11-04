@@ -15,7 +15,7 @@
 import layout from './component-layout.json';
 import { DEVELOPER_ID_SIGNER } from './update-verify';
 
-export type ComponentId = 'ffmpeg' | 'onnxruntime' | 'rclone';
+export type ComponentId = 'ffmpeg' | 'onnxruntime' | 'rclone' | 'ironrdp';
 
 export interface ComponentUse {
   feature: string;
@@ -33,6 +33,11 @@ export interface ComponentDef {
   approxMb: Record<string, [download: number, disk: number]>;
   /** the "Check" command that proves it runs */
   check: string[];
+  /**
+   * Fetched only when it is first used (or asked for), never by itself after an
+   * update unless an older copy was already here: Remote Desktop in a tab.
+   */
+  onDemand?: boolean;
 }
 
 export const COMPONENTS: ComponentDef[] = [
@@ -77,6 +82,16 @@ export const COMPONENTS: ComponentDef[] = [
     ],
     approxMb: { 'darwin-arm64': [31, 88], 'darwin-x64': [32, 92], 'linux-x64': [30, 85], 'linux-arm64': [28, 80], 'win32-x64': [31, 88], '*': [30, 85] },
     check: ['version'],
+  },
+  {
+    id: 'ironrdp',
+    name: 'Remote Desktop engine (IronRDP)',
+    description: 'Shows Remote Desktop (RDP) connections in a Keeper tab, with nothing else to install.',
+    uses: [{ feature: 'remoteDesktops', partly: 'Remote Desktop in a tab' }],
+    // One JavaScript file with WebAssembly inside, the same on every system.
+    approxMb: { '*': [2.3, 6.2] },
+    check: [],
+    onDemand: true,
   },
 ];
 
@@ -305,7 +320,9 @@ export function downloadLabel(c: Pick<ComponentInfo, 'name' | 'downloadSize' | '
 export function missingFor(featureId: string, infos: ComponentInfo[]): (ComponentInfo & { partly?: string })[] {
   return featureNeeds(featureId)
     .map((n) => ({ ...infos.find((i) => i.id === n.id)!, partly: n.partly }))
-    .filter((i) => i.id && !usable(i.state) && i.state !== 'unavailable');
+    .filter((i) => i.id && !usable(i.state) && i.state !== 'unavailable')
+    // A part fetched on first use is not offered on the feature's row until that use (or a problem) brings it up.
+    .filter((i) => !(componentDef(i.id)?.onDemand && i.state === 'missing'));
 }
 
 /** What "Download everything for offline use" would fetch. */
@@ -325,8 +342,9 @@ export function backgroundPlan(o: { previousVersion?: string; currentVersion: st
   const wanted = new Set(componentsFor(o.onFeatures, { platform: o.platform, arch: o.arch }));
   return o.infos
     .filter((i) => wanted.has(i.id))
-    // An older copy on disk always follows the app; otherwise only right after an update.
-    .filter((i) => i.state === 'outdated' || (updated && (i.state === 'missing' || i.state === 'error')))
+    // An older copy on disk always follows the app; otherwise only right after an update,
+    // and never a part that is fetched on first use (it waits for that use).
+    .filter((i) => i.state === 'outdated' || (updated && !componentDef(i.id)?.onDemand && (i.state === 'missing' || i.state === 'error')))
     .map((i) => i.id);
 }
 

@@ -19,6 +19,14 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - Download buttons show keeper.ashforde.org/download/… and go straight to the file, then say what to do next. Each address also works on its own.
 - The website is in British English.
 
+### Added — Remote Desktops: Remote Desktop in a Keeper tab
+- Remote Desktop (RDP) connections now open in a Keeper tab, like VNC, with nothing to install. The first time, Keeper downloads its small Remote Desktop engine (about 2 MB) from its own release and checks it before use; the tab shows the progress.
+- The first connection to a computer shows its certificate (name, SHA-1 and SHA-256) to compare and trust. Keeper then trusts only that one for this connection, and asks again if it ever changes.
+- In the tab: fit or real size, full screen, the remote desktop resizes with the tab, the clipboard works both ways, special keys (Ctrl+Alt+Del, the Windows key, Windows+L and more), the mouse, wheel and touchpad, Reconnect, and sign in again when a password is refused. Keys follow the remote computer's keyboard layout, or send the letters typed here.
+- Network Level Authentication, user names with a domain (WORK\name), saved passwords from the keychain, and every way Keeper reaches a computer (SSH tunnel, proxy, Keeper Link, mesh) work in the tab.
+- Each connection can still open in the outside app (Remote Desktop Connection, FreeRDP or the Mac's Remote Desktop app). A Remote Desktop Gateway, the admin session, all monitors and sharing your home folder open there by themselves, with the reason. If the engine cannot be downloaded, the outside app opens instead.
+- Where it appears → **Remote Desktop in a Keeper tab** switches it off for all connections.
+
 ### Added — Island: colours that follow your theme
 - The Island is no longer only black. Open, it shows a soft gradient made from your theme's colours, with matching text, buttons and cards. Light themes get a light Island; every theme gets its own.
 - What is going on tints it: the colours of the album art while music plays, the calendar's colour before a meeting, orange for a timer, green while charging. It glides to the new colour (at once with less motion).

@@ -147,7 +147,8 @@ function waitForNetwork(id: ComponentId) {
  * only needs for one of its tools.
  */
 export async function ensureComponentsFor(featureIds: string[], o: { partly?: boolean } = {}): Promise<ComponentInfo[]> {
-  const ids = componentsFor(featureIds, { partly: o.partly, platform: process.platform, arch: process.arch });
+  // Parts fetched on first use (Remote Desktop in a tab) wait for that use.
+  const ids = componentsFor(featureIds, { partly: o.partly, platform: process.platform, arch: process.arch }).filter((x) => !componentDef(x)?.onDemand);
   const todo = list().filter((i) => ids.includes(i.id) && !usable(i.state) && i.state !== 'unavailable');
   await Promise.all(todo.map((i) => download(i.id)));
   return list();
@@ -193,6 +194,12 @@ export async function check(id: ComponentId): Promise<{ ok: boolean; output: str
     } catch (e) {
       return { ok: false, output: e instanceof Error ? e.message : String(e), path: l.dir, source: l.source };
     }
+  }
+  if (id === 'ironrdp') {
+    // A script for the tab, not a program: its version file and size say it is the expected one.
+    const version = await fsp.readFile(path.join(l.dir, 'VERSION'), 'utf8').catch(() => '');
+    const size = (await fsp.stat(l.probe).catch(() => null))?.size ?? 0;
+    return { ok: size > 0, output: `IronRDP ${version.trim() || '(unknown version)'}, ${Math.round(size / 1e5) / 10} MB`, path: l.probe, source: l.source };
   }
   const r = await run(l.probe, componentDef(id)!.check, 30_000);
   return { ok: r.ok, output: (r.stdout || r.stderr).trim().split('\n')[0] ?? '', path: l.probe, source: l.source };

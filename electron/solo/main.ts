@@ -76,7 +76,11 @@ async function runSolo() {
 
   const plan = soloPlan([first], featureOn);
   installNavGuard(path.join(__dirname, '..', 'dist'), DEV_URL);
-  protocol.registerSchemesAsPrivileged([{ scheme: 'keeper-file', privileges: { stream: true, supportFetchAPI: true, corsEnabled: true, bypassCSP: false, standard: false } }]);
+  protocol.registerSchemesAsPrivileged([
+    { scheme: 'keeper-file', privileges: { stream: true, supportFetchAPI: true, corsEnabled: true, bypassCSP: false, standard: false } },
+    // The Remote Desktop engine's script (electron/ipc/rdc.ts): a module the tab imports.
+    { scheme: 'keeper-engine', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, bypassCSP: false } },
+  ]);
   // Its windows share one page process, like Keeper's; and no network process of its own (the
   // services talk to the network from this process).
   if (process.env.KEEPER_SEPARATE_PAGES !== '1') app.commandLine.appendSwitch('process-per-site');

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Remote Desktops: your other computers by any protocol. Saved connections in
 // folders with tags, colours and favourites; a quick-connect bar; several open
-// at once, each in its own Keeper tab (VNC and web consoles drawn here, SSH and
-// friends in terminal tabs, RDP in its own window); Wake-on-LAN; import and
+// at once, each in its own Keeper tab (VNC, Remote Desktop and web consoles drawn
+// here, SSH and friends in terminal tabs); Wake-on-LAN; import and
 // export; this computer's own remote desktop server; and the programs Keeper
 // can use.
 
@@ -23,6 +23,8 @@ import { useFeature } from '../features';
 import { ContextMenu, Empty, Modal, PageHead, Toggle, type MenuItem } from '../components/ui';
 import { useStore } from '../state';
 import { VncView, WebConsole } from './RemoteDesktopSession';
+import { RdpView } from './RemoteDesktopRdp';
+import { splitUser, tabLimits } from '../../core/rdc/rdp-tab';
 import '../styles/rdc.css';
 
 const clean = (e: unknown) => (e instanceof Error ? e.message : String(e)).replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
@@ -31,6 +33,7 @@ const SHORT: Record<Protocol, string> = { rdp: 'RDP', vnc: 'VNC', ssh: 'SSH', mo
 export function RemoteDesktops() {
   const { route } = useStore();
   if (route.arg === 'vnc' && route.q) return <VncView sid={route.q} />;
+  if (route.arg === 'rdp' && route.q) return <RdpView key={route.q} sid={route.q} />;
   if (route.arg === 'web' && route.q) return <WebConsole sid={route.q} />;
   return <RdcPage />;
 }
@@ -56,20 +59,23 @@ function useStatus(): Record<string, Online> {
   return st;
 }
 
+type Opts = { password?: string; user?: string; external?: boolean; trustKey?: string; trustCert?: string; background?: boolean };
 type Ask =
-  | { kind: 'password'; conn: Connection; external?: boolean; again?: boolean }
-  | { kind: 'hostkey'; conn: Connection; key: NonNullable<ConnectResult['hostKey']>; password?: string; external?: boolean };
+  | { kind: 'password'; conn: Connection; o: Opts; again?: boolean; needUser?: boolean }
+  | { kind: 'hostkey'; conn: Connection; key: NonNullable<ConnectResult['hostKey']>; o: Opts }
+  | { kind: 'cert'; conn: Connection; cert: NonNullable<ConnectResult['cert']>; o: Opts };
 
 /** Opening connections, with the questions that can come up on the way (password, a new host key). */
 function useOpener(s: RdcState | null, reload: () => void) {
   const { tabs, toast } = useStore();
   const [ask, setAsk] = useState<Ask | null>(null);
-  const open = useCallback(async (conn: Connection, o: { password?: string; external?: boolean; trustKey?: string; background?: boolean } = {}) => {
+  const open = useCallback(async (conn: Connection, o: Opts = {}) => {
     if (isDemo) { toast(`${conn.name}: connections do not open in the demo`); return; }
     try {
-      const r = await api.rdc.connect(conn.id.startsWith('tmp-') ? conn : conn.id, { password: o.password, external: o.external, trustKey: o.trustKey });
-      if (r.hostKey) { setAsk({ kind: 'hostkey', conn, key: r.hostKey, password: o.password, external: o.external }); return; }
-      if (r.needPassword) { setAsk({ kind: 'password', conn, external: o.external, again: o.password !== undefined }); return; }
+      const r = await api.rdc.connect(conn.id.startsWith('tmp-') ? conn : conn.id, { password: o.password, user: o.user, external: o.external, trustKey: o.trustKey, trustCert: o.trustCert });
+      if (r.hostKey) { setAsk({ kind: 'hostkey', conn, key: r.hostKey, o }); return; }
+      if (r.cert) { setAsk({ kind: 'cert', conn, cert: r.cert, o }); return; }
+      if (r.needPassword) { setAsk({ kind: 'password', conn, o, needUser: r.needUser, again: o.password !== undefined && !r.needUser }); return; }
       if (r.session?.state === 'error') { toast(`${conn.name}: ${r.session.error ?? 'did not connect'}`); return; }
       if (r.route) {
         if ((await api.rdc.places().catch(() => null))?.sessions === 'window') await api.rdc.openRoute(r.route);
@@ -85,11 +91,33 @@ function useOpener(s: RdcState | null, reload: () => void) {
   }, [tabs, toast, reload]);
   const dialog = ask ? (
     ask.kind === 'password' ? (
-      <PasswordDialog conn={ask.conn} again={!!ask.again} keychain={!!s?.keychain} onClose={() => setAsk(null)} onDone={async (pw, remember) => {
+      <PasswordDialog conn={ask.conn} again={!!ask.again} needUser={!!ask.needUser} keychain={!!s?.keychain} onClose={() => setAsk(null)} onDone={async (pw, remember, user) => {
         setAsk(null);
-        if (remember && !ask.conn.id.startsWith('tmp-')) await api.rdc.setPassword(ask.conn.id, pw).catch(() => false);
-        void open(ask.conn, { password: pw, external: ask.external });
+        if (!ask.conn.id.startsWith('tmp-')) {
+          // A name typed here is kept with the connection; a password only when asked to.
+          const su = user ? splitUser(user) : null;
+          if (su && su.user !== ask.conn.user) await api.rdc.save({ ...ask.conn, user: su.user, domain: su.domain ?? ask.conn.domain }).catch(() => undefined);
+          if (remember) await api.rdc.setPassword(ask.conn.id, pw).catch(() => false);
+        }
+        void open(ask.conn, { ...ask.o, password: pw, user: user || ask.o.user });
       }} />
+    ) : ask.kind === 'cert' ? (
+      <Modal title={ask.cert.changed ? 'This computer’s certificate changed' : `First connection to ${ask.cert.host ?? ask.conn.host}`} onClose={() => setAsk(null)} width={560}>
+        <div className="col rdc-certq" style={{ gap: 10 }} data-testid="rdc-certq">
+          {ask.cert.changed
+            ? <div className="rdc-warn"><Icon name="warning" size={16} /> It shows a different certificate from the one you trusted. Windows renews its own every few months; if nobody did that, someone may be pretending to be it.</div>
+            : <div className="small muted">Compare it with the computer’s own. On Windows: <code>Get-ChildItem 'Cert:\LocalMachine\Remote Desktop'</code> shows its thumbprint (SHA-1).</div>}
+          <div className="rdc-fp mono" data-testid="rdc-cert-fingerprint">
+            {ask.cert.subject ? <><b>Name</b><span>{ask.cert.subject}</span></> : null}
+            <b>SHA-1</b><span>{ask.cert.sha1}</span>
+            <b>SHA-256</b><span>{ask.cert.sha256}</span>
+          </div>
+          <div className="btn-row" style={{ justifyContent: 'flex-end' }}>
+            <button className="btn" onClick={() => setAsk(null)}>Cancel</button>
+            <button className="btn primary" onClick={() => { const a = ask; setAsk(null); void open(a.conn, { ...a.o, trustCert: a.cert.fingerprint }); }}>{ask.cert.changed ? 'Trust the New One' : 'Trust and Connect'}</button>
+          </div>
+        </div>
+      </Modal>
     ) : (
       <Modal title={ask.key.changed ? 'This computer’s key changed' : `First connection to ${ask.key.host}`} onClose={() => setAsk(null)} width={520}>
         <div className="col" style={{ gap: 10 }}>
@@ -99,24 +127,26 @@ function useOpener(s: RdcState | null, reload: () => void) {
           <div className="rdc-fp mono" data-testid="rdc-fingerprint">{ask.key.type} {ask.key.fingerprint}</div>
           <div className="btn-row" style={{ justifyContent: 'flex-end' }}>
             <button className="btn" onClick={() => setAsk(null)}>Cancel</button>
-            {!ask.key.changed ? <button className="btn primary" onClick={() => { const a = ask; setAsk(null); void open(a.conn, { password: a.password, external: a.external, trustKey: a.key.fingerprint }); }}>Trust and Connect</button> : null}
+            {!ask.key.changed ? <button className="btn primary" onClick={() => { const a = ask; setAsk(null); void open(a.conn, { ...a.o, trustKey: a.key.fingerprint }); }}>Trust and Connect</button> : null}
           </div>
         </div>
       </Modal>
     )
   ) : null;
-  return { open, dialog, askPassword: (conn: Connection, external?: boolean) => setAsk({ kind: 'password', conn, external }) };
+  return { open, dialog, askPassword: (conn: Connection, external?: boolean) => setAsk({ kind: 'password', conn, o: { external } }) };
 }
 
-function PasswordDialog({ conn, again, keychain, onClose, onDone }: { conn: Connection; again: boolean; keychain: boolean; onClose: () => void; onDone: (pw: string, remember: boolean) => void }) {
+function PasswordDialog({ conn, again, needUser, keychain, onClose, onDone }: { conn: Connection; again: boolean; needUser?: boolean; keychain: boolean; onClose: () => void; onDone: (pw: string, remember: boolean, user?: string) => void }) {
   const [pw, setPw] = useState('');
+  const [user, setUser] = useState(conn.user ?? '');
   const [remember, setRemember] = useState(false);
   const saved = !conn.id.startsWith('tmp-');
   return (
     <Modal title={`Sign in to ${conn.name}`} onClose={onClose} width={420}>
-      <form className="col" style={{ gap: 10 }} onSubmit={(e) => { e.preventDefault(); onDone(pw, remember); }}>
+      <form className="col" style={{ gap: 10 }} onSubmit={(e) => { e.preventDefault(); if (needUser && !user.trim()) return; onDone(pw, remember, needUser ? user.trim() : undefined); }}>
         {again ? <div className="rdc-warn small"><Icon name="warning" size={14} /> That did not work. Try again.</div> : null}
-        <label className="col small">Password{conn.user ? ` for ${conn.user}` : ''}<input className="input" type="password" autoFocus value={pw} onChange={(e) => setPw(e.target.value)} data-testid="rdc-password" /></label>
+        {needUser ? <label className="col small">User name<input className="input" autoFocus value={user} placeholder={conn.domain ? `${conn.domain}\\name or name` : 'name, or DOMAIN\\name'} onChange={(e) => setUser(e.target.value)} data-testid="rdc-user" /></label> : null}
+        <label className="col small">Password{conn.user && !needUser ? ` for ${conn.user}` : ''}<input className="input" type="password" autoFocus={!needUser} value={pw} onChange={(e) => setPw(e.target.value)} data-testid="rdc-password" /></label>
         {saved && keychain && !conn.askEveryTime ? <label className="row small"><input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} /> Remember it in the system keychain</label> : null}
         <div className="btn-row" style={{ justifyContent: 'flex-end' }}>
           <button type="button" className="btn" onClick={onClose}>Cancel</button>
@@ -220,6 +250,7 @@ function Connections({ s, reload }: { s: RdcState; reload: () => void }) {
   const cardMenu = (c: Connection, x: number, y: number) => setMenu({ x, y, items: [
     { label: 'Connect', icon: 'play', run: () => void open(c) },
     ...(c.protocol === 'vnc' ? [{ label: 'Open in an Outside Viewer', icon: 'external', run: () => void open(c, { external: true }) }] : []),
+    ...(c.protocol === 'rdp' ? [{ label: 'Open in the Outside App', icon: 'external', run: () => void open(c, { external: true }) }] : []),
     { label: 'Edit…', icon: 'rename', run: () => setEdit(c) },
     { label: 'Duplicate', icon: 'copy', run: () => void api.rdc.duplicate(c.id).then(reload) },
     { label: c.favourite ? 'Remove from Favourites' : 'Add to Favourites', icon: 'star', run: () => void api.rdc.save({ ...c, favourite: !c.favourite }).then(reload) },
@@ -238,7 +269,7 @@ function Connections({ s, reload }: { s: RdcState; reload: () => void }) {
       {live.length ? (
         <div className="card pad rdc-live">
           <div className="small muted" style={{ marginBottom: 6 }}>Open now</div>
-          {live.map((x) => <SessionRow key={x.id} x={x} onShow={() => tabs.open(x.kind === 'terminal' ? { name: 'terminal', q: `session:${x.terminal}` } : { name: 'rdc', arg: x.kind === 'web' ? 'web' : 'vnc', q: x.id })} onClose={() => void api.rdc.disconnect(x.id).then(reload)} />)}
+          {live.map((x) => <SessionRow key={x.id} x={x} onShow={() => tabs.open(x.kind === 'terminal' ? { name: 'terminal', q: `session:${x.terminal}` } : { name: 'rdc', arg: x.kind === 'web' ? 'web' : x.protocol === 'rdp' ? 'rdp' : 'vnc', q: x.id })} onClose={() => void api.rdc.disconnect(x.id).then(reload)} />)}
         </div>
       ) : null}
 
@@ -411,6 +442,7 @@ function Editor({ conn, s, devices, onClose, onSaved }: { conn: Connection; s: R
     setCmd('error' in r ? r.error : `${[r.file, ...r.args].map((a) => (/\s/.test(a) ? `"${a}"` : a)).join(' ')}${r.stdin ? '\n(the password goes to its input, not the command line)' : ''}${r.note ? `\n${r.note}` : ''}`);
   };
   const external = ['rdp', 'spice', 'x2go'].includes(p) || (p === 'vnc' && c.vnc?.external);
+  const limits = p === 'rdp' ? tabLimits(c) : [];
   return (
     <Modal title={conn.id ? `Edit ${conn.name}` : 'New connection'} onClose={onClose} width={640}>
       <div className="rdc-form">
@@ -489,6 +521,14 @@ function Editor({ conn, s, devices, onClose, onSaved }: { conn: Connection; s: R
         {p === 'rdp' ? (
           <div className="wide rdc-sub rdc-opts">
             <div className="small muted">Remote Desktop</div>
+            <div className="wide row" style={{ gap: 10, flexWrap: 'wrap' }}>
+              <span className="small">Opens in</span>
+              <div className="seg" role="group" aria-label="Opens in" data-testid="rdc-rdp-where">
+                <button type="button" className={c.rdp?.where !== 'outside' ? 'on' : ''} aria-pressed={c.rdp?.where !== 'outside'} onClick={() => set({ rdp: { ...c.rdp, where: undefined } })}>A Keeper tab</button>
+                <button type="button" className={c.rdp?.where === 'outside' ? 'on' : ''} aria-pressed={c.rdp?.where === 'outside'} onClick={() => set({ rdp: { ...c.rdp, where: 'outside' } })}>The outside app</button>
+              </div>
+              {c.rdp?.where !== 'outside' && limits.length ? <span className="small muted" data-testid="rdc-rdp-limits">{limits.join(' ')}</span> : null}
+            </div>
             <label className="row small"><input type="checkbox" checked={c.rdp?.fullscreen ?? false} onChange={(e) => set({ rdp: { ...c.rdp, fullscreen: e.target.checked } })} /> Full screen</label>
             <label className="row small"><input type="checkbox" checked={!!c.rdp?.multimon} onChange={(e) => set({ rdp: { ...c.rdp, multimon: e.target.checked } })} /> All monitors</label>
             <label className="row small"><input type="checkbox" checked={!!c.rdp?.dynamicResolution} onChange={(e) => set({ rdp: { ...c.rdp, dynamicResolution: e.target.checked } })} /> Resize with the window</label>
@@ -499,7 +539,9 @@ function Editor({ conn, s, devices, onClose, onSaved }: { conn: Connection; s: R
             <label className="row small"><input type="checkbox" checked={!!c.rdp?.ignoreCert} onChange={(e) => set({ rdp: { ...c.rdp, ignoreCert: e.target.checked } })} /> Accept any certificate</label>
             <label className="small">Size<select className="input" value={c.rdp?.width ? `${c.rdp.width}x${c.rdp.height}` : ''} onChange={(e) => { const [w, h] = e.target.value.split('x').map(Number); set({ rdp: { ...c.rdp, width: w || undefined, height: h || undefined } }); }}><option value="">Automatic</option>{['1280x720', '1366x768', '1600x900', '1920x1080', '2560x1440'].map((x) => <option key={x} value={x}>{x.replace('x', '×')}</option>)}</select></label>
             <label className="small">Sound<select className="input" value={c.rdp?.audio ?? 'local'} onChange={(e) => set({ rdp: { ...c.rdp, audio: e.target.value as 'local' } })}><option value="local">On this computer</option><option value="remote">On the remote one</option><option value="off">Off</option></select></label>
+            <label className="small">Keys in a tab<select className="input" value={c.rdp?.keyboard ?? 'keys'} onChange={(e) => set({ rdp: { ...c.rdp, keyboard: e.target.value === 'letters' ? 'letters' : undefined } })}><option value="keys">The remote keyboard layout</option><option value="letters">Letters as typed here</option></select></label>
             <label className="small wide">Remote Desktop Gateway<input className="input mono" placeholder="rdg.example.com" value={c.rdp?.gateway ?? ''} onChange={(e) => set({ rdp: { ...c.rdp, gateway: e.target.value || undefined } })} /></label>
+            {c.rdp?.pin ? <div className="small wide row" style={{ gap: 8 }}><span className="muted">Trusted certificate</span><code className="ellipsis grow">{c.rdp.pin}</code><button type="button" className="btn sm ghost" onClick={() => set({ rdp: { ...c.rdp, pin: undefined } })}>Forget</button></div> : null}
           </div>
         ) : null}
         {p === 'vnc' ? (
@@ -662,7 +704,7 @@ function Programs() {
     <div className="col" style={{ gap: 14, maxWidth: 860 }}>
       <div className="card pad col" style={{ gap: 4 }}>
         <div className="row"><h3 className="grow" style={{ margin: 0 }}>Programs Keeper can use</h3><button className="btn sm ghost" onClick={() => load(true)}><Icon name="refresh" size={13} /> Look again</button></div>
-        <div className="small muted">Keeper shows VNC and web consoles itself. For the rest it starts one of these free programs with the right settings.</div>
+        <div className="small muted">Keeper shows VNC, Remote Desktop and web consoles itself. For the rest, and when you choose the outside app, it starts one of these free programs.</div>
         {connect.map(row)}
       </div>
       {host.length ? <div className="card pad col" style={{ gap: 4 }}><h3 style={{ margin: 0 }}>For letting others reach this computer</h3>{host.map(row)}</div> : null}
@@ -722,15 +764,19 @@ function PlacesPanel() {
           <div className="grow col" style={{ gap: 2 }}><b>.rdp and .vnc files</b><span className="small muted">Double-click opens them in Keeper; “Connect with Keeper” in the file manager’s right-click menu.</span></div>
           <Toggle on={p.files} onChange={(v) => void set({ files: v })} />
         </div>
+        <div className="rdc-places-row" data-testid="rdc-place-rdp">
+          <div className="grow col" style={{ gap: 2 }}><b>Remote Desktop in a Keeper tab</b><span className="small muted">Keeper downloads its engine once (about 2 MB). Off: the outside app opens.</span></div>
+          <Toggle on={p.rdpInTab} onChange={(v) => { void set({ rdpInTab: v }); if (v) void api.components.download('ironrdp').catch(() => undefined); }} />
+        </div>
         <div className="rdc-places-row" data-testid="rdc-place-sessions">
-          <div className="grow col" style={{ gap: 2 }}><b>Open VNC and web consoles</b><span className="small muted">In a Keeper tab, or in a window of their own. A tab can always move to its own window.</span></div>
+          <div className="grow col" style={{ gap: 2 }}><b>Open VNC, Remote Desktop and web consoles</b><span className="small muted">In a Keeper tab, or in a window of their own. A tab can always move to its own window.</span></div>
           <div className="seg">
             <button className={p.sessions === 'tab' ? 'on' : ''} onClick={() => void set({ sessions: 'tab' })}>As tabs</button>
             <button className={p.sessions === 'window' ? 'on' : ''} onClick={() => void set({ sessions: 'window' })}>In their own windows</button>
           </div>
         </div>
       </div>
-      <div className="small muted">Terminal connections (SSH, Mosh, Telnet, serial, PowerShell) open as terminal tabs; Remote Desktop, SPICE and X2Go open in their own program’s window.</div>
+      <div className="small muted">Terminal connections (SSH, Mosh, Telnet, serial, PowerShell) open as terminal tabs; SPICE, X2Go and Remote Desktop set to the outside app open in their own program’s window.</div>
     </div>
   );
 }

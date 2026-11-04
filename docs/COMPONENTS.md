@@ -21,6 +21,17 @@ component sizes are the real archives that `scripts/components.mjs pack` made fr
 | **ffmpeg** (`ffmpeg-static`) | `studio`, `meetings`, `speechModel`, `videoDownload`; parts of `capture` (screen recording), `dictation` (sound files), `convert` (video and audio) | 80 MB Linux, 44 MB Mac | **29.9 MB** Linux x64, ~19 MB Mac arm64 | component `ffmpeg` |
 | **ONNX Runtime** (`onnxruntime-node` + `onnxruntime-common`) | `speechModel`, `semantic`, `faces`; parts of `convert` (background removal), `dictation` and `meetings` (built-in speech model) | 49 MB Linux, 45 MB Mac | **18.8 MB** Linux x64, ~13 MB Mac arm64 | component `onnxruntime` (none for Intel Macs) |
 | **rclone** | cloud services in `remote`, cloud mirrors in `sync` (servers work without it) | 89 MB | **30.5 MB** | component `rclone` |
+| **IronRDP** (`@devolutions/iron-remote-desktop-rdp` 0.7.0: one JavaScript file with WebAssembly inside, the same on every system) | Remote Desktop in a Keeper tab (`remoteDesktops`) | 6.1 MB | **2.2 MB** (2,229,041 bytes measured) | component `ironrdp`, fetched on first use |
+
+**Fetched on first use** (`onDemand` in `core/components.ts`): the Remote Desktop engine is not
+downloaded when a preset or a feature switch asks, nor after an update unless an older copy is
+already here. The first Remote Desktop tab (or switching *Remote Desktop in a Keeper tab* on in
+Remote Desktops → Where it appears) downloads it, and the tab shows the progress. Its release
+archive is made like the others: `scripts/fetch-ironrdp.mjs` (run by `prepare-arch.mjs`) puts the
+pinned npm package's script in `vendor/ironrdp/current` after checking the package's and the
+script's SHA-256; electron-builder copies it to `resources/ironrdp`; the core edition moves it into
+the staging folder. Development uses `vendor/ironrdp/current` directly. The tab loads it from
+`keeper-engine://ironrdp/iron-remote-desktop-rdp.js`, a scheme that serves only that one file.
 
 Models (Whisper, the cut-out model, the face finder, the meaning model, OCR languages) were
 already downloaded on first use and stay so (`electron/services/whisper.ts` and friends).

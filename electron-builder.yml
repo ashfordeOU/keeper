@@ -57,6 +57,12 @@ extraResources:
   - from: vendor/rclone/current
     to: rclone
     filter: ['rclone', 'rclone.exe', '*.txt']
+  # IronRDP (MIT, LICENSE.txt beside it), Remote Desktop in a Keeper tab: put in vendor/ironrdp/current by
+  # scripts/fetch-ironrdp.mjs (prepare-arch runs it). The core installer moves it out into the downloadable
+  # component "ironrdp"; the offline installer keeps it. Without it RDP opens in the outside app.
+  - from: vendor/ironrdp/current
+    to: ironrdp
+    filter: ['iron-remote-desktop-rdp.js', 'LICENSE.txt', 'VERSION']
   # agent-desktop (Apache-2.0, LICENSE.txt and NOTICE.txt beside it) for reading and pressing other
   # apps' controls: put in vendor/agent-desktop/current by scripts/fetch-agent-desktop.mjs (prepare-arch
   # runs it for the target). Without it the computer-use tools use the system scripts they always had.

@@ -40,6 +40,26 @@ export interface VncInput {
   buttons?: number;
 }
 
+/** What a Remote Desktop tab needs to start its engine (main → tab only). */
+export interface RdpAttach {
+  sid: string;
+  name: string;
+  /** the local relay (ws://127.0.0.1:port/rdp/token) */
+  url: string;
+  /** this session's random token, checked by the relay */
+  token: string;
+  /** host:port as the relay expects the engine to name it */
+  destination: string;
+  /** 'missing' while the engine downloads (the tab shows the progress) */
+  engine: 'ready' | 'missing' | 'unavailable';
+  engineUrl: string;
+  user: string;
+  domain: string;
+  password: string;
+  via?: string;
+  options: { width?: number; height?: number; fullscreen?: boolean; dynamicResolution?: boolean; clipboard: boolean; nla: boolean; keyboard: 'keys' | 'letters'; audio?: 'local' | 'remote' | 'off' };
+}
+
 export interface RdcApi {
   state(): Promise<RdcState>;
   save(c: Partial<Connection> & { name: string; protocol: Connection['protocol']; host: string }): Promise<Connection>;
@@ -51,7 +71,7 @@ export interface RdcApi {
   quick(text: string): Promise<QuickResult>;
   probe(host: string, ports?: number[]): Promise<ProbeResult[]>;
   /** opens a saved connection (id) or one made on the spot */
-  connect(target: string | Connection, opts?: { password?: string; external?: boolean; trustKey?: string; trustCert?: string }): Promise<ConnectResult>;
+  connect(target: string | Connection, opts?: { password?: string; user?: string; external?: boolean; trustKey?: string; trustCert?: string }): Promise<ConnectResult>;
   disconnect(sid: string): Promise<void>;
   /** the exact program and arguments a connection would use (passwords never appear) */
   command(target: string | Connection): Promise<{ file: string; args: string[]; engine: string; note?: string; stdin: boolean; files: string[] } | { error: string }>;
@@ -65,6 +85,15 @@ export interface RdcApi {
   vncClipboard(sid: string, text: string): Promise<void>;
   vncKeys(sid: string, combo: string): Promise<void>;
   vncSetViewOnly(sid: string, on: boolean): Promise<void>;
+  // ---- Remote Desktop in a tab
+  /** the relay, token and sign-in for the tab's engine (null when the session has gone) */
+  rdpAttach(sid: string): Promise<RdpAttach | null>;
+  /** the engine's session ended; with a reason when it failed */
+  rdpEnded(sid: string, why?: string): Promise<void>;
+  /** a password typed in the tab after a failed sign-in */
+  rdpSignIn(sid: string, password: string, remember: boolean): Promise<boolean>;
+  /** the engine cannot run here: open the same connection in the outside app */
+  rdpFallback(sid: string, why: string): Promise<ConnectResult>;
   // ---- web consoles in a tab
   /** places (or, with null, hides) the console page over the tab's area, in CSS pixels */
   webShow(sid: string, rect: { x: number; y: number; width: number; height: number } | null): Promise<{ url: string; title: string; cert?: { fingerprint: string; trusted: boolean } } | null>;

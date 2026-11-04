@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
-// Remote Desktops: saved connections, opening them (VNC and web consoles in
-// Keeper tabs, SSH/Mosh/Telnet/serial/PowerShell in terminal tabs, RDP/SPICE/
-// X2Go and outside viewers as their own windows), gateways, Wake-on-LAN,
+// Remote Desktops: saved connections, opening them (VNC, RDP and web consoles
+// in Keeper tabs, SSH/Mosh/Telnet/serial/PowerShell in terminal tabs, SPICE,
+// X2Go, RDP by choice and outside viewers as their own windows), gateways, Wake-on-LAN,
 // import and export, and letting others reach this computer.
 //
 // Costs nothing while the page is closed: status knocks run only while a page
@@ -31,7 +31,13 @@ import { featureOn } from '../features';
 import { poll } from '../governor';
 import type { Endpoint } from './gateway';
 import type { VncSession } from './vnc';
-import { rdcTrayChanged } from './places';
+import type { RdpRelay } from './rdp';
+import { currentPlaces, rdcTrayChanged } from './places';
+import { rdpWhere, destinationOf, splitUser, type EngineState } from '../../../core/rdc/rdp-tab';
+import { certVerdict } from '../../../core/rdc/rdcleanpath';
+import { componentAvailable } from '../../../core/components';
+import { locateComponent } from '../../../core/component-paths';
+import type { RdpAttach } from '../../../core/rdc/api';
 
 // The parts that only work during a session or while sharing this screen load on first use:
 // the SSH gateway and host keys, the in-app VNC client, web consoles, and hosting.
@@ -49,6 +55,8 @@ interface Live {
   info: RdcSession;
   endpoint?: Endpoint;
   vnc?: VncSession;
+  /** Remote Desktop in a tab: the relay its engine talks through, and what it signs in with */
+  rdp?: { relay: RdpRelay; conn: Connection; password?: string; idle?: NodeJS.Timeout };
   child?: ChildProcess;
   close(): void;
 }
@@ -290,9 +298,12 @@ async function resolveConn(target: string | Connection): Promise<Connection> {
   return q.conn;
 }
 
-export async function connect(target: string | Connection, opts: { password?: string; external?: boolean; trustKey?: string; trustCert?: string; viewer?: WebContents } = {}): Promise<ConnectResult> {
+export async function connect(target: string | Connection, opts: { password?: string; user?: string; external?: boolean; trustKey?: string; trustCert?: string; viewer?: WebContents } = {}): Promise<ConnectResult> {
   if (!featureOn('remoteDesktops')) throw new Error('Remote Desktops are switched off (Settings → Features)');
-  const c = await resolveConn(target);
+  const found = await resolveConn(target);
+  // A user name typed when asked counts for this time (Edit saves it for good).
+  const typed = opts.user?.trim() ? splitUser(opts.user) : null;
+  const c = typed ? { ...found, user: typed.user, domain: typed.domain ?? found.domain } : found;
   if (c.protocol === 'keeper') return { message: 'Keeper devices open from the Remote Desktops page or Devices.', route: { name: 'devices', arg: c.host } };
   const saved = !c.id.startsWith('tmp-');
   let password = opts.password;
@@ -317,7 +328,16 @@ export async function connect(target: string | Connection, opts: { password?: st
     if (e instanceof HostKeyQuestion) return { hostKey: e.key };
     throw e;
   }
+  let note: string | undefined;
   try {
+    if (c.protocol === 'rdp') {
+      const w = rdpWhere(c, { external: opts.external, inTab: currentPlaces().rdpInTab, engine: rdpEngine() });
+      if (w.where === 'tab') {
+        const r = await startRdpTab(c, endpoint, password, opts.trustCert, saved);
+        if (r) return r;
+        note = 'This computer only offers the old Remote Desktop security, so it opened in the outside app.';
+      } else note = w.reason;
+    }
     if (c.protocol === 'vnc' && !opts.external && !c.vnc?.external) {
       const sid = randomUUID();
       const info: RdcSession = { id: sid, connId: c.id, name: c.name, protocol: 'vnc', kind: 'inapp', state: 'connecting', started: Date.now(), via: endpoint.via };
@@ -362,7 +382,8 @@ export async function connect(target: string | Connection, opts: { password?: st
       throw e;
     }
     if (plan.where === 'terminal') return await startTerminal(c, plan, dir, endpoint);
-    return await startExternal(c, plan, dir, endpoint, password);
+    const out = await startExternal(c, plan, dir, endpoint, password);
+    return note ? { ...out, message: [note, out.message].filter(Boolean).join(' ') } : out;
   } catch (e) {
     endpoint.close();
     if (e instanceof HostKeyQuestion) return { hostKey: e.key };
@@ -394,6 +415,132 @@ export async function command(target: string | Connection) {
     return { error: e instanceof Error ? e.message : String(e) };
   }
 }
+
+// ---------------------------------------------------------------- Remote Desktop in a tab
+
+/** Whether the engine is here, can be downloaded, or is not offered on this system. */
+function rdpEngine(): EngineState {
+  if (locateComponent('ironrdp')) return 'ready';
+  return componentAvailable('ironrdp', process.platform, process.arch) ? 'missing' : 'unavailable';
+}
+
+/** Starts the engine's download (first use); the tab shows its progress. */
+async function fetchEngine(): Promise<void> {
+  if (rdpEngine() !== 'missing') return;
+  const comp = await import('../components');
+  await comp.download('ironrdp');
+}
+
+/**
+ * Opens Remote Desktop in a tab: checks the computer's certificate first (a
+ * question when it is new or changed), then a relay for the tab's engine.
+ * Returns null when the computer cannot be shown in a tab (old security only),
+ * so the caller opens the outside app.
+ */
+async function startRdpTab(c: Connection, endpoint: Endpoint, password: string | undefined, trustCert: string | undefined, saved: boolean): Promise<ConnectResult | null> {
+  const { probeRdpCert, RdpRelay } = await import('./rdp');
+  let pin = c.rdp?.pin;
+  if (!c.rdp?.ignoreCert) {
+    let cert;
+    try {
+      cert = await probeRdpCert(endpoint.host, endpoint.port, c.host);
+    } catch (e) {
+      if (/old Remote Desktop security/.test((e as Error).message)) return null;
+      throw e;
+    }
+    const v = certVerdict({ pin, seen: cert.pin, systemTrusted: cert.systemTrusted, trustedNow: trustCert });
+    if (v === 'ask' || v === 'changed') {
+      endpoint.close();
+      return { cert: { fingerprint: cert.pin, sha256: cert.sha256, sha1: cert.sha1, subject: cert.subject, issuer: cert.issuer, changed: v === 'changed', host: c.host } };
+    }
+    if (trustCert && trustCert === cert.pin && pin !== cert.pin) {
+      pin = cert.pin;
+      // Remembered for this connection only (like a web console's certificate).
+      if (saved) {
+        const list = await load();
+        const x = list.find((y) => y.id === c.id);
+        if (x) { x.rdp = { ...x.rdp, pin }; await persist(); }
+      }
+    }
+  }
+  // The engine signs in itself (Network Level Authentication): it needs the name and password up front.
+  if (!c.user || password === undefined) {
+    endpoint.close();
+    return { needPassword: true, needUser: !c.user };
+  }
+  const sid = randomUUID();
+  const info: RdcSession = { id: sid, connId: c.id, name: c.name, protocol: 'rdp', kind: 'inapp', state: 'connecting', started: Date.now(), via: endpoint.via, width: c.rdp?.width, height: c.rdp?.height };
+  const relay = new RdpRelay({
+    host: endpoint.host, port: endpoint.port, name: c.host, destination: destinationOf(c.host, portOf(c)), pin, acceptAny: !!c.rdp?.ignoreCert,
+    onState: (st, error) => {
+      const l = live.get(sid);
+      if (!l?.rdp) return;
+      if (st === 'connected') {
+        clearTimeout(l.rdp.idle);
+        l.info.state = 'connected';
+        delete l.info.error;
+      } else {
+        l.info.state = st;
+        if (error) l.info.error = error;
+        // The tab may come back (moved to a window, Reconnect); if it does not, the relay goes.
+        clearTimeout(l.rdp.idle);
+        l.rdp.idle = setTimeout(() => disconnect(sid), 2 * 60_000);
+        l.rdp.idle.unref?.();
+      }
+      emitChanged();
+    },
+  });
+  await relay.listen();
+  addSession(info, { endpoint, rdp: { relay, conn: c, password }, close: () => { clearTimeout(live.get(sid)?.rdp?.idle); relay.close(); } });
+  void fetchEngine().catch(() => undefined);
+  return { session: info, route: { name: 'rdc', arg: 'rdp', q: sid } };
+}
+
+export const ENGINE_URL = 'keeper-engine://ironrdp/iron-remote-desktop-rdp.js';
+
+/** What the tab needs to start its engine: where the relay listens, the token, and the sign-in. */
+export function rdpAttach(sid: string): RdpAttach | null {
+  const l = live.get(sid);
+  if (!l?.rdp) return null;
+  const { relay, conn: c, password } = l.rdp;
+  clearTimeout(l.rdp.idle);
+  if (l.info.state !== 'connected') { l.info.state = 'connecting'; emitChanged(); }
+  const engine = rdpEngine();
+  if (engine === 'missing') void fetchEngine().catch(() => undefined);
+  return {
+    sid, name: c.name, url: relay.url, token: relay.token, destination: relay.destination, engine, engineUrl: ENGINE_URL,
+    user: c.user ?? '', domain: c.domain ?? '', password: password ?? '', via: l.info.via,
+    options: { width: c.rdp?.width, height: c.rdp?.height, fullscreen: c.rdp?.fullscreen, dynamicResolution: c.rdp?.dynamicResolution, clipboard: c.rdp?.clipboard !== false, nla: c.rdp?.nla !== false, keyboard: c.rdp?.keyboard ?? 'keys', audio: c.rdp?.audio },
+  };
+}
+
+export const rdp = {
+  /** The engine's session ended in the tab (wrong password, the computer said goodbye…). */
+  ended(sid: string, why?: string) {
+    const l = live.get(sid);
+    if (!l?.rdp) return;
+    l.info.state = why ? 'error' : 'closed';
+    if (why) l.info.error = why.slice(0, 400);
+    emitChanged();
+  },
+  /** A password typed in the tab after a failed sign-in (and kept in the keychain when asked). */
+  async signIn(sid: string, password: string, remember: boolean) {
+    const l = live.get(sid);
+    if (!l?.rdp) return false;
+    l.rdp.password = password;
+    if (remember && !l.rdp.conn.id.startsWith('tmp-')) await setPassword(l.rdp.conn.id, password).catch(() => false);
+    return true;
+  },
+  /** The engine could not start here: the same connection opens in the outside app instead. */
+  async fallback(sid: string, why: string): Promise<ConnectResult> {
+    const l = live.get(sid);
+    if (!l?.rdp) throw new Error('This connection has ended.');
+    const { conn, password } = l.rdp;
+    disconnect(sid);
+    const r = await connect(conn.id.startsWith('tmp-') ? conn : conn.id, { password, external: true });
+    return { ...r, message: [`Opened in the outside app: ${why}`, r.message].filter(Boolean).join(' ') };
+  },
+};
 
 // ---------------------------------------------------------------- VNC tabs
 
@@ -717,7 +864,7 @@ export function initRdc(d: { broadcast: Broadcast }) {
 export function stopRdc() {
   stopPoll?.();
   stopPoll = null;
-  for (const l of live.values()) { try { l.vnc?.close(); l.endpoint?.close(); } catch { /* closing */ } }
+  for (const l of live.values()) { try { l.vnc?.close(); l.rdp?.relay.close(); clearTimeout(l.rdp?.idle); l.endpoint?.close(); } catch { /* closing */ } }
   for (const c of children) { try { c.kill(); } catch { /* gone */ } }
   live.clear();
   webMod?.closeAllWeb();

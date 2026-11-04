@@ -65,6 +65,12 @@ export interface RdpOptions {
   dynamicResolution?: boolean;
   /** accept a certificate that does not check out (self-signed); off by default */
   ignoreCert?: boolean;
+  /** open in a Keeper tab (the default) or always in the outside app */
+  where?: 'tab' | 'outside';
+  /** in a tab: send the physical keys (the remote layout decides, the default) or the letters typed here */
+  keyboard?: 'keys' | 'letters';
+  /** in a tab: the certificate trusted for this connection ("sha256/…"), learned on first connect */
+  pin?: string;
 }
 
 export interface VncOptions {
@@ -175,10 +181,12 @@ export interface ConnectResult {
   route?: { name: string; arg?: string; q?: string };
   /** sign-in needed and nothing stored */
   needPassword?: boolean;
+  /** the user name is needed too (Remote Desktop in a tab signs in before the session starts) */
+  needUser?: boolean;
   /** first connection to this SSH server: compare and trust its key */
   hostKey?: { host: string; port: number; type: string; fingerprint: string; changed?: boolean };
-  /** a page that does not trust its certificate */
-  cert?: { fingerprint: string; issuer?: string };
+  /** a page (web console) or computer (Remote Desktop in a tab) whose certificate is not trusted yet */
+  cert?: { fingerprint: string; issuer?: string; subject?: string; sha1?: string; sha256?: string; changed?: boolean; host?: string };
   message?: string;
 }
 

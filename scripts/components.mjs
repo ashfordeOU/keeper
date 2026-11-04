@@ -26,6 +26,7 @@ const FEATURES = {
   ffmpeg: ['studio', 'capture', 'meetings', 'dictation', 'speechModel', 'videoDownload', 'convert'],
   onnxruntime: ['speechModel', 'semantic', 'faces', 'convert', 'dictation', 'meetings'],
   rclone: ['remote', 'sync'],
+  ironrdp: ['remoteDesktops'],
 };
 
 export const expand = (p, platform, arch) => p.replace(/\$\{exe\}/g, platform === 'win32' ? '.exe' : '').replace(/\$\{platform\}/g, platform).replace(/\$\{arch\}/g, arch);

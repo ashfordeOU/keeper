@@ -117,7 +117,7 @@ const api = {
     ready: (sid: string) => ipcRenderer.send('screen.ready', sid),
   },
   rdc: {
-    ...group('rdc', ['state', 'save', 'remove', 'duplicate', 'setPassword', 'quick', 'probe', 'connect', 'disconnect', 'command', 'vncAttach', 'vncClipboard', 'vncKeys', 'vncSetViewOnly', 'webShow', 'webAction', 'watch', 'wake', 'importFile', 'importText', 'exportTo', 'exportText', 'engines', 'hostStatus', 'hostSet', 'hostFix', 'hostViaLink', 'places', 'setPlaces', 'trayPreview', 'showQuick', 'closeQuick', 'openRoute', 'openFile']),
+    ...group('rdc', ['state', 'save', 'remove', 'duplicate', 'setPassword', 'quick', 'probe', 'connect', 'disconnect', 'command', 'vncAttach', 'vncClipboard', 'vncKeys', 'vncSetViewOnly', 'rdpAttach', 'rdpEnded', 'rdpSignIn', 'rdpFallback', 'webShow', 'webAction', 'watch', 'wake', 'importFile', 'importText', 'exportTo', 'exportText', 'engines', 'hostStatus', 'hostSet', 'hostFix', 'hostViaLink', 'places', 'setPlaces', 'trayPreview', 'showQuick', 'closeQuick', 'openRoute', 'openFile']),
     vncDetach: (sid: string) => ipcRenderer.send('rdc.vncDetach', sid),
     vncInput: (sid: string, events: unknown[]) => ipcRenderer.send('rdc.vncInput', sid, events),
     vncAck: (sid: string, seq: number) => ipcRenderer.send('rdc.vncAck', sid, seq),

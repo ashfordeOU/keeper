@@ -79,3 +79,15 @@
 .rdc-tray-preview div { padding: 3px 14px; }
 .rdc-tray-preview .head { color: var(--text-3); font-size: 11px; padding-top: 6px; }
 .rdc-tray-preview hr { border: 0; border-top: 1px solid var(--line); margin: 4px 0; }
+
+/* Remote Desktop in a tab: the floating toolbar, a quiet "connecting" layer over the picture, sign in again */
+.rdc-viewer-bar.capsule { display: flex; padding: 4px 6px 4px 12px; }
+.rdc-viewer-bar .seg button { padding-inline: 10px; }
+.rdc-stage { position: relative; }
+.rdc-stage[hidden] { display: none; }
+.rdc-stage:fullscreen { border-radius: 0; }
+.rdp-overlay { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 10px; color: var(--text-on-dark, #e8e8ee); font-size: var(--fs-md); background: rgba(11, 12, 16, .55); }
+.rdp-signin { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.rdp-signin .input { min-width: 220px; }
+.rdc-certq .rdc-fp { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; }
+.rdc-certq .rdc-fp b { font-weight: 600; color: var(--text-2); }

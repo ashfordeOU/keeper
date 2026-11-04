@@ -64,7 +64,11 @@ if (!existsSync(ort)) {
 const { fetchRclone } = await import('./fetch-rclone.mjs');
 await fetchRclone(platform, arch);
 
-// 5. agent-desktop, which the computer-use tools read and press other apps' controls with.
+// 5. IronRDP, the Remote Desktop engine for tabs (one script, the same on every system), checked against its pinned checksum.
+const { fetchIronRdp } = await import('./fetch-ironrdp.mjs');
+await fetchIronRdp();
+
+// 6. agent-desktop, which the computer-use tools read and press other apps' controls with.
 const { fetchAgentDesktop } = await import('./fetch-agent-desktop.mjs');
 await fetchAgentDesktop(platform, arch);
 

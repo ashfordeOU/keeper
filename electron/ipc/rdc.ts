@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // IPC and `keeper rdc …` for Remote Desktops.
 
-import { app, ipcMain } from 'electron';
+import { app, ipcMain, protocol } from 'electron';
+import { promises as fsp } from 'node:fs';
+import { ironRdpScript } from '../../core/component-paths';
 import type { Connection } from '../../core/rdc/types';
 import type { Format } from '../../core/rdc/formats';
 import type { HostId } from '../../core/rdc/hosting';
@@ -18,6 +20,8 @@ function handle(name: string, fn: (...args: never[]) => unknown) {
 
 export function registerRdcIpc(d: { broadcast: (channel: string, ...args: unknown[]) => void; preload: string; showMain: (route?: string) => void; openTab: (route: { name: string; arg?: string; q?: string }, ownWindow: boolean) => void }) {
   rdc.initRdc(d);
+  // The Remote Desktop engine for tabs (a downloadable component), served to Keeper's own pages only.
+  registerEngineProtocol();
   // The saved list is read once in the background so the tray menu can show it without waiting.
   rdc.preload();
   void places.initPlaces({
@@ -44,7 +48,11 @@ export function registerRdcIpc(d: { broadcast: (channel: string, ...args: unknow
   handle('rdc.setPassword', (id: string, pw: string | null) => rdc.setPassword(id, pw));
   handle('rdc.quick', (text: string) => rdc.quick(String(text ?? '')));
   handle('rdc.probe', (host: string, ports?: number[]) => rdc.probe(host, ports));
-  ipcMain.handle('rdc.connect', (e, target: string | Connection, opts?: { password?: string; external?: boolean; trustKey?: string; trustCert?: string }) => rdc.connect(target, { ...(opts ?? {}), viewer: e.sender }));
+  ipcMain.handle('rdc.connect', (e, target: string | Connection, opts?: { password?: string; user?: string; external?: boolean; trustKey?: string; trustCert?: string }) => rdc.connect(target, { ...(opts ?? {}), viewer: e.sender }));
+  handle('rdc.rdpAttach', (sid: string) => rdc.rdpAttach(String(sid)));
+  handle('rdc.rdpEnded', (sid: string, why?: string) => rdc.rdp.ended(String(sid), typeof why === 'string' ? why : undefined));
+  handle('rdc.rdpSignIn', (sid: string, pw: string, remember: boolean) => rdc.rdp.signIn(String(sid), String(pw ?? ''), !!remember));
+  handle('rdc.rdpFallback', (sid: string, why: string) => rdc.rdp.fallback(String(sid), String(why ?? '').slice(0, 300)));
   handle('rdc.disconnect', (sid: string) => rdc.disconnect(sid));
   handle('rdc.command', (t: string | Connection) => rdc.command(t));
   ipcMain.handle('rdc.vncAttach', (e, sid: string) => rdc.vncAttach(sid, e.sender));
@@ -117,4 +125,25 @@ export function registerRdcIpc(d: { broadcast: (channel: string, ...args: unknow
   });
 
   app.on('before-quit', () => rdc.stopRdc());
+}
+
+/**
+ * keeper-engine://ironrdp/iron-remote-desktop-rdp.js: the engine's one script, from
+ * wherever the component is (inside the app, downloaded and verified, or the
+ * development copy). Nothing else is served. Registered once per process.
+ */
+let engineProtocol = false;
+function registerEngineProtocol() {
+  if (engineProtocol) return;
+  engineProtocol = true;
+  protocol.handle('keeper-engine', async (req) => {
+    const u = new URL(req.url);
+    const file = u.host === 'ironrdp' && u.pathname === '/iron-remote-desktop-rdp.js' ? ironRdpScript() : null;
+    if (!file) return new Response('Not found', { status: 404 });
+    try {
+      return new Response(await fsp.readFile(file), { headers: { 'content-type': 'text/javascript; charset=utf-8', 'access-control-allow-origin': '*', 'cache-control': 'no-store' } });
+    } catch {
+      return new Response('Not found', { status: 404 });
+    }
+  });
 }

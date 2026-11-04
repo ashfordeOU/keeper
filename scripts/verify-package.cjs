@@ -5,14 +5,14 @@
 //
 //   required always      the app, ffmpeg, the image library, background removal,
 //                        the terminal, and on a Mac keeper-helper
-//   required for releases rclone (cloud storage), agent-desktop (reading other apps'
+//   required for releases rclone (cloud storage), IronRDP (Remote Desktop in a tab), agent-desktop (reading other apps'
 //                        controls, with its Apache-2.0 LICENSE and NOTICE) and, on a Mac, Keeper Intents
 //                        and the separate app icons (Keeper Mail, Notes, Files…)
 //   (KEEPER_REQUIRE_ALL=1, set by the release workflow; elsewhere they are listed
 //   as missing with how to add them, and the package is still made)
 //
 // The core installer (edition "core", docs/COMPONENTS.md) holds ffmpeg, background removal
-// (ONNX Runtime) and rclone as downloadable components instead: they must be in the staging
+// (ONNX Runtime), rclone and IronRDP as downloadable components instead: they must be in the staging
 // folder (to be packed as release assets) and must NOT be left inside the app.
 
 const fs = require('node:fs');
@@ -38,6 +38,7 @@ function checkPackage(o) {
     { name: `background removal (onnxruntime)${core ? ', as a component' : ''}`, have: core ? staged('onnxruntime', path.join('node_modules', 'onnxruntime-node', 'bin', 'napi-v6', platform, arch, 'onnxruntime_binding.node')) : fs.existsSync(path.join(mods, 'onnxruntime-node', 'bin', 'napi-v6', platform, arch, 'onnxruntime_binding.node')), fix: 'npm ci', required: !(platform === 'darwin' && arch === 'x64') /* onnxruntime has no Intel Mac build */ },
     { name: 'terminal (node-pty)', have: fs.existsSync(path.join(mods, 'node-pty', 'prebuilds', `${platform}-${arch}`, 'pty.node')) || fs.existsSync(path.join(mods, 'node-pty', 'build', 'Release', 'pty.node')), fix: 'npm ci', required: true },
     { name: `rclone (cloud storage)${core ? ', as a component' : ''}`, have: core ? staged('rclone', `rclone${exe}`) : fs.existsSync(path.join(resources, 'rclone', `rclone${exe}`)), fix: `node scripts/fetch-rclone.mjs ${platform} ${arch}`, required: strict },
+    { name: `Remote Desktop engine (IronRDP)${core ? ', as a component' : ''}`, have: core ? staged('ironrdp', 'iron-remote-desktop-rdp.js') : fs.existsSync(path.join(resources, 'ironrdp', 'iron-remote-desktop-rdp.js')), fix: 'node scripts/fetch-ironrdp.mjs', required: strict },
     // The program and its licence travel together: without LICENSE.txt and NOTICE.txt it may not ship at all.
     ...(() => {
       const dir = path.join(resources, 'agent-desktop');
@@ -64,6 +65,7 @@ function checkPackage(o) {
       // Only this computer's build counts: Intel Macs have none (onnxruntime makes no Intel Mac build).
       fs.existsSync(path.join(mods, 'onnxruntime-node', 'bin', 'napi-v6', platform, arch, 'onnxruntime_binding.node')) && 'onnxruntime',
       fs.existsSync(path.join(resources, 'rclone')) && 'rclone',
+      fs.existsSync(path.join(resources, 'ironrdp')) && 'ironrdp',
     ].filter(Boolean);
     pieces.push({ name: 'core installer without its downloadable components', have: !left.length, fix: `build/after-pack.cjs left ${left.join(', ')} inside; check scripts/components.mjs stage`, required: true });
   }
