@@ -246,6 +246,7 @@ export const SETTINGS: SettingDef[] = [
 
   // ---------------------------------------------------------------- AI
   { id: 'brain', section: 'ai', label: 'Your AI', help: 'Which AI Keeper uses, what it may see, and other apps that use Keeper.', level: 'basic', kind: 'panel', panel: 'brain', keywords: ['openai', 'chatgpt', 'claude', 'anthropic', 'ollama', 'local ai', 'model', 'api key', 'mcp', 'local api'] },
+  { id: 'aiParts', section: 'ai', label: 'Where AI is used', help: 'Every part that uses your AI, each with its switch or its settings.', level: 'basic', kind: 'panel', panel: 'aiParts', keywords: ['ai switches', 'which ai', 'assistant', 'agents', 'writing help', 'turn off ai', 'per part'] },
   { id: 'selectionBar', section: 'ai', label: 'Actions for selected text', help: 'Which buttons the bar shows, the language to translate into, and where Search goes.', level: 'basic', kind: 'panel', panel: 'selectionBar', feature: 'selectionBar', keywords: ['translate', 'define', 'rewrite', 'selection', 'popup'] },
   { id: 'brain.enabled', path: 'brain.enabled', section: 'ai', label: 'Let AI search your files', level: 'basic', kind: 'toggle', inPanel: 'brain', keywords: ['brain', 'index', 'ai search'] },
   { id: 'brain.semantic', path: 'brain.semantic', section: 'ai', label: 'Search by meaning', help: 'Finds files by what they’re about. Downloads a model once; heavy while it learns.', level: 'advanced', kind: 'toggle', inPanel: 'brain', feature: 'brain', keywords: ['semantic', 'embeddings', 'vectors'] },

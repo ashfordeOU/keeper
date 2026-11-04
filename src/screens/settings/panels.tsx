@@ -13,7 +13,8 @@ import { openSetupAgain } from '../../setup/FirstRun';
 import { errorText } from '../../../core/ipc-error';
 import { Icon } from '../../components/Icon';
 import { Check, Modal, Toggle } from '../../components/ui';
-import { useStore } from '../../state';
+import { useStore, type Route } from '../../state';
+import { useFeatureStates } from '../../features';
 import { Row } from '../IslandSettings';
 import { LanguageRow, LoginRow } from '../SettingsMore';
 import { UpdatesPanel, WhatsNewHover } from '../../components/Updates';
@@ -41,6 +42,8 @@ import { IslandAccentPanel } from '../../island/LookSettings';
 import { NoticePartsPanel, QuietHoursPanel } from '../../components/Notices';
 import { openSelfCheck } from '../../components/SelfCheck';
 import '../../styles/glance.css';
+import { aiPartsShown } from '../../../core/ai-parts';
+import { featureDef } from '../../../core/features';
 
 const UsageSettings = lazy(() => import('../usage/UsageSettings').then((m) => ({ default: m.UsageSettings })));
 
@@ -264,6 +267,37 @@ function OcrLanguagesPanel() {
   return <input className="input" aria-label="Languages in pictures" defaultValue={settings.ocrLanguages.join(', ')} title="Language codes, such as eng, deu, fra" onBlur={(e) => void updateSettings({ ocrLanguages: e.target.value.split(/[,\s]+/).filter(Boolean) })} />;
 }
 
+/** Every part that uses AI, in one table: a switch where the part is only AI, its own settings otherwise. */
+function AiPartsPanel() {
+  const { go } = useStore();
+  const states = useFeatureStates();
+  if (!states) return null;
+  const rows = aiPartsShown((f) => states.has(f) && !!featureDef(f));
+  return (
+    <div className="ai-parts" data-testid="ai-parts">
+      <p className="small muted">Each one uses the AI chosen under Your AI, above.</p>
+      <table className="ai-parts-table">
+        <thead><tr><th scope="col">Part</th><th scope="col">What it does</th><th scope="col" aria-label="Switch or settings" /></tr></thead>
+        <tbody>
+          {rows.map((p) => {
+            const st = states.get(p.feature);
+            return (
+              <tr key={p.id} data-ai-part={p.id}>
+                <th scope="row">{p.name}</th>
+                <td className="muted">{p.what}</td>
+                <td className="ai-parts-act">
+                  {p.switchable ? <Toggle on={!!st?.on} label={`${p.name} on`} onChange={(v) => void api.features.set(p.feature, v)} /> : <button className="btn sm ghost" onClick={() => go(p.to as Route)}>Settings</button>}
+                  {p.switchable ? <button className="btn sm ghost icon" title={`Open ${p.name}`} aria-label={`Open ${p.name}`} onClick={() => go(p.to as Route)}><Icon name="chevronRight" size={12} /></button> : null}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export const PANELS: Record<string, PanelDef> = {
   mode: { render: () => <ModesPanel />, wide: true },
   offlineCheck: { render: () => <OfflineCheckPanel />, wide: true },
@@ -288,6 +322,7 @@ export const PANELS: Record<string, PanelDef> = {
   glance: { render: () => <GlancePanel />, own: true, wide: true },
   usageLabel: { render: () => <Suspense fallback={null}><UsageSettings /></Suspense>, own: true, wide: true },
   brain: { render: () => <BrainSettingsPanel />, own: true, wide: true },
+  aiParts: { render: () => <AiPartsPanel />, wide: true },
   pim: { render: () => <PimSettings />, own: true, wide: true },
   pimImport: { render: () => <ImportPanel />, wide: true },
   mailReading: { render: () => <MailPanel part="reading" />, wide: true },

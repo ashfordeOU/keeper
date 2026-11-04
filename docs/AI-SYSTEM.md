@@ -7,6 +7,10 @@ Keeper by Ashforde® works with the assistants built into macOS, Windows and Lin
 - 🧪 **built, unverified**: written and unit-tested, but not yet run on the hardware or account it needs.
 - ⛔ **not possible** for a third-party app today, with the reason.
 
+## Where AI is used: one table
+
+Settings → AI → **Where AI is used** lists every part that uses your AI: the Assistant, Ask in the Island, selected text, writing help, Mail, Meetings, Agents and search with AI. A part that is only AI has its own switch there; Mail and Meetings do more than AI, so their row opens their own AI settings instead and never switches your mail or recordings off. All of them use the AI chosen under **Your AI**. The list is `core/ai-parts.ts`.
+
 ## An AI using this computer
 
 Any AI you set up in Keeper, and any agent connected to Keeper over MCP, can use the computer the way a person does, if you allow it. It can:

@@ -87,3 +87,11 @@ html[data-motion='reduce'] .srow.flash { animation: none; outline: 2px solid var
   .settings-sec { width: auto; padding: 5px 9px; }
   .settings-changed { margin-top: 4px; border-top: 0; padding-top: 5px; width: auto; align-self: flex-start; }
 }
+
+/* Settings → AI → Where AI is used: one table of every part that uses AI */
+.ai-parts p { margin: 0 0 8px; }
+.ai-parts-table { width: 100%; border-collapse: collapse; font-size: var(--fs-md); }
+.ai-parts-table th, .ai-parts-table td { text-align: left; padding: 8px 10px; border-top: 1px solid var(--line); vertical-align: middle; }
+.ai-parts-table thead th { border-top: 0; font-size: var(--fs-xs); font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: .04em; }
+.ai-parts-table tbody th { font-weight: 600; white-space: nowrap; }
+.ai-parts-act { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }

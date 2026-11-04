@@ -4,6 +4,9 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 
 ## [Unreleased]
 
+### Added — AI: where AI is used, in one table
+- Settings → AI → **Where AI is used** lists every part that uses your AI (Assistant, Ask in the Island, selected text, writing help, Mail, Meetings, Agents and search) with a switch for each part that is only AI and a Settings button for Mail and Meetings, so you can see at a glance which AI does what.
+
 ### Changed — Modes: presets folded in, calmer switching
 - Settings → Features names the mode you are in, with Change mode…, instead of the old presets. Your saved sets of parts are **My modes**, saved with **Save as my mode** and still usable on battery or on power.
 - Switching modes quickly shows one toast that changes with each switch, not three stacked.
