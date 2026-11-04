@@ -172,6 +172,8 @@
     "mouseButtons",
     "appUpdates",
     "appUpdates",
-    "chargeLimit"
+    "chargeLimit",
+    "displayModes",
+    "brightnessSync"
   ]
 }

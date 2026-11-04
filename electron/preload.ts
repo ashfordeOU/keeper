@@ -197,6 +197,8 @@ const api = {
   appUpdates: group('appUpdates', ['state', 'check', 'update', 'updateAll', 'openSystemUpdater', 'openStore']),
   // Battery care.
   batteryCare: group('batteryCare', ['status', 'apply', 'setTrip', 'setHeat', 'openSettings']),
+  // Displays: screen modes, presets and matched brightness.
+  displays: group('displays', ['state', 'setMode', 'keep', 'revert', 'savePreset', 'removePreset', 'applyPreset', 'setPresetAuto', 'brightness', 'setBrightness']),
   islandx: group('islandx', ['status', 'callMute', 'callDismiss', 'hideFor', 'installAgentHooks', 'removeAgentHooks', 'openNotifyPermission', 'testNotification', 'startBreak', 'focusFor', 'mediaMode', 'openLauncher', 'showPage']),
   widgets: group('widgets', ['list', 'save', 'remove', 'photos', 'current', 'arrange', 'arranging', 'tint', 'focus']),
   // Dictation anywhere and meeting recording; the listening pill streams its microphone samples here.

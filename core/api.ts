@@ -586,6 +586,8 @@ export interface KeeperApi extends KeeperApiX {
   appUpdates: import('./api-app-updates').AppUpdatesApi;
   /** battery care: the charge limit, a trip charge and pausing while warm (core/charge-limit.ts) */
   batteryCare: import('./api-battery').BatteryCareApi;
+  /** every screen's modes, presets and matched brightness (core/display-modes.ts) */
+  displays: import('./api-displays').DisplaysApi;
   /** the light photo editor (core/photo-edit.ts) */
   photo: import('./api-photo').PhotoApi;
   /** crash reports for Ashforde (opt-in, core/crash-report.ts) */
@@ -950,6 +952,8 @@ export interface KeeperApi extends KeeperApiX {
   on(channel: 'app-updates-changed', cb: () => void): () => void;
   /** the charge limit, a trip charge or pausing while warm changed */
   on(channel: 'battery-care-changed', cb: () => void): () => void;
+  /** a screen mode changed, waits for Keep, or a monitor's brightness followed */
+  on(channel: 'displays-changed', cb: () => void): () => void;
   /** what a web page capture is doing now ("Loading the whole page") */
   on(channel: 'webcapture-phase', cb: (text: string) => void): () => void;
   on(channel: 'widgets-arrange', cb: (on: boolean) => void): () => void;

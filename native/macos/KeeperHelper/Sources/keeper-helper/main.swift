@@ -496,6 +496,8 @@ func handle(id: Int, method: String, params: [String: Any]) async {
         case "speech.transcribe":
             guard let path = params["path"] as? String else { throw NSError(domain: "keeper", code: 4, userInfo: [NSLocalizedDescriptionKey: "No path"]) }
             Wire.shared.result(id, ["segments": try await speechTranscribe(path: path, language: params["language"] as? String)])
+        case "displays.list":
+            Wire.shared.result(id, await displaysList())
         case "ddc.list":
             Wire.shared.result(id, ddcList())
         case "ddc.get":

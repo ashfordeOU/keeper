@@ -95,6 +95,8 @@ const ReaderPage = lazy(() => import('./screens/Reader').then((m) => ({ default:
 // Site and server monitors load the first time their page opens.
 const MonitorsPage = lazy(() => import('./screens/Monitors').then((m) => ({ default: m.Monitors })));
 // Battery care loads the first time its page opens.
+// Displays (screen modes and matched brightness) load the first time their page opens.
+const DisplaysPage = lazy(() => import('./screens/Displays').then((m) => ({ default: m.Displays })));
 const BatteryCarePage = lazy(() => import('./screens/BatteryCare').then((m) => ({ default: m.BatteryCare })));
 // The light photo editor loads the first time it opens.
 const PhotoEditorPage = lazy(() => import('./screens/PhotoEditor').then((m) => ({ default: m.PhotoEditor })));
@@ -478,6 +480,7 @@ function Page() {
     alerts: () => <Suspense fallback={null}><PhoneAlertsPage /></Suspense>,
     monitors: () => <Suspense fallback={null}><MonitorsPage /></Suspense>,
     battery: () => <Suspense fallback={null}><BatteryCarePage /></Suspense>,
+    displays: () => <Suspense fallback={null}><DisplaysPage /></Suspense>,
     photo: () => <Suspense fallback={null}><PhotoEditorPage /></Suspense>,
     journal: () => <Suspense fallback={null}><JournalPage key={route.arg ?? ''} initialDay={route.arg} /></Suspense>,
     terminal: () => <TerminalApp mode="page" startCwd={route.arg} openSession={route.q?.startsWith('session:') ? route.q.slice(8) : undefined} />,

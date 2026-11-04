@@ -158,6 +158,7 @@ import { notice, noticeFor, noticesSettingsChanged, startNotices, systemNotifica
 import { registerMonitorsIpc } from './ipc/site-monitor';
 import { registerAppUpdatesIpc } from './ipc/app-updates';
 import { registerBatteryCareIpc } from './ipc/battery-care';
+import { registerDisplaysIpc } from './ipc/displays';
 import { registerPhotoIpc } from './ipc/photo';
 import { registerCrashReportsIpc } from './ipc/crash-reports';
 import { phoneAlert } from './services/phone-alerts';
@@ -1605,6 +1606,8 @@ app.whenReady().then(async () => {
   registerAppUpdatesIpc({ broadcast });
   // Battery care: nothing runs until switched on; a timer only while a trip charge or pausing while warm is on.
   registerBatteryCareIpc({ broadcast });
+  // Displays: screen modes cost nothing in the background; matched brightness looks every few seconds only while on.
+  registerDisplaysIpc({ broadcast });
   onControlsChanged(() => void updateTray());
   // Firewall: rules, alerts, the DNS filter and traffic history (nothing runs until switched on).
   registerFirewallIpc({ alert: noticeFor('network', { name: 'firewall' }), broadcast, window: { preload: preload(), load, lockDown } });

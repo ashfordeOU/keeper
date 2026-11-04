@@ -534,6 +534,8 @@ export interface Settings {
   appUpdates: import('./app-updates').AppUpdateSettings;
   /** battery care: where charging stops, a trip charge and pausing while warm (core/charge-limit.ts) */
   chargeLimit: import('./charge-limit').ChargeSettings;
+  /** Displays: screen mode presets, how long a change waits for Keep, matched brightness (core/display-modes.ts) */
+  displays: import('./display-modes').DisplaysSettings;
   /** the "?" in the top bar that opens the page's help (F1 works either way) */
   helpButton: boolean;
   /** a gentle Fix-it row for a part unopened for 30 days (core/declutter.ts) */

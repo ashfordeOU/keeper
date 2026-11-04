@@ -98,6 +98,8 @@ export const TIERS: Record<string, FeatureTier> = {
   focusBlock: { plain: 'Block distractions while you focus', setup: 'computer', normal: 'off', shown: 'basic' },
   displayControl: { plain: 'Monitor controls', setup: 'computer', normal: 'off', shown: 'advanced' },
   displayKeys: { plain: 'Monitor brightness keys', setup: 'computer', normal: 'off', shown: 'advanced' },
+  displayModes: { plain: 'Screen sizes and presets', setup: 'computer', normal: 'off', shown: 'basic' },
+  brightnessSync: { plain: 'Monitors match your screen’s brightness', setup: 'computer', normal: 'off', shown: 'customize' },
   protection: { plain: 'Privacy and security check', setup: 'privacy', normal: 'on', shown: 'basic' },
   security: { plain: 'Scan downloads for malware', setup: 'privacy', normal: 'notWindows', shown: 'basic' },
   netwatch: { plain: 'Network activity and VPN', setup: 'privacy', normal: 'on', shown: 'basic' },

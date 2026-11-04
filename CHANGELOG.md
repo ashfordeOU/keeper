@@ -28,6 +28,12 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - Works on macOS (with Accessibility), Windows and Linux on X11. Wayland does not let apps move other apps' windows, and the page says so. On a Mac with Monorail running, Monorail arranges the windows and Keeper's snap keys stay free.
 - Off until you turn it on in Settings → Features → Desktop.
 
+### Added — Displays: screen sizes, presets and matched brightness
+- Computer → Displays shows every connected screen with its size and refresh rate (and sharp text on a Mac). Pick another and it switches at once; a small Keep this? bar counts down and switches back by itself if you do not press Keep, even when the new mode shows nothing.
+- Save how your screens are set as a preset ("Desk") and use it in one click, or let it apply by itself when that set of screens is plugged in.
+- Matched brightness: plugged-in monitors follow your laptop's own brightness, each a little brighter or dimmer if you like, or a day and evening level. A monitor is told only when its level should really change.
+- Works on macOS, Windows and Linux (X11, KDE and wlroots desktops); GNOME on Wayland keeps sizes in its own settings, and the page says so. Off until you switch it on (Settings → Features → Computer).
+
 ### Added — Battery Care: stop charging at 80%
 - Computer → Battery Care stops charging at 60, 70, 80 or 90%, so a laptop that is plugged in most of the day keeps its battery healthy for longer. On Linux Keeper sets it itself (ThinkPad, ASUS, Framework, Dell, Huawei, LG, MSI, Samsung, System76 and others) under one password prompt, and it stays set after a restart.
 - Full charge for a trip: 100% until tomorrow morning, then back to your limit by itself. Pause when warm: charging waits while the battery is 40°C or warmer.

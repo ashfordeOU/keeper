@@ -14,6 +14,7 @@ import { defaultPhoneAlertSettings, normalizePhoneAlertSettings } from './phone-
 import { defaultNoticeSettings, normalizeNoticeSettings } from './notices';
 import { defaultAppUpdateSettings, normalizeAppUpdateSettings } from './app-updates';
 import { defaultChargeSettings, normalizeChargeSettings } from './charge-limit';
+import { defaultDisplaysSettings, normalizeDisplaysSettings } from './display-modes';
 import { cleanGoals, defaultTips, normalizeTips } from './goals';
 import { defaultModeState, normalizeModeState, normalizeSession } from './modes';
 import { defaultAwakeSettings, normalizeAwakeSettings } from './awake-engine';
@@ -204,6 +205,7 @@ export function defaultSettings(folders: string[], rules: Rule[]): AllSettings {
     notices: defaultNoticeSettings(),
     appUpdates: defaultAppUpdateSettings(),
     chargeLimit: defaultChargeSettings(),
+    displays: defaultDisplaysSettings(),
     helpButton: true,
     declutter: true,
     setupGoals: [],
@@ -259,6 +261,7 @@ export function mergeSettings(base: AllSettings, raw: unknown): AllSettings {
   out.notices = normalizeNoticeSettings(r.notices);
   out.appUpdates = normalizeAppUpdateSettings(out.appUpdates);
   out.chargeLimit = normalizeChargeSettings(out.chargeLimit);
+  out.displays = normalizeDisplaysSettings(out.displays);
   out.setupGoals = cleanGoals(r.setupGoals);
   out.tips = normalizeTips(r.tips);
   out.mode = normalizeModeState(r.mode);
