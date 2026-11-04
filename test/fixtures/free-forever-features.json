@@ -76,6 +76,7 @@
     "dictationHold",
     "meetings",
     "meetingDetect",
+    "meetingNotes",
     "tray",
     "login",
     "terminal",

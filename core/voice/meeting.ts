@@ -163,7 +163,13 @@ export function toMarkdown(m: MeetingRecord): string {
   ];
   const n = m.notes;
   const body = [`# ${m.title}`, ''];
-  if (n) {
+  if (n?.sections?.length) {
+    if (n.summary) body.push('## Summary', '', n.summary.trim(), '');
+    body.push(...sectionsMarkdown(n));
+    const listed = new Set(n.sections.flatMap((s) => s.items.map((i) => i.text)));
+    const extra = n.actions.filter((a) => !listed.has(a.text));
+    if (extra.length && !n.sections.some((s) => /action/i.test(s.title))) body.push('## Action items', '', ...extra.map((a) => `- [ ] ${a.text}${a.owner ? ` — ${a.owner}` : ''}${a.due ? ` (due ${a.due})` : ''}`), '');
+  } else if (n) {
     if (n.summary) body.push('## Summary', '', n.summary.trim(), '');
     body.push('## Decisions', '', ...(n.decisions.length ? n.decisions.map((d) => `- ${d}`) : ['- None noted']), '');
     body.push('## Action items', '', ...(n.actions.length ? n.actions.map((a) => `- [ ] ${a.text}${a.owner ? ` — ${a.owner}` : ''}${a.due ? ` (due ${a.due})` : ''}`) : ['- None noted']), '');
@@ -172,6 +178,22 @@ export function toMarkdown(m: MeetingRecord): string {
   body.push('## Transcript', '', ...(est ? ['> Speaker labels for other people are estimated from their voices.', ''] : []));
   body.push(...transcriptLines(m).map((l) => `**${l.who}** [${clock(l.at)}]: ${l.text}  `));
   return fm.join('\n') + body.join('\n') + '\n';
+}
+
+/** The tidy notes as Markdown: your points plain, the transcript's marked, each with its moment in the call. */
+export function sectionsMarkdown(n: MeetingNotes): string[] {
+  const out: string[] = [];
+  for (const s of n.sections ?? []) {
+    out.push(`## ${s.title}`, '');
+    if (!s.items.length) out.push('- Nothing noted');
+    for (const i of s.items) {
+      const when = i.at !== undefined ? ` [${clock(i.at)}]` : '';
+      out.push(`- ${i.text}${i.from === 'transcript' ? ` _(from the transcript${when})_` : when}`);
+      if (i.detail) out.push(`  - ${i.detail} _(from the transcript)_`);
+    }
+    out.push('');
+  }
+  return out;
 }
 
 /** A file name for a meeting: "2026-10-31 Weekly sync". */

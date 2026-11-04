@@ -12,6 +12,7 @@ import { KeyMachine, type KeyAction } from '../../../core/voice/keys';
 import { spokenForms } from '../../../core/voice/code-terms';
 import { searchTakes, takeStats } from '../../../core/voice/history';
 import { bestEvent, detectMeeting, meetingFileName, notesPrompt, parseNotesReply, ruleNotes, sortUtterances, toMarkdown, toSrt, toTxt, toVtt, newUtteranceId } from '../../../core/voice/meeting';
+import { allTemplates, mergeNotes, mergePrompt, padIsEmpty, parseMergeReply, pickTemplate, reminderFor, templateSkeleton } from '../../../core/voice/meeting-notes';
 import { dropEcho, labelSpeakers, meanPrint, rememberVoice, suggestNames, voicePrint } from '../../../core/voice/diarize';
 import { advance, allText, display, newStream, type Piece, type StreamState } from '../../../core/voice/stream';
 import { appKind, dictionaryPrompt, learnFromCorrection, readySuggestions, resolveRules, tidy, wordCount } from '../../../core/voice/tidy';
@@ -530,6 +531,9 @@ export class VoiceService {
       systemNote: m.rec.systemNote,
       utterances: m.rec.utterances.slice(-40),
       level: { mic: m.tracks.mic.level, system: m.tracks.system?.level ?? 0 },
+      myNotes: m.rec.myNotes,
+      template: m.rec.template,
+      event: m.rec.event?.title,
     };
   }
 
@@ -549,6 +553,13 @@ export class VoiceService {
       title: o.title?.trim() || ev?.title || (o.app ?? off?.app ? `${o.app ?? off?.app} call` : 'Meeting'),
       startedAt: now, durationMs: 0, app: o.app ?? off?.app, speakers: [], utterances: [], event: ev,
     };
+    // Your notes pad starts with the template for this kind of meeting (from the event's title).
+    if (featureOn('meetingNotes')) {
+      const tpls = allTemplates(s.templates);
+      const tpl = s.autoTemplate ? pickTemplate(ev?.title ?? rec.title, tpls, s.defaultTemplate) : (tpls.find((t) => t.id === s.defaultTemplate) ?? tpls[0]);
+      rec.template = tpl.id;
+      rec.myNotes = templateSkeleton(tpl);
+    }
     const run: MeetingRun = { rec, paused: false, pausedMs: 0, tracks: { mic: { samples: new Samples(), cut: 0, level: 0 } }, queue: Promise.resolve(), pending: 0, prints: new Map() };
     this.meetingRun = run;
     run.job = startJob('Meeting recording', { id: `meeting-${rec.id}`, keepAwake: true });
@@ -769,26 +780,68 @@ export class VoiceService {
     if (!m) return null;
     const s = voiceSettings().meetings;
     let notes = null;
+    // Your own notes (or a chosen template) make tidy notes by the template's sections.
+    const merging = featureOn('meetingNotes') && (!padIsEmpty(m.myNotes) || !!m.template);
+    const tpls = allTemplates(s.templates);
+    const tpl = tpls.find((t) => t.id === m.template) ?? pickTemplate(m.event?.title ?? m.title, tpls, s.defaultTemplate);
     if (s.notesAi !== 'rules') {
       const p = await aiFor(s.notesAi === 'local').catch(() => null);
       if (p) {
-        const r = await p.chat([{ role: 'user', content: notesPrompt(m) }], [], { maxTokens: 2000, signal: AbortSignal.timeout(180_000) }).catch(() => null);
-        notes = r ? parseNotesReply(r.text, p.label) : null;
+        const prompt = merging ? mergePrompt(m, m.myNotes ?? '', tpl) : notesPrompt(m);
+        const r = await p.chat([{ role: 'user', content: prompt }], [], { maxTokens: 2500, signal: AbortSignal.timeout(180_000) }).catch(() => null);
+        notes = r ? (merging ? parseMergeReply(r.text, tpl, p.label) : parseNotesReply(r.text, p.label)) : null;
       }
     }
-    m.notes = notes ?? ruleNotes(m);
-    if (s.actionsToTasks && featureOn('planner')) {
-      const { pim } = await import('../pim');
-      for (const a of m.notes.actions) {
-        if (a.taskId) continue;
-        const r = await pim.saveReminder({ id: '', list: 'local', title: a.text.slice(0, 200), notes: `From “${m.title}”${a.owner ? ` · ${a.owner}` : ''}${a.due ? ` · due ${a.due}` : ''}`, done: false }).catch(() => null);
-        if (r) a.taskId = r.id;
-      }
-    }
+    // Reminders already made from earlier notes stay linked.
+    const before = m.notes?.actions ?? [];
+    m.notes = notes ?? (merging ? mergeNotes(m, m.myNotes, tpl) : ruleNotes(m));
+    for (const a of m.notes.actions) a.taskId ??= before.find((b) => b.text === a.text)?.taskId;
+    if (s.actionsToTasks && featureOn('planner')) await this.remind(m);
     m.notePath = await this.writeNoteFile(m).catch(() => m.notePath);
     await saveMeeting(m);
     this.d.broadcast('voice-meetings-changed');
     return m;
+  }
+
+  /** Action items not yet in Reminders become reminders, each saying which meeting (and event) it came from. */
+  private async remind(m: MeetingRecord): Promise<number> {
+    if (!m.notes) return 0;
+    const { pim } = await import('../pim');
+    let n = 0;
+    for (const a of m.notes.actions) {
+      if (a.taskId) continue;
+      const x = reminderFor(a, m);
+      const r = await pim.saveReminder({ id: '', list: 'local', title: x.title, notes: x.notes, done: false }).catch(() => null);
+      if (r) { a.taskId = r.id; n++; }
+    }
+    return n;
+  }
+
+  async sendActions(id: string): Promise<number> {
+    if (!featureOn('planner')) throw new Error('Reminders are switched off (Settings → Features → Planner)');
+    const m = await readMeeting(id);
+    if (!m?.notes) return 0;
+    const n = await this.remind(m);
+    await saveMeeting(m);
+    this.d.broadcast('voice-meetings-changed');
+    return n;
+  }
+
+  /** Your notes for a meeting: the one being recorded ('live') or a saved one. */
+  async setMyNotes(id: string, text: string, template?: string): Promise<void> {
+    const body = String(text ?? '').slice(0, 200_000);
+    const run = this.meetingRun;
+    if (id === 'live' || (run && run.rec.id === id)) {
+      if (!run) return;
+      run.rec.myNotes = body;
+      if (template) run.rec.template = template;
+      return;
+    }
+    const m = await readMeeting(id);
+    if (!m) return;
+    m.myNotes = body;
+    if (template) m.template = template;
+    await saveMeeting(m);
   }
 
   private async writeNoteFile(m: MeetingRecord): Promise<string | undefined> {

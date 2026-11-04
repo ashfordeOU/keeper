@@ -7,6 +7,7 @@ import { learnFromCorrection, readySuggestions, resolveRules, tidy, wordCount } 
 import { searchTakes, takeStats } from '../core/voice/history';
 import { defaultVoiceSettings, mergeVoiceSettings, normalizeVoiceSettings } from '../core/voice/settings';
 import { ruleNotes, toMarkdown, toSrt, toTxt, toVtt } from '../core/voice/meeting';
+import { allTemplates, mergeNotes, padIsEmpty, pickTemplate } from '../core/voice/meeting-notes';
 import type { DictationState, MeetingLive, MeetingRecord, Take, Utterance, VoiceApi, VoiceSettings, VoiceStatus } from '../core/voice/types';
 import type { WhisperSize } from '../core/whisper';
 
@@ -174,7 +175,15 @@ export function mockVoice(emit: (ch: string, ...a: unknown[]) => void): { voice:
     dismissOffer: async () => undefined,
     async renameSpeaker(mid, sid, label) { const m = meeting(mid); if (m) m.speakers = m.speakers.map((s) => (s.id === sid ? { ...s, label, estimated: false, suggestion: undefined } : s)); return m ? { ...m } : null; },
     async renameMeeting(id, title) { const m = meeting(id); if (m) m.title = title; return m; },
-    async writeNotes(id) { const m = meeting(id); if (m && !m.notes) m.notes = ruleNotes(m); return m; },
+    async writeNotes(id) {
+      const m = meeting(id);
+      if (!m) return m;
+      const tpls = allTemplates(cfg.meetings.templates);
+      m.notes = !padIsEmpty(m.myNotes) ? mergeNotes(m, m.myNotes, tpls.find((t) => t.id === m.template) ?? pickTemplate(m.event?.title ?? m.title, tpls)) : ruleNotes(m);
+      return { ...m };
+    },
+    async setMyNotes(id, text, template) { if (id === 'live') return; const m = meeting(id); if (m) { m.myNotes = text; if (template) m.template = template; } },
+    async sendActions(id) { const m = meeting(id); let n = 0; for (const a of m?.notes?.actions ?? []) if (!a.taskId) { a.taskId = `t${++n}`; } return n; },
     async exportMeeting(id, f) { const m = meeting(id); if (!m) return null; const b = new Blob([fmt(m, f)], { type: 'text/plain' }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `${m.title}.${f}`; a.click(); return `${m.title}.${f}`; },
     removeMeeting: async (id) => { meetings = meetings.filter((m) => m.id !== id); },
     async linkEvent(id, ev) { const m = meeting(id); if (m) m.event = ev ? { id: ev, title: 'Weekly product sync', start: m.startedAt, end: m.startedAt + H, attendees: ['Anja Tamm', 'Ben Ortiz'] } : undefined; return m; },

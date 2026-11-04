@@ -153,6 +153,7 @@ export const TIERS: Record<string, FeatureTier> = {
   dictation: { plain: 'Dictation', setup: 'ai', normal: 'off', shown: 'basic' },
   dictationHold: { plain: 'Hold a key to talk', setup: 'ai', normal: 'off', shown: 'advanced' },
   meetings: { plain: 'Meeting notes', setup: 'ai', normal: 'off', shown: 'basic' },
+  meetingNotes: { plain: 'Your notes in meetings', setup: 'ai', normal: 'parent', follows: 'meetings', shown: 'customize' },
   meetingDetect: { plain: 'Offer to record calls', setup: 'ai', normal: 'parent', follows: 'meetings', shown: 'customize' },
   brain: { plain: 'Let AI search your files', setup: 'ai', normal: 'localAI', shown: 'basic' },
   semantic: { plain: 'Search by meaning', setup: 'ai', normal: 'off', shown: 'basic' },

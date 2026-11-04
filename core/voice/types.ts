@@ -124,6 +124,20 @@ export interface MeetingSettings {
   rememberVoices: boolean;
   /** meeting apps and page titles that count as a call (added to the built-in list) */
   extraApps: string[];
+  /** your own note templates (the built-in ones are in core/voice/meeting-notes.ts) */
+  templates: MeetingTemplate[];
+  /** pick the template from the calendar event's title (1:1, standup, interview…) */
+  autoTemplate: boolean;
+  /** the template used when the title says nothing */
+  defaultTemplate: string;
+}
+
+/** A kind of meeting's note layout: its sections, and the words in an event title that pick it. */
+export interface MeetingTemplate {
+  id: string;
+  name: string;
+  sections: string[];
+  match?: string[];
 }
 
 export interface VoiceSurfaces {
@@ -228,12 +242,29 @@ export interface Utterance {
   track: 'mic' | 'system';
 }
 
-export interface ActionItem { text: string; owner?: string; due?: string; taskId?: string }
+export interface ActionItem { text: string; owner?: string; due?: string; taskId?: string; /** typed by you, or heard in the transcript */ from?: 'you' | 'transcript' }
+
+/** One point in tidy notes: your words, or something the transcript adds. */
+export interface MeetingNoteItem {
+  text: string;
+  from: 'you' | 'transcript';
+  /** when in the call it was said (seconds) */
+  at?: number;
+  who?: string;
+  /** a short point filled out with what was said */
+  detail?: string;
+}
+
+export interface MeetingNoteSection { title: string; items: MeetingNoteItem[] }
 
 export interface MeetingNotes {
   summary: string;
   decisions: string[];
   actions: ActionItem[];
+  /** your notes merged with the transcript, by the template's sections */
+  sections?: MeetingNoteSection[];
+  /** the template the sections follow */
+  template?: string;
   /** "ai" (which provider) or "rules" (no AI chosen) */
   by: string;
   at: number;
@@ -261,6 +292,10 @@ export interface MeetingRecord {
   systemNote?: string;
   /** the voice prints of the pieces (to compare remembered voices on one footing) */
   prints?: number[][];
+  /** what you typed during (or after) the meeting */
+  myNotes?: string;
+  /** the note template chosen for it */
+  template?: string;
 }
 
 export interface MeetingLive {
@@ -273,6 +308,11 @@ export interface MeetingLive {
   systemNote?: string;
   utterances: Utterance[];
   level: { mic: number; system: number };
+  /** your notes so far, and the template */
+  myNotes?: string;
+  template?: string;
+  /** the event it is linked to */
+  event?: string;
 }
 
 export interface MeetingOffer {
@@ -335,6 +375,10 @@ export interface VoiceApi {
   renameSpeaker(meetingId: string, speakerId: string, label: string): Promise<MeetingRecord | null>;
   renameMeeting(id: string, title: string): Promise<MeetingRecord | null>;
   writeNotes(id: string): Promise<MeetingRecord | null>;
+  /** your notes and template for a meeting ('live' for the one being recorded) */
+  setMyNotes(id: string, text: string, template?: string): Promise<void>;
+  /** the action items into Reminders (those not there yet); returns how many were added */
+  sendActions(id: string): Promise<number>;
   exportMeeting(id: string, format: ExportFormat): Promise<string | null>;
   removeMeeting(id: string): Promise<void>;
   linkEvent(id: string, eventId: string | null): Promise<MeetingRecord | null>;

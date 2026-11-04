@@ -94,6 +94,8 @@ export function registerVoiceIpc(c: {
   handle('voice.renameSpeaker', (m: string, s: string, label: string) => v.renameSpeaker(String(m), String(s), String(label ?? '')));
   handle('voice.renameMeeting', (id: string, title: string) => v.renameMeeting(String(id), String(title ?? '')));
   handle('voice.writeNotes', (id: string) => v.writeNotes(String(id)));
+  handle('voice.setMyNotes', (id: string, text: string, template?: string) => v.setMyNotes(String(id), String(text ?? ''), template ? String(template) : undefined));
+  handle('voice.sendActions', (id: string) => v.sendActions(String(id)));
   handle('voice.exportMeeting', (id: string, f: ExportFormat) => v.exportMeeting(String(id), f));
   handle('voice.removeMeeting', (id: string) => v.removeMeeting(String(id)));
   handle('voice.linkEvent', (id: string, ev: string | null) => v.linkEvent(String(id), ev));

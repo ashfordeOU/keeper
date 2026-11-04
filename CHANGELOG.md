@@ -15,6 +15,11 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - Offline check (Privacy-max's own part, there for anyone): every way Keeper could reach the internet, a switch for each, and Turn all off.
 - Recommended is a shorter list: AI limits, AI usage and agents in the terminal are for Pro, and parts that follow another (Draw on screen with Stage) stay off until it is on.
 
+### Added — Meetings: your own notes, tidied with the transcript
+- While a meeting is recorded, a notes pad sits beside the live transcript. Type a few words per point; headings start sections, “- [ ]” or @name makes an action item. It is saved as you type and kept with the meeting.
+- Tidy my notes keeps every point in your words, adds when in the call it came up, fills short points out with what was said, and fills the sections you left empty (decisions, blockers, action items) from the transcript, each marked “from the call”. With an AI on this computer it writes them; otherwise plain rules do, and nothing leaves the computer.
+- Templates for 1:1s, standups and interviews, picked from the calendar event’s title, plus your own (Meetings → Settings). Add to Reminders makes one reminder per action item, saying which meeting and event it came from, and never twice.
+
 ### Added — Today: one place that answers "what now?"
 - Hello now opens on Today: what is on now and next (with Join for calls and the time left), your top three tasks to tick off, how many messages wait for your reply, what is in the Inbox, one thing to fix and a Focus button. Your folders and files follow under it.
 - Light and Files only show a calm three cards, Recommended five, Everything all six. Edit Home → Today's cards picks your own; More (…) hides Today.

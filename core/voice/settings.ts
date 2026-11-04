@@ -68,6 +68,9 @@ export function defaultVoiceSettings(platform: string = 'linux'): VoiceSettings 
       liveForAI: false,
       rememberVoices: true,
       extraApps: [],
+      templates: [],
+      autoTemplate: true,
+      defaultTemplate: 'general',
     },
     surfaces: { tray: true, island: true, palette: true },
     apps: [
@@ -118,6 +121,7 @@ export function normalizeVoiceSettings(saved: unknown, platform: string = 'linux
   if (!HOLD_KEYS.some((k) => k.id === d.key)) d.key = defaultVoiceSettings(platform).dictation.key;
   if (!['tiny', 'base', 'small', 'turbo'].includes(d.model)) d.model = 'base';
   if (!['tiny', 'base', 'small', 'turbo'].includes(s.meetings.model)) s.meetings.model = 'base';
+  s.meetings.templates = s.meetings.templates.filter((t) => t && typeof t.id === 'string' && typeof t.name === 'string' && t.name.trim() && Array.isArray(t.sections) && t.sections.length).slice(0, 30);
   s.apps = s.apps.filter((a) => a && typeof a.app === 'string' && a.app.trim());
   s.dictionary = s.dictionary.filter((e) => e && typeof e.word === 'string' && e.word.trim());
   // A snippet is said, typed, or both: it needs one of the two.

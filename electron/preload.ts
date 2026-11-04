@@ -185,7 +185,7 @@ const api = {
   widgets: group('widgets', ['list', 'save', 'remove', 'photos', 'current', 'arrange', 'arranging', 'tint', 'focus']),
   // Dictation anywhere and meeting recording; the listening pill streams its microphone samples here.
   voice: {
-    ...group('voice', ['status', 'settings', 'setSettings', 'start', 'stop', 'toggle', 'cancel', 'confirm', 'history', 'removeTake', 'clearHistory', 'stats', 'reuseTake', 'correct', 'preview', 'downloadModel', 'removeModel', 'testKey', 'meetings', 'meeting', 'startMeeting', 'pauseMeeting', 'stopMeeting', 'dismissOffer', 'renameSpeaker', 'renameMeeting', 'writeNotes', 'exportMeeting', 'removeMeeting', 'linkEvent', 'eventsNear', 'tray', 'voices', 'forgetVoices', 'saveStatsPng']),
+    ...group('voice', ['status', 'settings', 'setSettings', 'start', 'stop', 'toggle', 'cancel', 'confirm', 'history', 'removeTake', 'clearHistory', 'stats', 'reuseTake', 'correct', 'preview', 'downloadModel', 'removeModel', 'testKey', 'meetings', 'meeting', 'startMeeting', 'pauseMeeting', 'stopMeeting', 'dismissOffer', 'renameSpeaker', 'renameMeeting', 'writeNotes', 'setMyNotes', 'sendActions', 'exportMeeting', 'removeMeeting', 'linkEvent', 'eventsNear', 'tray', 'voices', 'forgetVoices', 'saveStatsPng']),
     hud: {
       ready: invoke('voice.hud.ready'),
       audio: (track: 'mic' | 'system', samples: Float32Array) => ipcRenderer.send('voice.audio', track, samples),

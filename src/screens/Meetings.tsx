@@ -6,7 +6,8 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { clock, transcriptLines } from '../../core/voice/meeting';
-import type { DeepPartial, ExportFormat, MeetingLive, MeetingOffer, MeetingRecord, VoiceSettings } from '../../core/voice/types';
+import { allTemplates, BUILTIN_TEMPLATES, padIsEmpty, pickTemplate, templateFromInput, templateSkeleton } from '../../core/voice/meeting-notes';
+import type { DeepPartial, ExportFormat, MeetingLive, MeetingNotes, MeetingOffer, MeetingRecord, MeetingTemplate, VoiceSettings } from '../../core/voice/types';
 import { WHISPER_MODELS, type WhisperSize } from '../../core/whisper';
 import { api } from '../api';
 import { useFeature } from '../features';
@@ -28,6 +29,7 @@ export function Meetings({ initial }: { initial?: string }) {
   const [offer, setOffer] = useState<MeetingOffer | undefined>();
   const [cfg, setCfg] = useState<VoiceSettings | null>(null);
   const [showSettings, setShowSettings] = useState(initial === 'settings');
+  const templates = useMemo(() => allTemplates(cfg?.meetings.templates ?? []), [cfg]);
   const load = () => void api.voice.meetings().then((l) => { setList(l); setSel((s) => s ?? l[0]?.id ?? null); });
   useEffect(() => {
     load();
@@ -42,14 +44,14 @@ export function Meetings({ initial }: { initial?: string }) {
     return () => offs.forEach((f) => f());
   }, []);
   const start = () => void api.voice.startMeeting(offer ? { app: offer.app, offerId: offer.id } : {}).then(setLive).catch((e) => toast(e instanceof Error ? e.message : String(e)));
-  const stop = () => void api.voice.stopMeeting().then((m) => { setLive(null); if (m) { setSel(m.id); load(); } });
+  const stop = () => void flushPads().then(() => api.voice.stopMeeting()).then((m) => { setLive(null); if (m) { setSel(m.id); load(); } });
   return (
     <div className="page voice-page" data-testid="meetings-page">
       <PageHead title="Meetings" sub="Your microphone and the computer’s sound, written down on this computer, with who said what and notes after.">
         <button className="btn" onClick={() => setShowSettings(!showSettings)} data-testid="meetings-settings-toggle"><Icon name="settings" size={13} /> {showSettings ? 'Hide settings' : 'Settings'}</button>
       </PageHead>
       <ComponentPrompt featureId="meetings" />
-      <LiveCard live={live} offer={offer} onStart={start} onStop={stop} />
+      <LiveCard live={live} offer={offer} onStart={start} onStop={stop} templates={templates} />
       {showSettings && cfg ? <MeetingSettings cfg={cfg} save={async (p) => setCfg(await api.voice.setSettings(p))} /> : null}
       <h2 className="voice-h">Recorded</h2>
       {!list ? null : !list.length ? (
@@ -64,14 +66,15 @@ export function Meetings({ initial }: { initial?: string }) {
               </button>
             ))}
           </div>
-          {sel ? <Detail key={sel} id={sel} onChanged={load} onDeleted={() => { setSel(null); load(); }} /> : null}
+          {sel ? <Detail key={sel} id={sel} templates={templates} onChanged={load} onDeleted={() => { setSel(null); load(); }} /> : null}
         </div>
       )}
     </div>
   );
 }
 
-function LiveCard({ live, offer, onStart, onStop }: { live: MeetingLive | null; offer?: MeetingOffer; onStart(): void; onStop(): void }) {
+function LiveCard({ live, offer, onStart, onStop, templates }: { live: MeetingLive | null; offer?: MeetingOffer; onStart(): void; onStop(): void; templates: MeetingTemplate[] }) {
+  const notesOn = useFeature('meetingNotes');
   const [, tick] = useState(0);
   const at = useRef(Date.now());
   const box = useRef<HTMLDivElement>(null);
@@ -97,10 +100,13 @@ function LiveCard({ live, offer, onStart, onStop }: { live: MeetingLive | null; 
               {live.tracks.system ? <><span>Computer’s sound</span><div className="voice-bar"><i style={{ width: `${Math.round(live.level.system * 100)}%` }} /></div></> : null}
             </div>
             {live.systemNote ? <div className="voice-note"><Icon name="info" size={12} /> Only the microphone: {live.systemNote}</div> : null}
-            <div className="meet-transcript card" ref={box} style={{ maxHeight: 220, marginTop: 6 }} data-testid="meetings-live-transcript">
-              {live.utterances.length ? live.utterances.map((u) => (
-                <div className="meet-line" key={u.id}><span className="at">{clock(u.start)}</span><div><span className="who">{u.track === 'mic' ? 'You' : 'Others'}</span> <span className="say">{u.text}</span></div></div>
-              )) : <div className="muted" style={{ padding: '6px 14px' }}>Lines appear here a moment after each pause.</div>}
+            <div className={notesOn ? 'meet-live-cols' : undefined}>
+              {notesOn ? <NotesPad key={live.id} id="live" text={live.myNotes ?? ''} template={live.template} templates={templates} live /> : null}
+              <div className="meet-transcript card" ref={box} style={{ maxHeight: notesOn ? 300 : 220, marginTop: 6 }} data-testid="meetings-live-transcript" aria-label="Live transcript">
+                {live.utterances.length ? live.utterances.map((u) => (
+                  <div className="meet-line" key={u.id}><span className="at">{clock(u.start)}</span><div><span className="who">{u.track === 'mic' ? 'You' : 'Others'}</span> <span className="say">{u.text}</span></div></div>
+                )) : <div className="muted" style={{ padding: '6px 14px' }}>Lines appear here a moment after each pause.</div>}
+              </div>
             </div>
           </>
         ) : (
@@ -121,8 +127,10 @@ function LiveCard({ live, offer, onStart, onStop }: { live: MeetingLive | null; 
   );
 }
 
-function Detail({ id, onChanged, onDeleted }: { id: string; onChanged(): void; onDeleted(): void }) {
+function Detail({ id, templates, onChanged, onDeleted }: { id: string; templates: MeetingTemplate[]; onChanged(): void; onDeleted(): void }) {
   const { toast } = useStore();
+  const notesOn = useFeature('meetingNotes');
+  const plannerOn = useFeature('planner');
   const [m, setM] = useState<MeetingRecord | null>(null);
   const [busy, setBusy] = useState(false);
   const [events, setEvents] = useState<{ id: string; title: string; start: number }[]>([]);
@@ -157,12 +165,14 @@ function Detail({ id, onChanged, onDeleted }: { id: string; onChanged(): void; o
           <datalist id={`att-${m.id}`}>{(m.event?.attendees ?? []).map((a) => <option key={a} value={a} />)}</datalist>
         </div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          <button className="btn sm primary" disabled={busy} data-testid="meeting-notes" onClick={() => { setBusy(true); void api.voice.writeNotes(m.id).then((x) => { setM(x); onChanged(); }).finally(() => setBusy(false)); }}><Icon name="sparkle" size={12} /> {busy ? 'Writing…' : m.notes ? 'Write notes again' : 'Write notes'}</button>
+          <button className="btn sm primary" disabled={busy} data-testid="meeting-notes" onClick={() => { setBusy(true); void flushPads().then(() => api.voice.writeNotes(m.id)).then((x) => { setM(x); onChanged(); }).finally(() => setBusy(false)); }}><Icon name="sparkle" size={12} /> {busy ? 'Writing…' : notesOn && !padIsEmpty(m.myNotes) ? (m.notes?.sections ? 'Tidy my notes again' : 'Tidy my notes') : m.notes ? 'Write notes again' : 'Write notes'}</button>
           {(['md', 'srt', 'vtt', 'txt'] as ExportFormat[]).map((f) => <button key={f} className="btn sm" onClick={() => exp(f)}>{f === 'md' ? 'Markdown' : f.toUpperCase()}</button>)}
           <button className="btn sm ghost" onClick={() => { if (confirm(`Delete “${m.title}” and its transcript?`)) void api.voice.removeMeeting(m.id).then(onDeleted); }}><Icon name="trash" size={12} /> Delete</button>
         </div>
       </div>
-      {m.notes ? (
+      {m.notes?.sections?.length ? (
+        <TidyNotes notes={m.notes} plannerOn={plannerOn} onRemind={() => void api.voice.sendActions(m.id).then((n) => { toast(n ? `Added ${n} to Reminders` : 'Already in Reminders'); return api.voice.meeting(m.id); }).then((x) => x && setM(x)).catch((e) => toast(e instanceof Error ? e.message : String(e)))} notePath={m.notePath} />
+      ) : m.notes ? (
         <div className="card meet-notes" data-testid="meeting-notes-card">
           <h3>Summary</h3><div>{m.notes.summary}</div>
           <h3>Decisions</h3>{m.notes.decisions.length ? <ul>{m.notes.decisions.map((d, i) => <li key={i}>{d}</li>)}</ul> : <div className="muted">None noted.</div>}
@@ -170,6 +180,7 @@ function Detail({ id, onChanged, onDeleted }: { id: string; onChanged(): void; o
           <div className="muted small">Written by {m.notes.by === 'rules' ? 'Keeper’s plain rules (no AI chosen)' : m.notes.by}{m.notePath ? ` · saved to ${m.notePath.replace(/^vault:[^:]+:/, 'Notes › ')}` : ''}</div>
         </div>
       ) : null}
+      {notesOn ? <NotesPad key={`pad-${m.id}-${m.notes?.at ?? 0}`} id={m.id} text={m.myNotes ?? ''} template={m.template} templates={templates} eventTitle={m.event?.title ?? m.title} tidied={!!m.notes?.sections} /> : null}
       <div className="card meet-transcript" data-testid="meeting-transcript">
         {m.speakers.some((s) => s.estimated && s.label.startsWith('Speaker')) ? <div className="meet-consent" style={{ borderTop: 0 }}><Icon name="info" size={12} /> Other people are told apart by their voices; the labels are estimates.</div> : null}
         {lines.map((l, i) => <div className="meet-line" key={i}><span className="at">{clock(l.at)}</span><div><span className="who" style={{ color: colorOf(l.who) }}>{l.who}</span> <span className="say">{l.text}</span></div></div>)}
@@ -179,9 +190,123 @@ function Detail({ id, onChanged, onDeleted }: { id: string; onChanged(): void; o
   );
 }
 
+// ---------------------------------------------------------------- your notes
+
+/** Pads with typing not yet saved: saved before notes are written or the recording stops. */
+const pending = new Map<string, () => Promise<void>>();
+const flushPads = () => Promise.all([...pending.values()].map((f) => f())).then(() => undefined);
+
+/** Your own notes: a plain pad (Markdown headings and bullets), with the template for this kind of meeting. */
+function NotesPad({ id, text, template, templates, live, eventTitle, tidied }: { id: string; text: string; template?: string; templates: MeetingTemplate[]; live?: boolean; eventTitle?: string; /** tidy notes were made: the pad waits closed */ tidied?: boolean }) {
+  const [value, setValue] = useState(text);
+  const [tpl, setTpl] = useState(template ?? '');
+  const [open, setOpen] = useState(!!live || (!padIsEmpty(text) && !tidied));
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const latest = useRef({ value, tpl });
+  latest.current = { value, tpl };
+  const save = () => { clearTimeout(timer.current); pending.delete(id); return api.voice.setMyNotes(id, latest.current.value, latest.current.tpl || undefined); };
+  const later = () => { clearTimeout(timer.current); pending.set(id, save); timer.current = setTimeout(() => void save(), 800); };
+  useEffect(() => () => { if (pending.has(id)) void save(); }, []);
+  const chosen = templates.find((t) => t.id === tpl);
+  const choose = (next: string) => {
+    const t = templates.find((x) => x.id === next);
+    setTpl(next);
+    // An untouched pad takes the new template's headings; typed notes are never replaced.
+    if (t && padIsEmpty(value)) setValue(templateSkeleton(t));
+    later();
+  };
+  if (!open) {
+    return (
+      <div className="card meet-pad-closed">
+        <div><b>Your notes</b><div className="muted small">{padIsEmpty(value) ? 'Type what matters; Keeper fills it out from the transcript.' : `${value.split(/\n/).filter((l) => /^\s*[-*•]\s*\S/.test(l)).length} points${chosen ? ` · ${chosen.name}` : ''}`}</div></div>
+        <button className="btn sm" data-testid="meeting-pad-open" onClick={() => { setOpen(true); if (!value.trim()) { const t = chosen ?? pickTemplate(eventTitle, templates); setTpl(t.id); setValue(templateSkeleton(t)); later(); } }}><Icon name="note" size={12} /> {padIsEmpty(value) ? 'Add your notes' : 'Edit your notes'}</button>
+      </div>
+    );
+  }
+  return (
+    <div className="card meet-pad" data-testid={live ? 'meetings-live-pad' : 'meeting-pad'}>
+      <div className="meet-pad-head">
+        <b>Your notes</b>
+        <select className="input sm" aria-label="Note template" value={tpl} data-testid="meeting-template" onChange={(e) => choose(e.target.value)}>
+          {!tpl ? <option value="">Template…</option> : null}
+          {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+        </select>
+        {eventTitle && !live ? <span className="muted small" data-user-text>{eventTitle}</span> : null}
+      </div>
+      <textarea
+        className="meet-pad-text"
+        aria-label="Your notes"
+        spellCheck
+        value={value}
+        placeholder="- a point in a few words&#10;- [ ] something to do @name"
+        onChange={(e) => { setValue(e.target.value); later(); }}
+        onBlur={() => void save()}
+      />
+      <div className="meet-pad-foot muted small">Headings start sections · “- [ ]” or @name makes an action item · Saved as you type</div>
+    </div>
+  );
+}
+
+/** Tidy notes: your points as you wrote them, what the transcript adds marked as such, each with its moment in the call. */
+function TidyNotes({ notes, plannerOn, onRemind, notePath }: { notes: MeetingNotes; plannerOn: boolean; onRemind(): void; notePath?: string }) {
+  const waiting = notes.actions.filter((a) => !a.taskId).length;
+  return (
+    <div className="card meet-notes" data-testid="meeting-notes-card">
+      {notes.summary ? <><h3>Summary</h3><div>{notes.summary}</div></> : null}
+      {notes.sections!.map((s, i) => (
+        <section key={i} className="meet-sec">
+          <h3>{s.title}</h3>
+          {s.items.length ? (
+            <ul>
+              {s.items.map((it, j) => (
+                <li key={j} className={it.from === 'transcript' ? 'from-call' : undefined} data-from={it.from}>
+                  {it.text}
+                  {it.from === 'transcript' ? <span className="meet-src" title="Heard in the call, not in your notes">from the call{it.at !== undefined ? ` · ${clock(it.at)}` : ''}</span> : it.at !== undefined ? <span className="meet-src quiet" title="When this came up in the call">{clock(it.at)}</span> : null}
+                  {notes.actions.some((a) => a.taskId && a.text && it.text.includes(a.text.slice(0, 30))) ? <span className="badge ok" style={{ marginLeft: 6 }}>in Reminders</span> : null}
+                  {it.detail ? <div className="meet-detail-line muted">{it.detail} <span className="meet-src">from the call</span></div> : null}
+                </li>
+              ))}
+            </ul>
+          ) : <div className="muted">Nothing noted.</div>}
+        </section>
+      ))}
+      <div className="meet-notes-foot">
+        <span className="muted small">{notes.by === 'rules' ? 'Tidied on this computer with plain rules' : `Tidied by ${notes.by}`} · your words kept as typed{notePath ? ` · saved to ${notePath.replace(/^vault:[^:]+:/, 'Notes › ')}` : ''}</span>
+        {plannerOn && waiting ? <button className="btn sm" data-testid="meeting-remind" onClick={onRemind}><Icon name="check" size={12} /> Add {waiting} to Reminders</button> : null}
+      </div>
+    </div>
+  );
+}
+
+/** Your own templates: a name, its sections, and words in an event title that choose it. */
+function TemplateEditor({ templates, save }: { templates: MeetingTemplate[]; save: (t: MeetingTemplate[]) => void }) {
+  const [name, setName] = useState('');
+  const [sections, setSections] = useState('');
+  const [match, setMatch] = useState('');
+  const add = () => { const t = templateFromInput(name, sections, match); if (!t) return; save([...templates.filter((x) => x.id !== t.id), t]); setName(''); setSections(''); setMatch(''); };
+  return (
+    <div className="meet-tpls" data-testid="meeting-templates">
+      {[...BUILTIN_TEMPLATES, ...templates].map((t) => (
+        <div className="meet-tpl" key={t.id}>
+          <b>{t.name}</b>
+          <span className="muted small">{t.sections.join(' · ')}{t.match?.length ? ` — when the event says ${t.match.slice(0, 3).map((w) => `“${w}”`).join(', ')}` : ''}</span>
+          {templates.includes(t) ? <button className="btn sm ghost" aria-label={`Remove ${t.name}`} onClick={() => save(templates.filter((x) => x !== t))}><Icon name="trash" size={12} /></button> : <span className="badge">Built in</span>}
+        </div>
+      ))}
+      <form className="meet-tpl-new" onSubmit={(e) => { e.preventDefault(); add(); }}>
+        <input className="input" aria-label="Template name" placeholder="Name, e.g. Planning" value={name} onChange={(e) => setName(e.target.value)} />
+        <input className="input" aria-label="Sections" placeholder="Sections, separated by commas" value={sections} onChange={(e) => setSections(e.target.value)} />
+        <input className="input" aria-label="Words in the event title" placeholder="Event words, e.g. planning" value={match} onChange={(e) => setMatch(e.target.value)} />
+        <button className="btn sm" type="submit" disabled={!name.trim() || !sections.trim()} data-testid="meeting-template-add">Add template</button>
+      </form>
+    </div>
+  );
+}
+
 function MeetingSettings({ cfg, save }: { cfg: VoiceSettings; save: (p: DeepPartial<VoiceSettings>) => Promise<void> }) {
   const m = cfg.meetings;
   const detectOn = useFeature('meetingDetect');
+  const notesOn = useFeature('meetingNotes');
   const [vaults, setVaults] = useState<{ id: string; name: string }[]>([]);
   const [voices, setVoices] = useState<{ name: string }[]>([]);
   useEffect(() => { void api.voice.voices().then(setVoices).catch(() => undefined); }, []);
@@ -209,6 +334,14 @@ function MeetingSettings({ cfg, save }: { cfg: VoiceSettings; save: (p: DeepPart
             <option value="folder">{m.notesTarget.kind === 'folder' ? m.notesTarget.path : 'A folder…'}</option>
           </select>
         </Row>
+        {notesOn ? (
+          <>
+            <Row title="Template from the event" desc="1:1, standup or interview, chosen from the calendar event’s title."><Toggle on={m.autoTemplate} onChange={(v) => void save({ meetings: { autoTemplate: v } })} /></Row>
+            <Row title="Note templates" desc="The sections your notes start with.">
+              <TemplateEditor templates={m.templates} save={(t) => void save({ meetings: { templates: t } })} />
+            </Row>
+          </>
+        ) : null}
         <Row title="Action items to Reminders" desc="Each action item becomes a reminder in Keeper’s Reminders."><Toggle on={m.actionsToTasks} onChange={(v) => void save({ meetings: { actionsToTasks: v } })} /></Row>
         <Row title="Keep the recordings" desc="Otherwise only the transcript is kept."><Toggle on={m.keepAudio} onChange={(v) => void save({ meetings: { keepAudio: v } })} /></Row>
         <Row title="Speech model">
