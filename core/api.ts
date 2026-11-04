@@ -592,6 +592,8 @@ export interface KeeperApi extends KeeperApiX {
   displays: import('./api-displays').DisplaysApi;
   /** the light photo editor (core/photo-edit.ts) */
   photo: import('./api-photo').PhotoApi;
+  /** extensions: install, permissions and their calls (core/extensions.ts) */
+  extensions: import('./api-extensions').ExtensionsApi;
   /** reading aloud and the reading fonts (core/read-aloud.ts, core/a11y.ts) */
   reading: import('./api-reading').ReadingApi;
   /** settings that follow you between your computers (core/settings-sync.ts) */
@@ -948,6 +950,8 @@ export interface KeeperApi extends KeeperApiX {
   on(channel: 'focusblock-changed', cb: () => void): () => void;
   /** the Inbox changed: how many things wait to be sorted */
   on(channel: 'inbox-changed', cb: (count: number) => void): () => void;
+  /** an extension was installed, removed or changed */
+  on(channel: 'extensions-changed', cb: () => void): () => void;
   /** reading aloud started (true) or stopped (false) */
   on(channel: 'read-aloud', cb: (on: boolean) => void): () => void;
   /** settings from another computer arrived, or sharing changed */

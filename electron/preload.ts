@@ -194,6 +194,8 @@ const api = {
   photo: group('photo', ['info', 'preview', 'save', 'revert']),
   // Crash reports for Ashforde (off until switched on).
   crashReports: group('crashReports', ['status', 'setOn', 'clear', 'sendNow']),
+  // Extensions.
+  extensions: group('extensions', ['list', 'pick', 'preview', 'install', 'remove', 'setEnabled', 'setPermission', 'worker', 'search', 'fetch']),
   // Reading aloud and the reading fonts.
   reading: group('reading', ['voice', 'speak', 'stop', 'speaking', 'font']),
   // Settings that follow you between your computers.

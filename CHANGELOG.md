@@ -65,6 +65,11 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - Archives' What works here says "Opens with your system's tools" instead of naming the program underneath; only 7-Zip is named, where it needs installing.
 - Snap Windows on Linux says "Works with apps on this desktop".
 
+### Added — Extensions
+- Small add-ons with their own commands in the command palette. Install one from a folder in Settings → General → Extensions after reading, in plain words, what it may do.
+- Each permission is Off, Ask or Allow. Each extension runs on its own, with no access to your files and no network except the sites it lists, and a changed extension does not run until it is installed again.
+- An example to start from is in docs/extensions/hello. Off until you turn it on.
+
 ### Added — What each part uses, against its budget
 - Settings → Battery and speed → What each part uses: "Keeper is using 410 MB", then each running part's memory and processor use now, whether it is within its budget, and Turn off where it can be.
 - About shows the same total, one click from the breakdown.

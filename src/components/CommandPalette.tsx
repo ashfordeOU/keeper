@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The command palette: jump anywhere or run any action by typing a few letters.
 
+import { useExtensionCommands } from './Extensions';
 import { textToRead } from './ReadingPanel';
 import { openSendTo } from './SendTo';
 import { filesItem } from '../../core/send-to';
@@ -126,6 +127,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
   useFocusTrap(boxRef);
 
   const meshCmds = useMeshCommands(store.toast, store.go);
+  const extCmds = useExtensionCommands();
   const ambienceCmds = useAmbienceCommands(store.toast, store.go);
   const voiceCmds = useVoiceCommands(store.toast, store.go);
   // Remote Desktops: Quick Connect and each saved connection (when Remote Desktops → Where it appears allows it).
@@ -144,6 +146,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     ] : []),
     // Keeper Mesh: copy a device's address, on/off, exit node (as placed under Settings → Keeper Mesh).
     ...meshCmds,
+    ...extCmds,
     ...ambienceCmds,
     ...voiceCmds,
     // AI usage: "Usage: …" (hidden with the tracker).
@@ -292,7 +295,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     ...[5, 10, 25].map((m) => ({ id: `timer-${m}`, label: `Start a ${m}-Minute Timer`, group: 'Actions' as const, icon: 'timer', keywords: 'countdown kitchen', run: async () => { await api.pim.startTimer(`${m} min`, m * 60_000); store.toast(`Timer set for ${m} minutes`); } })),
     { id: 'shelf-clear', label: 'Clear the Shelf', group: 'Actions', icon: 'island', run: async () => { await api.island.clearShelf(); } },
     ...tracksCommands,
-  ], [store, meshCmds, ambienceCmds, voiceCmds, rdc, tracksCommands, t, hiddenRoutes]);
+  ], [store, meshCmds, extCmds, ambienceCmds, voiceCmds, rdc, tracksCommands, t, hiddenRoutes]);
 
   const allowed = useCommandFilter();
   const looksLikeSearch = text.trim().length > 1;
