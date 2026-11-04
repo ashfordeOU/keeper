@@ -66,6 +66,51 @@ export function formatDuration(sec: number): string {
   return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${m}:${String(s).padStart(2, '0')}`;
 }
 
+/**
+ * A folder or file as a person names it, never a raw path (the full path belongs in a tooltip):
+ * "/Users/ana/Documents/Work" -> "Documents › Work", the home folder -> "Home",
+ * "~/Pictures/Screenshots/" -> "Pictures › Screenshots", "/Volumes/USB/Photos" -> "USB › Photos",
+ * anything else -> its last two names ("share › ca-certificates"). Temporary folders become "a temporary folder".
+ */
+export function friendlyPath(p: string, home = ''): string {
+  const raw = p.trim();
+  if (!raw) return '';
+  const sep = /\\/.test(raw) && !raw.startsWith('/') ? '\\' : '/';
+  const clean = (x: string) => x.replace(/[\\/]+$/, '');
+  const parts = (x: string) => x.split(/[\\/]+/).filter(Boolean);
+  const h = clean(home);
+  let rest: string[] | null = null;
+  if (raw === '~' || (h && clean(raw) === h)) return 'Home';
+  if (raw.startsWith('~/') || raw.startsWith('~\\')) rest = parts(raw.slice(2));
+  else if (h && clean(raw).toLowerCase().startsWith((h + sep).toLowerCase())) rest = parts(clean(raw).slice(h.length));
+  if (rest) return rest.length ? rest.join(' › ') : 'Home';
+  if (/^(\/private)?\/(tmp|var\/folders)\//.test(raw) || /\\AppData\\Local\\Temp\\/i.test(raw)) return 'a temporary folder';
+  const all = parts(raw);
+  // A disk: /Volumes/USB, /media/ana/USB, /run/media/ana/USB, /mnt/USB; on Windows a drive letter.
+  const vol = clean(raw).match(/^\/(?:Volumes|mnt)\/([^/]+)(.*)$/) ?? clean(raw).match(/^\/(?:run\/)?media\/[^/]+\/([^/]+)(.*)$/);
+  if (vol) return [vol[1], ...parts(vol[2])].join(' › ');
+  if (/^[A-Za-z]:\\?$/.test(raw)) return `Drive ${raw[0].toUpperCase()}:`;
+  if (!all.length) return raw;
+  return all.slice(-2).join(' › ');
+}
+
+/** The program a command line runs, by name ("\"/opt/Keeper/keeper\" --hidden" -> "keeper", "C:\\…\\Teams.exe" -> "Teams"). */
+export function programName(command: string): string {
+  const c = command.trim();
+  // Quoted, or up to ".exe" (Windows paths have spaces), or up to the first space.
+  const first = c.startsWith('"') ? c.slice(1, c.indexOf('"', 1) > 0 ? c.indexOf('"', 1) : undefined) : (c.match(/^(.*?\.(?:exe|app|AppImage))(?:\s|$)/i)?.[1] ?? c.split(/\s+/)[0]);
+  const base = first.split(/[\\/]/).filter(Boolean).pop() ?? first;
+  return base.replace(/\.(exe|app|desktop|sh|cmd|bat|AppImage)$/i, '') || c;
+}
+
+/** Every path in a sentence, named as a person names it ("Move to ~/Pictures/Shots" -> "Move to Pictures › Shots"). */
+export function friendlyPathsIn(text: string, home = ''): string {
+  return text.replace(/(^|[\s(“"'])((?:~|\/)[^\s,;)”"']*\/[^\s,;)”"']*|[A-Za-z]:\\[^\s,;)”"']+)/g, (_all, pre: string, p: string) => {
+    const end = /[.:]$/.test(p) ? p.slice(-1) : '';
+    return pre + friendlyPath(end ? p.slice(0, -1) : p, home) + end;
+  });
+}
+
 /** "/Users/ana/Downloads/x.pdf" -> "~/Downloads/x.pdf" */
 export function tildify(p: string, home: string): string {
   if (!home) return p;

@@ -103,7 +103,7 @@
 .nm-insp-spark .nm-spark { width: 100%; }
 .nm-insp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .nm-insp-grid label { display: flex; flex-direction: column; gap: 4px; font-size: var(--fs-xs); color: var(--text-3); font-weight: 600; min-width: 0; }
-.nm-insp-grid select { width: 100%; }
+.nm-insp-grid select { width: 100%; max-width: none; align-self: stretch; }
 .nm-note { display: flex; gap: 8px; align-items: flex-start; margin: 0; padding: 8px 12px; border-radius: var(--r-md); background: var(--bg-sunk); color: var(--text-2); font-size: var(--fs-sm); flex-wrap: wrap; }
 .nm-note > svg { flex: none; margin-top: 2px; color: var(--accent); }
 .nm-places { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }

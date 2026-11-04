@@ -6,7 +6,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ConflictView, ConnectorKind, ConnectorView, DuplicateView, ExportFormat, HistoryEntry, NoteDetail, NoteHit, NotesOverview, SnapshotView, SyncPlanView, TrashedNoteView } from '../../core/api-notesync';
-import { relativeTime } from '../../core/format';
+import { friendlyPath, relativeTime } from '../../core/format';
 import { availableOn, CAPABILITY_HELP, CAPABILITY_LABEL, connectorDef, CONNECTORS, EXPORT_FORMATS } from '../../core/notes-sync/connectors/registry';
 import type { ConnectorDef } from '../../core/notes-sync/types';
 import { api } from '../api';
@@ -34,7 +34,7 @@ function useOverview() {
 }
 
 export function NotesHub() {
-  const { route } = useStore();
+  const { route, info } = useStore();
   const initial: Tab = route.arg === 'conflicts' || route.arg === 'duplicates' ? 'review' : (['notes', 'apps', 'review', 'backups'] as Tab[]).includes(route.arg as Tab) ? (route.arg as Tab) : 'notes';
   const [tab, setTab] = useState<Tab>(initial);
   const [ov, reload, err] = useOverview();
@@ -42,7 +42,7 @@ export function NotesHub() {
   const review = ov.conflicts + ov.duplicates;
   return (
     <div className="nh-page">
-      <PageHead title="Notes from Other Apps" sub={<>{ov.notes.toLocaleString()} notes from {ov.apps} app{ov.apps === 1 ? '' : 's'} · kept in <span className="mono">{ov.hubFolder}</span></>} />
+      <PageHead title="Notes from Other Apps" sub={<>{ov.notes.toLocaleString()} notes from {ov.apps} app{ov.apps === 1 ? '' : 's'} · kept in <span title={ov.hubFolder}>{friendlyPath(ov.hubFolder, info?.home)}</span></>} />
       <Tabs label="Notes from Other Apps" value={tab} onChange={setTab} items={(Object.keys(TAB_LABEL) as Tab[]).map((t) => ({ id: t, testId: `nh-tab-${t}`, label: TAB_LABEL[t], badge: t === 'apps' ? ov.connectors.length : t === 'review' && review ? review : undefined }))} />
       {tab === 'notes' ? <NotesTab ov={ov} /> : null}
       {tab === 'apps' ? <AppsTab ov={ov} reload={reload} /> : null}
@@ -80,7 +80,7 @@ function NotesTab({ ov }: { ov: NotesOverview }) {
     <div className="nh-notes">
       <div className="nh-list">
         <div className="row nh-search">
-          <input className="input grow" data-testid="nh-search" placeholder="Search every notes app…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <input className="input grow" data-testid="nh-search" placeholder="Search all notes" value={q} onChange={(e) => setQ(e.target.value)} />
           <select className="input" value={appF} onChange={(e) => setAppF(e.target.value as ConnectorKind | '')} aria-label="App">
             <option value="">All apps</option>
             {apps.map((a) => <option key={a} value={a}>{appName(a)}</option>)}
@@ -132,7 +132,7 @@ function QuickNote({ onDone }: { onDone: (id?: string) => void }) {
 }
 
 function NoteView({ id, ov, onGone }: { id: string; ov: NotesOverview; onGone: () => void }) {
-  const { toast } = useStore();
+  const { toast, info } = useStore();
   const [d, setD] = useState<NoteDetail | null | undefined>(undefined);
   const [edit, setEdit] = useState<{ title: string; body: string; tags: string } | null>(null);
   const [target, setTarget] = useState('');
@@ -175,7 +175,7 @@ function NoteView({ id, ov, onGone }: { id: string; ov: NotesOverview; onGone: (
       )}
       <section className="nh-where" data-testid="nh-where">
         <div className="section-head"><b>Where does this note live?</b></div>
-        <div className="nh-where-row"><Icon name="folder" size={14} /><span className="grow">Keeper’s notes folder<div className="muted small mono ellipsis">{d.path}</div></span><button className="btn sm ghost" onClick={() => void api.files.reveal(d.path)}>Show</button></div>
+        <div className="nh-where-row"><Icon name="folder" size={14} /><span className="grow">Keeper’s notes folder<div className="muted small ellipsis" title={d.path}>{friendlyPath(d.path, info?.home)}</div></span><button className="btn sm ghost" onClick={() => void api.files.reveal(d.path)}>Show</button></div>
         {d.where.length === 0 ? <div className="muted small">Only in Keeper so far.</div> : d.where.map((w) => (
           <div key={w.connector} className="nh-where-row">
             <span className={`nh-app app-${w.app}`}>{w.appName}</span>

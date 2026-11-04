@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // How Chromium runs Keeper's windows, chosen before the app is ready (so a
-// change in Settings → Performance applies from the next start).
+// change in Settings → Battery and speed applies from the next start).
 //
 //   • Every Keeper window (the main window, the Island, Quick Search, widgets,
 //     cues…) shares one page process instead of one each (less memory for each

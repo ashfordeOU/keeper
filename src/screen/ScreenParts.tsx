@@ -244,7 +244,7 @@ export function PhoneMirrorCard() {
         {!st ? null : !st.ready ? (
           <div className="screen-panel-row">
             {st.canDownload
-              ? <button className="btn primary" disabled={st.downloading} onClick={install}><Icon name="down" size={14} /> {st.downloading ? `Downloading… ${Math.round(prog * 100)}%` : `Set Up (scrcpy ${st.version})`}</button>
+              ? <button className="btn" disabled={st.downloading} onClick={install}><Icon name="down" size={14} /> {st.downloading ? `Downloading… ${Math.round(prog * 100)}%` : `Set Up (scrcpy ${st.version})`}</button>
               : <span className="small">Install scrcpy with: <code>{st.hint}</code></span>}
           </div>
         ) : (

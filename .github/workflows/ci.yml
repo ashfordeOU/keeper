@@ -92,6 +92,20 @@ jobs:
           KEEPER_PERF_MODE=big xvfb-run -a -s "-screen 0 1440x900x24" node test/e2e/perf-budget.cjs
           # On battery: the folders are listed, then nothing else runs until the charger is in (about a minute and a half).
           KEEPER_PERF_MODE=battery xvfb-run -a -s "-screen 0 1440x900x24" node test/e2e/perf-budget.cjs
+      # The visual budget: every page at 1440×900 and 1024×768 keeps to at most 6 tabs, 5 icon-only
+      # buttons per toolbar and 1 filled button, cuts no word in half and shows no raw paths
+      # (core/design-budget.ts). The report and pictures of any page over budget are kept below.
+      - name: Every page keeps to the visual budget (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          H=$(mktemp -d)
+          xvfb-run -a -s "-screen 0 1440x900x24" node test/e2e/design-budget.cjs "$H/home" budget-report
+      - if: always() && runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-budget-report
+          path: budget-report
+          if-no-files-found: ignore
 
   # The packaged app on real macOS and Windows machines: Keeper's own read-only
   # commands against the system (ports, routes, sensors, powercfg/pmset, WMI,

@@ -46,7 +46,7 @@ export function KeychainBanner({ compact }: { compact?: boolean }) {
         {!compact ? <div className="small">{why}</div> : null}
         {tries > 0 ? <div className="small">Still locked. {mac ? 'macOS asks again after Keeper restarts.' : 'Restarting Keeper reads them again.'}</div> : null}
       </div>
-      <button className="btn sm primary" disabled={busy} onClick={() => void retry()}>{busy ? <span className="spinner" /> : null} Try again</button>
+      <button className="btn sm" disabled={busy} onClick={() => void retry()}>{busy ? <span className="spinner" /> : null} Try again</button>
       {tries > 0 ? <button className="btn sm" onClick={() => void api.permissions.restart()}>Restart Keeper</button> : null}
     </div>
   );

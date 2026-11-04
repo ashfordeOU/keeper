@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
-// Demo data for Settings → Performance.
+// Demo data for Settings → Battery and speed.
 
 import type { UsageApi } from '../core/api-usage';
 

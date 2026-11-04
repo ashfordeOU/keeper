@@ -45,8 +45,9 @@ export function Devices() {
   return (
     <HubContext.Provider value={{ title: 'Devices', tabs: bar }}>
     <div className="link-page">
-      <PageHead title="Devices" sub="Your computers and phones, connected end to end. Pair once, then send files, open shared folders and reach ports — on this network or from anywhere.">
-        <button className="btn primary" onClick={() => setPairing('host')}><Icon name="plus" size={14} /> Pair a Device</button>
+      <PageHead title="Devices" sub="Your computers and phones, connected end to end.">
+        {/* Filled on Paired only: the other tabs have their own main action. */}
+        <button className={`btn ${tab === 'devices' ? 'primary' : ''}`} onClick={() => setPairing('host')}><Icon name="plus" size={14} /> Pair a Device</button>
       </PageHead>
       {tab === 'mesh' ? <Embedded><Suspense fallback={null}><Mesh /></Suspense></Embedded> : tab === 'devices' ? <Overview s={s} onPair={setPairing} /> : tab === 'phone' ? <><Phone s={s} /><div style={{ height: 14 }} /><div className="col" style={{ gap: 14 }}><PhoneMirrorCard /></div></> : tab === 'remote' ? <div className="col" style={{ gap: 14 }}>{helpArg !== undefined ? <HelpCard prefill={helpArg || undefined} /> : null}<Remote s={s} reload={reload} />{helpArg === undefined ? <HelpCard /> : null}<UnattendedCard s={s} /><SurfacesCard s={s} reload={reload} /><AuditCard /><ScreenLog /></div> : <DeviceDetail s={s} d={dev!} />}
       {pairing ? <PairDialog start={pairing} onClose={() => setPairing(null)} /> : null}
@@ -97,7 +98,7 @@ function Overview({ s, onPair }: { s: LinkState; onPair: (m: 'host' | 'join') =>
         <Empty icon="link" title="No devices paired yet">
           <p>Open Keeper on your other computer, choose <b>Pair a Device</b> on one of them and enter the code on the other.</p>
           <div className="btn-row" style={{ justifyContent: 'center' }}>
-            <button className="btn primary" onClick={() => onPair('host')}>Show a Code Here</button>
+            <button className="btn" onClick={() => onPair('host')}>Show a Code Here</button>
             <button className="btn" onClick={() => onPair('join')}>Enter a Code</button>
           </div>
           {s.settings.mode !== 'off' ? (

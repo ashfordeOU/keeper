@@ -8,6 +8,8 @@ export interface SettingsLink {
   label: string;
   /** the page: "settings:<section id>" or another route */
   route: string;
+  /** a name that is gone from Keeper: old messages still lead there, new words must not use it */
+  old?: true;
 }
 
 export const SETTINGS_LINKS: SettingsLink[] = [
@@ -39,8 +41,8 @@ export const SETTINGS_LINKS: SettingsLink[] = [
   { label: 'Settings → Keeper Mesh', route: 'settings:mesh' },
   { label: 'Settings → Ashforde apps', route: 'settings:ashforde' },
   { label: 'Settings → Privacy', route: 'settings:privacy' },
-  { label: 'Settings → Performance', route: 'settings:usage' },
-  { label: 'Settings → System monitor', route: 'settings:monitor' },
+  { label: 'Settings → Performance', route: 'settings:battery', old: true },
+  { label: 'Settings → System monitor', route: 'health:settings', old: true },
   { label: 'Settings → Updates', route: 'settings:updates' },
   { label: 'Settings → Island', route: 'island' },
   { label: 'Agents → Abilities', route: 'agents:abilities' },

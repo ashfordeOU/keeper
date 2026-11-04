@@ -10,7 +10,7 @@ import type { CueTemplate } from '../../core/cues/model';
 import { api } from '../api';
 import { Composer, CueCard, useCues } from '../cues/parts';
 import { Icon } from '../components/Icon';
-import { PageHead, Toggle } from '../components/ui';
+import { Empty, PageHead, Toggle } from '../components/ui';
 import { useStore } from '../state';
 import { Row } from './IslandSettings';
 import '../styles/cues.css';
@@ -77,7 +77,7 @@ export function Cues() {
             {rest.length ? (
               <div className="cues-list">{rest.map((c) => <CueCard key={c.id} cue={c} now={now} textSize={textSize} />)}</div>
             ) : (
-              <div className="empty"><Icon name="pin" size={28} /><b>{list.length ? 'Nothing else open' : q ? 'No cues match' : filter === 'deleted' ? 'Nothing deleted in the last 30 days' : 'No cues here yet'}</b><span>Write one on the right, press {st.settings.shortcut.replace('CommandOrControl', navigator.platform.includes('Mac') ? '⌘' : 'Ctrl').replace(/\+/g, ' ')} in any app, or use the browser extension’s button.</span></div>
+              <Empty icon="pin" title={list.length ? 'Nothing else open' : q ? 'No cues match' : filter === 'deleted' ? 'Nothing deleted lately' : 'No cues here yet'} hint={<>Press <kbd>{st.settings.shortcut.replace('CommandOrControl', navigator.platform.includes('Mac') ? '⌘' : 'Ctrl').replace(/\+/g, ' ')}</kbd> in any app to add one</>}>Write one on the right, or use the browser extension’s button.</Empty>
             )}
           </div>
           <div className="cues-side">

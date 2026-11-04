@@ -22,6 +22,28 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 ### Fixed — Island: opened by a shortcut, it stays open
 - The Island opened by a shortcut, the tray or another window (for example straight to its Calendar tab) no longer closes by itself after two seconds when the pointer is elsewhere; it closes when you move the pointer over it and away, or with Escape.
 
+### Added — Design: a visual budget every page keeps to
+- Every page now keeps to a calm budget: at most six tabs in view (the rest under More), at most five icon-only buttons in a toolbar, one filled button, no label or placeholder cut in the middle of a word and no raw folder paths. A test checks every page, every tab and every Settings section at two window sizes, in every build.
+- Agents, Health, Privacy & Security's checks and Places & Tracks show six tabs and a More menu instead of a long row.
+- Pages with a list of Connect or Fix buttons (Agents, Remote Desktops, the Fix-it List, Privacy & Security, permissions) keep them quiet, so the page's own main action stands out.
+- Folders are named the way you name them ("Documents › Work", "Home") in Notes from Other Apps, Automations, Settings and security findings; startup items say which program they run. The full path is in the tooltip.
+
+### Changed — Sidebar and top bar: calmer and clearer
+- Disks no longer have a thin red bar under their name that looked like a spelling mistake. Point at a disk to see its free space; a disk that is nearly full keeps a small amber dot.
+- Your home folder is always called Home, and the computer This Computer (This PC on Windows, its own name on a Mac). The real name is in the tooltip.
+- "Connect a cloud or server…" no longer gets cut off: it is "Add cloud or server…".
+- The top bar's bare icons are now two labelled buttons: Info (the Inspector) and View, with Open in New Window, Commands and the theme.
+- The search box says "Search everything"; two example searches appear under it when you click into it.
+- A folder's toolbar has New Folder, sort, view and More (Show Hidden Files, Tidy This Folder, Add to Sidebar, Show in Finder), instead of seven buttons.
+
+### Changed — Empty pages that help
+- Every empty list has the same designed look: a small picture in the theme's colours, a short title, one line, the one useful button and a tip. Backups, synced folders, mirrors, Remote Desktops, Cues, Mail accounts, AI Usage, the Inspector and a page that ran into a problem use it now.
+- Settings no longer points to "Settings → Performance"; it is Battery and speed. The help under "Run parts in processes of their own" is one line, with the details under More.
+
+### Fixed — Tests that failed on a busy computer
+- The search speed test compares against a plain scan timed at the same moment, so a busy computer no longer fails it while a real slowdown still does.
+- The usage stats test follows today's setup, and the accessibility test measures the light Island against its own light background.
+
 ### Changed — Screenshots: today's Keeper everywhere
 - Every picture in the README, the docs and the website is new, taken from today's Keeper in light and dark: Hello, Files with its sidebar and type chips, Everywhere, Network & firewall with the Ask prompt, the menu bar, Capture's preview, pins, scrolling captures and Draw on screen, a share link's page, Quick Search, clipboard sets, Typed Snippets, the selection bar, Focus blocking, Time tracking, Journal, Reader, Mail Today, page windows, light apps and app icons, Monitors, Phone Alerts, the photo editor, web page capture, the weather and the Island in several themes.
 - They show sample files and names only, never a real computer's.

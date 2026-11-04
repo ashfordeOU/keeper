@@ -4,6 +4,7 @@
 // bar on its left edge and a reset button (also on right-click), with Undo.
 
 import { useState } from 'react';
+import { friendlyPath } from '../../../core/format';
 import { accelFromKey, accelLabel } from '../../../core/shortcuts';
 import { defaultValue, getPath, isChanged, labelOf, legacyAnchor, patchFor, valueText, type SettingDef } from '../../../core/settings-schema';
 import { api } from '../../api';
@@ -69,7 +70,7 @@ function Control({ def }: { def: SettingDef }) {
         <div className="setting-list">
           <div className="list-box">
             {list.map((f) => (
-              <div key={f} className="li"><Icon name={def.id === 'excluded' ? 'lock' : 'folder'} size={13} /><span className="grow ellipsis">{f}</span>
+              <div key={f} className="li"><Icon name={def.id === 'excluded' ? 'lock' : 'folder'} size={13} /><span className="grow ellipsis" title={f}>{friendlyPath(f, info?.home)}</span>
                 <button className="btn ghost sm icon" title="Remove" aria-label={`Remove ${f}`} onClick={() => set(list.filter((x) => x !== f))}><Icon name="close" size={12} /></button></div>
             ))}
           </div>

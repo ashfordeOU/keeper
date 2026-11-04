@@ -6,7 +6,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ConnectionsView, EngineStatus, SecurityOverview, SecuritySettings } from '../../core/api-security';
-import { formatBytes, relativeTime } from '../../core/format';
+import { formatBytes, friendlyPathsIn, relativeTime } from '../../core/format';
 import { byService, SERVICE_LABEL } from '../../core/security/permissions';
 import type { BrowserProfile, Finding, PermissionGrant, PersistenceItem, QuarantineItem, ScanProgress, SecurityEvent, Severity } from '../../core/security/types';
 import { api } from '../api';
@@ -103,7 +103,8 @@ export function Security() {
 // ---------------------------------------------------------------- findings
 
 function FindingRow({ f, reload }: { f: Finding; reload: (refresh?: boolean) => void }) {
-  const { toast } = useStore();
+  const { toast, info } = useStore();
+  const home = info?.home;
   const [busy, setBusy] = useState(false);
   const doFix = async () => {
     setBusy(true);
@@ -121,11 +122,11 @@ function FindingRow({ f, reload }: { f: Finding; reload: (refresh?: boolean) => 
       <div className="grow">
         <div className="sec-finding-title">{f.title}{f.ignored ? <span className="badge">Ignored</span> : null}</div>
         <div className="small muted">{f.why}</div>
-        {f.detail ? <div className="small sec-detail">{f.detail}</div> : null}
+        {f.detail ? <div className="small sec-detail" title={f.detail}>{friendlyPathsIn(f.detail, home)}</div> : null}
         {f.fix?.steps?.length ? <ol className="small sec-steps">{f.fix.steps.map((s, i) => <li key={i}>{s}</li>)}</ol> : null}
       </div>
       <div className="sec-actions">
-        {f.fix && !f.ignored && (f.fix.action || f.fix.settings) ? <button className="btn sm primary" disabled={busy} onClick={() => void doFix()}>{busy ? <div className="spinner" /> : null}{f.fix.label}</button> : null}
+        {f.fix && !f.ignored && (f.fix.action || f.fix.settings) ? <button className="btn sm" disabled={busy} onClick={() => void doFix()}>{busy ? <div className="spinner" /> : null}{f.fix.label}</button> : null}
         {/* The step-by-step guide (also in the To do list): the system's protections live under the guide's own ids. */}
         {!f.ignored && f.severity !== 'info' ? <button className="btn sm" onClick={() => openGuide(f.id.startsWith('protection.') ? `protection:${f.id.slice(11)}` : `security:${f.id}`)}>Show me how</button> : null}
         <button className="btn sm ghost" data-testid="sec-ignore" onClick={() => void api.security.ignore(f.id, !f.ignored).then(() => reload())}>{f.ignored ? 'Stop ignoring' : 'Ignore'}</button>

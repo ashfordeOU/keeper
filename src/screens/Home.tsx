@@ -184,7 +184,7 @@ function RecentItem({ f, group, index }: { f: FileEntry; group: number; index: n
       {PICTURES.has(f.kind) && !f.dir
         ? <span className="thumb"><Thumb file={f} size={96} /></span>
         : <span className="thumb kind" style={{ color: KIND_COLOR[f.dir ? 'folder' : f.kind], background: `color-mix(in srgb, ${KIND_COLOR[f.dir ? 'folder' : f.kind]} 14%, transparent)` }}><Icon name={f.dir ? 'folder' : f.kind} size={16} /></span>}
-      <span className="name ellipsis">{f.name}</span>
+      <span className="name ellipsis" data-user-text>{f.name}</span>
       <span className="meta">{relativeTime(f.mtime)}</span>
     </button>
   );
@@ -290,7 +290,7 @@ function FolderTiles() {
           return (
             <button key={f.name} className="home-folder" data-testid="home-folder" disabled={!f.path} onClick={() => go({ name: 'browse', arg: f.path })} title={f.path ? `Open ${f.path}` : f.name}>
               <span className="ico" aria-hidden><Icon name={f.icon} size={22} /></span>
-              <span className="name ellipsis">{f.name}</span>
+              <span className="name ellipsis" data-user-text>{f.name}</span>
               <span className="meta ellipsis">{meta}</span>
             </button>
           );

@@ -153,9 +153,9 @@ function Folders({ ov, onChange, reload }: { ov: SyncOverview; onChange: (o: Syn
           </div>
         </div>
       )) : (
-        <Empty icon="refresh" title="No synced folders yet">Choose a folder and the devices to keep it the same on. Older versions are kept, and conflicting edits are never lost.</Empty>
+        <Empty icon="refresh" title="No synced folders yet" action={<button className="btn primary" onClick={() => setAdding(true)}><Icon name="plus" size={14} /> Sync a folder</button>} hint="Older versions are kept, and no edit is ever lost.">Keep a folder the same on your devices.</Empty>
       )}
-      <div><button className="btn primary" onClick={() => setAdding(true)}><Icon name="plus" size={14} /> Sync a folder</button></div>
+      {ov.folders.length ? <div><button className="btn primary" onClick={() => setAdding(true)}><Icon name="plus" size={14} /> Sync a folder</button></div> : null}
       {adding ? <FolderDialog ov={ov} onClose={() => setAdding(false)} onSaved={onChange} /> : null}
       {accepting ? <FolderDialog ov={ov} offer={accepting} onClose={() => setAccepting(null)} onSaved={onChange} /> : null}
       {editing ? <FolderDialog ov={ov} folder={editing} onClose={() => setEditing(null)} onSaved={onChange} /> : null}
@@ -343,9 +343,9 @@ function Backups({ ov, onChange, reload }: { ov: SyncOverview; onChange: (o: Syn
           </div>
         </div>
       )) : (
-        <Empty icon="shield" title="No backups yet">Back up folders to a drive, a NAS or a cloud service. Everything is encrypted on this computer first, and each backup only adds what changed.</Empty>
+        <Empty icon="shield" title="No backups yet" action={<button className="btn primary" onClick={() => setAdding(true)}><Icon name="plus" size={14} /> New backup</button>} hint="Encrypted on this computer first · Only what changed is added">Back up folders to a drive, a NAS or a cloud.</Empty>
       )}
-      <div><button className="btn primary" onClick={() => setAdding(true)}><Icon name="plus" size={14} /> New backup</button></div>
+      {ov.backups.length ? <div><button className="btn primary" onClick={() => setAdding(true)}><Icon name="plus" size={14} /> New backup</button></div> : null}
       {adding ? <BackupWizard onClose={() => setAdding(false)} onSaved={onChange} /> : null}
       {editing ? <BackupEditDialog job={editing} onClose={() => setEditing(null)} onSaved={onChange} /> : null}
       {restoring ? <RestoreDialog job={restoring} onClose={() => setRestoring(null)} /> : null}
@@ -620,8 +620,8 @@ function Mirrors({ ov, onChange }: { ov: SyncOverview; onChange: (o: SyncOvervie
             </div>
           </div>
         </div>
-      )) : <Empty icon="cloud" title="No mirrors yet">For example, keep Screenshots copied to OneDrive, or a Scans folder the same here and in iCloud Drive.</Empty>}
-      <div><button className="btn primary" onClick={() => setAdding(true)}><Icon name="plus" size={14} /> New mirror</button></div>
+      )) : <Empty icon="cloud" title="No mirrors yet" action={<button className="btn primary" onClick={() => setAdding(true)}><Icon name="plus" size={14} /> New mirror</button>} hint="For example, Screenshots copied to OneDrive.">Keep a folder copied to a cloud, or the same in both.</Empty>}
+      {ov.mirrors.length ? <div><button className="btn primary" onClick={() => setAdding(true)}><Icon name="plus" size={14} /> New mirror</button></div> : null}
       {adding ? <MirrorDialog onClose={() => setAdding(false)} onSaved={onChange} /> : null}
       {editing ? <MirrorDialog mirror={editing} onClose={() => setEditing(null)} onSaved={onChange} /> : null}
     </div>

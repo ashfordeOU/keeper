@@ -175,7 +175,7 @@ export function Composer({ st, initial = '', attach, onSaved, onCancel, compact,
       <div className="cue-input-wrap">
         <textarea
           ref={ta} className="cue-input" autoFocus={autoFocus} rows={compact ? 2 : 3} value={text} aria-label="New cue"
-          placeholder={compact ? 'A note, a time, @app — or - steps' : 'Check the comments @figma · Send invoice tomorrow 9am · - steps on new lines'}
+          placeholder={compact ? 'A note, a time, @app — or - steps' : 'A note, a time or @app (- for steps)'}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Tab' && hint) { e.preventDefault(); setText(text + hint); setHint(''); }

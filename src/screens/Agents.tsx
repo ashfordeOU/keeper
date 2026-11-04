@@ -76,9 +76,10 @@ function Connect() {
           <div key={a.id} className="row agent-app">
             <div className="grow">
               <div style={{ fontWeight: 600 }}>{a.label} {a.connected ? <span className="badge accent">Connected</span> : null}</div>
-              <div className="small muted ellipsis" title={a.file}>{a.file.replace(info?.home ?? '\u0000', '~')}</div>
+              {/* The settings file by its name; where it is, in the tooltip. */}
+              <div className="small muted ellipsis" title={a.file}>Settings file: {a.file.split(/[\\/]/).pop()}</div>
             </div>
-            <button className={`btn ${a.connected ? '' : 'primary'}`} onClick={() => void toggle(a)}>{a.connected ? 'Disconnect' : 'Connect'}</button>
+            <button className="btn" onClick={() => void toggle(a)}>{a.connected ? 'Disconnect' : 'Connect'}</button>
           </div>
         ))}
       </div>
@@ -86,7 +87,7 @@ function Connect() {
       <h2 style={{ marginTop: 22 }}>Start an agent</h2>
       <p className="small muted">Agents found on this computer. Each opens in Keeper's Terminal in the folder you choose. Profiles keep separate settings folders, so two accounts of the same agent stay signed in side by side.</p>
       <div className="row" style={{ gap: 8, marginBottom: 10 }}>
-        <input className="input grow" placeholder={`Folder to start in (default: ${info?.home ?? 'home'})`} value={cwd} onChange={(e) => setCwd(e.target.value)} />
+        <input className="input grow" placeholder="Folder to start in (Home if empty)" title={info?.home} value={cwd} onChange={(e) => setCwd(e.target.value)} />
         <button className="btn" onClick={() => setV(v + 1)}><Icon name="refresh" size={13} /> Look again</button>
       </div>
       <div className="agent-grid">
@@ -96,7 +97,7 @@ function Connect() {
             <div key={a.id} className="card agent-card">
               <div className="row" style={{ gap: 8 }}><Icon name="agent" size={18} /><b className="grow">{a.label}</b><span className="small muted">{a.vendor}</span></div>
               <div className="btn-row" style={{ flexWrap: 'wrap', marginTop: 10 }}>
-                <button className="btn primary sm" onClick={async () => toast((await api.agents.launch(a.id, { cwd: cwd || undefined })).message)}><Icon name="play" size={12} /> Start</button>
+                <button className="btn sm" onClick={async () => toast((await api.agents.launch(a.id, { cwd: cwd || undefined })).message)}><Icon name="play" size={12} /> Start</button>
                 {profiles.map((p) => (
                   <span key={p.id} className="profile-chip">
                     <button className="btn sm" onClick={async () => toast((await api.agents.launch(a.id, { profileId: p.id, cwd: cwd || undefined })).message)}>{p.label}</button>

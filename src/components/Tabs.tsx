@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
-// The one tab bar. Tabs that do not fit go into a "More" menu at the end of the
-// row (the chosen tab always stays in view), so a page never gets a second row
-// of tabs. Arrow keys move between tabs and choose them; Home and End jump.
+// The one tab bar. Tabs that do not fit, and any past the visual budget's six
+// (core/design-budget.ts), go into a "More" menu at the end of the row (the
+// chosen tab always stays in view), so a page never gets a second row of tabs
+// or a wall of them. Arrow keys move between tabs and choose them; Home and End jump.
 
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { BUDGET } from '../../core/design-budget';
 import { Icon } from './Icon';
 import { ContextMenu } from './ui';
 
@@ -19,7 +21,7 @@ export interface TabItem<T extends string = string> {
 
 const MORE_W = 100;
 
-export function Tabs<T extends string>({ items, value, onChange, label, className }: { items: TabItem<T>[]; value: T | undefined; onChange: (id: T) => void; /** for screen readers */ label: string; className?: string }) {
+export function Tabs<T extends string>({ items, value, onChange, label, className, max = BUDGET.tabs }: { items: TabItem<T>[]; value: T | undefined; onChange: (id: T) => void; /** for screen readers */ label: string; className?: string; /** tabs in view at most, the rest under More (in the order given, so put the most used first) */ max?: number }) {
   const row = useRef<HTMLDivElement>(null);
   const measure = useRef<HTMLDivElement>(null);
   const [fit, setFit] = useState(items.length);
@@ -36,17 +38,17 @@ export function Tabs<T extends string>({ items, value, onChange, label, classNam
       const avail = el.clientWidth;
       if (!avail) return;
       const total = widths.reduce((a, b) => a + b, 0);
-      if (total <= avail) { setFit(items.length); return; }
+      if (total <= avail && items.length <= max) { setFit(items.length); return; }
       let used = MORE_W;
       let n = 0;
-      for (const w of widths) { if (used + w > avail) break; used += w; n++; }
+      for (const w of widths) { if (used + w > avail || n >= max) break; used += w; n++; }
       setFit(Math.max(1, n));
     };
     calc();
     const ro = new ResizeObserver(calc);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [key, max]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // The chosen tab always shows: it takes the last place that fits.
   const at = items.findIndex((t) => t.id === value);

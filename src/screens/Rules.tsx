@@ -3,7 +3,7 @@
 
 import { useState } from 'react';
 import { KIND_LABEL } from '../../core/classify';
-import { MB, relativeTime } from '../../core/format';
+import { friendlyPath, friendlyPathsIn, MB, relativeTime } from '../../core/format';
 import type { FileKind, Rule, RuleAction, RuleCondition, RulePlanItem } from '../../core/types';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
@@ -40,7 +40,7 @@ export function Rules() {
   const [editing, setEditing] = useState<Rule | null>(null);
   const [running, setRunning] = useState<string | null>(null);
   const list = rules ?? first.data;
-  const short = (p: string) => (info?.home && p.startsWith(info.home) ? '~' + p.slice(info.home.length) : p);
+  const short = (p: string) => friendlyPath(p, info?.home);
 
   const save = async (r: Rule) => setRules(await api.rules.save(r));
 
@@ -76,7 +76,7 @@ export function Rules() {
               <div className="icon-wrap"><Icon name={r.action.type === 'trash' ? 'trash' : 'folder'} size={17} /></div>
               <div className="grow">
                 <h3>{r.name || 'Untitled rule'}</h3>
-                <div className="small muted">When a file in {r.scope.map(short).join(', ') || 'any folder'} is {r.conditions.map(describeCondition).join(' and ')} → {describeAction(r.action).replace(info?.home ?? '\0', '~')}</div>
+                <div className="small muted">When a file in {r.scope.map(short).join(', ') || 'any folder'} is {r.conditions.map(describeCondition).join(' and ')} → {friendlyPathsIn(describeAction(r.action), info?.home)}</div>
                 {r.lastRun ? <div className="small muted">Last ran {relativeTime(r.lastRun)}</div> : null}
               </div>
               <button className="btn ghost sm" onClick={() => void showPlan(r)}><Icon name="eye" size={13} /> Preview</button>
@@ -142,6 +142,7 @@ function blank(type: CondType): RuleCondition {
 }
 
 function RuleEditor({ rule, isNew, onClose, onSave, onDelete }: { rule: Rule; isNew: boolean; onClose: () => void; onSave: (r: Rule) => void; onDelete: () => void }) {
+  const { info } = useStore();
   const [r, setR] = useState<Rule>(rule);
   const setCond = (i: number, c: RuleCondition) => setR({ ...r, conditions: r.conditions.map((x, j) => (j === i ? c : x)) });
 
@@ -154,7 +155,7 @@ function RuleEditor({ rule, isNew, onClose, onSave, onDelete }: { rule: Rule; is
           <span className="small muted">Look in</span>
           <div className="list-box">
             {r.scope.map((s) => (
-              <div key={s} className="li"><Icon name="folder" size={13} /><span className="grow ellipsis">{s}</span><button aria-label="Remove folder" title="Remove folder" className="btn ghost sm icon" onClick={() => setR({ ...r, scope: r.scope.filter((x) => x !== s) })}><Icon name="close" size={12} /></button></div>
+              <div key={s} className="li"><Icon name="folder" size={13} /><span className="grow ellipsis" title={s}>{friendlyPath(s, info?.home)}</span><button aria-label="Remove folder" title="Remove folder" className="btn ghost sm icon" onClick={() => setR({ ...r, scope: r.scope.filter((x) => x !== s) })}><Icon name="close" size={12} /></button></div>
             ))}
           </div>
           <button className="btn sm" style={{ alignSelf: 'flex-start' }} onClick={async () => { const p = await api.settings.pickFolder(); if (p && !r.scope.includes(p)) setR({ ...r, scope: [...r.scope, p] }); }}><Icon name="plus" size={12} /> Add folder</button>

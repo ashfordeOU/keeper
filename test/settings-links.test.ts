@@ -17,7 +17,7 @@ function files(dir: string): string[] {
 }
 
 // Places inside a section that messages may name after it ("Settings → Island → Tools").
-const SECTIONS = SETTINGS_LINKS.filter((l) => l.label.startsWith('Settings → ')).map((l) => l.label.slice('Settings → '.length));
+const SECTIONS = SETTINGS_LINKS.filter((l) => l.label.startsWith('Settings → ') && !l.old).map((l) => l.label.slice('Settings → '.length));
 // Other apps' and systems' own settings that Keeper names (not Keeper's).
 const NOT_KEEPER = /(System|Windows|macOS|desktop’s|desktop's|GNOME|KDE|phone’s|phone's|browser’s|browser's|Chrome|Firefox|Android|iPhone|iOS|Proton|Zoho Mail’s|Fastmail’s|Obsidian|app’s|router’s|OwnTracks|Teams|Zoom|Slack|Discord) ?(\w+ )?$/;
 
@@ -40,6 +40,11 @@ describe('Settings → links', () => {
       }
     }
     expect(bad).toEqual([]);
+  });
+
+  it('old names (Settings → Performance) still lead to their page, but nothing Keeper says uses them', () => {
+    expect(linkInMessage('Choose Balanced in Settings → Performance.')?.route).toBe('settings:battery');
+    expect(SETTINGS_LINKS.filter((l) => l.old).length).toBeGreaterThan(0);
   });
 
   it('a message naming one gets its page; the system’s own settings do not', () => {

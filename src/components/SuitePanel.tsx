@@ -29,7 +29,7 @@ const STATE: Record<SuitePart['state'], string> = {
 };
 
 export function SuitePanel() {
-  const { settings, updateSettings, toast } = useStore();
+  const { settings, updateSettings, toast, go } = useStore();
   const states = useFeatureStates();
   const [parts, setParts] = useState<SuitePart[] | null>(null);
   const [services, setServices] = useState<KeeperProcess[]>([]);
@@ -139,7 +139,11 @@ export function SuitePanel() {
       <div className="feature-row suite-row">
         <div className="grow">
           <div className="feature-name">Run parts in processes of their own</div>
-          <div className="small muted">On: the Island, widgets and Mail keep running if the main window stops, at the cost of some memory for each. Off: everything runs in one process, the lightest choice (the default with Save battery in Settings → Performance). Applies when Keeper starts again.</div>
+          <div className="small muted">Keeps the Island, widgets and Mail alive if the window stops.</div>
+          <details className="small muted suite-more">
+            <summary>More</summary>
+            Each part in its own process uses some more memory. Off runs everything in one process, the lightest choice and the default with Save battery in <button className="link-like" onClick={() => go({ name: 'settings', arg: 'battery' })}>Battery and speed</button>. Applies when Keeper starts again.
+          </details>
           {separate?.env ? <div className="small warn-text">Set to “{separate.env}” for this run by KEEPER_SUITE.</div> : null}
           {changePending ? (
             <div className="small warn-text">Applies at the next start. <button className="btn sm" onClick={() => void api.session.relaunch(false)}>Restart Keeper now</button></div>

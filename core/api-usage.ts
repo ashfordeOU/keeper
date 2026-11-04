@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
-// Keeper's own use of the computer, for Settings → Performance.
+// Keeper's own use of the computer, for Settings → Battery and speed.
 
 import type { ResourceMode, WorkKind } from './governor';
 

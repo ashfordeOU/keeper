@@ -91,3 +91,4 @@
 .rdp-signin .input { min-width: 220px; }
 .rdc-certq .rdc-fp { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; }
 .rdc-certq .rdc-fp b { font-weight: 600; color: var(--text-2); }
+.rdc-toolbar .btn.on { color: var(--accent); background: var(--accent-soft); }

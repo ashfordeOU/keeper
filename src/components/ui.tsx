@@ -816,14 +816,37 @@ export function Check({ on, onChange, label }: { on: boolean; onChange: (v: bool
   );
 }
 
-/** The one empty state: an icon, a title, a line of text and an optional button row. */
-export function Empty({ icon = 'search', title, children, action }: { icon?: string; title: string; children?: ReactNode; /** buttons under the text */ action?: ReactNode }) {
+/**
+ * The one empty state, the same on every page: a small illustration in Keeper's style (the
+ * page's icon on a card, on a soft accent shape that recolours with the theme), a short title,
+ * one line of text, the one useful next action (and maybe an Import or Learn beside it) and a
+ * shortcut hint. Problems (icon "warning") get a calmer amber shape.
+ */
+export function Empty({ icon = 'search', title, children, action, hint }: { icon?: string; title: string; children?: ReactNode; /** buttons under the text: one main action, at most one more */ action?: ReactNode; /** a shortcut or tip under the buttons ("Drop files here", "⌘N makes one") */ hint?: ReactNode }) {
   return (
-    <div className="empty">
-      <Icon name={icon} size={40} stroke={1.3} />
+    <div className={`empty ${icon === 'warning' || icon === 'lock' ? 'problem' : ''}`} data-testid="empty-state">
+      <EmptyArt icon={icon} />
       <div className="empty-title">{title}</div>
       {children ? <div className="small empty-text">{children}</div> : null}
       {action ? <div className="btn-row empty-actions">{action}</div> : null}
+      {hint ? <div className="empty-hint">{hint}</div> : null}
+    </div>
+  );
+}
+
+/** The empty state's picture: drawn here, on this computer, in the theme's own colours. */
+export function EmptyArt({ icon }: { icon: string }) {
+  return (
+    <div className="empty-art" aria-hidden>
+      <svg viewBox="0 0 160 112" width="160" height="112">
+        <path className="empty-art-blob" d="M30 64c-6-24 10-46 38-50 20-3 30 6 46 4 22-3 38 12 36 34-2 26-24 44-54 46-36 3-60-10-66-34z" />
+        <rect className="empty-art-card back" x="44" y="30" width="58" height="46" rx="12" transform="rotate(-8 73 53)" />
+        <rect className="empty-art-card" x="58" y="26" width="58" height="58" rx="14" />
+        <circle className="empty-art-dot" cx="128" cy="26" r="5" />
+        <circle className="empty-art-dot soft" cx="28" cy="34" r="3.5" />
+        <circle className="empty-art-dot soft" cx="136" cy="86" r="3" />
+      </svg>
+      <span className="empty-art-icon"><Icon name={icon} size={26} stroke={1.6} /></span>
     </div>
   );
 }

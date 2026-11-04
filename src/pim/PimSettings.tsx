@@ -14,7 +14,7 @@ import { docUrl } from '../../core/brand';
 import { errorText } from '../../core/ipc-error';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
-import { Toggle } from '../components/ui';
+import { Empty, Toggle } from '../components/ui';
 import { useStore } from '../state';
 import { AccountDialog } from './AccountDialog';
 import { CalendarSources } from './CalendarSources';
@@ -114,8 +114,8 @@ export function PimSettings() {
           <button className="btn sm ghost icon" title="Remove account" aria-label="Remove account" onClick={() => { if (window.confirm(`Remove ${a.label} from Keeper? Mail and events stay on the server.`)) void api.pim.removeAccount(a.id); }}><Icon name="trash" size={13} /></button>
           {a.mail ? <AccountMailRow a={a} /> : null}
         </div>
-      )) : <div className="small muted">No accounts yet.</div>}
-      <button className="btn sm" style={{ marginTop: 8 }} onClick={() => setAdding(true)}><Icon name="plus" size={13} /> Add account</button>
+      )) : <Empty icon="mail" title="No accounts yet" action={<button className="btn primary" onClick={() => setAdding(true)}><Icon name="plus" size={13} /> Add account</button>}>Mail, calendars and contacts from Google, Microsoft, iCloud or any server.</Empty>}
+      {accounts.length ? <button className="btn sm" style={{ marginTop: 8 }} onClick={() => setAdding(true)}><Icon name="plus" size={13} /> Add account</button> : null}
 
       <div style={{ fontWeight: 600, margin: '18px 0 2px' }}>Mail</div>
       <Row title="Notify about new mail" desc="A notification and an Island alert when mail arrives in an inbox."><Toggle on={prefs.notifyMail} onChange={(v) => void set({ notifyMail: v })} /></Row>

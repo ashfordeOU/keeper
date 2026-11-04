@@ -8,6 +8,7 @@ import type { FileEntry } from '../../core/types';
 import { api } from '../api';
 import { useStore } from '../state';
 import { Icon } from './Icon';
+import { Empty } from './ui';
 import { InspectorAi } from './InspectorAi';
 import { RelatedPanel } from './RelatedPanel';
 import { FileVersions } from '../screens/Sync';
@@ -57,10 +58,7 @@ export function Inspector({ frozen = false }: { frozen?: boolean } = {}) {
   if (!file) {
     return (
       <aside className="inspector" id="inspector" aria-label="Inspector">
-        <div className="empty" style={{ padding: '80px 10px' }}>
-          <Icon name="info" size={34} stroke={1.3} />
-          <div className="small">Select a file to see its details.</div>
-        </div>
+        <Empty icon="info" title="Nothing selected">Select a file to see its details.</Empty>
       </aside>
     );
   }

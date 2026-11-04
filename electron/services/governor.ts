@@ -7,7 +7,7 @@
 //   await whenIdle('embed')        wait until this kind of work may run
 //   await pace('ocr')              a short pause between two items
 //   poll('media', rule, fn)        a regular check that slows down when nobody looks
-//   track('ocr', 'Reading text')   shows up in Settings → Performance
+//   track('ocr', 'Reading text')   shows up in Settings → Battery and speed
 
 import { jobHelpers, trackHelper } from '../helpers-registry';
 import { DEFAULT_LIMITS } from '../../core/limits';
@@ -365,7 +365,7 @@ export interface JobHandle {
 let jobSeq = 0;
 /**
  * A long job the person started (a recording, an export, a download, a backup, a transfer).
- * It is listed as Keeper's work (Settings → Performance) while it runs, so Keep Awake's
+ * It is listed as Keeper's work (Settings → Battery and speed) while it runs, so Keep Awake's
  * "while Keeper is working" trigger holds the computer awake for it. With `keepAwake` the
  * job also keeps the computer from sleeping itself (the display may still turn off): for
  * recordings, which would be cut short. Call end() when it finishes or fails.

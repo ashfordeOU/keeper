@@ -182,7 +182,8 @@ body.resizing iframe { pointer-events: none; }
 .ab-rules { display: flex; flex-direction: column; gap: 10px; }
 .ab-rule-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
 .ab-rule-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; }
-.input.sm { width: 80px; padding: 2px 6px; }
+/* Small fields on the agent board only (this once leaked to every small field in Keeper). */
+.agent-board .input.sm { width: 80px; padding: 2px 6px; }
 @media (max-width: 760px) { .ab-cols { grid-template-columns: 1fr 1fr; } .ab-rooms { flex-direction: column; } .ab-room-list { width: auto; flex-direction: row; flex-wrap: wrap; } }
 
 /* Editor-class help: the pinned command, quick fixes, recent commands and suggestions. */

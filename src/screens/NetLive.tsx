@@ -231,7 +231,7 @@ function Inspector({ s, a, icon, act, spark }: { s: FwStatus; a: LiveApp; icon?:
         <AppIcon name={a.app} src={icon} size={40} />
         <div className="nm-insp-title">
           <h3>{a.app}</h3>
-          <small title={a.appPath}>{a.signer ? `Signed by ${a.signer}` : a.appPath ?? 'Path unknown'}</small>
+          <small title={a.appPath}>{a.signer ? `Signed by ${a.signer}` : 'Not signed'}</small>
         </div>
       </div>
       <div className="nm-facts" aria-label="Right now">
@@ -250,7 +250,7 @@ function Inspector({ s, a, icon, act, spark }: { s: FwStatus; a: LiveApp; icon?:
       <div className="nm-insp-grid">
         <label>For<select className="input sm" value={scope} onChange={(e) => { const sc = e.target.value as Scope; setScope(sc); if (rule) void act(api.fw.quickRule(target(), rule.verdict, sc, profiles)); }}>{SCOPES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
         <label>Where<select className="input sm" value={profiles[0] ?? ''} onChange={(e) => { const p = e.target.value ? [e.target.value] : []; setProfiles(p); if (rule) void act(api.fw.quickRule(target(), rule.verdict, scope, p)); }}>
-          <option value="">Every network</option>
+          <option value="">Any network</option>
           {s.state.profiles.map((p) => <option key={p.id} value={p.id}>Only {p.name}</option>)}
         </select></label>
       </div>

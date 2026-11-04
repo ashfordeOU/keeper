@@ -283,7 +283,8 @@ export function FindingCard({ f, compact }: { f: FindingView; compact?: boolean 
         {!compact ? <div className="small muted">{f.why}</div> : null}
       </div>
       <span className={`badge ${SEV_CLASS[f.severity]}`}>{severityWord(f.severity)}</span>
-      <button className="btn sm primary" onClick={() => openGuide(f.id)}>{f.fix.kind === 'auto' ? f.fix.label : 'Fix'}</button>
+      {/* Quiet, so a page with several of these keeps its own main action. */}
+      <button className="btn sm" onClick={() => openGuide(f.id)}>{f.fix.kind === 'auto' ? f.fix.label : 'Fix'}</button>
     </div>
   );
 }

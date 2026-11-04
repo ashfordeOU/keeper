@@ -235,7 +235,7 @@ export function Calendar() {
           <h2 className="cal-title">{title}{view === 'week' && weekNums ? <span className="small muted"> · week {isoWeek(from + 3 * DAY)}</span> : null}</h2>
           <div className="quick-add">
             <Icon name="plus" size={14} />
-            <input value={quick} onChange={(e) => setQuick(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void addQuick()} placeholder="Quick add: “Lunch with Ana Friday 1pm”" aria-label="Quick add an event" />
+            <input value={quick} onChange={(e) => setQuick(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void addQuick()} placeholder="Lunch Friday 1pm" title="Quick add: type what and when, like “Lunch with Ana Friday 1pm”" aria-label="Quick add an event" />
             {preview ? <span className="quick-preview small">{preview.title} · {new Date(preview.start).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: preview.allDay ? undefined : 'numeric', minute: preview.allDay ? undefined : '2-digit' })}{preview.rrule ? ' · repeats' : ''}</span> : null}
           </div>
           <div className="seg">

@@ -2,6 +2,7 @@
 // Startup Items: what opens when you sign in, and a switch to stop it.
 
 import { useState } from 'react';
+import { programName } from '../../core/format';
 import type { StartupItem } from '../../core/types';
 import { api } from '../api';
 import { Empty, Loading, PageHead, Toggle } from '../components/ui';
@@ -49,7 +50,7 @@ export function Startup() {
                   <tr key={it.id} style={{ opacity: it.enabled ? 1 : 0.6 }}>
                     <td>
                       <div style={{ fontWeight: 600 }}>{it.name}</div>
-                      <div className="small muted ellipsis" style={{ maxWidth: 420 }} title={it.command}>{it.publisher ? `${it.publisher} · ` : ''}{it.command}</div>
+                      <div className="small muted ellipsis" style={{ maxWidth: 420 }} title={it.command}>{it.publisher ? `${it.publisher} · ` : ''}Runs {programName(it.command)}</div>
                     </td>
                     <td><span className={`badge ${IMPACT[it.impact]}`}>{it.impact === 'unknown' ? 'Unknown' : it.impact.charAt(0).toUpperCase() + it.impact.slice(1)}</span></td>
                     <td className="muted small">{it.source}</td>

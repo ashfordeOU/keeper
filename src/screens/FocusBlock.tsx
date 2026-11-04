@@ -82,7 +82,7 @@ function Hero({ st, run }: { st: FocusBlockStatus; run: (p: Promise<FocusBlockSt
                 {st.data.lists.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
               </select>
             </label>
-            {[30, 60, 120].map((m) => <button key={m} className="btn sm primary" data-testid={`fb-start-${m}`} onClick={() => run(api.focusBlock.start(list, m, strict))}>{m < 60 ? `${m} min` : `${m / 60} hour${m === 60 ? '' : 's'}`}</button>)}
+            {[30, 60, 120].map((m) => <button key={m} className={`btn sm ${m === 60 ? 'primary' : ''}`} data-testid={`fb-start-${m}`} onClick={() => run(api.focusBlock.start(list, m, strict))}>{m < 60 ? `${m} min` : `${m / 60} hour${m === 60 ? '' : 's'}`}</button>)}
             <label className="fb-inline small"><input type="checkbox" checked={strict} onChange={(e) => setStrict(e.target.checked)} /> Strict</label>
           </>
         ) : null}
@@ -168,7 +168,6 @@ function ListCard({ list, st, run, locked }: { list: BlockList; st: FocusBlockSt
         <div className="fb-part-title">Sites</div>
         <div className="chips">
           {list.sites.map((s) => <span key={s} className="chip">{s}{locked ? null : <button aria-label={`Remove ${s}`} onClick={() => save({ sites: list.sites.filter((x) => x !== s) })}><Icon name="close" size={11} /></button>}</span>)}
-          {!list.sites.length ? <span className="muted small">No sites yet.</span> : null}
         </div>
         {!locked ? (
           <form className="fb-add" onSubmit={(e) => { e.preventDefault(); addSites(); }}>
@@ -181,7 +180,6 @@ function ListCard({ list, st, run, locked }: { list: BlockList; st: FocusBlockSt
         <div className="fb-part-title">Apps</div>
         <div className="chips">
           {list.apps.map((a) => <span key={a} className="chip">{a}{locked ? null : <button aria-label={`Remove ${a}`} onClick={() => save({ apps: list.apps.filter((x) => x !== a) })}><Icon name="close" size={11} /></button>}</span>)}
-          {!list.apps.length ? <span className="muted small">No apps yet.</span> : null}
         </div>
         {!locked ? (
           <form className="fb-add" onSubmit={(e) => { e.preventDefault(); addApp(); }}>

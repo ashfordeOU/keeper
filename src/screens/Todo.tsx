@@ -237,7 +237,7 @@ function FixRow({ f, later, selected, onSelect, actions }: { f: FindingView; lat
             <button className="btn sm" data-testid="fixit-trust" title="It is mine and fine: hide it until it changes" onClick={() => actions.trust(f.id)}>{s ? 'Trust' : 'Keep it'}</button>
             <button className="btn sm" data-testid="fixit-snooze" aria-haspopup="menu" onClick={(e) => actions.snoozeMenu(e, [f.id])}>Snooze <Icon name="chevronDown" size={11} /></button>
             <button className="btn sm ghost" aria-haspopup="menu" aria-label={`More actions for “${f.title}”`} onClick={more}>More</button>
-            <button className="btn sm primary" data-testid="fixit-fix" onClick={() => openGuide(f.id)}>{f.fix.kind === 'auto' ? f.fix.label : 'Fix'}</button>
+            <button className="btn sm" data-testid="fixit-fix" onClick={() => openGuide(f.id)}>{f.fix.kind === 'auto' ? f.fix.label : 'Fix'}</button>
           </span>
         )}
       </div>

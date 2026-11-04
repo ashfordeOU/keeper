@@ -76,7 +76,7 @@ export function Apps() {
                   <tr key={a.id}>
                     <td>
                       <div className="row"><b>{a.name}</b>{a.system ? <span className="badge">System</span> : null}{unused ? <span className="badge warn">Unused</span> : null}</div>
-                      <div className="small muted ellipsis" style={{ maxWidth: 380 }} title={a.path}>{a.publisher ? `${a.publisher} · ` : ''}{a.path}</div>
+                      <div className="small muted ellipsis" style={{ maxWidth: 380 }} title={a.path}>{a.publisher ?? (info?.home && a.path.startsWith(info.home) ? 'Installed for you' : 'Installed for everyone')}</div>
                     </td>
                     <td className="muted small">{a.version ?? '—'}</td>
                     <td className="num">{a.size ? formatBytes(a.size) : '—'}</td>

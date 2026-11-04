@@ -88,7 +88,7 @@ function Row({ it, platform, onAct, current, lit }: { it: PermissionItem; platfo
         <details className="small perm-revoke"><summary>How to take it back</summary>{it.revoke}</details>
       </div>
       <div className="perm-act">
-        {actionable && it.state !== 'notNeeded' ? <button className={`btn sm ${it.state === 'missing' ? 'primary' : ''}`} onClick={() => onAct(it)}>{actionLabel(it, platform)}</button> : null}
+        {actionable && it.state !== 'notNeeded' ? <button className="btn sm" onClick={() => onAct(it)}>{actionLabel(it, platform)}</button> : null}
         {it.state === 'notNeeded' && it.how !== 'info' && it.how !== 'test' ? <button className="btn sm ghost" onClick={() => onAct(it)} title="Allow it now, before turning on a feature that uses it">Allow anyway</button> : null}
         {it.how === 'info' && it.settingsUrl ? <button className="btn sm ghost" onClick={() => void api.permissions.openSettings(it.id)}>Open settings</button> : null}
       </div>

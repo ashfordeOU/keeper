@@ -39,7 +39,8 @@ export function UsagePage({ initial }: { initial?: string }) {
       <PageHead title="AI Usage" sub="What is left of your AI accounts’ limits, credits and budgets, and what your subscriptions cost.">
         <button className="btn sm" disabled={busy} onClick={() => void refresh()}><Icon name="refresh" size={14} />{busy ? 'Looking…' : 'Refresh'}</button>
         <button className="btn sm" onClick={() => void api.aiUsage.exportCsv().then((r) => r.path && store.toast(`Saved ${r.rows} rows to ${r.path}`))}><Icon name="down" size={14} />Export CSV</button>
-        <button className="btn sm primary" onClick={() => setEdit({ provider: 'claude-web', name: '' })}><Icon name="plus" size={14} />Add account</button>
+        {/* The page's one filled button; while there are no accounts, the empty state has it. */}
+        <button className={`btn sm ${o.accounts.length ? 'primary' : ''}`} onClick={() => setEdit({ provider: 'claude-web', name: '' })}><Icon name="plus" size={14} />Add account</button>
       </PageHead>
       <Tabs label="AI Usage" value={tab} onChange={setTab} items={TABS.map(([id, label]) => ({ id, label }))} />
       {tab === 'overview' ? <Overview o={o} onAdd={() => setTab('accounts')} /> : null}
@@ -57,7 +58,7 @@ type O = NonNullable<ReturnType<typeof useUsage>['o']>;
 
 function Overview({ o, onAdd }: { o: O; onAdd: () => void }) {
   if (!o.accounts.length) {
-    return <Empty icon="chart" title="No AI accounts yet"><p className="muted">Sign in to a Claude or ChatGPT subscription (as many accounts as you have, each kept apart), add a coding tool on this computer (each config folder is its own account), a service with an admin or usage key, Keeper’s own calls, or a subscription you pay for. Nothing is read until you do.</p><button className="btn primary" onClick={onAdd}>Add an account</button></Empty>;
+    return <Empty icon="chart" title="No AI accounts yet"><p className="muted">Sign in to an AI subscription, a coding tool or a service key. Nothing is read until you do.</p><button className="btn primary" onClick={onAdd}>Add an account</button></Empty>;
   }
   const s = o.summary;
   return (
@@ -99,7 +100,7 @@ function Accounts({ o, onEdit, reload }: { o: O; onEdit: (a: Partial<AccountInpu
   return (
     <>
       <div className="card" style={{ padding: 0 }}>
-        {!o.accounts.length ? <div className="muted" style={{ padding: 14 }}>No accounts yet.</div> : o.accounts.map((a, i) => (
+        {!o.accounts.length ? <Empty icon="chart" title="No AI accounts yet" action={<button className="btn primary" onClick={() => onEdit({ provider: 'claude-web', name: '' })}>Add an account</button>}>Nothing is read until you add one.</Empty> : o.accounts.map((a, i) => (
           <div className="acc-row" key={a.id} data-testid="usage-account-row">
             <span className="handle">
               <button className="btn ghost icon sm" aria-label={`Move ${a.name} up`} disabled={!i} onClick={() => move(i, -1)}><Icon name="chevronDown" size={12} style={{ transform: 'rotate(180deg)' }} /></button>

@@ -179,16 +179,19 @@ function RdcPage() {
   );
 }
 
+/** Import .rdp and .vnc files, SSH hosts or a Keeper list, from the toolbar or the empty list. */
+async function importConnections(reload: () => void, toast: (t: string) => void) {
+  try {
+    const r = await api.rdc.importFile();
+    if (!r) return;
+    toast(`Imported ${r.added.length} connection${r.added.length === 1 ? '' : 's'}${r.secrets ? `, ${r.secrets} password${r.secrets === 1 ? '' : 's'} into the keychain` : ''}${r.skipped ? ` (${r.skipped} already here)` : ''}`);
+    reload();
+  } catch (e) { toast(clean(e)); }
+}
+
 function ImportExport({ s, reload, toast }: { s: RdcState | null; reload: () => void; toast: (t: string) => void }) {
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
-  const doImport = async () => {
-    try {
-      const r = await api.rdc.importFile();
-      if (!r) return;
-      toast(`Imported ${r.added.length} connection${r.added.length === 1 ? '' : 's'}${r.secrets ? `, ${r.secrets} password${r.secrets === 1 ? '' : 's'} into the keychain` : ''}${r.skipped ? ` (${r.skipped} already here)` : ''}`);
-      reload();
-    } catch (e) { toast(clean(e)); }
-  };
+  const doImport = () => importConnections(reload, toast);
   const doExport = async (f: Format) => {
     try {
       const p = await api.rdc.exportTo([], f);
@@ -197,7 +200,7 @@ function ImportExport({ s, reload, toast }: { s: RdcState | null; reload: () => 
   };
   return (
     <>
-      <button className="btn" onClick={() => void doImport()} title="Import .rdp, .vnc, ~/.ssh/config or Keeper JSON"><Icon name="down" size={14} /> Import</button>
+      <button className="btn" onClick={() => void doImport()} title="Import .rdp and .vnc files, your SSH hosts or a Keeper list"><Icon name="down" size={14} /> Import</button>
       <button className="btn" disabled={!s?.connections.length} onClick={(e) => setMenu({ x: e.clientX, y: e.clientY })}><Icon name="share" size={14} /> Export</button>
       {menu ? <ContextMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)} items={[
         { label: 'All, as Keeper JSON', icon: 'document', run: () => void doExport('json') },
@@ -279,10 +282,10 @@ function Connections({ s, reload }: { s: RdcState; reload: () => void }) {
           <option value="">All folders</option>
           {folders.map((f) => <option key={f} value={f}>{f}</option>)}
         </select>
-        <button className={`btn ${favs ? 'primary' : ''}`} onClick={() => setFavs(!favs)} title="Favourites only" aria-label="Favourites only"><Icon name="star" size={14} /></button>
+        <button className={`btn ${favs ? 'on' : ''}`} aria-pressed={favs} onClick={() => setFavs(!favs)} title="Favourites only" aria-label="Favourites only"><Icon name="star" size={14} /></button>
         <div className="grow" />
-        {picked.size ? <button className="btn primary" onClick={() => void openMany()}>Open {picked.size} in Tabs</button> : null}
-        <button className="btn primary" onClick={() => setEdit(blank())} data-testid="rdc-new"><Icon name="plus" size={14} /> New Connection</button>
+        {picked.size ? <button className="btn" onClick={() => void openMany()}>Open {picked.size} in Tabs</button> : null}
+        <button className="btn" onClick={() => setEdit(blank())} data-testid="rdc-new"><Icon name="plus" size={14} /> New Connection</button>
       </div>
       {tags.length ? (
         <div className="rdc-tags">
@@ -291,8 +294,8 @@ function Connections({ s, reload }: { s: RdcState; reload: () => void }) {
       ) : null}
 
       {!s.connections.length ? (
-        <Empty icon="laptop" title="No saved connections yet">
-          Type an address above to connect now, press New Connection, or Import your .rdp files, .vnc files or ~/.ssh/config.
+        <Empty icon="laptop" title="No saved connections yet" action={<><button className="btn" onClick={() => void importConnections(reload, toast)}><Icon name="down" size={14} /> Import</button><button className="btn ghost" onClick={() => setEdit(blank())}><Icon name="plus" size={14} /> New Connection</button></>} hint="Type an address above to connect now.">
+          Import .rdp and .vnc files or your SSH hosts, or add one yourself.
         </Empty>
       ) : !list.length ? <Empty icon="search" title="Nothing matches" /> : (
         <div className="rdc-grid">
@@ -313,7 +316,7 @@ function Connections({ s, reload }: { s: RdcState; reload: () => void }) {
                 {c.lastUsed ? <span className="grow" style={{ textAlign: 'right' }}>{relativeTime(c.lastUsed)}</span> : null}
               </div>
               <div className="row" style={{ gap: 6 }}>
-                <button className="btn sm primary" onClick={() => void open(c)} data-testid="rdc-connect">Connect</button>
+                <button className="btn sm" onClick={() => void open(c)} data-testid="rdc-connect">Connect</button>
                 {c.mac ? <button className="btn sm ghost" title="Wake it up (Wake-on-LAN)" aria-label="Wake it up (Wake-on-LAN)" onClick={() => void api.rdc.wake(c.id).then((r) => toast(`Sent the wake-up signal (${r.sent} packets)`)).catch((e) => toast(clean(e)))}><Icon name="power" size={13} /></button> : null}
                 <div className="grow" />
                 <button className="btn sm ghost icon" title="Edit" aria-label="Edit" onClick={() => setEdit(c)}><Icon name="rename" size={13} /></button>
@@ -338,7 +341,7 @@ function Connections({ s, reload }: { s: RdcState; reload: () => void }) {
                 </div>
                 <div className="small muted">{d.online ? 'Reachable now' : 'Not reachable'}</div>
                 <div className="row" style={{ gap: 6 }}>
-                  <button className="btn sm primary" disabled={!d.online} onClick={() => void api.screen.view(d.id, { control: true }).catch((e) => toast(clean(e)))}>Connect</button>
+                  <button className="btn sm" disabled={!d.online} onClick={() => void api.screen.view(d.id, { control: true }).catch((e) => toast(clean(e)))}>Connect</button>
                   <button className="btn sm ghost" title="Wake it up" aria-label="Wake it up" onClick={() => void api.screen.wake(d.id).then((r) => toast(r.sent ? 'Sent the wake-up signal' : 'Keeper does not know its network card yet')).catch((e) => toast(clean(e)))}><Icon name="power" size={13} /></button>
                   <button className="btn sm ghost" title="Add a Remote Desktop or VNC connection that goes through this device" onClick={() => setEdit({ ...blank('rdp'), name: d.name, host: 'localhost', gateway: { kind: 'link', device: d.id } })}>Add RDP/VNC via Link</button>
                 </div>
