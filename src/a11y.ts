@@ -7,7 +7,7 @@
 import { useEffect, useLayoutEffect, useRef, type RefObject } from 'react';
 import type { Progress } from '../core/types';
 import { api } from './api';
-import { reduceMotion, type A11ySettings } from '../core/a11y';
+import { reduceMotion, type A11ySettings, type ReadingFont } from '../core/a11y';
 
 // ------------------------------------------------------------------ settings on the page
 
@@ -36,11 +36,47 @@ export function applyA11y(a: Partial<A11ySettings> | undefined, root: HTMLElemen
   const scale = a?.textScale && a.textScale > 1 ? a.textScale : 1;
   if (scale > 1) root.style.setProperty('--ui-scale', String(scale));
   else root.style.removeProperty('--ui-scale');
-  root.dataset.scaled = scale > 1 ? 'true' : 'false';
+  // Reflow: larger text wraps to the window (the type scale grows); otherwise the window zooms as a whole.
+  root.dataset.scaled = scale > 1 && !a?.reflow ? 'true' : 'false';
+  root.dataset.reflow = scale > 1 && a?.reflow ? 'true' : 'false';
+  if (a?.lineSpacing) root.style.setProperty('--reading-line', String(a.lineSpacing));
+  else root.style.removeProperty('--reading-line');
+  if (a?.letterSpacing) root.style.setProperty('--reading-letter', `${a.letterSpacing}em`);
+  else root.style.removeProperty('--reading-letter');
+  root.dataset.readingSpace = a?.lineSpacing || a?.letterSpacing ? 'true' : 'false';
+  root.dataset.bigTargets = a?.bigTargets ? 'true' : 'false';
+  void loadReadingFont(a?.readingFont ?? 'theme', root);
   if (typeof matchMedia !== 'function') return () => undefined;
   const mq = matchMedia('(prefers-reduced-motion: reduce)');
   mq.addEventListener('change', set);
   return () => mq.removeEventListener('change', set);
+}
+
+// ------------------------------------------------------------------ reading fonts
+
+const loadedFonts = new Set<string>();
+
+/** Loads a reading font once (the main process fetches and checks it), then switches the window to it. */
+async function loadReadingFont(id: ReadingFont, root: HTMLElement) {
+  if (id === 'theme') { delete root.dataset.readingFont; root.style.removeProperty('--reading-font'); return; }
+  try {
+    const f = await api.reading?.font(id);
+    if (!f) return;
+    if (!loadedFonts.has(f.family)) {
+      for (const face of f.faces) {
+        const bytes = Uint8Array.from(atob(face.data), (c) => c.charCodeAt(0));
+        const ff = new FontFace(f.family, bytes, { weight: String(face.weight) });
+        await ff.load();
+        document.fonts.add(ff);
+      }
+      loadedFonts.add(f.family);
+    }
+    root.style.setProperty('--reading-font', `'${f.family}'`);
+    root.dataset.readingFont = id;
+  } catch (e) {
+    console.warn('reading font', e);
+    delete root.dataset.readingFont;
+  }
 }
 
 // ------------------------------------------------------------------ keys everywhere
@@ -74,6 +110,24 @@ export function installKeyboardHelpers() {
     if (seg && t.tagName === 'BUTTON' && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
       arrowNav(e, seg, ':scope > button', 'horizontal');
       return;
+    }
+    // Tables: Up and Down move to the same control in the row above or below (or to the row itself).
+    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      const row = t.closest<HTMLElement>('[role="row"], tr');
+      const table = row?.closest<HTMLElement>('[role="table"], [role="grid"], table');
+      if (row && table && !table.matches('.file-list')) {
+        const rows = [...table.querySelectorAll<HTMLElement>('[role="row"], tr')].filter((r) => r.closest('[role="table"], [role="grid"], table') === table && !r.closest('thead'));
+        const next = rows[rows.indexOf(row) + (e.key === 'ArrowDown' ? 1 : -1)];
+        if (next) {
+          const here = focusables(row);
+          const there = focusables(next);
+          const target = there[Math.max(0, Math.min(there.length - 1, here.indexOf(t)))] ?? next;
+          if (target === next && !next.hasAttribute('tabindex')) next.tabIndex = -1;
+          e.preventDefault();
+          target.focus();
+        }
+        return;
+      }
     }
     const menu = t.closest<HTMLElement>('.menu, [role="menu"], [role="listbox"]:not(.file-grid)');
     if (menu) {

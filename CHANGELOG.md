@@ -65,6 +65,13 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - Archives' What works here says "Opens with your system's tools" instead of naming the program underneath; only 7-Zip is named, where it needs installing.
 - Snap Windows on Linux says "Works with apps on this desktop".
 
+### Added — Reading comfort and read aloud
+- Text size goes up to 200%, and Wrap larger text lets it grow and wrap to the window instead of zooming everything.
+- A reading font: Atkinson Hyperlegible or OpenDyslexic, downloaded once when you choose it and checked before use. Line spacing and letter spacing for pages, notes and mail.
+- Larger buttons: every button and switch at least 44 pixels tall.
+- Read aloud with your computer's own voice: Read Aloud in the command palette (the selection or the page) and in Notes' menu. Off until you turn it on; the Easier reading and Screen reader add-ons turn it on.
+- Up and Down move between rows in every table.
+
 ### Added — The phone companion opens on Today
 - The page your phone opens from Devices → Phone now starts with Today: the day's events, today's tasks with a box to tick each off, Catch something (words, a photo or a voice note into the Inbox) and Find my files on the computer, with Show on computer.
 - Clipboard, AI and Terminal moved under More, so the row stays short.

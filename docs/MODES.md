@@ -141,19 +141,20 @@ Larger text, clear focus outlines and less motion.
 Roomy spacing, focus outlines and keyboard first.
 
 - **Turns on:** Dictation
-- **Settings:** Focus outlines: Always · Motion: Reduced · Spacing: Comfortable · Text size: 110%
+- **Settings:** Focus outlines: Always · Motion: Reduced · Spacing: Comfortable · Text size: 110% · Larger buttons: On
 
 ### What Easier reading changes (add-on)
 
 A rounded font, a little larger, and calm pages.
 
-- **Turns on:** Dictation
-- **Settings:** Text style: Rounded · Text size: 110% · Motion: Reduced
+- **Turns on:** Dictation, Read aloud
+- **Settings:** Text style: Rounded · Text size: 110% · Motion: Reduced · Line spacing: 1.6 · Letter spacing: Wider
 
 ### What Screen reader changes (add-on)
 
 No moving backgrounds; focus outlines always on.
 
+- **Turns on:** Read aloud
 - **Turns off:** Live wallpaper, Vibes, Desktop widgets
 - **Settings:** Focus outlines: Always · Motion: Reduced
 

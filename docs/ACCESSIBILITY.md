@@ -10,8 +10,24 @@ On a Mac, ⌘ is Command. On Windows and Linux, read ⌘ as Ctrl.
 | Setting | What it does |
 | --- | --- |
 | **Reduce motion**: Follow system / On / Off | Cuts animations and transitions short everywhere: the Island's changes of shape, toasts, menus, page and panel transitions, and moving wallpapers. Wallpaper scenes show one still frame, and video and picture wallpapers hold still. "Follow system" uses the computer's own setting (macOS: Reduce motion; Windows: Animation effects; GNOME: Reduce animation). |
-| **Text size**: Normal, 110%, 125%, 150% | Makes text and controls larger in the main window, the terminal window, dialogs, the command palette and Quick Look. The Island, the dictation pill and other small floating windows keep their size. |
+| **Text size**: Normal, 110%, 125%, 150%, 175%, 200% | Makes text and controls larger in the main window, the terminal window, dialogs, the command palette and Quick Look. The Island, the dictation pill and other small floating windows keep their size. |
 | **Always show focus outlines** | Draws the focus ring after a click too, not only after using the keyboard. |
+
+### Reading comfort (Settings → Accessibility → Reading and read aloud)
+
+| Setting | What it does |
+| --- | --- |
+| **Wrap larger text** | With a larger text size, text grows and wraps to the window instead of the whole window zooming, so nothing needs scrolling sideways. |
+| **Reading font**: Theme's own, Atkinson Hyperlegible, OpenDyslexic | Fonts made for reading, under the SIL Open Font License. Chosen once, the font downloads (17 to 120 KB per weight, Latin letters) from a pinned package on a public mirror, is checked against its fingerprint and kept in Keeper's folder; a file that does not match is not used. Code and terminals keep their fixed-width font. |
+| **Line spacing**: Theme, 1.4, 1.6, 1.8 · **Letter spacing**: Normal, Wider, Widest | More room on pages, in notes, mail, articles, dialogs and help. |
+| **Larger buttons** | Buttons, switches, tabs and fields at least 44 pixels tall (icon buttons as wide). |
+| **Read aloud** (part *Read aloud*, off until switched on) | **Read Aloud** in the command palette reads the selected text, or the page; **Read aloud** in Notes' menu reads the open note; **Stop Reading Aloud** stops. It uses the computer's own voice: `say` on a Mac, the Windows speech voices, speech-dispatcher (`spd-say`) or eSpeak NG on Linux. Markdown marks and link addresses are left out. The words go to the voice on its standard input (or as one argument to `spd-say`), never inside a script. |
+
+The add-ons in [Modes](MODES.md) use these: Easier reading turns on Read aloud with line spacing 1.6 and wider letters, Steady hands turns on Larger buttons, Screen reader turns on Read aloud.
+
+### Tables
+
+Up and Down move between the rows of a table (processes, connections, Keeper itself and the others): focus goes to the same button in the next row, or to the row.
 
 Keeper also follows two system settings on its own:
 
@@ -111,10 +127,9 @@ In the list view, the column headings are buttons that sort by that column.
 
 - **The checker is Keeper's own**, not a full WCAG audit tool. It covers the problems that come up most (names, roles, ARIA references, contrast of plain-coloured text, keyboard reach, images) but cannot judge text over pictures and gradients, reading order, or whether a name is helpful. Testing by hand with screen readers (VoiceOver, NVDA, Narrator, Orca) is still needed; the automated checks do not replace it.
 - **Names from context**: form fields and switches that were given no name of their own take one from the settings row or line they sit in. That is right almost always, but a few names may be shorter or vaguer than they should be.
-- **Text size** scales the whole main window rather than reflowing text. At 150% on a small screen some pages need scrolling sideways in wide tables. The Island and pills do not grow.
+- **Text size** scales the whole main window unless **Wrap larger text** is on. Wrapping grows the type scale; a few older stylesheets still size some text in pixels, which stays as it is. The Island and pills do not grow.
 - **Charts, the space map's bubbles, the world map, the knowledge graph and wallpaper scenes** are drawn pictures. Their numbers are in text beside them where it matters (the space map's list, the health page's readings), but the pictures themselves cannot be explored with a screen reader.
 - **The terminal** follows the terminal component's own screen reader support, which reads output line by line but not in full-screen programs.
 - **Remote desktops and screen sharing** show another computer's screen as a picture; what is on it is not available to a screen reader.
-- **Some tables and lists** (processes, network connections, firewall rules) are reachable with Tab but do not yet have arrow-key movement between rows.
 - **Placeholder-only fields**: a few search and filter fields are named only by their placeholder text, which screen readers read but which disappears once you type.
 - **Island alerts in the background**: some screen readers only read live announcements from the window in front, so an Island alert may not be spoken while you work in another app.

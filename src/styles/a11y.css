@@ -102,6 +102,25 @@ html[data-scaled='true']:is([data-view='app'], [data-view='page'], [data-view='t
 html[data-scaled='true']:is([data-view='app'], [data-view='page'], [data-view='terminal']) body > .modal-back > .modal,
 html[data-scaled='true']:is([data-view='app'], [data-view='page'], [data-view='terminal']) body > .ql > .ql-window { zoom: var(--ui-scale, 1); }
 
+/* Reflow: the type scale grows and text wraps to the window; nothing zooms. Sizes written in pixels
+   in older stylesheets stay as they are (docs/ACCESSIBILITY.md, Known limits). */
+html[data-reflow='true'][data-reflow='true'] {
+  --fs-xs: calc(11px * var(--ui-scale, 1)); --fs-sm: calc(12px * var(--ui-scale, 1)); --fs-md: calc(13px * var(--ui-scale, 1));
+  --fs-lg: calc(15px * var(--ui-scale, 1)); --fs-xl: calc(18px * var(--ui-scale, 1)); --fs-2xl: calc(24px * var(--ui-scale, 1));
+}
+html[data-reflow='true'] body { font-size: calc(13.5px * var(--ui-scale, 1)); }
+
+/* ------------------------------------------------------------------ reading comfort */
+
+/* A reading font everywhere except code and terminals. */
+html[data-reading-font] :where(body, body *):not(code, pre, kbd, samp, .mono, .xterm, .xterm *, .cm-line code, .term-out) { font-family: var(--reading-font), var(--font) !important; }
+/* Line and letter spacing where people read: pages, notes, mail, articles, help. */
+html[data-reading-space='true'] :is(.content, .cm-content, .modal, .help-sheet, .rd-article) { line-height: var(--reading-line, inherit); letter-spacing: var(--reading-letter, normal); }
+/* Larger buttons: every control at least 44 pixels tall (and icon buttons as wide). */
+html[data-big-targets='true'] :is(.content, .modal, .sidebar, .topbar) :is(button, [role='button'], [role='tab'], [role='switch'], select, input:not([type='checkbox']):not([type='radio']):not([type='range'])) { min-height: 44px; }
+html[data-big-targets='true'] :is(.content, .modal, .sidebar, .topbar) :is(button.icon, .btn.icon, [role='switch']) { min-width: 44px; }
+html[data-big-targets='true'] .sidebar .nav-item { min-height: 44px; }
+
 /* ------------------------------------------------------------------ more contrast */
 
 @media (prefers-contrast: more) {

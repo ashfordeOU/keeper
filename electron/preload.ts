@@ -194,6 +194,8 @@ const api = {
   photo: group('photo', ['info', 'preview', 'save', 'revert']),
   // Crash reports for Ashforde (off until switched on).
   crashReports: group('crashReports', ['status', 'setOn', 'clear', 'sendNow']),
+  // Reading aloud and the reading fonts.
+  reading: group('reading', ['voice', 'speak', 'stop', 'speaking', 'font']),
   // Settings that follow you between your computers.
   settingsSync: group('settingsSync', ['status', 'syncNow', 'setCategories', 'setDevice', 'restoreOlder']),
   // Backing up and moving Keeper itself.

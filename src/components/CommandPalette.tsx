@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // The command palette: jump anywhere or run any action by typing a few letters.
 
+import { textToRead } from './ReadingPanel';
 import { openSendTo } from './SendTo';
 import { filesItem } from '../../core/send-to';
 import { openSetupAgain } from '../setup/FirstRun';
@@ -229,6 +230,8 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     { id: 'clip-collect', label: 'Paste One by One: Collect What I Copy', group: 'Actions', icon: 'clipboard', keywords: 'paste queue paste stack clipboard sequential several', run: async () => { await api.island.queueStart(); store.toast('Copy what you want to paste; each paste then takes the next one'); } },
     { id: 'clip-queue-stop', label: 'Stop Pasting One by One', group: 'Actions', icon: 'clipboard', keywords: 'paste queue stop clear', run: async () => { await api.island.queueStop(); } },
     { id: 'snippet-new', label: 'New Typed Snippet', group: 'Actions', icon: 'text', keywords: 'text expansion abbreviation autotext', run: async () => { store.go({ name: 'snippets' }); } },
+    { id: 'read-aloud', label: 'Read Aloud', group: 'Actions', icon: 'audio', keywords: 'speak text to speech tts voice listen selected dyslexia', run: async () => { const r = await api.reading.speak(textToRead()); if (!r.ok && r.message) store.toast(r.message); } },
+    { id: 'read-aloud-stop', label: 'Stop Reading Aloud', group: 'Actions', icon: 'pause', keywords: 'speak voice quiet silence', run: async () => { await api.reading.stop(); } },
     { id: 'send-to', label: 'Send Selection to…', group: 'Actions', icon: 'send', keywords: 'send to note task event mail device ai shelf cue share forward turn into', run: async () => { if (store.selection.length) openSendTo(filesItem(store.selection)); else store.toast('Select a file first'); } },
     { id: 'inbox-catch', label: 'Catch Something…', group: 'Actions', icon: 'inbox', keywords: 'inbox capture quick thought idea note jot later', run: async () => { await api.inbox.card('open'); } },
     { id: 'plan-day', label: 'Plan My Day', group: 'Actions', icon: 'calendar', keywords: 'time block today schedule three tasks morning', run: async () => { store.go({ name: 'home', arg: 'plan' }); } },

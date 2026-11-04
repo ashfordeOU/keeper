@@ -130,6 +130,10 @@ SOFTWARE.
 
 </details>
 
+### Reading fonts, downloaded when chosen (SIL OFL 1.1)
+
+Settings → Accessibility → Reading font downloads, only when chosen, Atkinson Hyperlegible (© 2020 Braille Institute of America, Inc.) and OpenDyslexic (© 2019-07-29 Abbie Gonzalez), as packaged by Fontsource (`@fontsource/atkinson-hyperlegible` 5.0.8 and `@fontsource/opendyslexic` 5.0.0). Both are licensed under the SIL Open Font License, Version 1.1 (below), and are used unchanged. They are not part of the installer.
+
 ### KaTeX and its fonts (MIT, SIL OFL 1.1)
 
 Maths in notes is drawn with [KaTeX](https://katex.org) 0.19.1 (MIT, © Khan Academy and other contributors). The KaTeX fonts (`KaTeX_*.woff2`, `.woff`, `.ttf`) come from <https://github.com/KaTeX/katex-fonts>, are © 2009-2010 Design Science, Inc. and © 2014-2018 Khan Academy, and are licensed under the SIL Open Font License, Version 1.1. They are used unchanged.

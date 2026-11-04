@@ -36,6 +36,7 @@ import { MailPanel } from '../../pim/mail-settings';
 import { PermissionsPanel } from '../../components/PermissionsPanel';
 import { NativeAppsPanel } from '../../components/NativeAppsPanel';
 import { AccessibilityPanel } from '../../components/AccessibilityPanel';
+import { ReadingPanel } from '../../components/ReadingPanel';
 import { ModesPanel, OfflineCheckPanel } from '../../components/Modes';
 import { ClipIgnorePanel, LauncherCommandsPanel, LauncherLinksPanel, SelectionBarPanel } from '../../components/LauncherPanels';
 import { IslandAccentPanel } from '../../island/LookSettings';
@@ -346,6 +347,7 @@ export const PANELS: Record<string, PanelDef> = {
   noticeParts: { render: () => <NoticePartsPanel />, wide: true },
   quietHours: { render: () => <QuietHoursPanel /> },
   a11y: { render: () => <AccessibilityPanel />, own: true, wide: true },
+  reading: { render: () => <ReadingPanel />, own: true, wide: true },
   resources: { render: () => <UsagePanel />, own: true, wide: true },
   meshPlaces: { render: () => <MeshPlaces />, wide: true },
   about: { render: () => <AboutPanel />, own: true, wide: true },
