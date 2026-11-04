@@ -4,6 +4,21 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 
 ## [Unreleased]
 
+### Changed — Screenshots: today's Keeper everywhere
+- Every picture in the README, the docs and the website is new, taken from today's Keeper in light and dark: Hello, Files with its sidebar and type chips, Everywhere, Network & firewall with the Ask prompt, the menu bar, Capture's preview, pins, scrolling captures and Draw on screen, a share link's page, Quick Search, clipboard sets, Typed Snippets, the selection bar, Focus blocking, Time tracking, Journal, Reader, Mail Today, page windows, light apps and app icons, Monitors, Phone Alerts, the photo editor, web page capture, the weather and the Island in several themes.
+- They show sample files and names only, never a real computer's.
+
+### Added — Website: try the Island on a little desktop
+- Below the Island is a calm desktop: Keeper's wallpaper drifting, a clock that ticks, the weather and the week, a few files and a Dock of Keeper's app icons.
+- Now and then a notice drops out of the Island: a download that then lands on the desktop, a message, a meeting. Music plays with a moving waveform.
+- Pick Playful, Ocean, Sunset, Berry or Dark and the Island recolours, as in Settings. The hint is a small pill that fades once you've tried it.
+- With less motion asked for, it stays still.
+
+### Added — Website: what's new, and download links on Keeper's own address
+- New sections for Hello, Files, Network & firewall, Capture & share, Focus & time, the launcher and typing, Journal and Reader, light apps, page windows, the Island in your colours, Monitors, Phone Alerts and the photo editor. The Features page shows every group with fresh pictures, and the theme switcher has twelve themes.
+- Download buttons show keeper.ashforde.org/download/… and go straight to the file, then say what to do next. Each address also works on its own.
+- The website is in British English.
+
 ### Added — Island: colours that follow your theme
 - The Island is no longer only black. Open, it shows a soft gradient made from your theme's colours, with matching text, buttons and cards. Light themes get a light Island; every theme gets its own.
 - What is going on tints it: the colours of the album art while music plays, the calendar's colour before a meeting, orange for a timer, green while charging. It glides to the new colour (at once with less motion).

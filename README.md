@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/home-dark.webp">
-    <img src="docs/screenshots/home-light.webp" width="100%" alt="Keeper's Home: free space, the library by kind, recent downloads and the details of the selected file">
+    <img src="docs/screenshots/home-light.webp" width="100%" alt="Hello, Keeper’s start page: your folders, files to jump back into, today’s plan and the weather">
   </picture>
 </p>
 
@@ -34,7 +34,7 @@
   <a href="#building-from-source">Building</a> ·
   <a href="#contributing">Contributing</a> ·
   <a href="#also-from-ashforde">Also from Ashforde</a> ·
-  <a href="#license">License</a>
+  <a href="#licence">Licence</a>
 </p>
 
 ---
@@ -80,41 +80,41 @@ Keeper is one app you install once. It is made of parts you switch on and off in
 <p>
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/home-dark.webp">
-    <img src="docs/screenshots/home-light.webp" width="49%" alt="Home: free space, the library by kind, recent downloads and the details of the selected file">
+    <img src="docs/screenshots/home-light.webp" width="49%" alt="Hello: your folders, files to jump back into and today’s plan">
   </picture>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/files-dark.webp">
+    <img src="docs/screenshots/files-light.webp" width="49%" alt="Files: Documents with type chips and counts, and a sidebar of real places">
+  </picture>
+</p>
+<p>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/network-dark.webp">
+    <img src="docs/screenshots/network-light.webp" width="49%" alt="Network & firewall: every app’s connections live, with Allow, Ask or Block">
+  </picture>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/capture-preview-dark.webp">
+    <img src="docs/screenshots/capture-preview-light.webp" width="49%" alt="Capture: two screenshots just taken, as cards with Annotate, Copy, Save, Upload and Pin">
+  </picture>
+</p>
+<p>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/time-dark.webp">
+    <img src="docs/screenshots/time-light.webp" width="49%" alt="Time Tracking: a day’s timeline with projects, apps and sites, kept on this computer">
+  </picture>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/mail-dark.webp">
+    <img src="docs/screenshots/mail-light.webp" width="49%" alt="Mail Today: the day’s events with Join, and the inbox">
+  </picture>
+</p>
+<p>
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/notes-dark.webp">
     <img src="docs/screenshots/notes-light.webp" width="49%" alt="Notes: a Markdown note in reading view with a checklist, linked mentions and outgoing links">
   </picture>
-</p>
-<p>
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/space-dark.webp">
-    <img src="docs/screenshots/space-light.webp" width="49%" alt="Space Map: the home folder drawn by size, with the folders that can be cleaned marked">
-  </picture>
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/awake-dark.webp">
-    <img src="docs/screenshots/awake-light.webp" width="49%" alt="Keep Awake: keep the computer awake for a while, until a time or while something is going on">
-  </picture>
-</p>
-<p>
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/privacy-dark.webp">
-    <img src="docs/screenshots/privacy-light.webp" width="49%" alt="Privacy & Security: a score out of 100 and the findings most worth fixing">
-  </picture>
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/devices-dark.webp">
-    <img src="docs/screenshots/devices-light.webp" width="49%" alt="Devices: this computer and the paired ones, grouped by place, with what each one allows">
-  </picture>
-</p>
-<p>
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/agents-dark.webp">
-    <img src="docs/screenshots/agents-light.webp" width="49%" alt="Agents: what an AI agent may do with your files and with Keeper, each set to Off, Ask or Allow">
-  </picture>
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/ambience-dark.webp">
-    <img src="docs/screenshots/ambience-light.webp" width="49%" alt="Wallpaper & Vibes: saved vibes that switch the wallpaper, theme, sound and widgets together">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/launcher-dark.webp">
+    <img src="docs/screenshots/launcher-light.webp" width="49%" alt="Quick Search as a launcher: apps, sums, links and commands">
   </picture>
 </p>
 
@@ -143,7 +143,7 @@ The script picks the right disk image for your Mac (Apple silicon or Intel), che
   brew install --cask keeper
   ```
 
-Keeper for macOS is **signed and notarized by Apple**. It opens like any other app.
+Keeper for macOS is **signed and notarised by Apple**. It opens like any other app.
 
 Keeper asks for system permissions only for the parts that need them. [docs/PERMISSIONS.md](docs/PERMISSIONS.md) says what each one is for.
 
@@ -235,17 +235,17 @@ Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) and it
 
 **[Monorail](https://monorail.ashforde.org)** is Ashforde's scrolling window manager for macOS 13 and later. Your windows sit side by side on a strip you slide through, with workspaces and layouts. On a Mac, Keeper can install Monorail, keep it up to date and work with it: turn on **Monorail** in **Settings → Features**, and find the rest under **Other apps by Ashforde** on the same page. [Keeper and Monorail](https://monorail.ashforde.org/keeper/) shows what the two do together.
 
-## License
+## Licence
 
 Keeper is **free to use** for everyone, at home and at work. It is **source-available**, not open source, under the [PolyForm Shield License 1.0.0](LICENSE.md). You may:
 
 - Use Keeper for any purpose, personal or professional.
-- Read, build and change the code for yourself or your organization.
+- Read, build and change the code for yourself or your organisation.
 - Build tools, scripts and integrations that work with Keeper.
 
 You may not sell or offer Keeper, or a changed Keeper, as a product or service that competes with it without written permission from Ashforde OÜ ([COMMERCIAL.md](COMMERCIAL.md)).
 
-“Keeper by Ashforde®”, “Ashforde®” and the Keeper logo are trademarks of Ashforde OÜ, and changed builds must use a different name and logo ([TRADEMARKS.md](TRADEMARKS.md)). For a commercial license, write to **contact@ashforde.org**. Third-party components and their licenses are in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+“Keeper by Ashforde®”, “Ashforde®” and the Keeper logo are trademarks of Ashforde OÜ, and changed builds must use a different name and logo ([TRADEMARKS.md](TRADEMARKS.md)). For a commercial licence, write to **contact@ashforde.org**. Third-party components and their licences are in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 
 ---
 

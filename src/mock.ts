@@ -238,6 +238,11 @@ export function createMockApi(): KeeperApi {
     if (th) settings.theme = th;
     if (ap === 'light' || ap === 'dark') settings.appearance = ap;
     for (const id of (q.get('features') ?? '').split(',').filter(Boolean)) settings.features = { ...settings.features, [id]: true };
+    // ?islandLook=theme|dark|colorful&islandPreset=<gradient>: the Island in that look.
+    const look = q.get('islandLook');
+    const preset = q.get('islandPreset');
+    if (look === 'theme' || look === 'dark' || look === 'colorful') settings.island = { ...settings.island, look };
+    if (preset) settings.island = { ...settings.island, lookPreset: preset };
   }
   settings.savedSearches = [
     { id: 's1', name: 'Big videos', text: 'videos over 500 MB', createdAt: now },
