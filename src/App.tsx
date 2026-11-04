@@ -88,6 +88,7 @@ const CuesPage = lazy(() => import('./screens/Cues').then((m) => ({ default: m.C
 // Focus blocking (lists, schedules, strict mode) loads the first time its page opens.
 // The reader (feeds and read later) loads the first time its page opens.
 // Archives loads the first time its page opens.
+const PdfReaderPage = lazy(() => import('./screens/PdfReader').then((m) => ({ default: m.PdfReader })));
 const ArchivesPage = lazy(() => import('./screens/Archives').then((m) => ({ default: m.Archives })));
 const ReaderPage = lazy(() => import('./screens/Reader').then((m) => ({ default: m.Reader })));
 // Alerts to your phone load the first time their page opens.
@@ -464,6 +465,7 @@ function Page() {
     blocking: () => <Suspense fallback={null}><FocusBlockPage /></Suspense>,
     time: () => <Suspense fallback={null}><TimePage /></Suspense>,
     reader: () => <Suspense fallback={null}><ReaderPage /></Suspense>,
+    pdf: () => <Suspense fallback={null}><PdfReaderPage key={route.arg ?? ''} initial={route.arg} /></Suspense>,
     archives: () => <Suspense fallback={null}><ArchivesPage key={route.arg ?? ''} initial={route.arg} /></Suspense>,
     alerts: () => <Suspense fallback={null}><PhoneAlertsPage /></Suspense>,
     monitors: () => <Suspense fallback={null}><MonitorsPage /></Suspense>,

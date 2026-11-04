@@ -60,6 +60,7 @@ export const TIERS: Record<string, FeatureTier> = {
   duplicates: { plain: 'Duplicates and look-alike photos', setup: 'tidy', normal: 'on', shown: 'customize' },
   space: { plain: 'Space map and large files', setup: 'tidy', normal: 'on', shown: 'customize' },
   convert: { plain: 'Convert', setup: 'tidy', normal: 'on', shown: 'basic' },
+  pdfReader: { plain: 'Read and mark up PDFs', setup: 'notes', normal: 'off', shown: 'basic' },
   archives: { plain: 'Open and make archives', setup: 'tidy', normal: 'off', shown: 'basic' },
   rules: { plain: 'Automations', setup: 'tidy', normal: 'on', shown: 'customize' },
   history: { plain: 'Undo history', setup: 'tidy', normal: 'on', shown: 'customize' },

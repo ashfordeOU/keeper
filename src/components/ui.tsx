@@ -614,6 +614,7 @@ export function useFileMenu() {
   const store = useStore();
   const photoOn = useFeature('photoEditor');
   const archivesOn = useFeature('archives');
+  const pdfOn = useFeature('pdfReader');
   const [state, setState] = useState<{ x: number; y: number; file: FileEntry } | null>(null);
   const [renaming, setRenaming] = useState<string[] | null>(null);
   const open = (e: React.MouseEvent, file: FileEntry) => {
@@ -661,6 +662,7 @@ export function useFileMenu() {
       { label: 'Annotate…', icon: 'rename', run: () => store.go({ name: 'annotate', arg: state.file.path }) },
       { label: 'Read Text and Codes', icon: 'text', run: () => void api.capture.readFile(state.file.path).then((r) => { const t = r.code ?? r.text; if (t) { void api.files.copyText(t); store.toast(r.code ? `Copied code: ${r.code}` : 'Copied the text in this image'); } else store.toast('No text found'); }) },
     ] : state.file.ext === 'pdf' ? [
+      ...(pdfOn ? [{ label: 'Open in PDF Reader', icon: 'document', run: () => store.go({ name: 'pdf', arg: state.file.path }) }] : []),
       { label: 'Copy Text in PDF', icon: 'text', run: () => void api.capture.readFile(state.file.path).then((r) => { if (r.text) { void api.files.copyText(r.text); store.toast('Copied the text in this PDF'); } else store.toast('No text found'); }) },
     ] : []),
     { sep: true, label: '' },

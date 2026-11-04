@@ -15,6 +15,11 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - Offline check (Privacy-max's own part, there for anyone): every way Keeper could reach the internet, a switch for each, and Turn all off.
 - Recommended is a shorter list: AI limits, AI usage and agents in the terminal are for Pro, and parts that follow another (Draw on screen with Stage) stay off until it is on.
 
+### Added — PDF Reader: read, mark up, fill in and sign
+- A calm PDF Reader (Notes section, or right-click a PDF → Open in PDF Reader): page thumbnails, find, zoom and dark pages for reading, with every tool in one floating bar.
+- Highlight or underline selected text, add notes, draw freehand, type text boxes and sign (drawn or typed); fill in the PDF's own form fields; turn, remove, reorder and add pages from other PDFs. Undo steps back through all of it.
+- Save writes it into the PDF as standard annotations any reader shows; the version from before is kept so More → Restore the last version can put it back. Save a copy asks where.
+
 ### Added — Archives: look inside, take out what you need, pack with a password
 - A new Archives page (Tidy) opens zip, 7z, RAR, tar.gz, tar.xz, tar.zst, ISO and more without unpacking them: walk around by folder, find a name, Quick Look any file, then take out only what you tick, or everything, into a folder beside the archive.
 - Make an archive packs files and folders into a ZIP or 7z; a password uses AES-256. Keeper opens password-protected ZIPs itself; protected 7z and RAR files need the free 7-Zip program, and Keeper says so.

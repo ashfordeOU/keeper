@@ -167,6 +167,8 @@ const api = {
   inbox: group('inbox', ['list', 'add', 'remove', 'restore', 'card']),
   // Archives: look inside, take out, pack.
   archives: group('archives', ['open', 'extract', 'peek', 'create', 'support', 'pick', 'pickItems']),
+  // The PDF reader: open, save edits, restore.
+  pdfReader: group('pdfReader', ['read', 'pick', 'pickMore', 'save', 'hasBackup', 'restore']),
   // The reader: feeds, read later, OPML.
   reader: group('reader', ['overview', 'items', 'article', 'addFeed', 'removeFeed', 'editFeed', 'refresh', 'setRead', 'markAllRead', 'setStarred', 'saveForLater', 'removeLater', 'importOpml', 'exportOpml']),
   // Alerts to your phone.

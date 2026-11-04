@@ -1,0 +1,75 @@
+/* The PDF reader: a calm canvas, a floating tool capsule, pages as paper. Tokens only (test/css-tokens.test.ts). */
+.pdr-page { display: grid; gap: 12px; align-content: start; }
+.pdr-empty { padding: 28px 16px; }
+.pdr-open { grid-template-rows: auto auto auto 1fr; height: 100%; min-height: 0; padding-bottom: 0; }
+.pdr-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
+.pdr-title { min-width: 0; display: grid; gap: 2px; }
+.pdr-title .kicker { font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: .06em; color: var(--text-3); font-weight: 600; }
+.pdr-title h1 { margin: 0; font-size: var(--fs-2xl); letter-spacing: -.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pdr-status { white-space: nowrap; padding-bottom: 4px; }
+.pdr-toolbar { position: sticky; top: 0; z-index: 5; justify-self: center; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 6px 8px; border-radius: var(--r-pill); background: var(--bg-elev); border: 1px solid var(--line); box-shadow: var(--shadow); max-width: 100%; }
+.pdr-sep { width: 1px; align-self: stretch; margin: 4px 2px; background: var(--line); }
+.pdr-icon { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: var(--r-pill); border: 0; background: none; color: var(--text-2); cursor: default; }
+.pdr-icon:hover { background: var(--bg-hover); color: var(--text); }
+.pdr-icon.on { background: var(--accent-soft); color: var(--accent); }
+.pdr-zoom { min-width: 46px; border: 0; background: none; color: var(--text-2); font: inherit; font-size: var(--fs-sm); border-radius: var(--r-pill); padding: 4px 6px; cursor: default; }
+.pdr-zoom:hover { background: var(--bg-hover); }
+.pdr-find { display: flex; align-items: center; gap: 6px; padding: 0 10px; height: 30px; border-radius: var(--r-pill); background: var(--bg-sunk); color: var(--text-3); }
+.pdr-toolbar .pdr-find input { border: 0; box-shadow: none; padding: 0; height: auto; min-height: 0; background: none; color: var(--text); font: inherit; font-size: var(--fs-md); width: 120px; outline: none; }
+.pdr-tools button { font-size: var(--fs-sm); }
+.pdr-colours { display: flex; gap: 4px; padding: 0 2px; }
+.pdr-colours button { width: 18px; height: 18px; border-radius: var(--r-pill); border: 2px solid transparent; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .15); cursor: default; }
+.pdr-colours button.on { border-color: var(--text); }
+.pdr-hint { justify-self: center; color: var(--text-2); background: var(--accent-soft); border-radius: var(--r-pill); padding: 3px 12px; }
+.pdr-body { display: flex; gap: 12px; min-height: 0; height: calc(100vh - 256px); }
+.pdr-scroll { flex: 1; min-width: 0; overflow: auto; padding: 8px 0 32px; display: flex; flex-direction: column; align-items: center; gap: 18px; border-radius: var(--r-lg); background: var(--bg-sunk); }
+.pdr-pagewrap { display: grid; justify-items: center; gap: 4px; }
+.pdr-pagebox { position: relative; background: #fff; box-shadow: var(--shadow); border-radius: var(--r-sm); overflow: hidden; touch-action: none; }
+.pdr-canvas { position: absolute; inset: 0; }
+.pdr-canvas canvas { display: block; }
+.dark-pages .pdr-canvas, .dark-pages .pdr-sig, .dark-pages .pdr-textbox { filter: invert(.88) hue-rotate(180deg); }
+.dark-pages .pdr-pagebox { background: #1e1e22; }
+.pdr-pagenum { font-variant-numeric: tabular-nums; }
+.pdr-pagebox .textLayer { user-select: text; -webkit-user-select: text; position: absolute; inset: 0; overflow: hidden; line-height: 1; text-size-adjust: none; forced-color-adjust: none; transform-origin: 0 0; z-index: 2; }
+.pdr-pagebox .textLayer span, .pdr-pagebox .textLayer br { color: transparent; position: absolute; white-space: pre; cursor: text; transform-origin: 0% 0%; }
+.pdr-pagebox .textLayer span.hit { background: rgba(255, 200, 0, .45); }
+.pdr-pagebox .textLayer ::selection { background: rgba(80, 110, 255, .32); }
+.pdr-pagebox .textLayer .endOfContent { display: block; position: absolute; inset: 100% 0 0; z-index: -1; cursor: default; user-select: none; }
+.tool-draw .textLayer, .tool-note .textLayer, .tool-text .textLayer, .tool-sign .textLayer { pointer-events: none; }
+.tool-draw .pdr-pagebox, .tool-note .pdr-pagebox, .tool-text .pdr-pagebox, .tool-sign .pdr-pagebox { cursor: crosshair; }
+.pdr-marks { position: absolute; inset: 0; z-index: 3; pointer-events: none; overflow: visible; }
+.pdr-mark.sel { filter: drop-shadow(0 0 2px var(--accent)); }
+.pdr-note { position: absolute; z-index: 5; }
+.pdr-note-pin { display: grid; place-items: center; width: 22px; height: 22px; border-radius: var(--r-sm) var(--r-sm) var(--r-sm) 0; border: 1px solid rgba(0, 0, 0, .25); color: #222; box-shadow: var(--shadow); cursor: default; }
+.pdr-note.sel .pdr-note-pin { outline: 2px solid var(--accent); }
+.pdr-pop { position: absolute; top: 26px; left: 0; width: 240px; display: grid; gap: 8px; padding: 10px; border-radius: var(--r-md); background: var(--bg-elev); color: var(--text); box-shadow: var(--shadow-pop); border: 1px solid var(--line); }
+.pdr-pop textarea { min-height: 80px; resize: vertical; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--bg-sunk); color: var(--text); font: inherit; font-size: var(--fs-md); padding: 6px 8px; }
+.pdr-pop .btn-row { justify-content: flex-end; }
+.pdr-textbox { position: absolute; z-index: 4; font-family: Helvetica, Arial, sans-serif; line-height: 1.2; white-space: pre-wrap; overflow-wrap: anywhere; padding: 2px; border: 1px dashed transparent; }
+.pdr-textbox.sel, .pdr-textbox.editing { border-color: var(--accent); }
+.pdr-textbox textarea { width: 100%; min-height: 100%; border: 0; background: rgba(255, 255, 255, .7); font-family: inherit; line-height: 1.2; resize: none; outline: none; padding: 0; }
+.pdr-sig { position: absolute; z-index: 4; }
+.pdr-sig.sel { outline: 2px solid var(--accent); }
+.pdr-field { position: absolute; z-index: 4; box-sizing: border-box; border: 1px solid rgba(70, 90, 220, .45); background: rgba(225, 232, 255, .65); color: #111; font-family: Helvetica, Arial, sans-serif; padding: 0 3px; border-radius: var(--r-sm); }
+.pdr-field:focus { outline: 2px solid var(--accent); background: #fff; }
+.pdr-field.check { margin: 0; accent-color: var(--accent); }
+.pdr-selbar { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); z-index: 20; display: flex; align-items: center; gap: 10px; padding: 6px 8px 6px 16px; border-radius: var(--r-pill); background: var(--bg-elev); border: 1px solid var(--line); box-shadow: var(--shadow-pop); text-transform: capitalize; }
+.pdr-pages { width: 168px; flex: none; display: grid; grid-template-rows: auto 1fr auto; gap: 8px; padding: 10px; border-radius: var(--r-lg); background: var(--bg-elev); border: 1px solid var(--line); min-height: 0; }
+.pdr-pages-head { display: flex; align-items: center; gap: 6px; }
+.pdr-pages-head .btn { margin-left: auto; }
+.pdr-pages-list { overflow: auto; display: grid; gap: 10px; align-content: start; justify-items: center; }
+.pdr-thumb { display: grid; gap: 4px; justify-items: center; padding: 6px; border-radius: var(--r-md); }
+.pdr-thumb.on { background: var(--accent-soft); }
+.pdr-thumb.dragging { opacity: .4; }
+.pdr-thumb-img { border: 0; padding: 0; background: none; cursor: default; box-shadow: var(--shadow); border-radius: var(--r-sm); overflow: hidden; }
+.pdr-thumb-canvas { min-width: 60px; min-height: 80px; background: #fff; }
+.pdr-thumb-canvas canvas { display: block; }
+.pdr-thumb-bar { display: flex; align-items: center; gap: 4px; }
+.pdr-mini { display: grid; place-items: center; width: 22px; height: 22px; border: 0; border-radius: var(--r-pill); background: none; color: var(--text-3); cursor: default; }
+.pdr-mini:hover { background: var(--bg-hover); color: var(--text); }
+.pdr-pages-foot { text-align: center; }
+.pdr-signform { display: grid; gap: 12px; }
+.pdr-sigpad { width: 100%; aspect-ratio: 3 / 1; border-radius: var(--r-md); background: #fff; border: 1px dashed var(--line-strong); touch-action: none; cursor: crosshair; }
+.pdr-sign-actions { align-items: center; }
+.pdr-sign-actions .muted { margin-right: auto; }
+@media (prefers-reduced-motion: reduce) { .pdr-scroll { scroll-behavior: auto; } }

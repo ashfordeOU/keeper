@@ -12,6 +12,7 @@ import { mockJournal } from './mock-journal';
 import { mockInbox } from './mock-inbox';
 import { mockReader } from './mock-reader';
 import { mockArchives } from './mock-archives';
+import { mockPdfReader } from './mock-pdf-reader';
 import { mockPhoneAlerts } from './mock-alerts';
 import { mockNotices } from './mock-notices';
 import { mockSelfCheck } from './mock-selfcheck';
@@ -324,6 +325,7 @@ export function createMockApi(): KeeperApi {
     ...mockInbox((ch, ...a) => listeners.get(ch)?.forEach((cb) => (cb as (...x: unknown[]) => void)(...a))),
     ...mockReader(),
     ...mockArchives(),
+    ...mockPdfReader(),
     ...mockPhoneAlerts(),
     pageUse: { opened: async () => undefined },
     ...mockSelfCheck(),

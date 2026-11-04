@@ -562,6 +562,8 @@ export interface KeeperApi extends KeeperApiX {
   reader: import('./api-reader').ReaderApi;
   /** archives: look inside, take out, pack with a password (core/archives.ts) */
   archives: import('./archives').ArchivesApi;
+  /** the PDF reader: read, mark up, fill, organise and save PDFs (core/pdf-annotate.ts) */
+  pdfReader: import('./pdf-annotate').PdfReaderApi;
   /** alerts to your phone: ntfy, Telegram, e-mail, a web address */
   alerts: import('./api-alerts').PhoneAlertsApi;
   /** the notification center: every notice from Keeper, batched and quiet (core/notices.ts) */

@@ -513,6 +513,8 @@ export interface Settings {
   journal: import('./notes/journal').JournalSettings;
   /** archives: where unpacked files go, and opening that folder after (core/archives.ts) */
   archives: { extractTo: 'beside' | 'ask'; openAfter: boolean };
+  /** the PDF reader: dark pages for reading, and keeping the version before each save */
+  pdfReader: { darkPages: boolean; keepPrevious: boolean };
   /** the reader: how often feeds are read, how long articles stay, full text and pictures (core/reader.ts) */
   reader: import('./reader').ReaderSettings;
   /** what the knowledge graph and search by meaning may include: parts, and accounts or folders left out (core/graph/everything.ts) */

@@ -78,6 +78,7 @@
     "meetingDetect",
     "meetingNotes",
     "archives",
+    "pdfReader",
     "tray",
     "login",
     "terminal",

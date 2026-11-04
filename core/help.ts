@@ -24,6 +24,7 @@ export const PAGE_HELP: Record<string, PageHelp> = {
   downloads: { what: 'Files grouped by the site or app they came from.', can: ['Find what came from one site', 'Clear out old downloads', 'Search “pdfs from mail”'], doc: 'FILES.md' },
   remote: { what: 'Cloud drives and servers, opened like folders.', can: ['Connect a drive or server', 'Browse and copy files', 'Keep sign-ins in the keychain'], doc: 'CONNECT.md' },
   notes: { what: 'Notes as plain Markdown files in folders you choose.', can: ['Write and link notes', 'See a note as a mind map', 'Import from other apps'], doc: 'NOTES.md' },
+  pdf: { what: 'Read, mark up, fill in and sign PDFs.', can: ['Highlight and add notes', 'Fill in and sign forms', 'Turn, remove or add pages'], doc: 'PDF-READER.md' },
   archives: { what: 'Look inside archives and pack files with a password.', can: ['Open zip, 7z and RAR files', 'Take out only what you need', 'Make a ZIP with a password'], doc: 'ARCHIVES.md' },
   reader: { what: 'Feeds and pages saved to read later.', can: ['Follow a site’s feed', 'Save a page for later', 'Read without clutter'], doc: 'READER.md' },
   journal: { what: 'A short entry a day, with photos and mood.', can: ['Write today’s entry', 'Add photos', 'Look back on this day'], doc: 'JOURNAL.md' },

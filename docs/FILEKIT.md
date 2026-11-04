@@ -57,7 +57,7 @@ Tests: `test/filekit.test.ts` (167 tests), `test/e2e/filekit.cjs` (the real app 
 | Text watermark | PDF → Add a watermark; Watermark (more options): angle, size, colour, tiled, chosen pages | Built |
 | Image watermark / logo | PDF → Picture watermark or logo | Built |
 | Stamps (Approved, Paid, Draft…, custom, dated) | PDF → Stamp | Built |
-| Annotate / draw / sign by hand | PDF → Sign (drawn or typed), Fill in a form (type anywhere) | Built |
+| Annotate / draw / sign by hand | PDF Reader (highlight, underline, notes, ink, text boxes, signatures, forms, saved as standard annotations; docs/PDF-READER.md); PDF → Sign (drawn or typed), Fill in a form (type anywhere) | Better |
 | Edit text | PDF → Edit text | Partial: finds the words and sets new ones in their place, sized to fit; the old words are covered, not reflowed (run Redact to remove them for good). Paragraph reflow is missing |
 | Redact (true removal) | PDF → Redact | Built (pages with matches are rebuilt) |
 | Remove annotations | PDF → Remove comments (keep links / forms optional) | Built |
