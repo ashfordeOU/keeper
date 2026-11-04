@@ -31,12 +31,14 @@ import { featureDef } from '../../core/features';
 export { setStandardOutput } from './convert-shared';
 import { ffmpegPath, standardOutput } from './convert-shared';
 import { onnxRuntime, onnxRuntimeReady } from '../../core/component-paths';
+import { chooseModel, CUTOUT_MODELS, type CutoutModelId } from '../../core/cutout-models';
+import { guidedFilter, normaliseMask } from '../../core/photo-pixels';
+import { openPicture } from './photo-open';
 
 type Sharp = typeof import('sharp').default;
 
 const req = createRequire(__filename);
-/** SHA-256 of rembg's u2netp.onnx (v0.0.0 release), the background-removal model. */
-const U2NETP_SHA256 = '309c8469258dda742793dce0ebea8e6dd393174f89934733ecc8b14c76f4ddd8';
+type OrtSession = { run(feeds: Record<string, unknown>): Promise<Record<string, { data: Float32Array; dims: readonly number[] }>>; inputNames: readonly string[]; release?: () => Promise<void> };
 
 export interface ConverterHooks extends ExtraHooks {
   /** decodes an image sharp cannot read (HEIC on Windows) into PNG bytes */
@@ -583,30 +585,16 @@ export class Converter {
     return img.flatten({ background: '#ffffff' }).jpeg({ quality: 88, mozjpeg: true });
   }
 
-  /** Opens any picture: sharp first, then the OS (sips on macOS, the hook elsewhere) for HEIC. Orientation is applied. */
+  /**
+   * Opens any picture: sharp for the common formats, else the system's decoder or
+   * Keeper's own readers (HEIC, camera RAW previews, Photoshop, icons, BMP, JPEG XL),
+   * through photo-open.ts. Orientation is applied.
+   */
   async image(input: string): Promise<import('sharp').Sharp> {
     const sharp = this.sharp();
-    try {
-      const s = sharp(input, { failOn: 'none', animated: false });
-      await s.metadata().then((m) => {
-        if (!m.width) throw new Error('unreadable');
-      });
-      // A clone of the pipeline with auto-rotation; metadata reading above does not consume it.
-      return sharp(input, { failOn: 'none' }).rotate();
-    } catch {
-      if (process.platform === 'darwin') {
-        const tmp = path.join(os.tmpdir(), `keeper-${process.pid}-${Date.now()}.png`);
-        const r = await run('/usr/bin/sips', ['-s', 'format', 'png', input, '--out', tmp]);
-        if (r.code === 0 && existsSync(tmp)) {
-          const buf = await fsp.readFile(tmp);
-          await fsp.rm(tmp, { force: true });
-          return sharp(buf).rotate();
-        }
-      }
-      const png = await this.opts.hooks?.decodeImage?.(input);
-      if (png) return sharp(png);
-      throw new Error(`${path.basename(input)} is in a format this computer cannot open`);
-    }
+    const o = await openPicture(input, { sharp, systemDecode: this.opts.hooks?.decodeImage });
+    if (o.via === 'sharp') return sharp(input, { failOn: 'none' }).rotate();
+    return sharp(o.data, { raw: { width: o.width, height: o.height, channels: 4 } });
   }
 
   private async imagesToPdf(inputs: string[], outDir: string, pageSize: 'fit' | 'a4' | 'letter'): Promise<string> {
@@ -636,65 +624,124 @@ export class Converter {
 
   // ---------------------------------------------------------------- background removal
 
-  private session: Promise<{ run(feeds: Record<string, unknown>): Promise<Record<string, { data: Float32Array; dims: readonly number[] }>>; inputNames: readonly string[] }> | null = null;
+  private sessions: Partial<Record<CutoutModelId, Promise<OrtSession>>> = {};
+  private downloads: Partial<Record<CutoutModelId, Promise<void>>> = {};
 
-  private async model(): Promise<NonNullable<Converter['session']>> {
-    if (this.session) return this.session;
-    this.session = (async () => {
-      const ort = onnxRuntime('Background removal');
+  /** Is this cut-out model downloaded? */
+  modelReady(id: CutoutModelId): boolean {
+    return existsSync(path.join(this.opts.modelsDir, CUTOUT_MODELS[id].file));
+  }
+
+  /** Downloads a cut-out model once (streamed to disk), checked against its pinned SHA-256 before it is used. */
+  downloadModel(id: CutoutModelId, progress: (f: number, phase: string) => void = (f, ph) => this.progress(f, ph)): Promise<void> {
+    if (this.modelReady(id)) return Promise.resolve();
+    const m = CUTOUT_MODELS[id];
+    this.downloads[id] ??= (async () => {
       await fsp.mkdir(this.opts.modelsDir, { recursive: true });
-      const file = path.join(this.opts.modelsDir, 'u2netp.onnx');
-      if (!existsSync(file)) {
-        this.progress(0.05, 'Downloading the cut-out model (5 MB, once)');
-        const res = await fetch('https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2netp.onnx');
-        if (!res.ok) throw new Error(`Could not download the cut-out model (${res.status})`);
-        const buf = Buffer.from(await res.arrayBuffer());
-        if (buf.length < 1_000_000) throw new Error('The cut-out model download was incomplete');
-        // Pinned: the same file rembg publishes (its MD5 8e83ca70… matches), so nothing else is ever loaded.
-        if (createHash('sha256').update(buf).digest('hex') !== U2NETP_SHA256) throw new Error('The cut-out model did not match its published fingerprint, so Keeper did not use it');
-        await fsp.writeFile(file + '.partial', buf);
-        await fsp.rename(file + '.partial', file);
+      const file = path.join(this.opts.modelsDir, m.file);
+      const part = `${file}.partial`;
+      const phase = `Downloading the ${m.name.toLowerCase()} cut-out model (${Math.round(m.bytes / 1_000_000)} MB, once)`;
+      progress(0, phase);
+      const res = await fetch(m.url);
+      if (!res.ok || !res.body) throw new Error(`Could not download the cut-out model (${res.status})`);
+      const hash = createHash('sha256');
+      const out = (await import('node:fs')).createWriteStream(part);
+      let got = 0;
+      let last = 0;
+      try {
+        for await (const chunk of res.body as unknown as AsyncIterable<Uint8Array>) {
+          hash.update(chunk);
+          got += chunk.length;
+          if (!out.write(chunk)) await new Promise<void>((r) => out.once('drain', () => r()));
+          if (Date.now() - last > 250) { last = Date.now(); progress(Math.min(0.99, got / m.bytes), phase); }
+        }
+      } finally {
+        await new Promise<void>((r) => out.end(() => r()));
       }
-      return ort.InferenceSession.create(file) as unknown as ReturnType<Converter['model']>;
+      // Pinned: the same file its makers published, so nothing else is ever loaded.
+      if (got !== m.bytes || hash.digest('hex') !== m.sha256) {
+        await fsp.rm(part, { force: true });
+        throw new Error('The cut-out model did not match its published fingerprint, so Keeper did not use it');
+      }
+      await fsp.rename(part, file);
+      progress(1, 'Done');
+    })().finally(() => { delete this.downloads[id]; });
+    return this.downloads[id]!;
+  }
+
+  /** Deletes a downloaded cut-out model (it is downloaded again when needed). */
+  async removeModel(id: CutoutModelId): Promise<void> {
+    const s = this.sessions[id];
+    delete this.sessions[id];
+    await s?.then((x) => x.release?.()).catch(() => undefined);
+    await fsp.rm(path.join(this.opts.modelsDir, CUTOUT_MODELS[id].file), { force: true });
+  }
+
+  private async model(id: CutoutModelId): Promise<OrtSession> {
+    const have = this.sessions[id];
+    if (have) return have;
+    const s = (async () => {
+      const ort = onnxRuntime('Background removal');
+      await this.downloadModel(id);
+      return ort.InferenceSession.create(path.join(this.opts.modelsDir, CUTOUT_MODELS[id].file)) as unknown as OrtSession;
     })();
-    this.session.catch(() => (this.session = null));
-    return this.session;
+    this.sessions[id] = s;
+    s.catch(() => { delete this.sessions[id]; });
+    return s;
+  }
+
+  /**
+   * The model's view of where the subject is: a square mask (0–255) of the
+   * model's own size. 'best' uses the larger model when it is downloaded.
+   */
+  async cutoutModel(base: Buffer, want: 'fast' | 'best' = 'best', progress: (f: number, phase: string) => void = () => undefined): Promise<{ mask: Uint8Array; size: number; model: CutoutModelId }> {
+    const sharp = this.sharp();
+    const id = chooseModel(want, this.modelReady('best'));
+    const m = CUTOUT_MODELS[id];
+    const session = await this.model(id);
+    const ort = onnxRuntime('Background removal');
+    progress(0.3, 'Finding the subject');
+    const S = m.input;
+    const { data } = await sharp(base).resize(S, S, { fit: 'fill' }).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+    let max = 1;
+    for (let i = 0; i < data.length; i++) max = Math.max(max, data[i]);
+    const chw = new Float32Array(3 * S * S);
+    for (let i = 0; i < S * S; i++) for (let c = 0; c < 3; c++) chw[c * S * S + i] = (data[i * 3 + c] / max - m.mean[c]) / m.std[c];
+    const out = await session.run({ [session.inputNames[0]]: new ort.Tensor('float32', chw, [1, 3, S, S]) });
+    const first = Object.values(out)[0];
+    return { mask: normaliseMask(first.data, S * S), size: S, model: id };
   }
 
   /**
    * The subject's mask for a picture (raw, one channel, the picture's own size): 255 where the
-   * subject is. Used by background removal here and by the photo editor.
+   * subject is. The model's rough mask is fitted to the picture's own edges (a guided filter).
+   * Used by background removal here and by the photo editor.
    */
-  async cutoutMask(base: Buffer, progress: (f: number, phase: string) => void = () => undefined): Promise<{ alpha: Buffer; width: number; height: number }> {
+  async cutoutMask(base: Buffer, progress: (f: number, phase: string) => void = () => undefined, want: 'fast' | 'best' = 'best'): Promise<{ alpha: Buffer; width: number; height: number }> {
     const sharp = this.sharp();
-    const session = await this.model();
-    const ort = onnxRuntime('Background removal');
-    progress(0.3, 'Finding the subject');
     const meta = await sharp(base).metadata();
     const W = meta.width!;
     const H = meta.height!;
-    const S = 320;
-    const { data } = await sharp(base).resize(S, S, { fit: 'fill' }).removeAlpha().raw().toBuffer({ resolveWithObject: true });
-    const mean = [0.485, 0.456, 0.406];
-    const std = [0.229, 0.224, 0.225];
-    let max = 1;
-    for (let i = 0; i < data.length; i++) max = Math.max(max, data[i]);
-    const chw = new Float32Array(3 * S * S);
-    for (let i = 0; i < S * S; i++) for (let c = 0; c < 3; c++) chw[c * S * S + i] = (data[i * 3 + c] / max - mean[c]) / std[c];
-    const out = await session.run({ [session.inputNames[0]]: new ort.Tensor('float32', chw, [1, 3, S, S]) });
-    const first = Object.values(out)[0];
-    let lo = Infinity;
-    let hi = -Infinity;
-    for (const v of first.data) {
-      lo = Math.min(lo, v);
-      hi = Math.max(hi, v);
-    }
-    const mask = Buffer.alloc(S * S);
-    for (let i = 0; i < S * S; i++) mask[i] = Math.round(((first.data[i] - lo) / (hi - lo || 1)) * 255);
+    const { mask, size } = await this.cutoutModel(base, want, progress);
     progress(0.8, 'Cutting out');
-    // extractChannel keeps the mask single-channel; resizing and blurring would otherwise make it RGB.
-    const alpha = await sharp(mask, { raw: { width: S, height: S, channels: 1 } }).resize(W, H, { fit: 'fill' }).blur(0.6).extractChannel(0).raw().toBuffer();
+    const work = await this.refineMask(base, mask, size, Math.min(1600, Math.max(W, H)));
+    const alpha = await sharp(work.alpha, { raw: { width: work.width, height: work.height, channels: 1 } }).resize(W, H, { fit: 'fill' }).extractChannel(0).raw().toBuffer();
     return { alpha, width: W, height: H };
+  }
+
+  /** The model's square mask, sized to a picture (longest side `side`) and fitted to its edges. */
+  async refineMask(base: Buffer, mask: Uint8Array, size: number, side: number): Promise<{ alpha: Buffer; width: number; height: number }> {
+    const sharp = this.sharp();
+    const grey = await sharp(base).resize(side, side, { fit: 'inside', withoutEnlargement: true }).greyscale().raw().toBuffer({ resolveWithObject: true });
+    const w = grey.info.width, h = grey.info.height;
+    const up = await sharp(Buffer.from(mask), { raw: { width: size, height: size, channels: 1 } }).resize(w, h, { fit: 'fill', kernel: 'cubic' }).extractChannel(0).raw().toBuffer();
+    const g = new Float32Array(w * h), p = new Float32Array(w * h);
+    for (let i = 0; i < w * h; i++) { g[i] = grey.data[i] / 255; p[i] = up[i] / 255; }
+    const r = Math.max(2, Math.round(Math.max(w, h) / 220));
+    const q = guidedFilter(g, p, w, h, r, 1e-3);
+    const alpha = Buffer.alloc(w * h);
+    for (let i = 0; i < w * h; i++) alpha[i] = Math.round(q[i] * 255);
+    return { alpha, width: w, height: h };
   }
 
   /** sharp, for the photo editor (loaded once, with the converter). */

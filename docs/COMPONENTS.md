@@ -33,8 +33,15 @@ script's SHA-256; electron-builder copies it to `resources/ironrdp`; the core ed
 the staging folder. Development uses `vendor/ironrdp/current` directly. The tab loads it from
 `keeper-engine://ironrdp/iron-remote-desktop-rdp.js`, a scheme that serves only that one file.
 
-Models (Whisper, the cut-out model, the face finder, the meaning model, OCR languages) were
-already downloaded on first use and stay so (`electron/services/whisper.ts` and friends).
+Models (Whisper, the cut-out models, the face finder, the meaning model, OCR languages) were
+already downloaded on first use and stay so (`electron/services/whisper.ts` and friends). Each is
+fetched from its published release and checked against a pinned SHA-256 before it is used.
+
+The photo editor's background removal has two models (`core/cutout-models.ts`, both Apache-2.0,
+so any use is fine, commercial included): **Quick**, U²-Net small (`u2netp.onnx`, 4.6 MB), fetched
+on first use, and **Best**, IS-Net general use (`isnet-general-use.onnx`, 179 MB), fetched only
+when asked for in the editor's Background tab, streamed to disk with progress, and removable there
+again (*Remove the download*). Without *Best*, *Quick* runs. Both need ONNX Runtime.
 
 Installer sizes (estimate = today's installer minus the compressed components):
 

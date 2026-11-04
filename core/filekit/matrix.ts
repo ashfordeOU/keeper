@@ -8,8 +8,8 @@ export type Family =
 
 const FAMILY: Record<string, Family> = {};
 const add = (f: Family, exts: string) => { for (const e of exts.split(' ')) FAMILY[e] = f; };
-add('image', 'jpg jpeg jpe jfif png webp avif tif tiff gif heic heif bmp tga psd psb jxl dng cr2 cr3 nef arw orf rw2 raf pef srw');
-add('icon', 'ico icns');
+add('image', 'jpg jpeg jpe jfif png webp avif tif tiff gif heic heif hif bmp dib tga psd psb jxl dng cr2 cr3 crw nef nrw arw srf sr2 orf rw2 raf pef srw x3f 3fr erf kdc mrw mos iiq rwl');
+add('icon', 'ico cur icns');
 add('vector', 'svg svgz eps ai');
 add('pdf', 'pdf');
 add('document', 'docx doc odt rtf html htm md markdown txt rst org tex textile adoc asciidoc pages wpd docm dotx');
@@ -47,7 +47,7 @@ export interface Target {
 
 const T = (format: string, label: string, extra: Partial<Target> = {}): Target => ({ format, label, ...extra });
 
-const IMAGE_OUT = [T('jpg', 'JPEG'), T('png', 'PNG'), T('webp', 'WebP'), T('avif', 'AVIF'), T('tiff', 'TIFF'), T('gif', 'GIF'), T('heic', 'HEIC', { note: 'on a Mac' }), T('ico', 'Windows icon (.ico)'), T('icns', 'Mac icon (.icns)'), T('pdf', 'PDF'), T('svg', 'SVG (picture inside)')];
+const IMAGE_OUT = [T('jpg', 'JPEG'), T('png', 'PNG'), T('webp', 'WebP'), T('avif', 'AVIF'), T('tiff', 'TIFF'), T('gif', 'GIF'), T('bmp', 'BMP'), T('heic', 'HEIC', { note: 'on a Mac' }), T('ico', 'Windows icon (.ico)'), T('icns', 'Mac icon (.icns)'), T('pdf', 'PDF'), T('svg', 'SVG (picture inside)')];
 const DOC_OUT = [T('pdf', 'PDF'), T('docx', 'Word (.docx)'), T('html', 'Web page'), T('md', 'Markdown'), T('txt', 'Plain text'), T('odt', 'OpenDocument text', { engine: 'office' }), T('rtf', 'Rich text', { engine: 'office' }), T('epub', 'E-book (EPUB)', { engine: 'pandoc' }), T('tex', 'LaTeX', { engine: 'pandoc' }), T('rst', 'reStructuredText', { engine: 'pandoc' })];
 const DATA_OUT = [T('csv', 'CSV'), T('tsv', 'TSV'), T('xlsx', 'Excel (.xlsx)'), T('ods', 'OpenDocument spreadsheet'), T('json', 'JSON'), T('yaml', 'YAML'), T('toml', 'TOML'), T('xml', 'XML'), T('html', 'Web page (table)'), T('md', 'Markdown table'), T('sqlite', 'SQLite database'), T('parquet', 'Parquet', { engine: 'duckdb' })];
 

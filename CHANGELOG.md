@@ -123,6 +123,22 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - Every copy keeps a line back to where it came from ("from mail: Invoice October"), with a link that opens it, and most can be undone from the message that follows.
 - A choice that cannot be used now says why ("Notes is switched off", "Only files can go there") instead of disappearing.
 
+### Added — Photo editor: a full editor that opens and saves any picture
+- Opens every picture: JPEG, PNG, WebP, AVIF, HEIC and HEIF (on Linux and Windows too, with Keeper's own reader), TIFF, GIF (every frame of a moving one), BMP, icons, SVG drawings, Photoshop files (flattened) and camera RAW files (CR2, CR3, NEF, ARW, RAF, ORF, RW2, DNG and more). A RAW file opens through the Mac's own RAW decoder, or Windows' with its extension, and elsewhere through the full-size preview the camera saved in it, and the editor says so.
+- Saves as JPEG, PNG, WebP, AVIF, TIFF, GIF, BMP, an icon with every size, or PDF, and as HEIC on a Mac (elsewhere it says why not). Choose the quality, keep the colour profile or use standard colours, and keep the photo's details, remove where it was taken, or remove them all. Convert many pictures at once from the editor or with Convert to… in Files.
+- Background: remove it on this computer with the quick model or a cleaner one you can download (179 MB, openly licensed), touch up the edge with a Keep and Remove brush, soften it, grow or shrink it, and put a colour, a gradient, the original background blurred, or any picture behind the subject, with a soft shadow. Compare shows before and after side by side.
+- Adjust: Auto, white balance by clicking something grey, highlights, shadows, whites, blacks, vibrance, clarity, sharpen, less noise, vignette, grain, a colour mix for eight colours and a tone curve. Eight looks of Keeper's own, and save your own.
+- Retouch: heal spots and small objects, clone, fix red eyes. Add text, shapes, stickers, a watermark or a frame. Canvas: exact size with the shape kept, more canvas around the picture, and perspective to straighten leaning buildings.
+- History lists every change in a few words; choose a step to go back. Everything stays a recipe on the untouched original, so Revert still brings the picture back byte for byte.
+- Edit Photo… is on every picture Keeper opens in Files; drop a picture on the editor; recent pictures on its start page and in the palette.
+
+### Fixed — Photo editor
+- HEIC photos could not be edited on Linux (and on Windows without the HEIF extension): the picture's header was read but its pixels were not, and Keeper's own HEIC reader was never tried. They open now.
+- A photo taken with the camera turned showed its size the wrong way round.
+- Saving dropped the photo's details (date, camera, place) and its colour profile; both are kept now unless you choose otherwise.
+- With the background removed, every slider change ran the cut-out model again, and the cut-out followed the light and colour sliders; the subject is now found once per picture.
+- Photoshop files did not open in Quick Look or Convert to… inside the app (the reader needed a canvas the app does not have).
+
 ### Added — Buttons & Shortcuts (experimental): mouse buttons with a job, and shortcuts changed in one app
 - Give the back, forward and middle buttons of a mouse a job: go back or forward, copy, paste, undo, close or open a tab, show all windows, or any keys you press. In every app, or only in one (that app's own job wins).
 - Change what a shortcut does in one app: "in Notes, Ctrl D sends Ctrl Shift D". Keeper takes the keys only while that app is in front, so every other app keeps them.

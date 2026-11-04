@@ -23,6 +23,8 @@ import { jpegSize, largestIcnsPng, largestJpeg } from '../../core/raw';
 import { isInside } from '../../core/safety';
 import { settings } from '../store';
 import { ffmpegBinary } from '../../core/component-paths';
+import { decodeHeif } from './heif-decode';
+import { psdReader } from './photo-open';
 
 // ---------------------------------------------------------------- access
 
@@ -560,30 +562,6 @@ export async function filmstrip(p: string, count = 10): Promise<string[]> {
 
 // ---------------------------------------------------------------- images Chromium cannot show
 
-let heifModule: { HeifDecoder: new () => { decode(b: Uint8Array): HeifImage[] } } | null = null;
-interface HeifImage {
-  get_width(): number;
-  get_height(): number;
-  display(target: { data: Uint8ClampedArray; width: number; height: number }, cb: (d: unknown) => void): void;
-}
-
-async function decodeHeif(b: Uint8Array): Promise<{ data: Uint8ClampedArray; width: number; height: number } | null> {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    heifModule ??= require('libheif-js/wasm-bundle');
-    const images = new heifModule!.HeifDecoder().decode(b);
-    const img = images[0];
-    if (!img) return null;
-    const width = img.get_width();
-    const height = img.get_height();
-    const target = { data: new Uint8ClampedArray(width * height * 4), width, height };
-    await new Promise<void>((resolve, reject) => img.display(target, (d) => (d ? resolve() : reject(new Error('decode failed')))));
-    return target;
-  } catch {
-    return null;
-  }
-}
-
 async function sharpOf() {
   try {
     return (await import('sharp')).default;
@@ -645,8 +623,7 @@ export async function displayImage(p: string, maxSide = 4096): Promise<DisplayIm
 
   if (ext === 'psd' || ext === 'psb') {
     try {
-      const { readPsd } = await import('ag-psd');
-      const psd = readPsd(await fsp.readFile(p), { skipLayerImageData: true, skipThumbnail: true, useImageData: true });
+      const psd = (await psdReader())(await fsp.readFile(p), { skipLayerImageData: true, skipThumbnail: true, useImageData: true });
       const id = psd.imageData;
       if (id) return await finish({ raw: id.data as Uint8ClampedArray, width: id.width, height: id.height, channels: 4 }, 'composite', true);
     } catch {

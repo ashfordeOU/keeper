@@ -1629,7 +1629,7 @@ app.whenReady().then(async () => {
   // Alerts to your phone: nothing is sent until a channel is set up and an alert it is for happens.
   registerPhoneAlertsIpc({ broadcast });
   // The light photo editor: pictures in the library's folders, Pictures, Downloads and the screenshot folder.
-  registerPhotoIpc({ roots: async () => [...settings().folders, app.getPath('pictures'), app.getPath('downloads'), app.getPath('desktop'), await (await import('./services/capture')).screenshotFolder()] });
+  registerPhotoIpc({ progress, roots: async () => [...settings().folders, app.getPath('pictures'), app.getPath('downloads'), app.getPath('desktop'), await (await import('./services/capture')).screenshotFolder()] });
   // Site and server monitors: no timer until one is added; alerts go to the Island (or the system) and the phone.
   registerMonitorsIpc({
     broadcast,

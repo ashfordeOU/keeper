@@ -10,7 +10,7 @@ import path from 'node:path';
 import { gzipSync } from 'node:zlib';
 import { freeName, stemOf } from '../../core/convert';
 import type { ConvertResult } from '../../core/convert-types';
-import { fontKind, readIco, readIcns, sfntToWoff, sfntToWoff2, woff2ToSfnt, woffToSfnt, writeIcns, writeIco, ICNS_SIZES } from '../../core/filekit/binfmt';
+import { fontKind, sfntToWoff, sfntToWoff2, woff2ToSfnt, woffToSfnt, writeIcns, writeIco, ICNS_SIZES } from '../../core/filekit/binfmt';
 import {
   csvToTable, markdownTable, parseCsv, parseToml, tableToCsv, tableToHtml, tableToMarkdown, tableToValue, valueToTable, valueToXml, writeCsv, writeToml, xmlDocToValue,
   type Table, type Value,
@@ -20,45 +20,21 @@ import {
   contactsToCsv, contactsToVcf, eventsToCsv, notebookToHtml, notebookToMarkdown, notebookToScript, parseIcs, parseSubtitles, parseVcf, shiftCues, writeSubtitles, type SubFormat,
 } from '../../core/filekit/formats';
 import { familyOf, targetsFor } from '../../core/filekit/matrix';
-import { largestJpeg } from '../../core/raw';
 import { zip } from '../../core/zipwrite';
 import { exec, findTool } from './convert-extra';
+import { openPicture } from './photo-open';
+import { writeBmp } from '../../core/photo-formats';
 import type { KitHelpers } from './filekit';
 
 const req = createRequire(__filename);
 const extOf = (p: string) => path.extname(p).slice(1).toLowerCase();
 const str = (v: unknown, d = '') => (v === undefined || v === null ? d : String(v));
 
-/** Any picture Keeper can read, as something sharp opens (a path or bytes). */
+/** Any picture Keeper can read, as something sharp opens (a path, or raw RGBA): the same opener as the photo editor's. */
 async function decodeAny(input: string, h: KitHelpers): Promise<string | Buffer | { raw: Buffer; width: number; height: number }> {
-  const e = extOf(input);
-  const b = await fsp.readFile(input);
-  if (e === 'ico') { const r = readIco(b); return r.png ?? { raw: r.rgba!.data, width: r.rgba!.width, height: r.rgba!.height }; }
-  if (e === 'icns') return readIcns(b);
-  if (e === 'psd' || e === 'psb') {
-    const { readPsd } = await import('ag-psd');
-    const psd = readPsd(b, { useImageData: true, skipLayerImageData: true, skipThumbnail: true });
-    const img = psd.imageData;
-    if (!img) throw new Error('This Photoshop file has no flattened picture saved in it (turn on “Maximize compatibility” when saving)');
-    return { raw: Buffer.from(img.data.buffer, img.data.byteOffset, img.data.byteLength), width: img.width, height: img.height };
-  }
-  if (['dng', 'cr2', 'cr3', 'nef', 'arw', 'orf', 'rw2', 'raf', 'pef', 'srw'].includes(e)) {
-    const j = largestJpeg(b);
-    if (!j) throw new Error('No picture was found in this RAW file');
-    return Buffer.from(j);
-  }
-  if (e === 'jxl') {
-    const { default: decode } = (await import('@jsquash/jxl/decode')) as unknown as { default: (b: ArrayBuffer) => Promise<{ data: Uint8ClampedArray; width: number; height: number }> };
-    const img = await decode(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength));
-    return { raw: Buffer.from(img.data.buffer), width: img.width, height: img.height };
-  }
-  if (e === 'heic' || e === 'heif') {
-    try { await h.ctx.sharp()(input).metadata(); return input; } catch { /* fall through */ }
-    const png = await (h.ctx.hooks as { decodeImage?: (f: string) => Promise<Buffer | null> }).decodeImage?.(input);
-    if (png) return png;
-    throw new Error('HEIC photos open in the Keeper app (or on a Mac); the command line cannot read them here');
-  }
-  return input;
+  const o = await openPicture(input, { sharp: h.ctx.sharp(), systemDecode: (h.ctx.hooks as { decodeImage?: (f: string) => Promise<Buffer | null> }).decodeImage });
+  if (o.via === 'sharp' || o.via === 'svg') return input;
+  return { raw: o.data, width: o.width, height: o.height };
 }
 
 async function sharpOf(input: string, h: KitHelpers) {
@@ -384,6 +360,14 @@ export async function convertTo(input: string, h: KitHelpers): Promise<ConvertRe
       if (fmt === 'ico') { const out = o(); await fsp.writeFile(out, writeIco(await iconPngs(input, h, [16, 24, 32, 48, 64, 128, 256]))); return done([out]); }
       if (fmt === 'icns') { const out = o(); await fsp.writeFile(out, writeIcns(await iconPngs(input, h, ICNS_SIZES))); return done([out]); }
       const img = await sharpOf(input, h);
+      if (fmt === 'bmp') {
+        const { data, info } = await img.ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+        let alpha = false;
+        for (let i = 3; i < data.length; i += 4) if (data[i] < 255) { alpha = true; break; }
+        const out = o();
+        await fsp.writeFile(out, writeBmp(data, info.width, info.height, alpha));
+        return done([out]);
+      }
       if (fmt === 'heic') { const tmp = path.join(await h.tmp(), `${stemOf(input)}.png`); await img.png().toFile(tmp); return runOp({ tool: 'image.convert', format: 'heic' }, tmp); }
       if (fmt === 'pdf') { const tmp = path.join(await h.tmp(), `${stemOf(input)}.png`); await img.png().toFile(tmp); return runOp({ tool: 'image.toPdf', pageSize: 'fit' }, tmp); }
       if (fmt === 'svg') {
