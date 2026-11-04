@@ -167,6 +167,7 @@ import { registerDisplaysIpc } from './ipc/displays';
 import { registerPhotoIpc } from './ipc/photo';
 import { registerCrashReportsIpc } from './ipc/crash-reports';
 import { registerKeeperBackupIpc } from './ipc/keeper-backup';
+import { registerSettingsSyncIpc } from './ipc/settings-sync';
 import { applyPendingRestore } from './services/keeper-backup';
 import { phoneAlert } from './services/phone-alerts';
 import { stopTimeTracking } from './services/time-track';
@@ -1614,6 +1615,8 @@ app.whenReady().then(async () => {
   registerCrashReportsIpc();
   // Backing up Keeper itself: nothing runs until the nightly copy is switched on.
   registerKeeperBackupIpc();
+  // Settings on your other computers: nothing runs until switched on (and Keeper Link is on).
+  registerSettingsSyncIpc({ broadcast });
   // Alerts to your phone: nothing is sent until a channel is set up and an alert it is for happens.
   registerPhoneAlertsIpc({ broadcast });
   // The light photo editor: pictures in the library's folders, Pictures, Downloads and the screenshot folder.

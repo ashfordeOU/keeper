@@ -3,7 +3,7 @@
 // link is checked here first; nothing is allowed by default except offering
 // files, which still asks before anything is saved.
 
-export type Permission = 'sendFiles' | 'browse' | 'write' | 'clipboard' | 'screenView' | 'screenControl' | 'terminal' | 'runCommands' | 'sync' | 'forward' | 'location';
+export type Permission = 'sendFiles' | 'browse' | 'write' | 'clipboard' | 'screenView' | 'screenControl' | 'terminal' | 'runCommands' | 'sync' | 'forward' | 'location' | 'settingsSync';
 
 export const PERMISSIONS: { id: Permission; label: string; detail: string }[] = [
   { id: 'sendFiles', label: 'Send files to this device', detail: 'You are asked before anything is saved, unless you turn on automatic accept.' },
@@ -15,6 +15,7 @@ export const PERMISSIONS: { id: Permission; label: string; detail: string }[] = 
   { id: 'terminal', label: 'Terminal on this device', detail: 'Open a terminal here from the other device, as you.' },
   { id: 'runCommands', label: 'Run commands', detail: 'Run saved commands here. You see each new command once before it runs.' },
   { id: 'sync', label: 'Sync and back up folders', detail: 'Keep folders the same on both devices.' },
+  { id: 'settingsSync', label: 'Share Keeper settings', detail: 'Snippets, themes, links and the other settings you choose stay the same on both computers. Never passwords.' },
   { id: 'location', label: 'Share my location', detail: 'The other device may see where this one last was (position, accuracy, time and battery).' },
   { id: 'forward', label: 'Reach ports on this computer', detail: 'Connect to services running here (for example a web server on port 3000).' },
 ];

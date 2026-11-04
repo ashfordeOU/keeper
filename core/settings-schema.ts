@@ -289,6 +289,7 @@ export const SETTINGS: SettingDef[] = [
 
   // ---------------------------------------------------------------- Devices
   { id: 'rdc.rdpInTab', section: 'devices', group: 'Remote Desktops', label: 'Remote Desktop in a tab', help: 'Shown in Keeper; the engine downloads on first use.', level: 'advanced', kind: 'link', to: { name: 'rdc', arg: 'places' }, feature: 'remoteDesktops', network: true, keywords: ['rdp', 'mstsc', 'freerdp', 'remote desktop', 'ironrdp', 'outside app', 'windows'] },
+  { id: 'settingsSync', section: 'devices', group: 'Settings on your other computers', label: 'Keep settings the same', help: 'Snippets, themes and links follow you to the computers you choose.', level: 'basic', kind: 'panel', panel: 'settingsSync', feature: 'link', keywords: ['sync settings', 'other computer', 'laptop', 'desktop', 'snippets', 'themes', 'same settings', 'older versions'] },
   { id: 'devices.page', section: 'devices', label: 'Your devices', help: 'Pair a device, your phone, and access from anywhere.', level: 'basic', kind: 'link', to: { name: 'devices' }, keywords: ['pair', 'phone', 'link'] },
   { id: 'meshPlaces', section: 'devices', label: 'Where device controls appear', help: 'In the palette, the tray and the Island.', level: 'advanced', kind: 'panel', panel: 'meshPlaces', feature: 'keeperMesh', keywords: ['mesh', 'private network', 'controls'] },
 

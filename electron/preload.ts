@@ -194,6 +194,8 @@ const api = {
   photo: group('photo', ['info', 'preview', 'save', 'revert']),
   // Crash reports for Ashforde (off until switched on).
   crashReports: group('crashReports', ['status', 'setOn', 'clear', 'sendNow']),
+  // Settings that follow you between your computers.
+  settingsSync: group('settingsSync', ['status', 'syncNow', 'setCategories', 'setDevice', 'restoreOlder']),
   // Backing up and moving Keeper itself.
   keeperBackup: group('keeperBackup', ['status', 'saveFile', 'writeFile', 'sendTo', 'pickFile', 'inspect', 'restoreFile', 'snapshotNow', 'restoreSnapshot']),
   monitors: group('monitors', ['overview', 'detail', 'save', 'remove', 'setOn', 'checkNow', 'importList', 'exportList']),

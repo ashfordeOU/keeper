@@ -592,6 +592,8 @@ export interface KeeperApi extends KeeperApiX {
   displays: import('./api-displays').DisplaysApi;
   /** the light photo editor (core/photo-edit.ts) */
   photo: import('./api-photo').PhotoApi;
+  /** settings that follow you between your computers (core/settings-sync.ts) */
+  settingsSync: import('./api-settings-sync').SettingsSyncApi;
   /** backing up and moving Keeper itself (core/keeper-backup.ts) */
   keeperBackup: import('./api-keeper-backup').KeeperBackupApi;
   /** crash reports for Ashforde (opt-in, core/crash-report.ts) */
@@ -944,6 +946,8 @@ export interface KeeperApi extends KeeperApiX {
   on(channel: 'focusblock-changed', cb: () => void): () => void;
   /** the Inbox changed: how many things wait to be sorted */
   on(channel: 'inbox-changed', cb: (count: number) => void): () => void;
+  /** settings from another computer arrived, or sharing changed */
+  on(channel: 'settings-sync-changed', cb: () => void): () => void;
   /** keeper do send.* (core/automation.ts): the window sends it without asking */
   on(channel: 'send-run', cb: (s: { verb: import('./send-to').SendVerb; title: string; text?: string; url?: string; path?: string; when?: string }) => void): () => void;
   /** the Inbox card was shown again (start with an empty field) */
