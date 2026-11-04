@@ -181,7 +181,7 @@ async function shot(w, name, dark) {
 
   // ---- a phone, with no app: the companion page in an emulated iPhone browser
   await openDevices(A.main);
-  await A.main.getByRole('button', { name: 'Phone', exact: true }).click();
+  await A.main.getByRole('tab', { name: 'Phone', exact: true }).click();
   await A.main.getByRole('button', { name: /Show QR Code/ }).click();
   const url = await until(async () => A.main.locator('[data-testid=companion-url]').inputValue(), 8000);
   check(!!url && url.includes('/c/#k='), 'the phone QR code holds the page address and a one-time key');
