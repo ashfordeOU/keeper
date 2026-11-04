@@ -6,7 +6,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { CueSettings } from '../../core/cues/api';
 import { counts, FILTERS, filterCues, sections, type CueFilter, type CueSort } from '../../core/cues/dashboard';
-import type { CueTemplate } from '../../core/cues/model';
+import { startersToOffer, type CueTemplate } from '../../core/cues/model';
 import { api } from '../api';
 import { Composer, CueCard, useCues } from '../cues/parts';
 import { Icon } from '../components/Icon';
@@ -132,6 +132,20 @@ function Checklists({ templates }: { templates: CueTemplate[] }) {
             <button className="btn sm ghost icon" aria-label="Delete checklist" onClick={() => void api.cues.removeTemplate(t.id)}><Icon name="trash" size={12} /></button>
           </div>
         ))}
+        {startersToOffer(templates).length ? (
+          <div className="tpl-gallery" data-testid="cue-starters">
+            <div className="kicker">Start from an example</div>
+            <div className="tpl-cards">
+              {startersToOffer(templates).map((s) => (
+                <button key={s.name} className="tpl-card" data-testid="cue-starter" title={s.items.join(' · ')} onClick={() => void api.cues.saveTemplate({ name: s.name, items: s.items }).then(() => toast(`Added “${s.name}”: change it any time`))}>
+                  <b>{s.name}</b>
+                  <span className="small muted">{s.line} · {s.items.length} steps</span>
+                  <span className="tpl-add small"><Icon name="plus" size={11} /> Add</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </div>
       <div className="cues-side">
         {edit ? (

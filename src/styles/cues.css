@@ -109,3 +109,10 @@ html[data-view='cue'], html[data-view='cue'] body { background: transparent !imp
 .isl .cues-island .cue-input { background: color-mix(in srgb, var(--isl-ink) 8%, transparent); color: var(--isl-fg); border-color: transparent; }
 .cue-card.flash { animation: cue-flash 1.4s var(--ease); }
 @keyframes cue-flash { 0%, 40% { box-shadow: 0 0 0 3px var(--accent-soft); border-color: var(--accent); } }
+
+/* Checklists: a small gallery of ready-made ones to start from */
+.tpl-gallery { margin-top: 16px; display: grid; gap: 8px; }
+.tpl-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+.tpl-card { display: grid; gap: 3px; text-align: left; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--bg); color: var(--text); font: inherit; cursor: default; }
+.tpl-card:hover, .tpl-card:focus-visible { border-color: var(--accent); }
+.tpl-add { color: var(--accent); display: inline-flex; align-items: center; gap: 4px; }

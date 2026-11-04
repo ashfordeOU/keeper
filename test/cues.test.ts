@@ -191,3 +191,18 @@ describe('dashboard', () => {
     expect(normalizeCueSettings({ textSize: 99, cooldownMin: -4 })).toMatchObject({ textSize: 28, cooldownMin: 0 });
   });
 });
+
+describe('ready-made checklists', () => {
+  it('are plain, short and never name another product', async () => {
+    const { STARTER_CHECKLISTS, startersToOffer } = await import('../core/cues/model');
+    const { jargonIn } = await import('../core/settings-schema');
+    expect(STARTER_CHECKLISTS.length).toBeGreaterThanOrEqual(5);
+    for (const s of STARTER_CHECKLISTS) {
+      expect(s.name.split(' ').length, s.name).toBeLessThanOrEqual(4);
+      expect(s.items.length, s.name).toBeGreaterThanOrEqual(3);
+      expect(jargonIn(`${s.name} ${s.line} ${s.items.join(' ')}`), s.name).toEqual([]);
+      expect(`${s.name} ${s.items.join(' ')}`).not.toMatch(/zoom|teams|slack|meet\b|github/i);
+    }
+    expect(startersToOffer([{ name: 'weekly review ' }]).map((s) => s.name)).not.toContain('Weekly review');
+  });
+});

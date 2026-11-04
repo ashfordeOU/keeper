@@ -74,6 +74,22 @@ export interface CueTemplate {
   usedAt?: number;
 }
 
+/** Ready-made checklists to start from (the gallery under Checklists); each is added as the person's own, to change freely. */
+export const STARTER_CHECKLISTS: { name: string; line: string; items: string[] }[] = [
+  { name: 'Before a video call', line: 'Sound, light and a tidy screen', items: ['Close apps you will not need', 'Turn on Do Not Disturb', 'Check the microphone and camera', 'Open the notes or slides', 'Glass of water nearby'] },
+  { name: 'Weekly review', line: 'A calm end to the week', items: ['Empty the Inbox', 'Look at next week’s calendar', 'Pick three things for Monday', 'Tidy the Desktop and Downloads', 'Note one thing that went well'] },
+  { name: 'Before a release', line: 'Ship without surprises', items: ['Tests pass', 'Changelog written', 'Version number raised', 'Backup taken', 'Tell the team'] },
+  { name: 'Leaving for the day', line: 'Close the day cleanly', items: ['Write down where you stopped', 'Save and close open work', 'Plan tomorrow’s first task', 'Lock the screen'] },
+  { name: 'Packing for a trip', line: 'Nothing left behind', items: ['Passport or ID', 'Chargers and adapters', 'Tickets and bookings', 'Medicines', 'Keys'] },
+  { name: 'Before presenting', line: 'A clean screen and a clear head', items: ['Tidy the screen with Stage', 'Hide private tabs', 'Plug in the charger', 'Silence the phone', 'Open the first slide'] },
+];
+
+/** The starters not yet added (by name), so the gallery shrinks as they are used. */
+export function startersToOffer(templates: Pick<CueTemplate, 'name'>[]): typeof STARTER_CHECKLISTS {
+  const have = new Set(templates.map((t) => t.name.trim().toLowerCase()));
+  return STARTER_CHECKLISTS.filter((s) => !have.has(s.name.toLowerCase()));
+}
+
 /** What is in front right now. */
 export interface FrontContext {
   app?: string;

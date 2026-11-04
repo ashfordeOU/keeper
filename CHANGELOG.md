@@ -4,6 +4,9 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 
 ## [Unreleased]
 
+### Added — Cues: ready-made checklists
+- Cues → Checklists offers six to start from (Before a video call, Weekly review, Before a release, Leaving for the day, Packing for a trip, Before presenting). One click adds one as your own, to change as you like.
+
 ### Added — Tasks: energy, and a Low energy view
 - Give a task an energy: Low for a tired moment, High for deep work, in the task or by typing `~low` or "deep work" when you add it. It travels with the task to calendar accounts.
 - Tasks → Plan has a **Low energy** view: the easy open tasks, today's and overdue first.
