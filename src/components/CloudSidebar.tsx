@@ -6,11 +6,13 @@ import { useEffect, useState } from 'react';
 import { parseRemoteRoute, remoteRoute } from '../../core/remote/paths';
 import type { Connection, ConnStatus } from '../../core/remote/types';
 import { formatBytes } from '../../core/format';
+import { placeCapacity } from '../../core/sidebar-places';
 import { api } from '../api';
 import { useStore } from '../state';
 import { ConnectionDialog, deviceIcon, errText } from './ConnectionDialog';
 import { Icon } from './Icon';
 import { NavSection } from './NavSection';
+import { PlaceFree } from './PlaceFree';
 import { ContextMenu, type MenuItem } from './ui';
 import '../styles/remote.css';
 
@@ -70,21 +72,21 @@ export function CloudSidebar({ bare }: { bare?: boolean } = {}) {
         {data.connections.map((c) => {
           const s = status(c.id);
           const q = s?.quota;
-          const used = q?.total ? Math.min(1, (q.used ?? q.total - (q.free ?? 0)) / q.total) : undefined;
+          const cap = placeCapacity(q?.total, q?.total ? q.free ?? Math.max(0, q.total - (q.used ?? 0)) : undefined);
           return (
             <div key={c.id} className="place-row conn-row" onContextMenu={(e) => menuFor(e, c)}>
-              <button className={`nav-item ${here === c.id ? 'active' : ''} ${used !== undefined ? 'has-bar' : ''}`} data-nav-key={`conn:${c.id}`} onClick={() => void openConn(c)} title={`${c.name} — ${STATE_LABEL[s?.state ?? 'idle']}${q?.total ? ` · ${formatBytes(q.free ?? 0)} free of ${formatBytes(q.total)}` : ''}${s?.message ? `\n${s.message}` : ''}`}>
+              <button className={`nav-item ${here === c.id ? 'active' : ''}`} data-nav-key={`conn:${c.id}`} onClick={() => void openConn(c)} title={`${c.name} — ${STATE_LABEL[s?.state ?? 'idle']}${q?.total ? ` · ${formatBytes(q.free ?? 0)} free of ${formatBytes(q.total)}` : ''}${s?.message ? `\n${s.message}` : ''}`}>
                 <Icon name={deviceIcon(c.device)} size={15} />
                 <span className="label ellipsis grow">{c.name}</span>
                 {mounting === c.id ? <div className="spinner" style={{ width: 11, height: 11 }} /> : <span className={`conn-dot ${s?.state ?? 'idle'}`} aria-label={STATE_LABEL[s?.state ?? 'idle']} />}
-                {used !== undefined ? <span className="place-bar" aria-hidden><i style={{ width: `${Math.round(used * 100)}%`, background: used > 0.9 ? 'var(--danger)' : undefined }} /></span> : null}
+                {cap ? <PlaceFree {...cap} /> : null}
               </button>
             </div>
           );
         })}
-        <button className="nav-item add-conn" onClick={() => setAdding(true)}>
+        <button className="nav-item add-conn" title="Connect a cloud drive or a server" onClick={() => setAdding(true)}>
           <Icon name="plus" size={15} />
-          <span className="label ellipsis">{data.connections.length && !bare ? 'Add…' : 'Connect a cloud or server…'}</span>
+          <span className="label ellipsis">{data.connections.length && !bare ? 'Add…' : 'Add cloud or server…'}</span>
         </button>
     </>
   );

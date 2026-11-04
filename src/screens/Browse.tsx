@@ -17,7 +17,7 @@ import { takeShowInFolder } from '../folder-nav';
 import { ContextMenu, Empty, Files, HiddenToggle, Loading, Modal, RenameDialog, ViewControls, type ListTree, type MenuItem } from '../components/ui';
 import { LockDialog, lockError, UnlockDialog } from '../components/LockDialog';
 import '../styles/lock.css';
-import { useAsync, useStore } from '../state';
+import { mod, shift, useAsync, useStore } from '../state';
 import { chooseDestination, folderDrop, pasteInto, setFileClip, useFileClip } from '../fileops';
 import '../styles/screens-a.css';
 import { TidyDialog } from '../components/TidyDialog';
@@ -43,6 +43,7 @@ export function Browse() {
   const [renaming, setRenaming] = useState<string | null>(null);
   const [newFolder, setNewFolder] = useState<string | null>(null);
   const [tidy, setTidy] = useState(false);
+  const [more, setMore] = useState<{ x: number; y: number } | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number; entry: FileEntry } | null>(null);
   // Typing a path (or a server address such as smb://nas/Media or \\server\share) into the path bar.
   const [typed, setTyped] = useState<string | null>(null);
@@ -235,15 +236,13 @@ export function Browse() {
         <div className="btn-row">
           {chip === 'screenshot' ? <CopyTextButton list={typeShown} /> : null}
           {chip !== 'all' && indexed ? <GroupToggle grouped={typeList.grouped} onChange={typeList.setGrouped} /> : null}
-          <HiddenToggle />
+          {/* Hidden files shown: a pill that says so and hides them again (shown from More or ⌘⇧.). */}
+          {settings?.showHidden ? <HiddenToggle /> : null}
           {clip ? <button className="btn sm" data-testid="paste-here" onClick={() => void pasteInto(dir)} title={`Paste ${clip.paths.length === 1 ? 'the item' : `${clip.paths.length} items`} you ${clip.op === 'cut' ? 'cut' : 'copied'} into this folder`}><Icon name="clipboard" size={13} /> Paste{clip.op === 'cut' ? ' (Move)' : ''}</button> : null}
-          <button className="btn sm" onClick={() => setNewFolder('untitled folder')}><Icon name="plus" size={13} /> New Folder</button>
-          <button className="btn sm" onClick={() => setTidy(true)} title="Sort loose files into folders by kind, month or extension"><Icon name="broom" size={13} /> Tidy</button>
-          <button className="btn sm" onClick={() => settings && void updateSettings({ pinned: pinned ? settings.pinned.filter((p) => p !== dir) : [...settings.pinned, dir] })}>
-            <Icon name="pin" size={13} /> {pinned ? 'Unpin' : 'Pin'}
-          </button>
-          <button className="btn sm" onClick={() => void api.files.reveal(dir)}><Icon name="reveal" size={13} /> Open</button>
+          <button className="btn sm primary" data-testid="new-folder" onClick={() => setNewFolder('untitled folder')}><Icon name="plus" size={13} /> New Folder</button>
           <ViewControls sort={sort} onSort={setSort} />
+          {/* The rest of this folder's actions, one click away. */}
+          <button className="btn sm ghost icon" data-testid="folder-more" aria-haspopup="menu" aria-expanded={!!more} title="More for this folder" aria-label="More for this folder" onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setMore({ x: r.right - 220, y: r.bottom + 4 }); }}><Icon name="more" size={14} /></button>
         </div>
       </div>
 
@@ -275,6 +274,12 @@ export function Browse() {
       )}
       {chip !== 'all' ? (typeShown?.length ? <div className="small muted folder-status" aria-live="polite">{typeShown.length.toLocaleString()} {typeLabel(chip).toLowerCase()} in {folderName}{indexed ? ' and the folders in it' : ''}</div> : null) : items.length ? <div className="small muted folder-status" aria-live="polite">{nDirs ? `${nDirs} folder${nDirs === 1 ? '' : 's'}, ` : ''}{items.length - nDirs} file{items.length - nDirs === 1 ? '' : 's'}</div> : null}
 
+      {more ? <ContextMenu x={more.x} y={more.y} label="More for this folder" onClose={() => setMore(null)} items={[
+        { label: `${settings?.showHidden ? 'Hide' : 'Show'} Hidden Files (${mod}${shift}.)`, icon: settings?.showHidden ? 'eyeOff' : 'eye', run: () => settings && void updateSettings({ showHidden: !settings.showHidden }) },
+        { label: 'Tidy This Folder…', icon: 'broom', run: () => setTidy(true) },
+        { label: pinned ? 'Remove from Sidebar' : 'Add to Sidebar', icon: 'pin', run: () => settings && void updateSettings({ pinned: pinned ? settings.pinned.filter((p) => p !== dir) : [...settings.pinned, dir] }) },
+        { label: info?.platform === 'win32' ? 'Show in Explorer' : info?.platform === 'darwin' ? 'Show in Finder' : 'Show in File Manager', icon: 'reveal', run: () => void api.files.reveal(dir) },
+      ]} /> : null}
       {menu ? <ContextMenu x={menu.x} y={menu.y} items={menu.entry.locked ? vaultMenu(menu.entry) : folderMenu(menu.entry)} onClose={() => setMenu(null)} /> : null}
       {locking ? <LockDialog dir={locking} onClose={() => setLocking(null)} /> : null}
       {unlocking ? <UnlockDialog vault={unlocking} onClose={() => setUnlocking(null)} /> : null}

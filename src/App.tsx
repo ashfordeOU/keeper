@@ -299,6 +299,7 @@ function TopBar({ onPalette, page }: { onPalette: () => void; /** a page in a wi
   const t = useT();
   const here = windowLabel(route, t);
   const [text, setText] = useState(route.name === 'search' ? route.q ?? '' : '');
+  const [hint, setHint] = useState(false);
   useEffect(() => {
     if (route.name === 'search') setText(route.q ?? '');
   }, [route]);
@@ -327,25 +328,38 @@ function TopBar({ onPalette, page }: { onPalette: () => void; /** a page in a wi
             setText(e.target.value);
             if (e.target.value.trim()) go({ name: 'search', q: e.target.value });
           }}
+          onFocus={() => setHint(true)}
+          onBlur={() => setHint(false)}
           onKeyDown={(e) => {
             if (e.key === 'Escape') { setText(''); (e.target as HTMLInputElement).blur(); }
           }}
         />
         <kbd aria-hidden>{mod}F</kbd>
+        {/* A short placeholder; examples of plain-English searches appear while the empty box has focus. */}
+        {hint && !text ? (
+          <div className="search-examples" data-testid="search-examples" onMouseDown={(e) => e.preventDefault()}>
+            <span className="muted">Try</span>
+            {[t('search.example1'), t('search.example2')].map((q) => (
+              <button key={q} className="chip" onClick={() => { setText(q); go({ name: 'search', q }); }}>{q}</button>
+            ))}
+          </div>
+        ) : null}
       </div>}
       <div className="spacer" />
       {/* In Mail: the meeting going on, or starting within 15 minutes, with Join. */}
       <MeetingChip />
       <Player />
       {FILE_ROUTES.includes(route.name) ? (
-        <button className={`btn ghost icon ${inspector ? 'on' : ''}`} aria-pressed={inspector} aria-controls={inspector ? 'inspector' : undefined} data-testid="inspector-toggle" title={`${inspector ? 'Hide' : 'Show'} Inspector (${mod === '⌘' ? '⌘⌥I' : 'Ctrl+Alt+I'})`} onClick={() => setInspector(!inspector)}><Icon name="info" size={16} /></button>
+        <button className={`btn ghost sm topbar-labelled ${inspector ? 'on' : ''}`} aria-pressed={inspector} aria-controls={inspector ? 'inspector' : undefined} data-testid="inspector-toggle" title={`${inspector ? 'Hide' : 'Show'} Inspector (${mod === '⌘' ? '⌘⌥I' : 'Ctrl+Alt+I'})`} onClick={() => setInspector(!inspector)}><Icon name="info" size={15} /> Info</button>
       ) : null}
-      {/* This page in a window of its own (⌥⌘N / Ctrl+Alt+N; also the Window menu and the sidebar's right-click). */}
-      {page ? null : <button className="btn ghost icon" data-testid="open-in-window" title={`Open in New Window (${mod === '⌘' ? '⌥⌘N' : 'Ctrl+Alt+N'})`} aria-label="Open in New Window" onClick={() => void openInWindow(route, here, toast)}><Icon name="external" size={16} /></button>}
       {/* A light app (Keeper Mail…): all of Keeper is one click away, and takes over this window. */}
       {IS_SOLO ? <button className="btn ghost sm" data-testid="open-keeper" title="Open all of Keeper here" onClick={() => void api.solo?.openKeeper()}>Open Keeper</button> : null}
-      <button className="btn ghost icon" title={`Command palette (${mod}K)`} aria-label={`Command palette (${mod}K)`} onClick={onPalette}><Icon name="sparkle" size={16} /></button>
-      <ThemeQuickPicker title={`Theme and light or dark (${mod}${shift}L swaps the last two)`} />
+      {/* View: this page in a window of its own (⌥⌘N / Ctrl+Alt+N; also the Window menu and the sidebar's right-click),
+          the command palette, and the theme. One labelled button instead of a row of bare icons. */}
+      <ThemeQuickPicker title={`Window and theme (${mod}${shift}L swaps the last two themes)`} actions={[
+        ...(page ? [] : [{ label: 'Open in New Window', icon: 'external', kbd: mod === '⌘' ? '⌥⌘N' : 'Ctrl+Alt+N', testId: 'open-in-window', run: () => void openInWindow(route, here, toast) }]),
+        { label: 'Commands', icon: 'sparkle', kbd: `${mod}K`, testId: 'open-palette', run: onPalette },
+      ]} />
     </header>
   );
 }
@@ -362,12 +376,9 @@ class PageBoundary extends Component<{ children: ReactNode; route: string }, { e
   render() {
     if (!this.state.error) return this.props.children;
     return (
-      <div className="empty">
-        <Icon name="warning" size={36} />
-        <div style={{ fontWeight: 600, color: 'var(--text-2)' }}>This page ran into a problem</div>
-        <div className="small mono" style={{ maxWidth: 520 }}>{this.state.error.message}</div>
-        <button className="btn" onClick={() => this.setState({ error: null })}>Try again</button>
-      </div>
+      <Empty icon="warning" title="This page ran into a problem" action={<button className="btn primary" onClick={() => this.setState({ error: null })}>Try again</button>} hint="The rest of Keeper keeps working.">
+        <span title={this.state.error.message}>{this.state.error.message.slice(0, 140)}</span>
+      </Empty>
     );
   }
 }

@@ -44,15 +44,16 @@ const PW = 'blue-otter-sings-at-dawn';
   // ---- hidden files
   const docs = path.join(HOME, 'Documents');
   await main.getByRole('button', { name: 'Documents', exact: true }).first().click();
-  await main.waitForSelector('.folder-item >> text=Taxes 2025', { timeout: 10000 });
-  const names = async () => main.locator('.folder-item .ellipsis:first-child, .file-list td.ellipsis, .file-card .name').allInnerTexts();
+  await main.waitForSelector('.file-card >> text=Taxes 2025', { timeout: 10000 });
+  const names = async () => main.locator('.file-list td.ellipsis, .file-card .name').allInnerTexts();
   let n = await names();
   check(!n.includes('.secret-notes') && !n.includes('marked-hidden.txt'), 'hidden files are not listed by default');
-  const toggle = main.locator('.hidden-toggle').first();
-  check(await toggle.isVisible(), 'the Hidden files button is in the toolbar');
+  check(await main.locator('.hidden-toggle').count() === 0, 'no Hidden files button while they are hidden (it is in More)');
   await shot('hidden-off', false);
-  await toggle.click();
+  await main.click('[data-testid="folder-more"]');
+  await main.getByRole('menuitem', { name: /Show Hidden Files/ }).click();
   await main.waitForTimeout(1200);
+  check(await main.locator('.hidden-toggle').first().isVisible(), 'while they are shown, a pill says so and hides them again');
   n = await names();
   check(n.includes('.secret-notes') && n.includes('marked-hidden.txt'), 'the button shows dot files and names listed in .hidden');
   check((await main.locator('.is-hidden').count()) >= 2, 'hidden items are dimmed');
@@ -64,7 +65,7 @@ const PW = 'blue-otter-sings-at-dawn';
   check(!n.includes('.secret-notes'), 'Ctrl+Shift+. hides them again');
 
   // ---- lock
-  await main.locator('.folder-item', { hasText: 'Taxes 2025' }).click({ button: 'right' });
+  await main.locator('.file-card', { hasText: 'Taxes 2025' }).click({ button: 'right' });
   await main.getByText('Lock Folder…').click();
   await main.waitForSelector('text=A password');
   await shot('lock-dialog', false);
@@ -89,12 +90,12 @@ const PW = 'blue-otter-sings-at-dawn';
   check(!fs.existsSync(path.join(docs, 'Taxes 2025')), 'the unencrypted folder was removed');
   const raw = fs.readFileSync(vault);
   check(!raw.includes(Buffer.from('return.pdf')) && !raw.includes(Buffer.from('coffee')) && !raw.includes(secret.subarray(0, 64)), 'the locked file shows no names or contents');
-  await main.waitForSelector('.folder-item.locked', { timeout: 10000 });
+  await main.waitForSelector('.file-card:has(.lock-badge)', { timeout: 10000 });
   await shot('browse-locked', false);
   await shot('browse-locked', true);
 
   // ---- wrong password, then unlock
-  await main.locator('.folder-item.locked').dblclick();
+  await main.locator('.file-card:has(.lock-badge)').dblclick();
   await main.waitForSelector('text=Unlock “Taxes 2025”');
   await main.getByLabel('Password', { exact: true }).fill('wrong');
   await main.getByRole('button', { name: 'Unlock', exact: true }).click();
@@ -112,13 +113,13 @@ const PW = 'blue-otter-sings-at-dawn';
 
   // ---- lock again from the menu, then the recovery key
   await main.waitForTimeout(800);
-  await main.locator('.folder-item', { hasText: 'Taxes 2025' }).click({ button: 'right' });
+  await main.locator('.file-card', { hasText: 'Taxes 2025' }).click({ button: 'right' });
   check(await main.getByText('Lock Again Now').isVisible(), 'an unlocked folder offers Lock Again Now');
   await main.getByText('Lock Again Now').click();
   for (let i = 0; i < 40 && !fs.existsSync(vault); i++) await main.waitForTimeout(250);
   check(fs.existsSync(vault) && !fs.existsSync(path.join(docs, 'Taxes 2025')), 'Lock Again Now locks it with no password asked');
-  await main.waitForSelector('.folder-item.locked', { timeout: 10000 });
-  await main.locator('.folder-item.locked').dblclick();
+  await main.waitForSelector('.file-card:has(.lock-badge)', { timeout: 10000 });
+  await main.locator('.file-card:has(.lock-badge)').dblclick();
   await main.getByText('Use the recovery key').click();
   await main.getByLabel('Recovery key').fill(recovery.toLowerCase().replace(/-/g, ' '));
   await main.getByRole('button', { name: 'Unlock', exact: true }).click();

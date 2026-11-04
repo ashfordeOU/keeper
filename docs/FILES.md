@@ -37,9 +37,18 @@ connected, sign in again, can't reach it.
 - Disks and servers appear and disappear as they connect: Keeper watches
   `/Volumes` on a Mac, the drive letters on Windows and the mount table and
   GVfs mounts on Linux, and reads the list again only when they change.
-- Every disk shows how full it is (a thin bar; red over 90 %) and its free
-  space in the tooltip. Removable disks and servers have **Eject**; after it,
+- A disk's free space shows as quiet text when you point at its row (and in
+  the tooltip). No bar sits under the name, so nothing looks like a spelling
+  mark; a disk with less than a tenth free keeps a small amber dot in view
+  (never red). Removable disks and servers have **Eject**; after it,
   Keeper says "It is safe to unplug."
+- Home is always called **Home**, and the computer **This Computer** (This PC
+  on Windows; on a Mac its own name, such as "Ana's MacBook Air", or This Mac).
+  The real user or network name is in the tooltip.
+- A folder's toolbar has one filled button (**New Folder**), the sort and view
+  controls, and **More** (⋯) with Show Hidden Files, Tidy This Folder, Add to
+  Sidebar and Show in Finder or the file manager. While hidden files are shown,
+  a pill says so and hides them again.
 - A server that drops without being ejected stays in the list, dimmed, marked
   **Offline**. A click connects again (Connect to Server opens with its
   address); right-click → **Forget** removes it. Keeper remembers up to eight

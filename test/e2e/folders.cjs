@@ -147,15 +147,26 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     return { left: Math.round(a.left - side.left), right: Math.round(side.right - sb - a.right) };
   });
   check(Math.abs(margins.left - margins.right) <= 2, `the selected row has even margins (${margins.left} / ${margins.right} px)`);
-  // The disk usage bar sits inside its row.
-  const bar = await main.evaluate(() => {
-    const b = document.querySelector('nav.sidebar .place-bar');
-    if (!b) return null;
-    const r = b.getBoundingClientRect();
-    const row = b.closest('.place-row').querySelector('.nav-item').getBoundingClientRect();
-    return r.left >= row.left && r.right <= row.right && r.bottom <= row.bottom + 0.5;
+  // How full a disk is: no coloured line under any name; the free space is quiet text on hover,
+  // and a nearly full disk keeps a small amber dot in view (never the danger colour).
+  await main.mouse.move(900, 400);
+  const cap = await main.evaluate(() => {
+    const bars = document.querySelectorAll('nav.sidebar .place-bar').length;
+    const free = [...document.querySelectorAll('nav.sidebar .place-free')];
+    const texts = free.filter((f) => getComputedStyle(f.querySelector('.place-free-text')).display !== 'none').length;
+    const danger = getComputedStyle(document.body).getPropertyValue('--danger').trim();
+    const dots = [...document.querySelectorAll('nav.sidebar .place-low-dot')];
+    const tmp = document.createElement('i'); tmp.style.color = danger; document.body.appendChild(tmp); const red = getComputedStyle(tmp).color; tmp.remove();
+    return { bars, free: free.length, texts, low: dots.length, red: dots.some((d) => getComputedStyle(d).backgroundColor === red) };
   });
-  check(bar !== false, `the drive usage bar fits inside its row (${bar === null ? 'no bar on this system' : 'inside'})`);
+  check(cap.bars === 0 && cap.texts === 0 && !cap.red, `no disk bars under names and no free space shown until pointed at (${cap.free} disks, ${cap.low} nearly full with an amber dot)`);
+  const disk = main.locator('nav.sidebar .nav-item:has(.place-free)').first();
+  if (await disk.count()) {
+    await disk.hover();
+    await sleep(150);
+    check(await disk.locator('.place-free-text').isVisible(), `pointing at a disk shows its free space (“${(await disk.locator('.place-free-text').textContent()).trim()}”)`);
+    await main.mouse.move(900, 400);
+  }
   // Keyboard focus on a section title: the ring is drawn inside the button.
   await main.locator('nav.sidebar button.nav-title').first().focus();
   await main.keyboard.press('Shift+Tab');

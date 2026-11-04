@@ -8,6 +8,7 @@
 // front door) always comes first. Servers that dropped stay listed as offline
 // until they come back or are forgotten. Plain functions so they are easy to test.
 
+import { formatBytes } from './format';
 import type { Place, PlacesModel } from './places';
 
 export interface SidebarRow {
@@ -23,6 +24,8 @@ export interface SidebarRow {
   offline?: boolean;
   /** Finder tag colour */
   color?: string;
+  /** the real name behind a friendly label (the user name behind Home, the computer's network name), for the tooltip */
+  realName?: string;
 }
 
 export interface SidebarGroup {
@@ -89,11 +92,40 @@ function servers(m: PlacesModel, offline: Place[] = []): SidebarRow[] {
 function systemDisk(platform: string, m: PlacesModel): Place | undefined {
   return platform === 'win32' ? m.volumes.find((v) => /^c:\\?$/i.test(v.path)) ?? m.volumes[0] : m.volumes.find((v) => v.path === '/');
 }
+/**
+ * The computer's row: a name a person recognises. A Mac's own name ("Ana’s MacBook Air") is
+ * one; a bare network name ("vm", "DESKTOP-4F2K", "ana-thinkpad-t14") is not, so it becomes
+ * "This Mac", "This PC" or "This Computer", with the network name in the tooltip.
+ */
+export function computerLabel(platform: string, computerName: string): string {
+  if (platform === 'win32') return 'This PC';
+  const n = computerName.trim();
+  if (platform === 'darwin') return /[\s’']/.test(n) ? n : 'This Mac';
+  return 'This Computer';
+}
+
+/**
+ * How full a disk is, for its sidebar row: nothing to show until it is nearly full. Free space
+ * appears on hover (quiet text, not a bar); below 10% free it stays in view, in amber, never red.
+ */
+export function placeCapacity(total: number | undefined, free: number | undefined): { freeText: string; low: boolean } | undefined {
+  if (!total || free === undefined || total <= 0) return undefined;
+  return { freeText: `${formatBytes(Math.max(0, free))} free`, low: free / total < 0.1 };
+}
+
+/** Home is always "Home"; the user name behind it goes in the tooltip. */
+function homeRow(m: PlacesModel): SidebarRow {
+  const h = homeOf(m);
+  const real = base(m.home);
+  return { ...at(h, 'Home', 'home'), ...(real && real !== 'Home' ? { realName: real } : {}) };
+}
+
 function computerRow(platform: string, m: PlacesModel): SidebarRow {
   const sys = systemDisk(platform, m);
   const root = platform === 'win32' ? sys?.path ?? 'C:\\' : '/';
-  const name = platform === 'win32' ? 'This PC' : m.computerName;
-  return at({ id: 'computer', name, path: root, kind: 'computer', icon: 'laptop', total: sys?.total, free: sys?.free }, name, 'laptop');
+  const name = computerLabel(platform, m.computerName);
+  const row = at({ id: 'computer', name, path: root, kind: 'computer', icon: 'laptop', total: sys?.total, free: sys?.free }, name, 'laptop');
+  return m.computerName && m.computerName !== name ? { ...row, realName: m.computerName } : row;
 }
 const otherDisks = (platform: string, m: PlacesModel) => {
   const sys = systemDisk(platform, m);
@@ -116,7 +148,7 @@ function mac(i: SidebarInput): SidebarGroup[] {
       rows: [
         ...(icloud ? [at(icloud, 'iCloud Drive', 'cloud')] : []),
         ...m.cloud.filter((c) => c !== icloud).map((c) => at(c, c.name, 'cloud')),
-        at(homeOf(m), base(m.home) || 'Home', 'home'),
+        homeRow(m),
         computerRow('darwin', m),
         ...otherDisks('darwin', m),
         ...(m.airdrop ? [{ key: 'airdrop', label: 'AirDrop', icon: 'airdrop', airdrop: true }] : []),
@@ -144,7 +176,7 @@ function windows(i: SidebarInput): SidebarGroup[] {
 
 function linux(i: SidebarInput): SidebarGroup[] {
   const m = i.model;
-  const home = at(homeOf(m), 'Home', 'home');
+  const home = homeRow(m);
   const folders = pick(m, ['Desktop', 'Documents', 'Downloads', 'Music', 'Pictures', 'Videos']).map((p) => at(p));
   const marks = [...(m.bookmarks ?? []), ...pins(m)].filter((p, n, all) => all.findIndex((x) => x.path === p.path) === n).map((p) => at(p, p.name, 'folder'));
   const drives = [computerRow('linux', m), ...otherDisks('linux', m)];

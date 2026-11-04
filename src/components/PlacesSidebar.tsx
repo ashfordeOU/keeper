@@ -11,13 +11,14 @@
 import { useEffect, useState } from 'react';
 import { formatBytes } from '../../core/format';
 import type { Place, PlacesModel } from '../../core/places';
-import { buildSidebarPlaces, reconnectAddress, rememberServers, sameServer, type SidebarRow } from '../../core/sidebar-places';
+import { buildSidebarPlaces, placeCapacity, reconnectAddress, rememberServers, sameServer, type SidebarRow } from '../../core/sidebar-places';
 import { api } from '../api';
 import { useAsync, useStore, type Route } from '../state';
 import { folderDrop } from '../fileops';
 import { Icon } from './Icon';
 import { NavSection } from './NavSection';
 import { CloudSidebar } from './CloudSidebar';
+import { PlaceFree } from './PlaceFree';
 import { ContextMenu, type MenuItem } from './ui';
 import { ConnectDialog } from '../screens/Network';
 import '../styles/places.css';
@@ -95,21 +96,21 @@ export function PlacesSidebar({ Item }: { Item: PageItem }) {
     if (r.ok && p.kind === 'network') forget(p);
     reload();
   };
-  const item = (p: Place, opts: { icon?: string; route?: Route; onClick?: () => void; badge?: React.ReactNode } = {}) => {
+  const item = (p: Place, opts: { icon?: string; route?: Route; onClick?: () => void; badge?: React.ReactNode; realName?: string } = {}) => {
     const r = opts.route ?? browse(p.path);
-    const used = p.total && p.free !== undefined ? 1 - p.free / p.total : undefined;
-    // The full name (and where it is, and how full a disk is) in the tooltip; the row itself shortens a long name with an ellipsis.
-    const tip = [p.name, p.path && p.path !== p.name ? p.path : '', p.total ? `${formatBytes(p.free ?? 0)} free of ${formatBytes(p.total)}` : ''].filter(Boolean).join('\n');
+    const cap = placeCapacity(p.total, p.free);
+    // The full name (the real one behind Home or This Computer, where it is, and how full a disk is) in the tooltip.
+    const tip = [p.name, opts.realName && opts.realName !== p.name ? `Named “${opts.realName}” on this computer` : '', p.path && p.path !== p.name ? p.path : '', p.total ? `${formatBytes(p.free ?? 0)} free of ${formatBytes(p.total)}` : ''].filter(Boolean).join('\n');
     return (
       // Files dropped on a folder or disk move there (⌥ or Ctrl copies); on the Trash, they go to the Trash.
       <div key={p.id} className={`place-row ${p.ejectable ? 'has-eject' : ''}`} onContextMenu={(e) => menuFor(e, p)}
         {...(p.id === 'trash' ? folderDrop(undefined, { onTrash: (paths) => void trash(paths) }) : p.path && !opts.onClick && !opts.route ? folderDrop(p.path) : {})}>
-        <button className={`nav-item ${!opts.onClick && active(r) ? 'active' : ''} ${used !== undefined ? 'has-bar' : ''}`} data-nav-key={p.path || p.id} title={tip} onClick={() => (opts.onClick ? opts.onClick() : go(r))}>
+        <button className={`nav-item ${!opts.onClick && active(r) ? 'active' : ''}`} data-nav-key={p.path || p.id} data-low={cap?.low ? '1' : undefined} title={tip} onClick={() => (opts.onClick ? opts.onClick() : go(r))}>
           <Icon name={opts.icon ?? p.icon} size={15} />
           <span className="label ellipsis grow">{p.name}</span>
           {opts.badge}
-          {/* How full a disk is: a thin bar under the name, inside the row. */}
-          {used !== undefined ? <span className="place-bar" aria-hidden><i style={{ width: `${Math.round(used * 100)}%`, background: used > 0.9 ? 'var(--danger)' : undefined }} /></span> : null}
+          {/* How full a disk is: quiet free space on hover; in view (amber) only when nearly full. */}
+          {cap ? <PlaceFree {...cap} /> : null}
         </button>
         {p.ejectable ? (
           <button className="place-eject" title={`Eject ${p.name}`} aria-label={`Eject ${p.name}`} disabled={ejecting === p.path} onClick={(e) => { e.stopPropagation(); void doEject(p); }}>
@@ -155,7 +156,7 @@ export function PlacesSidebar({ Item }: { Item: PageItem }) {
       const el = <Item key={r.key} route={r.route as Route} icon={r.icon} label={r.label} dot={r.color} />;
       return r.key === 'trash' ? <div key={r.key} className="place-row" {...folderDrop(undefined, { onTrash: (paths) => void trash(paths) })}>{el}</div> : el;
     }
-    return item({ ...r.place!, name: r.label }, { icon: r.icon });
+    return item({ ...r.place!, name: r.label }, { icon: r.icon, realName: r.realName });
   };
   // Folders dropped on the folder lists (not on a row) are pinned there.
   const pinTarget = (id: string) => id !== 'locations' && id !== 'remote' && id !== 'tags';

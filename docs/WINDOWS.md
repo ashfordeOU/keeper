@@ -8,7 +8,7 @@ of their own in the Dock, the Start menu or the app menu, which start them as li
 
 ## Open in New Window
 
-- **Where:** the window button at the right of the top bar, right-click a page in the
+- **Where:** **View** at the right of the top bar → **Open in New Window**, right-click a page in the
   sidebar → **Open in New Window**, the command palette (*Open Mail in New Window*, or type
   a page's name and *in New Window*), **Window → New Window for This Page**, or
   <kbd>⌥⌘N</kbd> (<kbd>Ctrl Alt N</kbd> on Windows and Linux).

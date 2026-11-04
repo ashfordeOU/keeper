@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 import { describe, expect, it } from 'vitest';
 import { classifyMounts, detectCloud, favoriteFolders, type Place, type PlacesModel } from '../core/places';
-import { buildSidebarPlaces, desktopOf, finderTagColor, parseGtkBookmarks, parseKdePlaces, reconnectAddress, rememberServers, sameServer, type SidebarGroup } from '../core/sidebar-places';
+import { buildSidebarPlaces, computerLabel, desktopOf, placeCapacity, finderTagColor, parseGtkBookmarks, parseKdePlaces, reconnectAddress, rememberServers, sameServer, type SidebarGroup } from '../core/sidebar-places';
 
 const labels = (g: SidebarGroup[]) => Object.fromEntries(g.map((x) => [x.id, x.rows.map((r) => r.label)]));
 const titles = (g: SidebarGroup[]) => g.map((x) => x.title ?? '');
@@ -34,7 +34,7 @@ describe('on a Mac: Finder’s sidebar', () => {
     const l = labels(g);
     expect(l.top).toEqual(['Hello', 'Recents', 'Shared']);
     expect(l.favorites).toEqual(['Applications', 'Downloads', 'Movies', 'Music', 'Pictures', 'Desktop', 'Documents', 'Trash', 'Work']);
-    expect(l.locations).toEqual(['iCloud Drive', 'Dropbox', 'Google Drive (ana@gmail.com)', 'Proton Drive (ana@proton.me)', 'ana', 'Ana’s MacBook Air', 'Backup', 'STICK', 'AirDrop', 'Media on 192.168.0.252', 'Network']);
+    expect(l.locations).toEqual(['iCloud Drive', 'Dropbox', 'Google Drive (ana@gmail.com)', 'Proton Drive (ana@proton.me)', 'Home', 'Ana’s MacBook Air', 'Backup', 'STICK', 'AirDrop', 'Media on 192.168.0.252', 'Network']);
     expect(l.tags).toEqual(['Red', 'Work', 'Blue']);
   });
   it('the computer stands for the system disk (with its free space); other disks and servers can be ejected', () => {
@@ -44,7 +44,8 @@ describe('on a Mac: Finder’s sidebar', () => {
     expect(loc.find((r) => r.label === 'STICK')).toMatchObject({ icon: 'usb', place: { ejectable: true } });
     expect(loc.find((r) => r.label === 'Media on 192.168.0.252')).toMatchObject({ icon: 'server', place: { ejectable: true, server: '192.168.0.252' } });
     expect(loc.find((r) => r.label === 'AirDrop')?.airdrop).toBe(true);
-    expect(loc.find((r) => r.label === 'ana')?.place?.path).toBe('/Users/ana');
+    expect(loc.find((r) => r.label === 'Home')?.place?.path).toBe('/Users/ana');
+    expect(loc.find((r) => r.label === 'Home')?.realName).toBe('ana');
   });
   it('Finder’s tag colours, grey for the person’s own', () => {
     const tags = g.find((x) => x.id === 'tags')!.rows;
@@ -110,7 +111,7 @@ describe('on Linux: GNOME Files and Dolphin', () => {
     expect(titles(g)).toEqual(['', 'Other Locations']);
     const l = labels(g);
     expect(l.top).toEqual(['Hello', 'Recent', 'Starred', 'Home', 'Documents', 'Downloads', 'Music', 'Pictures', 'Videos', 'Trash', 'Projects', 'My Books']);
-    expect(l.locations).toEqual(['thinkpad', 'STICK', 'media on nas', 'Network']);
+    expect(l.locations).toEqual(['This Computer', 'STICK', 'media on nas', 'Network']);
     expect(g[0].rows.find((r) => r.label === 'Starred')?.route).toEqual({ name: 'tag', arg: 'Starred' });
   });
   it('KDE: Places, Remote and Devices', () => {
@@ -120,7 +121,7 @@ describe('on Linux: GNOME Files and Dolphin', () => {
     expect(l.top).toEqual(['Hello', 'Recent Files']);
     expect(l.favorites).toEqual(['Home', 'Desktop', 'Documents', 'Downloads', 'Music', 'Pictures', 'Videos', 'Trash', 'Projects', 'My Books']);
     expect(l.remote).toEqual(['Network', 'media on nas']);
-    expect(l.locations).toEqual(['thinkpad', 'STICK']);
+    expect(l.locations).toEqual(['This Computer', 'STICK']);
   });
   it('knows the desktop from the environment', () => {
     expect(desktopOf({ XDG_CURRENT_DESKTOP: 'KDE' })).toBe('kde');
@@ -160,5 +161,38 @@ describe('servers that drop stay listed as offline', () => {
     expect(back).toHaveLength(1);
     expect(back[0].offline).toBeUndefined();
     expect(sameServer(media, { ...media, id: 'other' })).toBe(true);
+  });
+});
+
+describe('names a person recognises', () => {
+  it('calls the computer by its own name on a Mac, and This PC or This Computer otherwise', () => {
+    expect(computerLabel('darwin', 'Ana’s MacBook Air')).toBe('Ana’s MacBook Air');
+    expect(computerLabel('darwin', 'Anas-MBA')).toBe('This Mac');
+    expect(computerLabel('win32', 'DESKTOP-4F2K')).toBe('This PC');
+    expect(computerLabel('linux', 'vm')).toBe('This Computer');
+    expect(computerLabel('linux', 'ana thinkpad')).toBe('This Computer');
+  });
+  it('keeps the network name for the tooltip', () => {
+    const g = buildSidebarPlaces({ platform: 'linux', model: linux });
+    const row = g.find((x) => x.id === 'locations')!.rows[0];
+    expect(row.label).toBe('This Computer');
+    expect(row.realName).toBe('thinkpad');
+  });
+});
+
+describe('placeCapacity', () => {
+  it('has nothing to say without sizes', () => {
+    expect(placeCapacity(undefined, 5)).toBeUndefined();
+    expect(placeCapacity(100, undefined)).toBeUndefined();
+    expect(placeCapacity(0, 0)).toBeUndefined();
+  });
+  it('is low only below a tenth free', () => {
+    expect(placeCapacity(1000, 100)?.low).toBe(false);
+    expect(placeCapacity(1000, 99)?.low).toBe(true);
+    expect(placeCapacity(1000, 0)?.low).toBe(true);
+  });
+  it('says how much is free in plain words', () => {
+    expect(placeCapacity(2 ** 40, 2 ** 39)?.freeText).toMatch(/free$/);
+    expect(placeCapacity(2 ** 40, -5)?.freeText).toMatch(/^0/);
   });
 });

@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
-// The palette button in the top bar: a small pop-over to pick a theme and
-// light or dark straight away. The full gallery (seasons, tweaks) stays in
-// Settings → Appearance; ⌘⇧L still swaps between the last two themes.
+// The top bar's View menu: a labelled button with a small pop-over for this
+// window (open the page in a new window, the command palette) and the look
+// (a theme, light or dark) straight away. The full gallery (seasons, tweaks)
+// stays in Settings → Appearance; ⌘⇧L still swaps between the last two themes.
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { resolveMode, THEMES, type Theme } from '../../core/themes';
 import type { Appearance } from '../../core/types';
 import { useStore } from '../state';
@@ -18,7 +19,9 @@ function swatch(t: Theme, appearance: Appearance): { bg: string; elev: string; a
   return { bg: get('bg', '#111'), elev: get('elev', '#222'), accent: get('accent', '#6366f1'), text: get('text', '#eee') };
 }
 
-export function ThemeQuickPicker({ title }: { title: string }) {
+export interface ViewAction { label: string; icon: string; kbd?: string; testId?: string; run: () => void }
+
+export function ThemeQuickPicker({ title, actions = [], label = 'View' }: { title: string; /** window actions listed above the themes */ actions?: ViewAction[]; /** the button's visible word */ label?: ReactNode }) {
   const { settings, updateSettings, go } = useStore();
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
@@ -35,11 +38,20 @@ export function ThemeQuickPicker({ title }: { title: string }) {
   const appearance = settings.appearance ?? 'system';
   return (
     <div className="theme-quick" ref={box}>
-      <button className={`btn ghost icon ${open ? 'on' : ''}`} title={title} aria-label={title} aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(!open)}>
-        <Icon name="palette" size={16} />
+      <button className={`btn ghost sm topbar-labelled ${open ? 'on' : ''}`} data-testid="view-menu" title={title} aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <Icon name="palette" size={15} /> {label} <Icon name="chevronDown" size={11} />
       </button>
       {open ? (
-        <div className="theme-quick-pop" role="dialog" aria-label="Theme">
+        <div className="theme-quick-pop" role="dialog" aria-label="View">
+          {actions.length ? (
+            <div className="theme-quick-actions">
+              {actions.map((a) => (
+                <button key={a.label} className="theme-quick-action" data-testid={a.testId} onClick={() => { setOpen(false); a.run(); }}>
+                  <Icon name={a.icon} size={14} /> <span className="grow">{a.label}</span>{a.kbd ? <kbd>{a.kbd}</kbd> : null}
+                </button>
+              ))}
+            </div>
+          ) : null}
           <div className="theme-quick-head">
             <strong>Theme</strong>
             <div className="seg" role="radiogroup" aria-label="Light or dark">

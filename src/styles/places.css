@@ -3,10 +3,15 @@
 
 .place-row { position: relative; }
 .place-row.has-eject .nav-item { padding-right: 34px; }
-/* How full a disk is: a thin bar under the name, inset inside its row (more in the tooltip). */
-.nav-item > .place-bar { position: absolute; left: 34px; right: 10px; bottom: 3px; height: 2px; border-radius: 2px; background: var(--line); overflow: hidden; pointer-events: none; }
-.place-row.has-eject .nav-item > .place-bar { right: 34px; }
-.place-bar > i { display: block; height: 100%; background: var(--text-3); }
+/* How full a disk is: no bar (a thin coloured line under a name reads as a spelling mark).
+   The free space shows as quiet text while the row is pointed at or focused, and stays in view,
+   in amber, only when the disk is nearly full (under a tenth free). The tooltip has the rest. */
+.place-free { flex: none; display: inline-flex; align-items: center; gap: 4px; margin-left: 4px; font-size: var(--fs-xs); color: var(--text-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.place-free-text { display: none; }
+.nav-item:hover .place-free-text, .nav-item:focus-visible .place-free-text { display: inline; }
+.place-free.low { color: var(--warn); }
+.place-low-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--warn); display: block; }
+.nav-item:hover .place-low-dot, .nav-item:focus-visible .place-low-dot { display: none; }
 .place-eject { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 22px; height: 22px; border-radius: 6px; border: 0; background: none; color: var(--text-3); display: grid; place-items: center; cursor: default; }
 .place-eject:hover { background: var(--bg-active); color: var(--text); }
 .places-drop.over { background: var(--accent-soft); border-radius: 10px; outline: 1.5px dashed var(--accent); }
