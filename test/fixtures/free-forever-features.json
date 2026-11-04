@@ -181,6 +181,7 @@
     "macAppVolume",
     "keeperBackup",
     "settingsSync",
-    "readAloud"
+    "readAloud",
+    "extensions"
   ]
 }

@@ -207,6 +207,7 @@ export const TIERS: Record<string, FeatureTier> = {
   soloApps: { plain: 'Light app icons', setup: 'general', normal: 'on', shown: 'advanced' },
   updates: { plain: 'Check for updates automatically', setup: 'general', normal: 'on', shown: 'basic' },
   notices: { plain: 'Notification center', setup: 'general', normal: 'on', shown: 'customize' },
+  extensions: { plain: 'Extensions', setup: 'general', normal: 'off', shown: 'basic' },
   usageStats: { plain: 'Anonymous usage stats', setup: 'general', normal: 'off', shown: 'basic' },
   proAccount: { plain: 'Account and Pro', setup: 'general', normal: 'on', shown: 'advanced' },
   settingsSync: { plain: 'Settings on your other computers', setup: 'sync', normal: 'off', shown: 'basic' },

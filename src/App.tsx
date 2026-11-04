@@ -122,6 +122,7 @@ const StagePage = lazy(() => import('./screens/Stage').then((m) => ({ default: m
 import { DevicesSidebar, LinkPrompts } from './components/LinkParts';
 import { ScreenPrompts } from './screen/ScreenParts';
 import { SendToHost } from './components/SendTo';
+import { ExtensionHost } from './components/Extensions';
 import { Devices } from './screens/Devices';
 // Remote Desktops (with its session views) loads the first time its page opens.
 const RemoteDesktops = lazy(() => import('./screens/RemoteDesktop').then((m) => ({ default: m.RemoteDesktops })));
@@ -674,6 +675,7 @@ function MainWindowHosts() {
       <LinkPrompts />
       <ScreenPrompts />
       <SendToHost />
+      <ExtensionHost />
       <ForceQuitHost />
       <FirewallAlerts />
       <ApprovalHost />

@@ -1,0 +1,14 @@
+{
+  "id": "example.hello",
+  "name": "Hello",
+  "version": "1.0.0",
+  "description": "Says hello, and catches a dated line into your Inbox.",
+  "author": "Ashforde",
+  "surfaces": ["commands"],
+  "main": "main.js",
+  "commands": [
+    { "id": "hello", "title": "Say hello" },
+    { "id": "catch-date", "title": "Catch today’s date" }
+  ],
+  "permissions": ["notify", "inbox"]
+}

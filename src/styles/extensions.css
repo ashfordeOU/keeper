@@ -1,0 +1,11 @@
+/* SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 */
+/* Extensions: a trust line with one accent action, then a quiet card per extension. */
+.ext-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.ext-head p { margin: 0; }
+.ext-card { padding: 12px 0; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; }
+.ext-title { display: flex; align-items: flex-start; gap: 10px; }
+.ext-perm { display: flex; align-items: center; gap: 10px; }
+.ext-foot { margin-top: 2px; }
+.ext-empty { padding: 10px 0; }
+.ext-kicker { font-size: var(--fs-xs); font-weight: 650; text-transform: uppercase; letter-spacing: .06em; color: var(--text-3); margin-top: 6px; }
+.ext-lines { margin: 6px 0 10px; padding-left: 18px; line-height: 1.6; }

@@ -407,6 +407,47 @@ async function launch(extraEnv = {}, opts = {}) {
     check(!!(await until(async () => /Keeper is using/.test(await main.locator('[data-testid="about-using"]').innerText()), 10000)), 'About says how much Keeper is using, one click from the breakdown');
   }
 
+  // ---------------------------------------------------------------- extensions
+  if (want('extensions')) {
+    const call = (f, ...a) => main.evaluate(([fn, args]) => { const p = fn.split('.'); let o = window.keeper; for (const x of p.slice(0, -1)) o = o[x]; return o[p[p.length - 1]](...args); }, [f, a]);
+    const src = path.resolve(__dirname, '../../docs/extensions/hello');
+    const off = await call('extensions.preview', src).then(() => 'ok', (e) => e.message);
+    check(/switched off/.test(off), 'extensions are off until switched on');
+    await call('features.set', 'extensions', true);
+    const pv = await call('extensions.preview', src);
+    check(pv.lines.map((l) => l.text).join('|') === 'Show you short messages|Add things to your Inbox', 'before installing, it says what the extension may do in plain words');
+    const wrong = await call('extensions.install', src, '0'.repeat(64)).then(() => 'installed', (e) => e.message);
+    check(/fingerprint is different/.test(wrong), 'a folder that is not the expected one is refused');
+    await call('extensions.install', src, pv.checksum);
+    const palette = async (q) => { await main.keyboard.press('Control+K'); await main.keyboard.type(q); await wait(400); await main.keyboard.press('Enter'); };
+    // Ask: the first catch asks; Allow once.
+    await palette('Hello: Catch today');
+    check(!!(await until(() => main.locator('[data-testid="ext-ask"]').count(), 8000)), 'the extension’s command asks before it adds to the Inbox');
+    await k.shot('auditplatform-extensions-ask-light');
+    await main.locator('[data-testid="ext-ask-once"]').click();
+    check(!!(await until(async () => (await call('inbox.list')).find((x) => x.source === 'extension:example.hello'), 8000)), 'allowed once, it adds a line to the Inbox');
+    // Off: refused, nothing added.
+    await call('extensions.setPermission', 'example.hello', 'inbox', 'off');
+    const n = (await call('inbox.list')).filter((x) => x.source === 'extension:example.hello').length;
+    await wait(500);
+    await palette('Hello: Catch today');
+    check(!!(await until(() => main.locator('.toast', { hasText: 'may not add things to your inbox' }).count(), 8000)), 'set to Off, it is refused with a plain message');
+    check((await call('inbox.list')).filter((x) => x.source === 'extension:example.hello').length === n, 'and nothing is added');
+    // A script changed after installing does not run.
+    fs.appendFileSync(path.join(HOME, '.config', 'Keeper', 'extensions', 'example.hello', 'main.js'), '\n// changed');
+    const changed = await call('extensions.worker', 'example.hello').then(() => 'ran', (e) => e.message);
+    check(/changed after it was installed/.test(changed), 'a script changed after installing is refused');
+    await call('extensions.install', src, pv.checksum);
+    await call('extensions.setPermission', 'example.hello', 'notify', 'allow');
+    await navigate('settings');
+    await main.waitForSelector('[data-testid="settings-search"]', { timeout: 15000 });
+    await main.locator('[data-testid="settings-search"]').fill('plugins');
+    await main.locator('[data-testid="settings-result"]', { hasText: 'Extensions' }).first().click({ timeout: 10000 }).catch(() => undefined);
+    check(!!(await until(() => main.locator('[data-testid="ext-card"]').count(), 10000)), 'Settings → General lists the extension with its permissions');
+    await main.locator('[data-testid="extensions"]').scrollIntoViewIfNeeded();
+    await both('auditplatform-extensions');
+  }
+
   check(errors.length === 0, `no page errors (${errors.slice(0, 2).join('; ')})`);
   await app.close();
   fontServer.close();

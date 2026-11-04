@@ -170,6 +170,7 @@ import { registerKeeperBackupIpc } from './ipc/keeper-backup';
 import { registerSettingsSyncIpc } from './ipc/settings-sync';
 import { registerPhoneToday } from './services/phone-today';
 import { registerReadingIpc } from './ipc/reading';
+import { registerExtensionsIpc } from './ipc/extensions';
 import { applyPendingRestore } from './services/keeper-backup';
 import { phoneAlert } from './services/phone-alerts';
 import { stopTimeTracking } from './services/time-track';
@@ -1623,6 +1624,8 @@ app.whenReady().then(async () => {
   registerSettingsSyncIpc({ broadcast });
   // Read aloud (the system's own voice, only while reading) and the reading fonts (fetched once when chosen).
   registerReadingIpc({ broadcast });
+  // Extensions: nothing is read or run until one of their commands is used.
+  registerExtensionsIpc({ broadcast, searchFiles: (q, n) => index.query(q).hits.slice(0, n).map((h) => h.file) });
   // Alerts to your phone: nothing is sent until a channel is set up and an alert it is for happens.
   registerPhoneAlertsIpc({ broadcast });
   // The light photo editor: pictures in the library's folders, Pictures, Downloads and the screenshot folder.
