@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 */
 /* Home: a calm start. Few borders, quiet secondary text, room to breathe;
-   Edit Home sets how roomy (Comfortable, Compact, Spacious). On a wide window
-   Today is a column on the right; on a narrow one everything is one column. */
+   Edit Home sets how roomy (Comfortable, Compact, Spacious). Today sits at the
+   top (src/styles/today.css); everything reads down one column. */
 
-.home { --home-gap: 32px; --home-side: 300px; max-width: 1240px; }
+.home { --home-gap: 32px; max-width: 1240px; }
 .home-compact { --home-gap: 22px; }
 .home-spacious { --home-gap: 44px; }
 .home .section { margin-top: var(--home-gap); }
@@ -32,12 +32,10 @@
 .home-progress.indeterminate i { width: 30%; animation: home-slide 1.3s ease-in-out infinite; }
 @keyframes home-slide { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
 
-/* Two columns on a wide window: the main sections, and Today. */
-.home-body { display: flex; align-items: flex-start; gap: 40px; }
-.home-main { flex: 1; min-width: 0; }
-.home-side { flex: none; width: var(--home-side); position: sticky; top: 0; }
-.home-side .home-today { margin-top: var(--home-gap); }
-.home-main .home-today { margin-top: var(--home-gap); }
+.home-body { display: block; }
+.home-main { min-width: 0; }
+/* Today's cards on Edit Home. */
+.home-edit-today h4 { font-size: var(--fs-md); }
 
 /* The one suggestion: a single line, not a block. */
 .home-suggest { display: flex; align-items: center; gap: 10px; margin-top: calc(var(--home-gap) - 8px); padding: 6px 8px 6px 12px; min-height: 38px; border-radius: 10px; background: color-mix(in srgb, var(--warn) 7%, transparent); font-size: 13px; min-width: 0; }
@@ -66,28 +64,6 @@
 .home-recent-item .thumb .ext-tile { font-size: 8px; }
 .home-recent-item .name { flex: 1; font-size: 13px; }
 .home-recent-item .meta { flex: none; font-size: 11.5px; color: var(--text-3); font-variant-numeric: tabular-nums; }
-
-/* Today: compact rows. */
-.home-today .section-head { margin-bottom: 8px; }
-.home-today-date { min-width: 0; }
-.home-today-list { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-direction: column; gap: 1px; }
-.home-today-row { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; padding: 5px 6px; border: 0; border-radius: 7px; background: none; color: var(--text); font: inherit; font-size: 13px; text-align: left; cursor: default; }
-.home-today-row:hover { background: var(--bg-hover); }
-.home-today-row .t { flex: 1; }
-.home-today-row .when { flex: none; color: var(--text-3); font-size: 12px; font-variant-numeric: tabular-nums; }
-.home-today-row .when.late { color: var(--danger); }
-.home-today-row .dot { width: 3px; height: 16px; border-radius: 2px; flex: none; }
-.home-today-list:not(.home-running) .home-today-row .when { min-width: 44px; }
-.home-running .home-today-row { background: var(--accent-soft); color: var(--text); }
-.home-running .home-today-row > svg { color: var(--accent); flex: none; }
-.home-running .home-today-row .t { font-weight: 550; }
-.home-task { display: flex; align-items: center; gap: 2px; padding-left: 6px; }
-.home-task input { margin: 0; flex: none; accent-color: var(--accent); }
-.home-today > .home-link { margin: -4px 0 10px; }
-.home-today-empty { margin: 0 0 10px 6px; }
-.home-today-links { display: flex; gap: 14px; padding: 2px 6px; border-top: 1px solid var(--line); padding-top: 10px; }
-.home-today-links .home-link { margin: 0 -6px; color: var(--text-3); }
-.home-today-links .home-link:hover { color: var(--text-2); background: var(--bg-hover); }
 
 /* Library: tiles with counts in the kinds' colours (as in the sidebar). */
 .home-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }

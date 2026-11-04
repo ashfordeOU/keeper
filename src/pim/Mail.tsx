@@ -30,6 +30,8 @@ import { accountForDigit, nextTextSize, type InboxTab } from '../../core/pim/sma
 import { chipKeeps, chipOf, chipView, firstName, groupByDay, labelColor, lastChecked, listTime, type ChipId, type ChipView } from '../../core/pim/mail-today';
 import type { LabelCount } from '../../core/api-pim';
 import { AccountRail, clock, MailChips, TodayHeader, UpdatedFooter, useToday } from './mail-today';
+import { mailStripCompact } from '../../core/today';
+import { dayKey } from '../../core/pim/tasks';
 import '../styles/pim.css';
 
 const FOLDER_ICON: Record<string, string> = { inbox: 'inbox', sent: 'send', drafts: 'rename', trash: 'trash', junk: 'warning', archive: 'archive', all: 'mail', flagged: 'flag' };
@@ -140,6 +142,8 @@ export function Mail() {
     else if (route.arg?.startsWith('attach:')) { try { setCompose({ to: [], cc: [], bcc: [], subject: '', body: '', attachments: (JSON.parse(decodeURIComponent(route.arg.slice(7))) as string[]).map((path) => ({ path })) }); } catch { /* a bad link */ } }
     // A contact from the search box: the mail from them.
     else if (route.arg?.startsWith('search:')) { setSide(null); setQuery(route.arg.slice(7)); }
+    // Hello's Today: the mail waiting for your reply.
+    else if (route.arg === 'toreply') { setSide(null); setQuery(''); setView((v) => ({ ...v, folder: 'toreply', account: undefined, split: undefined, tab: undefined })); }
     else if (route.arg && route.arg.split(':').length > 2) { setSide(null); setQuery(''); setView((v) => ({ ...v, folder: 'unified', account: undefined, split: undefined, tab: 'all' })); setSelected(route.arg); }
   }, [route.arg]);
   useEffect(loadList, [loadList]);
@@ -464,7 +468,7 @@ export function Mail() {
         <button className="btn ghost sm" onClick={() => go({ name: 'settings', arg: 'pim' })}><Icon name="settings" size={13} /> Mail settings</button>
       </aside>
       </div>
-      {showToday ? <TodayHeader name={myName} strip={strip} now={now} /> : null}
+      {showToday ? <TodayHeader name={myName} strip={strip} now={now} compact={mailStripCompact(settings?.today?.seen, dayKey(now))} /> : null}
 
       {side ? <section className="mail-side">{sideView}</section> : (
         <section className="mail-list">

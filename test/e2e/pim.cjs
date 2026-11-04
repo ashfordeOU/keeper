@@ -342,6 +342,8 @@ const MSG = (subject, extra = '') => [
   const toLabel = (await main.evaluate(() => window.keeper.pim.messages({ folder: 'unified', tab: 'all' }))).messages.find((m) => !m.security);
   if (toLabel) await main.evaluate((id) => window.keeper.pim.label([id], 'Clients', true), toLabel.id);
   await main.locator('[data-testid="mail-rail"] button[aria-label^="All inboxes"]').click();
+  // The full strip shows until Today has been seen on Hello today (then it is one line: test/e2e/today.cjs).
+  await main.evaluate(async () => { const s = await window.keeper.settings.get(); await window.keeper.settings.set({ today: { ...s.today, seen: '' } }); });
   await main.waitForSelector('[data-testid="mail-today-card"]', { timeout: 10_000 }).catch(() => {});
   const todayText = (await main.locator('[data-testid="mail-today"]').innerText().catch(() => '')) || '';
   check(/^Good (morning|afternoon|evening), Ana|^Hello, Ana/.test(todayText) && /Today is /.test(todayText), `the inbox greets Ana by the time of day with today's date ("${todayText.split('\n')[0]}")`);
@@ -406,6 +408,16 @@ const MSG = (subject, extra = '') => [
   await main.waitForTimeout(500);
   check(await main.locator('[data-testid="mail-today-next"]').isVisible() && !(await main.locator('[data-testid="mail-today-strip"]').isVisible()) && /Now: Design review/.test(await main.locator('[data-testid="mail-today-next"]').innerText()), 'a narrow window shows one "Now: …" line instead of the cards');
   await main.setViewportSize({ width: 1440, height: 900 });
+  // Once Today has been seen on Hello today, the strip is one line with no second greeting, and a way back to Today.
+  await main.evaluate(async () => { const s = await window.keeper.settings.get(); const d = new Date(); const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; await window.keeper.settings.set({ today: { ...s.today, seen: day } }); });
+  await main.waitForTimeout(600);
+  check(await main.locator('[data-testid="mail-today"].compact').count() === 1 && await main.locator('.today-greeting').count() === 0 && /Design review/.test(await main.locator('[data-testid="mail-today-next"]').innerText()) && await main.locator('[data-testid="mail-today-open"]').count() === 1, 'after Today was seen, Mail’s strip is one line: now or next, and Today');
+  for (const look of ['light', 'dark']) {
+    await main.evaluate((l) => window.keeper.settings.set({ appearance: l }), look);
+    await main.waitForTimeout(700);
+    await main.screenshot({ path: `${SHOTS}/app-mail-today-compact-${look}.png` });
+  }
+  await main.evaluate(async () => { const s = await window.keeper.settings.get(); await window.keeper.settings.set({ appearance: 'system', today: { ...s.today, seen: '' } }); });
   // The setting turns it off.
   await main.evaluate(() => window.keeper.settings.set({ mailToday: false }));
   await main.waitForTimeout(600);

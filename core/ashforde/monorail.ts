@@ -271,6 +271,7 @@ export const OVERLAY_TITLES = {
   popover: 'Keeper Glance',
   voice: 'Keeper Voice',
   cue: 'Keeper cue',
+  inbox: 'Keeper Inbox card',
   launcher: 'Keeper Launcher',
   stage: 'Keeper Stage overlay',
   backdrop: 'Keeper Stage backdrop',

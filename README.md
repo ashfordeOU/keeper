@@ -46,8 +46,8 @@ Keeper is one app you install once. It is made of parts you switch on and off in
 | Part | What it does |
 |---|---|
 | **Files** | Home with your folders up front, a sidebar laid out like Finder, File Explorer or GNOME Files, type chips (Documents, Pictures…) in any folder or Everywhere, and search by name, kind, date or the words inside documents and pictures; disks, cloud drives, servers and locked folders ([docs/FILES.md](docs/FILES.md)) |
-| **Mail & Calendar** | Mail, Calendar, Reminders, the Planner and the Clock with alarms, timers and world clocks |
-| **Notes** | Markdown notes in folders you own, Cues that pop up in the right app or website, and Notes from Other Apps in one search |
+| **Mail & Calendar** | Mail, Calendar, Reminders, the Planner and the Clock with alarms, timers and world clocks; Today at the top of Hello and Plan my day, which puts three tasks into the free time between your events ([docs/TODAY.md](docs/TODAY.md)) |
+| **Notes** | Markdown notes in folders you own, an Inbox that catches a thought, a link or a screenshot with one shortcut from any app, Cues that pop up in the right app or website, and Notes from Other Apps in one search |
 | **Tidy** | Clean Up, Duplicates, the Space Map, Large Files, Convert, Automations and Undo History |
 | **Sync & Backup** | Synced Folders, Backups, Cloud Mirrors and Older Versions |
 | **Computer** | Health, Startup & Apps, System Controls, Keep Awake, Monitors for your sites and servers, and the Fix-it List |

@@ -35,6 +35,15 @@ All of them are pure functions in `core/pim/tasks.ts`, tested in `test/tasks.tes
 - **Projects**: every `#project` in use.
 - **Insights**: see below.
 
+## Today, Plan my day and Wrap up
+
+Hello's **Today** shows the top three of today's tasks with tick boxes, and
+**Plan my day** puts up to three tasks into the free time between your events
+as calendar blocks that link back to their task (`keeper://task/<id>`); ticking
+the block on Today ticks the task. **Wrap up the day** moves what is left to
+tomorrow with `pim.moveTasks`. See [TODAY.md](TODAY.md). Things caught with the
+Inbox shortcut become tasks from the Inbox page (key 1).
+
 ## Repeating tasks
 
 Checking off a repeating task **rolls it on** to its next date (`completeTask`). The task stays the same, with the same UID, so a synced list shows one task, as Apple Reminders does. Its steps are unticked. The next date comes from the rule after the current one and never before today, so a daily task left for a week comes back tomorrow, not seven times. `COUNT` counts down, and the last occurrence is simply done. `UNTIL` is respected. Each completion is logged in Insights.

@@ -554,6 +554,8 @@ export interface KeeperApi extends KeeperApiX {
   timeTrack: import('./api-time').TimeTrackApi;
   /** Journal mode in Notes */
   journal: import('./api-journal').JournalApi;
+  /** the Inbox: things caught with one shortcut, sorted later (core/inbox.ts) */
+  inbox: import('./api-inbox').InboxApi;
   /** the reader: feeds and pages saved for later */
   reader: import('./api-reader').ReaderApi;
   /** alerts to your phone: ntfy, Telegram, e-mail, a web address */
@@ -906,6 +908,10 @@ export interface KeeperApi extends KeeperApiX {
   on(channel: 'cues-changed' | 'cue-popup', cb: () => void): () => void;
   /** Focus blocking started, ended or changed */
   on(channel: 'focusblock-changed', cb: () => void): () => void;
+  /** the Inbox changed: how many things wait to be sorted */
+  on(channel: 'inbox-changed', cb: (count: number) => void): () => void;
+  /** the Inbox card was shown again (start with an empty field) */
+  on(channel: 'inbox-card', cb: () => void): () => void;
   /** time tracking recorded something or its settings changed */
   on(channel: 'time-changed', cb: () => void): () => void;
   /** the reader's feeds or articles changed */

@@ -4,6 +4,21 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 
 ## [Unreleased]
 
+### Added — Today: one place that answers "what now?"
+- Hello now opens on Today: what is on now and next (with Join for calls and the time left), your top three tasks to tick off, how many messages wait for your reply, what is in the Inbox, one thing to fix and a Focus button. Your folders and files follow under it.
+- Light and Files only show a calm three cards, Recommended five, Everything all six. Edit Home → Today's cards picks your own; More (…) hides Today.
+- Once you have seen Today, Mail's Today strip is one quiet line for the rest of the day, with a way back to Today and no second greeting.
+
+### Added — Inbox: catch anything with one shortcut, sort it later
+- Ctrl Alt J (⌘⌥J on a Mac) opens a small card over any app: type or dictate a thought, paste a link, take a screenshot of an area or drop a file, then Enter. It waits in the Inbox with the time. Also in the tray menu, the command palette and keeper://inbox.
+- The Inbox page shows one thing at a time with five big choices on the keys 1 to 5: Task, Note (today's daily note), Event, Snippet or Delete, each with Undo.
+- Kept on this computer only. Change the shortcut in Settings → General → Shortcuts.
+
+### Added — Plan my day and Wrap up the day
+- Plan my day: pick up to three tasks, say about how long each takes, and Keeper puts them into the free time between your events. Move a block 15 minutes either way, then Add to calendar.
+- Each block is an ordinary event that links back to its task: tick it on Today and the task is done; the Island counts it down like any event.
+- Wrap up the day moves what is left to tomorrow and, with the Journal on, adds one line to today's entry. The working day (9:00 to 17:30) is in Settings → General → Today.
+
 ### Changed — Screenshots: today's Keeper everywhere
 - Every picture in the README, the docs and the website is new, taken from today's Keeper in light and dark: Hello, Files with its sidebar and type chips, Everywhere, Network & firewall with the Ask prompt, the menu bar, Capture's preview, pins, scrolling captures and Draw on screen, a share link's page, Quick Search, clipboard sets, Typed Snippets, the selection bar, Focus blocking, Time tracking, Journal, Reader, Mail Today, page windows, light apps and app icons, Monitors, Phone Alerts, the photo editor, web page capture, the weather and the Island in several themes.
 - They show sample files and names only, never a real computer's.

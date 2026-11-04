@@ -136,6 +136,7 @@ export const NAV_PAGES: NavPage[] = [
   { id: 'mail', route: { name: 'mail' }, label: 'Mail', icon: 'mail', group: 'none', keywords: 'inbox email' },
   { id: 'calendar', route: { name: 'calendar' }, label: 'Calendar', icon: 'calendar', group: 'none', keywords: 'events schedule agenda' },
   { id: 'reminders', route: { name: 'reminders' }, label: 'Reminders', icon: 'listCheck', group: 'none', keywords: 'todo tasks to-do lists' },
+  { id: 'inbox', route: { name: 'inbox' }, label: 'Inbox', icon: 'inbox', group: 'none', keywords: 'capture catch quick thought idea jot sort later triage' },
   { id: 'planner', route: { name: 'planner' }, label: 'Planner', icon: 'columns', group: 'none', keywords: 'today week inbox plan tasks overdue upcoming' },
   { id: 'alarms', route: { name: 'alarms' }, label: 'Clock', icon: 'alarm', group: 'none', keywords: 'alarms timers stopwatch world clocks' },
 

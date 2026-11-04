@@ -157,6 +157,8 @@
     "monitors",
     "phoneAlerts",
     "crashReports",
-    "graphAll"
+    "graphAll",
+    "dayPlan",
+    "captureInbox"
   ]
 }

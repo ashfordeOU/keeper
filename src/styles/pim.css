@@ -421,6 +421,10 @@
 .today-note.live { color: var(--ok-ink, var(--ok)); font-weight: 650; }
 .today-join { align-self: flex-start; height: 24px; gap: 4px; }
 .today-next { display: none; }
+/* After Today was seen on Hello: one quiet line, no greeting. */
+.mail-today.compact { padding: 6px 10px; gap: 0; background: none; }
+.mail-today.compact .today-next { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: var(--fs-md); color: var(--text-2); }
+.mail-today.compact .today-next .btn.sm { height: 24px; }
 
 .mail-chips { gap: 3px; padding: 8px 10px; border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
 .mail-chips .mail-chip { flex: none; height: 28px; padding: 0 9px; gap: 5px; border: 1px solid var(--line); border-radius: var(--r-pill); background: color-mix(in srgb, var(--bg-elev) 85%, transparent); color: var(--text-2); }

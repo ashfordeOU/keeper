@@ -63,6 +63,7 @@ import { registerIslandToolsIpc } from './ipc/island-tools';
 // Island+ (calls, levels, notifications, agents) and Cues (ISLAND+CUES workstream).
 import { registerIslandXIpc, stopIslandX } from './ipc/islandx';
 import { cueTrayItems, handleCueLink, registerCueShortcut, registerCuesIpc, stopCues } from './ipc/cues';
+import { inboxTrayItems, openInboxCard, registerInboxIpc, registerInboxShortcut } from './ipc/inbox';
 import { flushIslandTools } from './services/island-tools';
 import { checkProtection } from './services/protection';
 import { listStartup, toggleStartup } from './services/startup';
@@ -564,7 +565,7 @@ let trayMenuKey = '';
 function trayTemplate(): Electron.MenuItemConstructorOptions[] {
   const awake = islandSvc?.awake.on;
   const more: Electron.MenuItemConstructorOptions[] = [
-    ...meshTrayItems(), ...ambienceTrayItems(), ...cueTrayItems(), ...stageTrayItems(), ...studioTrayItems(), ...voiceTrayItems(),
+    ...meshTrayItems(), ...ambienceTrayItems(), ...inboxTrayItems().slice(1), ...cueTrayItems(), ...stageTrayItems(), ...studioTrayItems(), ...voiceTrayItems(),
     ...(featureOn('quickControls') ? [{ label: 'Quick Controls', submenu: trayControls() }] : []),
     ...trayAccessItems(showMain),
     ...(() => { try { return rdcTrayItems(); } catch { return []; } })(),
@@ -583,6 +584,7 @@ function trayTemplate(): Electron.MenuItemConstructorOptions[] {
   return [
     { label: 'Open Keeper', click: () => showMain() },
     ...(featureOn('quickSearch') ? [{ label: 'Quick Search', accelerator: settings().quickSearchShortcut, click: toggleQuick }] : []),
+    ...inboxTrayItems(settings().today.captureShortcut).slice(0, 1),
     // Linux trays often do not report clicks: the glance is here too.
     ...(process.platform === 'linux' ? [{ label: 'Glance…', click: () => showGlance(tray, 'click') }] : []),
     ...(featureOn('keepAwake') ? [{ label: awake ? 'Stop Keeping Awake' : 'Keep Awake', submenu: awake ? undefined : [
@@ -629,6 +631,8 @@ function registerShortcuts() {
   if (featureOn('capture')) void registerCaptureShortcuts();
   registerLauncherShortcut();
   registerCueShortcut();
+  // The Inbox: catch a thought, a link, a screenshot or a file from any app.
+  registerInboxShortcut(reg, s.today.captureShortcut);
   void registerStudioShortcuts(reg);
 }
 
@@ -729,10 +733,14 @@ function handleDeepLink(url: string) {
     // keeper://help?code=123456789&pw=… ("Ask for help" links) opens Help Someone with the code filled in.
     // keeper://cue?text=…&attach=page,app opens a new cue beside the app in front; keeper://cues opens the page.
     else if (action === 'cue') handleCueLink(u);
+    // keeper://inbox opens the card to catch something.
+    else if (action === 'inbox') openInboxCard();
     // keeper://studio/record (start or stop), /stop, /pause (pause or resume)
     else if (action === 'studio') handleStudioLink(u);
     // keeper://mail/<message id> (a task or event made from an email links back to it)
     else if (action === 'mail' && u.pathname.length > 1) showMain(`mail:${decodeURIComponent(u.pathname.slice(1))}`);
+    // keeper://task/<id> (a block made by Plan my day links back to its task)
+    else if (action === 'task' && u.pathname.length > 1) showMain(`planner:task:${decodeURIComponent(u.pathname.slice(1))}`);
     // keeper://license?token=… (Keeper Pro's e-mail and thank-you page); builds without Pro just open Keeper.
     else if (action === 'license') void activateFromLink(url).then((r) => {
       if (!r) return showMain();
@@ -1291,6 +1299,8 @@ app.whenReady().then(async () => {
   });
   // Island+: calls, levels, notifications, more agents, the launcher button; Cues beside the app or page they belong to.
   registerIslandXIpc({ islandSvc, emit: () => broadcast('island-changed'), openLauncher: () => toggleLauncher(), show: (route) => showMain(route || undefined) });
+  // The Inbox: its calls, the small card and the tray entries.
+  registerInboxIpc({ preload: preload(), lockDown, broadcast, show: (route) => showMain(route), updateTray: () => void updateTray() });
   registerCuesIpc({
     preload: preload(), lockDown, broadcast, show: (route) => showMain(route), updateTray: () => void updateTray(),
     island: (kind, title, detail, ref) => islandSvc?.alert({ kind: 'cue', title, detail, ref: kind === 'hint' ? 'hint' : ref }),
@@ -1739,6 +1749,7 @@ let studioSince: number | undefined;
     else if ((['edge', 'displays', 'size', 'blendNotch', 'cameraEdge', 'followCamera', 'offsetX', 'offsetY'] as const).some((k) => next.island[k] !== prev.island[k])) islandWindows.ensure(true);
     if (['pasteShortcut', 'shelfShortcut', 'taskShortcut', 'hideShortcut', 'awakeShortcut', 'plainPasteShortcut'].some((k) => next.island[k as 'pasteShortcut'] !== prev.island[k as 'pasteShortcut'])) registerShortcuts();
     if (next.selection?.shortcut !== prev.selection?.shortcut) registerShortcuts();
+    if (next.today?.captureShortcut !== prev.today?.captureShortcut) registerShortcuts();
     if (next.island.calendarUrl !== prev.island.calendarUrl) { void islandSvc.pollCalendar(); void adoptIslandCalendarUrl(next.island.calendarUrl).catch(() => undefined); }
     if (JSON.stringify(next.island.place) !== JSON.stringify(prev.island.place) || next.island.units !== prev.island.units) void islandSvc.pollWeather(true);
     broadcast('island-changed');

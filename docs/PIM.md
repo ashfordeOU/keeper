@@ -224,6 +224,11 @@ JMAP is not used yet; Fastmail works through IMAP and CalDAV with an app passwor
   read "12 min" and "3 h" within a day, then the clock time, then the date.
 - **"Updated 2 minutes ago"** at the foot of the list, from when the accounts
   were last checked, moving on by itself; click it to check now.
+- **Once Today was seen**: after Today has been on screen on Hello for a few
+  seconds that day, the strip is one line for the rest of the day (now or
+  next, and a Today button back to Hello; Join stays in the meeting chip),
+  with no second greeting
+  ([TODAY.md](TODAY.md)).
 - Settings → Mail & Calendar → *Show today at the top of the inbox* turns off
   the greeting, the events and the meeting chip.
 

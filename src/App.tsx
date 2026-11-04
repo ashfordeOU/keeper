@@ -80,6 +80,7 @@ import { NotesHub } from './screens/NotesHub';
 // Notes (with its editor) loads the first time the page opens.
 const NotesApp = lazy(() => import('./notes/NotesApp').then((m) => ({ default: m.NotesApp })));
 // Cues (notes and checklists tied to an app, a site or a time) load the first time the page opens.
+const InboxPage = lazy(() => import('./screens/Inbox').then((m) => ({ default: m.InboxPage })));
 const CuesPage = lazy(() => import('./screens/Cues').then((m) => ({ default: m.Cues })));
 // Focus blocking (lists, schedules, strict mode) loads the first time its page opens.
 // The reader (feeds and read later) loads the first time its page opens.
@@ -436,6 +437,7 @@ function Page() {
     noteshub: () => <NotesHub key={route.arg ?? ''} />,
     notes: () => <Suspense fallback={null}><NotesApp /></Suspense>,
     cues: () => <Suspense fallback={null}><CuesPage /></Suspense>,
+    inbox: () => <Suspense fallback={null}><InboxPage /></Suspense>,
     blocking: () => <Suspense fallback={null}><FocusBlockPage /></Suspense>,
     time: () => <Suspense fallback={null}><TimePage /></Suspense>,
     reader: () => <Suspense fallback={null}><ReaderPage /></Suspense>,

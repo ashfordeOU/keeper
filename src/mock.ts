@@ -9,6 +9,7 @@ import { mockCues } from './mock-cues';
 import { mockFocusBlock } from './mock-focus';
 import { mockTimeTrack } from './mock-time';
 import { mockJournal } from './mock-journal';
+import { mockInbox } from './mock-inbox';
 import { mockReader } from './mock-reader';
 import { mockPhoneAlerts } from './mock-alerts';
 import { mockMonitors } from './mock-monitors';
@@ -316,6 +317,7 @@ export function createMockApi(): KeeperApi {
     ...mockCues((ch) => listeners.get(ch)?.forEach((cb) => (cb as () => void)())),
     ...mockTimeTrack(),
     ...mockJournal(),
+    ...mockInbox((ch, ...a) => listeners.get(ch)?.forEach((cb) => (cb as (...x: unknown[]) => void)(...a))),
     ...mockReader(),
     ...mockPhoneAlerts(),
     ...mockMonitors(),

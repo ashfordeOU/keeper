@@ -162,6 +162,8 @@ const api = {
   timeTrack: group('timeTrack', ['status', 'day', 'week', 'setPaused', 'saveRules', 'exportCsv', 'removeDay', 'wipe', 'testFront']),
   // Journal mode in Notes: a journal vault and photos for an entry.
   journal: group('journal', ['makeVault', 'addPhotos']),
+  // The Inbox: things caught with one shortcut, and its small card.
+  inbox: group('inbox', ['list', 'add', 'remove', 'restore', 'card']),
   // The reader: feeds, read later, OPML.
   reader: group('reader', ['overview', 'items', 'article', 'addFeed', 'removeFeed', 'editFeed', 'refresh', 'setRead', 'markAllRead', 'setStarred', 'saveForLater', 'removeLater', 'importOpml', 'exportOpml']),
   // Alerts to your phone.

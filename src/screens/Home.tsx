@@ -1,22 +1,23 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
-// Home: a calm start, and the front door to your files. The greeting and one
-// quiet line (files, free space, how the reading of the folders is going, the
-// weather as a small chip); Desktop, Documents and Downloads as big tiles; one line
-// of suggestion only when something is worth doing; Jump back in, with recent
-// files under the projects they belong to; a Today column (events, tasks due,
-// what is running); a search box with the file types under it. Edit Home shows, hides and reorders
+// Hello (the start page): a calm start, and the front door to your day and
+// your files. The greeting and one quiet line (files, free space, how the
+// reading of the folders is going, the weather as a small chip); then Today,
+// the one place that answers "what now?" (src/today/Today.tsx); Desktop,
+// Documents and Downloads as big tiles; one line of suggestion only when
+// something is worth doing (Today's Fix-it card takes its place while shown);
+// Jump back in, with recent files under the projects they belong to; a search
+// box with the file types under it. Edit Home shows, hides and reorders
 // sections and sets how roomy it is. Nothing here polls: lists load once and
 // follow the app's change events; pictures load as they come into view.
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { KIND_LABEL } from '../../core/classify';
 import { prettyFolder } from '../../core/folder-view';
 import { formatBytes, relativeTime } from '../../core/format';
 import { groupRecent, type RecentGroup } from '../../core/home-groups';
-import { attention, headerLine, HOME_DENSITIES, HOME_SECTIONS, homeColumns, moveSection, normalizeHome, RECENT_READ, setSectionShown, SNOOZE_MS, type HomeSectionId, type HomeSettings } from '../../core/home-layout';
-import type { MessageSummary } from '../../core/pim/types';
-import type { UpcomingEvent } from '../../core/pim/week-events';
-import { dayKey, isOverdue, todayTasks, type Task } from '../../core/pim/tasks';
+import { attention, headerLine, HOME_DENSITIES, HOME_SECTIONS, homeSections, moveSection, normalizeHome, RECENT_READ, setSectionShown, SNOOZE_MS, type HomeSectionId, type HomeSettings } from '../../core/home-layout';
+import { currentPreset } from '../../core/features';
+import { setCardShown, TODAY_CARDS, TODAY_SIZES, sizeForPreset, todayCards } from '../../core/today';
 import type { FileEntry, FileKind } from '../../core/types';
 import { describeCode } from '../../core/weather';
 import { api } from '../api';
@@ -27,21 +28,18 @@ import { useAsync, useStore } from '../state';
 import '../styles/screens-a.css';
 import '../styles/home.css';
 import { frontDoorFolders, shortCount, TYPE_CHIPS, typeLabel, type TypeChipId } from '../../core/file-types';
-import { useHiddenRoutes } from '../features';
+import { useFeatureStates, useHiddenRoutes } from '../features';
+import { TodaySection } from '../today/Today';
 import '../styles/filetypes.css';
 
 const SHELVES: FileKind[] = ['image', 'video', 'audio', 'document', 'archive', 'installer', 'app'];
 /** Kinds shown as a small picture; the rest show their type's icon (a page of text says nothing at 34 px). */
 const PICTURES = new Set<FileKind>(['image', 'video']);
-/** At this width and over, Today is a column beside the rest. */
-const WIDE = 860;
 
 function greeting(): string {
   const h = new Date().getHours();
   return h < 5 ? 'Good night' : h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
 }
-
-const clock = (t: number) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
 type Weather = Awaited<ReturnType<typeof api.weather.get>>;
 
@@ -49,15 +47,6 @@ function useHome(): [HomeSettings, (h: HomeSettings) => void] {
   const { settings, updateSettings } = useStore();
   const home = normalizeHome(settings?.home);
   return [home, (h) => void updateSettings({ home: h })];
-}
-
-/** Runs `fn` once, `ms` after the last of a burst of events. */
-function useDebounced(fn: () => void, ms: number): () => void {
-  const t = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const f = useRef(fn);
-  f.current = fn;
-  useEffect(() => () => clearTimeout(t.current), []);
-  return useCallback(() => { clearTimeout(t.current); t.current = setTimeout(() => f.current(), ms); }, [ms]);
 }
 
 // ---------------------------------------------------------------- header
@@ -248,136 +237,6 @@ function JumpBackIn({ narrow }: { narrow: boolean }) {
   );
 }
 
-// ---------------------------------------------------------------- Today
-
-interface Running { id: string; icon: string; label: string; detail: string; route: string }
-
-function useToday() {
-  const [events, setEvents] = useState<UpcomingEvent[] | null>(null);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [running, setRunning] = useState<Running[]>([]);
-  const [mail, setMail] = useState<MessageSummary[]>([]);
-  const loadPim = useCallback(() => {
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(start);
-    end.setDate(end.getDate() + 1);
-    const now = Date.now();
-    void (api.pim?.upcomingEvents(start.getTime(), end.getTime(), { limit: 20 }) ?? Promise.resolve([]))
-      .then((list) => setEvents(list.filter((e) => e.allDay || e.end > now))).catch(() => setEvents([]));
-    void (api.pim?.reminders() ?? Promise.resolve([])).then((r) => setTasks(todayTasks(r, dayKey(Date.now())))).catch(() => setTasks([]));
-    // Important mail not read yet (Mail's own Important/Other triage), from what is kept on this computer.
-    void (api.pim?.messages({ folder: 'unified', split: 'important', filter: 'unread' }) ?? Promise.resolve({ messages: [] }))
-      .then((r) => setMail(r.messages.filter((m) => !m.seen && m.category !== 'other'))).catch(() => setMail([]));
-  }, []);
-  const loadRunning = useCallback(() => {
-    void Promise.all([
-      api.pim?.alarms().catch(() => null),
-      api.island?.state().catch(() => null),
-      api.awake?.status().catch(() => null),
-      api.studio?.state().catch(() => null),
-    ]).then(([alarms, island, awake, studio]) => {
-      const out: Running[] = [];
-      for (const t of alarms?.timers ?? []) {
-        if (t.endsAt) out.push({ id: `timer:${t.id}`, icon: 'timer', label: t.label || 'Timer', detail: `ends ${clock(t.endsAt)}`, route: 'alarms' });
-        else if (t.leftMs) out.push({ id: `timer:${t.id}`, icon: 'timer', label: t.label || 'Timer', detail: `paused · ${Math.ceil(t.leftMs / 60_000)} min left`, route: 'alarms' });
-      }
-      const f = island?.focus;
-      if (f && f.mode !== 'idle') out.push({ id: 'focus', icon: 'stopwatch', label: f.mode === 'break' ? 'Break' : 'Focus', detail: f.pausedLeft !== undefined ? 'paused' : f.endsAt ? `until ${clock(f.endsAt)}` : 'counting', route: 'planner' });
-      if (awake?.on ?? island?.keepAwake?.on) {
-        const until = awake?.session?.endsAt;
-        out.push({ id: 'awake', icon: 'coffee', label: 'Keeping awake', detail: until ? `until ${clock(until)}` : 'until you stop it', route: 'awake' });
-      }
-      const rec = studio && (studio.phase === 'recording' || studio.phase === 'paused') ? studio.since : island?.recording?.since;
-      if (rec) out.push({ id: 'rec', icon: 'camera', label: studio?.phase === 'paused' ? 'Recording paused' : 'Recording', detail: `since ${clock(rec)}`, route: 'studio' });
-      setRunning(out);
-    });
-  }, []);
-  const pimSoon = useDebounced(() => { loadPim(); loadRunning(); }, 400);
-  const runSoon = useDebounced(loadRunning, 600);
-  useEffect(() => {
-    loadPim();
-    loadRunning();
-    const offs = [api.on('pim-changed', pimSoon), api.on('awake-changed', runSoon), api.on('studio-changed', runSoon), api.on('island-changed', runSoon)];
-    return () => offs.forEach((off) => off());
-  }, [loadPim, loadRunning, pimSoon, runSoon]);
-  return { events, tasks, running, mail, reloadTasks: loadPim };
-}
-
-function TodayColumn({ onHide }: { onHide: () => void }) {
-  const { go } = useStore();
-  const { events, tasks, running, mail, reloadTasks } = useToday();
-  const date = new Date().toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' });
-  const shownEvents = (events ?? []).slice(0, 5);
-  const shownTasks = tasks.slice(0, 5);
-  const now = Date.now();
-  const empty = events !== null && !events.length && !tasks.length && !running.length && !mail.length;
-  return (
-    <section className="home-today" aria-labelledby="home-today" data-testid="home-today">
-      <div className="section-head">
-        <h2 id="home-today">Today</h2>
-        <span className="small muted ellipsis home-today-date">{date}</span>
-        <span className="grow" />
-        <button className="btn ghost icon sm" data-testid="home-today-hide" title="Hide Today (Edit Home shows it again)" aria-label="Hide Today" onClick={onHide}><Icon name="eyeOff" size={13} /></button>
-      </div>
-      {running.length ? (
-        <ul className="home-today-list home-running" aria-label="Running now">
-          {running.map((r) => (
-            <li key={r.id}><button className="home-today-row" onClick={() => go({ name: r.route as 'awake' })}><Icon name={r.icon} size={13} /><span className="t ellipsis">{r.label}</span><span className="when">{r.detail}</span></button></li>
-          ))}
-        </ul>
-      ) : null}
-      {shownEvents.length ? (
-        <ul className="home-today-list" aria-label="Events">
-          {shownEvents.map((e) => (
-            <li key={e.key}>
-              <button className="home-today-row" title={[e.title, e.location, e.calendarName].filter(Boolean).join('\n')} onClick={() => void api.pim?.openEvent(e.eventId, e.instance)}>
-                <i className="dot" style={{ background: e.color }} />
-                <span className="when">{e.allDay ? 'All day' : e.start <= now ? 'Now' : clock(e.start)}</span>
-                <span className="t ellipsis">{e.title}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-      {(events?.length ?? 0) > shownEvents.length ? <button className="home-link" onClick={() => go({ name: 'calendar' })}>{events!.length - shownEvents.length} more today</button> : null}
-      {shownTasks.length ? (
-        <ul className="home-today-list" aria-label="Tasks due">
-          {shownTasks.map((t) => (
-            <li key={t.id} className="home-task">
-              <input type="checkbox" aria-label={`Done: ${t.title}`} onChange={() => void api.pim?.completeReminder(t.id, true).then(reloadTasks)} />
-              <button className="home-today-row" title={t.notes ? `${t.title}\n${t.notes}` : t.title} onClick={() => go({ name: 'planner', arg: `task:${t.id}` })}>
-                <span className="t ellipsis">{t.title}</span>
-                {isOverdue(t, now) ? <span className="when late">overdue</span> : t.due ? <span className="when">{clock(t.due)}</span> : null}
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-      {tasks.length > shownTasks.length ? <button className="home-link" onClick={() => go({ name: 'planner' })}>{tasks.length - shownTasks.length} more tasks</button> : null}
-      {mail.length ? (
-        <ul className="home-today-list" aria-label="Important mail">
-          {mail.slice(0, 3).map((m) => (
-            <li key={m.id}>
-              <button className="home-today-row" title={[m.from?.name || m.from?.address, m.subject].filter(Boolean).join('\n')} onClick={() => go({ name: 'mail', arg: m.id })}>
-                <Icon name="mail" size={13} />
-                <span className="t ellipsis"><b>{m.from?.name || m.from?.address || 'Mail'}</b> · {m.subject || '(no subject)'}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-      {mail.length > 3 ? <button className="home-link" onClick={() => go({ name: 'mail' })}>{mail.length - 3} more important</button> : null}
-      {empty ? <p className="small muted home-today-empty">Nothing planned today.</p> : events !== null && !events.length && !tasks.length && !mail.length ? <p className="small muted home-today-empty">No more events or tasks today.</p> : null}
-      <div className="home-today-links">
-        <button className="home-link" onClick={() => go({ name: 'calendar' })}>Calendar</button>
-        <button className="home-link" onClick={() => go({ name: 'planner' })}>Planner</button>
-        <button className="home-link" onClick={() => go({ name: 'mail' })}>Mail</button>
-      </div>
-    </section>
-  );
-}
-
 // ---------------------------------------------------------------- Library
 
 function LibrarySection({ style }: { style: HomeSettings['library'] }) {
@@ -556,52 +415,75 @@ function EditPanel({ home, setHome }: { home: HomeSettings; setHome: (h: HomeSet
           );
         })}
       </ol>
-      <p className="small muted" style={{ margin: '8px 0 0' }}>On a wide window Today is a column on the right; on a narrow one it takes its place in this order.</p>
+      <TodayCardsEdit />
     </section>
   );
 }
 
-/** Whether the page is wide enough for the Today column (measured when it resizes, never polled). */
-function useWide(ref: React.RefObject<HTMLElement | null>): boolean {
-  const [wide, setWide] = useState(true);
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const measure = () => setWide(el.clientWidth >= WIDE);
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [ref]);
-  return wide;
+/** Which cards Today shows: the preset's set until the person picks their own. */
+function TodayCardsEdit() {
+  const { settings, updateSettings } = useStore();
+  const states = useFeatureStates();
+  const preset = useMemo(() => (settings ? currentPreset(settings) : undefined), [settings]);
+  if (!settings) return null;
+  const t = settings.today;
+  const shown = todayCards(t, preset, () => true);
+  const set = (cards: typeof shown | null) => void updateSettings({ today: { ...t, cards } });
+  const offered = TODAY_CARDS.filter((c) => states?.get(c.feature)?.on !== false);
+  return (
+    <div className="home-edit-today" data-testid="home-edit-today-cards">
+      <div className="row" style={{ justifyContent: 'space-between', gap: 10, margin: '14px 0 6px' }}>
+        <h4 style={{ margin: 0 }}>Today’s cards</h4>
+        {t.cards ? <button className="home-link" onClick={() => set(null)}>Use the {sizeForPreset(preset) === 'simple' ? 'calm three' : sizeForPreset(preset) === 'full' ? 'full set' : 'usual five'}</button> : <span className="small muted">{TODAY_SIZES[sizeForPreset(preset)].length} cards, chosen for your setup</span>}
+      </div>
+      <ul className="home-edit-list">
+        {offered.map((c) => (
+          <li key={c.id} data-testid={`home-edit-card-${c.id}`}>
+            <div className="grow"><div style={{ fontWeight: 550 }}>{c.name}</div><div className="small muted">{c.description}</div></div>
+            <Toggle label={`Show ${c.name}`} on={shown.includes(c.id)} onChange={(v) => set(setCardShown(shown, c.id, v))} />
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 export function Home() {
   const [home, setHome] = useHome();
   const [editing, setEditing] = useState(false);
+  const { settings } = useStore();
+  const states = useFeatureStates();
+  const preset = useMemo(() => (settings ? currentPreset(settings) : undefined), [settings]);
+  const fixit = settings ? todayCards(settings.today, preset, (f) => states?.get(f)?.on ?? true).includes('fixit') : false;
   const root = useRef<HTMLDivElement>(null);
-  const wide = useWide(root);
-  const { main, side } = homeColumns(home, wide);
+  // Narrow windows show fewer recent files, so what follows is not far below.
+  const [narrow, setNarrow] = useState(false);
+  useEffect(() => {
+    const el = root.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setNarrow(el.clientWidth < 860));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const draw: Record<HomeSectionId, () => React.ReactNode> = {
     folders: () => <FolderTiles />,
     search: () => <FindSection />,
     suggestions: () => <SuggestionLine />,
-    jump: () => <JumpBackIn narrow={!wide} />,
-    today: () => <TodayColumn onHide={() => setHome(setSectionShown(home, 'today', false))} />,
+    jump: () => <JumpBackIn narrow={narrow} />,
+    today: () => <TodaySection onHide={() => setHome(setSectionShown(home, 'today', false))} onChooseCards={() => { setEditing(true); requestAnimationFrame(() => document.querySelector('[data-testid="home-edit-today-cards"]')?.scrollIntoView({ block: 'nearest' })); }} />,
     library: () => <LibrarySection style={home.library} />,
     pinned: () => <PinnedSection />,
     weather: () => <WeatherCard />,
     usage: () => <UsageSection />,
   };
   return (
-    <div ref={root} className={`home home-${home.density} ${side.length ? 'with-side' : ''}`} data-testid="home">
+    <div ref={root} className={`home home-${home.density}`} data-testid="home">
       <Header editing={editing} onEdit={() => setEditing((e) => !e)} />
       {editing ? <EditPanel home={home} setHome={setHome} /> : null}
       <div className="home-body">
         <div className="home-main">
-          {main.map((id) => <div key={id} className="home-slot" data-section={id}>{draw[id]()}</div>)}
+          {homeSections(home, fixit).map((id) => <div key={id} className="home-slot" data-section={id}>{draw[id]()}</div>)}
         </div>
-        {side.length ? <div className="home-side">{side.map((id) => <div key={id} className="home-slot" data-section={id}>{draw[id]()}</div>)}</div> : null}
       </div>
     </div>
   );

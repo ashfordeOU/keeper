@@ -54,8 +54,13 @@ function JoinButton({ e }: { e: AgendaItem }) {
   );
 }
 
-/** The greeting, today's date and today's events. */
-export function TodayHeader({ name, strip, now }: { name?: string; strip: TodayStrip | null; now: number }) {
+/**
+ * The greeting, today's date and today's events. Once Today has been seen on
+ * Hello that day (`compact`), only one line: what is on now or next, and a way
+ * back to Today (Join is in the meeting chip); the greeting lives on Hello.
+ */
+export function TodayHeader({ name, strip, now, compact }: { name?: string; strip: TodayStrip | null; now: number; compact?: boolean }) {
+  const { go } = useStore();
   const row = useRef<HTMLDivElement>(null);
   const items = (strip?.items ?? []).filter((i) => !i.past || i.allDay || now - i.end < 2 * 3_600_000);
   const line = strip ? nextLine(strip, clock) : undefined;
@@ -69,6 +74,18 @@ export function TodayHeader({ name, strip, now }: { name?: string; strip: TodayS
     e.preventDefault();
     cards[Math.max(0, Math.min(cards.length - 1, i + (e.key === 'ArrowRight' ? 1 : -1)))]?.focus();
   };
+  if (compact) {
+    // Join stays in the meeting chip at the top of the window, so it is not here twice.
+    return (
+      <header className="mail-today compact" data-testid="mail-today" aria-label="Today">
+        <div className="today-next" data-testid="mail-today-next">
+          <Icon name="calendar" size={13} />
+          <span className="grow ellipsis">{line ?? 'Nothing else on the calendar today'}</span>
+          <button className="btn sm ghost" data-testid="mail-today-open" title="Today on Hello: events, your top tasks and the Inbox" onClick={() => go({ name: 'home' })}>Today</button>
+        </div>
+      </header>
+    );
+  }
   return (
     <header className="mail-today" data-testid="mail-today" aria-label="Today">
       <div className="today-hello">

@@ -9,13 +9,14 @@
  * search: a search box, with the file types (Documents, Pictures…) under it;
  * suggestions: one line when something is worth doing (low space, a finding on To do);
  * jump: recent files grouped by the project or folder they belong to;
- * today: events, tasks due and what is running (a column beside the rest on a wide window).
+ * today: what now? Now and next, the top three tasks, mail to answer, the Inbox,
+ *        one Fix-it item and Focus (core/today.ts), at the top of Hello since version 4.
  */
 export type HomeSectionId = 'folders' | 'suggestions' | 'jump' | 'search' | 'today' | 'library' | 'pinned' | 'weather' | 'usage';
 export type HomeDensity = 'comfortable' | 'compact' | 'spacious';
 
 /** Bumped when the sections change; older settings are moved on by normalizeHome. */
-export const HOME_LAYOUT_VERSION = 3;
+export const HOME_LAYOUT_VERSION = 4;
 
 export interface HomeSettings {
   v: number;
@@ -28,11 +29,11 @@ export interface HomeSettings {
 }
 
 export const HOME_SECTIONS: { id: HomeSectionId; name: string; description: string }[] = [
+  { id: 'today', name: 'Today', description: 'What now: events, your top three tasks, mail to answer and the Inbox.' },
   { id: 'folders', name: 'Your folders', description: 'Desktop, Documents and Downloads as big tiles, with how much is in each.' },
   { id: 'suggestions', name: 'Suggestions', description: 'One line, only when something is worth doing: low space or a finding on the Fix-it List.' },
   { id: 'jump', name: 'Jump back in', description: 'Recent files, grouped by the project or folder they belong to.' },
   { id: 'search', name: 'Find a file', description: 'A search box, and Documents, Pictures and the other types under it.' },
-  { id: 'today', name: 'Today', description: 'Today’s events, tasks due, and timers, Keep Awake or a recording while they run.' },
   { id: 'library', name: 'By type', description: 'Pictures, Videos, Documents and so on as tiles, with counts.' },
   { id: 'pinned', name: 'Pinned folders', description: 'Folders you pinned to Favorites.' },
   { id: 'weather', name: 'Weather', description: 'The full forecast card (the header always has a small chip).' },
@@ -85,7 +86,17 @@ export function migrateHomeV3(x: Record<string, unknown>): Record<string, unknow
   const j = order.indexOf('jump');
   order.splice(j < 0 ? 1 : j + 1, 0, 'search');
   const hidden = Array.isArray(x.hidden) ? [...new Set([...x.hidden.filter(isId), 'library' as HomeSectionId])] : undefined;
-  return { ...x, v: HOME_LAYOUT_VERSION, order, hidden };
+  return { ...x, v: 3, order, hidden };
+}
+
+/**
+ * Today as the top of Hello (version 4): Today moves to the top, where it
+ * answers "what now?", and files follow under it. If the person had hidden
+ * Today, it stays hidden; the rest of the order is kept.
+ */
+export function migrateHomeV4(x: Record<string, unknown>): Record<string, unknown> {
+  const order = (Array.isArray(x.order) ? x.order : []).filter((s): s is HomeSectionId => isId(s) && s !== 'today');
+  return { ...x, v: HOME_LAYOUT_VERSION, order: ['today', ...order] };
 }
 
 /** Bad or old values fall back; older layouts are moved on; sections added later join at the end. */
@@ -93,8 +104,9 @@ export function normalizeHome(v: unknown): HomeSettings {
   const d = defaultHomeSettings();
   if (!v || typeof v !== 'object') return d;
   let x = v as Record<string, unknown>;
-  if (x.v !== HOME_LAYOUT_VERSION && x.v !== 2) x = migrateHome(x);
+  if (x.v !== HOME_LAYOUT_VERSION && x.v !== 2 && x.v !== 3) x = migrateHome(x);
   if (x.v === 2) x = migrateHomeV3(x);
+  if (x.v === 3) x = migrateHomeV4(x);
   const known = (a: unknown): HomeSectionId[] => (Array.isArray(a) ? a.filter(isId) : []);
   const order = [...new Set(known(x.order))];
   for (const id of IDS) if (!order.includes(id)) order.push(id);
@@ -127,13 +139,14 @@ export function setSectionShown(h: HomeSettings, id: HomeSectionId, shown: boole
 }
 
 /**
- * Where each section goes: on a wide window Today is a column beside the
- * others; on a narrow one everything is one column in the person's order.
+ * The sections Hello draws, in the person's order. Today is part of the page
+ * (its top, by default), not a column beside it, so a wide and a narrow window
+ * read the same way down; only the cards inside Today sit side by side.
+ * The Suggestions line steps aside while Today shows its own Fix-it card.
  */
-export function homeColumns(h: HomeSettings, wide: boolean): { main: HomeSectionId[]; side: HomeSectionId[] } {
+export function homeSections(h: HomeSettings, todayHasFixit: boolean): HomeSectionId[] {
   const shown = visibleSections(h);
-  if (!wide) return { main: shown, side: [] };
-  return { main: shown.filter((id) => id !== 'today'), side: shown.filter((id) => id === 'today') };
+  return todayHasFixit && shown.includes('today') ? shown.filter((id) => id !== 'suggestions') : shown;
 }
 
 // ---------------------------------------------------------------- the suggestion line

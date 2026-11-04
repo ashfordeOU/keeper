@@ -490,6 +490,8 @@ export interface Settings {
   settingsAdvanced?: boolean;
   /** Home's sections, order, density and styles (Edit Home) */
   home: import('./home-layout').HomeSettings;
+  /** Today at the top of Hello, the Inbox shortcut and Plan my day's working hours (core/today.ts) */
+  today: import('./today').TodaySettings;
   /** the first-run Permissions step: set everything up now, only what gets turned on, or not chosen yet */
   permissionsSetup: '' | 'all' | 'onDemand';
   /** permission id → when Keeper first showed the system's question for it (macOS asks some only once) */

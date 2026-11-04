@@ -22,6 +22,7 @@ import { defaultSyncSettings, normalizeSyncSettings } from './sync/config';
 import { defaultGlanceSettings } from './glance';
 import { DEFAULT_PLATFORM } from './platform-integrations';
 import { defaultHomeSettings, normalizeHome } from './home-layout';
+import { defaultTodaySettings, normalizeToday } from './today';
 import { migrateSidebarLists } from './file-types';
 import { DEFAULT_THEME, THEMES } from './themes';
 import type { Rule, Settings } from './types';
@@ -174,6 +175,7 @@ export function defaultSettings(folders: string[], rules: Rule[]): AllSettings {
     sidebarTypes: false,
     settingsAdvanced: false,
     home: defaultHomeSettings(),
+    today: defaultTodaySettings(),
     permissionsSetup: '',
     permissionsAsked: {},
     featuresPinned: false,
@@ -245,6 +247,7 @@ export function mergeSettings(base: AllSettings, raw: unknown): AllSettings {
   if (!['selection', 'always', 'never'].includes(out.inspectorMode)) out.inspectorMode = 'selection';
   if (!['auto', 'full', 'compact'].includes(out.sidebarMode)) out.sidebarMode = 'auto';
   out.home = normalizeHome(r.home);
+  out.today = normalizeToday(r.today);
   out.launcher = normalizeLauncher(r.launcher);
   out.selection = normalizeSelection(r.selection);
   out.typing = normalizeTyping(r.typing);

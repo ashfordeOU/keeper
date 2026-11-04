@@ -99,7 +99,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     check(await today.count() === 1, 'Today is shown by default');
     const tb = await today.boundingBox();
     const jb = await main.locator('[data-section="jump"]').boundingBox();
-    check(tb && jb && tb.x > jb.x + jb.width - 2, 'on a wide window Today is a column on the right');
+    check(tb && jb && tb.y + tb.height <= jb.y + 1, 'Today is the top of Hello, with the files under it');
     // The keyboard: the arrow keys move through the files.
     await recent.first().focus();
     await main.keyboard.press('ArrowDown');
@@ -109,16 +109,17 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await sleep(1500);
     const box2 = await recent.first().locator('.thumb').boundingBox();
     check(box1 && box2 && Math.abs(box1.y - box2.y) < 1 && Math.abs(box1.height - box2.height) < 1, 'pictures load without moving anything');
-    // Narrow: one column, Today in its place in the order.
+    // Narrow: still one column, Today first.
     await size(760, 800);
     const tb2 = await today.boundingBox();
     const jb2 = await main.locator('[data-section="jump"]').boundingBox();
-    check(tb2 && jb2 && tb2.y > jb2.y, 'on a narrow window Today follows Jump back in in one column');
+    check(tb2 && jb2 && tb2.y < jb2.y, 'on a narrow window Today stays at the top');
     await size(1440, 900);
-    // Today's own hide button, kept after a reload.
-    await main.click('[data-testid="home-today-hide"]');
+    // Hide Today from its own menu, kept after a reload.
+    await main.click('[data-testid="today-more"]');
+    await main.getByRole('menuitem', { name: 'Hide Today' }).or(main.getByRole('button', { name: 'Hide Today' })).first().click();
     await reload();
-    check(await main.locator('[data-testid="home-today"]').count() === 0, 'Today can be hidden from its own header');
+    check(await main.locator('[data-testid="home-today"]').count() === 0, 'Today can be hidden from its own menu');
     // Edit Home: show By type (off by default), show Storage, hide Today, move Jump back in up, compact spacing; kept after a reload.
     await main.click('[data-testid="home-edit"]');
     await sleep(300);
@@ -131,7 +132,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await main.click('[data-testid="home-edit"]');
     await reload();
     check(await main.locator('[data-section="library"]').count() === 1 && await main.locator('[data-section="usage"]').count() === 1 && await main.locator('[data-section="today"]').count() === 1, 'Edit Home hides and shows sections, kept after a reload');
-    check(await main.evaluate(async () => (await window.keeper.settings.get()).home.order.slice(0, 2).join(',')) === 'folders,jump', 'and the order is kept');
+    check(await main.evaluate(async () => (await window.keeper.settings.get()).home.order.slice(0, 3).join(',')) === 'today,folders,jump', 'and the order is kept');
     check(await main.locator('.home.home-compact').count() === 1, 'the spacing choice is kept');
     await both('home-edited');
     await main.evaluate(async () => { const s = await window.keeper.settings.get(); await window.keeper.settings.set({ home: { ...s.home, order: ['folders', 'suggestions', 'jump', 'search', 'today', 'library', 'pinned', 'weather', 'usage'], hidden: ['library', 'weather', 'usage'], density: 'comfortable' } }); });
