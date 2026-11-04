@@ -1,0 +1,16 @@
+{
+  "_about": "What each part of Keeper may use (docs/PERFORMANCE.md). 'live' is shown in Settings → Battery and speed against each running process's working set; 'ci.anonMB' is memory Keeper allocates itself, checked per part by test/e2e/perf-budget.cjs (measured 2026-11-04 on Linux with 2,000 files: main 80, windows 58, island 104, mail 31, GPU 30, helpers 32 MB; budgets leave about 40% room).",
+  "targets": { "coldStartSeconds": 2, "idleCpuPct": 0.5, "mainMemoryMB": 250, "wakeupsPerSecond": 1 },
+  "live": {
+    "main": { "memoryMB": 300, "cpuPct": 2 },
+    "window": { "memoryMB": 250, "cpuPct": 2 },
+    "gpu": { "memoryMB": 250, "cpuPct": 2 },
+    "service": { "memoryMB": 200, "cpuPct": 2 },
+    "helper": { "memoryMB": 150, "cpuPct": 2 },
+    "part:island": { "memoryMB": 250, "cpuPct": 1 },
+    "part:mail": { "memoryMB": 200, "cpuPct": 1 },
+    "part:widgets": { "memoryMB": 180, "cpuPct": 1 },
+    "terminal-host": { "memoryMB": 80, "cpuPct": 1 }
+  },
+  "ci": { "anonMB": { "main": 115, "windows": 85, "island": 140, "mail": 50, "widgets": 80, "gpu": 50, "helpers": 50 } }
+}

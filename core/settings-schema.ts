@@ -289,6 +289,7 @@ export const SETTINGS: SettingDef[] = [
   { id: 'a11y.focusAlways', path: 'a11y.focusAlways', section: 'accessibility', label: 'Always show focus outlines', level: 'basic', kind: 'toggle', inPanel: 'a11y', keywords: ['keyboard', 'outline', 'focus ring'] },
 
   // ---------------------------------------------------------------- Battery and speed
+  { id: 'partsCost', section: 'battery', group: 'What each part uses', label: 'What each part uses', help: 'Memory and processor for each running part, against its budget.', level: 'basic', kind: 'panel', panel: 'partsCost', keywords: ['memory', 'ram', 'cpu', 'processor', 'budget', 'heavy', 'slow', 'how much', 'using', 'turn off', 'performance'] },
   { id: 'resources', section: 'battery', label: 'Save battery, balanced or fastest', help: 'How much Keeper does in the background.', level: 'basic', kind: 'panel', panel: 'resources', keywords: ['performance', 'power', 'battery', 'cpu', 'memory', 'speed', 'energy', 'limits'] },
   { id: 'resourceMode', path: 'resourceMode', section: 'battery', label: 'Battery and speed', level: 'basic', kind: 'choice', inPanel: 'resources', choices: [{ value: 'minimal', label: 'Save battery' }, { value: 'balanced', label: 'Balanced' }, { value: 'performance', label: 'Fastest' }] },
   { id: 'keeperItself', section: 'battery', label: 'What Keeper is running', help: 'Each part, what it uses, and restarting one.', level: 'basic', kind: 'link', to: { name: 'health', arg: 'keeper' }, feature: 'health', keywords: ['processes', 'keeper processes', 'safe mode', 'restart keeper'] },
