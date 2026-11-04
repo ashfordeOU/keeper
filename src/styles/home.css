@@ -100,3 +100,9 @@
   .home-progress.indeterminate i { animation: none; width: 100%; opacity: .5; }
   .home-progress i { transition: none; }
 }
+
+/* Getting to know Keeper: one calm tip a day for the first week. */
+.home-tip { display: flex; align-items: center; gap: 12px; margin-top: 8px; padding: 10px 10px 10px 14px; border-radius: var(--r-lg); background: color-mix(in srgb, var(--accent) 6%, var(--bg-elev, var(--bg))); min-width: 0; flex-wrap: wrap; }
+.home-tip-kicker { font-size: var(--fs-xs); font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: .06em; flex: none; }
+.home-tip-body { display: flex; flex-direction: column; gap: 2px; flex: 1 1 240px; min-width: 0; }
+.home-tip .btn.sm { height: 26px; }

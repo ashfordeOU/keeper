@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Usage (Linux): xvfb-run -a -s "-screen 0 1440x900x24" node test/e2e/firstrun.cjs /tmp/kfr /tmp/kfr-shots
 // The first-run setup on a new install (no settings file, the 1.0 defaults), both ways:
-//   • Recommended: Welcome → Recommended → approvals → Connect → Try it; the "Also"
-//     boxes (usage stats unticked), what gets written, the library waiting for setup;
+//   • Goals: Welcome → What do you want Keeper for? (eight cards, up to three) →
+//     approvals → Connect → one shortcut; the "Also" boxes (usage stats unticked),
+//     what gets written, the library waiting for setup, the first tip on Home;
 //   • Choose: group cards, a part switched on, the footer's live count, what gets written;
 //   • Set up Keeper again from the command palette (current choices, Cancel).
 const { _electron } = require('playwright');
@@ -31,7 +32,7 @@ async function launch(name) {
   }
   const errors = [];
   main.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
-  await main.setViewportSize({ width: 1280, height: 860 }).catch(() => undefined);
+  await main.setViewportSize({ width: 1440, height: 900 }).catch(() => undefined);
   await main.waitForSelector('.sidebar', { timeout: 60000 });
   const settings = () => JSON.parse(fs.readFileSync(path.join(HOME, '.config/Keeper/settings.json'), 'utf8'));
   const shot = async (n) => {
@@ -63,13 +64,17 @@ const libraryRoots = (main) => main.evaluate(async () => {
     check(!roots.includes('Documents'), `before setup the library reads only Downloads (${roots.join(', ') || 'nothing yet'})`);
 
     await main.click('[data-testid="setup-start"]');
-    await main.waitForSelector('[data-testid="setup-recommended"][aria-checked="true"]');
-    check(true, 'Recommended is selected');
+    await main.waitForSelector('[data-testid="setup-goal-files"]');
+    check(await main.getByText('What do you want Keeper for?').count() === 1, 'setup asks what Keeper is for');
+    check(await main.locator('.setup-goal').count() === 8, 'eight goal cards');
+    for (const g of ['record', 'focus', 'clean']) await main.click(`[data-testid="setup-goal-${g}"]`);
+    check(await main.locator('[data-testid="setup-goal-notes"]').isDisabled(), 'a fourth goal cannot be picked');
+    await main.click('[data-testid="setup-goal-clean"]');
+    check(!(await main.locator('[data-testid="setup-goal-notes"]').isDisabled()), 'unpicking one frees a place');
+    check(/Picked for Record my screen and Stay focused/.test(await main.getByTestId('setup-goals-line').textContent()), 'the line says what was picked');
     check(await main.locator('[data-testid="setup-also-login"]').isChecked(), 'Open Keeper when I log in: ticked');
     check(await main.locator('[data-testid="setup-also-updates"]').isChecked(), 'Check for updates automatically: ticked');
     check(!(await main.locator('[data-testid="setup-also-usageStats"]').isChecked()), 'Send anonymous usage stats: visible and unticked');
-    await main.click('.setup-included');
-    check(await main.locator('[data-testid="setup-included"] li').count() >= 4, 'What’s included lists the groups');
     await shot('how');
 
     await main.click('[data-testid="setup-continue"]');
@@ -80,7 +85,9 @@ const libraryRoots = (main) => main.evaluate(async () => {
     const on = Object.entries(s.features).filter(([, v]) => v === true).length;
     check(s.features.mail === false && s.features.link === false, 'Mail and devices are offered, not on');
     check(s.features.usageStats === false, 'usage stats stay off');
-    check(on >= 30 && on <= 60, `Recommended turned on a short list (${on})`);
+    check(on >= 30 && on <= 70, `the essentials and the goals’ parts make a short list (${on})`);
+    check(s.features.studio === true && s.features.focusBlock === true, 'the goals’ parts are on (Studio, Focus Blocking)');
+    check(JSON.stringify(s.setupGoals) === '["record","focus"]' && s.tips.start > 0, 'the goals are kept and the week of tips starts');
     await shot('approvals');
     await main.click(await main.locator('[data-testid="setup-later"]').count() ? '[data-testid="setup-later"]' : '[data-testid="setup-approvals-next"]');
 
@@ -90,8 +97,7 @@ const libraryRoots = (main) => main.evaluate(async () => {
     await main.click('[data-testid="setup-connect-skip"]');
 
     await main.waitForSelector('.tour [data-step="try"]');
-    // (Dragging over the card needs a person; the reasons it can fail are unit-checked.)
-    check(await main.locator('[data-testid="setup-try"]').count() === 1 && await main.locator('.tour-practice').count() === 1, 'Try it shows the practice card');
+    check(await main.locator('[data-testid="setup-shortcut"] kbd').count() === 1, 'the last screen teaches one shortcut only');
     await shot('try');
     await main.click('[data-testid="setup-done"]');
     await sleep(800);
@@ -100,6 +106,13 @@ const libraryRoots = (main) => main.evaluate(async () => {
     await sleep(4000);
     const after = await libraryRoots(main).catch(() => []);
     check(after.includes('Documents'), `after setup the library reads every folder (${after.join(', ')})`);
+    // Getting to know Keeper: the first tip on Home, put away with one click.
+    const tip = main.getByTestId('home-tip');
+    check(!!(await tip.count()) && /Search from anywhere/.test(await tip.textContent()), 'Home shows the first tip of the week');
+    await shot('home-tip');
+    await main.getByTestId('home-tip-done').click();
+    await sleep(400);
+    check(await main.getByTestId('home-tip').count() === 0 && settings().tips.done.includes('search'), 'the tip is put away and stays away');
 
     // Set up Keeper again, from the palette: the current choices, nothing changed until Continue.
     await main.keyboard.press('Control+k');
@@ -124,7 +137,6 @@ const libraryRoots = (main) => main.evaluate(async () => {
     await main.waitForSelector('.tour [data-step="welcome"]', { timeout: 20000 });
     await main.click('[data-testid="setup-start"]');
     await main.click('[data-testid="setup-choose"]');
-    await main.click('[data-testid="setup-continue"]');
     await main.waitForSelector('.tour [data-step="choose"]', { timeout: 10000 });
     check(await main.locator('.setup-group').count() >= 10, 'Choose shows the group cards');
     const count = async () => Number(await main.locator('[data-testid="setup-count"]').textContent());

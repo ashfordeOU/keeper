@@ -80,6 +80,7 @@ export const PAGE_HELP: Record<string, PageHelp> = {
   planner: { what: 'Your tasks laid out over the day and week.', can: ['Plan today', 'Move tasks between days', 'See what is overdue'], doc: 'PLANNER.md' },
   alarms: { what: 'Alarms, timers, a stopwatch and world clocks.', can: ['Set an alarm', 'Start a timer', 'Add a city'], doc: 'PIM.md' },
   settings: { what: 'Everything you can change about Keeper.', can: ['Search for a setting', 'Turn parts on or off', 'Export your settings'], doc: 'SETTINGS-CATALOG.md' },
+  setup: { what: 'Choose what Keeper is for, in a few steps.', can: ['Pick up to three goals', 'Choose each part yourself', 'Run it again any time'], doc: 'SETUP.md' },
   help: { what: 'Help for the page you are on.', can: ['Read what the page is for', 'See three things to try', 'Read its guide offline'], doc: 'HELP.md' },
 };
 

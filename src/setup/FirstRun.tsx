@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
-// The first-run setup: Welcome → Recommended or Choose → Approvals (only what the
-// chosen parts need now) → Connect (optional) → Try it. Shown once; "Set up Keeper
+// The first-run setup: Welcome → What do you want Keeper for? (up to three goals
+// on top of the essentials, or Choose each part) → Approvals (only what the
+// chosen parts need now) → Connect (optional) → one shortcut to remember. Shown once; "Set up Keeper
 // again" (Help menu, command palette) opens it from the second screen with the
 // current choices. Nothing is switched on, read or asked before Continue on screen 2.
 
@@ -9,6 +10,7 @@ import type { SetupContext } from '../../core/api-setup';
 import { DEV_BUNDLE, SETUP_GROUPS, type SetupGroupId } from '../../core/feature-tiers';
 import { choicePatch, FEATURES, featureOffered, featureStates, type ComputerContext, type FeatureDef } from '../../core/features';
 import { formatBytes } from '../../core/format';
+import { cleanGoals, GOALS, goalParts, goalsLine, MAX_GOALS, normalizeTips, toggleGoal, type GoalId } from '../../core/goals';
 import { approvalsFor, approvalsLine, type PermPlatform, type SetupApprovals } from '../../core/permissions';
 import { errorText } from '../../core/ipc-error';
 import { api } from '../api';
@@ -77,9 +79,9 @@ function FirstRun({ step, setStep, again, onDone }: { step: Step; setStep: (s: S
   const [ctx, setCtx] = useState<SetupContext | null>(null);
   const [declined, setDeclined] = useState<NonNullable<ComputerContext['declined']>>([]);
   const [recommended, setRecommended] = useState<string[] | null>(null);
-  const [mode, setMode] = useState<'recommended' | 'choose'>('recommended');
   const [picked, setPicked] = useState<Set<string> | null>(null);
   const [also, setAlso] = useState({ login: true, updates: true, usageStats: false });
+  const [goals, setGoals] = useState<GoalId[]>(() => cleanGoals(settings?.setupGoals));
   const [after, setAfter] = useState<Route | null>(null);
   const [busy, setBusy] = useState(false);
   const comps = useEnsureComponents();
@@ -90,7 +92,7 @@ function FirstRun({ step, setStep, again, onDone }: { step: Step; setStep: (s: S
   useEffect(() => {
     if (!again || !settings || picked) return;
     const on = [...featureStates(settings, platform).values()].filter((f) => f.on).map((f) => f.id);
-    setPicked(new Set(on));
+    setPicked(new Set(goalParts(on, goals, platform)));
     setAlso((a) => ({ ...a, usageStats: on.includes('usageStats'), updates: settings.updateCheck !== false }));
   }, [again, settings, platform, picked]);
 
@@ -106,6 +108,8 @@ function FirstRun({ step, setStep, again, onDone }: { step: Step; setStep: (s: S
     try {
       await api.setup?.apply(choice, also);
       await api.usageStats?.setOn(also.usageStats).catch(() => undefined);
+      // The goals are kept (for Run again and the week of tips), and the tips start now.
+      await store.updateSettings({ setupGoals: goals, tips: { ...normalizeTips(settings?.tips), start: normalizeTips(settings?.tips).start || Date.now() } }).catch(() => undefined);
       setStep('approvals');
     } catch (e) {
       store.toast(errorText(e));
@@ -118,15 +122,16 @@ function FirstRun({ step, setStep, again, onDone }: { step: Step; setStep: (s: S
     ? <button className="btn sm ghost" data-testid="setup-close" onClick={onDone}>Cancel</button>
     : <button className="btn sm ghost" data-testid="setup-skip" onClick={() => void finish()}>Skip setup</button>;
   const n = ORDER.indexOf(step === 'choose' ? 'how' : step);
-  const wide = step === 'choose' || step === 'approvals';
+  const wide = step === 'choose' || step === 'approvals' || step === 'how';
   return (
     <div className="tour setup" role="dialog" aria-modal="true" aria-label="Set up Keeper">
       <div className={`tour-card setup-card ${wide ? 'wide' : ''}`} data-step={step}>
         <div className="setup-dots" aria-hidden>{ORDER.map((s, i) => <i key={s} className={i <= n ? 'on' : ''} />)}</div>
         {step === 'welcome' ? <Welcome onNext={() => setStep('how')} skip={skip} ctx={ctx} /> : null}
         {step === 'how' ? (
-          <How ctx={ctx} mode={mode} setMode={setMode} declined={declined} setDeclined={setDeclined} recommended={recommended} also={also} setAlso={setAlso} busy={busy}
-            onContinue={() => (mode === 'choose' || again ? setStep('choose') : void apply({ preset: 'recommended', declined }))}
+          <How ctx={ctx} declined={declined} setDeclined={setDeclined} recommended={recommended} also={also} setAlso={setAlso} busy={busy}
+            goals={goals} setGoals={setGoals} onChoose={() => setStep('choose')}
+            onContinue={() => (again ? setStep('choose') : goals.length ? void apply({ parts: goalParts(recommended ?? [], goals, platform) }) : void apply({ preset: 'recommended', declined }))}
             onPreset={(p) => void apply({ preset: p })} skip={skip} again={again} />
         ) : null}
         {step === 'choose' ? (
@@ -183,12 +188,12 @@ function groupNames(ids: string[]): string[] {
 }
 
 function How(p: {
-  ctx: SetupContext | null; mode: 'recommended' | 'choose'; setMode: (m: 'recommended' | 'choose') => void;
+  ctx: SetupContext | null;
   declined: NonNullable<ComputerContext['declined']>; setDeclined: (d: NonNullable<ComputerContext['declined']>) => void;
   recommended: string[] | null; also: { login: boolean; updates: boolean; usageStats: boolean }; setAlso: (a: { login: boolean; updates: boolean; usageStats: boolean }) => void;
   busy: boolean; onContinue: () => void; onPreset: (p: 'everything' | 'files') => void; skip: ReactElement; again: boolean;
+  goals: GoalId[]; setGoals: (g: GoalId[]) => void; onChoose: () => void;
 }) {
-  const [open, setOpen] = useState(false);
   const [seeStats, setSeeStats] = useState(false);
   const [stats] = useUsageStats();
   const { ctx, declined } = p;
@@ -197,41 +202,38 @@ function How(p: {
   if (ctx?.notesFound) chips.push({ key: 'notes', label: 'Notes', detail: 'an Obsidian vault' });
   if (ctx?.localAI) chips.push({ key: 'ai', label: 'AI', detail: ctx.localAI === 'apple' ? 'the AI built into this Mac' : 'Ollama on this computer' });
   const shown = chips.filter((c) => !declined.includes(c.key));
-  const groups = groupNames(p.recommended ?? []);
+  const groups = groupNames([...(p.recommended ?? []), ...p.goals.flatMap((g) => GOALS.find((x) => x.id === g)?.parts ?? [])]);
   const machine = ctx?.model ? `this ${ctx.model}` : 'this computer';
   const check = (k: 'login' | 'updates' | 'usageStats', label: string, extra?: ReactElement) => (
     <label className="setup-check"><input type="checkbox" data-testid={`setup-also-${k}`} checked={p.also[k]} onChange={(e) => p.setAlso({ ...p.also, [k]: e.target.checked })} /> {label}{extra}</label>
   );
   return (
     <>
-      <h3>How do you want to set up Keeper?</h3>
-      <div className="setup-choices" role="radiogroup" aria-label="How to set up Keeper">
-        <button role="radio" aria-checked={p.mode === 'recommended'} className={`setup-choice ${p.mode === 'recommended' ? 'on' : ''}`} data-testid="setup-recommended" onClick={() => p.setMode('recommended')}>
-          <b>Recommended</b>
-          <span className="small">The essentials, picked for {machine}.{ctx?.battery ? ' Light on battery.' : ''} About a minute.</span>
-          {groups.length ? <span className="small muted">Includes: {groups.slice(0, 6).join(' · ')}</span> : null}
-        </button>
-        {p.mode === 'recommended' && shown.length ? (
-          <div className="setup-found small" data-testid="setup-found">
-            <Icon name="info" size={13} /> Also on, because we found them on this computer:{' '}
-            {shown.map((c) => (
-              <span key={c.key} className="setup-chip"><b>{c.label}</b> ({c.detail})<button className="icon-btn" aria-label={`Leave ${c.label} off`} onClick={() => p.setDeclined([...declined, c.key])}><Icon name="close" size={10} /></button></span>
-            ))}
-          </div>
-        ) : null}
-        {p.mode === 'recommended' ? (
-          <button className="link-like small setup-included" aria-expanded={open} onClick={() => setOpen(!open)}>What’s included {open ? '▾' : '›'}</button>
-        ) : null}
-        {open && p.mode === 'recommended' ? (
-          <ul className="setup-included-list small" data-testid="setup-included">
-            {SETUP_GROUPS.filter((g) => groups.includes(g.name)).map((g) => <li key={g.id}><b>{g.name}</b> · {g.line}</li>)}
-          </ul>
-        ) : null}
-        <button role="radio" aria-checked={p.mode === 'choose'} className={`setup-choice ${p.mode === 'choose' ? 'on' : ''}`} data-testid="setup-choose" onClick={() => p.setMode('choose')}>
-          <b>Choose what you want</b>
-          <span className="small">Pick each part yourself. See its size and what it needs before you turn it on.</span>
-        </button>
+      <h3 className="setup-hero">What do you want Keeper for?</h3>
+      <p className="small muted">Pick up to three. Keeper adds what they need to the essentials for {machine}.</p>
+      <div className="setup-goals" role="group" aria-label="What do you want Keeper for? Pick up to three">
+        {GOALS.map((g) => {
+          const on = p.goals.includes(g.id);
+          const full = !on && p.goals.length >= MAX_GOALS;
+          return (
+            <button key={g.id} className={`setup-goal ${on ? 'on' : ''}`} aria-pressed={on} disabled={full} data-testid={`setup-goal-${g.id}`} onClick={() => p.setGoals(toggleGoal(p.goals, g.id))}>
+              <span className="setup-goal-art" aria-hidden><Icon name={g.icon as IconName} size={22} /></span>
+              <b>{g.title}</b>
+              <span className="small muted">{g.line}</span>
+              {on ? <span className="setup-goal-tick" aria-hidden><Icon name="check" size={12} /></span> : null}
+            </button>
+          );
+        })}
       </div>
+      <div className="small muted setup-goals-line" data-testid="setup-goals-line">{goalsLine(p.goals)}{groups.length ? ` · ${groups.slice(0, 5).join(' · ')}` : ''}</div>
+      {shown.length ? (
+        <div className="setup-found small" data-testid="setup-found">
+          <Icon name="info" size={13} /> Also on, because we found them here:{' '}
+          {shown.map((c) => (
+            <span key={c.key} className="setup-chip"><b>{c.label}</b> ({c.detail})<button className="icon-btn" aria-label={`Leave ${c.label} off`} onClick={() => p.setDeclined([...declined, c.key])}><Icon name="close" size={10} /></button></span>
+          ))}
+        </div>
+      ) : null}
       <div className="setup-also">
         <div className="small muted">Also:</div>
         {check('login', 'Open Keeper when I log in')}
@@ -245,8 +247,8 @@ function How(p: {
         <button className="btn primary" data-testid="setup-continue" disabled={p.busy} onClick={p.onContinue}>{p.busy ? <span className="spinner" /> : null} Continue</button>
       </div>
       <div className="small muted setup-foot">
-        Or start with: <button className="link-like" data-testid="setup-everything" onClick={() => p.onPreset('everything')}>Everything</button> (to try it all) · <button className="link-like" data-testid="setup-files" onClick={() => p.onPreset('files')}>Files only</button> (just a file manager)
-        <br />You can change all of this later in Settings → Features. Recommended, Light, Files only and Everything are starting points there; change any part on its own.
+        <button className="link-like" data-testid="setup-choose" onClick={p.onChoose}>Choose each part yourself</button> · Or start with <button className="link-like" data-testid="setup-everything" onClick={() => p.onPreset('everything')}>Everything</button> or <button className="link-like" data-testid="setup-files" onClick={() => p.onPreset('files')}>Files only</button>
+        <br />Change any of it later in Settings → Features.
       </div>
     </>
   );
@@ -479,52 +481,18 @@ function Connect({ ctx, after, setAfter, onNext }: { ctx: SetupContext | null; a
 
 function TryIt({ onDone }: { onDone: () => void }) {
   const mac = isMacUi();
+  const { settings } = useStore();
+  const key = (settings?.quickSearchShortcut ?? 'CommandOrControl+Shift+Space').replace('CommandOrControl', mac ? '⌘' : 'Ctrl').replace(/Shift/g, mac ? '⇧' : 'Shift').replace(/Alt/g, mac ? '⌥' : 'Alt').replace(/\+/g, mac ? '' : '+');
   return (
     <>
-      <h3>You’re set</h3>
-      <p className="small">Try one thing: drag over the card below to copy its text.</p>
-      <PracticeCapture />
-      <p className="small">Shortcuts to remember: <b>{mac ? '⌘⇧Space' : 'Ctrl+Shift+Space'}</b> search from anywhere · <b>{mac ? '⌘⇧2' : 'Ctrl+Shift+2'}</b> copy text from the screen</p>
-      <p className="small muted">The sidebar on the left lists the parts that are on; turn one on later and it appears there. Change anything later in <b>Settings</b>. Run this setup again from Help → Set up Keeper again.</p>
+      <h3 className="setup-hero">You’re set</h3>
+      <p className="small">One shortcut to remember. Press it in any app and type what you’re looking for:</p>
+      <div className="setup-shortcut" data-testid="setup-shortcut"><kbd>{key}</kbd><span className="small muted">Search from anywhere</span></div>
+      <p className="small muted">Everything else is one click away. Each page has a <b>?</b> that explains it, and for your first week Home shows one short tip a day.</p>
       <div className="btn-row" style={{ justifyContent: 'flex-end' }}>
-        <button className="btn primary" data-testid="setup-done" onClick={onDone}>Start using Keeper</button>
+        <button className="btn primary" data-testid="setup-done" autoFocus onClick={onDone}>Start using Keeper</button>
       </div>
     </>
   );
 }
 
-/** The practice card: drag over it to copy its text; says the real reason when it does not work. */
-export function PracticeCapture() {
-  const [state, setState] = useState<'idle' | 'busy' | 'done' | 'none' | 'fail' | 'perm' | 'restart'>('idle');
-  const [text, setText] = useState('');
-  const go = async () => {
-    setState('busy');
-    // Screen Recording first: without it the picture holds only the wallpaper.
-    const perms = await api.permissions.list().catch(() => null);
-    const screen = perms?.items.find((i) => i.id === 'screen' || i.id === 'portal.screencast');
-    if (screen?.state === 'allowed' && screen.restartNeeded) { setState('restart'); return; }
-    if (perms?.platform === 'darwin' && screen && (screen.state === 'missing' || screen.state === 'denied')) { setState('perm'); return; }
-    try {
-      const r = await api.capture.text();
-      const t = (r?.text || r?.code || '').trim();
-      setText(t);
-      setState(t ? 'done' : 'none');
-    } catch (e) {
-      setText(errorText(e));
-      setState('fail');
-    }
-  };
-  return (
-    <div className="col" style={{ gap: 8 }}>
-      <div className="tour-practice" aria-label="Practice text">Meeting moved to <b>Thursday 10:30</b> · Room 4B · Code 7291</div>
-      <div className="row" style={{ gap: 8 }}>
-        <button className="btn sm" data-testid="setup-try" disabled={state === 'busy'} onClick={() => void go()}>{state === 'busy' ? <span className="spinner" /> : null} Try it</button>
-      </div>
-      {state === 'done' ? <div className="small tour-got">Copied: “{text.slice(0, 120)}”</div> : null}
-      {state === 'none' ? <div className="small muted">Nothing was read. Drag over the card’s text and try again.</div> : null}
-      {state === 'fail' ? <div className="small warn-text" data-testid="setup-try-error"><Icon name="warning" size={12} /> {text || 'Copying text from the screen did not work.'}</div> : null}
-      {state === 'perm' ? <div className="small" data-testid="setup-try-perm"><Icon name="warning" size={12} /> Needs Screen Recording. <button className="btn sm" onClick={() => void api.permissions.request('screen')}>Allow</button></div> : null}
-      {state === 'restart' ? <div className="small" data-testid="setup-try-restart">Restart Keeper to try it. <button className="btn sm" onClick={() => { rememberStep('try'); void api.permissions.restart(); }}>Restart now</button></div> : null}
-    </div>
-  );
-}

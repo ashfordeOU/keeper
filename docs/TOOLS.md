@@ -189,7 +189,7 @@ Every Convert tool runs on your computer and works on many files at once. The CL
 | Works with launchers and shortcut apps | Links, CLI, Shortcuts actions (macOS) | better | |
 | Launch at login | Settings | built | |
 | Updates itself | Settings › Updates | built | You can also check for updates by hand. |
-| Guided first run | Welcome tour | built | The tour ends with a practice capture: a sample card to drag over, and the text that was copied. |
+| Guided first run | Welcome tour | built | Setup asks what Keeper is for (up to three of eight goals), ends with one shortcut to remember, and Home shows one tip a day for the first week ([Setup](SETUP.md)). |
 | Asks only for screen permission | Capture | built | Reads only the area you select. |
 | Runs on your computer, works offline | Capture | built | No uploads, no account. |
 | History stays on your computer | History | built | |

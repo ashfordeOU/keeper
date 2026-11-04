@@ -45,3 +45,18 @@
 .setup-downloads .progress i { display: block; height: 100%; background: var(--accent); }
 .warn-text { color: var(--warn, #b45309); }
 @media (max-width: 520px) { .setup-footer { flex-wrap: wrap; } }
+
+/* What do you want Keeper for? Eight picture cards, up to three picked. */
+.setup-hero { font-size: var(--fs-2xl); letter-spacing: -0.02em; }
+.setup-goals { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.setup-goal { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left; padding: 12px; border-radius: var(--r-lg); border: 1px solid var(--line); background: transparent; color: inherit; font: inherit; cursor: default; min-height: 116px; }
+.setup-goal:hover:not(:disabled) { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.setup-goal.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; background: color-mix(in srgb, var(--accent) 6%, transparent); }
+.setup-goal:disabled { opacity: .5; }
+.setup-goal:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.setup-goal-art { width: 40px; height: 40px; border-radius: var(--r-md); display: grid; place-items: center; color: var(--accent); background: var(--accent-soft); margin-bottom: 4px; }
+.setup-goal-tick { position: absolute; top: 8px; right: 8px; width: 18px; height: 18px; border-radius: var(--r-pill); display: grid; place-items: center; background: var(--accent); color: var(--on-accent, #fff); }
+.setup-goals-line { padding: 0 2px; }
+.setup-shortcut { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: var(--r-lg); background: var(--bg-sunk); }
+.setup-shortcut kbd { font-size: var(--fs-xl); padding: 4px 10px; border-radius: var(--r-md); background: var(--bg-elev, var(--bg)); border: 1px solid var(--line-strong); }
+@media (max-width: 720px) { .setup-goals { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

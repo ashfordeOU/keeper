@@ -45,6 +45,11 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - The search speed test compares against a plain scan timed at the same moment, so a busy computer no longer fails it while a real slowdown still does.
 - The usage stats test follows today's setup, and the accessibility test measures the light Island against its own light background.
 
+### Changed — Setup: it starts with what you want Keeper for
+- The second screen asks "What do you want Keeper for?" with eight picture cards: Find my files, Clean my computer, Mail & calendar, Notes, Record my screen, Stay focused, Keep it private and Help a family member. Pick up to three; their parts join the essentials picked for your computer. **Choose each part yourself** is still there.
+- The last screen teaches one shortcut only: search from anywhere.
+- For your first week, Home shows one short tip a day, starting with the goals you picked. Put a tip away with ×, or stop them all with **No more tips**.
+
 ### Added — About: Check Keeper and a problem report with nothing private in it
 - Settings → About → **Check Keeper** shows a green or amber row for saving, disk space, the library, permissions, Keeper's helpers, downloaded parts, passwords and unexpected stops. Each amber row has a Fix.
 - **Make a report…** saves a zip of Keeper's own notes, its settings and what the check found. Your home folder, names, e-mail addresses, keys and tokens are taken out, and you see every file before it is saved. Nothing is sent: attach it to an e-mail or an issue.

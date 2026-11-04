@@ -24,6 +24,8 @@ import { api } from '../api';
 import { Icon } from '../components/Icon';
 import { KIND_COLOR, SizeBar, Thumb, Toggle } from '../components/ui';
 import { openGuide, useGuideList } from '../guide';
+import { openHelp } from '../components/HelpSheet';
+import { cleanGoals, normalizeTips, tipToday } from '../../core/goals';
 import { useAsync, useStore } from '../state';
 import '../styles/screens-a.css';
 import '../styles/home.css';
@@ -136,6 +138,34 @@ function SuggestionLine() {
       <span className="grow" />
       {a.dismiss ? <button className="home-link" data-testid="home-suggestion-dismiss" title={a.dismiss.how === 'trust' ? 'Trust this: it stops being suggested until it changes (the Fix-it List can show it again)' : 'Ask again in a week'} onClick={() => void dismiss()}>{a.dismiss.label}</button> : null}
       <button className="btn sm" data-testid="home-suggestion-action" onClick={act}>{a.action.label}</button>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------- Getting to know Keeper: one tip a day for a week
+
+function TipCard() {
+  const { settings, updateSettings, go } = useStore();
+  const tips = normalizeTips(settings?.tips);
+  const tip = settings ? tipToday(tips, cleanGoals(settings.setupGoals), Date.now()) : null;
+  if (!tip) return null;
+  const put = (patch: Partial<typeof tips>) => void updateSettings({ tips: { ...tips, ...patch } });
+  const act = () => {
+    if (tip.id === 'help') openHelp();
+    else if (tip.id === 'search') document.getElementById('search')?.focus();
+    else if (tip.route) { const i = tip.route.indexOf(':'); go(i < 0 ? { name: tip.route as 'todo' } : { name: tip.route.slice(0, i) as 'settings', arg: tip.route.slice(i + 1) }); }
+    put({ done: [...tips.done, tip.id] });
+  };
+  return (
+    <section className="home-tip" aria-label="Tip of the day" data-testid="home-tip">
+      <span className="home-tip-kicker">Getting to know Keeper</span>
+      <div className="home-tip-body">
+        <b>{tip.title}</b>
+        <span className="small muted">{tip.text}</span>
+      </div>
+      {tip.action ? <button className="btn sm" data-testid="home-tip-action" onClick={act}>{tip.action}</button> : null}
+      <button className="btn sm ghost icon" title="Put this tip away" aria-label="Put this tip away" data-testid="home-tip-done" onClick={() => put({ done: [...tips.done, tip.id] })}><Icon name="close" size={13} /></button>
+      <button className="home-link quiet" data-testid="home-tip-off" title="No more tips (Settings → General turns them on again)" onClick={() => put({ on: false })}>No more tips</button>
     </section>
   );
 }
@@ -468,7 +498,7 @@ export function Home() {
   const draw: Record<HomeSectionId, () => React.ReactNode> = {
     folders: () => <FolderTiles />,
     search: () => <FindSection />,
-    suggestions: () => <SuggestionLine />,
+    suggestions: () => <><SuggestionLine /><TipCard /></>,
     jump: () => <JumpBackIn narrow={narrow} />,
     today: () => <TodaySection onHide={() => setHome(setSectionShown(home, 'today', false))} onChooseCards={() => { setEditing(true); requestAnimationFrame(() => document.querySelector('[data-testid="home-edit-today-cards"]')?.scrollIntoView({ block: 'nearest' })); }} />,
     library: () => <LibrarySection style={home.library} />,

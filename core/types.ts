@@ -525,4 +525,8 @@ export interface Settings {
   helpButton: boolean;
   /** a gentle Fix-it row for a part unopened for 30 days (core/declutter.ts) */
   declutter: boolean;
+  /** what the person said Keeper is for, in setup (core/goals.ts) */
+  setupGoals: import('./goals').GoalId[];
+  /** "Getting to know Keeper": one tip a day on Home for a week (core/goals.ts) */
+  tips: import('./goals').TipsState;
 }

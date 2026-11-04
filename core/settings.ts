@@ -9,6 +9,7 @@ import { defaultReaderSettings, normalizeReaderSettings } from './reader';
 import { normalizeWeatherSource } from './weather';
 import { defaultPhoneAlertSettings, normalizePhoneAlertSettings } from './phone-alerts';
 import { defaultNoticeSettings, normalizeNoticeSettings } from './notices';
+import { cleanGoals, defaultTips, normalizeTips } from './goals';
 import { defaultAwakeSettings, normalizeAwakeSettings } from './awake-engine';
 import { defaultAbilities } from './abilities/config';
 import type { IslandSettings } from './api';
@@ -191,6 +192,8 @@ export function defaultSettings(folders: string[], rules: Rule[]): AllSettings {
     notices: defaultNoticeSettings(),
     helpButton: true,
     declutter: true,
+    setupGoals: [],
+    tips: defaultTips(),
     island: defaultIsland(),
   };
 }
@@ -232,6 +235,8 @@ export function mergeSettings(base: AllSettings, raw: unknown): AllSettings {
   out.weatherSource = normalizeWeatherSource(out.weatherSource);
   out.phoneAlerts = normalizePhoneAlertSettings(out.phoneAlerts);
   out.notices = normalizeNoticeSettings(r.notices);
+  out.setupGoals = cleanGoals(r.setupGoals);
+  out.tips = normalizeTips(r.tips);
   // Settings from before the brain had one AI choice; it becomes the active connection.
   out.brain = normalizeBrainSettings(r.brain && typeof r.brain === 'object' ? out.brain : undefined, out.ai);
   out.sync = normalizeSyncSettings(out.sync, base.sync);
