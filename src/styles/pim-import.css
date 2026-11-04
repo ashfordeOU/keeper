@@ -94,5 +94,10 @@
 .sig-defaults label, .writing-grid > label:not(.row) { display: flex; flex-direction: column; gap: 4px; color: var(--text-2); }
 .writing-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; align-items: end; padding: 8px 0; }
 .compose-sig-pick { display: flex; align-items: center; gap: 8px; margin: 0 14px 8px; }
+
+/* ------------------------------------------------------------------ an event's links and files */
+.event-links { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 8px 12px; background: var(--bg-sunk); border-radius: var(--r-md); }
+.event-links-kicker { font-size: var(--fs-xs); font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: .04em; margin-right: 4px; }
+.event-links .chip { display: inline-flex; align-items: center; gap: 4px; }
 .writing-grid select, .writing-grid input[type='color'] { width: 100%; }
 .sig-defaults select { min-width: 140px; }

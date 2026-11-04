@@ -65,6 +65,10 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 ### Changed — Mail: safer connections
 - Mail only connects without encryption to a server on this computer. A server with a certificate problem is refused with a plain explanation of what is wrong instead of a cryptic error; the "self-signed" box stays off unless you tick it.
 
+### Added — Calendar: events open their links and files
+- An event shows Join for its meeting, Open in Maps and Directions for its place, and its links and attached files, each opening in your own browser or app. Attachments in .ics files now come along on import and export.
+- "On this computer" can be chosen again as an event's calendar.
+
 ### Added — Mail, Calendar, Reminders and Contacts: import and export
 - One Import in Mail, Calendar, Reminders and Settings → Mail & Calendar, the same four steps everywhere: choose where from, read the short steps, watch it come in (with Stop), then a one-line summary with Undo.
 - Mail from .mbox files (also a web mail's whole download, sorted into Inbox, Sent and your labels), .eml files and folders, Apple Mail on a Mac, Thunderbird profiles (found by themselves) and Outlook for Mac archives (.olm), with folders, read and flagged marks and attachments. It lands in a new "On this computer" account you can search, read, file and reply from.

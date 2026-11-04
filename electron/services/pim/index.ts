@@ -2442,6 +2442,24 @@ export const pim: PimApi = {
     deps?.show?.(`calendar:event:${instance ?? ev.start}:${id}`);
   },
 
+  async openEventAttachment(id, index) {
+    await load();
+    const ev = [...events.values()].flat().find((x) => x.id === id);
+    const a = ev?.attachments?.[index];
+    if (!a) throw new Error('This file is no longer in the event');
+    const url = a.url && /^(https?:|mailto:)/i.test(a.url) ? a.url : undefined;
+    if (url) { await shell.openExternal(url); return; }
+    if (!a.data) throw new Error('This file cannot be opened from here');
+    // A file inside the event is written out once, then opened in its own app.
+    const dir = path.join(path.dirname(files.state()), 'event-files', hash(`${id}:${index}`));
+    const name = (a.name ?? 'attachment').replace(/[\\/:*?"<>|]+/g, '_');
+    await fsp.mkdir(dir, { recursive: true });
+    const p = path.join(dir, name);
+    await fsp.writeFile(p, Buffer.from(a.data, 'base64'));
+    const err = await shell.openPath(p);
+    if (err) throw new Error(err);
+  },
+
   async reminders() {
     await load();
     return state.reminders.filter((r) => !r.id.startsWith('local:snooze-') || !r.done);

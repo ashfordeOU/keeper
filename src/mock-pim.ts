@@ -379,6 +379,7 @@ export function mockPim(emit: Emit): { pim: PimApi } {
     stagedCompose: async () => null,
     signatureSources: async () => [{ source: 'Gmail', name: 'alex.rivera@gmail.com', html: '<b>Alex Rivera</b><br><span style="color:#5b5bf0">Studio North</span>', email: 'alex.rivera@gmail.com' }],
     setAliasPassword: async () => undefined,
+    openEventAttachment: async () => undefined,
     dropDraft: async () => undefined,
     importSources: async (area) => sourcesFor(area, 'darwin'),
     foundSources: async () => [{ source: 'thunderbird', ref: '/Users/demo/Library/Thunderbird/Profiles/abc.default', label: 'default', detail: 'Default profile' }, { source: 'apple-mail', ref: '/Users/demo/Library/Mail/V10', label: 'Apple Mail', detail: 'Mail’s folder (V10)' }],

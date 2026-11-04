@@ -265,6 +265,8 @@ export interface PimApi {
   watchCalendar(visible: boolean): Promise<void>;
   /** opens an event where it lives (the Calendar app, the provider's page) or in Keeper's calendar */
   openEvent(id: string, instance?: number): Promise<void>;
+  /** opens an event's attached file: a web address in the browser, a file inside the event in its app */
+  openEventAttachment(id: string, index: number): Promise<void>;
   /**
    * Stable for other pages: every visible calendar's events from `from` to `to`
    * (this computer's own through EventKit and the others, Google, Microsoft,

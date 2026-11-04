@@ -220,6 +220,16 @@ export interface CalEvent {
   href?: string;
   /** where "Open" takes you: the event on the provider's web page, or the system's Calendar app */
   openUrl?: string;
+  /** files attached to the event (ATTACH): a web address, or the file itself (base64, small ones only) */
+  attachments?: EventAttachment[];
+}
+
+export interface EventAttachment {
+  name?: string;
+  type?: string;
+  url?: string;
+  /** the file itself, base64 (kept only up to 2 MB) */
+  data?: string;
 }
 
 /** One occurrence to draw: a single event, or one instance of a repeating one. */

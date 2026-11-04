@@ -425,6 +425,13 @@ otherwise only every 15 minutes).
 - **CalDAV sync** downloads only what changed (sync tokens, ETags), writes with
   version checks so nothing changed elsewhere is overwritten, and checks every
   15 minutes (less when you are away, never while locked).
+- **Opening things from an event** (`core/pim/event-links.ts`): *Join the
+  meeting* opens the video link in your default app; *Open in Maps* and
+  *Directions* for its place; *Links and files* lists the event's own
+  address, links written in its notes (web and mail only) and its attached
+  files (`ATTACH`: a web file opens in the browser, a file inside the event
+  is written out once and opened in its own app). Attachments are read from
+  and written to `.ics`.
 - **Meeting links** (Zoom, Google Meet, Teams, Webex, Jitsi, Whereby…) get a
   *Join* button; your next meeting shows in the **Island** with a countdown.
 - Import and export `.ics`; subscribe to calendar links (see *Where calendars

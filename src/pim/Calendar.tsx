@@ -21,6 +21,7 @@ import { CalendarAccessCard, CalendarSources, useSystemAccess } from './Calendar
 import { usePimChanges } from './Mail';
 import '../styles/pim.css';
 import { ImportDialog } from './ImportDialog';
+import { eventOpenables } from '../../core/pim/event-links';
 import { CalendarWelcome } from './PimWelcome';
 
 type View = 'day' | 'week' | 'month' | 'agenda' | 'year';
@@ -462,7 +463,9 @@ export function EventEditor({ event, instance, calendars, onClose }: { event: Ca
   const readOnly = !!cal?.readOnly;
   const repeating = !!event.rrule || event.recurrenceId !== undefined;
   const link = meetingLink(e);
-  const writable = calendars.filter((c) => !c.readOnly && !c.tasks);
+  const opens = eventOpenables(e);
+  // "On this computer" holds events and tasks; other task lists hold only tasks.
+  const writable = calendars.filter((c) => !c.readOnly && (!c.tasks || c.id === 'local:calendar'));
   const rule = e.rrule ? parseRRule(e.rrule) : null;
   const presetIndex = REPEATS.findIndex((r) => r.rule === e.rrule || (!r.rule && !e.rrule));
 
@@ -514,11 +517,18 @@ export function EventEditor({ event, instance, calendars, onClose }: { event: Ca
         </div>
         <input className="input" placeholder="Place or video link" value={e.location ?? ''} disabled={readOnly} onChange={(x) => setE({ ...e, location: x.target.value || undefined })} />
         <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
-          {link ? <a className="btn sm" href={link} target="_blank" rel="noreferrer"><Icon name="external" size={13} /> Join the meeting</a> : null}
-          {e.location && !link ? <MapButtons place={{ address: e.location }} /> : null}
+          {link ? <button className="btn sm primary" data-testid="event-join" title={link} onClick={() => void api.system.openExternal(link)}><Icon name="external" size={13} /> Join the meeting</button> : null}
+          {opens.place ? <MapButtons place={{ address: opens.place }} /> : null}
           {mailIdIn(e.url ?? e.description) ? <button className="btn sm" data-testid="event-open-mail" onClick={() => void api.search.open(`mail:${mailIdIn(e.url ?? e.description)}`)}><Icon name="mail" size={12} /> Open the email</button> : null}
           {event.id ? <button className="btn sm" onClick={() => void openNative('calendar', { eventUrl: event.openUrl, date: instance ?? e.start }, toast)}><Icon name="calendar" size={12} /> Open in Calendar</button> : null}
         </div>
+        {opens.links.length || opens.attachments.length ? (
+          <div className="event-links" role="group" aria-label="Links and files">
+            <span className="event-links-kicker">Links and files</span>
+            {opens.links.map((l) => <button key={l.url} className="chip" data-testid="event-link" title={l.url} onClick={() => void api.system.openExternal(l.url)}><Icon name="link" size={12} /> {l.label}</button>)}
+            {opens.attachments.map((a) => <button key={a.index} className="chip" data-testid="event-attachment" title={a.url ?? a.name} onClick={() => void api.pim.openEventAttachment(event.id, a.index).catch((x) => toast(clean(x)))}><Icon name="paperclip" size={12} /> {a.name}</button>)}
+          </div>
+        ) : null}
         <input className="input" placeholder="People (email addresses; they get an invitation from your calendar server)" value={people} disabled={readOnly} onChange={(x) => setPeople(x.target.value)} />
         <textarea className="input" rows={3} placeholder="Notes" value={e.description ?? ''} disabled={readOnly} onChange={(x) => setE({ ...e, description: x.target.value || undefined })} />
         {/* What the knowledge graph links to this event: its people's mail, the meeting recording, notes written during it. */}

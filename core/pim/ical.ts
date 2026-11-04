@@ -5,7 +5,7 @@
 
 import { expand, parseRRule } from './rrule';
 import { fromWall, validZone } from './tz';
-import type { Attendee, CalEvent, Occurrence, Reminder } from './types';
+import type { Attendee, CalEvent, EventAttachment, Occurrence, Reminder } from './types';
 
 export interface Prop {
   name: string;
@@ -174,6 +174,16 @@ export function parseEvents(text: string, calendar = ''): CalEvent[] {
         status: status === 'cancelled' || status === 'tentative' || status === 'confirmed' ? status : undefined,
       };
       if (!ev.attendees?.length) delete ev.attendees;
+      const atts = props(c, 'ATTACH').flatMap((a): EventAttachment[] => {
+        const name = a.params.FILENAME ?? a.params['X-FILENAME'] ?? a.params['X-APPLE-FILENAME'] ?? a.params['X-ORACLE-FILENAME'];
+        const type = a.params.FMTTYPE;
+        if (a.params.VALUE === 'BINARY' || (a.params.ENCODING ?? '').toUpperCase() === 'BASE64') {
+          const data = a.value.replace(/\s+/g, '');
+          return data.length <= 2_800_000 ? [{ name: name ?? 'attachment', type, data }] : [];
+        }
+        return /^(https?|ftp):/i.test(a.value) ? [{ name: name ?? (decodeURIComponent(a.value.split(/[?#]/)[0].split('/').pop() || '') || a.value), type, url: a.value }] : [];
+      });
+      if (atts.length) ev.attachments = atts;
       out.push(ev);
     }
   }
@@ -293,6 +303,11 @@ function eventLines(e: CalEvent, now: number): string[] {
   if (e.location) L.push(`LOCATION:${escapeText(e.location)}`);
   if (e.description) L.push(`DESCRIPTION:${escapeText(e.description)}`);
   if (e.url) L.push(`URL:${e.url}`);
+  for (const a of e.attachments ?? []) {
+    const p = `${a.type ? `;FMTTYPE=${a.type}` : ''}${a.name ? `;FILENAME="${a.name.replace(/"/g, '')}"` : ''}`;
+    if (a.url) L.push(`ATTACH${p}:${a.url}`);
+    else if (a.data) L.push(`ATTACH${p};ENCODING=BASE64;VALUE=BINARY:${a.data}`);
+  }
   if (e.rrule && e.recurrenceId === undefined) L.push(`RRULE:${e.rrule.replace(/^RRULE:/i, '')}`);
   for (const x of e.exdates ?? []) L.push(dateProp('EXDATE', x, e.allDay, e.tz));
   if (e.status) L.push(`STATUS:${e.status.toUpperCase()}`);
