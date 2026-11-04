@@ -595,7 +595,13 @@ Tested here (Linux):
   an event alert reaching the Island at its time; a timer ringing with Snooze
   and Stop; switching Mail off removes it from the sidebar.
 
+- Import, export and first screens (`test/pim-import.test.ts`, `test/pim-importer.test.ts`, `test/e2e/pim-import.cjs`): every reader with generated files (mbox and mboxrd, a web mail download with labels, .eml folders, an Apple Mail store, a Thunderbird profile, an Outlook for Mac archive, .ics, task CSV and Todoist, Google Tasks, To Do and Todoist answered by a stand-in server, vCard 2.1–4.0 and contacts CSV); the flow in the real app with Undo; the imported calendar's repeats reaching the Island's agenda; 1440 × 900 and 1024 × 768.
+- Signatures, writing and security (`test/pim-signatures.test.ts`, `test/pim-security.test.ts`, `test/e2e/pim-compose.cjs`): cleaning, cid pictures, defaults, a stand-in Gmail settings server, Thunderbird files; a self-signed TLS server refused; no password or token in any file or log line after signing in (with a password in the real app, and with the OAuth flow).
+- POP3 against a stand-in server (`test/pim-pop3.test.ts`), Exchange Autodiscover answers (`test/pim-exchange.test.ts`), event links and attachments and ten years of events (`test/pim-events.test.ts`), combined mailboxes (`test/pim-unified.test.ts`), and 50,000 messages in Dovecot (`test/pim-bigbox.test.ts`, `test/e2e/pim-bigbox.cjs`).
+
 Not tested:
+
+- Imports that need a Mac or Windows: Apple Mail's store and Apple Reminders (scripting) on a real Mac, Outlook's signatures on Windows, Thunderbird's profile places on macOS and Windows; real .olm files from Outlook for Mac (the reader follows the format as documented; tested with archives made here); Google Tasks and Microsoft To Do sign-ins with real accounts (they need this copy's client IDs, and Google needs the `tasks.readonly` scope added to the app's consent screen); Todoist's API with a real token; a real Gmail account's signature; real POP3 providers; a real Exchange server's Autodiscover.
 
 - Real Google, Microsoft, iCloud, Fastmail and Yahoo accounts (they need real
   accounts and, for Google/Microsoft, registered client IDs). Microsoft Graph

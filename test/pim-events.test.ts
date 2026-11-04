@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { eventOpenables, linkLabel, safeLink } from '../core/pim/event-links';
-import { parseEvents, serializeEvents } from '../core/pim/ical';
+import { occurrences, parseEvents, serializeEvents } from '../core/pim/ical';
 
 describe('opening things from an event', () => {
   it('finds Join, the event’s link, links in the notes and the place', () => {
@@ -39,3 +39,33 @@ describe('opening things from an event', () => {
     expect(back.attachments).toEqual(e.attachments);
   });
 });
+
+describe('years of events', () => {
+  it('reads and expands thousands of events and repeats across ten years quickly', () => {
+    const lines = ['BEGIN:VCALENDAR'];
+    const pad = (n: number) => String(n).padStart(2, '0');
+    for (let i = 0; i < 4000; i++) {
+      const d = new Date(Date.UTC(2020, 0, 1) + i * 86_400_000);
+      lines.push('BEGIN:VEVENT', `UID:e${i}`, `DTSTART:${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T090000Z`, `DTEND:${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T100000Z`, `SUMMARY:Event ${i}`, 'END:VEVENT');
+    }
+    for (let i = 0; i < 200; i++) lines.push('BEGIN:VEVENT', `UID:r${i}`, 'DTSTART;TZID=Europe/London:20200106T091500', 'DTEND;TZID=Europe/London:20200106T093000', `RRULE:FREQ=WEEKLY;BYDAY=${['MO', 'TU', 'WE', 'TH', 'FR'][i % 5]}`, `SUMMARY:Standup ${i}`, 'END:VEVENT');
+    lines.push('END:VCALENDAR');
+    let t = performance.now();
+    const evs = parseEvents(lines.join('\r\n'), 'c');
+    const parseMs = performance.now() - t;
+    t = performance.now();
+    const year = occurrences(evs, Date.UTC(2026, 0, 1), Date.UTC(2027, 0, 1));
+    const yearMs = performance.now() - t;
+    t = performance.now();
+    const week = occurrences(evs, Date.UTC(2029, 5, 4), Date.UTC(2029, 5, 11));
+    const weekMs = performance.now() - t;
+    expect(evs).toHaveLength(4200);
+    expect(year.filter((o) => o.event.uid === 'r0')).toHaveLength(52);
+    // 9:15 in London stays 9:15 across the clock change.
+    const summer = year.find((o) => o.event.uid === 'r0' && new Date(o.start).getUTCMonth() === 6)!;
+    expect(new Date(summer.start).getUTCHours()).toBe(8);
+    expect(week.filter((o) => o.event.uid.startsWith('r'))).toHaveLength(200);
+    expect(parseMs + yearMs + weekMs).toBeLessThan(5000);
+  });
+});
+

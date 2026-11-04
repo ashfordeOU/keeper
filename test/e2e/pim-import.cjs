@@ -84,6 +84,17 @@ const msg = (subject, i, extra = []) => [
   }
   await k(async () => { await window.keeper.settings.set({ appearance: 'light' }); });
 
+  // A smaller window: the first screen and the Import window still fit.
+  await app.evaluate(({ BrowserWindow }) => { for (const w of BrowserWindow.getAllWindows()) if (!w.webContents.getURL().includes('view=') || w.webContents.getURL().includes('view=app')) w.setSize(1024, 768); });
+  await go('Mail');
+  await wait(600);
+  await main.screenshot({ path: path.join(SHOTS, 'mail-welcome-1024.png') });
+  if (NAMED) fs.copyFileSync(path.join(SHOTS, 'mail-welcome-1024.png'), path.join(NAMED, 'pimall-mail-welcome-1024.png'));
+  const fits = await k(() => { const c = document.querySelector('.pim-welcome-card'); const r = c?.getBoundingClientRect(); return !!r && r.right <= window.innerWidth && document.documentElement.scrollWidth <= window.innerWidth; });
+  check(fits, 'the first screen fits a 1024 × 768 window');
+  await app.evaluate(({ BrowserWindow }) => { for (const w of BrowserWindow.getAllWindows()) if (!w.webContents.getURL().includes('view=') || w.webContents.getURL().includes('view=app')) w.setSize(1440, 900); });
+  await wait(400);
+
   // A provider button starts that provider's own setup.
   await go('Mail');
   await main.click('[data-testid="provider-icloud"]');
@@ -160,6 +171,9 @@ const msg = (subject, i, extra = []) => [
   await main.keyboard.press('Escape');
   const cals = await k(async () => (await window.keeper.pim.calendars()).map((c) => c.name));
   check(cals.includes('Family'), 'it is a calendar of its own named after the file');
+  // What the Island, Mail's Today strip and the Planner read: every occurrence of the repeating event.
+  const up = await k(() => window.keeper.pim.upcomingEvents(Date.now(), Date.now() + 30 * 86_400_000));
+  check(up.filter((e) => e.title === 'Swimming lesson').length === 4, `the imported repeats reach the Island and the Today strip (${up.filter((e) => e.title === 'Swimming lesson').length} of 4)`);
 
   await go('Reminders');
   await main.click('[data-testid="reminders-import"]');
