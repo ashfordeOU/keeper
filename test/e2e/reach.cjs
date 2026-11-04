@@ -5,7 +5,7 @@
 // below. Sections can be picked by name (default: all). Light and dark at
 // 1440×900, and 1024×768 for the sheets.
 
-const { _electron } = require('playwright');
+const { _electron, chromium, devices } = require('playwright');
 const { spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -262,6 +262,63 @@ async function launch(extraEnv = {}, opts = {}) {
     if (panel) { await L.main.locator('[data-testid="settings-sync"]').scrollIntoViewIfNeeded(); await L.both('auditplatform-sync'); }
     check(L.errors.length === 0, `no page errors on the laptop (${L.errors.slice(0, 2).join('; ')})`);
     await L.app.close();
+  }
+
+  // ---------------------------------------------------------------- the phone companion's Today
+  if (want('phone')) {
+    const call = (f, ...a) => main.evaluate(([fn, args]) => { const p = fn.split('.'); let o = window.keeper; for (const x of p.slice(0, -1)) o = o[x]; return o[p[p.length - 1]](...args); }, [f, a]);
+    await call('link.rename', 'Desk');
+    const noon = new Date(); noon.setHours(23, 0, 0, 0);
+    const task = await call('pim.saveReminder', { id: '', list: 'local', title: 'Water the tomatoes', done: false, due: noon.getTime() - 3_600_000 });
+    const inv = await call('link.companionInvite', false);
+    const port = (await call('link.state')).me.port;
+    const browser = await chromium.launch();
+    const ctx = await browser.newContext({ ...devices['iPhone 13'] });
+    const phone = await ctx.newPage();
+    const phoneErrors = [];
+    phone.on('pageerror', (e) => phoneErrors.push(e.message));
+    await phone.goto(inv.url.replace(/^http:\/\/[^/]+/, `http://127.0.0.1:${port}`));
+    const ask = await until(async () => (await main.getByText('Allow this phone?').count()) > 0, 10000);
+    if (ask) await main.getByRole('button', { name: 'Allow', exact: true }).click();
+    check(!!(await until(async () => (await phone.locator('#status').innerText()).includes('Connected'), 10000)), 'the phone page connects, encrypted');
+    check(await phone.locator('nav#nav-main button').count() <= 6, 'the phone’s tab row has six tabs at most');
+    check(!(await phone.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1)), 'nothing runs off the side of the phone');
+    check(!(await phone.locator('#tab-today').isHidden()), 'Today opens first');
+    const t = await until(async () => { const x = await phone.locator('#today-tasks').innerText(); return /Water the tomatoes/.test(x) ? x : null; }, 10000);
+    check(!!t, 'Today lists the task due today');
+    // Catch words into the Inbox.
+    await phone.locator('#catch-text').fill('Ask about the allotment');
+    await phone.locator('#catch-go').click();
+    check(!!(await until(async () => (await call('inbox.list')).find((x) => x.text === 'Ask about the allotment' && x.source === 'phone'), 10000)), 'Catch puts words from the phone in the Inbox');
+    // A photo into the Inbox.
+    const photo = path.join(HOME, 'leaf.jpg');
+    fs.writeFileSync(photo, Buffer.from('ffd8ffe000104a46494600', 'hex'));
+    await phone.setInputFiles('#catch-photo', photo);
+    check(!!(await until(async () => (await call('inbox.list')).find((x) => x.kind === 'shot' && /leaf\.jpg$/.test(x.path || '')), 15000)), 'a photo from the phone arrives in the Inbox');
+    // Tick the task off.
+    await phone.locator('#today-tasks .task input').first().check();
+    check(!!(await until(async () => (await call('pim.reminders')).find((x) => x.id === task.id)?.done === true, 10000)), 'ticking a task on the phone completes it on the computer');
+    // Find my files.
+    await phone.locator('#find-q').fill('garden');
+    await phone.locator('#find-go').click();
+    const hit = await until(async () => { const x = await phone.locator('#find-out').innerText(); return /Garden plan\.txt/.test(x) ? x : null; }, 10000);
+    check(!!hit && /~\/Documents/.test(hit), `Find shows the file and its folder in words (${(hit || '').replace(/\n/g, ' | ').slice(0, 80)})`);
+    await phone.locator('#find-q').fill('');
+    for (const dark of [false, true]) {
+      await phone.emulateMedia({ colorScheme: dark ? 'dark' : 'light' });
+      await phone.locator('#find-q').fill('garden');
+      await phone.locator('#find-go').click();
+      await wait(600);
+      await phone.screenshot({ path: path.join(SHOTS, `auditplatform-phone-${dark ? 'dark' : 'light'}.png`), fullPage: true });
+    }
+    // More holds AI and Terminal.
+    await phone.locator('#nav-more-btn').click();
+    check(await phone.locator('nav#nav-more button[data-tab=ai]').isVisible(), 'More shows the clipboard, AI and Terminal');
+    const manifest = await (await phone.request.get(`http://127.0.0.1:${port}/c/manifest.webmanifest`)).json();
+    const sw = await phone.request.get(`http://127.0.0.1:${port}/c/sw.js`);
+    check(manifest.display === 'standalone' && manifest.scope === './' && sw.ok(), 'the page can be installed (manifest and offline shell served)');
+    check(phoneErrors.length === 0, `no errors on the phone page (${phoneErrors.slice(0, 2).join('; ')})`);
+    await browser.close();
   }
 
   check(errors.length === 0, `no page errors (${errors.slice(0, 2).join('; ')})`);

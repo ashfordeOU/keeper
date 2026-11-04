@@ -491,7 +491,7 @@ export class LinkNode {
       if (!html) return send(404, 'text/plain', 'The companion page is not built');
       return send(200, 'text/html; charset=utf-8', html, { 'content-security-policy': "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws: wss:; img-src 'self' blob: data:; manifest-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'" });
     }
-    const asset = u.pathname.match(/^\/c\/(app\.js|manifest\.webmanifest|icon\.png)$/);
+    const asset = u.pathname.match(/^\/c\/(app\.js|manifest\.webmanifest|icon\.png|sw\.js)$/);
     if (asset) {
       const f = await fsp.readFile(path.join(this.hooks.companionDir(), asset[1])).catch(() => null);
       if (!f) return send(404, 'text/plain', 'not found');

@@ -65,6 +65,11 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - Archives' What works here says "Opens with your system's tools" instead of naming the program underneath; only 7-Zip is named, where it needs installing.
 - Snap Windows on Linux says "Works with apps on this desktop".
 
+### Added — The phone companion opens on Today
+- The page your phone opens from Devices → Phone now starts with Today: the day's events, today's tasks with a box to tick each off, Catch something (words, a photo or a voice note into the Inbox) and Find my files on the computer, with Show on computer.
+- Clipboard, AI and Terminal moved under More, so the row stays short.
+- Through the secure address it can be added to the home screen as an app, and its page opens without a connection.
+
 ### Added — Settings on your other computers
 - Settings → Devices → Keep settings the same: typed snippets, themes and the look, Quick Search links and commands, saved searches, Automations and the mode follow you to the computers you choose, straight over your own encrypted link. No server and no account.
 - Per item, the newest change wins; what it replaced is kept under Older versions with Bring back.

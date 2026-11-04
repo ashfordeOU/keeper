@@ -205,12 +205,14 @@ async function shot(w, name, dark) {
   await phone.setInputFiles('#pick', upload);
   const up = await until(async () => fs.existsSync(path.join(homes.a, 'Downloads/Keeper/IMG_2041.HEIC')) && fs.readFileSync(path.join(homes.a, 'Downloads/Keeper/IMG_2041.HEIC')).equals(fs.readFileSync(upload)), 15000);
   check(!!up, 'a 1.1 MB photo from the phone arrived intact');
+  await phone.locator('nav button[data-tab=send]').click();
   await phone.screenshot({ path: `${SHOTS}/phone-send.png` });
   await phone.locator('nav button[data-tab=files]').click();
   const sharedOnPhone = await until(async () => (await phone.getByText('Photos').count()) > 0, 8000);
   check(!!sharedOnPhone, 'the phone sees the shared folders');
   await phone.screenshot({ path: `${SHOTS}/phone-files.png` });
   await A.main.evaluate(() => navigator.clipboard.writeText('from the desk')).catch(() => undefined);
+  await phone.locator('#nav-more-btn').click();
   await phone.locator('nav button[data-tab=clip]').click();
   await phone.locator('#clip-get').click();
   const phoneClip = await until(async () => (await phone.locator('#clip').inputValue()) === 'from the desk', 6000);

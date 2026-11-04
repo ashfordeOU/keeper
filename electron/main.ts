@@ -168,6 +168,7 @@ import { registerPhotoIpc } from './ipc/photo';
 import { registerCrashReportsIpc } from './ipc/crash-reports';
 import { registerKeeperBackupIpc } from './ipc/keeper-backup';
 import { registerSettingsSyncIpc } from './ipc/settings-sync';
+import { registerPhoneToday } from './services/phone-today';
 import { applyPendingRestore } from './services/keeper-backup';
 import { phoneAlert } from './services/phone-alerts';
 import { stopTimeTracking } from './services/time-track';
@@ -1461,6 +1462,8 @@ app.whenReady().then(async () => {
       if (n) registerNotesCompanion(n);
       // Places & Tracks: the phone's position while its companion page is open.
       if (n) registerTracksCompanion(n);
+      // The phone's Today: events, tasks to tick off, catching into the Inbox and finding files.
+      if (n) registerPhoneToday(n, { searchFiles: (q, limit) => index.query(q).hits.slice(0, limit).map((h) => h.file) });
       // Keeper Mesh: a WireGuard network between paired devices (off until switched on).
       void registerMeshIpc({ node: linkNode, broadcast, show: (route) => showMain(route), onChange: () => void updateTray() }).catch(() => undefined);
     })

@@ -169,6 +169,10 @@ Settings for the Node relay: `PORT`, `HOST`, `BYTES_PER_SECOND` (a limit per cal
 - **Why a pure-JS implementation** (`core/link/jscrypto.ts`, checked against Node's): browsers do not offer WebCrypto to plain-http pages on the local network.
 - **Approval:** the computer asks *Allow this phone?*. Once allowed, the phone gets its own long-term key, kept in the page's storage, and comes back without the QR code. Remove it under *Phones and tablets*.
 - **What the phone can do:** send files to Downloads/Keeper, browse and download from shared folders, and read or set the clipboard.
+- **Today, first:** the page opens on Today: the day's events, the tasks due today (overdue first) with a box to tick each off, **Catch something** (words, a photo or a voice note into the Inbox), and **Find my files**, which searches the computer's library and shows names and folders in words (`~/Documents`), with **Show on computer**. Found files are never sent to the phone; files travel through shared folders. Each part answers only while its part is on (Calendar and reminders, Inbox). Today is read when the page opens: there is no push, so no server is needed.
+- **Tabs:** Today, Send, Files, Screen and More (Clipboard, AI, Terminal), so the row stays short on a phone.
+- **Install it:** on a secure page (the tunnel's https address) the page can be added to the home screen as an app, with a small offline shell (`companion/sw.js`, the page only, never your data). Over the local network a phone keeps it as a home-screen bookmark.
+- For developers: Today's rules in `core/phone-today.ts` (tests in `test/phone-today.test.ts`), the requests (`today.get`, `tasks.done`, `inbox.add`, `find`, `find.show`) in `electron/services/phone-today.ts`, and an emulated iPhone in `test/e2e/reach.cjs phone`.
 - **Room to grow:** the request format leaves room for screen viewing and control on the same channel.
 
 ## Shared folders, ports and the clipboard
