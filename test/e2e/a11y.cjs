@@ -165,8 +165,10 @@ function audit(scope) {
     const bodyBg = parse(getComputedStyle(document.body).backgroundColor);
     if (bodyBg && bodyBg.a >= 1) base = bodyBg;
     // The Island draws its own surface (a clipped shape behind the content): that is the background.
+    // Its colours (the look: light or dark, colourful…) are set on .isl-root, so read them there.
     if (document.documentElement.dataset.view === 'island') {
-      const probe = document.createElement('i'); probe.style.color = 'var(--island-bg)'; document.body.appendChild(probe);
+      const host = el.closest('.isl-root') || document.querySelector('.isl-root') || document.body;
+      const probe = document.createElement('i'); probe.style.color = 'var(--island-bg)'; host.appendChild(probe);
       const ib = parse(getComputedStyle(probe).color); probe.remove(); if (ib) base = ib;
     }
     for (let i = layers.length - 1; i >= 0; i--) base = over(layers[i], base);
