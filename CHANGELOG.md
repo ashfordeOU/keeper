@@ -4,6 +4,10 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 
 ## [Unreleased]
 
+### Added — Tasks: energy, and a Low energy view
+- Give a task an energy: Low for a tired moment, High for deep work, in the task or by typing `~low` or "deep work" when you add it. It travels with the task to calendar accounts.
+- Tasks → Plan has a **Low energy** view: the easy open tasks, today's and overdue first.
+
 ### Added — Today: quieter cards that speak only when needed
 - **Follow-ups**: how many messages you sent still wait for an answer past your follow-up days, opening Mail's Waiting list.
 - **Backups**: shown only when a backup went wrong or is late for its schedule ("Last backup 3 days ago"), with Fix.

@@ -306,3 +306,21 @@ describe('Island notes: the Today pad and lines to tasks', () => {
     expect(takeLine('a\n\nb', 2)).toBeNull();
   });
 });
+
+describe('energy', () => {
+  it('is read from plain words and kept through a calendar account', async () => {
+    const { parseTask } = await import('../core/pim/quickadd');
+    expect(parseTask('reply to Ana ~low #work')).toMatchObject({ title: 'reply to Ana', energy: 'low', project: 'work' });
+    expect(parseTask('write the report deep work')).toMatchObject({ title: 'write the report', energy: 'high' });
+    expect(parseTask('water the plants low energy')).toMatchObject({ energy: 'low' });
+    expect(parseTask('lower the blinds')?.energy).toBeUndefined();
+    const { parseTodos, serializeTodo } = await import('../core/pim/ical');
+    expect(parseTodos(serializeTodo({ id: 'l:1', uid: '1', list: 'l', title: 'Easy', done: false, energy: 'low' }), 'l')[0].energy).toBe('low');
+  });
+  it('the Low energy view: open easy tasks, today and overdue first', async () => {
+    const { lowEnergyTasks } = await import('../core/pim/tasks');
+    const t = (id: string, o: object) => ({ id, list: 'local', title: id, done: false, ...o });
+    const out = lowEnergyTasks([t('later', { energy: 'low', plannedFor: '2026-11-20' }), t('hard', { energy: 'high' }), t('now', { energy: 'low', plannedFor: '2026-11-04' }), t('done', { energy: 'low', done: true })], '2026-11-04');
+    expect(out.map((x) => x.id)).toEqual(['now', 'later']);
+  });
+});

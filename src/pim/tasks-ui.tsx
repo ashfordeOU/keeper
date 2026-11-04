@@ -73,6 +73,7 @@ export async function addTaskFromText(text: string, defaults: Partial<Task> = {}
   const t: Task = { id: '', list: 'local', done: false, ...defaults, title: q.title, created: Date.now() };
   if (q.priority) t.priority = q.priority;
   if (q.project) t.project = q.project;
+  if (q.energy) t.energy = q.energy;
   if (q.rrule) t.rrule = q.rrule;
   if (q.plannedFor) t.plannedFor = q.plannedFor;
   if (q.due !== undefined) t.due = q.due;
@@ -319,6 +320,10 @@ export function TaskDetail({ task, today, projects = [], onClose, compact }: { t
         <span className="tk-label">Project</span>
         <input className="input sm" list="tk-projects" placeholder="none" value={t.project ?? ''} onChange={(e) => setT({ ...t, project: e.target.value.replace(/^#/, '') || undefined })} onBlur={() => t.project !== task.project && put({ project: t.project?.trim() || undefined })} aria-label="Project" />
         <datalist id="tk-projects">{projects.map((p) => <option key={p} value={p} />)}</datalist>
+      </div>
+      <div className="tk-field">
+        <span className="tk-label">Energy</span>
+        <div className="tk-days" role="radiogroup" aria-label="Energy it takes">{([[undefined, 'Any'], ['low', 'Low'], ['high', 'High']] as const).map(([e, label]) => <button key={label} role="radio" aria-checked={t.energy === e} className={`chip ${t.energy === e ? 'on' : ''}`} data-testid={`task-energy-${label.toLowerCase()}`} onClick={() => put({ energy: e })}>{label}</button>)}</div>
       </div>
       <div className="tk-field">
         <span className="tk-label">Importance</span>

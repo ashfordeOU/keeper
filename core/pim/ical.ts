@@ -221,6 +221,7 @@ export function parseTodos(text: string, list = ''): Reminder[] {
       const steps = props(c, 'X-KEEPER-STEP').map((p, i) => ({ id: p.params['X-ID'] || `s${i}`, title: unescapeText(p.value), done: p.params['X-DONE'] === '1' }));
       const order = Number(prop(c, 'X-KEEPER-ORDER')?.value);
       const created = prop(c, 'CREATED');
+      const energy = prop(c, 'X-KEEPER-ENERGY')?.value;
       const focus = (prop(c, 'X-KEEPER-FOCUS')?.value ?? '').split(',').map((x) => x.split('/').map(Number)).filter(([at, m]) => at > 0 && m > 0).map(([at, minutes]) => ({ at, minutes }));
       const t: Reminder = {
         id: `${list}:${uid}`,
@@ -242,6 +243,7 @@ export function parseTodos(text: string, list = ''): Reminder[] {
       if (Number.isFinite(order)) t.order = order;
       if (created) t.created = parseDate(created.value)?.t;
       if (focus.length) t.focus = focus;
+      if (energy === 'low' || energy === 'high') t.energy = energy;
       out.push(t);
     }
   }
@@ -344,6 +346,7 @@ export function serializeTodo(r: Reminder, now = Date.now()): string {
   if (r.project) L.push(`CATEGORIES:${escapeText(r.project)}`);
   for (const st of r.steps ?? []) L.push(`X-KEEPER-STEP;X-ID=${st.id.replace(/[^\w-]/g, '')};X-DONE=${st.done ? 1 : 0}:${escapeText(st.title)}`);
   if (r.order !== undefined) L.push(`X-KEEPER-ORDER:${r.order}`);
+  if (r.energy) L.push(`X-KEEPER-ENERGY:${r.energy}`);
   if (r.focus?.length) L.push(`X-KEEPER-FOCUS:${r.focus.map((f) => `${f.at}/${f.minutes}`).join(',')}`);
   if (r.priority) L.push(`PRIORITY:${r.priority === 3 ? 1 : r.priority === 2 ? 5 : 9}`);
   L.push(`STATUS:${r.done ? 'COMPLETED' : 'NEEDS-ACTION'}`);

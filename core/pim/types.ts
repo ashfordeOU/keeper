@@ -257,6 +257,9 @@ export interface TaskStep {
  * Planner and the Island. Local ones live on this computer; ones in a
  * calendar account's task list sync as VTODO (core/pim/ical.ts).
  */
+/** How much a task asks of you (ADHD-friendly planning): easy ones can wait for a low moment. */
+export type TaskEnergy = 'low' | 'high';
+
 export interface Reminder {
   id: string;
   /** a calendar holding tasks, or 'local' */
@@ -269,6 +272,8 @@ export interface Reminder {
   done: boolean;
   doneAt?: number;
   priority?: 0 | 1 | 2 | 3;
+  /** how much energy it takes: 'low' for a tired afternoon, 'high' for deep work (the Planner's Low energy view) */
+  energy?: TaskEnergy;
   /** the day it is planned for (yyyy-mm-dd, local); without it and a due date it sits in the Inbox */
   plannedFor?: string;
   /** repeats: an RRULE body such as FREQ=WEEKLY;BYDAY=MO (VTODO RRULE) */

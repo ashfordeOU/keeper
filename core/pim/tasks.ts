@@ -10,6 +10,13 @@ import { expand, formatRRule, parseRRule } from './rrule';
 import type { Reminder, TaskStep } from './types';
 
 export type Task = Reminder;
+
+/** Open tasks that take little energy, for a tired moment: today's and overdue first, then the rest in order. */
+export function lowEnergyTasks(tasks: Task[], today: string): Task[] {
+  const low = tasks.filter((t) => !t.done && t.energy === 'low');
+  const soon = (t: Task) => { const d = taskDay(t); return d !== undefined && d <= today ? 0 : 1; };
+  return sortTasks(low).sort((a, b) => soon(a) - soon(b));
+}
 export { dayKey };
 
 const DAY = 86_400_000;

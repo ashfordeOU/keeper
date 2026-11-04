@@ -227,6 +227,8 @@ export interface QuickTask {
   priority?: 1 | 2 | 3;
   /** "#home" */
   project?: string;
+  /** "~low" or "low energy"; "~high" or "deep work" */
+  energy?: 'low' | 'high';
   rrule?: string;
   /** the day (yyyy-mm-dd) when the text named one */
   plannedFor?: string;
@@ -258,6 +260,12 @@ export function parseTask(input: string, now = Date.now()): QuickTask | null {
     project ??= name;
     return ' ';
   });
+  // Energy: "~low" / "~high", or the plain words "low energy" / "high energy" / "deep work".
+  let energy: QuickTask['energy'];
+  s = s.replace(/\s(?:~(low|high)|(low|high) energy|(deep work))(?=\s)/gi, (_m, a?: string, b?: string, deep?: string) => {
+    energy ??= deep ? 'high' : ((a ?? b)!.toLowerCase() as 'low' | 'high');
+    return ' ';
+  });
   const q = parseQuickAdd(s, now, { location: false });
   const out: QuickTask = { title: s.replace(/\s+/g, ' ').trim() || input.trim() };
   if (q && (q.found?.date || q.found?.time || q.rrule)) {
@@ -268,5 +276,6 @@ export function parseTask(input: string, now = Date.now()): QuickTask | null {
   }
   if (priority) out.priority = priority;
   if (project) out.project = project;
+  if (energy) out.energy = energy;
   return out;
 }

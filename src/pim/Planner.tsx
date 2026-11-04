@@ -5,7 +5,7 @@
 // for the task you pick. The same tasks as the Reminders page and the Island.
 
 import { useEffect, useMemo, useState } from 'react';
-import { addDays, inboxTasks, overdueTasks, sortTasks, taskDay, todayTasks, upcomingTasks, type Task } from '../../core/pim/tasks';
+import { addDays, inboxTasks, lowEnergyTasks, overdueTasks, sortTasks, taskDay, todayTasks, upcomingTasks, type Task } from '../../core/pim/tasks';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
 import { PageHead } from '../components/ui';
@@ -16,7 +16,7 @@ import { InsightsView, WeekBoard } from './planner-views';
 import { dayLabel, projectsOf, TaskComposer, TaskDetail, TaskList, UndoBar, useTasks, useToday } from './tasks-ui';
 import '../styles/pim.css';
 
-type View = 'today' | 'week' | 'inbox' | 'upcoming' | 'overdue' | 'insights' | `project:${string}`;
+type View = 'today' | 'week' | 'inbox' | 'upcoming' | 'overdue' | 'low' | 'insights' | `project:${string}`;
 
 export function Planner({ initial }: { initial?: string }) {
   const { tasks, loaded } = useTasks();
@@ -40,6 +40,7 @@ export function Planner({ initial }: { initial?: string }) {
     inbox: inboxTasks(tasks).length,
     upcoming: upcomingTasks(tasks, today).length,
     overdue: overdue.length,
+    low: lowEnergyTasks(tasks, today).length,
   };
   const selected = sel ? tasks.find((t) => t.id === sel) : undefined;
   const open = (t: Task) => setSel(t.id === sel ? null : t.id);
@@ -87,6 +88,10 @@ export function Planner({ initial }: { initial?: string }) {
         <TaskList tasks={overdue} today={today} selected={sel} onOpen={open} empty="Nothing overdue." />
       </>
     );
+  } else if (view === 'low') {
+    title = 'Low energy';
+    sub = 'Easy wins for a tired moment.';
+    body = <TaskList tasks={lowEnergyTasks(tasks, today)} today={today} selected={sel} onOpen={open} empty="No easy tasks yet. Open a task and set its energy to Low." />;
   } else if (view === 'insights') {
     title = 'Insights';
     sub = 'Kept on this computer only';
@@ -107,6 +112,7 @@ export function Planner({ initial }: { initial?: string }) {
         {nav('inbox', 'Inbox', 'inbox', counts.inbox)}
         {nav('upcoming', 'Upcoming', 'calendar', counts.upcoming)}
         {nav('overdue', 'Overdue', 'warning', counts.overdue)}
+        {nav('low', 'Low energy', 'coffee', counts.low)}
         {insightsOn ? nav('insights', 'Insights', 'chart') : null}
         {projects.length ? <div className="small muted" style={{ fontWeight: 600, margin: '12px 8px 4px' }}>Projects</div> : null}
         {projects.map((p) => nav(`project:${p}`, `#${p}`, 'tag', tasks.filter((t) => t.project === p && !t.done).length))}

@@ -20,6 +20,7 @@ tasks in a calendar account's task list sync as VTODO over CalDAV.
 | `rrule` | repeats (`FREQ=WEEKLY;BYDAY=MO`) | `RRULE` (written only with `DTSTART` or `DUE`, as RFC 5545 asks) |
 | `steps` | sub-tasks, checked off on their own | `X-KEEPER-STEP;X-ID=…;X-DONE=0/1` |
 | `project` | a project or area (`#home`) | first `CATEGORIES` |
+| `energy` | how much a task asks of you: `low` (easy, for a tired moment) or `high` (deep work); set under Energy in the task, or type `~low`, `low energy`, `~high` or `deep work` | `X-KEEPER-ENERGY` |
 | `order` | the person's own order (drag to reorder) | `X-KEEPER-ORDER` |
 | `created` | when it was added | `CREATED` |
 | `focus` | focus sessions spent on it | `X-KEEPER-FOCUS:at/minutes,…` |
@@ -71,7 +72,7 @@ The composer (`TaskComposer`, `src/pim/tasks-ui.tsx`) shows what the words set a
 
 - The Island's **Tasks** tab, or from anywhere with **New task** (<kbd>Ctrl Alt N</kbd>, <kbd>⌘⌥N</kbd> on a Mac). The shortcut opens Tasks with the field focused. Change it in Settings → Island → Shortcuts.
 - The **Week** tab and the Planner's Week, with *+ Add* under any day.
-- The **Tasks** page's Plan and Lists tabs.
+- The **Tasks** page's Plan and Lists tabs. Plan has a **Low energy** view: open tasks marked Low, today's and overdue first, for the moments when focus is short.
 - **Island Notes**: <kbd>⌘/Ctrl Enter</kbd> turns the line under the cursor into a task for today, and the line leaves the note.
 - AI agents and MCP clients (below), and the command palette (*New Task…*).
 
