@@ -71,6 +71,7 @@ needs the private key in `api-token`; nothing is reachable from the network.
 | The Island and the slider bar | when Monorail's slider bar is at the **top**, an Island below the menu bar moves below the slider, and a panel that opens apart from the pill starts below it; a pill in the menu bar or notch never moves. Nothing changes when the slider is at the bottom (its default). | always |
 | Theme | Keeper's theme → the closest of Monorail's themes (`fjord` → Nord, `terminal` → Phosphor…), "Seasons" when Keeper follows the seasons | Match Keeper's theme (off by default) |
 | Shortcut clashes | every `…Shortcut` in Keeper's settings, plus the computer-use stop key, compared with Monorail's keymap (its `settings.json`, or its defaults) | always; shown on the card and on To do |
+| Snap windows | while Monorail runs (and this integration is on), Keeper's Snap Windows registers none of its shortcuts and its page says Monorail arranges the windows; saved layouts still work. Snap's default keys (⌘⌥⇧ with arrows, Return, C, N) are none of Monorail's, and any snap key you change is in the clash check (a `shortcuts` group) | always ([SNAP-WINDOWS.md](SNAP-WINDOWS.md)) |
 
 The Island never takes over Monorail's slider or its menu-bar item; both apps
 keep their own places.

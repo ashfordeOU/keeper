@@ -232,6 +232,10 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     { id: 'wrap-up', label: 'Wrap Up the Day', group: 'Actions', icon: 'check', keywords: 'shutdown end of day evening tomorrow journal', run: async () => { store.go({ name: 'home', arg: 'wrap' }); } },
     { id: 'focus', label: 'Start a 25-Minute Focus', group: 'Actions', icon: 'timer', keywords: 'pomodoro timer', run: async () => { await api.island.focus('start', 25); store.toast('Focus started — see you in 25 minutes'); } },
     { id: 'focus-stop', label: 'Stop Focus Timer', group: 'Actions', icon: 'timer', run: async () => { await api.island.focus('stop'); } },
+    // Snap windows: the window in front goes into place (Keeper's own, from its palette).
+    { id: 'snap-left', label: 'Snap Window to the Left Half', group: 'Actions', icon: 'columns', keywords: 'tile window half side by side', run: async () => { const r = await api.snap.run('left'); if (!r.ok && r.message) store.toast(r.message); } },
+    { id: 'snap-right', label: 'Snap Window to the Right Half', group: 'Actions', icon: 'columns', keywords: 'tile window half side by side', run: async () => { const r = await api.snap.run('right'); if (!r.ok && r.message) store.toast(r.message); } },
+    { id: 'snap-fill', label: 'Make Window Fill the Screen', group: 'Actions', icon: 'columns', keywords: 'maximise maximize window full', run: async () => { const r = await api.snap.run('maximise'); if (!r.ok && r.message) store.toast(r.message); } },
     { id: 'blocking-hour', label: 'Block Distractions for an Hour', group: 'Actions', icon: 'block', keywords: 'focus block sites apps social news', run: async () => {
       try {
         const st = await api.focusBlock.status();

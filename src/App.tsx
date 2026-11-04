@@ -102,6 +102,8 @@ const JournalPage = lazy(() => import('./screens/Journal').then((m) => ({ defaul
 // Time tracking (timeline, week, projects) loads the first time its page opens.
 const TimePage = lazy(() => import('./screens/TimeTracking').then((m) => ({ default: m.TimeTracking })));
 const FocusBlockPage = lazy(() => import('./screens/FocusBlock').then((m) => ({ default: m.FocusBlock })));
+// Snap Windows (shortcuts and saved layouts) loads the first time its page opens.
+const SnapWindowsPage = lazy(() => import('./screens/SnapWindows').then((m) => ({ default: m.SnapWindows })));
 const Dictation = lazy(() => import('./screens/Dictation').then((m) => ({ default: m.Dictation })));
 const TypedSnippets = lazy(() => import('./screens/TypedSnippets').then((m) => ({ default: m.TypedSnippets })));
 const Meetings = lazy(() => import('./screens/Meetings').then((m) => ({ default: m.Meetings })));
@@ -463,6 +465,7 @@ function Page() {
     cues: () => <Suspense fallback={null}><CuesPage /></Suspense>,
     inbox: () => <Suspense fallback={null}><InboxPage /></Suspense>,
     blocking: () => <Suspense fallback={null}><FocusBlockPage /></Suspense>,
+    snap: () => <Suspense fallback={null}><SnapWindowsPage /></Suspense>,
     time: () => <Suspense fallback={null}><TimePage /></Suspense>,
     reader: () => <Suspense fallback={null}><ReaderPage /></Suspense>,
     pdf: () => <Suspense fallback={null}><PdfReaderPage key={route.arg ?? ''} initial={route.arg} /></Suspense>,

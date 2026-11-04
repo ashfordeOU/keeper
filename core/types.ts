@@ -537,4 +537,8 @@ export interface Settings {
   mode: import('./modes').ModeState;
   /** a timed Focus session over any mode, or null; it changes nothing saved and ends by itself (core/modes.ts) */
   modeSession: import('./modes').ModeSession | null;
+  /** snap windows: a shortcut per place on screen, the gap around windows, restoring a layout when screens change (core/snap.ts) */
+  snap: import('./snap').SnapSettings;
+  /** window layouts saved per set of screens ("Docked", "Laptop") */
+  snapLayouts: import('./snap').SnapLayout[];
 }

@@ -158,6 +158,8 @@ const api = {
   // Cues and Island+ (calls, levels, notifications, agents).
   cues: group('cues', ['state', 'list', 'create', 'update', 'toggleItem', 'skipItem', 'complete', 'reopen', 'snooze', 'remove', 'restore', 'purge', 'dismiss', 'templates', 'saveTemplate', 'removeTemplate', 'startTemplate', 'parse', 'suggest', 'settings', 'setSettings', 'compose', 'openFolder', 'exportMarkdown', 'syncWithDevices', 'popup', 'closePopup', 'reportPage', 'openPage']),
   // Focus blocking: lists, schedules, passes and the block window over an app.
+  // Snap windows: halves, thirds, quarters and layouts per set of screens.
+  snap: group('snap', ['status', 'run', 'saveLayout', 'restoreLayout', 'renameLayout', 'removeLayout', 'openPermission']),
   focusBlock: group('focusBlock', ['status', 'saveList', 'removeList', 'saveSchedule', 'removeSchedule', 'setFocusList', 'start', 'stop', 'pass', 'runningApps', 'blockedApp', 'closeApp', 'dismiss', 'testFront']),
   // Automatic time tracking: days, weeks, projects, CSV.
   timeTrack: group('timeTrack', ['status', 'day', 'week', 'setPaused', 'saveRules', 'exportCsv', 'removeDay', 'wipe', 'testFront']),

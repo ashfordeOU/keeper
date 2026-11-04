@@ -141,6 +141,7 @@ import { cached as controlsCached, list as controlsList, onControlsChanged, set 
 import { PRESETS as CONTROL_PRESETS } from '../core/controls/catalog';
 import { registerFirewallIpc, stopFirewall } from './ipc/fw';
 import { registerFocusBlockIpc } from './ipc/focus-block';
+import { registerSnapShortcuts, snapApi, startSnap, syncSnapWatch } from './services/snap';
 import { registerTimeTrackIpc } from './ipc/time-track';
 import { registerJournalIpc } from './ipc/journal';
 import { registerReaderIpc } from './ipc/reader';
@@ -669,6 +670,8 @@ function registerShortcuts() {
   registerCueShortcut();
   // The Inbox: catch a thought, a link, a screenshot or a file from any app.
   registerInboxShortcut(reg, s.today.captureShortcut);
+  // Snap windows: a shortcut per place on screen (only where Keeper may move windows).
+  registerSnapShortcuts(reg);
   void registerStudioShortcuts(reg);
 }
 
@@ -1549,6 +1552,9 @@ app.whenReady().then(async () => {
     focusBlockFocusChanged(on);
   };
   // Focus blocking: sites through the browser extension and the DNS filter, apps through the app in front (nothing runs while off).
+  // Snap windows: the window in front into a half, a third, a quarter; layouts per set of screens.
+  for (const [k, fn] of Object.entries(snapApi)) ipcMain.handle(`snap.${k}`, async (_e, ...args) => (fn as (...a: unknown[]) => unknown)(...args));
+  startSnap(() => registerShortcuts());
   registerFocusBlockIpc({
     preload: preload(), lockDown, broadcast,
     focus: () => {
@@ -1800,6 +1806,7 @@ let studioSince: number | undefined;
       void rescan();
     }
     if (next.platform?.askShortcut !== prev.platform?.askShortcut) registerShortcuts();
+    if (JSON.stringify(next.snap) !== JSON.stringify(prev.snap)) { registerShortcuts(); syncSnapWatch(); }
     if (next.quickSearchShortcut !== prev.quickSearchShortcut || next.island.captureShortcut !== prev.island.captureShortcut || next.island.dictationShortcut !== prev.island.dictationShortcut) registerShortcuts();
     if (next.trayEnabled !== prev.trayEnabled || next.trayCount !== prev.trayCount) void updateTray();
     if (next.island.enabled !== prev.island.enabled) (next.island.enabled ? createIsland() : destroyIsland());

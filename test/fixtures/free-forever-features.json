@@ -165,6 +165,7 @@
     "captureInbox",
     "notices",
     "bigButtons",
-    "offlineCheck"
+    "offlineCheck",
+    "snapWindows"
   ]
 }

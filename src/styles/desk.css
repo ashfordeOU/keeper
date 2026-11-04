@@ -1,0 +1,35 @@
+/* SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 */
+/* Windows and the desktop: Snap Windows, folder boxes, menu bar icons and mouse buttons. Tokens only. */
+
+.desk-page { display: flex; flex-direction: column; gap: 16px; }
+.desk-card { padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; }
+.desk-card-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.desk-card-head.stack { flex-direction: column; align-items: stretch; gap: 10px; }
+.desk-title { margin: 0; font-size: var(--fs-lg); font-weight: 650; }
+
+.desk-status { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: var(--r-lg); background: var(--bg-sunk); color: var(--text-2); }
+.desk-status .grow > div:first-child { color: var(--text); }
+.desk-dot { width: 8px; height: 8px; border-radius: var(--r-pill); background: var(--warn); flex: none; }
+.desk-status.ok .desk-dot { background: var(--ok); }
+
+.desk-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.desk-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: var(--r-md); }
+.desk-row:hover { background: var(--bg-hover, var(--bg-sunk)); }
+.desk-row > svg { color: var(--text-3); flex: none; }
+.desk-row-name { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.desk-row .input.sm { max-width: 280px; }
+
+/* Snap Windows: one tile per place on screen */
+.snap-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.snap-tile { display: flex; align-items: center; gap: 14px; padding: 12px 14px; border-radius: var(--r-lg); background: var(--bg-sunk); }
+.snap-tile-body { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; }
+.snap-tile-label { font-weight: 600; font-size: var(--fs-md); }
+.snap-place { position: relative; width: 56px; height: 36px; flex: none; border-radius: var(--r-sm); border: 1.5px solid var(--line-strong, var(--line)); background: var(--bg-elev); overflow: hidden; display: grid; place-items: center; color: var(--accent); }
+.snap-fill { position: absolute; background: var(--accent-soft); border: 1.5px solid color-mix(in srgb, var(--accent) 55%, transparent); border-radius: var(--r-sm); box-sizing: border-box; }
+.snap-place.next .snap-fill { opacity: .5; }
+.snap-place svg { position: relative; }
+
+@media (max-width: 1100px) {
+  .snap-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+}
+

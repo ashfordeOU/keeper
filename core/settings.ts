@@ -3,6 +3,7 @@
 
 import { defaultA11y, normalizeA11y } from './a11y';
 import { defaultFocusBlockOptions, normalizeFocusBlockOptions } from './focus-block';
+import { defaultSnapSettings, normalizeLayouts, normalizeSnapSettings } from './snap';
 import { defaultTimeTrackOptions, normalizeTimeTrackOptions } from './time-track';
 import { defaultJournalSettings, normalizeJournalSettings } from './notes/journal';
 import { defaultReaderSettings, normalizeReaderSettings } from './reader';
@@ -185,6 +186,8 @@ export function defaultSettings(folders: string[], rules: Rule[]): AllSettings {
     setupDone: false,
     nativeApps: {},
     focusBlock: defaultFocusBlockOptions(),
+    snap: defaultSnapSettings(),
+    snapLayouts: [],
     timeTrack: defaultTimeTrackOptions(),
     journal: defaultJournalSettings(),
     reader: defaultReaderSettings(),
@@ -235,6 +238,8 @@ export function mergeSettings(base: AllSettings, raw: unknown): AllSettings {
   out.pdfReader = { darkPages: out.pdfReader?.darkPages === true, keepPrevious: out.pdfReader?.keepPrevious !== false };
   out.archives = { extractTo: out.archives?.extractTo === 'ask' ? 'ask' : 'beside', openAfter: out.archives?.openAfter !== false };
   out.focusBlock = normalizeFocusBlockOptions(out.focusBlock);
+  out.snap = normalizeSnapSettings(out.snap);
+  out.snapLayouts = normalizeLayouts(out.snapLayouts);
   out.timeTrack = normalizeTimeTrackOptions(out.timeTrack);
   out.journal = normalizeJournalSettings(out.journal);
   out.reader = normalizeReaderSettings(out.reader);

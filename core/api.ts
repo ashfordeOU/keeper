@@ -552,6 +552,8 @@ export interface KeeperApi extends KeeperApiX {
   cues: import('./cues/api').CuesApi;
   /** blocking sites and apps during Focus, on a schedule or by hand */
   focusBlock: import('./api-focus').FocusBlockApi;
+  /** snap windows: the window in front into place, and layouts per set of screens */
+  snap: import('./api-snap').SnapApi;
   /** automatic time tracking, only on this computer */
   timeTrack: import('./api-time').TimeTrackApi;
   /** Journal mode in Notes */

@@ -4,6 +4,12 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 
 ## [Unreleased]
 
+### Added — Snap Windows: halves, thirds and quarters with one shortcut
+- Put the window in front into the left or right half, the top or bottom half, a third, two thirds, a quarter, the whole screen, the middle or the next screen. Halves, Fill, Middle and Next screen have keys from the start (Ctrl Alt Shift with the arrows, Enter, C and N; ⌘⌥⇧ on a Mac); thirds and quarters are yours to choose.
+- Save this layout keeps where your windows sit on this set of screens, named Laptop or Docked; Restore puts them back. Optionally, plugging in a screen brings back its layout by itself.
+- Works on macOS (with Accessibility), Windows and Linux on X11. Wayland does not let apps move other apps' windows, and the page says so. On a Mac with Monorail running, Monorail arranges the windows and Keeper's snap keys stay free.
+- Off until you turn it on in Settings → Features → Desktop.
+
 ### Added — Modes: one choice that shapes Keeper
 - Pick a mode: Standard (as Keeper comes), Simple, Focus, Pro, Researcher, Creator, Writer or Family. Each sets which parts are on, text size, spacing, motion, how notices arrive, how much help you see and which sidebar sections show. Your files, notes, mail and accounts are never touched.
 - Add to any mode: Low vision, Steady hands, Easier reading, Screen reader and Privacy-max. They stack: "Writer + Easier reading + Privacy-max".

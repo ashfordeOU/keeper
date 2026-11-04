@@ -7,6 +7,7 @@ import { mockIslandTools } from './mock-island-tools';
 import { mockAiUsage } from './mock-ai-usage';
 import { mockCues } from './mock-cues';
 import { mockFocusBlock } from './mock-focus';
+import { mockDesk } from './mock-desk';
 import { mockTimeTrack } from './mock-time';
 import { mockJournal } from './mock-journal';
 import { mockInbox } from './mock-inbox';
@@ -334,6 +335,7 @@ export function createMockApi(): KeeperApi {
     ...mockPhoto(),
     ...mockCrashReports(),
     ...mockFocusBlock((ch) => listeners.get(ch)?.forEach((cb) => (cb as () => void)())),
+    ...mockDesk(),
     ...mockPlaces(),
     ...mockTracks((ch) => listeners.get(ch)?.forEach((cb) => (cb as () => void)())),
     ...mockRemote(),

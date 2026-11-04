@@ -15,6 +15,9 @@ export function resetShortcutBook() {
   book.reset();
 }
 
+/** How each shortcut Keeper tried to register went (works, taken, not valid). */
+export const shortcutStatus = () => book.status();
+
 /**
  * Registers a global shortcut and remembers how it went: "taken by Quick Search"
  * when another of Keeper's shortcuts already has the keys, "taken by another app"

@@ -1,0 +1,32 @@
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
+// The browser demo's window and desktop parts: snap windows with two saved
+// layouts made from sample apps, kept in memory.
+
+import type { SnapApi, SnapStatus } from '../core/api-snap';
+import type { SnapLayout } from '../core/snap';
+
+export function mockDesk(): { snap: SnapApi } {
+  let layouts: SnapLayout[] = [
+    { id: 'l1', name: 'Docked', screens: '1920x1080+2560x1440', savedAt: Date.now() - 2 * 86_400_000, windows: [
+      { app: 'Mail', title: 'Inbox', screen: 0, rel: { x: 0, y: 0, width: 0.5, height: 1 } },
+      { app: 'Notes', title: 'Plans', screen: 0, rel: { x: 0.5, y: 0, width: 0.5, height: 1 } },
+      { app: 'Browser', title: 'Docs', screen: 1, rel: { x: 0, y: 0, width: 1, height: 1 } },
+    ] },
+    { id: 'l2', name: 'Laptop', screens: '1440x900', savedAt: Date.now() - 6 * 86_400_000, windows: [
+      { app: 'Notes', title: 'Plans', screen: 0, rel: { x: 0, y: 0, width: 0.6667, height: 1 } },
+      { app: 'Calendar', title: 'Week', screen: 0, rel: { x: 0.6667, y: 0, width: 0.3333, height: 1 } },
+    ] },
+  ];
+  const status = async (): Promise<SnapStatus> => ({ availability: { state: 'ready', line: 'Works with every app on this computer.' }, layouts, screens: { key: '1440x900', name: 'Laptop', count: 1 }, taken: {} });
+  return {
+    snap: {
+      status,
+      run: async () => ({ ok: true }),
+      saveLayout: async (name) => { layouts = [{ id: `l${Date.now()}`, name: name || 'Laptop', screens: '1440x900', savedAt: Date.now(), windows: [] }, ...layouts]; return status(); },
+      restoreLayout: async (id) => ({ moved: layouts.find((l) => l.id === id)?.windows.length ?? 0, missing: [] }),
+      renameLayout: async (id, name) => { layouts = layouts.map((l) => (l.id === id ? { ...l, name } : l)); return status(); },
+      removeLayout: async (id) => { layouts = layouts.filter((l) => l.id !== id); return status(); },
+      openPermission: async () => undefined,
+    },
+  };
+}
