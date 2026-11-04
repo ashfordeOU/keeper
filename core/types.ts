@@ -259,6 +259,11 @@ export interface AppInfo {
   lastUsed: number;
   uninstallCommand?: string;
   system: boolean;
+  /** macOS: the build number (CFBundleVersion), its own update feed and signing key (SUFeedURL, SUPublicEDKey), from the App Store */
+  build?: string;
+  feedUrl?: string;
+  edKey?: string;
+  store?: boolean;
 }
 
 export interface ProtectionCheck {
@@ -525,6 +530,8 @@ export interface Settings {
   phoneAlerts: import('./phone-alerts').PhoneAlertSettings;
   /** the notification center: delivery per part, batch times, quiet hours (core/notices.ts) */
   notices: import('./notices').NoticeSettings;
+  /** app updates: how often to look, and whether apps that update themselves are listed (core/app-updates.ts) */
+  appUpdates: import('./app-updates').AppUpdateSettings;
   /** the "?" in the top bar that opens the page's help (F1 works either way) */
   helpButton: boolean;
   /** a gentle Fix-it row for a part unopened for 30 days (core/declutter.ts) */

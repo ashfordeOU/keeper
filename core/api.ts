@@ -582,6 +582,8 @@ export interface KeeperApi extends KeeperApiX {
   pageUse: { opened(route: string): Promise<void> };
   /** site and server monitors: web pages, ports, ping, DNS */
   monitors: import('./api-monitors').MonitorsApi;
+  /** newer versions of installed apps, and updating them (core/app-updates.ts) */
+  appUpdates: import('./api-app-updates').AppUpdatesApi;
   /** the light photo editor (core/photo-edit.ts) */
   photo: import('./api-photo').PhotoApi;
   /** crash reports for Ashforde (opt-in, core/crash-report.ts) */
@@ -942,6 +944,8 @@ export interface KeeperApi extends KeeperApiX {
   on(channel: 'alerts-changed', cb: () => void): () => void;
   /** a monitor was checked, added or changed */
   on(channel: 'monitors-changed', cb: () => void): () => void;
+  /** app updates were checked, or one was installed */
+  on(channel: 'app-updates-changed', cb: () => void): () => void;
   /** what a web page capture is doing now ("Loading the whole page") */
   on(channel: 'webcapture-phase', cb: (text: string) => void): () => void;
   on(channel: 'widgets-arrange', cb: (on: boolean) => void): () => void;

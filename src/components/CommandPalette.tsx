@@ -238,6 +238,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     { id: 'snap-left', label: 'Snap Window to the Left Half', group: 'Actions', icon: 'columns', keywords: 'tile window half side by side', run: async () => { const r = await api.snap.run('left'); if (!r.ok && r.message) store.toast(r.message); } },
     { id: 'snap-right', label: 'Snap Window to the Right Half', group: 'Actions', icon: 'columns', keywords: 'tile window half side by side', run: async () => { const r = await api.snap.run('right'); if (!r.ok && r.message) store.toast(r.message); } },
     { id: 'snap-fill', label: 'Make Window Fill the Screen', group: 'Actions', icon: 'columns', keywords: 'maximise maximize window full', run: async () => { const r = await api.snap.run('maximise'); if (!r.ok && r.message) store.toast(r.message); } },
+    { id: 'app-updates', label: 'Check App Updates', group: 'Actions', icon: 'refresh', keywords: 'update apps outdated upgrade newer version software updater homebrew winget flatpak snap', run: async () => { store.go({ name: 'apps', arg: 'updates' }); await api.appUpdates.check().catch(() => undefined); } },
     { id: 'blocking-hour', label: 'Block Distractions for an Hour', group: 'Actions', icon: 'block', keywords: 'focus block sites apps social news', run: async () => {
       try {
         const st = await api.focusBlock.status();

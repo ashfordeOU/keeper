@@ -28,6 +28,12 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - Works on macOS (with Accessibility), Windows and Linux on X11. Wayland does not let apps move other apps' windows, and the page says so. On a Mac with Monorail running, Monorail arranges the windows and Keeper's snap keys stay free.
 - Off until you turn it on in Settings → Features → Desktop.
 
+### Added — App updates: newer versions of your apps, updated safely
+- Applications → Updates lists apps with a newer version: from each Mac app's own update feed, Homebrew, winget, Flatpak and Snap, with system packages counted and how many are for security. Security updates come first.
+- One button per app: Update runs its package manager; Download fetches the maker's own file, checks it against the key inside the installed app, then opens it; apps with nothing to check open the maker's page. Update all does everything a package manager can do by itself.
+- One calm row on the Fix-it List ("3 apps have security updates"), Check now, and Check App Updates in the palette.
+- Off until you switch it on (Settings → Features → Computer); then one look a day, never while the screen is locked. Keeper never keeps a copy of anyone's app.
+
 ### Added — Modes: one choice that shapes Keeper
 - Pick a mode: Standard (as Keeper comes), Simple, Focus, Pro, Researcher, Creator, Writer or Family. Each sets which parts are on, text size, spacing, motion, how notices arrive, how much help you see and which sidebar sections show. Your files, notes, mail and accounts are never touched.
 - Add to any mode: Low vision, Steady hands, Easier reading, Screen reader and Privacy-max. They stack: "Writer + Easier reading + Privacy-max".

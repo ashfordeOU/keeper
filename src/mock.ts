@@ -18,6 +18,7 @@ import { mockPhoneAlerts } from './mock-alerts';
 import { mockNotices } from './mock-notices';
 import { mockSelfCheck } from './mock-selfcheck';
 import { mockMonitors } from './mock-monitors';
+import { mockAppUpdates } from './mock-app-updates';
 import { mockPhoto } from './mock-photo';
 import { mockCrashReports } from './mock-crash';
 import { mockModes } from './mock-modes';
@@ -332,6 +333,7 @@ export function createMockApi(): KeeperApi {
     ...mockSelfCheck(),
     ...mockNotices((ch, ...args) => listeners.get(ch)?.forEach((cb) => (cb as (...a: unknown[]) => void)(...args))),
     ...mockMonitors(),
+    ...mockAppUpdates(),
     ...mockPhoto(),
     ...mockCrashReports(),
     ...mockFocusBlock((ch) => listeners.get(ch)?.forEach((cb) => (cb as () => void)())),

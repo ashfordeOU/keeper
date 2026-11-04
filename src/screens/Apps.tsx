@@ -1,22 +1,34 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
-// Applications: everything installed, how big it is, and when you last used it.
+// Applications: everything installed, how big it is, and when you last used it;
+// with App updates on, which ones have a newer version (src/screens/AppUpdates.tsx).
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { DAY, GB, formatBytes, relativeTime } from '../../core/format';
 import type { AppInfo } from '../../core/types';
 import { api } from '../api';
 import { Icon } from '../components/Icon';
 import { Empty, Loading, Modal, PageHead } from '../components/ui';
+import { useFeature } from '../features';
 import { useAsync, useStore } from '../state';
+import { AppUpdatesView } from './AppUpdates';
 import '../styles/screens-b.css';
 
-type Filter = 'all' | 'unused' | 'large';
+type Filter = 'all' | 'unused' | 'large' | 'updates';
 type Sort = 'name' | 'size' | 'used';
 
 export function Apps() {
-  const { settings, toast, info, go } = useStore();
+  const { settings, toast, info, go, route } = useStore();
+  const updatesOn = useFeature('appUpdates');
   const list = useAsync(() => api.apps.list(), []);
-  const [filter, setFilter] = useState<Filter>('all');
+  const [filter, setFilter] = useState<Filter>(route.arg === 'updates' && updatesOn ? 'updates' : 'all');
+  const [updateCount, setUpdateCount] = useState<number | null>(null);
+  useEffect(() => { if (route.arg === 'updates' && updatesOn) setFilter('updates'); }, [route.arg, updatesOn]);
+  useEffect(() => {
+    if (!updatesOn) return;
+    const read = () => void api.appUpdates.state().then((v) => setUpdateCount(v.updates.length + (v.system?.count ? 1 : 0))).catch(() => undefined);
+    read();
+    return api.on('app-updates-changed', read);
+  }, [updatesOn]);
   const [sort, setSort] = useState<{ key: Sort; desc: boolean }>({ key: 'size', desc: true });
   const [q, setQ] = useState('');
   const [confirm, setConfirm] = useState<AppInfo | null>(null);
@@ -54,14 +66,16 @@ export function Apps() {
 
   return (
     <div>
-      <PageHead title="Applications" sub={list.data ? `${apps.length} apps · ${formatBytes(total)}` : 'Everything installed on this computer'}>
-        <input className="input" placeholder="Filter apps" value={q} onChange={(e) => setQ(e.target.value)} style={{ width: 180 }} />
+      <PageHead title="Applications" sub={filter === 'updates' ? 'Newer versions of your apps, from their makers' : list.data ? `${apps.length} apps · ${formatBytes(total)}` : 'Everything installed on this computer'}>
+        {filter !== 'updates' ? <input className="input" placeholder="Filter apps" aria-label="Filter apps" value={q} onChange={(e) => setQ(e.target.value)} style={{ width: 180 }} /> : null}
         <div className="seg">
-          <button className={filter === 'all' ? 'on' : ''} onClick={() => setFilter('all')}>All</button>
-          <button className={filter === 'unused' ? 'on' : ''} onClick={() => setFilter('unused')}>Unused {Math.round(unusedDays / 30)}+ months</button>
-          <button className={filter === 'large' ? 'on' : ''} onClick={() => setFilter('large')}>Over 1 GB</button>
+          <button className={filter === 'all' ? 'on' : ''} aria-pressed={filter === 'all'} onClick={() => setFilter('all')}>All</button>
+          <button className={filter === 'unused' ? 'on' : ''} aria-pressed={filter === 'unused'} onClick={() => setFilter('unused')}>Unused {Math.round(unusedDays / 30)}+ months</button>
+          <button className={filter === 'large' ? 'on' : ''} aria-pressed={filter === 'large'} onClick={() => setFilter('large')}>Over 1 GB</button>
+          {updatesOn ? <button className={filter === 'updates' ? 'on' : ''} aria-pressed={filter === 'updates'} onClick={() => setFilter('updates')} data-testid="apps-updates-tab">Updates{updateCount ? <span className="muted"> {updateCount}</span> : null}</button> : null}
         </div>
       </PageHead>
+      {filter === 'updates' && updatesOn ? <AppUpdatesView /> : <>
       {list.loading ? <Loading label="Measuring apps…" /> : null}
       {list.error ? <Empty icon="warning" title="Could not list apps">{list.error}</Empty> : null}
       {list.data && !apps.length ? <Empty icon="app" title="No apps match" /> : null}
@@ -93,6 +107,7 @@ export function Apps() {
           </table>
         </div>
       ) : null}
+      </>}
       {confirm ? (
         <Modal title={`Uninstall ${confirm.name}?`} onClose={() => setConfirm(null)}>
           <p>{info?.platform === 'win32' ? 'Keeper will open the app’s own uninstaller, so it can remove everything it installed.' : `${confirm.name} will be moved to the Trash. You can put it back until you empty the Trash.`}</p>

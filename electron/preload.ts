@@ -193,6 +193,8 @@ const api = {
   // Crash reports for Ashforde (off until switched on).
   crashReports: group('crashReports', ['status', 'setOn', 'clear', 'sendNow']),
   monitors: group('monitors', ['overview', 'detail', 'save', 'remove', 'setOn', 'checkNow', 'importList', 'exportList']),
+  // App updates.
+  appUpdates: group('appUpdates', ['state', 'check', 'update', 'updateAll', 'openSystemUpdater', 'openStore']),
   islandx: group('islandx', ['status', 'callMute', 'callDismiss', 'hideFor', 'installAgentHooks', 'removeAgentHooks', 'openNotifyPermission', 'testNotification', 'startBreak', 'focusFor', 'mediaMode', 'openLauncher', 'showPage']),
   widgets: group('widgets', ['list', 'save', 'remove', 'photos', 'current', 'arrange', 'arranging', 'tint', 'focus']),
   // Dictation anywhere and meeting recording; the listening pill streams its microphone samples here.

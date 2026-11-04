@@ -169,6 +169,7 @@
     "snapWindows",
     "folderBoxes",
     "menuBarItems",
-    "mouseButtons"
+    "mouseButtons",
+    "appUpdates"
   ]
 }

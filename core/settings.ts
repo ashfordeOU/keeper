@@ -12,6 +12,7 @@ import { defaultReaderSettings, normalizeReaderSettings } from './reader';
 import { normalizeWeatherSource } from './weather';
 import { defaultPhoneAlertSettings, normalizePhoneAlertSettings } from './phone-alerts';
 import { defaultNoticeSettings, normalizeNoticeSettings } from './notices';
+import { defaultAppUpdateSettings, normalizeAppUpdateSettings } from './app-updates';
 import { cleanGoals, defaultTips, normalizeTips } from './goals';
 import { defaultModeState, normalizeModeState, normalizeSession } from './modes';
 import { defaultAwakeSettings, normalizeAwakeSettings } from './awake-engine';
@@ -200,6 +201,7 @@ export function defaultSettings(folders: string[], rules: Rule[]): AllSettings {
     weatherSource: 'met',
     phoneAlerts: defaultPhoneAlertSettings(),
     notices: defaultNoticeSettings(),
+    appUpdates: defaultAppUpdateSettings(),
     helpButton: true,
     declutter: true,
     setupGoals: [],
@@ -253,6 +255,7 @@ export function mergeSettings(base: AllSettings, raw: unknown): AllSettings {
   out.weatherSource = normalizeWeatherSource(out.weatherSource);
   out.phoneAlerts = normalizePhoneAlertSettings(out.phoneAlerts);
   out.notices = normalizeNoticeSettings(r.notices);
+  out.appUpdates = normalizeAppUpdateSettings(out.appUpdates);
   out.setupGoals = cleanGoals(r.setupGoals);
   out.tips = normalizeTips(r.tips);
   out.mode = normalizeModeState(r.mode);

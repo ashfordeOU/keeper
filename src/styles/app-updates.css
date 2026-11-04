@@ -1,0 +1,16 @@
+/* SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 */
+/* Applications → Updates: a calm list of rounded rows, security first. Tokens only. */
+
+.au { display: flex; flex-direction: column; gap: 16px; }
+.au-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.au-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.au-row { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto auto; align-items: center; gap: 14px; padding: 12px 16px; background: var(--bg-elev); border-radius: var(--r-md); box-shadow: var(--shadow); }
+.au-badge { width: 36px; height: 36px; border-radius: var(--r-pill); display: grid; place-items: center; background: var(--bg-sunk); color: var(--text-2); }
+.au-badge.sec { background: var(--warn-soft); color: var(--warn); }
+.au-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.au-text > * { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.au-name { font-weight: 650; font-size: var(--fs-md); display: flex; align-items: center; gap: 8px; }
+.au-new { color: var(--text); font-weight: 600; }
+.au-spin { width: 12px; height: 12px; display: inline-block; vertical-align: -2px; }
+.au-note { gap: 10px; padding: 10px 16px; background: var(--bg-sunk); border-radius: var(--r-md); }
+.au-notes { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }

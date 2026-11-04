@@ -5,7 +5,7 @@
 
 import { shell } from 'electron';
 import { spawn } from 'node:child_process';
-import { promises as fsp } from 'node:fs';
+import { existsSync, promises as fsp } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { powershell, run } from '../../core/platform';
@@ -47,6 +47,10 @@ async function macApps(): Promise<AppInfo[]> {
       size: sizes.get(p) ?? 0,
       lastUsed: lastUsed.get(p) ?? 0,
       system: (info.CFBundleIdentifier ?? '').startsWith('com.apple.'),
+      build: info.CFBundleVersion,
+      feedUrl: info.SUFeedURL,
+      edKey: info.SUPublicEDKey,
+      store: existsSync(path.join(p, 'Contents', '_MASReceipt', 'receipt')),
     });
   }
   return out;
