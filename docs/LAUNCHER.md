@@ -22,6 +22,8 @@ The rows above the files, best first (`topLaunchHits` in `core/search-everything
 | Saved links | a word and an address with `{query}`: `map berlin` | opens the address with the words filled in (encoded) | Settings → General → Quick Search → Saved links |
 | Your commands | a name, an optional word and a command line | runs it after asking (unless you said not to for that command); what it prints is shown, copied or ignored | Settings → General → Quick Search → Your commands (More settings) |
 
+With nothing typed, Quick Search shows **Do again**: the last three actions and saved links you ran from it (newest first, from the same file of uses), so Enter repeats the last command; recent files follow as before.
+
 Ranking: every row has a text score (`scoreText`: word starts and the title count most) plus a bonus for what you opened before (`core/launcher/frecency.ts`): each use adds a point that halves every two weeks, and the bonus is at most 8, so a much better match still wins over habit. The uses are kept in `<userData>/launcher-uses.json` on this computer only.
 
 Apps on each system:

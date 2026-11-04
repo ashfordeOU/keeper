@@ -44,6 +44,11 @@ export function useBonus(book: UseBook, id: string, now: number): number {
   return p <= 0 ? 0 : Math.min(8, Math.log2(1 + p) * 2);
 }
 
+/** The ids used last, newest first, of the given kinds ("action:", "link:"): Quick Search's "Do again" rows. */
+export function recentUses(book: UseBook, prefixes: string[], n = 3): string[] {
+  return Object.entries(book).filter(([id]) => prefixes.some((p) => id.startsWith(p))).sort((a, b) => b[1].at - a[1].at).slice(0, n).map(([id]) => id);
+}
+
 /** Reads a saved book, dropping anything malformed. */
 export function cleanBook(raw: unknown): UseBook {
   const out: UseBook = {};

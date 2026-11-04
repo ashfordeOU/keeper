@@ -11,7 +11,7 @@ import { existsSync, promises as fsp, readFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { appNameFromPath, dedupeApps, execArgv, isNoiseShortcut, parseDesktopEntry, type LaunchApp } from '../../core/launcher/apps';
-import { cleanBook, recordUse, useBonus, type UseBook } from '../../core/launcher/frecency';
+import { cleanBook, recordUse, useBonus, type UseBook, recentUses } from '../../core/launcher/frecency';
 import { buildLink, commandLine, normalizeLauncher, type LauncherSettings, type QuickLink, type UserCommand } from '../../core/launcher/links';
 import { powershell, run } from '../../core/platform';
 import { settings, updateSettings } from '../store';
@@ -176,6 +176,11 @@ export function noteUse(id: string) {
   uses = recordUse(book(), id, Date.now());
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => { void fsp.writeFile(usesFile(), JSON.stringify(uses)).catch(() => undefined); }, 1500);
+}
+
+/** What Quick Search ran last (actions and saved links), newest first. */
+export function recentLaunches(n = 3): string[] {
+  return recentUses(book(), ['action:', 'link:'], n);
 }
 
 export function bonusFor(id: string): number {

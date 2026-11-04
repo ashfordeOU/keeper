@@ -195,3 +195,16 @@ describe('the launcher rows', () => {
     expect(LAUNCH_KINDS).toContain('app');
   });
 });
+
+describe('Do again (Quick Search with nothing typed)', () => {
+  it('lists the last actions and saved links used, newest first, never apps or files', async () => {
+    const { recentUses, recordUse } = await import('../core/launcher/frecency');
+    let book = recordUse({}, 'action:shot-area', 1000);
+    book = recordUse(book, 'app:firefox', 2000);
+    book = recordUse(book, 'link:map', 3000);
+    book = recordUse(book, 'action:awake-hour', 4000);
+    book = recordUse(book, 'action:shot-area', 5000);
+    expect(recentUses(book, ['action:', 'link:'], 3)).toEqual(['action:shot-area', 'action:awake-hour', 'link:map']);
+    expect(recentUses(book, ['action:'], 1)).toEqual(['action:shot-area']);
+  });
+});

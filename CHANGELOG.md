@@ -4,6 +4,9 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 
 ## [Unreleased]
 
+### Added — Quick Search: Do again
+- With nothing typed, Quick Search lists the last three things you ran from it (actions and saved links) under **Do again**, so Enter repeats the last command.
+
 ### Added — Convert: presets for the usual jobs
 - Three presets above the tools: **Email-friendly** (small enough to send), **For the web** (light pictures and videos) and **One archive** (everything in one ZIP). Each picks the tool and settings for the files you dropped and shows them before anything runs.
 

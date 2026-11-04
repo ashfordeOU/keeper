@@ -732,7 +732,7 @@ export interface KeeperApi extends KeeperApiX {
   };
   /** The one search box beyond files: mail, events, tasks, contacts, notes, Keeper's features and system settings. */
   search: {
-    everything(q: string, opts?: { kinds?: import('./search-everything').EverythingKind[]; limit?: number; launch?: boolean }): Promise<import('./search-everything').EverythingResult>;
+    everything(q: string, opts?: { kinds?: import('./search-everything').EverythingKind[]; limit?: number; launch?: boolean; /** with nothing typed: the last actions and saved links, to do again */ recent?: boolean }): Promise<import('./search-everything').EverythingResult>;
     /** opens an app, saved link, command or action from Quick Search (reveal: show the app in its folder) */
     launch(kind: import('./search-everything').EverythingKind, id: string, query: string, how?: 'open' | 'reveal'): Promise<{ ok: boolean; message?: string }>;
     /** shows a result's page ("name:arg") in the main window */

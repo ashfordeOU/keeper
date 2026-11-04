@@ -197,9 +197,9 @@ const sources: Record<EverythingKind, { feature?: string; run: Source }> = {
 };
 
 /** Searches every source but files at once, each within its time limit. */
-export async function searchEverything(q: string, opts: { kinds?: EverythingKind[]; limit?: number; launch?: boolean } = {}): Promise<EverythingResult> {
+export async function searchEverything(q: string, opts: { kinds?: EverythingKind[]; limit?: number; launch?: boolean; recent?: boolean } = {}): Promise<EverythingResult> {
   const words = queryWords(q);
-  if (!words.length) return { groups: [], missed: [] };
+  if (!words.length) return opts.launch && opts.recent && featureOn('launcher') ? { groups: groupHits(recentHits()), missed: [] } : { groups: [], missed: [] };
   const limit = Math.max(1, Math.min(20, opts.limit ?? 5));
   // Launcher rows only for Quick Search (the Search page lists what is kept, not apps and sums).
   const wanted = (Object.keys(sources) as EverythingKind[]).filter((k) => opts.launch || !LAUNCH_KINDS.includes(k));
@@ -211,6 +211,18 @@ export async function searchEverything(q: string, opts: { kinds?: EverythingKind
     return r ?? [];
   }));
   return { groups: groupHits(all.flat()), missed };
+}
+
+/** Quick Search with nothing typed: the last few actions and saved links, to do again with Enter. */
+function recentHits(): EverythingHit[] {
+  const actions = availableActions(featureOn, process.platform);
+  const links = launcher.launcherSettings().links;
+  return launcher.recentLaunches(3).flatMap((id, i): EverythingHit[] => {
+    const score = 100 - i;
+    if (id.startsWith('action:')) { const a = actions.find((x) => `action:${x.id}` === id); return a ? [{ kind: 'action', id: a.id, title: a.title, detail: 'Do again', route: '', icon: a.icon, score }] : []; }
+    const l = links.find((x) => `link:${x.id}` === id && !x.url.includes('{query}'));
+    return l ? [{ kind: 'link', id: l.id, title: l.name, detail: 'Do again', route: '', icon: 'globe', score }] : [];
+  });
 }
 
 export interface SearchDeps {
@@ -262,7 +274,7 @@ async function launch(d: SearchDeps, kind: EverythingKind, id: string, query: st
 }
 
 export function registerSearchIpc(d: SearchDeps) {
-  ipcMain.handle('search.everything', (_e, q: string, opts?: { kinds?: EverythingKind[]; limit?: number; launch?: boolean }) => searchEverything(String(q ?? ''), opts ?? {}));
+  ipcMain.handle('search.everything', (_e, q: string, opts?: { kinds?: EverythingKind[]; limit?: number; launch?: boolean; recent?: boolean }) => searchEverything(String(q ?? ''), opts ?? {}));
   // Opens a result in the main window (Quick Search is a window of its own).
   ipcMain.handle('search.open', (_e, route: string) => d.show(String(route ?? '')));
   ipcMain.handle('search.launch', (_e, kind: EverythingKind, id: string, query?: string, how?: 'open' | 'reveal') => launch(d, kind, String(id ?? ''), String(query ?? ''), how === 'reveal' ? 'reveal' : 'open'));

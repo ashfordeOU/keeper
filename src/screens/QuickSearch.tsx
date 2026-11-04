@@ -27,8 +27,10 @@ import '../styles/launcher.css';
 function useQuickEverything(q: string, delay: number): EverythingResult | null {
   const [r, setR] = useState<EverythingResult | null>(null);
   useEffect(() => {
-    if (!q.trim() || !api.search) { setR(null); return; }
+    if (!api.search) { setR(null); return; }
     let alive = true;
+    // Nothing typed: what you ran last, to do again with Enter ("Do again").
+    if (!q.trim()) { void api.search.everything('', { launch: true, recent: true }).then((x) => { if (alive) setR(x); }, () => undefined); return () => { alive = false; }; }
     const t = setTimeout(() => void api.search.everything(q, { limit: 5, launch: true }).then((x) => { if (alive) setR(x); }, () => undefined), delay);
     return () => { alive = false; clearTimeout(t); };
   }, [q, delay]);
@@ -160,7 +162,8 @@ export function QuickSearch() {
           </div>
         ) : null}
         {mode === 'find' && L ? (
-          <div role="group" aria-label="Top results" data-testid="quick-launch">
+          <div role="group" aria-label={text ? 'Top results' : 'Do again'} data-testid="quick-launch">
+            {!text ? <div className="small muted" role="presentation" style={{ padding: '4px 10px' }}>Do again</div> : null}
             {launch.map((h, i) => (
               <div key={`${h.kind}:${h.id}`} id={`quick-opt-${i}`} role="option" aria-selected={i === index} data-kind={h.kind} data-testid={`quick-launch-${h.kind}`} className={`q-row ql-row ${h.kind === 'answer' ? 'ql-answer' : ''} ${i === index ? 'on' : ''}`} onMouseMove={() => { if (i !== index) setIndex(i); }} onClick={(e) => runLaunch(h, e)}>
                 <LaunchIcon h={h} />
