@@ -37,6 +37,7 @@ import { PermissionsPanel } from '../../components/PermissionsPanel';
 import { NativeAppsPanel } from '../../components/NativeAppsPanel';
 import { AccessibilityPanel } from '../../components/AccessibilityPanel';
 import { ReadingPanel } from '../../components/ReadingPanel';
+import { PartsCostPanel, UsingLine } from '../../components/PartsCost';
 import { ModesPanel, OfflineCheckPanel } from '../../components/Modes';
 import { ClipIgnorePanel, LauncherCommandsPanel, LauncherLinksPanel, SelectionBarPanel } from '../../components/LauncherPanels';
 import { IslandAccentPanel } from '../../island/LookSettings';
@@ -234,7 +235,7 @@ function AboutPanel() {
   const { info, go } = useStore();
   return (
     <div className="about-panel">
-      <Row title="Keeper by Ashforde®" desc={<WhatsNewHover only="current"><span className="dotted">Version {info?.appVersion ?? ''}</span></WhatsNewHover>}>
+      <Row title="Keeper by Ashforde®" desc={<><WhatsNewHover only="current"><span className="dotted">Version {info?.appVersion ?? ''}</span></WhatsNewHover> · <UsingLine /></>}>
         <button className="btn" onClick={() => void api.system.openExternal('https://github.com/ashfordeOU/keeper')}><Icon name="external" size={13} /> Source code</button>
       </Row>
       <Row title="Check Keeper" desc="A quick check of each part, with a fix for anything amber.">
@@ -349,6 +350,7 @@ export const PANELS: Record<string, PanelDef> = {
   a11y: { render: () => <AccessibilityPanel />, own: true, wide: true },
   reading: { render: () => <ReadingPanel />, own: true, wide: true },
   resources: { render: () => <UsagePanel />, own: true, wide: true },
+  partsCost: { render: () => <PartsCostPanel />, wide: true },
   meshPlaces: { render: () => <MeshPlaces />, wide: true },
   about: { render: () => <AboutPanel />, own: true, wide: true },
   launcherLinks: { render: () => <LauncherLinksPanel />, wide: true },

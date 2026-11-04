@@ -1,0 +1,10 @@
+/* SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 */
+/* What each part uses: one big figure, then quiet aligned rows. */
+.pcost-head { display: flex; flex-direction: column; gap: 2px; margin-bottom: 10px; }
+.pcost-total { font-size: var(--fs-xl); font-weight: 700; letter-spacing: -.01em; }
+.pcost-row { display: grid; grid-template-columns: minmax(0, 1fr) 170px 150px 90px; align-items: center; gap: 10px; padding: 7px 0; border-top: 1px solid var(--line); }
+.pcost-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pcost-num { font-variant-numeric: tabular-nums; color: var(--text-2); }
+.pcost-act { text-align: right; }
+.pcost-foot { margin-top: 8px; }
+@media (max-width: 900px) { .pcost-row { grid-template-columns: minmax(0, 1fr) auto; } .pcost-budget, .pcost-act { grid-column: 2; } }

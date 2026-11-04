@@ -390,6 +390,23 @@ async function launch(extraEnv = {}, opts = {}) {
     await a11y({ lineSpacing: 0, letterSpacing: 0, readingFont: 'theme' });
   }
 
+  // ---------------------------------------------------------------- what each part uses
+  if (want('perf')) {
+    await navigate('settings');
+    await main.waitForSelector('[data-testid="settings-search"]', { timeout: 15000 });
+    await main.locator('[data-testid="settings-search"]').fill('how much');
+    await main.locator('[data-testid="settings-result"]', { hasText: 'What each part uses' }).first().click({ timeout: 10000 }).catch(() => undefined);
+    const total = await until(async () => { const t = await main.locator('[data-testid="parts-cost-total"]').innerText(); return /Keeper is using \d/.test(t) ? t : null; }, 15000);
+    check(!!total, `Battery and speed says what Keeper uses (${total})`);
+    const rows = await main.locator('[data-testid="parts-cost"] .pcost-row').count();
+    check(rows >= 2, `and each running part against its budget (${rows} rows)`);
+    check(await main.locator('[data-testid="parts-cost"] .pcost-budget').first().innerText().then((t) => /budget|Over its|Busier/.test(t)), 'each row says whether it is within its budget');
+    await main.locator('[data-testid="parts-cost"]').scrollIntoViewIfNeeded();
+    await both('auditplatform-perf');
+    await navigate('settings:about');
+    check(!!(await until(async () => /Keeper is using/.test(await main.locator('[data-testid="about-using"]').innerText()), 10000)), 'About says how much Keeper is using, one click from the breakdown');
+  }
+
   check(errors.length === 0, `no page errors (${errors.slice(0, 2).join('; ')})`);
   await app.close();
   fontServer.close();

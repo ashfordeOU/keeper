@@ -65,6 +65,11 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - Archives' What works here says "Opens with your system's tools" instead of naming the program underneath; only 7-Zip is named, where it needs installing.
 - Snap Windows on Linux says "Works with apps on this desktop".
 
+### Added — What each part uses, against its budget
+- Settings → Battery and speed → What each part uses: "Keeper is using 410 MB", then each running part's memory and processor use now, whether it is within its budget, and Turn off where it can be.
+- About shows the same total, one click from the breakdown.
+- The build now checks each part's memory against its own budget as well as the totals, from the same list the app shows.
+
 ### Added — Reading comfort and read aloud
 - Text size goes up to 200%, and Wrap larger text lets it grow and wrap to the window instead of zooming everything.
 - A reading font: Atkinson Hyperlegible or OpenDyslexic, downloaded once when you choose it and checked before use. Line spacing and letter spacing for pages, notes and mail.

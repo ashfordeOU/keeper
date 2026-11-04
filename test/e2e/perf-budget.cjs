@@ -132,6 +132,8 @@ const BUDGET = {
   anonMB: Number(process.env.KEEPER_PERF_ANON_MB ?? (MODE === 'minimal' ? 245 : MODE === 'solo' ? 172 : 345)),
 };
 const SECONDS = Number(process.env.KEEPER_PERF_SECONDS ?? 60);
+// Each part's own budget for memory it allocates (the same file the app shows its budgets from).
+const PART_ANON = JSON.parse(fs.readFileSync(path.join(__dirname, '../../core/perf-budgets.json'), 'utf8')).ci.anonMB;
 // Keeper finishes its first-start work (thumbnails, sources, the meaning index) in the
 // minutes after the library is read; idle is measured after that.
 const SETTLE = Number(process.env.KEEPER_PERF_SETTLE ?? 120);
@@ -470,7 +472,12 @@ async function once() {
   }
   for (let attempt = 1; attempt <= 2; attempt++) {
     const r = await once();
-    const ok = r.cpuPct <= BUDGET.cpuPct && r.pssMB <= BUDGET.pssMB && r.privMB <= BUDGET.privMB && r.anonMB <= BUDGET.anonMB;
+    // Each part against its own budget too (core/perf-budgets.json, shown to people in Settings → Battery and speed).
+    const groups = {};
+    for (const p of r.procs) { const k = p.type === 'Part' ? (p.name || '').split(' ')[0] || 'helpers' : p.type === 'Browser' ? 'main' : p.type === 'Tab' ? 'windows' : p.type === 'GPU' ? 'gpu' : 'helpers'; groups[k] = (groups[k] ?? 0) + p.anonMB; }
+    const overParts = MODE === 'balanced' && !SOLO ? Object.entries(groups).filter(([k, v]) => PART_ANON[k] !== undefined && v > PART_ANON[k]) : [];
+    const ok = r.cpuPct <= BUDGET.cpuPct && r.pssMB <= BUDGET.pssMB && r.privMB <= BUDGET.privMB && r.anonMB <= BUDGET.anonMB && !overParts.length;
+    console.log(`  per part, anonymous memory against its budget: ${Object.entries(groups).map(([k, v]) => `${k} ${v.toFixed(0)}/${PART_ANON[k] ?? '–'} MB`).join(' · ')}${overParts.length ? ` · OVER: ${overParts.map(([k]) => k).join(', ')}` : ''}`);
     console.log(`  per process, proportional/private memory and processor: ${r.parts.join(' · ')}`);
     if (process.env.KEEPER_PERF_JSON) fs.appendFileSync(process.env.KEEPER_PERF_JSON, JSON.stringify({ mode: MODE, solo: SOLO || undefined, attempt, cpuPct: r.cpuPct, pssMB: r.pssMB, privMB: r.privMB, anonMB: r.anonMB, procs: r.procs }) + '\n');
     console.log(`perf budget (${MODE}${SOLO ? ` ${SOLO}` : ''}, attempt ${attempt}): ${r.files} files, idle processor ${r.cpuPct.toFixed(2)}% (budget ${BUDGET.cpuPct}%), memory ${r.pssMB.toFixed(0)} MB proportional (budget ${BUDGET.pssMB} MB), ${r.privMB.toFixed(0)} MB private (budget ${BUDGET.privMB} MB), ${r.anonMB.toFixed(0)} MB anonymous (budget ${BUDGET.anonMB} MB) ${ok ? 'OK' : 'OVER'}`);
