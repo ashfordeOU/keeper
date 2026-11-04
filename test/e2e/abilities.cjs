@@ -145,7 +145,8 @@ const server = http.createServer((req, res) => {
   // ---------------------------------------------------------------- a team: two AIs side by side
   await main.evaluate(() => window.keeper.abilities.saveTeam({ name: 'Second opinion', strategy: 'compare', members: ['fake-a', 'fake-b'] }));
   await main.locator('.sidebar [title="Agents"]').click();
-  await main.getByRole('button', { name: 'Teams', exact: true }).click();
+  await main.click('[data-testid="agents-tab-automation"]');
+  await main.click('[data-testid="agents-view-teams"]');
   await main.getByRole('button', { name: 'Ask the team' }).first().click();
   await main.fill('.modal textarea', 'Tell me about owls');
   await main.keyboard.press('Enter');
@@ -159,8 +160,10 @@ const server = http.createServer((req, res) => {
   for (const mode of ['light', 'dark']) {
     await main.evaluate((m) => window.keeper.settings.set({ appearance: m }), mode);
     await main.waitForTimeout(400);
-    for (const tab of ['Abilities', 'Teams', 'Schedules', 'Personas & projects', 'Memory']) {
-      await main.getByRole('button', { name: tab, exact: true }).click();
+    // Four tabs now: the built-in skills (once Abilities) sit under Automation → Skills.
+    for (const [tab, group, view] of [['Abilities', 'automation', 'skills'], ['Teams', 'automation', 'teams'], ['Schedules', 'automation', 'schedules'], ['Personas & projects', 'memory', 'personas'], ['Memory', 'memory', 'memory']]) {
+      await main.click(`[data-testid="agents-tab-${group}"]`);
+      await main.click(`[data-testid="agents-view-${view}"]`);
       await main.waitForTimeout(500);
       await main.screenshot({ path: path.join(SHOTS, `${tab.toLowerCase().replace(/[^a-z]+/g, '-')}-${mode}.png`) });
     }

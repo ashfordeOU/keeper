@@ -2,7 +2,7 @@
 
 One map of everything Keeper knows on this computer, and how it connects: your files and notes, mail, the people in it, organisations, calendar events, tasks and projects, recorded meetings, places, saved pages and the apps meetings were recorded in. Every link says why it is there. It is built and kept on this computer and nothing is sent anywhere.
 
-Part: **Knowledge graph of everything** (Settings → Features → AI, on by default, needs *Let AI search your files*). Page: **Knowledge Graph** in the sidebar.
+Part: **Knowledge graph of everything** (Settings → Features → Notes, on by default, needs *Let AI search your files*). Page: **Knowledge Graph** in the sidebar's Notes section: one door to the graph (the Agents page no longer has its own button).
 
 ## What becomes a node
 

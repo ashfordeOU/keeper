@@ -4,6 +4,10 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 
 ## [Unreleased]
 
+### Changed — Agents: four tabs, and one door to the Knowledge Graph
+- Agents has four tabs instead of eleven: **Apps**, **Permissions**, **Memory** and **Automation**, each with a small switch between its views. Abilities and Skills were two words for one idea: the built-in skills now sit under your own on one Skills view. Old links open the right view.
+- The **Knowledge Graph** moved to the Notes section, beside the notes it links, and the Agents page no longer has its own button for it.
+
 ### Changed — Look & Feel: theme, wallpaper, sound and vibes in one place
 - Wallpaper & Vibes is now **Look & Feel**, and opens on a **Theme** tab with the same picker as Settings → Appearance, then Wallpaper, Sound and Vibes (your saved combinations), Schedule, Folder icons and Options. Old links still open it.
 

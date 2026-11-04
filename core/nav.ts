@@ -104,6 +104,8 @@ export const NAV_PAGES: NavPage[] = [
   { id: 'reader', route: { name: 'reader' }, label: 'Reader', icon: 'rss', group: 'notes', keywords: 'rss atom feeds news blogs read later pocket articles opml' },
   { id: 'pdf', route: { name: 'pdf' }, label: 'PDF Reader', icon: 'document', group: 'notes', keywords: 'pdf read annotate highlight underline sign signature fill form notes draw pages rotate merge organise organize' },
   { id: 'journal', route: { name: 'journal' }, label: 'Journal', icon: 'book', group: 'notes', keywords: 'diary daily entry mood photos on this day streak' },
+  // One Graph page, beside the notes it links (once an AI row, a button on Agents and the vault's graph).
+  { id: 'graph', route: { name: 'graph' }, label: 'Knowledge Graph', icon: 'graph', group: 'notes', keywords: 'brain graph links related people mail notes files' },
   { id: 'cues', route: { name: 'cues' }, label: 'Cues', icon: 'pin', group: 'notes', keywords: 'checklist reminder app site' },
   { id: 'noteshub', route: { name: 'noteshub' }, label: 'Notes from Other Apps', icon: 'note', group: 'notes', keywords: 'notes everywhere apple notes onenote evernote obsidian sync' },
 
@@ -142,7 +144,6 @@ export const NAV_PAGES: NavPage[] = [
   { id: 'assistant', route: { name: 'assistant' }, label: 'Assistant', i18n: 'nav.assistant', icon: 'assistant', group: 'ai', keywords: 'ask ai chat' },
   { id: 'agents', route: { name: 'agents' }, label: 'Agents', icon: 'agent', group: 'ai', keywords: 'ai agents' },
   { id: 'aiusage', route: { name: 'aiusage' }, label: 'AI Usage', icon: 'chart', group: 'ai', keywords: 'usage limits credits subscriptions claude codex copilot' },
-  { id: 'graph', route: { name: 'graph' }, label: 'Knowledge Graph', icon: 'graph', group: 'ai', keywords: 'brain graph links' },
   { id: 'voice', route: { name: 'dictation' }, label: 'Voice', icon: 'mic', group: 'ai', also: ['meetings', 'snippets'], keywords: 'dictation voice speak type meetings record transcribe notes snippets' },
   { id: 'meetings', route: { name: 'meetings' }, label: 'Meetings', icon: 'calendar', group: 'none', inHub: 'voice', keywords: 'record transcribe notes' },
 

@@ -20,9 +20,8 @@ import { BrowserAgentPanel } from '../components/BrowserAgent';
 import { useAsync, useStore } from '../state';
 import '../styles/agents.css';
 import { Tabs } from '../components/Tabs';
+import { AGENT_GROUPS, agentView } from '../../core/agents-tabs';
 
-type Tab = 'connect' | 'services' | 'abilities' | 'teams' | 'schedules' | 'personas' | 'memory' | 'permissions' | 'skills' | 'gateway' | 'learning';
-const TABS: [Tab, string][] = [['connect', 'Agents & apps'], ['services', 'AI services'], ['abilities', 'Abilities'], ['teams', 'Teams'], ['schedules', 'Schedules'], ['personas', 'Personas & projects'], ['memory', 'Memory'], ['permissions', 'What agents may do'], ['skills', 'Skills'], ['gateway', 'Gateway'], ['learning', 'Learning']];
 
 /** A draft skill handed over from the Assistant ("Save as skill"). */
 let pendingDraft: string | null = null;
@@ -38,15 +37,18 @@ function useAgentSettings(): [AgentSettings, (p: Partial<AgentSettings>) => Prom
 
 export function Agents() {
   const { route, go } = useStore();
-  const tab = (TABS.find(([t]) => t === route.arg)?.[0] ?? (pendingDraft ? 'skills' : 'connect')) as Tab;
+  const { group, view } = agentView(route.arg, pendingDraft ? 'skills' : 'connect');
+  const views = AGENT_GROUPS.find((g) => g.id === group)!.views;
   return (
     <div className="agents">
-      <PageHead title="Agents" sub="Any AI app or agent can work with Keeper's brain — with your permission for anything it changes.">
-        <button className="btn" onClick={() => go({ name: 'graph' })}><Icon name="graph" size={14} /> Knowledge graph</button>
-      </PageHead>
-      {/* Twelve tabs: those that do not fit wait under More instead of wrapping to a second row. */}
-      <Tabs label="Agents" className="agents-tabs" value={tab} onChange={(t) => go({ name: 'agents', arg: t })} items={TABS.map(([t, label]) => ({ id: t, label }))} />
-      {tab === 'connect' ? <Connect /> : tab === 'services' ? <Services /> : tab === 'abilities' ? <AbilitiesPanel /> : tab === 'teams' ? <TeamsPanel /> : tab === 'schedules' ? <SchedulesPanel /> : tab === 'personas' ? <PersonasPanel /> : tab === 'memory' ? <MemoryPanel /> : tab === 'permissions' ? <Permissions /> : tab === 'skills' ? <Skills /> : tab === 'gateway' ? <Gateway /> : <Learning />}
+      <PageHead title="Agents" sub="Any AI app or agent can work with Keeper's brain — with your permission for anything it changes." />
+      <Tabs label="Agents" className="agents-tabs" value={group} onChange={(g) => go({ name: 'agents', arg: g })} items={AGENT_GROUPS.map((g) => ({ id: g.id, label: g.label, testId: `agents-tab-${g.id}` }))} />
+      {views.length > 1 ? (
+        <div className="seg agents-views" role="radiogroup" aria-label="Show">
+          {views.map(([v, label]) => <button key={v} role="radio" aria-checked={view === v} className={view === v ? 'on' : ''} data-testid={`agents-view-${v}`} onClick={() => go({ name: 'agents', arg: v })}>{label}</button>)}
+        </div>
+      ) : null}
+      {view === 'connect' ? <Connect /> : view === 'services' ? <Services /> : view === 'teams' ? <TeamsPanel /> : view === 'schedules' ? <SchedulesPanel /> : view === 'personas' ? <PersonasPanel /> : view === 'memory' ? <MemoryPanel /> : view === 'permissions' ? <Permissions /> : view === 'skills' ? <><Skills /><h2 className="agents-sub">Built-in skills</h2><AbilitiesPanel /></> : view === 'gateway' ? <Gateway /> : <Learning />}
     </div>
   );
 }

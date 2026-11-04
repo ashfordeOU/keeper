@@ -2,6 +2,10 @@
 
 Keeper's brain (see [BRAIN.md](BRAIN.md)) already knows what is in your files. This layer lets **any** AI use it — chat assistants, coding agents, other harnesses, other agents, voice assistants — and lets them **do** things in Keeper, but only what you allow.
 
+## Where it lives
+
+The Agents page has four tabs, each with a small switch between its views: **Apps** (Agents & apps, AI services), **Permissions** (What agents may do, Gateway), **Memory** (Memory, Personas & projects, Learning) and **Automation** (Skills, Schedules, Teams). Skills holds your own skills and, under them, the built-in skills that once had their own Abilities tab. Every old tab still opens its view (`agents:abilities` opens Skills). The knowledge graph has one page, in the sidebar's Notes section.
+
 ## What is here
 
 | Part | What it does | Where |

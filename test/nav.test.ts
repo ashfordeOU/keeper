@@ -64,7 +64,9 @@ describe('one taxonomy', () => {
   });
   it('agrees with the setup groups (core/feature-tiers.ts) wherever both name one', () => {
     const SAME: Record<string, string> = { privacy: 'security', mail: 'pim' };
-    const differ = FEATURES.filter((f) => f.setup && (SAME[f.setup] ?? f.setup) !== f.navGroup).map((f) => `${f.id}: setup ${f.setup}, sidebar ${f.navGroup}`);
+    // The knowledge graph follows "Let AI search your files" in setup, but its page sits with the notes it links.
+    const MOVED: Record<string, string> = { graphAll: 'notes' };
+    const differ = FEATURES.filter((f) => f.setup && (MOVED[f.id] ?? SAME[f.setup] ?? f.setup) !== f.navGroup).map((f) => `${f.id}: setup ${f.setup}, sidebar ${f.navGroup}`);
     expect(differ).toEqual([]);
   });
   it('the sidebar sections follow the Features groups, in their order', () => {
@@ -145,6 +147,12 @@ describe('merged pages (cuts and merges)', () => {
     expect(navPage('planner')?.id).toBe('tasks');
     expect(navPage('reminders')?.route).toEqual({ name: 'reminders' });
     expect(listedPages().map((p) => p.label)).not.toContain('Planner');
+  });
+  it('the Knowledge Graph is one page, with the notes', () => {
+    expect(pageOf({ name: 'graph' })?.group).toBe('notes');
+    expect(navSections().find((g) => g.id === 'ai')!.pages.map((p) => p.id)).not.toContain('graph');
+    const agents = fs.readFileSync(path.join(root, 'src/screens/Agents.tsx'), 'utf8');
+    expect(agents).not.toMatch(/name: 'graph'/);
   });
   it('old page ids still open their page (windows, app icons, keeper://open links)', () => {
     expect(navPage('capture')?.id).toBe('screen');

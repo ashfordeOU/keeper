@@ -51,7 +51,7 @@ export function AbilitiesPanel() {
     <div className="abil">
       <div className="card row abil-head">
         <div className="grow">
-          <b>Abilities for every AI</b>
+          <b>Built-in skills for every AI</b>
           <div className="small muted">Whichever AI you use — Claude, OpenAI, Gemini, Grok, a model on this computer, or an agent like Claude Code or Codex — gets these through Keeper: in the Assistant, over MCP, through the gateway and from other agents.</div>
         </div>
         <Toggle on={s.enabled} onChange={(v) => void save({ enabled: v })} />

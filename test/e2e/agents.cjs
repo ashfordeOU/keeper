@@ -204,11 +204,12 @@ async function post(port, token, pathname, body, headers = {}) {
 
   // ---- the Agents page, light and dark
   // A tab that does not fit the row waits under More.
+  // Four tabs (Apps, Permissions, Memory, Automation), each with a small switch between its views.
+  const VIEWS = { 'Agents & apps': ['apps', 'connect'], 'AI services': ['apps', 'services'], 'What agents may do': ['permissions', 'permissions'], Gateway: ['permissions', 'gateway'], Memory: ['memory', 'memory'], 'Personas & projects': ['memory', 'personas'], Learning: ['memory', 'learning'], Skills: ['automation', 'skills'], Schedules: ['automation', 'schedules'], Teams: ['automation', 'teams'] };
   const agentsTab = async (text) => {
-    const t = main.locator('.agents-tabs [role="tab"]', { hasText: text });
-    if (await t.count()) return t.first().click();
-    await main.locator('.agents-tabs .tabs-more').click();
-    await main.locator('.menu [role="menuitem"]', { hasText: text }).first().click();
+    const [group, view] = VIEWS[text];
+    await main.click(`[data-testid="agents-tab-${group}"]`);
+    if (await main.locator(`[data-testid="agents-view-${view}"]`).count()) await main.click(`[data-testid="agents-view-${view}"]`);
   };
   for (const [tab, name] of [['connect', 'agents-connect'], ['services', 'agents-services'], ['permissions', 'agents-permissions'], ['skills', 'agents-skills'], ['gateway', 'agents-gateway'], ['learning', 'agents-learning']]) {
     await main.locator('.sidebar [title="Agents"]').click();

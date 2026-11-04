@@ -9,7 +9,7 @@ Keeper gives whichever AI you use the abilities of a full assistant: web search 
 | Plain chat apps through Keeper's gateway | ask for `<model>+abilities`, or turn on *Give every gateway model Keeper's abilities*; Keeper runs the abilities the AI calls and passes the app's own tool calls back |
 | Other agents (A2A, ACP), voice assistants, scheduled requests | through Keeper's assistant, which has them |
 
-Each ability is **Off**, **Ask** (Keeper shows *Allow once / Always allow / Don't allow*) or **Allow** under Agents → Abilities. *Stay on this computer* turns off everything that reaches the internet.
+Each ability is **Off**, **Ask** (Keeper shows *Allow once / Always allow / Don't allow*) or **Allow** under Agents → Automation → Skills (the built-in skills, under your own). *Stay on this computer* turns off everything that reaches the internet.
 
 ## The abilities
 
