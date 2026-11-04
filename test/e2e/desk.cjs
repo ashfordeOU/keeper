@@ -182,6 +182,9 @@ const near = (a, b, d = 24) => Math.abs(a - b) <= d;
     const hist = await k('history', 'list');
     const entry = hist.find((h) => /Tidied the desktop into 5 boxes/.test(h.title));
     check(!!entry && entry.undoable, 'boxes: tidying is one step in History, with Undo');
+    await main.waitForSelector('.wgp .fbox-item', { timeout: 10000 }).catch(() => undefined);
+    await main.locator('.wgp').first().scrollIntoViewIfNeeded();
+    await shot('boxes');
 
     // A box window on the desktop lists its files and rolls up.
     const pics = boxes?.find((w) => w.options.title === 'Pictures');
@@ -219,8 +222,6 @@ const near = (a, b, d = 24) => Math.abs(a - b) <= d;
     const rule = await until(async () => (await k('settings', 'get')).rules.find((r) => r.id.startsWith('box-pictures')), 5000);
     check(!!rule && rule.action.to === path.join(desk, 'Pictures') && rule.scope[0] === desk, 'boxes: New desktop files here adds an Automation for that box');
     await card.locator('button', { hasText: 'Done' }).click();
-    await main.locator('.wgp').first().scrollIntoViewIfNeeded();
-    await shot('boxes');
 
     // Off: the box windows close, the other widgets stay.
     await k('features', 'set', 'folderBoxes', false);
