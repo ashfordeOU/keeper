@@ -4,6 +4,9 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 
 ## [Unreleased]
 
+### Added — Today: today's note one click away
+- Today's More menu has **Today's note**, which opens the day's note in Notes, made from your daily note template the first time.
+
 ### Added — Quick Search: Do again
 - With nothing typed, Quick Search lists the last three things you ran from it (actions and saved links) under **Do again**, so Enter repeats the last command.
 

@@ -361,6 +361,7 @@ export function TodaySection({ onHide, onChooseCards }: { onHide: () => void; on
   const calendars = useFeature('calendars');
   const planOn = useFeature('dayPlan');
   const planner = useFeature('planner');
+  const notesOn = useFeature('notes');
   const now = useNow();
   const today = dayKey(now);
   const ev = useDayEvents(calendars);
@@ -405,6 +406,8 @@ export function TodaySection({ onHide, onChooseCards }: { onHide: () => void; on
 
   const menuItems: MenuItem[] = [
     ...(planOn ? [{ label: planned ? 'Plan my day again' : 'Plan my day', icon: 'calendar', run: () => setSheet('plan') }, { label: 'Wrap up the day', icon: 'check', run: () => setSheet('wrap') }] : []),
+    // Today's daily note (Notes makes it from the daily template the first time).
+    ...(notesOn ? [{ label: 'Today’s note', icon: 'document', testId: 'today-daily-note', run: () => go({ name: 'notes', arg: 'today' }) }] : []),
     { label: 'Choose cards…', icon: 'grid', run: onChooseCards },
     { label: 'Hide Today', icon: 'eyeOff', run: onHide },
   ];

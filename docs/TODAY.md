@@ -54,6 +54,8 @@ while they run. **Plan my day** is Today's one strong button in the morning;
 once a plan exists it steps into More, and late in the day **Wrap up the day**
 takes its place.
 
+**More (…) → Today's note** opens today's daily note in Notes, made from your daily note template the first time.
+
 While Today shows its own Fix-it card, Hello's separate suggestion line steps
 aside, so the same item never shows twice.
 
