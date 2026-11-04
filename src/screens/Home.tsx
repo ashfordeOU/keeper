@@ -132,7 +132,7 @@ function SuggestionLine() {
     <section className={`home-suggest ${a.kind}`} aria-label="Suggestion" data-testid="home-suggestion">
       <Icon name={a.kind === 'space' ? 'broom' : 'shield'} size={14} />
       <button className="home-suggest-title ellipsis" title={a.detail || a.title} onClick={act}>{a.title}</button>
-      {a.more > 0 ? <button className="home-link quiet" onClick={() => go({ name: 'todo' })}>{a.more} more suggestion{a.more === 1 ? '' : 's'}</button> : null}
+      {a.more > 0 ? <button className="home-link quiet" data-testid="home-suggestion-all" title={`${a.more} more on the Fix-it List`} onClick={() => go({ name: 'todo' })}>See all ({a.more + 1})</button> : null}
       <span className="grow" />
       {a.dismiss ? <button className="home-link" data-testid="home-suggestion-dismiss" title={a.dismiss.how === 'trust' ? 'Trust this: it stops being suggested until it changes (the Fix-it List can show it again)' : 'Ask again in a week'} onClick={() => void dismiss()}>{a.dismiss.label}</button> : null}
       <button className="btn sm" data-testid="home-suggestion-action" onClick={act}>{a.action.label}</button>

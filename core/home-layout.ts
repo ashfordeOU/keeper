@@ -4,6 +4,8 @@
 // Home settings onto the current sections, and what, if anything, is worth
 // doing now. Plain functions so they are easy to test.
 
+import { calmOf } from './attention';
+
 /**
  * folders: the front door, Desktop, Documents and Downloads as big tiles;
  * search: a search box, with the file types (Documents, Pictures…) under it;
@@ -178,7 +180,6 @@ const TRUSTABLE = new Set(['security', 'privacy']);
 export const SNOOZE_MS = 7 * 86_400_000;
 
 const GB = 1024 ** 3;
-const SERIOUS = new Set(['critical', 'high', 'medium']);
 
 /** Low when under 10 % free or under 15 GB free (whichever comes first on this disk). */
 export function lowOnSpace(d: { free: number; total: number }): boolean {
@@ -188,14 +189,16 @@ export function lowOnSpace(d: { free: number; total: number }): boolean {
 
 /** The one thing worth doing now, or null (and the line stays hidden). Low space comes first. */
 export function attention(i: AttentionInput, fmt: (bytes: number) => string): Attention | null {
-  const serious = (i.findings ?? []).filter((f) => SERIOUS.has(f.severity));
+  // One attention model (core/attention.ts): the Fix-it List's own "space is low" item is this same line.
+  const serious = (i.findings ?? []).filter((f) => calmOf(f.severity) !== 'fyi');
   if (i.disk && lowOnSpace(i.disk)) {
+    const others = serious.filter((f) => f.id !== 'space:low');
     return {
       kind: 'space',
-      title: `${i.disk.label ?? 'Your disk'} is nearly full`,
+      title: `Free up space on ${i.disk.label ?? 'your disk'}`,
       detail: `${fmt(i.disk.free)} free of ${fmt(i.disk.total)}. Caches, old installers, forgotten downloads and duplicates are checked before anything goes to the Trash.`,
       action: { label: 'Free up space', route: 'cleanup' },
-      more: serious.length,
+      more: others.length,
     };
   }
   const f = serious[0];

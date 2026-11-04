@@ -3,6 +3,7 @@
 // the findings built from permissions, browsers, connections, malware and
 // persistence.
 
+import { calmScore } from '../attention';
 import type { AppPrivacy } from './trackers';
 import type { BrowserProfile, Detection, Finding, PermissionGrant, PersistenceItem, Severity } from './types';
 import { SERVICE_LABEL } from './permissions';
@@ -25,8 +26,9 @@ export function topActions(findings: Finding[], n = 3): Finding[] {
   return sortFindings(findings).filter((x) => !x.ignored && x.severity !== 'info').slice(0, n);
 }
 
+/** Calm words for the score (core/attention.ts): never "at risk". */
 export function scoreLabel(s: number): string {
-  return s >= 90 ? 'Well protected' : s >= 70 ? 'A few things to look at' : s >= 50 ? 'Needs attention' : 'At risk';
+  return calmScore(s);
 }
 
 // ---------------------------------------------------------------- findings from each area

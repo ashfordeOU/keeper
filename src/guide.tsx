@@ -62,7 +62,8 @@ export function useGuideList(): [GuideList | null, () => void] {
 
 export const AREA_LABEL: Record<Area, string> = { space: 'Space', storage: 'Storage', security: 'Security', privacy: 'Privacy', performance: 'Speed', network: 'Network', backup: 'Backups', updates: 'Updates' };
 export const AREA_ICON: Record<Area, string> = { space: 'broom', storage: 'disk', security: 'shield', privacy: 'eye', performance: 'bolt', network: 'globe', backup: 'cloud', updates: 'refresh' };
-export const SEV_CLASS: Record<Severity, string> = { critical: 'danger', high: 'danger', medium: 'warn', low: '', info: '' };
+// Calm: no red badges; "worth fixing" is the one tinted level (core/attention.ts).
+export const SEV_CLASS: Record<Severity, string> = { critical: 'warn', high: 'warn', medium: '', low: '', info: '' };
 
 // ---------------------------------------------------------------- drawings of a settings window
 

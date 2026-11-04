@@ -40,9 +40,22 @@ The guide's own words are in all ten of Keeper's languages; the names of system 
 
 Other parts of Keeper add their own findings through `registerFindings(source, producer)` and automatic fixes through `registerAutoFix(action, { preview, apply, undo? })` (`electron/services/guide.ts`).
 
+## One attention list
+
+Keeper has one list of things worth doing: the Fix-it List. Other pages show the top of the same list, in the same words, and link to it for the rest. Nothing has its own alarms.
+
+| Where | What it shows |
+| --- | --- |
+| **Fix-it List** | Everything open, most worth doing first. The header says "2 things worth fixing · 3 good to know". |
+| **Home** | At most one line: the one thing most worth doing, with **See all** when there are more. Low space on the main disk is the Fix-it List's own "space is low" item, said once. |
+| **Privacy & Security** | "3 things worth fixing" and those rows first; the score is a small detail under it, and engine names are under **How Keeper checks**. |
+| **Protection** | What is off first ("1 thing worth fixing"), the score small beside it. |
+
+Three calm levels replace the five severities on screen (`core/attention.ts`): **Worth fixing** (critical and high), **When you have time** (medium) and **Good to know** (low and information). Only "Worth fixing" is tinted, in a soft amber; nothing is red. Scores use calm words: *Well protected*, *A few things to look at*, *Some things to look at*, never "at risk".
+
 ## The Fix-it List: details, Trust, Snooze
 
-Each row opens (click it, its arrow, or Enter on the arrow) to show what exactly was found. Keeper gathers this only when a row is opened, never when the page loads. Every row has **Trust**, **Snooze** (1 day, 1 week, 1 month), **More** (Ignore; Show in Finder or Explorer; the browser's own page for an extension) and **Fix**. Several rows can be selected and trusted or snoozed together. Three or more alike are shown together under one row that opens.
+Each row opens (click it, its arrow, or Enter on the arrow) to show what exactly was found. Keeper gathers this only when a row is opened, never when the page loads. Every row has one clear action, **Fix**, and **More** (⋯) with **Trust**, **Snooze for** 1 day, 1 week or 1 month, **Ignore**, and Show in Finder or Explorer or the browser's own page for an extension. Several rows can be selected and trusted or snoozed together. Three or more alike are shown together under one row that opens.
 
 **Trust** means "this is mine and fine". Keeper remembers the exact item by a fingerprint and hides it, across restarts, until it changes; then it comes back marked *Changed since you trusted it*. Trusted, snoozed and ignored items are listed under *Snoozed, ignored and trusted*, with **Stop trusting** or **Undo**. Trust on Home's suggestion line is the same Trust.
 

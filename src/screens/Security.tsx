@@ -12,11 +12,11 @@ import type { BrowserProfile, Finding, PermissionGrant, PersistenceItem, Quarant
 import { api } from '../api';
 import { KeeperOwnConnections } from '../components/UsageStatsPanel';
 import { Icon } from '../components/Icon';
-import { Empty, Loading, PageHead, Toggle } from '../components/ui';
+import { ContextMenu, Empty, Loading, PageHead, Toggle, type MenuItem } from '../components/ui';
+import { CALM_WORD, calmOf, calmScore, worthLine } from '../../core/attention';
 import { Tabs } from '../components/Tabs';
 import { openGuide } from '../guide';
 import { useStore } from '../state';
-import { Ring } from './Protection';
 import '../styles/security.css';
 
 type Tab = 'overview' | 'watch' | 'connections' | 'browsers' | 'checks' | 'malware' | 'startup' | 'timeline';
@@ -40,7 +40,6 @@ const SEV: Record<Severity, { label: string; cls: string }> = {
   info: { label: 'Info', cls: 'sev-info' },
 };
 
-const scoreColor = (s: number) => (s >= 90 ? 'var(--ok)' : s >= 70 ? 'var(--warn)' : 'var(--danger)');
 
 export function Security() {
   const { route, go } = useStore();
@@ -78,8 +77,8 @@ export function Security() {
 
   return (
     <div className="sec">
-      <PageHead title="Privacy & Security" sub="Who can see and hear you, where your data goes, and how well this computer is protected — in plain words, with fixes.">
-        <button className="btn" onClick={() => void api.security.exportReport()}><Icon name="down" size={14} /> Save report</button>
+      <PageHead title="Privacy & Security" sub="Who can see you, where data goes, and how safe this computer is.">
+        <button className="btn ghost" onClick={() => void api.security.exportReport()}><Icon name="down" size={14} /> Save report</button>
         <button className="btn" onClick={() => void load(true)} disabled={busy}>{busy ? <div className="spinner" /> : <Icon name="refresh" size={14} />} Check again</button>
       </PageHead>
       <Tabs label="Privacy and security checks" className="sec-checktabs" value={tab} onChange={switchTo} items={TABS.map((t) => ({ id: t.id, testId: `sec-tab-${t.id}`, text: t.label, label: <><Icon name={t.icon} size={14} /> {t.label}</>, badge: t.area && ov?.counts[t.area] ? ov.counts[t.area] : undefined }))} />
@@ -106,6 +105,7 @@ function FindingRow({ f, reload }: { f: Finding; reload: (refresh?: boolean) => 
   const { toast, info } = useStore();
   const home = info?.home;
   const [busy, setBusy] = useState(false);
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const doFix = async () => {
     setBusy(true);
     try {
@@ -116,21 +116,31 @@ function FindingRow({ f, reload }: { f: Finding; reload: (refresh?: boolean) => 
       setBusy(false);
     }
   };
+  // The step-by-step guide (also in the Fix-it List): the system's protections live under the guide's own ids.
+  const guide = () => openGuide(f.id.startsWith('protection.') ? `protection:${f.id.slice(11)}` : `security:${f.id}`);
+  const canFix = !!f.fix && !f.ignored && !!(f.fix.action || f.fix.settings);
+  const canGuide = !f.ignored && f.severity !== 'info';
+  // One clear action per row; the rest under "More".
+  const items: MenuItem[] = [
+    ...(canFix && canGuide ? [{ label: 'Show me how', icon: 'info', run: guide }] : []),
+    { label: f.ignored ? 'Stop ignoring' : 'Ignore', icon: 'eyeOff', testId: 'sec-ignore', run: () => void api.security.ignore(f.id, !f.ignored).then(() => reload()) },
+  ];
+  const calm = calmOf(f.severity);
   return (
     <div className={`sec-finding ${f.ignored ? 'ignored' : ''}`} data-testid="sec-finding" data-id={f.id}>
-      <span className={`sec-sev ${SEV[f.severity].cls}`} title={SEV[f.severity].label} />
+      <span className={`sec-sev calm-${calm}`} title={CALM_WORD[calm]} aria-label={CALM_WORD[calm]} role="img" />
       <div className="grow">
         <div className="sec-finding-title">{f.title}{f.ignored ? <span className="badge">Ignored</span> : null}</div>
         <div className="small muted">{f.why}</div>
-        {f.detail ? <div className="small sec-detail" title={f.detail}>{friendlyPathsIn(f.detail, home)}</div> : null}
+        {f.detail ? <details className="small sec-detail"><summary>Details</summary>{friendlyPathsIn(f.detail, home)}</details> : null}
         {f.fix?.steps?.length ? <ol className="small sec-steps">{f.fix.steps.map((s, i) => <li key={i}>{s}</li>)}</ol> : null}
       </div>
       <div className="sec-actions">
-        {f.fix && !f.ignored && (f.fix.action || f.fix.settings) ? <button className="btn sm" disabled={busy} onClick={() => void doFix()}>{busy ? <div className="spinner" /> : null}{f.fix.label}</button> : null}
-        {/* The step-by-step guide (also in the To do list): the system's protections live under the guide's own ids. */}
-        {!f.ignored && f.severity !== 'info' ? <button className="btn sm" onClick={() => openGuide(f.id.startsWith('protection.') ? `protection:${f.id.slice(11)}` : `security:${f.id}`)}>Show me how</button> : null}
-        <button className="btn sm ghost" data-testid="sec-ignore" onClick={() => void api.security.ignore(f.id, !f.ignored).then(() => reload())}>{f.ignored ? 'Stop ignoring' : 'Ignore'}</button>
+        {canFix ? <button className="btn sm" disabled={busy} onClick={() => void doFix()}>{busy ? <div className="spinner" /> : null}{f.fix!.label}</button>
+          : canGuide ? <button className="btn sm" onClick={guide}>Show me how</button> : null}
+        <button className="btn sm ghost" aria-haspopup="menu" aria-label={`More actions for “${f.title}”`} title="More" data-testid="sec-more" onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setMenu({ x: r.right - 200, y: r.bottom + 4 }); }}><Icon name="more" size={14} /></button>
       </div>
+      {menu ? <ContextMenu x={menu.x} y={menu.y} items={items} label="More actions" onClose={() => setMenu(null)} /> : null}
     </div>
   );
 }
@@ -147,19 +157,24 @@ function Overview({ ov, onTab, reload }: { ov: SecurityOverview; onTab: (t: Tab)
   useEffect(() => {
     void api.security.events(6).then(setEvents);
   }, [ov]);
+  // The same calm count as the Fix-it List: things worth fixing, not "good to know".
+  const worth = ov.findings.filter((f) => !f.ignored && calmOf(f.severity) !== 'fyi').length;
   return (
     <div className="sec-overview">
-      <div className="sec-hero card pad" data-testid="sec-score">
-        <Ring value={ov.score} color={scoreColor(ov.score)} label={String(ov.score)} sub="of 100" />
-        <div className="grow">
-          <h2 className="sec-label">{ov.label}</h2>
-          <div className="small muted">Checked {ov.checkedAt ? relativeTime(ov.checkedAt) : 'just now'} · {ov.quarantined} in quarantine{ov.lastScan ? ` · last ${ov.lastScan.kind} scan ${relativeTime(ov.lastScan.at)}: ${ov.lastScan.found ? `${ov.lastScan.found} found` : 'nothing found'}` : ' · not scanned yet'}</div>
-          <div className="sec-engines">{ov.engines.map((e) => <EngineChip key={e.id} e={e} />)}</div>
-          {ov.notes.map((n, i) => <div key={i} className="small sec-note"><Icon name="info" size={12} /> {n}</div>)}
+      {/* What is worth doing comes first; the score is a small detail under it. */}
+      <section className="sec-hero" data-testid="sec-attention" aria-labelledby="sec-worth">
+        <h2 id="sec-worth" className="sec-label">{worth ? worthLine(worth) : ov.top.length ? 'Good to know' : 'Nothing worth fixing'}</h2>
+        <div className="small muted sec-score-line">
+          {calmScore(ov.score)} · Score <span data-testid="sec-score">{ov.score} of 100</span> · Checked {ov.checkedAt ? relativeTime(ov.checkedAt) : 'just now'}
         </div>
-      </div>
-      <h3 className="sec-h">Most worth doing</h3>
+      </section>
       <Findings list={ov.top} reload={reload} empty="Nothing urgent. Well done." />
+      <details className="sec-how" data-testid="sec-how">
+        <summary>How Keeper checks</summary>
+        <div className="small muted">{ov.quarantined} in quarantine{ov.lastScan ? ` · last ${ov.lastScan.kind} scan ${relativeTime(ov.lastScan.at)}: ${ov.lastScan.found ? `${ov.lastScan.found} found` : 'nothing found'}` : ' · not scanned yet'}</div>
+        <div className="sec-engines">{ov.engines.map((e) => <EngineChip key={e.id} e={e} />)}</div>
+        {ov.notes.map((n, i) => <div key={i} className="small sec-note"><Icon name="info" size={12} /> {n}</div>)}
+      </details>
       <div className="sec-areas">
         {TABS.filter((t) => t.area).map((t) => {
           const n = ov.counts[t.area!];

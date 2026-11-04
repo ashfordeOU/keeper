@@ -84,9 +84,9 @@ const HELPER = path.join(HOME, '.config/autostart/updater-helper.desktop');
   check(titles.some((t) => t === 'Something new runs at login: updater-helper'), `the unknown item says “Something new runs at login” (${titles.filter((t) => /login|automatically/.test(t)).join(' | ')})`);
   check(!(await w.locator('.fx-list').textContent()).match(/malware/i), 'nothing calls it malware');
   check(!titles.some((t) => /existing/.test(t)), 'what was there at the first look is not listed as new');
-  check((await row(RUNNER_TITLE).locator('.badge').textContent()) === 'Low', 'the runner is Low');
-  // Linux has no code signatures, so an unknown item is Low there (unsigned on macOS and Windows: Worth a look).
-  check(['Low', 'Worth a look'].includes(await row('updater-helper').locator('.badge').textContent()), 'severity is in plain words');
+  check((await row(RUNNER_TITLE).locator('.badge').textContent()) === 'Good to know', 'the runner is Good to know (low)');
+  // Linux has no code signatures, so an unknown item is low there (unsigned on macOS and Windows: medium). Calm words either way.
+  check(['Good to know', 'When you have time'].includes(await row('updater-helper').locator('.badge').textContent()), 'severity is in calm, plain words');
 
   // The four extensions are shown together, with real names.
   const group = w.locator('[data-testid="fixit-group"]', { hasText: '4 browser extensions with broad access' });
@@ -124,7 +124,10 @@ const HELPER = path.join(HOME, '.config/autostart/updater-helper.desktop');
   check(fs.existsSync(STUB) && fs.readFileSync(STUB, 'utf8').includes(RUNNER), 'Show in the file manager points at the file');
 
   // Trust: gone from the list, kept on disk with its fingerprint, listed under trusted.
-  await row(RUNNER_TITLE).getByTestId('fixit-trust').click();
+  // Fix is the one action on the row; Trust, Snooze and Ignore are under More.
+  check(await row(RUNNER_TITLE).locator('.fx-actions button').count() === 2, 'the row shows only Fix and More');
+  await row(RUNNER_TITLE).getByTestId('fixit-more').click();
+  await w.getByTestId('fixit-trust').click();
   check(!!(await until(async () => (await row(RUNNER_TITLE).count()) === 0, 10000)), 'Trust removes the row');
   const saved = await until(() => { try { const s = JSON.parse(fs.readFileSync(path.join(HOME, '.config/Keeper/guide.json'), 'utf8')); return Object.entries(s).find(([k, v]) => k.includes('actions.runner') && v.trusted?.fp); } catch { return null; } }, 5000);
   check(!!saved, 'the trust is saved with the item’s fingerprint');
@@ -140,8 +143,8 @@ const HELPER = path.join(HOME, '.config/autostart/updater-helper.desktop');
   check(/Changed since you trusted it/.test(await row(RUNNER_TITLE).textContent()), 'it says it changed since it was trusted');
 
   // Snooze and Undo.
-  await row('updater-helper').getByTestId('fixit-snooze').click();
-  await w.getByRole('menuitem', { name: '1 week' }).click();
+  await row('updater-helper').getByTestId('fixit-more').click();
+  await w.getByRole('menuitem', { name: 'Snooze for 1 week' }).click();
   check(!!(await until(async () => (await row('updater-helper').count()) === 0, 10000)), 'Snooze for a week hides it');
   await w.getByTestId('fixit-later-tab').click();
   check(/Snoozed until/.test(await row('updater-helper').textContent()), 'it is listed as snoozed');

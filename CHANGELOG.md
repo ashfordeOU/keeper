@@ -45,6 +45,13 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - The search speed test compares against a plain scan timed at the same moment, so a busy computer no longer fails it while a real slowdown still does.
 - The usage stats test follows today's setup, and the accessibility test measures the light Island against its own light background.
 
+### Changed — Fix-it List: one calm list of things worth doing
+- Home, Privacy & Security, Protection and the Fix-it List now share one list, in the same calm words: **Worth fixing**, **When you have time** and **Good to know**. Nothing is red any more.
+- Privacy & Security starts with "3 things worth fixing" and those rows. The score is a small detail under it ("A few things to look at · Score 72 of 100"), and the engines, quarantine and last scan are under **How Keeper checks**.
+- Each finding has one clear button (Fix, or Show me how) and a ⋯ menu for the rest. IDs and details are one click away under Details.
+- Fix-it List rows show Fix and ⋯: Trust, Snooze for a day, a week or a month, and Ignore are in the menu.
+- Home's line says "Free up space on Macintosh HD" instead of "nearly full", counts it once with the Fix-it List, and offers **See all**.
+
 ### Changed — Screenshots: today's Keeper everywhere
 - Every picture in the README, the docs and the website is new, taken from today's Keeper in light and dark: Hello, Files with its sidebar and type chips, Everywhere, Network & firewall with the Ask prompt, the menu bar, Capture's preview, pins, scrolling captures and Draw on screen, a share link's page, Quick Search, clipboard sets, Typed Snippets, the selection bar, Focus blocking, Time tracking, Journal, Reader, Mail Today, page windows, light apps and app icons, Monitors, Phone Alerts, the photo editor, web page capture, the weather and the Island in several themes.
 - They show sample files and names only, never a real computer's.

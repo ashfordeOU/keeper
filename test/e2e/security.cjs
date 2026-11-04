@@ -156,12 +156,15 @@ if (CLAMDB) { fs.mkdirSync(path.join(userData, 'security/clamav-db'), { recursiv
   await openTab('checks', 'Security checks');
   const f = ov2.findings.find((x) => x.area === 'posture' && !x.ignored && x.severity !== 'info');
   const fRow = w.locator(`[data-testid="sec-finding"][data-id="${f.id}"]`);
-  await fRow.getByTestId('sec-ignore').click();
-  check(!!(await until(async () => /Ignored/.test(await fRow.textContent()) && (await fRow.getByTestId('sec-ignore').textContent()) === 'Stop ignoring', 10000)), `Ignore marks “${f.title}” ignored`);
+  // One clear action per row; Ignore is under More.
+  const ignoreItem = async () => { await fRow.getByTestId('sec-more').click(); return w.getByTestId('sec-ignore'); };
+  await (await ignoreItem()).click();
+  check(!!(await until(async () => /Ignored/.test(await fRow.textContent()), 10000)) && (await (await ignoreItem()).textContent()).trim() === 'Stop ignoring', `Ignore marks “${f.title}” ignored`);
+  await w.keyboard.press('Escape');
   const ov3 = await sec('overview');
   check(ov3.score >= ov2.score && ov3.findings.find((x) => x.id === f.id).ignored, 'an ignored finding stops counting');
-  await fRow.getByTestId('sec-ignore').click();
-  check(!!(await until(async () => (await fRow.getByTestId('sec-ignore').textContent()) === 'Ignore', 10000)) && !(await sec('overview')).findings.find((x) => x.id === f.id).ignored, 'Stop ignoring counts it again');
+  await (await ignoreItem()).click();
+  check(!!(await until(async () => !/Ignored/.test(await fRow.textContent()), 10000)) && !(await sec('overview')).findings.find((x) => x.id === f.id).ignored, 'Stop ignoring counts it again');
 
   // The same extension in the Fix-it List: details, Trust and Undo, Stop trusting.
   await w.click('.sidebar [title="Fix-it List"]');
@@ -175,20 +178,22 @@ if (CLAMDB) { fs.mkdirSync(path.join(userData, 'security/clamav-db'), { recursiv
   };
   check(!!(await until(fxShown, 60000, 500)), 'the risky extension is in the Fix-it List');
   check(/Coupon Finder Pro/.test(await fx.locator('.finding-title').textContent()), 'the row names the extension');
-  check(await fx.getByTestId('fixit-trust').count() === 1 && await fx.getByTestId('fixit-snooze').count() === 1 && await fx.getByRole('button', { name: /More actions/ }).count() === 1 && await fx.getByTestId('fixit-fix').count() === 1, 'the row has Trust, Snooze, More and Fix');
+  check(await fx.getByRole('button', { name: /More actions/ }).count() === 1 && await fx.getByTestId('fixit-fix').count() === 1 && await fx.locator('.fx-actions button').count() === 2, 'the row has Fix and More (Trust and Snooze inside)');
   await fx.locator('.fx-toggle').click();
   check(await fx.locator('.fx-toggle').getAttribute('aria-expanded') === 'true', 'the row opens');
   check(!!(await until(async () => /Why it is on the list/.test(await fx.getByTestId('fixit-details').textContent().catch(() => '')), 20000)), 'its details say why it is on the list');
   const xd = await fx.getByTestId('fixit-details').textContent();
   check(xd.includes('aaaabbbbccccddddeeeeffffgggghhhh') && xd.includes('2.3'), 'the details show the extension’s id and version');
   await w.screenshot({ path: path.join(SHOTS, 'fixit-details-light.png') });
-  await fx.getByTestId('fixit-trust').click();
+  await fx.getByTestId('fixit-more').click();
+  await w.getByTestId('fixit-trust').click();
   check(!!(await until(async () => (await fx.count()) === 0, 10000)), 'Trust hides it');
   const undo = w.locator('.toast', { hasText: 'Trusted' }).getByRole('button', { name: 'Undo' });
   check(!!(await until(async () => (await undo.count()) > 0, 5000)), 'Trust offers Undo');
   await undo.first().click();
   check(!!(await until(fxShown, 10000)), 'Undo brings it back');
-  await fx.getByTestId('fixit-trust').click();
+  await fx.getByTestId('fixit-more').click();
+  await w.getByTestId('fixit-trust').click();
   check(!!(await until(async () => (await fx.count()) === 0, 10000)), 'Trust hides it again');
   await w.getByTestId('fixit-later-tab').click();
   check(/Snoozed, ignored and trusted/.test(await w.getByTestId('fixit-later-tab').textContent()) && !!(await until(fxShown, 10000)), 'it is listed under Snoozed, ignored and trusted');

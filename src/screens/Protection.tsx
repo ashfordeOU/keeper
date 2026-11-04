@@ -8,12 +8,14 @@ import { api } from '../api';
 import { Icon } from '../components/Icon';
 import { Empty, Loading, PageHead } from '../components/ui';
 import { useAsync } from '../state';
+import { calmScore, worthLine } from '../../core/attention';
 import '../styles/screens-b.css';
 
 const STATUS = {
   ok: { label: 'On', cls: 'ok', color: 'var(--ok)' },
-  warn: { label: 'Check', cls: 'warn', color: 'var(--warn)' },
-  off: { label: 'Off', cls: 'danger', color: 'var(--danger)' },
+  warn: { label: 'Check', cls: '', color: 'color-mix(in srgb, var(--warn) 45%, var(--bg-sunk))' },
+  // Calm: "off" is worth fixing, not an alarm.
+  off: { label: 'Off', cls: 'warn', color: 'var(--warn)' },
   unknown: { label: 'Unknown', cls: '', color: 'var(--text-3)' },
 } as const;
 
@@ -47,21 +49,21 @@ export function Protection() {
     }
   };
 
-  const color = !data ? undefined : data.score >= 85 ? 'var(--ok)' : data.score >= 60 ? 'var(--warn)' : 'var(--danger)';
+  // What is off comes first, in calm words; the score is a small detail beside it (core/attention.ts).
+  const toFix = data?.checks.filter((c) => c.status === 'off' || c.status === 'warn').length ?? 0;
   return (
     <div>
-      <PageHead title="Protection" sub="A quick check that the protection built into your system is switched on and up to date.">
+      <PageHead title="Protection" sub="Is your system’s own protection on and up to date?">
         <button className="btn" onClick={recheck} disabled={busy}>{busy ? <div className="spinner" /> : <Icon name="refresh" size={14} />} Check again</button>
       </PageHead>
       {first.loading && !data ? <Loading label="Checking…" /> : null}
       {first.error ? <Empty icon="warning" title="Could not run the check">{first.error}</Empty> : null}
       {data ? (
-        <div className="grid" style={{ gridTemplateColumns: 'minmax(220px, 260px) 1fr', alignItems: 'start' }}>
-          <div className="card pad col" style={{ alignItems: 'center', gap: 10 }}>
-            <Ring value={data.score} color={color} label={String(data.score)} sub="of 100" />
-            <div style={{ fontWeight: 600 }}>{data.score >= 85 ? 'Well protected' : data.score >= 60 ? 'A few things to check' : 'Needs attention'}</div>
-            <div className="small muted">Checked {relativeTime(data.checkedAt)}</div>
-          </div>
+        <>
+          <section className="prot-head" data-testid="prot-attention">
+            <h2>{worthLine(toFix)}</h2>
+            <div className="small muted">{calmScore(data.score)} · Score <span data-testid="prot-score">{data.score} of 100</span> · Checked {relativeTime(data.checkedAt)}</div>
+          </section>
           <div className="card">
             {data.checks.map((c) => (
               <div key={c.id} className="check-row">
@@ -75,7 +77,7 @@ export function Protection() {
               </div>
             ))}
           </div>
-        </div>
+        </>
       ) : null}
       <p className="small muted" style={{ marginTop: 16 }}><Icon name="info" size={12} /> Keeper is not an antivirus. It only reads the status of the protection your operating system already has and never changes it.</p>
     </div>

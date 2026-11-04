@@ -105,3 +105,7 @@
 .scr-island.side { border-radius: var(--r-md); }
 .scr figcaption { font-size: var(--fs-sm); margin-top: 6px; line-height: 1.4; }
 .act-checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px 14px; font-size: var(--fs-md); }
+
+/* Protection: what to fix first, the score as a small detail (core/attention.ts). */
+.prot-head { margin: 0 0 12px; }
+.prot-head h2 { margin: 0 0 4px; font-size: var(--fs-2xl); letter-spacing: -0.01em; }

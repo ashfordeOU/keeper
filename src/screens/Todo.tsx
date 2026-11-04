@@ -8,6 +8,7 @@
 
 import { useEffect, useId, useMemo, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { SNOOZE_CHOICES } from '../../core/guide/aggregate';
+import { rankAttention, worthLine } from '../../core/attention';
 import { groupRows, severityWord, type Row } from '../../core/guide/group';
 import { AREAS, type Area, type FindingDetails, type FindingView } from '../../core/guide/types';
 import { formatBytes, relativeTime } from '../../core/format';
@@ -77,12 +78,12 @@ export function Todo() {
     const r = e.currentTarget.getBoundingClientRect();
     setMenu({ x: r.left, y: r.bottom + 4, label: 'Snooze for', items: SNOOZE_CHOICES.map((c) => ({ label: c.label, icon: 'clock', run: () => void snooze(ids, c.ms, c.label) })) });
   };
-  const actions: RowActions = { trust: (id) => void trust([id]), snoozeMenu, ignore: (id) => void ignore([id]), bringBack: (f) => void bringBack(f), setMenu, toast };
+  const actions: RowActions = { trust: (id) => void trust([id]), snooze: (ids, ms, label) => void snooze(ids, ms, label), snoozeMenu, ignore: (id) => void ignore([id]), bringBack: (f) => void bringBack(f), setMenu, toast };
 
   const allOn = shown.length > 0 && picked.length === shown.length;
   return (
     <div className="todo">
-      <PageHead title={gtTodo(lang)} sub={list ? <>{open.length ? `${open.length} thing${open.length === 1 ? '' : 's'} worth doing` : 'Nothing to do — all good.'}{freeable ? ` · up to ${formatBytes(freeable)} to free` : ''}{list.checkedAt ? ` · checked ${relativeTime(list.checkedAt)}` : ''}</> : 'Checking…'}>
+      <PageHead title={gtTodo(lang)} sub={list ? <>{open.length ? attentionLine(open) : 'Nothing to do — all good.'}{freeable ? ` · up to ${formatBytes(freeable)} to free` : ''}{list.checkedAt ? ` · checked ${relativeTime(list.checkedAt)}` : ''}</> : 'Checking…'}>
         <button className="btn" disabled={busy} onClick={async () => { setBusy(true); await api.guide.refresh(); reload(); setBusy(false); }}>{busy ? <div className="spinner" /> : <Icon name="refresh" size={14} />} Check again</button>
       </PageHead>
 
@@ -141,8 +142,16 @@ export function Todo() {
   );
 }
 
+/** "2 things worth fixing · 3 good to know": the same calm count as Home and Privacy. */
+function attentionLine(open: FindingView[]): string {
+  const worth = rankAttention(open).length;
+  const fyi = open.length - worth;
+  return [worth || !fyi ? worthLine(worth) : '', fyi ? `${fyi} good to know` : ''].filter(Boolean).join(' · ');
+}
+
 interface RowActions {
   trust(id: string): void;
+  snooze(ids: string[], ms: number, label: string): void;
   snoozeMenu(e: ReactMouseEvent<HTMLElement>, ids: string[]): void;
   ignore(id: string): void;
   bringBack(f: FindingView): void;
@@ -207,10 +216,15 @@ function FixRow({ f, later, selected, onSelect, actions }: { f: FindingView; lat
   const status = statusLine(f);
   const more = (e: ReactMouseEvent<HTMLElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
-    const items: MenuItem[] = [{ label: 'Ignore (always)', icon: 'eyeOff', run: () => actions.ignore(f.id) }];
+    // Fix is the one clear action on the row; everything else lives here.
+    const items: MenuItem[] = [
+      { label: s ? 'Trust: it’s mine and fine' : 'Keep it as it is', icon: 'check', testId: 'fixit-trust', run: () => actions.trust(f.id) },
+      ...SNOOZE_CHOICES.map((c) => ({ label: `Snooze for ${c.label}`, icon: 'clock', testId: `fixit-snooze-${c.label.replace(/\s+/g, '-')}`, run: () => actions.snooze([f.id], c.ms, c.label) })),
+      { label: 'Ignore (always)', icon: 'eyeOff', testId: 'fixit-ignore', run: () => actions.ignore(f.id) },
+    ];
     if (s && s.kind !== 'extension') items.push({ label: `Show in ${FM}`, icon: 'reveal', run: () => void api.guide.reveal(f.id, 'file').then((x) => { if (!x.ok && x.message) actions.toast(x.message); }) });
     if (s?.kind === 'extension') items.push({ label: `Open in ${s.browser}’s extensions page`, icon: 'external', run: () => void api.guide.reveal(f.id, 'extension').then((x) => { if (x.message) actions.toast(x.message); }) });
-    actions.setMenu({ x: r.right - 240, y: r.bottom + 4, label: 'More actions', items });
+    actions.setMenu({ x: r.right - 260, y: r.bottom + 4, label: 'More actions', items });
   };
   // Clicking the row (not a button in it) opens or closes the details.
   const onRowClick = (e: ReactMouseEvent<HTMLDivElement>) => {
@@ -234,9 +248,7 @@ function FixRow({ f, later, selected, onSelect, actions }: { f: FindingView; lat
           <button className="btn sm" data-testid="fixit-bring-back" onClick={() => actions.bringBack(f)}><Icon name="undo" size={12} /> {f.status === 'trusted' ? 'Stop trusting' : 'Undo'}</button>
         ) : (
           <span className="fx-actions">
-            <button className="btn sm" data-testid="fixit-trust" title="It is mine and fine: hide it until it changes" onClick={() => actions.trust(f.id)}>{s ? 'Trust' : 'Keep it'}</button>
-            <button className="btn sm" data-testid="fixit-snooze" aria-haspopup="menu" onClick={(e) => actions.snoozeMenu(e, [f.id])}>Snooze <Icon name="chevronDown" size={11} /></button>
-            <button className="btn sm ghost" aria-haspopup="menu" aria-label={`More actions for “${f.title}”`} onClick={more}>More</button>
+            <button className="btn sm ghost" data-testid="fixit-more" aria-haspopup="menu" aria-label={`More actions for “${f.title}”`} title="Trust, snooze or ignore" onClick={more}><Icon name="more" size={14} /></button>
             <button className="btn sm" data-testid="fixit-fix" onClick={() => openGuide(f.id)}>{f.fix.kind === 'auto' ? f.fix.label : 'Fix'}</button>
           </span>
         )}

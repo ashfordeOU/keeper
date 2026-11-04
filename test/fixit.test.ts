@@ -192,7 +192,7 @@ describe('grouping and words', () => {
   });
 
   it('says how important in plain words', () => {
-    expect(['critical', 'high', 'medium', 'low', 'info'].map((s) => severityWord(s as Finding['severity']))).toEqual(['Important', 'Important', 'Worth a look', 'Low', 'Low']);
+    expect(['critical', 'high', 'medium', 'low', 'info'].map((s) => severityWord(s as Finding['severity']))).toEqual(['Worth fixing', 'Worth fixing', 'When you have time', 'Good to know', 'Good to know']);
   });
 });
 

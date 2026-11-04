@@ -542,6 +542,8 @@ export interface MenuItem {
   danger?: boolean;
   run?: () => void;
   sep?: boolean;
+  /** data-testid for end-to-end tests */
+  testId?: string;
 }
 
 export function ContextMenu({ x, y, items, onClose, label }: { x: number; y: number; items: MenuItem[]; onClose: () => void; label?: string }) {
@@ -595,7 +597,7 @@ export function ContextMenu({ x, y, items, onClose, label }: { x: number; y: num
     >
       {items.map((it, i) =>
         it.sep ? <hr key={i} role="separator" /> : (
-          <button key={i} role="menuitem" tabIndex={-1} className={it.danger ? 'danger' : ''} onClick={() => { if (opener.current?.isConnected) opener.current.focus({ preventScroll: true }); onClose(); it.run?.(); }}>
+          <button key={i} role="menuitem" tabIndex={-1} data-testid={it.testId} className={it.danger ? 'danger' : ''} onClick={() => { if (opener.current?.isConnected) opener.current.focus({ preventScroll: true }); onClose(); it.run?.(); }}>
             {it.icon ? <Icon name={it.icon} size={14} /> : <span style={{ width: 14 }} aria-hidden />}
             {it.label}
             {it.kbd ? <kbd aria-hidden>{it.kbd}</kbd> : null}

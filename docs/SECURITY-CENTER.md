@@ -19,6 +19,8 @@ Keeper adds layers on top of the protection built into your system (Defender, XP
 
 ## The overview
 
+The overview leads with what is worth doing, in the same calm words as Home and the Fix-it List (see [One attention list](GUIDE.md#one-attention-list)): "3 things worth fixing", then those three rows. The score is a small detail under that headline, never a red ring. Engine names (YARA, ClamAV, XProtect…), quarantine and the last scan are under **How Keeper checks**, closed until opened.
+
 - **Score:** 100 minus a cost for each open finding:
 
   | Severity | Cost |
@@ -28,15 +30,15 @@ Keeper adds layers on top of the protection built into your system (Defender, XP
   | Medium | 6 |
   | Low | 2 |
 
-  Findings you ignore don't count. The score has four labels: *Well protected*, *A few things to look at*, *Needs attention* and *At risk*.
-- **Most worth doing:** the three most severe open findings.
+  Findings you ignore don't count. The score has three calm labels: *Well protected*, *A few things to look at* and *Some things to look at*.
+- **Things worth fixing:** the three most severe open findings.
 - **Each finding** has a title, *why it matters*, a detail line and a **Fix**. A Fix is one of:
   - an action Keeper does itself, such as turning on real-time checks, installing ClamAV, updating signatures, scanning or quarantining;
   - a link to the right settings page, from Keeper's catalogue of deep links;
   - a Keeper page;
   - written steps.
 
-  **Show me how** opens the guided fix. **Ignore** hides the finding and takes it out of the score.
+  Each row has one clear action (the Fix, or **Show me how** when Keeper cannot do it itself) and **More** (⋯) with **Show me how** and **Ignore**. Ignore hides the finding and takes it out of the score. A detail such as an ID or a hash is under **Details** on the row.
 - **To do list:** findings are registered with the guide layer (`registerFindings('security', …)` and the `security.*` automatic fixes in `electron/services/security/guide-bridge.ts`). Their ids are `security:<id>`. The basic protection checks such as the firewall and disk encryption are not registered from here, because the guide already registers them as `protection:<id>`.
 - **Save report** writes a plain-text report, including the line about detection limits above.
 

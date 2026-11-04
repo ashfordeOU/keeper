@@ -2,6 +2,7 @@
 // The Fix-it List shows similar findings together ("4 browser extensions with
 // broad access") when there are several, in the place of the first of them.
 
+import { CALM_WORD, calmOf } from '../attention';
 import type { Finding, Severity } from './types';
 
 export type Row<T extends Finding> =
@@ -40,7 +41,7 @@ export function groupRows<T extends Finding>(list: T[], min = 3): Row<T>[] {
   return out;
 }
 
-/** Plain words for how important something is (the colours stay the same). */
-export function severityWord(s: Severity): 'Important' | 'Worth a look' | 'Low' {
-  return s === 'critical' || s === 'high' ? 'Important' : s === 'medium' ? 'Worth a look' : 'Low';
+/** Calm words for how important something is: the same three everywhere (core/attention.ts). */
+export function severityWord(s: Severity): string {
+  return CALM_WORD[calmOf(s)];
 }
