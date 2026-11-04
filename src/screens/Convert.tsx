@@ -3,6 +3,7 @@
 // to a new folder next to the originals, which are never changed.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { CONVERT_PRESETS, presetOp, type PresetKind } from '../../core/convert-presets';
 import { extOf, kindOf } from '../../core/classify';
 import { TOOL_INFO, type ConvertCategory, type ConvertCapabilities, type ConvertOp, type ConvertResult, type ConvertTool, type Corner, type HashAlgo, type SpeechOptions } from '../../core/convert-types';
 import { moveItem, normRotate, type OrganizePage } from '../../core/pdf-organize';
@@ -763,6 +764,20 @@ export function Convert() {
         </div>
       </div>
 
+      {/* One click for the usual jobs, picked for the files you dropped (core/convert-presets.ts). */}
+      <div className="conv-presets" role="group" aria-label="Presets" data-testid="convert-presets">
+        <span className="kicker">Presets</span>
+        {CONVERT_PRESETS.map((p) => {
+          const kinds = files.map((f): PresetKind => { const a = acceptOf(f); return a === 'image' || a === 'video' || a === 'audio' || a === 'pdf' ? a : 'other'; });
+          const o = files.length ? presetOp(p.id, kinds) : undefined;
+          return (
+            <button key={p.id} className="conv-preset" data-testid={`convert-preset-${p.id}`} disabled={!o} title={files.length ? (o ? `${p.line}: ${TOOL_INFO[o.tool].label}` : 'Nothing to do for these files') : 'Add files first'}
+              onClick={() => { if (!o) return; setFlows(false); setCat(TOOL_INFO[o.tool].category); setOp({ ...defaults(o.tool), ...o } as ConvertOp); setResult(null); setError(null); }}>
+              <Icon name={p.icon} size={13} /> {p.name}
+            </button>
+          );
+        })}
+      </div>
       <div className="seg conv-cats">
         {CATEGORIES.filter((c) => kitOn || c.id !== 'convert').map((c) => (
           <button key={c.id} className={cat === c.id && !flows ? 'on' : ''} onClick={() => { setFlows(false); setCat(c.id); setOp(defaults((Object.keys(TOOL_INFO) as ConvertTool[]).find((t) => TOOL_INFO[t].category === c.id && fits(t, files)) ?? (Object.keys(TOOL_INFO) as ConvertTool[]).find((t) => TOOL_INFO[t].category === c.id)!)); setResult(null); setError(null); }}>

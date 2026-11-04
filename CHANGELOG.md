@@ -4,6 +4,9 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 
 ## [Unreleased]
 
+### Added — Convert: presets for the usual jobs
+- Three presets above the tools: **Email-friendly** (small enough to send), **For the web** (light pictures and videos) and **One archive** (everything in one ZIP). Each picks the tool and settings for the files you dropped and shows them before anything runs.
+
 ### Added — Cues: ready-made checklists
 - Cues → Checklists offers six to start from (Before a video call, Weekly review, Before a release, Leaving for the day, Packing for a trip, Before presenting). One click adds one as your own, to change as you like.
 

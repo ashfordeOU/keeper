@@ -19,6 +19,18 @@ Code: `core/filekit/` (pure, tested: `pdfkit.ts`, `textlayout.ts`, `data.ts`, `f
 `src/screens/KitOptions.tsx`, `src/screens/WorkflowsPanel.tsx`, `src/preview/viewers/cad.tsx`.
 Tests: `test/filekit.test.ts` (167 tests), `test/e2e/filekit.cjs` (the real app under xvfb).
 
+## Presets
+
+Above the tool groups, three presets pick a tool and its settings for the files you dropped (`core/convert-presets.ts`), shown before anything runs:
+
+| Preset | Pictures | Videos | PDFs | Sound | Anything else |
+|---|---|---|---|---|---|
+| **Email-friendly** | resized to 1600 px on the long side | compressed to 20 MB | compressed (quality 70) | MP3 | one ZIP |
+| **For the web** | WebP at quality 80 | MP4, 1280 px wide | compressed (quality 75) | M4A | – |
+| **One archive** | one ZIP | one ZIP | one ZIP | one ZIP | one ZIP |
+
+A mix of files follows the kind most of them are.
+
 ## PDF toolkit
 
 ### Organize and arrange
