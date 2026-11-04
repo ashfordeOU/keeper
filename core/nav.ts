@@ -150,7 +150,7 @@ export const NAV_PAGES: NavPage[] = [
   { id: 'screen', route: { name: 'capture' }, label: 'Screen', icon: 'screenshot', group: 'screen', also: ['studio', 'stage'], keywords: 'screenshot capture text from screen color colour picker record video studio present stage clean screen' },
   { id: 'studio', route: { name: 'studio' }, label: 'Studio', icon: 'video', group: 'none', inHub: 'screen', keywords: 'record screen video edit zoom export' },
   { id: 'stage', route: { name: 'stage' }, label: 'Stage', icon: 'eye', group: 'none', inHub: 'screen', keywords: 'clean screen present recording' },
-  { id: 'photo', route: { name: 'photo' }, label: 'Photo Editor', icon: 'sliders', group: 'none', keywords: 'edit photo picture image crop rotate straighten brightness exposure contrast saturation warmth blur redact pixelate resize convert background remove' },
+  { id: 'photo', route: { name: 'photo' }, label: 'Photo Editor', icon: 'sliders', group: 'none', keywords: 'edit photo picture image crop rotate straighten perspective brightness exposure contrast highlights shadows saturation vibrance warmth white balance curve looks presets heal clone red eye text sticker watermark frame blur redact pixelate resize canvas convert background remove replace heic raw psd' },
   // Its tools are Quick Search commands too (core/launcher/actions.ts); the page stays a palette entry.
   { id: 'tools', route: { name: 'tools' }, label: 'Toolbox', i18n: 'nav.toolbox', icon: 'terminal', group: 'none', keywords: 'tools utilities developer json base64 hash uuid regex timestamp password case word counter' },
 

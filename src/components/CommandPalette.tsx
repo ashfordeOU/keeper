@@ -12,6 +12,7 @@ import { FLOWS } from '../../core/guide/builtin';
 import { openGuide } from '../guide';
 import { useCommandFilter, useHiddenRoutes } from '../features';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { OPEN_EXT } from '../../core/photo-formats';
 import { THEMES } from '../../core/themes';
 import { TOOL_INFO, type ConvertTool } from '../../core/convert-types';
 import { api } from '../api';
@@ -135,11 +136,19 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     void Promise.all([api.rdc?.places(), api.rdc?.state()]).then(([p, s]) => setRdc(p?.palette && s ? s.connections.map((c) => ({ id: c.id, name: c.name, protocol: c.protocol })) : null)).catch(() => undefined);
   }, []);
+  // The photo editor: open a picture, or one of the pictures edited lately.
+  const [photos, setPhotos] = useState<{ path: string; name: string }[]>([]);
+  useEffect(() => { void api.photo?.recent().then((r) => setPhotos(r.slice(0, 5))).catch(() => undefined); }, []);
   // Places & Tracks: "Where is my laptop?" for each device, item and person (its settings can leave these out).
   const tracksCommands = useTracksCommands(store.go);
   const t = useT();
   const hiddenRoutes = useHiddenRoutes();
   const commands = useMemo<Command[]>(() => [
+    { id: 'photo-open', label: 'Edit a Photo…', group: 'Actions' as const, icon: 'sliders', keywords: 'photo editor picture image edit crop background remove heic raw convert', run: async () => {
+      const [f] = await api.settings.pickFiles({ title: 'Choose a picture to edit', extensions: OPEN_EXT });
+      if (f) store.go({ name: 'photo', arg: f });
+    } },
+    ...photos.map((x) => ({ id: `photo-recent-${x.path}`, label: `Edit ${x.name}`, group: 'Actions' as const, icon: 'image', typed: true, keywords: 'photo picture recent edit', run: () => store.go({ name: 'photo', arg: x.path }) })),
     ...(rdc ? [
       { id: 'rdc-quick', label: 'Quick Connect to a Remote Desktop…', group: 'Actions' as const, icon: 'laptop', keywords: 'rdp vnc ssh remote desktop connect', run: () => void api.rdc.showQuick() },
       ...rdc.map((c) => ({ id: `rdc-${c.id}`, label: `Connect to ${c.name}`, group: 'Actions' as const, icon: 'laptop', typed: true, keywords: `remote desktop ${c.protocol}`, run: () => store.tabs.open({ name: 'rdc', q: `connect:${c.id}` }) })),
@@ -295,7 +304,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     ...[5, 10, 25].map((m) => ({ id: `timer-${m}`, label: `Start a ${m}-Minute Timer`, group: 'Actions' as const, icon: 'timer', keywords: 'countdown kitchen', run: async () => { await api.pim.startTimer(`${m} min`, m * 60_000); store.toast(`Timer set for ${m} minutes`); } })),
     { id: 'shelf-clear', label: 'Clear the Shelf', group: 'Actions', icon: 'island', run: async () => { await api.island.clearShelf(); } },
     ...tracksCommands,
-  ], [store, meshCmds, extCmds, ambienceCmds, voiceCmds, rdc, tracksCommands, t, hiddenRoutes]);
+  ], [store, meshCmds, extCmds, ambienceCmds, voiceCmds, rdc, tracksCommands, t, hiddenRoutes, photos]);
 
   const allowed = useCommandFilter();
   const looksLikeSearch = text.trim().length > 1;

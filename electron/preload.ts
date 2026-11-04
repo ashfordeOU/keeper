@@ -191,7 +191,7 @@ const api = {
   notices: group('notices', ['list', 'done', 'doneAll', 'snoozeAll', 'clearDone', 'test']),
   // Site and server monitors.
   // The light photo editor.
-  photo: group('photo', ['info', 'preview', 'save', 'revert']),
+  photo: group('photo', ['info', 'preview', 'save', 'revert', 'auto', 'looks', 'saveLook', 'deleteLook', 'downloadModel', 'removeModel', 'recent']),
   // Crash reports for Ashforde (off until switched on).
   crashReports: group('crashReports', ['status', 'setOn', 'clear', 'sendNow']),
   // Extensions.

@@ -12,6 +12,7 @@ import { createPortal } from 'react-dom';
 import type { RenamePreview, RenameStep } from '../../core/rename';
 import type { FileEntry, FileKind } from '../../core/types';
 import { formatBytes, formatDate, formatDuration, relativeTime } from '../../core/format';
+import { isEditablePicture } from '../../core/photo-formats';
 import { api } from '../api';
 import { chooseDestination, folderDrop, pasteInto, setFileClip, useFileClip } from '../fileops';
 import { mod, shift, useStore } from '../state';
@@ -676,8 +677,9 @@ export function useFileMenu() {
     { label: 'Convert…', icon: 'refresh', run: () => store.go({ name: 'convert', arg: JSON.stringify(sel) }) },
     // Any format to another (pictures, documents, data, subtitles, fonts, 3D, drawings, mail…).
     { label: 'Convert to…', icon: 'refresh', run: () => store.go({ name: 'convert', arg: JSON.stringify({ tool: 'convert.to', files: sel }) }) },
+    // Every picture the photo editor opens (camera RAW, HEIC, Photoshop, icons and drawings too).
+    ...(photoOn && !state.file.dir && isEditablePicture(state.file.name) ? [{ label: 'Edit Photo…', icon: 'sliders', testId: 'menu-edit-photo', run: () => store.go({ name: 'photo', arg: state.file.path }) }] : []),
     ...(state.file.kind === 'image' ? [
-      ...(photoOn ? [{ label: 'Edit Photo…', icon: 'sliders', run: () => store.go({ name: 'photo', arg: state.file.path }) }] : []),
       { label: 'Annotate…', icon: 'rename', run: () => store.go({ name: 'annotate', arg: state.file.path }) },
       { label: 'Read Text and Codes', icon: 'text', run: () => void api.capture.readFile(state.file.path).then((r) => { const t = r.code ?? r.text; if (t) { void api.files.copyText(t); store.toast(r.code ? `Copied code: ${r.code}` : 'Copied the text in this image'); } else store.toast('No text found'); }) },
     ] : state.file.ext === 'pdf' ? [
