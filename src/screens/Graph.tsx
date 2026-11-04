@@ -203,7 +203,7 @@ function SearchBox({ inputRef, onFocus, onOpenCite }: { inputRef: React.RefObjec
   return (
     <div className="capsule kg-search">
       <Icon name="search" size={14} className="kg-search-icon" />
-      <input ref={inputRef} className="input" placeholder="Search a person, project or topic" aria-label="Search the graph" value={q} data-testid="kg-search"
+      <input ref={inputRef} className="input" placeholder="Search the graph" aria-label="Search the graph" value={q} data-testid="kg-search"
         role="combobox" aria-expanded={shown} aria-autocomplete="list" aria-controls={shown ? 'kg-suggest' : undefined} aria-activedescendant={shown ? `kg-opt-${at}` : undefined}
         onChange={(e) => { setQ(e.target.value); setAt(0); setOpen(true); }} onFocus={() => setOpen(true)} onBlur={() => setTimeout(() => setOpen(false), 150)}
         onKeyDown={(e) => {

@@ -86,7 +86,7 @@ function pageFiles() {
 function frontMatter(src) {
   const m = src.match(/^<!--([\s\S]*?)-->\s*/);
   const meta = {};
-  if (m) for (const line of m[1].split('\n')) { const kv = line.match(/^\s*([a-z]+):\s*(.*)$/); if (kv) meta[kv[1]] = kv[2].trim(); }
+  if (m) for (const line of m[1].split(/\r?\n/)) { const kv = line.match(/^\s*([a-z]+):\s*(.*)$/); if (kv) meta[kv[1]] = kv[2].trim(); }
   return { meta, body: m ? src.slice(m[0].length) : src };
 }
 

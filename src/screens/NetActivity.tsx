@@ -191,7 +191,7 @@ export function NetActivity() {
         </div>
         {tab !== 'health' ? (
           <>
-            <label className="search-box"><Icon name="search" size={13} /><input placeholder="Filter by app, address, host, country, port" value={q} onChange={(e) => setQ(e.target.value)} /></label>
+            <label className="search-box"><Icon name="search" size={13} /><input placeholder="Filter apps and hosts" value={q} onChange={(e) => setQ(e.target.value)} /></label>
             <div className="seg" title="Which connections to show">
               {([['all', 'All'], ['internet', 'Internet'], ['lan', 'Local network'], ['listening', 'Listening']] as const).map(([k, l]) => (
                 <button key={k} className={scope === k ? 'on' : ''} onClick={() => setScope(k)}>{l}</button>

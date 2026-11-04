@@ -25,7 +25,7 @@ button.net-row:hover, .net-row:not(.head):hover { background: var(--bg-hover); }
 .net-row.sub { grid-template-columns: minmax(220px, 3fr) minmax(120px, 1.2fr) minmax(100px, 1.2fr) 90px 90px 120px; padding-left: 40px; background: color-mix(in srgb, var(--bg-sunk) 55%, transparent); }
 .net-app { display: flex; align-items: center; gap: 6px; }
 .net-app img { flex: none; }
-.paths { display: flex; gap: 4px; flex-wrap: nowrap; }
+.paths { display: flex; gap: 4px; flex-wrap: wrap; min-width: 0; }
 .where { display: inline-flex; align-items: center; gap: 5px; min-width: 0; max-width: 100%; }
 .where b { font-weight: 600; }
 .flag { font-size: 13px; line-height: 1; }
