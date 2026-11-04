@@ -25,7 +25,7 @@ function ServerRow({ label, value, onChange }: { label: string; value?: ServerSe
       <input className="input" placeholder="host" value={v.host} onChange={(e) => onChange({ ...v, host: e.target.value })} aria-label={`${label} server`} />
       <input className="input" style={{ width: 70 }} type="number" value={v.port} onChange={(e) => onChange({ ...v, port: Number(e.target.value) })} aria-label={`${label} port`} />
       <select className="input" style={{ width: 110 }} value={v.security} onChange={(e) => onChange({ ...v, security: e.target.value as ServerSettings['security'] })} aria-label={`${label} security`}>
-        <option value="tls">SSL/TLS</option><option value="starttls">STARTTLS</option><option value="none">None</option>
+        <option value="tls">SSL/TLS</option><option value="starttls">STARTTLS</option><option value="none">None (this computer only)</option>
       </select>
       <input className="input" placeholder="user name" value={v.user} onChange={(e) => onChange({ ...v, user: e.target.value })} aria-label={`${label} user name`} />
     </div>

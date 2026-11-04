@@ -18,7 +18,9 @@ function dovecotPath() {
   return null;
 }
 
-async function startDovecot() {
+/** opts.password: the user's password (default "secret") */
+async function startDovecot(opts = {}) {
+  const password = opts.password || 'secret';
   const bin = dovecotPath();
   if (!bin) return null;
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'keeper-dovecot-'));
@@ -29,7 +31,7 @@ async function startDovecot() {
   // Mail is never stored as root: as root, the mailbox belongs to the dovecot user.
   const uid = root ? Number(execFileSync('id', ['-u', 'dovecot']).toString().trim()) : me.uid;
   const gid = root ? Number(execFileSync('id', ['-g', 'dovecot']).toString().trim()) : me.gid;
-  fs.writeFileSync(path.join(dir, 'passwd'), `ana:{PLAIN}secret:${uid}:${gid}::${dir}/home/ana\n`);
+  fs.writeFileSync(path.join(dir, 'passwd'), `ana:{PLAIN}${password}:${uid}:${gid}::${dir}/home/ana\n`);
   fs.mkdirSync(path.join(dir, 'home/ana'), { recursive: true });
   if (root) fs.chownSync(path.join(dir, 'home/ana'), uid, gid);
   // The auth process runs as another user and must be able to read the password file.

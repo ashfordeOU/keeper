@@ -9,7 +9,8 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Outbox } from '../../core/api-pim';
-import { fillTemplate, htmlToText, signatureFor, textToEditorHtml } from '../../core/pim/compose-rich';
+import { fillTemplate, htmlToText, textToEditorHtml } from '../../core/pim/compose-rich';
+import { pickSignature, sanitizeSignature, signaturesOf, styleCss } from '../../core/pim/signatures';
 import { formatAddress, parseAddressList, type Draft } from '../../core/pim/mail';
 import { TONES } from '../../core/pim/mail-ai';
 import type { PimPrefsView } from '../../core/pim/prefs';
@@ -68,7 +69,7 @@ function AddressField({ label, value, onChange, autoFocus }: { label: string; va
 const formatted = (html: string) => /<(b|strong|i|em|u|s|ul|ol|li|a|h[1-6]|blockquote)\b|font-size/i.test(html);
 const markdownish = (t: string) => /\*\*[^*]+\*\*|(^|\s)\*[^*\s][^*]*\*|^\s*[-*] |\[[^\]]+\]\(https?:/m.test(t);
 
-export type ComposeDraft = Draft & { account?: string; html?: string; key?: string; noSignature?: boolean; /** the message being answered (for the AI) */ replyOf?: string };
+export type ComposeDraft = Draft & { account?: string; html?: string; key?: string; noSignature?: boolean; /** a signature picked in this window ('' = none) */ signatureId?: string; /** the message being answered (for the AI) */ replyOf?: string };
 
 export function Compose({ draft, accounts, onClose, onSent }: { draft: ComposeDraft; accounts: Account[]; onClose: () => void; onSent: (o: Outbox) => void }) {
   const { toast, setDraft, info } = useStore();
@@ -92,6 +93,8 @@ export function Compose({ draft, accounts, onClose, onSent }: { draft: ComposeDr
   const [instruction, setInstruction] = useState('');
   const [undoHtml, setUndoHtml] = useState<string | null>(null);
   const [noSig, setNoSig] = useState(!!draft.noSignature);
+  /** undefined: the address's default for this kind of message; '': none; else a signature's id */
+  const [sigChoice, setSigChoice] = useState<string | undefined>(draft.signatureId);
   const [remindAt, setRemindAt] = useState<number | null>(null);
   const [prefs, setPrefs] = useState<PimPrefsView | null>(null);
   const [saved, setSaved] = useState<number | null>(null);
@@ -101,7 +104,10 @@ export function Compose({ draft, accounts, onClose, onSent }: { draft: ComposeDr
   const acct = accounts.find((a) => a.id === from?.account);
   const ident = acct?.identities.find((i) => i.email === from?.email);
   const reply = !!(draft.inReplyTo || draft.forwardOf);
-  const signature = signatureFor(ident, { reply, onReplies: acct?.signatureOnReplies, removed: noSig });
+  const sigs = signaturesOf(ident);
+  const autoSig = pickSignature(ident, draft.forwardOf ? 'forward' : reply ? 'reply' : 'new', acct?.signatureOnReplies !== false);
+  const signature = noSig || sigChoice === '' ? undefined : sigChoice ? sigs.find((x) => x.id === sigChoice) ?? autoSig : autoSig;
+  const editorStyle = useMemo(() => Object.fromEntries(styleCss(acct?.compose).split(';').filter(Boolean).map((d) => { const [k, ...v] = d.split(':'); return [k.replace(/-([a-z])/g, (_m, c: string) => c.toUpperCase()), v.join(':')]; })), [acct?.compose]);
 
   useEffect(() => { void api.pim.prefs().then(setPrefs); }, []);
   // The editor's content is set once (and after AI or a template); typing updates the state, not the other way round.
@@ -109,12 +115,12 @@ export function Compose({ draft, accounts, onClose, onSent }: { draft: ComposeDr
   useEffect(() => { if (draft.to.length) editor.current?.focus(); }, [draft.to.length]);
   const readEditor = () => editor.current?.innerHTML ?? html;
 
-  const build = (): Draft & { account: string; html?: string; key: string; noSignature?: boolean } => {
+  const build = (): Draft & { account: string; html?: string; key: string; noSignature?: boolean; signatureId?: string } => {
     const h = readEditor();
     const text = htmlToText(h);
     // Markdown typed as text (**bold**, - lists, [links](…)) still becomes formatting.
     const md = !formatted(h) && markdownish(text);
-    return { account: from.account, from: from.email, to, cc, bcc, subject, body: text, html: md ? undefined : h, quoted: quoted || undefined, inReplyTo: draft.inReplyTo, references: draft.references, attachments: files.map((p) => ({ path: p })), forwardOf: draft.forwardOf, key, noSignature: noSig || undefined };
+    return { account: from.account, from: from.email, to, cc, bcc, subject, body: text, html: md ? undefined : h, quoted: quoted || undefined, inReplyTo: draft.inReplyTo, references: draft.references, attachments: files.map((p) => ({ path: p })), forwardOf: draft.forwardOf, key, noSignature: noSig || undefined, signatureId: noSig ? '' : sigChoice };
   };
 
   // Kept with the window at once (a crash never loses what was typed), and in the server's Drafts after a pause.
@@ -129,7 +135,7 @@ export function Compose({ draft, accounts, onClose, onSent }: { draft: ComposeDr
     }, 4000);
     return () => clearTimeout(h);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [from, to, cc, bcc, subject, edits, quoted, files, noSig]);
+  }, [from, to, cc, bcc, subject, edits, quoted, files, noSig, sigChoice]);
 
   // AI writing streams into the message.
   const streamReq = useRef<string | null>(null);
@@ -261,7 +267,7 @@ export function Compose({ draft, accounts, onClose, onSent }: { draft: ComposeDr
           <button className="btn sm ghost" title="Clear formatting" aria-label="Clear formatting" onMouseDown={(e) => { e.preventDefault(); exec('removeFormat'); }}><Icon name="close" size={12} /></button>
         </div>
         <div className="compose-body">
-          <div ref={editor} className="compose-editor" contentEditable suppressContentEditableWarning role="textbox" aria-multiline aria-label="Message" data-testid="compose-editor"
+          <div ref={editor} className="compose-editor" style={editorStyle} contentEditable suppressContentEditableWarning role="textbox" aria-multiline aria-label="Message" data-testid="compose-editor"
             data-placeholder={`Write your message. ${mac ? '⌘' : 'Ctrl+'}J for AI help.`} onInput={() => setEdits((x) => x + 1)}
             onPaste={(e) => {
               // Pasted pages bring their own styles: keep the text, or simple formatting.
@@ -270,8 +276,18 @@ export function Compose({ draft, accounts, onClose, onSent }: { draft: ComposeDr
               e.preventDefault();
               document.execCommand('insertHTML', false, textToEditorHtml(htmlToText(h)));
             }} />
-          {signature ? <div className="compose-signature small muted" title="Your signature for this address (Settings → Mail & Calendar)" data-testid="compose-signature">-- <br />{signature} <button className="link-like small" onClick={() => setNoSig(true)}>Remove from this message</button></div>
-            : ident?.signature && noSig ? <button className="link-like small" style={{ margin: '0 14px 8px' }} onClick={() => setNoSig(false)}>Add the signature back</button> : null}
+          {signature ? <div className="compose-signature small" title="Your signature for this address (Settings → Mail & Calendar)" data-testid="compose-signature"><span className="muted">-- </span><div dangerouslySetInnerHTML={{ __html: sanitizeSignature(signature.html) }} /></div> : null}
+          {sigs.length ? (
+            <div className="compose-sig-pick small muted">
+              <label className="row" style={{ gap: 6 }}>Signature
+                <select className="input xs" aria-label="Signature" data-testid="compose-sig-pick" value={noSig ? '' : sigChoice ?? 'auto'} onChange={(e) => { setNoSig(false); setSigChoice(e.target.value === 'auto' ? undefined : e.target.value); }}>
+                  <option value="auto">{autoSig ? `${autoSig.name} (usual)` : 'None (usual)'}</option>
+                  <option value="">None</option>
+                  {sigs.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
+                </select>
+              </label>
+            </div>
+          ) : null}
           {quoted ? (
             <div className="compose-quote">
               <button className="link-like small" onClick={() => setShowQuote(!showQuote)}>{showQuote ? 'Hide' : 'Show'} quoted text</button>

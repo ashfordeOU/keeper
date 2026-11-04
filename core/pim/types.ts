@@ -18,6 +18,12 @@ export interface Identity {
   signature?: string;
   /** where answers to mail sent from this address go (an alias's own Reply-To) */
   replyTo?: string;
+  /** rich signatures for this address (core/pim/signatures.ts); `signature` is the older plain one */
+  signatures?: import('./signatures').Signature[];
+  /** which signature goes under new mail, replies and forwards ('' = none) */
+  signatureDefaults?: import('./signatures').SignatureDefaults;
+  /** an alias that must go out through its own server (its password is in the keychain) */
+  smtp?: ServerSettings;
 }
 
 export interface Account {
@@ -54,6 +60,8 @@ export interface Account {
   signatureOnReplies?: boolean;
   /** new mail from this account drops down from the Island (on unless false) */
   notch?: boolean;
+  /** how this account writes: font, size, colour, rich or plain, quote, Reply All, forwards */
+  compose?: import('./signatures').ComposeStyle;
 }
 
 export type SpecialUse = 'inbox' | 'sent' | 'drafts' | 'trash' | 'junk' | 'archive' | 'all' | 'flagged';

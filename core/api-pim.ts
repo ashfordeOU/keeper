@@ -230,7 +230,7 @@ export interface PimApi {
   /** the reply or forward, filled in */
   draftFor(id: string, mode: 'reply' | 'replyAll' | 'forward'): Promise<Draft>;
   /** html: the rich editor's text (else body is Markdown); noSignature: taken off this message; key: its mirrored draft goes; remindAt: remind me if no reply by then */
-  send(d: Draft & { account: string; sendAt?: number; markdown?: boolean; html?: string; noSignature?: boolean; key?: string; remindAt?: number; }): Promise<Outbox>;
+  send(d: Draft & { account: string; sendAt?: number; markdown?: boolean; html?: string; noSignature?: boolean; key?: string; remindAt?: number; /** a signature picked in the window ('' = none) */ signatureId?: string }): Promise<Outbox>;
   undoSend(id: string): Promise<Draft | null>;
   outbox(): Promise<Outbox[]>;
   /** saves to the account's Drafts folder; with a key, the previous copy saved with that key is replaced */
@@ -243,6 +243,10 @@ export interface PimApi {
   rules(): Promise<MailRule[]>;
   saveRules(r: MailRule[]): Promise<void>;
   pickFiles(): Promise<string[]>;
+  /** signatures you already have: the Google account's own (Gmail settings) and other mail apps' on this computer, cleaned */
+  signatureSources(account: string): Promise<{ source: string; name: string; html: string; email?: string }[]>;
+  /** the password of an alias's own outgoing server (kept in the keychain; '' forgets it) */
+  setAliasPassword(account: string, email: string, password: string): Promise<void>;
 
   calendars(): Promise<CalendarInfo[]>;
   setCalendar(id: string, patch: Partial<Pick<CalendarInfo, 'visible' | 'color' | 'name' | 'island'>>): Promise<void>;

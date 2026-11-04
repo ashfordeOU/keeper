@@ -55,6 +55,16 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - Search by meaning now also understands your mail, calendar events, tasks, contacts and notes outside your library, on this computer, in the same quiet background batches as your files. One search ranks every kind together.
 - It follows the graph's choices: leave mail or an account out and it leaves the search too.
 
+### Added — Mail: signatures and how each account writes
+- Rich signatures with your logo, links, fonts and colours, written in place. Several per address, with your choice for new mail, replies and forwards, and a picker in the compose window.
+- Bring in the signature you already have from Gmail, Apple Mail, Outlook on Windows or Thunderbird.
+- Logos go out attached to the message, so they show without "load pictures"; signatures are cleaned of anything unsafe.
+- Per account: font, size and colour, rich or plain text, your answer above or below the quote, Reply answering everyone, and forwards keeping their attachments.
+- An alias can send through its own outgoing server, with its password in your keychain.
+
+### Changed — Mail: safer connections
+- Mail only connects without encryption to a server on this computer. A server with a certificate problem is refused with a plain explanation of what is wrong instead of a cryptic error; the "self-signed" box stays off unless you tick it.
+
 ### Added — Mail, Calendar, Reminders and Contacts: import and export
 - One Import in Mail, Calendar, Reminders and Settings → Mail & Calendar, the same four steps everywhere: choose where from, read the short steps, watch it come in (with Stop), then a one-line summary with Undo.
 - Mail from .mbox files (also a web mail's whole download, sorted into Inbox, Sent and your labels), .eml files and folders, Apple Mail on a Mac, Thunderbird profiles (found by themselves) and Outlook for Mac archives (.olm), with folders, read and flagged marks and attachments. It lands in a new "On this computer" account you can search, read, file and reply from.

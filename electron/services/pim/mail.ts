@@ -13,6 +13,7 @@ const mailer = async () => (await import('nodemailer')).default;
 const mailComposer = async () => (await import('nodemailer/lib/mail-composer')).default;
 import { parseUnsubscribe, snippetOf } from '../../../core/pim/mail';
 import { keepsKeywords, snoozeOfFlags } from '../../../core/pim/snooze-sync';
+import { assertSecure, explainTls } from '../../../core/pim/security';
 import type { Account, Address, Attachment, MailFolder, MessageBody, MessageSummary, ServerSettings, SpecialUse } from '../../../core/pim/types';
 import { files, readJson, writeJson, type FolderCache } from './store';
 
@@ -25,6 +26,7 @@ const KEEP = 2000;
 const FIRST = 300;
 
 function imapOptions(s: ServerSettings, auth: Auth, insecure?: boolean) {
+  assertSecure(s, 'Incoming mail');
   return {
     host: s.host,
     port: s.port,
@@ -122,7 +124,7 @@ export class MailAccount implements MailBox {
     if (this.ops?.usable) return this.ops;
     const c = new (await imapFlow())(imapOptions(this.account.imap!, await this.auth(), this.account.insecureTls));
     c.on('error', () => undefined);
-    await c.connect();
+    await c.connect().catch((e) => { throw explainTls(e, this.account.imap!.host); });
     this.ops = c;
     return c;
   }
@@ -150,7 +152,7 @@ export class MailAccount implements MailBox {
   async test(): Promise<void> {
     const c = new (await imapFlow())(imapOptions(this.account.imap!, await this.auth(), this.account.insecureTls));
     c.on('error', () => undefined);
-    await c.connect();
+    await c.connect().catch((e) => { throw explainTls(e, this.account.imap!.host); });
     await c.logout().catch(() => c.close());
   }
 
@@ -583,6 +585,7 @@ export async function compose(o: Outgoing): Promise<{ raw: Buffer; envelope: { f
 
 export async function smtpSend(account: Account, auth: Auth, raw: Buffer | string, envelope: { from: string; to: string[] }) {
   const s = account.smtp!;
+  assertSecure(s, 'Sending');
   const t = (await mailer()).createTransport({
     host: s.host, port: s.port, secure: s.security === 'tls', requireTLS: s.security === 'starttls', ignoreTLS: s.security === 'none',
     auth: 'pass' in auth ? { user: auth.user, pass: auth.pass } : { type: 'OAuth2', user: auth.user, accessToken: auth.accessToken },
@@ -590,7 +593,7 @@ export async function smtpSend(account: Account, auth: Auth, raw: Buffer | strin
     connectionTimeout: 20_000,
   });
   try {
-    await t.sendMail({ envelope, raw });
+    await t.sendMail({ envelope, raw }).catch((e) => { throw explainTls(e, s.host); });
   } finally {
     t.close();
   }
@@ -598,13 +601,14 @@ export async function smtpSend(account: Account, auth: Auth, raw: Buffer | strin
 
 export async function smtpVerify(account: Account, auth: Auth) {
   const s = account.smtp!;
+  assertSecure(s, 'Sending');
   const t = (await mailer()).createTransport({
     host: s.host, port: s.port, secure: s.security === 'tls', requireTLS: s.security === 'starttls', ignoreTLS: s.security === 'none',
     auth: 'pass' in auth ? { user: auth.user, pass: auth.pass } : { type: 'OAuth2', user: auth.user, accessToken: auth.accessToken },
     tls: account.insecureTls ? { rejectUnauthorized: false } : undefined, connectionTimeout: 15_000,
   });
   try {
-    await t.verify();
+    await t.verify().catch((e) => { throw explainTls(e, s.host); });
   } finally {
     t.close();
   }

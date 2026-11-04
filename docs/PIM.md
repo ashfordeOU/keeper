@@ -196,6 +196,38 @@ JMAP is not used yet; Fastmail works through IMAP and CalDAV with an app passwor
   message, which opens in Keeper's compose window and goes only when you press
   Send.
 
+### Mail: signatures and how each account writes
+
+- **Rich signatures** (`core/pim/signatures.ts`, editor in
+  `src/pim/SignatureEditor.tsx`): Settings → Mail & Calendar → an account →
+  *Send-from addresses and signatures*. Each address can have several
+  signatures, written in place with bold, italic, underline, fonts, sizes,
+  colours, links (web, mail, phone) and pictures or logos (made smaller and
+  kept inside the signature). Each address chooses which one goes under **new
+  mail, replies and forwards** (or none); the compose window has a
+  *Signature* picker for one message.
+- **Bring in a signature**: from the Google account's own settings (Gmail
+  API `settings.sendAs`, with the `gmail.settings.basic` sign-in it already
+  has), Apple Mail's signature files on a Mac, Outlook's saved signatures on
+  Windows (`%APPDATA%\Microsoft\Signatures`) and Thunderbird's identities on
+  every system (inline or from a file). Outlook for Mac keeps its signatures
+  in a database Keeper doesn't read.
+- **Cleaned** when saved and again as the message goes: formatting, tables,
+  links and pictures stay; scripts, event handlers, forms, frames, SVG,
+  `url()` in styles and other addresses go. Pictures inside a signature go
+  out as attached pictures the HTML points to (`cid:`), the same picture once,
+  so mail apps show them without asking; `https` pictures are kept as they
+  are.
+- **Writing, per account** (*Writing: font, quote and replies*): font, size
+  and colour of what you write (the compose window shows them), rich or plain
+  text (plain sends no HTML at all), your answer above or below the quote,
+  **Reply answers everyone**, **forwards keep attachments** (on unless
+  switched off) and signatures on replies.
+- **An alias with its own server**: under the alias, *Its own outgoing
+  server* (address, port, SSL/TLS or STARTTLS, user name); its password is
+  kept in the keychain (`pass.<account>.smtp.<address>`), and mail from that
+  address goes out through it.
+
 ### Mail: the Today layout
 
 - **Greeting**: the inbox opens with "Good morning", "Good afternoon" or "Good
@@ -426,7 +458,17 @@ due dates ("Call the bank tomorrow 10am" sets the time), priorities, notes,
 - **Passwords and sign-in tokens go to the system keychain** (Keychain, Windows
   Credential Manager via DPAPI, Secret Service/KWallet). On a Linux desktop
   without a keychain they are kept only until Keeper quits — never written in
-  plain text — and Keeper asks again next time.
+  plain text — and Keeper asks again next time. Sign-ins used once (Google
+  Tasks, Microsoft To Do, a Todoist token) are not kept at all.
+- **Encryption is required** (`core/pim/security.ts`): mail connects with
+  SSL/TLS or STARTTLS; *None* is accepted only for a server on this computer
+  (a local bridge). A server whose certificate is self-signed, expired, for
+  another name or not trusted is **refused with a plain explanation**, never
+  skipped; *Accept a self-signed certificate* exists for home servers and is
+  off unless ticked.
+- Tests look through every file Keeper wrote (and its log lines) after
+  signing in with a password or with Google, for the password and tokens
+  (`test/pim-security.test.ts`, `test/e2e/pim-compose.cjs`).
 - Keeper sends nothing anywhere else. AI help is used only when you press it.
 
 ## Google and Microsoft sign-in: client IDs

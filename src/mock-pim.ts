@@ -377,6 +377,8 @@ export function mockPim(emit: Emit): { pim: PimApi } {
     aiCompose: async (r) => { await new Promise((x) => setTimeout(x, 500)); return r.instruction ? `Hi,\n\n${r.instruction.replace(/^write\s+/i, '')}.\n\nBest,\nAlex` : r.draft; },
     stageCompose: async () => undefined,
     stagedCompose: async () => null,
+    signatureSources: async () => [{ source: 'Gmail', name: 'alex.rivera@gmail.com', html: '<b>Alex Rivera</b><br><span style="color:#5b5bf0">Studio North</span>', email: 'alex.rivera@gmail.com' }],
+    setAliasPassword: async () => undefined,
     dropDraft: async () => undefined,
     importSources: async (area) => sourcesFor(area, 'darwin'),
     foundSources: async () => [{ source: 'thunderbird', ref: '/Users/demo/Library/Thunderbird/Profiles/abc.default', label: 'default', detail: 'Default profile' }, { source: 'apple-mail', ref: '/Users/demo/Library/Mail/V10', label: 'Apple Mail', detail: 'Mail’s folder (V10)' }],

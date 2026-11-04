@@ -35,6 +35,7 @@ import { featureOn, onFeature } from '../features';
 import { poll, pollNow } from '../governor';
 import { cidMap, compose, MailAccount, smtpSend, smtpVerify, toBody, type Auth, type MailBox } from './mail';
 import { LocalMailbox } from './local-mail';
+import { gmailSendAs, localSignatures } from './signature-import';
 import { cancelImport, exportContacts, exportMail, exportTasks, foundSources, importHistory, runImport, undoImport, type ImportHost } from './importer';
 import { sourcesFor } from '../../../core/pim/import-flow';
 import { inboxOnly, mergeFolders, resolveSources } from '../../../core/pim/unified';
@@ -50,7 +51,8 @@ import { labelCounts } from '../../../core/pim/mail-today';
 import { linksIn, phishingWarnings } from '../../../core/pim/phishing';
 import { adoptRemote, mergeEntries, noteBody, NOTE_SUBJECT, readNote, SNOOZE_FOLDER, snoozeKeyword } from '../../../core/pim/snooze-sync';
 import { cleanMemory, draftPrompt, rememberIn, rewritePrompt } from '../../../core/pim/mail-ai';
-import { assemble, replyIdentity, replyToOf, signatureFor } from '../../../core/pim/compose-rich';
+import { cleanEditorHtml, htmlToText, replyIdentity, replyToOf, textToEditorHtml } from '../../../core/pim/compose-rich';
+import { assembleStyled, inlineImages, pickSignature, replyMode, sanitizeSignature, signaturesOf } from '../../../core/pim/signatures';
 import { asksForReceipt } from '../../../core/pim/privacy';
 
 /** A mail alert's extras: Copy for a sign-in code, Open for a magic link, Undo for a message about to go. */
@@ -196,6 +198,8 @@ function changed(kind: 'accounts' | 'mail' | 'calendar' | 'reminders' | 'alarms'
 // ---------------------------------------------------------------- accounts and auth
 
 const secretName = (id: string) => `pass.${id}`;
+/** an alias's own outgoing server password */
+const aliasSecret = (id: string, email: string) => `pass.${id}.smtp.${email.toLowerCase()}`;
 
 async function mailAuth(a: Account): Promise<Auth> {
   const user = a.imap?.user ?? a.email ?? '';
@@ -714,24 +718,43 @@ function identityOf(a: Account, from?: string): Address {
   return i ? { name: i.name, address: i.email } : { address: a.email ?? '' };
 }
 
-type Sendable = Draft & { account: string; sendAt?: number; markdown?: boolean; html?: string; noSignature?: boolean; key?: string; remindAt?: number };
+type Sendable = Draft & { account: string; sendAt?: number; markdown?: boolean; html?: string; noSignature?: boolean; key?: string; remindAt?: number; signatureId?: string };
 
-/** The message as it will go: the rich text or Markdown, the signature (or not), the alias's Reply-To. */
+/** new mail, a reply or a forward (for the signature chosen for each) */
+const kindOf = (d: Sendable): 'new' | 'reply' | 'forward' => (d.forwardOf || /^fwd?:/i.test(d.subject) ? 'forward' : d.inReplyTo || /^re:/i.test(d.subject) ? 'reply' : 'new');
+
+/**
+ * The message as it will go: the rich text (in the account's font, size and
+ * colour) or Markdown, the signature picked for this kind of message (or the
+ * one chosen in the window, or none), the quote above or below, plain text
+ * only when the account writes plain, and pictures inside as attached
+ * pictures (cid:), with the alias's Reply-To.
+ */
 async function build(d: Sendable, a: Account) {
   const from = identityOf(a, d.from);
   const ident = a.identities.find((x) => x.email === from.address);
-  const reply = !!(d.inReplyTo || d.forwardOf || /^(re|fwd?):/i.test(d.subject));
-  const sig = signatureFor(ident, { reply, onReplies: a.signatureOnReplies, removed: d.noSignature });
-  let text: string;
-  let html: string | undefined;
-  if (d.html !== undefined) ({ text, html } = assemble({ html: d.html, text: d.body, signature: sig, quoted: d.quoted }));
-  else {
-    text = [d.body, sig ? `-- \n${sig}` : '', d.quoted ?? ''].filter(Boolean).join('\n\n');
+  const list = signaturesOf(ident);
+  const picked = d.noSignature || d.signatureId === '' ? undefined : d.signatureId ? list.find((x) => x.id === d.signatureId) : pickSignature(ident, kindOf(d), a.signatureOnReplies !== false);
+  // Cleaned again as it goes, whatever wrote it.
+  const sig = picked ? { ...picked, html: sanitizeSignature(picked.html) } : undefined;
+  const style = a.compose;
+  let bodyHtml: string;
+  if (d.html !== undefined) bodyHtml = cleanEditorHtml(d.html);
+  else if (d.markdown !== false && style?.format !== 'plain') {
     const { marked } = await import('marked');
-    html = d.markdown !== false ? (marked.parse(text, { async: false, gfm: true, breaks: true }) as string) : undefined;
+    bodyHtml = marked.parse(d.body, { async: false, gfm: true, breaks: true }) as string;
+  } else bodyHtml = textToEditorHtml(d.body);
+  const bodyText = d.html !== undefined ? htmlToText(d.html) : d.body;
+  const out = assembleStyled({ html: bodyHtml, text: bodyText, signature: sig, quotedText: d.quoted, style });
+  let html = out.html;
+  const inline: { filename: string; content: string; encoding: 'base64'; contentType: string; cid: string }[] = [];
+  if (html) {
+    const r = inlineImages(html, randomUUID().slice(0, 8));
+    html = r.html;
+    for (const p of r.parts) inline.push({ filename: p.filename, content: p.content, encoding: 'base64', contentType: p.contentType, cid: p.cid });
   }
-  const atts = (d.attachments ?? []).map((x) => ({ filename: x.name ?? path.basename(x.path), path: x.path }));
-  return { from, text, html, atts, replyTo: replyToOf(ident) };
+  const atts = [...(d.attachments ?? []).map((x) => ({ filename: x.name ?? path.basename(x.path), path: x.path })), ...inline];
+  return { from, text: out.text, html, atts, replyTo: replyToOf(ident) };
 }
 
 async function queue(d: Sendable): Promise<Outbox> {
@@ -815,7 +838,13 @@ async function flushOutbox() {
     }
     try {
       const raw = Buffer.from(q.raw, 'base64');
-      await smtpSend(a, await mailAuth(a), raw, q.envelope);
+      // An alias with a server of its own goes out through it.
+      const own = a.identities.find((x) => x.smtp && x.email.toLowerCase() === q.envelope.from.toLowerCase());
+      if (own?.smtp) {
+        const pass = await readSecret(aliasSecret(a.id, own.email));
+        if (pass === undefined) throw new Error(`Enter the password for ${own.email}’s outgoing server again (Settings → Mail & Calendar)`);
+        await smtpSend({ ...a, smtp: own.smtp }, { user: own.smtp.user ?? own.email, pass }, raw, q.envelope);
+      } else await smtpSend(a, await mailAuth(a), raw, q.envelope);
       state.outbox = state.outbox.filter((x) => x !== q);
       // Gmail files sent mail by itself; other servers need a copy in Sent.
       if (a.oauth !== 'google') {
@@ -2220,8 +2249,20 @@ export const pim: PimApi = {
     const me = a?.identities.map((x) => x.email) ?? [];
     const replyToH = o.headers['reply-to'];
     const { parseAddressList } = await import('../../../core/pim/mail');
-    const d = makeReply({ original: { ...o.summary, text: o.text }, me, mode, replyTo: replyToH ? parseAddressList(replyToH) : undefined });
-    if (mode === 'forward') d.attachments = [];
+    const d = makeReply({ original: { ...o.summary, text: o.text }, me, mode: replyMode(a, mode as 'reply' | 'replyAll') === 'replyAll' && mode !== 'forward' ? 'replyAll' : mode, replyTo: replyToH ? parseAddressList(replyToH) : undefined });
+    d.attachments = [];
+    // A forward takes the original's attachments along, unless the account says not to.
+    if (mode === 'forward' && a?.compose?.forwardAttachments !== false) {
+      const dir = path.join(path.dirname(files.state()), 'forward', hash(id));
+      for (const att of o.attachments.filter((x) => !x.inline || !x.cid)) {
+        const got = await rawAttachment(id, att.id).catch(() => null);
+        if (!got) continue;
+        await fsp.mkdir(dir, { recursive: true });
+        const p = path.join(dir, got.filename.replace(/[\\/:*?"<>|]+/g, '_') || `attachment-${att.id}`);
+        await fsp.writeFile(p, got.content);
+        d.attachments.push({ path: p, name: got.filename });
+      }
+    }
     // A reply goes from the alias the mail was written to.
     if (a) d.from = replyIdentity(a, o.summary)?.email ?? d.from;
     return d;
@@ -2290,6 +2331,23 @@ export const pim: PimApi = {
   async pickFiles() {
     const r = await openDialog({ properties: ['openFile', 'multiSelections'] }, { canceled: true, filePaths: [] });
     return r.canceled ? [] : r.filePaths;
+  },
+  async signatureSources(account) {
+    await load();
+    const a = acct(account);
+    const out: { source: string; name: string; html: string; email?: string }[] = [];
+    // Gmail: the account's own send-from settings, with the sign-in it already has.
+    if (a?.oauth === 'google') {
+      const token = (await mailAuth(a) as { accessToken: string }).accessToken;
+      for (const s of await gmailSendAs(token)) if (s.signature) out.push({ source: 'Gmail', name: s.email, html: s.signature.html, email: s.email });
+    }
+    out.push(...(await localSignatures().catch(() => [])));
+    return out;
+  },
+  async setAliasPassword(account, email, password) {
+    await load();
+    if (password) await putSecret(aliasSecret(account, email), password);
+    else await dropSecret(aliasSecret(account, email));
   },
 
   async calendars() {

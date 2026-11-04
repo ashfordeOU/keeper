@@ -19,6 +19,7 @@ import { useStore } from '../state';
 import { AccountDialog } from './AccountDialog';
 import { CalendarSources } from './CalendarSources';
 import { AccountLook, IdentitiesEditor } from './mail-settings';
+import { AccountWriting } from './SignatureEditor';
 import { usePimChanges } from './Mail';
 
 const KIND: Record<string, string> = { imap: 'Mail (IMAP)', google: 'Google', microsoft: 'Microsoft 365', caldav: 'CalDAV', ics: 'Calendar link' };
@@ -41,6 +42,10 @@ function AccountMailRow({ a }: { a: Account }) {
         Share with coding assistants (MCP): search, read and draft only
       </label>
       <AccountLook a={a} />
+      <details className="identities-details">
+        <summary className="small">Writing: font, quote and replies</summary>
+        <AccountWriting a={a} />
+      </details>
       <details className="identities-details">
         <summary className="small">Send-from addresses and signatures{a.identities.length > 1 ? ` (${a.identities.length})` : ''}</summary>
         <IdentitiesEditor a={a} />

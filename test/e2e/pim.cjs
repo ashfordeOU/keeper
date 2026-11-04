@@ -70,8 +70,8 @@ const MSG = (subject, extra = '') => [
   // ---------------------------------------------------------------- mail
   await main.click('.sidebar [title="Mail"]');
   await main.waitForTimeout(600);
-  check(await main.getByText('Add a mail account').count() > 0, 'Mail shows "Add a mail account" with no accounts');
-  await main.locator('.pim-empty button', { hasText: 'Add account' }).click();
+  check(await main.locator('[data-testid="mail-welcome"]').count() > 0, 'Mail opens on its first screen with no accounts');
+  await main.click('[data-testid="provider-imap"]');
   await main.fill('input[placeholder="you@example.com"]', 'ana@example.org');
   await main.locator('.modal button', { hasText: 'Continue' }).click();
   await main.waitForSelector('text=Change servers', { timeout: 40_000 });

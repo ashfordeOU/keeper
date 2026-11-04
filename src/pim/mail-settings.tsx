@@ -15,6 +15,8 @@ import { api } from '../api';
 import { Icon } from '../components/Icon';
 import { Modal, Toggle } from '../components/ui';
 import { useStore } from '../state';
+import { sanitizeSignature } from '../../core/pim/signatures';
+import { AddressSignatures, AliasServer } from './SignatureEditor';
 
 const FIELDS: { id: RuleField | 'attachment'; label: string }[] = [
   { id: 'from', label: 'Sender' }, { id: 'to', label: 'Recipients' }, { id: 'subject', label: 'Subject' }, { id: 'body', label: 'Text' },
@@ -118,7 +120,7 @@ export function IdentitiesEditor({ a }: { a: Account }) {
   const [dirty, setDirty] = useState(false);
   const set = (i: number, p: Partial<Identity>) => { setList(list.map((x, j) => (j === i ? { ...x, ...p } : x))); setDirty(true); };
   const save = async () => {
-    const clean = list.filter((x) => x.email.trim()).map((x) => ({ ...x, email: x.email.trim(), signature: x.signature?.trim() || undefined, replyTo: x.replyTo?.trim() || undefined }));
+    const clean = list.filter((x) => x.email.trim()).map((x) => ({ ...x, email: x.email.trim(), signature: x.signatures?.length ? undefined : x.signature?.trim() || undefined, signatures: x.signatures?.map((sg) => ({ ...sg, html: sanitizeSignature(sg.html) })), replyTo: x.replyTo?.trim() || undefined, smtp: x.smtp?.host ? x.smtp : undefined }));
     await api.pim.updateAccount(a.id, { identities: clean });
     setDirty(false);
     toast('Saved');
@@ -133,12 +135,12 @@ export function IdentitiesEditor({ a }: { a: Account }) {
             <input className="input" style={{ width: 200 }} placeholder="Reply-To (optional)" aria-label="Reply-To" value={x.replyTo ?? ''} onChange={(e) => set(i, { replyTo: e.target.value })} />
             {i > 0 ? <button className="btn sm ghost icon" aria-label="Remove address" onClick={() => { setList(list.filter((_, j) => j !== i)); setDirty(true); }}><Icon name="close" size={11} /></button> : <span className="small muted">main address</span>}
           </div>
-          <textarea className="input" rows={2} placeholder="Signature for this address" aria-label="Signature" value={x.signature ?? ''} onChange={(e) => set(i, { signature: e.target.value })} />
+          <AddressSignatures account={a} ident={x} onChange={(p) => set(i, p)} />
+          {i > 0 ? <AliasServer account={a} ident={x} onChange={(p) => set(i, p)} /> : null}
         </div>
       ))}
       <div className="row" style={{ gap: 8 }}>
         <button className="btn sm ghost" onClick={() => { setList([...list, { name: list[0]?.name ?? '', email: '' }]); setDirty(true); }}><Icon name="plus" size={12} /> Add a send-from address</button>
-        <label className="row small" style={{ gap: 6 }}><Toggle on={a.signatureOnReplies !== false} onChange={(v) => void api.pim.updateAccount(a.id, { signatureOnReplies: v })} /> Signature on replies and forwards</label>
         {dirty ? <button className="btn sm primary" data-testid="mail-identities-save" onClick={() => void save()}>Save addresses</button> : null}
       </div>
       <div className="small muted">Your provider must allow sending as an alias (Gmail: “Send mail as”; Fastmail and iCloud: aliases). Replies go out from the address the mail was written to.</div>
