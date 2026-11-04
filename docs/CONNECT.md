@@ -33,6 +33,24 @@ The release build downloads rclone for each platform with `scripts/fetch-rclone.
 - *Keep Offline* copies a folder into `~/Keeper Offline/<connection>/…` and refreshes it when the computer is idle. Files are added and updated, never deleted locally.
 - *Include in library search* lists a connection's names, sizes and dates (up to 100,000 items, gently paced) so library search finds them. It is off by default.
 
+## Connections as drives
+
+*Open as a Drive* (on a connection's status line) shows a cloud service or a WebDAV server in Finder, File Explorer or the file manager like a disk, so every app can open and save its files there. It is its own part (Settings → Features → Files, "Connections as drives"), off until you turn it on, and costs nothing while no drive is open.
+
+- **How**: the rclone program Keeper already ships for cloud services serves the drive through its remote control (`mount/mount`), with rclone's file cache: opened files are kept on this computer (up to 5 GB, Settings → Files & search → Connections as drives; or only changes, until they are sent), and changes go out a few seconds after a file is closed. A WebDAV drive's remote is made on the spot with the password scrambled by rclone, in memory only, never written to a file.
+- **Where it shows**: a folder in *Keeper Drives* in your home folder on a Mac and on Linux, named after the connection (it also appears among the Mac's locations); the next free drive letter from Z: down on Windows. Close Drive lets it go (rclone first sends what waits) and removes the empty folder. Drives close when Keeper quits and open again when it starts (Open drives again at start).
+- **How it is doing**: the status line says *Up to date*, *Sending 3 changes*, *Can’t reach it · 2 changes wait* or that the disk is full, read from rclone every 10 seconds while a drive is open (less often while nobody is at the computer). While changes go out, the Island shows a *Cloud drive* ring.
+- **What each computer needs** (Keeper never installs any of it; when something is missing, one click says what and how to get it):
+
+| | Needs | What Keeper does |
+|---|---|---|
+| macOS | Nothing when rclone can use the Mac's built-in network file sharing (NFS); otherwise macFUSE | Asks rclone what it can mount with. macOS 15.4 added its own file-system kit; Keeper does not use it yet. macFUSE on Apple silicon needs its system extension allowed (it may need Recovery). |
+| Windows | WinFsp (free) | Looks for it in Program Files; a drive letter from Z: down. |
+| Linux | FUSE 3 (`/dev/fuse` and `fusermount3`) | Explains how to install the `fuse3` package. Not offered inside Flatpak or Snap. |
+
+- **Which connections**: cloud services and WebDAV servers. Not SFTP (Keeper checks an SFTP server's key itself, and a drive could not), not FTP, not WebDAV with a self-signed certificate (a drive cannot check it); shared folders (SMB) are already drives made by the system. Each says so when you try.
+- **Tested**: the rules above in `test/drive.test.ts`; on Linux the real app with a stand-in rclone (`test/e2e/drives.cjs`, `test/fixtures/fake-rclone.cjs`): what it asks rclone for, the states on the page, Close Drive, and the SFTP explanation. **Not yet tested**: a real `rclone mount` on any system (the build machine has no rclone), Finder's NFS mount, macFUSE, WinFsp drive letters, and rclone's own cache under load.
+
 ## Home servers, NAS boxes and other computers
 
 *On this network* (in the Add a connection dialog, or *Save a Connection…* on the Network page) listens for mDNS announcements for SMB, AFP, SFTP/SSH, WebDAV, NFS, FTP and HTTP, plus the device-information records Macs publish. Keeper recognises home-server systems (umbrelOS, CasaOS/ZimaOS, StartOS, YunoHost, Home Assistant, Runtipi, Nextcloud boxes, Raspberry Pi), NAS boxes (Synology, QNAP, TrueNAS, Unraid, openmediavault, WD My Cloud, ASUSTOR, TerraMaster, ReadyNAS, UGREEN, Time Capsule), Macs, Windows PCs and Linux machines, and suggests the best way in.
@@ -49,4 +67,4 @@ For SMB, Keeper lists a machine's shared folders with the system's own tools (`s
 - **Cloud services end to end.** The rclone program could not be downloaded and run in the build environment, so signing in, listing and transfers through rclone, and the settings-file encryption step, have only been tested against a stand-in. Each OAuth provider also needs a real account to try.
 - **SMB mounting** and share listing on real Macs, Windows PCs and NAS boxes; the share parsers are tested on sample output.
 - **Discovery** of real home servers and NAS boxes (no other machines answer in the test environment).
-- **Mounting cloud storage as a drive** (`rclone mount`) is not offered yet: it needs macFUSE, WinFsp or FUSE 3 on the computer. Connections are browsed inside Keeper instead.
+- **Drives** with a real rclone on a Mac, a Windows PC and Linux (see Connections as drives above).

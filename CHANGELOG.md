@@ -52,6 +52,11 @@ All notable changes to Keeper are listed here. The format follows [Keep a Change
 - One calm row on the Fix-it List ("3 apps have security updates"), Check now, and Check App Updates in the palette.
 - Off until you switch it on (Settings → Features → Computer); then one look a day, never while the screen is locked. Keeper never keeps a copy of anyone's app.
 
+### Added — Cloud & Servers: open a connection as a drive
+- Open as a Drive shows a cloud service or a WebDAV server in Finder, File Explorer or the file manager, so every app can open and save files there. Opened files are kept on this computer, and changes go out a few seconds after you close a file.
+- The connection's page says how the drive is doing: up to date, sending changes, or can't reach it with changes waiting; the Island shows a ring while changes go out. Close Drive sends what waits first. Drives open again when Keeper starts.
+- Keeper says plainly what your computer needs and never installs it: nothing extra on most Macs, WinFsp on Windows, FUSE 3 on Linux. SFTP, FTP and shared folders say why they are not drives. Off until you turn it on (Settings → Features).
+
 ### Added — Files: Side by Side, and tabs that keep your folder
 - Side by Side shows two folders next to each other, each on this computer or on a cloud or server connection. Pick a place on either side, choose files, and Copy or Move them across (F5 and F6 work too); two folders here use the usual copy with its questions and Undo, and a move from a server only removes the original once the copy is done.
 - Differences shows only what is not the same on both sides, folders inside included: only on one side, newer on one side, or the same date with another size. Untick what to leave out, pick a direction (or both ways, newer wins), see what will happen, then Sync. Nothing is ever deleted, and a replaced file on this computer goes to the Trash first.

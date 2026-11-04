@@ -68,3 +68,10 @@
 .conn-card-title { font-weight: 600; }
 .conn-card-quota { display: flex; flex-direction: column; gap: 4px; }
 .conn-card .conn-dot { display: inline-block; vertical-align: middle; }
+
+/* A connection as a drive, on the status line (src/components/DriveControl.tsx). */
+.drive-on { display: inline-flex; align-items: center; gap: 6px; }
+.drive-state.sending { color: var(--accent); }
+.drive-state.waiting, .drive-state.full { color: var(--warn); }
+.drive-steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+.drive-why-text { margin: 0; }

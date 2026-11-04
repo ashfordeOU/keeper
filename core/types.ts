@@ -520,6 +520,8 @@ export interface Settings {
   archives: { extractTo: 'beside' | 'ask'; openAfter: boolean };
   /** Side by Side: compare inside folders too, F5/F6 copy and move (core/panes.ts) */
   panes: { deep: boolean; fKeys: boolean };
+  /** connections as drives: keep opened files, open again at start, cache size (core/remote/drive.ts) */
+  drives: { keepOpened: boolean; reopen: boolean; cacheGb: number };
   /** the PDF reader: dark pages for reading, and keeping the version before each save */
   pdfReader: { darkPages: boolean; keepPrevious: boolean };
   /** the reader: how often feeds are read, how long articles stay, full text and pictures (core/reader.ts) */

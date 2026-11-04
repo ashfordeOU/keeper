@@ -200,6 +200,7 @@ export function defaultSettings(folders: string[], rules: Rule[]): AllSettings {
     reader: defaultReaderSettings(),
     archives: { extractTo: 'beside', openAfter: true },
     panes: { deep: true, fKeys: true },
+    drives: { keepOpened: true, reopen: true, cacheGb: 5 },
     pdfReader: { darkPages: false, keepPrevious: true },
     weatherSource: 'met',
     phoneAlerts: defaultPhoneAlertSettings(),
@@ -247,6 +248,7 @@ export function mergeSettings(base: AllSettings, raw: unknown): AllSettings {
   if (!['auto', 'north', 'south'].includes(out.hemisphere ?? '')) out.hemisphere = 'auto';
   out.a11y = normalizeA11y(out.a11y);
   out.pdfReader = { darkPages: out.pdfReader?.darkPages === true, keepPrevious: out.pdfReader?.keepPrevious !== false };
+  out.drives = { keepOpened: out.drives?.keepOpened !== false, reopen: out.drives?.reopen !== false, cacheGb: Math.max(1, Math.min(500, Number(out.drives?.cacheGb) || 5)) };
   out.panes = { deep: out.panes?.deep !== false, fKeys: out.panes?.fKeys !== false };
   out.archives = { extractTo: out.archives?.extractTo === 'ask' ? 'ask' : 'beside', openAfter: out.archives?.openAfter !== false };
   out.focusBlock = normalizeFocusBlockOptions(out.focusBlock);

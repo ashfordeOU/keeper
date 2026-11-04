@@ -16,6 +16,7 @@ import { ContextMenu, Empty, ExtTile, Loading, Modal, type MenuItem } from '../c
 import { openQuickLook } from '../preview/QuickLook';
 import { useStore } from '../state';
 import { RemoteOverview } from './RemoteOverview';
+import { DriveControl } from '../components/DriveControl';
 import { useFeature } from '../features';
 import { panesRoute } from '../../core/panes';
 import '../styles/remote.css';
@@ -207,6 +208,7 @@ export function Remote() {
         {q?.total ? <span> · {formatBytes(q.free ?? q.total - (q.used ?? 0))} free of {formatBytes(q.total)}</span> : q?.used ? <span> · {formatBytes(q.used)} used</span> : null}
         {conn?.offline?.length ? <span> · {conn.offline.length} folder{conn.offline.length === 1 ? '' : 's'} kept offline</span> : null}
         <span className="grow" />
+        {conn ? <DriveControl conn={conn} /> : null}
         <span>Drop files here to upload</span>
       </div>
 

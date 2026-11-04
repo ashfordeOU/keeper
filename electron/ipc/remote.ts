@@ -6,6 +6,8 @@ import type { ConnectionInput, RemoteEntry } from '../../core/remote/types';
 import { connect } from '../services/places';
 import * as remote from '../services/remote';
 import { listShares, scanLan } from '../services/remote/lan';
+import { closeDrive, drives, initDrives, openDrive, showDrive, support as driveSupport } from '../services/remote/drives';
+import { featureOn } from '../services/features';
 
 interface Deps {
   broadcast: (channel: string, ...args: unknown[]) => void;
@@ -60,6 +62,14 @@ export async function registerRemoteIpc(d: Deps) {
   handle('remote.setOffline', (id: string, p: string, on: boolean) => remote.setOffline(id, p, on));
   handle('remote.search', (q: string) => remote.search(q));
   handle('remote.scanLan', () => scanLan());
+  // Connections as drives: off until switched on (Settings → Features).
+  const drivesOn = () => { if (!featureOn('driveMount')) throw new Error('Drives are switched off (Settings → Features)'); };
+  handle('remote.driveSupport', () => { drivesOn(); return driveSupport(); });
+  handle('remote.drives', () => (featureOn('driveMount') ? drives() : []));
+  handle('remote.openDrive', (id: string) => { drivesOn(); return openDrive(id); });
+  handle('remote.closeDrive', (id: string) => closeDrive(id));
+  handle('remote.showDrive', (id: string) => showDrive(id));
+  initDrives(d.broadcast);
   handle('remote.shares', (host: string, user?: string, password?: string) => listShares(host, user, password));
   handle('remote.mount', async (id: string) => {
     const c = remote.list().connections.find((x) => x.id === id);

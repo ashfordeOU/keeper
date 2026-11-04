@@ -4,6 +4,7 @@
 import type { DeviceGuess, LanDevice, Share } from './remote/lan';
 import type { FormField, ProviderInfo } from './remote/providers';
 import type { Connection, ConnectionInput, ConnStatus, Quota, RemoteEntry, Transfer } from './remote/types';
+import type { DriveStatus, DriveSupport } from './remote/drive';
 
 export interface FoundDevice extends LanDevice {
   guess: DeviceGuess;
@@ -50,6 +51,24 @@ export interface RemoteApi {
   shares(host: string, user?: string, password?: string): Promise<{ shares: Share[]; message?: string }>;
   /** SMB: mounts it through the system and returns the folder to browse */
   mount(id: string): Promise<{ ok: boolean; path?: string; message?: string }>;
+
+  /** connections as drives (core/remote/drive.ts): what this computer can do */
+  driveSupport(): Promise<DriveSupport>;
+  /** the connections open as drives now */
+  drives(): Promise<OpenDriveInfo[]>;
+  openDrive(id: string): Promise<OpenDriveInfo>;
+  /** waits for changes still to send */
+  closeDrive(id: string): Promise<void>;
+  /** shows the drive in Finder, File Explorer or the file manager */
+  showDrive(id: string): Promise<void>;
+}
+
+/** A connection open as a drive: where it shows and how it is doing. */
+export interface OpenDriveInfo {
+  id: string;
+  name: string;
+  place: string;
+  status: DriveStatus;
 }
 
 export type { Connection, ConnectionInput, ConnStatus, DeviceGuess, FormField, ProviderInfo, Quota, RemoteEntry, Share, Transfer };

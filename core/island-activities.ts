@@ -290,8 +290,8 @@ export function activitiesFrom(s: IslandState, now: number, x: ExtraInputs = {})
   return out.filter((a) => !kindOff(a.kind, x.off));
 }
 
-const JOB_TITLE: Record<string, string> = { convert: 'Converting', cleanup: 'Looking for things to clean', junk: 'Looking for things to clean', duplicates: 'Finding duplicates', dupes: 'Finding duplicates', space: 'Measuring folders', index: 'Reading your files', upload: 'Uploading', download: 'Downloading', lock: 'Locking a folder', unlock: 'Unlocking a folder', sync: 'Syncing', backup: 'Backing up', restore: 'Restoring', mirror: 'Mirroring', arriving: 'Arriving', workout: 'Workout running' };
-const JOB_ICON: Record<string, string> = { convert: 'refresh', cleanup: 'broom', junk: 'broom', duplicates: 'dupes', dupes: 'dupes', space: 'map', index: 'search', upload: 'arrowUp', download: 'down', lock: 'lock', unlock: 'lock', sync: 'refresh', backup: 'shield', restore: 'undo', mirror: 'cloud', arriving: 'map', workout: 'bolt' };
+const JOB_TITLE: Record<string, string> = { convert: 'Converting', cleanup: 'Looking for things to clean', junk: 'Looking for things to clean', duplicates: 'Finding duplicates', dupes: 'Finding duplicates', space: 'Measuring folders', index: 'Reading your files', upload: 'Uploading', download: 'Downloading', lock: 'Locking a folder', unlock: 'Unlocking a folder', sync: 'Syncing', backup: 'Backing up', restore: 'Restoring', mirror: 'Mirroring', drive: 'Cloud drive', arriving: 'Arriving', workout: 'Workout running' };
+const JOB_ICON: Record<string, string> = { convert: 'refresh', cleanup: 'broom', junk: 'broom', duplicates: 'dupes', dupes: 'dupes', space: 'map', index: 'search', upload: 'arrowUp', download: 'down', lock: 'lock', unlock: 'lock', sync: 'refresh', backup: 'shield', restore: 'undo', mirror: 'cloud', drive: 'cloud', arriving: 'map', workout: 'bolt' };
 
 /** Short-lived activities from what changed between two states. */
 export function transientsFrom(prev: IslandState | null, next: IslandState, now: number): Activity[] {

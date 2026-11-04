@@ -52,6 +52,7 @@ export function mockRemote(): { remote: RemoteApi } {
     { name: 'DESKTOP-7Q2LM0K', host: 'DESKTOP-7Q2LM0K', protocols: ['smb'] },
     { name: 'homelab', host: 'homelab.local', address: '192.168.0.12', protocols: ['ssh'], txt: {} },
   ] as FoundDevice[]).map((x) => ({ ...x, guess: classifyDevice(x) }));
+  const drives = new Map<string, import('../core/api-remote').OpenDriveInfo>();
   const wait = <T>(v: T, ms = 300) => new Promise<T>((r) => setTimeout(() => r(v), ms));
 
   return {
@@ -100,6 +101,16 @@ export function mockRemote(): { remote: RemoteApi } {
         : host.startsWith('DiskStation') || host === '192.168.0.252' ? { shares: [{ name: 'Media' }, { name: 'Backups' }, { name: 'usbshare1', comment: 'USB disk 1', external: true }] }
           : { shares: [{ name: 'Public' }, { name: 'Users' }] }, 600),
       mount: async (id) => ({ ok: true, path: `/Volumes/${connections.find((c) => c.id === id)?.root ?? 'Share'}` }),
+      driveSupport: async () => ({ ready: true, mountType: 'nfsmount', title: 'Ready', detail: 'Uses the Mac’s built-in network file sharing. Nothing to install.' }),
+      drives: async () => [...drives.values()],
+      openDrive: async (id) => {
+        const c = connections.find((x) => x.id === id);
+        const d = { id, name: c?.name ?? 'Drive', place: `/Users/demo/Keeper Drives/${c?.name ?? 'Drive'}`, status: { state: 'ready' as const, pending: 0, errored: 0, cached: 0 } };
+        drives.set(id, d);
+        return d;
+      },
+      closeDrive: async (id) => { drives.delete(id); },
+      showDrive: async () => undefined,
     },
   };
 }

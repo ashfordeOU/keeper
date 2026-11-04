@@ -39,6 +39,8 @@ export interface Connection {
   offline?: string[];
   /** for smb: where the operating system mounted it */
   mountPath?: string;
+  /** it was open as a drive when Keeper last ran (core/remote/drive.ts) */
+  driveOpen?: boolean;
   createdAt: number;
 }
 

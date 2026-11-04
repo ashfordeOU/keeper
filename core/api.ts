@@ -1009,6 +1009,8 @@ export interface KeeperApi extends KeeperApiX {
   on(channel: 'pim-ring-stop', cb: (id: string) => void): () => void;
   on(channel: 'remote-status', cb: (s: import('./remote/types').ConnStatus) => void): () => void;
   on(channel: 'remote-transfer', cb: (t: import('./remote/types').Transfer) => void): () => void;
+  /** a connection opened or closed as a drive, or its state changed */
+  on(channel: 'remote-drive', cb: (d: import('./api-remote').OpenDriveInfo & { closed?: boolean }) => void): () => void;
   on(channel: 'remote-saved', cb: (r: { id: string; path: string; conflict?: boolean; error?: string }) => void): () => void;
   on(channel: 'locks-changed', cb: () => void): () => void;
   on(channel: 'brain-status', cb: (s: import('./brain-contract').BrainStatus) => void): () => void;

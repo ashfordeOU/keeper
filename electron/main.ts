@@ -100,6 +100,7 @@ import { linkTransport } from './services/sync/link-adapter';
 import { storeFromRemoteFs } from './services/sync/remote-adapter';
 import { registerRemoteIpc } from './ipc/remote';
 import { stopRemote } from './services/remote';
+import { stopDrives } from './services/remote/drives';
 import { openTerminalWindow, registerTerminalIpc, stopTerminal } from './ipc/terminal';
 import { registerAgentTermIpc, stopAgentTerminals } from './ipc/agentterm';
 import { registerAbilitiesIpc } from './ipc/abilities';
@@ -1876,7 +1877,8 @@ app.on('before-quit', (e) => {
   stopSecurityIpc();
   // Only where it ran: the Mail and calendars part saves its own state as it quits.
   if (pimInApp) void stopPim();
-  void stopRemote();
+  // Drives first, so rclone sends what waits before it stops.
+  void stopDrives().finally(() => stopRemote());
   void stopAgents();
   void stopGraphAll();
   unwireAbilities();

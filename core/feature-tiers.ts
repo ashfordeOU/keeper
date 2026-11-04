@@ -56,6 +56,8 @@ export const TIERS: Record<string, FeatureTier> = {
   // Costs nothing, but Recommended stays at fifty parts on a Mac laptop: offered in Basic, on in Pro.
   filePanes: { plain: 'Two folders side by side', setup: 'files', normal: 'off', shown: 'basic' },
   lock: { plain: 'Locked folders', setup: 'files', normal: 'on', shown: 'basic' },
+  // A system helper and a background program while a drive is open: off until the person asks.
+  driveMount: { plain: 'Open connections as drives', setup: 'files', normal: 'off', shown: 'basic' },
   remote: { plain: 'Cloud and servers', setup: 'files', normal: 'off', shown: 'basic' },
   bigButtons: { plain: 'Big buttons on Today', setup: 'files', normal: 'off', shown: 'basic' },
   cleanup: { plain: 'Clean up', setup: 'tidy', normal: 'on', shown: 'basic' },

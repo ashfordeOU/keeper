@@ -769,6 +769,22 @@ export async function setMountPath(id: string, mountPath: string | undefined) {
   await save();
 }
 
+/** Drives (electron/services/remote/drives.ts): remember which connections were open as a drive, to open them again at start. */
+export async function setDriveOpen(id: string, open: boolean) {
+  const c = find(id);
+  if (!!c.driveOpen === open) return;
+  c.driveOpen = open || undefined;
+  await save();
+}
+
+/** For drives: the shared rclone, a connection's stored password, and its status. */
+export const driveDeps = {
+  rclone,
+  password: (id: string) => secret(`remote.${id}.password`),
+  status: (id: string) => status.get(id),
+  find,
+};
+
 export { save_ as saveConnection };
 /** A connection's files, for sync and backups (electron/services/sync/remote-adapter.ts). */
 export { fsFor as connectionFs };

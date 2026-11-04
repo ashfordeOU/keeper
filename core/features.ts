@@ -210,6 +210,7 @@ export const FEATURES: FeatureDef[] = [
 
   // ---------------------------------------------------------------- Connections
   { id: 'remote', name: 'Cloud and servers', description: 'Your cloud storage, servers and NAS in one place.', group: 'Connections', defaultOn: true, routes: ['remote'], commands: ['remote*'], cost: { level: 'low', background: 'A health check every 15 minutes for connected services' } },
+  { id: 'driveMount', name: 'Connections as drives', description: 'Open a cloud service or a WebDAV server as a drive in Finder, File Explorer or the file manager, so every app can open and save its files. Needs a file-system helper from the system (built into macOS, WinFsp on Windows, FUSE 3 on Linux).', group: 'Connections', defaultOn: false, requires: ['remote'], commands: ['drive*'], cost: { level: 'low', background: 'Nothing while no drive is open. While one is: rclone serves it, keeps a cache in Keeper’s data folder (5 GB at most) and its state is read every 10 seconds', memory: 'About 40 MB for rclone while a drive is open' } },
   { id: 'link', name: 'Keeper on your other devices', description: 'Reach this computer’s files from your phone and other computers, and see your devices in one place.', group: 'Connections', defaultOn: true, routes: ['devices'], commands: ['link*', 'devices'], cost: { level: 'low', background: 'Answers your paired devices over the network while on' } },
   { id: 'remoteScreen', name: 'Remote screens', description: 'See and control your other computers, let them (or your phone) see this one when you allow it, and wake them from sleep.', group: 'Connections', defaultOn: true, requires: ['link'], commands: ['screen*'], cost: { level: 'none', background: 'Nothing until a session starts; while one runs, the screen is captured and sent', windows: 'A viewer window, or a small banner while this screen is shared' } },
   { id: 'keeperMesh', name: 'Private network for your devices', description: 'Your devices reach each other as if at home, wherever they are (WireGuard).', group: 'Connections', defaultOn: false, requires: ['link'], routes: ['mesh'], commands: ['mesh*'], cost: { level: 'low', background: 'Nothing while off. While on: a WireGuard network card, a keepalive every 25 s only while a device is in use, and a look for new addresses every few minutes', memory: 'About 5 MB' } },
@@ -311,7 +312,7 @@ function staticNormal(n: Normal): boolean {
 
 /** Each feature's section in the sidebar and in Settings → Features (the same groups). */
 const NAV_GROUP: Record<NavGroup, string[]> = {
-  files: ['library', 'sources', 'docText', 'ocr', 'places', 'network', 'filePanes', 'lock', 'remote', 'bigButtons'],
+  files: ['library', 'sources', 'docText', 'ocr', 'places', 'network', 'filePanes', 'lock', 'remote', 'driveMount', 'bigButtons'],
   pim: ['mail', 'calendars', 'planner', 'dayPlan', 'insights', 'alarms'],
   notes: ['notes', 'captureInbox', 'cues', 'notesHub', 'notesSync', 'journal', 'reader', 'pdfReader'],
   tidy: ['cleanup', 'duplicates', 'space', 'convert', 'archives', 'rules', 'history', 'fileKit', 'workflows', 'faces', 'speechModel'],
