@@ -128,7 +128,9 @@ describe('the macOS bundles', () => {
       const bundles = mac.launcherBundles(app);
       expect(bundles.map((b) => path.relative(app, b).split(path.sep).join('/'))).toEqual(LAUNCHERS.map((l) => `Contents/Library/Launchers/${l.name}.app`));
       const exe = path.join(bundles[0], 'Contents', 'MacOS', 'Keeper Mail');
-      expect(fs.statSync(exe).mode & 0o111).toBeTruthy();
+      // Windows file systems keep no run bit; the bundles are only ever made on a Mac.
+      if (process.platform === 'win32') expect(fs.existsSync(exe)).toBe(true);
+      else expect(fs.statSync(exe).mode & 0o111).toBeTruthy();
       expect(fs.existsSync(path.join(bundles[0], 'Contents', 'Resources', 'AppIcon.icns'))).toBe(true);
       // Without keeper-launcher there are none, and the reason says why.
       expect(mac.makeLaunchers(app, '1.0.0', { binary: path.join(dir, 'missing') })).toEqual({ made: 0, reason: expect.stringMatching(/not built/) });
